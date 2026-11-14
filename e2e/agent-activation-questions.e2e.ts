@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { hideExistingItems } from "./connections-panel.js";
+import { hideExistingItems, openJobSettings } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -73,6 +73,7 @@ test("Decision settings, test errors and custom-agent questions survive reload",
   // #8456: Decision is one row of the Jobs box. The row opens its "Model for Decision" picker, and its gear opens
   // the rest of the job's settings in place.
   const decisionTile = page.locator('[data-defaults-tile="decision"]');
+  const settings = page.getByRole("dialog", { name: "Decision settings", exact: true });
   const openDefaults = async () => {
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -83,12 +84,14 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(defaults).toBeVisible();
     if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
     await expect(decisionTile).toBeVisible();
-    const gear = page.getByRole("button", { name: "Decision settings", exact: true });
-    if ((await gear.getAttribute("aria-expanded")) !== "true") await gear.click();
-    await expect(page.getByRole("region", { name: "Decision settings", exact: true })).toBeVisible();
+    // The gear opens the job's settings window (#8995).
+    if (!(await settings.isVisible()))
+      await page.getByRole("button", { name: "Decision settings", exact: true }).click();
+    await expect(settings).toBeVisible();
   };
   const pickDecision = async (choice: (picker: Locator) => Locator) => {
-    await decisionTile.click();
+    // The window's Model row opens the job's picker.
+    await settings.locator('[aria-haspopup="dialog"]').first().click();
     const picker = page.getByRole("dialog", { name: "Model for Decision", exact: true });
     await expect(picker).toBeVisible();
     // Checked first, so a missing choice fails here and the cleanup below still runs.
@@ -122,6 +125,8 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(smartOrder).not.toBeChecked();
     await smartOrder.check();
     await expect.poll(async () => (await (await request.get("/api/decision/smart-order")).json()).enabled).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
     // #8456: a Decision connection is tested from its Model editor; the job's own Test is left to the built-in slots.
     await page.evaluate(async (id) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -167,6 +172,7 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     await expect(smartOrder).toBeChecked();
     await pickDecision((picker) => picker.locator("[data-switcher-default]"));
     await expect(smartOrder).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await openAgent();
     await expect(question).toBeDisabled();
     await expect(question).toHaveValue("Did {{char}} enter a new location?");
@@ -462,7 +468,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();
-    await page.getByRole("menuitem", { name: "Use this key for decisions", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Use for…", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Decision", exact: true }).click();
     // #8456: the shortcut opens the key's Connection on its decision models, with a Decision Model for the source's
     // model made under that Connection; testing it there is what keeps it. It reaches the key through its Connection,
     // so the old editor fields (Decision source "openrouter", API key source = the source Model) and the
@@ -510,21 +517,20 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
       .poll(async () => [await status(`/api/connections/${linkedId}`), await status(`/api/connections/${source.id}`)])
       .toEqual([404, 404]);
 
-    // A Decision Model can still borrow another Model's key ("API key source" in its editor). Deleting that Model
-    // warns first, and the Decision Model then asks to be relinked.
-    const openEditor = async (id: string) => {
-      await page.evaluate(async (id) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().closeAllDetails();
-        useUIStore.getState().openConnectionDetail(id);
-      }, id);
+    // A Decision Model can still borrow another Model's key ("API key source" in Decision settings). Deleting that
+    // Model warns first, and the Decision Model then asks to be relinked.
+    expect((await request.post("/api/decision/select", { data: { id: borrowerId } })).ok()).toBeTruthy();
+    await page.reload();
+    const openEditor = async () => {
+      await openJobSettings(page, "decision");
     };
     const keySource = page.getByLabel("API key source", { exact: true });
-    await openEditor(borrowerId);
+    await openEditor();
     await expect(keySource).toHaveValue(lenderId);
     await expect(keySource.locator("option:checked")).toHaveText(
       `Use key from “${await accountName(lender!.accountId!)}”`,
     );
+    await page.keyboard.press("Escape");
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().closeAllDetails();
@@ -541,10 +547,15 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await expect(keyWarning).toContainText(`${borrowerName} will need another linked account or a separate key.`);
     await keyWarning.getByRole("button", { name: "Delete account", exact: true }).click();
     await expect.poll(() => status(`/api/connections/${lenderId}`)).toBe(404);
-    await openEditor(borrowerId);
+    await openEditor();
     await expect(keySource).toHaveValue(lenderId);
     const relink = "Linked account is missing or incompatible. Choose another or enter a key.";
     await expect(keySource.locator("option:checked")).toHaveText(relink);
+    await page.keyboard.press("Escape");
+    await page.evaluate(async (id) => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openConnectionDetail(id);
+    }, borrowerId);
     await page.getByRole("button", { name: "Test provider", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: `Decision test failed: ${relink}` })).toBeVisible();
   } finally {

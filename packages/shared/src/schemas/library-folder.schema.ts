@@ -36,6 +36,7 @@ export const createLibraryFolderSchema = z.object({
 export const updateLibraryFolderSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   collapsed: z.boolean().optional(),
+  paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   itemIds: libraryFolderItemIdsSchema.optional(),
 });
@@ -49,6 +50,7 @@ export const migrateLibraryFolderSchema = z.object({
   id: libraryFolderIdSchema,
   name: z.string().trim().min(1).max(200),
   collapsed: z.boolean().optional().default(false),
+  paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative(),
   itemIds: libraryFolderItemIdsSchema,
 });

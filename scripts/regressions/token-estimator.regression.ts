@@ -53,7 +53,7 @@ for (const [contents, expected] of [
 // Guard the other aggregate call sites without loading route or UI dependencies.
 for (const [path, expression] of [
   [
-    "packages/client/src/components/chat/AgentSuiteModal.tsx",
+    "packages/client/src/features/chat-settings/AgentSuiteModal.tsx",
     'estimateTextTokens(selectedContextSources.map((source) => source.content).join(""))',
   ],
   [

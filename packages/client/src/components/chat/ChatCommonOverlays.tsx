@@ -33,7 +33,7 @@ import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../st
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 
 const loadChatSettingsDrawer = async () => {
-  const module = await import("./ChatSettingsDrawer");
+  const module = await import("../../features/chat-settings/ChatSettingsDrawer");
   return { default: module.ChatSettingsDrawer };
 };
 

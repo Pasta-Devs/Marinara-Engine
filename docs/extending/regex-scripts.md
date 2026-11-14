@@ -46,7 +46,23 @@ On the **Regex scripts** page, each script in the list shows its run number, its
 
 In the classic layout, each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
 
-The section header has three icon buttons: **Create regex**, **Import regexes from JSON** and **Export regexes to JSON** (saves all your global scripts to one file). Scripts tied to a single character are kept separately; see [Limit a script to one character](#limit-a-script-to-one-character).
+### Organize scripts in folders
+
+1. Click **New Folder** and name the folder.
+2. Click the folder icon on a script row to open **Move to folder**.
+3. Pick the folder. To move a script out, pick **No folder (top level)**.
+
+Click a folder name to expand or collapse it. Turn the folder switch off to pause its scripts across chats. The header shows **Paused**. Each script keeps its saved switch position. A gray switch in the on position shows a script that is enabled but paused by the folder. Deleting the folder moves its scripts to the top level, where they follow their own switches.
+
+Folders group scripts without changing when they run. Click **Execution order** to see the full list in the order it runs. Drag a script by its handle to change that order. When you have no folders, the list is already in execution order. In this view, a pause icon marks an enabled script whose folder is paused.
+
+### Change several scripts at once
+
+1. Click **Select regex scripts**.
+2. Check the scripts you want to change.
+3. Click **Enable selected**, **Disable selected** or **Move to folder**. You can also export or delete the selection.
+
+**Enable selected** changes the individual switches. Resume a paused folder before its enabled scripts can run again.
 
 ## Editor fields
 
@@ -85,7 +101,7 @@ An optional list of plain strings removed after the replacement runs. Click **Ad
 
 ### Live Test
 
-Paste sample text, and the result appears under **Result:**. Live Test checks only the find, replace and trim logic. Placement, on/off state, character scope and depth are evaluated in a real chat. You can use macros such as `{{user}}` and `{{char}}` in the pattern, replacement and trim strings. In Live Test they use sample values. See [Macros](../prompts/macros.md).
+Paste sample text, and the result appears under **Result:**. **Live Test** checks only the find, replace and trim logic. To check placement, folder pause, script switches, character scope or depth, try the script in a chat. You can use macros such as `{{user}}` and `{{char}}` in the pattern, replacement and trim strings. In **Live Test** they use sample values. See [Macros](../prompts/macros.md).
 
 ## Choose where a script runs
 
@@ -110,7 +126,7 @@ For your own messages, a **User Input** script set to **Only Display** or **Both
 
 Both are in **Advanced Options**.
 
-- **Execution Order** is a number. Lower numbers run first, which matters when several scripts can match the same text. A new script starts at 0, and the app assigns the next free number when you save. You can also drag rows in the **Regexes** list.
+- **Execution Order** is a number. Lower numbers run first, which matters when several scripts can match the same text. A new script starts at 0, and the app assigns the next free number when you save. To change the order from the panel, see [Organize scripts in folders](#organize-scripts-in-folders).
 - **Depth Range** limits how far back a script runs, with **Min** and **Max**. The newest message is depth 0, the one before it is depth 1, and so on. Leave both empty to run at any depth. Saving is blocked if **Min** is larger than **Max**.
 
 ### Group chats
@@ -156,16 +172,19 @@ Below the modes, the panel lists each character's scoped scripts with a switch f
 Marinara reads regex scripts bundled in a SillyTavern character card. When you import a card, an **Imported regex scripts** section offers two choices:
 
 - **Character only** (default): the scripts stay scoped to that character.
-- **Global**: the scripts are added to **Presets** and run in every chat.
+- **Global**: the scripts go to **Presets → Regexes** and can run across chats.
 
 The choice appears in the single-character import dialog and in the bulk **Import from SillyTavern Folder** flow. Scripts with an empty pattern or one that fails the safety check are skipped. To import a plain JSON file of scripts, use **Import regexes from JSON** in **Regexes**. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
+
+**Export regexes to JSON** saves all global scripts to one file. Use **Export** while selecting scripts to save only those scripts. A regex JSON export keeps individual script settings. Use **Export Profile** with **Marinara Native** to keep folder membership and pause settings too. See [Export a profile](../data/backup-and-restore.md#export-a-profile). Scripts imported from regex JSON appear at the top level. Move them into a folder after importing.
 
 ### Replace a regex pack
 
 1. In **Presets → Regexes**, choose **Select regex scripts**.
-2. Check the old pack's entries, or choose **Select all regex scripts**.
-3. Use **Export** or **Delete** in the action bar. Deletion asks once and cannot be undone.
+2. Check the old pack's entries. **Select all regex scripts** selects the whole library, including scripts in collapsed folders.
+3. Click **Delete** in the action bar. Marinara asks you to confirm. To keep a copy first, click **Export** before deleting.
 4. Import the updated pack.
+5. If you use a folder for the pack, move the new scripts into it.
 
 Failed deletions stay selected so you can retry. Unselected scripts stay in place. Preset assignments remain available in the regex editor.
 

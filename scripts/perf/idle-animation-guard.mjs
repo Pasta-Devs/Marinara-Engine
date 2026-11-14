@@ -31,6 +31,9 @@ const SCREENS = {
     if (overhaul) {
       await click(page, '[aria-label="Library"]:visible', 800);
       await click(page, 'button:visible:has-text("Characters")', 1500);
+    } else if (await page.locator('[data-tour="panel-characters"]:visible').count()) {
+      // Wider screens have a Characters icon in the rail; phones keep it behind "More".
+      await click(page, '[data-tour="panel-characters"]:visible', 1500);
     } else {
       await page
         .locator('[aria-label="More"]:visible')
@@ -45,7 +48,7 @@ const SCREENS = {
 };
 
 /** Running endless animations whose element is not on top at its own centre (covered, hidden or off screen). */
-function hiddenLoops() {
+function hiddenLoops(coveredOnly) {
   const out = [];
   for (const animation of document.getAnimations()) {
     if (animation.playState !== "running") continue;
@@ -60,7 +63,8 @@ function hiddenLoops() {
     // pointer-events: none decorations (a blink frame over its idle frame) never win a hit test, so a hit on the
     // element's own parent also counts as visible.
     const visible = hit && (element.contains(hit) || (element.parentElement ?? element).contains(hit));
-    if (!visible) {
+    // On Home itself only covered loops count: what sits below the fold depends on scroll position.
+    if (!visible && !(coveredOnly && !onScreen)) {
       const name = animation.animationName ?? animation.constructor.name;
       const cls =
         typeof element.className === "string" ? element.className.split(" ").slice(0, 3).join(".") : element.tagName;
@@ -112,7 +116,7 @@ for (const [deviceName, device] of Object.entries(DEVICES)) {
       await page.waitForTimeout(800);
       await open(page, character);
       await page.waitForTimeout(1500);
-      const loops = await page.evaluate(hiddenLoops);
+      const loops = await page.evaluate(hiddenLoops, screen === "home");
       if (loops.length) {
         failures++;
         console.log(`FAIL ${deviceName} ${screen}:\n  ${loops.join("\n  ")}`);

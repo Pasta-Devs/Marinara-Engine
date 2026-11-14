@@ -12,6 +12,7 @@ type RegexScriptLike = {
   id?: unknown;
   name?: unknown;
   enabled?: unknown;
+  pausedByFolder?: boolean;
   findRegex?: unknown;
   flags?: unknown;
   replaceString?: unknown;
@@ -145,6 +146,7 @@ export function applyRegexScriptsToPromptText(
     if (!placements.includes(placement)) continue;
 
     const targetCharacterIds = parseStringArray(script.targetCharacterIds);
+    if (script.pausedByFolder && targetCharacterIds.length === 0) continue;
     if (options?.targetedOnly && targetCharacterIds.length === 0) continue;
     if (targetCharacterIds.length > 0) {
       const targetCharacterId = options?.targetCharacterId;

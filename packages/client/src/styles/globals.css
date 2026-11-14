@@ -1676,7 +1676,10 @@
   background: color-mix(in srgb, var(--mari-connection-blue) 20%, transparent);
 }
 .mari-connection-model-slot + .mari-connection-model-slot,
-.mari-connection-model-section-head + .mari-connection-model-slot {
+.mari-connection-model-section-head + .mari-connection-model-slot,
+/* Long lists draw each slot inside a virtual row wrapper (PanelVirtualList). */
+[data-virtual-list] > [data-index]:not([data-index="0"]) > .mari-connection-model-slot,
+.mari-connection-model-section-head + [data-virtual-list] > [data-index="0"] > .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
@@ -4704,6 +4707,11 @@ html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage
 html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::before,
 html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::after {
   animation-play-state: paused !important;
+}
+
+/* Home's own wordmark (its top bar) also stops shifting while Home is covered. */
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub"] .mari-logo-gradient-text--active {
+  animation-play-state: paused;
 }
 
 html[data-marinara-home-covered="true"] .mari-home-browser-star {
@@ -9331,4 +9339,24 @@ html[data-marinara-reduced-effects="true"] .mari-window {
   .group\/sprite-library:has([data-sprite-folder][data-drag-source="true"]) .mari-sprite-folder-row:hover {
     background-color: var(--sidebar);
   }
+}
+
+/* Off-screen chat rows skip style and layout, so an accent tick (or any root variable write)
+   restyles only the rows in view. `auto` in contain-intrinsic-size remembers a row's measured
+   height once it has rendered, so the scrollbar and scroll anchoring stay put. Paint containment
+   applies to every matched row, so a streaming, hovered or focused row is rendered in full to keep
+   its menus and overhanging controls unclipped. The last few rows are rendered in full because a
+   row that mounts at the bottom (a finished reply) would otherwise render at its estimate first
+   and jump the scroll. */
+[data-message-id] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 6rem;
+  overflow-clip-margin: 0.75rem;
+}
+[data-message-id]:is(.mari-roleplay-message-row, .mari-message-narrator) {
+  contain-intrinsic-size: auto 12rem;
+}
+[data-message-id]:is([aria-busy="true"], :hover, :focus-within),
+:nth-last-child(-n + 6) > [data-message-id] {
+  content-visibility: visible;
 }

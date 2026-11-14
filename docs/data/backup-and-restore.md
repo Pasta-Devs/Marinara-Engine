@@ -63,6 +63,8 @@ Each run needs free space for one more full archive, because the old one stays u
 
 A native profile downloads as `marinara-profile.json`. If it is too large, Marinara offers a ZIP file instead. Click **Export ZIP** to download `marinara-profile.zip`.
 
+A native profile keeps regex scripts, their folders and each folder's pause setting. To share individual scripts as JSON, see [Regex Scripts](../extending/regex-scripts.md#import-and-replace-scripts).
+
 A native profile keeps Personal Extension code, but not whether it is turned on or approved. Every restored extension arrives disabled. Review it again in **Library → Extensions**.
 
 ## Restore with Import Profile

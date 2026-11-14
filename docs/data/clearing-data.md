@@ -36,7 +36,7 @@ Each category deletes only what its row lists, except for the gallery folder not
 | **Lorebooks** | All lorebooks, entries and folders. |
 | **Presets** | All prompt presets and preset folders, except the built-in stock preset. |
 | **Connections** | All saved accounts, and the model choices and voice settings tied to them. |
-| **Automation & Addons** | All agent settings, custom tools, regex scripts and synced themes. Not Personal Extensions or External Extensions. |
+| **Automation & Addons** | All agent settings, custom tools, regex scripts and their folders, and synced themes. Not Personal Extensions or External Extensions. |
 | **Media & Assets** | Backgrounds, avatars, sprites, gallery, scene videos, fonts and knowledge-source files. |
 
 More detail:

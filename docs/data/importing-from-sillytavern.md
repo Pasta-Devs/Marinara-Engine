@@ -64,7 +64,7 @@ If the scan finds characters, two more options appear:
 **Imported regex scripts** (default **Character only**):
 
 - **Character only** applies the scripts to each character.
-- **Global** adds them to **Presets → Regexes** for every chat.
+- **Global** adds them to **Presets → Regexes**, where you can manage scripts that run across chats. See [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts).
 
 If it did not work:
 

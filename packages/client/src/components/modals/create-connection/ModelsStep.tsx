@@ -16,6 +16,7 @@ import {
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
 import type { ModelsFor } from "../../../lib/add-connection";
+import { rowUsesMediaSource } from "../../../lib/media-source";
 import {
   useCreateConnection,
   useDeleteConnection,
@@ -122,14 +123,6 @@ export function ModelsStep(props: ModelsStepProps) {
     }
     return undefined;
   };
-
-  const rowUsesMediaSource = (row: ConnectionRowLite, source: string) =>
-    (row.provider === "image_generation" &&
-      (row.imageGenerationSource || row.imageService || inferImageSource(row.model ?? "", row.baseUrl ?? "")) ===
-        source) ||
-    (row.provider === "video_generation" &&
-      (row.videoGenerationSource || row.videoService || inferVideoSource(row.model ?? "", row.baseUrl ?? "")) ===
-        source);
 
   const beginMediaSetup = async (kind: "image" | "video") => {
     const target = props.target;

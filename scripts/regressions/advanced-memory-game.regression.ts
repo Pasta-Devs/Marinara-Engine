@@ -264,7 +264,7 @@ assert.doesNotMatch(service, /settings: normalizeAdvancedMemorySettings\(/);
 
 // The Game drawer shows Advanced Memory without the per-character controls.
 const drawer = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
 assert.match(drawer, /const advancedMemoryAvailable = isRoleplayMode \|\| isGame;/);

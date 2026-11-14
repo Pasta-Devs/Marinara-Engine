@@ -9368,6 +9368,32 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(150) && diceSettings.some((setting) => setting?.allowOwnUpgrade !== undefined)) {
     return "A ruleset that declares own dice upgrades requires schemaVersion 2 and capabilityApi 1.150 or newer";
   }
+  // Two named dice, 1.821: a strict key, including per-check overrides.
+  if (!declaresApi(821) && diceSettings.some((setting) => setting?.duality !== undefined)) {
+    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.821 or newer";
+  }
+  // A plot die, 1.822: a strict key, including per-check overrides.
+  if (!declaresApi(822) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
+    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.822 or newer";
+  }
+  // A natural total and a moved band, 1.823: strict keys, including per-check overrides.
+  if (
+    !declaresApi(823) &&
+    diceSettings.some((setting) => setting?.naturalTotal !== undefined || setting?.tierShift !== undefined)
+  ) {
+    return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.823 or newer";
+  }
+  // Special dice and paired faces in a pool, 1.824: strict keys, including per-check overrides.
+  if (
+    !declaresApi(824) &&
+    diceSettings.some((setting) => setting?.hunger !== undefined || setting?.pairs !== undefined)
+  ) {
+    return "A ruleset whose pool has special dice or paired faces requires schemaVersion 2 and capabilityApi 1.824 or newer";
+  }
+  // A check with no dice, 1.825: a summed check's dice.count of 0.
+  if (!declaresApi(825) && diceSettings.some((setting) => plainRecord(setting?.dice)?.count === 0)) {
+    return "A ruleset whose check has no dice requires schemaVersion 2 and capabilityApi 1.825 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

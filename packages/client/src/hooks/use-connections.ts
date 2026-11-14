@@ -20,6 +20,7 @@ import { queryOptions, useIsMutating, useQueries, useQuery, useMutation, useQuer
 import { useEffect, useRef } from "react";
 import { ApiError, api, isRequestTimeoutError, requestTimeoutSignal } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
+import type { LocalServer } from "../lib/local-servers";
 import { translate } from "../localization/i18n";
 import { useDebouncedValue } from "./use-debounced-value";
 import { chatKeys } from "./use-chats";
@@ -475,7 +476,7 @@ export type ConnectionModelList = {
 /** What the cached catalogs say about one model: its cost badge and price, whether it is retiring, what it reads. */
 export type CachedModelFacts = Pick<
   RemoteConnectionModel,
-  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities" | "capabilities"
+  "cost" | "pricing" | "deprecated" | "retiresAt" | "inputModalities" | "outputModalities" | "capabilities"
 >;
 
 export type CachedCatalogFacts = {
@@ -514,6 +515,7 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
       model.deprecated ||
       model.retiresAt ||
       model.inputModalities?.length ||
+      model.outputModalities?.length ||
       model.capabilities?.logprobs
     ) {
       index.byId.set(model.id, {
@@ -522,6 +524,7 @@ function indexCatalog(list: ConnectionModelList): CatalogIndex {
         deprecated: model.deprecated,
         retiresAt: model.retiresAt,
         inputModalities: model.inputModalities,
+        outputModalities: model.outputModalities,
         capabilities: model.capabilities,
       });
     }
@@ -679,6 +682,20 @@ export function useConnectionModels(id: string | null | undefined, enabled = tru
     // A list that went stale while loading is asked for again once; other failures wait for Refresh.
     retry: (failureCount, error) => isStaleModelList(error) && failureCount < 1,
     retryOnMount: false,
+  });
+}
+
+/** The saved model lists of these catalog rows, for counts; the server asks the provider only when none is saved. */
+export function useModelLists(ids: readonly string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: connectionKeys.models(id),
+      queryFn: () => api.get<ConnectionModelList>(connectionModelsPath(id)),
+      staleTime: MODEL_LIST_TTL,
+      gcTime: MODEL_LIST_TTL,
+      retry: false,
+      retryOnMount: false,
+    })),
   });
 }
 
@@ -841,5 +858,16 @@ export function useUploadConnectionAccountImage() {
     mutationFn: ({ id, image }: { id: string; image: string }) =>
       api.post<Record<string, unknown>>(`/connection-accounts/${id}/image`, { image }),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionAccountKeys.all }),
+  });
+}
+
+/** Model servers on the Marinara server's machine: asked once each time the panel opens, never polled. */
+export function useLocalServers() {
+  return useQuery({
+    queryKey: ["local-servers"],
+    queryFn: () => api.get<{ servers: LocalServer[] }>("/connections/local-servers"),
+    select: (data) => data.servers,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

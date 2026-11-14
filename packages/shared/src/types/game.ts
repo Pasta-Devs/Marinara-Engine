@@ -650,6 +650,22 @@ export interface SkillCheckResult {
   /** Independent setback dice and own upgrades actually applied (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
+  duality?: string;
+  /** The plot die (1.822): its face, its symbol, what it added (inside `modifier` too) and its name.
+   *  It is not one of `rolls`. */
+  plotFace?: number;
+  plotSymbol?: "complication" | "opportunity";
+  plotBonus?: number;
+  plotLabel?: string;
+  /** Bands the Game Master moved the outcome by (1.823), signed. */
+  shift?: number;
+  /** Special dice (1.824): how many of `rolls`, first, they were, their name, and a messy critical or
+   *  a bestial failure they made. */
+  hunger?: number;
+  hungerLabel?: string;
+  messy?: boolean;
+  bestial?: boolean;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */
   symbols?: Record<string, number>;

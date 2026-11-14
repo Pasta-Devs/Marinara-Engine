@@ -225,7 +225,7 @@ The **Built-in model** runs on your computer with no API key. Some error message
 1. Open **Chat Settings → Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In **Memories for This Chat**, look at each chunk's status.
 3. **Waiting for vector** means the memory is still being processed. Wait, then chat again.
-4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it under **Embeddings** in the **Defaults** section of **Connections**.
+4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it on the **Embeddings** job in the **Jobs** box in **Connections**.
 
 A memory needs at least 5 new messages before it is created. Recall shows only memories that closely match your new message, so it can return nothing even when memories exist.
 

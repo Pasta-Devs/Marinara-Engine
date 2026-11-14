@@ -17,6 +17,7 @@ export type CommandCenterModal =
   | "import-lorebook"
   | "import-persona"
   | "import-preset"
+  | "job-settings"
   | "keyboard-shortcuts"
   | "global-chat-search"
   | "activity-overview"

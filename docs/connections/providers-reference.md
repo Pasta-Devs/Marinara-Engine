@@ -184,7 +184,7 @@ Turn on generated audio per Game, or turn on **Sound effects** in Roleplay's com
 
 ## Embeddings
 
-Embeddings turn text into lists of numbers so Marinara can find related text. They power lorebook semantic search and Memory Recall. Most chat services let you set an embedding model and an optional **Embedding endpoint URL** under **Semantic search (embeddings)** in the model editor.
+Embeddings turn text into lists of numbers so Marinara can find related text. They power lorebook semantic search and Memory Recall. Most chat services let you set an embedding model and an optional **Embedding endpoint URL** under **More** → **Semantic search (embeddings)** in the model's **Edit model** window.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 

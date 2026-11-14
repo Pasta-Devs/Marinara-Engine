@@ -161,6 +161,7 @@ export function DecisionDefaultControl({
   if (!settings) {
     return (
       <ConnectionSelect
+        jobKey="decision"
         variant="controlled"
         open={open}
         onOpenChange={onOpenChange}

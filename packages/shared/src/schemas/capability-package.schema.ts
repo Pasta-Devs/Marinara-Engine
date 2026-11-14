@@ -1594,7 +1594,22 @@ const capabilityPackageManifestBaseSchema = z
 //        Also `__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })`: the Agent
 //        activity icon spins while a package is busy and shows its dot on an alert. A soft seam: older Engines leave
 //        the method out, so a package checks for it.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 820 } as const);
+// 1.821: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
+//        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
+//        it refuses the whole ruleset file. No permission.
+// 1.822: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
+//        faces are blank or carry a complication or an opportunity, a face's `bonus` added to the total. Not a
+//        soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
+// 1.823: a summed check's natural total as a critical (`resolution.naturalTotal`) and a band the Game Master
+//        moves (`resolution.tierShift`, asked for with `shift="+1"`). Not a soft seam: an Engine that cannot
+//        read them refuses the whole ruleset file. No permission.
+// 1.824: a pool's special dice (`resolution.hunger`, asked for with `hunger="N"`) and paired faces
+//        (`resolution.pairs`): Vampire V5's Hunger dice, messy criticals, bestial failures and paired 10s. Not a
+//        soft seam: an Engine that cannot read them refuses the whole ruleset file. No permission.
+// 1.825: a summed check with no dice (`resolution.dice.count: 0`): the sheet's own numbers against the
+//        difficulty, as Amber and Nobilis read them. Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 825 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

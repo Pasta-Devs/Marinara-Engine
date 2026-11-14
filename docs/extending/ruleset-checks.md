@@ -39,6 +39,85 @@ What the resulting number means is the kind's business: `dice-sum` adds it to th
 - `unmodified`: faces of a single die the record marks when the first die shows them (1.136), so tables that treat "an unmodified 66" apart can be applied: `[66, 100]`. The record says `unmodified="66"`, the card says it, and the Game Master is told to apply what the rules say about it.
 - `difficultyLadder`: the difficulties the Game Master is told to pick from. `dc` is the number the total must reach. The Game Master may name a step instead of writing its number, as `difficulty="Hard"`, and the Engine reads the number off the step.
 
+#### Two named dice
+
+A summed check can throw two dice that each have a name, where the story turns on which one showed more (Capability API 1.821). A community ruleset needs nothing; a packaged one declares 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: the two names, in the order the dice are thrown. The first die in `rolls` is the first one named.
+- `tieIsCritical`: optional, `true` unless you say otherwise. A tie is then a critical success whatever the total.
+- `text`: optional. One line telling the Game Master what each die means at the table.
+
+The total is still the two dice plus the modifier, read against the difficulty as usual. The record says which die showed more, `duality="Hope"`, or `duality="tie"`, the dice card says it, and the Game Master is told to narrate the check as with that die.
+
+`duality` needs `dice.count` 2, plain faces (no `faces`), no `openEnded` and `advantage` false, and the two ids must differ. The two labels must differ too, and neither can be `tie`, because the record names the leading die by its label. An override may set or remove it for some checks.
+
+#### A plot die
+
+A summed check can throw one more die whose faces carry symbols, not numbers (Capability API 1.822). A community ruleset needs nothing; a packaged one declares 1.822.
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`: what the die is called on the card and to the Game Master.
+- `sides`: 2 to 20.
+- `faces`: the faces that carry something. Each has a `symbol`, `"complication"`, `"opportunity"` or `null`, and an optional `bonus` (-20 to 20) added to the total. A face you do not list is blank.
+- `text`: optional. One line telling the Game Master what the symbols mean at the table.
+
+The die is thrown only when the Game Master asks, by adding `plot="true"` to the check. It is thrown after the check's own dice and is not one of `rolls`. The record says `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`. The bonus is inside `modifier`, so the dice and the modifier still add up to the total. The dice card says what the die showed.
+
+Each listed face must be a face the die has, listed once.
+
+#### A natural total and a moved band
+
+Two optional keys cover summed systems that read tiers off more than one die (Capability API 1.823). A community ruleset needs nothing; a packaged one declares 1.823.
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`: the dice's own total, before anything is added, that is a critical. `atLeast` is a critical success and `atMost` a critical failure; give one or both. It works on any number of dice, where `naturals` needs a single die. A critical lands in the band `on` that critical, or else in the best or the worst band.
+- `tierShift`: lets the Game Master move one check's outcome band with `shift="+1"` or `shift="-1"`, up to `max` bands (1 to 3) and never past the ends. It needs `outcomes`. The record says `shift="+1"` when the band moved, and the dice card says so. `text` is an optional line telling the Game Master when to use it.
+
+A flat bonus such as a single edge's +2 is a number, which a condition's modifier adds. `tierShift` is for rules that move a whole band.
+
+Each `naturalTotal` bound must be a total the dice can show (2d10 shows 2 to 20, read through `dice.faces` where the ruleset gives them), and `atMost` must be below `atLeast`.
+
+#### A check with no dice
+
+Some systems roll nothing at all: in Amber and Nobilis a check is a rating compared with a difficulty, and the higher one wins (Capability API 1.825). A community ruleset needs nothing; a packaged one declares 1.825.
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0, "sides": 6 },
+"abilityModifier": { "op": "identity" }
+```
+
+The total is the character sheet's own number, compared with the difficulty exactly as a summed check is: the same ability, proficiency, `adjust` and wound penalty, the same outcome bands, ladders and overrides. The record says `dice="0d6" rolls=""` with the modifier and the total, the dice card shows the comparison ("Warfare 4 vs 3") instead of a die, and the Game Master is told the engine compares rather than rolls.
+
+Everything that reads a die is refused here, so a check with no dice cannot quietly ignore a key that needs one: `advantage`, `openEnded`, `unmodified`, `dice.faces`, `duality`, `plotDie`, `naturalTotal`, and a `naturals` policy. An override may still give particular checks their own dice.
+
 ### `dice-pool`: throw the dice and count them
 
 The sheet's number is the **size of the pool**, not a bonus on top of it. A rating of 3 and a trade worth 2 throw five dice. That is the whole trick: no new sheet vocabulary, no new editor, and a system whose ratings are handfuls of dice is written with the same `abilities`, `skills` and `proficiencyTiers` as any other.
@@ -77,6 +156,8 @@ The sheet's number is the **size of the pool**, not a bonus on top of it. A rati
 - `botch`: optional. When **no** die succeeded and a face at or below `upTo` showed, the check is a critical failure. A pool whose one success was cancelled away has failed, not botched. `"rule": "halfOrMore"` reads it another way: faces at or below `upTo` on at least half the dice first thrown (explosions not counted) are a critical failure when no die succeeded, and otherwise leave the result standing and mark it `complication="true"`, something going wrong alongside it. `"noSuccesses"` is the default.
 - `exceptional`: optional. This many net successes or more, on a check that succeeded, is a critical success.
 - `situationalDice`: optional. The range of dice the Game Master may add or take for one check with `bonus=`, for stunts, wounds or bad light.
+- `pairs`: optional (Capability API 1.824). `{ "from": 10, "successes": 4 }` makes each pair of dice showing `from` or more count `successes` together, where the two would have counted one each, and a check that succeeds with a pair is a critical success. Three 10s are one pair and one more: five. `from` is at or above the highest target, and `pairs` cannot sit beside `double` or `stances`.
+- `hunger`: optional (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` lets up to `max` dice of the pool be special dice. The Game Master asks for them on a check with `hunger="N"`, usually read off a track on the sheet. They are the first dice in `rolls`, they are part of the pool (never extra dice), and no re-throw touches them. A critical success with one of them on the critical face (the `pairs` face, or the die's highest) is marked `messy="true"`, and a failure with one of them showing 1 is marked `bestial="true"`. The record also says `hunger="2" hungerLabel="Hunger"`, and the dice card says all of it. `max` cannot be more than `pool.max`.
 - `reroll`: optional. Re-throws the system grants without anybody paying for them, up to six, each with an `id` the Game Master names on a check with `reroll=`. Faces at or below `upTo` are thrown again: `"once"`, and the new face stands whatever it is, or `"until"` they show more. `upTo` runs from 1 to one below the die's sides, since a re-throw of every face would never stop, and an `until` stops anyway after a hundred re-throws on one check. None is thrown unless the check names it. One check throws one re-throw: where a spend or an entry the character used bought one too, the one that reaches more faces is thrown, and `until` over `once` where they reach the same.
 - `difficultyLadder`: `successes` is how many the check needs. A step may also name a `target`, but only where the target is adjustable and only inside its range. That target is what a check at that step counts with: when the Game Master names the step with `difficulty=`, or writes a `dc=` exactly one step needs. Where several steps need the same number of successes, `dc=` alone cannot say which was meant, so the target stays the default; name the step.
 

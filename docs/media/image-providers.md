@@ -10,11 +10,11 @@ An API key is a secret code a service gives you so Marinara can use your account
 2. Open the **Images** tab and find the service. **Search services** helps you find one.
 3. Paste your key into the **API key** field. Free and local services need none. For a server you run yourself, fill in the address field.
 4. Click **Connect**. Marinara tests the account.
-5. Pick an image model from the list, or type a model ID. This is your image model. It appears under the account in the **Connections** panel.
+5. Under **Found in … — use it for:**, tick **Images**. If the service has no model list, type the model ID in the row. Click **Done**.
 6. Open the image model and click **Test image**. Marinara makes a small test picture.
-7. To make it the model the app uses for pictures, set the **Images** job under **Defaults** at the top of the **Connections** panel.
+7. Ticking **Images** in step 5 also sets the **Images** job in the **Jobs** box at the top of the **Connections** panel. To change it later, click the **Images** row.
 
-To add another image model to an account, open its **⋯** menu and click **Add image model**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for the full window.
+To add another image model to an account, click **⋯** on the account's row and choose **Add model**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for the full window.
 
 If it did not work: **Test image** fails when the key or address is wrong. Check both first. **Test provider** only checks that Marinara can reach the service. **Test image** makes a real picture and can use credit.
 

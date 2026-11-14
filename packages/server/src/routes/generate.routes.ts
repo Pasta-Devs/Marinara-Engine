@@ -687,7 +687,6 @@ import {
   mergedChatSummaryReaders,
   shouldPreferLatestVisibleGameState,
   shouldRunCharacterActivityAgents,
-  shouldAbortOnPassiveGenerationDisconnect,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   shouldRestoreRegenerationCharacterTarget,
@@ -1022,6 +1021,7 @@ import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../se
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
 import {
   applyChatModelOverride,
+  readChatDeletedModel,
   readChatFollowsMain,
   readChatModelOverride,
   resolveChatConnectionOrFallback,
@@ -1788,6 +1788,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         },
         null,
         !connId && readChatFollowsMain(chat),
+        // #9126: a chat whose own Model was deleted says so; one that never had a Model stays silent.
+        readChatDeletedModel(chat),
       ).catch(releaseActiveGenerationAndRethrow);
       if (conn) connId = conn.id;
     }
@@ -1910,26 +1912,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     let clientDisconnected = false;
     const stopSseKeepalive = startSseKeepalive(reply);
 
+    // A closed stream is not a Stop: a backgrounded mobile app drops its socket mid-run. Every generation kind,
+    // impersonate included, keeps running and saves its reply for the client to recover; only POST /abort cancels.
     const onClose = () => {
       clientDisconnected = true;
       if (generationComplete) return;
-      if (!shouldAbortOnPassiveGenerationDisconnect({ impersonate: input.impersonate })) {
-        logger.info(
-          "[generate] Client disconnected; generation will continue for %s chat: %s",
-          requestChatMode,
-          input.chatId,
-        );
-        return;
-      }
-      logger.info("[abort] Client disconnected — aborting generation");
-      abortController.abort();
-      if (baseUrl) {
-        const backendRoot = baseUrl.replace(/\/v1\/?$/, "");
-        fetch(backendRoot + "/api/extra/abort", {
-          method: "POST",
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => {});
-      }
+      logger.info(
+        "[generate] Client disconnected; generation will continue for %s chat: %s",
+        requestChatMode,
+        input.chatId,
+      );
     };
     const detachCloseListener = onGenerationOutputClose(reply, onClose);
     if (requestChatMode === "conversation" && !input.impersonate) {
@@ -10327,6 +10319,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   input.regenerateMessageId,
                 ),
               chatId: input.chatId,
+              // What a branch arm rolled above stands: the tag pass does not roll it again.
+              ...(gameChanceSession
+                ? { engineRecords: gameChanceSession.engineRecords, engineDice: gameChanceSession.engineDice }
+                : {}),
               // Keyed on the pin being PRESENT, not on it resolving. A pin the install cannot
               // honour must still fail closed (the context refuses to load and the checks are
               // saved sparse); treating it as unpinned would roll a ruleset game's checks with

@@ -33,17 +33,17 @@ You can also reach this window from **Add connection** on the Connections page: 
 
 The window offers two ready-made presets of Gemma 4 E2B, a small Google model. Apple Silicon computers get MLX versions instead of GGUF files. GGUF and MLX are two file formats for local models. The sizes below are what the window shows (in GB, where 1 GB is 1024 × 1024 × 1024 bytes).
 
-| Preset | Download | RAM while running |
-| --- | --- | --- |
-| Q8 (Best Quality) | 5.0 GB | 5.4 GB |
-| Q4_K_M (Smaller, Faster) | 3.0 GB | 3.4 GB |
+| Preset                   | Download | RAM while running |
+| ------------------------ | -------- | ----------------- |
+| Q8 (Best Quality)        | 5.0 GB   | 5.4 GB            |
+| Q4_K_M (Smaller, Faster) | 3.0 GB   | 3.4 GB            |
 
 Apple Silicon shows two MLX presets instead:
 
-| Preset | Download | RAM while running |
-| --- | --- | --- |
-| 8-bit MLX (Best Quality) | 5.5 GB | 7.0 GB |
-| 4-bit MLX (Smaller, Faster) | 3.4 GB | 4.5 GB |
+| Preset                      | Download | RAM while running |
+| --------------------------- | -------- | ----------------- |
+| 8-bit MLX (Best Quality)    | 5.5 GB   | 7.0 GB            |
+| 4-bit MLX (Smaller, Faster) | 3.4 GB   | 4.5 GB            |
 
 Marinara keeps one Built-in model on disk at a time. Choosing another model replaces the first one. To switch later, open the card and click **Change model** in the **Built-in model** window. On the card's page, the buttons next to **Model** switch between the presets and ask you to confirm the download size first.
 
@@ -95,35 +95,35 @@ To open them, click **Runtime settings** on the card's page, or click **Settings
 
 **Speed**
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| **Runtime target** | Auto detect | Which graphics card family Marinara installs for. |
-| **GPU offload** | Auto offload | How much work goes to the graphics card. Choose **Auto offload**, **CPU only**, or **Custom GPU layers** (1 to 1024). |
+| Setting            | Default      | What it does                                                                                                          |
+| ------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| **Runtime target** | Auto detect  | Which graphics card family Marinara installs for.                                                                     |
+| **GPU offload**    | Auto offload | How much work goes to the graphics card. Choose **Auto offload**, **CPU only**, or **Custom GPU layers** (1 to 1024). |
 
 **Memory**
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| **Context window** | 8192 | How much text the model reads at once, in tokens. 512 or more. |
-| **KV cache type** | f16 | How the model stores what it has read. Choose f16, q8_0, or q4_0. The last two use less memory and need Flash Attention support. |
+| Setting            | Default | What it does                                                                                                                     |
+| ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Context window** | 8192    | How much text the model reads at once, in tokens. 512 or more.                                                                   |
+| **KV cache type**  | f16     | How the model stores what it has read. Choose f16, q8_0, or q4_0. The last two use less memory and need Flash Attention support. |
 
 **Replies**
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| **Max response tokens** | 4096 | The longest reply the model may write. 64 or more. |
-| **Temperature** | 0.3 | How random replies are. 0 to 2. |
-| **Top P** | 0.95 | A limit on word choice. Above 0, up to 1. |
-| **Top K** | 64 | A limit on word choice. 0 to 500. |
+| Setting                 | Default | What it does                                       |
+| ----------------------- | ------- | -------------------------------------------------- |
+| **Max response tokens** | 4096    | The longest reply the model may write. 64 or more. |
+| **Temperature**         | 0.3     | How random replies are. 0 to 2.                    |
+| **Top P**               | 0.95    | A limit on word choice. Above 0, up to 1.          |
+| **Top K**               | 64      | A limit on word choice. 0 to 500.                  |
 
 **Expert**
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| **Native tool calls** | On | Lets the model use tools. Professor Mari and custom agents need it on. |
-| **Max parallel agent jobs** | 2 | How many jobs run at once. 1 to 16. |
-| **Pooling type** | None | How the model turns text into numbers for lorebook search. Choose **Mean** for lorebook embeddings. |
-| **Physical batch size** | 512 | Text per lorebook embedding batch. 128 to 32768. Raise it when long entries fail. Gemma often works with 1024. |
+| Setting                     | Default | What it does                                                                                                   |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| **Native tool calls**       | On      | Lets the model use tools. Professor Mari and custom agents need it on.                                         |
+| **Max parallel agent jobs** | 2       | How many jobs run at once. 1 to 16.                                                                            |
+| **Pooling type**            | None    | How the model turns text into numbers for lorebook search. Choose **Mean** for lorebook embeddings.            |
+| **Physical batch size**     | 512     | Text per lorebook embedding batch. 128 to 32768. Raise it when long entries fail. Gemma often works with 1024. |
 
 Some settings differ by system:
 
@@ -145,15 +145,15 @@ Marinara downloads only the llama.cpp, MLX, and uv versions approved for your re
 
 The **Local speech model** turns your voice into text on your own computer for Conversation calls. It is a Whisper model, a speech-to-text model. It needs the **Calls** agent package, which you install in **Library → Agents**.
 
-1. Open the **Connections** panel and click the **Speech to text** item under **On this device**.
+1. Open the **Connections** panel and click **Local speech model** in the **On this device** card.
 2. Under **Local speech model**, pick a model from the dropdown.
 3. Click **Download Whisper**.
 4. Wait for **Ready**. Restart Marinara completely before you use Calls.
 
-| Model | Download | RAM while running |
-| --- | --- | --- |
-| Whisper Tiny (Multilingual) | about 180 MB | about 350 MB |
-| Whisper Base (Multilingual) | about 320 MB | about 650 MB |
+| Model                       | Download     | RAM while running |
+| --------------------------- | ------------ | ----------------- |
+| Whisper Tiny (Multilingual) | about 180 MB | about 350 MB      |
+| Whisper Base (Multilingual) | about 320 MB | about 650 MB      |
 
 Tiny is the best first choice for phones and older computers. Base is more accurate for messy speech but slower to start. Click **Delete Local Whisper** (the trash button) to remove the downloaded model. Uninstalling Calls removes it too.
 
@@ -161,13 +161,13 @@ Your audio stays on your computer. Only the text goes to your chat model. To use
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| **Sidecar runtime install is disabled** (an error message). | See [Allow runtime installs](#allow-runtime-installs). |
+| Symptom                                                                                                                          | Fix                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sidecar runtime install is disabled** (an error message).                                                                      | See [Allow runtime installs](#allow-runtime-installs).                                                                                                                                                                 |
 | **Local runtime failed to start.** The window shows the error and a log file path. The card shows **Local runtime unavailable**. | Click **Retry startup**. If that fails, click **Reinstall runtime**, or pick a different **Runtime target**. **Continue without local AI** turns off the helper switches and keeps Marinara working without the model. |
-| The runtime download reports a size or SHA-256 mismatch. | Marinara discarded the file. Update Marinara and try again. If it still fails, do not open the file yourself. Report the runtime target and the error. |
-| Lorebook search says the local model is not enabled. | Turn on **Use for tracker agents (roleplay)** or **Use for game scene analysis**, then vectorize again. |
-| A Game Mode banner says **Local scene helper failed to start**. | Click **Open Local AI Model** in the banner to retry, switch models, or turn off local scene analysis. |
+| The runtime download reports a size or SHA-256 mismatch.                                                                         | Marinara discarded the file. Update Marinara and try again. If it still fails, do not open the file yourself. Report the runtime target and the error.                                                                 |
+| Lorebook search says the local model is not enabled.                                                                             | Turn on **Use for tracker agents (roleplay)** or **Use for game scene analysis**, then vectorize again.                                                                                                                |
+| A Game Mode banner says **Local scene helper failed to start**.                                                                  | Click **Open Local AI Model** in the banner to retry, switch models, or turn off local scene analysis.                                                                                                                 |
 
 For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 

@@ -4,7 +4,9 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-test("Jobs expand settings inline and retain inherited Main without changing follow state", async ({ page }, info) => {
+test("Job settings open in a window and retain inherited Main without changing follow state", async ({
+  page,
+}, info) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const patches: unknown[] = [];
@@ -83,14 +85,11 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
   for (const key of ["agents", "decision"]) {
     const row = panel.locator(`[data-defaults-role="${key}"]`);
     const gear = row.getByRole("button", { name: /settings/i });
-    await expect(gear).toHaveAttribute("aria-expanded", "false");
+    await expect(gear).toHaveAttribute("aria-haspopup", "dialog");
     await gear.focus();
     await page.keyboard.press("Enter");
-    await expect(gear).toHaveAttribute("aria-expanded", "true");
-    const region = row.getByRole("region");
+    const region = page.getByRole("dialog");
     await expect(region).toBeVisible();
-    await expect(region).toHaveAttribute("id", (await gear.getAttribute("aria-controls")) as string);
-    await expect(page.getByRole("dialog")).toHaveCount(0);
     if (key === "agents") {
       await expect(region.getByRole("button", { name: /reset/i })).toBeVisible();
       const toggle = region.getByRole("checkbox");
@@ -103,9 +102,8 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
       await expect(region.getByRole("spinbutton")).toBeVisible();
       await expect(region.getByRole("combobox")).toBeVisible();
     }
-    await region.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `.tmp/connections-inline/${key}-${page.viewportSize()!.width}.png` });
-    await gear.click();
+    await page.keyboard.press("Escape");
     await expect(region).toBeHidden();
   }
   expect(await panel.locator("button button, button input, button select").count()).toBe(0);
@@ -164,7 +162,7 @@ test("Jobs expand settings inline and retain inherited Main without changing fol
     await page.reload();
     const row = panel.locator('[data-defaults-role="agents"]');
     await row.getByRole("button", { name: /settings/i }).click();
-    await row.getByRole("region").scrollIntoViewIfNeeded();
+    await expect(page.getByRole("dialog")).toBeVisible();
     await page.screenshot({ path: ".tmp/connections-inline/agents-768.png" });
   }
   expect(errors).toEqual([]);

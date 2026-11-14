@@ -911,7 +911,7 @@ type RoleplaySurfaceProps = {
   /** R2: the reply that gets the checkup's quiet line, and the line itself. */
   replyCheckupMessageId?: string | null;
   replyCheckup?: ReactNode;
-  onSetActiveSwipe: (messageId: string, index: number) => void;
+  onSetActiveSwipe: (messageId: string, index: number) => void | Promise<boolean | undefined>;
   onToggleConversationStart: (
     messageId: string,
     sharedStart: boolean,

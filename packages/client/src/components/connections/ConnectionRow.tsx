@@ -8,7 +8,6 @@ import {
   Check,
   Copy,
   Folder,
-  GitBranch,
   MoreHorizontal,
   MoveRight,
   Pencil,
@@ -20,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { isChatProvider, type ConnectionAccountListItem } from "@marinara-engine/shared";
 import {
+  useConnections,
   useDeleteConnection,
   useDuplicateConnection,
   useUpdateConnection,
@@ -29,12 +29,14 @@ import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
-import { jobLabelKey, rowJobs } from "../../lib/connection-jobs";
+import { JOB, JOBS, jobLabelKey, rowJobs } from "../../lib/connection-jobs";
 import { modelKindOf, modelSubtitle } from "../../lib/connection-identity";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import type { ComponentProps } from "react";
 import { MEDIA_KIND, ModelRow, ModelTile, menuAt, modelRoleLabels, type MenuAt } from "./ModelRow";
-import { useVoiceRowId } from "../../hooks/use-tts";
+import { useFollowVoiceJob, useVoiceRowId } from "../../hooks/use-tts";
+import { useFeatureModels, useSetFeatureModels } from "../../hooks/use-connection-accounts";
+import { useDecisionOptions } from "../../hooks/use-decision-model";
 
 type ModelRowProps = ComponentProps<typeof ModelRow>["rowProps"];
 
@@ -154,7 +156,7 @@ export function ConnectionRow({
   const updateConnection = useUpdateConnection();
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const [menu, setMenu] = useState<MenuAt | null>(null);
-  // A pick closes the ⋯ menu, so "Make default for…" opens a second menu at its place.
+  // A pick closes the ⋯ menu, so "Use for…" opens a second menu at its place.
   const [subMenu, setSubMenu] = useState<{ at: MenuAt; items: ContextMenuItem[] } | null>(null);
 
   const chatModel = isChatProvider(row.provider);
@@ -178,25 +180,12 @@ export function ConnectionRow({
         if (id) openConnectionDetail(id);
       },
     });
-  // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
-  const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
-  const useForDecisions = () =>
-    useUIStore.getState().openModal(
-      "create-connection",
-      row.accountId
-        ? {
-            modelsFor: { accountId: row.accountId, connectionId: row.id, kind: "decision" },
-            forJob: { job: "decision" },
-          }
-        : { service: row.provider, forJob: { job: "decision" } },
-    );
+  const useFor = useUseFor(row);
 
   const remove = async () => {
     if (await confirmModelDelete(row.id, title, t)) deleteConnection.mutate(row.id);
   };
 
-  // "Make default for…" lists the jobs this Model's kind can do.
-  const defaultRoles = rowJobs(row).map((job) => ({ label: t(jobLabelKey(job)), field: job.flag }));
   const openSub = (items: ContextMenuItem[]) => menu && setSubMenu({ at: menu, items });
 
   const menuItems: ContextMenuItem[] = [
@@ -209,19 +198,12 @@ export function ConnectionRow({
           },
         ]
       : []),
-    ...(defaultRoles.length
+    ...(useFor.length
       ? [
           {
-            label: t("connections.row.makeDefaultFor"),
+            label: t("connections.row.useFor"),
             icon: <BadgeCheck size="0.75rem" />,
-            onSelect: () =>
-              openSub(
-                defaultRoles.map((role) => ({
-                  label: role.label,
-                  checked: isConnectionFlagTrue(row[role.field]),
-                  onSelect: () => updateConnection.mutate({ id: row.id, [role.field]: true }),
-                })),
-              ),
+            onSelect: () => openSub(useFor),
           },
         ]
       : []),
@@ -269,15 +251,6 @@ export function ConnectionRow({
               : t("connections.accounts.row.addToShuffle"),
             icon: <Shuffle size="0.75rem" />,
             onSelect: () => updateConnection.mutate({ id: row.id, useForRandom: !inRandomPool }),
-          },
-        ]
-      : []),
-    ...(canLendToDecisions
-      ? [
-          {
-            label: t(row.provider === "custom" ? "connections.decision.chatShortcut" : "connections.decision.shortcut"),
-            icon: <GitBranch size="0.75rem" />,
-            onSelect: useForDecisions,
           },
         ]
       : []),
@@ -465,4 +438,59 @@ export async function confirmAccountDelete(
       : t("connections.accounts.editor.delete"),
     tone: "destructive",
   });
+}
+
+/** The jobs one Model can do, ticked where it already does them: its "Use for…" list. */
+export function useUseFor(row: ConnectionRowData): ContextMenuItem[] {
+  const { t } = useTranslation();
+  const voiceRowId = useVoiceRowId();
+  const followVoiceJob = useFollowVoiceJob();
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const updateConnection = useUpdateConnection();
+  const chatModel = isChatProvider(row.provider);
+  const { data: decisionOptions } = useDecisionOptions();
+  const connections = (useConnections().data ?? []) as ConnectionRowData[];
+  const decisionPick = decisionOptions?.options.find((entry) => entry.selected);
+  const decisionRow =
+    decisionPick?.group === "connection" ? connections.find((entry) => entry.id === decisionPick.id) : undefined;
+  // A chat Model lends itself to Decision through a decision row under the same account and model.
+  const decides =
+    !!decisionRow &&
+    (decisionRow.id === row.id || (decisionRow.accountId === row.accountId && decisionRow.model === row.model));
+  // The Add window's Decision job makes the decision row under this Model's Connection, with its key.
+  const canLendToDecisions = row.provider === "openrouter" || (row.provider === "custom" && !!row.model?.trim());
+  const useForDecisions = () =>
+    useUIStore.getState().openModal(
+      "create-connection",
+      row.accountId
+        ? {
+            modelsFor: { accountId: row.accountId, connectionId: row.id, kind: "decision" },
+            forJob: { job: "decision" },
+          }
+        : { service: row.provider, forJob: { job: "decision" } },
+    );
+
+  // "Use for…" is the one way to give this Model a job from its row; a tick marks the jobs it already does.
+  const items: ContextMenuItem[] = [
+    ...rowJobs(row).map((job) => ({
+      label: t(jobLabelKey(job)),
+      checked: job.key === "voice" ? voiceRowId === row.id : isConnectionFlagTrue(row[job.flag]),
+      onSelect: () => {
+        updateConnection.mutate({ id: row.id, [job.flag]: true });
+        // The Voice job is the row saved in the speech settings, not only the audio flag.
+        if (job.key === "voice") void followVoiceJob(row.id).catch(() => {});
+      },
+    })),
+    ...(chatModel ? JOBS.filter((job) => job.feature) : []).map((job) => ({
+      label: t(jobLabelKey(job)),
+      checked: featureModels?.[job.feature!] === row.id,
+      onSelect: () => setFeatureModels.mutate({ [job.feature!]: row.id }),
+    })),
+    ...(canLendToDecisions
+      ? [{ label: t(jobLabelKey(JOB.decision)), checked: decides, onSelect: useForDecisions }]
+      : []),
+  ];
+  // A ticked job is already this Model's: choosing it again writes nothing. There is no unset here.
+  return items.map((item) => (item.checked ? { ...item, onSelect: () => {} } : item));
 }

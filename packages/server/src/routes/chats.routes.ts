@@ -74,6 +74,7 @@ import {
   CHAT_RECENT_MODELS_KEY,
   CHAT_RECENT_MODELS_LIMIT,
   CHAT_FOLLOWS_MAIN_KEY,
+  CHAT_MODEL_DELETED_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
   chatModelChoiceSchema,
   chatModelPickSchema,
@@ -1675,9 +1676,14 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     // Changing the Model to none ("Use default", Random off) follows Main by choice, so generation reports no deleted
     // Model; a PATCH that keeps the id (a stale form after the delete already cleared it) leaves the flag as it is.
+    // #9126: choosing Main (or setting a Model) also clears a Model deletion the sweep recorded, so the notice is
+    // not reported again for a Model the player has since replaced.
     if (updated && data.connectionId !== undefined && (data.connectionId ?? null) !== (existing.connectionId ?? null)) {
       updated =
-        (await storage.patchMetadata(req.params.id, { [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId })) ?? updated;
+        (await storage.patchMetadata(req.params.id, {
+          [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId,
+          [CHAT_MODEL_DELETED_KEY]: null,
+        })) ?? updated;
     }
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {
@@ -1799,6 +1805,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
             [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
             [CHAT_FOLLOWS_MAIN_KEY]: !choice,
+            // #9126: a pick, Main included, is the player's answer to a Model the sweep recorded as deleted.
+            [CHAT_MODEL_DELETED_KEY]: null,
           };
         },
         { metadataQueueHeld: true },
