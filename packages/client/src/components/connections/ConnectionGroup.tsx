@@ -593,7 +593,7 @@ export function ConnectionGroup({
                     }
                     tile={<ModelTile row={row} account={account} />}
                     title={nameOf(row)}
-                    subtitle={modelSubtitle(row)}
+                    subtitle={modelSubtitle(row, null, account.loadedModel)}
                     kind={modelKindOf(row.provider)}
                     roles={rolesOf(row)}
                     facts={catalog?.of(row.model)}
@@ -658,7 +658,7 @@ export function ConnectionGroup({
           provider={account.provider}
           rows={sortByModelId(visibleRows)}
           getKey={(row) => row.id}
-          renderRow={(row, upstream) => renderRow(row, modelSubtitle(row, upstream), catalog)}
+          renderRow={(row, upstream) => renderRow(row, modelSubtitle(row, upstream, account.loadedModel), catalog)}
           rolesOf={rolesOf}
           // A search keeps every hit in view.
           autoFold={visibleRows.length === rows.length}

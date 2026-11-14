@@ -18,6 +18,7 @@ import type { DB } from "../../db/connection.js";
 import { apiConnections, connectionAccounts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
+import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import {
   DECISION_SOURCE_BASE_URLS,
   IMAGE_GENERATION_SOURCES,
@@ -359,6 +360,20 @@ export function withoutUsageKeyTokens(value: unknown): string | null {
 
 // ── Listing ─────────────────────────────────────
 
+/** Whether this Connection's chat Models may leave the model empty, so the server answers with its loaded model. */
+export function accountAllowsLoadedModel(
+  account: Pick<ConnectionAccountRow, "provider" | "baseUrl" | "treatAsLocalEndpoint">,
+): boolean {
+  return (
+    isChatProvider(account.provider) &&
+    allowsDefaultChatModel({
+      provider: account.provider,
+      baseUrl: account.baseUrl,
+      treatAsLocalEndpoint: account.treatAsLocalEndpoint,
+    })
+  );
+}
+
 export function toAccountListItem(account: ConnectionAccountRow, modelCount: number): ConnectionAccountListItem {
   const key = decryptApiKey(account.apiKeyEncrypted);
   const review = account.profileImportReviewRequired === "true";
@@ -377,6 +392,7 @@ export function toAccountListItem(account: ConnectionAccountRow, modelCount: num
     showUsageFiveHour: account.showUsageFiveHour !== "false",
     showUsageWeekly: account.showUsageWeekly !== "false",
     treatAsLocalEndpoint: account.treatAsLocalEndpoint === "true",
+    loadedModel: accountAllowsLoadedModel(account),
     enabled,
     maxRequestsPerMinute: account.maxRequestsPerMinute ?? null,
     maxParallelJobs: account.maxParallelJobs ?? null,

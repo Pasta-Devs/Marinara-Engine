@@ -108,8 +108,9 @@ export function groupModelsByAccount<R extends ConnectionModelRow>(
   for (const row of rows) {
     const lender = row.credentialsFromConnectionId ? byId.get(row.credentialsFromConnectionId) : undefined;
     const group = groups.get((lender ? lender.accountId : row.accountId) ?? "");
-    // A chat row with no model is the account's catalog anchor, not a model of its own.
-    const anchor = isChatProvider(row.provider ?? "") && !row.model?.trim();
+    // A chat row with no model is the account's catalog anchor, not a model of its own, unless its server can
+    // answer with the model it has loaded: then it is that Connection's Default model.
+    const anchor = isChatProvider(row.provider ?? "") && !row.model?.trim() && !group?.account.loadedModel;
     if (group) {
       if (!anchor) group.rows.push(row);
     } else standalone.push(row);

@@ -881,6 +881,8 @@ export function CreateConnectionModalContent({
     (target && accounts?.find((account) => account.id === target.accountId)?.name) ||
     serviceName(service ?? provider ?? "custom");
   const modelName = (modelId: string) =>
+    // "" is the Default model (the server's loaded model).
+    (!modelId ? t("connections.loadedModel.name") : undefined) ||
     modelList.data?.models?.find((model) => model.id === modelId)?.name ||
     (provider && MODEL_LISTS[provider]?.find((model) => model.id === modelId)?.name) ||
     modelId;

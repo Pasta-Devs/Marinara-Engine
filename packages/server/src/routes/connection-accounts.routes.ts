@@ -25,6 +25,7 @@ import {
   pickLimits,
   readUsageKeys,
   toAccountListItem,
+  accountAllowsLoadedModel,
   type ConnectionAccountRow,
 } from "../services/storage/connection-accounts.storage.js";
 import { catalogOf, createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -51,7 +52,8 @@ const createAccountBodySchema = createConnectionAccountSchema.partial({ name: tr
 });
 
 const forModelBodySchema = z.object({
-  model: connectionModelIdSchema,
+  // "" is the Default model: no model id is sent, so a local engine answers with the model it has loaded.
+  model: connectionModelIdSchema.or(z.literal("")),
   name: z.string().trim().min(1).max(200).optional(),
   maxContext: z.number().int().min(1).optional(),
   maxTokensOverride: z.number().int().min(1).optional(),
@@ -154,7 +156,8 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       const account = await accounts.create({ ...input, name });
       const row = await connections.create(
         createConnectionSchema.parse({
-          name: model || account.name,
+          // Without a model, a server that answers with its loaded model starts with its Default model.
+          name: model || (accountAllowsLoadedModel(account) ? "Default" : account.name),
           provider: input.provider,
           baseUrl: account.baseUrl,
           model,
@@ -373,11 +376,12 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const result = await oneAtATime(req.params.id, async () => {
       const found = await accounts.findChatModel(req.params.id, body.model);
       if (typeof found !== "object") return found;
+      if (!body.model && !accountAllowsLoadedModel(found.account)) return "needs_model";
       if (found.existing) return { connectionId: found.existing.id, created: false };
       // A saved Model takes its name and limits from the catalog, never from a sibling Model.
       const row = await connections.create(
         createConnectionSchema.parse({
-          name: body.name ?? found.catalog.name ?? body.model,
+          name: body.name ?? found.catalog.name ?? (body.model || "Default"),
           provider: found.provider,
           baseUrl: found.provider === found.account.provider ? found.account.baseUrl : "",
           model: body.model,
@@ -390,6 +394,8 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     if (result === "not_found") return reply.status(404).send({ error: "Connection not found" });
     if (result === "not_chat") return reply.status(400).send({ error: "This Connection cannot hold chat Models." });
     if (result === "failed") return reply.status(500).send({ error: "Could not save the model" });
+    if (result === "needs_model")
+      return reply.status(400).send({ error: "This Connection's server needs a model id. Pick a model." });
     if (result.created) reply.status(201);
     return { connectionId: result.connectionId };
   });
