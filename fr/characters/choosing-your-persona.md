@@ -32,6 +32,12 @@ Si ça n'a pas marché : tu ne peux choisir que des personas que tu as déjà cr
 
 En Game Mode, cette section est présentée comme ton équipe en jeu, mais elle garde l'étiquette **Persona**.
 
+<a id="color-your-name-in-messages"></a>
+
+### Colorer ton nom dans les messages
+
+Dans un chat Roleplay, la section **Persona** contient **Color Persona Name in Text** (colorer le nom du persona dans le texte). Cette option affiche le nom de ton persona, son nom d'affichage Conversation et ses **Other names** (autres noms) dans la couleur de son nom à l'intérieur des messages. Tant que tu ne la modifies pas, elle suit **Color Character Names in Text** (colorer les noms des personnages dans le texte) dans la section **Characters** (personnages). Un personnage du chat qui porte le même nom garde sa propre couleur. Pour que la couleur s'affiche, définis celle du nom du persona dans l'onglet **Colors** (couleurs).
+
 ## À la création d'un chat
 
 L'assistant de configuration New Chat propose un champ **Your Persona** (ton persona). Il reprend le même sélecteur avec recherche et une option **None**. Dans l'assistant New Game Setup, le champ s'appelle **Player's Persona** (persona du joueur), et le chat conserve ce choix.

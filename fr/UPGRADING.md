@@ -224,7 +224,7 @@ Les étapes ci-dessus restent les mêmes. Quelques changements touchent un serve
 
 ## Revenir à une ancienne version
 
-Revenir en arrière n'est pas toujours possible. Les versions récentes enregistrent les données dans un format de stockage plus récent, et une build refuse les données dans un format plus récent que celui qu'elle connaît. Les builds actuelles utilisent le format de stockage 10. Les formats 8, 9 et 10 ont ajouté les avatars MMD, les liens entre connexions et comptes, et les avatars GLB/FBX. Une build qui ne connaît qu'un format plus ancien ne peut pas ouvrir les données enregistrées dans ces formats.
+Revenir en arrière n'est pas toujours possible. Les versions récentes enregistrent les données dans un format de stockage plus récent, et une build refuse les données dans un format plus récent que celui qu'elle connaît. Les builds actuelles utilisent le format de stockage 11. Les formats 8, 9 et 10 ont ajouté les avatars MMD, les liens entre connexions et comptes, et les avatars GLB/FBX. Le format 11 enregistre les personas dans le même format de fiche que les personnages. Une build qui ne connaît qu'un format plus ancien ne peut pas ouvrir les données enregistrées dans ces formats.
 
 Le lanceur saute une mise à jour automatique qui mènerait à une version incompatible, et le programme de mise à jour intégré refuse d'en appliquer une. Pour revenir à une build plus ancienne, arrête Marinara et restaure une sauvegarde complète faite avant ta mise à jour. La commande de conversion des fichiers de chat ci-dessous ne peut pas convertir les réglages des avatars MMD. Ne change pas le numéro de format à la main.
 

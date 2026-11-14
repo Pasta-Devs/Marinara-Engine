@@ -36,11 +36,19 @@ Tes scripts globaux se trouvent dans le panneau **Presets**, dans la section **R
 
 Si ça n'a pas marché : une erreur rouge sous **Find Pattern (Regex)** bloque l'enregistrement. Le motif est invalide ou dangereux ; voir [Sécurité et performances](#safety-and-performance).
 
+<a id="manage-your-scripts"></a>
+
 ### Gérer tes scripts
 
-Chaque ligne de la liste **Regexes** affiche le nom du script, une étiquette **AI** ou **User**, le motif sous la forme `/pattern/flags`, un interrupteur marche/arrêt (effet immédiat), **Edit regex** (modifier la regex, crayon) et **Delete regex** (supprimer la regex, corbeille). Tant qu'il n'y a aucun script, la liste affiche "No regexes yet". Fais glisser une ligne par sa poignée pour changer l'ordre d'exécution.
+Chaque ligne de la liste **Regexes** affiche le nom du script, une étiquette **AI** ou **User**, le motif sous la forme `/pattern/flags`, un interrupteur marche/arrêt (effet immédiat), **Edit regex** (modifier la regex, crayon) et **Delete regex** (supprimer la regex, corbeille). Tant qu'il n'y a aucun script, la liste affiche "No regexes yet".
 
 L'en-tête de la section comporte trois boutons-icônes : **Create regex**, **Import regexes from JSON** (importer des regex depuis un fichier JSON) et **Export regexes to JSON** (exporter les regex vers un fichier JSON), qui enregistre tous tes scripts globaux dans un seul fichier. Les scripts liés à un seul personnage sont rangés à part ; voir [Limiter un script à un personnage](#limit-a-script-to-one-character).
+
+Pour trouver un script, saisis du texte dans **Search regexes** (rechercher des regex). La recherche porte sur les noms et les motifs et ouvre les dossiers qui contiennent un résultat. Tu ne peux pas réorganiser les scripts par glisser-déposer pendant une recherche.
+
+Crée un dossier avec **New Folder** (nouveau dossier). Clique sur son nom pour le déplier ou le replier. Désactive son interrupteur pour mettre ses scripts en pause dans tous les chats. L'en-tête affiche **Paused** (en pause). Chaque script conserve la position enregistrée de son interrupteur. Un script activé dans un dossier en pause affiche un interrupteur grisé et la mention **Paused by folder** (mis en pause par le dossier). Si tu supprimes le dossier, ses scripts remontent au premier niveau et suivent leurs propres interrupteurs.
+
+Les dossiers regroupent les scripts sans changer leur ordre d'exécution. Clique sur **Execution order** (ordre d'exécution) pour voir la liste complète dans cet ordre. Fais glisser un script par sa poignée pour changer l'ordre. Sans dossier, la liste est déjà dans l'ordre d'exécution.
 
 <a id="editor-fields"></a>
 

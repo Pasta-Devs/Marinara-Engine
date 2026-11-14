@@ -23,17 +23,19 @@ Choisis le personnage quand tu démarres un chat. Voir [Mode Roleplay : premiers
 
 ## Le Character Editor en un coup d'œil
 
-Le Character Editor remplace la zone de chat par un espace de travail pleine page. Sur un écran large, les onglets s'alignent verticalement à gauche. Sur un écran étroit, ils deviennent une bande défilante en haut. Les onglets, dans l'ordre, sont **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** et **Advanced**. Chaque onglet mène à sa section d'un seul long formulaire : tu peux donc aussi faire défiler la page.
+Le Character Editor remplace la zone de chat par un espace de travail pleine page. Sur un écran large, les onglets forment une rangée de boutons dans l'en-tête. Sur un écran étroit, ils se regroupent dans un menu sous le nom. Les onglets, dans l'ordre, sont **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (images), **Colors**, **Voice**, **Stats** et **Advanced**. Chaque onglet mène à sa section d'un seul long formulaire : tu peux donc aussi faire défiler la page.
 
 L'en-tête regroupe les éléments les plus utilisés :
 
 - La flèche **Back** (retour), la vignette de l'avatar, un champ de nom, et un champ de titre ou de commentaire pour une courte étiquette comme `Modern AU version`. Une ligne en dessous affiche le créateur et la version.
 - **Save**. Ce bouton reste inactif tant que tu n'as rien modifié. Pendant l'opération, il affiche **Uploading…** (un avatar est en cours de téléversement), **Embedding…** (un lorebook est en cours d'ajout à la fiche) ou **Saving…**.
 - L'étoile **Favorite** (favori).
-- **Export character** (exporter le personnage). Voir [Importer et exporter des fiches de personnage](import-export.md).
-- **Import character as persona** (importer le personnage comme persona), qui copie cette fiche dans un nouveau persona, le personnage que tu incarnes. Voir [Personas](personas.md).
-- **Duplicate character** (dupliquer le personnage).
-- **Delete character** (supprimer le personnage).
+- Le menu **…** (**More actions**, Plus d'actions) contient :
+  - **Ask Professor Mari** (demander à Professor Mari). Cette action permet d'interroger Professor Mari sur cette fiche.
+  - **Export character** (exporter le personnage). Voir [Importer et exporter des fiches de personnage](import-export.md).
+  - **Import character as persona** (importer le personnage comme persona), qui copie cette fiche dans un nouveau persona, le personnage que tu incarnes. Voir [Personas](personas.md).
+  - **Duplicate character** (dupliquer le personnage).
+  - **Delete character** (supprimer le personnage).
 
 Quitter l'éditeur enregistre d'abord tes modifications. Si l'enregistrement échoue, l'éditeur reste ouvert avec ton brouillon pour que tu puisses réessayer.
 
@@ -44,11 +46,10 @@ Onglets qui ont leur propre guide :
 | **Onboarding** | [Accueil interactif](interactive-onboarding.md) |
 | **Convo** | [Profils du mode Conversation](../conversation/profiles.md) |
 | **Lorebook** | [Lier des lorebooks à des personnages](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Sprites de personnage](sprites.md) |
-| **Gallery** | [Galeries de personnages et de personas](galleries.md) |
+| **Images** | [Sprites de personnage](sprites.md) et [Galeries de personnages et de personas](galleries.md). Voir [Onglet Images](#images-tab). |
 | **Colors** et **Stats** | [Couleurs et Caractéristiques de Roleplay des personnages](colors-and-stats.md) |
 
-Les sections ci-dessous traitent des onglets **Metadata**, **Card**, **Voice** et **Advanced**, ainsi que des avatars et de l'historique des versions.
+Les sections ci-dessous traitent des onglets **Metadata**, **Card**, **Images**, **Voice** et **Advanced**, ainsi que des avatars et de l'historique des versions.
 
 <a id="metadata-tab"></a>
 
@@ -58,6 +59,7 @@ L'onglet **Metadata** (métadonnées) rassemble les informations d'identité et 
 
 - **Character ID**. En lecture seule. Il apparaît après l'enregistrement de la fiche. Clique sur **Copy** (copier) pour le copier.
 - **Name**. Le nom affiché. Dans les prompts, le texte que Marinara envoie à l'IA, il correspond à `{{char}}` : un espace réservé que Marinara remplace par le nom du personnage.
+- **Other names** (autres noms). Surnoms, noms complets ou titres que le personnage porte aussi, par exemple `Clark Kent, Kal-El, Mr. Kent`. Sépare les noms par des virgules, puis appuie sur <kbd>Enter</kbd> ou clique sur **Add** (ajouter). Les chats Roleplay peuvent les afficher dans la couleur du nom. Voir [Couleurs du personnage](colors-and-stats.md#the-three-colors).
 - **Creator**. La personne qui a créé la fiche, pour la créditer lors du partage.
 - **Version**. Un numéro de version que tu choisis, par exemple `1.0`. L'interrupteur **Automatic versioning** (gestion automatique des versions), juste à côté, conserve les versions précédentes et augmente ce numéro quand la fiche change. L'historique des versions n'enregistre d'instantanés que si cet interrupteur est activé.
 - **Talkativeness**. Un curseur de 0 à 100 pour cent. Il règle la fréquence à laquelle ce personnage prend la parole dans les chats de groupe. La valeur par défaut est 50 pour cent.
@@ -139,6 +141,19 @@ Avant de commencer : ajoute une connexion de génération d'images. Le bouton d'
 6. Quand le résultat te convient, clique sur **Use Avatar** (utiliser l'avatar).
 
 La taille de l'image vient du réglage de taille **Portraits**, dans les réglages de génération d'images. Elle vaut 1024 par 1024 par défaut. Si **Expose media prompts before sending** (afficher les prompts médias avant l'envoi) est activé, une étape de relecture du prompt s'intercale avant chaque requête.
+
+<a id="images-tab"></a>
+
+## Onglet Images
+
+L'onglet **Images** (images) rassemble ce qui définit l'apparence du personnage dans les images. Les boutons en haut mènent à chaque section :
+
+- **Character Sheet** (fiche de référence) : une image de référence du personnage. Clique sur **Manage** (gérer) pour en créer, en téléverser ou en choisir une. Active **Use as reference image** (utiliser comme image de référence) pour qu'elle soit utilisée de préférence à l'avatar lors de la génération d'images. Voir [Fiche de référence](sprites.md#character-sheet).
+- **Selfie instructions** (instructions pour les selfies) : des directives facultatives pour les selfies Conversation du personnage, par exemple le style de prise de vue ou les expressions. Noodle et Slurp peuvent les utiliser si tu actives cette option dans leurs réglages. Voir [Selfies](../conversation/selfies.md).
+- **Sprites** : expressions du visage, sprites en pied et clips d'appel. Voir [Sprites de personnage](sprites.md).
+- **Gallery** (galerie) : images et vidéos conservées avec le personnage. Voir [Galeries de personnages et de personas](galleries.md).
+
+L'onglet **Images** d'un persona contient les mêmes sections, à l'exception de **Selfie instructions**.
 
 ## Onglet Voice
 

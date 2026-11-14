@@ -1,10 +1,10 @@
 # Galeries de personnages et de personas
 
-L'onglet **Gallery** (galerie) des éditeurs de personnage et de persona conserve des images et des vidéos rattachées à un personnage ou à un persona : elles restent même si tu supprimes des chats. Sers-t'en pour les planches de référence, les variantes de tenue et les packs d'images importés. Tu peux aussi marquer une image de la galerie comme emoji ou sticker personnalisé.
+La section **Gallery** (galerie) de l'onglet **Images** (images) des éditeurs de personnage et de persona conserve des images et des vidéos rattachées à un personnage ou à un persona : elles restent même si tu supprimes des chats. Sers-t'en pour les planches de référence, les variantes de tenue et les packs d'images importés. Tu peux aussi marquer une image de la galerie comme emoji ou sticker personnalisé.
 
-## L'onglet Gallery
+## Trouver la galerie
 
-Chaque personnage et chaque persona possède son propre onglet **Gallery** (icône d'appareil photo). Ouvre le personnage dans le Character Editor (éditeur de personnage) ou le persona dans le Persona Editor (éditeur de persona), puis clique sur **Gallery**. La galerie d'un personnage s'intitule **Character Gallery**, et celle d'un persona **Persona Gallery**. Les deux fonctionnent de la même façon.
+Chaque personnage et chaque persona possède sa propre galerie. Ouvre le personnage dans le Character Editor (éditeur de personnage) ou le persona dans le Persona Editor (éditeur de persona), clique sur l'onglet **Images**, puis sur **Gallery** en haut. La galerie d'un personnage s'intitule **Character Gallery**, et celle d'un persona **Persona Gallery**. Les deux fonctionnent de la même façon.
 
 La galerie compte deux sous-onglets :
 
@@ -15,7 +15,7 @@ La galerie propre à un chat est différente. Elle contient les illustrations de
 
 ### Ajouter des images
 
-1. Ouvre l'onglet **Gallery** et sélectionne **Images**.
+1. Ouvre **Images → Gallery** et sélectionne **Images**.
 2. Fais glisser des fichiers image sur **Upload Character Images** (téléverser des images de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, la zone s'appelle **Upload Persona Images** (téléverser des images de persona).
 3. Attends la fin du téléversement. Les nouvelles images apparaissent dans la grille.
 
@@ -23,7 +23,7 @@ Clique sur une image pour la voir en plus grand. Chaque vignette a une commande 
 
 ### Ajouter des vidéos
 
-1. Ouvre l'onglet **Gallery** et sélectionne **Videos**.
+1. Ouvre **Images → Gallery** et sélectionne **Videos**.
 2. Fais glisser des fichiers vidéo sur **Upload Character Videos** (téléverser des vidéos de personnage), ou clique dessus pour choisir des fichiers. Dans un persona, la zone s'appelle **Upload Persona Videos** (téléverser des vidéos de persona).
 3. Attends la fin du téléversement.
 
@@ -33,7 +33,7 @@ Les formats pris en charge sont MP4, WebM et MOV. Les vidéos les plus récentes
 
 Un emoji personnalisé est une petite image insérée dans le texte, écrite `:name:`. Un sticker est une image plus grande affichée en bloc, écrite `sticker:name:`. Les deux ne fonctionnent que dans les chats en mode Conversation, le mode façon messagerie.
 
-1. Ouvre l'onglet **Gallery** et sélectionne **Images**.
+1. Ouvre **Images → Gallery** et sélectionne **Images**.
 2. Clique sur le petit bouton de marquage dans le coin supérieur gauche de l'image (infobulle **Tag as emoji or sticker**).
 3. Clique sur **Make emoji** (en faire un emoji) ou sur **Make sticker** (en faire un sticker).
 4. Dans la boîte de dialogue **Custom Emoji** ou **Custom Sticker**, saisis un nom et confirme.

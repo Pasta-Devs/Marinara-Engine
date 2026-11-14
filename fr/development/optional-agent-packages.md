@@ -1144,8 +1144,13 @@ Il s'agit d'une interface souple : un ancien moteur ignore le troisième argumen
 
 La vue du navigateur reçoit `openCharacter(characterId, { tab })`. Elle ouvre l'éditeur de personnage, sur l'onglet indiqué le cas échéant, afin qu'un package puisse envoyer l'utilisateur vers un champ de la fiche qu'il lit. Les anciens moteurs ne l'ont pas : vérifie que `openCharacter` existe avant d'afficher le lien.
 
+Depuis #9191, `tab` accepte aussi une section d'un onglet : `character-sheet`, `image-instructions`, `sprites` ou
+`gallery`, toutes dans l'onglet **Images** (images). `sprites` et `gallery` étaient des onglets, donc les anciens liens fonctionnent encore.
+Les instructions pour les selfies du personnage (`conversationImageInstructions`) sont passées de `convo` à `image-instructions`.
+Une version du moteur antérieure à #9191 ignore cet identifiant et ouvre l'éditeur en haut.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66 : scènes depuis les fils d'un package

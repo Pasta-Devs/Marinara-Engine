@@ -14,6 +14,8 @@ L'onglet **Colors** règle trois couleurs : celle du nom, celle des dialogues et
 
 **Extract Colors from Avatar** (extraire les couleurs de l'avatar) choisit les trois couleurs à partir de l'image de l'avatar. Tant qu'aucun avatar n'existe, le bouton est désactivé et affiche **Upload an avatar first**. Tu peux ensuite encore modifier chaque couleur à la main.
 
+<a id="the-three-colors"></a>
+
 ### Les trois couleurs
 
 Règle chaque couleur avec le champ de couleur, ou saisis une valeur :
@@ -30,7 +32,7 @@ Règle chaque couleur avec le champ de couleur, ou saisis une valeur :
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-L'onglet **Colors** d'un personnage contient aussi **Name Aliases** (alias du nom). Saisis d'autres noms ou surnoms, séparés par des virgules, par exemple `Kate, Kitty, Katherine`. Ils prennent la couleur du nom du personnage quand ils apparaissent dans les messages du chat. Le nom principal est toujours inclus. Active cette option chat par chat dans **Chat Settings → Characters** (réglages du chat → personnages).
+**Other names** (autres noms) se trouve sous **Name** (nom), dans l'onglet **Metadata** (métadonnées). Ce champ regroupe les surnoms, noms complets ou titres tels que `Clark Kent, Kal-El, Mr. Kent`. Dans les messages des chats Roleplay, ils prennent la couleur du nom, comme le nom principal. Active l'option dans chaque chat : **Color Character Names in Text** (colorer les noms des personnages dans le texte) dans **Chat Settings → Characters** (réglages du chat → personnages) et **Color Persona Name in Text** (colorer le nom du persona dans le texte) dans **Chat Settings → Persona**.
 
 Pour changer la transparence, utilise **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Paramètres → Apparence → Présentation Roleplay → Opacité de l'arrière-plan des messages Roleplay).
 
