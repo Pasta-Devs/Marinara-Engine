@@ -284,6 +284,25 @@ export function AnimatedSkillCheckResult({
           </span>
         </div>
       )}
+      {/* Dice groups and a push (1.826): each group's dice and counted 1s, and what the push threw again. */}
+      {result.groups?.map((group) => (
+        <div className="skill-check-roll-meta" key={group.label}>
+          <span>
+            {group.banes !== undefined
+              ? localizeUi("ui.dice.animatedskillcheckresult.groupDiceOnes", {
+                  count: group.dice,
+                  label: group.label,
+                  ones: group.banes,
+                })
+              : localizeUi("ui.dice.animatedskillcheckresult.groupDice", { count: group.dice, label: group.label })}
+          </span>
+        </div>
+      ))}
+      {result.pushed !== undefined && (
+        <div className="skill-check-roll-meta">
+          <span>{localizeUi("ui.dice.animatedskillcheckresult.pushed", { count: result.pushed })}</span>
+        </div>
+      )}
       {/* A roll read against the sheet's number (1.139): the card's DC is the number it had to stay under. */}
       {result.against && (
         <div className="skill-check-roll-meta">

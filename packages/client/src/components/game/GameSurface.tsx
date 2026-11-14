@@ -5493,6 +5493,7 @@ function GameSurfaceComponent({
                     ...(sc.plot ? { plot: true } : {}),
                     shift: sc.shift,
                     hunger: Number.isInteger(sc.hunger) && sc.hunger! >= 0 && sc.hunger! <= 100 ? sc.hunger : undefined,
+                    gear: Number.isInteger(sc.gear) && sc.gear! >= 0 && sc.gear! <= 100 ? sc.gear : undefined,
                     messageId: msg.id,
                   })
                 ).result

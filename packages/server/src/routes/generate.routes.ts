@@ -10290,6 +10290,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   input.regenerateMessageId,
                 ),
               chatId: input.chatId,
+              // A pushed roll (1.826) starts from the record in the reply before this one.
+              lastReply: () => {
+                const last = chatMessages.filter((message: any) => message.role === "assistant").at(-1);
+                return typeof last?.content === "string" ? last.content : undefined;
+              },
               // What a branch arm rolled above stands: the tag pass does not roll it again.
               ...(gameChanceSession
                 ? { engineRecords: gameChanceSession.engineRecords, engineDice: gameChanceSession.engineDice }

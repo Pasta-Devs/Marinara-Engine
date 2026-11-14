@@ -254,6 +254,11 @@ export interface SkillCheckRequest {
   shift?: number;
   /** `hunger=` (1.824): special dice among this check's pool. */
   hunger?: number;
+  /** `gear=` (1.826): gear dice added to a grouped pool. */
+  gear?: number;
+  /** `push="true"` (1.826), and the earlier roll it pushes once the resolver has found it. */
+  push?: boolean;
+  pushOf?: { rolls: readonly number[]; dc?: number; groups?: readonly { label: string; dice: number }[] };
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1111,6 +1116,13 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
   return rulesetUntrainedFor(ruleset, request) === "refuse";
 }
 
+/** A record with no dice in it: a save something made fail without a roll, or a check with no dice
+ *  (1.825). Only the Engine says either, so one a model wrote is decided again from the sheet. */
+function claimsNoDice(tag: SkillCheckTag): boolean {
+  const result = tag.resolvedResult;
+  return !!result && (!!result.automatic || (result.resolution === "sum" && result.rolls.length === 0));
+}
+
 /** The dice asks a tag carried beyond its numbers (1.822), under the same names on a request and on a
  *  sparse ask's extras, so every path that copies a tag's freedoms copies these in one place. */
 export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
@@ -1118,7 +1130,39 @@ export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
     ...(tag.plot ? { plot: true } : {}),
     ...(tag.shift != null ? { shift: tag.shift } : {}),
     ...(tag.hunger != null ? { hunger: tag.hunger } : {}),
+    ...(tag.gear != null ? { gear: tag.gear } : {}),
+    ...(tag.push ? { push: true } : {}),
   };
+}
+
+/** The earlier roll a `push="true"` check throws again (1.826): the last record of the same check by
+ *  the same character in the Game Master's previous reply, unless that one was already pushed. The
+ *  dice are read from the saved record, never from the tag that asks for the push. */
+export function rulesetPushableRoll(
+  definition: RulesetDefinition,
+  tag: Pick<SkillCheckTag, "skill" | "who" | "push">,
+  lastReply: string | undefined,
+): SkillCheckRequest["pushOf"] {
+  const resolution = definition.resolution;
+  if (resolution.kind !== "dice-pool" || !resolution.push || !tag.push || !lastReply) return undefined;
+  const same = (one?: string, other?: string) =>
+    (one ?? "").trim().toLowerCase() === (other ?? "").trim().toLowerCase();
+  let found: SkillCheckRequest["pushOf"];
+  for (const match of lastReply.matchAll(createSkillCheckTagRegex())) {
+    const earlier = parseSkillCheckTagBody(match[1] ?? "");
+    const rolled = earlier?.resolvedResult;
+    if (!earlier || !rolled || rolled.resolution !== "successes" || rolled.rolls.length === 0) continue;
+    if (!same(earlier.skill, tag.skill) || (!!earlier.who && !!tag.who && !same(earlier.who, tag.who))) continue;
+    found =
+      rolled.pushed !== undefined
+        ? undefined
+        : {
+            rolls: rolled.rolls,
+            dc: rolled.dc,
+            ...(rolled.groups ? { groups: rolled.groups.map(({ label, dice }) => ({ label, dice })) } : {}),
+          };
+  }
+  return found;
 }
 
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
@@ -1455,6 +1499,11 @@ function resolveRulesetSkillCheck(
         explode: request.explode,
         double: request.double,
         hunger: request.hunger,
+        // Dice groups (1.826) need the ability's own dice apart from the rest of the pool.
+        ...(resolution.groups && rollerSheet
+          ? { ability: rulesetSymbolPoolRatings(definition, rollerSheet, target).ability, gear: request.gear }
+          : {}),
+        ...(request.pushOf ? { pushOf: request.pushOf } : {}),
         ...(sheetTarget !== undefined ? { sheetTarget } : {}),
         ...(stance ? { stance: stance.count } : {}),
         ...(bought ? { bought } : {}),
@@ -1894,8 +1943,9 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
 
 /** Whether a complete record says or asks for something only a ruleset's own roll can give: which
  * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823);
- * special dice in a pool (1.824). In a game with no ruleset such a record is the model's claim,
- * never the Engine's roll. A bare ask is not a claim: it carries no numbers to keep. */
+ * special dice in a pool (1.824); dice groups or a push (1.826). In a game with no ruleset such a
+ * record is the model's claim, never the Engine's roll. A bare ask is not a claim: it carries no
+ * numbers to keep. */
 function claimsRulesetDice(tag: SkillCheckTag): boolean {
   const result = tag.resolvedResult;
   if (!result) return false;
@@ -1906,8 +1956,18 @@ function claimsRulesetDice(tag: SkillCheckTag): boolean {
     tag.shift !== undefined ||
     result.shift !== undefined ||
     tag.hunger !== undefined ||
-    result.hunger !== undefined
+    result.hunger !== undefined ||
+    tag.gear !== undefined ||
+    !!tag.push ||
+    result.groups !== undefined ||
+    result.pushed !== undefined
   );
+}
+
+/** What a claim keeps, beside its dice, wherever it is written back as an ask: the system it named,
+ *  so nothing later rolls another system's check as a d20. Every write-back in the tag pass uses it. */
+function claimedSystem(tag: SkillCheckTag): { declaredResolution?: string } {
+  return claimsRulesetDice(tag) && tag.declaredResolution ? { declaredResolution: tag.declaredResolution } : {};
 }
 
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
@@ -2154,6 +2214,12 @@ export interface SkillCheckTagResolutionOptions {
    * as it always was, which is what a re-read of a saved turn needs.
    */
   issuedD20s?: readonly number[];
+  /**
+   * The Game Master's previous reply as saved, supplied by generation only. A `push="true"` check
+   * (1.826) takes the dice it throws again from the record in it; with none, the check is rolled
+   * afresh and nothing is pushed.
+   */
+  lastReply?: () => string | undefined;
   /**
    * The records a branch arm wrote earlier in this same turn, as written, each with how many times it
    * wrote it, supplied by generation only. Each is the Engine's own roll and is left exactly as it is.
@@ -2522,7 +2588,7 @@ export async function resolveSkillCheckTagsInContent(
       // Only a ruleset's own condition or item fails a save without a roll, and this game pins none,
       // so a record that says so is the model's claim: the ask survives, the claimed outcome does not.
       // (A ruleset game decides it again from the sheet, which never vouches for a record with no dice.)
-      if (tag.resolvedResult?.automatic) {
+      if (claimsNoDice(tag)) {
         stripped.push({
           start: match.index,
           end: match.index + match[0].length,
@@ -2626,10 +2692,15 @@ export async function resolveSkillCheckTagsInContent(
         // member the narration gives it to, and the record says so.
         const inferredWho = ruleset && !tag.who ? inferRulesetCheckWho(ruleset, content, entry) : undefined;
         if (inferredWho) tag = { ...tag, who: inferredWho };
+        // A push (1.826) written with no difficulty is rolled against the one of the roll it pushes.
+        if (ruleset && tag.push && tag.dc === undefined && !tag.difficulty) {
+          const earlier = rulesetPushableRoll(ruleset.definition, tag, options.lastReply?.());
+          if (earlier?.dc !== undefined) tag = { ...tag, dc: earlier.dc };
+        }
         const request = toRequest(tag, ruleset?.definition);
         // A record claiming a save failed without a roll carries no dice to vouch for and a label no
         // ruleset throws, so it is always the Engine's to decide again from the sheet.
-        const claimsNoRoll = !!tag.resolvedResult?.automatic;
+        const claimsNoRoll = claimsNoDice(tag);
         // The numbers must be the sheet's, and the dice somebody else's: the player's, or the Engine's.
         // A check with no one party member to roll it is refused below, whatever it carries: a flat die
         // is not the roll the story asked of a hero.
@@ -2672,9 +2743,7 @@ export async function resolveSkillCheckTagsInContent(
                 disadvantage: tag.disadvantage,
                 // The "0dN" of a record that claims no roll labels no dice anybody would throw.
                 declaredDice: claimsNoRoll ? undefined : tag.declaredDice,
-                ...(claimsRulesetDice(tag) && tag.declaredResolution
-                  ? { declaredResolution: tag.declaredResolution }
-                  : {}),
+                ...claimedSystem(tag),
               },
               askExtras(tag),
             ),
@@ -2748,6 +2817,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "unknown-roller" },
         );
@@ -2761,6 +2831,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "untrained" },
         );
@@ -2773,6 +2844,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
@@ -2800,11 +2872,20 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
       }
-      const result = resolveSkillCheckWithContext(context, request, options.rollD20, onSpend);
+      const pushOf = context.ruleset
+        ? rulesetPushableRoll(context.ruleset.definition, entry.tag, options.lastReply?.())
+        : undefined;
+      const result = resolveSkillCheckWithContext(
+        context,
+        pushOf ? { ...request, pushOf } : request,
+        options.rollD20,
+        onSpend,
+      );
       results.push(result);
       // The result carries what the roll applied (who, the other ability, the dice added), so a
       // saved turn says exactly that. None of it is set outside a ruleset game, byte for byte.
@@ -2873,11 +2954,7 @@ export async function resolveSkillCheckTagsInContent(
           disadvantage: entry.request.disadvantage,
           preRolledD20: entry.request.preRolledD20,
           declaredDice: entry.tag.declaredDice,
-          // A claim cut back to its ask keeps the system it named with its dice, here as at the other
-          // two places one is cut back, so nothing rolls another system's check as a d20 later.
-          ...(claimsRulesetDice(entry.tag) && entry.tag.declaredResolution
-            ? { declaredResolution: entry.tag.declaredResolution }
-            : {}),
+          ...claimedSystem(entry.tag),
         },
         askExtras(entry.tag),
       ),

@@ -125,6 +125,10 @@ export interface SkillCheckTag {
   shift?: number;
   /** `hunger="2"`: special dice among a pool (1.824). Carried, never judged, as `plot` is. */
   hunger?: number;
+  /** `gear="1"`: gear dice added to a grouped pool, and `push="true"`: the last roll pushed (1.826).
+   *  Carried, never judged, as `plot` is. */
+  gear?: number;
+  push?: boolean;
   /**
    * `spend="willpower:1"` as the GM wrote it, read into a pool name and a whole number of points.
    *
@@ -449,7 +453,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   // A difficulty named by its ladder step stands in for `dc=`, which only a ruleset game can read.
   // Cut at the schema's own label limit, so any step's label can be named.
   const difficulty = values.get("difficulty")?.trim().slice(0, 80);
-  if (!skill || (Number.isNaN(dc) && !difficulty)) return null;
+  // A push (1.826) may name no difficulty at all: it is the one of the roll it pushes.
+  const pushAsk = values.get("push")?.trim().toLowerCase() === "true";
+  if (!skill || (Number.isNaN(dc) && !difficulty && !pushAsk)) return null;
 
   const tag: SkillCheckTag = { skill, ...(Number.isNaN(dc) ? {} : { dc }), ...(difficulty ? { difficulty } : {}) };
   const modeValue = values.get("mode")?.trim().toLowerCase();
@@ -519,6 +525,9 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const hungerValue = values.get("hunger")?.trim();
   if (hungerValue && Number.isInteger(Number(hungerValue)) && Number(hungerValue) >= 0)
     tag.hunger = Number(hungerValue);
+  const gearValue = values.get("gear")?.trim();
+  if (gearValue && Number.isInteger(Number(gearValue)) && Number(gearValue) >= 0) tag.gear = Number(gearValue);
+  if (values.get("push")?.trim().toLowerCase() === "true") tag.push = true;
   const shiftValue = values.get("shift")?.trim();
   if (shiftValue && Number.isInteger(Number(shiftValue)) && Number(shiftValue) !== 0)
     tag.shift = Math.max(-3, Math.min(3, Number(shiftValue)));
@@ -626,6 +635,19 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     plotSymbolRaw === "complication" || plotSymbolRaw === "opportunity" ? plotSymbolRaw : undefined;
   const plotBonus = Number(values.get("plotbonus"));
   const plotLabel = values.get("plotlabel")?.trim().slice(0, 40);
+  // Dice groups and a push (1.826), as the Engine's record says them.
+  const groupList = (values.get("groups") ?? "")
+    .split("|")
+    .map((entry) => /^([^:|]{1,80}):(\d{1,3})(?::(\d{1,3}))?$/.exec(entry.trim()))
+    .filter((match): match is RegExpExecArray => !!match)
+    .slice(0, 3)
+    .map((match) => ({
+      label: match[1]!.trim(),
+      dice: Number(match[2]),
+      ...(match[3] !== undefined ? { banes: Number(match[3]) } : {}),
+    }));
+  const pushedValue = values.get("pushed")?.trim();
+  const pushedCount = pushedValue ? Number(pushedValue) : Number.NaN;
   const symbolRecord = readSymbolRecord(values);
   if (values.has("symbols") && !symbolRecord) return tag;
   const effected = {
@@ -861,6 +883,19 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
     ...thrownAgain,
     ...effected,
     ...special(rolls.length),
+    // Groups and a push describe a pool's dice, so they are kept only when they fit the dice thrown.
+    ...(declaredResolution === "successes" &&
+    groupList.length > 0 &&
+    groupList.reduce((sum, group) => sum + group.dice, 0) === rolls.length &&
+    groupList.every((group) => (group.banes ?? 0) <= group.dice)
+      ? { groups: groupList }
+      : {}),
+    ...(declaredResolution === "successes" &&
+    Number.isInteger(pushedCount) &&
+    pushedCount >= 0 &&
+    pushedCount <= rolls.length
+      ? { pushed: pushedCount }
+      : {}),
   };
 
   return tag;
