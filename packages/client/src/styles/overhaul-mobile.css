@@ -5313,3 +5313,11 @@
   padding: 0 0.375rem !important;
   font-size: 0.6875rem !important;
 }
+
+/* Phones and tablets: while a page covers the screen, a theme's ambient layer holds still. Its
+   animation (often a moving background) repainted every frame under the page (battery, Nov 14 QC). */
+:root[data-mari-page-covers] [data-mari-part="ambient"],
+:root[data-mari-page-covers] [data-mari-part="ambient"]::before,
+:root[data-mari-page-covers] [data-mari-part="ambient"]::after {
+  animation-play-state: paused !important;
+}
