@@ -549,6 +549,10 @@ import {
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import {
+  matchLibraryBackgroundForPlace,
+  readBackgroundLibrary,
+} from "../services/generation/illustrator-background-reuse.js";
+import {
   findCharAvatarFuzzy,
   loadCharacterLibraryAvatarLookup,
   npcAvatarSlug,
@@ -14794,21 +14798,43 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         latestGameState?.location,
                       );
                     }
-                    const generated = await generateIllustratorSceneBackground({
-                      db: app.db,
-                      chatId: input.chatId,
-                      chatName: chat.name,
-                      chatMode: chatMode === "game" ? "game" : "roleplay",
-                      chatMetadata: freshMeta,
-                      currentBackground: backgroundBeforeGeneration ?? currentBackground,
-                      illustratorAgent: illustratorBackgroundAgent,
-                      assistantResponse: agentCompletedResponse,
-                      decisionReason: backgroundDecisionReason,
-                      gameState: latestGameState,
-                      recentMessages: agentContext.recentMessages,
-                      signal: agentSignal,
-                      debugLog,
-                    });
+                    // A place the library already has a picture of is shown, not painted again: first by the
+                    // tracker location, then (without one) by the place name the background plan writes.
+                    const backgroundLibrary = readBackgroundLibrary();
+                    const trackerLocation = latestGameState?.location?.trim() || null;
+                    const existingForLocation = matchLibraryBackgroundForPlace(trackerLocation, backgroundLibrary);
+                    const generated = existingForLocation
+                      ? {
+                          filename: existingForLocation,
+                          locationName: trackerLocation ?? existingForLocation,
+                          prompt: "",
+                          reason: `Already in the library for ${trackerLocation ?? "this place"}.`,
+                          tags: [] as string[],
+                          url: `/api/backgrounds/file/${encodeURIComponent(existingForLocation)}`,
+                          reused: true,
+                        }
+                      : await generateIllustratorSceneBackground({
+                          db: app.db,
+                          chatId: input.chatId,
+                          chatName: chat.name,
+                          chatMode: chatMode === "game" ? "game" : "roleplay",
+                          chatMetadata: freshMeta,
+                          currentBackground: backgroundBeforeGeneration ?? currentBackground,
+                          illustratorAgent: illustratorBackgroundAgent,
+                          assistantResponse: agentCompletedResponse,
+                          decisionReason: backgroundDecisionReason,
+                          gameState: latestGameState,
+                          recentMessages: agentContext.recentMessages,
+                          signal: agentSignal,
+                          debugLog,
+                          reuseExisting: trackerLocation
+                            ? undefined
+                            : (plan) => matchLibraryBackgroundForPlace(plan.locationName, backgroundLibrary),
+                        });
+                    if (generated.filename === backgroundBeforeGeneration) {
+                      logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
+                      return;
+                    }
 
                     const chatAfterGeneration = await chats.getById(input.chatId);
                     const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
@@ -14833,7 +14859,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         resultType: "background_change",
                         data: {
                           chosen: generated.filename,
-                          generated: true,
+                          generated: generated.reused !== true,
                           location: generated.locationName,
                           reason: generated.reason,
                           tags: generated.tags,
@@ -14843,7 +14869,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       },
                     });
                     logger.info(
-                      '[illustrator-background] Generated and activated "%s" for %s',
+                      '[illustrator-background] %s and activated "%s" for %s',
+                      generated.reused ? "Reused" : "Generated",
                       generated.filename,
                       generated.locationName,
                     );

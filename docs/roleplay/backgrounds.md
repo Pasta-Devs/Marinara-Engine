@@ -28,6 +28,14 @@ The backdrop now changes on its own as the story moves between places.
 
 If it did not work: with only one or two backgrounds, the agent keeps picking those. Add more to your library. See [Chat Backgrounds](../appearance/chat-backgrounds.md).
 
+## Reuse pictures you already have
+
+When Illustrator makes backgrounds on its own and the story moves to a new place, it first looks in your background library. A picture serves a place when its file name, or one of its tags of two or more words, appears in the World State location. For example, `john-bedroom.png` serves "Smith House, John's bedroom". Case, accents and "'s" don't matter, and the most specific name wins over a plain `bedroom.png`.
+
+Without a World State location, the place name Illustrator writes for the new background is matched the same way. If a picture fits, it is shown and nothing is painted. Only a place with no match gets a new picture.
+
+To make sure a place keeps its picture, name the file after the place, or give it a tag with the place's name.
+
 ## Generate a background by hand
 
 Marinara builds an image prompt from the scene (genre, setting, location, weather and time) and makes a new backdrop.
