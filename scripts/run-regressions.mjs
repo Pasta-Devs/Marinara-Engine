@@ -23,30 +23,33 @@ function repositoryRelative(file) {
   return path.relative(repositoryRoot, file).split(path.sep).join('/');
 }
 
-export function regressionTimeoutMs(relativePath) {
-  if (relativePath === 'scripts/regressions/server-signal-shutdown.regression.ts') {
-    // 20s main-server phase + six sequential 40s PTY bounds + 10s setup/cleanup margin.
-    return 270_000;
-  }
-  if (relativePath === 'scripts/regressions/restart-supervisor.regression.ts') return 90_000;
+// Files that need longer than FILE_TIMEOUT_MS, by path from the repository root. When a file moves, move its entry too:
+// regression-timeout-policy fails on a path that names no regression, which would otherwise drop to the default.
+export const REGRESSION_TIMEOUTS_MS = new Map([
+  // 20s main-server phase + six sequential 40s PTY bounds + 10s setup/cleanup margin.
+  ['scripts/regressions/server-signal-shutdown.regression.ts', 270_000],
+  ['scripts/regressions/restart-supervisor.regression.ts', 90_000],
   // Two provider deadlines (8 s each): a silent getContext and a claim that answers late.
-  if (relativePath === 'scripts/regressions/scene-package-origin.regression.ts') return 60_000;
+  ['scripts/regressions/scene-package-origin.regression.ts', 60_000],
   // Two slow Decision recall passes (5.5 s each) prove that each has its own time limit.
-  if (relativePath === 'scripts/regressions/advanced-memory-recall-shortlist.regression.ts') return 60_000;
+  ['scripts/regressions/advanced-memory-recall-shortlist.regression.ts', 60_000],
   // Hundreds of complete d20 and dice-pool fights: 75-130 s on CI runners and up to about 180 s locally.
-  if (relativePath === 'scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts') return 300_000;
+  ['scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts', 300_000],
   // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
-  if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 90_000;
+  ['scripts/regressions/native-export-memory.regression.ts', 90_000],
   // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store, and over 90 s on slow
   // CI runners (about 1.6x slower), where it was being retried.
-  if (relativePath === 'scripts/regressions/chat-request-validation.regression.ts') return 150_000;
+  ['scripts/regressions/chat-request-validation.regression.ts', 150_000],
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
-  if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
+  ['scripts/regressions/avatar-variant-composite.regression.ts', 120_000],
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
-  if (relativePath === 'scripts/regressions/game-ruleset/game-ruleset-caps.regression.ts') return 120_000;
+  ['scripts/regressions/game-ruleset/game-ruleset-caps.regression.ts', 120_000],
   // Every language's ruleset strings read and drawn against the whole 5e ruleset: about 60 s alone.
-  if (relativePath === 'scripts/regressions/game-ruleset/game-ruleset-locales.regression.ts') return 120_000;
-  return FILE_TIMEOUT_MS;
+  ['scripts/regressions/game-ruleset/game-ruleset-locales.regression.ts', 120_000],
+]);
+
+export function regressionTimeoutMs(relativePath) {
+  return REGRESSION_TIMEOUTS_MS.get(relativePath) ?? FILE_TIMEOUT_MS;
 }
 
 // Files that only call engine code run BATCH_SIZE at a time in one shared process (scripts/run-regression-batch.mjs):
