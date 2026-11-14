@@ -8,13 +8,13 @@
 
 ## 创建工具
 
-开始之前，从顶栏打开 **Presets**(预设) 面板。工具位于它的 **Functions**(函数) 区块（扳手图标）。如果你从另一台设备打开 Marinara，先在 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问) 下保存管理员密钥。它必须与服务器的 `ADMIN_SECRET` 一致；见[服务器配置参考](../CONFIGURATION.md)。
+开始之前，从顶栏打开 **Presets**(预设) 面板。工具位于它的 **Functions**(函数) 选项卡。如果你从另一台设备打开 Marinara，先在 **Settings → Advanced → Admin Access**(设置 → 高级 → 管理员访问) 下保存管理员密钥。它必须与服务器的 `ADMIN_SECRET` 一致；见[服务器配置参考](../CONFIGURATION.md)。
 
 第一次尝试时，选 **Static Result**(静态结果)：它不需要任何其他东西。
 
 ### 创建工具的步骤
 
-1. 打开 **Presets**，找到 **Functions**。
+1. 从顶栏打开 **Presets → Functions**。
 2. 点击 **Create function**(创建函数)（加号图标）。一个空白的工具编辑器会打开。
 3. 用小写 snake_case 填一个名称，例如 `check_weather`。AI 调用时用的就是这个确切的名称。名称以小写字母开头，之后使用小写字母、数字和下划线。
 4. 填写 **Description**(说明)。把它写成给 AI 的指令，因为 AI 要靠它判断何时调用该工具。例如：`Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@
 - 两个工具不能重名，工具也不能使用内置名称，例如 `roll_dice`、`update_game_state`、`set_expression`、`trigger_event`、`search_lorebook`、`web_search` 或 `update_about_me`。名称冲突时会显示类似 `"your_name" is a reserved built-in tool name.` 的消息。
 - 如果你带着未保存的改动离开编辑器，会出现一条横幅，提供 **Keep editing**(继续编辑)、**Discard**(放弃) 或 **Save & close**(保存并关闭)。
 
-**Functions** 标题栏有三个图标按钮：
+**Functions** 选项卡顶部有以下按钮：
 
 - **Create function**，即加号图标
 - **Import functions from ZIP or JSON**(从 ZIP 或 JSON 导入函数)
 - **Export functions to ZIP**(导出函数为 ZIP)（没有任何工具时显示为灰色）
+- **Select functions**(选择函数，勾选图标)
+
+下方的 **Search functions**(搜索函数) 可以按工具名称和描述搜索。
 
 列表中的每个工具显示：
 
@@ -41,7 +44,25 @@
 - 一个开关
 - **Edit function**(编辑函数) 和 **Delete Function**(删除函数)
 
-拖动工具的手柄可以调整列表顺序。顺序只影响显示。没有任何工具时，列表显示 **No functions yet**。
+拖动工具的手柄可以调整列表顺序。顺序只影响显示。搜索时无法拖动工具。没有任何工具时，列表显示 **No functions yet**。
+
+### 用文件夹整理工具
+
+1. 点击 **New Folder**(新建文件夹)，给文件夹命名。
+2. 点击工具所在行的文件夹图标，打开 **Move to folder**(移到文件夹)。
+3. 选择文件夹。要把工具移出文件夹，选择 **No folder (top level)**(无文件夹，顶层)。
+
+点击文件夹名称可以展开或折叠。关掉文件夹的开关就会暂停其中的工具。任何聊天都不会向 AI 提供这些工具，你也无法在聊天或智能体的工具列表中选择它们。文件夹标题会显示 **Paused**(已暂停)。各工具保留自己的开关设置。已启用的工具如果处于暂停的文件夹中，开关会变灰，并显示 **Paused by folder**(因文件夹暂停)。恢复文件夹后，已开启的工具会再次提供给 AI，已关闭的工具仍然关闭。删除文件夹会把工具移到顶层，工具会按各自的开关设置运行。
+
+有文件夹时，列表会按文件夹分组。点击 **Manual order**(手动排序) 查看完整列表，再拖动工具的把手调整顺序。
+
+### 批量更改工具
+
+1. 点击 **Select functions**。
+2. 勾选要更改的工具，或勾选 **Select all functions**(选择所有函数)。
+3. 点击 **Enable selected**(启用所选)、**Disable selected**(禁用所选) 或 **Move to folder**。你也可以导出或删除所选工具。
+
+**Enable selected** 会更改各工具的开关。要再次提供已暂停的文件夹中的工具，请先恢复文件夹。
 
 <a id="add-parameters"></a>
 

@@ -38,7 +38,7 @@ Para exportar um preset, clique no ícone de seta para cima na barra superior (d
 
 ## O painel Presets
 
-**Prompts** é a seção dos presets. As outras seções são **Regexes** e **Functions**. Os botões do topo são **New**, **Import** (importar, para carregar um arquivo `.json`) e **Select** (selecionar, para exportar ou excluir vários de uma vez).
+O painel tem três abas: **Presets**, **Regexes** (scripts de regex) e **Functions** (funções). Cada aba tem a mesma fileira de botões no topo, um campo de busca e **New Folder**. Na aba **Presets**, use **Create preset** (criar preset) para criar um preset, **Import preset** (importar preset) para carregar um arquivo `.json` ou **Select presets** (selecionar presets) para exportar ou excluir vários de uma vez. A aba **Regexes** guarda seus scripts de regex. Veja [Scripts de regex](../extending/regex-scripts.md#manage-your-scripts). A aba **Functions** guarda suas ferramentas personalizadas. Veja [Ferramentas personalizadas](../extending/custom-tools.md).
 
 - **Search presets** (buscar presets) filtra a lista.
 - O menu de ordenação oferece **Manual order** (ordem manual), **A-Z**, **Z-A**, **Newest** e **Oldest**. Com **Manual order**, arraste uma linha, ou pressione <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd> em uma linha selecionada. Em uma tela sensível ao toque, mantenha uma linha pressionada para pegá-la.

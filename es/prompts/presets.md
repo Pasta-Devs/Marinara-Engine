@@ -38,11 +38,11 @@ Para exportar un preset, haz clic en el icono de flecha hacia arriba de la barra
 
 ## El panel Presets
 
-**Prompts** es la sección de los presets. Las otras secciones son **Regexes** y **Functions**. Los botones superiores son **New**, **Import** (Importar; carga un archivo `.json`) y **Select** (Seleccionar; exporta o borra varios a la vez).
+El panel tiene tres pestañas: **Presets**, **Regexes** y **Functions** (Funciones). Cada pestaña tiene arriba la misma fila de botones, un cuadro de búsqueda y **New Folder** (Nueva carpeta). En **Presets**, usa **Create preset** (Crear preset) para crear un preset, **Import preset** (Importar preset) para cargar un archivo `.json` o **Select presets** (Seleccionar presets) para exportar o eliminar varios a la vez. En **Regexes** están tus scripts regex. Consulta [Scripts regex](../extending/regex-scripts.md#manage-your-scripts). En **Functions** están tus herramientas personalizadas. Consulta [Herramientas personalizadas](../extending/custom-tools.md).
 
 - **Search presets** (Buscar presets) filtra la lista.
 - El menú de orden ofrece **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** y **Oldest**. Con **Manual order**, arrastra una fila, o pulsa <kbd>Alt</kbd>+<kbd>Up</kbd> o <kbd>Alt</kbd>+<kbd>Down</kbd> en una fila con el foco. En una pantalla táctil, mantén pulsada una fila para tomarla.
-- **New Folder** (Nueva carpeta) agrupa presets. Arrastra un preset sobre una carpeta, y haz doble clic o doble toque en una carpeta para cambiarle el nombre.
+- **New Folder** agrupa presets. Arrastra un preset sobre una carpeta, y haz doble clic o doble toque en una carpeta para cambiarle el nombre.
 
 Cada fila muestra el nombre, el formato de envoltura, el número de secciones y el autor. Una insignia **DEFAULT** marca el predeterminado con estrella. Haz clic en una fila para abrirla.
 

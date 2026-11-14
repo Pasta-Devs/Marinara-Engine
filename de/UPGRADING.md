@@ -222,7 +222,7 @@ Die Schritte oben bleiben dieselben. Ein paar Änderungen betreffen einen Server
 
 ## Downgrade auf eine ältere Version
 
-Ein Rückweg ist nicht immer möglich. Neuere Versionen speichern Daten in einem neueren Speicherformat, und ein Build verweigert Daten in einem Format, das neuer ist als das, das er kennt. Aktuelle Builds verwenden Speicherformat 10. Die Formate 8, 9 und 10 haben MMD-Avatare, die Verknüpfung von Verbindungen mit Konten und GLB/FBX-Avatare hinzugefügt. Ein Build, der nur ein älteres Format kennt, kann Daten in diesen Formaten nicht öffnen.
+Ein Rückweg ist nicht immer möglich. Neuere Versionen speichern Daten in einem neueren Speicherformat, und ein Build verweigert Daten in einem Format, das neuer ist als das, das er kennt. Aktuelle Builds verwenden Speicherformat 11. Die Formate 8, 9 und 10 haben MMD-Avatare, die Verknüpfung von Verbindungen mit Konten und GLB/FBX-Avatare hinzugefügt. Format 11 speichert Personas im selben Kartenformat wie Charaktere. Ein Build, der nur ein älteres Format kennt, kann Daten in diesen Formaten nicht öffnen.
 
 Der Launcher überspringt ein Auto-Update, das auf einer inkompatiblen Version landen würde, und der Updater in der App verweigert das Einspielen. Um zu einem älteren Build zurückzukehren, stoppe Marinara und stelle ein vollständiges Backup von vor dem Update wieder her. Der Befehl zur Konvertierung von Chat-Dateien unten kann MMD-Avatar-Einstellungen nicht umwandeln. Ändere die Formatnummer nicht von Hand.
 

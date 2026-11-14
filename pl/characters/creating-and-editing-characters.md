@@ -23,17 +23,19 @@ Wybierz postać przy rozpoczynaniu czatu. Zobacz [Tryb Roleplay: pierwsze kroki]
 
 ## Edytor postaci w skrócie
 
-Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. Na szerokim ekranie zakładki biegną wzdłuż lewej krawędzi. Na wąskim zamieniają się w przewijany pasek u góry. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** i **Advanced**. Każda zakładka przeskakuje do swojej sekcji jednego długiego formularza, więc można też po prostu przewijać.
+Edytor **Character Editor** zastępuje obszar czatu pełnoekranowym miejscem pracy. Na szerokim ekranie zakładki tworzą rząd przycisków w nagłówku. Przy niektórych pośrednich szerokościach ekranu przyciski pokazują tylko ikony. Najedź kursorem na przycisk, aby zobaczyć jego nazwę. Na wąskim ekranie mieszczą się w menu pod nazwą. Zakładki po kolei to **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (obrazy), **Colors**, **Voice**, **Stats** i **Advanced**. Każda zakładka przeskakuje do swojej sekcji jednego długiego formularza, więc można też po prostu przewijać.
 
 W nagłówku są elementy używane najczęściej:
 
 - Strzałka **Back** (wstecz), kafelek awatara, pole nazwy oraz pole tytułu lub komentarza na krótką etykietę w rodzaju `Modern AU version`. Wiersz pod nimi pokazuje autora i wersję.
 - **Save**. Przycisk jest nieaktywny, dopóki czegoś nie zmienisz. W trakcie pracy pokazuje napis **Uploading…** (wgrywa się awatar), **Embedding…** (lorebook jest dołączany do karty) albo **Saving…**.
 - Gwiazdka **Favorite** (ulubiona).
-- **Export character** (eksport postaci). Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
-- **Import character as persona** (import postaci jako persony), czyli skopiowanie tej karty do nowej persony. Zobacz [Persony](personas.md).
-- **Duplicate character** (duplikowanie postaci).
-- **Delete character** (usunięcie postaci).
+- Menu **…** (**More actions**, więcej działań) zawiera:
+  - **Ask Professor Mari** (zapytaj Professor Mari) otwiera rozmowę o tej karcie.
+  - **Export character** (eksport postaci). Zobacz [Importowanie i eksportowanie kart postaci](import-export.md).
+  - **Import character as persona** (import postaci jako persony), czyli skopiowanie tej karty do nowej persony. Zobacz [Persony](personas.md).
+  - **Duplicate character** (duplikowanie postaci).
+  - **Delete character** (usunięcie postaci).
 
 Opuszczenie edytora najpierw zapisuje zmiany. Jeśli zapis się nie powiedzie, edytor pozostaje otwarty z twoją wersją roboczą, żeby można było spróbować ponownie.
 
@@ -44,11 +46,23 @@ Zakładki, które mają własne przewodniki:
 | **Onboarding** | [Interaktywny onboarding](interactive-onboarding.md) |
 | **Convo** | [Profile w trybie Conversation Mode](../conversation/profiles.md) |
 | **Lorebook** | [Podpinanie lorebooków do postaci](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Sprite'y postaci](sprites.md) |
-| **Gallery** | [Galerie postaci i person](galleries.md) |
+| **Images** | [Sprite'y postaci](sprites.md) i [Galerie postaci i person](galleries.md). Zobacz [Zakładka Images](#images-tab) poniżej. |
 | **Colors** i **Stats** | [Kolory postaci i Statystyki Roleplay](colors-and-stats.md) |
 
-Poniższe sekcje omawiają zakładki **Metadata**, **Card**, **Voice** i **Advanced**, a do tego awatary i historię wersji.
+Poniższe sekcje omawiają zakładki **Metadata**, **Card**, **Images**, **Voice** i **Advanced**, a do tego awatary i historię wersji.
+
+<a id="images-tab"></a>
+
+## Zakładka Images
+
+Zakładka **Images** zbiera ustawienia wyglądu postaci na obrazach. Przyciski u góry prowadzą do poszczególnych sekcji.
+
+- **Character Sheet** (arkusz postaci) to obraz referencyjny postaci. Kliknij **Manage** (zarządzanie), aby utworzyć, wgrać lub wybrać arkusz. Włącz **Use as reference image** (użycie jako obrazu referencyjnego), żeby podczas generowania obrazów arkusz miał pierwszeństwo przed awatarem. Zobacz [Arkusz postaci](sprites.md#character-sheet).
+- **Selfie instructions** (instrukcje do selfie) to opcjonalne wskazówki dla selfie postaci w trybie Conversation, np. styl zdjęcia lub wyraz twarzy. Noodle i Slurp też mogą z nich korzystać po włączeniu tej opcji w ich ustawieniach. Zobacz [Selfie](../conversation/selfies.md).
+- **Sprites** (sprite'y) zawiera wyrazy twarzy, sprite'y całej sylwetki i klipy do połączeń. Zobacz [Sprite'y postaci](sprites.md).
+- **Gallery** (galeria) przechowuje obrazy i filmy powiązane z postacią. Zobacz [Galerie postaci i person](galleries.md).
+
+Zakładka **Images** persony zawiera te same sekcje oprócz **Selfie instructions**.
 
 <a id="metadata-tab"></a>
 
@@ -58,6 +72,7 @@ Zakładka **Metadata** zbiera dane o tożsamości karty i jej porządkowaniu. Po
 
 - **Character ID**. Wartość tylko do odczytu. Pojawia się po zapisaniu karty. Kliknij **Copy** (kopiowanie), żeby ją skopiować.
 - **Name**. Wyświetlana nazwa. W promptach to `{{char}}`, symbol zastępczy, który Marinara zamienia na nazwę postaci.
+- **Other names** (inne nazwy). Przezwiska, pełne imiona i nazwiska lub tytuły, których używa postać, np. `Clark Kent, Kal-El, Mr. Kent`. Wpisz je po przecinku i naciśnij <kbd>Enter</kbd> albo kliknij **Add** (dodaj). W czatach Roleplay mogą przybierać kolor imienia. Zobacz [Kolory postaci](colors-and-stats.md#the-three-colors).
 - **Creator**. Osoba, która stworzyła kartę, podawana jako autor przy udostępnianiu.
 - **Version**. Numer wersji, który ustawiasz samodzielnie, na przykład `1.0`. Przełącznik **Automatic versioning** (automatyczne wersjonowanie) obok niego zachowuje wcześniejsze wersje i podnosi ten numer, gdy karta się zmienia. Historia wersji zapisuje migawki tylko wtedy, gdy ten przełącznik jest włączony.
 - **Talkativeness**. Suwak od 0 do 100 procent. Decyduje o tym, jak często ta postać odzywa się na czatach grupowych. Domyślnie 50 procent.

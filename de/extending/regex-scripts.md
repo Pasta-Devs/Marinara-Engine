@@ -36,11 +36,19 @@ Deine globalen Skripte liegen im Panel **Presets**, im Abschnitt **Regexes** (Re
 
 Wenn es nicht funktioniert hat: Ein roter Fehler unter **Find Pattern (Regex)** blockiert das Speichern. Das Muster ist ungültig oder unsicher; siehe [Sicherheit und Geschwindigkeit](#safety-and-performance).
 
+<a id="manage-your-scripts"></a>
+
 ### Deine Skripte verwalten
 
-Jede Zeile der Liste **Regexes** zeigt den Namen des Skripts, ein Tag **AI** oder **User**, das Muster als `/pattern/flags`, einen Ein-/Aus-Schalter (wirkt sofort), **Edit regex** (Regex bearbeiten, Stift-Symbol) und **Delete regex** (Regex löschen, Papierkorb-Symbol). Gibt es noch keine Skripte, steht in der Liste „No regexes yet“. Zieh eine Zeile an ihrem Griff, um die Reihenfolge der Ausführung zu ändern.
+Jede Zeile der Liste **Regexes** zeigt den Namen des Skripts, ein Tag **AI** oder **User**, das Muster als `/pattern/flags`, einen Ein-/Aus-Schalter (wirkt sofort), **Edit regex** (Regex bearbeiten, Stift-Symbol) und **Delete regex** (Regex löschen, Papierkorb-Symbol). Gibt es noch keine Skripte, steht in der Liste „No regexes yet“.
 
 Die Kopfzeile des Abschnitts hat drei Symbol-Schaltflächen: **Create regex**, **Import regexes from JSON** (Regex-Skripte aus JSON importieren) und **Export regexes to JSON** (Regex-Skripte als JSON exportieren). Die letzte speichert alle deine globalen Skripte in einer Datei. Skripte, die an einen einzelnen Charakter gebunden sind, werden getrennt verwaltet; siehe [Ein Skript auf einen Charakter begrenzen](#limit-a-script-to-one-character).
+
+Such im Feld **Search regexes** (Regex-Skripte suchen) nach Skriptnamen oder Mustern. Die Suche öffnet jeden Ordner mit einem Treffer. Während der Suche kannst du Skripte nicht verschieben.
+
+Lege mit **New Folder** (Neuer Ordner) einen Ordner an. Klick auf seinen Namen, um ihn auf- oder zuzuklappen. Schalte ihn aus, um seine Skripte in allen Chats zu pausieren. In der Kopfzeile steht **Paused** (Pausiert). Jedes Skript behält seine gespeicherte Schalterstellung. Ein eingeschaltetes Skript in einem pausierten Ordner zeigt einen grauen Schalter und **Paused by folder** (Durch Ordner pausiert). Löschst du den Ordner, wandern seine Skripte auf die oberste Ebene und folgen ihren eigenen Schaltern.
+
+Ordner gruppieren Skripte, ohne ihre Ausführungsreihenfolge zu ändern. Klick auf **Execution order** (Ausführungsreihenfolge), um die vollständige Liste in dieser Reihenfolge zu sehen. Zieh ein Skript an seinem Griff, um die Reihenfolge zu ändern. Ohne Ordner steht die Liste bereits in Ausführungsreihenfolge.
 
 <a id="editor-fields"></a>
 

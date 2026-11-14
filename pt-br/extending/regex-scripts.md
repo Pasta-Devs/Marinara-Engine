@@ -36,11 +36,25 @@ Os seus scripts globais ficam no painel **Presets**, na seção **Regexes**. Abr
 
 Se não funcionou: um erro em vermelho abaixo de **Find Pattern (Regex)** bloqueia o salvamento. O padrão é inválido ou inseguro; veja [Segurança e desempenho](#safety-and-performance).
 
+<a id="manage-your-scripts"></a>
+
 ### Gerenciar os seus scripts
 
-Cada linha da lista **Regexes** mostra o nome do script, uma etiqueta **AI** ou **User**, o padrão no formato `/pattern/flags`, um botão liga/desliga (com efeito imediato), **Edit regex** (editar regex, lápis) e **Delete regex** (excluir regex, lixeira). Sem scripts, a lista mostra "No regexes yet". Arraste uma linha pela alça para mudar a ordem de execução.
+Cada linha da lista **Regexes** mostra o nome do script, uma etiqueta **AI** ou **User**, o padrão no formato `/pattern/flags`, um botão liga/desliga (com efeito imediato), **Edit regex** (editar regex, lápis) e **Delete regex** (excluir regex, lixeira). Sem scripts, a lista mostra "No regexes yet".
 
 O cabeçalho da seção tem três botões de ícone: **Create regex**, **Import regexes from JSON** (importar regexes de JSON) e **Export regexes to JSON** (exportar regexes para JSON), que salva todos os seus scripts globais em um único arquivo. Os scripts ligados a um único personagem ficam separados; veja [Limitar um script a um personagem](#limit-a-script-to-one-character).
+
+Para encontrar um script, digite em **Search regexes** (buscar regexes). A busca procura nos nomes e padrões dos scripts e abre as pastas com resultados. Durante a busca, você não pode arrastar os scripts para mudar a ordem.
+
+#### Organizar scripts em pastas
+
+1. Clique em **New Folder** (nova pasta) e dê um nome à pasta.
+2. Clique no ícone de pasta na linha de um script para abrir **Move to folder** (mover para a pasta).
+3. Escolha a pasta. Para tirar um script de uma pasta, escolha **No folder (top level)** (sem pasta, nível superior).
+
+Clique no nome de uma pasta para expandi-la ou recolhê-la. Desligue a pasta para pausar seus scripts em todos os chats. O cabeçalho mostra **Paused** (pausada). Cada script mantém a posição salva do próprio botão liga/desliga. Um script ativado em uma pasta pausada aparece com o botão cinza e a etiqueta **Paused by folder** (pausado pela pasta). Excluir a pasta move seus scripts para o nível superior, onde cada um segue o próprio botão liga/desliga.
+
+As pastas agrupam scripts sem mudar a ordem de execução. Clique em **Execution order** (ordem de execução) para ver a lista completa na ordem em que os scripts rodam. Arraste um script pela alça para mudar a ordem. Quando não há pastas, a lista já aparece nessa ordem.
 
 <a id="editor-fields"></a>
 

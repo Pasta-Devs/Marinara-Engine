@@ -6,7 +6,7 @@
 
 연동 기능은 Home Assistant 안에 설치되어 Home Assistant와 Marinara 서버를 이어 주는 작은 프로그램입니다. 처음 설정할 때 다음 항목을 자동으로 만듭니다. 도구 주소를 복사하거나 도구를 직접 설정할 일은 없습니다.
 
-- Presets 패널의 **Functions**(기능) 섹션에 들어가는 스마트홈 도구. [사용자 지정 도구](../extending/custom-tools.md)를 참고하세요.
+- Presets 패널의 **Functions**(기능) 탭에 들어가는 스마트홈 도구. [사용자 지정 도구](../extending/custom-tools.md)를 참고하세요.
 - **Home Assistant**라는 이름의 에이전트 하나. 에이전트는 채팅과 함께 실행되는 AI 도우미입니다. [에이전트: 채팅을 도와주는 AI](../agents/agents-overview.md)를 참고하세요.
 - Home Assistant에서 Marinara를 살펴보고 제어할 수 있게 해 주는 Home Assistant 엔티티(기기, 센서, 컨트롤).
 
@@ -160,7 +160,7 @@ Marinara가 실행 중인지, **Host**와 **Port**가 Marinara가 수신 중인 
 
 ### Functions에 도구가 나타나지 않습니다
 
-**Marinara Sync HA Tools**를 누르거나 Home Assistant를 다시 시작한 다음 Presets 패널의 **Functions**를 확인하세요.
+**Marinara Sync HA Tools**를 누르거나 Home Assistant를 다시 시작한 다음 Presets 패널의 **Functions** 탭을 확인하세요.
 
 ### 채팅에 Home Assistant 에이전트가 없습니다
 

@@ -116,7 +116,7 @@ Marinara blokuje oczywiste obniżenia wersji. Program uruchamiający pomija auto
 
 Jeśli po aktualizacji wrócono do starszej wersji, przywróć kopię zapasową zrobioną przed tą aktualizacją. Zobacz [Powrót do starszej wersji](UPGRADING.md#downgrading-to-an-older-version). Szczegóły techniczne znajdziesz poniżej.
 
-Twoje dane mają teraz format przechowywania 10. Formaty 8, 9 i 10 dodają ustawienia awatarów 3D (najpierw MMD, potem GLB i FBX) oraz powiązania połączeń z kontami, których starsze kompilacje nie potrafią bezpiecznie odczytać. Jeśli twoje dane osiągnęły format 8 lub nowszy, a chcesz użyć starszej kompilacji, przywróć pełną kopię zapasową zrobioną przed tą aktualizacją. Poniższe polecenie przekształca tylko starsze układy plików czatu. Nie zmieniaj ręcznie numeru formatu. Zobacz [Powrót do starszej wersji](UPGRADING.md#downgrading-to-an-older-version).
+Twoje dane mają teraz format przechowywania 11. Formaty 8, 9 i 10 dodają ustawienia awatarów 3D (najpierw MMD, potem GLB i FBX) oraz powiązania połączeń z kontami. Format 11 zapisuje persony jako karty postaci. Starsze kompilacje nie potrafią bezpiecznie odczytać tych formatów. Format 11 zachowuje oryginalne pliki person jako kopie `.pre-v11` w katalogu `storage/tables/personas/`. Jeśli twoje dane osiągnęły format 8 lub nowszy, a chcesz użyć starszej kompilacji, przywróć pełną kopię zapasową zrobioną przed tą aktualizacją. Poniższe polecenie przekształca tylko starsze układy plików czatu. Nie zmieniaj ręcznie numeru formatu. Zobacz [Powrót do starszej wersji](UPGRADING.md#downgrading-to-an-older-version).
 
 W przypadku danych w formacie niższym niż 8 przekształć układ plików czatu:
 

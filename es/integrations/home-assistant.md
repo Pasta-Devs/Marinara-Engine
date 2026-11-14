@@ -6,7 +6,7 @@ Esta integración permite que tus personajes de IA controlen dispositivos reales
 
 La integración es una pequeña pieza de software que se instala dentro de Home Assistant y lo conecta con tu servidor de Marinara. En la primera configuración crea lo siguiente por ti. Nunca copias direcciones de herramientas ni configuras herramientas a mano.
 
-- Herramientas de hogar inteligente en la sección **Functions** del panel de Presets. Consulta [Herramientas personalizadas](../extending/custom-tools.md).
+- Herramientas de hogar inteligente en la pestaña **Functions** del panel de Presets. Consulta [Herramientas personalizadas](../extending/custom-tools.md).
 - Un agente llamado **Home Assistant**, un ayudante de IA que se ejecuta junto a tu chat. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
 - Entidades de Home Assistant (dispositivos, sensores y controles) para que puedas observar y controlar Marinara desde Home Assistant.
 
@@ -53,7 +53,7 @@ Consulta [Acceso remoto](../REMOTE_ACCESS.md) para saber qué opción elegir.
 
 Si no funcionó: Home Assistant muestra un error cuando no puede llegar a Marinara. Consulta [Solución de problemas](#troubleshooting).
 
-Si todo sale bien, la integración registra un webhook privado en Home Assistant, crea las herramientas en la sección **Functions** de Marinara apuntando a ese webhook, crea el agente **Home Assistant** con la lista de cada herramienta activada y crea las entidades descritas más abajo.
+Si todo sale bien, la integración registra un webhook privado en Home Assistant, crea las herramientas en la pestaña **Functions** de Marinara apuntando a ese webhook, crea el agente **Home Assistant** con la lista de cada herramienta activada y crea las entidades descritas más abajo.
 
 ## Añadir el agente a un chat
 
@@ -92,7 +92,7 @@ Las herramientas están agrupadas en ocho categorías. Para elegir cuáles puede
 
 > **Advertencia:** **Generic Service Calls (Advanced)** permite que la IA llame a cualquier servicio de Home Assistant. **Locks** le permite bloquear y desbloquear puertas. Ambas están desactivadas de forma predeterminada. Actívalas solo si las quieres.
 
-La mayoría de las herramientas aceptan un dispositivo o el nombre de una habitación. Con el nombre de una habitación, la herramienta actúa sobre cada dispositivo coincidente de esa habitación. Los cambios en las categorías surten efecto después de que pulses **Marinara Sync HA Tools** o reinicies Home Assistant.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
 
 ## Entidades en Home Assistant
 
@@ -111,7 +111,7 @@ La integración consulta a Marinara en busca de nuevos chats y agentes cada 30 s
 
 ### Sincronizar después de cambiar la configuración
 
-Pulsa **Marinara Sync HA Tools** en la página del dispositivo **Marinara Engine**. Actualiza las herramientas existentes en el sitio, reconstruye el agente **Home Assistant** si lo eliminaste y desactiva (no elimina) las herramientas cuya categoría desactivaste. No edites a mano las herramientas de Home Assistant en Marinara. La siguiente sincronización sobrescribe tus ediciones y vuelve a activar las herramientas.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
 
 ## Controlar Marinara desde automatizaciones
 
@@ -160,11 +160,11 @@ Probablemente la llamada al webhook está bloqueada. Añade `WEBHOOK_LOCAL_URLS_
 
 ### Las herramientas no aparecen en Functions
 
-Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba **Functions** en el panel de Presets.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
 
 ### El agente Home Assistant no está en mi chat
 
-Comprueba que el agente existe en Marinara, en Agents. Si no está, pulsa **Marinara Sync HA Tools** para reconstruirlo. Luego añádelo en **Chat Settings → Agents**.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
 
 ### Encontrar la dirección del webhook a mano
 

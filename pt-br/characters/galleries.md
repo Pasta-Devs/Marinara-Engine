@@ -1,10 +1,10 @@
 # Galerias de personagem e de persona
 
-A aba **Gallery** (galeria), nos editores de personagem e de persona, guarda imagens e vídeos presos a um personagem ou a uma persona, e eles continuam lá mesmo se você excluir chats. Use a aba para fichas de referência, variações de roupa e pacotes de imagens importados. Você também pode marcar uma imagem da galeria como emoji ou sticker (figurinha) personalizado.
+A seção **Gallery** (galeria) da aba **Images** (imagens) dos editores de personagem e de persona, guarda imagens e vídeos presos a um personagem ou a uma persona, e eles continuam lá mesmo se você excluir chats. Use a aba para fichas de referência, variações de roupa e pacotes de imagens importados. Você também pode marcar uma imagem da galeria como emoji ou sticker (figurinha) personalizado.
 
-## A aba Gallery
+## Encontre a galeria
 
-Todo personagem e toda persona tem a própria aba **Gallery** (ícone de câmera). Abra o personagem no Character Editor (editor de personagem) ou a persona no Persona Editor (editor de persona) e clique em **Gallery**. A galeria de um personagem tem o título **Character Gallery**, e a de uma persona, **Persona Gallery**. As duas funcionam do mesmo jeito.
+Todo personagem e toda persona tem a própria galeria. Abra o personagem no Character Editor (editor de personagem) ou a persona no Persona Editor (editor de persona) clique na aba **Images** e depois em **Gallery** no topo. A galeria de um personagem tem o título **Character Gallery**, e a de uma persona, **Persona Gallery**. As duas funcionam do mesmo jeito.
 
 A galeria tem duas sub-abas:
 
@@ -15,7 +15,7 @@ A galeria do próprio chat é outra coisa. Ela guarda as ilustrações de cena e
 
 ### Adicionar imagens
 
-1. Abra a aba **Gallery** e selecione **Images**.
+1. Abra **Images → Gallery** e selecione **Images**.
 2. Arraste os arquivos de imagem para **Upload Character Images** (enviar imagens do personagem) ou clique nessa caixa para escolher os arquivos. Em uma persona, a caixa mostra **Upload Persona Images**.
 3. Espere o upload terminar. As novas imagens aparecem na grade.
 
@@ -23,7 +23,7 @@ Clique em uma imagem para vê-la maior. Cada miniatura tem um controle de downlo
 
 ### Adicionar vídeos
 
-1. Abra a aba **Gallery** e selecione **Videos**.
+1. Abra **Images → Gallery** e selecione **Videos**.
 2. Arraste os arquivos de vídeo para **Upload Character Videos** (enviar vídeos do personagem) ou clique nessa caixa para escolher os arquivos. Em uma persona, a caixa mostra **Upload Persona Videos**.
 3. Espere o upload terminar.
 
@@ -33,7 +33,7 @@ Os tipos compatíveis são MP4, WebM e MOV. Os vídeos mais recentes aparecem pr
 
 O emoji personalizado é uma imagem pequena no meio do texto, escrita como `:name:`. O sticker é uma imagem maior, em bloco, escrita como `sticker:name:`. Os dois só funcionam em chats do Conversation Mode, o modo parecido com um aplicativo de mensagens.
 
-1. Abra a aba **Gallery** e selecione **Images**.
+1. Abra **Images → Gallery** e selecione **Images**.
 2. Clique no pequeno botão de tag no canto superior esquerdo da imagem (dica **Tag as emoji or sticker**).
 3. Clique em **Make emoji** ou em **Make sticker**.
 4. Na caixa de diálogo **Custom Emoji** ou **Custom Sticker**, digite um nome e confirme.

@@ -9,12 +9,12 @@ Są dwa rodzaje sprite'ów:
 - **Facial Expressions** (wyrazy twarzy) to portrety dla nastrojów takich jak radość, smutek albo złość.
 - **Full-body** (całe sylwetki) to obrazy całej postaci w pozach takich jak idle, walk albo battle stance.
 
-Sprite'y widać na ekranie w trybie Roleplay Mode i Game Mode, ale nie w czatach w trybie Conversation. Wgrywać je można w każdym trybie, bo postać zachowuje swoje sprite'y w każdym czacie. Persona ma tę samą zakładkę **Sprites** (sprite'y).
+Sprite'y widać na ekranie w trybie Roleplay Mode i Game Mode, ale nie w czatach w trybie Conversation. Wgrywać je można w każdym trybie, bo postać zachowuje swoje sprite'y w każdym czacie. Persona ma tę samą sekcję **Sprites** (sprite'y).
 
-## Gdzie znaleźć zakładkę Sprites
+## Gdzie znaleźć sprite'y
 
 1. Otwórz postać (albo personę) w jej edytorze.
-2. Kliknij zakładkę **Sprites**.
+2. Kliknij zakładkę **Images** (obrazy), a potem **Sprites** u góry zakładki.
 3. Na górze wybierz kategorię: **Facial Expressions**, **Full-body** albo **Clips**.
 
 Poniższe sekcje opisują kategorie **Facial Expressions** i **Full-body**. Kategoria **Clips** (klipy) należy do funkcji rozmów. Zobacz [Rozmowy audio i wideo w trybie Conversation](../conversation/calls.md).
@@ -27,7 +27,7 @@ Można wgrać obrazy PNG, JPEG, GIF, WebP, AVIF i SVG. Najlepiej wyglądają pli
 
 ### Wgrywanie jednego lub kilku sprite'ów
 
-1. Otwórz zakładkę **Sprites** i wybierz **Facial Expressions** albo **Full-body**.
+1. Otwórz **Images → Sprites** i wybierz **Facial Expressions** albo **Full-body**.
 2. Kliknij **Add sprites** (dodawanie sprite'ów).
 3. Kliknij **Upload images** (wgrywanie obrazów), przejdź do swojego folderu i zaznacz znajdujące się w nim obrazy. Można zaznaczyć kilka naraz.
 4. W oknie **Import images** (import obrazów) kliknij **Import** (import). **Cancel** (anulowanie) niczego nie dodaje.
@@ -40,7 +40,7 @@ W edytorze persony pojedynczy sprite wgrywa się przez pole nazwy w sekcji **Add
 
 Wgrywanie całego folderu jest dostępne w edytorze persony. W przypadku postaci użyj opisanego wyżej przycisku **Upload images** i zaznacz obrazy w swoim folderze.
 
-1. Otwórz zakładkę **Sprites** persony.
+1. Otwórz zakładkę **Images** persony i kliknij **Sprites**.
 2. W sekcji **Add Sprite** kliknij **Upload Folder** (wgranie folderu).
 3. Wskaż folder z obrazami.
 
@@ -160,11 +160,11 @@ Kliknij **Select**, żeby pokazać pola wyboru i **Select all sprites** (zaznacz
 
 ### Character Sheet
 
-Wiersz **Character Sheet** w edytorze postaci otwiera się przyciskiem **Manage** (zarządzanie). Tam utworzysz albo wgrasz arkusz. Włącz **Use as reference image** (użycie jako obrazu referencyjnego), żeby arkusz był preferowany przy odwzorowaniu wyglądu postaci.
+**Character Sheet** jest u góry zakładki **Images**, nad sprite'ami. Kliknij **Manage** (zarządzanie), żeby otworzyć sekcję. Tam utworzysz albo wgrasz arkusz. Włącz **Use as reference image** (użycie jako obrazu referencyjnego), żeby arkusz miał pierwszeństwo przy odwzorowaniu wyglądu postaci.
 
 ## Eksportowanie sprite'ów
 
-1. Otwórz zakładkę **Sprites**.
+1. Otwórz **Images → Sprites**.
 2. Kliknij **Export** (eksport) nad siatką postaci albo w sekcji **Add Sprite** persony.
 3. Wybierz **Expressions only** albo **Full-body only**, żeby wyeksportować bieżącą kategorię, albo **All sprites**, żeby wyeksportować wszystko.
 

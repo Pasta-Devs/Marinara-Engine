@@ -23,17 +23,19 @@
 
 ## Character Editorの全体像
 
-Character Editorは、チャット領域を全画面の作業スペースに置き換えます。画面幅が広いときはタブが左側に縦に並び、狭いときは上部で横スクロールする帯になります。タブは順に**Metadata**、**Card**、**Onboarding**、**Convo**、**Lorebook**、**Sprites**、**Gallery**、**Colors**、**Voice**、**Stats**、**Advanced**です。各タブは1つの長いフォームの該当セクションへ移動するためのものなので、スクロールして見ることもできます。
+Character Editorは、チャット領域を全画面の作業スペースに置き換えます。画面幅が広いときはヘッダーにタブのボタンが横に並びます。一部の中間的な画面幅では、ボタンにアイコンだけが表示されます。ボタンにポインターを合わせると名前が表示されます。狭いときは名前の下のメニューにまとまります。タブは順に**Metadata**、**Card**、**Onboarding**、**Convo**、**Lorebook**、**Images**(画像)、**Colors**、**Voice**、**Stats**、**Advanced**です。各タブは1つの長いフォームの該当セクションへ移動するためのものなので、スクロールして見ることもできます。
 
 ヘッダーには、よく使う要素がまとまっています。
 
 - **Back**(戻る)の矢印、アバターのタイル、名前の欄、そして`Modern AU version`のような短いラベルを入れるタイトルまたはコメントの欄。その下の行に作成者とバージョンが表示されます。
 - **Save**(保存)。何かを変更するまでは無効です。処理中は表示が変わります。**Uploading…**はアバターのアップロード中、**Embedding…**はロアブックをカードに追加している最中、**Saving…**は保存中です。
 - **Favorite**(お気に入り)の星。
-- **Export character**(キャラクターのエクスポート)。[キャラクターカードのインポートとエクスポート](import-export.md)を参照してください。
-- **Import character as persona**(ペルソナとしてインポート)。このカードを新しいペルソナにコピーします。[ペルソナ](personas.md)を参照してください。
-- **Duplicate character**(キャラクターの複製)。
-- **Delete character**(キャラクターの削除)。
+- **…**(**More actions**(その他の操作))メニューには、次の項目があります。
+  - **Ask Professor Mari**(Prof. Mariに聞く)。このカードについてProfessor Mariに質問します。
+  - **Export character**(キャラクターのエクスポート)。[キャラクターカードのインポートとエクスポート](import-export.md)を参照してください。
+  - **Import character as persona**(ペルソナとしてインポート)。このカードを新しいペルソナにコピーします。[ペルソナ](personas.md)を参照してください。
+  - **Duplicate character**(キャラクターの複製)。
+  - **Delete character**(キャラクターの削除)。
 
 エディターを離れると、先に変更が保存されます。保存に失敗した場合は、下書きを残したままエディターが開いた状態になるので、もう一度試せます。
 
@@ -44,11 +46,10 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 | **Onboarding** | [対話式オンボーディング](interactive-onboarding.md) |
 | **Convo** | [Conversationモードのプロフィール](../conversation/profiles.md) |
 | **Lorebook** | [ロアブックをキャラクターに結び付ける](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [キャラクターのスプライト](sprites.md) |
-| **Gallery** | [キャラクターとペルソナのギャラリー](galleries.md) |
+| **Images** | [キャラクターのスプライト](sprites.md)と[キャラクターとペルソナのギャラリー](galleries.md)。下の[Imagesタブ](#images-tab)を参照してください。 |
 | **Colors**と**Stats** | [キャラクターの色とロールプレイ用ステータス](colors-and-stats.md) |
 
-以下のセクションでは、**Metadata**、**Card**、**Voice**、**Advanced**の各タブと、アバター、バージョン履歴を説明します。
+以下のセクションでは、**Metadata**、**Card**、**Images**、**Voice**、**Advanced**の各タブと、アバター、バージョン履歴を説明します。
 
 <a id="metadata-tab"></a>
 
@@ -58,6 +59,7 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 
 - **Character ID**。読み取り専用で、カードを保存したあとに表示されます。**Copy**(コピー)をクリックするとコピーできます。
 - **Name**(名前)。表示される名前です。プロンプトの中では`{{char}}`になります。これは、Marinaraがキャラクターの名前に置き換えるプレースホルダーです。
+- **Other names**(別名)。`Clark Kent, Kal-El, Mr. Kent`のように、キャラクターの愛称、フルネーム、敬称などを設定できます。複数の名前はカンマで区切り、<kbd>Enter</kbd>を押すか**Add**(追加)をクリックします。Roleplayチャットでは、これらの名前にも色を付けられます。[キャラクターの色](colors-and-stats.md#the-three-colors)を参照してください。
 - **Creator**(作成者)。カードを作った人で、共有するときのクレジットになります。
 - **Version**(バージョン)。`1.0`のように自分で決めるバージョン番号です。隣にある**Automatic versioning**(自動バージョン管理)スイッチは、以前のバージョンを残し、カードが変わるとこの番号を上げます。バージョン履歴にスナップショットが保存されるのは、このスイッチがオンのときだけです。
 - **Talkativeness**(発言頻度)。0から100パーセントまでのスライダーです。グループチャットでこのキャラクターがどのくらい発言するかを決めます。デフォルトは50パーセントです。
@@ -139,6 +141,19 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 6. 気に入った結果が出たら、**Use Avatar**をクリックします。
 
 画像のサイズは、画像生成設定にある**Portraits**の画像サイズに従います。デフォルトは横1024、縦1024です。**Expose media prompts before sending**がオンの場合は、リクエストのたびにプロンプトを確認する手順が入ります。
+
+<a id="images-tab"></a>
+
+## Imagesタブ
+
+**Images**タブでは、画像に登場するキャラクターの見た目を設定できます。上部のボタンから対応する項目へ移動します。
+
+- **Character Sheet**(キャラクターシート)。キャラクターの参照画像です。**Manage**(管理)から作成、アップロード、選択ができます。画像生成でアバターより優先するには、**Use as reference image**(参照画像として使う)をオンにします。[Character Sheet](sprites.md#character-sheet)を参照してください。
+- **Selfie instructions**(自撮り写真の指示)。カメラのスタイルや表情など、Conversationでの自撮り写真に任意の指示を加えます。NoodleとSlurpでも、それぞれの設定でオンにすると使えます。[自撮り写真](../conversation/selfies.md)を参照してください。
+- **Sprites**(スプライト)。表情、全身のスプライト、通話用のクリップです。[キャラクターのスプライト](sprites.md)を参照してください。
+- **Gallery**(ギャラリー)。キャラクターに紐づけて保管する画像と動画です。[キャラクターとペルソナのギャラリー](galleries.md)を参照してください。
+
+ペルソナの**Images**タブにも、**Selfie instructions**を除いて同じ項目があります。
 
 ## Voiceタブ
 

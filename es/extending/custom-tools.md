@@ -8,13 +8,13 @@ La llamada a funciones significa que la IA le pide a la app que ejecute una acci
 
 ## Crear una herramienta
 
-Antes de empezar, abre el panel **Presets** desde la barra superior. Las herramientas están en su sección **Functions** (icono de llave inglesa). Si abres Marinara desde otro dispositivo, guarda primero el secreto de administrador en **Settings → Advanced → Admin Access** (Configuración → Avanzado → Acceso de administrador). Debe coincidir con el `ADMIN_SECRET` del servidor; consulta la [Referencia de configuración del servidor](../CONFIGURATION.md).
+Antes de empezar, abre el panel **Presets** desde la barra superior. Las herramientas están en su pestaña **Functions** (Funciones). Si abres Marinara desde otro dispositivo, guarda primero el secreto de administrador en **Settings → Advanced → Admin Access** (Configuración → Avanzado → Acceso de administrador). Debe coincidir con el `ADMIN_SECRET` del servidor; consulta la [Referencia de configuración del servidor](../CONFIGURATION.md).
 
 Para una primera prueba, elige **Static Result**: no necesita nada más.
 
 ### Cómo crear una herramienta
 
-1. Abre **Presets** y busca **Functions**.
+1. Abre **Presets → Functions** desde la barra superior.
 2. Haz clic en **Create function** (icono de signo más). Se abre un editor de herramientas en blanco.
 3. Escribe un nombre en snake_case en minúsculas, como `check_weather`. Es el nombre exacto que usa la IA para llamarla. Empieza con una letra minúscula y luego usa letras minúsculas, números y guiones bajos.
 4. Rellena **Description** (Descripción). Escríbela como una instrucción para la IA, porque la IA la lee para decidir cuándo llamar a la herramienta. Ejemplo: `Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@ Reglas para nombres y descripciones:
 - Dos herramientas no pueden compartir un nombre, y una herramienta no puede usar un nombre integrado como `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` o `update_about_me`. Un choque muestra un mensaje como `"your_name" is a reserved built-in tool name.`
 - Si sales del editor con cambios sin guardar, un aviso ofrece **Keep editing** (Seguir editando), **Discard** (Descartar) o **Save & close** (Guardar y cerrar).
 
-El encabezado de **Functions** tiene tres botones de icono:
+En la parte superior de la pestaña **Functions** están estos botones:
 
 - **Create function** (icono de signo más)
 - **Import functions from ZIP or JSON**
 - **Export functions to ZIP** (atenuado cuando no tienes herramientas)
+- **Select functions** (Seleccionar funciones, icono de marca)
+
+Debajo, **Search functions** (Buscar funciones) busca por nombre y descripción de la herramienta.
 
 Cada herramienta de la lista muestra:
 
@@ -41,7 +44,25 @@ Cada herramienta de la lista muestra:
 - un interruptor de activar/desactivar
 - **Edit function** y **Delete Function**
 
-Arrastra una herramienta por su manija para reordenar la lista. El orden es solo para mostrar. Sin herramientas, la lista dice **No functions yet** (Aún no hay funciones).
+Arrastra una herramienta por su manija para reordenar la lista. El orden es solo para mostrar. Durante una búsqueda no puedes arrastrar las herramientas. Sin herramientas, la lista dice **No functions yet** (Aún no hay funciones).
+
+### Organizar herramientas en carpetas
+
+1. Haz clic en **New Folder** (Nueva carpeta) y ponle un nombre.
+2. Haz clic en el icono de carpeta en la fila de una herramienta para abrir **Move to folder** (Mover a carpeta).
+3. Elige la carpeta. Para sacar una herramienta de su carpeta, elige **No folder (top level)** (Sin carpeta, nivel superior).
+
+Haz clic en el nombre de una carpeta para desplegarla o contraerla. Desactiva su interruptor para pausar sus herramientas. La IA deja de recibirlas en todos los chats y no puedes elegirlas en las listas de herramientas de chats ni de agentes. El encabezado muestra **Paused** (En pausa). Cada herramienta conserva el estado de su interruptor. Una herramienta activada en una carpeta en pausa muestra un interruptor gris y la etiqueta **Paused by folder** (En pausa por la carpeta). Cuando reanudas la carpeta, las herramientas activadas vuelven a ofrecerse y las desactivadas siguen desactivadas. Al borrar la carpeta, sus herramientas pasan al nivel superior y siguen el estado de sus propios interruptores.
+
+Cuando hay carpetas, la lista se agrupa por carpeta. Haz clic en **Manual order** (Orden manual) para ver la lista completa y arrastrar herramientas por sus asas.
+
+### Cambiar varias herramientas a la vez
+
+1. Haz clic en **Select functions**.
+2. Marca las herramientas que quieras cambiar o marca **Select all functions** (Seleccionar todas las funciones).
+3. Haz clic en **Enable selected** (Activar selección), **Disable selected** (Desactivar selección) o **Move to folder**. También puedes exportar o eliminar la selección.
+
+**Enable selected** cambia los interruptores de cada herramienta. Reanuda una carpeta en pausa para que sus herramientas vuelvan a ofrecerse.
 
 <a id="add-parameters"></a>
 
@@ -157,7 +178,7 @@ Crear una herramienta no hace que la IA la use. También tienes que activar el u
 3. Activa **Enable Tool Use**. Su descripción dice **Allow AI to call functions (dice rolls, game state, etc.)**. Está desactivado de forma predeterminada en un chat nuevo.
 4. Comprueba que funciona: pregúntale a la IA algo que responda tu herramienta, como "What are your store hours?" para el ejemplo `store_hours`. La respuesta debería usar el texto de la herramienta.
 
-Con **Enable Tool Use** activado y nada añadido debajo, el chat puede usar todas las herramientas habilitadas globalmente que admita: las herramientas integradas más cada herramienta personalizada cuyo interruptor esté activado en **Functions**. Los chats de Game también necesitan **Let the GM search lore** (Permitir que el GM busque trasfondo) para `search_lorebook`.
+Con **Enable Tool Use** activado y nada añadido debajo, el chat puede usar todas las herramientas habilitadas globalmente que admita: las herramientas integradas más cada herramienta personalizada cuyo interruptor esté activado en **Functions** y cuya carpeta no está en pausa. Los chats de Game también necesitan **Let the GM search lore** (Permitir que el GM busque trasfondo) para `search_lorebook`.
 
 Para limitar un chat a un conjunto elegido:
 
@@ -169,7 +190,7 @@ Una vez que añades herramientas, solo esas herramientas funcionan en ese chat. 
 
 Los chats de Game pueden usar una conexión independiente para planificar herramientas. Consulta [Planificación opcional de herramientas y búsquedas de trasfondo](../game/getting-started.md#optional-tool-planning-and-lore-searches) para conocer su coste y funcionamiento.
 
-Si no funcionó: confirma que **Enable Tool Use** está activado, que la herramienta está en la lista del chat si añadiste herramientas específicas y que el interruptor de la herramienta en **Functions** está activado. Una **Description** más clara y descripciones de parámetros más claras ayudan a la IA a decidir cuándo llamarla.
+Si no funcionó: confirma que **Enable Tool Use** está activado, que la herramienta está en la lista del chat si añadiste herramientas específicas y que el interruptor de la herramienta en **Functions** está activado y que su carpeta no está en pausa. Una **Description** más clara y descripciones de parámetros más claras ayudan a la IA a decidir cuándo llamarla.
 
 ## Adjuntar herramientas a un agente
 

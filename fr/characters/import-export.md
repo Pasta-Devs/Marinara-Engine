@@ -55,7 +55,7 @@ Pour déplacer une installation SillyTavern entière, utilise l'importateur par 
 ## Exporter un personnage
 
 1. Ouvre le personnage dans l'éditeur.
-2. Clique sur **Export character** (exporter le personnage) dans l'en-tête. La fenêtre **Export Character** s'ouvre.
+2. Clique sur **…**, puis sur **Export character** (exporter le personnage) dans l'en-tête. La fenêtre **Export Character** s'ouvre.
 3. Choisis un format. Marinara télécharge le fichier.
 
 | Format | Ce que tu obtiens | Idéal pour |

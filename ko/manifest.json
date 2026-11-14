@@ -1,6 +1,6 @@
 {
   "language": "ko",
-  "sourceCommit": "ced95585655848c267c72624f0cbe6a32776f523",
+  "sourceCommit": "dd2e4b15c5da79e29dc70e8b10404c68ee9bc275",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,13 +24,13 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "17498503e6748c74624c55bacab3fd10474c9174759792779cbff53e06fb5167",
-      "bytes": 55912
+      "sha256": "d11d8aa411084927658a361dce2a7daa78b683361a4369d4e5a805cdbdcc85b6",
+      "bytes": 56119
     },
     {
       "path": "UPGRADING.md",
-      "sha256": "c1efc78c3d0a9d39108487c3c5ea5a736a76474ed973d7cdbf93bae4c979da11",
-      "bytes": 20746
+      "sha256": "6286cc8b43a61fe50743a0083e7c36801c9c456a77b943bc4650616e38c98d58",
+      "bytes": 20838
     },
     {
       "path": "agents/agents-overview.md",
@@ -44,8 +44,8 @@
     },
     {
       "path": "agents/avatars.md",
-      "sha256": "e09e62e18d7dc3696367e802d296f226688cb159c834440bb26297c7036c5098",
-      "bytes": 49580
+      "sha256": "b83c6e0037df82442021e76bc6921352f38c38fd1555082c08c18c281b35f70b",
+      "bytes": 49608
     },
     {
       "path": "agents/built-in-agents.md",
@@ -79,8 +79,8 @@
     },
     {
       "path": "agents/noodle.md",
-      "sha256": "b1a177124d0295092a0ef4e5aa16e6f9219e1defe124f248d8c4a6b79e2079d4",
-      "bytes": 13445
+      "sha256": "82f10a84013289d785ed07b591548e42b78837d5795891a8a60ab067c102e078",
+      "bytes": 13628
     },
     {
       "path": "appearance/appearance-settings.md",
@@ -114,28 +114,28 @@
     },
     {
       "path": "characters/choosing-your-persona.md",
-      "sha256": "8f94b020f1ddf3af0c0dcc2913adfd5bd69f9e4f6e2a010ca47b1bb1e58663c2",
-      "bytes": 4372
+      "sha256": "6b96ff19aed8f8ca24139dc8a0650981c6d7cbd99f8f544fcfd29e99128842f6",
+      "bytes": 5135
     },
     {
       "path": "characters/colors-and-stats.md",
-      "sha256": "7d856786b87a6397184d459f8881fd0eaf5bb8aa5ebf2829b057240c704ea39b",
-      "bytes": 15130
+      "sha256": "14313c96b5fca0e5691fefca5bcb5018e2ebdb8bdda716301ab43dc323312fb3",
+      "bytes": 15373
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "c9e2889bd9d81ef8f3c0b1f8cb098d699561b0c7b83781b361d801ddc6bbb933",
-      "bytes": 22526
+      "sha256": "b8bc54d1f33a564057114727c9c4c37c0bc7fd28f7888b309b765c0b95d74b33",
+      "bytes": 24546
     },
     {
       "path": "characters/galleries.md",
-      "sha256": "0e00a35300ae2162eaf9aad9fb9a804e9c510a9cdbf372591755445d05bae273",
-      "bytes": 10513
+      "sha256": "37e4d5e69fb511c315714b45146db6c68f87c08f5b80af64ed7dfdaa3be26fd5",
+      "bytes": 10562
     },
     {
       "path": "characters/import-export.md",
-      "sha256": "f58da1f09470d00844e0e9ee631463afd536452f509c1b29bb959a8d1e9427d6",
-      "bytes": 7127
+      "sha256": "8629bc35dc67e8fa4c4310a4558feadcb1cbaa0d3549df850cc3011c5445b49b",
+      "bytes": 7152
     },
     {
       "path": "characters/interactive-onboarding.md",
@@ -149,13 +149,13 @@
     },
     {
       "path": "characters/personas.md",
-      "sha256": "cfba293bf6999f8f7f32bd3141a196dca33602b600dec621b8fef0486d2a9b47",
-      "bytes": 13763
+      "sha256": "02786690c89849737f31474a957aaea60b6c978d14f0afc4cf579cf447ca46f2",
+      "bytes": 14218
     },
     {
       "path": "characters/sprites.md",
-      "sha256": "250fd7e48813dc1358f3e3c7cfa14a676cfe94e8ebc142b478b19436dae39aa3",
-      "bytes": 19100
+      "sha256": "d2be6f754a4cc889d0b5106b78b73dfd4906d8ad3b17256c2ad5a705dc1119f5",
+      "bytes": 19250
     },
     {
       "path": "chats/branches.md",
@@ -179,8 +179,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "4e59c1e8719e08d2c4297a24a19dc5839d398f9b5f4e1d789a06f8f4cd22cc47",
-      "bytes": 15080
+      "sha256": "4e52a145feaab4b79f8a7da43b55192209dc237256cf9f5dd80531029b01b2c7",
+      "bytes": 15133
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -279,8 +279,8 @@
     },
     {
       "path": "conversation/profiles.md",
-      "sha256": "7f640a3043394527d84318c6340e8d3071734c49d1d99f4517ec3a00fbcfd3e5",
-      "bytes": 7809
+      "sha256": "4b6566db5f9fd48ad2525b017f22476d30a5560e22e0ba405a511a7f4a1fa803",
+      "bytes": 7794
     },
     {
       "path": "conversation/schedules.md",
@@ -324,8 +324,8 @@
     },
     {
       "path": "development/architecture-map.md",
-      "sha256": "77989cfc6b60cec83dae3dee98840e39acb46c3123a111968257d3012a54ecf1",
-      "bytes": 20904
+      "sha256": "a1a1fe31c28ee5d9dea45b7c4a23ec08e1df6393a491ae9517fced9cf1d1e263",
+      "bytes": 21877
     },
     {
       "path": "development/chat-resource-drag-drop-plan.md",
@@ -339,13 +339,13 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "08ba5446b1ea324afb7657df3819e829754a3edc3a60f33892ff4fede08744dc",
-      "bytes": 9212
+      "sha256": "23f29a73e175c97b40900159d0291d584b85561ad70e21302d413901eb08c0d4",
+      "bytes": 9234
     },
     {
       "path": "development/frontend.md",
-      "sha256": "af1130ca8795175ea9a3331beec5ebf1fb51a475aa54a101a047aee5a6bdbdd7",
-      "bytes": 44478
+      "sha256": "f0034acb5b8d0866dd5e0a1478a172b84e823c10ca22b6fc15b943e6f3b691c8",
+      "bytes": 46944
     },
     {
       "path": "development/game-combat-ai.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "273acfc93d664a9347991b2e0fcd9281c9bc3884c9fe61302302d2cf4e811c22",
-      "bytes": 193338
+      "sha256": "bcc9082838ac25cbce175304ddcb6acd62a8968123f1c5f66a7b2182e53bb657",
+      "bytes": 193841
     },
     {
       "path": "development/personal-extensions.md",
@@ -409,8 +409,8 @@
     },
     {
       "path": "extending/custom-tools.md",
-      "sha256": "0051706609488a96923b5a2ca050f0fb8d10854e1ad03d34aed5abfa36ca6ffa",
-      "bytes": 15314
+      "sha256": "4ba9783b4543c04ee29f3a8c4ee9d1aec65c03defcda41d04b805d4e36b7788a",
+      "bytes": 17346
     },
     {
       "path": "extending/personal-extensions.md",
@@ -419,8 +419,8 @@
     },
     {
       "path": "extending/regex-scripts.md",
-      "sha256": "e442ceaff50d52c82247bff7cdab53ad735cf226ab82b48d07c715c5da3b1ab8",
-      "bytes": 15295
+      "sha256": "5073967e9d69e463f723d4a4d3eba127ea588ac604de104a997a87c7f408eb86",
+      "bytes": 16712
     },
     {
       "path": "extending/ruleset-catalogs.md",
@@ -604,8 +604,8 @@
     },
     {
       "path": "integrations/home-assistant.md",
-      "sha256": "f5cf965658546ddd06a3e2f76d2dfd27d8c1ab4db8a3b038164cb53acfb09668",
-      "bytes": 12708
+      "sha256": "61aa27366721863b2e7f61e0bcb9f22c824b8eebe207a5bb5d3b3b70ee6c766b",
+      "bytes": 12709
     },
     {
       "path": "integrations/message-translation.md",
@@ -709,8 +709,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "8528d46a40bcb1288bd3d9724a643e45706de3dbea3cf24568e235469b29afbe",
-      "bytes": 15866
+      "sha256": "74d531c8d9393fb4e526e9bfb15659871787c9c9d105a59ac2576d848117f035",
+      "bytes": 16108
     },
     {
       "path": "prompts/prompt-overrides.md",

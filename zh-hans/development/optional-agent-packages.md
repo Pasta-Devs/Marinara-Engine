@@ -971,8 +971,10 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 浏览器视图新增 `openCharacter(characterId, { tab })`。它会打开角色编辑器，有指定标签页时就打开到该标签页，这样包可以把用户带到它所读取的角色卡字段。旧 Engine 没有这个方法：显示链接前，先检查 `openCharacter` 是否存在。
 
+从 #9191 开始，`tab` 也接受选项卡内的区域：`character-sheet`、`image-instructions`、`sprites` 和 `gallery` 都在 **Images** 选项卡内。`sprites` 和 `gallery` 原本是单独的选项卡，旧链接仍可用。角色的自拍指令（`conversationImageInstructions`）已从 `convo` 移到 `image-instructions`。#9191 之前的 Engine 无法识别这个 ID，会从编辑器顶部打开。
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66：来自包对话线程的场景

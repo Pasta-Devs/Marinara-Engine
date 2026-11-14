@@ -23,17 +23,19 @@ Elige el personaje cuando empieces un chat. Consulta [Modo Roleplay: primeros pa
 
 ## El Character Editor de un vistazo
 
-El Character Editor reemplaza el área del chat por un espacio de trabajo a página completa. En una pantalla ancha las pestañas van por el lado izquierdo. En una pantalla estrecha se convierten en una tira desplazable en la parte superior. Las pestañas, en orden, son **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** y **Advanced**. Cada pestaña salta a su sección de un único formulario largo, así que también puedes desplazarte por él.
+El Character Editor reemplaza el área del chat por un espacio de trabajo a página completa. En una pantalla ancha, las pestañas forman una fila de botones en el encabezado. Con algunos anchos intermedios, los botones solo muestran sus iconos. Pasa el puntero por encima de un botón para ver su nombre. En una pantalla estrecha, se agrupan en un menú debajo del nombre. Las pestañas, en orden, son **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images** (Imágenes), **Colors**, **Voice**, **Stats** y **Advanced**. Cada pestaña salta a su sección de un único formulario largo, así que también puedes desplazarte por él.
 
 El encabezado contiene las partes que más usas:
 
 - La flecha **Back** (Atrás), la casilla del avatar, un campo de nombre y un campo de título o comentario para una etiqueta corta como `Modern AU version`. Una línea debajo muestra el creador y la versión.
 - **Save**. Está desactivado hasta que cambias algo. Mientras trabaja, muestra **Uploading…** (se está subiendo un avatar), **Embedding…** (se está añadiendo un lorebook a la tarjeta) o **Saving…**.
 - La estrella **Favorite** (Favorito).
-- **Export character** (Exportar personaje). Consulta [Importar y exportar tarjetas de personaje](import-export.md).
-- **Import character as persona** (Importar personaje como persona), que copia esta tarjeta en una nueva persona de usuario. Consulta [Personas](personas.md).
-- **Duplicate character** (Duplicar personaje).
-- **Delete character** (Eliminar personaje).
+- El menú **…** (**More actions**, Más acciones) contiene:
+  - **Ask Professor Mari** (Pregúntale a Professor Mari). Sirve para preguntarle a Professor Mari por esta tarjeta.
+  - **Export character** (Exportar personaje). Consulta [Importar y exportar tarjetas de personaje](import-export.md).
+  - **Import character as persona** (Importar personaje como persona), que copia esta tarjeta en una nueva persona de usuario. Consulta [Personas](personas.md).
+  - **Duplicate character** (Duplicar personaje).
+  - **Delete character** (Eliminar personaje).
 
 Al salir del editor, primero se guardan tus cambios. Si el guardado falla, el editor permanece abierto con tu borrador para que puedas volver a intentarlo.
 
@@ -44,11 +46,10 @@ Pestañas que tienen su propia guía:
 | **Onboarding** | [Onboarding interactivo](interactive-onboarding.md) |
 | **Convo** | [Perfiles de Conversation Mode](../conversation/profiles.md) |
 | **Lorebook** | [Vincular lorebooks a personajes](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Sprites de personaje](sprites.md) |
-| **Gallery** | [Galerías de personaje y persona](galleries.md) |
+| **Images** | [Sprites de personaje](sprites.md) y [Galerías de personajes y personas](galleries.md). Consulta [Pestaña Images](#images-tab). |
 | **Colors** y **Stats** | [Colores del personaje y Estadísticas de Roleplay](colors-and-stats.md) |
 
-Las secciones de abajo cubren **Metadata**, **Card**, **Voice** y **Advanced**, además de los avatares y el historial de versiones.
+Las secciones de abajo cubren **Metadata**, **Card**, **Images**, **Voice** y **Advanced**, además de los avatares y el historial de versiones.
 
 <a id="metadata-tab"></a>
 
@@ -58,6 +59,7 @@ La pestaña **Metadata** contiene los detalles de identidad y organización. Te 
 
 - **Character ID**. Solo lectura. Aparece después de guardar la tarjeta. Haz clic en **Copy** (Copiar) para copiarlo.
 - **Name**. El nombre mostrado. Es `{{char}}` en los prompts (las instrucciones enviadas a la IA), un marcador de posición que Marinara reemplaza por el nombre del personaje.
+- **Other names** (Otros nombres). Apodos, nombres completos o títulos por los que también se conoce al personaje, como `Clark Kent, Kal-El, Mr. Kent`. Escribe varios separados por comas y pulsa <kbd>Enter</kbd> o haz clic en **Add** (Añadir). Los chats de Roleplay pueden mostrarlos con el color del nombre. Consulta [Colores del personaje](colors-and-stats.md#the-three-colors).
 - **Creator**. Quién creó la tarjeta, para dar crédito cuando la compartes.
 - **Version**. Un número de versión que tú defines, como `1.0`. El interruptor **Automatic versioning** (Control de versiones automático) que está al lado conserva las versiones anteriores y sube este número cuando la tarjeta cambia. El historial de versiones solo guarda instantáneas mientras este interruptor está activado.
 - **Talkativeness**. Un control deslizante del 0 al 100 por ciento. Define con qué frecuencia habla este personaje en los chats grupales. El valor predeterminado es 50 por ciento.
@@ -139,6 +141,19 @@ Antes de empezar: añade una conexión de generación de imágenes. El botón de
 6. Haz clic en **Use Avatar** (Usar avatar) cuando te guste el resultado.
 
 El tamaño de la imagen viene del tamaño de imagen **Portraits** en los ajustes de generación de imágenes. De forma predeterminada es 1024 por 1024. Si **Expose media prompts before sending** (Mostrar los prompts de medios antes de enviarlos) está activado, aparece un paso de revisión del prompt antes de cada solicitud.
+
+<a id="images-tab"></a>
+
+## Pestaña Images
+
+La pestaña **Images** (Imágenes) reúne lo que define el aspecto del personaje en las imágenes. Los botones de arriba llevan a cada sección:
+
+- **Character Sheet** (Hoja del personaje): una imagen de referencia del personaje. Haz clic en **Manage** (Gestionar) para crear, subir o elegir una. Activa **Use as reference image** (Usar como imagen de referencia) para que tenga prioridad sobre el avatar al generar imágenes. Consulta [Hoja del personaje](sprites.md#character-sheet).
+- **Selfie instructions** (Instrucciones para selfies): indicaciones opcionales para las selfies de Conversation del personaje, como el estilo de cámara o las expresiones. Noodle y Slurp también pueden usarlas si activas la opción en sus ajustes. Consulta [Selfies](../conversation/selfies.md).
+- **Sprites**: expresiones, sprites de cuerpo completo y clips de llamadas. Consulta [Sprites de personaje](sprites.md).
+- **Gallery** (Galería): imágenes y videos guardados con el personaje. Consulta [Galerías de personajes y personas](galleries.md).
+
+La pestaña **Images** de una persona tiene las mismas secciones, salvo **Selfie instructions**.
 
 ## Pestaña Voice
 

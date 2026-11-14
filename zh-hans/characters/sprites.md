@@ -9,12 +9,12 @@
 - **Facial Expressions**(面部表情) 是对应不同心情的半身像，比如开心、难过或生气。
 - **Full-body**(全身) 是对应不同姿势的全身图，比如待机、行走或战斗姿态。
 
-立绘只在 Roleplay Mode 和 Game Mode(游戏模式) 里显示在屏幕上，Conversation(对话模式) 聊天里不显示。不过在任何模式下都可以上传立绘，因为角色的立绘在每个聊天里都跟着它。用户角色也有同样的 **Sprites**(立绘) 选项卡。
+立绘只在 Roleplay Mode 和 Game Mode(游戏模式) 里显示在屏幕上，Conversation(对话模式) 聊天里不显示。不过在任何模式下都可以上传立绘，因为角色的立绘在每个聊天里都跟着它。用户角色也有同样的 **Sprites**(立绘) 区域。
 
-## 找到 Sprites 选项卡
+## 找到立绘
 
 1. 在编辑器里打开一个角色（或用户角色）。
-2. 点击 **Sprites** 选项卡。
+2. 点击 **Images**(图像) 选项卡，再点击顶部的 **Sprites**。
 3. 在顶部选一个分类：**Facial Expressions**、**Full-body** 或 **Clips**(片段)。
 
 下面几节讲 **Facial Expressions** 和 **Full-body**。**Clips** 属于通话功能，参见 [Conversation 音频和视频通话](../conversation/calls.md)。
@@ -27,7 +27,7 @@
 
 ### 上传一张或多张立绘
 
-1. 打开 **Sprites** 选项卡，选择 **Facial Expressions** 或 **Full-body**。
+1. 打开 **Images → Sprites**，选择 **Facial Expressions** 或 **Full-body**。
 2. 点击 **Add sprites**(添加立绘)。
 3. 点击 **Upload images**(上传图片)，进入你的文件夹，选中里面的图片。可以一次选多个。
 4. 在 **Import images**(导入图片) 确认框里点击 **Import**(导入)。点击 **Cancel**(取消) 则什么都不会添加。
@@ -40,7 +40,7 @@
 
 用户角色编辑器可以上传整个文件夹。角色则用上面的 **Upload images**，选中文件夹里的图片。
 
-1. 打开用户角色的 **Sprites** 选项卡。
+1. 打开用户角色的 **Images** 选项卡，然后点击 **Sprites**。
 2. 在 **Add Sprite** 框里点击 **Upload Folder**(上传文件夹)。
 3. 选择存放图片的那个文件夹。
 
@@ -158,13 +158,15 @@ Marinara 会保留一份安全副本。界面上会出现一行“Last cleanup h
 
 点击 **Select** 会显示复选框和 **Select all sprites**(选择全部立绘)，然后可以把选中的立绘一起拖动，或者使用清理和删除。**Cancel**(取消) 退出选择模式。搜索会筛选显示的立绘。搜索没有结果并不代表立绘库是空的。
 
+<a id="character-sheet"></a>
+
 ### Character Sheet
 
-角色编辑器里的 **Character Sheet** 一行用 **Manage**(管理) 打开。在那里创建或上传一张设定图。打开 **Use as reference image**(用作参考图)，还原角色长相时就会优先使用它。
+**Character Sheet** 位于 **Images** 选项卡顶部、立绘上方。点击 **Manage**(管理) 创建或上传设定图。打开 **Use as reference image**(用作参考图)，还原角色长相时就会优先使用它。
 
 ## 导出立绘
 
-1. 打开 **Sprites** 选项卡。
+1. 打开 **Images → Sprites**。
 2. 在角色网格上方，或在用户角色的 **Add Sprite** 框里，点击 **Export**(导出)。
 3. 选 **Expressions only**(仅表情) 或 **Full-body only**(仅全身) 导出当前分类，或者选 **All sprites**(全部立绘) 导出所有内容。
 

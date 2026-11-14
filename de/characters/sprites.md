@@ -9,12 +9,12 @@ Es gibt zwei Arten von Sprites:
 - **Facial Expressions** (Gesichtsausdrücke) sind Porträtbilder für Stimmungen wie fröhlich, traurig oder wütend.
 - **Full-body** (Ganzkörper) sind Ganzkörperbilder für Posen wie Ruhehaltung, Gehen oder Kampfstellung.
 
-Auf dem Bildschirm erscheinen Sprites im Roleplay Mode und im Game Mode, nicht in Conversation-Chats. Hochladen kannst du sie in jedem Modus, denn ein Charakter behält seine Sprites in jedem Chat. Eine Persona hat denselben Tab **Sprites**.
+Auf dem Bildschirm erscheinen Sprites im Roleplay Mode und im Game Mode, nicht in Conversation-Chats. Hochladen kannst du sie in jedem Modus, denn ein Charakter behält seine Sprites in jedem Chat. Eine Persona hat denselben Bereich **Sprites**.
 
-## Den Sprites-Tab finden
+## Die Sprites finden
 
 1. Öffne einen Charakter (oder eine Persona) in seinem Editor.
-2. Klick auf den Tab **Sprites**.
+2. Klick auf den Tab **Images** (Bilder) und dann oben auf **Sprites**.
 3. Wähl oben eine Kategorie: **Facial Expressions**, **Full-body** oder **Clips** (Videoclips).
 
 Die Abschnitte unten behandeln **Facial Expressions** und **Full-body**. **Clips** gehört zur Anruffunktion. Siehe [Audio- und Videoanrufe in Conversation](../conversation/calls.md).
@@ -27,7 +27,7 @@ Du kannst PNG-, JPEG-, GIF-, WebP-, AVIF- und SVG-Bilder hochladen. Transparente
 
 ### Ein oder mehrere Sprites hochladen
 
-1. Öffne den Tab **Sprites** und wähl **Facial Expressions** oder **Full-body**.
+1. Öffne **Images → Sprites** und wähl **Facial Expressions** oder **Full-body**.
 2. Klick auf **Add sprites** (Sprites hinzufügen).
 3. Klick auf **Upload images** (Bilder hochladen), öffne deinen Ordner und wähl die Bilder darin aus. Du kannst mehrere auf einmal auswählen.
 4. Klick im Dialogfenster **Import images** (Bilder importieren) auf **Import** (Importieren). Mit **Cancel** (Abbrechen) wird nichts hinzugefügt.
@@ -40,7 +40,7 @@ Im Persona-Editor nutzt du für ein einzelnes Sprite das Namensfeld unter **Add 
 
 Einen ganzen Ordner hochladen kannst du im Persona-Editor. Für Charaktere nutzt du oben **Upload images** und wählst die Bilder in deinem Ordner aus.
 
-1. Öffne den Tab **Sprites** der Persona.
+1. Öffne den Tab **Images** der Persona und klick auf **Sprites**.
 2. Klick im Bereich **Add Sprite** auf **Upload Folder** (Ordner hochladen).
 3. Wähl den Ordner mit deinen Bildern aus.
 
@@ -158,13 +158,15 @@ Zieh Sprites in einen Ordner, oder zieh ein einsortiertes Sprite in den Bereich 
 
 Klick auf **Select**, um Kontrollkästchen und **Select all sprites** (alle Sprites auswählen) einzublenden. Danach ziehst du die ausgewählten Sprites gemeinsam oder nutzt Bereinigen und Löschen. **Cancel** beendet den Auswahlmodus. Die Suche filtert die sichtbaren Sprites. Eine Suche ohne Treffer bedeutet nicht, dass die Sammlung leer ist.
 
+<a id="character-sheet"></a>
+
 ### Character Sheet
 
-Die Zeile **Character Sheet** im Charakter-Editor öffnest du über **Manage** (Verwalten). Dort erstellst oder lädst du ein Sheet hoch. Schalte **Use as reference image** (als Referenzbild verwenden) ein, damit es für die Ähnlichkeit des Charakters bevorzugt wird.
+Das **Character Sheet** (Charakterbogen) findest du im Tab **Images** oben über den Sprites. Klick auf **Manage** (Verwalten), um es zu öffnen. Dort erstellst oder lädst du ein Sheet hoch. Schalte **Use as reference image** (als Referenzbild verwenden) ein, damit es für die Ähnlichkeit des Charakters bevorzugt wird.
 
 ## Sprites exportieren
 
-1. Öffne den Tab **Sprites**.
+1. Öffne **Images → Sprites**.
 2. Klick über dem Raster des Charakters auf **Export** oder im Bereich **Add Sprite** der Persona.
 3. Wähl **Expressions only** oder **Full-body only**, um die aktuelle Kategorie zu exportieren, oder **All sprites** für alles.
 

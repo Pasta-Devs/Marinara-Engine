@@ -38,7 +38,7 @@
 
 ## Presets 面板
 
-**Prompts**(提示词) 是放预设的分区。另外两个分区是 **Regexes**(正则) 和 **Functions**(函数)。顶部的按钮有 **New**、**Import**(导入，加载 `.json` 文件) 和 **Select**(选择，一次导出或删除多个)。
+面板有三个选项卡：**Presets**(预设)、**Regexes**(正则) 和 **Functions**(函数)。每个选项卡顶部都有相同的一排按钮、搜索框和 **New Folder**(新建文件夹)。在 **Presets** 选项卡中，用 **Create preset** 新建预设，用 **Import preset** 加载 `.json` 文件，或用 **Select presets** 一次导出或删除多个预设。**Regexes** 选项卡存放[正则脚本](../extending/regex-scripts.md#manage-your-scripts)，**Functions** 选项卡存放[自定义工具](../extending/custom-tools.md)。
 
 - **Search presets**(搜索预设) 用来筛选列表。
 - 排序菜单的选项有 **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest** 和 **Oldest**。选 **Manual order** 时，可以拖动一行，或者在获得焦点的行上按 <kbd>Alt</kbd>+<kbd>Up</kbd> 或 <kbd>Alt</kbd>+<kbd>Down</kbd>。在触屏上，长按一行就能把它拿起来。

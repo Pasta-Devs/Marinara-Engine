@@ -6,7 +6,7 @@
 
 इंटीग्रेशन एक छोटा सॉफ़्टवेयर है जो Home Assistant के अंदर इंस्टॉल होता है और उसे आपके Marinara सर्वर से जोड़ता है। पहले सेटअप में यह आपके लिए नीचे दी गई चीज़ें बनाता है। टूल के पते कॉपी करने या टूल हाथ से सेट करने की कभी ज़रूरत नहीं पड़ती।
 
-- Presets पैनल के **Functions** (फ़ंक्शन) सेक्शन में स्मार्ट होम टूल। [कस्टम टूल](../extending/custom-tools.md) देखें।
+- Presets पैनल के **Functions** (फ़ंक्शन) टैब में स्मार्ट होम टूल। [कस्टम टूल](../extending/custom-tools.md) देखें।
 - **Home Assistant** नाम का एक एजेंट, यानी वह AI मददगार जो आपकी चैट के साथ-साथ चलता है। [एजेंट का ओवरव्यू](../agents/agents-overview.md) देखें।
 - Home Assistant की एंटिटी (डिवाइस, सेंसर और कंट्रोल), ताकि आप Home Assistant से Marinara पर नज़र रख सकें और उसे चला सकें।
 
@@ -53,7 +53,7 @@ WEBHOOK_LOCAL_URLS_ENABLED=true
 
 अगर यह काम नहीं किया: Marinara तक न पहुँच पाने पर Home Assistant एरर दिखाता है। [समस्या-समाधान](#troubleshooting) देखें।
 
-सफल होने पर इंटीग्रेशन Home Assistant में एक निजी वेबहुक रजिस्टर करता है, Marinara के **Functions** सेक्शन में उसी वेबहुक की तरफ़ इशारा करने वाले टूल बनाता है, हर चालू टूल की लिस्ट वाला **Home Assistant** एजेंट बनाता है, और नीचे बताई गई एंटिटी बनाता है।
+सफल होने पर इंटीग्रेशन Home Assistant में एक निजी वेबहुक रजिस्टर करता है, **Presets** के **Functions** टैब में उसी वेबहुक की तरफ़ इशारा करने वाले टूल बनाता है, हर चालू टूल की लिस्ट वाला **Home Assistant** एजेंट बनाता है, और नीचे बताई गई एंटिटी बनाता है।
 
 ## एजेंट को चैट में जोड़ें
 
@@ -160,7 +160,7 @@ automation:
 
 ### टूल Functions में नहीं दिखते
 
-**Marinara Sync HA Tools** दबाएँ या Home Assistant दोबारा शुरू करें, फिर Presets पैनल में **Functions** देखें।
+**Marinara Sync HA Tools** दबाएँ या Home Assistant दोबारा शुरू करें, फिर Presets पैनल का **Functions** टैब देखें।
 
 ### Home Assistant एजेंट मेरी चैट में नहीं है
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## अनइंस्टॉल करें
 
-Home Assistant में **Settings → Devices & Services → Marinara Engine** में जाकर इंटीग्रेशन डिलीट करें। इससे एंटिटी हट जाती हैं। Marinara के **Functions** सेक्शन के टूल और **Home Assistant** एजेंट बने रहते हैं। अगर अब इनकी ज़रूरत न हो, तो इन्हें Marinara में हाथ से डिलीट करें।
+Home Assistant में **Settings → Devices & Services → Marinara Engine** में जाकर इंटीग्रेशन डिलीट करें। इससे एंटिटी हट जाती हैं। **Presets** के **Functions** टैब के टूल और **Home Assistant** एजेंट बने रहते हैं। अगर अब इनकी ज़रूरत न हो, तो इन्हें Marinara में हाथ से डिलीट करें।
 
 ## मिलती-जुलती गाइड
 

@@ -14,6 +14,8 @@
 
 **Extract Colors from Avatar**(从头像提取颜色) 会根据头像图片挑出全部三种颜色。还没有头像时，这个按钮是禁用的，显示为 **Upload an avatar first**。提取之后，任何颜色仍然可以手动修改。
 
+<a id="the-three-colors"></a>
+
 ### 三种颜色
 
 用颜色输入框选取，或者直接输入数值：
@@ -30,7 +32,7 @@
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-角色的 **Colors** 选项卡里还有 **Name Aliases**(名字别名)。输入额外的名字或昵称，用逗号分隔，例如 `Kate, Kitty, Katherine`。这些名字出现在聊天消息里时，会使用这个角色的名字颜色。主名字始终包含在内。在 **Chat Settings → Characters**(聊天设置 → 角色) 里按聊天开启这项功能。
+**Other names**(其他名字) 位于 **Metadata**(元数据) 选项卡的 **Name**(名字) 下方，可以填写昵称、全名或头衔，例如 `Clark Kent, Kal-El, Mr. Kent`。在 Roleplay 聊天消息中，它们会和主要名字使用相同的颜色。你可以按聊天开启这项功能：在 **Chat Settings → Characters**(聊天设置 → 角色) 里打开 **Color Character Names in Text**(为正文中的角色名称着色)，在 **Chat Settings → Persona**(聊天设置 → 用户角色) 里打开 **Color Persona Name in Text**(为正文中的用户角色名称着色)。
 
 要调整透明度，使用 **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity**(设置 → 外观 → Roleplay 呈现方式 → Roleplay 消息背景不透明度)。
 

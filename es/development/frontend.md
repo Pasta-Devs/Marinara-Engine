@@ -61,7 +61,7 @@ Los editores principales y los componentes pesados se cargan de forma diferida (
 
 El cliente usa un conjunto de stores de Zustand en `packages/client/src/stores/` para el estado de la interfaz y el estado en tiempo de ejecución. `ui.store.ts` es el único store persistido. Los demás guardan el estado en tiempo de ejecución de los chats, los agentes, los juegos, el runtime del modelo local, la traducción, los diálogos y el backfill.
 
-Los archivos de store actuales son: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts` y `ui.store.ts`. Los stores de los juegos de mesa se trasladaron a sus paquetes descargables; `conversation-games.store.ts` solo controla el selector y la configuración de los juegos de Conversation.
+Los archivos de store actuales son: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `combat-screen.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `roleplay-sheet.store.ts`, `sidecar.store.ts`, `translation.store.ts` y `ui.store.ts`. Los stores de los juegos de mesa se trasladaron a sus paquetes descargables; `conversation-games.store.ts` solo controla el selector y la configuración de los juegos de Conversation. `combat-screen.store.ts` controla qué pantalla de combate se muestra y en qué ronda está. Así la barra superior muestra los controles de combate solo mientras esa pantalla está abierta. `roleplay-sheet.store.ts` registra de qué miembro es la ficha de reglas abierta en un chat de Roleplay.
 
 #### `ui.store.ts`: ajustes y elementos de interfaz
 
@@ -126,7 +126,7 @@ Estado de combate por turnos:
 
 ### React Query (datos del servidor)
 
-Todos los datos del servidor se obtienen y se almacenan en caché mediante TanStack React Query, configurado en `main.tsx`:
+Todos los datos del servidor se obtienen y se almacenan en caché mediante TanStack React Query, configurado en `lib/query-client.ts`:
 
 - Tiempo de obsolescencia: 30 segundos (predeterminado global).
 - Reintento: 1 intento.
@@ -137,7 +137,7 @@ Cada entidad tiene un archivo de hook dedicado que exporta hooks de consulta y d
 
 ## Referencia de hooks
 
-Todos los hooks viven en `src/hooks/` y siguen el patrón `use-{entity}.ts`.
+Todos los hooks viven en `src/hooks/` y siguen el patrón `use-{entity}.ts`. Las tablas de abajo solo recogen los hooks principales. La lista completa está en `packages/client/src/hooks/`.
 
 ### Hooks de chat (`use-chats.ts`)
 
@@ -181,27 +181,25 @@ Todos los hooks viven en `src/hooks/` y siguen el patrón `use-{entity}.ts`.
 | Hook                           | Tipo     | Descripción                                                 |
 | ------------------------------ | -------- | ---------------------------------------------------------- |
 | `usePresets()`                 | Query    | Todos los presets (ajustes guardados)                      |
-| `usePreset(id)`                | Query    | Un solo preset                                             |
-| `usePresetFull(id)`            | Query    | Preset con secciones, grupos y opciones                    |
+| `usePresetFull(id)` | Query | Un preset con sus secciones, grupos y variables |
 | `useDefaultPreset()`           | Query    | El preset predeterminado                                   |
-| `useCreatePreset()`            | Mutation | Crear preset                                               |
 | `useUpdatePreset()`            | Mutation | Actualizar preset                                          |
 | `useDeletePreset()`            | Mutation | Eliminar preset                                            |
-| `usePresetSections(presetId)`  | Query    | Secciones de prompt de un preset                           |
-| `usePresetGroups(presetId)`    | Query    | Grupos de secciones                                        |
-| `usePresetVariables(presetId)` | Query    | Variables del preset (antes bloques de elección)           |
-| `usePreviewPreset()`           | Mutation | Vista previa del prompt renderizado para `{ presetId, chatId, choices }` |
+| `useDuplicatePreset()` | Mutation | Duplicar un preset |
+| `useSetDefaultPreset()` | Mutation | Establecer un preset como predeterminado |
+| `useCreateSection()` | Mutation | Crear una sección de prompt (los hooks para actualizar, borrar y reordenar están junto a este) |
+| `useCreateGroup()` | Mutation | Crear un grupo de secciones (los hooks para actualizar y borrar están junto a este) |
+| `useCreateVariable()` | Mutation | Crear una variable de preset, antes llamada bloque de elección (los hooks para actualizar, borrar y reordenar están junto a este) |
 
 ### Hooks de agente (`use-agents.ts`)
 
 | Hook                 | Tipo     | Descripción                     |
 | -------------------- | -------- | ------------------------------- |
 | `useAgentConfigs()`  | Query    | Todas las configuraciones de agentes |
-| `useAgentConfig(id)` | Query    | Configuración de un solo agente |
 | `useCreateAgent()`   | Mutation | Crear agente personalizado      |
 | `useUpdateAgent()`   | Mutation | Actualizar configuración del agente |
 | `useDeleteAgent()`   | Mutation | Eliminar agente                 |
-| `useToggleAgent()`   | Mutation | Activar o desactivar un agente integrado |
+| `useUpdateAgentByType()` | Mutation | Actualizar la configuración de un agente por tipo |
 
 ### Hook de generación (`use-generate.ts`)
 
@@ -231,7 +229,7 @@ La carpeta `src/hooks/` también contiene muchos hooks específicos de cada func
 | `use-background-autonomous.ts` | Sondeo en segundo plano para chats inactivos |
 | `use-translate.ts`             | Traducción de texto                       |
 | `use-apply-regex.ts`           | Ejecución de scripts de regex en los mensajes |
-| `use-custom-tools.ts`          | CRUD de herramientas personalizadas       |
+| `use-custom-tools.ts` | CRUD de herramientas personalizadas, reordenamiento y activación o desactivación en bloque |
 | `use-knowledge-sources.ts`     | Gestión de fuentes de conocimiento        |
 | `use-gallery.ts`               | Imágenes de la galería del chat           |
 | `use-chat-folders.ts`          | CRUD de carpetas de chat más reordenamiento |
@@ -326,9 +324,9 @@ Los paneles del lado derecho muestran listas de recursos con búsqueda, orden y 
 Los paneles se registran en `RightPanel.tsx` en dos lugares:
 
 1. `PANEL_CONFIG`: título, icono y color del degradado.
-2. `PANELS`: el mapa de componentes.
+2. `RIGHT_PANELS` (en `right-panel-panels.ts`): el mapa de componentes.
 
-Los paneles usan persistencia a nivel de módulo. Un Set `mountedPanels` sigue qué paneles se han visitado. Una vez montado, un panel se queda en el DOM (oculto con `display: none` o `aria-hidden`) para conservar su estado.
+Los paneles conservan su estado mediante un Set `mountedPanels` guardado en un `useState` dentro de `RightPanel`. Registra los paneles que ya se han visitado. Una vez montado, un panel se queda en el DOM (oculto con `display: none` o `aria-hidden`) para conservar su estado.
 
 ### Primitivas de interfaz (`components/ui/`)
 
@@ -340,8 +338,11 @@ Los paneles usan persistencia a nivel de módulo. Un Set `mountedPanels` sigue q
 | `EmojiPicker`      | Panel emergente de emoji con búsqueda (renderizado como portal)       |
 | `GifPicker`        | Búsqueda de GIF mediante la API de Giphy                              |
 | `HelpTooltip`      | Icono que al pasar el cursor muestra un tooltip (texto de ayuda) posicionado como portal |
+| `LibraryToolbar` | Barra de herramientas compartida por todos los paneles de biblioteca (ver abajo) |
 
 Todos los componentes de interfaz usan props controladas (value más onChange) y renderizado como portal para las superposiciones.
+
+**Los paneles de biblioteca usan `LibraryToolbar`.** Los paneles de personajes, personas, lorebooks, agentes y las pestañas del panel de Presets muestran sus controles superiores con este componente: una fila opcional de biblioteca (un botón de ancho completo o el par Download y Open Library), acciones de crear, importar, exportar y seleccionar, búsqueda con el menú de orden compartido, New Folder y, por último, los filtros de panel como `children`. Las filas son props con tipos, por lo que cada panel nuevo recibe el mismo marcado. Añade una prop aquí si hace falta.
 
 ## Cliente de API (`lib/api-client.ts`)
 
@@ -466,8 +467,12 @@ El servidor (`packages/server`) expone APIs REST bajo `/api`. Este es un mapa de
 | `/api/connections`   | GET, POST, PATCH, DELETE | CRUD de conexiones de API, duplicar, probar                                               |
 | `/api/agents`        | GET, POST, PATCH, DELETE | CRUD de agentes, mensajes de eco, ejecuciones; los interruptores de los integrados usan `PUT /api/agents/toggle/:agentType` |
 | `/api/lorebooks`     | GET, POST, PATCH, DELETE | CRUD de lorebook, entradas, exportación                                                   |
-| `/api/custom-tools`  | GET, POST, PATCH, DELETE | CRUD de herramientas personalizadas                                                       |
-| `/api/regex-scripts` | GET, POST, PATCH, DELETE | CRUD de scripts de regex                                                                  |
+| `/api/custom-tools` | GET, POST, PUT, PATCH, DELETE | CRUD de herramientas personalizadas, `PUT /reorder` y `PUT /enabled` |
+| `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | CRUD de scripts de regex, `PUT /reorder` y `PUT /enabled` |
+| `/api/library-folders/regex` | GET, POST, PATCH, DELETE | CRUD de carpetas de scripts regex, estado de pausa y `POST /move` |
+| `/api/library-folders/functions` | GET, POST, PATCH, DELETE | CRUD de carpetas de herramientas personalizadas, estado de pausa y `POST /move` |
+
+`PUT /api/regex-scripts/enabled` acepta `scriptIds` y `enabled`. Si falta un id, devuelve 404 sin actualizar ningún script. La lista de regex incluye `pausedByFolder` por separado del estado guardado `enabled`. `PUT /api/custom-tools/enabled` funciona igual con `toolIds`. La lista de herramientas personalizadas también incluye `pausedByFolder`. Al modelo nunca se le ofrece una herramienta en una carpeta en pausa.
 
 Las herramientas de memoria de los agentes usan `/api/agents/memory/:agentType/:chatId`, donde `agentType` es la cadena de tipo del agente y `chatId` es el id del chat de destino.
 
@@ -483,7 +488,7 @@ Las herramientas de memoria de los agentes usan `/api/agents/memory/:agentType/:
 | Prefijo                   | Endpoints                        | Descripción                  |
 | ------------------------- | -------------------------------- | ---------------------------- |
 | `/api/chat-folders`       | CRUD más reordenar               | Gestión de carpetas de chat  |
-| `/api/conversation`       | schedule, status, message, check | Sistema de mensajes autónomos |
+| `/api/conversation`       | schedule, status, activity, autonomous | Sistema de mensajes autónomos |
 | `/api/scene`              | create, plan, conclude           | Ramificación de escenas      |
 | `/api/encounter`          | init, action, summary            | Encuentros de combate        |
 | `/api/translate`          | POST                             | Traducción de texto          |
@@ -492,8 +497,8 @@ Las herramientas de memoria de los agentes usan `/api/agents/memory/:agentType/:
 | `/api/game-rulesets`      | importación, esquema, origen, eliminación | Conjuntos de reglas de Game Mode importados |
 | `/api/game-worlds`        | CRUD de la biblioteca y edición de mundos | Biblioteca de mundos para partidas nuevas y paquetes de mapas |
 | `/api/game-tile-packs`    | paquetes de mosaicos, más `/creatures` y `/boards` | Paquetes de arte de mapas, criaturas y tableros de combate |
-| `/api/turn-games`         | Rutas de Chess, UNO, Poker       | Juegos de mesa de Conversation |
-| `/api/conversation-calls` | rutas de llamada y sesión        | Llamadas de audio de Conversation |
+| `/api/turn-games` | catalog, state, start, move, resign | Juegos de mesa de Conversation (los juegos vienen de paquetes) |
+| `/api/conversation-calls` | rutas de llamada y sesión (registradas por el paquete de llamadas de Conversation) | Llamadas de audio de Conversation |
 
 ### Medios y recursos
 
@@ -532,9 +537,9 @@ Las herramientas de memoria de los agentes usan `/api/agents/memory/:agentType/:
 
 | Endpoint                        | Descripción                             |
 | ------------------------------- | --------------------------------------- |
-| `/api/updates/check`            | Comprobación de versión contra las releases de GitHub |
-| `/api/updates/latest`           | Metadatos de la última release          |
-| `/api/updates/commits-behind`   | Distancia de actualización de la instalación con Git |
+| `/api/updates/check` | Comprueba la versión con las releases de GitHub. En instalaciones con Git también indica cuánto se ha quedado atrás la copia local respecto de su canal de actualización |
+| `/api/updates/channel` | Canal de actualización, rama actual y lista de canales |
+| `/api/updates/apply` | Aplica una actualización |
 | `/api/backup`                   | Copia de seguridad completa, exportar, importar |
 | `/api/import/*`                 | Importación de perfiles de SillyTavern y Marinara |
 | `/api/admin/clear-all`          | Borrado completo de datos               |
@@ -557,13 +562,13 @@ La app es una Progressive Web App configurada con VitePWA:
 
 - Manifest: `public/manifest.json` con el nombre de app "Marinara Engine", modo de visualización standalone y tema oscuro.
 - Iconos: un favicon de 64px, iconos maskable de 192px y 512px, y un logo de pantalla de carga.
-- Service worker: Workbox con una estrategia de actualización automática.
+- Service worker: Workbox con `registerType: "prompt"`. Una versión nueva espera a que el usuario la acepte.
 - Caché: los recursos estáticos se guardan en caché; las rutas `/api/*` usan NetworkOnly.
 - Keep-alive: `lib/keep-alive.ts` usa la Web Locks API más pings de BroadcastChannel para evitar que la pestaña se duerma.
 
 ### Detección de desfase de versión
 
-`App.tsx` sondea `/api/health` cada 5 minutos. Si la versión del servidor difiere de la versión que el cliente tiene en caché, el cliente cancela el registro del service worker. También borra las cachés para forzar una actualización.
+`App.tsx` sondea `/api/health` cada 5 minutos. Si la versión del servidor difiere de la versión que el cliente tiene en caché, el cliente se actualiza con `forceRefreshSpa` en `lib/browser-runtime.ts`, que cancela el registro del service worker y borra las cachés.
 
 ## Sistema de agentes
 
@@ -686,7 +691,7 @@ pnpm build
 ### Presupuesto de paquete
 
 - Entrada principal: máximo 1 MB.
-- Por chunk: máximo 500 KB.
+- Por chunk, `chunkSizeWarningLimit` es de 512 KB. Al superarlo, la compilación emite una advertencia y sigue.
 - Divisiones de proveedores (vendor): react, tanstack, motion, zustand, icons y misc.
 
 ### Alias de ruta

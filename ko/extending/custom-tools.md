@@ -8,13 +8,13 @@
 
 ## 도구 만들기
 
-시작하기 전에 상단 바에서 **Presets**(프리셋) 패널을 여세요. 도구는 이 패널의 **Functions**(기능) 섹션(렌치 아이콘)에 있습니다. 다른 기기에서 Marinara를 연다면 먼저 **Settings → Advanced → Admin Access**(설정 → 고급 → 관리자 접근)에 관리자 시크릿을 저장하세요. 이 값은 서버의 `ADMIN_SECRET`과 일치해야 합니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
+시작하기 전에 상단 바에서 **Presets**(프리셋) 패널을 여세요. 도구는 이 패널의 **Functions**(기능) 탭에 있습니다. 다른 기기에서 Marinara를 연다면 먼저 **Settings → Advanced → Admin Access**(설정 → 고급 → 관리자 접근)에 관리자 시크릿을 저장하세요. 이 값은 서버의 `ADMIN_SECRET`과 일치해야 합니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
 
 처음이라면 **Static Result**(고정 응답)를 고르세요. 다른 준비가 필요 없습니다.
 
 ### 단계별로 도구 만들기
 
-1. **Presets**를 열고 **Functions**를 찾으세요.
+1. 상단 바에서 **Presets → Functions**를 여세요.
 2. 더하기 아이콘인 **Create function**(함수 만들기)을 클릭하세요. 빈 도구 편집기가 열립니다.
 3. `check_weather`처럼 소문자 snake_case로 이름을 입력하세요. AI가 호출할 때 쓰는 이름과 정확히 같습니다. 이름은 소문자로 시작하고, 그다음부터는 소문자, 숫자, 밑줄을 사용합니다.
 4. **Description**(설명)을 채우세요. AI가 이 글을 읽고 언제 도구를 호출할지 판단하므로, AI에게 주는 지시처럼 쓰세요. 예: `Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@
 - 두 도구가 같은 이름을 쓸 수 없고, `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `update_about_me` 같은 기본 제공 이름도 쓸 수 없습니다. 이름이 겹치면 `"your_name" is a reserved built-in tool name.` 같은 메시지가 나옵니다.
 - 저장하지 않은 변경 사항을 남긴 채 편집기를 벗어나면 **Keep editing**(계속 편집), **Discard**(변경 취소), **Save & close**(저장 & 닫기)를 고르는 배너가 나타납니다.
 
-**Functions** 헤더에는 아이콘 버튼이 세 개 있습니다.
+**Functions** 탭 상단에 다음 버튼이 있습니다.
 
 - **Create function**(더하기 아이콘)
 - **Import functions from ZIP or JSON**(ZIP 또는 JSON에서 기능 가져오기)
 - **Export functions to ZIP**(기능을 ZIP으로 내보내기). 도구가 없으면 회색으로 비활성화됩니다.
+- **Select functions**(기능 선택, 체크 아이콘)
+
+그 아래 **Search functions**(기능 검색)에서는 도구 이름과 설명을 검색할 수 있습니다.
 
 목록의 각 도구에는 다음이 표시됩니다.
 
@@ -41,7 +44,25 @@
 - 켜기/끄기 스위치
 - **Edit function**(함수 편집)과 **Delete Function**(함수 삭제)
 
-손잡이를 끌어 목록 순서를 바꿀 수 있습니다. 순서는 표시용일 뿐입니다. 도구가 없으면 목록에 **No functions yet**(아직 기능이 없습니다)이 표시됩니다.
+손잡이를 끌어 목록 순서를 바꿀 수 있습니다. 순서는 표시용일 뿐입니다. 검색 중에는 도구를 끌 수 없습니다. 도구가 없으면 목록에 **No functions yet**(아직 기능이 없습니다)이 표시됩니다.
+
+### 폴더로 도구 정리하기
+
+1. **New Folder**(새 폴더)를 클릭하고 이름을 입력하세요.
+2. 도구 행의 폴더 아이콘을 클릭해 **Move to folder**(폴더로 이동)를 여세요.
+3. 폴더를 고르세요. 도구를 폴더 밖으로 옮기려면 **No folder (top level)**(폴더 없음, 최상위)을 고르세요.
+
+폴더 이름을 클릭해 펼치거나 접으세요. 폴더 스위치를 끄면 그 안의 도구가 일시 중지됩니다. 어느 채팅에서도 AI에 제공되지 않으며 채팅이나 에이전트의 도구 목록에서도 고를 수 없습니다. 헤더에는 **Paused**(일시 중지됨)가 표시됩니다. 각 도구의 스위치 설정은 유지됩니다. 켜진 도구가 일시 중지된 폴더에 들어 있으면 스위치가 회색으로 표시되고 **Paused by folder**(폴더로 인해 일시 중지됨) 라벨이 붙습니다. 폴더를 다시 켜면 켜 둔 도구는 다시 제공되며 꺼 둔 도구는 그대로 꺼져 있습니다. 폴더를 삭제하면 도구가 최상위로 이동하고 각 도구의 스위치 설정을 따릅니다.
+
+폴더가 있으면 목록은 폴더별로 묶입니다. **Manual order**(수동 순서)를 클릭해 전체 목록을 보고 손잡이를 끌어 순서를 바꾸세요.
+
+### 도구 여러 개를 한 번에 변경하기
+
+1. **Select functions**를 클릭하세요.
+2. 변경할 도구를 체크하거나 **Select all functions**(모든 기능 선택)를 체크하세요.
+3. **Enable selected**(선택 항목 켜기), **Disable selected**(선택 항목 끄기), **Move to folder** 중 하나를 클릭하세요. 선택한 도구를 내보내거나 삭제할 수도 있습니다.
+
+**Enable selected**는 각 도구의 스위치를 바꿉니다. 일시 중지된 폴더의 도구를 다시 제공하려면 폴더를 먼저 켜세요.
 
 <a id="add-parameters"></a>
 

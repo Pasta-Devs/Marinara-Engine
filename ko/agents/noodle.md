@@ -84,7 +84,7 @@ Noodle 타임라인은 Marinara의 Home 브라우저 안에서 열립니다. 나
 
 캐릭터의 프로필을 편집하면 입력란 아래에 설정 두 개가 더 나타나며, 바로 저장됩니다.
 
-- **Use this character's image instructions in Noodle images**(Noodle 이미지에 이 캐릭터의 이미지 지침 사용): 캐릭터 편집기 **Convo** 탭의 **Image generation instructions**(이미지 생성 지침)를 그 캐릭터의 Noodle 이미지에 더합니다. **Edit image instructions**(이미지 지침 편집)를 누르면 그 탭이 열립니다. Slurp에서 이 캐릭터의 선택을 따로 정하기 전까지는 Slurp도 같은 선택을 씁니다. Noodle 1.5.4 이상이 필요합니다.
+- **Use this character's image instructions in Noodle images**(Noodle 이미지에 이 캐릭터의 이미지 지침 사용): 캐릭터 편집기 **Images**(이미지) 탭의 **Selfie instructions**(셀카 지침)를 그 캐릭터의 Noodle 이미지에 더합니다. **Edit image instructions**(이미지 지침 편집)를 누르면 캐릭터 편집기의 해당 입력란이 열립니다. Capability API 1.826 이상을 지원하는 Marinara Engine에서 Noodle 1.5.17 이상이 필요합니다. 이전 Noodle 버전은 **Convo** 탭을 엽니다. Slurp에서 이 캐릭터의 선택을 따로 정하기 전까지는 Slurp도 같은 선택을 씁니다. Noodle 1.5.4 이상이 필요합니다.
 - **Image connection**(이미지 연결): 이 캐릭터의 Noodle 이미지에 쓸 이미지 모델을 고릅니다. **Use Noodle image connection**(Noodle 이미지 연결 사용)을 고르면 [Noodle 설정](noodle-settings.md#image-generation)의 모델을 그대로 씁니다. Noodle 1.5.5 이상이 필요합니다.
 
 프로필에는 **Following**과 **Followers**(팔로워) 수, 그리고 **Posts**(게시물), **Likes**, **Media**(미디어, 이미지가 있는 게시물) 탭 3개도 표시됩니다.

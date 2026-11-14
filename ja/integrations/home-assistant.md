@@ -6,7 +6,7 @@
 
 この連携は、Home Assistantの中にインストールして、Marinaraサーバーと結び付ける小さなソフトウェアです。初回セットアップで、次のものを自動で作ります。ツールのアドレスをコピーしたり、ツールを手作業で設定したりする必要はありません。
 
-- Presetsパネルの**Functions**(関数)セクションに、スマートホーム用のツール。[カスタムツールと関数呼び出し](../extending/custom-tools.md)を参照してください。
+- Presetsパネルの**Functions**(関数)タブに、スマートホーム用のツール。[カスタムツールと関数呼び出し](../extending/custom-tools.md)を参照してください。
 - **Home Assistant**という名前のエージェント1つ。チャットと並行して動くAIのヘルパーです。[エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)を参照してください。
 - Home Assistant側からMarinaraを監視、操作するための、Home Assistantのエンティティー(デバイス、センサー、コントロール)。
 
@@ -160,7 +160,7 @@ Webhookの呼び出しがブロックされている可能性が高いです。`
 
 ### ツールがFunctionsに出てこない
 
-**Marinara Sync HA Tools**を押すか、Home Assistantを再起動してから、Presetsパネルの**Functions**を確認します。
+**Marinara Sync HA Tools**を押すか、Home Assistantを再起動してから、Presetsパネルの**Functions**タブを確認します。
 
 ### Home Assistantエージェントがチャットに出てこない
 

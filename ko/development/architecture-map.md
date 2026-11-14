@@ -41,7 +41,7 @@
 - `schemas`: 저장되거나 공유되는 엔티티의 Zod 스키마.
 - `constants`: 제공자, 기본값, 채팅 모드, 모델 목록, 에이전트 프롬프트.
 - `utils`: 매크로 확장, XML 래핑, 음악 점수 계산 같은 순수 헬퍼.
-- `features`: 에이전트 매니페스트와 레지스트리, 함수 호출 정의, 폴더 패키지, UNO, Chess, Poker의 턴제 게임 엔진, Game Mode 규칙 집합과 그 전투(`rulesets`, `ruleset-combat`, `tactical-combat`, `combat-*` 파일), 그리고 `world`에 있는 월드 생성기와 그 공유 파일(세계관 키트, 세계, 타일 팩, 보드 팩, 크리처 팩).
+- `features`: 에이전트 매니페스트와 레지스트리, 함수 호출 정의, 폴더 패키지, 턴제 게임 엔진 계약과 레지스트리(게임 자체는 선택 패키지에서 제공), Game Mode 규칙 집합과 그 전투(`rulesets`, `ruleset-combat`, `tactical-combat`, `combat-*` 파일), 그리고 `world`에 있는 월드 생성기와 그 공유 파일(세계관 키트, 세계, 타일 팩, 보드 팩, 크리처 팩). `marinara-*.ts` 파일(`ai`, `bestiary`, `bestiary-threat`, `classes`, `combat`, `items`, `loot`, `party`)은 Engine 자체 규칙 집합인 Classic Marinara의 데이터와 계산을 담습니다.
 
 규칙:
 
@@ -64,12 +64,12 @@ React 19와 Vite PWA를 씁니다. 현재 소스 파일이 수백 개 있습니�
 - `features`: 따로 떼어낸 기능 모듈입니다. 현재는 채팅 설정 섹션, 트래커 패널 조각, 멀티플레이어, 그리고 아바타 에이전트의 계약, 설정, 스테이지, 렌더러(`features/avatars`)가 들어 있습니다.
 - `hooks`: 대부분의 API 기능을 위한 React Query 훅과 런타임 훅.
 - `lib`: 브라우저 및 클라이언트 헬퍼. 현재는 공통 헬퍼와 게임 전용 헬퍼가 섞여 있습니다.
-- `stores`: UI, 채팅 런타임, 에이전트, 세계 상태, Game Mode, 에셋, 사이드카, 번역, 갤러리, 인카운터, 턴제 게임을 위한 Zustand 스토어.
+- `stores`: UI, 채팅 런타임, 에이전트, 세계 상태, Game Mode, 에셋, 사이드카, 번역, 갤러리, 인카운터, 전투 화면, Roleplay 시트 화면, Conversation 게임을 위한 Zustand 스토어.
 - `styles`: 전역 스타일시트와 테마별 CSS.
 
 지금 경계를 넘나드는 지점:
 
-- `components/game`이 날씨나 갤러리 드로어처럼 함께 쓰는 시각 요소를 `components/chat`에서 가져다 씁니다.
+- `components/game`은 날씨 효과, 고정 이미지 오버레이, 채팅 도구 모음과 제어 창처럼 공유하는 화면 요소를 `components/chat`에서 가져옵니다. 갤러리는 Chat Settings(`features/chat-settings/ChatGalleryPanel.tsx`)에 있으며, Game Mode는 `hooks/use-chat-gallery-actions.ts`를 통해 갤러리에 데이터를 전달합니다.
 - `components/chat`이 roleplay 기능을 위해 세계 상태와 인카운터 상태를 가져다 씁니다.
 - `hooks/use-generate.ts`가 채팅 상태, 에이전트 상태, 세계 상태, Game Mode 상태, 번역 상태, UI 설정까지 건드립니다.
 - `lib/game-*` 헬퍼는 게임 전용인데 전역 헬퍼 옆에 놓여 있습니다.
@@ -90,6 +90,8 @@ Fastify API, 파일 네이티브 저장소, 제공자 연동을 담당합니다.
 - `services/sidecar`: 로컬 런타임, 모델 관리, 장면 분석, 장면 후처리.
 - `services/agents`: 에이전트 실행과 지식 라우팅.
 - 기능 기반: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars`(아바타 에이전트용 아바타 모델 저장, 생성, 감정 분류기), `speech-to-text.service.ts`, `discord-webhook.ts`.
+- `bin/mari.ts`: 실행 중인 로컬 서버와 통신하는 `mari` 명령줄 도구로, 패키지의 유일한 `bin` 항목입니다.
+- `assets/`: 서버에 포함되는 데이터입니다. 기본 배경과 게임 에셋, 보드 팩, 월드 타일, Mari 스킬, Claude Code 플러그인, 런타임 요구 사항 잠금 파일, 개인 확장 기능 실행 스크립트 등이 있습니다.
 - `db/schema`: `DATA_DIR/storage` 아래에 저장되는 데이터의 파일 테이블 정의.
 - `db/file-schema.ts`, `db/file-query.ts`: 네이티브 테이블 메타데이터와 쿼리 표현식.
 - `db/file-backed-store.ts`: 인메모리 테이블 스토어, 트랜잭션 경계, 크래시 복구, JSON 스냅샷 영속화. [파일 네이티브 저장소](file-storage.md) 문서를 참고하세요.
@@ -277,7 +279,7 @@ packages/shared/src/
 아래 작업은 동작을 바꾸지 않으면서 결합도를 낮추기 때문에 첫 정리 작업으로 좋습니다.
 
 1. `components/chat`을 공통, conversation, roleplay 묶음으로 나눕니다.
-   - 공통 후보: `ChatCommonOverlays`, `ChatBranchSelector`, `ChatGalleryDrawer`, `WeatherEffects`, 그리고 공통 메시지 및 입력 기본 요소.
+   - 공통 후보: `ChatCommonOverlays`, `ChatBranchesPanel`과 `ChatGalleryPanel`(현재 둘 다 `features/chat-settings`에 있음), `WeatherEffects`, 그리고 공통 메시지 및 입력 기본 요소.
    - Conversation 후보: `ChatConversationSurface`, `ConversationView`, `ConversationMessage`, `ConversationInput`.
    - Roleplay 후보: `ChatRoleplaySurface`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`. roleplay HUD 분리는 `RoleplayHUDActionsMenu.tsx`와 `RoleplayHUDPanels.tsx`로 일부 진행했습니다.
 2. 게임 전용 클라이언트 헬퍼를 게임 모듈 아래로 옮깁니다.

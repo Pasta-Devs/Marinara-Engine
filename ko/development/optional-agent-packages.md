@@ -1001,8 +1001,10 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 브라우저 뷰에 `openCharacter(characterId, { tab })`가 생깁니다. 캐릭터 편집기를 열고, 탭이 주어지면 해당 탭으로 이동하므로 패키지가 자신이 읽는 카드 필드로 사용자를 안내할 수 있습니다. 오래된 Engine에는 이 함수가 없습니다. 링크를 보여 주기 전에 `openCharacter`가 있는지 확인하세요.
 
+#9191부터 `tab`에 탭 안의 섹션도 지정할 수 있습니다. `character-sheet`, `image-instructions`, `sprites`, `gallery`는 모두 **Images** 탭에 있습니다. `sprites`와 `gallery`는 이전에는 별도 탭이었으며 기존 링크는 계속 작동합니다. 캐릭터의 셀카 지침(`conversationImageInstructions`)은 `convo`에서 `image-instructions`로 옮겨졌습니다. #9191 이전의 Engine은 이 ID를 인식하지 못해 편집기의 맨 위를 엽니다.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: 패키지 스레드에서 시작하는 장면

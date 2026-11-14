@@ -41,7 +41,7 @@ Obecna zawartość:
 - `schemas`: schematy Zod dla utrwalanych i współdzielonych bytów.
 - `constants`: dostawcy, wartości domyślne, tryby czatu, listy modeli, prompty agentów.
 - `utils`: czyste funkcje pomocnicze, na przykład rozwijanie makr, opakowywanie w XML i dobór muzyki.
-- `features`: manifesty i rejestr agentów, definicje wywołań funkcji, pakiety folderów, silniki gier turowych UNO, Chess i Poker, zestawy zasad Game Mode i ich walka (`rulesets`, `ruleset-combat`, `tactical-combat` oraz pliki `combat-*`), a także generator świata z plikami do udostępniania (zestawy settingu, światy, paczki kafelków, plansz i stworzeń) w `world`.
+- `features`: manifesty i rejestr agentów, definicje wywołań funkcji, pakiety folderów, kontrakt i rejestr silnika gier turowych (same gry pochodzą z opcjonalnych pakietów), zestawy zasad Game Mode i ich walka (`rulesets`, `ruleset-combat`, `tactical-combat` oraz pliki `combat-*`), a także generator świata z plikami do udostępniania (zestawy settingu, światy, paczki kafelków, plansz i stworzeń) w `world`. Pliki `marinara-*.ts` (`ai`, `bestiary`, `bestiary-threat`, `classes`, `combat`, `items`, `loot`, `party`) zawierają wyłącznie dane i obliczenia zestawu zasad Classic Marinara, wbudowanego w Engine.
 
 Zasady:
 
@@ -64,12 +64,12 @@ Obecny kształt najwyższego poziomu:
 - `features`: wydzielone moduły funkcji, obecnie sekcje panelu **Chat Settings** (ustawienia czatu), elementy panelu trackera, gra wieloosobowa oraz kontrakt, konfiguracja, scena i renderery agentów awatarów (`features/avatars`).
 - `hooks`: hooki React Query i hooki czasu pracy aplikacji dla większości funkcji API.
 - `lib`: funkcje pomocnicze przeglądarki i klienta. Mieszają się tu obecnie pomocniki wspólne z pomocnikami tylko dla trybu Game Mode.
-- `stores`: magazyny stanu Zustand dla interfejsu, czatu, agentów, stanu gry, trybu Game Mode, zasobów, procesu sidecar, tłumaczenia, galerii, starć i gier turowych.
+- `stores`: magazyny stanu Zustand dla interfejsu, czatu, agentów, stanu gry, trybu Game Mode, zasobów, procesu sidecar, tłumaczenia, galerii, starć, ekranów walki i arkuszy Roleplay oraz gier w trybie Conversation.
 - `styles`: globalny arkusz stylów i CSS poszczególnych motywów.
 
 Ważne obecne powiązania między obszarami:
 
-- `components/game` importuje `components/chat`, żeby korzystać ze wspólnych elementów wizualnych, na przykład efektów pogody i panelu bocznego galerii.
+- `components/game` importuje `components/chat` na potrzeby wspólnych elementów wizualnych, takich jak efekty pogody, nakładka z przypiętym obrazem, pasek narzędzi czatu i okna sterowania. Galeria jest w ustawieniach czatu (`features/chat-settings/ChatGalleryPanel.tsx`). Game Mode zasila ją przez `hooks/use-chat-gallery-actions.ts`.
 - `components/chat` importuje stan gry i stan starcia na potrzeby funkcji trybu Roleplay.
 - `hooks/use-generate.ts` sięga do stanu czatu, agentów, gry, trybu Game Mode, tłumaczenia oraz ustawień interfejsu.
 - Pomocniki `lib/game-*` służą tylko trybowi Game Mode, ale leżą obok pomocników globalnych.
@@ -90,6 +90,8 @@ Obecny kształt najwyższego poziomu:
 - `services/sidecar`: lokalne środowisko uruchomieniowe, zarządzanie modelami, analiza sceny, obróbka sceny po analizie.
 - `services/agents`: wykonywanie agentów i kierowanie wiedzy.
 - Fundamenty funkcji: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (przechowywanie modeli awatarów, ich generowanie i klasyfikator emocji dla agentów awatarów), `speech-to-text.service.ts` oraz `discord-webhook.ts`.
+- `bin/mari.ts`: narzędzie wiersza poleceń `mari` (jedyny wpis `bin` pakietu), które łączy się z działającym serwerem lokalnym.
+- `assets/`: dane dostarczane z serwerem, m.in. domyślne tła i zasoby gry, paczki plansz, kafelki mapy świata, umiejętności Mari, wtyczka Claude Code, pliki blokad zależności środowiska uruchomieniowego i skrypt uruchamiający osobiste rozszerzenia.
 - `db/schema`: definicje tabel plikowych dla danych zapisywanych w `DATA_DIR/storage`.
 - `db/file-schema.ts`, `db/file-query.ts`: metadane tabel natywnych i wyrażenia zapytań.
 - `db/file-backed-store.ts`: magazyn tabel w pamięci, granica transakcji, odzyskiwanie po awarii i utrwalanie migawek JSON. Zobacz [Przechowywanie danych w plikach](file-storage.md).
@@ -277,7 +279,7 @@ Dawny płaski układ `types`, `schemas` i `constants` to już nie cała historia
 To dobre pierwsze porządki, bo zmniejszają powiązania bez zmiany zachowania.
 
 1. Podziel `components/chat` na grupy: wspólną, Conversation i Roleplay.
-   - Kandydaci do części wspólnej: `ChatCommonOverlays`, `ChatBranchSelector`, `ChatGalleryDrawer`, `WeatherEffects` oraz wspólne elementy wiadomości i pola wpisywania.
+   - Kandydaci do części wspólnej: `ChatCommonOverlays`, `ChatBranchesPanel` i `ChatGalleryPanel` (oba teraz w `features/chat-settings`), `WeatherEffects` oraz wspólne elementy wiadomości i pola wpisywania.
    - Kandydaci do trybu Conversation: `ChatConversationSurface`, `ConversationView`, `ConversationMessage`, `ConversationInput`.
    - Kandydaci do trybu Roleplay: `ChatRoleplaySurface`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`. Podział paska HUD trybu Roleplay jest częściowo wykonany w `RoleplayHUDActionsMenu.tsx` i `RoleplayHUDPanels.tsx`.
 2. Przenieś klienckie pomocniki tylko dla trybu Game Mode do modułu gry.

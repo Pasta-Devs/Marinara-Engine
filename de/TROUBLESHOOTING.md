@@ -116,7 +116,7 @@ Marinara verhindert offensichtliche Downgrades. Der Launcher überspringt ein Au
 
 Hast du aktualisiert und bist dann zu einer älteren Version zurückgekehrt, stell das Backup wieder her, das du vor dem Update angelegt hast. Siehe [Downgrade auf eine ältere Version](UPGRADING.md#downgrading-to-an-older-version). Die technischen Details folgen.
 
-Deine Daten haben jetzt Speicherformat 10. Die Formate 8, 9 und 10 fügen 3D-Avatar-Einstellungen (MMD, dann GLB und FBX) und die Verknüpfung von Verbindungen mit Konten hinzu, die ältere Builds nicht sicher lesen können. Haben deine Daten Format 8 oder neuer erreicht, stell ein vollständiges Backup von vor diesem Upgrade wieder her, um einen älteren Build zu verwenden. Der folgende Befehl konvertiert nur ältere Chat-Dateilayouts. Ändere die Formatnummer nicht von Hand. Siehe [Downgrade auf eine ältere Version](UPGRADING.md#downgrading-to-an-older-version).
+Deine Daten haben jetzt Speicherformat 11. Die Formate 8, 9 und 10 fügen 3D-Avatar-Einstellungen (MMD, dann GLB und FBX) und die Verknüpfung von Verbindungen mit Konten hinzu. Format 11 speichert Personas als Charakterkarten. Ältere Builds können diese Daten nicht sicher lesen. Format 11 behält die ursprünglichen Persona-Dateien als `.pre-v11`-Kopien in `storage/tables/personas/`. Haben deine Daten Format 8 oder neuer erreicht, stell ein vollständiges Backup von vor diesem Upgrade wieder her, um einen älteren Build zu verwenden. Der folgende Befehl konvertiert nur ältere Chat-Dateilayouts. Ändere die Formatnummer nicht von Hand. Siehe [Downgrade auf eine ältere Version](UPGRADING.md#downgrading-to-an-older-version).
 
 Bei Daten unter Format 8 konvertierst du das Chat-Dateilayout so:
 

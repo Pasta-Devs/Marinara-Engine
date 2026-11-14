@@ -38,7 +38,7 @@
 
 ## Presets 패널
 
-프리셋은 **Prompts**(프롬프트) 섹션에 있습니다. 나머지 섹션은 **Regexes**(정규식)와 **Functions**(기능)입니다. 위쪽 버튼은 **New**, **Import**(가져오기), **Select**(선택)입니다. **Import**는 `.json` 파일을 불러오고, **Select**는 여러 프리셋을 한 번에 내보내거나 삭제할 때 씁니다.
+패널에는 **Presets**(프리셋), **Regexes**(정규식), **Functions**(기능) 탭이 있습니다. 각 탭 상단에는 같은 버튼 줄과 검색창, **New Folder**(새 폴더)가 있습니다. **Presets** 탭에서 **Create preset**으로 만들고, **Import preset**으로 `.json` 파일을 불러오며, **Select presets**로 여러 프리셋을 한 번에 내보내거나 삭제하세요. **Regexes** 탭에는 [정규식 스크립트](../extending/regex-scripts.md#manage-your-scripts), **Functions** 탭에는 [사용자 지정 도구](../extending/custom-tools.md)가 있습니다.
 
 - **Search presets**는 목록을 걸러 냅니다.
 - 정렬 메뉴에서는 **Manual order**(수동 정렬), **A-Z**, **Z-A**, **Newest**, **Oldest** 중에서 고릅니다. **Manual order**에서는 행을 끌거나, 포커스가 있는 행에서 <kbd>Alt</kbd>+<kbd>Up</kbd> 또는 <kbd>Alt</kbd>+<kbd>Down</kbd>을 누르세요. 터치스크린에서는 행을 길게 눌러 집어 드세요.

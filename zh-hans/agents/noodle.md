@@ -84,7 +84,7 @@ Noodle 时间线会在 Marinara 的主页浏览器里打开。想离开的话，
 
 编辑角色的资料时，字段下方还会多出两项设置，它们会立即保存。
 
-- **Use this character's image instructions in Noodle images**(在 Noodle 图片中使用这个角色的图片指令)：把角色编辑器 **Convo** 选项卡里的 **Image generation instructions**(图片生成指令) 加到这个角色的 Noodle 图片中。**Edit image instructions**(编辑图片指令) 会打开那个选项卡。在你于 Slurp 里为这个角色单独设置之前，Slurp 也会沿用这个选择。需要 Noodle 1.5.4 或更高版本。
+- **Use this character's image instructions in Noodle images**(在 Noodle 图片中使用这个角色的图片指令)：把角色编辑器 **Images**(图像) 选项卡中的 **Selfie instructions**(自拍指令) 加到这个角色的 Noodle 图片中。**Edit image instructions**(编辑图片指令) 会在角色编辑器中打开该字段。此操作需要 Noodle 1.5.17 或更高版本，以及支持 Capability API 1.826 或更高版本的 Marinara Engine。旧版 Noodle 会打开 **Convo** 选项卡。在你于 Slurp 里为这个角色单独设置之前，Slurp 也会沿用这个选择。需要 Noodle 1.5.4 或更高版本。
 - **Image connection**(图像连接)：为这个角色的 Noodle 图片选择图像模型。**Use Noodle image connection**(使用 Noodle 的图像连接) 会沿用 [Noodle 设置](noodle-settings.md#image-generation)里的那个。需要 Noodle 1.5.5 或更高版本。
 
 个人资料还会显示 **Following** 和 **Followers**(粉丝) 的数量，以及三个选项卡：**Posts**(帖子)、**Likes** 和 **Media**(媒体，即带图片的帖子)。

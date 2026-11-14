@@ -84,7 +84,7 @@ Noodleのタイムラインは、MarinaraのHomeのブラウザーの中に開�
 
 キャラクターのプロフィールを編集すると、欄の下にさらに2つの設定が表示されます。これらはすぐに保存されます。
 
-- **Use this character's image instructions in Noodle images**(このキャラクターの画像の指示をNoodleの画像に使う): キャラクターエディターの**Convo**タブにある、そのキャラクターの**Image generation instructions**(画像生成の指示)を、Noodleの画像に加えます。**Edit image instructions**(画像の指示を編集)を押すと、そのタブが開きます。Slurpでこのキャラクター用に設定するまでは、Slurpも同じ選択を使います。Noodle 1.5.4以降が必要です。
+- **Use this character's image instructions in Noodle images**(このキャラクターの画像の指示をNoodleの画像に使う): キャラクターエディターの**Images**(画像)タブにある**Selfie instructions**(自撮り写真の指示)を、そのキャラクターのNoodle画像に加えます。**Edit image instructions**(画像の指示を編集)はキャラクターエディターの該当欄を開きます。Capability API 1.826以降を備えたMarinara EngineとNoodle 1.5.17以降が必要です。古いNoodleでは**Convo**タブが開きます。Slurpでこのキャラクター用に設定するまでは、Slurpも同じ選択を使います。Noodle 1.5.4以降が必要です。
 - **Image connection**(画像用の接続): このキャラクターのNoodleの画像に使う画像モデルを選びます。**Use Noodle image connection**(Noodleの画像用の接続を使う)を選ぶと、[Noodleの設定](noodle-settings.md#image-generation)のものを使います。Noodle 1.5.5以降が必要です。
 
 プロフィールには、**Following**と**Followers**の数と、**Posts**、**Likes**、**Media**(画像付きの投稿)の3つのタブも表示されます。

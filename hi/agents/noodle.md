@@ -84,7 +84,7 @@ Noodle टाइमलाइन Marinara के Home ब्राउज़र �
 
 किसी कैरेक्टर की प्रोफ़ाइल एडिट करने पर फ़ील्ड के नीचे दो और सेटिंग्स दिखती हैं, जो तुरंत सेव हो जाती हैं।
 
-- **Use this character's image instructions in Noodle images** (Noodle इमेज में इस कैरेक्टर के इमेज निर्देश इस्तेमाल करें): कैरेक्टर एडिटर के **Convo** टैब से कैरेक्टर के **Image generation instructions** (इमेज जेनरेशन निर्देश) उसकी Noodle इमेज में जोड़ता है। **Edit image instructions** (इमेज निर्देश एडिट करें) वह टैब खोलता है। जब तक आप Slurp में इस कैरेक्टर के लिए अलग से कुछ सेट न करें, Slurp भी यही चुनाव इस्तेमाल करता है। इसके लिए Noodle 1.5.4 या उसके बाद का वर्ज़न चाहिए।
+- **Use this character's image instructions in Noodle images** (Noodle इमेज में इस कैरेक्टर के इमेज निर्देश इस्तेमाल करें): कैरेक्टर एडिटर के **Images** टैब में दिए **Selfie instructions** (सेल्फ़ी के निर्देश) उसकी Noodle इमेज में जोड़ता है। **Edit image instructions** (इमेज निर्देश एडिट करें) से कैरेक्टर एडिटर में वही फ़ील्ड खुलती है। इसके लिए Noodle 1.5.17 या उसके बाद का वर्ज़न और capability API 1.826 या उससे नया चाहिए। Noodle के पुराने वर्ज़न **Convo** टैब खोलते हैं। जब तक आप Slurp में इस कैरेक्टर के लिए अलग से कुछ सेट न करें, Slurp भी यही चुनाव इस्तेमाल करता है। इसके लिए Noodle 1.5.4 या उसके बाद का वर्ज़न चाहिए।
 - **Image connection** (इमेज कनेक्शन): इस कैरेक्टर की Noodle इमेज के लिए इमेज मॉडल चुनता है। **Use Noodle image connection** (Noodle का इमेज कनेक्शन इस्तेमाल करें) [Noodle की सेटिंग्स](noodle-settings.md#image-generation) वाला मॉडल बनाए रखता है। इसके लिए Noodle 1.5.5 या उसके बाद का वर्ज़न चाहिए।
 
 प्रोफ़ाइल पर **Following** और **Followers** की गिनती और तीन टैब भी दिखते हैं: **Posts**, **Likes** और **Media** (इमेज वाली पोस्ट)।

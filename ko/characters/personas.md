@@ -48,11 +48,11 @@ Marinara는 모든 프롬프트에 페르소나를 담아 AI에 보냅니다. �
 - 아바타 타일. 클릭하면 그림을 업로드합니다. 이미지 생성 연결을 설정해 두었다면 마법봉 버튼으로 그림을 생성할 수도 있습니다.
 - 이름 입력란과 코멘트 입력란. 코멘트 입력란은 `Modern AU version` 같은 짧은 라벨용입니다.
 - **Save**. 무언가를 바꾸기 전까지는 꺼져 있습니다.
-- **Export persona**(페르소나 내보내기), **Add persona as character**(페르소나를 캐릭터로 추가), **Duplicate persona**(페르소나 복제), **Delete persona**(페르소나 삭제).
+- **…**(**More actions**(추가 작업)) 메뉴. **Ask Professor Mari**(Mari 교수님에게 묻기), **Export persona**(페르소나 내보내기), **Add persona as character**(페르소나를 캐릭터로 추가), **Duplicate persona**(페르소나 복제), **Delete persona**(페르소나 삭제).
 
 편집기를 나가면 먼저 변경 내용이 저장됩니다. 저장에 실패하면 초안을 유지한 채 편집기가 열린 상태로 남습니다.
 
-탭은 순서대로 **Metadata**(메타데이터), **Card**, **Convo**(콘보), **Lorebook**(로어북), **Sprites**(스프라이트), **Gallery**(갤러리), **Colors**(색상), **Stats**(스탯)입니다. 각 탭을 누르면 긴 양식 하나에서 해당 구역으로 이동합니다.
+탭은 순서대로 **Metadata**(메타데이터), **Card**, **Convo**(콘보), **Lorebook**(로어북), **Images**(이미지), **Colors**(색상), **Stats**(스탯)입니다. 각 탭을 누르면 긴 양식 하나에서 해당 구역으로 이동합니다.
 
 Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 같은 방식으로 동작합니다. 아래 내용은 다른 점을 다룹니다.
 
@@ -62,8 +62,7 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 | **Card** | 아래 [Card 탭](#card-tab)을 참고하세요. |
 | **Convo** | Conversation(대화) 모드에서만 쓰이는 필드. [Conversation Mode 프로필](../conversation/profiles.md)을 참고하세요. |
 | **Lorebook** | 이 페르소나가 채팅에 있을 때 작동하는 로어북 항목을 연결합니다. [로어북 개요](../lorebooks/overview.md)를 참고하세요. |
-| **Sprites** | Game과 Roleplay(롤플레이)에서 쓰는 서 있는 캐릭터 그림. **Facial Expressions**, **Full-body**, **Clips**와 **Upload Folder**(폴더 업로드)가 있습니다. [캐릭터 스프라이트](sprites.md)를 참고하세요. |
-| **Gallery** | 참고 이미지와 동영상. **Upload Persona Images**(페르소나 이미지 업로드)와 **Upload Persona Videos**(페르소나 동영상 업로드)가 있습니다. [캐릭터와 페르소나 갤러리](galleries.md)를 참고하세요. |
+| **Images** | **Character Sheet**(캐릭터 시트), **Sprites**(Game과 Roleplay에서 쓰는 캐릭터 그림. **Facial Expressions**, **Full-body**, **Clips**, **Upload Folder**(폴더 업로드) 포함), **Gallery**(참고 이미지와 동영상. **Upload Persona Images**(페르소나 이미지 업로드)와 **Upload Persona Videos**(페르소나 동영상 업로드) 포함)가 있습니다. [캐릭터 스프라이트](sprites.md)와 [캐릭터와 페르소나 갤러리](galleries.md)를 참고하세요. |
 | **Colors** | 이름, 대사, 메시지 말풍선 색상. [캐릭터 색상과 롤플레이 스탯](colors-and-stats.md)을 참고하세요. |
 | **Stats** | 상태 막대와 RPG 속성. 아래 [Stats 탭](#stats-tab)을 참고하세요. |
 
@@ -72,6 +71,7 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 - **Copy**(복사)가 있는 **Persona ID**(페르소나 ID).
 - 아바타 자르기.
 - **Name**과 **Creator**(제작자).
+- **Other names**(다른 이름). 페르소나가 쓰는 별명, 전체 이름, 호칭입니다. Roleplay 채팅에서는 이 이름에도 이름 색상을 적용할 수 있습니다. [메시지 속 페르소나 이름에 색상 적용](choosing-your-persona.md#color-your-name-in-messages)을 참고하세요.
 - **Phonetic name**(발음 표기 이름). 음성 합성이 내 이름을 읽을 때만 쓰입니다.
 - **Title / Comment**(제목 / 설명). 짧은 라벨입니다.
 - **Version**(버전). 기본값은 `1.0`이고 **Automatic versioning**(자동 버전 관리) 스위치가 있습니다.
@@ -117,7 +117,7 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 
 가져오려면 **Personas** 패널에서 **Import**를 클릭하세요. **Import Persona** 창은 `.marinara` 파일과 `.json` 파일을 받으며, 여러 파일을 한꺼번에 가져올 수도 있습니다. Marinara 파일은 페르소나 정보 전체와 스프라이트, 갤러리 구성까지 복원합니다. 다른 도구에서 만든 일반 JSON 파일은 필드를 하나씩 대응시켜 새 페르소나로 만듭니다. 이름은 반드시 있어야 합니다. 파일마다 성공 또는 실패 표시가 나타납니다.
 
-내보내려면 편집기에서 **Export persona**를 클릭하거나, 선택 모드에서 **Export**(내보내기)를 사용하세요. **Export Persona** 창에서는 두 가지 형식을 고를 수 있습니다.
+내보내려면 편집기에서 **…**, **Export persona** 순으로 클릭하거나, 선택 모드에서 **Export**(내보내기)를 사용하세요. **Export Persona** 창에서는 두 가지 형식을 고를 수 있습니다.
 
 | 형식 | 결과 |
 | --- | --- |
@@ -128,13 +128,13 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 
 ## 페르소나 복제하기와 삭제하기
 
-복제하려면 행에서 **Duplicate**를 클릭하거나 편집기에서 **Duplicate persona**를 클릭하세요. 복사본의 이름은 "{original name} (Copy)"이며, 카드 필드, 색상, 스탯, Convo 필드가 모두 유지됩니다. 어느 채팅의 페르소나도 바뀌지 않습니다.
+복제하려면 행에서 **Duplicate**를 클릭하거나 편집기의 **…** 메뉴에서 **Duplicate persona**를 클릭하세요. 복사본의 이름은 "{original name} (Copy)"이며, 카드 필드, 색상, 스탯, Convo 필드가 모두 유지됩니다. 어느 채팅의 페르소나도 바뀌지 않습니다.
 
-삭제하려면 행에서 **Delete**를 클릭하거나 편집기에서 **Delete persona**를 클릭한 다음 확인하세요. 삭제는 되돌릴 수 없습니다. 여러 개를 삭제하려면 **Select**를 클릭하고 페르소나를 체크한 다음 선택 막대에서 **Delete**를 사용하세요. 삭제에 실패하면 해당 페르소나가 선택된 채로 남으므로 다시 시도할 수 있습니다.
+삭제하려면 행에서 **Delete**를 클릭하거나 편집기의 **…** 메뉴에서 **Delete persona**를 클릭한 다음 확인하세요. 삭제는 되돌릴 수 없습니다. 여러 개를 삭제하려면 **Select**를 클릭하고 페르소나를 체크한 다음 선택 막대에서 **Delete**를 사용하세요. 삭제에 실패하면 해당 페르소나가 선택된 채로 남으므로 다시 시도할 수 있습니다.
 
 ## 페르소나를 캐릭터로 추가하기
 
-편집기 헤더의 **Add persona as character**는 내 캐릭터에 새 카드를 만듭니다. 이름, 설명, 성격, 시나리오, 배경 이야기, 외모, 태그, 제작자, 버전, 아바타를 복사합니다. 페르소나는 그대로 남습니다. 새 카드를 편집하려면 [캐릭터 만들기와 편집](creating-and-editing-characters.md)을 참고하세요.
+편집기 헤더의 **…** 메뉴에서 **Add persona as character**는 내 캐릭터에 새 카드를 만듭니다. 이름, 설명, 성격, 시나리오, 배경 이야기, 외모, 태그, 제작자, 버전, 아바타를 복사합니다. 페르소나는 그대로 남습니다. 새 카드를 편집하려면 [캐릭터 만들기와 편집](creating-and-editing-characters.md)을 참고하세요.
 
 ## 관련 가이드
 

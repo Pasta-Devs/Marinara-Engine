@@ -38,7 +38,7 @@
 
 ## Presets पैनल
 
-**Prompts** प्रीसेट वाला सेक्शन है। बाकी सेक्शन **Regexes** और **Functions** हैं। ऊपर के बटन हैं **New**, **Import** (कोई `.json` फ़ाइल लोड करें) और **Select** (एक साथ कई प्रीसेट एक्सपोर्ट या डिलीट करें)।
+पैनल में तीन टैब हैं: **Presets**, **Regexes** और **Functions**। हर टैब में ऊपर एक जैसी बटन पंक्ति, सर्च बॉक्स और **New Folder** है। **Presets** टैब में नया प्रीसेट बनाने के लिए **Create preset**, `.json` फ़ाइल लोड करने के लिए **Import preset**, और एक साथ कई प्रीसेट एक्सपोर्ट या डिलीट करने के लिए **Select presets** इस्तेमाल करें। **Regexes** टैब में रेजेक्स स्क्रिप्ट रहती हैं। देखें [रेजेक्स स्क्रिप्ट](../extending/regex-scripts.md#manage-your-scripts)। **Functions** टैब में कस्टम टूल रहते हैं। देखें [कस्टम टूल](../extending/custom-tools.md)।
 
 - **Search presets** लिस्ट को छाँटता है।
 - सॉर्ट मेन्यू में **Manual order**, **A-Z**, **Z-A**, **Newest** और **Oldest** हैं। **Manual order** में किसी पंक्ति को खींचें, या फ़ोकस की गई पंक्ति पर <kbd>Alt</kbd>+<kbd>Up</kbd> या <kbd>Alt</kbd>+<kbd>Down</kbd> दबाएँ। टच स्क्रीन पर पंक्ति उठाने के लिए उसे दबाकर रखें।

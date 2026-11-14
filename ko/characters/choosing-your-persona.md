@@ -32,6 +32,12 @@
 
 Game Mode에서는 이 섹션이 게임 속 파티로 표현되지만, 라벨은 그대로 **Persona**입니다.
 
+<a id="color-your-name-in-messages"></a>
+
+### 메시지 속 페르소나 이름에 색상 적용
+
+Roleplay 채팅의 **Persona** 섹션에는 **Color Persona Name in Text**(본문의 페르소나 이름에 색상 적용)가 있습니다. 메시지 속 페르소나 이름, Conversation 표시 이름, **Other names**(다른 이름)를 페르소나의 이름 색상으로 표시합니다. 이 설정을 바꾸기 전까지는 **Characters** 섹션의 **Color Character Names in Text**(본문의 캐릭터 이름에 색상 적용) 설정을 따릅니다. 채팅에 이름이 같은 캐릭터가 있으면 그 캐릭터에는 자체 색상이 적용됩니다. 색상이 표시되려면 페르소나의 **Colors**(색상) 탭에서 이름 색상을 설정하세요.
+
 ## 채팅을 만들 때
 
 New Chat 설정 마법사에는 **Your Persona** 입력란이 있습니다. 여기서도 같은 검색형 선택 창과 **None** 항목을 씁니다. New Game Setup 마법사에서는 이 입력란의 이름이 **Player's Persona**(플레이어 페르소나)이며, 채팅은 그 선택을 유지합니다.

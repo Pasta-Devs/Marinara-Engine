@@ -36,11 +36,19 @@ Tus scripts globales están en el panel **Presets** (Ajustes guardados), en la s
 
 Si no funcionó: un error rojo bajo **Find Pattern (Regex)** bloquea el guardado. El patrón no es válido o no es seguro; consulta [Seguridad y rendimiento](#safety-and-performance).
 
+<a id="manage-your-scripts"></a>
+
 ### Gestionar tus scripts
 
-Cada fila de la lista **Regexes** muestra el nombre del script, una etiqueta **AI** o **User**, el patrón como `/pattern/flags`, un interruptor de activar/desactivar (tiene efecto de inmediato), **Edit regex** (Editar regex, lápiz) y **Delete regex** (Eliminar regex, papelera). Sin scripts, la lista dice "No regexes yet" (aún no hay regexes). Arrastra una fila por su asa para cambiar el orden de ejecución.
+Cada fila de la lista **Regexes** muestra el nombre del script, una etiqueta **AI** o **User**, el patrón como `/pattern/flags`, un interruptor de activar/desactivar (tiene efecto de inmediato), **Edit regex** (Editar regex, lápiz) y **Delete regex** (Eliminar regex, papelera). Sin scripts, la lista dice "No regexes yet" (aún no hay regexes).
 
 El encabezado de la sección tiene tres botones de icono: **Create regex**, **Import regexes from JSON** (Importar regexes desde JSON) y **Export regexes to JSON** (Exportar regexes a JSON: guarda todos tus scripts globales en un solo archivo). Los scripts ligados a un solo personaje se guardan aparte; consulta [Limitar un script a un personaje](#limit-a-script-to-one-character).
+
+Para encontrar un script, escribe en **Search regexes** (Buscar regexes). Busca por nombre y patrón y abre las carpetas con coincidencias. Mientras buscas, no puedes reordenar los scripts arrastrándolos.
+
+Crea una carpeta con **New Folder** (Nueva carpeta). Haz clic en su nombre para desplegarla o contraerla. Desactiva su interruptor para pausar sus scripts en todos los chats. El encabezado dice **Paused** (En pausa). Cada script conserva el estado guardado de su interruptor. Un script activado en una carpeta en pausa muestra un interruptor gris y la etiqueta **Paused by folder** (En pausa por la carpeta). Al borrar la carpeta, sus scripts pasan al nivel superior y siguen el estado de sus propios interruptores.
+
+Las carpetas agrupan los scripts sin cambiar cuándo se ejecutan. Haz clic en **Execution order** (Orden de ejecución) para ver la lista completa en el orden en que se ejecutan. Arrastra un script por su asa para cambiar el orden. Si no hay carpetas, la lista ya muestra el orden de ejecución.
 
 <a id="editor-fields"></a>
 

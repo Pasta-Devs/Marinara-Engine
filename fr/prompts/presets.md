@@ -38,11 +38,11 @@ Pour exporter un preset, clique sur l'icône de flèche vers le haut dans la bar
 
 ## Le panneau Presets
 
-**Prompts** est la section des presets. Les autres sections sont **Regexes** et **Functions**. Les boutons du haut sont **New**, **Import** (importer : charger un fichier `.json`) et **Select** (sélectionner : en exporter ou en supprimer plusieurs d'un coup).
+Le panneau comporte trois onglets : **Presets**, **Regexes** et **Functions** (fonctions). Chaque onglet présente en haut la même rangée de boutons, un champ de recherche et **New Folder** (nouveau dossier). Dans **Presets**, utilise **Create preset** (créer un preset) pour en créer un, **Import preset** (importer un preset) pour charger un fichier `.json` ou **Select presets** (sélectionner des presets) pour en exporter ou en supprimer plusieurs à la fois. L'onglet **Regexes** contient tes scripts regex. Voir [Scripts regex](../extending/regex-scripts.md#manage-your-scripts). L'onglet **Functions** contient tes outils personnalisés. Voir [Outils personnalisés](../extending/custom-tools.md).
 
 - **Search presets** filtre la liste.
 - Le menu de tri propose **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest** et **Oldest**. Avec **Manual order**, fais glisser une ligne, ou appuie sur <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd> sur une ligne sélectionnée. Sur un écran tactile, appuie longuement sur une ligne pour la saisir.
-- **New Folder** (nouveau dossier) regroupe des presets. Fais glisser un preset sur un dossier, et double-clique ou double-tape sur un dossier pour le renommer.
+- **New Folder** regroupe des presets. Fais glisser un preset sur un dossier, et double-clique ou double-tape sur un dossier pour le renommer.
 
 Chaque ligne affiche le nom, le format d'encapsulation, le nombre de sections et l'auteur. Un badge **DEFAULT** signale le preset par défaut, marqué d'une étoile. Clique sur une ligne pour l'ouvrir.
 

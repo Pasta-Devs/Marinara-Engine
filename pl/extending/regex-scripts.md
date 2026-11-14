@@ -36,11 +36,25 @@ Twoje globalne skrypty znajdują się w panelu **Presets** (presety), w sekcji *
 
 Jeśli to nie zadziałało: czerwony komunikat pod polem **Find Pattern (Regex)** blokuje zapis. Wzorzec jest błędny albo niebezpieczny; zobacz [Bezpieczeństwo i wydajność](#safety-and-performance).
 
+<a id="manage-your-scripts"></a>
+
 ### Zarządzanie skryptami
 
-Każdy wiersz listy **Regexes** pokazuje nazwę skryptu, tag **AI** albo **User**, wzorzec w postaci `/pattern/flags`, przełącznik włącz/wyłącz (zmiana działa od razu), **Edit regex** (edycja skryptu regex, ołówek) i **Delete regex** (usunięcie skryptu regex, kosz). Gdy nie ma żadnych skryptów, lista pokazuje "No regexes yet". Przeciągnij wiersz za uchwyt, żeby zmienić kolejność uruchamiania.
+Każdy wiersz listy **Regexes** pokazuje nazwę skryptu, tag **AI** albo **User**, wzorzec w postaci `/pattern/flags`, przełącznik włącz/wyłącz (zmiana działa od razu), **Edit regex** (edycja skryptu regex, ołówek) i **Delete regex** (usunięcie skryptu regex, kosz). Gdy nie ma żadnych skryptów, lista pokazuje "No regexes yet".
 
 Nagłówek sekcji ma trzy przyciski z ikonami: **Create regex**, **Import regexes from JSON** (import skryptów z pliku JSON) i **Export regexes to JSON** (eksport skryptów do pliku JSON; zapisuje wszystkie twoje skrypty globalne do jednego pliku). Skrypty powiązane z jedną postacią są przechowywane osobno; zobacz [Ograniczenie skryptu do jednej postaci](#limit-a-script-to-one-character).
+
+Aby znaleźć skrypt, wpisz tekst w polu **Search regexes** (szukaj skryptów regex). Wyszukiwanie obejmuje nazwy i wzorce skryptów oraz otwiera foldery z pasującymi skryptami. Podczas wyszukiwania nie da się przeciągać skryptów, aby zmienić ich kolejność.
+
+#### Porządkowanie skryptów w folderach
+
+1. Kliknij **New Folder** (nowy folder) i nazwij folder.
+2. Kliknij ikonę folderu w wierszu skryptu, żeby otworzyć **Move to folder** (przeniesienie do folderu).
+3. Wybierz folder. Żeby przenieść skrypt poza folder, wybierz **No folder (top level)** (bez folderu, poziom główny).
+
+Kliknij nazwę folderu, żeby go rozwinąć lub zwinąć. Wyłącz przełącznik folderu, żeby wstrzymać jego skrypty we wszystkich czatach. Nagłówek pokazuje **Paused** (wstrzymane). Każdy skrypt zachowuje zapisane ustawienie przełącznika. Włączony skrypt we wstrzymanym folderze ma szary przełącznik i etykietę **Paused by folder** (wstrzymane przez folder). Usunięcie folderu przenosi skrypty na poziom główny, gdzie działają zgodnie z własnymi przełącznikami.
+
+Foldery grupują skrypty bez zmiany kolejności ich uruchamiania. Kliknij **Execution order** (kolejność wykonania), żeby zobaczyć pełną listę w kolejności uruchamiania. Przeciągnij skrypt za uchwyt, żeby zmienić kolejność. Jeśli nie ma folderów, lista jest już w tej kolejności.
 
 <a id="editor-fields"></a>
 

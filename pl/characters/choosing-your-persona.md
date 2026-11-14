@@ -32,6 +32,12 @@ Jeśli to nie zadziałało: możesz wybrać tylko te persony, które już utworz
 
 W trybie Game Mode ta sekcja jest przedstawiona jako twoja drużyna w grze, ale nadal ma etykietę **Persona**.
 
+<a id="color-your-name-in-messages"></a>
+
+### Kolor imienia w wiadomościach
+
+W czacie Roleplay sekcja **Persona** ma opcję **Color Persona Name in Text** (kolorowanie imienia persony w tekście). Nadaje ona imieniu persony, jej nazwie wyświetlanej w trybie Conversation oraz wpisom **Other names** (inne nazwy) w wiadomościach kolor imienia persony. Dopóki nie zmienisz tej opcji, dziedziczy ustawienie **Color Character Names in Text** (kolorowanie imion postaci w tekście) z sekcji **Characters** (postacie). Postać o tym samym imieniu zachowuje swój kolor. Żeby zobaczyć efekt, ustaw kolor imienia persony w zakładce **Colors** (kolory).
+
 ## Podczas tworzenia czatu
 
 Kreator konfiguracji New Chat ma pole **Your Persona** (twoja persona). Korzysta z tego samego okna wyboru z polem wyszukiwania i z opcji **None**. W kreatorze New Game Setup to pole nazywa się **Player's Persona** (persona gracza), a czat zachowuje ten wybór.

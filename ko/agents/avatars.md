@@ -272,7 +272,7 @@ Pollinations, Together AI, Horde, DALL-E, 참조 이미지 슬롯이 없는 Comf
 
 | 원하는 것 | 도구 | 얻는 것 |
 |---|---|---|
-| PNGTuber 스프라이트 | 아무 그림 앱, 그다음 캐릭터의 **Sprites**(스프라이트) 탭 | 스프라이트 |
+| PNGTuber 스프라이트 | 아무 그림 앱, 그다음 캐릭터의 **Images → Sprites**(이미지 → 스프라이트) | 스프라이트 |
 | 레이어와 코스튬이 있는 PNGTuber 스프라이트 | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | `.save` 파일 |
 | 메시 아바타 | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | `.mavatar` 파일 |
 | 3D 모델 | [VRoid Studio](https://vroid.com/en/studio), 또는 Blender와 [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | `.vrm` 파일, 그리고 선택 사항인 `.vrma` 대기 애니메이션 |
@@ -281,7 +281,7 @@ Pollinations, Together AI, Horde, DALL-E, 참조 이미지 슬롯이 없는 Comf
 
 1. 감정마다 그림을 한 장씩 그리세요. 모두 같은 크기로, 캐릭터가 같은 자리에 오도록 그립니다. 각 그림의 이름은 감정에 따라 `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`로 지으세요. `smile`, `cry`, `calm`, `shock`처럼 감정 단어가 들어간 이름도 됩니다. 선택 사항인 [더 많은 감정](#pngtuber-sprites)에는 `amusement`, `fear`, `gratitude`처럼 이름을 지으세요.
 2. 입이 움직이게 하려면 입을 벌린 같은 그림을 그리고 이름에 `_talk`를 붙이세요. 예를 들면 `happy_talk`입니다. 눈을 깜박이게 하려면 눈을 감은 그림에 `_blink`를 붙이세요. 둘 다라면 `_blink_talk`를 붙이세요.
-3. **Sprites** 탭의 **Facial Expressions**(표정) 아래에 그림을 추가하세요. 각 파일 이름이 그 스프라이트의 이름이 됩니다. [캐릭터 스프라이트](../characters/sprites.md#upload-your-own-sprites)를 참고하세요.
+3. **Images → Sprites**의 **Facial Expressions**(표정) 아래에 그림을 추가하세요. 각 파일 이름이 그 스프라이트의 이름이 됩니다. [캐릭터 스프라이트](../characters/sprites.md#upload-your-own-sprites)를 참고하세요.
 4. **Agents**에서 **2D Avatars**를 열고 캐릭터나 페르소나를 고른 다음, **Show this avatar in chats**를 켜세요.
 
 ### PNGTuber Plus
