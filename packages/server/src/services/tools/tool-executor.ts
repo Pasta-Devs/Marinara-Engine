@@ -11,6 +11,7 @@ import {
   isWebhookLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
 import { safeFetch } from "../../utils/security.js";
+import { decodeHtmlEntities, extractReadableText } from "./web-page-text.js";
 import {
   createToolArgumentsAjv,
   createToolArgumentsValidator,
@@ -200,6 +201,10 @@ const WEB_SEARCH_MAX_QUERY_LENGTH = 400;
 const WEB_SEARCH_DEFAULT_LIMIT = 5;
 const WEB_SEARCH_MAX_LIMIT = 8;
 const WEB_SEARCH_RESPONSE_MAX_BYTES = 512 * 1024;
+const WEB_FETCH_DEFAULT_MAX_CHARS = 6000;
+const WEB_FETCH_MAX_CHARS = 12_000;
+const WEB_FETCH_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
+const WEB_FETCH_TIMEOUT_MS = 12_000;
 const SPOTIFY_TRACK_INDEX_TTL_MS = 20 * 60_000;
 const SPOTIFY_TRACK_INDEX_CACHE_MAX = 24;
 const builtInToolArgumentsAjv = createToolArgumentsAjv();
@@ -396,6 +401,8 @@ async function executeBuiltInTool(
       return searchLorebook(args, context?.searchLorebook);
     case "web_search":
       return webSearch(args);
+    case "web_fetch":
+      return webFetch(args);
     case "save_lorebook_entry":
       return saveLorebookEntry(args, context?.saveLorebookEntry);
     case "edit_chat_message":
@@ -927,26 +934,6 @@ function clampInteger(value: unknown, fallback: number, min: number, max: number
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
-function decodeHtmlEntities(value: string): string {
-  const named: Record<string, string> = {
-    amp: "&",
-    apos: "'",
-    gt: ">",
-    lt: "<",
-    nbsp: " ",
-    quot: '"',
-  };
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
-    if (entity[0] === "#") {
-      const isHex = entity[1]?.toLowerCase() === "x";
-      const codePoint = Number.parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-      if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return match;
-      return String.fromCodePoint(codePoint);
-    }
-    return named[entity.toLowerCase()] ?? match;
-  });
-}
-
 function textFromHtml(value: string): string {
   return decodeHtmlEntities(value.replace(/<[^>]*>/g, " "))
     .replace(/\s+/g, " ")
@@ -1029,6 +1016,60 @@ async function webSearch(args: Record<string, unknown>): Promise<Record<string, 
       results: [],
       count: 0,
       error: err instanceof Error ? err.message : "Web search failed.",
+    };
+  }
+}
+
+async function webFetch(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const rawUrl = typeof args.url === "string" ? args.url.trim() : "";
+  if (!rawUrl) return { error: "web_fetch requires a non-empty url" };
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { url: rawUrl, error: "web_fetch requires an absolute URL, for example https://example.com/page." };
+  }
+  if (url.protocol !== "https:") {
+    return { url: rawUrl, error: "web_fetch only reads https:// pages." };
+  }
+  const maxChars = clampInteger(args.maxChars, WEB_FETCH_DEFAULT_MAX_CHARS, 500, WEB_FETCH_MAX_CHARS);
+
+  try {
+    const res = await safeFetch(url, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml,text/plain;q=0.9",
+        "User-Agent": "Marinara Engine web_fetch tool",
+      },
+      signal: AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS),
+      policy: { allowedProtocols: ["https:"], maxRedirects: 3 },
+      allowedContentTypes: ["text/html", "application/xhtml+xml", "text/plain"],
+      maxResponseBytes: WEB_FETCH_RESPONSE_MAX_BYTES,
+    });
+    if (!res.ok) {
+      return { url: url.toString(), status: res.status, error: `Web page request failed (${res.status})` };
+    }
+    const finalUrl = res.url || url.toString();
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = await res.text();
+    const { title, text } = contentType.toLowerCase().includes("text/plain")
+      ? { title: "", text: body }
+      : extractReadableText(body);
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return { url: finalUrl, ...(title ? { title } : {}), error: "The page had no readable text." };
+    }
+    const clipped = trimmed.length > maxChars ? trimmed.slice(0, maxChars).trimEnd() : trimmed;
+    return {
+      url: finalUrl,
+      ...(title ? { title } : {}),
+      text: clipped,
+      chars: clipped.length,
+      truncated: clipped.length < trimmed.length,
+    };
+  } catch (err) {
+    return {
+      url: url.toString(),
+      error: err instanceof Error ? err.message : "Web page request failed.",
     };
   }
 }
