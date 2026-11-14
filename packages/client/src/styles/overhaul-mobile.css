@@ -3634,6 +3634,9 @@
 :root[data-overhaul="mobile"] .ov-conn__model-name {
   font-size: 0.9375rem;
 }
+:root[data-overhaul="mobile"] .ov-conn__model .ov-conn__ctx {
+  width: auto;
+}
 :root[data-overhaul="mobile"] .ov-conn__ctx {
   padding-left: 2.25rem;
   font-size: 0.8125rem;
@@ -4253,6 +4256,9 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+:root[data-overhaul="mobile"] .ov-conn__device .ov-conn__act > svg {
+  margin-right: calc((2.75rem - 14px) / 2);
 }
 :root[data-overhaul="mobile"] .ov-conn__device:not(#ovm-x) {
   flex-wrap: wrap;
