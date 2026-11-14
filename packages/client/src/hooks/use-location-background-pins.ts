@@ -137,11 +137,12 @@ export function useLocationBackgroundPinFollower(args: {
   useEffect(() => {
     if (!chatId || !isRoleplay || pins.length === 0 || !known) return;
     if (!matchPinId || !matchBackground) {
-      // Left the pinned place: arriving there again shows its picture again. Only once everything the
-      // pins match on has loaded: name pins read the tracker location, map pins the map. So a chat still
-      // loading its tracker never forgets a hand-picked picture, and an empty map place still counts.
-      const namePins = pins.some((pin) => pin.names.length > 0);
-      if (shownPinId && (stateKnown || (!!spatialData && !namePins))) {
+      // Left the pinned place: arriving there again shows its picture again. Only once what the shown pin
+      // matches on has loaded: a map place pin needs the map; a name pin the tracker location, or a map
+      // that names the current place (map-only chats). So a chat still loading never forgets a hand pick.
+      const shownPin = shownPinId ? pins.find((pin) => pin.id === shownPinId) : undefined;
+      const shownPinLoaded = stateKnown || (!!spatialData && (!!shownPin?.placeId || !!placeId));
+      if (shownPinId && (!shownPin || shownPinLoaded)) {
         updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
       }
       return;
@@ -151,5 +152,5 @@ export function useLocationBackgroundPinFollower(args: {
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, isRoleplay, known, stateKnown, !!spatialData, pins, matchPinId, matchBackground, shownPinId]);
+  }, [chatId, isRoleplay, known, stateKnown, !!spatialData, placeId, pins, matchPinId, matchBackground, shownPinId]);
 }
