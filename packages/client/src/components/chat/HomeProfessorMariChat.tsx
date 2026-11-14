@@ -52,7 +52,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { chatKeys, useChats } from "../../hooks/use-chats";
-import { characterKeys, useCharacters, usePersonas } from "../../hooks/use-characters";
+import { characterKeys, useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { getCharacterDisplayIdentity } from "../../lib/character-display";
 import { buildCharacterPreviewModel, type CharacterPreviewModel } from "../../lib/character-preview";
 import { buildLorebookPreviewModel } from "../../lib/lorebook-preview";
@@ -376,7 +376,7 @@ export function HomeProfessorMariChat({
   );
   // Ghost-text completion for the composer: the user's own names first, because
   // "tell me about cel|" almost always means one of their characters.
-  const completionCharacters = useCharacters();
+  const completionCharacters = useCharacterListRows();
   const completionPersonas = usePersonas();
   const completionLorebooks = useLorebooks();
   const completionPresets = usePresets();

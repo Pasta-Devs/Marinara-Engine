@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useMemo } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -19,7 +19,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: rawPersonas } = usePersonas();
-  const { data: rawCharacters } = useCharacters();
+  const { data: rawCharacters } = useCharacterListRows();
   const characters = useMemo(
     () =>
       (rawCharacters ?? []) as Array<{

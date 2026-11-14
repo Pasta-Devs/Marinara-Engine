@@ -576,11 +576,7 @@
 }
 .ov-libpage__body
   div
-  > button:is(
-    .mari-panel-gradient-button,
-    .mari-panel-gradient-button ~ *,
-    :has(~ .mari-panel-gradient-button)
-  ) {
+  > button:is(.mari-panel-gradient-button, .mari-panel-gradient-button ~ *, :has(~ .mari-panel-gradient-button)) {
   flex: 0 0 auto;
   width: auto;
   min-width: 2.25rem;
@@ -1168,6 +1164,25 @@
   .ov-card__art:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.7);
+  }
+}
+/* iPadOS/iOS pick up a picture for native drag and drop after a short press, which swallows the tap, so
+   tapping a character or persona picture often did nothing while the name always worked (Nov 14). The
+   picture never takes the touch; the button under it does. */
+.ov-card__art {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+.ov-card__art img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+/* Same for any picture inside a button elsewhere (Home, Chats list, pickers) on touch screens. */
+@media (hover: none) {
+  :root[data-overhaul] :is(button, a, [role="button"]) img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
   }
 }
 .ov-card__art--new {
@@ -5305,7 +5320,10 @@ input.ov-edhead__title:focus {
   border: 1px solid var(--ov-line) !important;
   border-radius: 0.4375rem !important;
 }
-.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]) > div:is(:has(> input, > svg), :has(> input, > svg) ~ div, :has(~ div > input, ~ div > svg)) {
+.ov-gsw
+  .space-y-4
+  div.rounded-lg:is([class*="ring-1"])
+  > div:is(:has(> input, > svg), :has(> input, > svg) ~ div, :has(~ div > input, ~ div > svg)) {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
 }
@@ -6288,11 +6306,7 @@ input.ov-edhead__title:focus {
   font-size: 0.75rem !important;
   font-weight: 400 !important;
 }
-.ov-cs.ov-cs
-  .mari-drawer__body
-  div
-  > label:first-child
-  + :is(input:not([type="checkbox"]), select):last-child {
+.ov-cs.ov-cs .mari-drawer__body div > label:first-child + :is(input:not([type="checkbox"]), select):last-child {
   margin: 0 !important;
 }
 /* Switch rows: no tinted box; the long description moves into the row's hover title. */
@@ -6310,7 +6324,8 @@ input.ov-edhead__title:focus {
 .ov-cs.ov-cs
   .mari-drawer__body
   :is(.space-y-2, .space-y-3)
-  > * + *:is(.justify-between, .justify-between ~ *, :has(~ .justify-between)) {
+  > *
+  + *:is(.justify-between, .justify-between ~ *, :has(~ .justify-between)) {
   margin-top: 0.125rem !important;
 }
 /* Connection is a section like Prompt Preset: header with "?" help, then one dense

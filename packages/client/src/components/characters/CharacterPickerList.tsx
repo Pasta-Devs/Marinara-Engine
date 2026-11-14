@@ -9,7 +9,7 @@ import { avatarInitial } from "../../lib/avatar-initial";
 import { Ban, Link2, Plus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
-import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
+import { useCharacterGroups, useCharacterListRows, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -167,7 +167,7 @@ export function CharacterPickerList({
 
   const personasQuery = usePersonas(isPersona);
   const { data: rawPersonaGroups } = usePersonaGroups();
-  const charactersQuery = useCharacters();
+  const charactersQuery = useCharacterListRows();
   const { data: rawCharacterGroups } = useCharacterGroups();
   const loading = (isPersona && personasQuery.isLoading) || (offersCharacters && charactersQuery.isLoading);
 

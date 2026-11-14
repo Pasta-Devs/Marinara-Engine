@@ -7,7 +7,7 @@
 // ──────────────────────────────────────────────
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
@@ -21,7 +21,7 @@ import { splitDragProps } from "./split-view";
 
 export function LibraryNav() {
   const localize = useLocalizedUiText();
-  const characters = useCharacters();
+  const characters = useCharacterListRows();
   const personas = usePersonas();
   const lorebooks = useLorebooks();
   const presets = usePresets();

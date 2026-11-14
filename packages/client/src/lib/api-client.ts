@@ -313,7 +313,8 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(`${BASE}${path}`, {
     ...init,
     headers,
-    cache: "no-store",
+    // A caller may opt into revalidation ("no-cache") for a large read the server tags with an ETag.
+    cache: init?.cache ?? "no-store",
   });
 }
 

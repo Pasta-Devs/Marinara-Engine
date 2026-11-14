@@ -360,6 +360,9 @@ function normalizeCursorColorForSvg(color: string, fallback: string) {
 
 function resolveCssColor(color: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
+  // A plain hex accent needs no probe. Reading the probe's computed style forced a whole-page style pass
+  // while the app was starting (~100 ms on a slowed phone).
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color.trim())) return color.trim();
   if (!colorProbe) {
     colorProbe = document.createElement("span");
     colorProbe.setAttribute("aria-hidden", "true");

@@ -617,7 +617,7 @@ function GalleryTile({
         aria-label={name}
         data-drag-surface
       >
-        {src ? <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+        {src ? <img src={src} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" /> : null}
         {extra?.selecting ? (
           <span className="ov-card__check">
             <KitCheck checked={extra.selected} label={name} />
