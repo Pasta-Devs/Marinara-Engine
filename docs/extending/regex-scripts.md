@@ -40,6 +40,8 @@ If it did not work: a red error under **Find Pattern (Regex)** blocks saving. Th
 
 Each row shows the script name, an **AI** or **User** tag, and the pattern as `/pattern/flags`. Click the name or **Edit regex** to open the editor. Use the switch beside the script to change whether it runs, or **Delete regex** to remove it. With no scripts or folders, the tab reads "No regexes yet". Character-specific scripts live with the character. See [Limit a script to one character](#limit-a-script-to-one-character).
 
+To find a script, type in **Search regexes**. It matches script names and patterns, and opens any folder that holds a match. You cannot drag scripts to reorder them while a search is active.
+
 ### Organize scripts in folders
 
 1. Click **New Folder** and name the folder.

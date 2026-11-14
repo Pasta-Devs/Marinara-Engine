@@ -231,7 +231,7 @@ The `src/hooks/` folder also contains many feature-specific hooks. A representat
 | `use-background-autonomous.ts` | Background polling for inactive chats      |
 | `use-translate.ts`             | Text translation                          |
 | `use-apply-regex.ts`           | Regex script execution on messages         |
-| `use-custom-tools.ts`          | Custom tool CRUD                           |
+| `use-custom-tools.ts`          | Custom tool CRUD, reordering and bulk toggles |
 | `use-knowledge-sources.ts`     | Knowledge source management                |
 | `use-gallery.ts`               | Chat gallery images                        |
 | `use-chat-folders.ts`          | Chat folder CRUD plus reordering           |
@@ -466,11 +466,12 @@ The server (`packages/server`) exposes REST APIs under `/api`. This is a high-le
 | `/api/connections`   | GET, POST, PATCH, DELETE | API connection CRUD, duplicate, test                                                      |
 | `/api/agents`        | GET, POST, PATCH, DELETE | Agent CRUD, echo messages, runs; built-in toggles use `PUT /api/agents/toggle/:agentType` |
 | `/api/lorebooks`     | GET, POST, PATCH, DELETE | Lorebook CRUD, entries, export                                                            |
-| `/api/custom-tools`  | GET, POST, PATCH, DELETE | Custom tool CRUD                                                                          |
+| `/api/custom-tools`  | GET, POST, PUT, PATCH, DELETE | Custom tool CRUD, `PUT /reorder` and `PUT /enabled`                                       |
 | `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | Regex script CRUD, `PUT /reorder` and `PUT /enabled`                                       |
 | `/api/library-folders/regex` | GET, POST, PATCH, DELETE | Regex folder CRUD, pause state and `POST /move`                                            |
+| `/api/library-folders/functions` | GET, POST, PATCH, DELETE | Custom tool folder CRUD, pause state and `POST /move`                                 |
 
-`PUT /api/regex-scripts/enabled` accepts `scriptIds` and `enabled`. It returns 404 without updating any script if an ID is missing. The regex list includes `pausedByFolder` separately from the saved `enabled` state.
+`PUT /api/regex-scripts/enabled` accepts `scriptIds` and `enabled`. It returns 404 without updating any script if an ID is missing. The regex list includes `pausedByFolder` separately from the saved `enabled` state. `PUT /api/custom-tools/enabled` works the same way with `toolIds`, and the custom tool list carries `pausedByFolder` too. A tool in a paused folder is never offered to the model.
 
 Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType` is the agent type string and `chatId` is the target chat id.
 
