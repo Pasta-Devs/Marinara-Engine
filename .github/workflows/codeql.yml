@@ -45,11 +45,13 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: none
           # The Node regression harness is about 30% of the TypeScript lines and never ships.
+          # The Playwright suites in e2e/ are test code that never ships either.
           # Keep the default query suite: query-filters or custom queries turn off overlay analysis
           # (codeql-action v4.39.1), which doubles PR scans and stops staging saving a base.
           config: |
             paths-ignore:
               - scripts/regressions
+              - e2e
 
       - name: Analyze
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3

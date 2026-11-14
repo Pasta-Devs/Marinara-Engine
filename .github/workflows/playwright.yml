@@ -143,7 +143,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: revision
-    # PR smoke tests run in the required pnpm-validate job instead.
+    # PR smoke tests run in the validate-smoke job of pull-request-checks.yml, which the
+    # required pnpm-validate check depends on.
     if: github.event_name == 'push' && needs.revision.outputs.full != 'true'
     permissions:
       contents: read
@@ -319,7 +320,8 @@ jobs:
           retention-days: 7
 
   # Full-matrix verdicts run only for nightly/manual/release-candidate checks.
-  # Development PRs run smoke tests inside their required pnpm-validate check.
+  # Development PRs run smoke tests in the validate-smoke job of pull-request-checks.yml,
+  # which the required pnpm-validate check depends on.
   desktop-chromium:
     name: desktop-chromium
     runs-on: ubuntu-latest
