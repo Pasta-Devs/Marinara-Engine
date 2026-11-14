@@ -382,6 +382,9 @@ function parseArguments(raw: string): Record<string, unknown> {
   return {};
 }
 
+/** How many pictures from `mari images` stay in her requests (the newest ones). */
+const MAX_LOOK_PICTURES = 8;
+
 /** Pictures in a tool result (`mari images` look markers), as data URLs. */
 function imagesOf(content: string | readonly { type: string; data?: string; mimeType?: string }[]): string[] {
   if (typeof content === "string") return [];
@@ -499,20 +502,35 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const prompt = getCurrentSystemPrompt(context.messages);
     if (prompt) out.push({ role: "system", content: withToolFormat(prompt), contextKind: "prompt" });
     let lastResult: ChatMessage | null = null;
-    // Pictures from the newest round of tool results only: older rounds were already seen, and resending every
-    // picture each round would grow the request with each look.
+    // Pictures she looked at go right after their round of tool results, every turn: models like Codex replay no
+    // reasoning, so a picture that drops out of the request is gone for her (she compares versions over several
+    // rounds). Only the newest MAX_LOOK_PICTURES stay, so the request doesn't grow with every look.
     const all = context.messages as Message[];
-    let newestAssistant = -1;
-    for (let index = all.length - 1; index >= 0; index -= 1) {
-      if (all[index]!.role === "assistant") {
-        newestAssistant = index;
-        break;
-      }
+    let keepFrom = Infinity;
+    for (let index = all.length - 1, kept = 0; index >= 0; index -= 1) {
+      const message = all[index]!;
+      if (message.role !== "toolResult") continue;
+      kept += imagesOf(message.content as never).length;
+      if (kept > MAX_LOOK_PICTURES) break;
+      keepFrom = index;
     }
-    const lookImages: string[] = [];
+    let lookImages: string[] = [];
+    const flushLook = () => {
+      if (lookImages.length === 0) return;
+      out.push({
+        role: "user",
+        content: "(The pictures from the tool results above, so you can look at them. The user did not send these.)",
+        contextKind: "history",
+        images: lookImages,
+      });
+      lookImages = [];
+    };
     for (const [index, message] of all.entries()) {
-      if (message.role === "toolResult" && index > newestAssistant) lookImages.push(...imagesOf(message.content as never));
-      if (message.role !== "toolResult") lastResult = null;
+      if (message.role === "toolResult" && index >= keepFrom) lookImages.push(...imagesOf(message.content as never));
+      if (message.role !== "toolResult") {
+        flushLook();
+        lastResult = null;
+      }
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
@@ -562,14 +580,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         });
       }
     }
-    if (lookImages.length > 0) {
-      out.push({
-        role: "user",
-        content: "(The pictures from your last tool results, so you can look at them. The user did not send these.)",
-        contextKind: "history",
-        images: lookImages,
-      });
-    }
+    flushLook();
     return out;
   };
 
