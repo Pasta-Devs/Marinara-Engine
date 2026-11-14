@@ -26,6 +26,8 @@ import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import {
   isChannelCheckoutBranch,
   isGitUpdateApplyAllowed,
+  OVERHAUL_BRANCH,
+  type UpdateChannelId,
   isUpdateChannelSwitch,
   resolveDockerChannelImageTags,
 } from "../services/updates/update-apply-policy.js";
@@ -38,11 +40,11 @@ const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_REPO}`;
 const GITHUB_TAGS_API = `${GITHUB_API_BASE}/git/matching-refs/tags/v`;
 const GITHUB_RELEASE_BY_TAG_API = (tag: string) => `${GITHUB_API_BASE}/releases/tags/${tag}`;
 const UPDATE_REMOTE = "origin";
-type UpdateChannel = "stable" | "staging";
+type UpdateChannel = UpdateChannelId;
 type UpdateChannelInfo = {
   id: UpdateChannel;
   label: string;
-  branch: "main" | "staging";
+  branch: "main" | "staging" | typeof OVERHAUL_BRANCH;
   targetRef: string;
   fetchRef: string;
   warning?: string;
@@ -62,6 +64,17 @@ const UPDATE_CHANNELS: Record<UpdateChannel, UpdateChannelInfo> = {
     targetRef: `${UPDATE_REMOTE}/staging`,
     fetchRef: `+refs/heads/staging:refs/remotes/${UPDATE_REMOTE}/staging`,
     warning: "Staging builds are pre-release tester builds. Back up your app data before applying them.",
+  },
+  // The UI overhaul playtest branch lives on the official repo, so the same
+  // named fetch works for single-branch installer clones.
+  overhaul: {
+    id: "overhaul",
+    label: "UI overhaul (playtest)",
+    branch: OVERHAUL_BRANCH,
+    targetRef: `${UPDATE_REMOTE}/${OVERHAUL_BRANCH}`,
+    fetchRef: `+refs/heads/${OVERHAUL_BRANCH}:refs/remotes/${UPDATE_REMOTE}/${OVERHAUL_BRANCH}`,
+    warning:
+      "The UI overhaul is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
   },
 };
 const DEFAULT_PNPM_DESCRIPTOR =
@@ -202,6 +215,7 @@ async function isDetachedStagingCheckout(root: string): Promise<boolean> {
 
 async function getUpdateChannelForCheckout(root: string, branch: string | null | undefined) {
   if (branch === UPDATE_CHANNELS.staging.branch) return UPDATE_CHANNELS.staging;
+  if (branch === UPDATE_CHANNELS.overhaul.branch) return UPDATE_CHANNELS.overhaul;
   if (!branch && (await isDetachedStagingCheckout(root))) return UPDATE_CHANNELS.staging;
   return UPDATE_CHANNELS.stable;
 }
@@ -231,7 +245,7 @@ export function getManualGitApplyCommand(
   // would fall through into `git checkout -b` (and everything after it)
   // executed in whatever directory the user happened to be standing in.
   const checkoutCommand =
-    channel.id === "staging"
+    channel.id !== "stable"
       ? `(git show-ref --verify --quiet refs/heads/${channel.branch} && (git checkout ${channel.branch} && git merge --ff-only ${channel.targetRef}) || git checkout -b ${channel.branch} ${channel.targetRef})`
       : `(git merge --ff-only ${channel.targetRef} || git checkout --detach ${channel.targetRef})`;
   // Same scoped cleanup cleanStaleSourceFiles performs, so a manual apply (the
@@ -251,8 +265,8 @@ export function getManualGitApplyCommand(
 }
 
 function getManualUpdateCommand(installType: InstallType, platform: ServerPlatform, channel = UPDATE_CHANNELS.stable) {
-  if (installType === "docker") return DOCKER_UPDATE_COMMAND;
-  if (installType === "git" && channel.id === "staging") {
+  if (installType === "docker") return channel.id === "overhaul" ? null : DOCKER_UPDATE_COMMAND;
+  if (installType === "git" && channel.id !== "stable") {
     return getManualGitApplyCommand(channel, platform);
   }
   if (installType === "git") {
@@ -269,6 +283,9 @@ export function getManualUpdateHint(
   channel = UPDATE_CHANNELS.stable,
 ) {
   if (installType === "docker") {
+    if (channel.id === "overhaul") {
+      return "The UI overhaul has no container image. Docker installs stay on their image; to playtest it, run a git install (Windows, macOS, Linux or Termux) with a separate data folder.";
+    }
     if (channel.id === "staging") {
       return `Set the Compose image to ${DOCKER_IMAGE}:staging, then pull it and restart the container. Use a separate data volume for staging.`;
     }
@@ -278,6 +295,9 @@ export function getManualUpdateHint(
     platform === "windows"
       ? ` Run it in Command Prompt (cmd) or Git Bash - the default Windows PowerShell rejects '&&' chains (Git Bash users: replace \`cd /d\` with \`cd\`${gitBashExtra}).`
       : "";
+  if (installType === "git" && channel.id === "overhaul") {
+    return `The UI overhaul is a playtest branch. Make a profile backup first, then apply from the browser or paste the complete command below - it starts by changing into the install folder.${windowsShellNote()}`;
+  }
   if (installType === "git" && channel.id === "staging") {
     return `Staging is a tester branch. Make a profile backup first, then apply from the browser or paste the complete command below - it starts by changing into the install folder.${windowsShellNote()}`;
   }
@@ -809,6 +829,7 @@ async function resolveUpdateChannel(
 ): Promise<UpdateChannelInfo> {
   if (value === "staging") return UPDATE_CHANNELS.staging;
   if (value === "stable") return UPDATE_CHANNELS.stable;
+  if (value === "overhaul") return UPDATE_CHANNELS.overhaul;
   return getUpdateChannelForCheckout(root, currentBranch);
 }
 
@@ -1154,7 +1175,7 @@ export async function updatesRoutes(app: FastifyInstance) {
       // Installer-created release checkouts are shallow detached HEADs, so
       // they cannot reliably merge a remote-tracking branch. A detached
       // checkout is expected there; normal main-branch clones still fast-forward.
-      const shouldAttachStagingBranch = channel.id === "staging" && currentBranch !== channel.branch;
+      const shouldAttachStagingBranch = channel.id !== "stable" && currentBranch !== channel.branch;
       try {
         if (oldHead !== targetHead || shouldAttachStagingBranch) {
           if (currentBranch === channel.branch) {
@@ -1162,7 +1183,7 @@ export async function updatesRoutes(app: FastifyInstance) {
               cwd: root,
               timeout: 60_000,
             });
-          } else if (channel.id === "staging") {
+          } else if (channel.id !== "stable") {
             await checkoutOrCreateUpdateBranch(root, channel, targetHead);
           } else {
             await execFileAsync("git", ["checkout", "--detach", targetHead], {
