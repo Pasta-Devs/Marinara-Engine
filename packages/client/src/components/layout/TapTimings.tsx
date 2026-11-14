@@ -18,6 +18,13 @@ const QUIET_MS = 700;
 const MAX_WINDOW_MS = 8000;
 const ROWS = 6;
 
+const RETIRED = Symbol("tapTimingsRetired");
+const UNDERLYING = Symbol("tapTimingsUnderlying");
+type CountedFetch = typeof window.fetch & {
+  [RETIRED]?: () => boolean;
+  [UNDERLYING]?: typeof window.fetch;
+};
+
 function readEnabled() {
   try {
     return localStorage.getItem(STORAGE_KEY) === "1";
@@ -74,7 +81,8 @@ function labelFor(target: EventTarget | null) {
   const text =
     source.getAttribute("aria-label") ||
     source.getAttribute("title") ||
-    (source.innerText || source.textContent || "").replace(/\s+/g, " ").trim() ||
+    // textContent, not innerText: innerText forces a layout inside the window being measured.
+    (source.textContent || "").replace(/\s+/g, " ").trim() ||
     source.tagName.toLowerCase();
   return text.length > 26 ? `${text.slice(0, 25)}…` : text;
 }
@@ -97,13 +105,21 @@ export function TapTimings() {
     let stopCurrent: (() => void) | null = null;
     // Counts the app's own requests in flight, so a slow server keeps the tap's timing open.
     let pendingFetches = 0;
-    const originalFetch = window.fetch;
-    const countedFetch: typeof window.fetch = (...args) => {
+    // A wrapper from an earlier toggle can come back onto window.fetch when another module (the mesh avatar
+    // loader) restores what it saved, so start from the fetch underneath it instead of stacking layers.
+    const current = window.fetch as CountedFetch;
+    const originalFetch: typeof window.fetch = current[RETIRED]?.() ? (current[UNDERLYING] ?? current) : current;
+    let retired = false;
+    const countedFetch = ((...args: Parameters<typeof window.fetch>) => {
+      // After the toggle is off, a copy left on window.fetch is a plain pass-through.
+      if (retired) return originalFetch(...args);
       pendingFetches += 1;
       return originalFetch(...args).finally(() => {
         pendingFetches -= 1;
       });
-    };
+    }) as CountedFetch;
+    countedFetch[RETIRED] = () => retired;
+    countedFetch[UNDERLYING] = originalFetch;
     window.fetch = countedFetch;
     try {
       performance.setResourceTimingBufferSize?.(2000);
@@ -182,6 +198,7 @@ export function TapTimings() {
     window.addEventListener("pointerup", listener, { capture: true, passive: true });
     return () => {
       window.removeEventListener("pointerup", listener, { capture: true });
+      retired = true;
       if (window.fetch === countedFetch) window.fetch = originalFetch;
       stopCurrent?.();
     };
