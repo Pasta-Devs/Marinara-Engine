@@ -38,6 +38,7 @@ import {
   useDeleteCustomTool,
   useCustomToolCapabilities,
   useReorderCustomTools,
+  useSetCustomToolsEnabled,
   type CustomToolCapabilities,
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
@@ -47,16 +48,13 @@ import { api, ApiError } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
-import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { LibraryTabToolbar } from "./LibraryTabToolbar";
 import {
-  Plus,
-  Download,
   FileText,
   Trash2,
   Check,
   Copy,
-  Search,
   ArrowUpDown,
   Code2,
   Hash,
@@ -66,12 +64,9 @@ import {
   Pencil,
   ChevronDown,
   ChevronRight,
-  Folder,
   FolderInput,
-  FolderPlus,
   Pause,
   Wrench,
-  Upload,
   ShieldCheck,
   Camera,
 } from "lucide-react";
@@ -89,6 +84,7 @@ import {
 import { collectFolderPackageEntries, type FolderPackageImportEntry } from "../../lib/folder-package-transfer";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { SettingsSwitch } from "./settings/SettingControls";
+import { PausableLibraryFolder, useLibraryMoveMenu, type EditingLibraryFolder } from "./PausableLibraryFolder";
 import {
   getNextUnnamedLibraryFolderName,
   useCreateLibraryFolder,
@@ -105,7 +101,6 @@ import {
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
@@ -292,7 +287,6 @@ export function PresetsPanel() {
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const folderDrag = useLibraryFolderDrag("preset");
   const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const { data: presets, isLoading } = usePresets();
   const { data: regexScripts } = useRegexScripts();
   const { data: customTools } = useCustomTools();
@@ -325,8 +319,8 @@ export function PresetsPanel() {
   const updateMetadata = useUpdateChatMetadata();
   const [search, setSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"presets" | "regex">("presets");
-  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | null>(null);
+  const [tab, setTab] = useState<"presets" | "regex" | "functions">("presets");
+  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | null>(null);
   const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -654,40 +648,43 @@ export function PresetsPanel() {
     [importRegexScript, localizeUi, regexScripts],
   );
 
-  const handleExportFunctions = useCallback(async () => {
-    if (customToolRows.length === 0) {
-      toast.error(localizeUi("ui.panels.presetspanel.noFunctionsToExport"));
-      return;
-    }
+  const handleExportFunctions = useCallback(
+    async (tools = customToolRows) => {
+      if (tools.length === 0) {
+        toast.error(localizeUi("ui.panels.presetspanel.noFunctionsToExport"));
+        return;
+      }
 
-    const includesWebhookCredentials = customToolRows.some(
-      (tool) => tool.executionType === "webhook" && Boolean(tool.webhookUrl),
-    );
-    if (
-      includesWebhookCredentials &&
-      !(await showConfirmDialog({
-        title: localizeUi("ui.panels.presetspanel.exportWebhookCredentials"),
-        message: localizeUi("ui.panels.presetspanel.exportWebhookCredentialsWarning"),
-        confirmLabel: localizeUi("ui.panels.presetspanel.exportWithCredentials"),
-        tone: "destructive",
-      }))
-    ) {
-      return;
-    }
+      const includesWebhookCredentials = tools.some(
+        (tool) => tool.executionType === "webhook" && Boolean(tool.webhookUrl),
+      );
+      if (
+        includesWebhookCredentials &&
+        !(await showConfirmDialog({
+          title: localizeUi("ui.panels.presetspanel.exportWebhookCredentials"),
+          message: localizeUi("ui.panels.presetspanel.exportWebhookCredentialsWarning"),
+          confirmLabel: localizeUi("ui.panels.presetspanel.exportWithCredentials"),
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
 
-    void downloadZipFile(
-      createCustomToolFolderPackageFiles(customToolRows.map(serializeCustomToolForTransfer)),
-      "marinara-functions.zip",
-    ).then((saveStatus) => {
-      if (saveStatus === "saved")
-        toast.success(
-          localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", {
-            value1: customToolRows.length,
-            value2: customToolRows.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-          }),
-        );
-    });
-  }, [customToolRows, localizeUi]);
+      void downloadZipFile(
+        createCustomToolFolderPackageFiles(tools.map(serializeCustomToolForTransfer)),
+        "marinara-functions.zip",
+      ).then((saveStatus) => {
+        if (saveStatus === "saved")
+          toast.success(
+            localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", {
+              value1: tools.length,
+              value2: tools.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+            }),
+          );
+      });
+    },
+    [customToolRows, localizeUi],
+  );
 
   const handleImportFunctions = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1200,6 +1197,34 @@ export function PresetsPanel() {
     ],
   );
 
+  const presetSort = (
+    <div className="relative">
+      <select
+        value={manualOrderActive || folderDrag.active ? "custom" : sort}
+        onChange={(e) => {
+          manualOrder.setActive(e.target.value === "custom");
+          folderDrag.setActive(e.target.value === "custom");
+          if (e.target.value !== "custom") setSort(e.target.value as ResourcePanelSort);
+        }}
+        className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+        title={localizeUi("ui.panels.agentspanel.sortOrder")}
+        aria-label={localizeUi("ui.panels.presetspanel.sortPresets")}
+      >
+        <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
+          {localizeUi("dragDrop.manualOrder")}
+        </option>
+        <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
+        <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
+        <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
+        <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
+      </select>
+      <ArrowUpDown
+        size="0.625rem"
+        className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+      />
+    </div>
+  );
+
   const presetLibrary = (
     <>
       <input
@@ -1210,105 +1235,40 @@ export function PresetsPanel() {
         onChange={handlePresetImageSelected}
       />
 
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => openModal("create-preset")}
-          className="mari-panel-gradient-button mari-panel-gradient--presets flex-1 text-xs"
-          aria-label={localizeUi("ui.panels.presetspanel.createPreset")}
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => openModal("import-preset")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          aria-label={localizeUi("ui.panels.presetspanel.importPreset")}
-          title={localizeUi("ui.chat.chatbranchselector.import")}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
+      <LibraryTabToolbar
+        create={{
+          label: localizeUi("ui.panels.presetspanel.createPreset"),
+          title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
+          onClick: () => openModal("create-preset"),
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.presetspanel.importPreset"),
+          title: localizeUi("ui.chat.chatbranchselector.import"),
+          onClick: () => openModal("import-preset"),
+        }}
+        select={{
+          active: selectionMode,
+          label: selectionMode
+            ? localizeUi("ui.panels.presetspanel.exitPresetSelectionMode")
+            : localizeUi("ui.panels.presetspanel.selectPresets"),
+          title: localizeUi("settings.common.select"),
+          onToggle: () => {
             if (selectionMode) exitSelectionMode();
             else setSelectionTarget("presets");
-          }}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          aria-label={
-            selectionMode
-              ? localizeUi("ui.panels.presetspanel.exitPresetSelectionMode")
-              : localizeUi("ui.panels.presetspanel.selectPresets")
-          }
-          title={localizeUi("settings.common.select")}
-        >
-          <Check size="0.8125rem" />
-        </button>
-      </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            type="text"
-            placeholder={localize("Search presets")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-        <div className="relative">
-          <select
-            value={manualOrderActive || folderDrag.active ? "custom" : sort}
-            onChange={(e) => {
-              manualOrder.setActive(e.target.value === "custom");
-              folderDrag.setActive(e.target.value === "custom");
-              if (e.target.value !== "custom") setSort(e.target.value as ResourcePanelSort);
-            }}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-            aria-label={localizeUi("ui.panels.presetspanel.sortPresets")}
-          >
-            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-              {localizeUi("dragDrop.manualOrder")}
-            </option>
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <FolderPlus size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.newFolder")}
-          </button>
-        </div>
-        {presetFolders.length > 0 && (
-          <p className="mari-folder-helper">
-            {localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}
-          </p>
-        )}
-      </div>
+          },
+        }}
+        search={{ value: search, placeholder: localizeUi("search.panels.presets"), onChange: setSearch }}
+        sort={presetSort}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          onCreate: handleCreateFolder,
+          helper: presetFolders.length > 0 && (
+            <p className="mari-folder-helper">
+              {localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}
+            </p>
+          ),
+        }}
+      />
 
       <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
         <div className="flex flex-col gap-0.5">
@@ -1523,26 +1483,6 @@ export function PresetsPanel() {
         )}
       </PanelSection>
 
-      <FunctionsSection
-        customToolRows={customToolRows}
-        customToolCapabilities={customToolCapabilities}
-        handleCreateFunction={handleCreateFunction}
-        handleImportFunctions={handleImportFunctions}
-        handleExportFunctions={handleExportFunctions}
-        functionImportError={functionImportError}
-        functionImportSuccess={functionImportSuccess}
-        functionImportReviews={functionImportReviews}
-        draggedFunctionId={draggedFunctionId}
-        functionDragReadyId={functionDragReadyId}
-        setDraggedFunctionId={setDraggedFunctionId}
-        setFunctionDragReadyId={setFunctionDragReadyId}
-        handleFunctionDrop={handleFunctionDrop}
-        handleFunctionReorderToIndex={handleFunctionReorderToIndex}
-        openToolDetail={openToolDetail}
-        updateCustomTool={updateCustomTool}
-        deleteCustomTool={deleteCustomTool}
-      />
-
       {selectionMode && (
         <SelectionActionBar
           placement="panel"
@@ -1558,7 +1498,7 @@ export function PresetsPanel() {
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
       <div className="flex flex-wrap gap-1" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
-        {(["presets", "regex"] as const).map((value) => (
+        {(["presets", "regex", "functions"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -1569,11 +1509,48 @@ export function PresetsPanel() {
             aria-pressed={tab === value}
             onClick={() => setTab(value)}
           >
-            {localizeUi(value === "presets" ? "navigation.topbar.presets" : "ui.panels.regexsection.regexes")}
+            {localizeUi(
+              value === "presets"
+                ? "navigation.topbar.presets"
+                : value === "regex"
+                  ? "ui.panels.regexsection.regexes"
+                  : "ui.panels.functionssection.functions",
+            )}
           </button>
         ))}
       </div>
       <div className={tab === "presets" ? "contents" : "hidden"}>{presetLibrary}</div>
+
+      <div className={tab === "functions" ? "contents" : "hidden"}>
+        <FunctionsSection
+          selectionMode={selectionTarget === "functions"}
+          setSelectionMode={(enabled) => {
+            if (enabled) {
+              setSelectedPresetIds(new Set());
+              setSelectionTarget("functions");
+            } else {
+              setSelectionTarget((target) => (target === "functions" ? null : target));
+            }
+          }}
+          customToolRows={customToolRows}
+          customToolCapabilities={customToolCapabilities}
+          handleCreateFunction={handleCreateFunction}
+          handleImportFunctions={handleImportFunctions}
+          handleExportFunctions={handleExportFunctions}
+          functionImportError={functionImportError}
+          functionImportSuccess={functionImportSuccess}
+          functionImportReviews={functionImportReviews}
+          draggedFunctionId={draggedFunctionId}
+          functionDragReadyId={functionDragReadyId}
+          setDraggedFunctionId={setDraggedFunctionId}
+          setFunctionDragReadyId={setFunctionDragReadyId}
+          handleFunctionDrop={handleFunctionDrop}
+          handleFunctionReorderToIndex={handleFunctionReorderToIndex}
+          openToolDetail={openToolDetail}
+          updateCustomTool={updateCustomTool}
+          deleteCustomTool={deleteCustomTool}
+        />
+      </div>
 
       <div className={tab === "regex" ? "contents" : "hidden"}>
         <RegexSection
@@ -1664,41 +1641,45 @@ function RegexSection({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Another tab can end selection mode through the parent, so drop the checks when it does.
+  const [selectionModeSeen, setSelectionModeSeen] = useState(selectionMode);
+  if (selectionModeSeen !== selectionMode) {
+    setSelectionModeSeen(selectionMode);
+    if (!selectionMode) setSelectedIds(new Set());
+  }
   const [deleting, setDeleting] = useState(false);
   const [showExecutionOrder, setShowExecutionOrder] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<{ id: string; name: string } | null>(null);
-  const [moveMenu, setMoveMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+  const [editingFolder, setEditingFolder] = useState<EditingLibraryFolder>(null);
   const { data: folders = [], isError: foldersError } = useLibraryFolders("regex");
   const createFolder = useCreateLibraryFolder("regex");
   const updateFolder = useUpdateLibraryFolder("regex");
   const deleteFolder = useDeleteLibraryFolder("regex");
   const moveScripts = useMoveLibraryItem("regex");
   const setScriptsEnabled = useSetRegexScriptsEnabled();
+  const [search, setSearch] = useState("");
   const busy = deleting || setScriptsEnabled.isPending || moveScripts.isPending;
   const flat = showExecutionOrder || folders.length === 0;
+  const query = search.trim().toLowerCase();
+  const searching = query.length > 0;
+  // Reorder is index-based on the full list, so drag is off while a search hides rows.
+  const reorderable = flat && !searching;
+  const visibleScripts = searching
+    ? sortedRegexScripts.filter(
+        (script) => script.name.toLowerCase().includes(query) || script.findRegex.toLowerCase().includes(query),
+      )
+    : sortedRegexScripts;
   const folderByScriptId = new Map(folders.flatMap((folder) => folder.itemIds.map((id) => [id, folder.id] as const)));
   const rowsByFolder = new Map<string | null, RegexScriptRow[]>();
-  for (const script of sortedRegexScripts) {
+  for (const script of visibleScripts) {
     const folderId = folderByScriptId.get(script.id) ?? null;
     const rows = rowsByFolder.get(folderId);
     if (rows) rows.push(script);
     else rowsByFolder.set(folderId, [script]);
   }
   const reportError = () => toast.error(localizeUi("regex.library.saveFailed"));
-  const openMoveMenu = (button: HTMLButtonElement, scriptIds: string[]) => {
-    const rect = button.getBoundingClientRect();
-    const source = scriptIds.length === 1 ? (folderByScriptId.get(scriptIds[0]!) ?? null) : undefined;
-    setMoveMenu({
-      x: rect.left,
-      y: rect.bottom,
-      items: [{ id: null, name: localizeUi("lorebook.editor.bulk.noFolder") }, ...folders].map((folder) => ({
-        label: folder.name,
-        checked: source === folder.id,
-        onSelect: () => moveScripts.mutate({ itemIds: scriptIds, folderId: folder.id }, { onError: reportError }),
-      })),
-    });
-  };
-  const selectedScripts = sortedRegexScripts.filter((script) => selectedIds.has(script.id));
+  const { openMoveMenu, moveMenu } = useLibraryMoveMenu(folders, moveScripts, reportError);
+  // Bulk actions act only on rows the search shows; hidden checks come back when it clears.
+  const selectedScripts = visibleScripts.filter((script) => selectedIds.has(script.id));
   const toggleSelection = (id: string) => {
     setSelectedIds((previous) => {
       const next = new Set(previous);
@@ -1740,7 +1721,7 @@ function RegexSection({
       setRegexDragReadyId(scriptId);
     },
     onDrop: (scriptId, x, y) => {
-      if (!flat) return;
+      if (!reorderable) return;
       const targetIdx = getTouchReorderDropIndex({
         x,
         y,
@@ -1778,7 +1759,7 @@ function RegexSection({
           "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
           draggedRegexId === script.id && "opacity-40",
         )}
-        draggable={flat && !selectionMode && regexDragReadyId === script.id}
+        draggable={reorderable && !selectionMode && regexDragReadyId === script.id}
         onDragStart={(event) => {
           setDraggedRegexId(script.id);
           event.dataTransfer.effectAllowed = "move";
@@ -1810,7 +1791,7 @@ function RegexSection({
               className="h-4 w-4 accent-[var(--primary)]"
             />
           </label>
-        ) : flat ? (
+        ) : reorderable ? (
           <button
             type="button"
             className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100"
@@ -1843,13 +1824,13 @@ function RegexSection({
         >
           <div className="flex items-center gap-1.5">
             <span className="min-w-0 break-words text-xs font-medium">{script.name}</span>
-            {flat && paused && enabled && (
+            {paused && enabled && (
               <span
                 title={localizeUi("regex.library.pausedByFolder")}
-                className="shrink-0 text-[var(--muted-foreground)]"
+                className="inline-flex shrink-0 items-center gap-0.5 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
               >
-                <Pause size="0.6875rem" aria-hidden="true" />
-                <span className="sr-only">{localizeUi("regex.library.pausedByFolder")}</span>
+                <Pause size="0.5rem" aria-hidden="true" />
+                <span>{localizeUi("regex.library.pausedByFolder")}</span>
               </span>
             )}
           </div>
@@ -1951,66 +1932,39 @@ function RegexSection({
   };
 
   return (
-    <PanelSection
-      title={localizeUi("ui.panels.regexsection.regexes")}
-      icon={<Regex size="0.8125rem" />}
-      action={
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectionMode(!selectionMode);
-              if (selectionMode) setSelectedIds(new Set());
-            }}
-            disabled={busy || sortedRegexScripts.length === 0}
-            aria-label={localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select")}
-            title={localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select")}
-            aria-pressed={selectionMode}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--small p-1.5",
-              selectionMode && "mari-chrome-control--selected",
-            )}
-          >
-            <Check size="0.8125rem" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCreateRegex}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.characters.characterregexsection.createRegex")}
-            aria-label={localizeUi("ui.characters.characterregexsection.createRegex")}
-          >
-            <Plus size="0.8125rem" />
-          </button>
-          <label
-            className="mari-chrome-control mari-chrome-control--small cursor-pointer p-1.5"
-            title={localizeUi("ui.characters.characterregexsection.importRegexesFromJson")}
-            aria-label={localizeUi("ui.characters.characterregexsection.importRegexesFromJson")}
-          >
-            <input type="file" accept="application/json" className="hidden" onChange={handleImportRegex} />
-            <Download size="0.8125rem" />
-          </label>
-          <button
-            type="button"
-            onClick={() => handleExportRegex()}
-            disabled={sortedRegexScripts.length === 0}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.characters.characterregexsection.exportRegexesToJson")}
-            aria-label={localizeUi("ui.characters.characterregexsection.exportRegexesToJson")}
-          >
-            <Upload size="0.8125rem" />
-          </button>
-        </div>
-      }
-    >
-      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}
-      </div>
-      <div className="flex flex-wrap gap-1">
-        <button
-          type="button"
-          disabled={createFolder.isPending || foldersError}
-          onClick={() =>
+    <>
+      <LibraryTabToolbar
+        create={{
+          label: localizeUi("ui.characters.characterregexsection.createRegex"),
+          title: localizeUi("ui.characters.characterregexsection.createRegex"),
+          onClick: handleCreateRegex,
+        }}
+        importAction={{
+          label: localizeUi("ui.characters.characterregexsection.importRegexesFromJson"),
+          title: localizeUi("ui.characters.characterregexsection.importRegexesFromJson"),
+          accept: "application/json",
+          onChange: handleImportRegex,
+        }}
+        exportAction={{
+          label: localizeUi("ui.characters.characterregexsection.exportRegexesToJson"),
+          onClick: () => handleExportRegex(),
+          disabled: sortedRegexScripts.length === 0,
+        }}
+        select={{
+          active: selectionMode,
+          label: localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select"),
+          title: localizeUi(selectionMode ? "regex.bulk.exitSelection" : "regex.bulk.select"),
+          disabled: busy || sortedRegexScripts.length === 0,
+          onToggle: () => {
+            setSelectionMode(!selectionMode);
+            if (selectionMode) setSelectedIds(new Set());
+          },
+        }}
+        search={{ value: search, placeholder: localizeUi("search.panels.regexes"), onChange: setSearch }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          disabled: createFolder.isPending || foldersError,
+          onCreate: () =>
             createFolder.mutate(
               { name: getNextUnnamedLibraryFolderName(folders) },
               {
@@ -2020,166 +1974,87 @@ function RegexSection({
                 },
                 onError: reportError,
               },
-            )
-          }
-          className="mari-chrome-control mari-chrome-control--small min-h-9 flex-1 text-xs"
-        >
-          <FolderPlus size="0.75rem" />
-          {localizeUi("ui.panels.backgroundpicker.newFolder")}
-        </button>
-        {folders.length > 0 && (
-          <button
-            type="button"
-            aria-pressed={showExecutionOrder}
-            onClick={() => setShowExecutionOrder((current) => !current)}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--small min-h-9 flex-1 text-xs",
-              showExecutionOrder && "mari-chrome-control--selected",
-            )}
-          >
-            <ArrowUpDown size="0.75rem" />
-            {localizeUi("regex.library.executionOrder")}
-          </button>
-        )}
-      </div>
-      {foldersError && (
-        <p role="alert" className="text-xs text-[var(--destructive)]">
-          {localizeUi("regex.library.loadFailed")}
-        </p>
-      )}
-      {regexImportError && (
-        <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
-          {regexImportError}
+            ),
+          extra: folders.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={showExecutionOrder}
+              onClick={() => setShowExecutionOrder((current) => !current)}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
+                showExecutionOrder && "mari-chrome-control--selected",
+              )}
+            >
+              <ArrowUpDown size="0.75rem" />
+              {localizeUi("regex.library.executionOrder")}
+            </button>
+          ),
+        }}
+      />
+      <PanelSection title={localizeUi("ui.panels.regexsection.regexes")} icon={<Regex size="0.8125rem" />}>
+        <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}
         </div>
-      )}
-      {regexImportWarning && <div className="mb-1 px-1 text-xs text-amber-500">{regexImportWarning}</div>}
-      {regexImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{regexImportSuccess}</div>}
-      {selectionMode && (
-        <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
-          <input
-            type="checkbox"
-            checked={selectedScripts.length === sortedRegexScripts.length && sortedRegexScripts.length > 0}
-            disabled={busy}
-            onChange={(event) =>
-              setSelectedIds(new Set(event.target.checked ? sortedRegexScripts.map((script) => script.id) : []))
-            }
-            className="h-4 w-4 accent-[var(--primary)]"
-          />
-          {localizeUi("regex.bulk.selectAll")}
-        </label>
-      )}
-      {sortedRegexScripts.length === 0 && folders.length === 0 ? (
-        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
-          {localizeUi("ui.panels.regexsection.noRegexesYet")}
-        </p>
-      ) : (
-        <div data-preset-regex-root className="flex flex-col gap-0.5">
-          {flat ? (
-            sortedRegexScripts.map(renderScript)
-          ) : (
-            <>
-              {folders.map((folder) => {
-                const scripts = rowsByFolder.get(folder.id) ?? [];
-                const editing = editingFolder?.id === folder.id;
-                return (
-                  <div
-                    key={folder.id}
-                    className="rounded-lg border border-[var(--border)]"
-                    data-regex-folder={folder.id}
-                  >
-                    <div className="flex items-center gap-1.5 px-2 py-1">
-                      {editing ? (
-                        <input
-                          autoFocus
-                          onFocus={(event) => event.currentTarget.select()}
-                          aria-label={localizeUi("ui.panels.backgroundpicker.renameFolder")}
-                          maxLength={200}
-                          value={editingFolder.name}
-                          onChange={(event) => setEditingFolder({ id: folder.id, name: event.target.value })}
-                          onBlur={() => {
-                            const name = editingFolder.name.trim();
-                            setEditingFolder(null);
-                            if (name && name !== folder.name)
-                              updateFolder.mutate({ id: folder.id, name }, { onError: reportError });
-                          }}
-                          onKeyDown={(event) => handleFolderRenameInputKeyDown(event, () => setEditingFolder(null))}
-                          className="mari-chrome-field min-w-0 flex-1 px-2 py-1 text-xs"
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          aria-expanded={!folder.collapsed}
-                          aria-label={folder.name}
-                          onClick={() =>
-                            updateFolder.mutate(
-                              { id: folder.id, collapsed: !folder.collapsed },
-                              { onError: reportError },
-                            )
-                          }
-                          className="flex min-h-9 min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold"
-                        >
-                          {folder.collapsed ? (
-                            <ChevronRight size="0.75rem" className="shrink-0" />
-                          ) : (
-                            <ChevronDown size="0.75rem" className="shrink-0" />
-                          )}
-                          <Folder size="0.875rem" className="mari-chrome-accent-icon shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate" title={folder.name}>
-                              {folder.name}
-                            </span>
-                            <span className="flex flex-wrap gap-x-1.5 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
-                              <span>{localizeUi("regex.library.scriptCount", { count: scripts.length })}</span>
-                              {folder.paused && <span>{localizeUi("regex.library.paused")}</span>}
-                            </span>
-                          </span>
-                        </button>
-                      )}
-                      <SettingsSwitch
-                        ariaLabel={localizeUi("regex.library.folderSwitch", { name: folder.name })}
-                        title={localizeUi("regex.library.folderSwitchHint")}
-                        checked={!folder.paused}
-                        disabled={busy || updateFolder.isPending}
-                        onChange={(checked) =>
-                          updateFolder.mutate({ id: folder.id, paused: !checked }, { onError: reportError })
-                        }
-                        className="min-h-9 p-0 hover:bg-transparent"
-                      />
-                      {!selectionMode && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setEditingFolder({ id: folder.id, name: folder.name })}
-                            aria-label={localizeUi("ui.panels.backgroundpicker.renameFolder")}
-                            title={localizeUi("ui.panels.backgroundpicker.renameFolder")}
-                            className="mari-chrome-control mari-chrome-control--small min-h-8 shrink-0 p-1.5"
-                          >
-                            <Pencil size="0.75rem" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (
-                                !(await confirmNonEmptyFolderDelete(scripts.length, {
-                                  title: localizeUi("ui.panels.backgroundpicker.deleteFolder"),
-                                  message: localizeUi("regex.library.deleteFolderConfirm", { name: folder.name }),
-                                  confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                                  tone: "destructive",
-                                }))
-                              )
-                                return;
-                              deleteFolder.mutate(folder.id, { onError: reportError });
-                            }}
-                            aria-label={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
-                            title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
-                            className="mari-chrome-control mari-chrome-control--small min-h-8 shrink-0 p-1.5"
-                          >
-                            <Trash2 size="0.75rem" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                    <SmoothFolderContent open={!folder.collapsed} innerClassName="px-1 pb-1">
+        {foldersError && (
+          <p role="alert" className="text-xs text-[var(--destructive)]">
+            {localizeUi("regex.library.loadFailed")}
+          </p>
+        )}
+        {regexImportError && (
+          <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
+            {regexImportError}
+          </div>
+        )}
+        {regexImportWarning && <div className="mb-1 px-1 text-xs text-amber-500">{regexImportWarning}</div>}
+        {regexImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{regexImportSuccess}</div>}
+        {selectionMode && (
+          <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+            <input
+              type="checkbox"
+              checked={visibleScripts.length > 0 && visibleScripts.every((script) => selectedIds.has(script.id))}
+              disabled={busy}
+              onChange={(event) =>
+                setSelectedIds(new Set(event.target.checked ? visibleScripts.map((script) => script.id) : []))
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            {localizeUi("regex.bulk.selectAll")}
+          </label>
+        )}
+        {sortedRegexScripts.length === 0 && folders.length === 0 ? (
+          <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+            {localizeUi("ui.panels.regexsection.noRegexesYet")}
+          </p>
+        ) : searching && visibleScripts.length === 0 ? (
+          <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("search.panels.noMatches")}</p>
+        ) : (
+          <div data-preset-regex-root className="flex flex-col gap-0.5">
+            {flat ? (
+              visibleScripts.map(renderScript)
+            ) : (
+              <>
+                {folders.map((folder) => {
+                  const scripts = rowsByFolder.get(folder.id) ?? [];
+                  if (searching && scripts.length === 0) return null;
+                  return (
+                    <PausableLibraryFolder
+                      key={folder.id}
+                      folder={folder}
+                      dataAttribute="data-regex-folder"
+                      itemCount={scripts.length}
+                      itemCountLabel={localizeUi("regex.library.scriptCount", { count: scripts.length })}
+                      switchLabel={localizeUi("regex.library.folderSwitch", { name: folder.name })}
+                      switchHint={localizeUi("regex.library.folderSwitchHint")}
+                      deleteConfirmMessage={localizeUi("regex.library.deleteFolderConfirm", { name: folder.name })}
+                      editingFolder={editingFolder}
+                      setEditingFolder={setEditingFolder}
+                      updateFolder={updateFolder}
+                      deleteFolder={deleteFolder}
+                      onError={reportError}
+                      busy={busy}
+                      selectionMode={selectionMode}
+                      searching={searching}
+                    >
                       {scripts.length > 0 ? (
                         scripts.map(renderScript)
                       ) : (
@@ -2187,68 +2062,70 @@ function RegexSection({
                           {localizeUi("regex.library.emptyFolder")}
                         </p>
                       )}
-                    </SmoothFolderContent>
-                  </div>
-                );
-              })}
-              {rowsByFolder.get(null)?.map(renderScript)}
-            </>
-          )}
-        </div>
-      )}
-      {selectionMode && (
-        <SelectionActionBar
-          selectedCount={selectedScripts.length}
-          onExport={() => handleExportRegex(selectedScripts)}
-          onDelete={() => void deleteSelected()}
-          exportDisabled={busy}
-          deleteDisabled={busy}
-          extraAction={
-            <div className="flex w-full flex-wrap gap-1">
-              {([true, false] as const).map((enabled) => (
-                <button
-                  key={String(enabled)}
-                  type="button"
-                  disabled={busy || selectedScripts.length === 0}
-                  onClick={() =>
-                    setScriptsEnabled.mutate(
-                      { scriptIds: selectedScripts.map((script) => script.id), enabled },
-                      { onError: reportError },
-                    )
-                  }
-                  className="mari-chrome-control flex-auto px-2 py-2 text-xs"
-                >
-                  {localizeUi(enabled ? "regex.library.enableSelected" : "regex.library.disableSelected")}
-                </button>
-              ))}
-              {folders.length > 0 && (
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  disabled={busy || selectedScripts.length === 0}
-                  onClick={(event) =>
-                    openMoveMenu(
-                      event.currentTarget,
-                      selectedScripts.map((script) => script.id),
-                    )
-                  }
-                  className="mari-chrome-control flex-auto px-2 py-2 text-xs"
-                >
-                  <FolderInput size="0.75rem" />
-                  {localizeUi("ui.panels.backgroundpicker.moveToFolder")}
-                </button>
-              )}
-            </div>
-          }
-          className="[&>div:last-child]:flex-wrap"
-        />
-      )}
-      {moveMenu && <ContextMenu {...moveMenu} autoFocus onClose={() => setMoveMenu(null)} />}
-    </PanelSection>
+                    </PausableLibraryFolder>
+                  );
+                })}
+                {rowsByFolder.get(null)?.map(renderScript)}
+              </>
+            )}
+          </div>
+        )}
+        {selectionMode && (
+          <SelectionActionBar
+            selectedCount={selectedScripts.length}
+            onExport={() => handleExportRegex(selectedScripts)}
+            onDelete={() => void deleteSelected()}
+            exportDisabled={busy}
+            deleteDisabled={busy}
+            extraAction={
+              <div className="flex w-full flex-wrap gap-1">
+                {([true, false] as const).map((enabled) => (
+                  <button
+                    key={String(enabled)}
+                    type="button"
+                    disabled={busy || selectedScripts.length === 0}
+                    onClick={() =>
+                      setScriptsEnabled.mutate(
+                        { scriptIds: selectedScripts.map((script) => script.id), enabled },
+                        { onError: reportError },
+                      )
+                    }
+                    className="mari-chrome-control flex-auto px-2 py-2 text-xs"
+                  >
+                    {localizeUi(enabled ? "regex.library.enableSelected" : "regex.library.disableSelected")}
+                  </button>
+                ))}
+                {folders.length > 0 && (
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    disabled={busy || selectedScripts.length === 0}
+                    onClick={(event) =>
+                      openMoveMenu(
+                        event.currentTarget,
+                        selectedScripts.map((script) => script.id),
+                      )
+                    }
+                    className="mari-chrome-control flex-auto px-2 py-2 text-xs"
+                  >
+                    <FolderInput size="0.75rem" />
+                    {localizeUi("ui.panels.backgroundpicker.moveToFolder")}
+                  </button>
+                )}
+              </div>
+            }
+            className="[&>div:last-child]:flex-wrap"
+          />
+        )}
+        {moveMenu}
+      </PanelSection>
+    </>
   );
 }
 
 function FunctionsSection({
+  selectionMode,
+  setSelectionMode,
   customToolRows,
   customToolCapabilities,
   handleCreateFunction,
@@ -2267,11 +2144,13 @@ function FunctionsSection({
   updateCustomTool,
   deleteCustomTool,
 }: {
+  selectionMode: boolean;
+  setSelectionMode: (enabled: boolean) => void;
   customToolRows: CustomToolRow[];
   customToolCapabilities?: CustomToolCapabilities;
   handleCreateFunction: () => void;
   handleImportFunctions: (event: ChangeEvent<HTMLInputElement>) => void;
-  handleExportFunctions: () => void;
+  handleExportFunctions: (tools?: CustomToolRow[]) => void;
   functionImportError: string | null;
   functionImportSuccess: string | null;
   functionImportReviews: CustomToolImportReview[];
@@ -2286,12 +2165,88 @@ function FunctionsSection({
   deleteCustomTool: ReturnType<typeof useDeleteCustomTool>;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Another tab can end selection mode through the parent, so drop the checks when it does.
+  const [selectionModeSeen, setSelectionModeSeen] = useState(selectionMode);
+  if (selectionModeSeen !== selectionMode) {
+    setSelectionModeSeen(selectionMode);
+    if (!selectionMode) setSelectedIds(new Set());
+  }
+  const [deleting, setDeleting] = useState(false);
+  const [showManualOrder, setShowManualOrder] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<EditingLibraryFolder>(null);
+  const { data: folders = [], isError: foldersError } = useLibraryFolders("functions");
+  const createFolder = useCreateLibraryFolder("functions");
+  const updateFolder = useUpdateLibraryFolder("functions");
+  const deleteFolder = useDeleteLibraryFolder("functions");
+  const moveTools = useMoveLibraryItem("functions");
+  const setToolsEnabled = useSetCustomToolsEnabled();
+  const [search, setSearch] = useState("");
+  const busy = deleting || setToolsEnabled.isPending || moveTools.isPending;
+  const flat = showManualOrder || folders.length === 0;
+  const query = search.trim().toLowerCase();
+  const searching = query.length > 0;
+  // Reorder is index-based on the full list, so drag is off while a search hides rows.
+  const reorderable = flat && !searching;
+  const visibleTools = searching
+    ? customToolRows.filter(
+        (tool) => tool.name.toLowerCase().includes(query) || (tool.description ?? "").toLowerCase().includes(query),
+      )
+    : customToolRows;
+  const folderByToolId = new Map(folders.flatMap((folder) => folder.itemIds.map((id) => [id, folder.id] as const)));
+  const rowsByFolder = new Map<string | null, CustomToolRow[]>();
+  for (const tool of visibleTools) {
+    const folderId = folderByToolId.get(tool.id) ?? null;
+    const rows = rowsByFolder.get(folderId);
+    if (rows) rows.push(tool);
+    else rowsByFolder.set(folderId, [tool]);
+  }
+  const reportError = () => toast.error(localizeUi("functions.library.saveFailed"));
+  const { openMoveMenu, moveMenu } = useLibraryMoveMenu(folders, moveTools, reportError);
+  // Bulk actions act only on rows the search shows; hidden checks come back when it clears.
+  const selectedTools = visibleTools.filter((tool) => selectedIds.has(tool.id));
+  const toggleSelection = (id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const deleteSelected = async () => {
+    if (busy || selectedTools.length === 0) return;
+    setDeleting(true);
+    try {
+      if (
+        !(await showConfirmDialog({
+          title: localizeUi("functions.bulk.deleteTitle"),
+          message: localizeUi("functions.bulk.deleteConfirm", { count: selectedTools.length }),
+          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+          tone: "destructive",
+        }))
+      )
+        return;
+      const results = await Promise.allSettled(selectedTools.map((tool) => deleteCustomTool.mutateAsync(tool.id)));
+      const failedIds = selectedTools
+        .filter((_, index) => results[index]?.status === "rejected")
+        .map((tool) => tool.id);
+      setSelectedIds(new Set(failedIds));
+      if (failedIds.length > 0) {
+        toast.error(localizeUi("functions.bulk.deleteFailed", { count: failedIds.length }));
+      } else {
+        setSelectionMode(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
   const { startTouchDrag: startFunctionTouchDrag } = useTouchFolderDrag({
     onActivate: (toolId) => {
       setDraggedFunctionId(toolId);
       setFunctionDragReadyId(toolId);
     },
     onDrop: (toolId, x, y) => {
+      if (!reorderable) return;
       const targetIdx = getTouchReorderDropIndex({
         x,
         y,
@@ -2310,276 +2265,453 @@ function FunctionsSection({
     },
   });
 
-  return (
-    <PanelSection
-      title={localizeUi("ui.panels.functionssection.functions")}
-      icon={<Wrench size="0.8125rem" />}
-      action={
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleCreateFunction}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.panels.functionssection.createFunction")}
-            aria-label={localizeUi("ui.panels.functionssection.createFunction")}
-          >
-            <Plus size="0.8125rem" />
-          </button>
-          <label
-            className="mari-chrome-control mari-chrome-control--small cursor-pointer p-1.5"
-            title={localizeUi("ui.panels.functionssection.importFunctionsFromZipOrJson")}
-            aria-label={localizeUi("ui.panels.functionssection.importFunctionsFromZipOrJson")}
-          >
-            <input
-              type="file"
-              accept="application/json,application/zip,.json,.zip"
-              className="hidden"
-              onChange={handleImportFunctions}
-            />
-            <Download size="0.8125rem" />
-          </label>
-          <button
-            type="button"
-            onClick={handleExportFunctions}
-            disabled={customToolRows.length === 0}
-            className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title={localizeUi("ui.panels.functionssection.exportFunctionsToZip")}
-            aria-label={localizeUi("ui.panels.functionssection.exportFunctionsToZip")}
-          >
-            <Upload size="0.8125rem" />
-          </button>
-        </div>
-      }
-    >
-      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}
-      </div>
-      {functionImportError && (
-        <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
-          {functionImportError}
-        </div>
-      )}
-      {functionImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{functionImportSuccess}</div>}
-      {functionImportReviews.length > 0 && (
-        <section
-          aria-live="polite"
-          aria-label={localizeUi("ui.panels.functionssection.executableImportReviewTitle")}
-          className="mb-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/45 p-2.5"
-        >
-          <div className="flex items-start gap-2">
-            <ShieldCheck aria-hidden="true" size="0.9375rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-            <div className="min-w-0">
-              <h3 className="text-xs font-semibold text-[var(--foreground)]">
-                {localizeUi("ui.panels.functionssection.executableImportReviewTitle")}
-              </h3>
-              <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.functionssection.executableImportReviewDescription")}
-              </p>
-            </div>
-          </div>
-          <dl className="mt-2 divide-y divide-[var(--border)]">
-            {functionImportReviews.map((review, index) => (
-              <div key={`${review.name}-${index}`} className="grid gap-1 py-2 first:pt-0 last:pb-0">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <dt className="sr-only">{localizeUi("ui.panels.functionssection.functionName")}</dt>
-                  <dd className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] font-semibold">{review.name}</dd>
-                  <span className="shrink-0 rounded bg-[var(--background)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
-                    {localizeUi(
-                      review.executionType === "webhook"
-                        ? "ui.panels.functionssection.webhook"
-                        : "ui.panels.functionssection.script",
-                    )}
-                  </span>
-                </div>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 text-[0.625rem]">
-                  {review.executionType === "webhook" && (
-                    <>
-                      <dt className="text-[var(--muted-foreground)]">
-                        {localizeUi("ui.panels.functionssection.destinationOrigin")}
-                      </dt>
-                      <dd className="max-w-40 break-all text-right font-mono text-[var(--foreground)]">
-                        {review.destinationOrigin ?? localizeUi("ui.panels.functionssection.invalidWebhookOrigin")}
-                      </dd>
-                    </>
-                  )}
-                  <dt className="text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.functionssection.requestedEnabled")}
-                  </dt>
-                  <dd className="text-right font-medium">
-                    {localizeUi(
-                      review.requestedEnabled ? "ui.panels.functionssection.yes" : "ui.panels.functionssection.no",
-                    )}
-                  </dd>
-                  <dt className="text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.functionssection.requestedHiddenContext")}
-                  </dt>
-                  <dd className="text-right font-medium">
-                    {localizeUi(
-                      review.requestedHiddenContext
-                        ? "ui.panels.functionssection.yes"
-                        : "ui.panels.functionssection.no",
-                    )}
-                  </dd>
-                </div>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-2 text-[0.625rem] font-medium leading-relaxed text-[var(--foreground)]">
-            {localizeUi("ui.panels.functionssection.importedWebhookSafeState")}
-          </p>
-          <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.functionssection.reviewBeforeEnabling")}
-          </p>
-        </section>
-      )}
-      {customToolRows.length === 0 ? (
-        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
-          {localizeUi("ui.panels.functionssection.noFunctionsYet")}
-        </p>
-      ) : (
-        <div data-preset-functions-root className="flex flex-col gap-0.5">
-          {customToolRows.map((tool, index) => {
-            const enabled = tool.enabled === "true" || tool.enabled === "1";
-            const scriptUnavailable =
-              tool.executionType === "script" && customToolCapabilities?.scriptExecutionEnabled === false;
-            const parameterCount = getFunctionParameterCount(tool.parametersSchema);
+  const renderTool = (tool: CustomToolRow, index: number) => {
+    const enabled = tool.enabled === "true" || tool.enabled === "1";
+    const paused = tool.pausedByFolder === true;
+    const scriptUnavailable =
+      tool.executionType === "script" && customToolCapabilities?.scriptExecutionEnabled === false;
+    const parameterCount = getFunctionParameterCount(tool.parametersSchema);
 
-            return (
-              <div
-                key={tool.id}
-                data-touch-reorder-item="preset-function"
-                data-touch-reorder-index={index}
-                className={cn(
-                  "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
-                  draggedFunctionId === tool.id && "opacity-40",
-                )}
-                draggable={functionDragReadyId === tool.id}
-                onDragStart={(event) => {
-                  setDraggedFunctionId(tool.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", tool.id);
-                }}
-                onDragOver={(event) => {
-                  if (draggedFunctionId && draggedFunctionId !== tool.id) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  handleFunctionDrop(tool.id);
-                }}
-                onDragEnd={() => {
-                  setDraggedFunctionId(null);
-                  setFunctionDragReadyId(null);
-                }}
+    return (
+      <div
+        key={tool.id}
+        data-touch-reorder-item="preset-function"
+        data-touch-reorder-index={index}
+        className={cn(
+          "group flex flex-wrap items-start gap-2 rounded-xl p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
+          draggedFunctionId === tool.id && "opacity-40",
+        )}
+        draggable={reorderable && !selectionMode && functionDragReadyId === tool.id}
+        onDragStart={(event) => {
+          setDraggedFunctionId(tool.id);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", tool.id);
+        }}
+        onDragOver={(event) => {
+          if (draggedFunctionId && draggedFunctionId !== tool.id) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          handleFunctionDrop(tool.id);
+        }}
+        onDragEnd={() => {
+          setDraggedFunctionId(null);
+          setFunctionDragReadyId(null);
+        }}
+      >
+        {selectionMode ? (
+          <label className="flex min-h-11 w-6 shrink-0 cursor-pointer items-center justify-center">
+            <input
+              type="checkbox"
+              checked={selectedIds.has(tool.id)}
+              disabled={busy}
+              onChange={() => toggleSelection(tool.id)}
+              aria-label={localizeUi("functions.bulk.selectEntry", { name: tool.name })}
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+          </label>
+        ) : reorderable ? (
+          <button
+            type="button"
+            className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100"
+            title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => {
+              event.stopPropagation();
+              setFunctionDragReadyId(tool.id);
+            }}
+            onMouseUp={(event) => {
+              event.stopPropagation();
+              setFunctionDragReadyId(null);
+            }}
+            onTouchStart={(event) => {
+              event.stopPropagation();
+              startFunctionTouchDrag(event, tool.id, {
+                allowInteractiveTarget: true,
+                sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-reorder-item="preset-function"]'),
+              });
+            }}
+          >
+            <GripVertical size="0.8125rem" />
+          </button>
+        ) : null}
+        <Wrench size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
+        <button
+          className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
+          disabled={busy}
+          onClick={() => (selectionMode ? toggleSelection(tool.id) : openToolDetail(tool.id))}
+        >
+          <div className="flex min-w-0 items-center gap-1">
+            <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={tool.name}>
+              {tool.name}
+            </span>
+            {paused && enabled && (
+              <span
+                title={localizeUi("functions.library.pausedByFolder")}
+                className="inline-flex shrink-0 items-center gap-0.5 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
               >
-                <button
-                  type="button"
-                  className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 opacity-100 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-focus-within:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100"
-                  title={localizeUi("ui.lorebooks.lorebookentryrow.dragToReorder")}
-                  onClick={(event) => event.stopPropagation()}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                    setFunctionDragReadyId(tool.id);
-                  }}
-                  onMouseUp={(event) => {
-                    event.stopPropagation();
-                    setFunctionDragReadyId(null);
-                  }}
-                  onTouchStart={(event) => {
-                    event.stopPropagation();
-                    startFunctionTouchDrag(event, tool.id, {
-                      allowInteractiveTarget: true,
-                      sourceElement: event.currentTarget.closest<HTMLElement>(
-                        '[data-touch-reorder-item="preset-function"]',
-                      ),
-                    });
-                  }}
-                >
-                  <GripVertical size="0.8125rem" />
-                </button>
-                <Wrench size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text)]" />
-                <button
-                  className={cn("min-w-0 flex-1 basis-[min(100%,10rem)] text-left", !enabled && "opacity-50")}
-                  onClick={() => openToolDetail(tool.id)}
-                >
-                  <div className="flex min-w-0 items-center gap-1">
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium" title={tool.name}>
-                      {tool.name}
-                    </span>
-                    <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
-                      {formatFunctionExecutionType(tool.executionType)}
-                    </span>
-                    <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
-                      {parameterCount} {localizeUi("ui.panels.functionssection.param")}
-                      {parameterCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
-                    </span>
-                    {scriptUnavailable && (
-                      <span className="shrink-0 rounded bg-amber-500/10 px-1 py-0.5 text-[0.5rem] text-amber-400">
-                        {localizeUi("ui.panels.functionssection.scriptDisabled")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
-                    {tool.description || "No description"}
-                  </div>
-                </button>
-                <div className="ml-auto flex shrink-0 items-center gap-1">
-                  <div
-                    className="shrink-0"
-                    title={
-                      enabled
-                        ? localizeUi("ui.panels.functionssection.disableFunction")
-                        : localizeUi("ui.panels.functionssection.enableFunction")
-                    }
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <SettingsSwitch
-                      ariaLabel={enabled ? "Disable function" : "Enable function"}
-                      checked={enabled}
-                      onChange={(checked) => updateCustomTool.mutate({ id: tool.id, enabled: checked })}
-                      className="p-0 hover:bg-transparent"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
-                    title={localizeUi("ui.panels.functionssection.editFunction")}
-                    aria-label={localizeUi("ui.panels.functionssection.editFunction")}
-                    onClick={() => openToolDetail(tool.id)}
-                  >
-                    <Pencil size="0.8125rem" />
-                  </button>
-                  <button
-                    type="button"
-                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
-                    title={localizeUi("ui.agents.tooleditor.deleteFunction")}
-                    aria-label={localizeUi("ui.agents.tooleditor.deleteFunction")}
-                    onClick={async () => {
-                      if (
-                        await showConfirmDialog({
-                          title: localizeUi("ui.panels.functionssection.deleteFunction"),
-                          message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: tool.name }),
-                          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                          tone: "destructive",
-                        })
-                      ) {
-                        deleteCustomTool.mutate(tool.id);
-                      }
-                    }}
-                  >
-                    <Trash2 size="0.8125rem" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                <Pause size="0.5rem" aria-hidden="true" />
+                <span>{localizeUi("functions.library.pausedByFolder")}</span>
+              </span>
+            )}
+            <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
+              {formatFunctionExecutionType(tool.executionType)}
+            </span>
+            <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
+              {parameterCount} {localizeUi("ui.panels.functionssection.param")}
+              {parameterCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
+            </span>
+            {scriptUnavailable && (
+              <span className="shrink-0 rounded bg-amber-500/10 px-1 py-0.5 text-[0.5rem] text-amber-400">
+                {localizeUi("ui.panels.functionssection.scriptDisabled")}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+            {tool.description || localizeUi("ui.panels.agentcard.noDescription")}
+          </div>
+        </button>
+        {!selectionMode && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <div
+              className="shrink-0"
+              title={
+                enabled
+                  ? localizeUi("ui.panels.functionssection.disableFunction")
+                  : localizeUi("ui.panels.functionssection.enableFunction")
+              }
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <SettingsSwitch
+                ariaLabel={
+                  paused && enabled
+                    ? localizeUi("functions.library.pausedFunctionSwitch", { name: tool.name })
+                    : enabled
+                      ? localizeUi("ui.panels.functionssection.disableFunction")
+                      : localizeUi("ui.panels.functionssection.enableFunction")
+                }
+                switchClassName={paused && enabled ? "saturate-0 opacity-70" : undefined}
+                checked={enabled}
+                disabled={updateCustomTool.isPending}
+                onChange={(checked) =>
+                  updateCustomTool.mutate({ id: tool.id, enabled: checked }, { onError: reportError })
+                }
+                className="p-0 hover:bg-transparent"
+              />
+            </div>
+            {folders.length > 0 && (
+              <button
+                type="button"
+                aria-label={localizeUi("functions.library.moveFunction", { name: tool.name })}
+                title={localizeUi("ui.panels.backgroundpicker.moveToFolder")}
+                aria-haspopup="menu"
+                disabled={busy}
+                onClick={(event) => openMoveMenu(event.currentTarget, [tool.id])}
+                className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
+              >
+                <FolderInput size="0.8125rem" />
+              </button>
+            )}
+            <button
+              type="button"
+              className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
+              title={localizeUi("ui.panels.functionssection.editFunction")}
+              aria-label={localizeUi("ui.panels.functionssection.editFunction")}
+              onClick={() => openToolDetail(tool.id)}
+            >
+              <Pencil size="0.8125rem" />
+            </button>
+            <button
+              type="button"
+              className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
+              title={localizeUi("ui.agents.tooleditor.deleteFunction")}
+              aria-label={localizeUi("ui.agents.tooleditor.deleteFunction")}
+              onClick={async () => {
+                if (
+                  await showConfirmDialog({
+                    title: localizeUi("ui.panels.functionssection.deleteFunction"),
+                    message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: tool.name }),
+                    confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                    tone: "destructive",
+                  })
+                ) {
+                  deleteCustomTool.mutate(tool.id);
+                }
+              }}
+            >
+              <Trash2 size="0.8125rem" />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <LibraryTabToolbar
+        create={{
+          label: localizeUi("ui.panels.functionssection.createFunction"),
+          title: localizeUi("ui.panels.functionssection.createFunction"),
+          onClick: handleCreateFunction,
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.functionssection.importFunctionsFromZipOrJson"),
+          title: localizeUi("ui.panels.functionssection.importFunctionsFromZipOrJson"),
+          accept: "application/json,application/zip,.json,.zip",
+          onChange: handleImportFunctions,
+        }}
+        exportAction={{
+          label: localizeUi("ui.panels.functionssection.exportFunctionsToZip"),
+          onClick: () => void handleExportFunctions(),
+          disabled: customToolRows.length === 0,
+        }}
+        select={{
+          active: selectionMode,
+          label: localizeUi(selectionMode ? "functions.bulk.exitSelection" : "functions.bulk.select"),
+          title: localizeUi(selectionMode ? "functions.bulk.exitSelection" : "functions.bulk.select"),
+          disabled: busy || customToolRows.length === 0,
+          onToggle: () => {
+            setSelectionMode(!selectionMode);
+            if (selectionMode) setSelectedIds(new Set());
+          },
+        }}
+        search={{ value: search, placeholder: localizeUi("search.panels.functions"), onChange: setSearch }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          disabled: createFolder.isPending || foldersError,
+          onCreate: () =>
+            createFolder.mutate(
+              { name: getNextUnnamedLibraryFolderName(folders) },
+              {
+                onSuccess: (folder) => {
+                  setShowManualOrder(false);
+                  setEditingFolder({ id: folder.id, name: folder.name });
+                },
+                onError: reportError,
+              },
+            ),
+          extra: folders.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={showManualOrder}
+              onClick={() => setShowManualOrder((current) => !current)}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
+                showManualOrder && "mari-chrome-control--selected",
+              )}
+            >
+              <ArrowUpDown size="0.75rem" />
+              {localizeUi("dragDrop.manualOrder")}
+            </button>
+          ),
+        }}
+      />
+      <PanelSection title={localizeUi("ui.panels.functionssection.functions")} icon={<Wrench size="0.8125rem" />}>
+        <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}
         </div>
-      )}
-    </PanelSection>
+        {functionImportError && (
+          <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
+            {functionImportError}
+          </div>
+        )}
+        {functionImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{functionImportSuccess}</div>}
+        {functionImportReviews.length > 0 && (
+          <section
+            aria-live="polite"
+            aria-label={localizeUi("ui.panels.functionssection.executableImportReviewTitle")}
+            className="mb-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/45 p-2.5"
+          >
+            <div className="flex items-start gap-2">
+              <ShieldCheck aria-hidden="true" size="0.9375rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+              <div className="min-w-0">
+                <h3 className="text-xs font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.panels.functionssection.executableImportReviewTitle")}
+                </h3>
+                <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                  {localizeUi("ui.panels.functionssection.executableImportReviewDescription")}
+                </p>
+              </div>
+            </div>
+            <dl className="mt-2 divide-y divide-[var(--border)]">
+              {functionImportReviews.map((review, index) => (
+                <div key={`${review.name}-${index}`} className="grid gap-1 py-2 first:pt-0 last:pb-0">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <dt className="sr-only">{localizeUi("ui.panels.functionssection.functionName")}</dt>
+                    <dd className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] font-semibold">{review.name}</dd>
+                    <span className="shrink-0 rounded bg-[var(--background)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
+                      {localizeUi(
+                        review.executionType === "webhook"
+                          ? "ui.panels.functionssection.webhook"
+                          : "ui.panels.functionssection.script",
+                      )}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 text-[0.625rem]">
+                    {review.executionType === "webhook" && (
+                      <>
+                        <dt className="text-[var(--muted-foreground)]">
+                          {localizeUi("ui.panels.functionssection.destinationOrigin")}
+                        </dt>
+                        <dd className="max-w-40 break-all text-right font-mono text-[var(--foreground)]">
+                          {review.destinationOrigin ?? localizeUi("ui.panels.functionssection.invalidWebhookOrigin")}
+                        </dd>
+                      </>
+                    )}
+                    <dt className="text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.functionssection.requestedEnabled")}
+                    </dt>
+                    <dd className="text-right font-medium">
+                      {localizeUi(
+                        review.requestedEnabled ? "ui.panels.functionssection.yes" : "ui.panels.functionssection.no",
+                      )}
+                    </dd>
+                    <dt className="text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.functionssection.requestedHiddenContext")}
+                    </dt>
+                    <dd className="text-right font-medium">
+                      {localizeUi(
+                        review.requestedHiddenContext
+                          ? "ui.panels.functionssection.yes"
+                          : "ui.panels.functionssection.no",
+                      )}
+                    </dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 text-[0.625rem] font-medium leading-relaxed text-[var(--foreground)]">
+              {localizeUi("ui.panels.functionssection.importedWebhookSafeState")}
+            </p>
+            <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+              {localizeUi("ui.panels.functionssection.reviewBeforeEnabling")}
+            </p>
+          </section>
+        )}
+        {foldersError && (
+          <p role="alert" className="text-xs text-[var(--destructive)]">
+            {localizeUi("functions.library.loadFailed")}
+          </p>
+        )}
+        {selectionMode && (
+          <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+            <input
+              type="checkbox"
+              checked={visibleTools.length > 0 && visibleTools.every((tool) => selectedIds.has(tool.id))}
+              disabled={busy}
+              onChange={(event) =>
+                setSelectedIds(new Set(event.target.checked ? visibleTools.map((tool) => tool.id) : []))
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            {localizeUi("functions.bulk.selectAll")}
+          </label>
+        )}
+        {customToolRows.length === 0 && folders.length === 0 ? (
+          <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+            {localizeUi("ui.panels.functionssection.noFunctionsYet")}
+          </p>
+        ) : searching && visibleTools.length === 0 ? (
+          <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("search.panels.noMatches")}</p>
+        ) : (
+          <div data-preset-functions-root className="flex flex-col gap-0.5">
+            {flat ? (
+              visibleTools.map(renderTool)
+            ) : (
+              <>
+                {folders.map((folder) => {
+                  const tools = rowsByFolder.get(folder.id) ?? [];
+                  if (searching && tools.length === 0) return null;
+                  return (
+                    <PausableLibraryFolder
+                      key={folder.id}
+                      folder={folder}
+                      dataAttribute="data-function-folder"
+                      itemCount={tools.length}
+                      itemCountLabel={localizeUi("functions.library.functionCount", { count: tools.length })}
+                      switchLabel={localizeUi("functions.library.folderSwitch", { name: folder.name })}
+                      switchHint={localizeUi("functions.library.folderSwitchHint")}
+                      deleteConfirmMessage={localizeUi("functions.library.deleteFolderConfirm", { name: folder.name })}
+                      editingFolder={editingFolder}
+                      setEditingFolder={setEditingFolder}
+                      updateFolder={updateFolder}
+                      deleteFolder={deleteFolder}
+                      onError={reportError}
+                      busy={busy}
+                      selectionMode={selectionMode}
+                      searching={searching}
+                    >
+                      {tools.length > 0 ? (
+                        tools.map(renderTool)
+                      ) : (
+                        <p className="mari-chrome-text-muted px-2 py-1 text-[0.625rem]">
+                          {localizeUi("functions.library.emptyFolder")}
+                        </p>
+                      )}
+                    </PausableLibraryFolder>
+                  );
+                })}
+                {rowsByFolder.get(null)?.map(renderTool)}
+              </>
+            )}
+          </div>
+        )}
+        {selectionMode && (
+          <SelectionActionBar
+            selectedCount={selectedTools.length}
+            onExport={() => void handleExportFunctions(selectedTools)}
+            onDelete={() => void deleteSelected()}
+            exportDisabled={busy}
+            deleteDisabled={busy}
+            extraAction={
+              <div className="flex w-full flex-wrap gap-1">
+                {([true, false] as const).map((enabled) => (
+                  <button
+                    key={String(enabled)}
+                    type="button"
+                    disabled={busy || selectedTools.length === 0}
+                    onClick={() =>
+                      setToolsEnabled.mutate(
+                        { toolIds: selectedTools.map((tool) => tool.id), enabled },
+                        { onError: reportError },
+                      )
+                    }
+                    className="mari-chrome-control flex-auto px-2 py-2 text-xs"
+                  >
+                    {localizeUi(enabled ? "regex.library.enableSelected" : "regex.library.disableSelected")}
+                  </button>
+                ))}
+                {folders.length > 0 && (
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    disabled={busy || selectedTools.length === 0}
+                    onClick={(event) =>
+                      openMoveMenu(
+                        event.currentTarget,
+                        selectedTools.map((tool) => tool.id),
+                      )
+                    }
+                    className="mari-chrome-control flex-auto px-2 py-2 text-xs"
+                  >
+                    <FolderInput size="0.75rem" />
+                    {localizeUi("ui.panels.backgroundpicker.moveToFolder")}
+                  </button>
+                )}
+              </div>
+            }
+            className="[&>div:last-child]:flex-wrap"
+          />
+        )}
+        {moveMenu}
+      </PanelSection>
+    </>
   );
 }
 

@@ -332,7 +332,7 @@ test("regex library folders pause chat display and bulk toggles keep each script
 
     await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
-    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(0);
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
     await expect(
       folder.getByRole("checkbox", { name: "Run Pack format (paused by folder)", exact: true }),
     ).toBeChecked();
@@ -391,5 +391,124 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await Promise.all(scripts.map((script) => request.delete("/api/regex-scripts/" + script.id)));
     if (folderId) await request.delete("/api/library-folders/regex/" + folderId);
     if (characterId) await request.delete("/api/characters/" + characterId);
+  }
+});
+
+test("function library folders pause offered tools and bulk toggles keep each function setting", async ({
+  page,
+  request,
+}) => {
+  const tools: { id: string; name: string }[] = [];
+  let folderId: string | undefined;
+  const tabGroup = page.getByRole("group", { name: "Presets", exact: true });
+  const toolState = async () => {
+    const rows = (await (await request.get("/api/custom-tools")).json()) as {
+      id: string;
+      enabled: string | boolean;
+      pausedByFolder: boolean;
+    }[];
+    return tools.map((tool) => {
+      const row = rows.find(({ id }) => id === tool.id);
+      return row && [row.enabled === true || row.enabled === "true" || row.enabled === "1", row.pausedByFolder];
+    });
+  };
+  try {
+    for (const data of [
+      { name: "e2e_folder_alpha", description: "Alpha fixture", enabled: true },
+      { name: "e2e_folder_beta", description: "Beta fixture", enabled: false },
+    ]) {
+      const result = await request.post("/api/custom-tools", {
+        data: { ...data, executionType: "static", staticResult: "ok" },
+      });
+      expect(result.ok()).toBeTruthy();
+      tools.push(await result.json());
+    }
+    const [alpha] = tools;
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+      useUIStore.getState().openRightPanel("presets");
+    });
+    await tabGroup.getByRole("button", { name: "Functions", exact: true }).click();
+    const selectFunctions = page.getByRole("button", { name: "Select functions", exact: true });
+    const exitSelection = page.getByRole("button", { name: "Exit function selection", exact: true });
+    const created = page.waitForResponse(
+      (response) => response.url().endsWith("/api/library-folders/functions") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "New Folder", exact: true }).click();
+    const createdResponse = await created;
+    expect(createdResponse.ok()).toBeTruthy();
+    folderId = (await createdResponse.json()).id;
+    const folder = page.locator('[data-function-folder="' + folderId + '"]');
+    const folderName = folder.getByRole("textbox", { name: "Rename folder", exact: true });
+    await folderName.fill("Test tools");
+    await folderName.press("Enter");
+    await expect(folder.getByRole("button", { name: "Test tools", exact: true })).toBeVisible();
+
+    await selectFunctions.click();
+    await page.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true }).check();
+    await page.getByRole("checkbox", { name: "Select e2e_folder_beta", exact: true }).check();
+    await page.getByRole("button", { name: "Move to folder", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Test tools", exact: true }).click();
+    await expect(folder.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true })).toBeChecked();
+    await exitSelection.click();
+
+    await folder.getByRole("checkbox", { name: "Offer functions in Test tools", exact: true }).locator("..").click();
+    await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
+    await expect(
+      folder.getByRole("checkbox", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
+    ).toBeChecked();
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
+    await expect.poll(toolState).toEqual([
+      [true, true],
+      [false, true],
+    ]);
+    const orderView = page.getByRole("button", { name: "Manual order", exact: true });
+    await orderView.click();
+    await expect(page.getByTitle("Paused by folder", { exact: true })).toHaveCount(1);
+    await orderView.click();
+
+    await selectFunctions.click();
+    await folder.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true }).check();
+    await folder.getByRole("checkbox", { name: "Select e2e_folder_beta", exact: true }).check();
+    const bulk = page.locator(".mari-selection-action-bar");
+    await bulk.getByRole("button", { name: "Enable selected", exact: true }).click();
+    await expect.poll(toolState).toEqual([
+      [true, true],
+      [true, true],
+    ]);
+    await bulk.getByRole("button", { name: "Disable selected", exact: true }).click();
+    await expect.poll(toolState).toEqual([
+      [false, true],
+      [false, true],
+    ]);
+    const rejected = await request.put("/api/custom-tools/enabled", {
+      data: { toolIds: [alpha!.id, "missing-tool-id"], enabled: true },
+    });
+    expect(rejected.status()).toBe(404);
+    expect((await toolState())[0]?.[0]).toBe(false);
+    await exitSelection.click();
+
+    await folder.getByRole("checkbox", { name: "Offer functions in Test tools", exact: true }).locator("..").click();
+    await expect.poll(toolState).toEqual([
+      [false, false],
+      [false, false],
+    ]);
+    await page.getByRole("button", { name: "Manual order", exact: true }).click();
+    await expect(folder).toHaveCount(0);
+    await page.getByRole("button", { name: "Manual order", exact: true }).click();
+    await folder.getByRole("button", { name: "Delete folder", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Delete folder", exact: true })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await expect(folder).toHaveCount(0);
+    await expect.poll(toolState).toEqual([
+      [false, false],
+      [false, false],
+    ]);
+  } finally {
+    await Promise.all(tools.map((tool) => request.delete("/api/custom-tools/" + tool.id)));
+    if (folderId) await request.delete("/api/library-folders/functions/" + folderId);
   }
 });

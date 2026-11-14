@@ -31,12 +31,14 @@ try {
     { createPromptsStorage },
     { createLibraryFoldersStorage },
     { createRegexScriptsStorage },
+    { createCustomToolsStorage },
   ] = await Promise.all([
     import("../../packages/server/src/app.js"),
     import("../../packages/server/src/db/connection.js"),
     import("../../packages/server/src/services/storage/prompts.storage.js"),
     import("../../packages/server/src/services/storage/library-folders.storage.js"),
     import("../../packages/server/src/services/storage/regex-scripts.storage.js"),
+    import("../../packages/server/src/services/storage/custom-tools.storage.js"),
   ]);
 
   app = await buildApp();
@@ -46,6 +48,7 @@ try {
   const presets = createPromptsStorage(db);
   const folders = createLibraryFoldersStorage(db);
   const regexScripts = createRegexScriptsStorage(db);
+  const customTools = createCustomToolsStorage(db);
 
   async function stockSnapshot() {
     const stockPreset = (await presets.list()).find(isStockMarinaraUniversalPreset);
@@ -133,6 +136,7 @@ try {
 
   const clearAllEditablePresetId = await createEditableFixture("clear_all", false);
   const presetFolders = await folders.list("presets");
+  const toolIds = new Map<string, string>();
   async function createRegexFolderFixture() {
     const script = await regexScripts.create({ name: "Reset test", findRegex: "TAG", placement: ["ai_output"] });
     assert.ok(script);
@@ -140,6 +144,13 @@ try {
     assert.ok(folder);
     await folders.moveItems("regex", { folderId: folder.id, itemIds: [script.id] });
     await folders.update("regex", folder.id, { paused: true });
+    const tool = await customTools.create({ name: "reset_test_tool", executionType: "static", staticResult: "ok" });
+    assert.ok(tool);
+    const toolFolder = await folders.create("functions", { name: "Paused tools" });
+    assert.ok(toolFolder);
+    await folders.moveItems("functions", { folderId: toolFolder.id, itemIds: [tool.id] });
+    await folders.update("functions", toolFolder.id, { paused: true });
+    toolIds.set(script.id, tool.id);
     return script.id;
   }
 
@@ -152,6 +163,8 @@ try {
   assert.equal(automationResponse.statusCode, 200);
   assert.equal(await regexScripts.getById(scopedRegexId), null);
   assert.deepEqual(await folders.list("regex"), [], "automation expunge must clear the regex folders");
+  assert.equal(await customTools.getById(toolIds.get(scopedRegexId)!), null);
+  assert.deepEqual(await folders.list("functions"), [], "automation expunge must clear the function folders");
   assert.deepEqual(await folders.list("presets"), presetFolders, "automation expunge must preserve preset folders");
 
   const clearAllRegexId = await createRegexFolderFixture();
@@ -164,6 +177,7 @@ try {
   assert.equal(clearAllResponse.statusCode, 200, "clear-all compatibility route must succeed");
   assert.equal(await regexScripts.getById(clearAllRegexId), null);
   assert.deepEqual(await folders.list("regex"), [], "clear-all must clear the regex folders");
+  assert.deepEqual(await folders.list("functions"), [], "clear-all must clear the function folders");
   const stockAfterClearAll = await stockSnapshot();
   assert.deepEqual(stockAfterClearAll.groups, stockBeforeClearAll.groups);
   assert.deepEqual(stockAfterClearAll.sections, stockBeforeClearAll.sections);

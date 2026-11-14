@@ -8,13 +8,13 @@ Function calling means the AI asks the app to run an action and then uses the re
 
 ## Create a tool
 
-Before you start, open the **Presets** panel from the top bar. Tools live in its **Functions** section (wrench icon). If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+Before you start, open the **Presets** panel from the top bar. Tools live on its **Functions** tab. If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
 
 For a first try, pick **Static Result**: it needs nothing else.
 
 ### Creating a tool
 
-1. Open **Presets** and find **Functions**.
+1. Open **Presets → Functions** from the top bar.
 2. Click **Create function** (plus icon). A blank tool editor opens.
 3. Type a name in lowercase snake_case, such as `check_weather`. This is the exact name the AI calls. It starts with a lowercase letter, then uses lowercase letters, numbers and underscores.
 4. Fill in **Description**. Write it as an instruction to the AI, because the AI reads it to decide when to call the tool. Example: `Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@ Rules for names and descriptions:
 - Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
-The **Functions** header has three icon buttons:
+The buttons at the top of the **Functions** tab are:
 
 - **Create function** (plus icon)
 - **Import functions from ZIP or JSON**
 - **Export functions to ZIP** (greyed out when you have no tools)
+- **Select functions** (check icon)
+
+Below them, **Search functions** matches tool names and descriptions.
 
 Each tool in the list shows:
 
@@ -41,7 +44,25 @@ Each tool in the list shows:
 - an on/off switch
 - **Edit function** and **Delete Function**
 
-Drag a tool by its handle to reorder the list. The order is for display only. With no tools, the list reads **No functions yet**.
+Drag a tool by its handle to reorder the list. The order is for display only. You cannot drag tools while a search is active. With no tools, the list reads **No functions yet**.
+
+### Organize tools in folders
+
+1. Click **New Folder** and name the folder.
+2. Click the folder icon on a tool row to open **Move to folder**.
+3. Pick the folder. To move a tool out, pick **No folder (top level)**.
+
+Click a folder name to expand or collapse it. Turn the folder switch off to pause its tools: the AI is not offered any of them in any chat, and they cannot be picked in a chat's or agent's tool list. The header shows **Paused**. Each tool keeps its own switch position. A tool that is on but sits in a paused folder shows a gray switch and a **Paused by folder** label. When you resume the folder, the tools you had turned on are offered again and the ones you had turned off stay off. Deleting the folder moves its tools to the top level, where they follow their own switches.
+
+With folders, the list is grouped by folder. Click **Manual order** to see the full list and drag tools by their handles.
+
+### Change several tools at once
+
+1. Click **Select functions**.
+2. Check the tools you want to change, or check **Select all functions**.
+3. Click **Enable selected**, **Disable selected** or **Move to folder**. You can also export or delete the selection.
+
+**Enable selected** changes the individual switches. Resume a paused folder before its tools are offered again.
 
 ## Add parameters
 
