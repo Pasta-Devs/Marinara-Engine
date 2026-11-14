@@ -211,9 +211,10 @@ export function TapTimings() {
       data-component="TapTimings"
       style={{
         position: "fixed",
-        left: "max(0.5rem, env(safe-area-inset-left))",
-        bottom: "calc(env(safe-area-inset-bottom) + 4.5rem)",
-        zIndex: 2147483000,
+        left: "max(0.5rem, var(--mari-safe-area-inset-left))",
+        bottom: "calc(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)) + 4.5rem)",
+        // Over every app overlay, but not over the omnibar or Mari (it never takes taps either way).
+        zIndex: "calc(var(--mari-layer-omnibar) - 1)",
         pointerEvents: "none",
         maxWidth: "min(22rem, calc(100vw - 1rem))",
         padding: "0.375rem 0.5rem",
