@@ -5,7 +5,7 @@
 // lorebooks), the settings-profile field and the profile builder are built on these.
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Ban, ChevronDown, Trash2 } from "lucide-react";
+import { Ban, ChevronDown, Trash2, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { LibraryFolder } from "../../hooks/use-library-folders";
 import { cn } from "../../lib/utils";
@@ -14,6 +14,40 @@ import { PickerWindow } from "./PickerWindow";
 
 /** Size of the picture in a picker row. */
 export const PICKER_ROW_ART = "h-8 w-8 rounded-lg";
+
+/**
+ * An item's picture: its image, or an icon on its library's gradient (`.mari-panel-gradient--<type>`),
+ * like presets fall back to the presets gradient with a page.
+ */
+export function PickerTileArt({
+  src,
+  type,
+  icon: Icon,
+  className = PICKER_ROW_ART,
+}: {
+  src?: string | null;
+  /** The library colour: connections, agents, personas, settings, backgrounds, characters… */
+  type: string;
+  icon: LucideIcon;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex shrink-0 items-center justify-center overflow-hidden",
+        src ? "bg-[var(--muted)]" : `mari-panel-gradient-surface mari-panel-gradient--${type}`,
+        className,
+      )}
+    >
+      {src ? (
+        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" draggable={false} />
+      ) : (
+        <Icon size="0.875rem" />
+      )}
+    </span>
+  );
+}
 
 /** The None row's picture: a dashed square with the ban icon, like the character picker's None. */
 export function PickerNoneArt() {

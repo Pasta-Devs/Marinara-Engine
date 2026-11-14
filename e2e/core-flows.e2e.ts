@@ -1199,9 +1199,15 @@ test("Chat Settings adds a formatted greeting after the setup wizard is skipped"
 
     const drawer = page.locator(".mari-chat-settings-drawer");
     await expect(drawer).toBeVisible();
-    const settingsProfileSelect = drawer.getByLabel("Profile", { exact: true });
-    await expect(settingsProfileSelect).toHaveAttribute("title", "Apply a settings profile to this chat");
-    await expect(settingsProfileSelect.locator("option:checked")).toHaveText("Custom settings profile");
+    // #9244: the profile field opens the shared picker window instead of a native select.
+    const settingsProfileField = drawer.getByRole("button", { name: "Profile", exact: true });
+    await expect(settingsProfileField).toHaveAttribute("title", "Apply a settings profile to this chat");
+    await expect(settingsProfileField).toHaveText("Custom settings profile");
+    await settingsProfileField.click();
+    const profilePicker = page.getByRole("dialog", { name: "Profile", exact: true });
+    await expect(profilePicker.locator("[data-pick-row]", { hasText: "Default" })).toBeVisible();
+    await settingsProfileField.click();
+    await expect(profilePicker).toBeHidden();
     // #8555 added the profile builder's Edit and New buttons: Edit carries the same "Cannot save" title for the
     // Default profile, and New (from this chat's settings) replaced the save-as-new icon.
     await expect(
