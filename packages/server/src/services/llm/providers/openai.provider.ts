@@ -2995,8 +2995,9 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyServiceTier(body, options);
     }
 
+    // Codex takes native tools like its own client does. Leaving them out for Codex logins (the minimal request
+    // shape from #670) left Professor Mari and tool-using agents with no tools at all.
     if (
-      !isOpenAIChatGPT &&
       options.tools?.length &&
       !options.forceTextualToolCalls &&
       !this.isXAIMultiAgentModel(options.model)
