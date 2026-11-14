@@ -5,7 +5,8 @@
 // instead of in a side panel. For now the page hosts the existing panel's
 // contents at a readable width; dedicated list views come in a later slice.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, type ComponentType, type CSSProperties, type LazyExoticComponent } from "react";
+import { Suspense, type ComponentType, type CSSProperties } from "react";
+import { preloadableLazy } from "../../lib/preloadable-lazy";
 import type { LibrarySection } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
@@ -17,7 +18,7 @@ import { LIBRARY_SECTIONS } from "./library-navigation";
 const loadTables = () => import("./LibraryTables");
 const loadSettings = () => import("./SettingsPage");
 type PageProps = { section: LibrarySection };
-const TablesPage = lazy(() =>
+const TablesPage = preloadableLazy(() =>
   loadTables().then((m) => ({
     default: ({ section }: PageProps) => {
       const Page =
@@ -32,17 +33,17 @@ const TablesPage = lazy(() =>
     },
   })),
 );
-const SettingsModulePage = lazy(() =>
+const SettingsModulePage = preloadableLazy(() =>
   loadSettings().then((m) => ({
     default: ({ section }: PageProps) =>
       section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />,
   })),
 );
 // Agents opens on the Agent Organizer, which lists installed and the user's own agents.
-const AgentsPage = lazy(() =>
-  import("../agents/AgentCatalogView").then((m) => ({ default: () => <m.AgentCatalogView /> })),
+const AgentsPage = preloadableLazy(() =>
+  import("../agents/AgentCatalogView").then((m) => ({ default: (_props: PageProps) => <m.AgentCatalogView /> })),
 );
-const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<PageProps>>>> = {
+const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
   lorebooks: TablesPage,
   presets: TablesPage,
   regex: TablesPage,
@@ -53,8 +54,9 @@ const PAGES: Partial<Record<LibrarySection, LazyExoticComponent<ComponentType<Pa
 };
 if (typeof window !== "undefined") {
   const preload = () => {
-    void loadTables().catch(() => undefined);
-    void loadSettings().catch(() => undefined);
+    void TablesPage.preload();
+    void SettingsModulePage.preload();
+    void AgentsPage.preload();
   };
   const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
   if (idle) idle(preload);
