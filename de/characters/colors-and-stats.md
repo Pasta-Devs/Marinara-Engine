@@ -14,6 +14,8 @@ Der Tab **Colors** stellt drei Farben ein: die Namensfarbe, die Dialogfarbe und 
 
 **Extract Colors from Avatar** (Farben aus dem Avatar übernehmen) wählt alle drei Farben aus dem Avatarbild. Solange noch kein Avatar vorhanden ist, ist die Schaltfläche deaktiviert und trägt die Beschriftung **Upload an avatar first**. Danach kannst du jede Farbe trotzdem von Hand ändern.
 
+<a id="the-three-colors"></a>
+
 ### Die drei Farben
 
 Stell jede Farbe über das Farbfeld ein oder tippe einen Wert ein:
@@ -30,7 +32,7 @@ Stell jede Farbe über das Farbfeld ein oder tippe einen Wert ein:
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-Der Tab **Colors** eines Charakters hat außerdem **Name Aliases** (Namensaliasse). Tippe weitere Namen oder Spitznamen ein, durch Kommas getrennt, etwa `Kate, Kitty, Katherine`. Sie erhalten die Namensfarbe des Charakters, wenn sie in Chat-Nachrichten vorkommen. Der Hauptname ist immer enthalten. Schalte die Funktion pro Chat unter **Chat Settings → Characters** (Chat-Einstellungen → Charaktere) ein.
+**Other names** (Weitere Namen) findest du im Tab **Metadata** (Metadaten) unter **Name**. Dazu gehören Spitznamen, vollständige Namen oder Titel wie `Clark Kent, Kal-El, Mr. Kent`. In Roleplay-Chats erscheinen sie wie der Hauptname in der Namensfarbe. Schalte das pro Chat ein: **Color Character Names in Text** (Charakternamen im Text einfärben) unter **Chat Settings → Characters** (Chat-Einstellungen → Charaktere) und **Color Persona Name in Text** (Persona-Namen im Text einfärben) unter **Chat Settings → Persona**.
 
 Die Transparenz änderst du unter **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Einstellungen → Darstellung → Roleplay-Darstellung → Deckkraft des Hintergrunds von Roleplay-Nachrichten).
 

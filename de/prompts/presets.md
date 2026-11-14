@@ -38,11 +38,11 @@ Zum Exportieren klickst du in der oberen Leiste auf das Symbol mit dem Pfeil nac
 
 ## Das Presets-Panel
 
-**Prompts** ist der Bereich für Presets. Die anderen Bereiche heißen **Regexes** und **Functions**. Oben sitzen die Schaltflächen **New**, **Import** (lädt eine `.json`-Datei) und **Select** (mehrere auf einmal exportieren oder löschen).
+Das Panel hat drei Tabs: **Presets**, **Regexes** und **Functions** (Funktionen). Jeder Tab hat oben dieselbe Reihe von Schaltflächen, ein Suchfeld und **New Folder** (Neuer Ordner). Unter **Presets** legst du mit **Create preset** (Preset erstellen) ein Preset an, lädst mit **Import preset** (Preset importieren) eine `.json`-Datei oder exportierst und löschst mit **Select presets** (Presets auswählen) mehrere auf einmal. Der Tab **Regexes** enthält deine Regex-Skripte. Siehe [Regex-Skripte](../extending/regex-scripts.md#manage-your-scripts). Im Tab **Functions** findest du deine eigenen Tools. Siehe [Eigene Tools](../extending/custom-tools.md).
 
 - **Search presets** (Presets durchsuchen) filtert die Liste.
 - Das Sortiermenü bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest** und **Oldest**. Bei **Manual order** ziehst du eine Zeile oder drückst auf einer fokussierten Zeile <kbd>Alt</kbd>+<kbd>Up</kbd> oder <kbd>Alt</kbd>+<kbd>Down</kbd>. Auf einem Touchscreen hältst du eine Zeile gedrückt, um sie aufzunehmen.
-- **New Folder** (Neuer Ordner) gruppiert Presets. Zieh ein Preset auf einen Ordner; ein Doppelklick oder Doppeltipp auf einen Ordner benennt ihn um.
+- **New Folder** gruppiert Presets. Zieh ein Preset auf einen Ordner; ein Doppelklick oder Doppeltipp auf einen Ordner benennt ihn um.
 
 Jede Zeile zeigt Name, Wrap-Format, Anzahl der Abschnitte und Autor. Das Abzeichen **DEFAULT** kennzeichnet den mit Stern markierten Standard. Ein Klick auf eine Zeile öffnet das Preset.
 

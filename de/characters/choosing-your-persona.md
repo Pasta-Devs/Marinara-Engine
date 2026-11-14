@@ -32,6 +32,12 @@ Wenn es nicht funktioniert hat: Du kannst nur Personas wählen, die du schon ers
 
 Im Game Mode ist dieser Abschnitt als deine Ingame-Party formuliert, trägt aber weiterhin die Beschriftung **Persona**.
 
+<a id="color-your-name-in-messages"></a>
+
+### Den Namen in Nachrichten einfärben
+
+In einem Roleplay-Chat findest du im Abschnitt **Persona** die Option **Color Persona Name in Text** (Persona-Namen im Text einfärben). Sie färbt in Nachrichten den Namen deiner Persona, ihren Conversation-Anzeigenamen und ihre **Other names** (Weitere Namen) in der Namensfarbe der Persona ein. Bis du die Einstellung änderst, folgt sie **Color Character Names in Text** (Charakternamen im Text einfärben) im Abschnitt **Characters** (Charaktere). Ein gleichnamiger Charakter im Chat behält seine eigene Farbe. Damit die Farbe sichtbar wird, braucht die Persona eine Namensfarbe im Tab **Colors** (Farben).
+
 ## Beim Anlegen eines Chats
 
 Der Einrichtungsassistent New Chat hat ein Feld **Your Persona** (deine Persona). Es nutzt dasselbe durchsuchbare Auswahlfenster samt Option **None**. Im Assistenten New Game Setup heißt das Feld **Player's Persona**, und der Chat behält diese Auswahl.

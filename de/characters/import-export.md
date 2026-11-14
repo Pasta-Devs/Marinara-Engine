@@ -55,7 +55,7 @@ Um eine komplette SillyTavern-Installation zu übernehmen, nimm den Massenimport
 ## Einen Charakter exportieren
 
 1. Öffne den Charakter im Editor.
-2. Klick in der Kopfzeile auf **Export character** (Charakter exportieren). Das Fenster **Export Character** öffnet sich.
+2. Klick in der Kopfzeile auf **…** und dann auf **Export character** (Charakter exportieren). Das Fenster **Export Character** öffnet sich.
 3. Wähl ein Format. Marinara lädt die Datei herunter.
 
 | Format | Was du bekommst | Am besten für |
