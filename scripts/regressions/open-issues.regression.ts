@@ -6905,8 +6905,8 @@ assert.match(
 assert.match(presetsPanelSource, /\{isSelected && \(/u);
 assert.match(
   presetsPanelSource,
-  /PanelSection title=\{localizeUi\("ui\.panels\.presetspanel\.prompts"\)\}/u,
-  "The prompt-preset section must be labelled Prompts alongside Regexes and Functions",
+  /value === "presets"\s*\? "ui\.panels\.presetspanel\.prompts"/u,
+  "The prompt-preset tab must be labelled Prompts alongside Regexes and Functions",
 );
 assert.match(characterGreetingsSource, /type CharacterGreeting = \{[^}]*alternateIndex: number \| null[^}]*\};/u);
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
