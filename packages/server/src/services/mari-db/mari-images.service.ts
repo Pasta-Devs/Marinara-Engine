@@ -35,6 +35,7 @@ import { loadImageGenerationUserSettings } from "../image/image-generation-setti
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import type { ImageGenerationDefaultsProfile } from "@marinara-engine/shared";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
+import { lookCopy, stashLookImages } from "../professor-mari/mari-look-images.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
@@ -842,6 +843,10 @@ export class MariImagesService {
       case "crop":
       case "transform":
         return this.adjust(context, parsed.flags);
+      case "look":
+      case "view":
+      case "show":
+        return this.look(context, parsed.flags);
       case "assign":
       case "add":
       case "replace":
@@ -1023,6 +1028,7 @@ export class MariImagesService {
     const imgServiceHint = connection.imageService || imgSource;
     const fallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
     const assets: MariImageAsset[] = [];
+    const looks: Array<Promise<Awaited<ReturnType<typeof lookCopy>>>> = [];
     let failure: string | null = null;
     // One request per version, one after another: providers rate-limit parallel calls, and a
     // fixed seed is stepped so the versions differ.
@@ -1045,6 +1051,7 @@ export class MariImagesService {
           quality: resolveConnectionImageQuality(connection),
           fallback,
         });
+        looks.push(lookCopy(Buffer.from(result.base64, "base64")));
         assets.push(
           await savePreviewAsset({
             result,
@@ -1077,6 +1084,7 @@ export class MariImagesService {
           assets.length > 1
             ? `${assets.length} versions created as preview assets. None is assigned anywhere yet. Show them to the user and use mari images assign on the one they pick.`
             : "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+        ...lookField(await Promise.all(looks), assets.length),
         asset: assets[0],
         ...(count > 1 ? { assets } : {}),
         ...(failure ? { stoppedEarly: `Made ${assets.length} of ${count}; the next one failed: ${failure}` } : {}),
@@ -1099,6 +1107,7 @@ export class MariImagesService {
     const target = this.parseTarget(flags, false);
     const source = await this.resolveSourceImage(flags, target, context, true);
     const adjusted = await adjustPicture(source.buffer, adjustments);
+    const looked = stashLookImages([await lookCopy(adjusted.buffer)]);
     const asset = await savePreviewAsset({
       result: { base64: adjusted.buffer.toString("base64"), mimeType: "image/png", ext: "png" },
       operation: "adjust",
@@ -1118,6 +1127,7 @@ export class MariImagesService {
         assigned: false,
         message:
           "Adjusted copy saved as a new preview asset; the original is unchanged. Show it to the user, then use mari images assign on the one they want.",
+        ...(looked ? { look: `${looked} The adjusted picture is attached below so you can check it.` } : {}),
         asset,
         steps: adjusted.steps,
         width: adjusted.width,
@@ -1855,6 +1865,41 @@ export class MariImagesService {
     return { ok: true, mode: "read", command: context.command, output: asset };
   }
 
+  /** Shows Mari up to 4 pictures (preview assets, theme pictures, app images) so she can judge them herself. */
+  private async look(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+    const raw = flagString(flags, "source", "asset", "from");
+    const target = raw ? null : this.parseTarget(flags, false);
+    // Comma-separated, except the comma inside a data: URL (data:image/png;base64,....).
+    const references: string[] = [];
+    for (const piece of raw ? raw.split(",") : []) {
+      const previous = references[references.length - 1];
+      if (previous !== undefined && /^data:[^,]*$/iu.test(previous)) references[references.length - 1] = `${previous},${piece}`;
+      else if (piece.trim()) references.push(piece.trim());
+    }
+    if (references.length === 0 && !target) {
+      throw new Error(
+        "Missing --source <asset-id,...> (up to 4, comma-separated) or a target such as --target theme-image --theme <id> --name <name>.",
+      );
+    }
+    if (references.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
+    const resolved = references.length
+      ? await Promise.all(references.map((reference) => this.resolveImageReference(reference, context)))
+      : [await this.resolveSourceImage(flags, target, context, true)];
+    const copies = await Promise.all(resolved.map((image) => lookCopy(image.buffer)));
+    const looked = stashLookImages(copies);
+    if (!looked) throw new Error("Couldn't read those pictures to look at them.");
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        look: `${looked} ${copies.filter(Boolean).length} picture(s) attached below, in the order given: ${resolved.map((image) => image.label).join(", ")}.`,
+        message:
+          "Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds.",
+      },
+    };
+  }
+
   private helpText() {
     return [
       "Usage: mari images <command>",
@@ -1863,6 +1908,7 @@ export class MariImagesService {
       "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
       "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
+      "Look at pictures yourself (you see them; the user doesn't): look --source <asset|url|file>[,<more>] (up to 4), or look --target theme-image --theme <id> --name <name>. generate/edit/adjust already show you what they made.",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
       "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
@@ -1880,4 +1926,13 @@ export class MariImagesService {
 
 export function getMariImagesService(db: DB) {
   return new MariImagesService(db);
+}
+
+/** The marker that lets the pi runtime show Mari what she just made. */
+function lookField(copies: Array<Awaited<ReturnType<typeof lookCopy>>>, made: number): { look?: string } {
+  const looked = stashLookImages(copies);
+  if (!looked) return {};
+  return {
+    look: `${looked} ${made > 1 ? `All ${made} versions are attached below, in order` : "The picture is attached below"}: look at ${made > 1 ? "them" : "it"} yourself before you describe or pick one.`,
+  };
 }
