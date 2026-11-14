@@ -64,9 +64,15 @@ const LazyChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
 // The loading pane and the drawer that replaces it share one entrance: the drawer picks the entrance
 // up where the loading pane left it instead of starting over from invisible (QC Nov 14 #1).
 let chatSettingsEnterStartedAt = 0;
+// These custom properties live on <html>, so every write restyles the whole page: write only on change.
+function setRootVariable(name: string, value: string | null) {
+  const style = document.documentElement.style;
+  if ((style.getPropertyValue(name) || null) === value) return;
+  if (value === null) style.removeProperty(name);
+  else style.setProperty(name, value);
+}
 function markChatSettingsEnterStart() {
   chatSettingsEnterStartedAt = performance.now();
-  document.documentElement.style.setProperty("--mari-cs-enter-delay", "0ms");
 }
 // Phones and tablets: Chat settings opens as a bottom sheet as tall as its quick page. The loading pane
 // takes the height the sheet had last time for this chat mode, so it never shows full screen and then
@@ -82,8 +88,7 @@ function readSheetHeights(): Record<string, number> {
 }
 function applySheetHeight(mode: string) {
   const height = readSheetHeights()[mode];
-  if (height && Number.isFinite(height)) document.documentElement.style.setProperty("--ovm-cs-sheet-h", `${height}px`);
-  else document.documentElement.style.removeProperty("--ovm-cs-sheet-h");
+  setRootVariable("--ovm-cs-sheet-h", height && Number.isFinite(height) ? `${height}px` : null);
 }
 function rememberSheetHeight(mode: string) {
   const sheet = document.querySelector<HTMLElement>(
@@ -99,11 +104,13 @@ function rememberSheetHeight(mode: string) {
   }
 }
 
+// Set on the drawer's own window, never on <html>: a variable there restyled the whole page twice on
+// every open. Sections popped out later are new windows, so they get their own entrance.
 function continueChatSettingsEnter() {
   const elapsed = Math.max(0, Math.round(performance.now() - chatSettingsEnterStartedAt));
-  document.documentElement.style.setProperty("--mari-cs-enter-delay", `-${elapsed}ms`);
-  // Sections popped out later get their own entrance (the finished one is not replayed by this).
-  window.setTimeout(() => document.documentElement.style.setProperty("--mari-cs-enter-delay", "0ms"), 500);
+  for (const window of document.querySelectorAll<HTMLElement>(".mari-cs-enter.animate-message-in")) {
+    if (!window.style.animationDelay) window.style.animationDelay = `-${elapsed}ms`;
+  }
 }
 
 const ChatSetupWizard = lazy(async () => {
@@ -628,16 +635,17 @@ export function ChatCommonOverlays({
     if (drawerReady || !drawerCodeReady) return;
     let second = 0;
     const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => {
-        continueChatSettingsEnter();
-        setDrawerReady(true);
-      });
+      second = requestAnimationFrame(() => setDrawerReady(true));
     });
     return () => {
       cancelAnimationFrame(first);
       cancelAnimationFrame(second);
     };
   }, [settingsMounted, drawerReady, drawerCodeReady]);
+  // The drawer's window mounts in the commit that sets drawerReady; carry the entrance on before it paints.
+  useLayoutEffect(() => {
+    if (drawerReady) continueChatSettingsEnter();
+  }, [drawerReady]);
   const sheetChatMode = String((chat as unknown as { mode?: unknown } | null | undefined)?.mode ?? "");
   useEffect(() => {
     if (!drawerReady || !settingsOpen) return;
