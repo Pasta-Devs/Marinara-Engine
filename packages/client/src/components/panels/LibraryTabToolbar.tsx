@@ -1,4 +1,4 @@
-import type { ChangeEvent, ReactNode } from "react";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { Check, Download, FolderPlus, Plus, Search, Upload } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -31,6 +31,7 @@ export function LibraryTabToolbar({
   folder,
 }: LibraryTabToolbarProps) {
   const secondaryButton = "mari-chrome-control mari-chrome-control--primary flex-1 text-xs";
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <>
@@ -45,14 +46,26 @@ export function LibraryTabToolbar({
           <Plus size="0.8125rem" />
         </button>
         {"onChange" in importAction ? (
-          <label
-            className={cn(secondaryButton, "cursor-pointer")}
-            aria-label={importAction.label}
-            title={importAction.title}
-          >
-            <input type="file" accept={importAction.accept} className="hidden" onChange={importAction.onChange} />
-            <Download size="0.8125rem" />
-          </label>
+          <>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              className={secondaryButton}
+              aria-label={importAction.label}
+              title={importAction.title}
+            >
+              <Download size="0.8125rem" />
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept={importAction.accept}
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={importAction.onChange}
+            />
+          </>
         ) : (
           <button
             type="button"

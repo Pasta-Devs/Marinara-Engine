@@ -108,12 +108,12 @@ export function PausableLibraryFolder({
         ) : (
           <button
             type="button"
-            aria-expanded={!folder.collapsed}
+            aria-expanded={searching || !folder.collapsed}
             aria-label={folder.name}
             onClick={() => updateFolder.mutate({ id: folder.id, collapsed: !folder.collapsed }, { onError })}
             className="flex min-h-9 min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold"
           >
-            {folder.collapsed ? (
+            {folder.collapsed && !searching ? (
               <ChevronRight size="0.75rem" className="shrink-0" />
             ) : (
               <ChevronDown size="0.75rem" className="shrink-0" />

@@ -101,7 +101,6 @@ import {
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
@@ -288,7 +287,6 @@ export function PresetsPanel() {
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const folderDrag = useLibraryFolderDrag("preset");
   const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const { data: presets, isLoading } = usePresets();
   const { data: regexScripts } = useRegexScripts();
   const { data: customTools } = useCustomTools();
@@ -1259,7 +1257,7 @@ export function PresetsPanel() {
             else setSelectionTarget("presets");
           },
         }}
-        search={{ value: search, placeholder: localize("Search presets"), onChange: setSearch }}
+        search={{ value: search, placeholder: localizeUi("search.panels.presets"), onChange: setSearch }}
         sort={presetSort}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
@@ -2359,7 +2357,7 @@ function FunctionsSection({
             )}
           </div>
           <div className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
-            {tool.description || "No description"}
+            {tool.description || localizeUi("ui.panels.agentcard.noDescription")}
           </div>
         </button>
         {!selectionMode && (
@@ -2380,8 +2378,8 @@ function FunctionsSection({
                   paused && enabled
                     ? localizeUi("functions.library.pausedFunctionSwitch", { name: tool.name })
                     : enabled
-                      ? "Disable function"
-                      : "Enable function"
+                      ? localizeUi("ui.panels.functionssection.disableFunction")
+                      : localizeUi("ui.panels.functionssection.enableFunction")
                 }
                 switchClassName={paused && enabled ? "saturate-0 opacity-70" : undefined}
                 checked={enabled}
