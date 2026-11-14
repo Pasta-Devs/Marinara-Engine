@@ -63,6 +63,7 @@ import {
 } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { readGalleryTagPayload } from "../services/image/gallery-tag-payload.js";
 import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { buildAvatarPortraitLeadPrompt } from "../services/image/avatar-generation-prompt.js";
@@ -146,12 +147,7 @@ const PERSONA_GALLERY_VIDEO_ROOT = join(DATA_DIR, "gallery", "persona-videos");
 const ALLOWED_GALLERY_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const ALLOWED_GALLERY_VIDEO_EXTS = new Set([".mp4", ".webm", ".mov"]);
 const CHARACTER_CARD_PNG_KEYWORDS = new Set(["chara", "ccv3"]);
-const CUSTOM_NAME_RE = /^[a-z0-9_]{1,32}$/;
 const PATH_SAFE_ID_RE = /^[A-Za-z0-9_-]+$/;
-const CUSTOM_KIND_MAX_DIMENSION = {
-  emoji: 256,
-  sticker: 512,
-} as const;
 const CALL_VIDEO_CLIP_LABELS = {
   idle: "Idle",
   talking: "Talking",
@@ -403,19 +399,6 @@ async function removeGalleryVideoClip(root: string, entityId: string, clipId: st
 
 function isUnsafePathSegment(value: string) {
   return value === "." || value === ".." || value.includes("..") || value.includes("/") || value.includes("\\");
-}
-
-function isValidCustomDimension(value: unknown, max: number): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= max;
-}
-
-function validateCustomTagPayload(kind: "emoji" | "sticker" | null, name: string, width: unknown, height: unknown) {
-  if (kind === null) return null;
-  if (!CUSTOM_NAME_RE.test(name)) return "customName must use 1-32 lowercase letters, numbers, or underscores";
-  const max = CUSTOM_KIND_MAX_DIMENSION[kind];
-  if (width !== undefined && !isValidCustomDimension(width, max)) return `width must be an integer from 1 to ${max}`;
-  if (height !== undefined && !isValidCustomDimension(height, max)) return `height must be an integer from 1 to ${max}`;
-  return null;
 }
 
 function parseCharacterDataRecord(raw: unknown): Record<string, unknown> {
@@ -732,6 +715,8 @@ async function* galleryExportEntries(
       model: img.model ?? "",
       width: img.width ?? null,
       height: img.height ?? null,
+      // Gallery labels (custom emoji, sticker, background + place names) travel with the picture.
+      ...(img.customKind ? { customKind: img.customKind, customName: img.customName ?? null } : {}),
       ...(img.id === characterSheetImageId ? { isCharacterSheet: true } : {}),
     };
   }
@@ -2337,20 +2322,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!image || image.characterId !== id) {
       return reply.status(404).send({ error: "Not found" });
     }
-    const kind = req.body?.customKind ?? null;
-    if (kind !== null && kind !== "emoji" && kind !== "sticker") {
-      return reply.status(400).send({ error: "Invalid customKind" });
-    }
-    const name = typeof req.body?.customName === "string" ? req.body.customName.trim() : "";
-    const error = validateCustomTagPayload(kind, name, req.body?.width, req.body?.height);
-    if (error) return reply.status(400).send({ error });
-
-    return characterGallery.setTag(imageId, {
-      customKind: kind,
-      customName: kind === null ? null : name,
-      width: kind !== null && typeof req.body?.width === "number" ? req.body.width : undefined,
-      height: kind !== null && typeof req.body?.height === "number" ? req.body.height : undefined,
-    });
+    const tag = readGalleryTagPayload(req.body, { allowBackground: true });
+    if ("error" in tag) return reply.status(400).send({ error: tag.error });
+    return characterGallery.setTag(imageId, tag.patch);
   });
 
   // ── Duplicate ──
@@ -3480,20 +3454,9 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!image || image.personaId !== id) {
       return reply.status(404).send({ error: "Not found" });
     }
-    const kind = req.body?.customKind ?? null;
-    if (kind !== null && kind !== "emoji" && kind !== "sticker") {
-      return reply.status(400).send({ error: "Invalid customKind" });
-    }
-    const name = typeof req.body?.customName === "string" ? req.body.customName.trim() : "";
-    const error = validateCustomTagPayload(kind, name, req.body?.width, req.body?.height);
-    if (error) return reply.status(400).send({ error });
-
-    return personaGallery.setTag(imageId, {
-      customKind: kind,
-      customName: kind === null ? null : name,
-      width: kind !== null && typeof req.body?.width === "number" ? req.body.width : undefined,
-      height: kind !== null && typeof req.body?.height === "number" ? req.body.height : undefined,
-    });
+    const tag = readGalleryTagPayload(req.body, { allowBackground: true });
+    if ("error" in tag) return reply.status(400).send({ error: tag.error });
+    return personaGallery.setTag(imageId, tag.patch);
   });
 
   // ── Persona Duplicate ──

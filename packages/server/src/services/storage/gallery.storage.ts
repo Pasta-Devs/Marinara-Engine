@@ -2,7 +2,7 @@
 // Storage: Chat Gallery Images
 // ──────────────────────────────────────────────
 import { and, eq, desc, inArray } from "../../db/file-query.js";
-import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
+import type { ChatImageGenerationRecord, GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { chatImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -72,6 +72,15 @@ export function createGalleryStorage(db: DB) {
 
     async removeByChatAndFilePath(chatId: string, filePath: string) {
       await db.delete(chatImages).where(and(eq(chatImages.chatId, chatId), eq(chatImages.filePath, filePath)));
+    },
+
+    /** Label a chat picture (emoji, sticker or background) so assigning it carries the label along. */
+    async setTag(id: string, chatId: string, patch: { customKind: GalleryTagKind | null; customName: string | null }) {
+      await db
+        .update(chatImages)
+        .set({ customKind: patch.customKind, customName: patch.customName })
+        .where(and(eq(chatImages.chatId, chatId), eq(chatImages.id, id)));
+      return this.getById(id, chatId);
     },
 
     async removeAllForChat(chatId: string) {
