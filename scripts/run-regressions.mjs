@@ -41,7 +41,7 @@ export const REGRESSION_TIMEOUTS_MS = new Map([
   // CI runners (about 1.6x slower), where it was being retried.
   ['scripts/regressions/chat-request-validation.regression.ts', 150_000],
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
-  ['scripts/regressions/avatar-variant-composite.regression.ts', 120_000],
+  ['scripts/regressions/avatars/avatar-variant-composite.regression.ts', 120_000],
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
   ['scripts/regressions/game-ruleset/game-ruleset-caps.regression.ts', 120_000],
   // Every language's ruleset strings read and drawn against the whole 5e ruleset: about 60 s alone.

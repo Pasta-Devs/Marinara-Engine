@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Avatar stage: the pure decisions behind AvatarStage and the setup preview (lane: base)
 // ──────────────────────────────────────────────
-// Kept free of React and the DOM so scripts/regressions/avatar-stage-logic.regression.ts can run them.
+// Kept free of React and the DOM so scripts/regressions/avatars/avatar-stage-logic.regression.ts can run them.
 import {
   AVATAR_AGENT_IDS,
   AVATAR_KIND_AGENT,
