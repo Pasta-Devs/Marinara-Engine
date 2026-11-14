@@ -85,6 +85,16 @@ When the story or the GM calls for a weather the place can't have right now, suc
 
 A game without a generated world guesses the climate from the name of the location, such as "desert", "harbor" or "mountain".
 
+### Places held outside nature
+
+A curse, a god or another great power can lock a place to one environment: a city sunk in endless night, a forest kept in autumn, a valley under snow that never melts. The GM sets such a lock in the story, and it beats the climate and the clock until the GM lifts it:
+
+- **Weather.** The place keeps the weather it was locked to, even one its climate could never have, such as snow in a desert.
+- **Season.** The place stays in one season while the rest of the world moves on.
+- **Light.** The place is always night, dusk or day. The scene's lighting and weather effects follow, and the overworld map shades the held land.
+
+A lock covers the place and everything inside it, so locking a region also locks its towns. When locks overlap, the nearest place wins, so a town inside a cursed region can be held to its own weather. A lock can also cover the whole world. The scene can't lift a lock by asking for other weather; only the GM can.
+
 To see weather on screen, turn on **Dynamic weather effects (rain, snow, fog, etc.)** in the appearance settings. It is on by default. Rain, snow and fog particles then appear over the game and match the weather and time of day. See [Appearance Settings](../appearance/appearance-settings.md).
 
 ## Party morale

@@ -92,6 +92,35 @@ try {
     const mountain = await update(chat.id, { action: "set", type: "snow", location: "Mountain pass" });
     assert.equal(mountain.weather.type, "snow", "a mountain pass in winter can snow");
   }
+  // ── A city the Game Master holds in endless night and rain ──
+  {
+    const chat = await chats.create({ name: "Weather, held", mode: "game", characterIds: [] });
+    made.push(chat.id);
+    await chats.patchMetadata(chat.id, { gameTime: { day: 135, hour: 13, minute: 0 } });
+    await chats.createMessage({
+      chatId: chat.id,
+      role: "assistant",
+      content: 'The Court\'s curse falls. [environment: place="Gotham" light="dark" weather="snow" note="the Court"]',
+    });
+    const held = await update(chat.id, { action: "explore", location: "Gotham, the Narrows" });
+    assert.equal(held.weather.type, "snow", "held weather beats a summer noon");
+    assert.equal((held.weather as { light?: string }).light, "dark");
+    assert.match(
+      held.weather.note ?? "",
+      /Held here \(Gotham\), by the Court: the weather is always snow; it is always night/,
+    );
+    const asked = await update(chat.id, { action: "set", type: "clear", location: "Gotham, the Narrows" });
+    assert.equal(asked.weather.type, "snow", "the scene cannot lift a hold");
+    const elsewhere = await update(chat.id, { action: "explore", location: "Metropolis" });
+    assert.equal((elsewhere.weather as { light?: string }).light, undefined, "outside the city the sky is its own");
+    await chats.createMessage({
+      chatId: chat.id,
+      role: "assistant",
+      content: 'Dawn breaks at last. [environment: place="Gotham" release]',
+    });
+    const released = await update(chat.id, { action: "explore", location: "Gotham, the Narrows" });
+    assert.equal((released.weather as { light?: string }).light, undefined, "released");
+  }
   console.log("Game weather route regression passed.");
 } finally {
   for (const id of made) await chats.remove(id).catch(() => {});
