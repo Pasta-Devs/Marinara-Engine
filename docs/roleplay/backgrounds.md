@@ -57,7 +57,7 @@ What happens:
 - Clear, sunny, cloudy, windy and other light weather keep the plain picture.
 - **Window stencil:** the first time an indoor picture gets a weather version, Illustrator also asks the image model where its windows are. It saves that as a small black and white stencil in `backgrounds/weather-masks`, and every weather version of that room shares it. The moving weather (rain lines, snowflakes, petals) is then drawn only on the glass. A room with no windows gets no moving weather, only the colour of the weather and lightning flashes.
 - It reads the weather from the **World State** agent, or from the Decision model when **Decision Model Checks** includes the weather (see below). The Illustrator image model has to be able to start from a picture (most can, including OpenAI, Gemini, NovelAI and ComfyUI with an image input). Models that can't are skipped, and the picture stays as it is.
-- It works for backgrounds in your library, whether you picked them, the Background agent did or Illustrator made them.
+- It works for backgrounds in your library, whether you picked them, the Background agent did or Illustrator made them, and for gallery backgrounds that follow a character.
 
 If it did not work: check that the chat's World State shows a **Weather** (or that the weather check below is on), and that **Illustrator** is added to the chat with an image model.
 
@@ -113,6 +113,7 @@ Quicker: while the story is in a place and the right picture is showing, click *
 How places are told apart:
 
 - The most specific name wins. `John's bedroom` and `{{user}}'s bedroom` never mix, and a plain `bedroom` pin fills in only for bedrooms nobody pinned.
+- A word or two in between still counts: "John's guest bedroom" matches `John's bedroom`, unless another pin names that place exactly. It never reaches across a comma or another owner, so "John's house, Mara's bedroom" is not John's.
 - `{{user}}` is your persona's name and `{{char}}` any character in the chat, so `{{user}}'s bedroom` matches "Alyssa's bedroom".
 - "My" and "our" belong to whoever wrote the message. When John's reply says the story is in "my bedroom", that is John's bedroom; "your bedroom" in his reply is yours. In your own message, "your bedroom" is the character's when the chat has only one.
 - Case, accents and apostrophes don't matter. Names match whole words: `John` never matches "Johnson".
@@ -137,7 +138,7 @@ In a chat with that character, **Chat Settings > Background** lists these pictur
 
 From a chat's **Gallery**, the person button on a picture adds it to the gallery of a character or persona in the chat. Its label comes along. It isn't copied, and it stays in their gallery when the chat is deleted. Exporting a character keeps these labels.
 
-Weather versions (rain or snow painted into the picture) are made only for pictures in the Backgrounds library. An outdoor gallery background still gets the moving weather drawn over it.
+Gallery backgrounds get weather versions too: the rain or snow version is saved in your Backgrounds library as `gallery-…--wx-rain.png` and shown whenever that character's place is in that weather.
 
 ## Your library and blur
 
