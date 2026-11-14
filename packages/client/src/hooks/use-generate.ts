@@ -4013,7 +4013,7 @@ export function useGenerate() {
                 if (retryAgentEventGenerationId && retryAgentEventGenerationId !== result.generationId) break;
                 retryAgentEventGenerationId ??= result.generationId;
               }
-              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result);
+              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result);
               if (!ownsVisibleSwipe) {
                 console.debug(
                   `[Retry Agent] Skipped ${result.agentName} (${result.agentType}): reply ${result.messageId} swipe ${result.swipeIndex} is not on screen`,
@@ -4082,7 +4082,10 @@ export function useGenerate() {
                       for (const pending of pendingEntries) {
                         enqueuePendingCardUpdate(pending);
                       }
-                      if (isActiveChat() && agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result)) {
+                      if (
+                        isActiveChat() &&
+                        agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result)
+                      ) {
                         useUIStore.getState().openModal("character-card-update");
                       }
                     }
