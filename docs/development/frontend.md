@@ -493,7 +493,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/game-rulesets`      | import, schema, source, remove   | Imported Game Mode rulesets  |
 | `/api/game-worlds`        | library CRUD and world editing   | World library for new games and map packs |
 | `/api/game-tile-packs`    | tile packs, plus `/creatures` and `/boards` | Map, creature and fight-board art packs |
-| `/api/turn-games`         | Chess, UNO, Poker routes         | Conversation table games     |
+| `/api/turn-games`         | catalog, state, start, move, resign | Conversation table games (the games come from packages) |
 | `/api/conversation-calls` | call and session routes (registered by the conversation calls package) | Conversation audio calls     |
 
 ### Media and assets
@@ -533,7 +533,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 
 | Endpoint                        | Description                             |
 | ------------------------------- | --------------------------------------- |
-| `/api/updates/check`            | Version check against GitHub releases   |
+| `/api/updates/check`            | Version check against GitHub releases; for git installs, also how far the checkout is behind its update channel |
 | `/api/updates/channel`          | Update channel, current branch and channel list |
 | `/api/updates/apply`            | Apply an update                                 |
 | `/api/backup`                   | Full backup, export, import             |
