@@ -1475,14 +1475,10 @@ export async function combatDirectorRoutes(
           marinaraRecallAffinities(marinara.fighters, meta.gameMarinaraKnown);
           for (const note of marinara.notes) logger.info("[combat-director/start] %s", note);
           // Which dungeon area this fight is in (or none), for its end to clear.
+          // A literal patch (null clears a stale area) so the metadata sweep can read its one key.
           await chats.patchMetadata(
             input.chatId,
-            (current) =>
-              dungeonFight
-                ? { gameDungeonFight: dungeonFight }
-                : current.gameDungeonFight
-                  ? { gameDungeonFight: null }
-                  : {},
+            { gameDungeonFight: dungeonFight ?? null },
             { touchUpdatedAt: false },
           );
         }
