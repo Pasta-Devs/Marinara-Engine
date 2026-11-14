@@ -49,13 +49,12 @@ import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
-import { LibraryTabToolbar } from "./LibraryTabToolbar";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import {
   FileText,
   Trash2,
   Check,
   Copy,
-  ArrowUpDown,
   Code2,
   Hash,
   Star,
@@ -1197,34 +1196,6 @@ export function PresetsPanel() {
     ],
   );
 
-  const presetSort = (
-    <div className="relative">
-      <select
-        value={manualOrderActive || folderDrag.active ? "custom" : sort}
-        onChange={(e) => {
-          manualOrder.setActive(e.target.value === "custom");
-          folderDrag.setActive(e.target.value === "custom");
-          if (e.target.value !== "custom") setSort(e.target.value as ResourcePanelSort);
-        }}
-        className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-        title={localizeUi("ui.panels.agentspanel.sortOrder")}
-        aria-label={localizeUi("ui.panels.presetspanel.sortPresets")}
-      >
-        <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-          {localizeUi("dragDrop.manualOrder")}
-        </option>
-        <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-        <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-        <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-        <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-      </select>
-      <ArrowUpDown
-        size="0.625rem"
-        className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-      />
-    </div>
-  );
-
   const presetLibrary = (
     <>
       <input
@@ -1235,7 +1206,8 @@ export function PresetsPanel() {
         onChange={handlePresetImageSelected}
       />
 
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.panels.presetspanel.createPreset"),
           title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
@@ -1258,15 +1230,22 @@ export function PresetsPanel() {
           },
         }}
         search={{ value: search, placeholder: localizeUi("search.panels.presets"), onChange: setSearch }}
-        sort={presetSort}
+        sort={{
+          value: manualOrderActive || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.presetspanel.sortPresets"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setSort(value as ResourcePanelSort);
+          },
+        }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
           onCreate: handleCreateFolder,
-          helper: presetFolders.length > 0 && (
-            <p className="mari-folder-helper">
-              {localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}
-            </p>
-          ),
+          helper:
+            presetFolders.length > 0
+              ? localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")
+              : undefined,
         }}
       />
 
@@ -1933,7 +1912,8 @@ function RegexSection({
 
   return (
     <>
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.characters.characterregexsection.createRegex"),
           title: localizeUi("ui.characters.characterregexsection.createRegex"),
@@ -1975,20 +1955,14 @@ function RegexSection({
                 onError: reportError,
               },
             ),
-          extra: folders.length > 0 && (
-            <button
-              type="button"
-              aria-pressed={showExecutionOrder}
-              onClick={() => setShowExecutionOrder((current) => !current)}
-              className={cn(
-                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
-                showExecutionOrder && "mari-chrome-control--selected",
-              )}
-            >
-              <ArrowUpDown size="0.75rem" />
-              {localizeUi("regex.library.executionOrder")}
-            </button>
-          ),
+          toggle:
+            folders.length > 0
+              ? {
+                  label: localizeUi("regex.library.executionOrder"),
+                  active: showExecutionOrder,
+                  onToggle: () => setShowExecutionOrder((current) => !current),
+                }
+              : undefined,
         }}
       />
       <PanelSection title={localizeUi("ui.panels.regexsection.regexes")} icon={<Regex size="0.8125rem" />}>
@@ -2454,7 +2428,8 @@ function FunctionsSection({
 
   return (
     <>
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.panels.functionssection.createFunction"),
           title: localizeUi("ui.panels.functionssection.createFunction"),
@@ -2496,20 +2471,14 @@ function FunctionsSection({
                 onError: reportError,
               },
             ),
-          extra: folders.length > 0 && (
-            <button
-              type="button"
-              aria-pressed={showManualOrder}
-              onClick={() => setShowManualOrder((current) => !current)}
-              className={cn(
-                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
-                showManualOrder && "mari-chrome-control--selected",
-              )}
-            >
-              <ArrowUpDown size="0.75rem" />
-              {localizeUi("dragDrop.manualOrder")}
-            </button>
-          ),
+          toggle:
+            folders.length > 0
+              ? {
+                  label: localizeUi("dragDrop.manualOrder"),
+                  active: showManualOrder,
+                  onToggle: () => setShowManualOrder((current) => !current),
+                }
+              : undefined,
         }}
       />
       <PanelSection title={localizeUi("ui.panels.functionssection.functions")} icon={<Wrench size="0.8125rem" />}>
