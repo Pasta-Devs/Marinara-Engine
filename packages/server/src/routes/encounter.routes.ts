@@ -1439,7 +1439,13 @@ export async function encounterRoutes(app: FastifyInstance) {
       const storyFightFirst = await latestStoryFight(app.db, chatId, chatMeta);
       const regionGame =
         !fightRuleset && !storyFightFirst
-          ? regionSpawnGame(await loadGameWorld(app.db, chatId, chatMeta), chatMeta)
+          ? regionSpawnGame(
+              await loadGameWorld(app.db, chatId, chatMeta),
+              chatMeta,
+              (chatMessages as Array<{ role: string; content: string }>)
+                .filter((message) => message.role === "assistant")
+                .map((message) => message.content),
+            )
           : null;
       const regionPlan = regionGame
         ? regionFightPlan(
