@@ -25,6 +25,9 @@ import {
   worldPlaceByName,
   worldRegionBand,
   worldSiteAnchor,
+  worldCellHabitats,
+  type DungeonSiteFate,
+  type SiteTerrain,
   type DungeonArea,
   type DungeonSite,
   type GameDungeonMap,
@@ -33,6 +36,7 @@ import {
   type MarinaraBestiarySetting,
   type MarinaraEncounterFoe,
 } from "@marinara-engine/shared";
+import { loadRulesetRegistry, resolveGameRuleset } from "./ruleset-registry.service.js";
 
 export interface DungeonSiteHere {
   key: string;
@@ -104,7 +108,23 @@ export function newDungeonSiteState(
       : { low: Math.max(1, Math.round(partyLevel ?? 1)), high: Math.max(1, Math.round(partyLevel ?? 1)) + 3 };
   const anchor = world && place ? worldSiteAnchor(world, place) : undefined;
   const fate = world ? dungeonSiteFate(worldHistory(world), map.name, anchor?.id) : undefined;
-  return { band: dungeonSiteBand(origin, region, map.floors ?? 1), ...(fate ? { fate } : {}), cleared: {} };
+  // A planned building's floors are its levels' distance from the one it is entered on.
+  const floors = map.site
+    ? Math.max(
+        ...map.site.levels.map(
+          (_, i) =>
+            1 +
+            Math.abs(
+              i -
+                Math.max(
+                  0,
+                  map.site!.levels.findIndex((l) => l.depth === 0),
+                ),
+            ),
+        ),
+      )
+    : (map.floors ?? 1);
+  return { band: dungeonSiteBand(origin, region, floors), ...(fate ? { fate } : {}), cleared: {} };
 }
 
 /** The site of the map the party is on, with its areas and state; null when there is none to have foes. */
@@ -130,6 +150,7 @@ export function dungeonSiteHere(input: {
     band: state.band,
     ...(state.fate ? { fate: state.fate } : {}),
     seed: map.siteSeed ?? map.seed,
+    ...(map.site?.undead ? { undead: true } : {}),
   });
   if (!site) return null;
   return { key, map, setting, site, areas: dungeonAreas(map, site, setting), state, fresh: !kept };
@@ -228,4 +249,49 @@ export function dungeonGuardMarks(here: DungeonSiteHere, today: number): Dungeon
       }
     return [{ ...at, area: area.area, count: foes.length, heart: area.role === "heart" }];
   });
+}
+
+/** Skills by which a ruleset finds traps (owner 2026-11-14: traps only where the rules can find them;
+ *  SRD has them, MRPG does not). */
+const TRAP_SKILL =
+  /\b(perception|investigation|investigate|search|searching|notice|spot|spotting|awareness|alertness|detect\w*|traps?)\b/iu;
+
+/** The labels of the game's ruleset skills that find traps; none for a game without a ruleset (MRPG,
+ *  Legacy) or one whose rules have no such skill. */
+export async function gameTrapSkills(meta: Record<string, unknown>): Promise<string[]> {
+  if (meta.gameRuleset == null) return [];
+  const pinned = resolveGameRuleset(meta, await loadRulesetRegistry());
+  if (pinned.status !== "ok") return [];
+  const skills = pinned.definition.sheet?.skills ?? [];
+  return skills
+    .filter((skill) => TRAP_SKILL.test(skill.label) || TRAP_SKILL.test(skill.id))
+    .map((skill) => skill.label);
+}
+
+/** What the world says of a building about to be laid out to a plan: how history left it, the land under
+ *  it, and whether the game's rules can find traps in it. */
+export async function dungeonPlanContext(input: {
+  world: GameWorld | null;
+  meta: Record<string, unknown>;
+  name: string;
+  placeId?: string;
+}): Promise<{ fate?: DungeonSiteFate; terrain?: SiteTerrain; traps?: boolean }> {
+  const { world } = input;
+  const place =
+    (input.placeId ? world?.world.places.find((each) => each.id === input.placeId) : undefined) ??
+    (world ? worldPlaceByName(world.world, input.name) : undefined);
+  const anchor = world && place ? worldSiteAnchor(world, place) : undefined;
+  const fate = world ? dungeonSiteFate(worldHistory(world), input.name, anchor?.id) : undefined;
+  const habitats = world && place ? worldCellHabitats(world, place.at) : [];
+  const terrain: SiteTerrain | undefined = habitats.includes("mountain")
+    ? "hill"
+    : habitats.includes("coast")
+      ? "coast"
+      : habitats.includes("swamp")
+        ? "wet"
+        : habitats.includes("urban")
+          ? "city"
+          : undefined;
+  const traps = (await gameTrapSkills(input.meta)).length > 0;
+  return { ...(fate ? { fate } : {}), ...(terrain ? { terrain } : {}), ...(traps ? { traps } : {}) };
 }

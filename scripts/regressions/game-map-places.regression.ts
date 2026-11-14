@@ -76,7 +76,12 @@ try {
   assert.equal(look("Crystal Cavern"), "cave_crystal");
   assert.equal(look("The King's Crypt"), "dungeon_crypt");
   assert.equal(look("City Sewers", "modern"), "dungeon_sewer");
-  assert.equal(look("Ruined Chapel"), "dungeon_temple");
+  // A building gone bad is laid out to a plan (building plans, 2026-11-14); one in use stays a building.
+  assert.equal(look("Ruined Chapel"), "building_temple");
+  assert.equal(look("Haunted Manor"), "building_manor");
+  assert.equal(look("The Fallen Keep"), "building_keep");
+  assert.equal(look("Haunted Manor", "scifi"), null, "never in science fiction");
+  assert.equal(look("Ruined Temple Ruins"), "building_temple");
   assert.equal(look("Old Watchtower", "fantasy", ["ruin"]), "dungeon_temple", "a ruin by its tags");
   assert.equal(look("Deep Shaft", "fantasy", ["mine"]), "cave_rock", "a mine by its tags");
   for (const name of ["The Gilded Gull", "Temple of the Dawn", "Frozen Flagon", "Gem Merchant", "Hollow Oak Inn"])

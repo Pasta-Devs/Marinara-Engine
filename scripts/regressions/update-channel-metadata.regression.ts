@@ -16,10 +16,11 @@ try {
   const response = await app.inject({ method: "GET", url: "/api/updates/channel" });
   assert.equal(response.statusCode, 200, response.body);
   const metadata = response.json();
-  assert.ok(["stable", "staging"].includes(metadata.channel));
+  assert.ok(["stable", "staging", "overhaul"].includes(metadata.channel));
   if (metadata.currentBranch === "staging") assert.equal(metadata.channel, "staging");
   if (metadata.currentBranch === "main") assert.equal(metadata.channel, "stable");
-  assert.deepEqual(metadata.channels.map((entry: { id: string }) => entry.id).sort(), ["stable", "staging"]);
+  if (metadata.currentBranch === "ui/kolacheee") assert.equal(metadata.channel, "overhaul");
+  assert.deepEqual(metadata.channels.map((entry: { id: string }) => entry.id).sort(), ["overhaul", "stable", "staging"]);
   assert.equal(fetches, 0);
   for (let request = 1; request < 30; request += 1) {
     assert.equal((await app.inject({ method: "GET", url: "/api/updates/channel" })).statusCode, 200);

@@ -46,9 +46,9 @@ const { generateRoutes } = await import("../../packages/server/src/routes/genera
 
 try {
   // ── The generator ──
-  assert.equal(DUNGEON_SETS.length, 11);
+  assert.equal(DUNGEON_SETS.length, 14);
   for (const set of DUNGEON_SETS) {
-    assert.ok(/stair|ladder|hatch/u.test(set.props[DUNGEON_EXIT_PROP]), `${set.id}'s slot 5 is the way out`);
+    assert.ok(/stair|ladder|hatch|door/u.test(set.props[DUNGEON_EXIT_PROP]), `${set.id}'s slot 5 is the way out`);
     for (let seed = 1; seed <= 25; seed++) {
       for (const size of ["small", "medium", "large"] as const) {
         const map = generateDungeonMap(set.id, seed, size);

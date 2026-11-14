@@ -1,3 +1,6 @@
+/** The UI overhaul playtest branch on Pasta-Devs, offered as its own release channel. */
+export const OVERHAUL_BRANCH = "ui/kolacheee";
+
 /**
  * Ordinary in-app updates remain opt-in. A deliberate release-channel switch
  * from a loopback browser is allowed because the channel selector is itself the
@@ -22,11 +25,11 @@ export function isGitUpdateApplyAllowed(options: {
  */
 export function isChannelCheckoutBranch(branch: string | null | undefined): boolean {
   if (!branch) return true;
-  return branch === "main" || branch === "master" || branch === "staging";
+  return branch === "main" || branch === "master" || branch === "staging" || branch === OVERHAUL_BRANCH;
 }
 
 export type UpdateInstallType = "git" | "docker" | "standalone";
-export type UpdateChannelId = "stable" | "staging";
+export type UpdateChannelId = "stable" | "staging" | "overhaul";
 
 export function isUpdateChannelSwitch(
   installType: UpdateInstallType,
@@ -37,6 +40,10 @@ export function isUpdateChannelSwitch(
 }
 
 export function resolveDockerChannelImageTags(image: string, latestVersion: string, channel: UpdateChannelId) {
+  if (channel === "overhaul") {
+    // No container image is published for the playtest branch.
+    return { dockerImage: image, dockerImageTag: null, dockerLiteImageTag: null };
+  }
   if (channel === "staging") {
     return {
       dockerImage: image,
