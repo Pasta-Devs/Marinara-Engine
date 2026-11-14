@@ -187,14 +187,58 @@ function rowToPreset(row: ChatPresetRow) {
   };
 }
 
-/** Strip chat-specific keys from a metadata object before saving into a profile. */
+/** Strip chat-owned fields and legacy string-spread corruption from profile metadata. */
 function sanitizePresetMetadata(metadata: Record<string, unknown> | undefined | null) {
   if (!metadata || typeof metadata !== "object") return {};
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(metadata)) {
+  const pendingKeys: string[] = [];
+  let previousIndex: number | null = null;
+  let discardingRun = false;
+
+  // Keep short runs, but discard 10 or more consecutive character-indexed keys.
+  // Buffer at most nine keys, rather than sorting or copying a huge corrupted object.
+  const finishRun = () => {
+    if (!discardingRun) {
+      for (const key of pendingKeys) {
+        if (!isPresetExcludedMetadataKey(key)) out[key] = sanitizePresetMetadataValue(key, metadata[key]);
+      }
+    }
+    pendingKeys.length = 0;
+    previousIndex = null;
+    discardingRun = false;
+  };
+
+  // JavaScript enumerates array-index keys in numeric order, even if the run starts above zero.
+  for (const key in metadata) {
+    if (!Object.prototype.hasOwnProperty.call(metadata, key)) continue;
+    const value = metadata[key];
+    const index = Number(key);
+    const isIndexedCharacter =
+      typeof value === "string" &&
+      value.length === 1 &&
+      Number.isInteger(index) &&
+      index >= 0 &&
+      index < 4_294_967_295 &&
+      String(index) === key;
+
+    if (isIndexedCharacter) {
+      if (previousIndex !== null && index !== previousIndex + 1) finishRun();
+      previousIndex = index;
+      if (!discardingRun) {
+        pendingKeys.push(key);
+        if (pendingKeys.length === 10) {
+          pendingKeys.length = 0;
+          discardingRun = true;
+        }
+      }
+      continue;
+    }
+
+    finishRun();
     if (isPresetExcludedMetadataKey(key)) continue;
     out[key] = sanitizePresetMetadataValue(key, value);
   }
+  finishRun();
   return out;
 }
 
