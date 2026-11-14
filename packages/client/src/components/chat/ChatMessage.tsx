@@ -4767,6 +4767,7 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* Message bubble */}
             <div
+              data-mari-part="bubble"
               data-roleplay-bubble-transparent={roleplayBubbleBg === "transparent" ? "true" : undefined}
               className={cn(
                 "mari-message-bubble mari-rp-bubble mari-chat-style-surface relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",

@@ -287,6 +287,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
             </div>
           ) : (
             <div
+              data-mari-part="bubble"
               className={cn(
                 "mari-message-content mari-chat-style-text text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap",
                 "mari-message-bubble mari-chat-style-conversation texting-bubble relative px-3.5 py-2 shadow-sm",

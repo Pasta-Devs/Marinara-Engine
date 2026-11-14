@@ -12,7 +12,7 @@ The reference for every token, part and slot is `docs/appearance/theme-author-gu
 ## What a theme can do here
 
 - **Tokens** on `:root` (all schemes), `[data-theme="light"]` and `[data-theme="dark"]`: the core colours (`--background`, `--card`, `--primary`, `--sidebar`, `--border`…), the new-layout tokens (`--ov-*`, `--mari-selected-tint`) and the theme tokens (`--mari-font-*`, `--mari-top-bar-*`, `--mari-home-widget-*`, `--mari-chat-*`, `--mari-page-veil`, `--mari-accent-text`, `--mari-confirm-scrim`, long-reply tokens such as `--mari-message-measure`…).
-- **Parts**: `[data-mari-part="…"]` hooks for messages, avatars, the composer, the top bar, page titles, the page surface every Library page/editor/Settings/Docs sits on (`page`), Home widgets, time, dialogue, VN boxes. Prefer these over internal classes.
+- **Parts**: `[data-mari-part="…"]` hooks for messages (`message` is the whole full-width row; paint `bubble`, or each bubble sits in a second box), avatars, the composer, the top bar, page titles, the page surface every Library page/editor/Settings/Docs sits on (`page`), Home widgets, time, dialogue, VN boxes. Prefer these over internal classes.
 - **Art**: `--mari-app-backdrop` (and `-layers`), `--mari-ambient` (under the bars, mostly see-through), `--mari-home-art`, `border-image` frames, `--mari-focus-frame`. Pictures are named `url("theme:name.webp")` and live in the theme's package, not in the CSS.
 - **Weather**: `--mari-weather-*` tokens restyle rain, snow, fog, petals, lightning; `data-mari-weather` / `data-mari-sky` on `<html>` let art follow the story weather. A theme can thin weather out but never switch it off.
 - **Day and night**: style both `[data-theme]` sides. Users may follow system or time of day.
@@ -27,7 +27,7 @@ Internal classes (`.ov-*`, Tailwind) work but can change in any update. When you
 - **Starter themes** (ids starting `starter-`) are read-only downloads from the gallery. Never `theme.update` one: the next gallery update would overwrite it. To change one, have the user click **Clone + Edit** (the copy icon) on it, which keeps its pictures, then work on the copy. Copying its CSS into `theme.create` loses all its art.
 - **Trying a theme**: picking a theme in CSS Themes asks **Keep this theme?** for 15 seconds. When you switch one on (`theme.setActive`, or `activate: true`), the user's tab asks the same question and goes back if nobody answers. Still prefer creating the theme **inactive** and letting the user pick it when they're ready to look. Activate it yourself only when they ask you to, and tell them to press **Keep theme**.
 - **Seeing the screen**: you can't. Every visual check below ends with you asking the user to look at a named spot, or to send a screenshot.
-- `theme.get` shows a theme's pictures by name, size and the `url("theme:…")` to use, never the picture itself. Ask the user to describe or screenshot a picture you need to match.
+- `theme.get` shows a theme's pictures by name, size and the `url("theme:…")` to use, not the picture itself; use `mari images look` to see one. You still can't see the app with the theme on it.
 
 ## Pictures for a theme
 
@@ -35,7 +35,7 @@ When the user has an image connection (`mari images connections`), you can make 
 
 1. The theme must exist and be the user's own (create it inactive first; for a starter, have them **Clone + Edit** and use the copy's id).
 2. `mari images generate --prompt "<your prompt>" --target theme-image --theme <id> --name <name> [--width <n> --height <n>]`. With `--target theme-image` your prompt goes to the provider **exactly as you wrote it**: the user's image style profiles, prompt prefixes, LoRAs and style reference are left out, because those are set up for character art. So write the whole prompt yourself: subject, style, palette, "no people, no text" when that is what you want. Size it for the job: wide (e.g. 1536×864) for a backdrop, square for a tile or icon, and a 9-slice frame with a plain middle. Add `--count 3` (up to 4) to make several versions in one go so the user can pick; each is its own request, so it takes that many times as long.
-3. Show the user the preview and wait for a yes. Make another if they don't like it; nothing is saved to the theme yet.
+3. You see what you made: generate, edit and adjust attach the pictures to their result (every version with `--count`). Look at them before you describe or pick one: subject, palette against the theme, a calm area where text will sit, leftover backgrounds, text or watermarks the model drew. `mari images look --source <asset>[,<asset>…]` (up to 4) or `mari images look --target theme-image --theme <id> --name <name>` shows you any picture again. Then show the user the preview and wait for a yes. Make another if they don't like it; nothing is saved to the theme yet.
    - To fix a preview without generating again, use `mari images adjust --source <asset-id>` with `--crop left,top,width,height` (pixels or %), `--trim` (cut empty edges), `--transparent` (the corner colour becomes see-through where it touches the edge; `--transparent #hex`, `--tolerance 0-255`, `--everywhere` to clear it inside too), `--resize 512` or `--resize 1920x1080 --fit cover`, `--flip horizontal`, `--rotate 90`, `--tint #hex`. It makes a new preview (PNG, transparency kept) and leaves the original; show that one too. Image generators rarely give real transparency, so for an icon, sticker or frame ask for "on a plain flat white background" and clear it with `--transparent`.
 4. `mari images assign --asset <asset-id> --target theme-image --theme <id> --name <name> --apply`. It is saved as WebP (at most 2560 px a side; small pictures stay lossless, so pixel art and frames stay crisp). The same name replaces the old picture. The result gives the `css` to paste, e.g. `url("theme:night-sky.webp")`, and how much of the 6 MiB package is used.
 5. Put that `url()` in the CSS with `theme.update` (send the whole stylesheet). Remove a picture with `mari images delete --target theme-image --theme <id> --name <name> --apply`.
@@ -167,7 +167,7 @@ When the user asks "what's wrong with my theme" or for polish:
   border-radius: 16px;
 }
 @media (hover: hover) {
-  [data-mari-part="message"]:hover {
+  [data-mari-part="bubble"]:hover {
     box-shadow: 0 4px 14px -6px rgba(0, 40, 80, 0.45);
   }
 }
