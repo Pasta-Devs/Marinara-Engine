@@ -744,7 +744,10 @@ function themeTargetName(raw: string) {
 async function decodeDataImage(value: string): Promise<ResolvedImage | null> {
   const trimmed = value.trim();
   if (SVG_DATA_URL.test(trimmed)) {
-    return svgImage(Buffer.from(trimmed.slice(trimmed.indexOf(",") + 1).replace(/\s+/g, ""), "base64"), "data-url (svg)");
+    return svgImage(
+      Buffer.from(trimmed.slice(trimmed.indexOf(",") + 1).replace(/\s+/g, ""), "base64"),
+      "data-url (svg)",
+    );
   }
   const data = parseImageDataUrl(value);
   if (!data) return null;
@@ -1524,9 +1527,7 @@ export class MariImagesService {
         `${target.name} is an SVG picture. Save an edited SVG file under that name, or save this drawn picture as ${target.name.replace(/\.svg$/u, ".webp")} and change the CSS to match.`,
       );
     }
-    const picture = keepSvg
-      ? await svgPackageImage(source)
-      : await themePackageImage(source.buffer);
+    const picture = keepSvg ? await svgPackageImage(source) : await themePackageImage(source.buffer);
     const images = [...(theme.meta?.images ?? [])];
     const index = images.findIndex((image) => image.name === target.name);
     const replaced = index >= 0;
@@ -1936,12 +1937,40 @@ export class MariImagesService {
   /** Shows Mari up to 4 pictures (preview assets, theme pictures, app images) so she can judge them herself. */
   private async look(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
     const raw = flagString(flags, "source", "asset", "from");
+    // Several theme pictures at once: --name a.webp,b.webp,c.svg (up to 4).
+    const names = (flagString(flags, "name", "image", "filename") ?? "")
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (!raw && names.length > 1) {
+      if (names.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
+      const sources: string[] = [];
+      for (const name of names) {
+        const one = new Map(flags);
+        one.delete("image");
+        one.delete("filename");
+        one.set("name", name);
+        const target = this.parseTarget(one, false);
+        const src = target ? await this.currentImageReferenceForTarget(target) : null;
+        if (!src) throw new Error(`No picture named ${name} in that theme.`);
+        sources.push(src);
+      }
+      const many = new Map(flags);
+      for (const key of ["name", "image", "filename", "target", "theme", "theme-id", "id"]) many.delete(key);
+      many.set("source", sources.join(","));
+      const result = await this.look(context, many);
+      const output = result.output as Record<string, unknown>;
+      if (typeof output.look === "string")
+        output.look = output.look.replace(/in the order given: .*$/u, `in the order given: ${names.join(", ")}.`);
+      return result;
+    }
     const target = raw ? null : this.parseTarget(flags, false);
     // Comma-separated, except the comma inside a data: URL (data:image/png;base64,....).
     const references: string[] = [];
     for (const piece of raw ? raw.split(",") : []) {
       const previous = references[references.length - 1];
-      if (previous !== undefined && /^data:[^,]*$/iu.test(previous)) references[references.length - 1] = `${previous},${piece}`;
+      if (previous !== undefined && /^data:[^,]*$/iu.test(previous))
+        references[references.length - 1] = `${previous},${piece}`;
       else if (piece.trim()) references.push(piece.trim());
     }
     if (references.length === 0 && !target) {
@@ -1986,7 +2015,7 @@ export class MariImagesService {
       "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
       "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
-      "Look at pictures yourself (you see them; the user doesn't): look --source <asset|url|file>[,<more>] (up to 4), or look --target theme-image --theme <id> --name <name>. generate/edit/adjust already show you what they made.",
+      "Look at pictures yourself (you see them; the user doesn't): look --source <asset|url|file>[,<more>] (up to 4), or look --target theme-image --theme <id> --name <name>[,<more>] (up to 4). generate/edit/adjust already show you what they made.",
       "SVG theme pictures (trims, rails, buttons): look shows the drawing and its SVG text; recolour by editing the text, then assign --source <file.svg> --target theme-image --theme <id> --name <name>.svg --apply (stays SVG). adjust/edit work on a drawn copy, saved as .webp.",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
