@@ -29,10 +29,27 @@ import {
   gameDungeonMapForFloor,
   type GameDungeonMap,
 } from "./dungeon-map.js";
+import {
+  SITE_LOCK_PROP,
+  gameDungeonPlannedMap,
+  sitePlanInputFor,
+  siteTemplateForSet,
+  type SiteTerrain,
+} from "./site-plans.js";
 import type { WorldHistory } from "./history.js";
 
 /** What kind of place a site is, which decides who holds it. */
-export const DUNGEON_SITE_ORIGINS = ["cave", "mine", "crypt", "ruin", "sewer", "station"] as const;
+export const DUNGEON_SITE_ORIGINS = [
+  "cave",
+  "mine",
+  "crypt",
+  "ruin",
+  "sewer",
+  "station",
+  "manor",
+  "keep",
+  "temple",
+] as const;
 export type DungeonSiteOrigin = (typeof DUNGEON_SITE_ORIGINS)[number];
 
 /** How a site (or the town it lies by) fell, from the world's history: it decides who moved in. */
@@ -74,7 +91,17 @@ export interface DungeonArea {
 export const DUNGEON_REFILL_DAYS = 3;
 
 /** How far each kind of place sits above the land around it. */
-const ORIGIN_OFFSET: Record<DungeonSiteOrigin, number> = { cave: 0, mine: 0, sewer: 0, crypt: 1, ruin: 1, station: 1 };
+const ORIGIN_OFFSET: Record<DungeonSiteOrigin, number> = {
+  cave: 0,
+  mine: 0,
+  sewer: 0,
+  crypt: 1,
+  ruin: 1,
+  station: 1,
+  manor: 1,
+  keep: 1,
+  temple: 1,
+};
 /** How many levels a site's band spans, from its first room to its heart. */
 const BAND_SPAN = 4;
 
@@ -86,6 +113,9 @@ const ORIGIN_HABITATS: Record<DungeonSiteOrigin, readonly MarinaraHabitat[]> = {
   ruin: ["ruins"],
   sewer: ["urban", "underground"],
   station: ["ruins", "urban"],
+  manor: ["urban", "ruins"],
+  keep: ["ruins"],
+  temple: ["ruins"],
 };
 
 /** Who holds each kind of place, best fit first; the first few the setting has at the band are drawn from. */
@@ -96,7 +126,12 @@ const HOLDERS: Record<DungeonSiteOrigin, readonly string[]> = {
   ruin: ["cultist", "sellsword", "shade", "warder", "fiend", "cutpurse"],
   sewer: ["gnawer", "gel", "cutpurse", "stinger"],
   station: ["drone", "turret", "warder", "shooter", "adept"],
+  manor: ["cutpurse", "cultist", "sellsword", "shade", "night-courtier"],
+  keep: ["sellsword", "shieldbearer", "grave-duelist", "lout", "bones"],
+  temple: ["cultist", "adept", "fiend", "shade", "warder"],
 };
+/** Undead holders for a building that grew a crypt for them (a vampire's mansion, a dead lord's keep). */
+const UNDEAD_HOLDERS = ["night-courtier", "grave-duelist", "gorger", "shade", "bones"] as const;
 /** Who a fall leaves behind: a ruin or crypt that fell this way is held by these first. */
 const FATE_HOLDERS: Record<DungeonSiteFate, readonly string[]> = {
   war: ["sellsword", "bones", "grave-duelist", "cutpurse"],
@@ -112,6 +147,9 @@ const SQUATTERS: Record<DungeonSiteOrigin, readonly string[]> = {
   ruin: ["thornling", "stinger", "gnawer", "serpent", "bones"],
   sewer: ["gnawer", "gel", "serpent", "stinger"],
   station: ["drone", "gnawer", "gel"],
+  manor: ["gnawer", "stinger", "shade", "gel"],
+  keep: ["gnawer", "raptor", "bones", "stinger"],
+  temple: ["gnawer", "thornling", "shade", "stinger"],
 };
 /** A cave's own look calls its holder: a lava cave the fire spirits, an ice cave the frost ones. */
 const SET_HOLDERS: Partial<Record<string, readonly string[]>> = {
@@ -129,6 +167,9 @@ export function dungeonSiteOrigin(setId: string, name = ""): DungeonSiteOrigin {
   if (setId === "dungeon_sewer") return "sewer";
   if (setId === "dungeon_crypt") return "crypt";
   if (setId === "dungeon_temple") return "ruin";
+  if (setId === "building_manor") return "manor";
+  if (setId === "building_keep") return "keep";
+  if (setId === "building_temple") return "temple";
   return "cave";
 }
 
@@ -172,6 +213,9 @@ const ORIGIN_FLOORS: Record<DungeonSiteOrigin, readonly [number, number]> = {
   ruin: [1, 2],
   sewer: [1, 2],
   station: [1, 2],
+  manor: [3, 5],
+  keep: [3, 4],
+  temple: [2, 3],
 };
 /** How many levels each floor down climbs. */
 const FLOOR_RISE = 2;
@@ -203,7 +247,27 @@ export function gameDungeonSiteMap(input: {
   siteSeed: number;
   id: string;
   floor?: number;
+  /** What the world says of a building laid out to a plan: how it fell, the land under it. */
+  fate?: DungeonSiteFate;
+  terrain?: SiteTerrain;
+  /** The game's rules can find traps (a ruleset with a skill for it): a building has them. */
+  traps?: boolean;
 }): GameDungeonMap {
+  // A building (a manor, a keep, a temple, a crypt) is laid out to a plan of the whole of it.
+  const template = siteTemplateForSet(input.setId);
+  if (template)
+    return gameDungeonPlannedMap({
+      plan: sitePlanInputFor({
+        template,
+        name: input.name,
+        seed: input.siteSeed,
+        ...(input.fate ? { fate: input.fate } : {}),
+        ...(input.terrain ? { terrain: input.terrain } : {}),
+      }),
+      name: input.name,
+      id: input.id,
+      ...(input.traps ? { traps: true } : {}),
+    });
   const floors = dungeonSiteFloors(dungeonSiteOrigin(input.setId, input.name), input.siteSeed);
   return gameDungeonMapForFloor({ ...input, floor: input.floor ?? 1, floors });
 }
@@ -251,6 +315,8 @@ export function dungeonSiteFor(input: {
   fate?: DungeonSiteFate;
   /** The map's seed (or the game's seed for the site): the same site always draws the same foes. */
   seed: string | number;
+  /** A building planned with a crypt for undead holders: the dead hold it. */
+  undead?: boolean;
 }): DungeonSite | null {
   const origin = dungeonSiteOrigin(input.setId, input.name);
   const random = marinaraRandom(`${input.seed}:site:${input.name.toLowerCase()}`);
@@ -261,6 +327,7 @@ export function dungeonSiteFor(input: {
     });
   // A ruin or crypt that fell a known way is held by what the fall left; a cave by what its look calls.
   const preferred = [
+    ...(input.undead ? UNDEAD_HOLDERS : []),
     ...((origin === "ruin" || origin === "crypt") && input.fate ? FATE_HOLDERS[input.fate] : []),
     ...(origin === "cave" ? (SET_HOLDERS[input.setId] ?? []) : []),
     ...HOLDERS[origin],
@@ -371,6 +438,7 @@ function squatRoster(
  */
 export function dungeonAreas(map: GameDungeonMap, site: DungeonSite, setting: MarinaraBestiarySetting): DungeonArea[] {
   if (map.hand || !map.rooms.length) return [];
+  if (map.site && map.roomInfo) return plannedAreas(map, site, setting);
   const floor = map.floor ?? 1;
   const deepest = floor >= (map.floors ?? 1);
   const band = dungeonFloorBand(site.band, floor);
@@ -526,6 +594,102 @@ export function gameDungeonSitesWith(
   const { [key]: _old, ...rest } = sites;
   const entries = [...Object.entries(rest), [key, state] as const];
   return Object.fromEntries(entries.slice(-GAME_DUNGEON_SITES_MAX));
+}
+
+/** How many levels a planned building's level is from the one it is entered on: its floor, for its band. */
+export function dungeonPlannedFloor(map: GameDungeonMap): number {
+  if (!map.site) return map.floor ?? 1;
+  const entry = map.site.levels.findIndex((level) => level.depth === 0);
+  return 1 + Math.abs(map.site.level - Math.max(0, entry));
+}
+
+/** A planned building's areas (building plans, 2026-11-14): who is in each room by what it is for. The
+ *  heart is the plan's heart room; the holders keep their own rooms and their posts; squatters take the
+ *  neglected ones; quiet rooms are safe to rest in. Levels further from the way in stand deeper in the band. */
+function plannedAreas(map: GameDungeonMap, site: DungeonSite, setting: MarinaraBestiarySetting): DungeonArea[] {
+  const level = map.site!.level;
+  const band = dungeonFloorBand(site.band, dungeonPlannedFloor(map));
+  const cells = dungeonFromGameDungeonMap(map);
+  // Steps from where the party comes onto the level, through locked doors too.
+  const passable = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= cells.width || y >= cells.height) return false;
+    const i = y * cells.width + x;
+    return dungeonWalkable(cells, x, y) || (cells.ground[i] === "floor" && cells.props[i] === SITE_LOCK_PROP);
+  };
+  const steps = new Int32Array(cells.width * cells.height).fill(-1);
+  const start = map.entrance.y * cells.width + map.entrance.x;
+  steps[start] = 0;
+  const queue = [start];
+  for (let head = 0; head < queue.length; head++) {
+    const c = queue[head]!;
+    const x = c % cells.width;
+    const y = (c - x) / cells.width;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = (y + dy) * cells.width + x + dx;
+      if (!passable(x + dx, y + dy) || steps[next] !== -1) continue;
+      steps[next] = steps[c]! + 1;
+      queue.push(next);
+    }
+  }
+  const distance = map.rooms.map((room) => {
+    let best = -1;
+    for (let y = room.y; y < room.y + room.h; y++)
+      for (let x = room.x; x < room.x + room.w; x++) {
+        const at = steps[y * cells.width + x]!;
+        if (at >= 0 && (best < 0 || at < best)) best = at;
+      }
+    return best;
+  });
+  const far = Math.max(1, ...distance);
+  const random = marinaraRandom(`${map.seed}:planned:${level}:${site.holder}:${band.low}`);
+  const areas: DungeonArea[] = map.rooms.map((_, index) => {
+    const info = map.roomInfo![index]!;
+    const area = index + 1;
+    const key = dungeonAreaKey(level + 1, area);
+    const level_ = Math.round(band.low + ((band.high - 1 - band.low) * Math.max(0, distance[index]!)) / far);
+    if (info.heart) {
+      const top = marinaraEnemyFamily(site.leader ?? site.holder)!;
+      const head = group(top.id, top.tiers.includes("boss") ? "boss" : "elite", band.high, 1);
+      const guard = group(site.holder, "standard", band.high, site.leader ? 2 : 1 + Math.floor(random() * 2));
+      return {
+        area,
+        key,
+        role: "heart",
+        level: band.high,
+        foes: fitted(setting, band.high, [...head, ...guard], "hard"),
+      };
+    }
+    const holders = () =>
+      fitted(setting, level_, group(site.holder, "standard", level_, 2 + Math.floor(random() * 2)), "normal");
+    switch (info.use) {
+      case "post":
+        return { area, key, role: "guard", level: level_, foes: holders() };
+      case "holders":
+        return random() < 0.75
+          ? { area, key, role: "guard", level: level_, foes: holders() }
+          : { area, key, role: "empty", level: level_, foes: [] };
+      case "squat":
+        return random() < 0.6
+          ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
+          : { area, key, role: "empty", level: level_, foes: [] };
+      case "quiet":
+        return { area, key, role: "rest", level: level_, foes: [] };
+      case "open":
+        return random() < 0.4
+          ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
+          : { area, key, role: "empty", level: level_, foes: [] };
+      default:
+        return random() < 0.3
+          ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
+          : { area, key, role: "empty", level: level_, foes: [] };
+    }
+  });
+  return areas;
 }
 
 /** Whether a site's holders think and band together (people, cunning spirits): beaten in their heart, they

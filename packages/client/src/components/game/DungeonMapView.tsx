@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   DUNGEON_EXIT_PROP,
   dungeonWayOutId,
+  gameDungeonLinkAt,
   gameDungeonOnWayDown,
   gameDungeonOnWayOut,
   gameDungeonOnWayUp,
@@ -33,6 +34,15 @@ import {
 import { api } from "../../lib/api-client";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { OVERWORLD_TILE, cellNoise, paintGuard, paintParty } from "../../lib/overworld-paint";
+import {
+  buildingStyleOf,
+  paintBuildingFloor,
+  paintBuildingProp,
+  paintBuildingWall,
+  paintBuildingWater,
+  paintFoundTrap,
+  paintSiteLink,
+} from "../../lib/building-paint";
 
 const T = OVERWORLD_TILE;
 type Point = { x: number; y: number };
@@ -96,10 +106,15 @@ export function DungeonMapView({
         kept.rooms,
         kept.entrance,
         kept.hand ?? null,
+        kept.links ?? null,
+        kept.site?.level ?? null,
       ])
     : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for every field the cells read
   const cells = useMemo(() => (kept ? dungeonFromGameDungeonMap(kept) : null), [layoutKey]);
+  // A planned building's ways to its other levels, drawn into the base with the layout.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for the links and the level
+  const links = useMemo(() => ({ list: kept?.links ?? [], level: kept?.site?.level ?? 0 }), [layoutKey]);
   const set = kept ? DUNGEON_SETS.find((each) => each.id === kept.set) : undefined;
   const pack = useDungeonPack(kept?.pack ?? kept?.set, dungeonLooks);
   // A pack of the set's own: "dungeon" names no family the library chooses for, so only `own` draws.
@@ -126,6 +141,42 @@ export function DungeonMapView({
     if (!ctx) return canvas;
     ctx.scale(resolution, resolution);
     ctx.imageSmoothingEnabled = true;
+    // A building gone bad with no pack of its own: drawn as a building, walls, hall, rooms and furniture.
+    const building = buildingStyleOf(cells.set);
+    if (building && !drawTile.image) {
+      const at = (x: number, y: number) =>
+        x < 0 || y < 0 || x >= cells.width || y >= cells.height ? "rock" : cells.ground[y * cells.width + x];
+      const inRoom = (x: number, y: number) =>
+        cells.rooms.some((room) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h);
+      // The hall: floor outside every room, but for a doorway (walls either side), laid as the room's floor.
+      const isHall = (x: number, y: number) =>
+        at(x, y) === "floor" &&
+        !inRoom(x, y) &&
+        !(at(x - 1, y) === "wall" && at(x + 1, y) === "wall") &&
+        !(at(x, y - 1) === "wall" && at(x, y + 1) === "wall");
+      for (let y = 0; y < cells.height; y++)
+        for (let x = 0; x < cells.width; x++) {
+          const ground = at(x, y);
+          const noise = cellNoise(x, y);
+          if (ground === "rock") continue;
+          if (ground === "wall") {
+            const below = at(x, y + 1);
+            paintBuildingWall(ctx, building, x * T, y * T, below === "floor" || below === "liquid", noise);
+          } else if (ground === "liquid") paintBuildingWater(ctx, x * T, y * T, noise);
+          else
+            paintBuildingFloor(ctx, building, x * T, y * T, isHall(x, y), noise, {
+              up: isHall(x, y - 1),
+              down: isHall(x, y + 1),
+            });
+        }
+      for (let y = 0; y < cells.height; y++)
+        for (let x = 0; x < cells.width; x++) {
+          const prop = cells.props[y * cells.width + x]!;
+          if (prop >= 0) paintBuildingProp(ctx, building, prop, x * T, y * T);
+        }
+      for (const link of links.list) paintSiteLink(ctx, link.kind, link.level > links.level, link.x * T, link.y * T);
+      return canvas;
+    }
     const plain = (colour: string, x: number, y: number) => {
       ctx.fillStyle = colour;
       ctx.fillRect(x, y, T, T);
@@ -166,6 +217,7 @@ export function DungeonMapView({
           }
         }
       }
+    for (const link of links.list) paintSiteLink(ctx, link.kind, link.level > links.level, link.x * T, link.y * T);
     // A map made by hand has no way-out prop: where the party came in is marked as the way out.
     if (cells.drawnProps) {
       const { x, y } = cells.entrance;
@@ -174,7 +226,7 @@ export function DungeonMapView({
       ctx.strokeRect(x * T + 3, y * T + 3, T - 6, T - 6);
     }
     return canvas;
-  }, [cells, drawTile, resolution]);
+  }, [cells, drawTile, links, resolution]);
   const mapSize = cells ? { width: cells.width * T, height: cells.height * T } : { width: 0, height: 0 };
 
   // ── The party, and the view ──
@@ -197,6 +249,13 @@ export function DungeonMapView({
         : [],
     [hour, kept],
   );
+  // A planned building: rooms the party has not been into stay dark, and the traps it has found show.
+  const fogged = useMemo(() => {
+    if (!kept?.site) return [];
+    const seen = new Set(kept.site.seen[String(kept.site.level)] ?? []);
+    return kept.rooms.filter((_, index) => !seen.has(index));
+  }, [kept]);
+  const foundTraps = useMemo(() => (kept?.traps ?? []).filter((trap) => trap.found), [kept]);
   const draw = useCallback(
     (cam: Point, frame = 1) => {
       const canvas = canvasRef.current;
@@ -212,6 +271,9 @@ export function DungeonMapView({
       ctx.imageSmoothingEnabled = drawTile.image && resolution > scale * dpr;
       ctx.drawImage(base, 0, 0, base.width / resolution, base.height / resolution);
       ctx.imageSmoothingEnabled = false;
+      for (const trap of foundTraps) paintFoundTrap(ctx, trap.x * T, trap.y * T);
+      const inFog = (x: number, y: number) =>
+        fogged.some((room) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h);
       // On a map made by hand, someone at each spot in use at the hour (map editor Phase 3).
       for (const { at, person } of standing) {
         if (drawTile.character(ctx, { person: person.id }, at.x * T, at.y * T)) continue;
@@ -221,9 +283,12 @@ export function DungeonMapView({
       // The holders' posts (dungeon spawns): who stands guard where, the heart's chief crowned.
       // A post of more than one shows a second figure a step behind the first.
       for (const guard of guards) {
+        if (inFog(guard.x, guard.y)) continue;
         if (guard.count > 1) paintGuard(ctx, guard.x * T + 7, guard.y * T - 5, false);
         paintGuard(ctx, guard.x * T + (guard.count > 1 ? -3 : 1), guard.y * T - 3, guard.heart);
       }
+      ctx.fillStyle = "rgba(5, 6, 10, 0.88)";
+      for (const room of fogged) ctx.fillRect(room.x * T, room.y * T, room.w * T, room.h * T);
       const party = partyRef.current;
       if (party) {
         const drawn = drawTile.character(
@@ -238,7 +303,7 @@ export function DungeonMapView({
         if (!drawn && !drawTile(ctx, "party", x, y)) paintParty(ctx, x + 1, y + 1, frame !== 1);
       }
     },
-    [base, drawTile, guards, resolution, scale, size.height, size.width, standing],
+    [base, drawTile, fogged, foundTraps, guards, resolution, scale, size.height, size.width, standing],
   );
   const drawRef = useRef(draw);
   drawRef.current = draw;
@@ -288,6 +353,10 @@ export function DungeonMapView({
         walkingRef.current = false;
         return;
       }
+      // A planned building's news from the walk: a lock opened by its key, a hidden trap set off.
+      if (result.step?.unlocked.length)
+        toast.success(t("game.dungeon.unlocked", { rooms: result.step.unlocked.join(", ") }));
+      if (result.step?.trap) toast.warning(t("game.dungeon.trapSprung"));
       const points = [centreOf(kept.at), ...result.path.map(centreOf)];
       const duration = Math.min(WALK_LONGEST_MS, Math.max(300, result.path.length * WALK_MS_PER_CELL));
       setWalking(true);
@@ -350,6 +419,10 @@ export function DungeonMapView({
   const onWayOut = gameDungeonOnWayOut(kept);
   // A place deeper than one floor (owner 2026-11-13: separate maps per floor): its stairs down and up.
   const floor = kept.floor ?? 1;
+  // A planned building: the stairs, ladder or hole the party stands on, to which level.
+  const link = gameDungeonLinkAt(kept);
+  const site = kept.site;
+  const linkTo = link && site ? site.levels[link.level] : undefined;
   const stairs = kept.floors
     ? gameDungeonOnWayDown(kept)
       ? floor + 1
@@ -365,6 +438,13 @@ export function DungeonMapView({
     }
   };
   const area = dungeonAreaAt(kept, kept.at.x, kept.at.y);
+  const roomName = area ? kept.roomInfo?.[area - 1]?.name : undefined;
+  // The levels the party has been on, top to bottom, the one it is on marked.
+  const visited = site
+    ? site.levels.flatMap((level, index) =>
+        index === site.level || site.seen[String(index)] !== undefined ? [{ index, name: level.name }] : [],
+      )
+    : [];
   const leave = async () => {
     try {
       await leaveMutation.mutateAsync({ chatId, map: kept.id });
@@ -409,10 +489,55 @@ export function DungeonMapView({
         <p className="rounded-lg bg-black/60 px-3 py-1 text-xs text-white/85" role="status">
           {kept.name}
           {kept.floors && kept.floors > 1 && <> · {t("game.dungeon.floor", { floor, floors: kept.floors })}</>}
-          {/* A map made by hand has no areas: its name alone. */}
-          {kept.rooms.length > 0 && <> · {area ? t("game.dungeon.area", { area }) : t("game.dungeon.passage")}</>}
+          {site && <> · {site.levels[site.level]?.name}</>}
+          {/* A map made by hand has no areas: its name alone. A planned building names its rooms. */}
+          {kept.rooms.length > 0 && (
+            <>
+              {" · "}
+              {roomName
+                ? roomName
+                : area
+                  ? t("game.dungeon.area", { area })
+                  : t(kept.roomInfo ? "game.dungeon.hall" : "game.dungeon.passage")}
+            </>
+          )}
           {walking && <Footprints size={12} className="ml-2 inline animate-pulse" aria-hidden="true" />}
         </p>
+        {visited.length > 1 && (
+          <ol
+            className="flex flex-wrap justify-center gap-1 text-[10px] text-white/70"
+            aria-label={t("game.dungeon.levels")}
+          >
+            {visited.map((level) => (
+              <li
+                key={level.index}
+                aria-current={level.index === site!.level ? "location" : undefined}
+                className={
+                  level.index === site!.level
+                    ? "rounded bg-white/20 px-1.5 py-0.5 font-semibold text-white"
+                    : "rounded bg-black/50 px-1.5 py-0.5"
+                }
+              >
+                {level.name}
+              </li>
+            ))}
+          </ol>
+        )}
+        {link && linkTo && (
+          <button
+            type="button"
+            onClick={() => void takeStairs()}
+            disabled={!canWalk || walking || stairsMutation.isPending}
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black/85 disabled:opacity-50"
+          >
+            {link.level > site!.level ? (
+              <ArrowDownToLine size={13} aria-hidden="true" />
+            ) : (
+              <ArrowUpToLine size={13} aria-hidden="true" />
+            )}
+            {t(link.level > site!.level ? "game.dungeon.goDown" : "game.dungeon.goUp", { level: linkTo.name })}
+          </button>
+        )}
         {onWayOut && (
           <button
             type="button"

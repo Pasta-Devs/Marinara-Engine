@@ -49,6 +49,7 @@ import {
   dungeonAreaNumberAt as dungeonAreaNumberAtCell,
   readGameDungeonSiteTags,
 } from "../../../packages/shared/src/features/world/dungeon-spawns.js";
+import { siteTemplateForSet } from "../../../packages/shared/src/features/world/site-plans.js";
 
 let sites = 0;
 let missing = 0;
@@ -327,7 +328,7 @@ assert.ok(missing / (sites + missing) < 0.05, `${missing} of ${sites + missing} 
 {
   const setting = "high_fantasy";
   let deepSites = 0;
-  for (const set of DUNGEON_SETS) {
+  for (const set of DUNGEON_SETS.filter((each) => !siteTemplateForSet(each.id))) {
     for (let seed = 1; seed <= 12; seed++) {
       const name = set.id.startsWith("dungeon_crypt") ? "Old Crypt" : "Deep Hollow";
       const first = gameDungeonSiteMap({ setId: set.id, name, siteSeed: seed, id: "f1" });
