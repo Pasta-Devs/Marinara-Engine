@@ -5167,6 +5167,17 @@ input.ov-edhead__title:focus {
   border-radius: 50%;
   background: currentColor;
 }
+/* An editor tab with unsaved changes: a small accent dot after its name (like an unsaved file in an editor). */
+.ov-tab__draft {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin-left: 0.125rem;
+  border-radius: 50%;
+  background: var(--ov-accent-text);
+}
 .ov-tab__presence.is-idle {
   color: #e0b04a;
 }

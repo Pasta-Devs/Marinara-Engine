@@ -24,6 +24,7 @@ import {
   useTabPicture,
   TabLabel,
   TabPresence,
+  TabDraftDot,
   activateTab,
   closeTabAndMove,
   goHome,
@@ -130,7 +131,10 @@ function TabCard({
         </span>
         <span className="ovm-tabcard__label">
           {tab ? (
-            <TabLabel tab={tab} chats={chats} />
+            <>
+              <TabLabel tab={tab} chats={chats} />
+              <TabDraftDot tab={tab} current={on} />
+            </>
           ) : (
             <span className="ov-tab__label">
               <Home size={14} aria-hidden="true" /> {localize("Home")}

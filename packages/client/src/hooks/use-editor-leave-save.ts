@@ -3,8 +3,9 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { create } from "zustand";
-import { registerEditorLeaveHandler } from "../lib/editor-leave";
+import { editorLeaveKeyForTab, registerEditorLeaveHandler } from "../lib/editor-leave";
 import { showChoiceDialog } from "../lib/app-dialogs";
+import { isOverhaulLook, useOverhaulStore } from "../stores/overhaul.store";
 import { useUIStore } from "../stores/ui.store";
 
 /**
@@ -82,6 +83,69 @@ function dropDraft(key: string) {
   }
 }
 
+const PARKED_KEY = "marinara-editor-parked";
+
+function readParked(): string[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(PARKED_KEY) ?? "[]") as unknown;
+    return Array.isArray(list) ? list.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Editors whose unsaved edits wait as a draft in their tab (new layout): the tab shows a dot, and the
+ * edits come back when the tab is opened again. Kept in this browser, so the dot survives a reload.
+ */
+export const useParkedDraftsStore = create<{
+  keys: string[];
+  park: (key: string) => void;
+  unpark: (key: string) => void;
+}>((set, get) => {
+  const write = (keys: string[]) => {
+    try {
+      localStorage.setItem(PARKED_KEY, JSON.stringify(keys));
+    } catch {
+      /* blocked storage: the dot lasts this session */
+    }
+    set({ keys });
+  };
+  return {
+    keys: readParked(),
+    park: (key) => {
+      if (!get().keys.includes(key)) write([...get().keys, key]);
+    },
+    unpark: (key) => {
+      if (get().keys.includes(key)) write(get().keys.filter((item) => item !== key));
+    },
+  };
+});
+
+/** Drops a tab's waiting draft (closing it with "Discard"). */
+export function discardParkedDraft(key: string) {
+  dropDraft(key);
+  useParkedDraftsStore.getState().unpark(key);
+}
+
+/** Writes the kept copy now. */
+function keepDraft(key: string, draft: EditorUnsavedDraft | undefined, lastWritten?: { current: string }) {
+  if (!draft) return;
+  try {
+    const value = JSON.stringify(draft.get());
+    if (value === undefined) return;
+    if (lastWritten && lastWritten.current === value) return;
+    localStorage.setItem(DRAFT_PREFIX + key, `{"savedAt":${Date.now()},"value":${value}}`);
+    if (lastWritten) lastWritten.current = value;
+  } catch {
+    /* storage full or blocked */
+  }
+}
+
+/** While you type, the kept copy is written this long after the last change (and at least this often). */
+const DRAFT_WRITE_DELAY_MS = 1000;
+const DRAFT_WRITE_MAX_WAIT_MS = 5000;
+
 export function useEditorLeaveSave(
   key: string,
   dirty: boolean,
@@ -91,6 +155,8 @@ export function useEditorLeaveSave(
 ) {
   const { t } = useTranslation();
   const latest = useRef({ dirty, save, busy, t });
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   useLayoutEffect(() => {
     latest.current = { dirty, save, busy, t };
   });
@@ -102,6 +168,22 @@ export function useEditorLeaveSave(
     let latestNavigation: (() => void) | null = null;
     const unregister = registerEditorLeaveHandler({
       key,
+      park: () => {
+        // New layout only, and only when this editor has a tab to come back to: the edits wait there.
+        if (!isOverhaulLook() || saving || pending || !draftRef.current) return false;
+        const tabs = useOverhaulStore.getState().tabs;
+        if (!tabs.some((tab) => editorLeaveKeyForTab(tab) === key)) return false;
+        const focused = document.activeElement;
+        if (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) {
+          flushSync(() => focused.blur());
+        }
+        if (!latest.current.dirty) return false;
+        keepDraft(key, draftRef.current);
+        useParkedDraftsStore.getState().park(key);
+        // The editor is about to unmount; its edits wait in the tab.
+        latest.current = { ...latest.current, dirty: false };
+        return true;
+      },
       request: (proceed) => {
         // A save run from the dialog may itself re-route (a new item reopening under its id).
         if (saving) return false;
@@ -141,7 +223,7 @@ export function useEditorLeaveSave(
             }
             // "Don't save" throws the edits away, kept copy included, so it is never offered again (PR3).
             if (choice === "discard") {
-              dropDraft(key);
+              discardParkedDraft(key);
               clearOffer(key);
             }
             // The editor is about to unmount; its edits go with it.
@@ -165,20 +247,29 @@ export function useEditorLeaveSave(
   useEditorSaveShortcut(save, busy, !key);
   // Leaving through "Don't save" drops the edits with the editor; nothing is unsaved any more.
   useEffect(() => () => useUIStore.getState().setEditorDirty(false), []);
-  // Keep unsaved edits when the page goes away; offer them back once when the editor opens again.
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
+  // Keep unsaved edits in this browser while you work: a moment after each change (so a crash or a killed
+  // tab loses at most a second or so of typing), and again when the page goes away. Offered back once
+  // when the editor opens again. The copy is only rewritten when it changed.
+  const lastWritten = useRef("");
+  const writeTimer = useRef<{ timer: number; firstAt: number } | null>(null);
   useEffect(() => {
     if (!dirty || !key || !draftRef.current) return;
-    const keep = () => {
-      const current = draftRef.current;
-      if (!current) return;
-      try {
-        localStorage.setItem(DRAFT_PREFIX + key, JSON.stringify({ savedAt: Date.now(), value: current.get() }));
-      } catch {
-        /* storage full or blocked */
-      }
+    const pendingWrite = writeTimer.current;
+    const now = Date.now();
+    const firstAt = pendingWrite?.firstAt ?? now;
+    if (pendingWrite) window.clearTimeout(pendingWrite.timer);
+    const delay = Math.max(0, Math.min(DRAFT_WRITE_DELAY_MS, firstAt + DRAFT_WRITE_MAX_WAIT_MS - now));
+    writeTimer.current = {
+      firstAt,
+      timer: window.setTimeout(() => {
+        writeTimer.current = null;
+        keepDraft(key, draftRef.current, lastWritten);
+      }, delay),
     };
+  });
+  useEffect(() => {
+    if (!dirty || !key) return;
+    const keep = () => keepDraft(key, draftRef.current, lastWritten);
     const onVisibility = () => {
       if (document.visibilityState === "hidden") keep();
     };
@@ -187,13 +278,17 @@ export function useEditorLeaveSave(
     return () => {
       window.removeEventListener("pagehide", keep);
       document.removeEventListener("visibilitychange", onVisibility);
+      // Saved, discarded, or the editor closed: a write still waiting is no longer wanted.
+      if (writeTimer.current) window.clearTimeout(writeTimer.current.timer);
+      writeTimer.current = null;
+      lastWritten.current = "";
     };
   }, [dirty, key]);
   const wasDirty = useRef(false);
   useEffect(() => {
     // Saved, or left with "Don't save": the kept copy is no longer wanted.
     if (wasDirty.current && !dirty && key) {
-      dropDraft(key);
+      discardParkedDraft(key);
       const offer = useEditorDraftOfferStore.getState().offer;
       if (offer?.key === key && offer.state === "restored") clearOffer(key);
     }
@@ -205,17 +300,23 @@ export function useEditorLeaveSave(
     if (!key || !draftReady || offeredFor.current === key) return;
     offeredFor.current = key;
     const stored = readDraft(key);
+    const parked = useParkedDraftsStore.getState().keys.includes(key);
+    if (parked) useParkedDraftsStore.getState().unpark(key);
     if (!stored) return;
+    // Back to a tab whose edits waited there: they simply come back, still unsaved (the Save button says so).
+    if (parked) {
+      draftRef.current?.restore(stored.value);
+      return;
+    }
     const offer: EditorDraftOffer = {
       key,
       name: draftRef.current?.name?.trim() || "",
       savedAt: stored.savedAt,
       state: "found",
       restore: () => {
+        // Back in the editor now. The stored copy stays (rewritten as you edit) until Save or "Don't save"
+        // drops it, so it never comes back after either (user panel 3, PR3).
         draftRef.current?.restore(stored.value);
-        // Back in the editor now (and kept again if the page goes away while unsaved): the stored copy
-        // must not come back after a later Save or "Don't save" (user panel 3, PR3).
-        dropDraft(key);
         useEditorDraftOfferStore.getState().setOffer({ ...offer, state: "restored" });
       },
       discard: () => {
