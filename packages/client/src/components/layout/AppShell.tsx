@@ -82,7 +82,7 @@ import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
 import { SPLIT_PANE } from "../../lib/split-view-env";
-import { SPLIT_MIN_ROOM, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
+import { SPLIT_DIVIDER, SPLIT_MIN_ROOM, clampSplitSize, useSplitRoom } from "../overhaul/split-view";
 import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-navigation";
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
@@ -654,6 +654,27 @@ export function AppShell({
   const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_ROOM;
   const splitOn = splitFits && split !== null;
   const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
+  // Opening, closing or resizing the Library pane leaves the second side as wide as it was: the main side
+  // takes the change. Sharing it made the second side cross its touch-layout width, so the page there
+  // swapped layouts each time the pane opened or closed and looked like it reloaded (Nov 14 finding).
+  const splitWidthRef = useRef<{ px: number; size: number; room: number; viewport: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!splitOn || !split) {
+      splitWidthRef.current = null;
+      return;
+    }
+    const usable = Math.max(1, splitRoom - SPLIT_DIVIDER);
+    const viewport = window.innerWidth;
+    const last = splitWidthRef.current;
+    if (last && last.size === split.size && last.viewport === viewport && last.room !== splitRoom) {
+      const size = clampSplitSize(last.px / usable, splitRoom);
+      splitWidthRef.current = { ...last, size, room: splitRoom };
+      if (size !== split.size) useOverhaulStore.getState().setSplit({ ...split, size });
+      return;
+    }
+    if (last && last.size === split.size && last.viewport === viewport && last.room === splitRoom) return;
+    splitWidthRef.current = { px: splitSize * usable, size: split.size, room: splitRoom, viewport };
+  }, [splitOn, split, splitRoom, splitSize]);
   useEffect(() => {
     document.documentElement.toggleAttribute("data-ov-split", splitOn);
     useOverhaulStore.setState({ splitShown: splitOn, splitRoom: splitFits });
