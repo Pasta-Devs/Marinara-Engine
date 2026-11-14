@@ -1217,6 +1217,11 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
   // The protected layer reveals an auto-hidden top bar and stops transitions while this attribute is set.
   // The page is measured as it is first (so rules that only kick in after a delay, which restart
   // when the sheet is switched back on, are seen), then without the theme, then the theme's clicks.
+  // Switching the theme off for a moment can shorten a scrolled area (the chat), which drops it back
+  // toward the top for good: put every scrolled area back afterwards (QC Nov 14 round 2).
+  const scrolled = Array.from(document.querySelectorAll<HTMLElement>("body *"))
+    .filter((element) => element.scrollTop > 0 || element.scrollLeft > 0)
+    .map((element) => [element, element.scrollTop, element.scrollLeft] as const);
   root.dataset.mariGuardMeasure = "true";
   // Art on the bar's own pseudo-elements gets plates like --mari-top-bar-bg (CustomThemeInjector sets
   // this for the active theme; a theme being previewed or imported is measured the same way).
@@ -1283,6 +1288,10 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
   } finally {
     delete root.dataset.mariGuardMeasure;
     if (tempPlates) delete root.dataset.mariTopBarArt;
+    for (const [element, top, left] of scrolled) {
+      if (element.scrollTop !== top) element.scrollTop = top;
+      if (element.scrollLeft !== left) element.scrollLeft = left;
+    }
   }
 
   const problems: ThemeGuardProblem[] = [];

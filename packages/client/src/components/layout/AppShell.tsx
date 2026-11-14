@@ -495,12 +495,16 @@ export function AppShell({
       window.clearTimeout(dismissTimer);
       // Focus landing on a button (Search hands focus back to what opened it) still closes the keyboard.
       if (event.type === "focusin" && isTypingTarget(event.target as Element | null)) return;
-      // Moving between two fields blurs one before focusing the next; only a blur that stays counts.
-      dismissTimer = window.setTimeout(() => {
+      const dismiss = () => {
         if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(document.activeElement)) return;
         keyboardDismissed = true;
         updateVisualViewportGeometry();
-      }, 0);
+      };
+      // Focus landing on something else is certain at once, so the page closing with it (Search) and the
+      // full-height app show in the same frame.
+      if (event.type === "focusin") dismiss();
+      // Moving between two fields blurs one before focusing the next; only a blur that stays counts.
+      else dismissTimer = window.setTimeout(dismiss, 0);
     };
     const refreshAfterFocusChange = () => {
       focusTimers.forEach((timer) => window.clearTimeout(timer));
