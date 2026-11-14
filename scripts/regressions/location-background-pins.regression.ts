@@ -197,4 +197,58 @@ const fromLibrary = findExistingSceneBackground({
 assert.deepEqual(fromLibrary, { filename: "generated-guest-bedroom--wx-rain.png", source: "library" });
 assert.equal(findExistingSceneBackground({ chatMode: "roleplay", chatMetadata: {}, location: "the moon" }), null);
 
+// ── Gallery backgrounds follow their character into every chat ──
+const johnGallery = shared.galleryBackgroundPins({ type: "character", id: "j1", name: "John" }, [
+  {
+    id: "g1",
+    url: "/api/characters/j1/gallery/file/den.png",
+    customKind: "background",
+    customName: "{{char}}'s den, the den",
+  },
+  { id: "g2", url: "/api/characters/j1/gallery/file/x.png", customKind: "background", customName: "" },
+  { id: "g3", url: "/api/characters/j1/gallery/file/e.png", customKind: "emoji", customName: "wave" },
+]);
+assert.deepEqual(
+  johnGallery,
+  [
+    {
+      id: "gallery:g1",
+      names: ["John's den", "the den"],
+      placeId: null,
+      background: "/api/characters/j1/gallery/file/den.png",
+    },
+  ],
+  "only backgrounds that name places; {{char}} is the gallery's owner",
+);
+assert.equal(
+  shared.galleryBackgroundUrl("persona", "p 1", "personas/p 1/my room.png"),
+  "/api/characters/personas/p 1/gallery/file/my%20room.png",
+);
+const withGallery = pinnedSceneBackground({
+  chatMode: "roleplay",
+  chatMetadata: {},
+  location: "John's den",
+  ...who,
+  weather: "rain",
+  weatherVersions: true,
+  galleryPins: johnGallery,
+});
+assert.equal(withGallery?.match.pin.id, "gallery:g1", "a gallery background works without any chat pins");
+assert.equal(withGallery?.filename, "/api/characters/j1/gallery/file/den.png", "gallery pictures keep their URL");
+const tie = pinnedSceneBackground({
+  chatMode: "roleplay",
+  chatMetadata: {
+    [shared.LOCATION_BACKGROUND_PINS_KEY]: [{ id: "own", names: ["John's den"], background: "mine.png" }],
+  },
+  location: "John's den",
+  ...who,
+  galleryPins: johnGallery,
+});
+assert.equal(tie?.match.pin.id, "own", "the chat's own pin wins a tie with a gallery picture");
+assert.equal(
+  pinnedSceneBackground({ chatMode: "game", chatMetadata: {}, location: "John's den", galleryPins: johnGallery }),
+  null,
+  "Game Mode keeps its own scene backgrounds",
+);
+
 console.log("location-background-pins regression passed");

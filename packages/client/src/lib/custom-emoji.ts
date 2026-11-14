@@ -2,11 +2,13 @@
 // Custom emoji / sticker tagging — shared model + client-side validation
 // ──────────────────────────────────────────────
 
+import type { GalleryTagKind } from "@marinara-engine/shared";
+
 export type CustomKind = "emoji" | "sticker";
 
-/** Patch sent when tagging, renaming, switching kind, or clearing a tag. */
+/** Patch sent when tagging, renaming, switching kind, or clearing a tag. A background's name is its place names. */
 export type CustomTagPatch = {
-  customKind: CustomKind | null;
+  customKind: GalleryTagKind | null;
   customName: string | null;
   width?: number;
   height?: number;
