@@ -9522,6 +9522,14 @@ export class MariDbService {
     const next = deepMerge(parsed, request.patch ?? {}) as Row;
     next[getPrimary(meta)] = existing[getPrimary(meta)];
     this.fillTimestamps(meta, next, false, timestamp);
+    // A patch that changes the row and doesn't set updatedAt itself gets a new stamp (the merge kept the old one).
+    if (
+      meta.byKey.has("updatedAt") &&
+      !Object.prototype.hasOwnProperty.call(request.patch ?? {}, "updatedAt") &&
+      stableJson(serializeRow(meta.name, next)) !== stableJson(existing)
+    ) {
+      next.updatedAt = timestamp;
+    }
     const afterRaw = serializeRow(meta.name, next);
     const changes: PlanChange[] = [
       {
@@ -10059,8 +10067,10 @@ export class MariDbService {
     }
     if (request.css !== undefined) next.css = request.css;
     this.fillTimestamps(meta, next, false, timestamp);
+    if (stableJson(serializeRow(THEME_TABLE, next)) === stableJson(existing)) return [];
+    // A changed theme gets a new updatedAt, like PATCH /themes/:id; the copied old stamp hid edits.
+    next.updatedAt = timestamp;
     const afterRaw = serializeRow(THEME_TABLE, next);
-    if (stableJson(afterRaw) === stableJson(existing)) return [];
     return [
       {
         table: THEME_TABLE,
