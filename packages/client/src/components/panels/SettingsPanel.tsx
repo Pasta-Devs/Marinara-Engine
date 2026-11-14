@@ -227,6 +227,7 @@ import {
   HostDeviceFileManagerError,
   isHostDeviceBrowser,
 } from "../../lib/host-device";
+import { setTapTimingsEnabled, useTapTimingsEnabled } from "../layout/TapTimings";
 
 type CustomFontFace = {
   filename: string;
@@ -6936,6 +6937,7 @@ function AdvancedSettings() {
   const includePrivateNotesInExports = useUIStore((s) => s.includePrivateNotesInExports);
   const setIncludePrivateNotesInExports = useUIStore((s) => s.setIncludePrivateNotesInExports);
   const debugMode = useUIStore((s) => s.debugMode);
+  const tapTimings = useTapTimingsEnabled();
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
@@ -7938,6 +7940,13 @@ function AdvancedSettings() {
             checked={debugMode}
             onChange={setDebugMode}
             help={localizeUi("settings.controls.debugMode.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tap-timings")}
+            label={localizeUi("settings.controls.tapTimings.label")}
+            checked={tapTimings}
+            onChange={setTapTimingsEnabled}
+            help={localizeUi("settings.controls.tapTimings.help")}
           />
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1" title={nativeConsoleHelp}>
