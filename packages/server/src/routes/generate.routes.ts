@@ -12941,7 +12941,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 const weatherPlan = planChatBackgroundWeather(found, weatherForReuse);
                 return weatherPlan.kind === "switch" ? weatherPlan.filename : found;
               };
-              const generated = existingHere
+              const picked = existingHere
                 ? {
                     filename: existingHere.filename,
                     locationName: latestGameState?.location ?? existingHere.filename,
@@ -12965,6 +12965,39 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     debugLog,
                     reuseExisting: chatMode === "roleplay" ? reuseFromPlan : undefined,
                   });
+              // A picture the chat already had arrives in today's weather: its version, made once when missing.
+              let generated = picked;
+              if (picked.reused === true && weatherVersionsEnabled && weatherForReuse) {
+                const reuseWeather = planChatBackgroundWeather(picked.filename, weatherForReuse);
+                if (reuseWeather.kind === "switch") {
+                  generated = { ...picked, filename: reuseWeather.filename };
+                } else if (reuseWeather.kind === "generate") {
+                  const made = await generateIllustratorBackgroundWeatherVersion({
+                    db: app.db,
+                    chatId: input.chatId,
+                    chatName: chat.name,
+                    chatMode: chatMode === "game" ? "game" : "roleplay",
+                    chatMetadata: freshMeta,
+                    currentBackground: picked.filename,
+                    illustratorAgent: tail.illustratorAgent,
+                    assistantResponse: agentCompletedResponse,
+                    gameState: latestGameState,
+                    recentMessages: agentContext.recentMessages,
+                    signal: agentSignal,
+                    debugLog,
+                    baseFilename: reuseWeather.baseFilename,
+                    version: reuseWeather.version,
+                    scenePrompt: reuseWeather.scenePrompt,
+                  });
+                  if (made) {
+                    generated = {
+                      ...picked,
+                      filename: made.filename,
+                      reason: `${picked.reason} Weather: ${weatherForReuse}`,
+                    };
+                  }
+                }
+              }
               if (generated.filename === backgroundBeforeGeneration) {
                 logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
                 return;
