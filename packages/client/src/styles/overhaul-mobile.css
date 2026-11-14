@@ -5326,9 +5326,12 @@
 }
 
 /* Phones and tablets: under an open page (Settings, a Library editor) the chat or Home stays mounted but unseen,
-   so a theme's translucent page colour shows its own backdrop, never Home's headline (Nov 14 finding). */
+   so a theme's translucent page colour shows its own backdrop, never Home's headline (Nov 14 finding).
+   Opacity, not visibility: iOS Safari threw away what it had drawn of a hidden Home and redrew it over several
+   frames on the way back, and after a swipe the chat names in Recent chats were never drawn at all. */
 :root[data-overhaul="mobile"] [data-under-page="true"] {
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Chat Gallery cards on phone Chat settings pages: the page's touch sizing (2.25rem+ buttons) made the
@@ -5371,4 +5374,15 @@
 :root[data-mari-page-covers] [data-mari-part="ambient"]::before,
 :root[data-mari-page-covers] [data-mari-part="ambient"]::after {
   animation-play-state: paused !important;
+}
+
+/* Split view's second side keeps its own bar at the top bar height in the touch layout. A theme's rule for the
+   phone top bar also reaches this bar (it takes the TopBar name), and a taller bar covered the top of the page
+   under it, such as a character page's Chat and Saved buttons (Velvet Casket, Nov 14). */
+:root[data-overhaul="mobile"] [data-component="TopBar"][data-split-bar]:not(#ovm-x):not(#ovm-y) {
+  height: var(--ov-topbar-height) !important;
+  min-height: 0 !important;
+  max-height: var(--ov-topbar-height) !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }

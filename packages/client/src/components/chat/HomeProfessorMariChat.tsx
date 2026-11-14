@@ -3741,7 +3741,8 @@ export function HomeProfessorMariChat({
               ref={mobileDialogRef}
               key="professor-mari-window"
               data-component="HomeProfessorMariChat.Window"
-              initial={{ opacity: 0 }}
+              // A Mari tab shows at once: the fade-in left a frame or two of an empty page on phones (Nov 14).
+              initial={embeddedTab ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={paneTransition}

@@ -378,12 +378,42 @@ export function CustomThemeInjector() {
       [NORMAL_ID, IMPORTANT_ID]
         .map((id) => document.getElementById(id) as HTMLStyleElement | null)
         .filter((sheet): sheet is HTMLStyleElement => !!sheet);
+    // The check re-styles and re-measures the whole page twice, a long freeze on a tablet with a big
+    // library (1-5 s per tap on an iPad, Nov 14). A layout it has already passed for this theme (same
+    // panels, windows, chat mode, colour scheme, window size) isn't checked again when you come back
+    // to it; the timed checks and a theme animation starting still always check.
+    const passedLayouts = new Set<string>();
+    const layoutKey = () => {
+      const root = document.documentElement;
+      const ui = useUIStore.getState();
+      const windows = Array.from(document.querySelectorAll('[role="dialog"], [data-mari-app-overlay]'))
+        .map((element) => element.getAttribute("data-component") ?? element.getAttribute("aria-label") ?? "w")
+        .sort()
+        .join(",");
+      return [
+        ui.sidebarOpen,
+        ui.rightPanelOpen,
+        ui.omnibarOpen,
+        root.hasAttribute("data-chat-id"),
+        root.getAttribute("data-chat-open-mode"),
+        root.getAttribute("data-theme"),
+        root.getAttribute("data-ov-topbar-autohide"),
+        root.getAttribute("data-visual-theme"),
+        root.hasAttribute("data-mari-page-covers"),
+        Math.round(window.innerWidth / 50),
+        Math.round(window.innerHeight / 50),
+        windows,
+      ].join("|");
+    };
+    let forceNext = false;
     const run = () => {
       timer = null;
       if (!samplesRead) {
-        void samples.then(() => !cancelled && schedule(0));
+        void samples.then(() => !cancelled && schedule(0, forceNext));
         return;
       }
+      const key = layoutKey();
+      if (!forceNext && !confirming && passedLayouts.has(key)) return;
       // A panel still sliding in is measured once it settles.
       const sliding = document.querySelectorAll(
         '[data-component="ChatSidebarPanel"], [data-component="RightPanelDesktop"]',
@@ -421,8 +451,10 @@ export function CustomThemeInjector() {
       if (document.documentElement.dataset.mariTopBarArt === undefined && topBarPseudoArt())
         document.documentElement.dataset.mariTopBarArt = "";
       const problems = checkProtectedChrome(sheets());
+      forceNext = false;
       if (problems.length === 0) {
         confirming = false;
+        passedLayouts.add(key);
         return;
       }
       // "Covered" and "unreadable" can be a transition caught half-way: look again before acting.
@@ -442,11 +474,24 @@ export function CustomThemeInjector() {
       if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle);
       idle = 0;
     };
-    const schedule = (delay: number) => {
+    // Safari has no requestIdleCallback: there the check waits until no tap, click or key for 1.2 s,
+    // so it never lands on the frames right after a tap.
+    let lastInput = 0;
+    const onInput = () => {
+      lastInput = performance.now();
+    };
+    window.addEventListener("pointerdown", onInput, { capture: true, passive: true });
+    window.addEventListener("keydown", onInput, { capture: true, passive: true });
+    const schedule = (delay: number, force = false) => {
+      if (force) forceNext = true;
       if (timer) clearTimeout(timer);
       cancelIdle();
       timer = setTimeout(() => {
-        if (typeof requestIdleCallback !== "function") return run();
+        if (typeof requestIdleCallback !== "function") {
+          const quietFor = performance.now() - lastInput;
+          if (quietFor < 1200) return schedule(1200 - quietFor);
+          return run();
+        }
         idle = requestIdleCallback(
           () => {
             idle = 0;
@@ -456,9 +501,9 @@ export function CustomThemeInjector() {
         );
       }, delay);
     };
-    schedule(700);
-    const late = setTimeout(() => schedule(0), 2500);
-    const later = setTimeout(() => schedule(0), 10_000);
+    schedule(700, true);
+    const late = setTimeout(() => schedule(0, true), 2500);
+    const later = setTimeout(() => schedule(0, true), 10_000);
     const unsubscribe = useUIStore.subscribe((state, previous) => {
       if (
         state.sidebarOpen !== previous.sidebarOpen ||
@@ -505,7 +550,7 @@ export function CustomThemeInjector() {
       const now = Date.now();
       if (now - lastAnimationCheck < 2000) return;
       lastAnimationCheck = now;
-      schedule(400);
+      schedule(400, true);
     };
     document.addEventListener("animationstart", onAnimation, true);
     document.addEventListener("animationend", onAnimation, true);
@@ -519,6 +564,8 @@ export function CustomThemeInjector() {
       observer.disconnect();
       overlays.disconnect();
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointerdown", onInput, { capture: true });
+      window.removeEventListener("keydown", onInput, { capture: true });
       document.removeEventListener("animationstart", onAnimation, true);
       document.removeEventListener("animationend", onAnimation, true);
     };
