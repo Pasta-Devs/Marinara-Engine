@@ -53,14 +53,28 @@ function preloadChatSettingsDrawerWhenIdle() {
 // The loading pane and the drawer that replaces it share one entrance: the drawer picks the entrance up
 // where the loading pane left it instead of fading in again from nothing.
 let chatSettingsEnterStartedAt = 0;
+// Matches the 0.3 s message-in entrance: an older start than that only means the fade is already done.
+const CHAT_SETTINGS_ENTER_MS = 300;
 function markChatSettingsEnterStart() {
-  chatSettingsEnterStartedAt = performance.now();
+  const startedAt = performance.now();
+  chatSettingsEnterStartedAt = startedAt;
+  // A loading pane closed before the drawer arrived must not leave its start time for the next open.
+  // React unmounts the pane before the drawer's layout effect reads the time in the same commit, so
+  // clear it only after that commit, and only if nothing has used or replaced it.
+  return () => {
+    queueMicrotask(() => {
+      if (chatSettingsEnterStartedAt === startedAt) chatSettingsEnterStartedAt = 0;
+    });
+  };
 }
 /** Rendered beside the drawer: when it replaces the loading pane, its window carries the entrance on. */
 function ContinueChatSettingsEnter() {
   useLayoutEffect(() => {
     if (!chatSettingsEnterStartedAt) return;
-    const elapsed = Math.max(0, Math.round(performance.now() - chatSettingsEnterStartedAt));
+    const elapsed = Math.min(
+      CHAT_SETTINGS_ENTER_MS,
+      Math.max(0, Math.round(performance.now() - chatSettingsEnterStartedAt)),
+    );
     chatSettingsEnterStartedAt = 0;
     // Set on the drawer's own window, not as a variable on <html>, which would restyle the whole page.
     for (const element of document.querySelectorAll<HTMLElement>(".mari-cs-enter.animate-message-in")) {

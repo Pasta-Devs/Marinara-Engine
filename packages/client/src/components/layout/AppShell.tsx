@@ -181,6 +181,13 @@ function readVisibleElementRect(element: HTMLElement) {
   return rect;
 }
 
+/** The focused element, looking inside open shadow roots (a field in one leaves its host as document.activeElement). */
+function deepActiveElement(): Element | null {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active;
+}
+
 function getViewportWidth() {
   return typeof window === "undefined" ? 0 : window.innerWidth;
 }
@@ -376,7 +383,7 @@ export function AppShell({
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
         const keyboardReported = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
         // Stays set until the keyboard is fully down, so its last steps do not move the app either.
-        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(document.activeElement)) {
+        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(deepActiveElement())) {
           keyboardDismissed = false;
         }
         const keyboardOpen = keyboardReported && !keyboardDismissed;
@@ -387,7 +394,7 @@ export function AppShell({
         // A focused field keeps the fit: an iPad's hardware-keyboard shortcut bar is shorter than the 80 px above.
         // ponytail: a layout viewport (innerHeight) that iOS reports short as well still leaves the band; nothing on
         // the page measures the screen any better. Upgrade path: size from screen geometry once a device shows it.
-        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(document.activeElement);
+        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(deepActiveElement());
         // Preserve normal pinch magnification, but fit the visible area while
         // the keyboard is open. Closing it restores the layout even while zoomed.
         const height =
@@ -415,9 +422,10 @@ export function AppShell({
     const noteKeyboardDismissal = (event: FocusEvent) => {
       window.clearTimeout(dismissTimer);
       // Focus landing on a button (Search hands focus back to what opened it) still closes the keyboard.
-      if (event.type === "focusin" && isTypingTarget(event.target as Element | null)) return;
+      // A field inside a shadow root retargets the event to its host, so look along the whole path.
+      if (event.type === "focusin" && event.composedPath().some((target) => isTypingTarget(target as Element))) return;
       const dismiss = () => {
-        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(document.activeElement)) return;
+        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(deepActiveElement())) return;
         keyboardDismissed = true;
         updateVisualViewportGeometry();
       };
