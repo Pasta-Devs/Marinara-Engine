@@ -2,6 +2,7 @@ import {
   dungeonFightPromptText,
   dungeonFoesHere,
   dungeonSiteHere,
+  dungeonSiteReplies,
   gameDay,
 } from "../services/game/dungeon-spawns.service.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
@@ -1489,6 +1490,7 @@ export async function encounterRoutes(app: FastifyInstance) {
           meta: chatMeta,
           setup: setupConfig,
           world: await loadGameWorld(app.db, chatId, chatMeta),
+          replies: await dungeonSiteReplies(app.db, chatId, chatMeta),
         });
         const held = site ? dungeonFoesHere(site, gameDay(chatMeta)) : null;
         if (site && held) prompt.push({ role: "user", content: dungeonFightPromptText(site, held.foes) });
