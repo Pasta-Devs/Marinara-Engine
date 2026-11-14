@@ -454,7 +454,10 @@ export function AppShell({
         previousLayoutHeight = currentLayoutHeight;
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
         const keyboardReported = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
-        if (!keyboardReported || isTypingTarget(document.activeElement)) keyboardDismissed = false;
+        // Stays set until the keyboard is fully down, so its last steps do not move the app either.
+        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(document.activeElement)) {
+          keyboardDismissed = false;
+        }
         const keyboardOpen = keyboardReported && !keyboardDismissed;
         // An iPhone Home Screen app with its keyboard closed has nothing to fit, yet iOS can go on reporting a visual
         // viewport a status bar short (or with a stale offsetTop), and leave the page scrolled where the keyboard put
@@ -490,13 +493,14 @@ export function AppShell({
     };
     const noteKeyboardDismissal = (event: FocusEvent) => {
       window.clearTimeout(dismissTimer);
-      if (event.type === "focusin") return;
+      // Focus landing on a button (Search hands focus back to what opened it) still closes the keyboard.
+      if (event.type === "focusin" && isTypingTarget(event.target as Element | null)) return;
       // Moving between two fields blurs one before focusing the next; only a blur that stays counts.
       dismissTimer = window.setTimeout(() => {
         if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(document.activeElement)) return;
         keyboardDismissed = true;
         updateVisualViewportGeometry();
-      }, 50);
+      }, 0);
     };
     const refreshAfterFocusChange = () => {
       focusTimers.forEach((timer) => window.clearTimeout(timer));

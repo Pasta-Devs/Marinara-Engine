@@ -5,6 +5,7 @@
 // then a grid of portraits with the token count, name and tags. Clicking a
 // portrait opens its editor; the tag selector beside search filters the list.
 // ──────────────────────────────────────────────
+import { DelayedFallback } from "../ui/DelayedFallback";
 import { placeholderArt } from "../../lib/placeholder-art";
 import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -436,7 +437,13 @@ export function CardGallery({
         </div>
       </div>
 
-      <div className="ov-gallery__grid" data-size={cardSize}>
+      {/* First load: the grid (with its New card) waits for the cards, so they appear together instead of the
+          New card first and the rest popping in around it (QC round 2). */}
+      <div
+        className="ov-gallery__grid"
+        data-size={cardSize}
+        style={loading && cards.length === 0 ? { visibility: "hidden" } : undefined}
+      >
         {groups.map(({ folder, rows: members }) => (
           <Fragment key={`folder:${folder.id}`}>
             <div className="ov-kit-folder-cell">
@@ -468,7 +475,11 @@ export function CardGallery({
           <p className="ov-card__tags">{localize("Blank or from a template")}</p>
         </div>
       </div>
-      {loading ? <p className="ov-gallery__note">{localize("Loading…")}</p> : null}
+      {loading ? (
+        <DelayedFallback>
+          <p className="ov-gallery__note">{localize("Loading…")}</p>
+        </DelayedFallback>
+      ) : null}
       {hasMore ? (
         <div className="ov-gallery__more">
           <button type="button" className="ov-btn" onClick={onLoadMore}>

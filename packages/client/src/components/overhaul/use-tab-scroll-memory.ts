@@ -68,7 +68,9 @@ export function useTabScrollMemory(tabKey: string | null) {
     keyRef.current = tabKey;
     const saved = tabKey ? memory.get(tabKey) : undefined;
     if (!saved || saved.size === 0) return;
-    const pending = new Map([...saved].filter(([, top]) => top > 0));
+    // A few pixels (an area nudged by focus or layout, not read by the user) is not worth hiding the
+    // page for while it is put back.
+    const pending = new Map([...saved].filter(([, top]) => top > 24));
     if (pending.size === 0) return;
     const root = document.documentElement;
     let frame = 0;
@@ -112,7 +114,9 @@ export function useTabScrollMemory(tabKey: string | null) {
       else stop();
     };
     restore();
-    root.setAttribute(RESTORING_ATTR, "");
+    // Already in place before the first paint (the page was kept or rendered at once): show it now and
+    // only keep it there, instead of hiding it for frames, which read as an empty flash (QC Nov 14 #5).
+    if (!restore()) root.setAttribute(RESTORING_ATTR, "");
     window.addEventListener("wheel", stop, true);
     window.addEventListener("touchstart", stop, true);
     window.addEventListener("keydown", stop, true);
