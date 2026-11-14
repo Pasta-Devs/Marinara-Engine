@@ -233,6 +233,8 @@ export function EditorRail({
   const mobile = useOverhaulMobile();
   const [tagDraft, setTagDraft] = useState("");
   const [tagOpen, setTagOpen] = useState(false);
+  // With no Chat / Save row in the rail (they sit in the page header), the helpers join the tag row.
+  const assistBesideTags = Boolean(assist) && !actions && Boolean(tags && onAddTag);
 
   // Enter/comma adds the tag and keeps the box open (and the keyboard up) for the next one;
   // Enter on an empty box, blur or Escape closes it.
@@ -335,6 +337,8 @@ export function EditorRail({
               + {localize("tag")}
             </button>
           )}
+          {/* Professor Mari's helpers follow the tags on the same row, and wrap below when it's full. */}
+          {assistBesideTags ? assist : null}
         </div>
       ) : null}
 
@@ -345,7 +349,7 @@ export function EditorRail({
           {mobile ? assist : null}
         </div>
       ) : null}
-      {assist && !(mobile && actions) ? <div className="ov-rail__assist">{assist}</div> : null}
+      {assist && !(mobile && actions) && !assistBesideTags ? <div className="ov-rail__assist">{assist}</div> : null}
 
       <div className="ov-rail__rule" />
       <p className="ov-rail__eyebrow">{sectionsTitle}</p>

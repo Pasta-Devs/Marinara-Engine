@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { TapTimings } from "./components/layout/TapTimings";
 import { SPLIT_PANE } from "./lib/split-view-env";
 import { ThemeSafetyHost } from "./components/layout/ThemeSafetyHost";
 import { useThemeSafetyStore } from "./lib/theme-safety";
@@ -1457,6 +1458,7 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <TapTimings />
       {/* The theme notices belong to the window, not each split side: one in the narrow second side
           covered its last messages and the composer (audit SV25). */}
       {SPLIT_PANE ? null : <ThemeSafetyHost />}

@@ -1802,6 +1802,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "tap-timings",
+    sectionId: "support-diagnostics",
+    labelKey: "settings.controls.tapTimings.label",
+    label: "Show tap timings",
+    description: "Show how long each tap takes on this device, to find what feels slow.",
+    descriptionKey: "settings.search.tapTimings.description",
+    aliases: ["slow", "lag", "speed", "performance", "timing"],
+    kind: "Toggle",
+  },
+  {
     id: "automatic-backups",
     sectionId: "backup-export",
     labelKey: "ui.panels.advancedsettings.automaticBackups",

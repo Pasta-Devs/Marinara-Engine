@@ -279,6 +279,9 @@ type HomeProfessorMariChatProps = {
   onChatWindowExitComplete?: () => void;
 };
 
+/** The workspace tools note from the last time her window was open (see workspaceToolsIssue). */
+let lastWorkspaceToolsIssue: string | null = null;
+
 /** A turn with nothing to review shares this value, so its memoized row skips the window's re-renders. */
 const NO_TURN_REVIEWS: MariTurnReviews = { changed: [], needsOk: [], records: new Set() };
 
@@ -1420,27 +1423,42 @@ export function HomeProfessorMariChat({
 
   // Missing workspace tools (often just no admin secret) are a calm note in the transcript, not a toast
   // that covers her header every time she opens. Status, skills and memories all report here once.
-  const [workspaceToolsIssue, setWorkspaceToolsIssue] = useState<string | null>(null);
+  // A reopen shows the note she saw last from its first frame, instead of popping it in once the status
+  // request is back (a flicker on phones, Nov 14); a status that loads fine this time takes it away.
+  const [workspaceToolsIssue, setWorkspaceToolsIssueState] = useState<string | null>(lastWorkspaceToolsIssue);
+  const workspaceToolsIssueFromCacheRef = useRef(lastWorkspaceToolsIssue !== null);
+  const setWorkspaceToolsIssue = useCallback((update: (current: string | null) => string | null) => {
+    workspaceToolsIssueFromCacheRef.current = false;
+    setWorkspaceToolsIssueState((current) => {
+      const next = update(current);
+      lastWorkspaceToolsIssue = next;
+      return next;
+    });
+  }, []);
   const reportWorkspaceToolsIssue = useCallback(
     (error: unknown, fallback?: string) =>
       setWorkspaceToolsIssue(
         (current) =>
-          current ??
+          (workspaceToolsIssueFromCacheRef.current ? null : current) ??
           (error instanceof ApiError && (error.status === 401 || error.status === 403)
             ? localizeUi("ui.chat.homeprofessormarichat.professorMariWorkspaceToolsNeedAdminAccess")
             : (fallback ?? describeProfessorMariError(error))),
       ),
-    [localizeUi],
+    [localizeUi, setWorkspaceToolsIssue],
   );
   useEffect(() => {
     if (!pageActive) return;
-    void refreshWorkspaceStatus().catch((error) => {
-      setWorkspaceStatus((current) => current && { ...current, error: "Workspace status unavailable" });
-      reportWorkspaceToolsIssue(
-        error,
-        localizeUi("ui.chat.homeprofessormarichat.workspaceImportsAndChangesMayNotShowLiveProgress"),
-      );
-    });
+    void refreshWorkspaceStatus()
+      .then(() => {
+        if (workspaceToolsIssueFromCacheRef.current) setWorkspaceToolsIssue(() => null);
+      })
+      .catch((error) => {
+        setWorkspaceStatus((current) => current && { ...current, error: "Workspace status unavailable" });
+        reportWorkspaceToolsIssue(
+          error,
+          localizeUi("ui.chat.homeprofessormarichat.workspaceImportsAndChangesMayNotShowLiveProgress"),
+        );
+      });
     const refreshVisibleWorkspaceStatus = () => {
       if (document.hidden) return;
       void refreshWorkspaceStatus().catch(() => undefined);
@@ -1451,7 +1469,7 @@ export function HomeProfessorMariChat({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refreshVisibleWorkspaceStatus);
     };
-  }, [pageActive, refreshWorkspaceStatus, localizeUi, reportWorkspaceToolsIssue]);
+  }, [pageActive, refreshWorkspaceStatus, localizeUi, reportWorkspaceToolsIssue, setWorkspaceToolsIssue]);
 
   // Recovery for runs this client is no longer attached to (#5719): if the
   // status poll watches a server-side run finish while no local send closure

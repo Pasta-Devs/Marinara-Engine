@@ -3230,11 +3230,15 @@
   height: 100%;
   object-fit: cover;
 }
+/* Block, not a nested grid: iOS Safari sized that inner grid's column to nothing on the first layouts, so the
+   names were clipped away (blank) until something laid the list out again (Nov 14). */
 .ov-recent__text {
-  display: grid;
+  display: block;
   min-width: 0;
+  overflow: hidden;
 }
 .ov-recent__text strong {
+  display: block;
   overflow: hidden;
   color: var(--ov-text);
   font-size: 0.875rem;
@@ -3243,6 +3247,7 @@
   white-space: nowrap;
 }
 .ov-recent__text small {
+  display: block;
   overflow: hidden;
   color: var(--ov-muted);
   font-size: 0.8125rem;
