@@ -361,15 +361,18 @@ export function HomeProfessorMariChat({
   const [chatId, setChatId] = useState<string | null>(cachedThread?.chatId ?? null);
   const { data: attachedContext } = useMariWorkspaceContext(chatId);
   const [messages, setMessages] = useState<Message[]>(cachedThread?.messages ?? []);
-  const draft = useChatStore((state) => state.inputDrafts.get(PROFESSOR_MARI_DRAFT_KEY) ?? "");
+  // The Mari tab keeps its own unsent question: it never turns up pre-filled in the sheet you open from an
+  // editor, which asks about something else (keyboard QC round 2, PN19).
+  const draftKey = embeddedTab ? `${PROFESSOR_MARI_DRAFT_KEY}:tab` : PROFESSOR_MARI_DRAFT_KEY;
+  const draft = useChatStore((state) => state.inputDrafts.get(draftKey) ?? "");
   const setInputDraft = useChatStore((state) => state.setInputDraft);
   const enterToSend = useUIStore((state) => state.enterToSendProfessorMari);
   const setDraft = useCallback(
     (next: string | ((current: string) => string)) => {
-      const current = useChatStore.getState().inputDrafts.get(PROFESSOR_MARI_DRAFT_KEY) ?? "";
-      setInputDraft(PROFESSOR_MARI_DRAFT_KEY, typeof next === "function" ? next(current) : next);
+      const current = useChatStore.getState().inputDrafts.get(draftKey) ?? "";
+      setInputDraft(draftKey, typeof next === "function" ? next(current) : next);
     },
-    [setInputDraft],
+    [draftKey, setInputDraft],
   );
   // Ghost-text completion for the composer: the user's own names first, because
   // "tell me about cel|" almost always means one of their characters.
@@ -1030,7 +1033,10 @@ export function HomeProfessorMariChat({
         }
         const restoreFocus =
           typeof options.restoreFocus === "function" ? options.restoreFocus() : options.restoreFocus !== false;
-        if (restoreFocus) setHandoffContext(persistentResourceContext(restoredContext));
+        // The Mari tab starts a visit without an old editor's focus: a card you edited on another device (or
+        // yesterday) must not ride along on an unrelated question (keyboard QC round 2, PN20). Within the
+        // visit, asking about it keeps it attached as before.
+        if (restoreFocus) setHandoffContext(embeddedTab ? null : persistentResourceContext(restoredContext));
         setLoadedMessagesChatId(id);
         return normalizedMessages;
       } catch (error) {
@@ -1040,7 +1046,7 @@ export function HomeProfessorMariChat({
         if (messageLoadAbortRef.current === controller) messageLoadAbortRef.current = null;
       }
     },
-    [],
+    [embeddedTab],
   );
 
   const loadChatHistory = useCallback(async () => {
@@ -1864,6 +1870,16 @@ export function HomeProfessorMariChat({
     const turn = activeTurnRef.current;
     if (!node || !turn) return;
     const dockHeight = composerDockRef.current?.offsetHeight ?? 0;
+    if (node.clientHeight - dockHeight < 320) {
+      // A short transcript (a phone with the keyboard up, a docked sheet) has no room to park the question
+      // at the top and grow her answer below it out of view: follow her answer as it arrives instead
+      // (keyboard QC round 2, TP5/PN18).
+      turn.style.removeProperty("min-height");
+      transcriptFollowOutputRef.current = true;
+      setShowJumpToLatest(false);
+      node.scrollTo({ top: node.scrollHeight, behavior: "auto" });
+      return;
+    }
     turn.style.minHeight = `${Math.max(0, node.clientHeight - dockHeight)}px`;
     const decision = transcriptScrollAction({
       event: "send",

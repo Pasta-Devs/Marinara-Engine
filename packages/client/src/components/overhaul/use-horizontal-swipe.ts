@@ -101,6 +101,8 @@ export function useHorizontalSwipe({
       if (event.pointerType === "mouse" || !event.isPrimary) return;
       if (event.clientX < SWIPE_EDGE_PX || event.clientX > window.innerWidth - SWIPE_EDGE_PX) return;
       const target = event.target as HTMLElement;
+      // Only the element itself: React also bubbles events from portals (the All Tabs grid) up to it.
+      if (!event.currentTarget.contains(target)) return;
       if (target.closest("input, textarea, select, [contenteditable='true']")) return;
       drag.current = {
         pointerId: event.pointerId,

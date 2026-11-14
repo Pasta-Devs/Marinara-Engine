@@ -414,8 +414,13 @@ export function OvGamePane({
     const onPointerDown = (event: PointerEvent) => {
       if (pane.contains(event.target as Node)) return;
       if (!host.contains(event.target as Node)) return;
-      // Typing your action (or using the composer's buttons) keeps the pane up to look at while you write.
-      if ((event.target as Element).closest?.("textarea, input, [data-chat-composer], [data-mari-part='composer']"))
+      // Typing your action, or any button in the scene (Next, Logs, Inventory, Combat), keeps the pane up:
+      // only a tap on the scene itself folds it (keyboard QC round 2, TLR4).
+      if (
+        (event.target as Element).closest?.(
+          "textarea, input, select, button, a, [role='button'], [data-chat-composer], [data-mari-part='composer']",
+        )
+      )
         return;
       setForced(false);
     };

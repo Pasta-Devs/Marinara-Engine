@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 import { libraryFolderKeys } from "./use-library-folders";
 import type { PromptPreset, PromptGroup, PromptSection, ChoiceBlock } from "@marinara-engine/shared";
 
@@ -111,7 +112,8 @@ export function useDeletePreset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/prompts/${id}`),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("preset", id);
       qc.invalidateQueries({ queryKey: presetKeys.all });
       qc.invalidateQueries({ queryKey: libraryFolderKeys.list("presets") });
     },

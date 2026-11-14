@@ -73,6 +73,13 @@ function TabCard({
   const localize = useLocalizedUiText();
   const ref = useRef<HTMLDivElement | null>(null);
   const [hidden, setHidden] = useState(false);
+  // Opening All Tabs shows the current tab's whole card, its name (and draft ring) included (AC6).
+  const shownOnce = useRef(false);
+  useLayoutEffect(() => {
+    if (shownOnce.current || !on) return;
+    shownOnce.current = true;
+    ref.current?.scrollIntoView({ block: "nearest" });
+  }, [on]);
   useLayoutEffect(() => {
     const text = ref.current?.querySelector(".ovm-tabcard__label")?.textContent ?? "";
     setHidden(Boolean(query) && !text.toLowerCase().includes(query.toLowerCase()));
@@ -245,8 +252,8 @@ export function OverhaulMobileTopBar() {
     const index = currentKey ? tabs.findIndex((tab) => overhaulTabKey(tab) === currentKey) : -1;
     return { tabs, next: direction === "left" ? index + 1 : index - 1 };
   };
-  // The whole middle of the bar takes the swipe (panel 3, PT5); only the title inside it moves, clipped
-  // to that box so it never slides over the icons (PP9).
+  // The whole bar takes the swipe (panel 3, PT5; round 2, AC5); only the title inside it moves, clipped
+  // to its box so it never slides over the icons (PP9).
   const titleSwipe = useHorizontalSwipe({
     enabled: swipeGestures && !sidebarOpen && tabCount > 0,
     maxFollow: 48,
@@ -283,6 +290,9 @@ export function OverhaulMobileTopBar() {
       data-mari-part="top-bar"
       data-overhaul-topbar="mobile"
       className="ovm-topbar"
+      // The whole bar takes the tab swipe, its icons included (a tap still taps them): it used to stop at
+      // the Chat settings button (keyboard QC round 2, AC5).
+      {...titleSwipe}
     >
       <DocumentTitle tab={current} chats={chats} />
       {/* Three columns with equal sides, so the title sits in the true centre. */}
@@ -303,7 +313,6 @@ export function OverhaulMobileTopBar() {
       <button
         type="button"
         className="ovm-title"
-        {...titleSwipe}
         onClick={() => useUIStore.getState().setOmnibarOpen(true)}
         aria-label={localize("Search or open anything")}
         data-tour="omnibar-button"
@@ -368,7 +377,7 @@ export function OverhaulMobileTopBar() {
       </div>
       {allTabsOpen ? <AllTabsViewer chats={chats} current={current} /> : null}
       <MobileSidePage />
-      <JumpToTop />
+      <JumpToTop viewKey={currentKey} />
     </header>
   );
 }
@@ -428,14 +437,36 @@ const JUMP_MIN_SCROLL = 240;
  * Bottom-right button that appears on a Library page once the reader is well down it and scrolls back
  * up (the moment they are looking for the top). Scrolling down or reaching the top hides it.
  */
-function JumpToTop() {
+/** Kept-alive tabs stay in the page while hidden, so being connected is not enough: the page must be what the user sees. */
+function jumpTargetOnScreen(el: HTMLElement) {
+  if (!el.isConnected || el.getClientRects().length === 0) return false;
+  if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) return false;
+  const r = el.getBoundingClientRect();
+  const x = Math.min(Math.max(r.left + r.width / 2, 0), window.innerWidth - 1);
+  const y = Math.min(Math.max(r.top + Math.min(r.height / 2, 80), 0), window.innerHeight - 1);
+  const hit = document.elementFromPoint(x, y);
+  return !!hit && (el.contains(hit) || hit.closest(".ovm-jump-top") !== null);
+}
+
+function JumpToTop({ viewKey }: { viewKey: string | null }) {
   const localize = useLocalizedUiText();
   const [target, setTarget] = useState<HTMLElement | null>(null);
   const last = useRef(new WeakMap<HTMLElement, number>());
+  // It belongs to the page it was scrolled on: another tab (a chat, where it sat on Send) never shows it (AC10).
+  useEffect(() => setTarget(null), [viewKey]);
+  // A page can scroll on its way out (tab scroll memory, unmount), so a shown button keeps checking that its page is
+  // still the one on screen and goes away when it is not.
+  useEffect(() => {
+    if (!target) return;
+    const timer = window.setInterval(() => {
+      if (!jumpTargetOnScreen(target)) setTarget(null);
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [target]);
   useEffect(() => {
     const onScroll = (event: Event) => {
       const el = event.target;
-      if (!(el instanceof HTMLElement) || !el.matches(JUMP_SCROLLERS)) return;
+      if (!(el instanceof HTMLElement) || !el.matches(JUMP_SCROLLERS) || !jumpTargetOnScreen(el)) return;
       const top = el.scrollTop;
       const previous = last.current.get(el) ?? top;
       last.current.set(el, top);
@@ -445,7 +476,7 @@ function JumpToTop() {
     document.addEventListener("scroll", onScroll, { capture: true, passive: true });
     return () => document.removeEventListener("scroll", onScroll, { capture: true });
   }, []);
-  if (!target || !target.isConnected) return null;
+  if (!target || !jumpTargetOnScreen(target)) return null;
   return createPortal(
     <button
       type="button"

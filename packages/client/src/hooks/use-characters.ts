@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../lib/api-client";
+import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 import { isSpriteImageFile } from "../lib/sprite-folder-import";
 import { chatKeys } from "./use-chats";
 import { applyGroupEdits, type CachedGroup, type GroupEdit } from "../lib/character-group-cache";
@@ -473,7 +474,8 @@ export function useDeleteCharacter() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/${id}`),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("character", id);
       qc.invalidateQueries({ queryKey: characterKeys.list() });
       qc.invalidateQueries({ queryKey: characterKeys.summariesRoot() });
       qc.invalidateQueries({ queryKey: characterKeys.groups });
@@ -1540,6 +1542,7 @@ export function useDeletePersona() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/characters/personas/${id}`),
     onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("persona", id);
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.removeQueries({ queryKey: characterKeys.personaDetail(id) });
     },

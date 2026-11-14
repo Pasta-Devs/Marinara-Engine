@@ -5245,3 +5245,12 @@
 .ov-gallery__tools > :is(.ovm-lp-filter--tools, .ovm-lp-view--tools) {
   display: none;
 }
+
+/* Typing on a phone held sideways folds the top bar away: that rule lives in index.html's protected layer. */
+/* The "Online" pill floats over the first visible message; with the keyboard up on a phone there is no room
+   to spare for it (AC17). */
+@media (max-width: 767px), (max-height: 500px) {
+  html[data-mari-software-keyboard-open] [data-chat-help="identity"] {
+    display: none;
+  }
+}

@@ -9360,3 +9360,13 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 :nth-last-child(-n + 6) > [data-message-id] {
   content-visibility: visible;
 }
+
+/* iPad: Safari slides the page up for the keyboard and the app shell follows what it shows. The docked
+   Chat settings drawer is fixed to the page, so while you type in the chat (focus outside the drawer) it
+   follows too, staying under the top bar with its header in view (keyboard QC round 2, TLR3). */
+html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs--docked {
+  top: calc(var(--mari-visual-viewport-offset-top, 0px) + var(--ov-topbar-height, 0px)) !important;
+  bottom: auto !important;
+  height: calc(var(--mari-visual-viewport-height, 100dvh) - var(--ov-topbar-height, 0px)) !important;
+  max-height: none !important;
+}

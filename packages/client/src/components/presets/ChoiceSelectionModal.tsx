@@ -14,6 +14,7 @@ import { arePresetChoiceSelectionsComplete } from "../../lib/preset-choice-selec
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceOptionsField } from "./ChoiceOptionsField";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { cn } from "../../lib/utils";
 
 interface ChoiceSelectionModalProps {
   open: boolean;
@@ -74,6 +75,13 @@ function isContentRatingVariable(variable: VariableData): boolean {
   if (variable.multiSelect || variable.randomPick) return false;
   const labels = variable.options.map((opt) => `${opt.label ?? ""} ${opt.value ?? ""}`);
   return labels.some((label) => /\bNSFW\b/i.test(label)) && labels.some((label) => /\bSFW\b/i.test(label));
+}
+
+/** Macros read as words in the question a person answers ({{char}} is "the character", {{user}} is "you"). */
+function readableChoiceText(text: string, localize: (key: string) => string): string {
+  return text
+    .replace(/\{\{\s*char\s*\}\}/giu, localize("ui.presets.choiceselectionmodal.theCharacter"))
+    .replace(/\{\{\s*user\s*\}\}/giu, localize("ui.presets.choiceselectionmodal.you"));
 }
 
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
@@ -199,6 +207,16 @@ function ChatChoiceSelectionModal({
   const selections = useMemo(() => ({ ...baseSelections, ...overrides }), [baseSelections, overrides]);
 
   const allSelected = arePresetChoiceSelectionsComplete(variables, selections);
+  // Questions still waiting for a pick (the content rating is never picked for you), so a grey Confirm
+  // says why, and pressing it goes to the first one (keyboard QC round 2, PN22).
+  const unanswered = variables.filter((variable) => !arePresetChoiceSelectionsComplete([variable], selections));
+  const groupRefs = useRef(new Map<string, HTMLDivElement>());
+  const showFirstUnanswered = useCallback(() => {
+    const first = unanswered[0];
+    const el = first ? groupRefs.current.get(first.id) : null;
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.querySelector<HTMLElement>("button, input, select")?.focus({ preventScroll: true });
+  }, [unanswered]);
 
   const handleConfirm = useCallback(() => {
     // Save selections to chat metadata
@@ -214,17 +232,23 @@ function ChatChoiceSelectionModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={localizeUi("ui.presets.choiceselectionmodal.configurePresetVariables")}
+      title={localizeUi("ui.presets.choiceselectionmodal.storyChoices")}
       width="max-w-lg"
       chatFloatingPanel={chatFloatingPanel}
       closeDisabled={updateMetadata.isPending}
       footer={
         variables.length > 0 ? (
           <>
+            {!allSelected ? (
+              <span className="self-center text-xs text-[var(--muted-foreground)]" role="status">
+                {localizeUi("ui.presets.choiceselectionmodal.answersLeft", { count: unanswered.length })}
+              </span>
+            ) : null}
             <button
-              onClick={handleConfirm}
-              disabled={!allSelected || updateMetadata.isPending}
-              className={SHEET_BUTTON_PRIMARY}
+              onClick={allSelected ? handleConfirm : showFirstUnanswered}
+              disabled={updateMetadata.isPending}
+              aria-disabled={!allSelected || undefined}
+              className={cn(SHEET_BUTTON_PRIMARY, !allSelected && "opacity-50")}
             >
               {updateMetadata.isPending
                 ? localizeUi("chat.settings.inlineEditor.saving")
@@ -250,17 +274,24 @@ function ChatChoiceSelectionModal({
       ) : (
         <fieldset disabled={updateMetadata.isPending} className="min-w-0 space-y-4 p-4">
           <p className="text-xs text-[var(--muted-foreground)]">
-            {localizeUi("ui.presets.choiceselectionmodal.thisPresetHasConfigurableVariablesSelectOptionSFor")}
+            {localizeUi("ui.presets.choiceselectionmodal.storyChoicesHelp")}
           </p>
 
           {variables.map((v) => {
             return (
-              <div key={v.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
+              <div
+                key={v.id}
+                ref={(el) => {
+                  if (el) groupRefs.current.set(v.id, el);
+                  else groupRefs.current.delete(v.id);
+                }}
+                className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3"
+              >
                 <h4
                   className="mb-1 text-xs font-semibold text-[var(--foreground)]"
                   title={"{{" + v.variableName + "}}"}
                 >
-                  {v.question}
+                  {readableChoiceText(v.question, localizeUi)}
                 </h4>
                 <div className="mb-2 flex items-center gap-2 empty:hidden">
                   {v.options.length === 1 && !v.multiSelect && (
@@ -287,7 +318,8 @@ function ChatChoiceSelectionModal({
                   selection={selections[v.variableName]}
                   optionKey={(opt) => opt.value}
                   onChange={(next) => setOverrides((prev) => ({ ...prev, [v.variableName]: next }))}
-                  ariaLabel={v.question}
+                  ariaLabel={readableChoiceText(v.question, localizeUi)}
+                  displayText={(text) => readableChoiceText(text, localizeUi)}
                 />
               </div>
             );

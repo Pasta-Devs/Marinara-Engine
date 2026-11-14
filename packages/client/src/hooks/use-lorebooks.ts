@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useInfiniteQuery, useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api-client";
+import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 import type {
   BulkUpdateLorebookEntriesInput,
   Lorebook,
@@ -240,6 +241,7 @@ export function useDeleteLorebook() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/lorebooks/${id}`),
     onSuccess: (_data, id) => {
+      forgetDeletedEditorItem("lorebook", id);
       // Evict the deleted lorebook's detail + entries instead of just
       // marking them stale. `useLorebook`/`useLorebookEntries` set
       // staleTime to 5 minutes, and TanStack returns cached `data` even

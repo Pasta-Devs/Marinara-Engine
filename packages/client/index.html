@@ -143,6 +143,14 @@
           margin: 0 !important;
           min-height: 2.5rem !important;
         }
+        /* The one time the app itself folds the phone bar away: typing on a phone held sideways, where the
+           keyboard leaves about 140 px (keyboard QC round 2, IR2-7). It comes back when the keyboard closes;
+           a theme still can't hide it (a theme can't set this attribute). */
+        @media (orientation: landscape) and (max-height: 500px) {
+          html[data-mari-software-keyboard-open] header[data-overhaul-topbar="mobile"] {
+            display: none !important;
+          }
+        }
         [data-component="ChatSidebarSlot"]:not([aria-hidden="true"]),
         [data-component="RightPanelDesktopSlot"]:not([aria-hidden="true"]) {
           display: block !important;
