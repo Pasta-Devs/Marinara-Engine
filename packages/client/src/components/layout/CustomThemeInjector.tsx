@@ -8,6 +8,7 @@
 // moves, covers or blanks the top bar, a sidebar or Ctrl+K.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ThemeMeta } from "@marinara-engine/shared";
 import { useThemes } from "../../hooks/use-themes";
 import { extractImportantThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { createThemeFontFaces, themeFontFaceCss } from "../../lib/theme-package";
@@ -96,6 +97,57 @@ function ensureStyle(id: string) {
 }
 
 /** Every stylesheet a user or theme wrote: the active theme and the editor's live preview. */
+const GUARD_PASSED_STORAGE = "marinara-theme-guard-passed";
+/** At most this many remembered layouts (a few kilobytes). */
+const GUARD_PASSED_MAX = 120;
+
+function textHash(text: string) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/** This theme's exact text and pictures plus this app build (its script and style files). */
+function guardStoreKey(theme: { id: string; css: string; meta?: ThemeMeta | null }) {
+  const build = Array.from(
+    document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>(
+      'script[type="module"][src], link[rel="stylesheet"][href]',
+    ),
+    (element) => element.getAttribute("src") ?? element.getAttribute("href") ?? "",
+  ).join(",");
+  const pictures = [...(theme.meta?.images ?? []), ...(theme.meta?.backgrounds ?? [])]
+    .map((picture) => `${picture.name}:${picture.src.length}:${textHash(picture.src.slice(0, 4096))}`)
+    .join(",");
+  return `${theme.id}|${textHash(theme.css)}|${textHash(pictures)}|${textHash(JSON.stringify([theme.meta?.fonts ?? null, theme.meta?.templates ?? null]))}|${textHash(build)}`;
+}
+
+function readPassedLayouts(storeKey: string): string[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(GUARD_PASSED_STORAGE) ?? "null") as {
+      key?: unknown;
+      layouts?: unknown;
+    } | null;
+    if (!saved || saved.key !== storeKey || !Array.isArray(saved.layouts)) return [];
+    return saved.layouts.filter((layout): layout is string => typeof layout === "string");
+  } catch {
+    return [];
+  }
+}
+
+function savePassedLayouts(storeKey: string, layouts: Set<string>) {
+  try {
+    localStorage.setItem(
+      GUARD_PASSED_STORAGE,
+      JSON.stringify({ key: storeKey, layouts: Array.from(layouts).slice(-GUARD_PASSED_MAX) }),
+    );
+  } catch {
+    /* private mode or full storage: the list just lasts until the page reloads */
+  }
+}
+
 export function customCssSheets(): HTMLStyleElement[] {
   return Array.from(document.querySelectorAll<HTMLStyleElement>("style[data-mari-custom-css]"));
 }
@@ -383,7 +435,10 @@ export function CustomThemeInjector() {
     // panels, windows, chat mode, colour scheme, window size) isn't checked again when you come back
     // to it; the timed checks and a theme animation starting still always check. A transition that waits
     // can't slip past this: themes with one are refused before they apply (lib/theme-content-check.ts).
-    const passedLayouts = new Set<string>();
+    // The passed layouts are remembered on this device for this exact theme and app build, so a reload
+    // doesn't pay for every screen again; editing the theme or updating the app starts the list over.
+    const passedStoreKey = guardStoreKey(activeTheme);
+    const passedLayouts = new Set<string>(readPassedLayouts(passedStoreKey));
     const layoutKey = () => {
       const root = document.documentElement;
       const ui = useUIStore.getState();
@@ -456,6 +511,7 @@ export function CustomThemeInjector() {
       if (problems.length === 0) {
         confirming = false;
         passedLayouts.add(key);
+        savePassedLayouts(passedStoreKey, passedLayouts);
         return;
       }
       // "Covered" and "unreadable" can be a transition caught half-way: look again before acting.

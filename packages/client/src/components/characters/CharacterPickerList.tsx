@@ -92,7 +92,7 @@ function Avatar({
     return (
       <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-foreground/10">
         <img
-          src={avatarPreviewSrc(src, "icon")}
+          src={avatarPreviewSrc(src, "row")}
           alt=""
           loading="lazy"
           className="h-full w-full object-cover"

@@ -268,6 +268,9 @@
   border-radius: 0.4375rem;
   font-size: 0.75rem;
   font-weight: 700;
+  /* Lining figures: a theme font with old-style figures (Velvet Casket's Cormorant) drops a 3, 4, 5, 7 or 9
+     below the others, so the count sat low in its box (Nov 14). */
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
 }
 

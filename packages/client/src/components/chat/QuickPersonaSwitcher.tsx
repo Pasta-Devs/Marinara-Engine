@@ -70,7 +70,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       >
         {activePersona?.avatarPath || activeCharacter?.avatarPath ? (
           <img
-            src={avatarPreviewSrc(activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? "", "icon")}
+            src={avatarPreviewSrc(activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? "", "row")}
             alt={activePersona?.name ?? activeCharacterName ?? ""}
             className="h-full w-full rounded-[inherit] object-cover"
             style={getAvatarCropStyle(

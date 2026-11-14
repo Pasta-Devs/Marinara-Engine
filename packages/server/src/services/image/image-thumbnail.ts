@@ -12,6 +12,7 @@ import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { getSharp } from "./sharp-runtime.js";
 import {
   AVATAR_CARD_PREVIEW_WIDTH,
+  AVATAR_ROW_PREVIEW_WIDTH,
   BACKGROUND_THUMBNAIL_WIDTH,
   CHAT_IMAGE_PREVIEW_WIDTH,
 } from "@marinara-engine/shared";
@@ -24,7 +25,12 @@ const THUMB_DIR = join(DATA_DIR, "backgrounds-thumbs");
  * Compact tiles and small avatars fit inside 320px, Library card pictures inside 640px,
  * mobile inline illustrations inside 1024px.
  */
-const THUMB_WIDTHS = new Set([BACKGROUND_THUMBNAIL_WIDTH, AVATAR_CARD_PREVIEW_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH]);
+const THUMB_WIDTHS = new Set([
+  AVATAR_ROW_PREVIEW_WIDTH,
+  BACKGROUND_THUMBNAIL_WIDTH,
+  AVATAR_CARD_PREVIEW_WIDTH,
+  CHAT_IMAGE_PREVIEW_WIDTH,
+]);
 
 /**
  * Extensions worth handing to sharp. Anything else (animated GIF, SVG, audio, video — the game

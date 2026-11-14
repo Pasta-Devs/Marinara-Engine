@@ -266,7 +266,7 @@ export function RecentChats() {
                 >
                   {character?.avatarUrl ? (
                     <img
-                      src={avatarPreviewSrc(character.avatarUrl, "icon")}
+                      src={avatarPreviewSrc(character.avatarUrl, "row")}
                       alt=""
                       style={getAvatarCropStyle(character.avatarCrop)}
                       loading="lazy"
@@ -378,7 +378,7 @@ export function RecentChats() {
             ) : character?.avatarUrl ? (
               <span className="absolute bottom-2 right-2 h-14 w-14 overflow-hidden rounded-full border-2 border-[var(--recent-chat-accent)]/60 bg-[var(--card)] shadow-lg shadow-black/30 md:bottom-3 md:right-3 md:h-20 md:w-20">
                 <img
-                  src={avatarPreviewSrc(character.avatarUrl, "icon")}
+                  src={avatarPreviewSrc(character.avatarUrl, "row")}
                   alt=""
                   className="h-full w-full object-cover"
                   style={getAvatarCropStyle(character.avatarCrop)}

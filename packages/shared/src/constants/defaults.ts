@@ -29,6 +29,9 @@ export const BACKGROUND_THUMBNAIL_WIDTH = 320;
 /** Mobile inline illustrations; full-size originals remain available in the lightbox/download. */
 export const CHAT_IMAGE_PREVIEW_WIDTH = 1024;
 
+/** Avatars in list rows, pickers and the persona button (about 40 px wide, sharp at 3x). */
+export const AVATAR_ROW_PREVIEW_WIDTH = 128;
+
 /** Character and persona pictures on Library cards: big enough for a sharp card on a phone, a fraction of a full card PNG. */
 export const AVATAR_CARD_PREVIEW_WIDTH = 640;
 

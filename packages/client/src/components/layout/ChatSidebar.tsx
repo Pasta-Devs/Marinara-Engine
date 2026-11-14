@@ -1601,7 +1601,7 @@ export function ChatSidebar() {
                     <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
                       <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
                         <img
-                          src={avatarPreviewSrc(a.avatarUrl, "icon")}
+                          src={avatarPreviewSrc(a.avatarUrl, "row")}
                           alt={a.name}
                           className="h-full w-full object-cover"
                           style={getAvatarCropStyle(a.avatarCrop)}
@@ -1636,7 +1636,7 @@ export function ChatSidebar() {
                           )}
                         >
                           <img
-                            src={avatarPreviewSrc(a.avatarUrl, "icon")}
+                            src={avatarPreviewSrc(a.avatarUrl, "row")}
                             alt={a.name}
                             className="h-full w-full object-cover"
                             style={getAvatarCropStyle(a.avatarCrop)}

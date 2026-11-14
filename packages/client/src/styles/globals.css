@@ -5561,6 +5561,15 @@ strong {
   }
 }
 
+/* Touch screens (tablets): the page next to a sidebar takes its new width at once and only the panel slides.
+   Growing the width over 220 ms laid the whole page out again on every frame, which made opening or hiding
+   the sidebar take one to two seconds on an iPad (Nov 14). */
+@media (hover: none) and (pointer: coarse) {
+  .mari-shell-panel-slot {
+    transition: none;
+  }
+}
+
 /* Use the same opaque surface as sidebar headers and item action trays.
    Keep specificity low so authored theme backgrounds still take precedence. */
 :where(.mari-sidebar, .mari-right-panel) {
