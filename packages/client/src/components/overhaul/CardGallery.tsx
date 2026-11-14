@@ -57,6 +57,7 @@ import {
   type KitAction,
 } from "./LibraryKit";
 import { TagFilter, countItemTags, matchesPickedTags } from "./TagFilter";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 export type GalleryCard = {
   id: string;
@@ -280,7 +281,7 @@ export function CardGallery({
       >
         {card.avatarPath ? (
           <AvatarImage
-            src={card.avatarPath}
+            src={avatarPreviewSrc(card.avatarPath, "card")}
             alt=""
             iconSize="2rem"
             className="h-full w-full object-cover"

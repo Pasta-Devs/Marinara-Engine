@@ -416,7 +416,9 @@ export function hasOwnModelSettings(
   const model = typeof row.model === "string" ? row.model : "";
   const entry = catalog?.models.find((saved) => saved.id === model);
   const name = typeof row.name === "string" ? row.name.trim() : "";
-  if (name && name !== model && name !== entry?.name) return true;
+  // A Default model (a chat Model with no model id) always needs a name of its own, so its name is no setting.
+  const needsName = !model && isChatProvider(row.provider);
+  if (name && !needsName && name !== model && name !== entry?.name) return true;
   const set = (value: unknown) => value !== null && value !== undefined && value !== "";
   const on = (value: unknown) => value === true || value === "true";
   const params = typeof row.defaultParameters === "string" ? row.defaultParameters.trim() : row.defaultParameters;

@@ -22,6 +22,17 @@ If it did not work:
 - **Marinara could not reach** the address. Check that the server is running and that the address and port match. **Continue anyway** saves the account without a passing test.
 - The address is on another computer. See [Reach a server on another computer](#reach-a-server-on-another-computer).
 
+## Use whatever model the server has loaded
+
+A local or self-hosted server can answer with the model it has loaded, so its account can hold a **Default** model. Default sends no model name. It always uses the model you have loaded in Ollama, LM Studio, KoboldCpp, or llama.cpp, even after you switch models there.
+
+- A new account for a server on your computer or network starts with a **Default** model.
+- To add one later, click **⋯** on the account and choose **Add model**. **Default** is the first row.
+- Use **Default** like any other model: give it a job such as **Main** in the **Jobs** box, or pick it in **Model for this chat**.
+- Click **Default** in the panel to give it its own settings, such as its parameters and prompt preset, as you would for a named model.
+
+**Default** shows only for a server on your computer or your network. A cloud service always needs a model name.
+
 ## Addresses of common local servers
 
 A port is the numbered channel a server uses on your computer. `localhost` means this same computer, so these addresses work as written when Marinara and the server run on one computer.

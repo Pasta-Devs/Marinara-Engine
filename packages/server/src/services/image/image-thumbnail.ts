@@ -10,16 +10,21 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
 import { getSharp } from "./sharp-runtime.js";
-import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
+import {
+  AVATAR_CARD_PREVIEW_WIDTH,
+  BACKGROUND_THUMBNAIL_WIDTH,
+  CHAT_IMAGE_PREVIEW_WIDTH,
+} from "@marinara-engine/shared";
 
 // Sibling of the image directories, never inside them: the background library listing walks its own dir.
 const THUMB_DIR = join(DATA_DIR, "backgrounds-thumbs");
 
 /**
  * Fixed bounds only, so `?w=` cannot create arbitrarily many copies of each image.
- * Compact tiles fit inside 320px; mobile inline illustrations fit inside 1024px.
+ * Compact tiles and small avatars fit inside 320px, Library card pictures inside 640px,
+ * mobile inline illustrations inside 1024px.
  */
-const THUMB_WIDTHS = new Set([BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH]);
+const THUMB_WIDTHS = new Set([BACKGROUND_THUMBNAIL_WIDTH, AVATAR_CARD_PREVIEW_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH]);
 
 /**
  * Extensions worth handing to sharp. Anything else (animated GIF, SVG, audio, video — the game

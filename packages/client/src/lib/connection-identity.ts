@@ -3,8 +3,10 @@ import {
   IMAGE_GENERATION_SOURCES,
   PROVIDERS,
   VIDEO_GENERATION_SOURCES,
+  isChatProvider,
   type APIProvider,
 } from "@marinara-engine/shared";
+import { translate } from "../localization/i18n";
 
 export type ConnectionIdentityRow = {
   provider?: string | null;
@@ -124,8 +126,17 @@ export function modelIdLabel(model: string | null | undefined, upstream: string 
   return upstream && id.toLowerCase().startsWith(`${upstream.toLowerCase()}/`) ? id.slice(upstream.length + 1) : id;
 }
 
+/**
+ * A chat Model with no model id: the Default model, which sends none, so the server answers with whatever model
+ * it has loaded. Only a Connection whose `loadedModel` is true lists one; elsewhere such a row is an anchor.
+ */
+export function isLoadedModelRow(row: Pick<ConnectionIdentityRow, "provider" | "model">): boolean {
+  return isChatProvider(row.provider ?? "") && !row.model?.trim();
+}
+
 /** The one line under a Model's name everywhere: its model id, else its media service. */
 export function modelSubtitle(row: ConnectionIdentityRow, upstream: string | null = null): string {
+  if (isLoadedModelRow(row)) return translate("connections.loadedModel.subtitle");
   return (
     modelIdLabel(row.model, upstream) ||
     row.imageService ||
