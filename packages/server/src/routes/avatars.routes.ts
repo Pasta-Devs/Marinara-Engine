@@ -3,13 +3,14 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import { z } from "zod";
 import { parseAgentSettingsRecord } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
 import {
   generateTrackerPortrait,
@@ -81,7 +82,16 @@ export async function avatarsRoutes(app: FastifyInstance) {
 
     const image = await validateImageAssetFile(filePath, filename);
     if (!image) return reply.status(404).send({ error: "Not found" });
-    return sendValidatedMediaFile(reply, image, {
+
+    // `?w=` asks for a downscaled copy (Library cards, list icons): a full card PNG is often several
+    // MB, and dozens of them at once held up every other request on a phone or tablet.
+    // Falls back to the original on any miss.
+    const requestedWidth = parseThumbnailWidth((req.query as { w?: string }).w);
+    const thumbPath = requestedWidth ? await resolveThumbPath(filePath, requestedWidth) : null;
+    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+    if (preview) await image.handle.close().catch(() => undefined);
+
+    return sendValidatedMediaFile(reply, preview ?? image, {
       method: req.method,
       rangeHeader: req.headers.range,
       cacheControl: "public, max-age=31536000, immutable",

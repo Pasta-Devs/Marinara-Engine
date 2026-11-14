@@ -129,6 +129,7 @@ import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensi
 import { ChatModeIcon } from "../chat/ChatModeIcon";
 import { ImportChatModal } from "../modals/ImportChatModal";
 import { appendImportTags, DEFAULT_IMPORT_TAGS, type ImportTagChoice } from "../modals/ImportTagChecks";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 // Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
 const CharacterScheduleManagerModal = lazy(async () => ({
@@ -1569,7 +1570,7 @@ export function ChatSidebar() {
                     <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
                       <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
                         <img
-                          src={a.avatarUrl}
+                          src={avatarPreviewSrc(a.avatarUrl, "icon")}
                           alt={a.name}
                           className="h-full w-full object-cover"
                           style={getAvatarCropStyle(a.avatarCrop)}
@@ -1604,7 +1605,7 @@ export function ChatSidebar() {
                           )}
                         >
                           <img
-                            src={a.avatarUrl}
+                            src={avatarPreviewSrc(a.avatarUrl, "icon")}
                             alt={a.name}
                             className="h-full w-full object-cover"
                             style={getAvatarCropStyle(a.avatarCrop)}

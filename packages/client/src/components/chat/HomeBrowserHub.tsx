@@ -100,6 +100,7 @@ import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 // Outside homeBrowserTabId's `marinara-home-tab-` namespace, so no package id can produce them.
@@ -2818,7 +2819,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent-text,var(--home-module-accent))]">
                                 {characterOfDay.avatarPath ? (
                                   <img
-                                    src={characterOfDay.avatarPath}
+                                    src={avatarPreviewSrc(characterOfDay.avatarPath, "icon")}
                                     alt=""
                                     className="h-full w-full rounded-full object-cover"
                                     style={getAvatarCropStyle(characterOfDay.avatarCrop)}

@@ -11,6 +11,7 @@ import { parseCharacterDisplayData } from "../../lib/character-display";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { Persona } from "@marinara-engine/shared";
 import { CharacterSelect, type PersonaChoice } from "../characters/CharacterSelect";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const { t: localizeUi } = useUiTranslation();
@@ -69,7 +70,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       >
         {activePersona?.avatarPath || activeCharacter?.avatarPath ? (
           <img
-            src={activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? ""}
+            src={avatarPreviewSrc(activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? "", "icon")}
             alt={activePersona?.name ?? activeCharacterName ?? ""}
             className="h-full w-full object-cover rounded-full"
             style={getAvatarCropStyle(

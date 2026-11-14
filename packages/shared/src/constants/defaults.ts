@@ -29,6 +29,9 @@ export const BACKGROUND_THUMBNAIL_WIDTH = 320;
 /** Mobile inline illustrations; full-size originals remain available in the lightbox/download. */
 export const CHAT_IMAGE_PREVIEW_WIDTH = 1024;
 
+/** Character and persona pictures on Library cards: big enough for a sharp card on a phone, a fraction of a full card PNG. */
+export const AVATAR_CARD_PREVIEW_WIDTH = 640;
+
 /** Maximum length for image- or video-backend instructions stored on an image or video connection. */
 export const MAX_IMAGE_PROMPT_INSTRUCTIONS_LENGTH = 20_000;
 
