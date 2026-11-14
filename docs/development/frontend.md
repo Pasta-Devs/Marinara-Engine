@@ -61,7 +61,7 @@ Major editors and heavy components are lazy-loaded in `AppShell.tsx` using `Reac
 
 The client uses a set of Zustand stores in `packages/client/src/stores/` for UI and runtime state. `ui.store.ts` is the only persisted store. The others hold runtime state for chats, agents, games, the local model runtime, translation, dialogs, and backfill.
 
-The current store files are: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `sidecar.store.ts`, `translation.store.ts`, and `ui.store.ts`. The table-game stores moved into their downloadable packages; `conversation-games.store.ts` only tracks the Conversation game picker and setup.
+The current store files are: `agent.store.ts`, `backfill.store.ts`, `chat-tools-menu.store.ts`, `chat.store.ts`, `combat-screen.store.ts`, `conversation-games.store.ts`, `dialog.store.ts`, `encounter.store.ts`, `floating-window.store.ts`, `gallery.store.ts`, `game-asset.store.ts`, `game-mode.store.ts`, `game-state.store.ts`, `roleplay-sheet.store.ts`, `sidecar.store.ts`, `translation.store.ts`, and `ui.store.ts`. The table-game stores moved into their downloadable packages; `conversation-games.store.ts` only tracks the Conversation game picker and setup. `combat-screen.store.ts` tracks which fight screen is showing and its round, so the top bar shows combat controls only then. `roleplay-sheet.store.ts` tracks which member's ruleset sheet a Roleplay chat has open.
 
 #### `ui.store.ts`: settings and UI chrome
 
@@ -126,7 +126,7 @@ Turn-based combat state:
 
 ### React Query (server data)
 
-All server data is fetched and cached through TanStack React Query, configured in `main.tsx`:
+All server data is fetched and cached through TanStack React Query, configured in `lib/query-client.ts`:
 
 - Stale time: 30 seconds (global default).
 - Retry: 1 attempt.
@@ -137,7 +137,7 @@ Each entity has a dedicated hook file that exports query and mutation hooks.
 
 ## Hooks reference
 
-All hooks live in `src/hooks/` and follow the pattern `use-{entity}.ts`.
+All hooks live in `src/hooks/` and follow the pattern `use-{entity}.ts`. The tables below cover the main hooks only; the full set lives in `packages/client/src/hooks/`.
 
 ### Chat hooks (`use-chats.ts`)
 
@@ -181,27 +181,25 @@ All hooks live in `src/hooks/` and follow the pattern `use-{entity}.ts`.
 | Hook                           | Type     | Description                                                 |
 | ------------------------------ | -------- | ---------------------------------------------------------- |
 | `usePresets()`                 | Query    | All presets                                                |
-| `usePreset(id)`                | Query    | Single preset                                              |
-| `usePresetFull(id)`            | Query    | Preset with sections, groups, and choices                  |
+| `usePresetFull(id)`            | Query    | One preset with its sections, groups, and variables        |
 | `useDefaultPreset()`           | Query    | The default preset                                         |
-| `useCreatePreset()`            | Mutation | Create preset                                              |
 | `useUpdatePreset()`            | Mutation | Update preset                                              |
 | `useDeletePreset()`            | Mutation | Delete preset                                              |
-| `usePresetSections(presetId)`  | Query    | Prompt sections for a preset                               |
-| `usePresetGroups(presetId)`    | Query    | Section groups                                             |
-| `usePresetVariables(presetId)` | Query    | Preset variables (formerly choice blocks)                  |
-| `usePreviewPreset()`           | Mutation | Rendered prompt preview for `{ presetId, chatId, choices }` |
+| `useDuplicatePreset()`         | Mutation | Duplicate preset                                           |
+| `useSetDefaultPreset()`        | Mutation | Make a preset the default                                  |
+| `useCreateSection()`           | Mutation | Create a prompt section (update, delete and reorder hooks sit beside it) |
+| `useCreateGroup()`             | Mutation | Create a section group (update and delete hooks sit beside it)           |
+| `useCreateVariable()`          | Mutation | Create a preset variable, formerly a choice block (update, delete and reorder hooks sit beside it) |
 
 ### Agent hooks (`use-agents.ts`)
 
 | Hook                 | Type     | Description                     |
 | -------------------- | -------- | ------------------------------- |
 | `useAgentConfigs()`  | Query    | All agent configurations        |
-| `useAgentConfig(id)` | Query    | Single agent config             |
 | `useCreateAgent()`   | Mutation | Create custom agent             |
 | `useUpdateAgent()`   | Mutation | Update agent config             |
 | `useDeleteAgent()`   | Mutation | Delete agent                    |
-| `useToggleAgent()`   | Mutation | Toggle built-in agent on or off |
+| `useUpdateAgentByType()` | Mutation | Update an agent config by agent type |
 
 ### Generation hook (`use-generate.ts`)
 
@@ -326,9 +324,9 @@ Right-side panels show resource lists with search, sort, and filtering. Clicking
 Panels are registered in `RightPanel.tsx` in two places:
 
 1. `PANEL_CONFIG`: title, icon, and gradient color.
-2. `PANELS`: the component map.
+2. `RIGHT_PANELS` (in `right-panel-panels.ts`): the component map.
 
-Panels use module-level persistence. A `mountedPanels` Set tracks which panels have been visited. Once mounted, a panel stays in the DOM (hidden with `display: none` or `aria-hidden`) to keep its state.
+Panels keep their state through a `mountedPanels` Set held in a `useState` inside `RightPanel`. It tracks which panels have been visited. Once mounted, a panel stays in the DOM (hidden with `display: none` or `aria-hidden`) to keep its state.
 
 ### UI primitives (`components/ui/`)
 
@@ -486,7 +484,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | Prefix                    | Endpoints                        | Description                  |
 | ------------------------- | -------------------------------- | ---------------------------- |
 | `/api/chat-folders`       | CRUD plus reorder                | Chat folder management       |
-| `/api/conversation`       | schedule, status, message, check | Autonomous messaging system  |
+| `/api/conversation`       | schedule, status, activity, autonomous | Autonomous messaging system  |
 | `/api/scene`              | create, plan, conclude           | Scene branching              |
 | `/api/encounter`          | init, action, summary            | Combat encounters            |
 | `/api/translate`          | POST                             | Text translation             |
@@ -495,8 +493,8 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/game-rulesets`      | import, schema, source, remove   | Imported Game Mode rulesets  |
 | `/api/game-worlds`        | library CRUD and world editing   | World library for new games and map packs |
 | `/api/game-tile-packs`    | tile packs, plus `/creatures` and `/boards` | Map, creature and fight-board art packs |
-| `/api/turn-games`         | Chess, UNO, Poker routes         | Conversation table games     |
-| `/api/conversation-calls` | call and session routes          | Conversation audio calls     |
+| `/api/turn-games`         | catalog, state, start, move, resign | Conversation table games (the games come from packages) |
+| `/api/conversation-calls` | call and session routes (registered by the conversation calls package) | Conversation audio calls     |
 
 ### Media and assets
 
@@ -535,9 +533,9 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 
 | Endpoint                        | Description                             |
 | ------------------------------- | --------------------------------------- |
-| `/api/updates/check`            | Version check against GitHub releases   |
-| `/api/updates/latest`           | Latest release metadata                 |
-| `/api/updates/commits-behind`   | Git install update distance             |
+| `/api/updates/check`            | Version check against GitHub releases; for git installs, also how far the checkout is behind its update channel |
+| `/api/updates/channel`          | Update channel, current branch and channel list |
+| `/api/updates/apply`            | Apply an update                                 |
 | `/api/backup`                   | Full backup, export, import             |
 | `/api/import/*`                 | SillyTavern and Marinara profile import |
 | `/api/admin/clear-all`          | Full data clear                         |
@@ -560,13 +558,13 @@ The app is a Progressive Web App configured with VitePWA:
 
 - Manifest: `public/manifest.json` with the "Marinara Engine" app name, standalone display mode, and dark theme.
 - Icons: a 64px favicon, 192px and 512px maskable icons, and a splash logo.
-- Service worker: Workbox with an auto-update strategy.
+- Service worker: Workbox with `registerType: "prompt"`, so a new version waits for the user to accept it.
 - Caching: static assets are cached; `/api/*` routes use NetworkOnly.
 - Keep-alive: `lib/keep-alive.ts` uses the Web Locks API plus BroadcastChannel pings to keep the tab from sleeping.
 
 ### Version skew detection
 
-`App.tsx` polls `/api/health` every 5 minutes. If the server version differs from the client's cached version, the client unregisters the service worker. It also clears the caches to force an update.
+`App.tsx` polls `/api/health` every 5 minutes. If the server version differs from the client's cached version, the client refreshes itself with `forceRefreshSpa` in `lib/browser-runtime.ts`, which unregisters the service worker and clears the caches.
 
 ## Agent system
 
@@ -689,7 +687,7 @@ pnpm build
 ### Bundle budget
 
 - Main entry: max 1 MB.
-- Per chunk: max 500 KB.
+- Per chunk: `chunkSizeWarningLimit` is 512 KB. Going over prints a build warning; it does not fail the build.
 - Vendor splits: react, tanstack, motion, zustand, icons, and misc.
 
 ### Path alias
