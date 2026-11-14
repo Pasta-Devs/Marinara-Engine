@@ -57,6 +57,14 @@ try {
   writeFileSync(join(dir, "meta.json"), JSON.stringify({ "john-bedroom.png": { tags: ["johns room", 4] } }));
   assert.deepEqual(readBackgroundLibrary(dir), [{ filename: "john-bedroom.png", tags: ["johns room"] }]);
   assert.equal(matchLibraryBackgroundForPlace("John's bedroom", readBackgroundLibrary()), "john-bedroom.png");
+  for (const broken of ["null", "[]", '"text"', "{not json"]) {
+    writeFileSync(join(dir, "meta.json"), broken);
+    assert.deepEqual(
+      readBackgroundLibrary(dir),
+      [{ filename: "john-bedroom.png", tags: [] }],
+      `a meta.json of ${broken} only drops the tags`,
+    );
+  }
 
   console.log("illustrator background reuse regression passed");
 } finally {

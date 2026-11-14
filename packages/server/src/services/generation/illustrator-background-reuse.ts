@@ -67,9 +67,11 @@ export function matchLibraryBackgroundForPlace(
 /** The chat background library (data/backgrounds) with each picture's tags. */
 export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): BackgroundLibraryItem[] {
   if (!existsSync(dir)) return [];
-  let meta: Record<string, { tags?: unknown }> = {};
+  // A missing or malformed meta.json only drops the tags, never the pictures.
+  let meta: Record<string, { tags?: unknown } | undefined> = {};
   try {
-    meta = JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8")) as typeof meta;
+    const parsed: unknown = JSON.parse(readFileSync(join(dir, "meta.json"), "utf-8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) meta = parsed as typeof meta;
   } catch {
     /* no tags */
   }
@@ -79,7 +81,7 @@ export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): Back
       .map((filename) => ({
         filename,
         tags: Array.isArray(meta[filename]?.tags)
-          ? (meta[filename]!.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
+          ? (meta[filename]?.tags as unknown[]).filter((tag): tag is string => typeof tag === "string")
           : [],
       }));
   } catch {

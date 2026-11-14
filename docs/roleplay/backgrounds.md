@@ -34,7 +34,7 @@ When Illustrator makes backgrounds on its own and the story moves to a new place
 
 Without a World State location, the place name Illustrator writes for the new background is matched the same way. If a picture fits, it is shown and nothing is painted. Only a place with no match gets a new picture.
 
-To make sure a place keeps its picture, name the file after the place, or give it a tag with the place's name.
+To make sure a place keeps its picture, name the file after the place (`kitchen.png` for "Kitchen"). A tag works too when it has two or more words, such as `smith house kitchen`; one-word tags like `kitchen` or `night` are ignored, because they usually describe how a picture looks.
 
 ## Generate a background by hand
 
