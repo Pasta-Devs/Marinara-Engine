@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { createThemeSchema, setActiveThemeSchema, updateThemeSchema } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { createThemesStorage } from "../services/storage/themes.storage.js";
-import { isStarterThemeId } from "../services/storage/starter-themes.js";
+import { isStarterThemeId, STARTER_THEME_PREFIX } from "../services/storage/starter-themes.js";
 import {
   downloadGalleryTheme,
   fetchThemeGallery,
@@ -17,6 +17,30 @@ const STARTER_READ_ONLY = "Starter themes are read-only. Clone it to make your o
 
 export async function themesRoutes(app: FastifyInstance) {
   const storage = createThemesStorage(app.db);
+
+  // Starter themes are read-only copies of the gallery, so a newer gallery version replaces them without asking.
+  // Otherwise an install keeps an old copy (and its old fixes) until someone opens the gallery and presses Update.
+  const updateInstalledStarters = async () => {
+    const starters = (await storage.list()).filter((theme) => isStarterThemeId(theme.id));
+    if (!starters.length) return;
+    const { entries } = await fetchThemeGallery(true);
+    for (const theme of starters) {
+      const entry = entries.find((item) => `${STARTER_THEME_PREFIX}${item.id}` === theme.id);
+      if (!entry?.version || theme.meta?.version === entry.version) continue;
+      try {
+        await storage.saveStarter(await downloadGalleryTheme(entry.id));
+        logger.info(`[themes] Updated starter theme ${entry.id} to ${entry.version}`);
+      } catch (error) {
+        logger.warn(error, `[themes] Could not update starter theme ${entry.id}`);
+      }
+    }
+  };
+  if (process.env.NODE_ENV !== "test") {
+    const run = () =>
+      void updateInstalledStarters().catch((error) => logger.debug(error, "[themes] Starter update skipped"));
+    setTimeout(run, 10_000).unref();
+    setInterval(run, 6 * 60 * 60 * 1000).unref();
+  }
 
   app.get("/", async () => {
     return storage.list();

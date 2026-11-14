@@ -249,6 +249,8 @@ export function DesktopTabStrip({
   // ── Drag and drop ──
   // Touch screens (a tablet held sideways): holding a tab or group opens its menu, like a right-click.
   const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  // Where the finger was when holding opened the menu: moving on from there is a drag, which closes it.
+  const heldMenuAt = useRef<{ x: number; y: number } | null>(null);
   const clearPress = () => {
     if (press.current) clearTimeout(press.current.timer);
     press.current = null;
@@ -266,12 +268,18 @@ export function DesktopTabStrip({
           press.current = null;
           setOverflowOpen(false);
           setMenu({ ...value, x, y });
+          heldMenuAt.current = { x, y };
         }, 500),
       };
     },
     onPointerMove: (event: React.PointerEvent) => {
       if (press.current && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 10)
         clearPress();
+      const held = heldMenuAt.current;
+      if (held && Math.hypot(event.clientX - held.x, event.clientY - held.y) > 16) {
+        heldMenuAt.current = null;
+        setMenu(null);
+      }
     },
     onPointerUp: clearPress,
     onPointerCancel: clearPress,
@@ -279,6 +287,10 @@ export function DesktopTabStrip({
 
   const startDrag = (event: DragEvent, value: Drag) => {
     clearPress();
+    // Holding a tab opens its menu, and keeping on into a drag (to reorder or to the split view edge) must not
+    // leave that menu floating (Nov 14 finding).
+    heldMenuAt.current = null;
+    setMenu(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(DRAG_MIME, "1");
     event.dataTransfer.setData("text/plain", value.kind === "tab" ? value.key : value.id);
@@ -443,6 +455,7 @@ export function DesktopTabStrip({
       <nav
         className="ov-tabs"
         data-tour="tab-strip"
+        data-tour-fit="children"
         aria-label={localize("Open tabs")}
         ref={stripRef}
         onDragLeave={() => setDrop(null)}

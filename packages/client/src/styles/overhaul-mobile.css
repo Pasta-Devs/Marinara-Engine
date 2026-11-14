@@ -5254,3 +5254,9 @@
     display: none;
   }
 }
+
+/* Phones and tablets: under an open page (Settings, a Library editor) the chat or Home stays mounted but unseen,
+   so a theme's translucent page colour shows its own backdrop, never Home's headline (Nov 14 finding). */
+:root[data-overhaul="mobile"] [data-under-page="true"] {
+  visibility: hidden;
+}
