@@ -8109,10 +8109,6 @@ input.ov-edhead__title:focus {
   }
 }
 
-/* A tab coming back stays hidden for a moment until its scroll position is restored (use-tab-scroll-memory). */
-[data-ov-restoring-scroll] [data-component="CenterContent"] {
-  visibility: hidden;
-}
 /* Phones only (overhaul-mobile.css): the back button from a guide to the list. */
 .ov-docs__back {
   display: none;
