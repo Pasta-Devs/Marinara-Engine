@@ -43,6 +43,8 @@ export interface WorldDraft {
   /** The dated events read from the lore (worldgen W3), kept exactly by the brief. Absent in drafts
    *  made before events were read. */
   canonEvents?: WorldBriefEvent[];
+  /** The places the lore holds outside nature (always winter, always night), kept exactly by the brief. */
+  canonEnvironments?: WorldBrief["environments"];
   /** The brief the model wrote, as the player has changed it; null until one is written. */
   brief: WorldBriefInput | null;
   /** The hand edits (worldgen W9c) of a world read from a file, and the seed, grounding and brief they
@@ -89,6 +91,7 @@ export function worldDraftFromWorld(
     canonEvents: (world.brief.events ?? [])
       .filter((event) => event.lore?.length)
       .map((event) => ({ ...event, places: event.places ?? [], groups: event.groups ?? [] })),
+    canonEnvironments: (world.brief.environments ?? []).filter((each) => each.lore?.length),
     brief: world.brief,
     ...(world.edits ? { edits: world.edits } : {}),
     ...(story ? { story } : {}),
@@ -181,6 +184,7 @@ export function worldDraftConfig(
     places: draft.canon,
     placeNames: [],
     events: draft.canonEvents ?? [],
+    environments: draft.canonEnvironments ?? [],
   };
   const checked = checkWorldBrief(kit, brief);
   if (!checked.ok) return { ok: false, issues: checked.issues };
@@ -297,6 +301,7 @@ export function GameSetupWorldChooser({
     ask<{
       places: WorldBriefPlace[];
       events: WorldBriefEvent[];
+      environments?: WorldBrief["environments"];
       repairs: string[];
       entriesRead: number;
       entriesLeft: number;
@@ -312,8 +317,15 @@ export function GameSetupWorldChooser({
       (value, into) => {
         into.canon = value.places;
         into.canonEvents = value.events;
+        into.canonEnvironments = value.environments ?? [];
         // A brief already written takes the lore read now, so it never drifts from what is shown.
-        if (into.brief) into.brief = withWorldCanon(into.brief, value.places, value.events) as WorldBriefInput;
+        if (into.brief)
+          into.brief = withWorldCanon(
+            into.brief,
+            value.places,
+            value.events,
+            into.canonEnvironments,
+          ) as WorldBriefInput;
       },
       (value) =>
         t(value.entriesLeft > 0 ? "game.world.setup.loreReadSome" : "game.world.setup.loreRead", {
@@ -326,7 +338,14 @@ export function GameSetupWorldChooser({
     ask<{ brief: WorldBriefInput; repairs: string[] }>(
       "brief",
       "/game/world-brief",
-      { ...request!, kit, canon: draft!.canon, canonEvents: draft!.canonEvents ?? [], grounding: draft!.grounding },
+      {
+        ...request!,
+        kit,
+        canon: draft!.canon,
+        canonEvents: draft!.canonEvents ?? [],
+        canonEnvironments: draft!.canonEnvironments ?? [],
+        grounding: draft!.grounding,
+      },
       (value, into) => {
         into.brief = value.brief;
       },

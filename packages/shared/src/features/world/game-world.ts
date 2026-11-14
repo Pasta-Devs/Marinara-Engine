@@ -265,6 +265,26 @@ export function worldOverviewPromptText(game: GameWorld): string {
       const past = worldNotablePast(history);
       return past.length ? [`- The past:`, ...past.map((event) => `  - ${worldHistoryLine(event)}`)] : [];
     })(),
+    // Places the setting holds outside nature from the first day (environment.ts), as LASTING ENVIRONMENTS.
+    ...((brief.environments ?? []).length
+      ? [
+          `- Held outside nature since the world began (you may let a hold go in the story with [environment: ... release]):`,
+          ...(brief.environments ?? []).map((each) => {
+            const parts = [
+              each.weather ? `the weather always ${each.weather.replace(/_/g, " ")}` : "",
+              each.season ? `always ${each.season}` : "",
+              each.light
+                ? each.light === "dark"
+                  ? "always night"
+                  : each.light === "dusk"
+                    ? "always dusk"
+                    : "the sun never sets"
+                : "",
+            ].filter(Boolean);
+            return `  - ${each.place === "world" ? "The whole world" : each.place}: ${parts.join(", ")}${each.note ? ` (${each.note})` : ""}.`;
+          }),
+        ]
+      : []),
     `To recall the past of a place or group not shown here, write [history: place="Name"] or [history: group="Name"]; the answer comes with your next turn.`,
     worldLedgerInstructions(game),
     `Use these places and names. When the party goes somewhere, say where with [place: name="..."], using a name from this world when it is one; a place this world does not list (a farmhouse, a camp, a ship) gets a name of its own.`,

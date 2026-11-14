@@ -2,14 +2,16 @@
 // the player has it, else in plain colours; a click walks the party there by the shortest way, its minutes
 // on the game's clock and the walk told on the next turn; from the way out, the party leaves.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DoorOpen, Footprints } from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, DoorOpen, Footprints } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   DUNGEON_EXIT_PROP,
   dungeonWayOutId,
+  gameDungeonOnWayDown,
   gameDungeonOnWayOut,
+  gameDungeonOnWayUp,
   gameDungeonSpotsAt,
   DUNGEON_SETS,
   characterFacing,
@@ -21,7 +23,7 @@ import {
   type CharacterFacing,
   type TilePack,
 } from "@marinara-engine/shared";
-import { useDungeonLeave, useDungeonMap, useDungeonWalk } from "../../hooks/use-game";
+import { useDungeonLeave, useDungeonMap, useDungeonStairs, useDungeonWalk } from "../../hooks/use-game";
 import {
   overworldBaseResolution,
   overworldCamera,
@@ -30,7 +32,7 @@ import {
 } from "../../hooks/use-overworld-view";
 import { api } from "../../lib/api-client";
 import { useGameStateStore } from "../../stores/game-state.store";
-import { OVERWORLD_TILE, cellNoise, paintParty } from "../../lib/overworld-paint";
+import { OVERWORLD_TILE, cellNoise, paintGuard, paintParty } from "../../lib/overworld-paint";
 
 const T = OVERWORLD_TILE;
 type Point = { x: number; y: number };
@@ -80,6 +82,7 @@ export function DungeonMapView({
   const { t } = useTranslation();
   const { data } = useDungeonMap(chatId, turnKey, true);
   const kept = data?.map ?? null;
+  const guards = useMemo(() => data?.guards ?? [], [data?.guards]);
   // Each walk writes a new record (its `at` moves); the cells, and the base canvas drawn from them, follow
   // the map's layout only.
   const layoutKey = kept
@@ -103,6 +106,7 @@ export function DungeonMapView({
   const drawTile = useOverworldAtlas("dungeon", pack === null ? undefined : pack);
   const walkMutation = useDungeonWalk();
   const leaveMutation = useDungeonLeave();
+  const stairsMutation = useDungeonStairs();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -214,6 +218,12 @@ export function DungeonMapView({
         const pick = ([...person.id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7) % 100) / 100;
         if (!drawTile(ctx, "folk", at.x * T, at.y * T - 4, pick)) paintParty(ctx, at.x * T + 1, at.y * T - 3, false);
       }
+      // The holders' posts (dungeon spawns): who stands guard where, the heart's chief crowned.
+      // A post of more than one shows a second figure a step behind the first.
+      for (const guard of guards) {
+        if (guard.count > 1) paintGuard(ctx, guard.x * T + 7, guard.y * T - 5, false);
+        paintGuard(ctx, guard.x * T + (guard.count > 1 ? -3 : 1), guard.y * T - 3, guard.heart);
+      }
       const party = partyRef.current;
       if (party) {
         const drawn = drawTile.character(
@@ -228,7 +238,7 @@ export function DungeonMapView({
         if (!drawn && !drawTile(ctx, "party", x, y)) paintParty(ctx, x + 1, y + 1, frame !== 1);
       }
     },
-    [base, drawTile, resolution, scale, size.height, size.width, standing],
+    [base, drawTile, guards, resolution, scale, size.height, size.width, standing],
   );
   const drawRef = useRef(draw);
   drawRef.current = draw;
@@ -338,6 +348,22 @@ export function DungeonMapView({
     return <div className="absolute inset-0 z-0 bg-black" role="region" aria-label={t("game.dungeon.region")} />;
   }
   const onWayOut = gameDungeonOnWayOut(kept);
+  // A place deeper than one floor (owner 2026-11-13: separate maps per floor): its stairs down and up.
+  const floor = kept.floor ?? 1;
+  const stairs = kept.floors
+    ? gameDungeonOnWayDown(kept)
+      ? floor + 1
+      : gameDungeonOnWayUp(kept)
+        ? floor - 1
+        : null
+    : null;
+  const takeStairs = async () => {
+    try {
+      await stairsMutation.mutateAsync({ chatId, map: kept.id });
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t("game.dungeon.stairsFailed"));
+    }
+  };
   const area = dungeonAreaAt(kept, kept.at.x, kept.at.y);
   const leave = async () => {
     try {
@@ -382,6 +408,7 @@ export function DungeonMapView({
       <div className="pointer-events-none absolute inset-x-0 top-16 z-[25] flex flex-col items-center gap-2 px-3">
         <p className="rounded-lg bg-black/60 px-3 py-1 text-xs text-white/85" role="status">
           {kept.name}
+          {kept.floors && kept.floors > 1 && <> · {t("game.dungeon.floor", { floor, floors: kept.floors })}</>}
           {/* A map made by hand has no areas: its name alone. */}
           {kept.rooms.length > 0 && <> · {area ? t("game.dungeon.area", { area }) : t("game.dungeon.passage")}</>}
           {walking && <Footprints size={12} className="ml-2 inline animate-pulse" aria-hidden="true" />}
@@ -395,6 +422,21 @@ export function DungeonMapView({
           >
             <DoorOpen size={13} aria-hidden="true" />
             {t("game.dungeon.leave", { way: t(`game.dungeon.wayOut.${dungeonWayOutId(set)}`) })}
+          </button>
+        )}
+        {stairs !== null && (
+          <button
+            type="button"
+            onClick={() => void takeStairs()}
+            disabled={!canWalk || walking || stairsMutation.isPending}
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black/85 disabled:opacity-50"
+          >
+            {stairs > floor ? (
+              <ArrowDownToLine size={13} aria-hidden="true" />
+            ) : (
+              <ArrowUpToLine size={13} aria-hidden="true" />
+            )}
+            {t(stairs > floor ? "game.dungeon.down" : "game.dungeon.up", { floor: stairs })}
           </button>
         )}
       </div>

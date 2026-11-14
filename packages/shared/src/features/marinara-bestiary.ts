@@ -814,6 +814,22 @@ export type MarinaraEnemyKind =
   | "construct"
   | "machine";
 
+/** The kinds of land and place a foe lives in, for location spawn tables: a region's ground maps onto one
+ *  (the Overworld's region bands), and a site (a cave, a crypt, a ruin) onto ruins or underground. */
+export const MARINARA_HABITATS = [
+  "grassland",
+  "forest",
+  "desert",
+  "snow",
+  "swamp",
+  "mountain",
+  "coast",
+  "ruins",
+  "underground",
+  "urban",
+] as const;
+export type MarinaraHabitat = (typeof MARINARA_HABITATS)[number];
+
 /** What a foe does in a fight, which decides its row and how the GM should use it. */
 export type MarinaraEnemyRole =
   | "brute"
@@ -838,6 +854,9 @@ export interface MarinaraEnemyFamily {
   id: string;
   kind: MarinaraEnemyKind;
   role: MarinaraEnemyRole;
+  /** Where it lives in the world (location spawns): the habitats whose region and site tables hold it.
+   *  Absent (the treasure foes) is never in a table; they turn up only through the rare roll. */
+  habitats?: readonly MarinaraHabitat[];
   /** One line for the GM: what it is and how it fights. */
   summary: string;
   mind: CombatMind;
@@ -938,6 +957,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "gnawer",
     kind: "vermin",
     role: "swarm",
+    habitats: ["grassland", "forest", "swamp", "ruins", "underground", "urban"],
     summary: "Rats and their cousins: weak alone, come in numbers, worry wounds open.",
     mind: "instinct",
     temperaments: ["hungry", "cowardly", "opportunistic"],
@@ -964,6 +984,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "hound",
     kind: "beast",
     role: "skirmisher",
+    habitats: ["grassland", "forest", "snow", "mountain", "desert"],
     summary: "A pack hunter: quick, goes for the weakest, leaps the line at a back-row target.",
     mind: "instinct",
     temperaments: ["hungry", "opportunistic", "coordinated", "reckless"],
@@ -995,6 +1016,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "tusker",
     kind: "beast",
     role: "brute",
+    habitats: ["grassland", "forest", "swamp"],
     summary: "A boar or grazer that charges: lowers its head for a turn, then hits like a cart.",
     mind: "instinct",
     temperaments: ["reckless", "territorial"],
@@ -1018,6 +1040,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "great-beast",
     kind: "beast",
     role: "tank",
+    habitats: ["forest", "mountain", "snow"],
     summary: "A bear, ape or ox of a thing: soaks blows, mauls, shrugs off small hurts.",
     mind: "instinct",
     temperaments: ["territorial", "protective", "reckless"],
@@ -1041,6 +1064,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "raptor",
     kind: "beast",
     role: "skirmisher",
+    habitats: ["mountain", "coast", "grassland", "desert"],
     summary: "A flier: hangs back out of reach and dives on anyone, then climbs again.",
     mind: "instinct",
     temperaments: ["opportunistic", "hungry", "cautious"],
@@ -1066,6 +1090,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "stinger",
     kind: "vermin",
     role: "skirmisher",
+    habitats: ["forest", "swamp", "desert", "underground", "ruins"],
     summary: "Wasps, centipedes, ticks, spiders: venom that keeps hurting after the bite.",
     mind: "instinct",
     temperaments: ["hungry", "territorial", "opportunistic"],
@@ -1090,6 +1115,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "serpent",
     kind: "beast",
     role: "brute",
+    habitats: ["swamp", "coast", "desert", "forest"],
     summary: "A snake or eel: poisons, then coils and holds a target down.",
     mind: "instinct",
     temperaments: ["patient", "hungry", "territorial"],
@@ -1112,6 +1138,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "stalker",
     kind: "beast",
     role: "skirmisher",
+    habitats: ["forest", "mountain", "snow", "desert", "underground"],
     summary: "An ambush predator: picks one victim, tears it open and won't let go.",
     mind: "cunning",
     temperaments: ["hungry", "patient", "opportunistic"],
@@ -1135,6 +1162,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "gel",
     kind: "ooze",
     role: "tank",
+    habitats: ["swamp", "underground", "ruins", "urban"],
     summary: "A mindless blob: steel sinks into it, fire and frost do not; corrodes armour.",
     mind: "mindless",
     temperaments: ["reckless"],
@@ -1167,6 +1195,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "thornling",
     kind: "plant",
     role: "hexer",
+    habitats: ["forest", "swamp", "ruins"],
     summary: "A rooted thing: stays back, snares with vines and clouds the air with spores.",
     mind: "mindless",
     temperaments: ["territorial", "patient"],
@@ -1192,6 +1221,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "bones",
     kind: "undead",
     role: "brute",
+    habitats: ["ruins", "underground"],
     summary: "A walking skeleton or stiff corpse: never breaks, never runs; a hammer undoes it.",
     mind: "mindless",
     temperaments: ["reckless", "fanatical"],
@@ -1213,6 +1243,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "gorger",
     kind: "undead",
     role: "brute",
+    habitats: ["ruins", "underground", "swamp"],
     summary: "A corpse-eater: its bite festers, so healing barely takes.",
     mind: "cunning",
     temperaments: ["hungry", "cruel", "cowardly"],
@@ -1234,6 +1265,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "shade",
     kind: "spirit",
     role: "caster",
+    habitats: ["ruins", "underground"],
     summary: "A ghost: steel passes through it; only light, magic and blessed weapons bite.",
     mind: "cunning",
     temperaments: ["cruel", "territorial", "patient"],
@@ -1257,6 +1289,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "grave-duelist",
     kind: "undead",
     role: "tank",
+    habitats: ["ruins", "underground"],
     summary: "A dead knight or swordsman still keeping an oath: fights fair, guards its own, hard to put down.",
     mind: "tactical",
     temperaments: ["honourable", "fanatical", "protective"],
@@ -1277,6 +1310,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "cinder-spirit",
     kind: "elemental",
     role: "caster",
+    habitats: ["desert", "mountain", "underground"],
     summary:
       "Living fire: drinks flame, shrugs off wood and metal, quenched by water and frost, smothered by earth; burns the whole party when grown.",
     mind: "instinct",
@@ -1301,6 +1335,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "rime-spirit",
     kind: "elemental",
     role: "caster",
+    habitats: ["snow", "mountain"],
     summary:
       "Living frost, of water's phase: drinks cold, shrugs off fire and metal, cracks under earth, wood and hammers.",
     mind: "instinct",
@@ -1324,6 +1359,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "storm-spirit",
     kind: "elemental",
     role: "caster",
+    habitats: ["mountain", "coast", "grassland"],
     summary:
       "Living lightning, of wood's phase: quick, drinks the storm, shrugs off earth and water, cut by metal and burnt out by fire.",
     mind: "instinct",
@@ -1351,6 +1387,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "grove-spirit",
     kind: "elemental",
     role: "caster",
+    habitats: ["forest"],
     summary:
       "Living wood: drinks growth, roots a target in place, shrugs off earth and water, felled by metal and burnt by fire; whips thorns over the party when grown.",
     mind: "instinct",
@@ -1375,6 +1412,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "clay-spirit",
     kind: "elemental",
     role: "brute",
+    habitats: ["mountain", "underground", "desert"],
     summary:
       "Living earth: slow and heavy at the front, drinks stone, shrugs off water and fire, split by wood, lightning, wind and metal; shakes the ground when grown.",
     mind: "instinct",
@@ -1398,6 +1436,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "tide-spirit",
     kind: "elemental",
     role: "caster",
+    habitats: ["coast", "swamp", "underground"],
     summary:
       "Living water: drinks the flood, drags the front row down, shrugs off fire and metal, dammed by earth and drunk by wood; brings a wave over the party when grown.",
     mind: "instinct",
@@ -1422,6 +1461,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "edge-spirit",
     kind: "elemental",
     role: "skirmisher",
+    habitats: ["mountain", "underground", "ruins"],
     summary:
       "Living metal: quick splinters and edges that strip armour, drinks iron, shrugs off wood and earth, melted by fire and rusted by water; a whirl of blades when grown.",
     mind: "instinct",
@@ -1447,6 +1487,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "gale-spirit",
     kind: "elemental",
     role: "skirmisher",
+    habitats: ["mountain", "grassland", "coast", "desert"],
     summary:
       "Living wind, of wood's phase: the quickest spirit, drinks the gale, rides over earth and water, cut by metal and burnt out by fire; a cyclone when grown.",
     mind: "instinct",
@@ -1471,6 +1512,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "fiend",
     kind: "fiend",
     role: "hexer",
+    habitats: ["ruins", "underground"],
     summary: "A small bargaining devil that grows into a great one: curses, bewitches, burns.",
     mind: "tactical",
     temperaments: ["cruel", "arrogant", "opportunistic"],
@@ -1493,6 +1535,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "drake",
     kind: "dragon",
     role: "brute",
+    habitats: ["mountain", "underground", "desert"],
     summary: "Dragonkind: claws for the front, a wind-up breath over the party once grown.",
     mind: "cunning",
     temperaments: ["territorial", "arrogant", "hungry"],
@@ -1514,6 +1557,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "lout",
     kind: "giant",
     role: "brute",
+    habitats: ["mountain", "forest", "snow", "underground"],
     summary: "A hulking brute: slow, throws rubble at the back row, flattens the front.",
     mind: "cunning",
     temperaments: ["reckless", "arrogant", "hungry"],
@@ -1537,6 +1581,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "night-courtier",
     kind: "undead",
     role: "skirmisher",
+    habitats: ["ruins", "urban"],
     summary: "A blood-drinking noble and its thralls: fast, drains life, bewitches the weak-willed.",
     mind: "genius",
     temperaments: ["arrogant", "cruel", "patient"],
@@ -1557,6 +1602,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "cutpurse",
     kind: "humanoid",
     role: "skirmisher",
+    habitats: ["urban", "ruins", "forest", "grassland"],
     summary: "A thief or raider: dirty tricks, quick knives, runs when the fight turns.",
     mind: "cunning",
     temperaments: ["opportunistic", "cowardly", "cruel"],
@@ -1581,6 +1627,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "sellsword",
     kind: "humanoid",
     role: "brute",
+    habitats: ["grassland", "forest", "desert", "mountain", "ruins", "urban"],
     summary: "A hired fighter or enforcer: hits hard, gets meaner as it bleeds.",
     mind: "cunning",
     temperaments: ["reckless", "cruel", "arrogant", "disciplined"],
@@ -1605,6 +1652,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "shieldbearer",
     kind: "humanoid",
     role: "tank",
+    habitats: ["urban", "ruins", "grassland"],
     summary: "A guard or trooper: holds the line, covers its friends, breaks armour.",
     mind: "tactical",
     temperaments: ["disciplined", "protective", "honourable"],
@@ -1630,6 +1678,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "shooter",
     kind: "humanoid",
     role: "shooter",
+    habitats: ["forest", "grassland", "mountain", "desert", "ruins", "urban"],
     summary: "An archer or gunner: stays back, picks off the weak, poisons or pins.",
     mind: "tactical",
     temperaments: ["patient", "cautious", "opportunistic"],
@@ -1653,6 +1702,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "adept",
     kind: "humanoid",
     role: "caster",
+    habitats: ["urban", "ruins", "underground"],
     summary: "A spellcaster, psion or hacker: elemental bolts from the back row, area fire once grown.",
     mind: "tactical",
     temperaments: ["arrogant", "methodical", "cautious"],
@@ -1675,6 +1725,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "cultist",
     kind: "humanoid",
     role: "hexer",
+    habitats: ["ruins", "underground", "urban", "swamp"],
     summary: "A zealot of something dark: curses, rot and wither, never surrenders.",
     mind: "tactical",
     temperaments: ["fanatical", "cruel", "methodical"],
@@ -1697,6 +1748,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "field-medic",
     kind: "humanoid",
     role: "healer",
+    habitats: ["urban", "ruins", "grassland"],
     summary: "A healer on the wrong side: patches its friends; take it down first or the fight drags.",
     mind: "tactical",
     temperaments: ["supportive", "cautious", "fanatical"],
@@ -1721,6 +1773,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "captain",
     kind: "humanoid",
     role: "leader",
+    habitats: ["urban", "ruins", "grassland", "mountain"],
     summary: "Whoever gives the orders: rallies and speeds its side; drop it and the rest waver.",
     mind: "tactical",
     temperaments: ["coordinated", "disciplined", "arrogant"],
@@ -1744,6 +1797,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "brawler",
     kind: "humanoid",
     role: "skirmisher",
+    habitats: ["urban", "mountain", "grassland"],
     summary: "A martial artist: fast hands, acts often, hits where it hurts.",
     mind: "tactical",
     temperaments: ["honourable", "arrogant", "disciplined"],
@@ -1766,6 +1820,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "warder",
     kind: "construct",
     role: "tank",
+    habitats: ["ruins", "underground"],
     summary: "A made guardian: armour like a wall, no mind to scare, falls to the right hammer or spell.",
     mind: "mindless",
     temperaments: ["territorial"],
@@ -1789,6 +1844,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "drone",
     kind: "machine",
     role: "shooter",
+    habitats: ["urban", "ruins", "desert", "grassland"],
     summary: "A flying machine: stays back, shoots anyone, paints targets for the others.",
     mind: "mindless",
     temperaments: ["coordinated", "patient"],
@@ -1812,6 +1868,7 @@ export const MARINARA_BESTIARY: readonly MarinaraEnemyFamily[] = [
     id: "turret",
     kind: "machine",
     role: "shooter",
+    habitats: ["urban", "ruins", "underground"],
     summary: "A fixed gun: never moves, never misses its arc, heavy aimed shots with a warning.",
     mind: "mindless",
     temperaments: ["territorial", "patient"],
@@ -2374,11 +2431,15 @@ export function marinaraBuildEncounter(input: {
   boss?: boolean;
   /** Families the story wants (a cult's hideout, a wolf pack); the others are picked at random. */
   families?: readonly string[];
+  /** The only families the fight may draw on (a place's spawn table); every family of the setting when absent. */
+  pool?: readonly string[];
 }): { foes: MarinaraEncounterFoe[]; threat: number } {
   const { party, random } = input;
   const level = Math.max(1, Math.min(MARINARA_LEVEL_CAP, Math.round(party.level)));
   const budget = MARINARA_ENCOUNTER_BUDGET[input.difficulty] * party.size;
-  const pool = marinaraBestiaryFor(input.setting, level);
+  const pool = marinaraBestiaryFor(input.setting, level).filter(
+    (family) => !input.pool || input.pool.includes(family.id),
+  );
   if (!pool.length) return { foes: [], threat: 0 };
   // A Brutal game lifts the whole fight a few levels above the party, where each family's names reach.
   const lift = party.brutal ? Math.floor(random() * (MARINARA_LEVEL_GAP_BRUTAL.lift + 1)) : 0;
@@ -2577,6 +2638,11 @@ export function marinaraFitEncounter(input: {
   party: MarinaraEncounterParty;
   foes: readonly MarinaraEncounterFoe[];
   difficulty: MarinaraEncounterDifficulty;
+  /** Foes from a place's own spawn table (a dungeon, a region): their levels are the place's, fixed when
+   *  the world was made, and never pulled toward the party's or lowered a tier. The fight's caps still
+   *  hold, and over its budget it shrinks (the boss's escort drops, costliest first); the last foe and a
+   *  boss always stay, so a place above the party stays dangerous. */
+  fixedLevels?: boolean;
 }): { foes: MarinaraEncounterFoe[]; threat: number; changes: string[] } {
   const { setting, party } = input;
   const level = Math.max(1, Math.min(MARINARA_LEVEL_CAP, Math.round(party.level)));
@@ -2592,7 +2658,12 @@ export function marinaraFitEncounter(input: {
     const gap = marinaraLevelGap(party);
     const above = asked.tier === "boss" ? gap.bossAbove : gap.above;
     const below = asked.tier === "boss" ? gap.bossBelow : gap.below;
-    let foeLevel = Math.max(level - below, Math.min(level + above, Math.round(asked.level)));
+    let foeLevel = input.fixedLevels
+      ? Math.max(
+          1,
+          Math.min(MARINARA_LEVEL_CAP + (party.brutal ? MARINARA_LEVEL_GAP_BRUTAL.lift : 0), Math.round(asked.level)),
+        )
+      : Math.max(level - below, Math.min(level + above, Math.round(asked.level)));
     foeLevel = Math.max(family.levels[0], Math.min(marinaraEnemySettingCap(family, setting), foeLevel));
     if (!marinaraEnemyName(family, setting, foeLevel)) {
       changes.push(`Dropped ${family.id}: not found in ${setting} near level ${level}.`);
@@ -2604,7 +2675,7 @@ export function marinaraFitEncounter(input: {
       tier &&
       (!family.tiers.includes(tier) ||
         foeLevel < MARINARA_TIER_RULES[tier].minLevel ||
-        (tier === "boss" && foeLevel < level - gap.bossBelow) ||
+        (tier === "boss" && !input.fixedLevels && foeLevel < level - gap.bossBelow) ||
         (perTier[tier] ?? 0) >= MARINARA_TIER_RULES[tier].maxPerFight)
     )
       tier = DEMOTE[tier];
@@ -2634,6 +2705,16 @@ export function marinaraFitEncounter(input: {
   const order = ["trivial", "easy", "normal", "hard", "deadly", "beyond"] as const;
   const over = () => order.indexOf(marinaraEncounterRating(total(), party)) > order.indexOf(input.difficulty);
   for (let guard = 0; guard < 40 && foes.length && over(); guard++) {
+    // A place's own foes keep their levels and tiers: the fight shrinks instead, the costliest of the
+    // boss's escort first, and the last foe (or a boss) stays however strong it is.
+    if (input.fixedLevels) {
+      const escort = foes.filter((foe) => foe.tier !== "boss");
+      if (foes.length <= 1 || !escort.length) break;
+      const top = escort.sort((a, b) => worth(b) - worth(a))[0]!;
+      foes.splice(foes.indexOf(top), 1);
+      changes.push(`Dropped ${top.familyId} to fit a ${input.difficulty} fight.`);
+      continue;
+    }
     // A boss the story asked for stays: those around it give way first (playtest 2026-11-01: the boss
     // was the costliest foe, so it was the one cut, and only 5 of 16 boss fights had one).
     const escort = foes.filter((foe) => foe.tier !== "boss");

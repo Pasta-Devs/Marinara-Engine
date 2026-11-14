@@ -33,7 +33,9 @@ import {
   type CharacterFacing,
   type TilePack,
   type WorldPlace,
-  worldSeason,
+  worldDrawnSeason,
+  environmentHeldCells,
+  type GameLightHold,
   worldSeasonCells,
   type WorldSeason,
 } from "@marinara-engine/shared";
@@ -166,13 +168,23 @@ export function WorldOverworld({
   const lit = darkness > 0.25;
 
   // ── The family's tiles: drawn plain until (and unless) they load ──
-  // Drawn in the season of the game's day (seasonal tiles, where the pack has them).
-  const drawTile = useOverworldAtlas(family, tilePack, time ? worldSeason(time.day) : undefined);
+  // Drawn in the season of the game's day (seasonal tiles, where the pack has them), as the map's climate
+  // has it: the south's summer in the north's winter, no winter at all in the tropics (climate.ts).
+  const day = time?.day;
+  const drawnSeason = useMemo(() => (day ? worldDrawnSeason(game, day) : undefined), [game, day]);
+  const drawTile = useOverworldAtlas(family, tilePack, drawnSeason);
   // The places the story holds at a season of their own (1.351): each cell drawn in its nearest place's.
   const seasonsKey = JSON.stringify(overworld?.seasons ?? {});
   const heldCells = useMemo(
     () => worldSeasonCells(game, JSON.parse(seasonsKey) as Record<string, WorldSeason>),
     [game, seasonsKey],
+  );
+  // The places the Game Master holds at night or dusk (environment.ts): their cells drawn dark whatever
+  // the clock, as a cursed city of endless night.
+  const lightsKey = JSON.stringify(overworld?.lights ?? {});
+  const lightCells = useMemo(
+    () => environmentHeldCells(game, JSON.parse(lightsKey) as Record<string, GameLightHold>),
+    [game, lightsKey],
   );
 
   // ── What is drawn once: the ground and its ways, then the settlements ──
@@ -420,6 +432,21 @@ export function WorldOverworld({
       ctx.imageSmoothingEnabled = drawTile.image && resolution > scale * dpr;
       ctx.drawImage(ground, 0, 0, ground.width / resolution, ground.height / resolution);
       ctx.drawImage(markers, 0, 0, markers.width / resolution, markers.height / resolution);
+      if (lightCells) {
+        ctx.globalCompositeOperation = "multiply";
+        for (let at = 0; at < lightCells.length; at++) {
+          const light = lightCells[at];
+          if (light !== "dark" && light !== "dusk") continue;
+          ctx.fillStyle = light === "dark" ? "rgba(30, 36, 92, 0.75)" : "rgba(150, 90, 120, 0.45)";
+          ctx.fillRect(
+            (at % world.width) * OVERWORLD_TILE,
+            Math.floor(at / world.width) * OVERWORLD_TILE,
+            OVERWORLD_TILE,
+            OVERWORLD_TILE,
+          );
+        }
+        ctx.globalCompositeOperation = "source-over";
+      }
       ctx.imageSmoothingEnabled = false;
       const party = partyRef.current;
       if (party) {
@@ -443,7 +470,7 @@ export function WorldOverworld({
       }
       if (layerRef.current) layerRef.current.style.transform = `translate(${-cam.x}px, ${-cam.y}px)`;
     },
-    [beyond, darkness, drawTile, ground, markers, resolution, scale, size.height, size.width],
+    [beyond, darkness, drawTile, ground, lightCells, markers, resolution, scale, size.height, size.width, world.width],
   );
 
   useEffect(() => {

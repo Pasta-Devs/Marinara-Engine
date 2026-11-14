@@ -663,6 +663,13 @@ export const gameDungeonMapSchema = z
       .max(32)
       .optional(),
     seed: z.number().int(),
+    /** A floor of a place with several (owner 2026-11-13: separate maps per floor): which floor, of how
+     *  many, the first floor's seed every floor is made from, and where the way down is (none on the
+     *  deepest). On a floor below the first, the way in is the way up. */
+    floor: z.number().int().min(1).max(9).optional(),
+    floors: z.number().int().min(1).max(9).optional(),
+    siteSeed: z.number().int().optional(),
+    down: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
     // As small as a map made by hand may be (WORLD_MAP_MAX's floor, map editor Phase 3).
     width: z.number().int().min(4).max(64),
     height: z.number().int().min(4).max(48),
@@ -764,10 +771,85 @@ export function dungeonFromGameDungeonMap(map: GameDungeonMap): DungeonMap {
 /** Whether the party stands on the way out: the way-out prop, or (a map made by hand has none) where it
  *  came in. */
 export function gameDungeonOnWayOut(map: GameDungeonMap): boolean {
+  // Below the first floor the way in leads up, never out; the way down is never the way out.
+  if ((map.floor ?? 1) > 1 || gameDungeonOnWayDown(map)) return false;
   if (map.at.x === map.entrance.x && map.at.y === map.entrance.y) return true;
   // A map made by hand: its props are drawn only, a way-out prop among them too.
   if (map.hand) return false;
   return map.props[map.at.y * map.width + map.at.x] === String(DUNGEON_EXIT_PROP);
+}
+
+/** Whether the party stands on the way down to the next floor. */
+export function gameDungeonOnWayDown(map: GameDungeonMap): boolean {
+  return !!map.down && map.at.x === map.down.x && map.at.y === map.down.y;
+}
+
+/** Whether the party stands on the way up, on a floor below the first. */
+export function gameDungeonOnWayUp(map: GameDungeonMap): boolean {
+  return (map.floor ?? 1) > 1 && map.at.x === map.entrance.x && map.at.y === map.entrance.y;
+}
+
+/** A floor's own seed, from the first floor's: the first floor keeps it. */
+export function dungeonFloorSeed(siteSeed: number, floor: number): number {
+  return floor <= 1 ? siteSeed : (Math.imul(siteSeed ^ 0x2545f491, 0x9e3779b1) + floor * 0x6d2b79f5) >>> 0;
+}
+
+/**
+ * One floor of a place as the game keeps it (owner 2026-11-13: separate maps per floor), the party at its
+ * way in. Above the deepest, the way down stands in the area furthest from the way in, on a floor cell
+ * against a wall where it can be; the way in of a floor below the first is its way up.
+ */
+export function gameDungeonMapForFloor(input: {
+  setId: string;
+  name: string;
+  siteSeed: number;
+  floor: number;
+  floors: number;
+  id: string;
+  size?: DungeonMapSize;
+}): GameDungeonMap {
+  const floor = Math.max(1, Math.min(input.floors, input.floor));
+  const made = generateDungeonMap(input.setId, dungeonFloorSeed(input.siteSeed, floor), input.size ?? "medium");
+  const kept = gameDungeonMapFromDungeon(made, input.name, input.id);
+  if (input.floors <= 1) return kept;
+  const floors = { floor, floors: input.floors, siteSeed: input.siteSeed };
+  if (floor >= input.floors) return { ...kept, ...floors };
+  // Steps from the way in, to find the furthest area and the furthest floor cell in it.
+  const steps = new Int32Array(made.width * made.height).fill(-1);
+  const start = made.entrance.y * made.width + made.entrance.x;
+  steps[start] = 0;
+  const queue = [start];
+  for (let head = 0; head < queue.length; head++) {
+    const cell = queue[head]!;
+    const x = cell % made.width;
+    const y = (cell - x) / made.width;
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      if (!dungeonWalkable(made, x + dx, y + dy)) continue;
+      const next = (y + dy) * made.width + x + dx;
+      if (steps[next] !== -1) continue;
+      steps[next] = steps[cell]! + 1;
+      queue.push(next);
+    }
+  }
+  let down: { x: number; y: number } | null = null;
+  let best = -1;
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i]! <= 0 || made.props[i] !== -1) continue;
+    const x = i % made.width;
+    const y = (i - x) / made.width;
+    // The furthest cell, one against a wall above it first (stairs set into the rock, as the way in is).
+    const score = steps[i]! * 2 + (y > 0 && made.ground[(y - 1) * made.width + x] === "wall" ? 1 : 0);
+    if (score > best) [down, best] = [{ x, y }, score];
+  }
+  if (!down) return { ...kept, ...floors };
+  const props = [...kept.props];
+  props[down.y * kept.width + down.x] = String(DUNGEON_EXIT_PROP);
+  return { ...kept, ...floors, props: props.join(""), down };
 }
 
 /** A place's hand-made map (map editor Phase 3) as the map a game keeps: its cells, its props by slot
@@ -928,7 +1010,18 @@ export function gameDungeonMapPromptText(map: GameDungeonMap, hour?: number): st
       : gameDungeonSpotsAt(map, hour).flatMap((spot) =>
           spot.people.length ? [`${spot.name}: ${spot.people.map((person) => person.name).join(", ")}`] : [],
         );
-  return `MAP: ${map.name}. ${dungeonMapWords(cells)} The party is ${where}.${here.length ? ` Here now: ${here.join("; ")}.` : ""}`;
+  // A place of several floors: which one, and where the ways up and down are.
+  const floors =
+    map.floors && map.floors > 1
+      ? ` This is floor ${map.floor ?? 1} of ${map.floors}${
+          map.down
+            ? `; the way down is in ${dungeonAreaAt(map, map.down.x, map.down.y) ? `area ${dungeonAreaAt(map, map.down.x, map.down.y)}` : "a passage"}`
+            : "; there is no deeper floor"
+        }${(map.floor ?? 1) > 1 ? ", and the way the party came in leads back up" : ""}.`
+      : "";
+  return `MAP: ${map.name}.${floors} ${dungeonMapWords(cells)} The party is ${where}${
+    gameDungeonOnWayDown(map) ? ", at the way down" : gameDungeonOnWayUp(map) ? ", at the way up" : ""
+  }.${here.length ? ` Here now: ${here.join("; ")}.` : ""}`;
 }
 
 /** A walk on the map, told to the Game Master on the next turn. */

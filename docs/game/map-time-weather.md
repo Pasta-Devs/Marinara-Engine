@@ -72,7 +72,30 @@ In a game with a world, time also passes on its own:
 
 ## Weather
 
-The game tracks weather with fixed math, not the AI. Weather depends on the biome (the kind of place the party is in, such as desert, arctic, coastal or mountain) and the season. Examples are clear, cloudy, rain, storm, snow, blizzard, fog and sandstorm. Weather changes most often when you travel or take a long rest, sometimes when you explore, and rarely otherwise. It flavors how the GM describes each scene.
+The game tracks weather with fixed math, not the AI. Examples are clear, cloudy, rain, storm, snow, blizzard, fog, heat wave and sandstorm. The weather flavors how the GM describes each scene.
+
+In a game with a generated world, the weather comes from the climate where the party stands on the map:
+
+- **The land around the party.** Deserts are dry and rarely rain, jungles are wet and warm, snowfields are cold, and mountains are colder and foggier than the valleys below them.
+- **Latitude and the sea.** On a map of a whole world, the top and bottom are near the poles and the middle is near the equator. How far the sea is counts too: coasts have mild winters, and places far inland have hot summers and bitter winters.
+- **The local season.** South of the equator, summer comes in the calendar's winter. Near the equator the year has a wet season and a dry season instead of winter.
+- **Weather that drifts.** Weather systems move across the map over hours and days, so the sky doesn't jump from a heat wave to fog in one step, and places near each other share their weather. Showers and thunderstorms in warm climates build in the afternoon.
+
+When the story or the GM calls for a weather the place can't have right now, such as snow in a hot desert in summer, the game uses the nearest weather that fits instead (a cold, hard wind, in that case). The GM is told the climate and what can't happen there.
+
+A game without a generated world guesses the climate from the name of the location, such as "desert", "harbor" or "mountain".
+
+### Places held outside nature
+
+A curse, a god or another great power can lock a place to one environment: a city sunk in endless night, a forest kept in autumn, a valley under snow that never melts. The GM sets such a lock in the story, and it beats the climate and the clock until the GM lifts it:
+
+- **Weather.** The place keeps the weather it was locked to, even one its climate could never have, such as snow in a desert.
+- **Season.** The place stays in one season while the rest of the world moves on.
+- **Light.** The place is always night, dusk or day. The scene's lighting and weather effects follow, and the overworld map shades the held land.
+
+A world can start with locks already in place. When you build a world from your lorebooks, any place the lore says is held outside nature, such as "the Sallow Vale is always autumn" or "Gotham never sees the sun", is locked from the first day. The same goes for a lock the setting describes. The GM is told about these places and can still lift a lock in the story.
+
+A lock covers the place and everything inside it, so locking a region also locks its towns. When locks overlap, the nearest place wins, so a town inside a cursed region can be held to its own weather. A lock can also cover the whole world. The scene can't lift a lock by asking for other weather; only the GM can.
 
 To see weather on screen, turn on **Dynamic weather effects (rain, snow, fog, etc.)** in the appearance settings. It is on by default. Rain, snow and fog particles then appear over the game and match the weather and time of day. See [Appearance Settings](../appearance/appearance-settings.md).
 

@@ -29,6 +29,7 @@ import { WORLD_PEOPLE_DEFAULTS, worldCast, type WorldPerson } from "./people.js"
 import { worldBuildingHasRooms, worldInteriorEditIssues, worldInteriorUse, worldNamedPlaceUse } from "./interior.js";
 import type { WorldInteriorUse } from "./furniture.js";
 import { worldMapEditIssues, worldSiteEditIssues } from "./place-maps.js";
+import { worldBandEditIssues } from "./spawns.js";
 import { worldIsSite } from "./sites.js";
 
 export const WORLD_TOWN_KINDS = Object.freeze(["landmark", "place", "work", "home"] as const);
@@ -251,6 +252,8 @@ export function worldTownEditIssues(game: GameWorld, edits: WorldEdits): string[
   if (edits.maps?.length) issues.push(...worldMapEditIssues(next, edits));
   // Sites locked or opened by hand.
   if (edits.sites?.length) issues.push(...worldSiteEditIssues(next, edits));
+  // Level bands set by hand for settlements' land (region spawns).
+  if (edits.bands?.length) issues.push(...worldBandEditIssues(next, edits));
   return [...new Set(issues)].slice(0, 20);
 }
 
