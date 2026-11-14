@@ -52,7 +52,7 @@ Drag a tool by its handle to reorder the list. The order is for display only. Yo
 2. Click the folder icon on a tool row to open **Move to folder**.
 3. Pick the folder. To move a tool out, pick **No folder (top level)**.
 
-Click a folder name to expand or collapse it. Turn the folder switch off to pause its tools: the AI is not offered any of them in any chat, and they cannot be picked in a chat's or agent's tool list. The header shows **Paused**. Each tool keeps its own switch position, and a gray switch in the on position marks a tool that is on but paused by its folder. Deleting the folder moves its tools to the top level, where they follow their own switches.
+Click a folder name to expand or collapse it. Turn the folder switch off to pause its tools: the AI is not offered any of them in any chat, and they cannot be picked in a chat's or agent's tool list. The header shows **Paused**. Each tool keeps its own switch position. A tool that is on but sits in a paused folder shows a gray switch and a **Paused by folder** label. When you resume the folder, the tools you had turned on are offered again and the ones you had turned off stay off. Deleting the folder moves its tools to the top level, where they follow their own switches.
 
 With folders, the list is grouped by folder. Click **Manual order** to see the full list and drag tools by their handles.
 

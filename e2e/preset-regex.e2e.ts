@@ -332,7 +332,7 @@ test("regex library folders pause chat display and bulk toggles keep each script
 
     await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
-    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(0);
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
     await expect(
       folder.getByRole("checkbox", { name: "Run Pack format (paused by folder)", exact: true }),
     ).toBeChecked();
@@ -458,6 +458,7 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     await expect(
       folder.getByRole("checkbox", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
     ).toBeChecked();
+    await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
     await expect.poll(toolState).toEqual([
       [true, true],
       [false, true],
