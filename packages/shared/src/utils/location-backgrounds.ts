@@ -251,9 +251,13 @@ export function resolveLocationBackgroundPin(
     { text: locationText, gapText: gapLocationText },
     { text: normalizeLocationText(currentPlace?.name), gapText: gapAwareLocationText(currentPlace?.name) },
   ].filter((entry) => entry.text);
-  // Names of the chat's people: words a gapped name can't skip over.
+  // Owners a gapped name can't skip over: the chat's people, and anyone written as "Mara's" in the place.
+  const possessiveOwners = Array.from(
+    (context.location ?? "").matchAll(/(\p{L}[\p{L}\p{N}-]*)['‘’ʼ`´]s?(?![\p{L}\p{N}])/gu),
+    (found) => found[1],
+  );
   const ownerWords = new Set(
-    [context.userName, context.speakerName, ...(context.characterNames ?? [])]
+    [context.userName, context.speakerName, ...(context.characterNames ?? []), ...possessiveOwners]
       .flatMap((name) => normalizeLocationText(readString(name)).split(" "))
       .filter(Boolean),
   );
