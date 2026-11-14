@@ -24,6 +24,7 @@ import {
   worldHistory,
   worldPlaceByName,
   worldRegionBand,
+  worldWithStoryBands,
   worldSiteAnchor,
   worldCellHabitats,
   type DungeonSiteFate,
@@ -36,6 +37,8 @@ import {
   type MarinaraBestiarySetting,
   type MarinaraEncounterFoe,
 } from "@marinara-engine/shared";
+import type { DB } from "../../db/connection.js";
+import { gameRepliesBefore } from "./game-market.service.js";
 import { loadRulesetRegistry, resolveGameRuleset } from "./ruleset-registry.service.js";
 
 export interface DungeonSiteHere {
@@ -92,6 +95,8 @@ export function newDungeonSiteState(
   partyPlace: string | undefined,
   partyLevel: number | undefined,
   difficulty?: string,
+  /** The Game Master's replies so far: their `[danger:]` tags set the bands the story changed. */
+  replies: readonly string[] = [],
 ): GameDungeonSiteState {
   const origin = dungeonSiteOrigin(map.set, map.name);
   const place =
@@ -104,7 +109,7 @@ export function newDungeonSiteState(
   // With no world to read, the land is where the party first found the place.
   const region =
     world && at
-      ? worldRegionBand(world, at, difficulty)
+      ? worldRegionBand(worldWithStoryBands(world, replies), at, difficulty)
       : { low: Math.max(1, Math.round(partyLevel ?? 1)), high: Math.max(1, Math.round(partyLevel ?? 1)) + 3 };
   const anchor = world && place ? worldSiteAnchor(world, place) : undefined;
   const fate = world ? dungeonSiteFate(worldHistory(world), map.name, anchor?.id) : undefined;
@@ -127,12 +132,22 @@ export function newDungeonSiteState(
   return { band: dungeonSiteBand(origin, region, floors), ...(fate ? { fate } : {}), cleared: {} };
 }
 
+/** The Game Master's replies for the band of a site the party has not been in before (the story's
+ *  `[danger:]` changes count, as the region's own spawns read them); none once its band is kept. */
+export async function dungeonSiteReplies(db: DB, chatId: string, meta: Record<string, unknown>): Promise<string[]> {
+  const map = gameDungeonMapFromMetadata(meta);
+  if (!map || gameDungeonSitesFromMetadata(meta)[gameDungeonSiteKey(map)]) return [];
+  return (await gameRepliesBefore(db, chatId)).all;
+}
+
 /** The site of the map the party is on, with its areas and state; null when there is none to have foes. */
 export function dungeonSiteHere(input: {
   meta: Record<string, unknown>;
   setup: Record<string, unknown> | null | undefined;
   world: GameWorld | null;
   partyPlace?: string;
+  /** The Game Master's replies so far, for a site's first band (see `dungeonSiteReplies`). */
+  replies?: readonly string[];
 }): DungeonSiteHere | null {
   const map = gameDungeonMapFromMetadata(input.meta);
   if (!map || map.hand || !map.rooms.length) return null;
@@ -142,7 +157,9 @@ export function dungeonSiteHere(input: {
   const kept = gameDungeonSitesFromMetadata(input.meta)[key];
   const difficulty =
     typeof input.setup?.difficulty === "string" ? normalizeGameDifficulty(input.setup.difficulty) : undefined;
-  const state = kept ?? newDungeonSiteState(input.world, map, input.partyPlace, gamePartyLevel(input.meta), difficulty);
+  const state =
+    kept ??
+    newDungeonSiteState(input.world, map, input.partyPlace, gamePartyLevel(input.meta), difficulty, input.replies);
   const site = dungeonSiteFor({
     setId: map.set,
     name: map.name,
