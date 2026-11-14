@@ -11,6 +11,7 @@ import {
 } from "@marinara-engine/shared";
 import { createCustomToolsStorage } from "../services/storage/custom-tools.storage.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { isCustomToolScriptEnabled } from "../config/runtime-config.js";
 
 const SCRIPT_TOOL_DISABLED_MESSAGE =
@@ -37,7 +38,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
     return storage.reorder(input.toolIds);
   });
 
-  app.put("/enabled", async (req, reply) => {
+  app.put("/enabled", { config: { rateLimit: CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool bulk toggle" })) return;
     const { toolIds, enabled } = bulkSetCustomToolsEnabledSchema.parse(req.body);
     if (!(await storage.setEnabled(toolIds, enabled))) {

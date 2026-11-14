@@ -2908,6 +2908,7 @@
   "functions.library.functionCount_other": "{{count}} functions",
   "functions.library.loadFailed": "Could not load function folders.",
   "functions.library.moveFunction": "Move {{name}} to folder",
+  "functions.library.pausedByFolder": "Paused by folder",
   "functions.library.pausedFunctionSwitch": "Offer {{name}} (paused by folder)",
   "functions.library.saveFailed": "Could not save the function change. Try again.",
   "game.characterSheet.regenerate.error": "Failed to regenerate the character sheet.",

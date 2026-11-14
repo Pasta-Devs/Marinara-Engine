@@ -2350,11 +2350,11 @@ function FunctionsSection({
             </span>
             {paused && enabled && (
               <span
-                title={localizeUi("regex.library.pausedByFolder")}
+                title={localizeUi("functions.library.pausedByFolder")}
                 className="inline-flex shrink-0 items-center gap-0.5 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
               >
                 <Pause size="0.5rem" aria-hidden="true" />
-                <span>{localizeUi("regex.library.pausedByFolder")}</span>
+                <span>{localizeUi("functions.library.pausedByFolder")}</span>
               </span>
             )}
             <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
