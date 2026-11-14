@@ -680,6 +680,7 @@ import {
   chatKeys,
   forgetRecentMessageContentEdit,
   forgetUnchangedMessageContentEdit,
+  getShownCachedMessages,
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
 } from "./use-chats";
@@ -1590,11 +1591,12 @@ export function useGenerate() {
         pendingSplitPartIds.includes(id) || [...splitPartIdsBefore.values()].some((ids) => ids.includes(id));
       // A reply held for a rewrite is shown by the live stream and joins the message list only after its
       // agent results, so while this stream is live they check the held reply (#7592). Any other reply
-      // the list does not show, such as one the user deleted, still turns its results away.
+      // the list does not show, such as one the user deleted, still turns its results away. Deletes are hidden
+      // on read while the cache keeps them, so the check reads the list as shown.
       const heldUnlistedReplies = new Map<string, Message>();
       const agentResultOwnsVisibleSwipe = (result: AgentResultEventPayload) =>
         agentResultMatchesVisibleSwipe(
-          getCachedMessages(qc, params.chatId),
+          getShownCachedMessages(qc, params.chatId),
           result,
           useChatStore.getState().abortControllers.get(params.chatId) === abortController
             ? heldUnlistedReplies
