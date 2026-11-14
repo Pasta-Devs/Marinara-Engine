@@ -401,7 +401,10 @@ export async function resolveGameTurnBranches(
       if (inferredWho) asked = { ...asked, who: inferredWho };
       const request = readRulesetDifficulty(asked, definition);
       // Only a named difficulty is read here; a check that wrote its own number was bounded above.
-      const groupRollers = context.ruleset ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
+      // A push (1.826) has no earlier reply to take its roll from here, whoever it names.
+      const branchPush = !!context.ruleset && !!request.push && rulesetDeclaresPush(context.ruleset.definition);
+      const groupRollers =
+        context.ruleset && !branchPush ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
       if (plan.check.request.dc === undefined && !isResolvableSkillCheckRequest(request, definition)) {
         refusal = "unrollable-check";
       } else if (groupRollers) {
@@ -427,13 +430,13 @@ export async function resolveGameTurnBranches(
       } else if (
         context.ruleset &&
         (rulesetCheckRollerRefused(context.ruleset, request.who) ||
-          (!!request.push && rulesetDeclaresPush(context.ruleset.definition)) ||
+          branchPush ||
           rulesetRefusesUntrained(context.ruleset, request))
       ) {
         // Not rolled, and so neither half happened. The ask is written back with the reason on it,
         // which settles it: the client's own fallback never rolls it a second time.
         const noRoller = rulesetCheckRollerRefused(context.ruleset, request.who);
-        refusal = noRoller ? "unknown-roller" : request.push ? "not-pushable" : "untrained-check";
+        refusal = branchPush ? "not-pushable" : noRoller ? "unknown-roller" : "untrained-check";
         edits.push({
           start: plan.check.start,
           end: plan.check.end,
@@ -457,7 +460,7 @@ export async function resolveGameTurnBranches(
               ...(request.bonusDice != null ? { bonus: request.bonusDice } : {}),
               ...(request.purpose ? { for: request.purpose } : {}),
               ...diceAsk(request),
-              reason: noRoller ? "unknown-roller" : request.push ? "not-pushable" : "untrained",
+              reason: branchPush ? "not-pushable" : noRoller ? "unknown-roller" : "untrained",
             },
           ),
         });

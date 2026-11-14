@@ -37,6 +37,7 @@ try {
   const [
     {
       buildSkillCheckRulesetContext,
+      checkRecordsAsHistoryNotes,
       resolveSkillCheckWithContext,
       resolveSkillCheckTagsInContent,
       rulesetPushableRoll,
@@ -316,6 +317,44 @@ try {
       lastReply: () => lastReply,
     });
     assert.equal(bought.results?.[0]?.rolls.length, result.rolls.length, "no gear dice join a push");
+    // A push with no difficulty and nothing to push is settled too, not left as an ask.
+    const bareNothing = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" push="true"]', {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      lastReply: () => "No check here.",
+    });
+    assert.match(bareNothing.content, /reason="not-pushable"/);
+    assert.equal(bareNothing.results?.length ?? 0, 0);
+    // A whole-party push has no one record to push.
+    const party = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Wrestle" who="party" dc="1" push="true"]',
+      {
+        loadContext: async () => context as any,
+        rulesetPinned: true,
+        lastReply: () => lastReply,
+      },
+    );
+    assert.match(party.content, /reason="not-pushable"/);
+    assert.equal(party.results?.length ?? 0, 0);
+    // The player's own record and a push naming the player's card are one roller.
+    const named = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" who="Wren" dc="1" push="true"]', {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      lastReply: () => lastReply,
+    });
+    assert.ok(named.results?.[0]?.pushed !== undefined, "Wren's push of Wren's roll");
+    // An earlier roll this pool could not have made is a push the roller declines: not kept.
+    const tooMany = lastReply.replace(/rolls="[^"]*"/, 'rolls="9|9|9"');
+    const declined = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" dc="1" push="true"]', {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      lastReply: () => tooMany,
+    });
+    assert.equal(declined.results?.length ?? 0, 0);
+    assert.match(declined.content, /reason="not-pushable"/);
+    // Read back to the Game Master as a plain line, never the raw ask.
+    assert.match(checkRecordsAsHistoryNotes(declined.content), /Wrestle check not pushed: there was no earlier roll/);
+
     // With no ruleset there is no push: one that names no difficulty is left as written, unrolled
     // (the client sends no check that has no difficulty either).
     const loose = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" push="true"]', {
