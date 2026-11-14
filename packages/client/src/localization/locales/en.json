@@ -1086,6 +1086,8 @@
   "chat.settings.locationPins.aliases": "Other names",
   "chat.settings.locationPins.aliasesPlaceholder": "Other names, comma separated",
   "chat.settings.locationPins.choosePicture": "Choose the picture for {{place}}",
+  "chat.settings.locationPins.fromGallery": "In {{name}}’s gallery, follows them into every chat",
+  "chat.settings.locationPins.galleryTitle": "From character and persona galleries",
   "chat.settings.locationPins.help": "Arriving at a pinned place shows its picture. The most specific name wins, so \"John's bedroom\" and \"{{user}}'s bedroom\" never mix. Reads the World State location or World Maps.",
   "chat.settings.locationPins.here": "Here",
   "chat.settings.locationPins.hereHint": "The story is at this place now",

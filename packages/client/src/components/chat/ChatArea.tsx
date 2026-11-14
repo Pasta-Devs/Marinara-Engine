@@ -81,6 +81,7 @@ import {
 } from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { useLocationBackgroundPinFollower } from "../../hooks/use-location-background-pins";
+import { useChatGalleryBackgroundPins } from "../../hooks/use-chat-gallery-owners";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -2224,6 +2225,7 @@ const LocalChatArea = memo(function LocalChatArea({
       : trackedMessage.characterId
         ? (characterMap.get(trackedMessage.characterId)?.name ?? null)
         : null;
+  const galleryBackgroundPins = useChatGalleryBackgroundPins(chat?.mode === "roleplay" ? chat : null);
   useLocationBackgroundPinFollower({
     chatId: chat?.id ?? null,
     chatMode: chat?.mode,
@@ -2231,6 +2233,7 @@ const LocalChatArea = memo(function LocalChatArea({
     userName: personaInfo?.name ?? null,
     characterNames: pinCharacterNames,
     speakerName: pinSpeakerName,
+    galleryPins: galleryBackgroundPins,
   });
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);

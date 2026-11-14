@@ -231,3 +231,38 @@ export function resolveLocationBackgroundPin(
   }
   return null;
 }
+
+/** Pin ids of gallery backgrounds start with this, so they never clash with the chat's own pins. */
+export const GALLERY_BACKGROUND_PIN_PREFIX = "gallery:";
+
+/**
+ * A character's or persona's gallery pictures labeled "background" with places, as pins.
+ * They follow the character into every chat. In a character's gallery {{char}} is that
+ * character; in a persona's, {{user}} is that persona. The chat's own pins go first, so they
+ * win a tie.
+ */
+export function galleryBackgroundPins(
+  owner: { type: "character" | "persona"; id: string; name: string },
+  images: ReadonlyArray<{ id: string; url: string; customKind?: string | null; customName?: string | null }>,
+): LocationBackgroundPin[] {
+  const pins: LocationBackgroundPin[] = [];
+  for (const image of images) {
+    if (image.customKind !== "background" || !image.url) continue;
+    const names = splitLocationBackgroundNames(image.customName ?? "").map((name) =>
+      owner.type === "character"
+        ? name.replace(/\{\{\s*char\s*\}\}/giu, owner.name)
+        : name.replace(/\{\{\s*user\s*\}\}/giu, owner.name),
+    );
+    if (names.length === 0) continue;
+    pins.push({ id: `${GALLERY_BACKGROUND_PIN_PREFIX}${image.id}`, names, placeId: null, background: image.url });
+  }
+  return pins;
+}
+
+/** Gallery file URL the server serves (and the chat stores as its background). */
+export function galleryBackgroundUrl(ownerType: "character" | "persona", ownerId: string, filePath: string): string {
+  const filename = filePath.split("/").pop() ?? "";
+  return ownerType === "character"
+    ? `/api/characters/${ownerId}/gallery/file/${encodeURIComponent(filename)}`
+    : `/api/characters/personas/${ownerId}/gallery/file/${encodeURIComponent(filename)}`;
+}

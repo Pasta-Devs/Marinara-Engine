@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Image, MapPin, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
+  GALLERY_BACKGROUND_PIN_PREFIX,
   LOCATION_BACKGROUND_PIN_LIMIT,
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   LOCATION_BACKGROUND_PINS_KEY,
   splitLocationBackgroundNames,
   type LocationBackgroundPin,
 } from "@marinara-engine/shared";
-import { useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { useChatOwnerBackgrounds, type OwnerBackground } from "../../hooks/use-chat-gallery-owners";
 import { readLocationBackgroundPins, useLocationPinStatus } from "../../hooks/use-location-background-pins";
 import { useSpatialContext } from "../../hooks/use-spatial-context";
 import { chatUsesWorldMaps } from "../../hooks/use-scene-shelter";
@@ -175,12 +177,59 @@ function PinRow({
   );
 }
 
+/** A background from a character's or persona's gallery: a pin that follows them into every chat. */
+function GalleryPinRow({ background, here }: { background: OwnerBackground; here: boolean }) {
+  const { t } = useTranslation();
+  const placesText = background.title;
+  return (
+    <div
+      data-location-pin={`${GALLERY_BACKGROUND_PIN_PREFIX}${background.imageId}`}
+      data-location-pin-here={here ? "true" : "false"}
+      className="flex items-center gap-2 border-b border-[var(--border)]/60 pb-2 last-of-type:border-b-0"
+    >
+      <span
+        className={cn(
+          "relative block w-16 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 max-sm:w-14",
+          here ? "ring-2 ring-[var(--primary)]" : "ring-[var(--border)]",
+        )}
+      >
+        <img
+          src={background.url}
+          alt=""
+          className="block aspect-[5/4] w-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+        {here && (
+          <span
+            className="absolute inset-x-0 bottom-0 bg-[var(--primary)] py-px text-center text-[0.5625rem] font-semibold uppercase tracking-wide text-[var(--primary-foreground)]"
+            title={t("chat.settings.locationPins.hereHint")}
+          >
+            {t("chat.settings.locationPins.here")}
+          </span>
+        )}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-xs font-medium text-[var(--foreground)]" title={placesText}>
+          {placesText}
+        </span>
+        <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+          {t("chat.settings.locationPins.fromGallery", { name: background.owner.name })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** Chat settings > Background: pictures pinned to story places (Roleplay). */
 export function LocationBackgroundPins({ chatId, metadata }: { chatId: string; metadata: unknown }) {
   const { t } = useTranslation();
   const updateMeta = useUpdateChatMetadata();
   const pins = readLocationBackgroundPins(metadata);
   const status = useLocationPinStatus();
+  const { data: chat } = useChat(chatId);
+  // Gallery backgrounds that name places follow their character or persona into every chat.
+  const galleryPlaces = useChatOwnerBackgrounds(chat).filter((background) => background.places);
   const chatBackground = useUIStore((state) => state.chatBackground);
   const mapsActive = chatUsesWorldMaps(metadata);
   const spatial = useSpatialContext(chatId, mapsActive);
@@ -260,6 +309,20 @@ export function LocationBackgroundPins({ chatId, metadata }: { chatId: string; m
           </button>
         )}
       </div>
+      {galleryPlaces.length > 0 && (
+        <>
+          <span className="pt-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            {t("chat.settings.locationPins.galleryTitle")}
+          </span>
+          {galleryPlaces.map((background) => (
+            <GalleryPinRow
+              key={`${background.owner.type}:${background.owner.id}:${background.imageId}`}
+              background={background}
+              here={herePinId === `${GALLERY_BACKGROUND_PIN_PREFIX}${background.imageId}`}
+            />
+          ))}
+        </>
+      )}
       {hereText && (
         <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]" title={hereText}>
           {t("chat.settings.locationPins.now", { place: hereText })}

@@ -1184,7 +1184,11 @@ export function BackgroundPicker({
               <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.backgroundpicker.fromCharacterGalleries")}
               </span>
-              <div className="grid grid-cols-3 gap-2.5">
+              {/* ov- classes and an inline grid: Chat settings flattens plain grids of buttons into chips. */}
+              <div
+                className="ov-owner-backgrounds gap-2.5"
+                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+              >
                 {ownerBackgrounds.map((background) => {
                   const isSelected = background.url === previewUrl;
                   return (
@@ -1204,7 +1208,7 @@ export function BackgroundPicker({
                             })
                           : background.owner.name
                       }
-                      className="group flex min-w-0 flex-col gap-1.5 text-left"
+                      className="ov-owner-background group flex min-w-0 flex-col gap-1.5 text-left"
                     >
                       <img
                         src={background.url}

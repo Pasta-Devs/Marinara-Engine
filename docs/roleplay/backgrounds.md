@@ -126,6 +126,19 @@ What happens:
 
 If it did not work: check that **Story is at** under the list shows the place, and that one of the pin's names appears in it word for word.
 
+### Backgrounds that follow a character
+
+A picture in a character's (or persona's) **Gallery** can be marked as a background. It then shows up in every chat that character is in, and needs no pins in each chat.
+
+1. Open the character's **Gallery**, click the tag button on a picture and choose **Use as background**.
+2. Type the places it shows, separated by commas, such as `{{char}}'s bedroom, {{char}}'s room`. In a character's gallery `{{char}}` is that character; in a persona's, `{{user}}` is that persona. Leave it empty if the picture isn't one place.
+
+In a chat with that character, **Chat Settings > Background** lists these pictures under **From character and persona galleries**: click one to use it. The ones that name places also work like pinned places, listed under **Pinned places**. A pin set in the chat itself wins over a gallery picture with the same name.
+
+From a chat's **Gallery**, the person button on a picture adds it to the gallery of a character or persona in the chat. Its label comes along. It isn't copied, and it stays in their gallery when the chat is deleted. Exporting a character keeps these labels.
+
+Weather versions (rain or snow painted into the picture) are made only for pictures in the Backgrounds library. An outdoor gallery background still gets the moving weather drawn over it.
+
 ## Your library and blur
 
 The images you pick from live in the same **Backgrounds** section. Importing, tags, renaming, deleting, the **Background Blur** slider and the default backdrop for new Roleplay chats are in [Chat Backgrounds](../appearance/chat-backgrounds.md).

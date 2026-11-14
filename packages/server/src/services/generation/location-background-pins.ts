@@ -8,12 +8,15 @@
 // ──────────────────────────────────────────────
 
 import {
+  galleryBackgroundPins,
+  galleryBackgroundUrl,
   LOCATION_BACKGROUND_PINS_KEY,
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   normalizeLocationBackgroundPins,
   normalizeLocationText,
   resolveLocationBackgroundPin,
   type LocationBackgroundMatch,
+  type LocationBackgroundPin,
   type ResolvedOwnerSpatialProjection,
 } from "@marinara-engine/shared";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -28,11 +31,43 @@ export type PinnedSceneBackground = {
 };
 
 /** Pins only drive the Roleplay background (Game Mode's backgrounds come from its own scene tags). */
-export function locationBackgroundPinsApply(chatMode: unknown, chatMetadata: Record<string, unknown>): boolean {
+export function locationBackgroundPinsApply(
+  chatMode: unknown,
+  chatMetadata: Record<string, unknown>,
+  galleryPins: readonly LocationBackgroundPin[] = [],
+): boolean {
   return (
     String(chatMode ?? "") === "roleplay" &&
-    normalizeLocationBackgroundPins(chatMetadata[LOCATION_BACKGROUND_PINS_KEY]).length > 0
+    (normalizeLocationBackgroundPins(chatMetadata[LOCATION_BACKGROUND_PINS_KEY]).length > 0 || galleryPins.length > 0)
   );
+}
+
+type GalleryRow = { id: string; filePath: string; customKind?: string | null; customName?: string | null };
+
+/**
+ * Background pictures (with places) from the galleries of the chat's characters and persona,
+ * as pins: they follow the character into every chat.
+ */
+export async function loadGalleryBackgroundPins(args: {
+  characters: ReadonlyArray<{ id: string; name: string }>;
+  persona: { id: string; name: string } | null;
+  characterGallery: { listByCharacterId(id: string): Promise<GalleryRow[]> };
+  personaGallery: { listByPersonaId(id: string): Promise<GalleryRow[]> };
+}): Promise<LocationBackgroundPin[]> {
+  const toImages = (type: "character" | "persona", ownerId: string, rows: GalleryRow[]) =>
+    rows.map((row) => ({ ...row, url: galleryBackgroundUrl(type, ownerId, row.filePath) }));
+  const pins: LocationBackgroundPin[] = [];
+  for (const character of args.characters) {
+    const rows = await args.characterGallery.listByCharacterId(character.id).catch(() => [] as GalleryRow[]);
+    pins.push(...galleryBackgroundPins({ type: "character", ...character }, toImages("character", character.id, rows)));
+  }
+  if (args.persona) {
+    const rows = await args.personaGallery.listByPersonaId(args.persona.id).catch(() => [] as GalleryRow[]);
+    pins.push(
+      ...galleryBackgroundPins({ type: "persona", ...args.persona }, toImages("persona", args.persona.id, rows)),
+    );
+  }
+  return pins;
 }
 
 /** The World Maps chain (outermost first) as places with parents, for walking up to a pinned building. */
@@ -56,9 +91,14 @@ export function pinnedSceneBackground(args: {
   speakerName?: string | null;
   weather?: string | null;
   weatherVersions?: boolean;
+  /** Background pictures from the chat's characters' and persona's galleries (loadGalleryBackgroundPins). */
+  galleryPins?: readonly LocationBackgroundPin[];
 }): PinnedSceneBackground | null {
-  if (!locationBackgroundPinsApply(args.chatMode, args.chatMetadata)) return null;
-  const match = resolveLocationBackgroundPin(args.chatMetadata[LOCATION_BACKGROUND_PINS_KEY], {
+  const galleryPins = args.galleryPins ?? [];
+  if (!locationBackgroundPinsApply(args.chatMode, args.chatMetadata, galleryPins)) return null;
+  // The chat's own pins go first, so they win a tie with a gallery picture.
+  const pins = [...normalizeLocationBackgroundPins(args.chatMetadata[LOCATION_BACKGROUND_PINS_KEY]), ...galleryPins];
+  const match = resolveLocationBackgroundPin(pins, {
     location: args.location,
     placeId: args.projection?.currentLocationId ?? null,
     places: placesFromProjection(args.projection),
