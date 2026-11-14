@@ -128,6 +128,16 @@ try {
   assert.equal(johnRows.length, 1, "assigning again never duplicates");
   assert.equal(johnRows[0]?.customName, "John's bedroom", "assigning again refreshes the label");
 
+  const sameAgain = await assignChatPictureToGallery({
+    image: { ...tagged!, customName: "John's bedroom" },
+    target: { type: "character", id: "john" },
+    characterGallery,
+    personaGallery,
+    galleryRoot,
+  });
+  assert.equal(sameAgain.ok && sameAgain.labelUpdated, false, "an unchanged label is not reported as updated");
+  assert.equal((await characterGallery.listByCharacterId("john")).length, 1);
+
   // The chat picture's label was removed: re-assigning keeps the gallery's own label and says so
   // (the toast must not claim a label update).
   const unlabeledAgain = await assignChatPictureToGallery({
