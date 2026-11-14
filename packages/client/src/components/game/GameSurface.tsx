@@ -5467,6 +5467,7 @@ function GameSurfaceComponent({
             (isEngineRollableSkillCheckTag(sc) &&
             !sc.reason &&
             !poolModeActive &&
+            !sc.push &&
             (sc.dc !== undefined || !!sc.difficulty)
               ? (
                   await skillCheck.mutateAsync({

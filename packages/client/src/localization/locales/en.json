@@ -4573,7 +4573,7 @@
   "game.narration.loot": "🎒 Loot",
   "game.narration.placeMap": "Map",
   "game.narration.siteOpened": "Opened",
-  "game.narration.skillCheckNotPushable": "{{skill}} check: not pushed, because the last reply has no roll of it to push.",
+  "game.narration.skillCheckNotPushable": "{{skill}} check: not pushed, because the last reply has no roll of it that can still be pushed.",
   "game.narration.skillCheckUnknownRoller": "{{skill}} check: not rolled, because it did not name one party member.",
   "game.narration.skillCheckUntrained": "{{skill}} check: not attempted, because the character has no training in it.",
   "game.overworld.close": "Close",

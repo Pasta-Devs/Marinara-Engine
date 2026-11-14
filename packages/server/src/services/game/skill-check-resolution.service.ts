@@ -259,6 +259,8 @@ export interface SkillCheckRequest {
   /** `push="true"` (1.826), and the earlier roll it pushes once the resolver has found it. */
   push?: boolean;
   pushOf?: {
+    /** Where the earlier record sits in the previous reply, so one roll is pushed once per reply. */
+    at?: number;
     rolls: readonly number[];
     dc?: number;
     threshold?: number;
@@ -1162,6 +1164,8 @@ export function rulesetPushableRoll(
   lastReply: string | undefined,
   /** Which card a `who=` names, absent naming the player's own; without it names are compared as written. */
   rollerOf?: (who: string | undefined) => string,
+  /** Records (by `at`) this reply has already pushed: a roll is pushed once, however often it is asked. */
+  used?: ReadonlySet<number>,
 ): SkillCheckRequest["pushOf"] {
   const resolution = definition.resolution;
   if (!rulesetDeclaresPush(definition) || resolution.kind !== "dice-pool" || !tag.push || !lastReply) return undefined;
@@ -1178,13 +1182,14 @@ export function rulesetPushableRoll(
       rolled.pushed !== undefined
         ? undefined
         : {
+            at: match.index,
             rolls: rolled.rolls,
             dc: rolled.dc,
             ...(earlier.threshold !== undefined ? { threshold: earlier.threshold } : {}),
             ...(rolled.groups ? { groups: rolled.groups.map(({ label, dice }) => ({ label, dice })) } : {}),
           };
   }
-  return found;
+  return found?.at !== undefined && used?.has(found.at) ? undefined : found;
 }
 
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
@@ -2348,7 +2353,7 @@ export function checkRecordsAsHistoryNotes(content: string): string {
       return `(Engine: ${who ? `${who}'s ` : ""}${tag.skill} check not rolled: untrained.)`;
     }
     if (tag.reason === "not-pushable") {
-      return `(Engine: ${who ? `${who}'s ` : ""}${tag.skill} check not pushed: there was no earlier roll of it to push.)`;
+      return `(Engine: ${who ? `${who}'s ` : ""}${tag.skill} check not pushed: the last reply has no roll of it that can still be pushed.)`;
     }
     if (tag.reason === "unknown-roller") {
       return `(Engine: ${tag.skill} check not rolled: ${who ? `"${who}" does not name` : "it named no"} one party member.)`;
@@ -2750,7 +2755,8 @@ export async function resolveSkillCheckTagsInContent(
           tag.push &&
           !tag.resolvedResult &&
           rulesetDeclaresPush(ruleset.definition) &&
-          !rulesetPushableRoll(ruleset.definition, tag, options.lastReply?.(), rulesetRollerOf(ruleset))
+          (tag.reason === "not-pushable" ||
+            !rulesetPushableRoll(ruleset.definition, tag, options.lastReply?.(), rulesetRollerOf(ruleset)))
         ) {
           stripped.push({
             start: entry.start,
@@ -2861,6 +2867,8 @@ export async function resolveSkillCheckTagsInContent(
     const unknownRoller: string[] = [];
     // Of the pending entries, pushes settled as not pushed while rolling (the rest were settled above).
     let pushRefused = 0;
+    // The earlier records this reply's pushes have already thrown again (1.826).
+    const pushesUsed = new Set<number>();
     const rolled = rewrite((entry) => {
       // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
       // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
@@ -2879,13 +2887,15 @@ export async function resolveSkillCheckTagsInContent(
       // to push is settled as not pushed: rolled afresh it would beat a push, and it would make a
       // second push of the same roll a free new roll. A whole-party push finds none: no one record is
       // the party's.
+      // A push a `[branch:]` arm already settled as not pushed stays settled (2).
       const pushOf =
-        context.ruleset && entry.tag.push
+        context.ruleset && entry.tag.push && entry.tag.reason !== "not-pushable"
           ? rulesetPushableRoll(
               context.ruleset.definition,
               { ...entry.tag, who: request.who },
               options.lastReply?.(),
               rulesetRollerOf(context.ruleset),
+              pushesUsed,
             )
           : undefined;
       if (entry.tag.push && !pushOf && (request.dc === undefined || rulesetDeclaresPush(context.ruleset?.definition))) {
@@ -2994,6 +3004,7 @@ export async function resolveSkillCheckTagsInContent(
         pushRefused += 1;
         return notPushableAsk({ ...entry.tag, dc: entry.request.dc });
       }
+      if (pushOf?.at !== undefined && result.pushed !== undefined) pushesUsed.add(pushOf.at);
       results.push(result);
       // The result carries what the roll applied (who, the other ability, the dice added), so a
       // saved turn says exactly that. None of it is set outside a ruleset game, byte for byte.
@@ -3057,7 +3068,14 @@ export async function resolveSkillCheckTagsInContent(
     // function never got far enough to know better.
     if (pending.length === 0) {
       if (stripped.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
-      return { content: rewrite(() => ""), resolved: 0, trusted, left, sparse: stripped.length };
+      return {
+        content: rewrite(() => ""),
+        resolved: 0,
+        trusted,
+        left,
+        sparse: stripped.length,
+        ...(notPushable > 0 ? { notPushable } : {}),
+      };
     }
     // Otherwise: pure string work over tags already parsed above, so the honest
     // path cannot fail its way back into saving the model's numbers.
@@ -3081,6 +3099,7 @@ export async function resolveSkillCheckTagsInContent(
       trusted,
       left: left + pending.length,
       sparse: pending.length + stripped.length,
+      ...(notPushable > 0 ? { notPushable } : {}),
     };
   }
 }

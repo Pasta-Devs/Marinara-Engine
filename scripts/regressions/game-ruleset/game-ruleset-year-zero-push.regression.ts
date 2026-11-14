@@ -249,6 +249,7 @@ try {
     // `push="true"` takes the earlier roll from the record in the previous reply, never from the tag.
     const lastReply = `Wren heaves at the gate. ${serializeResolvedSkillCheckTag(result)}`;
     assert.deepEqual(rulesetPushableRoll(yze, { skill: "wrestle", push: true }, lastReply), {
+      at: lastReply.indexOf("[skill_check"),
       rolls: result.rolls,
       dc: 1,
       threshold: result.threshold,
@@ -345,8 +346,11 @@ try {
       lastReply: () => lastReply,
     });
     assert.ok(named.results?.[0]?.pushed !== undefined, "Wren's push of Wren's roll");
-    // An earlier roll this pool could not have made is a push the roller declines: not kept.
-    const tooMany = lastReply.replace(/rolls="[^"]*"/, 'rolls="9|9|9"');
+    // An earlier roll this pool could not have made (its groups are not this ruleset's) is a push the
+    // roller declines: the fresh roll it became is not kept.
+    const tooMany = lastReply.replace('groups="Base:', 'groups="Bulk:');
+    assert.notEqual(tooMany, lastReply);
+    assert.ok(rulesetPushableRoll(yze, { skill: "Wrestle", push: true }, tooMany), "found, then declined");
     const declined = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" dc="1" push="true"]', {
       loadContext: async () => context as any,
       rulesetPinned: true,
@@ -354,8 +358,27 @@ try {
     });
     assert.equal(declined.results?.length ?? 0, 0);
     assert.match(declined.content, /reason="not-pushable"/);
+    assert.deepEqual([declined.resolved, declined.notPushable], [0, 1]);
+    // One roll is pushed once, however many pushes of it one reply writes.
+    const doubled = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Wrestle" dc="1" push="true"] and again [skill_check: skill="Wrestle" dc="1" push="true"]',
+      { loadContext: async () => context as any, rulesetPinned: true, lastReply: () => lastReply },
+    );
+    assert.equal(doubled.results?.length, 1, "one push");
+    assert.equal(doubled.notPushable, 1, "the second is not pushed");
+    assert.match(doubled.content, /pushed="\d+"[^\]]*\][\s\S]*reason="not-pushable"/);
+    // A push a [branch:] arm settled as not pushed stays settled, though the earlier roll is there.
+    const settled = await resolveSkillCheckTagsInContent(
+      '[skill_check: skill="Wrestle" dc="1" push="true" reason="not-pushable"]',
+      { loadContext: async () => context as any, rulesetPinned: true, lastReply: () => lastReply },
+    );
+    assert.equal(settled.results?.length ?? 0, 0);
+    assert.match(settled.content, /reason="not-pushable"/);
     // Read back to the Game Master as a plain line, never the raw ask.
-    assert.match(checkRecordsAsHistoryNotes(declined.content), /Wrestle check not pushed: there was no earlier roll/);
+    assert.match(
+      checkRecordsAsHistoryNotes(declined.content),
+      /Wrestle check not pushed: the last reply has no roll of it that can still be pushed/,
+    );
 
     // With no ruleset there is no push: one that names no difficulty is left as written, unrolled
     // (the client sends no check that has no difficulty either).
