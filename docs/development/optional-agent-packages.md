@@ -1718,7 +1718,7 @@ character's selfie instructions (`conversationImageInstructions`) moved from `co
 an Engine from before #9191 does not know that id and opens the editor at the top.
 
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: scenes from package threads
