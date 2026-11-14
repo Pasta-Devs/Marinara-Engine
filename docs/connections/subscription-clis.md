@@ -28,7 +28,7 @@ curl -fsSL https://x.ai/cli/install.sh | bash
 ```
 
 3. In Marinara, open **Library → Connections** and click **Add connection**.
-4. On the **Chat** tab, under **Subscriptions**, click your service. These services have the tag **Sign in**.
+4. On the **Text** tab, under **Subscriptions**, click your service. These services have the tag **Sign in**.
 5. The window says **Sign in first** and names the command. There is no key field. Click **Connect**. Marinara tests the login. **Connected** means it works.
 6. Pick a model from the list, then click **Done**. For Grok CLI you can also leave the model empty, which uses the CLI's own default (see [Grok CLI (Subscription)](#grok-cli-subscription)).
 

@@ -14,7 +14,7 @@ A local language model and an image model may not fit in GPU memory at the same 
 
 ## Create the Marinara connection
 
-1. Open **Library → Connections** and click **Add connection**. On the **Images** tab, choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint.
+1. Open **Library → Connections** and click **Add connection**. On the **Image** tab, choose **ComfyUI** for a local server or **RunPod Serverless (ComfyUI)** for a RunPod endpoint.
 2. For local ComfyUI, enter its address (`http://127.0.0.1:8188`). No API key is needed, unless a proxy in front of ComfyUI asks for one (see [Use an authenticated proxy](#use-an-authenticated-proxy)). With an empty **ComfyUI workflow (optional)** field, Marinara uses a built-in basic text-to-image workflow.
 3. For RunPod, enter your API key and **RunPod endpoint ID**. A custom workflow is required.
 4. Set **Local image defaults** on the image model. These values replace the matching placeholders in your workflow.

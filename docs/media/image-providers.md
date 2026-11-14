@@ -7,7 +7,7 @@ Image generation powers scene illustrations, selfies, scene backgrounds, and gen
 An API key is a secret code a service gives you so Marinara can use your account. Marinara fills in each service's web address for you, so you rarely type one.
 
 1. Open **Library → Connections** and click **Add connection**. The list of services opens.
-2. Open the **Images** tab and find the service. **Search services** helps you find one.
+2. Open the **Image** tab and find the service. **Search services** helps you find one.
 3. Paste your key into the **API key** field. Free and local services need none. For a server you run yourself, fill in the address field.
 4. Click **Connect**. Marinara tests the account.
 5. Under **Found in … — use it for:**, tick **Images**. If the service has no model list, type the model ID in the row. Click **Done**.

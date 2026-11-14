@@ -1941,6 +1941,7 @@
   "connections.add.title": "Add account",
   "connections.add.tryAgain": "Try again",
   "connections.add.type.all": "All",
+  "connections.add.type.decision": "Decision",
   "connections.add.type.image": "Image",
   "connections.add.type.text": "Text",
   "connections.add.type.video": "Video",

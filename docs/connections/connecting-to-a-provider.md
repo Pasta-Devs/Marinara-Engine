@@ -15,7 +15,7 @@ Before you start, get an API key from a service you want to use. After you pick 
 Most services ask you to sign up, and some ask you to add credit, before a key works. For other services, see [Supported AI Providers](providers-reference.md). To use a model on your own computer with no key, see [Built-in Model Setup](local-model.md).
 
 1. Open **Library → Connections**. (Click **Library** at the top right, then **Connections**. Or press <kbd>Ctrl</kbd>+<kbd>K</kbd> and type `connections`.)
-2. Click **Add connection** (on a phone, **+ New**). A list of services opens, sorted into **Chat**, **Images**, **Voice** and **Decisions**. For a normal chat model, stay on **Chat**.
+2. Click **Add connection** (on a phone, **+ New**). A list of services opens, sorted into **Text**, **Image**, **Video**, **Voice** and **Decision**. For a normal chat model, stay on **Text**.
 3. Click the service you want. Type in **Search services** to find one that isn't listed.
 4. Paste your key into **API key**. Click the eye button to check that you pasted all of it.
 5. Click **Connect**. Marinara tests the key. When it works, you see **Connected** with the number of models it found.

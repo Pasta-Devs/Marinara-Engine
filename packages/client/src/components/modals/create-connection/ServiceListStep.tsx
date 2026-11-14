@@ -77,8 +77,18 @@ export function ServiceListStep({
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
   // The compact menu has no "All" tab: it opens on Text, the usual reason to add an account.
-  const [type, setType] = useState<ModelType | "all">(
-    kind === "chat" ? "text" : kind === "decision" || !kind ? (compact ? "text" : "all") : kind,
+  const [type, setType] = useState<ModelType | "all" | "decision">(
+    kind === "chat"
+      ? "text"
+      : kind === "decision"
+        ? compact
+          ? "decision"
+          : "all"
+        : !kind
+          ? compact
+            ? "text"
+            : "all"
+          : kind,
   );
   const needle = query.trim().toLowerCase();
   const matches = (name: string, key?: ServiceId) =>
@@ -101,12 +111,14 @@ export function ServiceListStep({
     good?: boolean;
     types: ModelType[];
     group?: string;
+    /** Answers decision questions only (TypeSafe, own decision server, the built-in decision model). */
+    decisionOnly?: boolean;
   };
   const tiles: Tile[] = [];
   // The Decision job can also run on this machine; the tile opens the built-in model's page, where it installs.
-  const decision = useDecisionSidecar(kind === "decision");
+  const decision = useDecisionSidecar(kind === "decision" || compact);
   const builtInName = t("connections.add.device.local_model");
-  if (kind === "decision" && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
+  if ((kind === "decision" || compact) && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
     tiles.push({
       id: DECISION_BUILTIN,
       name: builtInName,
@@ -114,8 +126,9 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => useUIStore.getState().openModal("device-detail", { item: "local-model" }),
-      types: ["text"],
+      types: compact ? [] : ["text"],
       group: "popular",
+      decisionOnly: true,
     });
   }
   for (const group of SERVICE_GROUPS) {
@@ -132,6 +145,7 @@ export function ServiceListStep({
           open: () => void chooseService(key),
           types: typesOf(key),
           group: group.id,
+          decisionOnly: typesOf(key).length === 0 && kindsOf(key).includes("decision"),
         });
       // The common local servers, as their own tiles.
       if (key !== "local_model") continue;
@@ -152,7 +166,12 @@ export function ServiceListStep({
     tiles.push(...groupTiles);
   }
   // Typing searches every type; otherwise the filter (the compact menu's tab) picks one.
-  const visible = tiles.filter((tile) => type === "all" || (compact && needle) || tile.types.includes(type));
+  const visible = tiles.filter(
+    (tile) =>
+      type === "all" ||
+      (compact && needle) ||
+      (type === "decision" ? tile.decisionOnly || tile.id === DECISION_BUILTIN : tile.types.includes(type)),
+  );
 
   if (compact) {
     const groups = SERVICE_GROUPS.map((group) => ({
@@ -174,7 +193,8 @@ export function ServiceListStep({
           </label>
           {!needle && (
             <div className="ov-seg ov-add-list__tabs" role="tablist" aria-label={t("connections.add.kindFilter")}>
-              {TYPES.map((option) => (
+              {/* The compact menu has no "All", so decision-only services get their own tab. */}
+              {([...TYPES, "decision"] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
