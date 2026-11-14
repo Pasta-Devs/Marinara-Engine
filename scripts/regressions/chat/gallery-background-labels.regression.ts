@@ -123,9 +123,25 @@ try {
     galleryRoot,
   });
   assert.equal(again.ok && again.alreadyThere, true);
+  assert.equal(again.ok && again.labelUpdated, true, "a labeled re-assign reports the label update");
   const johnRows = await characterGallery.listByCharacterId("john");
   assert.equal(johnRows.length, 1, "assigning again never duplicates");
   assert.equal(johnRows[0]?.customName, "John's bedroom", "assigning again refreshes the label");
+
+  // The chat picture's label was removed: re-assigning keeps the gallery's own label and says so
+  // (the toast must not claim a label update).
+  const unlabeledAgain = await assignChatPictureToGallery({
+    image: { ...tagged!, customKind: null, customName: null },
+    target: { type: "character", id: "john" },
+    characterGallery,
+    personaGallery,
+    galleryRoot,
+  });
+  assert.equal(unlabeledAgain.ok && unlabeledAgain.alreadyThere, true);
+  assert.equal(unlabeledAgain.ok && unlabeledAgain.labelUpdated, false, "no label update is reported");
+  const keptRows = await characterGallery.listByCharacterId("john");
+  assert.equal(keptRows.length, 1, "still one row on that file");
+  assert.equal(keptRows[0]?.customKind, "background", "the gallery keeps its own label");
 
   const toPersona = await assignChatPictureToGallery({
     image: { ...picture, customKind: null, customName: null },
