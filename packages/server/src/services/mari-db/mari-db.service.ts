@@ -9958,8 +9958,13 @@ export class MariDbService {
         const next = normalizeWriteRow(table, resultRow);
         next[getPrimary(meta)] = raw[getPrimary(meta)];
         this.fillTimestamps(meta, next, false, timestamp);
-        const afterRaw = serializeRow(table, next);
+        let afterRaw = serializeRow(table, next);
         if (stableJson(afterRaw) !== stableJson(raw)) {
+          // The script copies the old row, stamp included: a changed row gets a new updatedAt unless the script set
+          // one itself (themes and editors read it to know something changed).
+          if (meta.byKey.has("updatedAt") && afterRaw.updatedAt === raw.updatedAt) {
+            afterRaw = serializeRow(table, { ...next, updatedAt: timestamp });
+          }
           changes.push({
             table,
             id: rowId(meta, raw),
