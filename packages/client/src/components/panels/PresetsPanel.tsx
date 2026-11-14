@@ -94,9 +94,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
-import { ChatProfileBuilder } from "../chat/ChatProfileBuilder";
-import { ProfilesSection, type ProfileMode } from "./ProfilesSection";
-import type { ChatPreset } from "@marinara-engine/shared";
+import { ProfilesSection } from "./ProfilesSection";
 
 type PresetRow = {
   id: string;
@@ -313,7 +311,6 @@ export function PresetsPanel() {
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
   const [tab, setTab] = useState<"presets" | "regex" | "functions" | "profiles">("presets");
   const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | "profiles" | null>(null);
-  const [profileBuilder, setProfileBuilder] = useState<{ profile: ChatPreset } | { newMode: ProfileMode } | null>(null);
   const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -1572,22 +1569,8 @@ export function PresetsPanel() {
             }
           }}
           activeChatMode={activeChat?.mode ?? null}
-          onOpenProfile={setProfileBuilder}
         />
       </div>
-      <ChatProfileBuilder
-        open={profileBuilder !== null}
-        onClose={() => setProfileBuilder(null)}
-        mode={
-          profileBuilder
-            ? "profile" in profileBuilder
-              ? profileBuilder.profile.mode
-              : profileBuilder.newMode
-            : "roleplay"
-        }
-        profile={profileBuilder && "profile" in profileBuilder ? profileBuilder.profile : null}
-        currentChatId={activeChat?.id}
-      />
 
       {/* Choice selection modal */}
       {activeChat && (

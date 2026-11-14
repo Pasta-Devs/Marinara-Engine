@@ -86,6 +86,9 @@ const LorebookEditor = lazy(() =>
   import("../lorebooks/LorebookEditor").then((module) => ({ default: module.LorebookEditor })),
 );
 const PresetEditor = lazy(() => import("../presets/PresetEditor").then((module) => ({ default: module.PresetEditor })));
+const ProfileEditor = lazy(() =>
+  import("../presets/ProfileEditor").then((module) => ({ default: module.ProfileEditor })),
+);
 const ConnectionEditor = lazy(() =>
   import("../connections/ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
 );
@@ -686,6 +689,7 @@ export function AppShell({
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -957,6 +961,8 @@ export function AppShell({
     )
   ) : presetDetailId ? (
     <PresetEditor />
+  ) : profileDetailId ? (
+    <ProfileEditor />
   ) : characterDetailId ? (
     <CharacterEditor />
   ) : characterLibraryOpen ? (

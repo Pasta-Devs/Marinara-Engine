@@ -816,6 +816,11 @@ interface UIState {
   presetDetailId: string | null;
   /** One-shot tab the preset editor should open to. */
   presetDetailInitialTab: string | null;
+  /**
+   * When set, the main area shows the settings profile editor: a profile id, or `new:<mode>` for a profile that
+   * isn't saved yet.
+   */
+  profileDetailId: string | null;
   /** When set, the main area shows the full-page connection editor instead of chat */
   connectionDetailId: string | null;
   /** When set, the main area shows the full-page agent editor. Value is the agent *type* id (e.g. "world-state") */
@@ -1416,6 +1421,8 @@ interface UIState {
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
+  openProfileDetail: (id: string) => void;
+  closeProfileDetail: () => void;
   openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
@@ -1673,6 +1680,7 @@ const MAIN_SURFACE_KEYS = [
   "agentDetailId",
   "connectionDetailId",
   "presetDetailId",
+  "profileDetailId",
   "characterDetailId",
   "characterLibraryOpen",
   "agentCatalogOpen",
@@ -1694,6 +1702,7 @@ const CLOSED_MAIN_SURFACE = {
   agentDetailId: null,
   connectionDetailId: null,
   presetDetailId: null,
+  profileDetailId: null,
   characterDetailId: null,
   characterLibraryOpen: false,
   agentCatalogOpen: false,
@@ -2069,6 +2078,7 @@ export function pickPersistedUIState(state: UIState) {
     characterDetailId: state.characterDetailId,
     lorebookDetailId: state.lorebookDetailId,
     presetDetailId: state.presetDetailId,
+    profileDetailId: state.profileDetailId,
     connectionDetailId: state.connectionDetailId,
     agentDetailId: state.agentDetailId,
     toolDetailId: state.toolDetailId,
@@ -2429,6 +2439,7 @@ export const useUIStore = create<UIState>()(
         lorebookLinkClipboard: null,
         presetDetailId: null,
         presetDetailInitialTab: null,
+        profileDetailId: null,
         connectionDetailId: null,
         agentDetailId: null,
         toolDetailId: null,
@@ -2948,6 +2959,12 @@ export const useUIStore = create<UIState>()(
           })),
         closePresetDetail: () =>
           set((s) => leaveMainSurface(s, { presetDetailId: null, presetDetailInitialTab: null })),
+        openProfileDetail: (id) =>
+          set((s) => ({
+            ...enterMainSurface(s, { profileDetailId: id }),
+            ...getMobileDetailReturnState(s),
+          })),
+        closeProfileDetail: () => set((s) => leaveMainSurface(s, { profileDetailId: null })),
         openConnectionDetail: (id) =>
           set((s) => ({
             ...enterMainSurface(s, { connectionDetailId: id }),
@@ -3083,6 +3100,7 @@ export const useUIStore = create<UIState>()(
             agentDetailId: actions.closeAgentDetail,
             connectionDetailId: actions.closeConnectionDetail,
             presetDetailId: actions.closePresetDetail,
+            profileDetailId: actions.closeProfileDetail,
             characterDetailId: actions.closeCharacterDetail,
             characterLibraryOpen: actions.closeCharacterLibrary,
             agentCatalogOpen: actions.closeAgentCatalog,

@@ -15,6 +15,8 @@ import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { api } from "../../lib/api-client";
 import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
+import { newProfileDetailId } from "../presets/ProfileEditor";
 import {
   useChatPresets,
   useDeleteChatPreset,
@@ -34,17 +36,11 @@ interface ProfilesSectionProps {
   setSelectionMode: (enabled: boolean) => void;
   /** The active chat's mode, used for a new profile while the filter shows All. */
   activeChatMode: ChatMode | null;
-  /** Open a profile in the editor, or a new one for this mode. */
-  onOpenProfile: (target: { profile: ChatPreset } | { newMode: ProfileMode }) => void;
 }
 
-export function ProfilesSection({
-  selectionMode,
-  setSelectionMode,
-  activeChatMode,
-  onOpenProfile,
-}: ProfilesSectionProps) {
+export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMode }: ProfilesSectionProps) {
   const { t: localizeUi } = useTranslation();
+  const openProfileDetail = useUIStore((s) => s.openProfileDetail);
   const { data: allProfiles, isLoading } = useChatPresets();
   const deleteProfile = useDeleteChatPreset();
   const duplicateProfile = useDuplicateChatPreset();
@@ -160,7 +156,7 @@ export function ProfilesSection({
     const open = () => {
       if (selectionMode) {
         if (canSelect) toggleSelected(profile.id);
-      } else if (!profile.isDefault) onOpenProfile({ profile });
+      } else if (!profile.isDefault) openProfileDetail(profile.id);
     };
     return (
       <div
@@ -292,7 +288,7 @@ export function ProfilesSection({
         create={{
           label: localizeUi("ui.panels.profilessection.createProfile"),
           title: localizeUi("ui.panels.profilessection.createProfile"),
-          onClick: () => onOpenProfile({ newMode: newProfileMode }),
+          onClick: () => openProfileDetail(newProfileDetailId(newProfileMode)),
         }}
         importAction={{
           label: localizeUi("chat.settingsProfile.action.import"),
