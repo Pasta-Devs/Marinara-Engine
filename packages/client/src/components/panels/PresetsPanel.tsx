@@ -3,16 +3,7 @@ import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Presets (overhauled — search, assign, edit, duplicate)
 // ──────────────────────────────────────────────
-import {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  type ChangeEvent,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useState, useMemo, useCallback, useRef, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import {
   usePresets,
@@ -61,7 +52,6 @@ import {
   Regex,
   GripVertical,
   Pencil,
-  ChevronDown,
   ChevronRight,
   FolderInput,
   Pause,
@@ -1968,7 +1958,7 @@ function RegexSection({
               : undefined,
         }}
       />
-      <PanelSection title={localizeUi("ui.panels.regexsection.regexes")} icon={<Regex size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
         <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}
         </div>
@@ -2095,7 +2085,7 @@ function RegexSection({
           />
         )}
         {moveMenu}
-      </PanelSection>
+      </div>
     </>
   );
 }
@@ -2484,7 +2474,7 @@ function FunctionsSection({
               : undefined,
         }}
       />
-      <PanelSection title={localizeUi("ui.panels.functionssection.functions")} icon={<Wrench size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
         <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}
         </div>
@@ -2682,7 +2672,7 @@ function FunctionsSection({
           />
         )}
         {moveMenu}
-      </PanelSection>
+      </div>
     </>
   );
 }
@@ -2701,40 +2691,4 @@ function getFunctionParameterCount(parametersSchema: string) {
   } catch {
     return 0;
   }
-}
-
-function PanelSection({
-  title,
-  icon,
-  action,
-  defaultOpen = true,
-  children,
-}: {
-  title: string;
-  icon: ReactNode;
-  action?: ReactNode;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="mt-1">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setOpen((current) => !current)}
-          className="flex items-center gap-1.5 px-1 py-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
-        >
-          <ChevronDown
-            size="0.75rem"
-            className={cn("mari-chrome-accent-icon mari-accent-animated transition-transform", open && "rotate-180")}
-          />
-          <span className="text-[var(--marinara-chat-chrome-button-text)]">{icon}</span>
-          {title}
-        </button>
-        {action}
-      </div>
-      {open && <div className="mt-1 flex flex-col gap-1">{children}</div>}
-    </div>
-  );
 }
