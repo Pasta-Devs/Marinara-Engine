@@ -303,16 +303,26 @@ export function OvEditorHead({
         )}
         {lead ? <span className="ov-edhead__lead">{lead}</span> : null}
         {titleNode}
+        {actions && splitCrumbs ? (
+          // Split view's narrow side: the editor's buttons and Save share the title's line, like the computer
+          // layout beside it (the line wraps them under the name only when the side is too narrow for both).
+          <div className="ov-edhead__bar ov-edhead__bar--inline">
+            {actions}
+            {status}
+            {saveNode}
+            {menuNode}
+          </div>
+        ) : null}
         {actions ? null : (
           <>
             {status}
             {saveNode}
           </>
         )}
-        {menuNode}
+        {actions && splitCrumbs ? null : menuNode}
       </div>
       {meta ? <p className="ov-edhead__meta">{meta}</p> : null}
-      {actions ? (
+      {actions && !splitCrumbs ? (
         <div className="ov-edhead__bar">
           {actions}
           <span className="ov-edhead__gap" />
