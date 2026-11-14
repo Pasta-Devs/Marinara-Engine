@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
+import { openConnectionsPanel, openDefaultsTile, openJobSettings, ttsConfigCard } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -17,7 +17,7 @@ test("PCM speech format persists through the settings UI and reload", async ({ p
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
     await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
-    // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
+    // The Text to Speech settings open from the Voice job's gear (1e4664c38b).
     const openSettings = async () => {
       await page.goto("/");
       await openDefaultsTile(page, "voice");
@@ -36,8 +36,8 @@ test("PCM speech format persists through the settings UI and reload", async ({ p
   }
 });
 
-// #7848: an Audio connection can be the card's Source. The card saves only its ID, hides the address, key and
-// model the connection keeps, and says so plainly when the connection is gone.
+// #7848: an Audio connection can be the voice's source. The setting saves only its ID, never the connection's key,
+// and the app says so plainly when the connection is gone.
 test("An Audio connection chosen as the Source is saved by ID and reported when it is gone", async ({
   page,
   request,
@@ -71,46 +71,39 @@ test("An Audio connection chosen as the Source is saved by ID and reported when 
       await page.screenshot({ path, animations: "disabled" });
       await testInfo.attach(name, { path, contentType: "image/png" });
     };
-    // #8456 took the Text to Speech card out of the Connections panel; its settings open in the Add window.
-    const openCard = async () => {
+    // Since the Voice job (1e4664c38b) the card has no Source list: the voice's Model is picked in the Voice
+    // job's "Model for Voice" window, and the Voice settings window reports a missing account.
+    const studio = `Voice studio ${testInfo.project.name}`;
+    const voiceRow = () =>
+      page.locator("[data-connections-panel]").filter({ visible: true }).locator('[data-defaults-role="voice"]');
+    const openPicker = async () => {
       await page.goto("/");
-      await openDefaultsTile(page, "voice");
-      const card = ttsConfigCard(page);
-      await expect(card).toBeVisible();
-      return card;
+      await openConnectionsPanel(page);
+      await voiceRow().getByRole("button").first().click();
+      const picker = page.getByRole("dialog", { name: "Model for Voice", exact: true });
+      await expect(picker).toBeVisible();
+      return picker;
     };
 
-    let card = await openCard();
-    const sourceSelect = card.getByLabel("Source", { exact: true });
-    // #8456 renamed the copy: "API key", and an Audio connection is an Audio provider.
-    await expect(card.getByText("API key", { exact: true })).toBeVisible();
-    await sourceSelect.selectOption(`connection:${id}`);
+    let picker = await openPicker();
+    await picker.getByRole("button", { name: new RegExp(`^${studio}, Audio\\b`, "u") }).click();
     await expect.poll(async () => (await (await request.get("/api/tts/config")).json()).connectionId).toBe(id);
-    await expect(card.getByText("Uses this provider's address, key and model.", { exact: true })).toBeVisible();
-    for (const field of ["Base URL", "API key", "Model", "Request timeout (seconds)"]) {
-      await expect(card.getByText(field, { exact: true })).toBeHidden();
-    }
     const view = await (await request.get("/api/tts/config")).text();
     expect(view).not.toContain("e2e-connection-secret");
     expect(JSON.parse(view)).toMatchObject({ connectionId: id, model: "studio-model" });
 
-    card = await openCard();
-    await expect(card.getByLabel("Source", { exact: true })).toHaveValue(`connection:${id}`);
+    picker = await openPicker();
+    // The Model tab names the chosen model on every screen size.
+    await expect(picker.getByRole("tab", { name: `Model ${studio}`, exact: true })).toBeVisible();
     await capture("tts-card-audio-connection-source");
 
     expect((await request.delete(`/api/connections/${id}`)).ok()).toBeTruthy();
     deleted = true;
-    card = await openCard();
-    await expect(
-      card.getByText("Choose another source, because this Audio provider is missing or unavailable.", {
-        exact: true,
-      }),
-    ).toBeVisible();
-    // The Source list says so too. #8456 removed the card's collapsed header, which used to name it.
-    await expect(card.getByLabel("Source", { exact: true }).locator("option:checked")).toHaveText(
-      "Missing Audio provider",
-    );
-    await expect(card.getByLabel("Source", { exact: true })).toHaveValue(`connection:${id}`);
+    // The setting still names the account by its ID; the server fails rather than use another one.
+    expect((await (await request.get("/api/tts/config")).json()).connectionId).toBe(id);
+    await page.goto("/");
+    const settings = await openJobSettings(page, "voice");
+    await expect(settings.getByTitle("The voice account is missing", { exact: true })).toBeVisible();
     await capture("tts-card-missing-audio-connection");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   } finally {

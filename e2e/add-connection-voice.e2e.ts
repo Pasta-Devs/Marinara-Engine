@@ -60,7 +60,7 @@ test("Add models for an old ElevenLabs row opens the Voice job picker instead of
   }
 });
 
-test("The Voice job turns Text to Speech on with a built-in source", async ({ page, request }) => {
+test("The Voice job turns Text to Speech on with a built-in source", async ({ page, request }, testInfo) => {
   const response = await request.post("/api/connections", {
     data: {
       name: "ElevenLabs off regression",
@@ -94,8 +94,11 @@ test("The Voice job turns Text to Speech on with a built-in source", async ({ pa
     await expect(voice.getByRole("button", { name: "Turn on", exact: true })).toHaveCount(0);
     await expect(voice).toContainText("Off");
     await voice.locator("[data-defaults-tile]").click();
-    await page
-      .getByRole("dialog")
+    const picker = page.getByRole("dialog", { name: "Model for Voice", exact: true });
+    // A phone opens the picker on the chosen account's models; the built-in choices are one step up.
+    if (testInfo.project.name.includes("mobile"))
+      await picker.getByRole("button", { name: "All connections", exact: true }).click();
+    await picker
       .getByRole("button", { name: /This device/ })
       .first()
       .click();

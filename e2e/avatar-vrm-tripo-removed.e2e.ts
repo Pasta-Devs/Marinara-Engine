@@ -274,9 +274,11 @@ test("Connections no longer offers Tripo", async ({ page, request }) => {
     useUIStore.getState().openModal("create-connection");
   });
   const dialog = page.getByRole("dialog");
-  // The Add window lists every service tile since #8456, with no "Show all".
-  await expect(dialog.getByRole("button", { name: "OpenAI", exact: true })).toBeVisible({
+  // The Add window lists every service tile since #8456, with no "Show all". A tile's name now carries its tags
+  // ("OpenAI Text Image Voice"), so find tiles by service.
+  await expect(dialog.locator('[data-add-connection-service="openai"]')).toBeVisible({
     timeout: FIRST_LOAD_TIMEOUT_MS,
   });
-  await expect(dialog.getByRole("button", { name: "Tripo", exact: true })).toHaveCount(0);
+  await expect(dialog.locator('[data-add-connection-service="tripo"]')).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: /Tripo/iu })).toHaveCount(0);
 });
