@@ -4710,7 +4710,11 @@ function CharacterGalleryTab({
                   )}
                 >
                   {!selectingImages ? (
-                    <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
+                    <CustomEmojiTagButton
+                      image={image}
+                      allowBackground
+                      onApply={(patch) => tag.mutate({ imageId: image.id, patch })}
+                    />
                   ) : (
                     <button
                       type="button"

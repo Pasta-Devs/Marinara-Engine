@@ -13,6 +13,7 @@ import {
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useCapabilityAgentRegistry, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useChatGalleryActions } from "../../hooks/use-chat-gallery-actions";
+import { useChatGalleryOwners } from "../../hooks/use-chat-gallery-owners";
 import { parseChatMetadata } from "../../lib/chat-display";
 
 type GalleryChatMetadata = Chat["metadata"] & {
@@ -34,6 +35,7 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
     onAnimateImage,
   } = useChatGalleryActions(chat.id) ?? {};
   const chatMetadata = useMemo(() => parseChatMetadata(chat.metadata) as GalleryChatMetadata, [chat.metadata]);
+  const galleryOwners = useChatGalleryOwners(chat);
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const { data: capabilityAgents = [] } = useCapabilityAgentRegistry();
   const { data: agentConfigs = [] } = useAgentConfigs();
@@ -89,6 +91,7 @@ export function ChatGalleryPanel({ chat }: { chat: Chat }) {
       onGenerateVideo={videoAvailable ? onGenerateVideo : undefined}
       onAnimateImage={videoAvailable ? onAnimateImage : undefined}
       onGenerateBackground={manualIllustratorAvailable ? onGenerateBackground : undefined}
+      assignTargets={galleryOwners}
     />
   );
 }

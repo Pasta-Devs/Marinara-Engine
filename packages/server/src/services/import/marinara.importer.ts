@@ -7,7 +7,9 @@ import {
 // ──────────────────────────────────────────────
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
+import type { GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
+import { readGalleryTagPayload } from "../image/gallery-tag-payload.js";
 import { inArray } from "../../db/file-query.js";
 import { characters, chats, personas } from "../../db/schema/index.js";
 import {
@@ -264,6 +266,21 @@ export async function restoreSprites(sprites: unknown, id: string, catalog?: unk
 // [{ filename, data, prompt, provider, model, width, height }, ...]
 // in a native character or persona export. Writes each binary under the
 // owner's gallery folder and creates a matching metadata row.
+/** A gallery label from an export (emoji, sticker or background), checked like a label set in the app. */
+function restoredGalleryTag(entry: Record<string, unknown>): {
+  customKind?: GalleryTagKind;
+  customName?: string | null;
+} {
+  const tag = readGalleryTagPayload(
+    { customKind: entry.customKind ?? null, customName: entry.customName },
+    {
+      allowBackground: true,
+    },
+  );
+  if ("error" in tag || !tag.patch.customKind) return {};
+  return { customKind: tag.patch.customKind, customName: tag.patch.customName };
+}
+
 async function restoreOwnerGallery(
   gallery: unknown,
   ownerId: string,
@@ -275,6 +292,8 @@ async function restoreOwnerGallery(
     model: string;
     width?: number;
     height?: number;
+    customKind?: GalleryTagKind;
+    customName?: string | null;
   }) => Promise<{ id: string } | null>,
 ): Promise<string | null> {
   if (!Array.isArray(gallery) || gallery.length === 0) return null;
@@ -335,6 +354,7 @@ async function restoreOwnerGallery(
         model: typeof entry.model === "string" ? entry.model : "",
         width: typeof entry.width === "number" ? entry.width : undefined,
         height: typeof entry.height === "number" ? entry.height : undefined,
+        ...restoredGalleryTag(entry),
       });
       if (entry.isCharacterSheet === true && restored) characterSheetImageId = restored.id;
     } catch {
