@@ -969,7 +969,9 @@ export function AppShell({
   const overflowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedCheckOverflow = useCallback(() => {
     if (overflowTimerRef.current) clearTimeout(overflowTimerRef.current);
-    overflowTimerRef.current = setTimeout(checkOverflow, 100);
+    // Measured at the start of a frame, where the browser lays the page out anyway; a bare timer
+    // forced an extra full restyle between React's commits (each Chat settings open paid one).
+    overflowTimerRef.current = setTimeout(() => window.requestAnimationFrame(checkOverflow), 100);
   }, [checkOverflow]);
 
   useEffect(() => {
