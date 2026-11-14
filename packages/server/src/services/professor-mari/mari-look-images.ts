@@ -18,15 +18,34 @@ function prune(now: number) {
   for (const [id, entry] of stash) if (now - entry.at > KEEP_MS) stash.delete(id);
 }
 
-/** A smaller copy for the model to look at: PNG when it has transparency (so cleared backgrounds show), else JPEG. */
+/** Small pictures (stickers, weather sprites) are enlarged to this so their colours and outlines can be judged. */
+const LOOK_MIN_SIDE = 384;
+/** See-through parts are shown on mid grey: on white or black, white art and pastel outlines vanish. */
+const SEE_THROUGH = { r: 128, g: 128, b: 128 };
+
+/**
+ * A copy for the model to look at, at most 1024 px and at least 384 px on the longest side. A picture with
+ * transparency is laid on mid grey (cleared backgrounds then show as grey) and sent as PNG; anything else as JPEG.
+ * Before, a 48 px snowflake reached the model at 48 px and its pink outline looked white.
+ */
 export async function lookCopy(buffer: Buffer): Promise<LookImage | null> {
   try {
     const sharp = await getSharp();
     const image = sharp(buffer, { limitInputPixels: 40_000_000 }).rotate();
     const meta = await image.metadata();
-    const resized = image.resize(LOOK_MAX_SIDE, LOOK_MAX_SIDE, { fit: "inside", withoutEnlargement: true });
+    const longest = Math.max(Number(meta.width ?? 0), Number(meta.height ?? 0));
+    const resized =
+      longest > 0 && longest < LOOK_MIN_SIDE
+        ? image.resize(LOOK_MIN_SIDE, LOOK_MIN_SIDE, {
+            fit: "inside",
+            kernel: longest <= 96 ? "nearest" : "lanczos3",
+          })
+        : image.resize(LOOK_MAX_SIDE, LOOK_MAX_SIDE, { fit: "inside", withoutEnlargement: true });
     if (meta.hasAlpha) {
-      return { data: (await resized.png().toBuffer()).toString("base64"), mimeType: "image/png" };
+      return {
+        data: (await resized.flatten({ background: SEE_THROUGH }).png().toBuffer()).toString("base64"),
+        mimeType: "image/png",
+      };
     }
     return { data: (await resized.jpeg({ quality: 82 }).toBuffer()).toString("base64"), mimeType: "image/jpeg" };
   } catch {

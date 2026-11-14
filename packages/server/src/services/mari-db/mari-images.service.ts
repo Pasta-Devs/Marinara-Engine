@@ -1966,7 +1966,7 @@ export class MariImagesService {
       output: {
         look: `${looked} ${copies.filter(Boolean).length} picture(s) attached below, in the order given: ${resolved.map((image) => image.label).join(", ")}.`,
         message:
-          "Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds.",
+          "Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds. See-through areas show as mid grey; small pictures are shown enlarged, so check outlines and edge colours too.",
         ...(svgs.length
           ? {
               svgSources: svgs,
