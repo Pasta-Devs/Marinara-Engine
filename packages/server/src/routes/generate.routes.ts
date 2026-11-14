@@ -71,7 +71,13 @@ import {
 } from "../services/generation/agent-activation-questions.js";
 import { registerSequentialGameTasks } from "../services/game/sequential-tasks.js";
 import { regionDangerLine, regionSpawnGame, regionWalkEncounterText } from "../services/game/region-spawns.service.js";
-import { dungeonSiteHere, gameDay, gamePartyLevel } from "../services/game/dungeon-spawns.service.js";
+import {
+  dungeonPlanContext,
+  dungeonSiteHere,
+  gameDay,
+  gamePartyLevel,
+  gameTrapSkills,
+} from "../services/game/dungeon-spawns.service.js";
 import { loadGameWorld } from "../services/game/game-world.service.js";
 import { readMapPackPeople } from "../services/game/map-pack.service.js";
 import {
@@ -317,11 +323,15 @@ import {
   gameDungeonMapFromMetadata,
   dungeonSpawnPromptText,
   readGameDungeonSiteTags,
+  readGameDungeonPlanTags,
+  siteApplyTags,
+  siteTrapPromptText,
   gameDungeonSiteKey,
   gameDungeonSitesFromMetadata,
   gameDungeonSitesWith,
   gameDungeonMapPromptText,
   gameDungeonSeed,
+  dungeonBuildingSetForName,
   gameDungeonSiteMap,
   gameDungeonToldText,
   gameDungeonWalkFromMetadata,
@@ -5832,7 +5842,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   ...(gamePartyLevel(chatMeta) !== undefined ? { partyLevel: gamePartyLevel(chatMeta)! } : {}),
                 })
               : "";
-            return [text, spawnText, toldText, locksText].filter(Boolean).join("\n") || undefined;
+            // Hidden traps of a planned building, where the game's rules can find them.
+            const trapText = map?.site?.traps ? siteTrapPromptText(map, await gameTrapSkills(chatMeta)) : "";
+            return [text, spawnText, trapText, toldText, locksText].filter(Boolean).join("\n") || undefined;
           })();
           const promptWhereYouAre = promptWorld
             ? await (async () => {
@@ -11338,6 +11350,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               if (told.walk || told.left || last || told.restore) {
                 const family = worldKitArtFamily(gameWorldKitFromMetadata(chatMeta) ?? undefined);
                 let before: { map: unknown; view: unknown } | undefined;
+                // A building laid out to a plan reads its fate and land from the world, its traps from the rules.
+                const planContext =
+                  last && !last.leave
+                    ? await dungeonPlanContext({
+                        world: await loadGameWorld(app.db, input.chatId, chatMeta),
+                        meta: chatMeta,
+                        name: last.name,
+                      })
+                    : {};
                 await chats.patchMetadata(input.chatId, (stored) => {
                   const patch: Record<string, unknown> = {};
                   // A regeneration first puts the map back as it stood before the reply it replaced.
@@ -11361,7 +11382,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   } else if (last && current?.name.toLowerCase() !== last.name.toLowerCase()) {
                     // A map the party is already on is kept as it stands: the Game Master may name it again.
                     before = { map: current, view: fresh.gameDungeonView ?? null };
-                    const set = dungeonSetFor(last.kind, family, last.set);
+                    // A building by its name (a manor, a keep, a temple) is laid out to a plan, unless the Game
+                    // Master named a cave or a station or a look of its own.
+                    const set =
+                      (!last.set && last.kind !== "cave" && last.kind !== "station"
+                        ? dungeonBuildingSetForName(last.name, family)
+                        : null) ?? dungeonSetFor(last.kind, family, last.set);
                     Object.assign(patch, {
                       // Its first floor; a place deeper than one floor has its way down (owner 2026-11-13).
                       gameDungeonMap: gameDungeonSiteMap({
@@ -11369,6 +11395,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         name: last.name,
                         siteSeed: gameDungeonSeed(input.chatId, last.name),
                         id: randomUUID(),
+                        ...planContext,
                       }),
                       gameDungeonWalk: null,
                       gameDungeonView: "map",
@@ -11413,6 +11440,27 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               );
             } catch (err) {
               logger.error(err, "[generate] Dungeon site update failed for chat %s", input.chatId);
+            }
+          }
+          // A planned building's tags: a lock the story opened, traps found or disarmed.
+          const planTags = readGameDungeonPlanTags(fullResponse);
+          if (
+            savedMsg?.id &&
+            chatMode === "game" &&
+            !input.impersonate &&
+            (planTags.unlock.length || planTags.found.length || planTags.disarmed.length)
+          ) {
+            try {
+              await chats.patchMetadata(
+                input.chatId,
+                (stored) => {
+                  const map = gameDungeonMapFromMetadata(stored);
+                  return map?.site ? { gameDungeonMap: siteApplyTags(map, planTags) } : {};
+                },
+                { touchUpdatedAt: false },
+              );
+            } catch (err) {
+              logger.error(err, "[generate] Planned building update failed for chat %s", input.chatId);
             }
           }
           // Permanent changes and their undo record are saved only with a durable reply.
