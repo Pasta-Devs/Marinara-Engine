@@ -1009,8 +1009,10 @@ const memoryVectors = await embeddings.embed(memoryTexts, signal); // documents
 
 A visão do navegador ganha `openCharacter(characterId, { tab })`. Ela abre o editor de personagens, na aba indicada quando houver uma, para que um pacote leve o usuário a um campo do card que ele lê. Engines antigos não têm esse método: verifique se `openCharacter` existe antes de mostrar o link.
 
+Desde a #9191, `tab` também aceita uma seção dentro de uma aba: `character-sheet`, `image-instructions`, `sprites` ou `gallery`, todas na aba **Images** (imagens). `sprites` e `gallery` eram abas, então links antigos continuam funcionando. As instruções para selfies do personagem (`conversationImageInstructions`) passaram de `convo` para `image-instructions`. Uma versão do Engine anterior à #9191 não reconhece esse ID e abre o editor no topo.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: cenas a partir de threads de pacotes

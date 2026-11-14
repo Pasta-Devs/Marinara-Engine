@@ -6,7 +6,7 @@ Esta integração permite que os seus personagens de IA controlem dispositivos r
 
 A integração é um pequeno programa que se instala dentro do Home Assistant e o liga ao seu servidor Marinara. Na primeira configuração, ela cria o seguinte para você. Você nunca copia endereços de ferramentas nem configura ferramentas na mão.
 
-- Ferramentas de casa inteligente na seção **Functions** (funções) do painel Presets. Veja [Ferramentas personalizadas](../extending/custom-tools.md).
+- Ferramentas de casa inteligente na aba **Functions** (funções) do painel Presets. Veja [Ferramentas personalizadas](../extending/custom-tools.md).
 - Um agente chamado **Home Assistant**, um ajudante de IA que roda junto com o seu chat. Veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 - Entidades do Home Assistant (dispositivos, sensores e controles), para que você acompanhe e controle Marinara pelo Home Assistant.
 
@@ -53,7 +53,7 @@ Veja [Acesso remoto](../REMOTE_ACCESS.md) para saber qual opção escolher.
 
 Se não funcionou: o Home Assistant mostra um erro quando não consegue alcançar Marinara. Veja [Solução de problemas](#troubleshooting).
 
-Quando dá certo, a integração registra um webhook privado no Home Assistant, cria as ferramentas na seção **Functions** do Marinara apontando para esse webhook, cria o agente **Home Assistant** com todas as ferramentas ativas na lista e cria as entidades descritas abaixo.
+Quando dá certo, a integração registra um webhook privado no Home Assistant, cria as ferramentas na aba **Functions** do Marinara apontando para esse webhook, cria o agente **Home Assistant** com todas as ferramentas ativas na lista e cria as entidades descritas abaixo.
 
 ## Adicionar o agente a um chat
 
@@ -160,7 +160,7 @@ A chamada do webhook provavelmente está bloqueada. Acrescente `WEBHOOK_LOCAL_UR
 
 ### As ferramentas não aparecem em Functions
 
-Pressione **Marinara Sync HA Tools** ou reinicie o Home Assistant e depois confira **Functions** no painel Presets.
+Pressione **Marinara Sync HA Tools** ou reinicie o Home Assistant e depois confira a aba **Functions** no painel Presets.
 
 ### O agente Home Assistant não está no meu chat
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Desinstalar
 
-Exclua a integração em **Settings → Devices & Services → Marinara Engine** no Home Assistant. Isso remove as entidades. As ferramentas na seção **Functions** do Marinara e o agente **Home Assistant** continuam lá. Exclua-os na mão no Marinara se não quiser mais usá-los.
+Exclua a integração em **Settings → Devices & Services → Marinara Engine** no Home Assistant. Isso remove as entidades. As ferramentas na aba **Functions** do Marinara e o agente **Home Assistant** continuam lá. Exclua-os na mão no Marinara se não quiser mais usá-los.
 
 ## Guias relacionados
 

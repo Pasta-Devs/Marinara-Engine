@@ -14,6 +14,8 @@ A aba **Colors** define três cores: a cor do nome, a cor do diálogo e a cor da
 
 **Extract Colors from Avatar** (extrair as cores do avatar) escolhe as três cores a partir da imagem do avatar. Enquanto não existe avatar, o botão fica desativado e mostra **Upload an avatar first**. Depois, você ainda pode mudar qualquer cor manualmente.
 
+<a id="the-three-colors"></a>
+
 ### As três cores
 
 Defina cada uma pelo campo de cor ou digite um valor:
@@ -30,7 +32,7 @@ Defina cada uma pelo campo de cor ou digite um valor:
 linear-gradient(90deg, #f59e0b, #ef4444)
 ```
 
-A aba **Colors** de um personagem também tem **Name Aliases** (apelidos do nome). Digite nomes extras ou apelidos, separados por vírgulas, como `Kate, Kitty, Katherine`. Eles recebem a cor do nome do personagem quando aparecem nas mensagens do chat. O nome principal sempre entra. Ative o recurso por chat em **Chat Settings → Characters** (configurações do chat → personagens).
+**Other names** (outros nomes), como apelidos, nomes completos ou títulos, por exemplo `Clark Kent, Kal-El, Mr. Kent`, fica na aba **Metadata** (metadados), abaixo de **Name** (nome). Nas mensagens dos chats de Roleplay, esses nomes recebem a mesma cor do nome principal. Ative o recurso por chat com **Color Character Names in Text** (colorir os nomes dos personagens no texto) em **Chat Settings → Characters** (configurações do chat → personagens) e **Color Persona Name in Text** (colorir o nome da persona no texto) em **Chat Settings → Persona** (configurações do chat → persona).
 
 Para mudar a transparência, use **Settings → Appearance → Roleplay Presentation → Roleplay Messages Background Opacity** (Configurações → Aparência → Apresentação do Roleplay → Opacidade do plano de fundo das mensagens Roleplay).
 

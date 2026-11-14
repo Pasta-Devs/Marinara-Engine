@@ -48,11 +48,11 @@ Abrir uma persona troca a área do chat pelo Persona Editor em página inteira. 
 - O quadro do avatar. Clique nele para fazer upload de uma imagem. Com uma conexão de geração de imagens configurada, um botão de varinha também gera uma.
 - O campo de nome e um campo de comentário, para um rótulo curto como `Modern AU version`.
 - **Save**, que fica desativado até você mudar alguma coisa.
-- **Export persona** (exportar a persona), **Add persona as character** (adicionar a persona como personagem), **Duplicate persona** (duplicar a persona) e **Delete persona** (excluir a persona).
+- O menu **…** (**More actions**, mais ações) reúne **Ask Professor Mari** (falar com a Professor Mari), **Export persona** (exportar a persona), **Add persona as character** (adicionar a persona como personagem), **Duplicate persona** (duplicar a persona) e **Delete persona** (excluir a persona).
 
 Sair do editor salva as suas mudanças antes. Se o salvamento falhar, o editor continua aberto com o seu rascunho.
 
-As abas, nesta ordem, são **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** e **Stats**. Cada aba leva à sua seção de um único formulário longo.
+As abas, nesta ordem, são **Metadata**, **Card**, **Convo**, **Lorebook**, **Images** (imagens), **Colors** e **Stats**. Cada aba leva à sua seção de um único formulário longo.
 
 O editor de persona funciona como o [Character Editor](creating-and-editing-characters.md). As observações abaixo tratam do que é diferente.
 
@@ -62,8 +62,7 @@ O editor de persona funciona como o [Character Editor](creating-and-editing-char
 | **Card** | Veja [Aba Card](#card-tab) abaixo. |
 | **Convo** | Campos usados só no modo Conversation. Veja [Perfis do Conversation Mode](../conversation/profiles.md). |
 | **Lorebook** | Anexe entradas de lorebook que são ativadas quando esta persona está no chat. Veja [Visão geral dos lorebooks](../lorebooks/overview.md). |
-| **Sprites** | Imagens da persona em pé no palco, para Game e Roleplay. Tem **Facial Expressions**, **Full-body** e **Clips**, além de **Upload Folder**. Veja [Sprites de personagem](sprites.md). |
-| **Gallery** | Imagens e vídeos de referência, com **Upload Persona Images** e **Upload Persona Videos**. Veja [Galerias de personagem e de persona](galleries.md). |
+| **Images** | **Character Sheet** (ficha do personagem), **Sprites** (imagens em pé para Game Mode e Roleplay, com **Facial Expressions**, **Full-body**, **Clips** e **Upload Folder**) e **Gallery** (imagens e vídeos de referência, com **Upload Persona Images** e **Upload Persona Videos**). Veja [Sprites de personagem](sprites.md) e [Galerias de personagem e de persona](galleries.md). |
 | **Colors** | Cores do nome, do diálogo e da caixa de mensagem. Veja [Cores do personagem e Status de Roleplay](colors-and-stats.md). |
 | **Stats** | Barras de status e Status de Roleplay. Veja [Aba Stats](#stats-tab) abaixo. |
 
@@ -72,6 +71,7 @@ A aba **Metadata** mostra:
 - **Persona ID**, com **Copy** (copiar).
 - O recorte do avatar.
 - **Name** e **Creator**.
+- **Other names** (outros nomes), como apelidos, nomes completos ou títulos pelos quais a persona também é conhecida. Nos chats de Roleplay, eles podem aparecer na cor do nome. Veja [Dê cor ao nome nas mensagens](choosing-your-persona.md#color-your-name-in-messages).
 - **Phonetic name**, usado só quando o Text to Speech (TTS) lê o seu nome em voz alta.
 - **Title / Comment**, um rótulo curto.
 - **Version**, com padrão `1.0`, e um botão liga/desliga **Automatic versioning** (versionamento automático).
@@ -117,7 +117,7 @@ Um bloco **Game Mode Icon** (ícone de Game Mode) define a imagem do seu token e
 
 Para importar, clique em **Import** no painel **Personas**. A janela **Import Persona** aceita arquivos `.marinara` e `.json`, inclusive vários de uma vez. Um arquivo do Marinara restaura todos os detalhes, os sprites e a estrutura da galeria. Um arquivo JSON genérico, vindo de outra ferramenta, é mapeado campo a campo para uma persona nova. O nome é obrigatório. Cada arquivo mostra uma marca de sucesso ou de falha.
 
-Para exportar, clique em **Export persona** no editor ou use **Export** (exportar) no modo de seleção. A janela **Export Persona** oferece dois formatos:
+Para exportar, clique em **…** e depois em **Export persona** no editor ou use **Export** (exportar) no modo de seleção. A janela **Export Persona** oferece dois formatos:
 
 | Formato | O que você recebe |
 | --- | --- |
@@ -128,13 +128,13 @@ A exportação em massa baixa um único zip, com um arquivo por persona.
 
 ## Duplicar ou excluir uma persona
 
-Para duplicar, clique em **Duplicate** em uma linha ou em **Duplicate persona** no editor. A cópia recebe o nome "{original name} (Copy)" e mantém todos os campos do card, as cores, os stats e os campos de Convo. Nenhum chat muda de persona.
+Para duplicar, clique em **Duplicate** em uma linha ou em **Duplicate persona** no menu **…** do editor. A cópia recebe o nome "{original name} (Copy)" e mantém todos os campos do card, as cores, os stats e os campos de Convo. Nenhum chat muda de persona.
 
-Para excluir, clique em **Delete** em uma linha ou em **Delete persona** no editor e confirme. Não é possível desfazer. Para excluir várias, clique em **Select**, marque as personas e use **Delete** na barra de seleção. Se uma exclusão falhar, essas personas continuam selecionadas para você tentar de novo.
+Para excluir, clique em **Delete** em uma linha ou em **Delete persona** no menu **…** do editor e confirme. Não é possível desfazer. Para excluir várias, clique em **Select**, marque as personas e use **Delete** na barra de seleção. Se uma exclusão falhar, essas personas continuam selecionadas para você tentar de novo.
 
 ## Adicionar a persona como personagem
 
-**Add persona as character**, no cabeçalho do editor, cria um card novo entre os seus personagens. Ele copia o nome, a descrição, a personalidade, o cenário, a história de fundo, a aparência, as tags, o criador, a versão e o avatar. A persona continua como estava. Para editar o card novo, veja [Criando e editando personagens](creating-and-editing-characters.md).
+**Add persona as character**, no menu **…** do cabeçalho do editor, cria um card novo entre os seus personagens. Ele copia o nome, a descrição, a personalidade, o cenário, a história de fundo, a aparência, as tags, o criador, a versão e o avatar. A persona continua como estava. Para editar o card novo, veja [Criando e editando personagens](creating-and-editing-characters.md).
 
 ## Guias relacionados
 

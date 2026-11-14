@@ -116,7 +116,7 @@ Marinara bloqueia os downgrades evidentes. O inicializador pula uma atualizaçã
 
 Se você atualizou e depois voltou para uma versão anterior, restaure o backup que fez antes da atualização. Veja [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version). Os detalhes técnicos vêm a seguir.
 
-Os seus dados estão agora no formato de armazenamento 10. Os formatos 8, 9 e 10 acrescentam configurações de avatares 3D (MMD, depois GLB e FBX) e vínculos entre conexões e contas que as versões antigas não conseguem ler com segurança. Se os seus dados chegaram ao formato 8 ou mais novo, restaure um backup completo feito antes dessa atualização para usar uma versão antiga. O comando abaixo só converte estruturas antigas de arquivos de chat. Não mude o número do formato manualmente. Veja [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version).
+Os seus dados estão agora no formato de armazenamento 11. Os formatos 8, 9 e 10 acrescentam configurações de avatares 3D (MMD, depois GLB e FBX) e vínculos entre conexões e contas. O formato 11 armazena personas como cards de personagem. As versões antigas não conseguem ler esses formatos com segurança. O formato 11 conserva os arquivos originais das personas como cópias `.pre-v11` em `storage/tables/personas/`. Se os seus dados chegaram ao formato 8 ou mais novo, restaure um backup completo feito antes dessa atualização para usar uma versão antiga. O comando abaixo só converte estruturas antigas de arquivos de chat. Não mude o número do formato manualmente. Veja [Como voltar para uma versão anterior](UPGRADING.md#downgrading-to-an-older-version).
 
 Para dados abaixo do formato 8, converta a estrutura dos arquivos de chat:
 

@@ -32,6 +32,12 @@ Se não funcionou: você só pode escolher personas que já criou. Crie uma prim
 
 No Game Mode, essa seção aparece como a sua equipe dentro do jogo, mas continua usando a etiqueta **Persona**.
 
+<a id="color-your-name-in-messages"></a>
+
+### Dê cor ao nome nas mensagens
+
+Em um chat de Roleplay, a seção **Persona** tem a opção **Color Persona Name in Text** (colorir o nome da persona no texto). Ela aplica a cor do nome da persona ao nome, ao nome de exibição em Conversation e aos **Other names** (outros nomes) nas mensagens. Até você mudar a opção, ela segue **Color Character Names in Text** (colorir os nomes dos personagens no texto) na seção **Characters** (personagens). Um personagem com o mesmo nome mantém a própria cor. Para ver o efeito, defina a cor do nome da persona na aba **Colors** (cores).
+
 ## Na criação de um chat
 
 O assistente de configuração New Chat tem o campo **Your Persona** (a sua persona). Ele usa o mesmo seletor com busca e a opção **None**. No assistente de configuração New Game Setup, o campo se chama **Player's Persona** (persona do jogador), e o chat mantém essa escolha.

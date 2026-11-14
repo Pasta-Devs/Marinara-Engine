@@ -222,7 +222,7 @@ Os passos acima são os mesmos. Algumas mudanças afetam um servidor usado por o
 
 ## Como voltar para uma versão anterior
 
-Nem sempre é possível voltar. As versões mais novas salvam os dados em um formato de armazenamento mais novo, e uma compilação recusa dados em um formato mais novo do que o que ela conhece. As compilações atuais usam o formato de armazenamento 10. Os formatos 8, 9 e 10 acrescentaram os avatares MMD, os vínculos entre conexões e contas e os avatares GLB/FBX. Uma compilação que conhece só um formato mais antigo não consegue abrir dados salvos neles.
+Nem sempre é possível voltar. As versões mais novas salvam os dados em um formato de armazenamento mais novo, e uma compilação recusa dados em um formato mais novo do que o que ela conhece. As compilações atuais usam o formato de armazenamento 11. Os formatos 8, 9 e 10 acrescentaram os avatares MMD, os vínculos entre conexões e contas e os avatares GLB/FBX. O formato 11 salva personas no mesmo formato de card dos personagens. Uma compilação que conhece só um formato mais antigo não consegue abrir dados salvos neles.
 
 O inicializador pula uma atualização automática que levaria a uma versão incompatível, e o atualizador do aplicativo se recusa a aplicá-la. Para voltar a uma compilação mais antiga, pare Marinara e restaure um backup completo feito antes da atualização. O comando de conversão de arquivos de chat abaixo não consegue converter as configurações de avatares MMD. Não mude o número do formato à mão.
 

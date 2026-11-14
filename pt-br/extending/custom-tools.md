@@ -8,13 +8,13 @@ A chamada de funções significa que a IA pede ao aplicativo que execute uma aç
 
 ## Criar uma ferramenta
 
-Antes de começar, abra o painel **Presets** pela barra superior. As ferramentas ficam na seção **Functions** (funções) dele, com o ícone de chave inglesa. Se você abrir Marinara de outro dispositivo, primeiro salve o segredo de administrador em **Settings → Advanced → Admin Access** (Configurações → Avançado → acesso de administrador). Ele precisa coincidir com o `ADMIN_SECRET` do servidor; veja a [Referência de configuração do servidor](../CONFIGURATION.md).
+Antes de começar, abra o painel **Presets** pela barra superior. As ferramentas ficam na aba **Functions** (funções) dele. Se você abrir Marinara de outro dispositivo, primeiro salve o segredo de administrador em **Settings → Advanced → Admin Access** (Configurações → Avançado → acesso de administrador). Ele precisa coincidir com o `ADMIN_SECRET` do servidor; veja a [Referência de configuração do servidor](../CONFIGURATION.md).
 
 Para uma primeira tentativa, escolha **Static Result** (resultado estático): ele não precisa de mais nada.
 
 ### Como criar uma ferramenta
 
-1. Abra **Presets** e encontre **Functions**.
+1. Abra **Presets → Functions** pela barra superior.
 2. Clique em **Create function** (criar função, ícone de mais). Um editor de ferramenta em branco se abre.
 3. Digite um nome em snake_case minúsculo, como `check_weather`. Esse é exatamente o nome que a IA chama. Ele começa com uma letra minúscula e depois usa letras minúsculas, números e sublinhados.
 4. Preencha **Description** (descrição). Escreva o texto como uma instrução para a IA, porque a IA o lê para decidir quando chamar a ferramenta. Exemplo: `Get the current weather for a city the user names.`
@@ -29,11 +29,14 @@ Regras para nomes e descrições:
 - Duas ferramentas não podem ter o mesmo nome, e uma ferramenta não pode usar um nome integrado, como `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` ou `update_about_me`. Um conflito mostra uma mensagem como `"your_name" is a reserved built-in tool name.`
 - Se você sair do editor com alterações não salvas, uma faixa oferece **Keep editing** (continuar editando), **Discard** (descartar) ou **Save & close** (salvar e fechar).
 
-O cabeçalho de **Functions** tem três botões de ícone:
+No topo da aba **Functions** ficam estes botões:
 
 - **Create function** (ícone de mais)
 - **Import functions from ZIP or JSON** (importar funções de ZIP ou JSON)
 - **Export functions to ZIP** (exportar funções para ZIP), esmaecido quando você não tem ferramentas
+- **Select functions** (selecionar funções, ícone de marca de seleção)
+
+Abaixo dos botões, **Search functions** (buscar funções) pesquisa nos nomes e nas descrições das ferramentas.
 
 Cada ferramenta da lista mostra:
 
@@ -41,7 +44,26 @@ Cada ferramenta da lista mostra:
 - um botão liga/desliga
 - **Edit function** (editar função) e **Delete Function** (excluir função)
 
-Arraste uma ferramenta pela alça para reordenar a lista. A ordem serve só para exibição. Sem ferramentas, a lista mostra **No functions yet**.
+Arraste uma ferramenta pela alça para reordenar a lista. A ordem serve só para exibição. Durante uma busca, você não pode arrastar as ferramentas. Sem ferramentas, a lista mostra **No functions yet**.
+
+
+### Organizar ferramentas em pastas
+
+1. Clique em **New Folder** (nova pasta) e dê um nome à pasta.
+2. Clique no ícone de pasta na linha de uma ferramenta para abrir **Move to folder** (mover para a pasta).
+3. Escolha a pasta. Para tirar uma ferramenta de uma pasta, escolha **No folder (top level)** (sem pasta, nível superior).
+
+Clique no nome de uma pasta para expandi-la ou recolhê-la. Desligue a pasta para pausar suas ferramentas. A IA deixa de receber essas ferramentas em todos os chats e elas ficam indisponíveis nas listas de ferramentas de chats e agentes. O cabeçalho mostra **Paused** (pausada). Cada ferramenta mantém a posição do próprio botão liga/desliga. Uma ferramenta ligada em uma pasta pausada aparece com o botão cinza e a etiqueta **Paused by folder** (pausada pela pasta). Ao retomar a pasta, as ferramentas ligadas voltam a ficar disponíveis e as desligadas continuam desligadas. Excluir a pasta move suas ferramentas para o nível superior, onde cada uma segue o próprio botão liga/desliga.
+
+Quando há pastas, a lista agrupa as ferramentas por pasta. Clique em **Manual order** (ordem manual) para ver a lista completa e arrastar as ferramentas pelas alças.
+
+### Alterar várias ferramentas de uma vez
+
+1. Clique em **Select functions**.
+2. Marque as ferramentas que você quer alterar ou marque **Select all functions** (selecionar todas as funções).
+3. Clique em **Enable selected** (ativar selecionadas), **Disable selected** (desativar selecionadas) ou **Move to folder**. Você também pode exportar ou excluir a seleção.
+
+**Enable selected** altera os botões de cada ferramenta. Retome uma pasta pausada para disponibilizar suas ferramentas novamente.
 
 <a id="add-parameters"></a>
 
