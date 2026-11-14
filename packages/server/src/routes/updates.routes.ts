@@ -69,12 +69,12 @@ const UPDATE_CHANNELS: Record<UpdateChannel, UpdateChannelInfo> = {
   // named fetch works for single-branch installer clones.
   overhaul: {
     id: "overhaul",
-    label: "UI overhaul (playtest)",
+    label: "ui/kolacheee",
     branch: OVERHAUL_BRANCH,
     targetRef: `${UPDATE_REMOTE}/${OVERHAUL_BRANCH}`,
     fetchRef: `+refs/heads/${OVERHAUL_BRANCH}:refs/remotes/${UPDATE_REMOTE}/${OVERHAUL_BRANCH}`,
     warning:
-      "The UI overhaul is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
+      "ui/kolacheee is a playtest build that follows staging. Back up your app data first: once it upgrades your data, Latest Stable may not be able to read it until the next release.",
   },
 };
 const DEFAULT_PNPM_DESCRIPTOR =
@@ -284,7 +284,7 @@ export function getManualUpdateHint(
 ) {
   if (installType === "docker") {
     if (channel.id === "overhaul") {
-      return "The UI overhaul has no container image. Docker installs stay on their image; to playtest it, run a git install (Windows, macOS, Linux or Termux) with a separate data folder.";
+      return "ui/kolacheee has no container image. Docker installs stay on their image; to playtest it, run a git install (Windows, macOS, Linux or Termux) with a separate data folder.";
     }
     if (channel.id === "staging") {
       return `Set the Compose image to ${DOCKER_IMAGE}:staging, then pull it and restart the container. Use a separate data volume for staging.`;
@@ -296,7 +296,7 @@ export function getManualUpdateHint(
       ? ` Run it in Command Prompt (cmd) or Git Bash - the default Windows PowerShell rejects '&&' chains (Git Bash users: replace \`cd /d\` with \`cd\`${gitBashExtra}).`
       : "";
   if (installType === "git" && channel.id === "overhaul") {
-    return `The UI overhaul is a playtest branch. Make a profile backup first, then apply from the browser or paste the complete command below - it starts by changing into the install folder.${windowsShellNote()}`;
+    return `ui/kolacheee is a playtest branch. Make a profile backup first, then apply from the browser or paste the complete command below - it starts by changing into the install folder.${windowsShellNote()}`;
   }
   if (installType === "git" && channel.id === "staging") {
     return `Staging is a tester branch. Make a profile backup first, then apply from the browser or paste the complete command below - it starts by changing into the install folder.${windowsShellNote()}`;
