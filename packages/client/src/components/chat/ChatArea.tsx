@@ -199,6 +199,7 @@ import { ChatHelpOverlay } from "./ChatHelpOverlay";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
+import { useStableCallback } from "../../hooks/use-stable-callback";
 
 export type { CharacterMap };
 
@@ -2998,7 +2999,7 @@ const LocalChatArea = memo(function LocalChatArea({
     [updateMessageExtra],
   );
 
-  const handleBranch = useCallback(
+  const handleBranchLatest = useCallback(
     async (messageId: string) => {
       const chatId = activeChatId;
       if (!chatId || branchChat.isPending || branchPendingRef.current) return;
@@ -3037,6 +3038,8 @@ const LocalChatArea = memo(function LocalChatArea({
     },
     [activeChatId, branchChat, localizeUi],
   );
+  // Stable for the memoized message rows: branchChat is a new object every render.
+  const handleBranch = useStableCallback(handleBranchLatest);
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {
@@ -3075,7 +3078,7 @@ const LocalChatArea = memo(function LocalChatArea({
   // Peek prompt state
   const [peekPromptData, setPeekPromptData] = useState<PeekPromptData | null>(null);
 
-  const handlePeekPrompt = useCallback(
+  const handlePeekPromptLatest = useCallback(
     (messageId?: string) => {
       if (!activeChatId) return;
       peekPrompt.mutate(messageId ? { chatId: activeChatId, messageId } : activeChatId, {
@@ -3117,6 +3120,8 @@ const LocalChatArea = memo(function LocalChatArea({
     },
     [activeChatId, chatMeta.groupChatMode, checkMessage, handleReplyCheckupLink, messages, peekPrompt],
   );
+  // Stable for the memoized message rows: peekPrompt is a new object every render.
+  const handlePeekPrompt = useStableCallback(handlePeekPromptLatest);
 
   // R2: only the newest reply gets the quiet line, and only for facts about the reply itself.
   const replyCheckup = useMemo(() => {

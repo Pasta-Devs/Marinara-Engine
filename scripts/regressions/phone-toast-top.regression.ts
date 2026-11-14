@@ -111,6 +111,15 @@ class ResizeStub {
   }
 }
 
+// Header changes are measured once per frame, before it paints, not in the mutation delivery.
+let pendingFrames = new Map<number, () => void>();
+let nextFrame = 1;
+const flushFrames = () => {
+  const frames = pendingFrames;
+  pendingFrames = new Map();
+  for (const callback of frames.values()) callback();
+};
+
 Object.defineProperties(globalThis, {
   document: {
     configurable: true,
@@ -129,6 +138,14 @@ Object.defineProperties(globalThis, {
     value: {
       innerWidth: 390,
       innerHeight: 844,
+      requestAnimationFrame: (callback: () => void) => {
+        const id = nextFrame++;
+        pendingFrames.set(id, callback);
+        return id;
+      },
+      cancelAnimationFrame: (id: number) => {
+        pendingFrames.delete(id);
+      },
       addEventListener: (name: string, listener: () => void) => {
         assert.equal(name, "resize");
         resizeListeners.add(listener);
@@ -175,6 +192,11 @@ rows = [windowHeader, bubbleRow];
 const cleanup = watchPhoneToastTop(host as unknown as HTMLElement);
 const hostObserver = mutations.find((observer) => observer.target === host)!;
 const layoutObserver = mutations.find((observer) => observer !== hostObserver)!;
+/** One mutation delivery, then the frame it schedules (the measure runs before that frame paints). */
+const notifyLayout = (...args: Parameters<typeof layoutObserver.notify>) => {
+  layoutObserver.notify(...args);
+  flushFrames();
+};
 const resizeObserver = resizes[0]!;
 assert.ok(hostObserver);
 assert.equal(layoutObserver.target, undefined, "the app is not observed while no toast exists");
@@ -194,21 +216,35 @@ const editor = header(56, 210);
 const editorContainer = new ElementStub();
 editorContainer.children.push(editor);
 rows.push(editor);
-layoutObserver.notify(body, { type: "childList", addedNodes: [editorContainer] as unknown as NodeList });
+notifyLayout(body, { type: "childList", addedNodes: [editorContainer] as unknown as NodeList });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "218px", "opening an editor moves a lingering toast synchronously");
 assert.ok(resizeObserver.observed.has(editor), "new headers are observed for later size changes");
+
+const beforeBatchedMutations = measurements;
+editor.rect.bottom = 214;
+layoutObserver.notify(editor, { type: "attributes", attributeName: "style" });
+layoutObserver.notify(editor, { type: "attributes", attributeName: "class" });
+assert.equal(measurements, beforeBatchedMutations, "header mutations are not measured inside the delivery");
+flushFrames();
+assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "222px", "the next frame measures the header before it paints");
+const measuresPerFrame = measurements - beforeBatchedMutations;
+const beforeSingleMutation = measurements;
+notifyLayout(editor, { type: "attributes", attributeName: "style" });
+assert.equal(measurements - beforeSingleMutation, measuresPerFrame, "several mutations in one frame share one measure");
+editor.rect.bottom = 210;
+notifyLayout(editor, { type: "attributes", attributeName: "style" });
 
 const message = new ElementStub();
 message.children.push(new ElementStub());
 const beforeUnrelatedMutations = measurements;
-layoutObserver.notify(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
-layoutObserver.notify(body, { type: "childList", removedNodes: [message] as unknown as NodeList });
-layoutObserver.notify(message, { type: "attributes", attributeName: "class" });
-layoutObserver.notify(message, { type: "attributes", attributeName: "style" });
+notifyLayout(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
+notifyLayout(body, { type: "childList", removedNodes: [message] as unknown as NodeList });
+notifyLayout(message, { type: "attributes", attributeName: "class" });
+notifyLayout(message, { type: "attributes", attributeName: "style" });
 assert.equal(measurements, beforeUnrelatedMutations, "unrelated body mutations do not measure header geometry");
 
 editor.rect.bottom = 220;
-layoutObserver.notify(editor, { type: "attributes", attributeName: "style" });
+notifyLayout(editor, { type: "attributes", attributeName: "style" });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "228px", "moving an existing header updates in the same delivery");
 
 editor.rect.bottom = 240;
@@ -216,22 +252,22 @@ editor.rect.height = 184;
 resizeObserver.notify();
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "248px", "font and header size changes keep controls clear");
 editor.visibility = "hidden";
-layoutObserver.notify(editorContainer, { type: "attributes", attributeName: "data-chat-covered" });
+notifyLayout(editorContainer, { type: "attributes", attributeName: "data-chat-covered" });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "158px", "a covered chat header stops reserving space");
 
 editor.visibility = "visible";
-layoutObserver.notify(editorContainer, { type: "attributes", attributeName: "hidden" });
+notifyLayout(editorContainer, { type: "attributes", attributeName: "hidden" });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "248px", "revealing a header ancestor updates immediately");
 editor.selector = undefined;
-layoutObserver.notify(editor, { type: "attributes", attributeName: "class" });
+notifyLayout(editor, { type: "attributes", attributeName: "class" });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "158px", "losing a header selector releases its space immediately");
 assert.equal(resizeObserver.observed.has(editor), false, "a former header releases its resize observer");
 
 const beforeToastMutation = measurements;
-layoutObserver.notify(toast, { type: "attributes", attributeName: "style" });
+notifyLayout(toast, { type: "attributes", attributeName: "style" });
 assert.equal(measurements, beforeToastMutation, "toast animation does not repeatedly measure the app");
 rows = [];
-layoutObserver.notify(body, {
+notifyLayout(body, {
   type: "childList",
   removedNodes: [windowHeader, bubbleRow, editorContainer] as unknown as NodeList,
 });
@@ -245,7 +281,7 @@ const inventory = new ElementStub();
 inventory.children.push(inventoryHeader);
 inventoryHeader.parentElement = inventory;
 rows.push(inventoryHeader);
-layoutObserver.notify(body, { type: "childList", addedNodes: [inventory] as unknown as NodeList });
+notifyLayout(body, { type: "childList", addedNodes: [inventory] as unknown as NodeList });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "107px", "a late Inventory header clears a lingering toast");
 assert.ok(resizeObserver.observed.has(inventoryHeader), "the custom Inventory header is observed");
 assert.ok(resizeObserver.observed.has(inventory), "the centered panel is observed when its body can move the header");
@@ -258,7 +294,7 @@ inventoryHeader.rect.bottom = 99.421875;
 const actions = new ElementStub();
 inventory.children.push(actions);
 const beforeBodyGrowth = measurements;
-layoutObserver.notify(inventory, { type: "childList", addedNodes: [actions] as unknown as NodeList });
+notifyLayout(inventory, { type: "childList", addedNodes: [actions] as unknown as NodeList });
 assert.ok(measurements > beforeBodyGrowth, "a custom panel's body growth is a relevant mutation");
 assert.equal(inventoryHeader.rect.height, 49, "the header moves without changing its own size");
 assert.equal(
@@ -270,15 +306,15 @@ const actionLabel = new ElementStub();
 actions.children.push(actionLabel);
 inventoryHeader.rect.top = 56;
 inventoryHeader.rect.bottom = 105;
-layoutObserver.notify(actions, { type: "childList", addedNodes: [actionLabel] as unknown as NodeList });
+notifyLayout(actions, { type: "childList", addedNodes: [actionLabel] as unknown as NodeList });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "113px", "nested action-bar additions update synchronously");
 inventoryHeader.rect.top = 60;
 inventoryHeader.rect.bottom = 109;
-layoutObserver.notify(actionLabel, { type: "attributes", attributeName: "class" });
+notifyLayout(actionLabel, { type: "attributes", attributeName: "class" });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "117px", "nested action-bar layout changes update synchronously");
 const beforeUnrelatedPanelMutations = measurements;
-layoutObserver.notify(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
-layoutObserver.notify(message, { type: "attributes", attributeName: "style" });
+notifyLayout(body, { type: "childList", addedNodes: [message] as unknown as NodeList });
+notifyLayout(message, { type: "attributes", attributeName: "style" });
 assert.equal(measurements, beforeUnrelatedPanelMutations, "a custom panel does not make unrelated messages relevant");
 inventoryHeader.rect.top = 70;
 inventoryHeader.rect.bottom = 119;
@@ -290,7 +326,7 @@ inventoryHeader.rect.height = inventoryHeader.rect.bottom - inventoryHeader.rect
 resizeObserver.notify();
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "128px", "resizing a custom header keeps Close clear");
 rows = [];
-layoutObserver.notify(body, { type: "childList", removedNodes: [inventory] as unknown as NodeList });
+notifyLayout(body, { type: "childList", removedNodes: [inventory] as unknown as NodeList });
 assert.equal(styles.get(PHONE_TOAST_TOP_VARIABLE), "68px", "closing Inventory releases its reserved space");
 assert.equal(resizeObserver.observed.has(inventoryHeader), false, "closing Inventory releases its observer");
 assert.equal(resizeObserver.observed.has(inventory), false, "closing Inventory releases its panel observer");
