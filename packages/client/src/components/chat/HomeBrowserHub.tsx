@@ -934,13 +934,17 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     !(connectionsQuery.data as Array<{ provider: string; model?: string | null }>).some(
       (c) => isChatProvider(c.provider) && !!c.model,
     );
-  const installedChannel = useQuery<{ channel: "stable" | "staging" }>({
+  const installedChannel = useQuery<{ channel: "stable" | "staging" | "overhaul" }>({
     queryKey: ["update-channel"],
     queryFn: () => api.get("/updates/channel"),
     staleTime: 30_000,
   });
   const versionLabel = t(
-    installedChannel.data?.channel === "staging" ? "home.browser.stagingVersion" : "home.browser.version",
+    installedChannel.data?.channel === "staging"
+      ? "home.browser.stagingVersion"
+      : installedChannel.data?.channel === "overhaul"
+        ? "home.browser.overhaulVersion"
+        : "home.browser.version",
     { version: APP_VERSION },
   );
   const queryClient = useQueryClient();
