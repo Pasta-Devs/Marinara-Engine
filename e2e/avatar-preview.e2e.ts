@@ -43,7 +43,7 @@ test("sheet uploads persist on refresh without saving unrelated card drafts", as
   const open = async () => {
     await page.evaluate(async (id) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-      useUIStore.getState().openCharacterDetail(id, { initialTab: "sprites" });
+      useUIStore.getState().openCharacterDetail(id, { initialTab: "character-sheet" });
     }, character.id);
     await expect(section).toBeVisible();
     await section.getByRole("button", { name: "Manage", exact: true }).click();

@@ -450,17 +450,20 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect.poll(folderOrder).toEqual([front, alternate]);
     await frontSection.getByRole("button", { name: "Front", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
-    await expect(section.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
+    // The sheet's Manage toggle sits in its own sub-section above Sprites since #9191.
+    const sheetSection = page.locator('[data-editor-subsection="character-sheet"]');
+    await sheetSection.scrollIntoViewIfNeeded();
+    await expect(sheetSection.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
     await expect(library.getByRole("slider")).toHaveCount(0);
 
-    await section.getByRole("button", { name: "Manage", exact: true }).click();
-    await expect(section.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
-    await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
-    await expect(section.getByRole("checkbox", { name: /Use character sheet/ })).toBeDisabled();
-    await section.getByRole("button", { name: "Close", exact: true }).click();
+    await sheetSection.getByRole("button", { name: "Manage", exact: true }).click();
+    await expect(sheetSection.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
+    await expect(sheetSection.getByText("No character sheet selected", { exact: true })).toBeVisible();
+    await expect(sheetSection.getByRole("checkbox", { name: /Use character sheet/ })).toBeDisabled();
+    await sheetSection.getByRole("button", { name: "Close", exact: true }).click();
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
     const addPanel = library.getByRole("region", { name: "Add sprites", exact: true });
     const upload = (await addPanel.getByRole("button", { name: "Upload images", exact: true }).boundingBox())!;

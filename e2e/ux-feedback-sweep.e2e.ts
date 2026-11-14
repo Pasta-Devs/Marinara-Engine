@@ -961,6 +961,11 @@ for (const spec of [
         .getByRole("button", { name: "Gallery", exact: true })
         .click();
       await expect(gallery).toHaveAttribute("aria-busy", "false");
+      // Let the pill's smooth jump land before the scroll checks below.
+      const scrollerTop = async () => (await editor.locator(".mari-editor-content").boundingBox())?.y ?? Number.NaN;
+      await expect
+        .poll(async () => Math.round(((await gallery.boundingBox())?.y ?? Number.NaN) - (await scrollerTop())))
+        .toBe(16);
       await expect.poll(() => galleryRequests).toBeGreaterThan(0);
       const firstControl = gallery.getByRole("button").first();
       await firstControl.evaluate((element) => element.setAttribute("data-ux-retained", "true"));
