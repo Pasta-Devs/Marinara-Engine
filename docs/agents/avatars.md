@@ -248,7 +248,7 @@ A character or persona can use its expression sprites as a PNGTuber avatar with 
 
 | What you want | Tool | What you get |
 | --- | --- | --- |
-| PNGTuber sprites | Any drawing app, then the character's **Sprites** tab | The sprites |
+| PNGTuber sprites | Any drawing app, then the character's **Images → Sprites** | The sprites |
 | PNGTuber sprites with layers and costumes | [PNGTuber Plus](https://github.com/kaiakairos/PNGTuber-Plus) | A `.save` file |
 | A mesh avatar | [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) | A `.mavatar` file |
 | A 3D model | [VRoid Studio](https://vroid.com/en/studio), or Blender with the [VRM Add-on for Blender](https://vrm-addon-for-blender.info/en-us/) | A `.vrm` file, optionally a `.vrma` idle animation |
@@ -257,7 +257,7 @@ A character or persona can use its expression sprites as a PNGTuber avatar with 
 
 1. Draw one picture per feeling, all the same size, with the character in the same place. Name each after its feeling: `neutral`, `happy`, `angry`, `sad`, `relaxed`, `surprised`. Names containing a feeling word work too, such as `smile`, `cry`, `calm` or `shock`. For the optional [more feelings](#pngtuber-sprites), name pictures such as `amusement`, `fear` or `gratitude`.
 2. For a moving mouth, draw the same picture with the mouth open and add `_talk`, for example `happy_talk`. For blinking, close the eyes and add `_blink`. With both, add `_blink_talk`.
-3. Add the pictures on the **Sprites** tab, under **Facial Expressions**. Each file name becomes its sprite's name. See [Character Sprites](../characters/sprites.md#upload-your-own-sprites).
+3. Add the pictures under **Images → Sprites**, in **Facial Expressions**. Each file name becomes its sprite's name. See [Character Sprites](../characters/sprites.md#upload-your-own-sprites).
 4. Open **2D Avatars** in **Agents**, choose the character or persona, and turn on **Show this avatar in chats**.
 
 ### PNGTuber Plus

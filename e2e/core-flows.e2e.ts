@@ -295,6 +295,16 @@ async function openEditorSection(editor: Locator, label: string) {
   await navigation.getByRole("button", { name: label, exact: true }).click();
 }
 
+/** Sheet, Sprites and Gallery live in the Images tab since #9191: open it, then jump to the sub-section. */
+async function openImagesSubsection(editor: Locator, label: "Character Sheet" | "Sprites" | "Gallery") {
+  await openEditorSection(editor, "Images");
+  await editor
+    .locator('[data-editor-section="images"]')
+    .getByRole("navigation")
+    .getByRole("button", { name: label, exact: true })
+    .click();
+}
+
 async function bestEffortDelete(request: APIRequestContext, url: string) {
   await request.delete(url, { timeout: 5_000 }).catch(() => undefined);
 }
@@ -4732,10 +4742,10 @@ test("Sprite image selection uses a regular file picker and Engine confirmation"
       useUIStore.getState().openCharacterDetail(id);
     }, character.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Sprites");
     await editor.getByRole("button", { name: "Manage", exact: true }).last().click();
     await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
-    const section = editor.locator('[data-editor-section="sprites"]');
+    const section = editor.locator('[data-editor-subsection="sprites"]');
     await expect(section.locator("input[webkitdirectory]")).toHaveCount(0);
     await expect(section.getByRole("button", { name: "Import folder", exact: true })).toHaveCount(0);
     const confirmation = page.getByRole("dialog", { name: "Import images", exact: true });
@@ -4835,8 +4845,10 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
       useUIStore.getState().setReviewImagePromptsBeforeSend(false);
     }, character.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
-    const create = editor.locator('[data-editor-section="sprites"]').getByRole("button", { name: "Create with AI" });
+    await openImagesSubsection(editor, "Character Sheet");
+    const create = editor
+      .locator('[data-editor-subsection="character-sheet"]')
+      .getByRole("button", { name: "Create with AI" });
     await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
@@ -4998,9 +5010,9 @@ test("Persona sheets accept neutral full-body references and save the result", a
       useUIStore.getState().openPersonaDetail(id);
     }, persona.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Character Sheet");
     const create = editor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true });
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet", exact: true });
@@ -5231,7 +5243,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
         .getByRole("navigation", { name: "Editor sections" })
         .getByRole("button", { name: "Character Sheet", exact: true }),
     ).toHaveCount(0);
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Character Sheet");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     const sheetThumbnail = editor.getByRole("button", { name: "Open full image", exact: true });
     const sheetPreview = page.getByRole("dialog", { name: "Image preview", exact: true });
@@ -5261,7 +5273,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
@@ -5270,7 +5282,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(sheetDialog.getByRole("button", { name: "Save as Character Sheet", exact: true })).toBeDisabled();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-    await openEditorSection(editor, "Gallery");
+    await openImagesSubsection(editor, "Gallery");
     await expect(
       editor.getByText(
         "Use the Select button above to enter batch editing mode and apply an action to multiple entries at once.",
@@ -5287,7 +5299,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Cancel selection", exact: true }).click();
     await editor
-      .locator('[data-editor-section="gallery"]')
+      .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
@@ -5307,17 +5319,17 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
-    await openEditorSection(personaEditor, "Sprites");
+    await openImagesSubsection(personaEditor, "Character Sheet");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await openEditorSection(personaEditor, "Gallery");
+    await openImagesSubsection(personaEditor, "Gallery");
     await expect(personaEditor.getByRole("button", { name: "Select images", exact: true })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Select All", exact: true })).toBeVisible();
     await personaEditor.getByRole("button", { name: "Select All", exact: true }).click();
@@ -5327,7 +5339,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(personaEditor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await personaEditor.getByRole("button", { name: "Cancel selection", exact: true }).click();
     await personaEditor
-      .locator('[data-editor-section="gallery"]')
+      .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
@@ -5527,7 +5539,7 @@ test("Matched full-body sprites approve a neutral anchor before sending each exp
     await rightPanel.locator('[data-touch-drag-card="character"]').filter({ hasText: characterName }).click();
 
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Sprites");
     await editor.getByRole("button", { name: "Full-body", exact: true }).click();
     await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
     await editor.getByRole("button", { name: "Generate Sprite", exact: true }).click();
@@ -9416,8 +9428,8 @@ for (const owner of ["character", "persona"] as const) {
         { owner, id: entity.id },
       );
       const editor = page.locator(".mari-editor-shell");
-      await openEditorSection(editor, "Gallery");
-      const gallery = editor.locator('[data-editor-section="gallery"]');
+      await openImagesSubsection(editor, "Gallery");
+      const gallery = editor.locator('[data-editor-subsection="gallery"]');
       const appUrl = page.url();
       const probe = () =>
         page.evaluate(() => (window as unknown as Window & { __gallerySave: GallerySaveProbe }).__gallerySave);

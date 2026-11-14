@@ -93,13 +93,19 @@ test("sprite metadata stays optional and folder moves work without dragging", as
       const openSprites = async () => {
         await page.goto("/");
         const sections = page.getByRole("button", { name: "Editor sections", exact: true });
-        await expect(sections.or(page.getByRole("button", { name: "Sprites", exact: true })).first()).toBeVisible({
+        await expect(sections.or(page.getByRole("button", { name: "Images", exact: true })).first()).toBeVisible({
           timeout: 45000,
         });
         if (await sections.isVisible()) {
           await sections.click();
-          await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-        } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+          await page.getByRole("menuitemradio", { name: "Images", exact: true }).click();
+        } else await page.getByRole("button", { name: "Images", exact: true }).click();
+        // Sprites sit inside the Images tab since #9191; jump to them so the lazy section loads.
+        await page
+          .locator('[data-editor-section="images"]')
+          .getByRole("navigation")
+          .getByRole("button", { name: "Sprites", exact: true })
+          .click();
       };
       const library = page.locator("[data-sprite-library]");
       for (const unavailable of ["failed", "orphan"] as const) {
@@ -282,16 +288,22 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.goto("/");
     const sections = page.getByRole("button", { name: "Editor sections", exact: true });
     async function openSprites() {
-      await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
+      await expect(page.getByRole("button", { name: "Images", exact: true }).or(sections).first()).toBeVisible({
         timeout: 45000,
       });
       if (await sections.isVisible()) {
         await sections.click();
-        await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-      } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+        await page.getByRole("menuitemradio", { name: "Images", exact: true }).click();
+      } else await page.getByRole("button", { name: "Images", exact: true }).click();
+      // Sprites sit inside the Images tab since #9191; jump to them so the lazy section loads.
+      await page
+        .locator('[data-editor-section="images"]')
+        .getByRole("navigation")
+        .getByRole("button", { name: "Sprites", exact: true })
+        .click();
     }
     await openSprites();
-    const section = page.locator('[data-editor-section="sprites"]');
+    const section = page.locator('[data-editor-subsection="sprites"]');
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
     await section.getByRole("button", { name: "Full-body", exact: true }).click();

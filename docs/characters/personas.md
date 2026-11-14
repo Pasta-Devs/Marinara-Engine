@@ -52,7 +52,7 @@ Opening a persona replaces the chat area with the full-page Persona Editor. The 
 
 Leaving the editor saves your changes first. If saving fails, the editor stays open with your draft.
 
-The tabs, in order, are **Metadata**, **Card**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors** and **Stats**. Each tab jumps to its section of one long form.
+The tabs, in order, are **Metadata**, **Card**, **Convo**, **Lorebook**, **Images**, **Colors** and **Stats**. Each tab jumps to its section of one long form.
 
 The persona editor works like the [Character Editor](creating-and-editing-characters.md). The notes below cover what is different.
 
@@ -62,8 +62,7 @@ The persona editor works like the [Character Editor](creating-and-editing-charac
 | **Card** | See [Card tab](#card-tab) below. |
 | **Convo** | Fields used in Conversation mode only. See [Conversation Mode Profiles](../conversation/profiles.md). |
 | **Lorebook** | Attach lorebook entries that activate when this persona is in the chat. See [Lorebooks Overview](../lorebooks/overview.md). |
-| **Sprites** | Standing art for Game and Roleplay. Has **Facial Expressions**, **Full-body** and **Clips**, and **Upload Folder**. See [Character Sprites](sprites.md). |
-| **Gallery** | Reference images and videos, with **Upload Persona Images** and **Upload Persona Videos**. See [Character and Persona Galleries](galleries.md). |
+| **Images** | **Character Sheet**, **Sprites** (standing art for Game and Roleplay, with **Facial Expressions**, **Full-body**, **Clips** and **Upload Folder**) and **Gallery** (reference images and videos, with **Upload Persona Images** and **Upload Persona Videos**). See [Character Sprites](sprites.md) and [Character and Persona Galleries](galleries.md). |
 | **Colors** | Name, dialogue and message box colors. See [Character Colors and Roleplay Stats](colors-and-stats.md). |
 | **Stats** | Status bars and RPG attributes. See [Stats tab](#stats-tab) below. |
 

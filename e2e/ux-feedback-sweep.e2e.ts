@@ -950,10 +950,16 @@ for (const spec of [
       await page.goto("/");
       await openEditor(page, spec.kind, entity.id);
       const editor = page.locator(".mari-editor-shell");
-      const gallery = editor.locator('[data-editor-section="gallery"]');
+      const gallery = editor.locator('[data-editor-subsection="gallery"]');
       await expect(gallery).toHaveAttribute("aria-busy", "true");
       expect(galleryRequests).toBe(0);
-      await openSection(editor, "Gallery");
+      // Gallery sits inside the Images tab since #9191.
+      await openSection(editor, "Images");
+      await editor
+        .locator('[data-editor-section="images"]')
+        .getByRole("navigation")
+        .getByRole("button", { name: "Gallery", exact: true })
+        .click();
       await expect(gallery).toHaveAttribute("aria-busy", "false");
       await expect.poll(() => galleryRequests).toBeGreaterThan(0);
       const firstControl = gallery.getByRole("button").first();

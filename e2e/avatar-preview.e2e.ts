@@ -174,11 +174,11 @@ test("applied character sheets use the avatar Full image presentation", async ({
     const sections = editor.getByRole("button", { name: "Editor sections", exact: true });
     if (await sections.isVisible()) {
       await sections.click();
-      await editor.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
+      await editor.getByRole("menuitemradio", { name: "Images", exact: true }).click();
     } else {
       await editor
         .getByRole("navigation", { name: "Editor sections" })
-        .getByRole("button", { name: "Sprites", exact: true })
+        .getByRole("button", { name: "Images", exact: true })
         .click();
     }
     await editor.getByRole("button", { name: "Open full image", exact: true }).click();
