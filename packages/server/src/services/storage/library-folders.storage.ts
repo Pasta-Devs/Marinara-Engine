@@ -79,7 +79,8 @@ export function createLibraryFoldersStorage(db: DB) {
         .set({
           ...(input.name !== undefined && { name: input.name }),
           ...(input.collapsed !== undefined && { collapsed: input.collapsed ? "true" : "false" }),
-          ...(scope === "regex" && input.paused !== undefined && { paused: String(input.paused) }),
+          ...((scope === "regex" || scope === "functions") &&
+            input.paused !== undefined && { paused: String(input.paused) }),
           ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
           ...(input.itemIds !== undefined && { itemIds: JSON.stringify(input.itemIds) }),
           updatedAt: now(),
@@ -207,7 +208,7 @@ export function createLibraryFoldersStorage(db: DB) {
             scope,
             name: folder.name,
             collapsed: folder.collapsed ? "true" : "false",
-            paused: String(scope === "regex" && folder.paused === true),
+            paused: String((scope === "regex" || scope === "functions") && folder.paused === true),
             sortOrder: folder.sortOrder,
             itemIds: JSON.stringify(folder.itemIds),
             createdAt: timestamp,

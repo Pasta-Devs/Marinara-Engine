@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   BUILT_IN_TOOLS,
+  bulkSetCustomToolsEnabledSchema,
   createCustomToolSchema,
   reorderCustomToolsSchema,
   updateCustomToolSchema,
@@ -34,6 +35,15 @@ export async function customToolsRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool reorder" })) return;
     const input = reorderCustomToolsSchema.parse(req.body);
     return storage.reorder(input.toolIds);
+  });
+
+  app.put("/enabled", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool bulk toggle" })) return;
+    const { toolIds, enabled } = bulkSetCustomToolsEnabledSchema.parse(req.body);
+    if (!(await storage.setEnabled(toolIds, enabled))) {
+      return reply.status(404).send({ error: "One or more custom tools were not found" });
+    }
+    return reply.status(204).send();
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {

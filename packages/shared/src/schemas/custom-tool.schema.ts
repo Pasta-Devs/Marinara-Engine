@@ -28,6 +28,11 @@ export const reorderCustomToolsSchema = z.object({
   toolIds: z.array(z.string().min(1)),
 });
 
+export const bulkSetCustomToolsEnabledSchema = z.object({
+  toolIds: z.array(z.string().min(1).max(256)).min(1).max(10_000),
+  enabled: z.boolean(),
+});
+
 export type CreateCustomToolInput = z.infer<typeof createCustomToolSchema>;
 export type UpdateCustomToolInput = z.infer<typeof updateCustomToolSchema>;
 export type ReorderCustomToolsInput = z.infer<typeof reorderCustomToolsSchema>;

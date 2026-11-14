@@ -10065,10 +10065,15 @@ export class MariDbService {
     if (meta.byKey.has("updatedAt") && !row.updatedAt) row.updatedAt = stamp;
   }
 
-  // #7977: a deleted preset or lorebook left its id in a library folder's itemIds. The HTTP routes
+  // #7977: a deleted preset, lorebook, regex or function left its id in a library folder's itemIds. The HTTP routes
   // prune it with removeItemReferences; here the prune joins the plan, so Restore puts it back too.
   private async addLibraryFolderPrunes(changes: PlanChange[]) {
-    const folderScopes: Record<string, string> = { prompt_presets: "presets", lorebooks: "lorebooks" };
+    const folderScopes: Record<string, string> = {
+      prompt_presets: "presets",
+      lorebooks: "lorebooks",
+      regex_scripts: "regex",
+      custom_tools: "functions",
+    };
     const removing = new Map<string, Set<string>>();
     for (const change of changes) {
       const scope = folderScopes[change.table];
