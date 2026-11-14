@@ -1240,6 +1240,10 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     after = new Map(targets.map(({ area, element }) => [element, snapshot(element, area, null)]));
     overlayAfter = opaquePseudoOverlay(hosts);
     textAfter = pseudoTexts(textElements);
+    // Four style switches in all: theme off, pierce on, theme back on, pierce off. Each one restyles the
+    // whole page (about 0.15 s on a tablet), so the theme comes back on while pierce is still set and
+    // the with-theme see-test runs right then (Nov 14: was six switches).
+    let pierced = false;
     try {
       active.forEach((sheet) => (sheet.media = "not all"));
       overlayBefore = opaquePseudoOverlay(hosts);
@@ -1252,36 +1256,36 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
         }),
       );
       root.dataset.mariGuardPierce = "true";
-      try {
-        for (const { element } of targets) {
-          const seen = seeTest(element, points.get(element) ?? []);
-          const snap = before.get(element)!;
-          snap.hitOk = snap.hitOk.map((ok, index) => ok && seen[index] !== false);
-        }
-        if (chatHost) {
-          chatSeenBefore = seeTest(chatHost, chatPoints);
-          chatInViewBefore = chatPoints.map((point) => chatPointInView(chatHost, point));
-        }
-      } finally {
-        delete root.dataset.mariGuardPierce;
+      pierced = true;
+      for (const { element } of targets) {
+        const seen = seeTest(element, points.get(element) ?? []);
+        const snap = before.get(element)!;
+        snap.hitOk = snap.hitOk.map((ok, index) => ok && seen[index] !== false);
+      }
+      if (chatHost) {
+        chatSeenBefore = seeTest(chatHost, chatPoints);
+        chatInViewBefore = chatPoints.map((point) => chatPointInView(chatHost, point));
       }
     } finally {
       active.forEach((sheet, index) => (sheet.media = previousMedia[index] ?? ""));
     }
-    for (const { element } of targets) after.get(element)!.hitOk = hitTest(element, points.get(element) ?? []);
-    root.dataset.mariGuardPierce = "true";
+    const seenAfter = new Map<Element, (boolean | undefined)[]>();
     try {
-      for (const { element } of targets) {
-        const seen = seeTest(element, points.get(element) ?? []);
-        const snap = after.get(element)!;
-        snap.hitOk = snap.hitOk.map((ok, index) => ok && seen[index] !== false);
-      }
-      if (chatHost) {
-        chatSeenAfter = seeTest(chatHost, chatPoints);
-        chatOnScreen = chatPoints.map((point) => chatPointInView(chatHost, point));
+      if (pierced) {
+        for (const { element } of targets) seenAfter.set(element, seeTest(element, points.get(element) ?? []));
+        if (chatHost) {
+          chatSeenAfter = seeTest(chatHost, chatPoints);
+          chatOnScreen = chatPoints.map((point) => chatPointInView(chatHost, point));
+        }
       }
     } finally {
       delete root.dataset.mariGuardPierce;
+    }
+    for (const { element } of targets) {
+      const seen = seenAfter.get(element) ?? [];
+      after.get(element)!.hitOk = hitTest(element, points.get(element) ?? []).map(
+        (ok, index) => ok && seen[index] !== false,
+      );
     }
     if (chatHost) points.set(chatHost, chatPoints);
     outset = outsetCovers(active, chatHost ? [...targets, { area: "chat", element: chatHost }] : targets, points);

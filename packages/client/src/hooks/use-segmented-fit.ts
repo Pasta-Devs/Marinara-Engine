@@ -10,6 +10,8 @@ import { useLayoutEffect, useRef, type DependencyList } from "react";
 export function useSegmentedFit<T extends HTMLElement>(maxLevel: number, enabled: boolean, deps: DependencyList) {
   const ref = useRef<T>(null);
   const fitRef = useRef<() => void>(() => {});
+  // Set while the switch is hidden (a kept-mounted list under display:none measures 0 wide).
+  const skippedRef = useRef(false);
 
   fitRef.current = () => {
     const el = ref.current;
@@ -18,6 +20,13 @@ export function useSegmentedFit<T extends HTMLElement>(maxLevel: number, enabled
       delete el.dataset.fit;
       return;
     }
+    // Hidden: every segment measures 0 wide and would step down to the smallest level, which then showed
+    // for a frame when the list came back ("Convo" with no icons, Nov 14). Keep the last fit instead.
+    if (el.clientWidth === 0) {
+      skippedRef.current = true;
+      return;
+    }
+    skippedRef.current = false;
     const buttons = Array.from(el.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
     const overflows = () =>
       buttons.some((button) => {
@@ -58,6 +67,11 @@ export function useSegmentedFit<T extends HTMLElement>(maxLevel: number, enabled
     let frame = 0;
     const observer = new ResizeObserver(() => {
       cancelAnimationFrame(frame);
+      // Coming back from hidden: fit before this frame paints, not one frame later.
+      if (skippedRef.current) {
+        fitRef.current();
+        return;
+      }
       frame = requestAnimationFrame(() => fitRef.current());
     });
     observer.observe(el);

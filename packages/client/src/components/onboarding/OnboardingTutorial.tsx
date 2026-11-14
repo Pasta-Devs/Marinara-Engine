@@ -18,7 +18,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
-import { MARI_ASSET_TIER, mariImgLoading, type MariPose } from "../../lib/mari-work-animations";
+import { type MariPose } from "../../lib/mari-work-animations";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
 import { LanguagePicker } from "../ui/LanguagePicker";
@@ -235,6 +235,17 @@ const OVERHAUL_STEPS: TourStep[] = [
     sprite: { pose: "wave" },
   },
   {
+    target: "library-nav",
+    highlightTargets: ["panel-buttons"],
+    titleKey: "onboarding.overhaul.library.title",
+    bodyKey: "onboarding.overhaul.library.body",
+    phoneBodyKey: "onboarding.overhaul.library.phoneBody",
+    side: "left",
+    besideTarget: true,
+    openPanel: "characters",
+    sprite: { pose: "point-up", flip: true },
+  },
+  {
     target: "sidebar",
     highlightTargets: ["sidebar-toggle"],
     titleKey: "onboarding.overhaul.chats.title",
@@ -253,17 +264,6 @@ const OVERHAUL_STEPS: TourStep[] = [
     besideTarget: true,
     openSidebar: true,
     sprite: { pose: "explaining" },
-  },
-  {
-    target: "library-nav",
-    highlightTargets: ["panel-buttons"],
-    titleKey: "onboarding.overhaul.library.title",
-    bodyKey: "onboarding.overhaul.library.body",
-    phoneBodyKey: "onboarding.overhaul.library.phoneBody",
-    side: "left",
-    besideTarget: true,
-    openPanel: "characters",
-    sprite: { pose: "point-up", flip: true },
   },
   {
     target: "panel-connections",
@@ -361,7 +361,8 @@ function deviceTourSteps(device: WalkthroughDevice): TourStep[] {
     openHome: true,
     sprite: { pose: "greet" },
   };
-  const places = [overhaulStep("sidebar"), overhaulStep("library-nav"), overhaulStep("omnibar-button")];
+  // The Library first: it is what the sidebar button opens, and Chats is the other half of it.
+  const places = [overhaulStep("library-nav"), overhaulStep("sidebar"), overhaulStep("omnibar-button")];
   return device === "desktop" ? [welcome, ...places, done] : [welcome, ...places, GESTURES_STEP, done];
 }
 
@@ -694,7 +695,8 @@ function TourCardContent({
         <div className="mb-2 flex justify-center">
           <img
             src={poses[sprite.pose]}
-            {...mariImgLoading(MARI_ASSET_TIER.poses[sprite.pose])}
+            // Decoded ahead by the tour (see spritesReady), so draw it in the same frame as the card.
+            decoding="sync"
             alt={localizeUi("ui.onboarding.tourcardcontent.professorMari")}
             className="h-32 max-h-[15vh] w-auto object-contain drop-shadow-lg [image-rendering:pixelated]"
             style={sprite.flip ? { transform: "scaleX(-1)" } : undefined}
@@ -806,6 +808,30 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     [device, kind, overhaulEnabled],
   );
   const currentStep = steps[Math.min(step, steps.length - 1)];
+
+  // Every pose the tour uses is fetched and decoded up front, and the card waits (at most 0.5 s) for the
+  // first one: a pose that loaded on its step left the card without Mari for a few frames, then grew
+  // it (Nov 14 phone clip), and each later step swapped in a blank picture on tablets.
+  const { poses } = useMariAppearancePack();
+  const [spritesReady, setSpritesReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const urls = [...new Set(steps.flatMap((candidate) => (candidate.sprite ? [poses[candidate.sprite.pose]] : [])))];
+    const decoded = urls.map((url) => {
+      const image = new Image();
+      image.src = url;
+      return image.decode().catch(() => undefined);
+    });
+    const ready = () => {
+      if (!cancelled) setSpritesReady(true);
+    };
+    const timer = window.setTimeout(ready, 500);
+    void (decoded[0] ?? Promise.resolve()).then(ready);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [poses, steps]);
   const isLast = step >= steps.length - 1;
   const targetRect = spotlightRects.find((rect) => rect.target === currentStep.target) ?? null;
 
@@ -1049,6 +1075,8 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     </div>
   ) : undefined;
 
+  if (!spritesReady) return null;
+
   // On body, not inside the app shell: the phone's Chats page is a body-level sheet above the whole
   // shell, and the tour card has to sit above it (steps 2 and 3 open it).
   return createPortal(
@@ -1094,12 +1122,12 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           className="pointer-events-none fixed inset-x-0 bottom-3 flex items-center justify-center px-3"
           style={{ top: centeredTopOffset }}
         >
-          {/* One card for the whole tour: only its first appearance animates. Fading each step out and the
-              next one in left the screen without a card (and the page under it undimmed) for half a second
-              per step, a flicker on phones (Nov 14). */}
+          {/* One card for the whole tour: only its first appearance moves, and it never fades. Fading each
+              step out and the next one in left the screen without a card (and the page under it undimmed)
+              for half a second per step, and a fading first card let the page show through it (Nov 14). */}
           <motion.div
-            initial={{ opacity: 0, y: 12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ y: 8, scale: 0.98 }}
+            animate={{ y: 0, scale: 1 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className={TUTORIAL_CARD_CLASS}
             ref={cardRef}
@@ -1124,8 +1152,8 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
         </div>
       ) : (
         <motion.div
-          initial={{ opacity: 0, y: 12, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ y: 8, scale: 0.98 }}
+          animate={{ y: 0, scale: 1 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className={TUTORIAL_CARD_CLASS}
           ref={cardRef}
