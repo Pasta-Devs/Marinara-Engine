@@ -52,14 +52,14 @@ export const useLocationPinStatus = create<LocationPinStatus & { publish: (statu
   }),
 );
 
+function chatUsesAgent(metadata: unknown, agentId: string): boolean {
+  const meta = readMetadata(metadata);
+  return meta.enableAgents === true && Array.isArray(meta.activeAgentIds) && meta.activeAgentIds.includes(agentId);
+}
+
 /** Whether the chat runs the World Maps agent (its current place can match a pinned place). */
 export function chatUsesWorldMaps(metadata: unknown): boolean {
-  const meta = readMetadata(metadata);
-  return (
-    meta.enableAgents === true &&
-    Array.isArray(meta.activeAgentIds) &&
-    (meta.activeAgentIds as unknown[]).includes("hierarchical-maps")
-  );
+  return chatUsesAgent(metadata, "hierarchical-maps");
 }
 
 /**
@@ -97,6 +97,7 @@ export function useLocationBackgroundPinFollower(args: {
   const location = stateKnown ? (gameState?.location ?? null) : null;
 
   const mapsActive = isRoleplay && chatUsesWorldMaps(chatMetadata);
+  const tracksLocation = chatUsesAgent(chatMetadata, "world-state");
   const spatial = useSpatialContext(chatId, mapsActive);
   const spatialData = mapsActive ? spatial.data : undefined;
   const placeId = spatialData?.currentLocationId ?? null;
@@ -138,10 +139,10 @@ export function useLocationBackgroundPinFollower(args: {
     if (!chatId || !isRoleplay || pins.length === 0 || !known) return;
     if (!matchPinId || !matchBackground) {
       // Left the pinned place: arriving there again shows its picture again. Only once what the shown pin
-      // matches on has loaded: a map place pin needs the map; a name pin the tracker location, or a map
-      // that names the current place (map-only chats). So a chat still loading never forgets a hand pick.
+      // matches on has loaded: a map place pin needs the map; a name pin the tracker location when the chat
+      // runs World State, else the map's current place. So a chat still loading never forgets a hand pick.
       const shownPin = shownPinId ? pins.find((pin) => pin.id === shownPinId) : undefined;
-      const shownPinLoaded = stateKnown || (!!spatialData && (!!shownPin?.placeId || !!placeId));
+      const shownPinLoaded = stateKnown || (!!spatialData && (!!shownPin?.placeId || (!tracksLocation && !!placeId)));
       if (shownPinId && (!shownPin || shownPinLoaded)) {
         updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
       }
@@ -152,5 +153,17 @@ export function useLocationBackgroundPinFollower(args: {
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, isRoleplay, known, stateKnown, !!spatialData, placeId, pins, matchPinId, matchBackground, shownPinId]);
+  }, [
+    chatId,
+    isRoleplay,
+    known,
+    stateKnown,
+    !!spatialData,
+    placeId,
+    tracksLocation,
+    pins,
+    matchPinId,
+    matchBackground,
+    shownPinId,
+  ]);
 }
