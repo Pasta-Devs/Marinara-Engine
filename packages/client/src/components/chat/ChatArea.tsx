@@ -71,6 +71,8 @@ import {
   resolveSpriteExpressionState,
 } from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
+import { useLocationBackgroundPinFollower } from "../../hooks/use-location-background-pins";
+import { useChatGalleryBackgroundPins } from "../../hooks/use-chat-gallery-owners";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -2185,6 +2187,34 @@ const LocalChatArea = memo(function LocalChatArea({
     updateMeta.mutate({ id: chat.id, background: nextBackground });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id, pendingNewChatSetupId]);
+
+  // Pinned places (Chat settings > Background): arriving at one shows its picture.
+  const pinCharacterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [chatCharIds, characterMap],
+  );
+  // Who wrote the message the World State belongs to: "my bedroom" in John's reply is John's.
+  const trackedMessageId = useGameStateStore((state) =>
+    state.current?.chatId === chat?.id ? (state.current?.messageId ?? null) : null,
+  );
+  const trackedMessage = trackedMessageId ? messages?.find((message) => message.id === trackedMessageId) : undefined;
+  const pinSpeakerName = !trackedMessage
+    ? null
+    : trackedMessage.role === "user"
+      ? (personaInfo?.name ?? null)
+      : trackedMessage.characterId
+        ? (characterMap.get(trackedMessage.characterId)?.name ?? null)
+        : null;
+  const galleryBackgroundPins = useChatGalleryBackgroundPins(chat?.mode === "roleplay" ? chat : null);
+  useLocationBackgroundPinFollower({
+    chatId: chat?.id ?? null,
+    chatMode: chat?.mode,
+    chatMetadata: chat?.metadata,
+    userName: personaInfo?.name ?? null,
+    characterNames: pinCharacterNames,
+    speakerName: pinSpeakerName,
+    galleryPins: galleryBackgroundPins,
+  });
 
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
