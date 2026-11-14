@@ -109,7 +109,12 @@
   image-rendering: var(--mari-app-backdrop-rendering, auto);
 }
 :root[data-mari-app-backdrop-layers] [data-mari-part="app-backdrop"] {
-  background: var(--mari-app-backdrop-layers);
+  /* A theme may set the layers only for some weather or tags; everywhere else the single image still shows. */
+  background: var(
+    --mari-app-backdrop-layers,
+    var(--mari-app-backdrop, none) var(--mari-app-backdrop-position, center) / var(--mari-app-backdrop-size, cover)
+      var(--mari-app-backdrop-repeat, no-repeat) var(--mari-app-backdrop-attachment, fixed)
+  );
   image-rendering: var(--mari-app-backdrop-rendering, auto);
 }
 :root[data-mari-app-backdrop] {

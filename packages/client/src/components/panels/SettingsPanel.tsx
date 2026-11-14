@@ -7132,7 +7132,12 @@ const THEME_REFERENCE: Array<[string, string, string]> = [
   ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colors"],
   ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue color"],
   ["--mari-composer-placeholder", "theming.ref.placeholder", "Message box placeholder, as a quoted string"],
-  ['[data-mari-part="message"]', "theming.ref.message", "One message: avatar, header, actions, reasoning parts inside"],
+  ['[data-mari-part="message"]', "theming.ref.message", "One message row (full width): avatar, header, bubble, actions inside"],
+  [
+    '[data-mari-part="bubble"]',
+    "theming.ref.bubble",
+    "The message bubble itself (roleplay and conversation): paint this, not the whole message row",
+  ],
   ["data-character / data-message-index", "theming.ref.messageData", "Who wrote it and its number (also --mari-msg-*)"],
   [':root[data-chat-tags~="tag"]', "theming.ref.tags", "Style chats by their tags"],
 ];
@@ -7193,7 +7198,7 @@ const CSS_TEMPLATE = `/* ══════════════════�
 }
 
 /* Part hooks, for example:
-   [data-mari-part="message"][data-message-role="assistant"] { border-radius: 1rem; }
+   [data-mari-part="message"][data-message-role="assistant"] [data-mari-part="bubble"] { border-radius: 1rem; }
    [data-mari-part="composer"] { border: 1px solid var(--primary); }
    :root[data-chat-tags~="horror"] { --primary: #b91c1c; }
 

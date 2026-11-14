@@ -9522,6 +9522,14 @@ export class MariDbService {
     const next = deepMerge(parsed, request.patch ?? {}) as Row;
     next[getPrimary(meta)] = existing[getPrimary(meta)];
     this.fillTimestamps(meta, next, false, timestamp);
+    // A patch that changes the row and doesn't set updatedAt itself gets a new stamp (the merge kept the old one).
+    if (
+      meta.byKey.has("updatedAt") &&
+      !Object.prototype.hasOwnProperty.call(request.patch ?? {}, "updatedAt") &&
+      stableJson(serializeRow(meta.name, next)) !== stableJson(existing)
+    ) {
+      next.updatedAt = timestamp;
+    }
     const afterRaw = serializeRow(meta.name, next);
     const changes: PlanChange[] = [
       {
@@ -9958,8 +9966,13 @@ export class MariDbService {
         const next = normalizeWriteRow(table, resultRow);
         next[getPrimary(meta)] = raw[getPrimary(meta)];
         this.fillTimestamps(meta, next, false, timestamp);
-        const afterRaw = serializeRow(table, next);
+        let afterRaw = serializeRow(table, next);
         if (stableJson(afterRaw) !== stableJson(raw)) {
+          // The script copies the old row, stamp included: a changed row gets a new updatedAt unless the script set
+          // one itself (themes and editors read it to know something changed).
+          if (meta.byKey.has("updatedAt") && afterRaw.updatedAt === raw.updatedAt) {
+            afterRaw = serializeRow(table, { ...next, updatedAt: timestamp });
+          }
           changes.push({
             table,
             id: rowId(meta, raw),
@@ -10054,8 +10067,10 @@ export class MariDbService {
     }
     if (request.css !== undefined) next.css = request.css;
     this.fillTimestamps(meta, next, false, timestamp);
+    if (stableJson(serializeRow(THEME_TABLE, next)) === stableJson(existing)) return [];
+    // A changed theme gets a new updatedAt, like PATCH /themes/:id; the copied old stamp hid edits.
+    next.updatedAt = timestamp;
     const afterRaw = serializeRow(THEME_TABLE, next);
-    if (stableJson(afterRaw) === stableJson(existing)) return [];
     return [
       {
         table: THEME_TABLE,

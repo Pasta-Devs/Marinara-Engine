@@ -35,6 +35,7 @@ import { loadImageGenerationUserSettings } from "../image/image-generation-setti
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import type { ImageGenerationDefaultsProfile } from "@marinara-engine/shared";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
+import { lookCopy, stashLookImages } from "../professor-mari/mari-look-images.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
@@ -46,6 +47,8 @@ import type { MariDbCommandResult } from "@marinara-engine/shared";
 import { createThemesStorage } from "../storage/themes.storage.js";
 import { isStarterThemeId } from "../storage/starter-themes.js";
 import { themeImageName, themePackageImage } from "../image/theme-package-image.js";
+import { isSafeSvgImageBuffer } from "../../utils/media-file-security.js";
+import { getSharp } from "../image/sharp-runtime.js";
 import { adjustPicture, parseHexColour, type PictureAdjustments } from "../image/picture-adjust.js";
 import { deleteChatGalleryImageEverywhere } from "../image/chat-gallery-cascade-deletion.js";
 import {
@@ -130,6 +133,8 @@ type ResolvedImage = {
   ext: string;
   url?: string;
   asset?: MariImageAsset;
+  /** The SVG it was drawn from: buffer is then a PNG drawing of it, so every other command sees a raster. */
+  svg?: Buffer;
 };
 
 type ImageTarget =
@@ -691,7 +696,59 @@ async function writeBackgroundMeta(meta: Record<string, { tags: string[] }>) {
   await writeAppFile(BACKGROUND_DIR, BACKGROUND_META_PATH, JSON.stringify(meta, null, 2));
 }
 
-function decodeDataImage(value: string): ResolvedImage | null {
+const SVG_DATA_URL = /^data:image\/svg\+xml(?:;charset=[\w-]+)?;base64,/iu;
+const MAX_THEME_SVG_BYTES = 256 * 1024;
+
+// Theme packages carry SVG pictures (starter trims, rails, send buttons). Mari can look at one and adjust it: it is
+// drawn to a PNG first, only when it passes the same-origin SVG rules and links to nothing outside itself, so the
+// drawing never fetches a file or URL. svg keeps the source so she can edit its colours as text and save it back.
+async function svgImage(buffer: Buffer, label: string): Promise<ResolvedImage> {
+  if (buffer.length > MAX_THEME_SVG_BYTES) throw new Error(`SVG pictures can be at most 256 KB: ${label}`);
+  const source = buffer.toString("utf8");
+  if (!isSafeSvgImageBuffer(buffer) || /url\(\s*['"]?\s*(?!#|data:)/iu.test(source)) {
+    throw new Error(`That SVG has scripts, events or outside links, so it can't be used: ${label}`);
+  }
+  const sharp = await getSharp();
+  const png = await sharp(buffer, { density: 144, limitInputPixels: 40_000_000 })
+    .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+    .png()
+    .toBuffer();
+  return { label, buffer: png, base64: png.toString("base64"), mimeType: "image/png", ext: "png", svg: buffer };
+}
+
+function looksLikeSvg(buffer: Buffer, path?: string) {
+  if (path && extname(path).toLowerCase() === ".svg") return true;
+  const head = buffer.subarray(0, 512).toString("utf8").trimStart();
+  return /^(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg[\s>]/iu.test(head);
+}
+
+async function svgPackageImage(source: ResolvedImage) {
+  const svg = source.svg!;
+  const sharp = await getSharp();
+  const meta = await sharp(source.buffer).metadata();
+  return {
+    src: `data:image/svg+xml;base64,${svg.toString("base64")}`,
+    bytes: svg.length,
+    width: Number(meta.width ?? 0),
+    height: Number(meta.height ?? 0),
+    animated: false,
+  };
+}
+
+/** A theme picture name: .svg stays SVG (a starter's vector trim kept as a vector); anything else is saved as WebP. */
+function themeTargetName(raw: string) {
+  const webp = themeImageName(raw);
+  return /\.svg\s*$/iu.test(raw) ? webp.replace(/\.webp$/u, ".svg") : webp;
+}
+
+async function decodeDataImage(value: string): Promise<ResolvedImage | null> {
+  const trimmed = value.trim();
+  if (SVG_DATA_URL.test(trimmed)) {
+    return svgImage(
+      Buffer.from(trimmed.slice(trimmed.indexOf(",") + 1).replace(/\s+/g, ""), "base64"),
+      "data-url (svg)",
+    );
+  }
   const data = parseImageDataUrl(value);
   if (!data) return null;
   const mimeType = data.mimeType;
@@ -707,6 +764,7 @@ function decodeDataImage(value: string): ResolvedImage | null {
 async function imageFromFile(path: string, label: string, appFolder?: string): Promise<ResolvedImage> {
   const buffer = await readFile(appFolder ? realPathInAppFolder(appFolder, path) : path);
   const imageInfo = isAllowedImageBuffer(buffer, extname(path));
+  if (!imageInfo && looksLikeSvg(buffer, path)) return svgImage(buffer, label);
   if (!imageInfo) throw new Error(`Unsupported or invalid image file: ${label}`);
   return {
     label,
@@ -842,6 +900,10 @@ export class MariImagesService {
       case "crop":
       case "transform":
         return this.adjust(context, parsed.flags);
+      case "look":
+      case "view":
+      case "show":
+        return this.look(context, parsed.flags);
       case "assign":
       case "add":
       case "replace":
@@ -1023,6 +1085,7 @@ export class MariImagesService {
     const imgServiceHint = connection.imageService || imgSource;
     const fallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
     const assets: MariImageAsset[] = [];
+    const looks: Array<Promise<Awaited<ReturnType<typeof lookCopy>>>> = [];
     let failure: string | null = null;
     // One request per version, one after another: providers rate-limit parallel calls, and a
     // fixed seed is stepped so the versions differ.
@@ -1045,6 +1108,7 @@ export class MariImagesService {
           quality: resolveConnectionImageQuality(connection),
           fallback,
         });
+        looks.push(lookCopy(Buffer.from(result.base64, "base64")));
         assets.push(
           await savePreviewAsset({
             result,
@@ -1077,6 +1141,7 @@ export class MariImagesService {
           assets.length > 1
             ? `${assets.length} versions created as preview assets. None is assigned anywhere yet. Show them to the user and use mari images assign on the one they pick.`
             : "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
+        ...lookField(await Promise.all(looks), assets.length),
         asset: assets[0],
         ...(count > 1 ? { assets } : {}),
         ...(failure ? { stoppedEarly: `Made ${assets.length} of ${count}; the next one failed: ${failure}` } : {}),
@@ -1099,6 +1164,7 @@ export class MariImagesService {
     const target = this.parseTarget(flags, false);
     const source = await this.resolveSourceImage(flags, target, context, true);
     const adjusted = await adjustPicture(source.buffer, adjustments);
+    const looked = stashLookImages([await lookCopy(adjusted.buffer)]);
     const asset = await savePreviewAsset({
       result: { base64: adjusted.buffer.toString("base64"), mimeType: "image/png", ext: "png" },
       operation: "adjust",
@@ -1118,6 +1184,7 @@ export class MariImagesService {
         assigned: false,
         message:
           "Adjusted copy saved as a new preview asset; the original is unchanged. Show it to the user, then use mari images assign on the one they want.",
+        ...(looked ? { look: `${looked} The adjusted picture is attached below so you can check it.` } : {}),
         asset,
         steps: adjusted.steps,
         width: adjusted.width,
@@ -1222,7 +1289,7 @@ export class MariImagesService {
         const rawName = flagString(flags, "name", "image", "filename");
         if (!rawName)
           throw new Error('theme-image target requires --name <picture>.webp (the CSS uses url("theme:<name>"))');
-        return { type: "theme-image", themeId, name: themeImageName(rawName) };
+        return { type: "theme-image", themeId, name: themeTargetName(rawName) };
       }
       default:
         throw new Error(`Unknown image target: ${target}`);
@@ -1301,7 +1368,13 @@ export class MariImagesService {
       case "theme-image": {
         const theme = await createThemesStorage(this.db).getById(target.themeId);
         if (!theme) throw new Error(`Theme not found: ${target.themeId}`);
-        return theme.meta?.images?.find((image) => image.name === target.name)?.src ?? null;
+        const images = theme.meta?.images ?? [];
+        const base = target.name.replace(/\.[a-z0-9]+$/iu, "");
+        // Reading falls back to the same name with another ending, so --name fence-day finds fence-day.svg.
+        const found =
+          images.find((image) => image.name === target.name) ??
+          images.find((image) => image.name.replace(/\.[a-z0-9]+$/iu, "") === base);
+        return found?.src ?? null;
       }
     }
   }
@@ -1322,7 +1395,7 @@ export class MariImagesService {
   }
 
   private async resolveImageReference(value: string, context: ImageCommandContext): Promise<ResolvedImage> {
-    const data = decodeDataImage(value);
+    const data = await decodeDataImage(value);
     if (data) return data;
 
     const assets = await readManifest();
@@ -1448,7 +1521,13 @@ export class MariImagesService {
   // (WebP, at most 2560 px, decode caps). The CSS then uses it as url("theme:<name>"). Same name replaces.
   private async assignThemeImage(source: ResolvedImage, target: Extract<ImageTarget, { type: "theme-image" }>) {
     const theme = await this.ownTheme(target.themeId);
-    const picture = await themePackageImage(source.buffer);
+    const keepSvg = target.name.endsWith(".svg");
+    if (keepSvg && !source.svg) {
+      throw new Error(
+        `${target.name} is an SVG picture. Save an edited SVG file under that name, or save this drawn picture as ${target.name.replace(/\.svg$/u, ".webp")} and change the CSS to match.`,
+      );
+    }
+    const picture = keepSvg ? await svgPackageImage(source) : await themePackageImage(source.buffer);
     const images = [...(theme.meta?.images ?? [])];
     const index = images.findIndex((image) => image.name === target.name);
     const replaced = index >= 0;
@@ -1855,6 +1934,79 @@ export class MariImagesService {
     return { ok: true, mode: "read", command: context.command, output: asset };
   }
 
+  /** Shows Mari up to 4 pictures (preview assets, theme pictures, app images) so she can judge them herself. */
+  private async look(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+    const raw = flagString(flags, "source", "asset", "from");
+    // Several theme pictures at once: --name a.webp,b.webp,c.svg (up to 4).
+    const names = (flagString(flags, "name", "image", "filename") ?? "")
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (!raw && names.length > 1) {
+      if (names.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
+      const sources: string[] = [];
+      for (const name of names) {
+        const one = new Map(flags);
+        one.delete("image");
+        one.delete("filename");
+        one.set("name", name);
+        const target = this.parseTarget(one, false);
+        const src = target ? await this.currentImageReferenceForTarget(target) : null;
+        if (!src) throw new Error(`No picture named ${name} in that theme.`);
+        sources.push(src);
+      }
+      const many = new Map(flags);
+      for (const key of ["name", "image", "filename", "target", "theme", "theme-id", "id"]) many.delete(key);
+      many.set("source", sources.join(","));
+      const result = await this.look(context, many);
+      const output = result.output as Record<string, unknown>;
+      if (typeof output.look === "string")
+        output.look = output.look.replace(/in the order given: .*$/u, `in the order given: ${names.join(", ")}.`);
+      return result;
+    }
+    const target = raw ? null : this.parseTarget(flags, false);
+    // Comma-separated, except the comma inside a data: URL (data:image/png;base64,....).
+    const references: string[] = [];
+    for (const piece of raw ? raw.split(",") : []) {
+      const previous = references[references.length - 1];
+      if (previous !== undefined && /^data:[^,]*$/iu.test(previous))
+        references[references.length - 1] = `${previous},${piece}`;
+      else if (piece.trim()) references.push(piece.trim());
+    }
+    if (references.length === 0 && !target) {
+      throw new Error(
+        "Missing --source <asset-id,...> (up to 4, comma-separated) or a target such as --target theme-image --theme <id> --name <name>.",
+      );
+    }
+    if (references.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
+    const resolved = references.length
+      ? await Promise.all(references.map((reference) => this.resolveImageReference(reference, context)))
+      : [await this.resolveSourceImage(flags, target, context, true)];
+    const copies = await Promise.all(resolved.map((image) => lookCopy(image.buffer)));
+    const looked = stashLookImages(copies);
+    if (!looked) throw new Error("Couldn't read those pictures to look at them.");
+    const svgs = resolved
+      .filter((image) => image.svg)
+      .map((image) => ({ picture: image.label, svg: image.svg!.toString("utf8").slice(0, 24_000) }));
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        look: `${looked} ${copies.filter(Boolean).length} picture(s) attached below, in the order given: ${resolved.map((image) => image.label).join(", ")}.`,
+        message:
+          "Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds. See-through areas show as mid grey; small pictures are shown enlarged, so check outlines and edge colours too.",
+        ...(svgs.length
+          ? {
+              svgSources: svgs,
+              svgHint:
+                "An SVG is drawn as text: to recolour it, change its fill/stroke colours, write the file, then mari images assign --source <file.svg> --target theme-image --theme <id> --name <same>.svg --apply.",
+            }
+          : {}),
+      },
+    };
+  }
+
   private helpText() {
     return [
       "Usage: mari images <command>",
@@ -1863,6 +2015,8 @@ export class MariImagesService {
       "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>] [--count 1-4] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (prompt sent exactly as written: the user's style profiles and prompt prefixes are left out; --verbatim does the same for any target)",
       "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
+      "Look at pictures yourself (you see them; the user doesn't): look --source <asset|url|file>[,<more>] (up to 4), or look --target theme-image --theme <id> --name <name>[,<more>] (up to 4). generate/edit/adjust already show you what they made.",
+      "SVG theme pictures (trims, rails, buttons): look shows the drawing and its SVG text; recolour by editing the text, then assign --source <file.svg> --target theme-image --theme <id> --name <name>.svg --apply (stays SVG). adjust/edit work on a drawn copy, saved as .webp.",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
       "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
@@ -1880,4 +2034,13 @@ export class MariImagesService {
 
 export function getMariImagesService(db: DB) {
   return new MariImagesService(db);
+}
+
+/** The marker that lets the pi runtime show Mari what she just made. */
+function lookField(copies: Array<Awaited<ReturnType<typeof lookCopy>>>, made: number): { look?: string } {
+  const looked = stashLookImages(copies);
+  if (!looked) return {};
+  return {
+    look: `${looked} ${made > 1 ? `All ${made} versions are attached below, in order` : "The picture is attached below"}: look at ${made > 1 ? "them" : "it"} yourself before you describe or pick one.`,
+  };
 }

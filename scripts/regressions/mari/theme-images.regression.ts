@@ -111,6 +111,92 @@ await withHandbook(
     const afterUpdate = (await (db as any).select().from(customThemes)).find((row: any) => row.id === "harbor-glass");
     assert.equal(JSON.parse(afterUpdate.meta).images.length, 2, "a CSS update keeps the pictures");
 
+    const beforeStamp = afterUpdate.updatedAt;
+    await new Promise((done) => setTimeout(done, 5));
+    await mari.executeAction({
+      action: "theme.update",
+      id: "harbor-glass",
+      patch: { css: ':root { --mari-app-backdrop: url("theme:Night-Sky.webp"); --primary: #123456; }' },
+      apply: true,
+    });
+    const restamped = (await (db as any).select().from(customThemes)).find((row: any) => row.id === "harbor-glass");
+    assert.notEqual(restamped.updatedAt, beforeStamp, "a changed theme gets a new updatedAt");
+
+    // SVG pictures (starter trims are SVG): look shows the drawing and its text, a recoloured SVG saves back as SVG
+    // under the same name, a drawn copy can't silently replace it, and an SVG that links outside is refused.
+    const svg = (fill: string) =>
+      `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="20"><path d="M0 20 L10 0 L20 20 Z" fill="${fill}"/></svg>`;
+    const svgUrl = (text: string) => `data:image/svg+xml;base64,${Buffer.from(text).toString("base64")}`;
+    const metaNow = JSON.parse(restamped.meta);
+    metaNow.images.push({ name: "fence-day.svg", src: svgUrl(svg("#ff66cc")) });
+    await (db as any).update(customThemes).set({ meta: JSON.stringify(metaNow) });
+    const { takeLookImages } = await import("../../../packages/server/src/services/professor-mari/mari-look-images.js");
+    const svgLook: any = await run(
+      "look",
+      "--target",
+      "theme-image",
+      "--theme",
+      "harbor-glass",
+      "--name",
+      "fence-day.svg",
+    );
+    assert.equal(svgLook.ok, true, String(svgLook.error ?? ""));
+    assert.match(svgLook.output.svgSources[0].svg, /#ff66cc/, "look returns the SVG text to edit");
+    assert.equal(takeLookImages(JSON.stringify(svgLook.output)).images.length, 1, "and shows the drawing");
+    const several: any = await run(
+      "look",
+      "--target",
+      "theme-image",
+      "--theme",
+      "harbor-glass",
+      "--name",
+      "fence-day.svg,Night-Sky.webp",
+    );
+    assert.equal(several.ok, true, String(several.error ?? ""));
+    assert.equal(takeLookImages(JSON.stringify(several.output)).images.length, 2, "several names at once");
+    const byBase: any = await run("look", "--target", "theme-image", "--theme", "harbor-glass", "--name", "fence-day");
+    assert.equal(byBase.ok, true, "a name without its ending still finds the SVG");
+    const recoloured: any = await run(
+      "assign",
+      "--source",
+      svgUrl(svg("#3a5fd0")),
+      "--target",
+      "theme-image",
+      "--theme",
+      "harbor-glass",
+      "--name",
+      "fence-day.svg",
+      "--apply",
+    );
+    assert.equal(recoloured.ok, true, String(recoloured.error ?? ""));
+    assert.equal(recoloured.output.result.replaced, true);
+    const svgRow = (await (db as any).select().from(customThemes)).find((row: any) => row.id === "harbor-glass");
+    const savedSvg = JSON.parse(svgRow.meta).images.find((image: any) => image.name === "fence-day.svg");
+    assert.match(savedSvg.src, /^data:image\/svg\+xml;base64,/, "stays SVG");
+    assert.match(Buffer.from(savedSvg.src.split(",")[1], "base64").toString(), /#3a5fd0/);
+    const rasterOnSvg: any = await run(
+      "assign",
+      "--source",
+      await png(8, 8),
+      "--target",
+      "theme-image",
+      "--theme",
+      "harbor-glass",
+      "--name",
+      "fence-day.svg",
+      "--apply",
+    ).catch((error: Error) => ({ ok: false, error: error.message }));
+    assert.equal(rasterOnSvg.ok, false, "a raster can't be saved under an .svg name");
+    const outside: any = await run(
+      "look",
+      "--source",
+      svgUrl(
+        '<svg xmlns="http://www.w3.org/2000/svg"><style>rect{fill:url(http://x.test/a)}</style><rect width="9" height="9"/></svg>',
+      ),
+    ).catch((error: Error) => ({ ok: false, error: error.message }));
+    assert.equal(outside.ok, false, "an SVG that links outside is never drawn");
+    await run("delete", "--target", "theme-image", "--theme", "harbor-glass", "--name", "fence-day.svg", "--apply");
+
     const removed: any = await run(
       "delete",
       "--target",

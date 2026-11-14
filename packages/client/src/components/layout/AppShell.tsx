@@ -781,7 +781,27 @@ export function AppShell({
   useEffect(() => {
     if (!overhaulEnabled) return;
     const preload = () => {
-      void import("../overhaul/LibraryLandingPage").catch(() => undefined);
+      // Library pages and viewers first, then the editors they open, so neither shows "Loading…".
+      void LibraryLandingPage.preload();
+      void Promise.all([
+        CharacterLibraryView.preload(),
+        AgentCatalogView.preload(),
+        OvRegexViewer.preload(),
+        OvToolsViewer.preload(),
+        OvConnectionsViewer.preload(),
+      ]).then(() => {
+        for (const editor of [
+          CharacterEditor,
+          PersonaEditor,
+          LorebookEditor,
+          PresetEditor,
+          RegexScriptEditor,
+          ConnectionEditor,
+          AgentEditor,
+          ToolEditor,
+        ])
+          void editor.preload();
+      });
       // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
       preloadChatSurface("roleplay");
       preloadChatSurface("conversation");
@@ -1358,6 +1378,14 @@ export function AppShell({
   useEffect(() => {
     useCenterPageOpen.setState({ open: hasDetailView });
   }, [hasDetailView]);
+  // Phones and tablets: a page covers the whole screen, so a theme's ambient layer (rising bubbles,
+  // rain) holds still under it instead of repainting every frame where nobody sees it (battery).
+  const pageCoversScreen = overhaulMobile && shellOverlayMode && hasDetailView;
+  useEffect(() => {
+    if (!pageCoversScreen) return;
+    document.documentElement.setAttribute("data-mari-page-covers", "");
+    return () => document.documentElement.removeAttribute("data-mari-page-covers");
+  }, [pageCoversScreen]);
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen && trackerPanelSurfaceOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
@@ -1951,7 +1979,7 @@ export function AppShell({
               data-chat-covered={chatSurfaceActive ? undefined : "true"}
               // New layout on phones/tablets: a page (Settings, an editor) covers Home or the chat completely, so
               // a theme's see-through page colour never shows them through it.
-              data-under-page={overhaulMobile && shellOverlayMode && hasDetailView ? "true" : undefined}
+              data-under-page={pageCoversScreen ? "true" : undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",

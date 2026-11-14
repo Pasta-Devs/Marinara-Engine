@@ -63,6 +63,7 @@ import {
   type WorkspaceConnection,
 } from "./workspace-agent.service.js";
 import type { WorkspaceCommands } from "./workspace-commands.js";
+import { takeLookImages, type LookImage } from "./mari-look-images.js";
 import {
   closingAnswerGetsNotice,
   newRoundReviewState,
@@ -381,6 +382,17 @@ function parseArguments(raw: string): Record<string, unknown> {
   return {};
 }
 
+/** How many pictures from `mari images` stay in her requests (the newest ones). */
+const MAX_LOOK_PICTURES = 8;
+
+/** Pictures in a tool result (`mari images` look markers), as data URLs. */
+function imagesOf(content: string | readonly { type: string; data?: string; mimeType?: string }[]): string[] {
+  if (typeof content === "string") return [];
+  return content.flatMap((part) =>
+    part.type === "image" && part.data && part.mimeType ? [`data:${part.mimeType};base64,${part.data}`] : [],
+  );
+}
+
 function textOf(content: string | readonly { type: string; text?: string }[]): string {
   if (typeof content === "string") return content;
   return content.map((part) => (part.type === "text" ? (part.text ?? "") : "")).join("");
@@ -490,8 +502,35 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const prompt = getCurrentSystemPrompt(context.messages);
     if (prompt) out.push({ role: "system", content: withToolFormat(prompt), contextKind: "prompt" });
     let lastResult: ChatMessage | null = null;
-    for (const message of context.messages as Message[]) {
-      if (message.role !== "toolResult") lastResult = null;
+    // Pictures she looked at go right after their round of tool results, every turn: models like Codex replay no
+    // reasoning, so a picture that drops out of the request is gone for her (she compares versions over several
+    // rounds). Only the newest MAX_LOOK_PICTURES stay, so the request doesn't grow with every look.
+    const all = context.messages as Message[];
+    let keepFrom = Infinity;
+    for (let index = all.length - 1, kept = 0; index >= 0; index -= 1) {
+      const message = all[index]!;
+      if (message.role !== "toolResult") continue;
+      kept += imagesOf(message.content as never).length;
+      if (kept > MAX_LOOK_PICTURES) break;
+      keepFrom = index;
+    }
+    let lookImages: string[] = [];
+    const flushLook = () => {
+      if (lookImages.length === 0) return;
+      out.push({
+        role: "user",
+        content: "(The pictures from the tool results above, so you can look at them. The user did not send these.)",
+        contextKind: "history",
+        images: lookImages,
+      });
+      lookImages = [];
+    };
+    for (const [index, message] of all.entries()) {
+      if (message.role === "toolResult" && index >= keepFrom) lookImages.push(...imagesOf(message.content as never));
+      if (message.role !== "toolResult") {
+        flushLook();
+        lastResult = null;
+      }
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
@@ -541,6 +580,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         });
       }
     }
+    flushLook();
     return out;
   };
 
@@ -1098,6 +1138,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     }
     let text: string;
     let isError = false;
+    let looked: LookImage[] = [];
     if (name === "suggestions" && asking) {
       text = "Skipped: the question card is showing.";
     } else if (name === "suggestions") {
@@ -1135,6 +1176,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       text = "Held: this change waits for the user's Accept and was not applied. Do not repeat it.";
     } else {
       const result = await commands.executeWorkspaceCommand(call, signal, trace, onEvent, input.actionResults);
+      // Pictures she asked to see ride along as images; the saved result keeps only the words.
+      const taken = takeLookImages(result.output);
+      looked = taken.images;
+      result.output = taken.text;
       input.commandResults.push(result);
       current.results.push(result);
       // The executor's refusals are shared with the JSON runtime and name its `say` field; say it in pi's words.
@@ -1152,7 +1197,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // so she can fix it.
     const askFailed = name === "ask" && !asking;
     return {
-      content: [{ type: "text" as const, text }],
+      content: [
+        { type: "text" as const, text },
+        ...looked.map((image) => ({ type: "image" as const, data: image.data, mimeType: image.mimeType })),
+      ],
       details: {},
       isError,
       ...(current.chipRound || asking || (onlyUiTools && current.text.trim() && !askFailed) ? { terminate: true } : {}),
