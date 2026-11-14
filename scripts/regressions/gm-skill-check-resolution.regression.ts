@@ -493,8 +493,8 @@ assert.match(
 const gameSurface = readFileSync(join(root, "packages/client/src/components/game/GameSurface.tsx"), "utf8");
 assert.match(
   gameSurface,
-  /isEngineRollableSkillCheckTag\(sc\)\s*&&\s*!sc\.reason\s*&&\s*!poolModeActive\s*\?\s*\(\s*await skillCheck\.mutateAsync\(/u,
-  "the client must not ask the endpoint to roll a system the engine does not implement, nor a check it settled",
+  /isEngineRollableSkillCheckTag\(sc\)\s*&&\s*!sc\.reason\s*&&\s*!poolModeActive\s*&&\s*\(sc\.dc !== undefined \|\| !!sc\.difficulty\)\s*\?\s*\(\s*await skillCheck\.mutateAsync\(/u,
+  "the client must not ask the endpoint to roll a system the engine does not implement, a check it settled, or one with no difficulty",
 );
 // The one-request dice pool adds a second condition to that same arm, and it has to stay
 // a NARROWING one. With the sighted pool on, an overflowed check must be left sparse: a
