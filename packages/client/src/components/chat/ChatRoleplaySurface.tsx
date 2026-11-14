@@ -972,6 +972,19 @@ export function ChatRoleplaySurface({
   const continuationMessageId = useChatStore((s) => s.continuationStreams.get(activeChatId)?.messageId);
   const inlineStreamingMessageId = regenerateMessageId ?? continuationMessageId ?? null;
   const { t: localizeUi } = useUiTranslation();
+  // One Peek handler per message that keeps its identity, so the memoized rows skip re-rendering when
+  // this surface re-renders (an inline arrow re-rendered every message, e.g. on opening Chat settings).
+  const peekPromptFor = useMemo(() => {
+    const handlers = new Map<string, () => void>();
+    return (messageId: string) => {
+      let handler = handlers.get(messageId);
+      if (!handler) {
+        handler = () => onPeekPrompt(messageId);
+        handlers.set(messageId, handler);
+      }
+      return handler;
+    };
+  }, [onPeekPrompt]);
   const { t } = useTranslation();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
   const memoryContextStarts = useMemo(() => {
@@ -2059,7 +2072,7 @@ export function ChatRoleplaySurface({
                           onSetActiveSwipe={onSetActiveSwipe}
                           onToggleConversationStart={onToggleConversationStart}
                           onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={() => onPeekPrompt(msg.id)}
+                          onPeekPrompt={peekPromptFor(msg.id)}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
                           isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
@@ -2099,7 +2112,7 @@ export function ChatRoleplaySurface({
                           onSetActiveSwipe={onSetActiveSwipe}
                           onToggleConversationStart={onToggleConversationStart}
                           onToggleHiddenFromAI={onToggleHiddenFromAI}
-                          onPeekPrompt={() => onPeekPrompt(msg.id)}
+                          onPeekPrompt={peekPromptFor(msg.id)}
                           onBranch={onBranch}
                           onCloneSceneFromHere={onCloneSceneFromHere}
                           isCloneSceneFromHereDisabled={isCloneSceneFromHereDisabled}
