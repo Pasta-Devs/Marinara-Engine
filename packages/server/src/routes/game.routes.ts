@@ -1,4 +1,9 @@
-import { dungeonGuardMarks, dungeonSiteHere, gameDay } from "../services/game/dungeon-spawns.service.js";
+import {
+  dungeonGuardMarks,
+  dungeonPlanContext,
+  dungeonSiteHere,
+  gameDay,
+} from "../services/game/dungeon-spawns.service.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
 import {
   currentRoomGeneration,
@@ -397,6 +402,10 @@ import {
   gameDungeonMapSchema,
   gameDungeonOnWayOut,
   gameDungeonOnWayDown,
+  gameDungeonLinkAt,
+  gameDungeonPlannedMap,
+  sitePlanInputOf,
+  siteWalk,
   gameDungeonOnWayUp,
   gameDungeonMapForFloor,
   gameDungeonSiteMap,
@@ -12255,6 +12264,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     let walk: GameDungeonWalk | undefined;
     let time: GameTime | undefined;
     let map: GameDungeonMap | undefined;
+    let step: { unlocked: string[]; trap?: { area: number; dc: number } } = { unlocked: [] };
     const updated = await chats.patchMetadata(chatId, (fresh) => {
       const kept = gameDungeonMapFromMetadata(fresh);
       if (!kept || kept.id !== body.map) {
@@ -12266,13 +12276,22 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       path = dungeonPath(cells, kept.at, body);
       if (!path) throw Object.assign(new Error("There is no way there."), { statusCode: 400 });
+      // A planned building: rooms walked into are seen, keys open locks, a hidden trap stops the walk.
+      const walked = siteWalk(kept, path);
+      path = walked.path;
+      step = { unlocked: walked.unlocked, ...(walked.trap ? { trap: walked.trap } : {}) };
       minutes = dungeonWalkMinutes(path.length);
       const pending = gameDungeonWalkFromMetadata(fresh);
+      const before = pending?.map === kept.id ? pending : undefined;
+      const unlocked = [...(before?.unlocked ?? []), ...walked.unlocked].slice(-12);
+      const trap = walked.trap ?? before?.trap;
       walk = {
         id: randomUUID(),
         map: kept.id,
         from: pending?.map === kept.id ? pending.from : kept.at,
-        to: { x: body.x, y: body.y },
+        to: walked.map.at,
+        ...(unlocked.length ? { unlocked } : {}),
+        ...(trap ? { trap } : {}),
         minutes: Math.min(600, (pending?.map === kept.id ? pending.minutes : 0) + minutes),
         // On a map made by hand: its place and every cell walked, for the story's step events.
         ...(kept.hand && kept.place
@@ -12284,7 +12303,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             }
           : {}),
       };
-      map = { ...kept, at: { x: body.x, y: body.y } };
+      map = walked.map;
       time = addMinutes((fresh.gameTime as GameTime) ?? createInitialTime(), minutes);
       return { gameDungeonMap: map, gameDungeonWalk: walk, gameTime: time };
     });
@@ -12293,7 +12312,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       time: formatGameTime(time),
     });
     await passGameInventoryTime(app.db, chatId, minutes);
-    return { map, walk, path, minutes, time, formatted: formatGameTime(time) };
+    // This walk's own news (the walk record gathers every walk since the last turn): locks it opened, a
+    // trap it set off.
+    return { map, walk, path, minutes, time, formatted: formatGameTime(time), step };
   });
 
   // POST /game/:chatId/map/leave: the party leaves by the way out it stands on; the next turn says so.
@@ -12329,6 +12350,29 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const kept = gameDungeonMapFromMetadata(fresh);
       if (!kept || kept.id !== body.map) {
         throw Object.assign(new Error("The party is not on that map."), { statusCode: 409 });
+      }
+      // A planned building: the link the party stands on, to its level, at the link back.
+      const link = gameDungeonLinkAt(kept);
+      const planInput = sitePlanInputOf(kept);
+      if (link && planInput && kept.site) {
+        map = {
+          ...gameDungeonPlannedMap({
+            plan: planInput,
+            name: kept.name,
+            id: randomUUID(),
+            level: link.level,
+            from: kept.site.level,
+            ...(kept.site.traps ? { traps: true } : {}),
+            state: {
+              seen: kept.site.seen,
+              unlocked: kept.site.unlocked,
+              trapsFound: kept.site.trapsFound,
+              trapsGone: kept.site.trapsGone,
+            },
+          }),
+          ...(kept.place ? { place: kept.place } : {}),
+        };
+        return { gameDungeonMap: map, gameDungeonWalk: null };
       }
       const floor = kept.floor ?? 1;
       const down = gameDungeonOnWayDown(kept);
@@ -12400,6 +12444,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         : null;
     if (!building || !name || !set) return reply.status(400).send({ error: "There is no going down here." });
     let map: GameDungeonMap | undefined;
+    // A building laid out to a plan reads its fate and land from the world, and its traps from the rules.
+    const planContext = await dungeonPlanContext({ world, meta, name, placeId: building.placeId });
     const updated = await chats.patchMetadata(chatId, (fresh) => {
       const current = gameDungeonMapFromMetadata(fresh);
       if (current?.place === placeKey) {
@@ -12425,7 +12471,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       } else {
         // Its first floor; a place deeper than one floor has its way down (owner 2026-11-13).
         map = {
-          ...gameDungeonSiteMap({ setId: set.id, name, siteSeed: gameDungeonSeed(chatId, name), id: randomUUID() }),
+          ...gameDungeonSiteMap({
+            setId: set.id,
+            name,
+            siteSeed: gameDungeonSeed(chatId, name),
+            id: randomUUID(),
+            ...planContext,
+          }),
           place: placeKey,
         };
       }
