@@ -27,7 +27,14 @@ export type ChatPictureToAssign = {
 };
 
 export type AssignChatPictureResult =
-  { ok: true; image: unknown; alreadyThere: boolean } | { ok: false; reason: "missing-file" | "not-created" };
+  | {
+      ok: true;
+      image: unknown;
+      alreadyThere: boolean;
+      /** False when the picture was already there and kept its gallery label (the chat picture has none). */
+      labelUpdated: boolean;
+    }
+  | { ok: false; reason: "missing-file" | "not-created" };
 
 export async function assignChatPictureToGallery(input: {
   image: ChatPictureToAssign;
@@ -61,29 +68,35 @@ export async function assignChatPictureToGallery(input: {
         customKind: label.customKind,
         customName: label.customName,
       };
-      // Assigning the same picture again only refreshes its label.
+      // Assigning the same picture again only refreshes its label. An unlabeled chat picture leaves
+      // the gallery's own label (for example an emoji set in the character's gallery) as it is.
+      const finish = async (
+        existing: { id: string } | undefined,
+        setTag: (id: string, patch: typeof label) => Promise<unknown>,
+        create: () => Promise<unknown>,
+      ) => {
+        const labelUpdated = !existing || !!label.customKind;
+        const row = existing ? (label.customKind ? await setTag(existing.id, label) : existing) : await create();
+        return row
+          ? ({ ok: true, image: row, alreadyThere: !!existing, labelUpdated } as const)
+          : ({ ok: false, reason: "not-created" } as const);
+      };
       if (target.type === "character") {
         const gallery = input.characterGallery;
         const existing = (await gallery.listByCharacterId(target.id)).find((row) => row.filePath === image.filePath);
-        const row = existing
-          ? label.customKind
-            ? await gallery.setTag(existing.id, label)
-            : existing
-          : await gallery.create({ characterId: target.id, ...fields });
-        return row
-          ? ({ ok: true, image: row, alreadyThere: !!existing } as const)
-          : ({ ok: false, reason: "not-created" } as const);
+        return finish(
+          existing,
+          (id, patch) => gallery.setTag(id, patch),
+          () => gallery.create({ characterId: target.id, ...fields }),
+        );
       }
       const gallery = input.personaGallery;
       const existing = (await gallery.listByPersonaId(target.id)).find((row) => row.filePath === image.filePath);
-      const row = existing
-        ? label.customKind
-          ? await gallery.setTag(existing.id, label)
-          : existing
-        : await gallery.create({ personaId: target.id, ...fields });
-      return row
-        ? ({ ok: true, image: row, alreadyThere: !!existing } as const)
-        : ({ ok: false, reason: "not-created" } as const);
+      return finish(
+        existing,
+        (id, patch) => gallery.setTag(id, patch),
+        () => gallery.create({ personaId: target.id, ...fields }),
+      );
     },
     galleryRoot,
   );

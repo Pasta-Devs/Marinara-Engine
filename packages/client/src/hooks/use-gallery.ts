@@ -221,10 +221,13 @@ export function useAssignGalleryImage(chatId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ image, target }: { image: Pick<ChatImage, "id" | "chatId">; target: GalleryAssignTarget }) =>
-      api.post<{ alreadyThere: boolean }>(`/gallery/${image.chatId || chatId}/images/${image.id}/assign`, {
-        targetType: target.type,
-        targetId: target.id,
-      }),
+      api.post<{ alreadyThere: boolean; labelUpdated: boolean }>(
+        `/gallery/${image.chatId || chatId}/images/${image.id}/assign`,
+        {
+          targetType: target.type,
+          targetId: target.id,
+        },
+      ),
     onSuccess: (_result, { target }) => {
       qc.invalidateQueries({
         queryKey:
