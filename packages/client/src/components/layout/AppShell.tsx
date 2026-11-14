@@ -617,6 +617,24 @@ export function AppShell({
     SHARED_SIDEBAR_WIDTH_MIN,
     SHARED_SIDEBAR_WIDTH_MAX,
   );
+  // Kept in state: reading window.innerWidth while rendering forced a full page layout each time the shell redrew.
+  const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
+  useEffect(() => {
+    let rafId = 0;
+    const updateViewportWidth = () => {
+      window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        setViewportWidth(getViewportWidth());
+      });
+    };
+
+    updateViewportWidth();
+    window.addEventListener("resize", updateViewportWidth);
+    return () => {
+      window.removeEventListener("resize", updateViewportWidth);
+      window.cancelAnimationFrame(rafId);
+    };
+  }, []);
   // The side panes grow with Display Size, so their text keeps fitting (theming panel H4). The stored
   // width is the one at the default size; what's on screen is that times the text scale, up to 38%
   // of the window each.
@@ -624,10 +642,7 @@ export function AppShell({
   const sidebarScale = Math.max(0.7, uiFontSize / 17);
   const sidebarDisplayMax = Math.max(
     SHARED_SIDEBAR_WIDTH_MIN,
-    Math.min(
-      SHARED_SIDEBAR_WIDTH_MAX * sidebarScale,
-      typeof window === "undefined" ? Infinity : window.innerWidth * 0.38,
-    ),
+    Math.min(SHARED_SIDEBAR_WIDTH_MAX * sidebarScale, viewportWidth * 0.38),
   );
   const scaledSidebarWidth = clampWidth(sharedSidebarWidth * sidebarScale, SHARED_SIDEBAR_WIDTH_MIN, sidebarDisplayMax);
   const storedSidebarWidth = (displayWidth: number) =>
@@ -671,24 +686,6 @@ export function AppShell({
       unsubscribeOverhaul();
     };
   }, [sharedSidebarWidth]);
-
-  const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
-  useEffect(() => {
-    let rafId = 0;
-    const updateViewportWidth = () => {
-      window.cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(() => {
-        setViewportWidth(getViewportWidth());
-      });
-    };
-
-    updateViewportWidth();
-    window.addEventListener("resize", updateViewportWidth);
-    return () => {
-      window.removeEventListener("resize", updateViewportWidth);
-      window.cancelAnimationFrame(rafId);
-    };
-  }, []);
 
   const shellOverlayMode = isMobile;
   // UI overhaul preview: the desktop shell gets the tab bar and panes; phones and tablets get the

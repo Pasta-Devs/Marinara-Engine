@@ -17,6 +17,9 @@ export interface DocsCommandSearchProvider {
   isError: boolean;
 }
 
+// One shared empty list, so going from one empty result to another does not rerun the omnibar's ranking.
+const NO_DOCS_RESULTS: never[] = [];
+
 export function useDocsCommandSearchProvider(
   query: string,
   options: { enabled?: boolean; delay?: number } = {},
@@ -44,11 +47,11 @@ export function useDocsCommandSearchProvider(
   const search = useDocsSearch(docsSearchQuery);
   const searchData = search.data;
   const passages = useMemo(
-    () => (searchData?.query === docsSearchQuery ? toDocsCommandPassages(searchData) : []),
+    () => (searchData?.query === docsSearchQuery ? toDocsCommandPassages(searchData) : NO_DOCS_RESULTS),
     [searchData, docsSearchQuery],
   );
   const titles = useMemo(
-    () => (eligible ? searchDocsCommandTitles(trimmed, index.data) : []),
+    () => (eligible ? searchDocsCommandTitles(trimmed, index.data) : NO_DOCS_RESULTS),
     [eligible, index.data, trimmed],
   );
   const hasPassageStage =
@@ -58,7 +61,7 @@ export function useDocsCommandSearchProvider(
   // omnibar's search pipeline is keyed on it and would otherwise rerun on every
   // keystroke-unrelated render.
   return useMemo(() => {
-    if (!eligible) return { results: [], stage: "idle" as const, isSearching: false, isError: false };
+    if (!eligible) return { results: NO_DOCS_RESULTS, stage: "idle" as const, isSearching: false, isError: false };
     if (hasPassageStage) {
       return { results: passages, stage: "passages" as const, isSearching: false, isError: false };
     }
