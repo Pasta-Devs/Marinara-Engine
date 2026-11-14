@@ -36,11 +36,25 @@ She smiles Hello there.
 
 如果没有成功：**Find Pattern (Regex)** 下方的红色报错会阻止保存。说明模式无效或不安全；见[安全与性能](#safety-and-performance)。
 
+<a id="manage-your-scripts"></a>
+
 ### 管理你的脚本
 
-**Regexes** 列表中的每一行显示脚本名称、一个 **AI** 或 **User** 标签、写成 `/pattern/flags` 形式的模式、一个启停开关（即时生效）、**Edit regex**(编辑正则)（铅笔图标）和 **Delete regex**(删除正则)（垃圾桶图标）。没有任何脚本时，列表显示“No regexes yet”。拖动行的把手可以调整执行顺序。
+**Regexes** 列表中的每一行显示脚本名称、一个 **AI** 或 **User** 标签、写成 `/pattern/flags` 形式的模式、一个启停开关（即时生效）、**Edit regex**(编辑正则)（铅笔图标）和 **Delete regex**(删除正则)（垃圾桶图标）。没有脚本或文件夹时，列表显示“No regexes yet”。
+
+使用 **Search regexes**(搜索正则) 按脚本名称和模式搜索。包含匹配脚本的文件夹会自动打开。搜索时无法拖动脚本调整顺序。
 
 区块标题栏有三个图标按钮：**Create regex**、**Import regexes from JSON**(从 JSON 导入正则) 和 **Export regexes to JSON**(导出正则为 JSON)（把你所有的全局脚本保存到一个文件里）。绑定到单个角色的脚本单独存放；见[把脚本限定给一个角色](#limit-a-script-to-one-character)。
+
+### 用文件夹整理脚本
+
+1. 用 **New Folder**(新建文件夹) 创建文件夹并命名。
+2. 点击脚本所在行的文件夹图标，打开 **Move to folder**(移到文件夹)。
+3. 选择文件夹。要移回顶层，选择 **No folder (top level)**(无文件夹，顶层)。
+
+点击文件夹名称可以展开或折叠。关闭文件夹的开关后，里面的脚本会在所有聊天中暂停，文件夹标题会显示 **Paused**(已暂停)。各脚本保留自己的开关设置。已启用的脚本如果位于暂停的文件夹中，开关会变灰，并显示 **Paused by folder**(因文件夹暂停)。删除文件夹会将脚本移到顶层，脚本继续按各自的开关设置运行。
+
+文件夹不会改变脚本执行顺序。点击 **Execution order**(执行顺序) 按实际执行顺序查看整个列表。拖动脚本的把手可以改变顺序。没有文件夹时，列表已经按执行顺序排列。
 
 <a id="editor-fields"></a>
 

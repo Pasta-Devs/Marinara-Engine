@@ -55,7 +55,7 @@ Marinara 导出文件保留的细节最多。其他几种格式来自 SillyTaver
 ## 导出一个角色
 
 1. 在编辑器里打开这个角色。
-2. 点击编辑器顶部的 **Export character**(导出角色)。**Export Character** 窗口随即打开。
+2. 点击编辑器顶部的 **…**，然后点击 **Export character**(导出角色)。**Export Character** 窗口随即打开。
 3. 选择一种格式。Marinara 会下载这个文件。
 
 | 格式 | 得到什么 | 适合场景 |

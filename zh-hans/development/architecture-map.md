@@ -41,7 +41,7 @@
 - `schemas`：持久化实体和共享实体的 Zod schema。
 - `constants`：服务商、默认值、聊天模式、模型列表、智能体提示词。
 - `utils`：宏展开、XML 包装、音乐评分之类的纯函数。
-- `features`：智能体清单与注册表、函数调用定义、文件夹包、UNO、Chess、Poker 的回合制游戏引擎、Game Mode 规则集及其战斗（`rulesets`、`ruleset-combat`、`tactical-combat` 以及 `combat-*` 文件），还有 `world` 里的世界生成器及其分享文件（设定包、世界、地块包、棋盘包和生物包）。
+- `features`：智能体清单与注册表、函数调用定义、文件夹包、回合制游戏引擎的契约和注册表（游戏本身由可选包提供）、Game Mode 规则集及其战斗（`rulesets`、`ruleset-combat`、`tactical-combat` 以及 `combat-*` 文件），还有 `world` 里的世界生成器及其分享文件（设定包、世界、地块包、棋盘包和生物包）。`marinara-*.ts` 文件（`ai`、`bestiary`、`bestiary-threat`、`classes`、`combat`、`items`、`loot`、`party`）存放 Engine 自有规则集 Classic Marinara 的纯数据和计算逻辑。
 
 规则：
 
@@ -64,12 +64,12 @@ React 19 加 Vite PWA，目前有好几百个源文件。
 - `features`：已抽出的功能模块，目前包括聊天设置的各个分区、追踪器面板的组成部分、多人模式，以及虚拟形象智能体的契约、设置、舞台和渲染器（`features/avatars`）。
 - `hooks`：大部分 API 功能的 React Query hook 和运行时 hook。
 - `lib`：浏览器和客户端辅助函数。目前通用辅助函数和 Game Mode 专用辅助函数混在一起。
-- `stores`：UI、聊天运行时、智能体、game state、game mode、素材、sidecar、翻译、图库、遭遇战和回合制游戏的 Zustand store。
+- `stores`：UI、聊天运行时、智能体、game state、game mode、素材、sidecar、翻译、图库、遭遇战、战斗界面、Roleplay 人物卡界面和 Conversation 游戏的 Zustand store。
 - `styles`：全局样式表和各主题专用的 CSS。
 
 当前需要注意的交叉依赖：
 
-- `components/game` 会从 `components/chat` 引入天气、图库抽屉之类的共享视觉模块。
+- `components/game` 会从 `components/chat` 导入天气效果、固定图片浮层、聊天工具栏和控制窗口等共享界面组件。图库位于 Chat Settings（`features/chat-settings/ChatGalleryPanel.tsx`）中，Game Mode 通过 `hooks/use-chat-gallery-actions.ts` 向图库提供内容。
 - `components/chat` 为了 roleplay 功能引入了 game state 和遭遇战状态。
 - `hooks/use-generate.ts` 同时碰了聊天状态、智能体状态、game state、game mode 状态、翻译状态和 UI 设置。
 - `lib/game-*` 系列辅助函数只服务于 Game Mode，却和全局辅助函数放在一起。
@@ -90,6 +90,8 @@ Fastify API、文件原生存储和服务商集成，目前有好几百个源文
 - `services/sidecar`：本地运行时、模型管理、场景分析、场景后处理。
 - `services/agents`：智能体执行与知识路由。
 - 功能基础层：`services/import`、`services/lorebook`、`services/image`、`services/haptic`、`services/tools`、`services/regex`、`services/professor-mari`、`services/mari-db`、`services/turn-games`、`services/spotify`、`services/video`、`services/generation`、`services/chat-summary`、`services/achievements`、`services/prompt-overrides`、`services/setup`、`services/noodle`、`services/memory-recall`、`services/avatars`(虚拟形象智能体的虚拟形象模型存储、生成和情绪分类器)、`speech-to-text.service.ts`，以及 `discord-webhook.ts`。
+- `bin/mari.ts`：与正在运行的本地服务器通信的 `mari` 命令行工具，是软件包唯一的 `bin` 条目。
+- `assets/`：服务器附带的数据，例如默认背景、默认游戏素材、棋盘包、世界地图地块、Mari 技能、Claude Code 插件、运行时依赖锁文件，以及个人扩展的运行脚本。
 - `db/schema`：存放在 `DATA_DIR/storage` 下的数据所对应的文件表定义。
 - `db/file-schema.ts`、`db/file-query.ts`：原生表元数据和查询表达式。
 - `db/file-backed-store.ts`：内存表存储、事务边界、崩溃恢复和 JSON 快照持久化。参见[文件原生存储](file-storage.md)。
@@ -277,7 +279,7 @@ packages/shared/src/
 以下几项适合作为首轮清理，因为它们能在不改变行为的前提下降低耦合。
 
 1. 把 `components/chat` 拆成通用、conversation 和 roleplay 三组。
-   - 通用候选：`ChatCommonOverlays`、`ChatBranchSelector`、`ChatGalleryDrawer`、`WeatherEffects`，以及共享的消息和输入基础组件。
+   - 通用候选：`ChatCommonOverlays`、`ChatBranchesPanel` 和 `ChatGalleryPanel`（现在均位于 `features/chat-settings`）、`WeatherEffects`，以及共享的消息和输入基础组件。
    - Conversation 候选：`ChatConversationSurface`、`ConversationView`、`ConversationMessage`、`ConversationInput`。
    - Roleplay 候选：`ChatRoleplaySurface`、`SpriteOverlay`、`SceneBanner`、`CyoaChoices`、`EncounterModal`。Roleplay 的 HUD 已经在 `RoleplayHUDActionsMenu.tsx` 和 `RoleplayHUDPanels.tsx` 里拆掉了一部分。
 2. 把只服务于 Game Mode 的客户端辅助函数挪到 game 模块下。

@@ -61,7 +61,7 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 
 客户端在 `packages/client/src/stores/` 下放了一组 Zustand store，用来管理界面和运行时状态。只有 `ui.store.ts` 会持久化，其余保存的是聊天、智能体、游戏、本地模型运行时、翻译、窗口和回填的运行时状态。
 
-现有的 store 文件有：`agent.store.ts`、`backfill.store.ts`、`chat-tools-menu.store.ts`、`chat.store.ts`、`conversation-games.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`floating-window.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`sidecar.store.ts`、`translation.store.ts` 和 `ui.store.ts`。桌面游戏的 store 已经移进各自的可下载包里；`conversation-games.store.ts` 只记录 Conversation 游戏选择器和设置。
+现有的 store 文件有：`agent.store.ts`、`backfill.store.ts`、`chat-tools-menu.store.ts`、`chat.store.ts`、`combat-screen.store.ts`、`conversation-games.store.ts`、`dialog.store.ts`、`encounter.store.ts`、`floating-window.store.ts`、`gallery.store.ts`、`game-asset.store.ts`、`game-mode.store.ts`、`game-state.store.ts`、`roleplay-sheet.store.ts`、`sidecar.store.ts`、`translation.store.ts` 和 `ui.store.ts`。桌面游戏的 store 已经移进各自的可下载包里；`conversation-games.store.ts` 只记录 Conversation 游戏选择器和设置。`combat-screen.store.ts` 追踪当前显示的战斗界面和回合，顶栏只在战斗界面显示时提供战斗控件。`roleplay-sheet.store.ts` 追踪 Roleplay 聊天当前打开的是哪位成员的规则集人物卡。
 
 #### `ui.store.ts`：设置与界面外壳
 
@@ -126,7 +126,7 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 
 ### React Query(服务器数据)
 
-所有服务器数据都通过 TanStack React Query 获取和缓存，配置写在 `main.tsx`：
+所有服务器数据都通过 TanStack React Query 获取和缓存，配置写在 `lib/query-client.ts`：
 
 - Stale time：30 秒（全局默认）。
 - 重试：1 次。
@@ -137,7 +137,7 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 
 ## Hook 参考
 
-所有 hook 都放在 `src/hooks/`，命名遵循 `use-{entity}.ts`。
+所有 hook 都放在 `src/hooks/`，命名遵循 `use-{entity}.ts`。下表只列主要 hook，完整列表见 `packages/client/src/hooks/`。
 
 ### 聊天 hook(`use-chats.ts`)
 
@@ -181,27 +181,25 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 | Hook | 类型 | 说明 |
 | ------------------------------ | -------- | ---------------------------------------------------------- |
 | `usePresets()` | Query | 全部预设 |
-| `usePreset(id)` | Query | 单个预设 |
-| `usePresetFull(id)` | Query | 预设及其段落、分组和选项 |
+| `usePresetFull(id)` | Query | 一个预设及其段落、分组和变量 |
 | `useDefaultPreset()` | Query | 默认预设 |
-| `useCreatePreset()` | Mutation | 创建预设 |
 | `useUpdatePreset()` | Mutation | 更新预设 |
 | `useDeletePreset()` | Mutation | 删除预设 |
-| `usePresetSections(presetId)` | Query | 某个预设的提示词段落 |
-| `usePresetGroups(presetId)` | Query | 段落分组 |
-| `usePresetVariables(presetId)` | Query | 预设变量（原来的 choice block） |
-| `usePreviewPreset()` | Mutation | 针对 `{ presetId, chatId, choices }` 渲染提示词预览 |
+| `useDuplicatePreset()` | Mutation | 复制预设 |
+| `useSetDefaultPreset()` | Mutation | 将预设设为默认 |
+| `useCreateSection()` | Mutation | 创建提示词段落（更新、删除和排序 hook 位于同一文件） |
+| `useCreateGroup()` | Mutation | 创建段落分组（更新和删除 hook 位于同一文件） |
+| `useCreateVariable()` | Mutation | 创建预设变量，原称 choice block（更新、删除和排序 hook 位于同一文件） |
 
 ### 智能体 hook(`use-agents.ts`)
 
 | Hook | 类型 | 说明 |
 | -------------------- | -------- | ------------------------------- |
 | `useAgentConfigs()` | Query | 全部智能体配置 |
-| `useAgentConfig(id)` | Query | 单个智能体配置 |
 | `useCreateAgent()` | Mutation | 创建自定义智能体 |
 | `useUpdateAgent()` | Mutation | 更新智能体配置 |
 | `useDeleteAgent()` | Mutation | 删除智能体 |
-| `useToggleAgent()` | Mutation | 开启或关闭内置智能体 |
+| `useUpdateAgentByType()` | Mutation | 按智能体类型更新配置 |
 
 ### 生成 hook(`use-generate.ts`)
 
@@ -231,7 +229,7 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 | `use-background-autonomous.ts` | 对非活跃聊天的后台轮询 |
 | `use-translate.ts` | 文本翻译 |
 | `use-apply-regex.ts` | 对消息执行正则脚本 |
-| `use-custom-tools.ts` | 自定义工具的增删改查 |
+| `use-custom-tools.ts` | 自定义工具的增删改查、排序和批量启停 |
 | `use-knowledge-sources.ts` | 知识源管理 |
 | `use-gallery.ts` | 聊天图库图片 |
 | `use-chat-folders.ts` | 聊天文件夹的增删改查和排序 |
@@ -326,9 +324,9 @@ AI 游戏主持人（GM）界面。它不在 chat 文件夹里，而是位于 `c
 面板要在 `RightPanel.tsx` 里两个地方注册：
 
 1. `PANEL_CONFIG`：标题、图标和渐变色。
-2. `PANELS`：组件映射表。
+2. `RIGHT_PANELS`（`right-panel-panels.ts` 内）：组件映射表。
 
-面板采用模块级持久化。一个 `mountedPanels` Set 记录哪些面板被访问过。面板一旦挂载就留在 DOM 里（用 `display: none` 或 `aria-hidden` 隐藏），以保住状态。
+面板用 `RightPanel` 内的 `useState` 保存一个 `mountedPanels` Set 来保留状态。这个 Set 记录访问过哪些面板。面板挂载后会留在 DOM 里，用 `display: none` 或 `aria-hidden` 隐藏，以保留状态。
 
 ### UI 基础组件（`components/ui/`）
 
@@ -340,8 +338,11 @@ AI 游戏主持人（GM）界面。它不在 chat 文件夹里，而是位于 `c
 | `EmojiPicker` | 可搜索的表情弹出框（portal 渲染） |
 | `GifPicker` | 通过 Giphy API 搜索 GIF |
 | `HelpTooltip` | 悬停图标，显示由 portal 定位的提示气泡 |
+| `LibraryToolbar` | 所有资料库面板共用的工具栏 |
 
 所有 UI 组件都使用受控属性（value 加 onChange），浮层一律用 portal 渲染。
+
+角色、用户角色、世界书、智能体面板和 Presets 面板的各个选项卡都通过 `LibraryToolbar` 显示顶部控件。顺序为：可选的资料库行（一个通栏按钮，或 Download 和 Open Library 两个按钮）、创建／导入／导出／选择、带共用排序菜单的搜索框、New Folder，以及通过 `children` 传入的面板筛选项。各行通过有类型的 props 传入，因此新增资料库面板也会使用相同的标记结构。需要新的控件时，请在这个组件上添加 prop，以便复用工具栏。
 
 ## API 客户端（`lib/api-client.ts`）
 
@@ -466,8 +467,13 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `/api/connections` | GET, POST, PATCH, DELETE | API 连接的增删改查、复制、测试 |
 | `/api/agents` | GET, POST, PATCH, DELETE | 智能体的增删改查、echo 消息、运行记录；内置智能体的开关走 `PUT /api/agents/toggle/:agentType` |
 | `/api/lorebooks` | GET, POST, PATCH, DELETE | 世界书的增删改查、条目、导出 |
-| `/api/custom-tools` | GET, POST, PATCH, DELETE | 自定义工具的增删改查 |
-| `/api/regex-scripts` | GET, POST, PATCH, DELETE | 正则脚本的增删改查 |
+| `/api/custom-tools` | GET, POST, PUT, PATCH, DELETE | 自定义工具的增删改查、`PUT /reorder` 和 `PUT /enabled` |
+| `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | 正则脚本的增删改查、`PUT /reorder` 和 `PUT /enabled` |
+| `/api/library-folders/regex` | GET, POST, PATCH, DELETE | 正则脚本文件夹的增删改查、暂停状态和 `POST /move` |
+| `/api/library-folders/functions` | GET, POST, PATCH, DELETE | 自定义工具文件夹的增删改查、暂停状态和 `POST /move` |
+
+
+`PUT /api/regex-scripts/enabled` 接收 `scriptIds` 和 `enabled`。如果任一 ID 不存在，它会返回 404，且不会更新任何脚本。正则脚本列表除了保存的 `enabled` 状态，还包含 `pausedByFolder`。`PUT /api/custom-tools/enabled` 以同样的方式处理 `toolIds`，自定义工具列表也包含 `pausedByFolder`。暂停文件夹中的工具不会提供给模型。
 
 智能体的记忆工具走 `/api/agents/memory/:agentType/:chatId`，其中 `agentType` 是智能体类型字符串，`chatId` 是目标聊天的 id。
 
@@ -483,7 +489,7 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | 前缀 | 端点 | 说明 |
 | ------------------------- | -------------------------------- | ---------------------------- |
 | `/api/chat-folders` | 增删改查加重新排序 | 聊天文件夹管理 |
-| `/api/conversation` | schedule, status, message, check | 自主消息系统 |
+| `/api/conversation` | schedule, status, activity, autonomous | 自主消息系统 |
 | `/api/scene` | create, plan, conclude | 场景分支 |
 | `/api/encounter` | init, action, summary | 遭遇战 |
 | `/api/translate` | POST | 文本翻译 |
@@ -492,8 +498,8 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 | `/api/game-rulesets` | 导入、schema、源文件、移除 | 导入的 Game Mode 规则集 |
 | `/api/game-worlds` | 世界库增删改查和世界编辑 | 新游戏和地图包所用的世界库 |
 | `/api/game-tile-packs` | 地块包，以及 `/creatures` 和 `/boards` | 地图、生物和战斗棋盘美术包 |
-| `/api/turn-games` | Chess、UNO、Poker 路由 | Conversation 桌面游戏 |
-| `/api/conversation-calls` | 通话和会话路由 | Conversation 语音通话 |
+| `/api/turn-games` | catalog, state, start, move, resign | Conversation 桌面游戏（由软件包提供游戏） |
+| `/api/conversation-calls` | 通话和会话路由（由 Conversation 通话包注册） | Conversation 语音通话 |
 
 ### 媒体与素材
 
@@ -532,9 +538,9 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 
 | 端点 | 说明 |
 | ------------------------------- | --------------------------------------- |
-| `/api/updates/check` | 对照 GitHub release 检查版本 |
-| `/api/updates/latest` | 最新发布的元数据 |
-| `/api/updates/commits-behind` | Git 安装方式落后的提交数 |
+| `/api/updates/check` | 对照 GitHub 发布版本检查；如果通过 Git 安装，也检查检出版本落后于更新频道多少 |
+| `/api/updates/channel` | 更新频道、当前分支和频道列表 |
+| `/api/updates/apply` | 应用更新 |
 | `/api/backup` | 完整备份、导出、导入 |
 | `/api/import/*` | SillyTavern 和 Marinara 档案导入 |
 | `/api/admin/clear-all` | 清空全部数据 |
@@ -557,13 +563,13 @@ Personal Extensions(个人扩展) 是存在服务器上、按精确哈希审批�
 
 - Manifest：`public/manifest.json`，应用名为“Marinara Engine”，显示模式为 standalone，暗色主题。
 - 图标：64px 的 favicon、192px 和 512px 的 maskable 图标，以及一张启动画面 logo。
-- Service worker：Workbox，采用自动更新策略。
+- Service worker：Workbox 使用 `registerType: "prompt"`，新版本会等待用户确认。
 - 缓存：静态资源会缓存；`/api/*` 路由使用 NetworkOnly。
 - 保活：`lib/keep-alive.ts` 用 Web Locks API 加 BroadcastChannel 心跳，防止选项卡休眠。
 
 ### 版本错位检测
 
-`App.tsx` 每 5 分钟轮询一次 `/api/health`。如果服务器版本和客户端缓存的版本不一致，客户端会注销 service worker，同时清空缓存以强制更新。
+`App.tsx` 每 5 分钟轮询一次 `/api/health`。如果服务器版本与客户端缓存的版本不同，客户端会通过 `lib/browser-runtime.ts` 中的 `forceRefreshSpa` 刷新页面。该函数会注销 service worker 并清空缓存。
 
 ## 智能体系统
 
@@ -686,7 +692,7 @@ pnpm build
 ### 打包体积预算
 
 - 主入口：最大 1 MB。
-- 单个 chunk：最大 500 KB。
+- 单个 chunk：`chunkSizeWarningLimit` 为 512 KB。超过时构建会打印警告并继续。
 - Vendor 分包：react、tanstack、motion、zustand、icons 和 misc。
 
 ### 路径别名

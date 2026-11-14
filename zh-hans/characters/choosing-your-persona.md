@@ -32,6 +32,12 @@
 
 在 Game Mode 里，这一区域会用游戏里队伍的说法来表述，但标签仍然是 **Persona**。
 
+<a id="color-your-name-in-messages"></a>
+
+### 为消息中的用户角色名字着色
+
+在 Roleplay 聊天中，**Persona** 区域有 **Color Persona Name in Text**(为正文中的用户角色名称着色) 开关。它会用用户角色的名字颜色显示消息中的用户角色名字、Conversation 显示名称和 **Other names**(其他名字)。在你改动这项设置前，它会跟随 **Characters** 区域的 **Color Character Names in Text**(为正文中的角色名称着色) 设置。聊天中如果有同名角色，该角色仍用自己的颜色。要显示颜色，先在用户角色的 **Colors**(颜色) 选项卡中设置名字颜色。
+
 ## 新建聊天时
 
 New Chat 设置向导里有一个 **Your Persona**(你的用户角色) 字段，用的是同一个可搜索的选择器，也带 **None** 选项。在 New Game Setup 向导里，这个字段叫 **Player's Persona**(玩家的用户角色)，聊天会保留这个选择。

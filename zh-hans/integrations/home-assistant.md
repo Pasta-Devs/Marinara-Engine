@@ -6,7 +6,7 @@
 
 集成本身是一小段软件，安装在 Home Assistant 内部，把它和你的 Marinara 服务器连起来。首次设置时，它会替你创建下面这些东西。你完全不需要手动复制工具地址，也不需要手动配置工具。
 
-- Presets(预设) 面板 **Functions**(函数) 部分里的智能家居工具。见[自定义工具](../extending/custom-tools.md)。
+- Presets(预设) 面板 **Functions**(函数) 选项卡里的智能家居工具。见[自定义工具](../extending/custom-tools.md)。
 - 一个名为 **Home Assistant** 的智能体，也就是伴随聊天一起运行的 AI 帮手。见[智能体概览](../agents/agents-overview.md)。
 - 若干 Home Assistant 实体（设备、传感器和控制项），方便你从 Home Assistant 查看和控制 Marinara。
 
@@ -160,7 +160,7 @@ automation:
 
 ### Functions 里看不到这些工具
 
-按一下 **Marinara Sync HA Tools**，或者重启 Home Assistant，然后到 Presets 面板的 **Functions** 里查看。
+按一下 **Marinara Sync HA Tools**，或者重启 Home Assistant，然后到 Presets 面板的 **Functions** 选项卡里查看。
 
 ### 聊天里没有 Home Assistant 智能体
 
