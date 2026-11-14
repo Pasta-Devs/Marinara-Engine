@@ -285,8 +285,8 @@ export function AnimatedSkillCheckResult({
         </div>
       )}
       {/* Dice groups and a push (1.826): each group's dice and counted 1s, and what the push threw again. */}
-      {result.groups?.map((group) => (
-        <div className="skill-check-roll-meta" key={group.label}>
+      {result.groups?.map((group, index) => (
+        <div className="skill-check-roll-meta" key={`${index}-${group.label}`}>
           <span>
             {group.banes !== undefined
               ? localizeUi("ui.dice.animatedskillcheckresult.groupDiceOnes", {

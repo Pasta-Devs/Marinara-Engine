@@ -118,7 +118,7 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
     : "";
   // Dice groups and a push (1.826): each group's dice and counted 1s, and what the push threw again.
   const groups = result.groups?.length
-    ? ` ${result.groups.map((group) => `${group.label} ${group.dice}${group.banes ? ` (${group.banes} showing 1)` : ""}`).join(", ")}.`
+    ? ` ${result.groups.map((group) => `${group.label} ${group.dice}${group.banes !== undefined ? ` (${group.banes} showing 1)` : ""}`).join(", ")}.`
     : "";
   const pushed =
     result.pushed !== undefined
@@ -208,8 +208,9 @@ export interface SkillCheckTagExtras {
   /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
   reroll?: string;
   /** `reason="untrained"` — the Engine did not roll the check, because the character cannot attempt
-   *  it untrained; `reason="unknown-roller"`, because it picks out no one party member. Only ever on an ask. */
-  reason?: "untrained" | "unknown-roller";
+   *  it untrained; `reason="unknown-roller"`, because it picks out no one party member;
+   *  `reason="not-pushable"` (1.826), because a push found no roll of it to push. Only ever on an ask. */
+  reason?: "untrained" | "unknown-roller" | "not-pushable";
   /** `effects="-1"` — what the character's conditions and worn or carried items added or took. */
   effects?: number;
   /** `from="Poisoned; Leather coat"` — the conditions and items that changed the check. */

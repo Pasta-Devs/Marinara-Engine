@@ -258,7 +258,12 @@ export interface SkillCheckRequest {
   gear?: number;
   /** `push="true"` (1.826), and the earlier roll it pushes once the resolver has found it. */
   push?: boolean;
-  pushOf?: { rolls: readonly number[]; dc?: number; groups?: readonly { label: string; dice: number }[] };
+  pushOf?: {
+    rolls: readonly number[];
+    dc?: number;
+    threshold?: number;
+    groups?: readonly { label: string; dice: number }[];
+  };
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -1135,16 +1140,24 @@ export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
   };
 }
 
+/** Whether a ruleset lets any of its checks be pushed (1.826): its own pool, or a check's override. */
+export function rulesetDeclaresPush(definition: RulesetDefinition | undefined): boolean {
+  const resolution = definition?.resolution;
+  if (!resolution || resolution.kind !== "dice-pool") return false;
+  return !!resolution.push || !!resolution.overrides?.some((override) => !!override.set?.push);
+}
+
 /** The earlier roll a `push="true"` check throws again (1.826): the last record of the same check by
  *  the same character in the Game Master's previous reply, unless that one was already pushed. The
- *  dice are read from the saved record, never from the tag that asks for the push. */
+ *  dice and the per-die target are read from the saved record, never from the tag that asks for the
+ *  push. The roller must match exactly: a record that names nobody is the player's. */
 export function rulesetPushableRoll(
   definition: RulesetDefinition,
   tag: Pick<SkillCheckTag, "skill" | "who" | "push">,
   lastReply: string | undefined,
 ): SkillCheckRequest["pushOf"] {
   const resolution = definition.resolution;
-  if (resolution.kind !== "dice-pool" || !resolution.push || !tag.push || !lastReply) return undefined;
+  if (!rulesetDeclaresPush(definition) || resolution.kind !== "dice-pool" || !tag.push || !lastReply) return undefined;
   const same = (one?: string, other?: string) =>
     (one ?? "").trim().toLowerCase() === (other ?? "").trim().toLowerCase();
   let found: SkillCheckRequest["pushOf"];
@@ -1152,13 +1165,14 @@ export function rulesetPushableRoll(
     const earlier = parseSkillCheckTagBody(match[1] ?? "");
     const rolled = earlier?.resolvedResult;
     if (!earlier || !rolled || rolled.resolution !== "successes" || rolled.rolls.length === 0) continue;
-    if (!same(earlier.skill, tag.skill) || (!!earlier.who && !!tag.who && !same(earlier.who, tag.who))) continue;
+    if (!same(earlier.skill, tag.skill) || !same(earlier.who, tag.who)) continue;
     found =
       rolled.pushed !== undefined
         ? undefined
         : {
             rolls: rolled.rolls,
             dc: rolled.dc,
+            ...(earlier.threshold !== undefined ? { threshold: earlier.threshold } : {}),
             ...(rolled.groups ? { groups: rolled.groups.map(({ label, dice }) => ({ label, dice })) } : {}),
           };
   }
@@ -1434,8 +1448,9 @@ function resolveRulesetSkillCheck(
     ...(target?.purpose ? { purpose: target.purpose } : {}),
     // Said even on a summed check, where it is also inside `modifier`: "-2 because you are Wounded"
     // is not something a player can read out of one number.
-    ...(penalty !== 0 ? { penalty } : {}),
-    ...(adjust !== 0 ? { adjust } : {}),
+    // A push (1.826) throws the earlier roll's own dice again, so nothing moved its count.
+    ...(penalty !== 0 && !request.pushOf ? { penalty } : {}),
+    ...(adjust !== 0 && !request.pushOf ? { adjust } : {}),
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
@@ -1458,7 +1473,7 @@ function resolveRulesetSkillCheck(
     ]),
   ];
   const effected = {
-    ...(boost !== 0 ? { effects: boost } : {}),
+    ...(boost !== 0 && !request.pushOf ? { effects: boost } : {}),
     ...(from.length > 0 ? { from } : {}),
   };
 
@@ -2788,6 +2803,8 @@ export async function resolveSkillCheckTagsInContent(
     let untrained = 0;
     // Checks that pick out no one party member to roll them, by the `who=` each wrote.
     const unknownRoller: string[] = [];
+    // Pushes that found no roll to push, settled with the reason on the ask like the two above.
+    let notPushable = 0;
     const rolled = rewrite((entry) => {
       // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
       // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
@@ -2836,6 +2853,28 @@ export async function resolveSkillCheckTagsInContent(
           { ...(askExtras(entry.tag) ?? {}), reason: "untrained" },
         );
       }
+      // A push (1.826) is only ever the earlier roll thrown again. Where the ruleset lets a roll be
+      // pushed, or the push names no difficulty to roll a fresh check against, one that finds no roll
+      // to push is settled as not pushed: rolled afresh it would beat a push, and it would make a
+      // second push of the same roll a free new roll.
+      const pushOf =
+        context.ruleset && entry.tag.push
+          ? rulesetPushableRoll(context.ruleset.definition, { ...entry.tag, who: request.who }, options.lastReply?.())
+          : undefined;
+      if (entry.tag.push && !pushOf && (request.dc === undefined || rulesetDeclaresPush(context.ruleset?.definition))) {
+        notPushable += 1;
+        return serializeSparseSkillCheckTag(
+          {
+            skill: request.skill,
+            dc: entry.request.dc,
+            advantage: request.advantage,
+            disadvantage: request.disadvantage,
+            declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
+          },
+          { ...(askExtras(entry.tag) ?? {}), reason: "not-pushable" },
+        );
+      }
       if (request.dc === undefined) {
         unread += 1;
         return serializeSparseSkillCheckTag(
@@ -2877,12 +2916,21 @@ export async function resolveSkillCheckTagsInContent(
           askExtras(entry.tag),
         );
       }
-      const pushOf = context.ruleset
-        ? rulesetPushableRoll(context.ruleset.definition, entry.tag, options.lastReply?.())
-        : undefined;
+      // A push repeats the earlier roll: nothing is spent, used, applied or added to it.
       const result = resolveSkillCheckWithContext(
         context,
-        pushOf ? { ...request, pushOf } : request,
+        pushOf
+          ? {
+              ...request,
+              pushOf,
+              spend: undefined,
+              useEntry: undefined,
+              apply: undefined,
+              bonusDice: undefined,
+              reroll: undefined,
+              gear: undefined,
+            }
+          : request,
         options.rollD20,
         onSpend,
       );
@@ -2895,6 +2943,13 @@ export async function resolveSkillCheckTagsInContent(
       logger.info(
         "[game/skill-check] %d re-rolled check(s) came out unlike the outcome the model wrote for chat %s; a correction line follows each",
         corrected,
+        options.chatId ?? "unknown",
+      );
+    }
+    if (notPushable > 0) {
+      logger.debug(
+        "[game/skill-check] %d push(es) found no roll in the previous reply to push for chat %s",
+        notPushable,
         options.chatId ?? "unknown",
       );
     }

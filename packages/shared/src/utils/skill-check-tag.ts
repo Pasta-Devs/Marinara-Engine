@@ -17,7 +17,7 @@ import { isWithinDiceLimits, parseDiceNotation } from "./dice-notation.js";
 
 /** Why the Engine did not roll a check it was asked for: the character cannot attempt it untrained,
  *  or the check picks out no one party member to roll it. */
-export type SkillCheckRefusalReason = "untrained" | "unknown-roller";
+export type SkillCheckRefusalReason = "untrained" | "unknown-roller" | "not-pushable";
 
 export interface SkillCheckTag {
   skill: string;
@@ -534,7 +534,7 @@ export function parseSkillCheckTagBody(body: string): SkillCheckTag | null {
   const rerollName = values.get("reroll")?.trim();
   if (rerollName) tag.reroll = rerollName.slice(0, 40);
   const reason = values.get("reason")?.trim().toLowerCase();
-  if (reason === "untrained" || reason === "unknown-roller") tag.reason = reason;
+  if (reason === "untrained" || reason === "unknown-roller" || reason === "not-pushable") tag.reason = reason;
   // A face, so a whole number or nothing, on the same terms as `bonus=`.
   for (const key of ["explode", "double"] as const) {
     const written = values.get(key)?.trim();

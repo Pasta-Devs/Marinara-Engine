@@ -82,6 +82,7 @@ import {
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
   rulesetCheckRollerRefused,
+  rulesetDeclaresPush,
   rulesetGroupCheckRollers,
   resolveRulesetGroupCheck,
   serializeRulesetGroupCheck,
@@ -225,7 +226,9 @@ export type GameBranchArmRefusal =
   | "unrollable-check"
   | "untrained-check"
   /** The claimed check picks out no one party member to roll it. */
-  | "unknown-roller";
+  | "unknown-roller"
+  /** The claimed check is a push (1.826), and an arm has no earlier reply to take the roll from. */
+  | "not-pushable";
 
 /** Plain words for each refusal, so the log says what the model wrote rather than what a flag is called. */
 const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
@@ -239,6 +242,7 @@ const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
   "unrollable-check": "the claimed check is not one this engine rolls",
   "untrained-check": "the claimed check is one the character cannot attempt untrained",
   "unknown-roller": "the claimed check picks out no one party member to roll it",
+  "not-pushable": "the claimed check is a push, and a branch has no earlier roll to push",
 };
 
 /** What the arm decided about one block, before anything is spliced. */
@@ -422,12 +426,14 @@ export async function resolveGameTurnBranches(
         edits.push({ start: plan.check.start, end: plan.check.end, replacement: groupRecord });
       } else if (
         context.ruleset &&
-        (rulesetCheckRollerRefused(context.ruleset, request.who) || rulesetRefusesUntrained(context.ruleset, request))
+        (rulesetCheckRollerRefused(context.ruleset, request.who) ||
+          (!!request.push && rulesetDeclaresPush(context.ruleset.definition)) ||
+          rulesetRefusesUntrained(context.ruleset, request))
       ) {
         // Not rolled, and so neither half happened. The ask is written back with the reason on it,
         // which settles it: the client's own fallback never rolls it a second time.
         const noRoller = rulesetCheckRollerRefused(context.ruleset, request.who);
-        refusal = noRoller ? "unknown-roller" : "untrained-check";
+        refusal = noRoller ? "unknown-roller" : request.push ? "not-pushable" : "untrained-check";
         edits.push({
           start: plan.check.start,
           end: plan.check.end,
@@ -451,7 +457,7 @@ export async function resolveGameTurnBranches(
               ...(request.bonusDice != null ? { bonus: request.bonusDice } : {}),
               ...(request.purpose ? { for: request.purpose } : {}),
               ...diceAsk(request),
-              reason: noRoller ? "unknown-roller" : "untrained",
+              reason: noRoller ? "unknown-roller" : request.push ? "not-pushable" : "untrained",
             },
           ),
         });

@@ -1594,6 +1594,17 @@ function clampInteger(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+/** A group's label as a record writes it (`:`, `|` and brackets become spaces), read without case. */
+function sameGroupLabel(one: string, other: string): boolean {
+  const plain = (text: string) =>
+    text
+      .replace(/[:|[\]"']/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  return plain(one) === plain(other);
+}
+
 /** Roll a `dice-pool` check: throw the sheet's own number of dice and count the ones that reach
  *  the target. `total` and `usedRoll` are both the NET successes, so a reader that knows nothing
  *  about pools still shows the number the outcome turned on.
@@ -1632,7 +1643,7 @@ export function rollDicePoolCheck(
     gear?: number;
     /** The earlier roll a push (1.826) starts from: its faces as recorded, and its groups where it had
      *  them. Used only where the ruleset lets a roll be pushed and the roll fits its pool. */
-    pushOf?: { rolls: readonly number[]; groups?: readonly { label: string; dice: number }[] };
+    pushOf?: { rolls: readonly number[]; threshold?: number; groups?: readonly { label: string; dice: number }[] };
     /** What a purchase bought for this one check, already validated and paid for by the caller:
      *  dice thrown on top of the pool, successes added after the dice are counted, a per-die target
      *  for this one roll, and a re-throw of the low faces. The roller never decides whether a spend
@@ -1670,10 +1681,16 @@ export function rollDicePoolCheck(
     : fromSheet === undefined
       ? input.threshold
       : undefined;
+  // A push (1.826) counts against the target the earlier roll was counted against, whatever it was.
+  const pushTarget =
+    resolution.push && Number.isFinite(input.pushOf?.threshold)
+      ? clampInteger(input.pushOf!.threshold!, 1, die.sides)
+      : undefined;
   const threshold =
-    target.min < target.max && Number.isFinite(asked)
+    pushTarget ??
+    (target.min < target.max && Number.isFinite(asked)
       ? clampInteger(asked!, target.min, target.max)
-      : (fromSheet ?? target.default);
+      : (fromSheet ?? target.default));
   const bonusDice =
     situationalDice && Number.isFinite(input.bonusDice)
       ? clampInteger(input.bonusDice!, situationalDice.min, situationalDice.max)
@@ -1709,7 +1726,7 @@ export function rollDicePoolCheck(
     earlier.rolls.every((face) => Number.isInteger(face) && face >= 1 && face <= die.sides) &&
     (groups
       ? earlier.groups?.length === groups.length &&
-        earlier.groups.every((group, at) => group.label === groups[at]!.label && group.dice >= 0) &&
+        earlier.groups.every((group, at) => sameGroupLabel(group.label, groups[at]!.label) && group.dice >= 0) &&
         earlier.groups.reduce((sum, group) => sum + group.dice, 0) === earlier.rolls.length
       : true);
   const count = pushing

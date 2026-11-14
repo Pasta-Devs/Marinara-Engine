@@ -168,6 +168,14 @@ try {
       faces(),
     );
     assert.deepEqual([nothing.pushed, nothing.total], [0, 3]);
+    // A push counts against the target the earlier roll was counted against: a 5 that succeeded at
+    // 5 stays, whatever this ruleset's default is.
+    const atFive = rollDicePoolCheck(
+      yze,
+      { ...input, pushOf: { rolls: [5, 1, 3, 1, 1], threshold: 5, groups: first.groups } },
+      faces(2, 2),
+    );
+    assert.deepEqual([atFive.rolls, atFive.threshold], [[5, 1, 2, 2, 1], 5]);
     // An earlier roll this pool could not have made is not pushed: the check is thrown afresh.
     for (const pushOf of [
       { rolls: [6, 1, 3, 1, 1] },
@@ -242,11 +250,29 @@ try {
     assert.deepEqual(rulesetPushableRoll(yze, { skill: "wrestle", push: true }, lastReply), {
       rolls: result.rolls,
       dc: 1,
+      threshold: result.threshold,
       groups: result.groups!.map(({ label, dice }) => ({ label, dice })),
     });
     assert.equal(rulesetPushableRoll(yze, { skill: "Wrestle" }, lastReply), undefined, "no push asked");
     assert.equal(rulesetPushableRoll(yze, { skill: "Sneak", push: true }, lastReply), undefined, "another check");
     assert.equal(rulesetPushableRoll(yze, { skill: "Wrestle", push: true }, undefined), undefined, "no reply");
+    // The roller must match exactly: the player's own record names nobody, and another member's
+    // record is never the player's to push, nor the player's theirs.
+    const mira = lastReply.replace('skill="Wrestle"', 'skill="Wrestle" who="Mira"');
+    assert.match(mira, /who="Mira"/);
+    assert.equal(rulesetPushableRoll(yze, { skill: "Wrestle", push: true }, mira), undefined, "someone else's");
+    assert.equal(rulesetPushableRoll(yze, { skill: "Wrestle", who: "Mira", push: true }, lastReply), undefined);
+    assert.ok(rulesetPushableRoll(yze, { skill: "Wrestle", who: "mira", push: true }, mira), "the same member's");
+    // A push declared only on one check's override still finds the earlier roll.
+    const overridden = parsed(
+      doc((d) => {
+        delete d.resolution.push;
+        d.resolution.overrides = [
+          { id: "pushable", label: "Pushable", skills: ["wrestle"], set: { push: { text: "Push it." } } },
+        ];
+      }),
+    );
+    assert.ok(rulesetPushableRoll(overridden, { skill: "Wrestle", push: true }, lastReply));
     const resolve = (reply: string | undefined) =>
       resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" dc="1" push="true" rolls="6,6,6,6,6,6"]', {
         loadContext: async () => context as any,
@@ -274,10 +300,29 @@ try {
       lastReply: () => lastReply,
     });
     assert.deepEqual([bare.resolved, bare.results?.[0]?.dc, bare.results?.[0]?.pushed !== undefined], [1, 1, true]);
-    // A pushed roll is not pushed again, and with no earlier roll the check is thrown afresh.
-    const twice = (await resolve(`Again. ${serializeResolvedSkillCheckTag(again)}`)).results![0]!;
-    assert.equal(twice.pushed, undefined);
-    assert.equal((await resolve(undefined)).results![0]!.pushed, undefined);
+    // A pushed roll is not pushed again, and with no earlier roll there is nothing to push: either
+    // way the ask is settled as not pushed, never thrown afresh, which would beat a push.
+    for (const reply of [`Again. ${serializeResolvedSkillCheckTag(again)}`, undefined, "No check here."]) {
+      const refused = await resolve(reply);
+      assert.equal(refused.results?.length ?? 0, 0, "nothing was rolled");
+      assert.match(refused.content, /reason="not-pushable"/);
+      assert.doesNotMatch(refused.content, /rolls="/);
+      assert.equal(parseSkillCheckTagBody(refused.content.slice("[skill_check:".length, -1))?.reason, "not-pushable");
+    }
+    // A push spends, uses and adds nothing: it is the earlier roll thrown again.
+    const bought = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" dc="1" push="true" gear="3"]', {
+      loadContext: async () => context as any,
+      rulesetPinned: true,
+      lastReply: () => lastReply,
+    });
+    assert.equal(bought.results?.[0]?.rolls.length, result.rolls.length, "no gear dice join a push");
+    // With no ruleset there is no push: one that names no difficulty is left as written, unrolled
+    // (the client sends no check that has no difficulty either).
+    const loose = await resolveSkillCheckTagsInContent('[skill_check: skill="Wrestle" push="true"]', {
+      loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+      lastReply: () => lastReply,
+    });
+    assert.deepEqual([loose.content, loose.results?.length ?? 0], ['[skill_check: skill="Wrestle" push="true"]', 0]);
 
     const reminder = buildGmFormatReminder({
       turnNumber: 2,
