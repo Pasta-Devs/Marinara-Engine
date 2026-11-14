@@ -13769,9 +13769,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 try {
                   const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
                   if (pinned) {
+                    const freshMeta = parseExtra((await chats.getById(input.chatId))?.metadata) as Record<
+                      string,
+                      unknown
+                    >;
                     const current =
-                      typeof chatMeta.background === "string" && chatMeta.background.trim()
-                        ? chatMeta.background.trim()
+                      typeof freshMeta.background === "string" && freshMeta.background.trim()
+                        ? freshMeta.background.trim()
                         : null;
                     logger.info(
                       '[location-backgrounds] "%s" is pinned to "%s"; Background agent pick "%s" not used',
@@ -13779,9 +13783,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       pinned.filename,
                       bgData.chosen,
                     );
-                    bgData.chosen = pinned.filename === current ? null : pinned.filename;
                     (bgData as Record<string, unknown>).pinnedPlace = pinned.match.matched;
-                    pinnedPatch = pinnedBackgroundMetadataPatch(pinned);
+                    if (freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === pinned.match.pin.id) {
+                      // Already shown on arrival: whatever shows now (maybe the user's own pick) stays.
+                      bgData.chosen = null;
+                    } else {
+                      bgData.chosen = pinned.filename === current ? null : pinned.filename;
+                      pinnedPatch = pinnedBackgroundMetadataPatch(pinned);
+                    }
                   }
                 } catch (pinError) {
                   logger.warn(pinError, "[location-backgrounds] Could not check pinned places");

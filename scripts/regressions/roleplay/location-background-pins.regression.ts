@@ -37,6 +37,12 @@ assert.equal(
 );
 assert.equal(pick("John's old guest bedroom"), "john", "two words in between");
 assert.equal(pick("John's house, the big sunny guest bedroom"), "any", "too far apart: not John's");
+assert.equal(pick("John's house, Mara's bedroom"), "any", "a gapped name never reaches across a comma");
+assert.equal(
+  pick("John's house Mara's bedroom", { characterNames: ["John", "Mara"] }),
+  "any",
+  "nor across another owner",
+);
 assert.equal(
   shared.resolveLocationBackgroundPin(
     [

@@ -162,11 +162,25 @@ function phraseIndex(haystack: string, needle: string): number {
 /** Most extra words a name may have between its own words: "Kit's rented bedroom" is still "Kit's bedroom". */
 const NAME_GAP_LIMIT = 2;
 
+/** Stands where the place text had a comma, dash or bracket: a gapped name never reaches across it. */
+const GAP_BREAK = "xgapbreakx";
+
+/** The place text for gapped names: normalized, with its punctuation breaks kept as GAP_BREAK. */
+function gapAwareLocationText(text: string | null | undefined): string {
+  return normalizeLocationText((text ?? "").replace(/[,;:()[\]|/]|\s[-–—]\s/gu, ` ${GAP_BREAK} `));
+}
+
 /**
  * A pin name of two or more words found in order with a few words between them, as
- * { index, gaps } (word index of its first word, words skipped), or null.
+ * { index, gaps } (where its first word starts, words skipped), or null. The words in between
+ * never include a punctuation break or another owner's name, so "John's house, Mara's bedroom"
+ * is not "John's bedroom".
  */
-function gappedPhrase(haystack: string, needle: string): { index: number; gaps: number } | null {
+function gappedPhrase(
+  haystack: string,
+  needle: string,
+  blocked: ReadonlySet<string>,
+): { index: number; gaps: number } | null {
   const words = haystack.split(" ");
   const parts = needle.split(" ");
   if (parts.length < 2) return null;
@@ -183,6 +197,7 @@ function gappedPhrase(haystack: string, needle: string): { index: number; gaps: 
           next = i;
           break;
         }
+        if (words[i] === GAP_BREAK || blocked.has(words[i]!)) break;
       }
       if (next < 0) {
         ok = false;
@@ -191,7 +206,9 @@ function gappedPhrase(haystack: string, needle: string): { index: number; gaps: 
       gaps += next - at - 1;
       at = next;
     }
-    if (ok && gaps <= NAME_GAP_LIMIT && (!best || gaps < best.gaps)) best = { index: start, gaps };
+    if (ok && gaps <= NAME_GAP_LIMIT && (!best || gaps < best.gaps)) {
+      best = { index: words.slice(0, start).join(" ").length + (start > 0 ? 1 : 0), gaps };
+    }
   }
   return best;
 }
@@ -224,22 +241,39 @@ export function resolveLocationBackgroundPin(
   }
 
   const locationText = normalizeLocationText(context.location);
+  const gapLocationText = gapAwareLocationText(context.location);
   // "my bedroom" in John's reply is tried as "john bedroom" first, then as written.
   const texts = [
-    resolveSpeakerPossessives(locationText, context),
-    locationText,
-    normalizeLocationText(currentPlace?.name),
-  ].filter(Boolean);
+    {
+      text: resolveSpeakerPossessives(locationText, context),
+      gapText: resolveSpeakerPossessives(gapLocationText, context),
+    },
+    { text: locationText, gapText: gapLocationText },
+    { text: normalizeLocationText(currentPlace?.name), gapText: gapAwareLocationText(currentPlace?.name) },
+  ].filter((entry) => entry.text);
+  // Names of the chat's people: words a gapped name can't skip over.
+  const ownerWords = new Set(
+    [context.userName, context.speakerName, ...(context.characterNames ?? [])]
+      .flatMap((name) => normalizeLocationText(readString(name)).split(" "))
+      .filter(Boolean),
+  );
   type Candidate = { match: LocationBackgroundMatch; words: number; gaps: number; length: number; index: number };
   let best = null as Candidate | null;
-  for (const [textOrder, text] of texts.entries()) {
+  for (const [textOrder, { text, gapText }] of texts.entries()) {
     for (const pin of pins) {
       for (const name of pin.names) {
         for (const expanded of expandNameMacros(name, context)) {
           const needle = normalizeLocationText(expanded);
           const exactIndex = phraseIndex(text, needle);
           // Words in between ("Kit's rented bedroom") still match, behind an exact match of the same size.
-          const gapped = exactIndex < 0 && needle ? gappedPhrase(text, needle) : null;
+          const gapped =
+            exactIndex < 0 && needle
+              ? gappedPhrase(
+                  gapText || text,
+                  needle,
+                  new Set([...ownerWords].filter((word) => !needle.split(" ").includes(word))),
+                )
+              : null;
           if (exactIndex < 0 && !gapped) continue;
           const index = exactIndex >= 0 ? exactIndex : gapped!.index;
           const gaps = gapped?.gaps ?? 0;
