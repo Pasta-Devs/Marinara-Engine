@@ -40,6 +40,9 @@ import {
 } from "../../../lib/app-dialogs";
 import { DEFAULT_ROLEPLAY_BACKGROUND_URL, useUIStore } from "../../../stores/ui.store";
 import { useGameAssetManifest } from "../../../hooks/use-game-assets";
+import { useChatOwnerBackgrounds, type OwnerBackground } from "../../../hooks/use-chat-gallery-owners";
+import { useChat } from "../../../hooks/use-chats";
+import { useChatStore } from "../../../stores/chat.store";
 import { useGameAssetStore } from "../../../stores/game-asset.store";
 import { gameAssetFileUrl } from "../../../lib/game-asset-urls";
 import { useTouchFolderDrag } from "../../../hooks/use-touch-folder-drag";
@@ -92,6 +95,8 @@ type BackgroundPickerProps = {
   onSelect: (url: string | null) => void;
   defaultRoleplayBackground: string;
   onDefaultChange: (url: string) => void;
+  /** Pictures labeled "background" in the galleries of the chat's characters and persona. */
+  ownerBackgrounds?: OwnerBackground[];
 };
 
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
@@ -219,8 +224,12 @@ export function ActiveChatBackgroundPicker({ game = false }: { game?: boolean })
   const defaultBackground = useUIStore((state) => state.defaultRoleplayBackground);
   const onDefaultChange = useUIStore((state) => state.setDefaultRoleplayBackground);
   const sceneBackgroundTag = useGameAssetStore((state) => (game ? state.currentBackground : null));
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const { data: activeChat } = useChat(activeChatId);
+  const ownerBackgrounds = useChatOwnerBackgrounds(activeChat);
   return (
     <BackgroundPicker
+      ownerBackgrounds={ownerBackgrounds}
       chatFloatingPanel
       showRoleplayDefault={!game}
       selected={selected}
@@ -240,6 +249,7 @@ export function BackgroundPicker({
   onSelect,
   defaultRoleplayBackground,
   onDefaultChange,
+  ownerBackgrounds = [],
 }: BackgroundPickerProps) {
   const manualOrder = useLibraryOrder("background");
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
@@ -409,6 +419,7 @@ export function BackgroundPicker({
   const previewUrl =
     selected ?? (sceneBackgroundTag ? gameAssetFileUrl(assetManifest?.assets[sceneBackgroundTag]?.path) : null);
   const selectedBackground = backgrounds.find((background) => background.url === previewUrl) ?? null;
+  const selectedOwnerBackground = ownerBackgrounds.find((background) => background.url === previewUrl) ?? null;
   const recentUrls = useUIStore((state) => state.recentChatBackgrounds);
   // Deleted files drop out because only library rows are shown.
   const recentBackgrounds = recentUrls
@@ -1113,7 +1124,9 @@ export function BackgroundPicker({
             <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-3 pb-2.5 pt-7 text-sm font-semibold text-white">
               {selectedBackground
                 ? getBackgroundLibraryTitle(selectedBackground)
-                : localizeUi("ui.panels.backgroundpicker.defaultBackground")}
+                : selectedOwnerBackground
+                  ? selectedOwnerBackground.title
+                  : localizeUi("ui.panels.backgroundpicker.defaultBackground")}
             </span>
           </button>
           {selected && (
@@ -1153,6 +1166,52 @@ export function BackgroundPicker({
                     />
                     <span className="truncate text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
                       {title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {ownerBackgrounds.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-[var(--muted-foreground)]">
+              {localizeUi("ui.panels.backgroundpicker.fromCharacterGalleries")}
+            </span>
+            <div className="grid grid-cols-3 gap-2.5">
+              {ownerBackgrounds.map((background) => {
+                const isSelected = background.url === previewUrl;
+                return (
+                  <button
+                    key={`${background.owner.type}:${background.owner.id}:${background.url}`}
+                    type="button"
+                    onClick={() => onSelect(background.url)}
+                    aria-pressed={isSelected}
+                    aria-label={localizeUi("ui.panels.backgroundpicker.useValue1ForThisChat", {
+                      value1: background.title,
+                    })}
+                    title={
+                      background.places
+                        ? localizeUi("ui.panels.settingspanel.value1Value2", {
+                            value1: background.owner.name,
+                            value2: background.places,
+                          })
+                        : background.owner.name
+                    }
+                    className="group flex min-w-0 flex-col gap-1.5 text-left"
+                  >
+                    <img
+                      src={background.url}
+                      alt=""
+                      className={cn(
+                        "aspect-[4/3] w-full rounded-lg object-cover ring-1 transition-shadow group-hover:ring-[var(--primary)]/60",
+                        isSelected ? "ring-2 ring-[var(--primary)]" : "ring-[var(--border)]",
+                      )}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span className="truncate text-[0.6875rem] max-sm:!text-[13px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]">
+                      {background.title}
                     </span>
                   </button>
                 );
