@@ -202,9 +202,13 @@ test("Chat Settings saves the chat's lorebook choices", async ({ page, request }
   }
 });
 
-// Each chat mode has its own Connected chats section: Conversation links to a Roleplay or Game chat, Roleplay shows
-// the linked conversation, and Game has an unlinked and a linked variant.
+// Connected chats differs by mode: Conversation links to a Roleplay or Game chat and has Cross-Chat Awareness,
+// Roleplay shows the linked conversation and has Allow character DMs, and Game can start the link from its side.
 test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {
+  const modeSwitches = async (section: Locator) => ({
+    crossChat: await section.getByRole("checkbox", { name: /^Cross-Chat Awareness/u }).count(),
+    dms: await section.getByRole("checkbox", { name: /^Allow character DMs/u }).count(),
+  });
   const stamp = `Link ${Date.now()}`;
   const characterId = await createCharacter(request, "Link Keeper");
   const conversationId = await createChat(request, "conversation", [characterId], `${stamp} Talk`);
@@ -223,8 +227,14 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     // Conversation → Roleplay.
     const conversation = settings.locator('[data-drawer="conversation-connected-chats"]');
     await setOpen(conversation, true);
+    expect(await modeSwitches(conversation)).toEqual({ crossChat: 1, dms: 0 });
     await conversation.getByRole("button", { name: "Link to Roleplay or Game" }).click();
-    await conversation.getByPlaceholder("Search roleplay or game chats").fill(stamp);
+    const search = conversation.getByPlaceholder("Search roleplay or game chats");
+    // The search narrows the list: the Game chat drops out while only the Roleplay chat's name matches.
+    await search.fill(`${stamp} Quest`);
+    await expect(conversation.getByRole("button", { name: `${stamp} Quest`, exact: true })).toBeVisible();
+    await expect(conversation.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toHaveCount(0);
+    await search.fill(stamp);
     const questOption = conversation.getByRole("button", { name: `${stamp} Quest`, exact: true });
     await expect(questOption, "the picker lists the Roleplay chat").toBeVisible();
     await expect(conversation.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toBeVisible();
@@ -245,6 +255,7 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     const roleplay = settings.locator('[data-drawer="roleplay-connected-chats"]');
     await setOpen(roleplay, true);
     await expect(roleplay.getByText(`${stamp} Talk`, { exact: true })).toBeVisible();
+    expect(await modeSwitches(roleplay)).toEqual({ crossChat: 0, dms: 1 });
     // Notes from Conversation shows only while a conversation is linked.
     const notes = settings.locator('[data-drawer="conversation-notes"]');
     await expect(notes).toBeVisible();
@@ -252,6 +263,9 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     await expect.poll(() => readConnectedChatId(request, roleplayId)).toBeNull();
     await expect.poll(() => readConnectedChatId(request, conversationId)).toBeNull();
     await expect(notes).toHaveCount(0);
+    // An unlinked Roleplay chat can't start a link itself: it explains instead of offering a picker.
+    await expect(roleplay.getByText(/^No OOC conversation is linked\./u)).toBeVisible();
+    await expect(roleplay.getByRole("button", { name: /^Link to/u })).toHaveCount(0);
 
     // Game → Conversation, from the unlinked variant; then the linked variant unlinks it.
     await setActiveChat(page, gameId);
@@ -259,6 +273,7 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     await openChatSettings(page);
     const game = settings.locator('[data-drawer="game-connected-chats"]');
     await setOpen(game, true);
+    expect(await modeSwitches(game)).toEqual({ crossChat: 0, dms: 0 });
     await game.getByRole("button", { name: "Link to Conversation" }).click();
     await game.getByPlaceholder("Search conversation chats").fill(stamp);
     const talkOption = game.getByRole("button", { name: `${stamp} Talk`, exact: true });
@@ -271,7 +286,7 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     }
     await talkOption.click();
     await expect.poll(() => readConnectedChatId(request, gameId)).toBe(conversationId);
-    // Linking swaps the unlinked Game section for the linked one under the same id, so retry until it settles.
+    // The section re-renders as linking lands, so retry until it shows the linked chat.
     await expect(async () => {
       await setOpen(game, true);
       await expect(game.getByText(`${stamp} Talk`, { exact: true })).toBeVisible({ timeout: 2000 });

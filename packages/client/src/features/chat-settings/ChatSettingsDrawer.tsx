@@ -96,7 +96,8 @@ import { ScopedRegexSection } from "./sections/ScopedRegexSection";
 import { GroupChatSection } from "./sections/GroupChatSection";
 import { GameWidgetsSection } from "./sections/GameWidgetsSection";
 import { SettingsProfilesSection } from "./sections/SettingsProfilesSection";
-import { ConnectedChatsSections } from "./sections/ConnectedChatsSections";
+import { ConnectedChatsSection } from "./sections/ConnectedChatsSection";
+import { ConversationNotesSection } from "./sections/ConversationNotesSection";
 import { CombatStyleSection } from "./sections/CombatStyleSection";
 import { useGameRuleset } from "../../hooks/use-game-ruleset";
 import { isRulesetCombatFight } from "../../lib/ruleset-combat-bridge";
@@ -6553,19 +6554,22 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <ConnectedChatsSections
+          <ConnectedChatsSection
             order={CHAT_SETTINGS_ORDER.connectedChat}
-            notesOrder={CHAT_SETTINGS_ORDER.connectedNotes}
             chat={chat}
             metadata={metadata}
             chatMode={chatMode}
-            isConversation={isConversation}
-            isRoleplayMode={isRoleplayMode}
-            isGame={isGame}
             allChats={allChats as Chat[] | undefined}
             noodleInstalled={isCapabilityPackageAvailable(installedCapabilities, "noodle")}
             slurp2Installed={isCapabilityPackageAvailable(installedCapabilities, "slurp2")}
           />
+
+          {/* Notes from Conversation — durable notes saved by the connected conversation's character */}
+          {!isConversation && chat.connectedChatId && (
+            <div style={{ order: CHAT_SETTINGS_ORDER.connectedNotes }}>
+              <ConversationNotesSection chatId={chat.id} />
+            </div>
+          )}
 
           <div style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
             <LorebooksSection
