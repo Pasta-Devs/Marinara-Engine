@@ -175,8 +175,9 @@ The Node lane has grown past 1,700 files, most of them in one flat folder and ma
 - Assert on what a caller or user gets: the returned value, the saved file or record, the HTTP response, the prompt sent to the model. A check that a mock was called, or that matches exact log text or the order of internal calls, breaks on refactors without catching broken behavior.
 - Make sure the test fails without your change. Undo the source change for a moment, keep the test, and run it: it should fail, for the reason you expect. A test that passes either way guards nothing.
 - Don't loosen or delete an existing check to make your change pass. If its expectation was wrong, change it and say why in the pull request.
+- For a file of several independent checks, write each as a named case and run them with `runNamedCases` from `scripts/regressions/fixtures/named-cases.ts`, as `scripts/regressions/prompt/macros.regression.ts` does. Each case prints `ok -` or `not ok -` with its name, so a failure says which check broke, and one failing case doesn't hide the ones after it. Existing files don't need converting.
 
-`pnpm check` runs `pnpm regression:layout-check`, which enforces the folder rule and the source-text rule for new files. The files that predate it are listed in `scripts/regressions/layout-exceptions.json`, and that list never gains a file. Remove a `topLevel` entry when its file moves into an area folder. Remove a `readsSource` entry when its file stops reading source, and change its path when the file moves.
+`pnpm check` runs `pnpm regression:layout-check`, which enforces the folder rule and the source-text rule for new files. The files that predate it are listed in `scripts/regressions/layout-exceptions.json`, and that list never gains a file, except that the parts of a split file take its place. Remove a `topLevel` entry when its file moves into an area folder. Remove a `readsSource` entry when its file stops reading source, and change its path when the file moves.
 
 ### Writing a Node regression
 

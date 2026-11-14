@@ -10,7 +10,7 @@ assert.equal(regressionTimeoutMs("scripts/regressions/server-signal-shutdown.reg
 assert.equal(regressionTimeoutMs("scripts/regressions/restart-supervisor.regression.ts"), 90_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts"), 300_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/native-export-memory.regression.ts"), 90_000);
-assert.equal(regressionTimeoutMs("scripts/regressions/prompt.regression.ts"), 30_000);
+assert.equal(regressionTimeoutMs("scripts/regressions/prompt/assembly.regression.ts"), 30_000);
 
 // A moved or renamed file would silently lose its longer limit and time out under CI load.
 const discovered = new Set(discoverRegressions());
@@ -140,7 +140,7 @@ try {
   assert.equal(missed.status, 1, "filters that match nothing must fail");
   assert.match(missed.stderr, /no-such-a, no-such-b/u);
   const imported = execFileSync(process.execPath, ["--input-type=module", "-"], {
-    input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt.regression.ts'));`,
+    input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt/assembly.regression.ts'));`,
     encoding: "utf8",
     timeout: 10_000,
   });
