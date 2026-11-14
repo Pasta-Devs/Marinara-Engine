@@ -10290,6 +10290,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   input.regenerateMessageId,
                 ),
               chatId: input.chatId,
+              // A pushed roll (1.826) starts from the record in the reply before this one.
+              lastReply: () => {
+                const last = chatMessages.filter((message: any) => message.role === "assistant").at(-1);
+                return typeof last?.content === "string" ? last.content : undefined;
+              },
               // What a branch arm rolled above stands: the tag pass does not roll it again.
               ...(gameChanceSession
                 ? { engineRecords: gameChanceSession.engineRecords, engineDice: gameChanceSession.engineDice }
@@ -10357,10 +10362,22 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // pass, so a ruleset chat always narrates what its dice did, unless its narration is off.
               (roleplayRulesetTurn
                 ? chatMeta.gameDiceOutcomeNarration !== false &&
-                  Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled)
+                  Boolean(
+                    rolled.resolved ||
+                    rolled.untrained ||
+                    rolled.unknownRoller ||
+                    rolled.notPushable ||
+                    generalRolls.rolled,
+                  )
                 : shouldNarrateGameDiceOutcome(
                     chatMeta,
-                    Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled),
+                    Boolean(
+                      rolled.resolved ||
+                      rolled.untrained ||
+                      rolled.unknownRoller ||
+                      rolled.notPushable ||
+                      generalRolls.rolled,
+                    ),
                   ))
             ) {
               // The first draft predates these results. Rewrite it with the real
@@ -10398,7 +10415,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: ${claudeThinksNatively ? "no planning, notes or analysis, only the reply itself" : "any planning goes inside one <think>...</think> block at the very start, never in the narration"}.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) - (rolled.notPushable ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.notPushable ? "\nSome pushes were not made, because your previous reply has no roll of that check by that character to push (or it was already pushed): the earlier roll stands, so narrate it as it was." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: ${claudeThinksNatively ? "no planning, notes or analysis, only the reply itself" : "any planning goes inside one <think>...</think> block at the very start, never in the narration"}.`,
                   },
                 ],
                 { tools: undefined },

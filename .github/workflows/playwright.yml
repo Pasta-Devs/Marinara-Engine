@@ -64,10 +64,11 @@ jobs:
 
   # The suite is CPU-bound on a 4-vCPU runner (one runner takes the same time with 4 or 8
   # workers), so wall time only drops by spreading the files over runners. The runner deals
-  # them slow-first, so the slowest files land in different shards. Four shards keep a slow runner
-  # (about 1.6x slower, 400-700 s per shard at three) near the time of a normal one.
+  # them slow-first, so the slowest files land in different shards. At four shards (280-510 s each,
+  # a slow runner about 1.6x slower) this lane finished last on most PRs; eight bring it near the
+  # required checks. Each shard adds about 55 s of setup, so more shards gain less.
   node-shards:
-    name: node-regressions ${{ matrix.shard }}/4
+    name: node-regressions ${{ matrix.shard }}/8
     needs: revision
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -78,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -108,7 +109,7 @@ jobs:
           # Full runs (nightly, manual and PRs into main) give every file its own process, so a file that passes only
           # because of what an earlier one in its shared process left behind still fails there.
           REGRESSION_ISOLATED: ${{ needs.revision.outputs.full == 'true' && '1' || '' }}
-        run: pnpm regression --shard ${{ matrix.shard }}/4
+        run: pnpm regression --shard ${{ matrix.shard }}/8
 
   # One verdict keeps the check name the shards replaced.
   node:

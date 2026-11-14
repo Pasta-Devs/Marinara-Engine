@@ -29,7 +29,7 @@ process.env.DATA_DIR = dataDir;
 
 try {
   const [
-    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext },
+    { buildSkillCheckRulesetContext, resolveSkillCheckWithContext, resolveSkillCheckTagsInContent },
     { buildGmFormatReminder },
     { getCapabilityPackageInstallIssue },
   ] = await Promise.all([
@@ -72,13 +72,21 @@ try {
   const nobilis = parsed(doc());
   {
     assert.equal(nobilis.resolution.kind === "dice-sum" && nobilis.resolution.dice.count, 0);
-    refuses(doc((d) => (d.resolution.advantage = true)), /nothing to roll twice/, "advantage");
+    refuses(
+      doc((d) => (d.resolution.advantage = true)),
+      /nothing to roll twice/,
+      "advantage",
+    );
     refuses(
       doc((d) => (d.resolution.openEnded = { high: 6 })),
       /An open-ended roll needs a die/,
       "an open-ended roll",
     );
-    refuses(doc((d) => (d.resolution.unmodified = [6])), /An unmodified face is a die's/, "unmodified faces");
+    refuses(
+      doc((d) => (d.resolution.unmodified = [6])),
+      /An unmodified face is a die's/,
+      "unmodified faces",
+    );
     refuses(
       doc((d) => (d.resolution.dice.faces = [1, 1, 1, 1, 1, 1])),
       /has no faces/,
@@ -103,7 +111,9 @@ try {
       "a natural policy",
     );
     refuses(
-      doc((d) => (d.resolution.plotDie = { label: "Plot die", sides: 6, faces: [{ face: 1, symbol: "complication" }] })),
+      doc(
+        (d) => (d.resolution.plotDie = { label: "Plot die", sides: 6, faces: [{ face: 1, symbol: "complication" }] }),
+      ),
       /A plot die is a die thrown beside/,
       "a plot die",
     );
@@ -121,10 +131,7 @@ try {
       rollDiceSumCheck(nobilis, { modifier, dc, isSave: false }, () => {
         throw new Error("a check with no dice threw one");
       });
-    assert.deepEqual(
-      [roll(4, 3).rolls, roll(4, 3).total, roll(4, 3).success, roll(4, 3).dice],
-      [[], 4, true, "0d6"],
-    );
+    assert.deepEqual([roll(4, 3).rolls, roll(4, 3).total, roll(4, 3).success, roll(4, 3).dice], [[], 4, true, "0d6"]);
     assert.deepEqual([roll(3, 3).total, roll(3, 3).success], [3, true], "a tie meets the difficulty");
     assert.deepEqual([roll(2, 3).total, roll(2, 3).success], [2, false]);
     assert.deepEqual([roll(4, 3).rollMode, roll(4, 3).criticalSuccess], ["normal", false]);
@@ -145,20 +152,15 @@ try {
         d.resolution.tierShift = { max: 1 };
       }),
     );
-    const bandRoll = (modifier: number, dc: number) => rollDiceSumCheck(banded, { modifier, dc, isSave: false }, () => 0);
-    assert.deepEqual([bandRoll(4, 3).outcome, bandRoll(3, 3).outcome, bandRoll(2, 3).outcome], [
-      "Wins",
-      "Stalemate",
-      "Loses",
-    ]);
+    const bandRoll = (modifier: number, dc: number) =>
+      rollDiceSumCheck(banded, { modifier, dc, isSave: false }, () => 0);
+    assert.deepEqual(
+      [bandRoll(4, 3).outcome, bandRoll(3, 3).outcome, bandRoll(2, 3).outcome],
+      ["Wins", "Stalemate", "Loses"],
+    );
     // A band the Game Master moves moves here too, held to the ruleset's own limit (Dottore).
-    const shifted = (shift: number) =>
-      rollDiceSumCheck(banded, { modifier: 3, dc: 3, isSave: false, shift }, () => 0);
-    assert.deepEqual([shifted(0).outcome, shifted(1).outcome, shifted(-1).outcome], [
-      "Stalemate",
-      "Wins",
-      "Loses",
-    ]);
+    const shifted = (shift: number) => rollDiceSumCheck(banded, { modifier: 3, dc: 3, isSave: false, shift }, () => 0);
+    assert.deepEqual([shifted(0).outcome, shifted(1).outcome, shifted(-1).outcome], ["Stalemate", "Wins", "Loses"]);
     assert.equal(shifted(5).outcome, "Wins", "a shift past the limit is held to it");
 
     // A critical band's own result is written and read back, never lost on a reload (Dottore).
@@ -180,9 +182,7 @@ try {
     // what matters is that a record saying critical_success survives a reload.
     const criticalRecord =
       '[skill_check: skill="Warfare" dc="3" rolls="" used="0" modifier="4" total="4" result="critical_success" mode="normal" resolution="sum" dice="0d6"]';
-    const criticalBack = parseSkillCheckTagBody(
-      criticalRecord.slice("[skill_check:".length, -1),
-    )?.resolvedResult;
+    const criticalBack = parseSkillCheckTagBody(criticalRecord.slice("[skill_check:".length, -1))?.resolvedResult;
     assert.ok(criticalBack, "a critical no-dice record is read back, not dropped");
     assert.deepEqual([criticalBack.criticalSuccess, criticalBack.total, criticalBack.modifier], [true, 4, 4]);
     assert.equal(
@@ -236,6 +236,18 @@ try {
     });
     assert.match(reminder, /compares the character sheet's own number with the difficulty/);
     assert.doesNotMatch(reminder, /rolls 0d6/);
+
+    // A record with no dice is only ever the Engine's. In a game with no ruleset there is no check
+    // without dice, so one the Game Master wrote keeps its ask and loses its claimed outcome.
+    const written =
+      '[skill_check: skill="Warfare" dc="9" rolls="" used="0" modifier="9" total="9" result="success" mode="normal" resolution="sum" dice="0d6"]';
+    const loose = await resolveSkillCheckTagsInContent(written, {
+      loadContext: async () => ({ skills: null, attributes: null, sheetAttributes: {} }) as any,
+      rollD20: () => 2,
+    });
+    assert.equal(loose.trusted, 0, "a written record with no dice is not kept");
+    assert.doesNotMatch(loose.content, /result="success"/);
+    assert.match(loose.content, /\[skill_check: skill="Warfare"/);
 
     // The package gate.
     const manifest = (minor: number) => ({

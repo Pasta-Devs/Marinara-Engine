@@ -69,7 +69,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.keyboard.press("Tab");
       await expect(lorebook.locator("textarea")).toBeFocused();
       await lorebook.locator("textarea").fill("### Library\n\nAn edited library.");
-      const accept = lorebook.getByRole("button", { name: "Accept", exact: true });
+      const accept = lorebook.getByRole("button", { name: "Apply update", exact: true });
       await accept.focus();
       await page.keyboard.press("Space");
 
@@ -89,7 +89,7 @@ for (const theme of ["light", "dark"] as const) {
           agentType: "lorebook-keeper",
         },
       ]);
-      const discard = summary.getByRole("button", { name: "Discard", exact: true });
+      const discard = summary.getByRole("button", { name: "Reject update", exact: true });
       await discard.focus();
       await page.keyboard.press("Space");
       await expect(summary).toBeHidden();

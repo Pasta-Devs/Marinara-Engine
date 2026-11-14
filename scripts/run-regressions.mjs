@@ -43,9 +43,9 @@ export function regressionTimeoutMs(relativePath) {
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
   if (relativePath === 'scripts/regressions/avatar-variant-composite.regression.ts') return 120_000;
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
-  if (relativePath === 'scripts/regressions/game-ruleset-caps.regression.ts') return 120_000;
+  if (relativePath === 'scripts/regressions/game-ruleset/game-ruleset-caps.regression.ts') return 120_000;
   // Every language's ruleset strings read and drawn against the whole 5e ruleset: about 60 s alone.
-  if (relativePath === 'scripts/regressions/game-ruleset-locales.regression.ts') return 120_000;
+  if (relativePath === 'scripts/regressions/game-ruleset/game-ruleset-locales.regression.ts') return 120_000;
   return FILE_TIMEOUT_MS;
 }
 
@@ -56,7 +56,7 @@ export function regressionTimeoutMs(relativePath) {
 // that pass in a shared process and don't depend on saved data, servers or child processes. --isolated (or
 // REGRESSION_ISOLATED=1) turns batching off; full runs use it, so a file that passes only because of what an earlier
 // file left behind still shows up.
-export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset-combat-'];
+export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset/combat/'];
 const BATCH_SIZE = 20;
 // A shared process cannot tell these files' results apart or would skip their checks.
 const NOT_BATCHABLE = /node:test|process\.exit\(|process\.exitCode|process\.argv/u;

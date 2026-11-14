@@ -879,7 +879,7 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
     await row.getByRole("button", { name: "Delete" }).click();
     await page
       .getByRole("dialog", { name: "Delete message" })
-      .getByRole("button", { name: "Delete this message" })
+      .getByRole("button", { name: "Delete message", exact: true })
       .click();
     await expect(row).toHaveCount(0);
 

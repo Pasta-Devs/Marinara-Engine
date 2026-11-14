@@ -666,6 +666,10 @@ export interface SkillCheckResult {
   hungerLabel?: string;
   messy?: boolean;
   bestial?: boolean;
+  /** Dice groups (1.826), in the order their dice lie in `rolls`, with each one's counted 1s; and how
+   *  many dice a push threw again. `pushed` is set, 0 included, on every pushed roll. */
+  groups?: { label: string; dice: number; banes?: number }[];
+  pushed?: number;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */
   symbols?: Record<string, number>;

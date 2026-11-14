@@ -246,6 +246,8 @@ async function setGradientColors(controls: Locator) {
     const trigger = picker.locator(":scope > div > button");
     await trigger.click();
     await picker.getByRole("button", { name: "Gradient", exact: true }).click();
+    // The ready-made gradients sit in the picker's Colors tab, beside Custom.
+    await picker.getByRole("button", { name: "Colors", exact: true }).click();
     await picker.getByTitle(GRADIENT_COLORS[role], { exact: true }).click();
     await trigger.click();
   }
