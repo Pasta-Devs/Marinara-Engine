@@ -13,7 +13,7 @@ import {
   rollSymbolPoolCheck,
   SYMBOL_DICE_MAX_DICE,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-symbol-dice-"));
 const previousDataDir = process.env.DATA_DIR;
@@ -21,14 +21,14 @@ process.env.DATA_DIR = dataDir;
 try {
   const [{ parseRollDiceToolResult }, { executeToolCalls, symbolDiceToolResult }, { isDiceRollResult }] =
     await Promise.all([
-      import("../../packages/server/src/services/game/dice.service.js"),
-      import("../../packages/server/src/services/tools/tool-executor.js"),
-      import("../../packages/client/src/lib/dice-roll-result.js"),
+      import("../../../packages/server/src/services/game/dice.service.js"),
+      import("../../../packages/server/src/services/tools/tool-executor.js"),
+      import("../../../packages/client/src/lib/dice-roll-result.js"),
     ]);
   const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
   // The guide's own Genesys-style dice and symbols.
-  const ember = JSON.parse(read("../../docs/examples/rulesets/ember-roads.json"));
-  const guide = read("../../docs/extending/ruleset-checks.md").split("### `symbol-pool`")[1]!;
+  const ember = JSON.parse(read("../../../docs/examples/rulesets/ember-roads.json"));
+  const guide = read("../../../docs/extending/ruleset-checks.md").split("### `symbol-pool`")[1]!;
   const example = JSON.parse(`{${guide.split("```json\n")[1]!.split("```")[0]}}`).resolution;
   const document = structuredClone(ember);
   delete document.combat;

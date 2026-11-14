@@ -23,15 +23,15 @@ import {
   type RulesetDefinition,
   type RulesetStatBlock,
   type TacticalGrid,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   rulesetAimCatchesAllies,
   rulesetAimTemplate,
   rulesetCellKey,
   rulesetSelfAim,
   rulesetUsefulAlters,
-} from "../../packages/client/src/lib/ruleset-combat-board.js";
-import { rulesetPayGainText } from "../../packages/client/src/lib/ruleset-combat-menu.js";
+} from "../../../packages/client/src/lib/ruleset-combat-board.js";
+import { rulesetPayGainText } from "../../../packages/client/src/lib/ruleset-combat-menu.js";
 
 const t = ((key: string, params: Record<string, unknown> = {}) =>
   `${key}${Object.keys(params).length ? JSON.stringify(params) : ""}`) as never;
@@ -79,7 +79,7 @@ const definition = ((): RulesetDefinition => {
   const parsed = parseRulesetDefinition(
     JSON.parse(
       readFileSync(
-        fileURLToPath(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url)),
+        fileURLToPath(new URL("../../../docs/development/ruleset-5e-2014.example.json", import.meta.url)),
         "utf8",
       ),
     ),

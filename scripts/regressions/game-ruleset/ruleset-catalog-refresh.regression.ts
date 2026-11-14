@@ -32,14 +32,14 @@ import {
   type RulesetCatalogEntry,
   type RulesetDefinition,
   type RulesetSheetBuild,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   applyCatalogRefresh,
   planCatalogRefresh,
   type CatalogRefreshRow,
-} from "../../packages/client/src/lib/ruleset-catalog.js";
+} from "../../../packages/client/src/lib/ruleset-catalog.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 const emberText = readSource("docs/examples/rulesets/ember-roads.json");

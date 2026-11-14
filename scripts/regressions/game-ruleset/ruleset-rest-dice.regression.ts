@@ -23,19 +23,19 @@ import {
   rulesetSheetBuildSchema,
   supportedCapabilityApi,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-rest-dice-"));
 process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 process.env.LOG_LEVEL = "silent";
 const { getCapabilityPackageInstallIssue } =
-  await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
+  await import("../../../packages/server/src/services/capability-packages/package-manager.service.js");
 
 try {
   assert.ok(supportedCapabilityApi.minor >= 335);
   const fiveEText = readFileSync(
-    fileURLToPath(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url)),
+    fileURLToPath(new URL("../../../docs/development/ruleset-5e-2014.example.json", import.meta.url)),
     "utf8",
   );
   const document = (dice = true): Record<string, any> => {

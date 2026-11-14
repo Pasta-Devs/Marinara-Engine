@@ -15,14 +15,14 @@ import {
   defaultRulesetSheetBuild,
   parseRulesetDefinition,
   type RulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   rulesetPoolGroupLabel,
   rulesetSheetLevel,
   rulesetSheetSummaryShown,
-} from "../../packages/client/src/lib/ruleset-sheet-view.js";
+} from "../../../packages/client/src/lib/ruleset-sheet-view.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const gravewatchText = readFileSync(join(repositoryRoot, "docs/examples/rulesets/gravewatch.json"), "utf8");
 const parsed = (edit: (doc: Record<string, any>) => void = () => {}): RulesetDefinition => {
   const doc = JSON.parse(gravewatchText) as Record<string, any>;
@@ -73,7 +73,7 @@ const dawn = { ...night, fields: { ...night.fields, watch: "dawn" } };
   assert.equal(rulesetPoolGroupLabel("SLOTS"), "Slots");
   assert.equal(rulesetPoolGroupLabel("spell-slots"), "Spell slots");
   // The catalog's cost line names a pool group the same way.
-  const { catalogMechanicsLabels } = await import("../../packages/client/src/lib/ruleset-catalog.js");
+  const { catalogMechanicsLabels } = await import("../../../packages/client/src/lib/ruleset-catalog.js");
   const grouped = parsed((doc) => (doc.sheet.live.pools[0].group = "hit_dice"));
   assert.equal(catalogMechanicsLabels(grouped, { units: undefined } as never).pools.hit_dice, "Hit dice");
 }

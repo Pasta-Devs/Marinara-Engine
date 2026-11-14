@@ -42,11 +42,11 @@ import {
   type RulesetCatalogEntry,
   type RulesetDefinition,
   type RulesetSheetBuild,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   createCombatDirector,
   type CombatDirectorState,
-} from "../../packages/server/src/services/game/combat-director.service.js";
+} from "../../../packages/server/src/services/game/combat-director.service.js";
 import {
   commandRulesetCombatDirector,
   createRulesetFight,
@@ -61,8 +61,8 @@ import {
   syncRulesetCombatants,
   trimRulesetFightEvents,
   type RulesetFightOpponent,
-} from "../../packages/server/src/services/game/ruleset-combat-director.service.js";
-import type { Combatant } from "../../packages/shared/src/types/game.js";
+} from "../../../packages/server/src/services/game/ruleset-combat-director.service.js";
+import type { Combatant } from "../../../packages/shared/src/types/game.js";
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const variant = (text: string, edit: (doc: Record<string, any>) => void = () => {}): Record<string, any> => {
@@ -75,8 +75,8 @@ const parsedOrThrow = (document: unknown, what: string): RulesetDefinition => {
   assert.ok(parsed.ok, `${what} must import cleanly: ${parsed.ok ? "" : parsed.issues.join("; ")}`);
   return parsed.definition;
 };
-const fiveEText = read("../../docs/development/ruleset-5e-2014.example.json");
-const emberText = read("../../docs/examples/rulesets/ember-roads.json");
+const fiveEText = read("../../../docs/development/ruleset-5e-2014.example.json");
+const emberText = read("../../../docs/examples/rulesets/ember-roads.json");
 const fiveE = parsedOrThrow(variant(fiveEText), "the 5e example");
 const ember = parsedOrThrow(variant(emberText), "the 2d6 example");
 const build = (input: Record<string, unknown>): RulesetSheetBuild => rulesetSheetBuildSchema.parse(input);
@@ -2069,7 +2069,7 @@ console.log(
 // Gravewatch's own fight, twenty seeds, everybody on the Engine's picker: every fight ends, pools are
 // thrown and soaked, and nobody the Engine plays spends past the one point of Resolve a turn allows.
 {
-  const gravewatch = parsedOrThrow(variant(read("../../docs/examples/rulesets/gravewatch.json")), "the pool example");
+  const gravewatch = parsedOrThrow(variant(read("../../../docs/examples/rulesets/gravewatch.json")), "the pool example");
   const charms = gravewatch.catalogs!.find((catalog) => catalog.id === "charms")!.entries!;
   const charmRows = ["lantern-flare", "stern-word"].flatMap((id) =>
     rowsFromCatalogEntry(
@@ -2189,7 +2189,7 @@ console.log(
       },
     };
   };
-  const gravewatchText = read("../../docs/examples/rulesets/gravewatch.json");
+  const gravewatchText = read("../../../docs/examples/rulesets/gravewatch.json");
   const moving = parsedOrThrow(variant(gravewatchText, moveInitiative), "the moving-initiative Gravewatch");
   const charms = moving.catalogs!.find((catalog) => catalog.id === "charms")!.entries!;
   const warden = (sinew: number, nerve: number) =>

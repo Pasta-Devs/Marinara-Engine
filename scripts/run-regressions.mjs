@@ -34,7 +34,7 @@ export function regressionTimeoutMs(relativePath) {
   // Two slow Decision recall passes (5.5 s each) prove that each has its own time limit.
   if (relativePath === 'scripts/regressions/advanced-memory-recall-shortlist.regression.ts') return 60_000;
   // Hundreds of complete d20 and dice-pool fights: 75-130 s on CI runners and up to about 180 s locally.
-  if (relativePath === 'scripts/regressions/ruleset-combat-director.regression.ts') return 300_000;
+  if (relativePath === 'scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts') return 300_000;
   // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
   if (relativePath === 'scripts/regressions/native-export-memory.regression.ts') return 90_000;
   // Real large-text, multipart and 10,001-entry transfers exceed 30 s on the CI file-backed store, and over 90 s on slow
@@ -52,11 +52,12 @@ export function regressionTimeoutMs(relativePath) {
 // Files that only call engine code run BATCH_SIZE at a time in one shared process (scripts/run-regression-batch.mjs):
 // most of a separate file's time is starting up and loading the same modules. A file that does not pass there, or a
 // batch that crashes, hangs or sets an exit code, runs alone as usual, so batching never fails a file. Modules load once
-// per batch (a setting read at load, such as DATA_DIR, keeps the first file's value), so add a prefix only for files
-// that pass in a shared process and don't depend on saved data, servers or child processes. --isolated (or
+// per batch (a setting read at load, such as DATA_DIR, keeps the first file's value), so add a prefix only for a folder
+// whose files mostly call engine code: one that depends on saved data, servers or child processes usually fails there
+// and runs again alone, which costs its time twice (a few of game-ruleset's files do). --isolated (or
 // REGRESSION_ISOLATED=1) turns batching off; full runs use it, so a file that passes only because of what an earlier
 // file left behind still shows up.
-export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset/combat/'];
+export const BATCHED_REGRESSION_PREFIXES = ['scripts/regressions/game-ruleset/'];
 const BATCH_SIZE = 20;
 // A shared process cannot tell these files' results apart or would skip their checks.
 const NOT_BATCHABLE = /node:test|process\.exit\(|process\.exitCode|process\.argv/u;

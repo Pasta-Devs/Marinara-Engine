@@ -15,9 +15,9 @@ import {
   defaultRulesetSheetBuild,
   listRulesetLivePools,
   parseRulesetDefinition,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(root, path), "utf8");
 
 // ── The pools a sheet has, at their most ──

@@ -25,10 +25,10 @@ process.env.DATA_DIR = dataDir;
 process.env.LOG_LEVEL = "silent";
 
 const { capabilityPackageManifestSchema, capabilityCatalogPackageSchema, parseCapabilityCatalogWithCompat } =
-  await import("../../packages/shared/src/schemas/capability-package.schema.js");
+  await import("../../../packages/shared/src/schemas/capability-package.schema.js");
 const { capabilityPackageManager, installCatalogPackageForTests, getCapabilityPackageArtifactSourceIssue } =
-  await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
-const { openRulesetLocale } = await import("../../packages/server/src/services/game/ruleset-catalog.service.js");
+  await import("../../../packages/server/src/services/capability-packages/package-manager.service.js");
+const { openRulesetLocale } = await import("../../../packages/server/src/services/game/ruleset-catalog.service.js");
 
 const sha256 = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
 const ARTIFACTS = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/artifacts";
@@ -36,7 +36,7 @@ const ID = "ember-roads-tongues";
 const VERSIONS = join(dataDir, "capability-packages", "versions", ID);
 
 const ruleset = JSON.parse(
-  readFileSync(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8"),
 ) as Record<string, any>;
 ruleset.id = ID;
 const english = ruleset.name as string;
@@ -397,9 +397,9 @@ try {
 
   // ── The page tells the Engine its language: the route, and the page's hook on opening and on a change ──
   {
-    const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
-    const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-    const { capabilityPackagesRoutes } = await import("../../packages/server/src/routes/capability-packages.routes.js");
+    const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
+    const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+    const { capabilityPackagesRoutes } = await import("../../../packages/server/src/routes/capability-packages.routes.js");
     const app = Fastify();
     app.decorate("db", await getDB());
     await app.register(capabilityPackagesRoutes, { prefix: "/api/capability-packages" });
@@ -422,12 +422,12 @@ try {
       await closeDB();
     }
     const provider = readFileSync(
-      new URL("../../packages/client/src/localization/LocalizationProvider.tsx", import.meta.url),
+      new URL("../../../packages/client/src/localization/LocalizationProvider.tsx", import.meta.url),
       "utf8",
     );
     assert.match(provider, /syncRulesetLanguage\(resolvedLanguage, queryClient\)/);
     const hooks = readFileSync(
-      new URL("../../packages/client/src/hooks/use-capability-packages.ts", import.meta.url),
+      new URL("../../../packages/client/src/hooks/use-capability-packages.ts", import.meta.url),
       "utf8",
     );
     assert.match(hooks, /"\/capability-packages\/rulesets\/language", \{ locale \}/);
@@ -441,7 +441,7 @@ try {
   // ── The store card: a ruleset's name and description in the page's language, from the catalog ──
   {
     const { resolveCapabilityCatalogEntryDisplay } =
-      await import("../../packages/client/src/lib/capability-package-localization.js");
+      await import("../../../packages/client/src/lib/capability-package-localization.js");
     const listed = entryOf("1.0.0", { ru: { data: packs.ru, name: "Угольные дороги" } });
     listed.locales!.ru!.description = "Дороги углей.";
     assert.deepEqual(

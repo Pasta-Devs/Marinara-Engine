@@ -20,21 +20,21 @@ import {
   RULESET_CATALOG_ROW_KEY,
   type RulesetDefinition,
   type RulesetSheetBuild,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   restoredRulesetLayers,
   rulesetLayerChoices,
   rulesetLayerOptions,
   toggleRulesetLayer,
-} from "../../packages/client/src/lib/ruleset-layers.js";
+} from "../../../packages/client/src/lib/ruleset-layers.js";
 import {
   catalogFilterViews,
   filterCatalogEntries,
   planCatalogRefresh,
   visibleCatalogEntries,
-} from "../../packages/client/src/lib/ruleset-catalog.js";
+} from "../../../packages/client/src/lib/ruleset-catalog.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 const messages = JSON.parse(readSource("packages/client/src/localization/locales/en.json")) as Record<string, string>;

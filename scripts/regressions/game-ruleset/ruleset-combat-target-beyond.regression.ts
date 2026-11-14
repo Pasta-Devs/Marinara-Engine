@@ -9,10 +9,10 @@ import {
   rulesetCombatant,
   type RulesetCombatAction,
   type RulesetStatBlock,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 
 const parsed = parseRulesetDefinition(
-  JSON.parse(readFileSync(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8")),
+  JSON.parse(readFileSync(new URL("../../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8")),
 );
 assert.ok(parsed.ok, parsed.ok ? "" : parsed.issues.join("; "));
 const definition = parsed.definition;
@@ -54,7 +54,7 @@ mage.actions.push({
 } as RulesetCombatAction);
 state.order = state.combatants.map((one) => one.id);
 state.turn = 0;
-const { rulesetMenu } = await import("../../packages/server/src/services/game/ruleset-combat-director.service.js");
+const { rulesetMenu } = await import("../../../packages/server/src/services/game/ruleset-combat-director.service.js");
 const hold = rulesetMenu(definition, state, "mage").find((option) => option.id === "hold")!;
 assert.deepEqual(hold.targetIds, ["near", "unseen"], JSON.stringify(hold));
 assert.equal(hold.distances?.near, 5, "five cells off");

@@ -23,17 +23,17 @@ import {
   type RulesetCatalogEntry,
   type RulesetDefinition,
   type RulesetStatBlock,
-} from "../../packages/shared/src/index.js";
-import { rulesetMenuGroups } from "../../packages/client/src/lib/ruleset-combat-menu.js";
+} from "../../../packages/shared/src/index.js";
+import { rulesetMenuGroups } from "../../../packages/client/src/lib/ruleset-combat-menu.js";
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-sheet-words-"));
 const previous = { DATA_DIR: process.env.DATA_DIR, MARINARA_DATA_DIR: process.env.MARINARA_DATA_DIR };
 process.env.DATA_DIR = dataDir;
 process.env.MARINARA_DATA_DIR = dataDir;
 const { getCapabilityPackageInstallIssue } =
-  await import("../../packages/server/src/services/capability-packages/package-manager.service.js");
+  await import("../../../packages/server/src/services/capability-packages/package-manager.service.js");
 
-const baseText = readFileSync(new URL("../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8");
+const baseText = readFileSync(new URL("../../../docs/development/ruleset-5e-2014.example.json", import.meta.url), "utf8");
 const fixture = (edit: (doc: Record<string, any>) => void = () => {}) => {
   const doc = JSON.parse(baseText) as Record<string, any>;
   edit(doc);
@@ -110,7 +110,7 @@ try {
   );
   {
     // The published schema says the same: a derived comparison names one way to compare.
-    const schemaText = readFileSync(new URL("../../docs/extending/ruleset.schema.json", import.meta.url), "utf8");
+    const schemaText = readFileSync(new URL("../../../docs/extending/ruleset.schema.json", import.meta.url), "utf8");
     const derivedHides: Array<Record<string, any>> = [];
     JSON.parse(schemaText, (_key, value) => {
       if (value?.type === "object" && value.properties?.derived && value.properties?.notEquals)

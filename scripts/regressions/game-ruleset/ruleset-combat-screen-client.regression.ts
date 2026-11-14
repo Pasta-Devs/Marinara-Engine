@@ -46,7 +46,7 @@ import {
   type TacticalTerrain,
   RULESET_MOVE_OPTION,
   RULESET_STAND_OPTION,
-} from "../../packages/shared/src/index.js";
+} from "../../../packages/shared/src/index.js";
 import {
   rulesetCombatEventLine,
   rulesetCombatLogLines,
@@ -55,8 +55,8 @@ import {
   rulesetRefusalText,
   rulesetValueLabel,
   rulesetFoeFates,
-} from "../../packages/client/src/lib/ruleset-combat-log.js";
-import { rulesetRichLogLines } from "../../packages/client/src/lib/ruleset-combat-log-rich.js";
+} from "../../../packages/client/src/lib/ruleset-combat-log.js";
+import { rulesetRichLogLines } from "../../../packages/client/src/lib/ruleset-combat-log-rich.js";
 import {
   rulesetAimSoFar,
   rulesetAimLaidOverPicks,
@@ -74,7 +74,7 @@ import {
   rulesetPathTo,
   rulesetZoneTint,
   RULESET_ZONE_TINTS,
-} from "../../packages/client/src/lib/ruleset-combat-board.js";
+} from "../../../packages/client/src/lib/ruleset-combat-board.js";
 import {
   RULESET_MENU_KINDS,
   rulesetDefaultTargets,
@@ -93,14 +93,14 @@ import {
   runRulesetSpendCarry,
   type RulesetMenuStep,
   type RulesetSpendCarried,
-} from "../../packages/client/src/lib/ruleset-combat-menu.js";
+} from "../../../packages/client/src/lib/ruleset-combat-menu.js";
 import {
   isRulesetCombatFight,
   rulesetCombatRecapLines,
   seedRulesetBattleParty,
-} from "../../packages/client/src/lib/ruleset-combat-bridge.js";
+} from "../../../packages/client/src/lib/ruleset-combat-bridge.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "utf8");
 
 const messages = JSON.parse(readSource("packages/client/src/localization/locales/en.json")) as Record<string, string>;
