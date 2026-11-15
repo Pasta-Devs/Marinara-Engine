@@ -94,7 +94,7 @@ function MobileLibraryList() {
   const rows = LIBRARY_SECTIONS.filter((entry) => entry.id !== "settings");
   return (
     <div className="ovm-sidepage__library">
-      <nav className="ovm-sidepage__rows" aria-label={localize("Library")}>
+      <nav className="ovm-sidepage__rows" aria-label={localize("Library")} data-tour="library-nav">
         {rows.map((entry) => {
           const Icon = entry.icon;
           return (

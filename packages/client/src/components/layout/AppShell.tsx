@@ -891,13 +891,27 @@ export function AppShell({
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
   const chatUiInsetPublishedRef = useRef(false);
+  // Only floating chat UI reads the insets, so with no chat open (Home, a Library page) they are not
+  // written at all: a write to <html> re-styles the whole app, which on an iPad made every Show/Hide
+  // sidebar tap on Home pay for a full re-style a moment after the slide (Nov 15). Opening a chat
+  // publishes the current values in the same frame the chat first renders.
+  const chatOpenForInsets = useChatStore((s) => s.activeChatId != null);
+  const publishedChatUiInsetRef = useRef<string | null>(null);
   useLayoutEffect(() => {
     const root = document.documentElement;
+    const value = `${chatUiInsetLeft}|${chatUiInsetRight}`;
     const publish = () => {
       chatUiInsetPublishedRef.current = true;
+      if (publishedChatUiInsetRef.current === value) return;
+      publishedChatUiInsetRef.current = value;
       root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
       root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
+    if (!chatOpenForInsets) {
+      // Nothing reads the values now; the next chat to open gets them at once.
+      chatUiInsetPublishedRef.current = false;
+      return;
+    }
     // Matches the globals.css rules that turn the slide off (reduced motion, desktop Firefox): nothing to wait for.
     const noSlide =
       window.matchMedia("(prefers-reduced-motion: reduce)").matches || CSS.supports("-moz-appearance", "none");
@@ -906,10 +920,11 @@ export function AppShell({
     // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
     const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
     return () => window.clearTimeout(timer);
-  }, [chatUiInsetLeft, chatUiInsetRight]);
+  }, [chatUiInsetLeft, chatUiInsetRight, chatOpenForInsets]);
   useLayoutEffect(
     () => () => {
       chatUiInsetPublishedRef.current = false;
+      publishedChatUiInsetRef.current = null;
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
       document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
     },

@@ -66,6 +66,8 @@ interface TourStep {
   overhaulSettingsTab?: OverhaulSettingsTab;
   /** New layout: place the card beside its target by `side` alone, never on top of the pane it describes */
   besideTarget?: boolean;
+  /** New layout on phones: show the sidebar page on its Library view instead of opening `openPanel`'s page */
+  phoneLibraryPage?: boolean;
 }
 
 function resolveTourStepTitle(step: TourStep, localizeUi: (key: string) => string, localize: (text: string) => string) {
@@ -236,13 +238,15 @@ const OVERHAUL_STEPS: TourStep[] = [
   },
   {
     target: "library-nav",
-    highlightTargets: ["panel-buttons"],
+    highlightTargets: ["panel-buttons", "library-switch"],
     titleKey: "onboarding.overhaul.library.title",
     bodyKey: "onboarding.overhaul.library.body",
     phoneBodyKey: "onboarding.overhaul.library.phoneBody",
     side: "left",
     besideTarget: true,
     openPanel: "characters",
+    // Phones: the Library tab of the sidebar page, lit like the Chats tab on the next step (Nov 15).
+    phoneLibraryPage: true,
     sprite: { pose: "point-up", flip: true },
   },
   {
@@ -925,6 +929,17 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
       closeRightPanel();
       setSidebarOpen(true);
       return;
+    }
+
+    if (currentStep.phoneLibraryPage) {
+      const overhaul = useOverhaulStore.getState();
+      if (overhaul.enabled && !overhaul.desktop) {
+        setSidebarOpen(false);
+        closeRightPanel();
+        overhaul.setSidePane("library");
+        overhaul.setMobileSidePageOpen(true);
+        return;
+      }
     }
 
     if (currentStep.openPanel) {
