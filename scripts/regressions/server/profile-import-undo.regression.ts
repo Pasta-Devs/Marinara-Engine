@@ -34,6 +34,9 @@ await app.ready();
 
 const descriptionOf = async (id: string) => JSON.parse((await characters.getById(id))!.data as string).description;
 const setDescription = (id: string, description: string) => characters.update(id, { description } as any);
+const sources = join(root, "knowledge-sources");
+const readSource = (name: string) => fs.readFile(join(sources, name), "utf8");
+const writeSource = (name: string, text: string) => fs.writeFile(join(sources, name), text);
 const undoOffer = async () => (await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" })).json();
 const undo = () => app.inject({ method: "POST", url: "/api/backup/import-profile/undo" });
 const importProfile = async (profile: string) => {
@@ -44,6 +47,7 @@ const importProfile = async (profile: string) => {
     payload: profile,
   });
   assert.equal(preview.statusCode, 200, preview.body);
+  assert.equal(preview.json().undoable, true, "a current profile can be undone");
   return app.inject({
     method: "POST",
     url: "/api/backup/import-profile",
@@ -55,11 +59,15 @@ try {
   assert.deepEqual(await undoOffer(), { available: false });
   assert.equal((await undo()).statusCode, 404);
 
-  // Last week's profile has Ada's old description. Since then Ada was edited and Bea was created.
+  // Last week's profile has Ada's old description and an old notes file. Since then both were
+  // edited and Bea was created.
   const ada = (await characters.create({ name: "Ada", description: "old" } as any))!.id;
+  await fs.mkdir(sources, { recursive: true });
+  await writeSource("notes.txt", "old");
   const exported = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
   assert.equal(exported.statusCode, 200, exported.body);
   await setDescription(ada, "new");
+  await writeSource("notes.txt", "new");
   const bea = (await characters.create({ name: "Bea", description: "before import" } as any))!.id;
 
   // No room for the safety copy: nothing is imported and no partial copy is left behind.
@@ -74,22 +82,36 @@ try {
   freeBytes = 1024 ** 4;
   assert.equal((await importProfile(exported.body)).statusCode, 200);
   assert.equal(await descriptionOf(ada), "old", "the import replaced the newer version");
+  assert.equal(await readSource("notes.txt"), "old", "the import replaced the newer file");
   const offered = await undoOffer();
   assert.equal(offered.available, true);
   assert.ok(!Number.isNaN(Date.parse(offered.savedAt)), "savedAt is a date");
 
+  // A later import refused for space leaves this import's undo in place.
+  freeBytes = 0;
+  assert.notEqual((await importProfile(exported.body)).statusCode, 200);
+  assert.deepEqual(await undoOffer(), offered, "a refused import keeps the previous undo");
+  freeBytes = 1024 ** 4;
+
   // A second import replaces the copy (and its record): undo now goes back to just before this one.
+  // other.txt is in that copy but not in the file, so the import doesn't write it.
   await setDescription(ada, "newer");
+  await writeSource("notes.txt", "newer");
+  await writeSource("other.txt", "before import");
   assert.equal((await importProfile(exported.body)).statusCode, 200);
   assert.equal(await descriptionOf(ada), "old");
+  assert.equal(await readSource("notes.txt"), "old");
   assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
 
-  // Bea was not in the file. An edit to her after the import must survive the undo.
+  // Bea and other.txt were not in the file. Edits to them after the import must survive the undo.
   await setDescription(bea, "edited after import");
+  await writeSource("other.txt", "edited after import");
   const undone = await undo();
   assert.equal(undone.statusCode, 200, undone.body);
   assert.equal(await descriptionOf(ada), "newer", "undo put back what the last import replaced");
+  assert.equal(await readSource("notes.txt"), "newer", "undo put back the file the last import replaced");
   assert.equal(await descriptionOf(bea), "edited after import", "undo left items the import didn't write alone");
+  assert.equal(await readSource("other.txt"), "edited after import", "undo left files the import didn't write alone");
 
   // Undo works once: a second one would put the same rows back over anything edited since.
   assert.deepEqual(await undoOffer(), { available: false });

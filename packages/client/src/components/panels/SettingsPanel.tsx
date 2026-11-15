@@ -6151,6 +6151,8 @@ type ProfileImportPreviewResult = {
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
   previewToken?: string;
+  /** False for profiles from much older versions, which only add items and save no safety copy. */
+  undoable?: boolean;
   error?: string;
   message?: string;
 };
@@ -6252,9 +6254,11 @@ function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewRes
     warnings.length > 0
       ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
       : "";
-  return [`Found: ${found}.`, warningDetail, localizeUi("ui.panels.importsettings.profileImportReplaceWarning")]
-    .filter(Boolean)
-    .join("\n");
+  const effect =
+    preview.undoable === false
+      ? localizeUi("ui.panels.importsettings.profileImportAddOnlyWarning")
+      : localizeUi("ui.panels.importsettings.profileImportReplaceWarning");
+  return [`Found: ${found}.`, warningDetail, effect].filter(Boolean).join("\n");
 }
 
 function getDownloadFilename(res: Response, fallback: string) {
@@ -6332,6 +6336,7 @@ function ImportSettings() {
   const qc = useQueryClient();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
+  const [profileUndoRunning, setProfileUndoRunning] = useState(false);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "preview" ||
@@ -6569,12 +6574,11 @@ function ImportSettings() {
           const totalItems = Math.max(1, current?.totalItems ?? 1);
           return {
             status: "success",
-            label:
-              warnings.length > 0
+            label: undo
+              ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
+              : warnings.length > 0
                 ? localizeUi("ui.panels.importsettings.profileImportCompleteWithWarnings")
-                : undo
-                  ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
-                  : "Profile import complete",
+                : "Profile import complete",
             completedItems: totalItems,
             totalItems,
             startedAt,
@@ -6583,7 +6587,8 @@ function ImportSettings() {
             warnings,
           };
         });
-        if (warnings.length > 0) {
+        // Undo's warnings repeat what its confirmation said stays switched off; they stay listed below.
+        if (warnings.length > 0 && !undo) {
           const warningSummary = formatProfileImportWarningSummary(warnings, profileImportWarningCopy);
           toast.warning(
             summary
@@ -6628,6 +6633,7 @@ function ImportSettings() {
     });
     if (!confirmed) return;
     const startedAt = Date.now();
+    setProfileUndoRunning(true);
     setProfileImportProgress({
       status: "starting",
       label: localizeUi("ui.panels.importsettings.undoingLastImport"),
@@ -6659,6 +6665,8 @@ function ImportSettings() {
       });
       toast.error(localizeUi("ui.panels.importsettings.undoLastImportFailedValue", { value: message }));
       void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
+    } finally {
+      setProfileUndoRunning(false);
     }
   };
 
@@ -6681,8 +6689,12 @@ function ImportSettings() {
             disabled={profileImportBusy}
             className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
           >
-            {profileImportBusy ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Download size="0.8125rem" />}
-            {profileImportBusy
+            {profileImportBusy && !profileUndoRunning ? (
+              <Loader2 size="0.8125rem" className="animate-spin" />
+            ) : (
+              <Download size="0.8125rem" />
+            )}
+            {profileImportBusy && !profileUndoRunning
               ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
                 ? localizeUi("ui.panels.importsettings.scanningProfile")
                 : localizeUi("ui.panels.importsettings.importingProfile")
@@ -6706,8 +6718,14 @@ function ImportSettings() {
                 disabled={profileImportBusy}
                 className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
               >
-                <RotateCcw size="0.8125rem" />
-                {localizeUi("ui.panels.importsettings.undoLastImport")}
+                {profileUndoRunning ? (
+                  <Loader2 size="0.8125rem" className="animate-spin" />
+                ) : (
+                  <RotateCcw size="0.8125rem" />
+                )}
+                {profileUndoRunning
+                  ? localizeUi("ui.panels.importsettings.undoingLastImport")
+                  : localizeUi("ui.panels.importsettings.undoLastImport")}
               </button>
               <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.importsettings.undoLastImportSavedAt", {

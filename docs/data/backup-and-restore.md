@@ -93,7 +93,20 @@ Before each import, Marinara saves a full copy of your data as `marinara-before-
 2. In **Profile & Marinara**, click **Undo Last Import**. The line under it shows when the safety copy was saved.
 3. Click **Undo Last Import** in the dialog to confirm.
 
-Undo puts back only the items and files the last import replaced, as they were just before it. If you changed one of those items after the import, that change is lost. Everything else stays as it is, including items the import added. You can undo an import once, and then the safety copy is deleted.
+Undo puts back your versions of the items and files the last import replaced. If you changed one of those items after the import, that change is lost. Everything else stays as it is, including items the import added. You can undo an import once, and then the safety copy is deleted.
+
+Undo does not turn back on what the import switched off for safety. Turn these on again by hand:
+
+- your active theme;
+- Personal Extensions (review them again in **Settings → Addons**);
+- custom tools that run a script or a webhook;
+- Professor Mari memories.
+
+If the import cleared a connection's API key, enter the key again (see [Enter your keys again](#enter-your-keys-again)). Set it again as your default or fallback connection if it was one.
+
+Branch chats the import replaced stay unlinked from the chat they branched from. The import already removed that link, and Undo cannot bring it back.
+
+Profiles from much older versions only add items, so Marinara saves no safety copy for them and there is nothing to undo.
 
 ## Enter your keys again
 

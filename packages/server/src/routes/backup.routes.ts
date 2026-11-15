@@ -68,6 +68,7 @@ import { normalizeTimestampOverrides } from "../services/import/import-timestamp
 import { flushDB, type DB } from "../db/connection.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { startSseKeepalive } from "./generate/sse.js";
 import { assertInsideDir, safeCompareString } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { crc32Buffer, finishCrc32, updateCrc32State } from "../utils/crc32.js";
@@ -3629,6 +3630,9 @@ async function writePreImportBackup(app: FastifyInstance) {
     await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
       assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
     );
+    // The previous import's record stops matching once this copy replaces its own. Removing it only
+    // now keeps that import's Undo when this copy can't be saved (a full disk, say).
+    await rm(getPreImportWritesPath(), { force: true });
     await rename(pendingPath, finalPath);
   } finally {
     await rm(pendingPath, { force: true }).catch(() => {});
@@ -4180,6 +4184,12 @@ export async function backupRoutes(app: FastifyInstance) {
           throw new ProfileImportRequestError("The safety copy from before the last import could not be read.");
         }
         safetyData.fileStorage = onlyRowsAndFilesWritten(safetyData.fileStorage, lastImportWrites);
+        // The copy's asset check covered every file; only the ones being put back matter here.
+        const filesWritten = new Set(lastImportWrites.files);
+        importInput.warnings = importInput.warnings?.filter(
+          (warning) =>
+            (warning.type !== "missing_asset" && warning.type !== "skipped_asset") || filesWritten.has(warning.path),
+        );
       } catch (err) {
         if (err instanceof ProfileImportRequestError) {
           return sendProfileImportRequestError(reply, err);
@@ -4243,6 +4253,8 @@ export async function backupRoutes(app: FastifyInstance) {
           warnings,
           previewToken,
           totalItems,
+          // Older profiles only add items, so they need no safety copy and leave nothing to undo.
+          undoable: isProfileStorageSnapshot(data.fileStorage),
         };
       }
 
@@ -4255,12 +4267,16 @@ export async function backupRoutes(app: FastifyInstance) {
         sendEvent({ type: "progress", data: progress });
       };
 
+      // The safety copy and staging can each run for minutes without a progress event; without
+      // a keepalive a proxy or tunnel may close the idle stream while the import carries on.
+      let stopKeepalive = () => {};
       if (wantsProgressStream) {
         reply.raw.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         });
+        stopKeepalive = startSseKeepalive(reply);
         sendEvent({
           type: "started",
           data: {
@@ -4271,7 +4287,7 @@ export async function backupRoutes(app: FastifyInstance) {
       }
 
       try {
-        if (!undo) {
+        if (!undo && isProfileStorageSnapshot(data.fileStorage)) {
           // Import overwrites rows that already exist, so keep a way back before the first write.
           sendProgress({
             phase: "safety-copy",
@@ -4281,8 +4297,6 @@ export async function backupRoutes(app: FastifyInstance) {
             imported: { characters: 0, personas: 0, lorebooks: 0, presets: 0, agents: 0, themes: 0 },
           });
           try {
-            // The previous import's record no longer matches the copy about to be written.
-            await rm(getPreImportWritesPath(), { force: true });
             await withAutomaticBackupLifecycleLock(() => writePreImportBackup(app));
           } catch (err) {
             const reason = getBackupErrorMessage(err, "The safety copy could not be written.");
@@ -4768,6 +4782,8 @@ export async function backupRoutes(app: FastifyInstance) {
           return sendProfileImportRequestError(reply, err);
         }
         return sendBackupRouteError(reply, err, "Profile import");
+      } finally {
+        stopKeepalive();
       }
     } finally {
       if (!retainInputForPreview) await importInput.cleanup?.();
