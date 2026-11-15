@@ -8,6 +8,7 @@ import {
   GAME_STORY_STYLES,
   GAME_VIOLENCE_LEVELS,
 } from "../constants/game-story-style.js";
+import { STORED_SECRET_MASK, STORED_SECRET_PREFIX } from "../constants/stored-secrets.js";
 
 export const managedGenerationParameterValueSchema = z.object({
   enabled: z.boolean(),
@@ -46,8 +47,14 @@ export const customRequestHeadersSchema = z
     z.string(),
     z
       .string()
-      .max(2048)
-      .regex(/^[\t\x20-\x7e\x80-\xff]*$/),
+      // A saved value comes back as the mask and is stored encrypted (longer than the value it holds).
+      .max(4400)
+      .refine(
+        (value) =>
+          value === STORED_SECRET_MASK ||
+          (/^[\t\x20-\x7e\x80-\xff]*$/.test(value) && (value.length <= 2048 || value.startsWith(STORED_SECRET_PREFIX))),
+        { message: "Invalid header value." },
+      ),
   )
   .superRefine((headers, ctx) => {
     if (Object.keys(headers).length > 32)

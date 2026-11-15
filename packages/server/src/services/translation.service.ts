@@ -17,8 +17,10 @@ import {
   localAuthProviderBaseUrl,
   buildGameTranslationSource,
   resolveTranslationSystemPrompt,
+  isStoredSecretPlaceholder,
   type TranslationConfig,
 } from "@marinara-engine/shared";
+import { decryptStoredSecret, readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { isDeeplxLocalUrlsEnabled } from "../config/runtime-config.js";
 import { safeFetch, validateOutboundUrl } from "../utils/security.js";
 import { resolveBaseUrl } from "../routes/generate/generate-route-utils.js";
@@ -47,6 +49,7 @@ const translateSchema = z.object({
 export async function translateText(db: DB, body: unknown, onFallback?: GenerationFallbackNotifier) {
   const input = translateSchema.parse(body);
   const connections = createConnectionsStorage(db);
+  if (input.provider === "deepl") input.deeplApiKey = await resolveDeeplApiKey(db, input);
   switch (input.provider) {
     case "ai":
       return translateWithAI(input, connections, onFallback);
@@ -107,7 +110,8 @@ export async function translateGeneratedMessage(
       targetLanguage: config.outputTargetLanguage,
       connectionId: config.connectionId,
       systemPrompt: config.outputSystemPrompt,
-      deeplApiKey: config.deeplApiKey,
+      // The chat's saved key is resolved from its settings (it is stored encrypted).
+      deeplApiKey: decryptStoredSecret(config.deeplApiKey) || undefined,
       deeplxUrl: config.deeplxUrl,
       debugMode: input.debugMode,
     },
@@ -255,6 +259,23 @@ async function translateWithDeepLX(input: z.infer<typeof translateSchema>) {
   const data = (await response.json()) as { data?: string; alternatives?: string[] };
   const translated = data.data || data.alternatives?.[0] || "";
   return { translatedText: translated };
+}
+
+/**
+ * The DeepL key for a request. Browsers send the chat id and the server reads the chat's saved key (stored
+ * encrypted); an older client that still sends its own key in the body keeps working. A mask, or an encrypted
+ * value, is never a key itself, so those fall back to the chat's saved key too.
+ */
+export async function resolveDeeplApiKey(
+  db: DB,
+  input: { chatId?: string; deeplApiKey?: string },
+): Promise<string | undefined> {
+  const sent = input.deeplApiKey?.trim();
+  if (sent && !isStoredSecretPlaceholder(sent)) return sent;
+  if (!input.chatId) return undefined;
+  const chat = await createChatsStorage(db).getById(input.chatId);
+  if (!chat) return undefined;
+  return readChatMetadataSecret(parseExtra(chat.metadata), "translationDeeplApiKey") || undefined;
 }
 
 // ── DeepL API Translation (official) ──

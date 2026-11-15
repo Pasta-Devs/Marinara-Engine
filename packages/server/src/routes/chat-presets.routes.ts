@@ -17,6 +17,42 @@ import { createChatPresetsStorage } from "../services/storage/chat-presets.stora
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { prepareChatIdentityChange } from "./chats.routes.js";
+import {
+  maskChatMetadataSecrets,
+  maskChatRowSecrets,
+  resolveChatMetadataSecretPlaceholders,
+} from "../utils/stored-secrets.js";
+
+type ChatPresetResponse = { settings: ChatPresetSettings };
+
+/** A profile for a response: its saved DeepL key and Discord webhook show only as saved (the mask). */
+function maskPresetSecrets<T extends ChatPresetResponse | null | undefined>(preset: T): T {
+  if (!preset?.settings?.metadata) return preset;
+  return { ...preset, settings: { ...preset.settings, metadata: maskChatMetadataSecrets(preset.settings.metadata) } };
+}
+
+/**
+ * Settings sent by the browser carry the mask where a secret is saved. It keeps the value of the chat the snapshot
+ * was taken from (`?fromChatId=`), else the profile's own; an empty string clears it and a new value replaces it.
+ */
+async function resolvePresetSecrets(
+  settings: ChatPresetSettings,
+  sources: Array<Record<string, unknown> | null | undefined>,
+): Promise<ChatPresetSettings> {
+  if (!settings?.metadata) return settings;
+  const metadata = { ...(settings.metadata as Record<string, unknown>) };
+  resolveChatMetadataSecretPlaceholders(metadata, ...sources);
+  return { ...settings, metadata: metadata as ChatPresetSettings["metadata"] };
+}
+
+function parseMetadataRecord(raw: unknown): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
 
 function toSafeExportName(name: string, fallback: string) {
   const sanitized = name
@@ -43,6 +79,12 @@ function withoutLocalDestinations(settings: ChatPresetSettings): ChatPresetSetti
 export async function chatPresetsRoutes(app: FastifyInstance) {
   const storage = createChatPresetsStorage(app.db);
   const chatsStorage = createChatsStorage(app.db);
+  /** The stored metadata of the chat a settings snapshot was taken from, when the request names one. */
+  const fromChatMetadata = async (req: { query: unknown }) => {
+    const chatId = (req.query as { fromChatId?: unknown } | undefined)?.fromChatId;
+    if (typeof chatId !== "string" || !chatId) return null;
+    return parseMetadataRecord((await chatsStorage.getById(chatId))?.metadata);
+  };
 
   // Make sure system defaults exist before serving any request.
   await storage.ensureDefaults();
@@ -53,47 +95,60 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const query = req.query as { mode?: string };
     if (query.mode) {
       const parsed = chatModeSchema.safeParse(query.mode);
-      if (parsed.success) return storage.listByMode(parsed.data);
+      if (parsed.success) return (await storage.listByMode(parsed.data)).map(maskPresetSecrets);
     }
-    return storage.list();
+    return (await storage.list()).map(maskPresetSecrets);
   });
 
   app.get<{ Params: { mode: string } }>("/active/:mode", async (req, reply) => {
     const parsed = chatModeSchema.safeParse(req.params.mode);
     if (!parsed.success) return reply.status(400).send({ error: "Invalid chat mode" });
-    return (await storage.getActive(parsed.data)) ?? (await storage.getDefault(parsed.data));
+    return maskPresetSecrets((await storage.getActive(parsed.data)) ?? (await storage.getDefault(parsed.data)));
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
     if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
-    return preset;
+    return maskPresetSecrets(preset);
   });
 
   // ── Create / Update ──
 
-  app.post("/", async (req) => {
+  app.post<{ Querystring: { fromChatId?: string } }>("/", async (req) => {
     const input = createChatPresetSchema.parse(req.body);
-    return storage.create(input);
+    const settings = await resolvePresetSecrets(input.settings as ChatPresetSettings, [await fromChatMetadata(req)]);
+    return maskPresetSecrets(await storage.create({ ...input, settings }));
   });
 
-  app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
+  app.patch<{ Params: { id: string }; Querystring: { fromChatId?: string } }>("/:id", async (req, reply) => {
     const input = updateChatPresetSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
     if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
     if (existing.isDefault && input.name !== undefined && input.name !== existing.name) {
       return reply.status(400).send({ error: "Cannot rename the Default settings profile" });
     }
+    if (input.settings) {
+      input.settings = await resolvePresetSecrets(input.settings as ChatPresetSettings, [
+        await fromChatMetadata(req),
+        existing.settings.metadata as Record<string, unknown> | undefined,
+      ]);
+    }
     const updated = await storage.update(req.params.id, input);
-    return updated;
+    return maskPresetSecrets(updated);
   });
 
   /** Save a settings snapshot into a profile (the "Save" button). */
-  app.put<{ Params: { id: string } }>("/:id/settings", async (req, reply) => {
-    const input = chatPresetSettingsSchema.parse(req.body ?? {});
+  app.put<{ Params: { id: string }; Querystring: { fromChatId?: string } }>("/:id/settings", async (req, reply) => {
+    const parsed = chatPresetSettingsSchema.parse(req.body ?? {});
+    const existing = await storage.getById(req.params.id);
+    if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+    const input = await resolvePresetSecrets(parsed, [
+      await fromChatMetadata(req),
+      existing.settings.metadata as Record<string, unknown> | undefined,
+    ]);
     const updated = await storage.saveSettings(req.params.id, input);
     if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
-    return updated;
+    return maskPresetSecrets(updated);
   });
 
   /** Duplicate a profile (the "Save As" button). */
@@ -101,14 +156,14 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const body = (req.body ?? {}) as { name?: string };
     const duplicated = await storage.duplicate(req.params.id, body.name);
     if (!duplicated) return reply.status(404).send({ error: "Settings profile not found" });
-    return duplicated;
+    return maskPresetSecrets(duplicated);
   });
 
   /** Mark a profile as the active one for its mode. */
   app.post<{ Params: { id: string } }>("/:id/set-active", async (req, reply) => {
     const updated = await storage.setActive(req.params.id);
     if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
-    return updated;
+    return maskPresetSecrets(updated);
   });
 
   /** Apply a profile's settings to an existing chat (replaces profile-controlled settings). */
@@ -132,7 +187,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId, keepPersona });
     if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
     await announceIdentityChange?.();
-    return updated;
+    return maskChatRowSecrets(updated);
   });
 
   /** After saving a profile, update the chat settings of the other chats that use it. */
@@ -212,6 +267,6 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
       mode: modeParsed.data,
       settings: withoutLocalDestinations(settingsParsed.data),
     });
-    return created;
+    return maskPresetSecrets(created);
   });
 }

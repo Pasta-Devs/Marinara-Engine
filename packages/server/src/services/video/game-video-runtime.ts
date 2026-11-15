@@ -1,3 +1,4 @@
+import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
 import {
   VIDEO_DEFAULTS_STORAGE_KEY,
   createDefaultVideoGenerationProfile,
@@ -195,7 +196,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUi ? videoDefaults.comfyui.fps : undefined,
-    customHeaders: videoDefaults.customHeaders,
+    customHeaders: decryptCustomHeaders(videoDefaults.customHeaders),
     atlasModelOptions: isAtlas
       ? videoDefaults.atlas.modelOptions[connection.model?.trim() || DEFAULT_ATLAS_CLOUD_VIDEO_MODEL]
       : undefined,
