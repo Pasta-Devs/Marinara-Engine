@@ -7,7 +7,7 @@ import {
   usePendingCapabilityPackageUpdates,
 } from "../../hooks/use-capability-packages";
 import { getPrivilegedActionErrorMessage } from "../../lib/api-client";
-import { useRestartServer } from "../../hooks/use-server-restart";
+import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { useUIStore } from "../../stores/ui.store";
 import { AgentUpdateDialog, type AgentUpdatePhase, type AgentUpdateResult } from "./AgentUpdateDialog";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -138,6 +138,7 @@ export function AgentUpdatePrompter({
     await closed;
   }, [decline, finish, localizeUi, phase, prompted]);
 
+  const canRestart = useCanRestartServer(prompted !== null);
   const restartNeeded = Object.values(results).some((result) => result.status === "updated" && result.restartRequired);
 
   // Leaving after a run that needs a restart keeps the old reminder toast.
@@ -170,10 +171,11 @@ export function AgentUpdatePrompter({
       }}
       onClose={() => leave(prompted)}
       onRestart={
-        restartNeeded
+        restartNeeded && canRestart
           ? () => {
-              void finish(prompted);
+              // The restart sheet opens in this step with its backdrop at full strength, so nothing flashes.
               restartServer.mutate();
+              void finish(prompted);
             }
           : undefined
       }
