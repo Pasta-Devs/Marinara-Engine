@@ -129,6 +129,14 @@ export const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
 };
 /** A speech model id, for the voice step's list (any id can still be typed). */
 export const isSpeechModel = (row: { id: string }) => /tts|speech|voice/i.test(row.id);
+/** A picker row the provider lists as a decision model. */
+export const isDecisionModel = (row: { decision?: true }) => !!row.decision;
+/**
+ * Chat services with decision models of their own, asked at their own decision API with the account's key, and
+ * the decision source their Models use. Other chat services answer decisions through a chat model's
+ * log-probabilities. OpenRouter, Gemini and OpenAI can join here (#9310).
+ */
+export const NATIVE_DECISION_SOURCE: Partial<Record<ServiceId, "nanogpt">> = { nanogpt: "nanogpt" };
 /** Speech a chat service's own key buys, as the audio source that speaks to its address. */
 export const SPEECH_SOURCE: Partial<Record<APIProvider, string>> = { openai: "openai", xai: "xai", nanogpt: "openai" };
 /** Jobs a chat service's Connection also does with its key: decision (chat with log-probabilities) and voice. */
