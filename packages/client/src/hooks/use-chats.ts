@@ -25,9 +25,10 @@ import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
 import {
+  deletesAfterFetch,
+  onTranscriptFetched,
   removeMessagesFromPages,
   shouldRefetchMessagesOnReconnect,
-  stillHiddenDeletes,
   type ConfirmedDelete,
 } from "../lib/message-page-cache";
 import { normalizeHydratedMessage } from "../lib/message-hydration";
@@ -171,39 +172,55 @@ function deletedMessageIds(variables: unknown): string[] {
 /** Messages the server deleted, per chat, with the time the delete was confirmed. */
 const useDeletedMessages = create<{ byChat: Record<string, ConfirmedDelete[]> }>(() => ({ byChat: {} }));
 
+/** Per chat, when the newest transcript fetch started, and when the newest Load more did. */
+const transcriptFetchStarts = new Map<string, number>();
+const loadMoreStarts = new Map<string, number>();
+const watchedQueryClients = new WeakSet<QueryClient>();
+
 /**
- * The server deleted them: hide them on read until a transcript fetch newer than the delete lands, and
- * refetch in the background. The cached pages are never shortened, so Load more keeps the real oldest page.
+ * Ends the deletes a landed transcript fetch shows were restored. Only what the fetch brought from the server
+ * counts: a hand-made cache write (a saved stream part, an edit) says nothing about what the server still has.
+ */
+function watchTranscriptFetches(qc: QueryClient) {
+  if (watchedQueryClients.has(qc)) return;
+  watchedQueryClients.add(qc);
+  onTranscriptFetched(qc, (chatId, fetchedIds, loadMore) => {
+    const deletes = useDeletedMessages.getState().byChat[chatId];
+    if (!deletes?.length) return;
+    const startedAt = (loadMore ? loadMoreStarts : transcriptFetchStarts).get(chatId) ?? 0;
+    const kept = deletesAfterFetch(deletes, startedAt, fetchedIds);
+    if (kept.length === deletes.length) return;
+    useDeletedMessages.setState((state) => ({ byChat: { ...state.byChat, [chatId]: kept } }));
+  });
+}
+
+/**
+ * The server deleted them: hide them on read, and keep local copies saved earlier from writing them back,
+ * until a transcript fetch that started after the delete shows them again (a trash restore). Refetches in the
+ * background. The cached pages are never shortened, so Load more keeps the real oldest page.
  */
 function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: string[]) {
+  watchTranscriptFetches(qc);
   const at = Date.now();
-  const dataUpdatedAt = qc.getQueryState(chatKeys.messages(chatId))?.dataUpdatedAt ?? 0;
   useDeletedMessages.setState((state) => ({
-    byChat: {
-      ...state.byChat,
-      // Entries older than the cached data no longer hide anything, so drop them here.
-      [chatId]: [
-        ...(state.byChat[chatId] ?? []).filter((entry) => entry.at > dataUpdatedAt),
-        ...messageIds.map((id) => ({ id, at })),
-      ],
-    },
+    byChat: { ...state.byChat, [chatId]: [...(state.byChat[chatId] ?? []), ...messageIds.map((id) => ({ id, at }))] },
   }));
   void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
 }
 
-/** Ids the transcript hides on read: deletes still pending, and confirmed ones newer than the cached data. */
-function hiddenMessageIds(qc: QueryClient, chatId: string, pending: string[], confirmed: ConfirmedDelete[]) {
-  const dataUpdatedAt = qc.getQueryState(chatKeys.messages(chatId))?.dataUpdatedAt ?? 0;
-  return [...pending, ...stillHiddenDeletes(confirmed, dataUpdatedAt)];
-}
-
-/** The cached transcript as the chat shows it, without the messages it hides on read. */
-export function getShownCachedMessages(qc: QueryClient, chatId: string): Message[] {
+/** Ids the transcript hides on read: deletes still pending, and confirmed ones. */
+export function getHiddenMessageIds(qc: QueryClient, chatId: string): Set<string> {
   const pending = qc
     .getMutationCache()
     .findAll({ mutationKey: chatMessageDeleteKey(chatId), status: "pending" })
     .flatMap((mutation) => deletedMessageIds(mutation.state.variables));
-  const hidden = new Set(hiddenMessageIds(qc, chatId, pending, useDeletedMessages.getState().byChat[chatId] ?? []));
+  const confirmed = (useDeletedMessages.getState().byChat[chatId] ?? []).map((entry) => entry.id);
+  return new Set([...pending, ...confirmed]);
+}
+
+/** The cached transcript as the chat shows it, without the messages it hides on read. */
+export function getShownCachedMessages(qc: QueryClient, chatId: string): Message[] {
+  const hidden = getHiddenMessageIds(qc, chatId);
   const messages = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId))?.pages.flat() ?? [];
   return hidden.size ? messages.filter((message) => !hidden.has(message.id)) : messages;
 }
@@ -420,6 +437,8 @@ function chatMessagesQueryOptions(chatId: string, pageSize: number) {
   return infiniteQueryOptions({
     queryKey: chatKeys.messages(chatId),
     queryFn: ({ pageParam, signal }) => {
+      // A fetch (or refetch) starts from the newest page; Load more only adds older ones.
+      (pageParam ? loadMoreStarts : transcriptFetchStarts).set(chatId, Date.now());
       const params = new URLSearchParams();
       if (pageSize > 0) params.set("limit", String(pageSize));
       if (pageParam) params.set("before", pageParam);
@@ -515,10 +534,10 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
   const hidePendingDeletes = useCallback(
     (data: InfiniteData<Message[]>) => {
       const pending = pendingDeleteKey ? pendingDeleteKey.split(",") : [];
-      const hidden = hiddenMessageIds(queryClient, chatId ?? "", pending, confirmedDeletes ?? []);
+      const hidden = [...pending, ...(confirmedDeletes ?? []).map((entry) => entry.id)];
       return hidden.length ? (removeMessagesFromPages(data, hidden) ?? data) : data;
     },
-    [pendingDeleteKey, confirmedDeletes, chatId, queryClient],
+    [pendingDeleteKey, confirmedDeletes],
   );
   const query = useInfiniteQuery({
     ...chatMessagesQueryOptions(chatId ?? "", pageSize),
