@@ -3574,6 +3574,37 @@ function getPreImportWritesPath(): string {
   return join(getBackupsRoot(), PRE_IMPORT_WRITES_FILENAME);
 }
 
+/** Where an import keeps the previous import's copy and record until it has finished. */
+const PRE_IMPORT_PREVIOUS_SUFFIX = ".previous";
+
+async function renameIfPresent(from: string, to: string) {
+  await rename(from, to).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== "ENOENT") throw error;
+  });
+}
+
+/**
+ * A failed import puts the previous import's copy and record back, so its Undo still works. With no
+ * previous import, its own copy goes: without a record there is nothing it could undo.
+ */
+async function restorePreviousPreImport() {
+  const copyPath = getPreImportBackupPath();
+  const recordPath = getPreImportWritesPath();
+  await rm(recordPath, { force: true });
+  if (!existsSync(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`)) {
+    await rm(copyPath, { force: true });
+    return;
+  }
+  await rename(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, copyPath);
+  await renameIfPresent(`${recordPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, recordPath);
+}
+
+/** A finished import no longer needs the previous import's copy and record. */
+async function dropPreviousPreImport() {
+  await rm(`${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
+  await rm(`${getPreImportBackupPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
+}
+
 async function writePreImportWrites(writes: ProfileImportWrites) {
   const finalPath = getPreImportWritesPath();
   await writeFile(`${finalPath}.pending`, JSON.stringify(writes), { encoding: "utf8", mode: PRIVATE_FILE_MODE });
@@ -3630,10 +3661,18 @@ async function writePreImportBackup(app: FastifyInstance) {
     await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
       assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
     );
-    // The previous import's record stops matching once this copy replaces its own. Removing it only
-    // now keeps that import's Undo when this copy can't be saved (a full disk, say).
-    await rm(getPreImportWritesPath(), { force: true });
-    await rename(pendingPath, finalPath);
+    // Set the previous import's copy and record aside rather than replacing them, so this import can
+    // put them back if it fails. The record moves first: a crash never pairs it with this new copy.
+    await rm(`${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
+    await rm(`${finalPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
+    await renameIfPresent(getPreImportWritesPath(), `${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
+    await renameIfPresent(finalPath, `${finalPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
+    try {
+      await rename(pendingPath, finalPath);
+    } catch (error) {
+      await restorePreviousPreImport();
+      throw error;
+    }
   } finally {
     await rm(pendingPath, { force: true }).catch(() => {});
     await rm(workingDir, { recursive: true, force: true }).catch(() => {});
@@ -4305,14 +4344,25 @@ export async function backupRoutes(app: FastifyInstance) {
         }
         if (isProfileStorageSnapshot(data.fileStorage)) {
           const writes: ProfileImportWrites = { rows: {}, files: [] };
-          const imported = await importProfileStorageSnapshot(
-            app,
-            data.fileStorage,
-            warnings,
-            wantsProgressStream ? sendProgress : undefined,
-            importInput.readAsset,
-            writes,
-          );
+          let imported: Awaited<ReturnType<typeof importProfileStorageSnapshot>>;
+          try {
+            imported = await importProfileStorageSnapshot(
+              app,
+              data.fileStorage,
+              warnings,
+              wantsProgressStream ? sendProgress : undefined,
+              importInput.readAsset,
+              writes,
+            );
+          } catch (error) {
+            // A failed import rolls its rows and files back, so the previous import can still be undone.
+            if (!undo) {
+              await restorePreviousPreImport().catch((restoreError: unknown) =>
+                logger.warn(restoreError, "[backup] Could not put back the previous import's safety copy"),
+              );
+            }
+            throw error;
+          }
           if (undo) {
             // Undone once; a second undo would put back the same rows over anything edited since.
             await rm(getPreImportWritesPath(), { force: true });
@@ -4322,6 +4372,9 @@ export async function backupRoutes(app: FastifyInstance) {
           } else {
             await writePreImportWrites(writes).catch((error: unknown) =>
               logger.warn(error, "[backup] Could not save what the import wrote; Undo Last Import is unavailable"),
+            );
+            await dropPreviousPreImport().catch((error: unknown) =>
+              logger.warn(error, "[backup] Could not remove the previous import's safety copy"),
             );
           }
           const payload = { success: true, imported, warnings };

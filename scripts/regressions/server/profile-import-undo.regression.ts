@@ -93,6 +93,14 @@ try {
   assert.deepEqual(await undoOffer(), offered, "a refused import keeps the previous undo");
   freeBytes = 1024 ** 4;
 
+  // So does one that fails after saving its own copy: a row without an id passes the preview and
+  // fails the import. The previous copy and record are back, with nothing set aside left over.
+  const broken = JSON.parse(exported.body);
+  broken.data.fileStorage.tables.characters = [...(broken.data.fileStorage.tables.characters ?? []), { name: "No id" }];
+  assert.notEqual((await importProfile(JSON.stringify(broken))).statusCode, 200);
+  assert.deepEqual(await undoOffer(), offered, "a failed import keeps the previous undo");
+  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
+
   // A second import replaces the copy (and its record): undo now goes back to just before this one.
   // other.txt is in that copy but not in the file, so the import doesn't write it.
   await setDescription(ada, "newer");
