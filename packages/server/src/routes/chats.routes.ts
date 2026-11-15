@@ -1847,17 +1847,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     const incoming = req.body as Record<string, unknown>;
     // The mask (or nothing) keeps a saved DeepL key or webhook, "" clears it, a new value replaces it; the
     // chat storage encrypts it on write.
-    // A settings profile being applied (Chat Setup) sends its own masked key or webhook: that mask stands for the
-    // profile's saved value. Any other mask keeps this chat's saved value.
+    // A settings profile named in the patch (Chat Setup, applying a profile) sends its own masked key or webhook.
+    // A newly applied profile's saved value wins; otherwise the chat's own value wins and the profile only fills
+    // a value the chat lacks.
     const appliedPresetId = typeof incoming.appliedChatPresetId === "string" ? incoming.appliedChatPresetId : "";
-    const newlyApplied =
-      appliedPresetId && appliedPresetId !== parseChatMetadata(chat.metadata).appliedChatPresetId
-        ? await createChatPresetsStorage(app.db).getById(appliedPresetId)
-        : null;
+    const currentMetadata = parseChatMetadata(chat.metadata);
+    const profileMetadata = appliedPresetId
+      ? ((await createChatPresetsStorage(app.db).getById(appliedPresetId))?.settings?.metadata as
+          Record<string, unknown> | undefined)
+      : undefined;
+    const newlyApplied = appliedPresetId !== "" && appliedPresetId !== currentMetadata.appliedChatPresetId;
     resolveChatMetadataSecretPlaceholders(
       incoming,
-      newlyApplied?.settings?.metadata as Record<string, unknown> | undefined,
-      parseChatMetadata(chat.metadata),
+      ...(newlyApplied ? [profileMetadata, currentMetadata] : [currentMetadata, profileMetadata]),
     );
     if (Object.prototype.hasOwnProperty.call(incoming, "customMusicExternalFolder")) {
       // This chat's Music DJ folder (#8901). A typed path needs the folder picker's access; clearing it does not.

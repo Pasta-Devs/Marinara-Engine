@@ -212,6 +212,35 @@ try {
     "and the profile's webhook",
   );
   assert.ok(readChatMetadataSecret(profileMeta, "discordWebhookUrl"), "the profile holds a webhook to carry over");
+  // The setup wizard may record the profile first, then send its masked settings under the same id.
+  const sameId = (await chats.create({ name: "Same id", mode: "conversation", characterIds: [] }))!;
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${sameId.id}/metadata`,
+    payload: { appliedChatPresetId: profile.id },
+  });
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${sameId.id}/metadata`,
+    payload: { ...profile.settings.metadata, appliedChatPresetId: profile.id },
+  });
+  assert.equal(
+    readChatMetadataSecret(await storedMeta(sameId.id), "translationDeeplApiKey"),
+    DEEPL_KEY,
+    "a profile already recorded on the chat still fills its masked key",
+  );
+  // A chat's own key wins over the unchanged profile's when the mask comes back.
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${sameId.id}/metadata`,
+    payload: { translationDeeplApiKey: "chat-own-key" },
+  });
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${sameId.id}/metadata`,
+    payload: { translationDeeplApiKey: STORED_SECRET_MASK, appliedChatPresetId: profile.id },
+  });
+  assert.equal(readChatMetadataSecret(await storedMeta(sameId.id), "translationDeeplApiKey"), "chat-own-key");
   const keyless = await app.inject({
     method: "POST",
     url: "/api/chat-presets",
