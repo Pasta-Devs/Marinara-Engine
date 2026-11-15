@@ -10,15 +10,15 @@ process.env.FILE_STORAGE_DIR = join(directory, "storage");
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
-const require = createRequire(new URL("../../packages/server/package.json", import.meta.url));
-const { replaceBuiltInAgentDefinitions } = await import("../../packages/shared/dist/index.js");
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
-const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
-const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
-const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
-const { OpenAIProvider } = await import("../../packages/server/src/services/llm/providers/openai.provider.js");
+const require = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
+const { replaceBuiltInAgentDefinitions } = await import("../../../packages/shared/dist/index.js");
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
+const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
+const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
+const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
 
 const types = ["prose-guardian", "continuity", "html"];
 replaceBuiltInAgentDefinitions(

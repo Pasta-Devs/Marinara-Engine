@@ -13,16 +13,16 @@ process.env.FILE_STORAGE_DIR = join(dir, "storage");
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
-const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+const requireServer = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
-const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
-const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
-const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
-const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
-const { characterDataSchema, normalizeGroupChatMode } = await import("../../packages/shared/dist/index.js");
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
+const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.routes.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const { createPromptsStorage } = await import("../../../packages/server/src/services/storage/prompts.storage.js");
+const { characterDataSchema, normalizeGroupChatMode } = await import("../../../packages/shared/dist/index.js");
 
 const prompts: string[] = [];
 const provider = createServer(async (request, response) => {

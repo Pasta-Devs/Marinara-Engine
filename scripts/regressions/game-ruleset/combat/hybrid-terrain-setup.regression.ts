@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import type { GameSetupConfig } from "../../packages/shared/src/types/game.js";
-import { i18n } from "../../packages/client/src/localization/i18n.js";
+import type { GameSetupConfig } from "../../../../packages/shared/src/types/game.js";
+import { i18n } from "../../../../packages/client/src/localization/i18n.js";
 import {
   buildGameSetupShareFile,
   buildGameSetupSummarySections,
   parseGameSetupShareFileJson,
   resolveGameSetupImport,
-} from "../../packages/client/src/lib/game-setup-share.js";
+} from "../../../../packages/client/src/lib/game-setup-share.js";
 
 const config: GameSetupConfig = {
   genre: "Fantasy",

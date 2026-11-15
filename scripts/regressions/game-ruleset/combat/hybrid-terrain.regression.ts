@@ -9,10 +9,10 @@ import {
   summarizeTacticalBattlefield,
   validateTacticalBattlefieldBrief,
   salvageTacticalBattlefieldBrief,
-} from "../../packages/shared/src/features/tactical-combat/index.js";
-import { generateGrid } from "../../packages/shared/src/features/tactical-combat/grid-gen.js";
-import { deterministicRng } from "../../packages/shared/src/features/tactical-combat/rng.js";
-import type { Combatant } from "../../packages/shared/src/types/game.js";
+} from "../../../../packages/shared/src/features/tactical-combat/index.js";
+import { generateGrid } from "../../../../packages/shared/src/features/tactical-combat/grid-gen.js";
+import { deterministicRng } from "../../../../packages/shared/src/features/tactical-combat/rng.js";
+import type { Combatant } from "../../../../packages/shared/src/types/game.js";
 
 const combatant = (id: string, movementMode?: Combatant["movementMode"]): Combatant => ({
   id,

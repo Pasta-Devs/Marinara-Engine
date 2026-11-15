@@ -11,18 +11,18 @@ process.env.FILE_STORAGE_DIR = join(scratch, "storage");
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
 
-const serverRequire = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+const serverRequire = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
 const Fastify = serverRequire("fastify") as typeof import("fastify").default;
-const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
-const { chatsRoutes } = await import("../../packages/server/src/routes/chats.routes.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
-const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
+const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.routes.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createConnectionAccountsStorage } =
-  await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+  await import("../../../packages/server/src/services/storage/connection-accounts.storage.js");
 const { resolveMemoryRecallEmbeddingSource } =
-  await import("../../packages/server/src/services/memory-recall-embedding.js");
+  await import("../../../packages/server/src/services/memory-recall-embedding.js");
 const { embedSummaryDocuments } =
-  await import("../../packages/server/src/services/generation/summary-document-embeddings.js");
+  await import("../../../packages/server/src/services/generation/summary-document-embeddings.js");
 
 const db = await createFileNativeDB();
 const app = Fastify();

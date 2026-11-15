@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { embedMemoryRecallTexts } from "../../packages/server/src/services/memory-recall.js";
-import { embedSummaryDocuments } from "../../packages/server/src/services/generation/summary-document-embeddings.js";
+import { embedMemoryRecallTexts } from "../../../packages/server/src/services/memory-recall.js";
+import { embedSummaryDocuments } from "../../../packages/server/src/services/generation/summary-document-embeddings.js";
 
 // Some providers complete despite cancellation. Their late response must not warm the cache.
 const controller = new AbortController();
