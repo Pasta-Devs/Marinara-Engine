@@ -42,7 +42,7 @@ Which sections you see depends on the chat mode. The **Impersonate** section is 
 - **Agent activity**: Shows what agents did. Re-run trackers, retry or stop agents, clear trackers. See [Agent activity](../roleplay/getting-started.md#agent-activity). (Roleplay, with agents or Advanced Memory on.)
 - **Author's Notes**: A note the model reads every turn. See [Author's Notes](../roleplay/getting-started.md#authors-notes). (Roleplay.)
 - **Background**: The chat's background picture. (Roleplay, Game.)
-- **Gallery**: The chat's images and videos. See [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+- **Gallery**: The chat's images and videos. See [The Chat Gallery](chat-gallery.md).
 - **Widgets**: Which HUD widgets show in the game. (Game.)
 - **Impersonate**: Settings for the `/impersonate` command. (Roleplay.)
 - **Memory Recall**: Remembers earlier parts of the chat. See [Memory Recall and Chat Summaries](../agents/memory.md). (Not in the Lite version.)

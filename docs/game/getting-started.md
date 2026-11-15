@@ -20,7 +20,7 @@ Everything else is optional and off by default. You can add it later:
 
 ## Start a game
 
-1. In the **Chats** sidebar, open the **Game** tab and click **+ New** (**New Game**). Or click **Game** on the Home screen. The setup wizard opens. See [Managing Chats](../chats/managing-chats.md).
+1. In the **Chats** sidebar, open the **Game** tab and click **New** (**New Game**). Or click **Game** on the Home screen. The setup wizard opens. See [Managing Chats](../chats/managing-chats.md).
 2. On the first step, pick the **Model** that runs the GM. Choose an account you added before. If the list is empty, add one first. For world generation, pick a strong paid model (see [Choosing a model](#choosing-a-model)).
 3. Click **Next** on each step. Every other field has a default, so you can click through.
 4. On the last step, click **Create world**. The button shows **Generating World…** while Marinara builds your world. This is one large request to your model, so wait until it finishes.
@@ -37,7 +37,7 @@ If it did not work, see [World generation fails with a JSON or 422 error](#world
 | Step | What you set |
 | --- | --- |
 | **Connection** | **Game Name**, the **Model** that runs the GM, and an optional **Scene effects model**. The **Game Mode** card shows **VN** only for now (see [VN or Overworld](#vn-or-overworld)). |
-| **World** | Genre, setting, tone, difficulty, content rating and language. **Combat Preference** is **Turn-Based** or **Tactical**. Every new game plays on **MRPG** (Marinara RPG) classes (see [MRPG classes](mrpg-classes.md)). When a ruleset is installed, a **Rules** choice appears (see [Choose rules](#choose-rules)). |
+| **World** | Genre, setting, tone, difficulty, content rating, story style, violence, content boundaries and language. **Combat Preference** is **Turn-Based** or **Tactical**. Every new game plays on **MRPG** (Marinara RPG) classes (see [MRPG classes](mrpg-classes.md)). When a ruleset is installed, a **Rules** choice appears (see [Choose rules](#choose-rules)). |
 | **Party** | Your persona (the character you play), **Game Master Mode**, party members and **GM intro message** (see [The GM intro message](#the-gm-intro-message)). Each member's starting MRPG tree comes from the **Game Mode** section of their card (see [Choose a character's trees](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | What you want from the adventure. |
 | **Lorebooks** | Lorebooks the GM treats as canon. A lorebook is a set of background world facts. See [Lorebooks](../lorebooks/overview.md). |
@@ -57,7 +57,9 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 | Genre | Fantasy | Several allowed, plus your own. A setting kit picked first sets its own. |
 | Tone | Heroic | Several allowed. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** or **Brutal**. Higher settings make fights harder: more and tougher foes in an MRPG game (see [Battles in an MRPG game](combat.md#battles-in-an-mrpg-game)), harder-hitting enemies in a Legacy game (see [Difficulty scaling](combat.md#difficulty-scaling)). |
-| Content Rating | SFW | **SFW** or **NSFW**. NSFW only permits adult content, it does not force it. |
+| Content Rating (sexual content) | SFW | **SFW** or **NSFW**. It decides sexual content only. NSFW permits explicit scenes, it does not force them. |
+| Story style | Standard | **Standard** or **Gentle**. See [Content and story style](#content-and-story-style). |
+| Violence | Serious (Graphic with NSFW) | **Mild**, **Serious** or **Graphic**. |
 | Language | English | All in-game text is written in this language. |
 | Game Master Mode | Standalone GM | **Character GM** uses one of your character cards as the GM. |
 | Scene effects model | Built-in model | Only once you download it. Until then the default is **Skip - use inline tags from GM**. |
@@ -68,6 +70,18 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 | Quick Time Events | On | Turn off for screen-reader or untimed play. |
 | Start Muted | Off | Begins the game with all audio muted. |
 | Game Presentation | Standard | See below. |
+
+### Content and story style
+
+The **World** step has these settings for what the story may contain. In a running game they are all in **Chat Settings → Prompt Preset**.
+
+- **Content Rating (sexual content)**: **SFW** keeps romance and affection and fades sex scenes to black. **NSFW** lets them be written explicitly. It says nothing about violence or tone.
+- **Edit rating guidelines**, under the rating, shows the text the Game Master gets as the game's content rules. Change it to suit your game; **Reset to default** brings back the default for the rating. Unchanged text follows the default, so later improvements reach your game. In a running game it is **Rating guidelines**.
+- **Story style**: **Standard** keeps stakes sharp, so mistakes and bad luck land with real consequences. **Gentle** is for lower-stress stories: setbacks without punishment or trauma, fewer rolls for things your character can't control, and room for comfort and recovery.
+- **Violence**: **Mild**, **Serious** or **Graphic**, set apart from the content rating. Unless you pick one, it is **Serious** for SFW and **Graphic** for NSFW.
+- **Content boundaries**: subjects the Game Master keeps out of the story, one per line, such as `harm to animals`. They are hard limits in any style or rating, and your own rating guidelines can't remove them. Because the story is written by AI, it can't guarantee that a listed subject never appears.
+
+A prompt preset can carry these too: in the preset's **Prompts** tab, **Game story settings** with **Bring story settings to games that use this preset**. Its violence can also be **Follow rating**. Picking that preset for a game sets its style and violence and adds its boundaries to the game's own. A scene started from a game follows the game's rating, guidelines, violence, style and boundaries.
 
 ### Choose rules
 

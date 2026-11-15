@@ -48,7 +48,7 @@ Your browser downloads a `.zip` file with one JSONL transcript per chat. Bulk ex
 This makes a new chat from a `.jsonl` file saved by Marinara or exported from SillyTavern.
 
 1. In the **Chats** sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
-2. Click the **Import** button (the download arrow) next to **+ New**. Its label is **Import SillyTavern or Marinara chat JSONL**. The **Import chat** window opens.
+2. Click the **Import** button (the download arrow) next to **New**. Its label is **Import SillyTavern or Marinara chat JSONL**. The **Import chat** window opens.
 3. Leave **Tag imported** and **Tag source** ticked to tag the chat **Imported** and **ST** (or **Marinara** for a chat Marinara exported), or untick them.
 4. Drop your `.jsonl` file on the window, or click **Browse…** and choose it.
 

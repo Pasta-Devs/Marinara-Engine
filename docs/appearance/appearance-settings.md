@@ -6,7 +6,7 @@ Looking for something else?
 
 - A ready-made look or your own theme: [Custom CSS Themes](custom-css-themes.md).
 - A different font: [Custom Fonts and Google Fonts](fonts.md).
-- A chat background image: [Chat Backgrounds](chat-backgrounds.md).
+- A chat background image: [Background Library](chat-backgrounds.md).
 - A character's own look in chat: [Card CSS Theming Guide](card-css-theming.md).
 
 ## Opening the Appearance settings
@@ -98,7 +98,7 @@ This section holds the **Chat Background** picker and **Background Blur**. The p
 - **Chat background behind side panels**: spreads the open chat's background, softened, behind the sidebars and top bar.
 - **Chat List Backgrounds**: shows each chat's background as a muted banner behind its row in the chat list. Choose **Active & Hovered**, **Every Row** or **Off**.
 
-See [Chat Backgrounds](chat-backgrounds.md).
+See [Background Library](chat-backgrounds.md).
 
 ## Chat Buttons & Windows
 
@@ -122,6 +122,7 @@ Ready-made themes, and themes you make or import. See [Custom CSS Themes](custom
 
 - **Chat Layout** (in **Conversation Layout**) changes how Conversation messages look, with a live preview. **Linear** (the default) shows chat-style rows. **Bubbles** shows messenger-style bubbles.
 - **Avatar Shape** is **Circular** or **Square**. Avatar size stays the same.
+- **Profile pictures on phones** sets the pictures beside messages on a phone, in every chat mode. **Mini** (the default) puts a small picture by each name, before a character's name and after yours, so messages keep the full width. **Full** keeps the picture column, and **Off** shows no pictures. Tablets and computers always show the full picture.
 - **Conversation Theme** (in **Conversation Background**) sets a two-color gradient behind every Conversation chat. The **Dark** and **Light** tabs each keep their own gradient. It is a default for all Conversation chats, not a per-chat setting.
 
 The swipe menu switches are in **Settings → Chatting → Editing & Swipes**.
@@ -178,6 +179,6 @@ Most Appearance settings sync to your other devices. **Display Size** and **Chat
 
 - [Custom CSS Themes](custom-css-themes.md)
 - [Custom Fonts and Google Fonts](fonts.md)
-- [Chat Backgrounds](chat-backgrounds.md)
+- [Background Library](chat-backgrounds.md)
 - [Card CSS Theming Guide](card-css-theming.md)
 - [Settings Overview](../settings/settings-overview.md)

@@ -10,7 +10,7 @@ Before you start: you need an API key (a secret code, like a password) from an A
 2. Add an account. An account is one API key for one AI service. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 3. Pick the models the account should use. The same guide shows how.
 4. Make or import a character. Open **Library → Characters** (click **Library** at the top right), then click **New character**, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
-5. Open the chat list on the left with the speech-bubble button at the far left of the top bar. Its tabs read **Convo**, **Roleplay** and **Game**. Pick one, then click **+ New**. Or click **Conversation**, **Roleplay** or **Game** on Home.
+5. Click **Conversation**, **Roleplay** or **Game** on Home. Or open your chats: click **Library** at the top right, pick **Chats** at the top of the sidebar, choose the **Convo**, **Roleplay** or **Game** tab and click **New**.
 6. Follow the setup window that opens, then click **Create Chat**.
 
 What you see: the new chat opens, and you can write your first message.
@@ -23,13 +23,14 @@ The first time you open Marinara, a short guided tour starts. See [The First-Tim
 
 ## Finding your way around
 
-Marinara has three fixed places, and they stay put whatever theme you use:
+Marinara has two fixed places, and they stay put whatever theme you use:
 
-- **The top bar.** At the left, the speech-bubble button shows or hides your chats. Next come **Home** and a tab for each chat, character or page you open. **+** (or <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) finds or opens anything: a chat, a character, a setting, a guide, or a question for Professor Mari. **Docs** opens these guides, and **Library** shows or hides the Library on the right.
-- **The chats sidebar** on the left, with the **Convo**, **Roleplay** and **Game** tabs. See [Managing Your Chat List](../chats/managing-chats.md).
-- **The Library** on the right: **Characters**, **Personas**, **Lorebooks**, **Presets**, **Regex scripts**, **Connections**, **Agents** and **Custom tools**, then **Settings** and **Extensions**. Pick one to open its page in the middle.
+- **The top bar.** On the left, **Home** and a tab for each chat, character or page you open. On the right, the search button (or <kbd>Ctrl</kbd>+<kbd>K</kbd>, <kbd>⌘</kbd>+<kbd>K</kbd> on a Mac) finds or opens anything: a chat, a character, a setting, a guide, or a question for Professor Mari. Next to it are **Chat settings** while a chat is open, **Docs** for these guides, and **Library**, which shows or hides the sidebar.
+- **The sidebar** on the right, with a **Chats | Library** switch at its top. **Chats** lists your chats under the **Convo**, **Roleplay** and **Game** tabs (see [Managing Your Chat List](../chats/managing-chats.md)). **Library** lists **Characters**, **Personas**, **Lorebooks**, **Presets**, **Regex scripts**, **Connections**, **Agents** and **Custom tools**, then **Settings** and **Extensions**. Pick one to open its page in the middle.
 
-On a phone, the chats list is behind the speech-bubble button at the top left, and the Library is behind the stack button at the top right. Tap the title in the top bar to search, and the number button next to the Library to see your open tabs. See [Touch gestures](../chats/messages.md#touch-gestures).
+On a computer you can also show two pages side by side. See [Split view](tabs-and-drafts.md#split-view-two-pages-at-once).
+
+On a phone or tablet, **Home** is at the top left and **Library** (the stack button) at the top right. Library slides the sidebar over the page, with the same **Chats | Library** switch; its Library view has **Settings**, **Docs** and **All Tabs** at the bottom. Tap the title in the top bar to search, and the number button to see your open tabs. See [Tabs, Split View and Unsaved Changes](tabs-and-drafts.md) and [Touch gestures](../chats/messages.md#touch-gestures).
 
 ## The Home screen at a glance
 
@@ -87,4 +88,5 @@ If something is broken, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Creating and Editing Characters](../characters/creating-and-editing-characters.md)
 - [The First-Time Tutorial](tutorial.md)
+- [Tabs, Split View and Unsaved Changes](tabs-and-drafts.md)
 - [Professor Mari, Your In-App Assistant](professor-mari.md)

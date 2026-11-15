@@ -7,7 +7,7 @@ description: Read before designing, building, editing or reviewing a theme's loo
 
 Purpose: help the user make a theme that looks finished on every screen, or review one they already have. This handbook is about **how the theme should look and what to check**. For the `theme.*` actions, `apply`, `readBack` and errors, read the built-in **Themes and CSS** handbook first; both apply.
 
-The reference for every token, part and slot is `docs/appearance/theme-author-guide.md` (read it with `docs_read`; start at `Colour tokens`, `Hooks`, `Pictures`, `Backdrops`, `Ambient overlay`, `Day and night`, `Safety`). Weather is in `docs/appearance/theme-weather.md`. Never invent a token or `data-mari-part` name: if it isn't in those docs, it does nothing.
+The reference for every token, part and slot is `docs/appearance/theme-author-guide.md` (read it with `docs_read`; start at `Colour tokens`, `Hooks`, `Pictures`, `Backdrops`, `Ambient overlay`, `Day and night`, `Keeping a theme fast`, `Safety`). Weather is in `docs/appearance/theme-weather.md`. Never invent a token or `data-mari-part` name: if it isn't in those docs, it does nothing.
 
 ## What a theme can do here
 
@@ -16,6 +16,8 @@ The reference for every token, part and slot is `docs/appearance/theme-author-gu
 - **Art**: `--mari-app-backdrop` (and `-layers`), `--mari-ambient` (under the bars, mostly see-through), `--mari-home-art`, `border-image` frames, `--mari-focus-frame`. Pictures are named `url("theme:name.webp")` and live in the theme's package, not in the CSS.
 - **Weather**: `--mari-weather-*` tokens restyle rain, snow, fog, petals, lightning; `data-mari-weather` / `data-mari-sky` on `<html>` let art follow the story weather. A theme can thin weather out but never switch it off.
 - **Day and night**: style both `[data-theme]` sides. Users may follow system or time of day.
+- **Phones**: `--mari-mini-avatar-size` / `--mari-mini-avatar-ring` style the small picture by the name (`[data-mari-part="mini-avatar"]`, the phone default); `--mari-phone-convo-avatar: full` keeps Conversation's avatar column.
+- **Chats list**: `--mari-chat-row-preview: on` adds each chat's newest line under its name (`chat-row-preview`, `chat-row-preview-who`); without it the line isn't fetched.
 - **Per-chat looks**: `:root[data-chat-tags~="horror"]`, `[data-chat-open-mode]`.
 - **Message templates (HTML)** exist but are off unless the user turns on "Allow themes with HTML". Don't plan a theme around one unless the user asks.
 
@@ -52,6 +54,7 @@ A picture is art, not text: keep words, labels and the app's controls out of it,
 - No text that asks for keys, passwords or sign-ins, claims to be the app ("security alert", "verified"), holds a phone number or web address, or runs past 80 letters in one `content:`. No fake dialogs, fake buttons or relabelled buttons.
 - Respect the user's choices: Accessibility settings, Reduce motion, Theme art strength, High contrast and the weather toggle always win. Use tokens instead of literal colours on your own selectors so High contrast can reach them.
 - Every hover effect goes inside `@media (hover: hover)`. Touch screens get no hover looks, including sticky ones after a tap.
+- A transition may wait at most one second (`transition-delay`, or the second time in `transition`). Longer is refused at apply, import and save. Animations may use any delay.
 - Keep the app's headings and labels. Don't hide a section title (e.g. Chat Settings) to tidy a look, even if the theme adds its own title bar.
 - Plain names for anything the theme labels. No cute renames of app areas.
 
@@ -84,6 +87,15 @@ Most of the back-and-forth on past themes was this: shapes that didn't match. Th
 
 Keep the stylesheet well under 256 KiB, and send the whole stylesheet on every update (Themes and CSS explains why).
 
+Keep it fast, because phones and tablets (iPad Safari most of all) feel every slow rule on each tap and each streamed word:
+
+- Never put `:has()` on a parent and then style its children (`.panel:has(> .row) > *`, `body:has(.open) .chat *`): every typed letter re-checks the whole page. Put `:has()` on the element you style, or use a `data-mari-part` hook.
+- No `backdrop-filter` on repeated things (every message, every chat row). One or two frosted panels are fine; otherwise use a see-through colour.
+- Animate `opacity`, `transform` or the ambient layer's `background-position`, never `width`, `height`, `top` or `margin`.
+- The ambient layer and endless animations hold still while the app is in the background, and on phones and tablets while a full page covers the chat. Don't time anything to them.
+
+To check speed, the user can turn on **Settings → Advanced → Troubleshooting → Show tap timings** and compare taps with the theme on and off.
+
 ## Step 4: the shape and border checklist
 
 Go through these against the CSS you wrote, then ask the user to look at the named spots. These are the mistakes that kept coming back.
@@ -113,7 +125,7 @@ Go through these against the CSS you wrote, then ask the user to look at the nam
 **Coverage: give the shape to every surface, not just the obvious one**
 
 - [ ] Chat settings drawer (rows, fields, Edit button, star), on desktop and as the phone sheet.
-- [ ] Library toolbars on every page (Characters, Personas, Lorebooks, Presets, Regex, Connections, Agents), Chats list toolbar, tag-filter popover, sort menus.
+- [ ] Library toolbars on every page (Characters, Personas, Lorebooks, Presets, Regex, Connections, Agents), the Chats list (the **Chats | Library** switch at the top of the right sidebar, its search, **Tags** button and rows), tag-filter popover, sort menus.
 - [ ] Ctrl+K, confirm dialogs, toasts, dropdown menus, the long-press sheet on phones, the character profile bubble.
 - [ ] Settings (Appearance and one other tab), Docs, an editor (character, lorebook entry, preset).
 - [ ] Home widgets including Professor Mari's, Recent chats, What's new.
@@ -130,7 +142,7 @@ Go through these against the CSS you wrote, then ask the user to look at the nam
 - [ ] Spacing even inside cards; dividers as wide as the box they belong to; tip and help boxes aligned with the content column.
 - [ ] Words that sit straight on the art (roleplay names and times placed outside the bubble, on phones too; version labels; swipe counters) get a plate or a text shadow and pass by day as well as by night.
 - [ ] Long roleplay replies stay comfortable (line length about 60-75 characters, no bold slabs of dialogue).
-- [ ] Phones: top bar is the normal height; Conversation / Roleplay / Game stay on one row on Home.
+- [ ] Phones: top bar is the normal height; Conversation / Roleplay / Game stay on one row on Home; the mini picture by each name sits clear of the text.
 
 ## Step 6: hand it over and check with the user
 

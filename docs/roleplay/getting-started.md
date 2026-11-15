@@ -8,8 +8,8 @@ Pick Roleplay for a story scene. Pick [Conversation](../conversation/getting-sta
 
 Before you start: add an account in the **Connections** panel on the right side of the app. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-1. In the chat list on the left, click the **Roleplay** tab.
-2. Click **+ New** at the top of the chat list.
+1. Open your chats (**Library** at the top right, then **Chats** at the top of the sidebar) and click the **Roleplay** tab.
+2. Click **New** at the top of the chat list.
 
 The chat opens with **Chat Settings** and a setup wizard of five steps. Only the account is required. You can change everything later.
 
@@ -23,7 +23,7 @@ When you finish, you see the chat with a message box. Type your first message an
 
 ## The stage: background, sprites and HUD
 
-- **Background**: a full-scene image behind your messages that fades when it changes. The **Background** agent can pick one each turn, or you can fix one per chat. See [Roleplay Backgrounds](backgrounds.md).
+- **Background**: a full-scene image behind your messages that fades when it changes. The **Background** agent can pick one each turn, or you can fix one per chat. See [Backgrounds That Follow the Story](backgrounds.md).
 - **Sprites**: character pictures on the stage. Every sprite-enabled character can appear. A character needs a sprite library on its card, or its slot stays empty. See [Character Sprites](../characters/sprites.md).
 - **HUD**: your trackers (date, time, weather, location, who is present, inventory, quests, stats). Turn them on in **Chat Settings → Agents**. See [Roleplay HUD and Trackers](hud-and-trackers.md).
 
@@ -185,14 +185,14 @@ CYOA means Choose Your Own Adventure. The CYOA Choices agent is off by default, 
 | --- | --- |
 | A HUD value is wrong. | Edit it by hand and lock it so the next run leaves it alone. See [Roleplay HUD and Trackers](hud-and-trackers.md). If values keep drifting, use a stronger agent model. |
 | Sprites do not change. | Check that the character has a sprite library. You can also use `/emote`. |
-| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Roleplay Backgrounds](backgrounds.md). |
+| The background never changes. | The **Background** agent picks from your library, so add more backgrounds. See [Backgrounds That Follow the Story](backgrounds.md). |
 | A regenerated reply keeps the wrong direction. | Turn on **Debug mode**, open **Agent activity → Injections**, then edit or re-run the saved snippet before you regenerate. |
 
 For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 
 ## Related guides
 
-- [Roleplay Backgrounds](backgrounds.md)
+- [Backgrounds That Follow the Story](backgrounds.md)
 - [Roleplay HUD and Trackers](hud-and-trackers.md)
 - [Combat Encounters (Roleplay)](combat-encounters.md)
 - [Narrative Director and Secret Plot](narrative-director.md)

@@ -27,6 +27,8 @@ Settings has nine tabs. Under the tabs, a row of buttons jumps to each section o
 | Delete my data | **Settings → Data → Delete Data** |
 | Update Marinara | **Settings → Advanced → Updates** |
 | Use Marinara from my phone | **Settings → Advanced → Access** and **Security** |
+| Find out why taps feel slow | **Settings → Advanced → Troubleshooting → Show tap timings** |
+| Change the pictures beside messages on my phone | **Settings → Appearance → Conversation → Profile pictures on phones** |
 
 ### What each tab holds
 
@@ -174,7 +176,7 @@ These switches are in **Settings → Chatting → Message Info**. All are off by
 | **Security** | The admin secret, **Allow custom Agent imports**, **Allow third-party extension imports** and **Load images from other websites in messages** | [Remote Access](../REMOTE_ACCESS.md#the-admin-secret-and-privileged-actions) |
 | **Access** | The remote login, **Add a device** and what this server lets in | [Remote Access](../REMOTE_ACCESS.md) |
 | **Multiplayer** | Playing one chat together across devices (work in progress) | [Server Configuration Reference](../CONFIGURATION.md) |
-| **Troubleshooting** | **Copy Support Diagnostics**, **Debug mode** (logs model payloads in the server console) and **Open Console** | [Troubleshooting](../TROUBLESHOOTING.md) |
+| **Troubleshooting** | **Copy Support Diagnostics**, **Debug mode** (logs model payloads in the server console), **Open Console** and **Show tap timings** | [Troubleshooting](../TROUBLESHOOTING.md#the-app-feels-slow-on-a-phone-or-tablet) |
 
 ## How settings sync across devices
 

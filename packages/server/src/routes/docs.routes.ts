@@ -150,6 +150,7 @@ const DOC_ORDER: Record<string, string[]> = {
     "guided-and-impersonate.md",
     "peek-prompt.md",
     "chat-settings.md",
+    "chat-gallery.md",
     "settings-profiles.md",
     "slash-commands.md",
     "group-chats.md",

@@ -87,7 +87,7 @@ A passing **Test provider** shows the probability, how long the answer took, and
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
-A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
+A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Defaults** box to open **Decision settings** for the current decision model:
 
 | Field | What it does |
 | --- | --- |
@@ -109,7 +109,7 @@ Deleting an account whose key is used for decisions shows a warning. The Decisio
 - [Lorebook Decision fields](../lorebooks/entries.md#decision-activation) check Require or Trigger during the lorebook scan. Without an answer: require cannot admit a new entry and Trigger adds no route. Sticky holds and ordinary Trigger routes still apply.
 - [Smart response order](../chats/group-chats.md#response-order-individual-only) scores who speaks next in a group chat, if turned on. Without an answer: smart order makes its usual AI call.
 - [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only) asks who is in the scene before each reply in a Merged Roleplay group, if set to **Decision model**. Without an answer: if no character gets an answer, it uses the Character Tracker's last scene, or keeps the list.
-- [Illustrator Decision Model Checks](../roleplay/backgrounds.md#decision-model-checks-for-new-places-and-weather) check every Roleplay reply for a new place or new weather, if turned on in the chat's Illustrator settings. Without an answer: backgrounds change only when Illustrator or the World State asks, as before.
+- [Illustrator Decision Model Checks](../media/scene-backgrounds.md#check-every-reply-with-a-decision-model) check every Roleplay reply for a new place or new weather, if turned on in the chat's Illustrator settings. Without an answer: backgrounds change only when Illustrator or the World State asks, as before.
 - [Advanced Memory Recall](../agents/memory.md#optional-decision-model) can use its own decision model for Roleplay scene boundaries and memory selection. Turn on **Use Decision model** in that chat's Advanced Memory settings. Without an answer: failed decisions fall back to ordinary recall or scene checks. Summaries still use the Helper model.
 
 An activation question decides whether an agent runs. A decision statement inside its prompt decides what that running agent is told. Use `{{#if decision:"..."}}` for yes-or-no conditions and `{{#if decision_choice:"..." == "..."}}` for a choice among answers.

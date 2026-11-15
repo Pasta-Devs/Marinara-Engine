@@ -12,7 +12,7 @@ The app always does the drawing itself. Your theme doesn't draw anything. It set
 
 ### Indoors the weather stays outside
 
-When the story is inside, such as an inn, a bedroom or a World Maps room, the app doesn't rain across the whole screen. It keeps only the colour of the weather and the lightning flash, and the room stays dry. The app works out "inside" from the World State location ("Tideglass Inn, Brinewatch") or the World Maps place type. When it can't tell, the weather draws as usual. With **Weather Versions of Backgrounds** on (see [Roleplay Backgrounds](../roleplay/backgrounds.md#weather-versions-of-backgrounds)), the background picture itself shows the rain on the windows, and the moving weather comes back, drawn only on the window glass. Your theme's weather look applies there too.
+When the story is inside, such as an inn, a bedroom or a World Maps room, the app doesn't rain across the whole screen. It keeps only the colour of the weather and the lightning flash, and the room stays dry. The app works out "inside" from the World State location ("Tideglass Inn, Brinewatch") or the World Maps place type. When it can't tell, the weather draws as usual. With **Weather Versions of Backgrounds** on (see [Weather versions of backgrounds](../media/scene-backgrounds.md#weather-versions-of-backgrounds)), the background picture itself shows the rain on the windows, and the moving weather comes back, drawn only on the window glass. Your theme's weather look applies there too.
 
 ### The weather with no theme
 

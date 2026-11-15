@@ -172,6 +172,8 @@ Her chats are separate from your normal chat list.
 1. Click **Chats** in her header.
 2. Use **Search Prof. Mari chats** to find one. Click a chat to open it, rename it or delete it.
 
+A long chat with her opens on its latest messages. Scroll up and click **Show older** to bring back earlier ones; your place stays where it was.
+
 Click **New chat** or type `/new` to start fresh. It saves your current chat first and shows **Professor Mari's previous chat was saved.**
 
 ## Quick answers in Search

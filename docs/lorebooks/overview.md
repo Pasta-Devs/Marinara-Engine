@@ -94,7 +94,8 @@ The classic panel shows the same folders and order as a list. At the top of the 
 
 Below the buttons:
 
-- **Search lorebooks** filters by name, description, linked character or persona names, and tags.
+- **Search lorebooks** filters by name, description, linked character or persona names, and tags. `tag:name` works here too.
+- **Tags**, beside the search box, shows only lorebooks with all the tags you pick, or **Untagged**. See [Tags](../characters/library-organization.md#tags).
 - **Sort order** offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest** and **Token Budget**. With **Manual order**, drag lorebooks into place, or use <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>.
 - **New Folder** makes a library folder. Drag a lorebook onto it. On a phone, hold the lorebook, then drag. These folders are separate from the entry folders inside a lorebook.
 

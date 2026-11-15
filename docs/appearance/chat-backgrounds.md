@@ -1,32 +1,30 @@
-# Chat Backgrounds
+# Background Library
 
-The background library holds images you upload and pick by hand to sit behind your chat. For the **Background** agent that picks a backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated backgrounds made from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+The Background Library holds every picture that can sit behind a chat: the ones you upload, the ones Illustrator paints for you, and the art that comes with Marinara. This guide covers picking a picture for a chat, importing, tagging, folders, the default Roleplay background and **Background Blur**.
 
-A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Background** stays over the image, and **Conversation background image opacity** sets how strongly the image shows. See [Appearance Settings](appearance-settings.md).
+For backgrounds that change with the story (the Background agent, pinned places and pictures that follow a character), see [Backgrounds That Follow the Story](../roleplay/backgrounds.md). For pictures Illustrator paints, including rain and snow versions, see [Backgrounds Made by Illustrator](../media/scene-backgrounds.md).
 
-## Change the background of a chat
+A chat background shows in all chat modes. In Conversation chats, the gradient from **Conversation Background** stays over the picture, and **Conversation background image opacity** sets how strongly it shows. See [Appearance Settings](appearance-settings.md).
 
-Before you start: open the chat you want to change. The background you pick applies to that chat.
+## Where to find it
 
-1. Open **Settings → Appearance → Backgrounds**.
-2. Tap **Browse library**.
-3. Tap a picture. It becomes this chat's background, and the window closes.
+Open **Settings → Appearance** and find the **Backgrounds** section. It has the **Chat Background** picker, the **Background Blur** slider, and the **Conversation background image opacity** and **Chat List Backgrounds** controls.
 
-To use your own image, import it first (see [Import a background](#import-a-background)).
+The picker shows a preview of the current background, or **Default background** when none is chosen. Under it, up to three **Recent** backgrounds are one tap away. **Browse library** opens the **Background Library** window. In a chat, **Chat Settings → Background** opens the same library for that chat.
 
-## Where to find backgrounds
+## Pick a background for a chat
 
-1. Open **Settings**.
-2. Select the **Appearance** tab.
-3. Find the **Backgrounds** section.
+Before you start: open the chat you want to change. The picture you pick applies to that chat only.
 
-It has the **Chat Background** picker, the **Background Blur** slider, and the **Conversation background image opacity** and **Chat List Backgrounds** controls (see [Appearance Settings](appearance-settings.md)).
+1. Open **Settings → Appearance → Backgrounds** and click **Browse library**.
+2. Click a picture. A check mark appears, it becomes this chat's background, and the window closes.
+3. To go back to the default, click the selected picture again, or click the X (**Clear selection**) on the preview.
 
-The picker shows a preview of the current background, or **Default background** when none is chosen. Under it, up to three **Recent** backgrounds are one tap away. Click **Browse library** to open the **Background Library** window.
+To use your own picture, import it first (see [Import a background](#import-a-background)).
 
 ## The background library
 
-The library mixes images you uploaded with art bundled with Marinara. Each image has a label.
+The library mixes pictures you uploaded or Illustrator painted with art bundled with Marinara. Each picture has a label.
 
 | Label | Meaning |
 | --- | --- |
@@ -44,12 +42,6 @@ The **Filter by source** buttons, **All sources**, **My uploads** and **Game ass
 The new images appear in the grid with the **My upload** label.
 
 Each file must be JPG, PNG, GIF, WebP or AVIF, up to 20 MB. Marinara checks what is inside the file, not its name. A non-image renamed to `.png` is rejected.
-
-### Pick a background for the current chat
-
-1. Open **Browse library**.
-2. Click a thumbnail. A check mark appears, the image becomes this chat's background, and the window closes.
-3. To go back to the default, click the selected thumbnail again, or click the X (**Clear selection**) on the preview.
 
 ### Search and filter
 
@@ -88,6 +80,10 @@ Only **My upload** images can be tagged.
 3. Press <kbd>Enter</kbd> or click **Add**.
 
 To remove a tag, click it while editing tags.
+
+Tags are lowercase and can hold letters, numbers, spaces, hyphens and underscores, up to 40 characters each.
+
+Tag pictures with the places they show, such as `guest bedroom` or `harbor tavern`. The **Background** agent reads tags when it picks, and Illustrator reuses a picture whose tag of two or more words names the story's place instead of painting a new one. See [Reusing pictures you already have](../media/scene-backgrounds.md#reusing-pictures-you-already-have).
 
 ### Download a background
 
@@ -132,6 +128,6 @@ For the full sync model, see [Appearance Settings](appearance-settings.md).
 
 ## Related guides
 
-- [Roleplay Backgrounds](../roleplay/backgrounds.md): the Background agent that picks a backdrop each turn.
-- [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md): AI-generated scene backgrounds made from the Gallery. They also land in this library.
+- [Backgrounds That Follow the Story](../roleplay/backgrounds.md): the Background agent, pinned places and gallery backgrounds.
+- [Backgrounds Made by Illustrator](../media/scene-backgrounds.md): painted backgrounds and weather versions. They land in this library too.
 - [Appearance Settings](appearance-settings.md): the full Appearance tab.

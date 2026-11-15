@@ -1,108 +1,111 @@
-# Scene Backgrounds and the Gallery
+# Backgrounds Made by Illustrator
 
-AI-generated scene backgrounds are backdrop images Marinara Engine makes from the **Gallery**. This guide shows how to make one, what the Gallery holds, and how to redraw or review an image. For the hand-picked upload library, see [Chat Backgrounds](../appearance/chat-backgrounds.md). For the agent that picks a backdrop each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md).
+The **Illustrator** agent can paint backgrounds for your story: one when you ask, one each time the story reaches a new place, and rain, snow or fog versions of a background when the weather changes. This guide covers all three, and how Illustrator reuses pictures you already have instead of painting new ones.
 
-## Where scene backgrounds work
+For the pictures you upload and pick by hand, see [Background Library](../appearance/chat-backgrounds.md). For how a chat chooses which picture to show (the Background agent, pinned places and gallery pictures), see [Backgrounds That Follow the Story](../roleplay/backgrounds.md).
 
-Scene backgrounds work in Roleplay and Game modes. They are not available in Conversation mode. If you try to generate one in Conversation mode, the app shows this message:
+## Before you start
 
-```
-Scene background generation is available in Roleplay and Game modes.
-```
+- Install **Illustrator** from **Library → Agents**. See [Illustrator Agent](illustrator-agent.md).
+- Give it an image model: set the **Images** job in the **Defaults** box on the Connections page, or pick one on Illustrator's **Open Setup** screen. See [Image Generation Providers and Setup](image-providers.md).
 
-Before you start: you need an image model. Set one up first if you have not already. See [Image Generation Providers and Setup](image-providers.md).
+Painted backgrounds work in Roleplay and Game chats, not Conversation. In Conversation the app says "Scene background generation is available in Roleplay and Game modes."
 
-## Generating and applying a background from the Gallery
+## Paint a background now
 
-The **Gallery** holds a chat's images and videos. It is a section of **Chat Settings**. On a computer you can pop it out into its own window (see [Chat Settings Overview](../chats/chat-settings.md#popping-a-section-out-into-its-own-window)). Its **Background** button makes background art for the current scene.
+1. Open **Chat Settings** with the sliders button in the chat, and expand **Gallery**.
+2. Click **Background**. It shows **Generating...** while it works.
+3. When it finishes, the new picture is added to your Background Library and shown behind the chat. "Background generated." confirms it.
 
-In Roleplay, the **Background** button shows as soon as the **Illustrator** agent is installed. You do not need to add it to the chat or turn on agents. Like **Illustrate**, it runs once and does not start automatic runs.
+You don't need to add Illustrator to the chat for this. It runs once and starts no automatic runs.
 
-To generate a background:
+Marinara builds the prompt from the scene: in a game this includes the genre, setting, place, weather and time of day. The picture uses the **Backgrounds** canvas size, 1280 by 720 pixels unless you change it under **Settings → Media → Image Generation**.
 
-1. Open the **Gallery** section in **Chat Settings**.
-2. Click the **Background** button.
-3. The button label changes to **Generating...** while the image is made.
-4. A status message reads "AI background generation is running. The new background will be applied when it finishes."
-5. When it finishes, the new image is applied to the current scene at once, and "Background generated." confirms it.
+If it did not work: "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection." means no image model was found. Set one as described under **Before you start**. If the **Background** button is missing, Illustrator is not installed.
 
-The background is built from your current scene. In a game, this includes the genre, setting, location, weather, and time of day. Generated backgrounds use the **Backgrounds** canvas size, which is 1280 by 720 pixels by default. You can change that size under **Settings → Media → Image Generation**.
+## A new background for each new place
 
-If it did not work: if Marinara finds no image model to use, the step fails with this message:
+With this on, Illustrator paints a background when the story reaches a place that has none, saves it to your library and shows it.
 
-```
-Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
-```
+1. Add **Illustrator** to the chat: **Chat Settings → Agents**, turn on **Enable Agents**, then add **Illustrator** from **Misc Agents**.
+2. On the **Illustrator** card, turn on **Generate Scene Backgrounds**.
 
-To fix it, set the **Images** job in the **Jobs** box in the **Connections** panel, or give the **Illustrator** agent its own image model.
+Illustrator looks at the scene on its **Image Run Interval** (every 5 messages unless you change it). To have it check every reply instead, use [Decision model checks](#check-every-reply-with-a-decision-model). In Game Mode, the **Game Illustrator** switch covers backgrounds too.
 
-## The Gallery section
+### Reusing pictures you already have
 
-The **Gallery** has two tabs, **Images** and **Videos**. Each tab shows a count of how many items it holds. The **Videos** tab holds scene videos in Roleplay and Game chats, and video messages in Conversation chats.
+Before Illustrator paints a new place, it looks for a picture you already have, in this order:
 
-At the top of the section, action buttons appear only when the matching feature applies to the chat:
+1. A background pinned to that place, in the chat or in a character's gallery. See [Pin a background to a place](../roleplay/backgrounds.md#pin-a-background-to-a-place).
+2. A library picture whose name, or a tag of two or more words, appears in the World State location. For example, `generated-guest-bedroom.png`, or a picture tagged `guest bedroom`, serves "Smith House, guest bedroom".
+3. Without a World State location, the place name Illustrator's prompt model writes is matched the same way.
 
-- **Illustrate**: runs the Illustrator agent for a one-off scene image. See [Illustrator Agent](illustrator-agent.md).
-- **Selfie**: generates a character selfie in Conversation mode.
-- **Background**: generates and applies a scene background, as described above.
-- **Video**: makes a scene video from the latest illustration. In Conversation mode, it sends a video message from a character instead; see [Video messages](../conversation/selfies.md#video-messages).
-- **Create storyboard**: generates keyframes for the latest Game Mode turn or completed Roleplay episode when Storyboard is active.
-- **Browse Images**: opens a browser of saved images to insert.
-- **View storyboard**: opens the latest Game Mode storyboard.
+If one fits, it is shown (in the story's weather, when that version exists) and nothing is painted. Only a place with no match gets a new picture. Tagging your uploads with place names (see [Tag a background](../appearance/chat-backgrounds.md#tag-a-background)) is the easiest way to save image requests.
 
-Below the buttons is the **Upload Images** dropzone. Drag images onto it to add your own pictures to this chat's Gallery.
+## Weather versions of backgrounds
 
-### Per-image actions
+With this on, the background follows the story's weather. When it starts raining at the inn, Illustrator repaints the inn's background with rain on the windows. Indoors, the moving rain falls only behind the window glass, never across the room.
 
-Move your pointer over an image in the **Images** tab, or tap it on mobile, to see its actions:
+1. Open **Chat Settings → Agents → Illustrator**.
+2. Turn on **Weather Versions of Backgrounds**.
 
-- Open the image full size (**Open gallery image**).
-- **Pin to chat**: pins the image to the chat as a floating picture. Drag it to move it and use its corner handle to resize it. It keeps its place and size when you reload the page in this browser. The lock button next to the dismiss button stops it from moving or resizing until you unlock it.
-- **Download image**: saves the image to your device.
-- **Animate illustration**: turns that image into a scene video.
-- **Copy prompt**: copies the saved image prompt. If the image has no saved prompt, this shows **No prompt saved** and is disabled.
-- **Delete gallery image**: removes the image after you confirm.
+It needs an image model that can start from a picture. Most can, including OpenAI, Gemini, NovelAI and ComfyUI with an image input. With one that can't, the picture stays as it is.
 
-### Regenerating an image
+What happens:
 
-You can make a generated image again without regenerating the reply it belongs to. This works for images in the chat's Gallery that have a saved prompt, such as illustrations, selfies and storyboard frames.
+- Each picture and weather is painted **once**. When the weather changes back, or the story returns to the inn in the rain, the saved version is shown again at no cost.
+- The version is saved next to the original as `name--wx-rain.png`. The other kinds are `storm`, `snow`, `blizzard`, `hail`, `fog`, `sand`, `ash`, `embers`, `blossom` and `aurora`, plus `clear` for a dry copy of a picture first made in bad weather. Unusual weather gets a version in the story's own words: a meteor shower is `name--wx-meteor-shower.png`.
+- Clear, sunny, cloudy, windy and other light weather keep the plain picture.
+- It reads the weather from the **World State** agent, or from a Decision model check (below).
+- It covers every background in your library, whether you picked it, the Background agent did or Illustrator painted it, plus pinned places and gallery backgrounds that follow a character. The **Background** agent picks among your plain pictures, and the matching weather version is shown when one exists.
 
-1. Open the image full size, from the Gallery or from the message it is in.
-2. Click **Regenerate image** (the circular-arrow button at the top right of the picture).
-3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the image model.
-4. Click **Generate image**, or **Cancel** to leave the image as it is.
+### Windows: where the moving weather falls
 
-The new image replaces the old one in the message. The old one stays in the Gallery, so you can pin it again. Reference pictures are sent again from the characters' current avatars. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+The first time an indoor picture gets a weather version, Illustrator also asks the image model where the picture's windows are. It saves the answer as a small black and white stencil, and every weather version of that room shares it. The moving weather (rain lines, snowflakes, petals) is then drawn only on the glass.
 
-## Reviewing a prompt before it is sent
+- A room with no windows gets no moving weather, only the weather's colour and lightning flashes.
+- An aurora, a meteor shower and other weather with nothing falling stay still: the picture shows them, and nothing moves over it.
+- Stencils are kept in `backgrounds/weather-masks` in your data folder.
 
-You can check and edit the prompt before Marinara sends a background request to your image service.
+### Remake a weather picture or its windows
+
+While the chat shows a weather version, **Chat Settings → Agents → Illustrator** has a row under **Weather Versions of Backgrounds** named after the weather, such as **This rain picture**:
+
+- **Remake picture** paints this weather version again from the plain picture.
+- **Remake windows** asks the image model for the window stencil again. Use it when rain falls on the cushions or misses a window.
+- **No moving weather** turns the stencil off for this room. Its weather versions show only the weather's colour and lightning. **Remake windows** brings it back.
+
+If it did not work: check that the chat's World State shows a **Weather** (or that the weather check below is on), and that **Illustrator** is added to the chat with an image model.
+
+## Check every reply with a Decision model
+
+Illustrator normally looks at the scene only on its run interval, so a new place can wait a few replies for its background. A [Decision model](../connections/decision-models.md), a small yes-or-no model, can check every reply instead.
+
+Before you start: pick a Decision model in the **Defaults** box on the Connections page, and turn on **Generate Scene Backgrounds**, **Weather Versions of Backgrounds**, or both.
+
+1. Open **Chat Settings → Agents → Illustrator**.
+2. Under **Decision Model Checks**, pick **The scene moved to a new place**, **The weather changed**, or **New place and weather changes**. It is **Off** by default.
+
+After each reply:
+
+- The new-place check asks whether the latest message moves the scene to a new place. A yes gets the place a background, reusing one you have when it can. The prompt model only writes a new background after a yes.
+- The weather check asks whether the weather changes in the latest message. A yes shows or paints the weather version of the current background. Without a World State weather, the Decision model also picks the kind of weather.
+- The checks only add chances to act. Illustrator's own run and World State location changes still count.
+- With no answer (no model, a timeout or an error), the check is skipped.
+
+If it did not work: with no Decision model chosen, the list is greyed out and says where to pick one.
+
+## Review the prompt before it is sent
 
 1. Open **Settings → Media → Generation Defaults**.
 2. Turn on **Expose media prompts before sending**.
 
-With this setting on, a **Review Image Prompt** window opens before each request is sent. Its help text reads: "Edit the prompt below before Marinara sends the image request to your provider."
-
-In the window, you can:
-
-- Edit the prompt text and the negative prompt.
-- See the image kind and size, plus a live character count.
-- Click **Cancel** to stop, or **Generate** to send.
-
-If any prompt box is empty, **Generate** is disabled and you see this note: "Every image request needs a prompt." The text you type is sent exactly as written.
-
-## Managing your saved backgrounds
-
-Every scene background you generate is saved to your background library. You can also add your own images to that same library. Uploaded backgrounds accept JPG, PNG, GIF, WebP, and AVIF files, up to 20 MB each.
-
-You can tag, rename, and delete backgrounds you added. Tags are lowercase and can hold letters, numbers, spaces, hyphens, and underscores, up to 40 characters each. Built-in game-asset backgrounds appear alongside your own, but you cannot rename, tag, or delete them.
-
-You manage this library and set a per-chat or default backdrop from the appearance settings. For the full library, the picker, and **Background Blur**, see [Chat Backgrounds](../appearance/chat-backgrounds.md).
+A **Review Image Prompt** window then opens before each image request, painted backgrounds included. Edit the prompt and negative prompt, then click **Generate** to send or **Cancel** to stop. The text you type is sent exactly as written.
 
 ## Related guides
 
-- [Chat Backgrounds](../appearance/chat-backgrounds.md): the upload library you pick from by hand.
-- [Roleplay Backgrounds](../roleplay/backgrounds.md): the agent that auto-picks a backdrop each turn.
-- [Illustrator Agent](illustrator-agent.md): scene illustrations for Roleplay and Game modes.
-- [Image Generation Providers and Setup](image-providers.md): set up an image model.
-- [Scene Video Generation](scene-video.md): turn a Gallery image into a video.
+- [Backgrounds That Follow the Story](../roleplay/backgrounds.md): which picture a chat shows, pinned places and gallery backgrounds.
+- [Background Library](../appearance/chat-backgrounds.md): upload, tag and organize pictures, and blur.
+- [Illustrator Agent](illustrator-agent.md): scene illustrations, clips and the run interval.
+- [The Chat Gallery](../chats/chat-gallery.md): the Gallery section and its buttons.
+- [Decision Models](../connections/decision-models.md)

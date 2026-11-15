@@ -20,27 +20,25 @@ Every card has a skip button. On the first card it reads **Skip Tutorial**. On l
 
 ## How the tour works
 
-The tour shows one card at a time. Each card has a title, a short explanation and progress dots. On a computer, a pulsing ring highlights the part of the screen the card talks about, and some steps open that part for you. For example, the **Connections** step opens the Connections page.
+The tour starts on Home and shows one card at a time. Each card has a title, a short explanation and progress dots. A ring highlights the part of the screen the card talks about, and some steps open that part for you: the Library step opens the sidebar on **Library**, the Chats step switches it to **Chats**, and the Connections step opens the Connections page.
 
-Click **Next** to go to the next card.
-
-On a phone or other narrow screen, each card shows centered below the top bar, with no pulsing ring.
+Click **Next** to go to the next card. On a phone or tablet the cards and highlights work the same way, and say where things are on a touch screen.
 
 ## Reference: the steps
 
 | # | Card title | What it covers |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | Professor Mari offers to show you around. |
-| 2 | **Your Chats** | The chats sidebar and the speech-bubble button that opens it, and **Chat settings** inside a chat. |
-| 3 | **Three Ways to Chat** | The **Convo**, **Roleplay** and **Game** tabs and what each mode is for. |
-| 4 | **The Library** | The Library on the right: Characters, Personas, Lorebooks, Presets and Regex scripts. |
+| 2 | **The Library** | The sidebar on the right and its **Library** view: Characters, Personas, Lorebooks, Presets and Regex scripts. The **Library** button in the top bar opens and hides it. |
+| 3 | **Your Chats** | The **Chats** view of the same sidebar, and **Chat settings** inside a chat. |
+| 4 | **Three Ways to Chat** | The **Convo**, **Roleplay** and **Game** tabs and what each mode is for. |
 | 5 | **Connections: Set This Up First** | Opens the Connections page. Add a connection before you chat. |
 | 6 | **Agents** | Opens the Agents page, where you install optional features. |
-| 7 | **Settings (and SillyTavern Imports)** | Opens **Settings** on the **Data** tab, where SillyTavern imports are. |
-| 8 | **Tabs and Search** | The tabs in the top bar and **+** / <kbd>Ctrl</kbd>+<kbd>K</kbd>. |
+| 7 | **Settings (and SillyTavern Imports)** | Opens **Settings**, whose **Data** tab imports from SillyTavern. |
+| 8 | **Tabs and Search** | The tabs in the top bar and the search button (<kbd>Ctrl</kbd>+<kbd>K</kbd>). |
 | 9 | **The Docs, and You're Set!** | The **Docs** button, and the language list for the guides. |
 
-On a phone or tablet the tour adds a **Handy Gestures** card (ten steps in all), and the cards say where things are on a touch screen: the Library behind the stack button, search behind the title.
+On a phone or tablet the tour adds a **Handy Gestures** card (ten steps in all). There the Library is behind the stack button at the top right, Chats are at the top of the same page, search is behind the title, and the Docs are in the Library.
 
 ## Walkthroughs for each device
 

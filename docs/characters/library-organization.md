@@ -10,7 +10,8 @@ Open **Library → Characters**. The page shows your characters as portrait card
 - **Import** brings in a character file. See [Importing and Exporting Character Cards](import-export.md).
 - **New character** opens the **Create Character** window, blank or from a template. The **New character** card in the grid does the same.
 - **Search characters or tag:name** filters the cards (see [Search](#search)).
-- **Favourites**, **Recently edited** and a chip for each tag narrow the cards. On a phone these are one **Filter** list.
+- **Tags**, beside the search box, narrows the cards to the tags you pick (see [Tags](#tags)).
+- **Favourites** and **Recently edited** narrow the cards. On a phone these are one **Filter** list.
 - The sort menu offers **A to Z**, **Z to A**, **Newest**, **Oldest** and **My order**.
 - The three size buttons make the cards small, medium or large.
 - **New folder** (the folder icon) and **Select** (the check icon) sit next to the page title.
@@ -126,7 +127,15 @@ You can also pick **Favorites** in the sort dropdown to put favorites at the top
 
 ### Tags
 
-Tags are labels such as `fantasy` or `slow burn`. You add them in the character editor. See [Creating and Editing Characters](creating-and-editing-characters.md#metadata-tab). On the Characters page, click a tag's chip to show only characters with that tag. In the classic panel, click a tag chip on any row to filter the list the same way.
+Tags are labels such as `fantasy` or `slow burn`. You add them in the character editor. See [Creating and Editing Characters](creating-and-editing-characters.md#metadata-tab). Imports add **Imported** and a tag for where the card came from, such as **ST** or **CharX**. See [Import options](import-export.md#import-options).
+
+To filter by tag on the Characters page:
+
+1. Click **Tags** beside the search box. A list of every tag opens, with how many characters have each one.
+2. Type in **Search tags** to find one, then click the tags you want. With several picked, only characters that have **all** of them show. **Untagged** shows characters with no tags.
+3. The **Tags** button shows how many you picked. Click **Clear** in the list to remove them.
+
+The **Personas** and **Lorebooks** pages have the same **Tags** button, and **Presets** has one too. Typing `tag:name` in the search box still works on every one of them.
 
 In the classic panel, when your characters have tags, a **Tags** button with a count appears, such as **Tags (12)**. Click it to expand the full list:
 

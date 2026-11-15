@@ -98,7 +98,18 @@ Click **Create Theme**, or **Clone + Edit** on a starter theme to start from som
 
 The [Theme Author Guide](theme-author-guide.md#your-first-theme-step-by-step) has a step-by-step walkthrough for your first theme.
 
-You can also ask Professor Mari to build or change a theme for you, and, with an image model set up in Connections, to make its pictures. See [Ask Professor Mari to make the art](theme-author-guide.md#ask-professor-mari-to-make-the-art).
+### Make a theme with Professor Mari
+
+You don't have to write CSS yourself. Ask Professor Mari in plain words, such as "make me a cosy autumn theme that works on my phone" or "what's wrong with my Harbor theme?". She has a handbook for designing and reviewing themes and follows it:
+
+1. **She agrees the idea with you first.** She asks about the mood, Light or Dark (or both), your devices and whether you want pictures and weather, then sums up one look in a sentence, such as "frosted glass capsules on a sea backdrop".
+2. **She builds it switched off.** She tells you where to try it: pick it in **CSS Themes** and press **Keep theme** within 15 seconds. If you ask her to switch it on herself, your tab asks **Keep this theme?** the same way, and goes back if nobody answers.
+3. **She asks you to look.** Mari can't see your screen, so she names exact spots to check, in Light and Dark, and asks for a screenshot of anything that looks off. If Marinara switched the theme off, tell her the message: it names the reason, and she fixes that.
+4. **She can make its pictures.** With an image model set up in Connections, she makes backdrops, frames and icons, shows you each one first, and saves it into the theme when you say yes. She can also recolour the drawn trims (SVG pictures) in a theme. See [Ask Professor Mari to make the art](theme-author-guide.md#ask-professor-mari-to-make-the-art).
+
+To review a theme, she lists what doesn't match (mixed corner shapes, shadows, hard-to-read labels), screen by screen, and changes nothing until you say which to fix.
+
+Mari works on your own themes only. Starter themes are read-only, so click **Clone + Edit** on one first and ask her to work on the copy. Fonts, credits and thumbnails are added by you under **Pictures and sharing details**.
 
 ## Editing, exporting and removing your themes
 

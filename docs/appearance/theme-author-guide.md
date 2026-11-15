@@ -59,8 +59,10 @@ If you have an image model set up in **Connections** (Codex, NovelAI, ComfyUI, a
 
 1. Mari works on your own themes only. For a starter theme, click **Clone + Edit** first and ask her to work on the copy.
 2. She writes the picture prompt herself and sends it to your image model exactly as written. Your image style profiles and prompt prefixes (usually set up for character art) are left out, so a backdrop doesn't come back as a portrait.
-3. You see each picture before anything changes. Ask for a few versions to pick from (up to 4 at a time), or for fixes such as "crop it to the top half", "make the white background see-through" or "make it smaller". Each fix is a new version, and the earlier ones stay.
+3. Mari looks at each picture herself (small ones enlarged, see-through parts on grey) before she describes it, and you see it before anything changes. Ask for a few versions to pick from (up to 4 at a time), or for fixes such as "crop it to the top half", "make the white background see-through" or "make it smaller". Each fix is a new version, and the earlier ones stay.
 4. When you say yes, Mari saves the picture into your theme (as WebP, the same way **Add pictures** does) and puts it in the theme's CSS. It shows up under **Pictures and sharing details** like any picture you added yourself.
+
+Drawn trims such as rails, fences and send buttons are SVG pictures. Mari can recolour those directly, without your image model, and they stay crisp.
 
 Each picture takes as long as your image model needs, often half a minute to a minute and a half. If your image connection uses your own ComfyUI workflow, text built into that workflow is still sent.
 
@@ -222,6 +224,8 @@ sets it, except where a stock value is given.
 | `--mari-pinned-speaker`, `--mari-pinned-speaker-bg`        | `on`: the name line of a tall roleplay reply stays at the top of the chat while you scroll through it (desktop and tablet). The background defaults to the bubble's |
 | `--mari-pinned-speaker-top`, `--mari-pinned-speaker-bleed` | Where the pinned line sits (stock: the top edge of the visible chat) and how far it reaches past the text (stock 1rem)                                              |
 | `--mari-phone-avatar`                                      | `hidden`: phones drop the avatar column in roleplay, so the reply gets the whole width                                                                              |
+| `--mari-mini-avatar-size`, `--mari-mini-avatar-ring`       | The small picture by the name on phones (**Profile pictures on phones: Mini**, the default): its size, and its ring as a `box-shadow`. It is `[data-mari-part="mini-avatar"]` with `data-role` (`user`, `assistant`) |
+| `--mari-phone-convo-avatar`                                | `full`: Conversation chats keep the full avatar column on phones even when the user picked **Mini** |
 | `--mari-vn-fade`                                           | The fade at the foot of the VN text box while more of the paragraph is below (stock 1.75rem, `0` turns it off)                                                      |
 | `--mari-message-actions`, `--mari-swipe-counter`           | The colour of the tools under a message and of its "2 / 5" swipe counter                                                                                            |
 | `--mari-card-art-placeholder`                              | A whole `background` for Library cards with no picture, instead of the random-hue gradient                                                                          |
@@ -322,6 +326,11 @@ overlay, and High contrast keeps them at 25% or less; a theme can't undo either.
 motion (its pictures become still frames), and must stay mostly see-through: a theme whose ambient
 layer would hide the chat is switched off. Use this instead of a full-screen `body::after`, which
 the guard treats as covering the app.
+
+The layer holds still whenever nobody can see it: while the app is in the background (another tab
+or app has focus) and, on phones and tablets, while a full page such as a Library page, an editor or
+Settings covers the chat. Endless animations elsewhere in a theme pause in the background too. They
+carry on where they left off, so don't time anything important to them.
 
 A chat's own background is an `<img data-mari-part="backdrop">`. The stock one (no background picked)
 also has `data-default-background="true"`, so a theme can replace only that one:
@@ -662,6 +671,23 @@ together get 6 MiB. A picture that doesn't fit is left out on its own, with its 
 of the theme still installs. Plain `.css` files, `{ "name", "css" }` and the older
 `marinara.theme-folder` export still import.
 
+## Keeping a theme fast
+
+Phones and tablets, iPads in Safari above all, notice slow CSS on every tap. Most themes are fine;
+these are the patterns that made themes slow in testing:
+
+- **`:has()` on a parent that then styles its children**, such as `.panel:has(> .row) > *` or
+  `body:has(.open) .chat *`. The browser then re-checks the whole page for every typed letter and
+  every streamed word. Put `:has()` on the element you style (`.row:has(> img)`), or use a
+  `data-mari-part` hook instead.
+- **`backdrop-filter` on many elements at once**, such as every message or every chat row. One or two
+  frosted panels are fine; a blur on each of a hundred rows is not. Use a see-through colour instead.
+- **Animating layout** (`width`, `height`, `top`, `margin`) or big `box-shadow`s. Animate `opacity`
+  and `transform`, or `background-position` on the ambient layer.
+
+**Settings → Advanced → Troubleshooting → Show tap timings** shows how long each tap takes on that
+device, with and without your theme. Compare the two to find a slow rule.
+
 ## Accessibility
 
 Settings > Appearance > Accessibility applies the user's line and letter spacing, focus rings,
@@ -755,6 +781,12 @@ The import preview tells the user when a theme tries to change any of these.
   app shows doesn't count.
 
 ## Changes
+
+- **Phone mini pictures, quieter animations** (November 12 to 14 2026, contract still version 1):
+  `--mari-mini-avatar-size`, `--mari-mini-avatar-ring` and `--mari-phone-convo-avatar` for the
+  small picture by the name on phones; `--mari-chat-row-preview` adds each chat's newest line in the
+  Chats list; a transition may wait at most one second; the ambient layer and endless animations
+  hold still while nobody can see them; [Keeping a theme fast](#keeping-a-theme-fast).
 
 - **Readable accent text and split bar hook** (November 11 2026, contract still version 1): the
   accent used as small text darkens a little in Light and lightens a little in Dark so labels read,

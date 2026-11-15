@@ -40,6 +40,29 @@ More causes:
 
 See [Remote Access](REMOTE_ACCESS.md) and the [FAQ](FAQ.md). If you were locked out after an update, see [Locked out after updating](REMOTE_ACCESS.md#locked-out-after-updating).
 
+## The app feels slow on a phone or tablet
+
+The first time you open a page it can take a moment, because the pictures and the page itself load. After that, taps should answer quickly. If one keeps feeling slow:
+
+1. Open **Settings → Advanced → Troubleshooting** and turn on **Show tap timings**. It is for this device only.
+2. Use the app as usual. A small dark box near the bottom left lists your last taps.
+3. Each line reads: what you tapped, then `shown · smooth · longest frame · server`, all in milliseconds (ms, thousandths of a second).
+
+| Reading | What it means |
+| --- | --- |
+| **shown** | Until the screen first changed after the tap. |
+| **smooth** | Until the screen was done changing. Green means fine; over 400 it turns red, and you notice the wait. |
+| **longest frame** | The longest single stutter on the way. |
+| **server** | How many requests the tap made, and when the last one finished. A dash means none. |
+
+What to try:
+
+- If **server** is most of **smooth**, the wait is the server or the network, not the screen. A server on the same Wi-Fi is faster than one reached over the internet.
+- If **smooth** is high and **server** is a dash, the screen is the slow part. Turn the theme off for a moment (<kbd>Esc</kbd> three times, or `?safe` at the end of the address) and tap the same thing again. If it is much faster, the theme is the cause. Tell its author, or see [Keeping a theme fast](appearance/theme-author-guide.md#keeping-a-theme-fast).
+- **Settings → Appearance → Effects** has **Reduce Ambient Animations & Effects** and **Reduced paint effects**. Both make slower devices smoother.
+
+When you report a slow spot, include the tap timings line for it. Turn **Show tap timings** off again when you are done.
+
 ## Save blocked, or settings that do not persist
 
 A save seems to work but reverts when you reload. Cross-site protection (CSRF) is blocking it because it does not trust this browser address. You see a red banner saying saves will silently fail, or a toast titled **Save blocked: missing CSRF header**, **Save blocked: cross-site request rejected** or **Save blocked: origin not trusted**.
@@ -225,7 +248,7 @@ The **Built-in model** runs on your computer with no API key. Some error message
 1. Open **Chat Settings → Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In **Memories for This Chat**, look at each chunk's status.
 3. **Waiting for vector** means the memory is still being processed. Wait, then chat again.
-4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it on the **Embeddings** job in the **Jobs** box in **Connections**.
+4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it on the **Embeddings** job in the **Defaults** box in **Connections**.
 
 A memory needs at least 5 new messages before it is created. Recall shows only memories that closely match your new message, so it can return nothing even when memories exist.
 

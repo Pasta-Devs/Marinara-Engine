@@ -1,6 +1,6 @@
 # Character and Persona Galleries
 
-The **Gallery** tab in the character and persona editors keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also tag a gallery image as a custom emoji or sticker.
+The **Gallery** tab in the character and persona editors keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also label a gallery picture as a custom emoji, a sticker, or a background that follows the character into every chat.
 
 ## The Gallery tab
 
@@ -52,6 +52,20 @@ Once an image is tagged, its overlay button shows the name. Click it for more op
 
 A gallery-tagged emoji or sticker works only for that one character or persona, in Conversation Mode chats that include them. This is separate from the global emoji and sticker pools in the message composer. If a gallery name matches a global name, the gallery version wins in that chat. Names are not checked for uniqueness, so pick a distinct name for each image.
 
+## Use a gallery picture as a background
+
+A picture labelled as a background shows up in every chat the character (or persona) is in, ready to pick, and can stand for a place such as their bedroom.
+
+1. Open the **Gallery** tab and select **Images**.
+2. Click the tag button in the picture's top-left corner and choose **Use as background**.
+3. Type the places it shows, separated by commas, such as `{{char}}'s bedroom, {{char}}'s room`, or leave it empty. In a persona's gallery, use `{{user}}`.
+
+The button then reads **Background:** with the places. Click it to **Edit places** or **Remove background tag**. How these pictures show in chats is in [Backgrounds that follow a character](../roleplay/backgrounds.md#backgrounds-that-follow-a-character).
+
+Pictures painted in a chat can be moved here from the chat's Gallery with the person button. See [The Chat Gallery](../chats/chat-gallery.md#per-image-actions).
+
+Exporting as **Marinara Native** keeps every label (emoji, sticker and background) with the gallery.
+
 ## Reuse a gallery image in messages and greetings
 
 Any image in a character's Gallery can show inside chat text: a greeting, an example message or a message the character sends. Hover a gallery image and click **Copy image reference** (the link icon). It copies a piece of Markdown to paste wherever the character speaks:
@@ -101,4 +115,5 @@ The **Videos** sub-tab lists scene videos generated in chats with this character
 - [Creating and Editing Characters](creating-and-editing-characters.md)
 - [Personas](personas.md)
 - [Custom Emojis, Stickers, and GIFs](../conversation/emoji-stickers-gifs.md)
-- [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md)
+- [Backgrounds That Follow the Story](../roleplay/backgrounds.md)
+- [The Chat Gallery](../chats/chat-gallery.md)

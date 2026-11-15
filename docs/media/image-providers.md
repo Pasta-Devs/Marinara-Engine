@@ -12,7 +12,7 @@ An API key is a secret code a service gives you so Marinara can use your account
 4. Click **Connect**. Marinara tests the account.
 5. Under **Found in … — use it for:**, tick **Images**. If the service has no model list, type the model ID in the row. Click **Done**.
 6. Open the image model and click **Test image**. Marinara makes a small test picture.
-7. Ticking **Images** in step 5 also sets the **Images** job in the **Jobs** box at the top of the **Connections** panel. To change it later, click the **Images** row.
+7. Ticking **Images** in step 5 also sets the **Images** job in the **Defaults** box at the top of the **Connections** panel. To change it later, click the **Images** row.
 
 To add another image model to an account, click **⋯** on the account's row and choose **Add model**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) for the full window.
 
@@ -229,6 +229,6 @@ Keep it on for services that reject two requests at once. Turn it off only if yo
 - [ComfyUI Workflow Setup](comfyui.md)
 - [Illustrator Agent](illustrator-agent.md)
 - [Image Style Profiles](style-profiles.md)
-- [Scene Backgrounds and the Gallery](scene-backgrounds.md)
+- [Backgrounds Made by Illustrator](scene-backgrounds.md)
 - [Selfies](../conversation/selfies.md)
 - [Supported AI Providers](../connections/providers-reference.md)

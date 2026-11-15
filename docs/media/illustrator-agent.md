@@ -16,7 +16,7 @@ The Illustrator writes the prompt, but a separate image model draws the picture.
 
 Give it an image model one of two ways.
 
-1. Set the **Images** job in the **Jobs** box in the **Connections** panel.
+1. Set the **Images** job in the **Defaults** box in the **Connections** panel.
 2. Or give the Illustrator its own image model on its **Open Setup** screen.
 
 If no image model can be found, the picture fails and the app asks you to choose one.
@@ -111,6 +111,16 @@ A clip with no picture of its own describes everyone it names, including your pe
 
 Re-running Illustrator from a message's **Illustrate** button follows **Illustrator makes** and **First frame** too.
 
+## Backgrounds and weather
+
+Illustrator also paints backgrounds. On the Illustrator card in **Chat Settings → Agents**:
+
+- **Generate Scene Backgrounds** paints a background when the story reaches a new place, unless you already have a picture for it.
+- **Weather Versions of Backgrounds** repaints the current background in the story's weather, with the moving rain or snow drawn only on the room's windows.
+- **Decision Model Checks** has a Decision model check every reply for a new place or new weather, so backgrounds don't wait for the run interval.
+
+All three are off by default. See [Backgrounds Made by Illustrator](scene-backgrounds.md).
+
 ## Multiple characters on NovelAI
 
 When the Illustrator's image model is NovelAI on a V4, V4.5 or V5 model, the prompt writer adds one caption per visible character. Each caption has that character's appearance, expression, pose and rough position in the frame. Marinara checks the captions against the scene's character list, drops any it cannot match, and sends the rest to NovelAI as native character prompts next to the main prompt. This keeps hair, clothes and other traits from mixing between characters. Images from **Illustrate** and from a character's `[illustrate]` command get the same captions.
@@ -129,7 +139,7 @@ In **Settings → Media → Image Generation**, **Automatically save generated i
 
 For new NovelAI illustrations, the image inspector shows the scene and style prompt followed by the positive character captions, separated by ` | `. The saved gallery prompt is the same.
 
-To draw an illustration again with a changed prompt, without regenerating the reply, open it and use **Regenerate image**. See [Regenerating an image](scene-backgrounds.md#regenerating-an-image).
+To draw an illustration again with a changed prompt, without regenerating the reply, open it and use **Regenerate image**. See [Regenerating an image](../chats/chat-gallery.md#regenerating-an-image).
 
 To illustrate an earlier Roleplay message or range, use `/illustrate range=12` or `/illustrate range=12-18`. See [Slash Commands](../chats/slash-commands.md).
 
@@ -137,6 +147,7 @@ To illustrate an earlier Roleplay message or range, use `/illustrate range=12` o
 
 - [Image Generation Providers and Setup](image-providers.md)
 - [Image Style Profiles](style-profiles.md)
-- [Scene Backgrounds and the Gallery](scene-backgrounds.md)
+- [Backgrounds Made by Illustrator](scene-backgrounds.md)
+- [The Chat Gallery](../chats/chat-gallery.md)
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)

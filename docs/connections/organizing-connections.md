@@ -4,7 +4,7 @@ This guide covers keeping your accounts and models tidy on the **Connections** p
 
 ## The account list
 
-Below the **Defaults** box, the page lists your accounts in a table with **Models**, **Status** and **Balance** columns. **On this device** holds the [Built-in model](local-model.md). Click an account to show its saved models under it, and again to fold them away. A model row shows its name and badges such as the job it does (**Main**, **Agents**, **Images**), **Custom settings**, its price, or **Plan** for models included in a subscription.
+Below the **Defaults** box, the page lists your accounts in a table with **Models**, **Status** and **Balance** columns. **On this device** holds the [Built-in model](local-model.md). Click an account to show its saved models under it, and again to fold them away. A model row shows its name and badges such as the job it does (**Main**, **Agents**, **Images**), **Custom settings**, its price, or **Plan** for models included in a subscription. A local or self-hosted account can also list **Default**, which reads "Whatever model the server has loaded" and has no star. See [Use whatever model the server has loaded](local-self-hosted.md#use-whatever-model-the-server-has-loaded).
 
 Above the table:
 

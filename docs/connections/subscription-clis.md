@@ -66,6 +66,8 @@ Use **Diagnose model routing** when you asked for a large model such as Opus but
 
 This service uses your ChatGPT account through the Codex CLI. Marinara reads the local Codex login file and refreshes the session when it can.
 
+Unlike the Claude and Grok subscriptions, a ChatGPT login supports tool calls, so Professor Mari, custom tools and Game Mode's dice and tools work on it.
+
 To set how long Codex thinks before it answers, open **Edit model**, turn on **Use custom defaults for this model**, and pick a **Reasoning Effort**. It starts at **Default**, which keeps Codex's own level for the model. A chat can pick its own level in **Advanced Parameters**. The level in a preset does not change it. A Codex model used as a fallback follows only its own level, and agents on the model use the model's level. The levels you see match the ones available for the model you chose.
 
 ## Grok CLI (Subscription)

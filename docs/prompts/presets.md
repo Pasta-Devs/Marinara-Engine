@@ -82,6 +82,7 @@ Two read-only cards show the **Sections** and **Groups** counts.
 - **Conversation Mode** is a text box for this preset's Conversation prompt. Leave it empty to use the built-in prompt.
 - **Roleplay Mode** is not editable here. Roleplay uses the prompt assembled from your **Sections**.
 - **Game Mode** is a text box for this preset's Game prompt. Leave it empty to use the built-in prompt.
+- **Game story settings** sets a story style, violence and content boundaries for Game Mode. Turn on **Bring story settings to games that use this preset**: picking the preset for a game then sets its style and violence and adds these boundaries to the game's own. See [Content and story style](../game/getting-started.md#content-and-story-style).
 
 The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
 
@@ -178,7 +179,7 @@ Below the dropdown, a badge shows where the prompt comes from.
 
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
-Game chats add two controls. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
+Game chats add more controls. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett." **Rating guidelines**, **Story style**, **Violence** and **Content boundaries** are the game's content settings; see [Content and story style](../game/getting-started.md#content-and-story-style).
 
 ## Decision blocks and prompt caching
 
