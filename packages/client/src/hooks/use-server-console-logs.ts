@@ -10,6 +10,7 @@ import { ApiError, api } from "../lib/api-client";
 import { toConsoleLine, type ConsoleRow, type ServerLogReply } from "../lib/server-console";
 
 const POLL_INTERVAL_MS = 2_000;
+const FORBIDDEN_RETRY_MS = 30_000;
 const MAX_ROWS = 1_500;
 
 export function useServerConsoleLogs(active: boolean) {
@@ -70,9 +71,9 @@ export function useServerConsoleLogs(active: boolean) {
         inFlight = false;
         if (cancelled) return;
         setError(caught);
-        // No access: asking again every two seconds only fills the server's rate limit.
-        if (caught instanceof ApiError && caught.status === 403) return;
-        schedule(POLL_INTERVAL_MS);
+        // No access: ask again slowly, so saving the admin secret recovers without filling the rate limit.
+        const forbidden = caught instanceof ApiError && caught.status === 403;
+        schedule(forbidden ? FORBIDDEN_RETRY_MS : POLL_INTERVAL_MS);
       }
     };
 

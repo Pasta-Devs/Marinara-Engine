@@ -116,15 +116,22 @@ export function ServerConsoleWindow() {
     return () => window.removeEventListener(ANDROID_BRIDGE_READY_EVENT, refreshBridge);
   }, []);
 
-  const visibleRows = useMemo(
-    () =>
-      rows.filter(
-        (row: ConsoleRow) =>
-          row.kind === "gap" ||
-          (enabledLevels.has(row.filter) && (deferredSearch === "" || row.searchText.includes(deferredSearch))),
-      ),
-    [rows, enabledLevels, deferredSearch],
-  );
+  // A gap marker stays only when a visible line follows it, so a filter that hides every line shows the empty notice.
+  const visibleRows = useMemo(() => {
+    const kept: ConsoleRow[] = [];
+    let lineAfter = false;
+    for (let index = rows.length - 1; index >= 0; index--) {
+      const row = rows[index]!;
+      if (row.kind === "gap") {
+        if (lineAfter) kept.push(row);
+        lineAfter = false;
+      } else if (enabledLevels.has(row.filter) && (deferredSearch === "" || row.searchText.includes(deferredSearch))) {
+        kept.push(row);
+        lineAfter = true;
+      }
+    }
+    return kept.reverse();
+  }, [rows, enabledLevels, deferredSearch]);
 
   // New lines scroll into view while the reader is at the bottom; scrolling up pauses that until Jump to latest.
   useLayoutEffect(() => {
