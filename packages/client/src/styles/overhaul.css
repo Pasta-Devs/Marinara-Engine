@@ -354,6 +354,15 @@
 :root[data-overhaul] [data-component="ChatSidebar"] .ov-chats-rows {
   padding-inline: 0;
 }
+/* Phones and tablets: chat rows show at once. The staggered fade-in started every row see-through and
+   took up to 0.6 s to bring the first screen in, and on an iPad a slow frame could hold the list blank
+   (Nov 15: a 404-chat Roleplay list showed no rows yet). */
+@media (hover: none) {
+  :root[data-overhaul] [data-component="ChatSidebar"] .ov-chats-rows.stagger-children > * {
+    animation: none;
+    opacity: 1;
+  }
+}
 
 /* ─── Library pane (right) ─── */
 .ov-libnav {
