@@ -445,6 +445,26 @@ function clearSidecarAsMain() {
   if (sidecarModelService.getConfig().useAsMainDefault) sidecarModelService.updateConfig({ useAsMainDefault: false });
 }
 
+/**
+ * What the Connection's own catalog says about a decision Model's model (#9310): whether it is a decision model
+ * (NanoGPT lists those with the `decisions` output) and its context, which caps the chat sent to it.
+ */
+function decisionCatalogFacts(
+  account: { provider: string; modelCatalogs?: unknown },
+  model: string | null | undefined,
+): { decisionModel?: true; context?: number } {
+  const id = model?.trim();
+  if (!id) return {};
+  const entry = readAccountCatalogs(account)[account.provider]?.models.find((candidate) => candidate.id === id);
+  if (!entry) return {};
+  const outputs = Array.isArray(entry.outputModalities) ? entry.outputModalities : [];
+  const context = typeof entry.context === "number" && Number.isFinite(entry.context) ? entry.context : undefined;
+  return {
+    ...(outputs.some((output) => String(output).toLowerCase() === "decisions") ? { decisionModel: true as const } : {}),
+    ...(context ? { context } : {}),
+  };
+}
+
 export function createConnectionsStorage(db: DB) {
   /** Decrypt for use, and keep the throttle and shared-account budget registries in sync with the row. */
   const withKey = async <
@@ -463,7 +483,15 @@ export function createConnectionsStorage(db: DB) {
     // A decision Model speaks the protocol of its Connection's vendor (resolveDecisionConnection).
     if (row.provider !== "decision" || !row.accountId) return keyed;
     const account = await getConnectionAccount(db, row.accountId);
-    return { ...keyed, account: account ? { provider: account.provider, baseUrl: account.baseUrl } : null };
+    if (!account) return { ...keyed, account: null };
+    return {
+      ...keyed,
+      account: {
+        provider: account.provider,
+        baseUrl: account.baseUrl,
+        ...decisionCatalogFacts(account, (row as { model?: string | null }).model),
+      },
+    };
   };
 
   return {

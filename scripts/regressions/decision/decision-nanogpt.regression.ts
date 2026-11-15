@@ -126,6 +126,39 @@ try {
     type: "noul",
     instructions: "The door is open.",
   });
+  // A row any picker made (source openai_compatible) still goes to the Decisions API when the account's catalog
+  // lists the model as a decision model, and its context caps the chat sent (Clef takes 1,800 tokens in all).
+  const fromCatalog = await resolveDecisionConnection(
+    row({
+      decisionSource: "openai_compatible",
+      model: "cloudflare/clef",
+      account: { provider: "nanogpt", baseUrl: `${origin}/api/v1`, decisionModel: true, context: 1800 },
+    }),
+    noLinks,
+  );
+  assert.equal(fromCatalog.connection?.protocol, "system_one");
+  assert.equal(fromCatalog.connection?.endpoint, `${origin}/api/v1/decisions`);
+  assert.equal(fromCatalog.connection?.maxStateTokens, 1350);
+  // A user-set budget wins; a large context leaves the 30,000 default.
+  assert.equal(
+    (
+      await resolveDecisionConnection(
+        row({ maxStateTokens: 900, account: { provider: "nanogpt", baseUrl: origin, context: 1800 } }),
+        noLinks,
+      )
+    ).connection?.maxStateTokens,
+    900,
+  );
+  assert.equal(
+    (
+      await resolveDecisionConnection(
+        row({ account: { provider: "nanogpt", baseUrl: origin, context: 64000 } }),
+        noLinks,
+      )
+    ).connection?.maxStateTokens,
+    30000,
+  );
+
   console.log("decision-nanogpt: ok");
 } finally {
   await new Promise<void>((resolve) => server.close(() => resolve()));

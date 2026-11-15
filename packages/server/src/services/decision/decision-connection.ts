@@ -23,8 +23,11 @@ export interface DecisionConnectionRow {
   decisionTimeoutMs?: number | null;
   /** The Model's settings JSON; only its Custom Request Headers apply to a decision request. */
   defaultParameters?: string | null;
-  /** The Connection it belongs to, filled in by the storage for decision rows with an account. */
-  account?: { provider: string; baseUrl: string } | null;
+  /**
+   * The Connection it belongs to, filled in by the storage for decision rows with an account, with what that
+   * Connection's catalog says about the model: a decision model (NanoGPT's `decisions` output) and its context.
+   */
+  account?: { provider: string; baseUrl: string; decisionModel?: boolean; context?: number } | null;
 }
 
 export interface DecisionConnection {
@@ -73,6 +76,14 @@ function customHeadersOf(defaultParameters: string | null | undefined): Record<s
   }
 }
 
+/**
+ * The default chat budget, capped below a model's own context when its catalog gives one: Clef takes 1,800
+ * tokens in all, and a request past a model's context gives no answer. A quarter is left for the questions.
+ */
+function catalogStateBudget(fallback: number, context: number | undefined): number {
+  return context && context > 0 ? Math.min(fallback, Math.max(1, Math.floor(context * 0.75))) : fallback;
+}
+
 /** Always resolve keys on use, so key rotation and import quarantine apply immediately. */
 export async function resolveDecisionConnection(
   row: DecisionConnectionRow,
@@ -87,7 +98,9 @@ export async function resolveDecisionConnection(
   if (vendor && vendor !== "custom" && !row.apiKey.trim()) return { connection: null, error: "missing_key" };
   // NanoGPT's decision models answer only at its Decisions API and reject chat requests (#9310).
   // A NanoGPT chat model picked for decisions keeps the log-probability path.
-  const nanoDecisions = vendor === "nanogpt" && row.decisionSource === "nanogpt";
+  // Its catalog entry says so too, so a row any picker made for a NanoGPT decision model is asked right.
+  const nanoDecisions =
+    vendor === "nanogpt" && (row.decisionSource === "nanogpt" || row.account?.decisionModel === true);
   const source = nanoDecisions ? "nanogpt" : vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
   if (!Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
     return { connection: null, error: "invalid_source" };
@@ -164,7 +177,7 @@ export async function resolveDecisionConnection(
           1,
           typeof row.maxStateTokens === "number" && Number.isFinite(row.maxStateTokens)
             ? Math.floor(row.maxStateTokens)
-            : defaultDecisionStateTokens(source),
+            : catalogStateBudget(defaultDecisionStateTokens(source), nanoDecisions ? row.account?.context : undefined),
         ),
       ),
       timeoutMs: resolveDecisionConnectionTimeoutMs(row.decisionTimeoutMs, source),
