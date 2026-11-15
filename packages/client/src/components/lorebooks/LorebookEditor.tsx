@@ -2279,7 +2279,7 @@ export function LorebookEditor() {
             mode="cover"
             title={localizeUi("lorebook.editor.image.generateTitle")}
             entityName={formName}
-            defaultAppearance={formDescription.trim().slice(0, 400)}
+            // No prefill: a lorebook's description is prose about its world, not a picture prompt.
             defaultAvatarUrl={lorebook.imagePath}
             onClose={() => setImageGeneratorOpen(false)}
             onUseAvatar={handleGeneratedImage}
