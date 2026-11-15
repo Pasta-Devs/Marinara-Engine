@@ -12,6 +12,8 @@ Marinara Engine não fala diretamente com o dispositivo. Ele envia comandos para
 
 Sem o Intiface Central aberto e com o servidor iniciado, Marinara não consegue enviar estímulos de toque. Você também precisa ter o agente **Haptic Feedback** instalado. Veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 
+> **Dica:** Ainda não tem um brinquedo? Sem problemas, você pode conseguir um agora com desconto na [Lovense](https://www.lovense.com/r/dupchb)!
+
 ## Adicione o agente Haptic Feedback
 
 1. Abra um chat de Conversation, Roleplay ou Game.

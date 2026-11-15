@@ -12,6 +12,8 @@ Marinara Engineがデバイスと直接やり取りすることはありませ�
 
 Intiface Centralが起動していて、そのサーバーも起動していなければ、Marinaraはタッチの合図を送れません。**Haptic Feedback**エージェントのインストールも必要です。[エージェント: チャットを支えるAIヘルパー](../agents/agents-overview.md)を参照してください。
 
+> **Tip:** まだおもちゃがなくても大丈夫です。[Lovense](https://www.lovense.com/r/dupchb)なら、今すぐ割引価格で手に入ります。
+
 ## Haptic Feedbackエージェントを追加する
 
 1. Conversation、Roleplay、Gameのいずれかのチャットを開きます。

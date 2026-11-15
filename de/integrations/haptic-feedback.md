@@ -12,6 +12,8 @@ Marinara Engine spricht das Gerät nicht direkt an. Es schickt Befehle an die ko
 
 Läuft Intiface Central nicht mit gestartetem Server, kann Marinara keine Berührungsimpulse schicken. Außerdem muss der Agent **Haptic Feedback** installiert sein. Siehe [Agenten im Überblick](../agents/agents-overview.md).
 
+> **Tipp:** Noch kein Spielzeug? Kein Problem, bei [Lovense](https://www.lovense.com/r/dupchb) bekommst du jetzt eins mit Rabatt!
+
 ## Den Haptic-Feedback-Agenten hinzufügen
 
 1. Öffne einen Conversation-, Roleplay- oder Game-Chat.

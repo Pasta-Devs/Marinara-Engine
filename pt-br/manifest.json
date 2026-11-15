@@ -599,8 +599,8 @@
     },
     {
       "path": "integrations/haptic-feedback.md",
-      "sha256": "2629dd059d96b48809a781ec35936350ec97fd4e679bbd80de334fbc2e05fc30",
-      "bytes": 7790
+      "sha256": "e953711b3c1f775704f4bbeeec4a746e0b3d074e306c1dedba22962a9943e266",
+      "bytes": 7938
     },
     {
       "path": "integrations/home-assistant.md",
