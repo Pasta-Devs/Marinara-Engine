@@ -56,7 +56,7 @@ Solo un proceso de servidor escribe en un directorio de almacenamiento a la vez.
 
 La prueba exige primero la misma máquina: un id de host coincidente, el directorio personal privado de la app de Termux o, cuando un lado no tiene id de host, un almacenamiento al que solo esta máquina puede acceder. En Linux y Android, eso es un sistema de archivos local. En Windows es una unidad `Fixed` (no una ruta de red, extraíble ni UNC), y la concesión debe venir de un escritor nativo de Windows con el nombre de esta computadora. Una concesión en la misma máquina se recupera cuando pertenece a un arranque anterior (en Windows, horas de arranque con hasta 5 minutos de diferencia cuentan como el mismo arranque), cuando su socket de actividad ya no responde (Docker y Termux), o cuando su PID ha terminado o (salvo en la prueba de unidad de Windows) ahora pertenece a un proceso más reciente. El almacenamiento compartido o de red sigue bloqueado, y el error nombra la concesión que hay que eliminar a mano una vez detenidos todos los procesos.
 
-`scripts/regressions/storage-writer-lock.regression.ts` cubre las pruebas.
+`scripts/regressions/server/storage-writer-lock.regression.ts` cubre las pruebas.
 
 ## Transacciones
 

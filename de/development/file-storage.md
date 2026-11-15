@@ -56,7 +56,7 @@ Nur ein Serverprozess schreibt zur selben Zeit in ein Speicherverzeichnis. Beim 
 
 Der Nachweis setzt zuerst dieselbe Maschine voraus: eine übereinstimmende Host-ID, das app-private Home-Verzeichnis von Termux oder, wenn eine Seite keine Host-ID hat, Speicher, den nur diese Maschine erreichen kann. Unter Linux und Android ist das ein lokales Dateisystem. Unter Windows ist es ein Laufwerk vom Typ `Fixed` (kein Netzwerk-, Wechsel- oder UNC-Pfad), und die Lease muss von einem nativen Windows-Schreiber mit dem Namen dieses Computers stammen. Eine Lease auf derselben Maschine wird zurückgeholt, wenn sie zu einem früheren Boot gehört (unter Windows zählen Bootzeiten, die bis zu 5 Minuten auseinanderliegen, als derselbe Boot), wenn ihr Liveness-Socket nicht mehr antwortet (Docker und Termux) oder wenn ihre PID beendet ist oder (außer beim Windows-Laufwerksnachweis) inzwischen zu einem neueren Prozess gehört. Gemeinsam genutzter Speicher und Netzwerkspeicher bleiben gesperrt, und die Fehlermeldung nennt die Lease, die du von Hand entfernst, sobald alle Prozesse gestoppt sind.
 
-`scripts/regressions/storage-writer-lock.regression.ts` deckt diese Nachweise ab.
+`scripts/regressions/server/storage-writer-lock.regression.ts` deckt diese Nachweise ab.
 
 ## Transaktionen
 

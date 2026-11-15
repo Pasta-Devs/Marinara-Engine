@@ -339,8 +339,8 @@
     },
     {
       "path": "development/file-storage.md",
-      "sha256": "29d8d9badfdba653d4915cda394e288ab0cf00abff37a36da6774024cbc042ee",
-      "bytes": 8812
+      "sha256": "c25fa5ac0f191dba31f4f82cf70368408e50b5173f51389203de07ddc2b03472",
+      "bytes": 8819
     },
     {
       "path": "development/frontend.md",

@@ -56,7 +56,7 @@ Tylko jeden proces serwera naraz zapisuje do katalogu przechowywania. Przy starc
 
 Dowód wymaga najpierw tej samej maszyny: zgodnego identyfikatora hosta, prywatnego katalogu domowego środowiska Termux albo, gdy jedna ze stron nie ma identyfikatora hosta, pamięci masowej dostępnej tylko z tej maszyny. W systemach Linux i Android jest to lokalny system plików. W systemie Windows jest to dysk typu `Fixed` (a nie ścieżka sieciowa, wymienna ani UNC), a dzierżawa musi pochodzić od natywnego procesu zapisującego systemu Windows z nazwą tego komputera. Dzierżawa na tej samej maszynie jest odzyskiwana, gdy należy do wcześniejszego rozruchu (w systemie Windows czasy rozruchu różniące się najwyżej o 5 minut liczą się jako ten sam rozruch), gdy jej gniazdo sprawdzania aktywności przestało odpowiadać (Docker i Termux) albo gdy jej PID zakończył działanie lub (poza dowodem dla dysku Windows) należy teraz do nowszego procesu. Współdzielona lub sieciowa pamięć masowa pozostaje zablokowana, a błąd wskazuje dzierżawę do ręcznego usunięcia po zatrzymaniu wszystkich procesów.
 
-Dowody obejmuje `scripts/regressions/storage-writer-lock.regression.ts`.
+Dowody obejmuje `scripts/regressions/server/storage-writer-lock.regression.ts`.
 
 ## Transakcje
 
