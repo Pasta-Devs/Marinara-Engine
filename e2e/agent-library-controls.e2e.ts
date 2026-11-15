@@ -178,7 +178,7 @@ for (const theme of ["dark", "light"] as const) {
     page,
   }, info) => {
     const { panel } = await openAgents(page, { theme });
-    await panel.getByRole("button", { name: "New", exact: true }).click();
+    await panel.getByRole("button", { name: "Create agent", exact: true }).click();
     const description = page.getByPlaceholder("What does this agent do…", { exact: true });
     await description.fill("My unchanged draft 🎭");
     await page.screenshot({ path: info.outputPath("new-agent-notice.png") });

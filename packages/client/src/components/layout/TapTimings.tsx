@@ -7,6 +7,7 @@
 // tablet where browser dev tools aren't at hand (iPad, Nov 14). This device only.
 // ──────────────────────────────────────────────
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 const STORAGE_KEY = "marinara-tap-timings";
 const CHANGE_EVENT = "marinara:tap-timings-change";
@@ -16,6 +17,13 @@ const SLOW_FRAME_MS = 50;
 const QUIET_MS = 700;
 const MAX_WINDOW_MS = 8000;
 const ROWS = 6;
+
+const RETIRED = Symbol("tapTimingsRetired");
+const UNDERLYING = Symbol("tapTimingsUnderlying");
+type CountedFetch = typeof window.fetch & {
+  [RETIRED]?: () => boolean;
+  [UNDERLYING]?: typeof window.fetch;
+};
 
 function readEnabled() {
   try {
@@ -73,7 +81,8 @@ function labelFor(target: EventTarget | null) {
   const text =
     source.getAttribute("aria-label") ||
     source.getAttribute("title") ||
-    (source.innerText || source.textContent || "").replace(/\s+/g, " ").trim() ||
+    // textContent, not innerText: innerText forces a layout inside the window being measured.
+    (source.textContent || "").replace(/\s+/g, " ").trim() ||
     source.tagName.toLowerCase();
   return text.length > 26 ? `${text.slice(0, 25)}…` : text;
 }
@@ -86,6 +95,7 @@ function apiRequestsSince(start: number) {
 }
 
 export function TapTimings() {
+  const { t: localizeUi } = useUiTranslation();
   const enabled = useTapTimingsEnabled();
   const [rows, setRows] = useState<TapRow[]>([]);
 
@@ -95,13 +105,21 @@ export function TapTimings() {
     let stopCurrent: (() => void) | null = null;
     // Counts the app's own requests in flight, so a slow server keeps the tap's timing open.
     let pendingFetches = 0;
-    const originalFetch = window.fetch;
-    const countedFetch: typeof window.fetch = (...args) => {
+    // A wrapper from an earlier toggle can come back onto window.fetch when another module (the mesh avatar
+    // loader) restores what it saved, so start from the fetch underneath it instead of stacking layers.
+    const current = window.fetch as CountedFetch;
+    const originalFetch: typeof window.fetch = current[RETIRED]?.() ? (current[UNDERLYING] ?? current) : current;
+    let retired = false;
+    const countedFetch = ((...args: Parameters<typeof window.fetch>) => {
+      // After the toggle is off, a copy left on window.fetch is a plain pass-through.
+      if (retired) return originalFetch(...args);
       pendingFetches += 1;
       return originalFetch(...args).finally(() => {
         pendingFetches -= 1;
       });
-    };
+    }) as CountedFetch;
+    countedFetch[RETIRED] = () => retired;
+    countedFetch[UNDERLYING] = originalFetch;
     window.fetch = countedFetch;
     try {
       performance.setResourceTimingBufferSize?.(2000);
@@ -180,6 +198,7 @@ export function TapTimings() {
     window.addEventListener("pointerup", listener, { capture: true, passive: true });
     return () => {
       window.removeEventListener("pointerup", listener, { capture: true });
+      retired = true;
       if (window.fetch === countedFetch) window.fetch = originalFetch;
       stopCurrent?.();
     };
@@ -192,9 +211,10 @@ export function TapTimings() {
       data-component="TapTimings"
       style={{
         position: "fixed",
-        left: "max(0.5rem, env(safe-area-inset-left))",
-        bottom: "calc(env(safe-area-inset-bottom) + 4.5rem)",
-        zIndex: 2147483000,
+        left: "max(0.5rem, var(--mari-safe-area-inset-left))",
+        bottom: "calc(var(--mari-safe-area-inset-bottom, env(safe-area-inset-bottom)) + 4.5rem)",
+        // Over every app overlay, but not over the omnibar or Mari (it never takes taps either way).
+        zIndex: "calc(var(--mari-layer-omnibar) - 1)",
         pointerEvents: "none",
         maxWidth: "min(22rem, calc(100vw - 1rem))",
         padding: "0.375rem 0.5rem",
@@ -206,13 +226,19 @@ export function TapTimings() {
         whiteSpace: "nowrap",
       }}
     >
-      <div style={{ opacity: 0.7 }}>tap → shown · smooth · longest frame · server</div>
-      {rows.length === 0 ? <div style={{ opacity: 0.7 }}>Tap something…</div> : null}
+      <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapShownSmoothLongestFrameServer")}</div>
+      {rows.length === 0 ? <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapSomething")}</div> : null}
       {rows.map((row) => (
         <div key={row.id} style={{ overflow: "hidden", textOverflow: "clip", opacity: row.finished ? 1 : 0.7 }}>
           <span style={{ color: "#9fd8ff" }}>{row.label}</span> {Math.round(row.first)} ·{" "}
           <b style={{ color: row.done > 400 ? "#ffb4a2" : "#b8f2c4" }}>{Math.round(row.done)}</b> ·{" "}
-          {Math.round(row.longest)} · {row.requests ? `${row.requests}× ${Math.round(row.serverDone)}` : "–"}
+          {Math.round(row.longest)} ·{" "}
+          {row.requests
+            ? localizeUi("ui.layout.taptimings.value1Value2", {
+                value1: row.requests,
+                value2: Math.round(row.serverDone),
+              })
+            : "–"}
           {row.finished ? "" : " …"}
         </div>
       ))}

@@ -63,7 +63,10 @@ function readString(value: unknown): string {
 }
 
 /** Pins from chat metadata, cleaned: unknown shapes dropped, names trimmed and capped. */
-export function normalizeLocationBackgroundPins(value: unknown): LocationBackgroundPin[] {
+export function normalizeLocationBackgroundPins(
+  value: unknown,
+  limit: number = LOCATION_BACKGROUND_PIN_LIMIT,
+): LocationBackgroundPin[] {
   if (!Array.isArray(value)) return [];
   const pins: LocationBackgroundPin[] = [];
   const seen = new Set<string>();
@@ -79,7 +82,7 @@ export function normalizeLocationBackgroundPins(value: unknown): LocationBackgro
     const background = readString(record.background).slice(0, 512);
     seen.add(id);
     pins.push({ id, names: names.slice(0, LOCATION_BACKGROUND_NAME_LIMIT), placeId, background });
-    if (pins.length >= LOCATION_BACKGROUND_PIN_LIMIT) break;
+    if (pins.length >= limit) break;
   }
   return pins;
 }
@@ -228,7 +231,8 @@ export function resolveLocationBackgroundPin(
   context: LocationBackgroundContext,
 ): LocationBackgroundMatch | null {
   const pins = Array.isArray(pinsInput)
-    ? normalizeLocationBackgroundPins(pinsInput).filter((pin) => pin.background)
+    ? // The chat's own pins are capped where they are stored; gallery pins added after them all count.
+      normalizeLocationBackgroundPins(pinsInput, Number.POSITIVE_INFINITY).filter((pin) => pin.background)
     : [];
   if (pins.length === 0) return null;
 

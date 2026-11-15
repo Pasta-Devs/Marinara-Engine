@@ -1806,9 +1806,9 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     sectionId: "support-diagnostics",
     labelKey: "settings.controls.tapTimings.label",
     label: "Show tap timings",
-    description: "Show how long each tap takes on this device, to find what feels slow.",
+    description: "Show how long each tap or click takes on this device, to find what feels slow.",
     descriptionKey: "settings.search.tapTimings.description",
-    aliases: ["slow", "lag", "speed", "performance", "timing"],
+    aliases: ["slow", "lag", "speed", "performance", "timing", "click", "frame"],
     kind: "Toggle",
   },
   {

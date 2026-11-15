@@ -1578,6 +1578,11 @@ export interface RulesetPoolRoll extends RulesetCheckRoll {
   hunger?: number;
   messy?: boolean;
   bestial?: boolean;
+  /** Dice groups (1.826), in the order their dice lie in `rolls`: each one's dice, and its 1s where
+   *  the group counts them. */
+  groups?: { label: string; dice: number; banes?: number }[];
+  /** How many dice a push (1.826) threw again; set, 0 included, on every pushed roll. */
+  pushed?: number;
 }
 
 /** The hard ceiling on how many dice ONE check may throw again, whatever a ruleset asks for. An
@@ -1587,6 +1592,17 @@ export const RULESET_POOL_MAX_REROLLS = 100;
 
 function clampInteger(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/** A group's label as a record writes it (`:`, `|` and brackets become spaces), read without case. */
+function sameGroupLabel(one: string, other: string): boolean {
+  const plain = (text: string) =>
+    text
+      .replace(/[:|[\]"']/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  return plain(one) === plain(other);
 }
 
 /** Roll a `dice-pool` check: throw the sheet's own number of dice and count the ones that reach
@@ -1621,6 +1637,13 @@ export function rollDicePoolCheck(
     double?: number;
     /** `hunger=` (1.824): special dice among the pool, held to the ruleset's `hunger.max`. */
     hunger?: number;
+    /** The ability's own dice inside `modifier`, and `gear=` dice added to it (1.826), read where the
+     *  ruleset tells its dice apart by group. */
+    ability?: number;
+    gear?: number;
+    /** The earlier roll a push (1.826) starts from: its faces as recorded, and its groups where it had
+     *  them. Used only where the ruleset lets a roll be pushed and the roll fits its pool. */
+    pushOf?: { rolls: readonly number[]; threshold?: number; groups?: readonly { label: string; dice: number }[] };
     /** What a purchase bought for this one check, already validated and paid for by the caller:
      *  dice thrown on top of the pool, successes added after the dice are counted, a per-die target
      *  for this one roll, and a re-throw of the low faces. The roller never decides whether a spend
@@ -1658,10 +1681,16 @@ export function rollDicePoolCheck(
     : fromSheet === undefined
       ? input.threshold
       : undefined;
+  // A push (1.826) counts against the target the earlier roll was counted against, whatever it was.
+  const pushTarget =
+    resolution.push && Number.isFinite(input.pushOf?.threshold)
+      ? clampInteger(input.pushOf!.threshold!, 1, die.sides)
+      : undefined;
   const threshold =
-    target.min < target.max && Number.isFinite(asked)
+    pushTarget ??
+    (target.min < target.max && Number.isFinite(asked)
       ? clampInteger(asked!, target.min, target.max)
-      : (fromSheet ?? target.default);
+      : (fromSheet ?? target.default));
   const bonusDice =
     situationalDice && Number.isFinite(input.bonusDice)
       ? clampInteger(input.bonusDice!, situationalDice.min, situationalDice.max)
@@ -1680,13 +1709,54 @@ export function rollDicePoolCheck(
   // Bought dice go in with the sheet's own and the situational ones, so the pool's declared range
   // is the one ceiling: buying dice can never throw more than the ruleset allows a pool to be.
   const boughtDice = Math.max(0, Math.floor(input.bought?.dice ?? 0));
-  const count = clampInteger(
-    (Number.isFinite(input.modifier) ? input.modifier : 0) + bonusDice + boughtDice,
-    pool.min,
-    pool.max,
-  );
-  const rolls: number[] = [];
-  for (let i = 0; i < count; i++) rolls.push(rollDie(die.sides));
+  // Gear dice (1.826) join the pool where a group holds them, inside the same ceiling.
+  const groups = resolution.groups;
+  const gearAsked =
+    groups?.some((group) => group.from === "gear") && Number.isFinite(input.gear)
+      ? Math.max(0, Math.round(input.gear!))
+      : 0;
+  // A push (1.826) starts from an earlier roll, taken only when it is a roll this pool could have
+  // made: its dice within the pool, and its groups the ruleset's own, in order.
+  const earlier = input.pushOf;
+  const pushing =
+    !!resolution.push &&
+    !!earlier &&
+    earlier.rolls.length >= 1 &&
+    earlier.rolls.length <= pool.max &&
+    earlier.rolls.every((face) => Number.isInteger(face) && face >= 1 && face <= die.sides) &&
+    (groups
+      ? earlier.groups?.length === groups.length &&
+        earlier.groups.every((group, at) => sameGroupLabel(group.label, groups[at]!.label) && group.dice >= 0) &&
+        earlier.groups.reduce((sum, group) => sum + group.dice, 0) === earlier.rolls.length
+      : true);
+  const count = pushing
+    ? earlier!.rolls.length
+    : clampInteger(
+        (Number.isFinite(input.modifier) ? input.modifier : 0) + bonusDice + boughtDice + gearAsked,
+        pool.min,
+        pool.max,
+      );
+  const rolls: number[] = pushing ? earlier!.rolls.slice() : [];
+  for (let i = rolls.length; i < count; i++) rolls.push(rollDie(die.sides));
+  // Each group's share: the gear dice asked for, then the ability's, and the skill's group takes
+  // whatever is left, so a penalty comes off the skill's dice first. A push keeps the earlier roll's.
+  const gearDice = Math.min(gearAsked, count);
+  const abilityDice = groups ? clampInteger(input.ability ?? 0, 0, count - gearDice) : 0;
+  const groupSizes = !groups
+    ? undefined
+    : pushing
+      ? earlier!.groups!.map((group) => group.dice)
+      : groups.map((group) =>
+          group.from === "ability" ? abilityDice : group.from === "gear" ? gearDice : count - abilityDice - gearDice,
+        );
+  const groupOf = (index: number) => {
+    let end = 0;
+    for (let at = 0; at < (groupSizes?.length ?? 0); at++) {
+      end += groupSizes![at]!;
+      if (index < end) return groups![at];
+    }
+    return undefined;
+  };
   // Special dice (1.824) are the first of the pool, never more than it has.
   const hunger =
     resolution.hunger && Number.isFinite(input.hunger)
@@ -1699,7 +1769,8 @@ export function rollDicePoolCheck(
   // an Engine ceiling on the whole pool so a ruleset whose `upTo` is near the top face cannot roll
   // for the rest of the turn.
   let rerolled = 0;
-  const reroll = input.bought?.reroll;
+  // A push throws no bought re-throw of its own: that belonged to the roll it starts from.
+  const reroll = pushing ? undefined : input.bought?.reroll;
   if (reroll && reroll.upTo >= 1 && reroll.upTo < die.sides) {
     // Special dice are never thrown again (1.824), so the re-throw starts after them.
     for (let i = hunger; i < rolls.length && rerolled < RULESET_POOL_MAX_REROLLS; i++) {
@@ -1711,6 +1782,17 @@ export function rollDicePoolCheck(
         rolls[i] = rollDie(die.sides);
         rerolled += 1;
       }
+    }
+  }
+
+  // The push itself (1.826): every die that did not succeed is thrown again, once, except a 1 its
+  // group counts (every 1 where the pool has no groups).
+  let pushed = 0;
+  if (pushing) {
+    for (let i = 0; i < rolls.length; i++) {
+      if (rolls[i]! >= threshold || (rolls[i] === 1 && (groupOf(i)?.banes ?? true))) continue;
+      rolls[i] = rollDie(die.sides);
+      pushed += 1;
     }
   }
 
@@ -1792,6 +1874,17 @@ export function rollDicePoolCheck(
     complication,
     ...(stance ? { compare: stance } : {}),
     ...(resolution.exact ? { exact } : {}),
+    ...(groups && groupSizes
+      ? {
+          groups: groups.map((group, at) => {
+            const start = groupSizes.slice(0, at).reduce((sum, size) => sum + size, 0);
+            const dice = groupSizes[at]!;
+            const ones = rolls.slice(start, start + dice).filter((face) => face === 1).length;
+            return { label: group.label, dice, ...(group.banes ? { banes: ones } : {}) };
+          }),
+        }
+      : {}),
+    ...(pushing ? { pushed } : {}),
   };
   // Bands, where the ruleset declares them, read from the net successes; a botch is the worst band and
   // a pair (1.824) the best.

@@ -64,6 +64,8 @@ export function characterMatchesSearch(character: CharacterDisplayInfo | null | 
   if (!query) return true;
   return [
     ...getCharacterLookupAliases(character),
+    // Light list rows (useCharacterListRows) carry the catalog summary instead of the description.
+    character?.summary ?? "",
     character?.description ?? "",
     character?.creator ?? "",
     ...(character?.tags ?? []),

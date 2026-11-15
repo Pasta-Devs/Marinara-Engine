@@ -5,6 +5,7 @@ import {
   type MigrateLibraryFolderInput,
 } from "@marinara-engine/shared";
 import { regexKeys } from "./use-regex-scripts";
+import { toolKeys } from "./use-custom-tools";
 import { api } from "../lib/api-client";
 import { libraryFolderKeys } from "../lib/library-folder-keys";
 
@@ -148,6 +149,9 @@ export function useUpdateLibraryFolder(scope: LibraryFolderScope) {
         scope === "regex" &&
           (input.paused !== undefined || input.itemIds !== undefined) &&
           qc.invalidateQueries({ queryKey: regexKeys.all }),
+        scope === "functions" &&
+          (input.paused !== undefined || input.itemIds !== undefined) &&
+          qc.invalidateQueries({ queryKey: toolKeys.all }),
       ]),
   });
 }
@@ -162,6 +166,7 @@ export function useDeleteLibraryFolder(scope: LibraryFolderScope) {
       Promise.all([
         qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
         scope === "regex" && qc.invalidateQueries({ queryKey: regexKeys.all }),
+        scope === "functions" && qc.invalidateQueries({ queryKey: toolKeys.all }),
       ]),
   });
 }
@@ -186,6 +191,7 @@ export function useMoveLibraryItem(scope: LibraryFolderScope) {
       Promise.all([
         qc.invalidateQueries({ queryKey: libraryFolderKeys.list(scope) }),
         scope === "regex" && qc.invalidateQueries({ queryKey: regexKeys.all }),
+        scope === "functions" && qc.invalidateQueries({ queryKey: toolKeys.all }),
       ]),
   });
 }

@@ -434,8 +434,16 @@ for (const isNewGame of [true, false]) {
     );
     await page.route("**/api/connections", (route) => route.fulfill({ json: wizardConnections }));
     // The Party step's CharacterSelect (#8763) names the party from the library, not the `characters` prop.
-    await page.route("**/api/characters", (route) =>
-      route.fulfill({ json: [{ id: "party-fixture", data: { name: "Companion fixture" } }] }),
+    // The character list answers in pages (#9114).
+    await page.route("**/api/characters?*", (route) =>
+      route.fulfill({
+        json: {
+          items: [{ id: "party-fixture", data: { name: "Companion fixture" } }],
+          limit: 100,
+          offset: 0,
+          hasMore: false,
+        },
+      }),
     );
     await page.route("**/api/lorebooks", (route) => route.fulfill({ json: books }));
     await page.route("**/api/lorebooks/keeper-book/entries", (route) => route.fulfill({ json: [] }));

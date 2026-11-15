@@ -31,7 +31,7 @@ A local or self-hosted server can answer with the model it has loaded, so its ac
 - Use **Default** like any other model: give it a job such as **Main** in the **Jobs** box, or pick it in **Model for this chat**.
 - Click **Default** in the panel to give it its own settings, such as its parameters and prompt preset, as you would for a named model.
 
-**Default** shows only for a server on your computer or your network. A cloud service always needs a model name.
+**Default** shows for a server on your computer or your network, and for the Grok CLI, which has its own default (see [Subscription CLIs](subscription-clis.md)). A hosted API service needs a model name.
 
 ## Addresses of common local servers
 

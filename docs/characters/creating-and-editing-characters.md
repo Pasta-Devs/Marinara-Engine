@@ -23,17 +23,19 @@ Pick the character when you start a chat. See [Roleplay Mode: Getting Started](.
 
 ## The Character Editor at a glance
 
-The Character Editor replaces the chat area with a full-page workspace. On a wide screen the tabs run down the left side. On a narrow screen they become a scrollable strip across the top. The tabs, in order, are **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** and **Advanced**. Each tab jumps to its section of one long form, so you can also scroll.
+The Character Editor replaces the chat area with a full-page workspace. On a wide screen the tabs are a row of buttons across the header. At some middle widths the buttons show only their icons; point at one to see its name. On a narrow screen they fold into a menu under the name. The tabs, in order, are **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images**, **Colors**, **Voice**, **Stats** and **Advanced**. Each tab jumps to its section of one long form, so you can also scroll.
 
 The header holds the parts you use most:
 
 - The **Back** arrow, the avatar tile, a name field, and a title or comment field for a short label such as `Modern AU version`. A line below shows the creator and version.
 - **Save**. It is off until you change something. While it works, it reads **Uploading…** (an avatar is uploading), **Embedding…** (a lorebook is being added to the card) or **Saving…**.
 - The **Favorite** star.
-- **Export character**. See [Importing and Exporting Character Cards](import-export.md).
-- **Import character as persona**, which copies this card into a new persona. See [Personas](personas.md).
-- **Duplicate character**.
-- **Delete character**.
+- The **…** (**More actions**) menu, which holds:
+  - **Ask Professor Mari**, which asks Professor Mari about this card.
+  - **Export character**. See [Importing and Exporting Character Cards](import-export.md).
+  - **Import character as persona**, which copies this card into a new persona. See [Personas](personas.md).
+  - **Duplicate character**.
+  - **Delete character**.
 
 Leaving the editor saves your changes first. If saving fails, the editor stays open with your draft so you can try again.
 
@@ -44,11 +46,22 @@ Tabs that have their own guide:
 | **Onboarding** | [Interactive Onboarding](interactive-onboarding.md) |
 | **Convo** | [Conversation Mode Profiles](../conversation/profiles.md) |
 | **Lorebook** | [Linking Lorebooks to Characters](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Character Sprites](sprites.md) |
-| **Gallery** | [Character and Persona Galleries](galleries.md) |
+| **Images** | [Character Sprites](sprites.md) and [Character and Persona Galleries](galleries.md). See [Images tab](#images-tab) below. |
 | **Colors** and **Stats** | [Character Colors and Roleplay Stats](colors-and-stats.md) |
 
-The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
+The sections below cover **Metadata**, **Card**, **Images**, **Voice** and **Advanced**, plus avatars and version history.
+
+
+## Images tab
+
+The **Images** tab gathers how a character looks in pictures. Its buttons at the top jump to each part:
+
+- **Character Sheet**: a reference image of the character. Click **Manage** to create, upload or pick one, and turn on **Use as reference image** to prefer it over the avatar when generating images. See [Character Sheet](sprites.md#character-sheet).
+- **Selfie instructions**: optional directions for this character's Conversation selfies, such as camera style or expressions. Noodle and Slurp can use them too when you turn that on in their settings. See [Selfies](../conversation/selfies.md).
+- **Sprites**: expressions, full-body sprites and call clips. See [Character Sprites](sprites.md).
+- **Gallery**: images and videos kept with the character. See [Character and Persona Galleries](galleries.md).
+
+A persona's **Images** tab has the same parts except **Selfie instructions**.
 
 ## Metadata tab
 

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // ContextMenu — small portal-rendered right-click menu
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -31,6 +31,8 @@ interface ContextMenuProps {
   destructiveTone?: "destructive" | "accent";
   /** Opened from the keyboard: focus the first item, and return focus when the menu closes. */
   autoFocus?: boolean;
+  /** "end" puts the menu's right edge at x, so a button near the right edge opens it leftward. */
+  align?: "start" | "end";
 }
 
 // The button under the last left press, so a menu knows which button opened it.
@@ -61,6 +63,7 @@ export function ContextMenu({
   onClose,
   destructiveTone = "destructive",
   autoFocus = false,
+  align = "start",
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const opener = useRef(lastPressedButton);
@@ -68,19 +71,20 @@ export function ContextMenu({
   // On a touch phone the menu is an action sheet: rows a thumb can hit, no hunting near the finger.
   const [sheet] = useState(() => window.matchMedia("(max-width: 639px) and (pointer: coarse)").matches);
 
-  // Flip / clamp the menu so it always stays inside the viewport.
-  useEffect(() => {
+  // Flip / clamp the menu so it always stays inside the viewport. A layout effect, so it never paints at the
+  // unadjusted spot first.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    let left = x;
+    let left = align === "end" ? x - rect.width : x;
     let top = y;
     if (left + rect.width > window.innerWidth - 4) left = window.innerWidth - rect.width - 4;
     if (top + rect.height > window.innerHeight - 4) top = window.innerHeight - rect.height - 4;
     if (left < 4) left = 4;
     if (top < 4) top = 4;
     setPos({ left, top });
-  }, [x, y]);
+  }, [x, y, align]);
 
   // Keyboard users land inside the menu, and return to where they were when it closes.
   useEffect(() => {

@@ -256,7 +256,7 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
       body: await page.screenshot(),
       contentType: "image/png",
     });
-    await add.getByRole("button", { name: "Add", exact: true }).click();
+    await add.getByRole("button", { name: "Add agent", exact: true }).click();
     await expect(add).toBeHidden();
     await expect.poll(async () => (await readSettings()).runInterval).toBe(0);
 
@@ -294,7 +294,7 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     await expect(add).toBeVisible();
     await expect(addInterval).toHaveValue("7");
     await addInterval.fill("2");
-    await add.getByRole("button", { name: "Add", exact: true }).click();
+    await add.getByRole("button", { name: "Add agent", exact: true }).click();
     await expect(add).toBeHidden();
     await expect.poll(async () => (await readChatMetadata()).illustratorRunInterval).toBe(2);
     expect((await readSettings()).runInterval).toBe(0);

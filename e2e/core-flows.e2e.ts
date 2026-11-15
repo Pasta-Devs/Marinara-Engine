@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
+import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
@@ -293,6 +294,16 @@ async function openEditorSection(editor: Locator, label: string) {
     return;
   }
   await navigation.getByRole("button", { name: label, exact: true }).click();
+}
+
+/** Sheet, Sprites and Gallery live in the Images tab since #9191: open it, then jump to the sub-section. */
+async function openImagesSubsection(editor: Locator, label: "Character Sheet" | "Sprites" | "Gallery") {
+  await openEditorSection(editor, "Images");
+  await editor
+    .locator('[data-editor-section="images"]')
+    .getByRole("navigation")
+    .getByRole("button", { name: label, exact: true })
+    .click();
 }
 
 async function bestEffortDelete(request: APIRequestContext, url: string) {
@@ -928,12 +939,15 @@ test("default dialogue color fills only cards without their own dialogue color",
     await dialogueColorControl.getByRole("button", { name: /Scheme default/ }).click();
     const dialogueColorInput = dialogueColorControl.getByLabel("Default Dialogue Color hex or CSS color");
     await dialogueColorInput.fill("red");
-    const namedColorSliders = dialogueColorControl
-      .getByLabel("Pick Default Dialogue Color color")
-      .locator('input[type="range"]');
-    await expect(namedColorSliders.nth(0)).toHaveValue("0");
-    await expect(namedColorSliders.nth(1)).toHaveValue("100");
-    await expect(namedColorSliders.nth(2)).toHaveValue("50");
+    // The picker works in hue, saturation and brightness: a typed colour name moves it to that colour.
+    const namedColorPicker = dialogueColorControl.getByRole("group", { name: "Pick Default Dialogue Color color" });
+    await expect(namedColorPicker.getByRole("slider", { name: "Hue", exact: true })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    await expect(
+      namedColorPicker.getByRole("slider", { name: "Saturation and brightness", exact: true }),
+    ).toHaveAttribute("aria-valuetext", "100% saturation, 100% brightness");
     await dialogueColorInput.fill("#d946ef");
 
     await expect(uncoloredDialogue).toHaveCSS("color", "rgb(217, 70, 239)");
@@ -956,16 +970,17 @@ test("default dialogue color fills only cards without their own dialogue color",
     const firstGradientStop = chatTextColorControl.locator("input:not([type])").first();
     await firstGradientStop.fill("red 20%");
     await firstGradientStop.fill("blue 35%");
-    const positionedStopSliders = chatTextColorControl
-      .locator('div[aria-label="Edit color stop 1"]')
-      .locator('input[type="range"]');
-    await expect(positionedStopSliders.nth(0)).toHaveValue("240");
-    await expect(positionedStopSliders.nth(1)).toHaveValue("100");
-    await expect(positionedStopSliders.nth(2)).toHaveValue("50");
-    await positionedStopSliders.nth(2).fill("0");
-    await positionedStopSliders.nth(2).fill("50");
+    const firstStopPicker = chatTextColorControl.getByRole("group", { name: "Edit color stop 1" });
+    const stopHue = firstStopPicker.getByRole("slider", { name: "Hue", exact: true });
+    const stopShade = firstStopPicker.getByRole("slider", { name: "Saturation and brightness", exact: true });
+    await expect(stopHue).toHaveAttribute("aria-valuenow", "240");
+    await expect(stopShade).toHaveAttribute("aria-valuetext", "100% saturation, 100% brightness");
+    // Through black and back, the stop keeps its hue and its position (Shift+arrow moves 10 at a time).
+    for (let step = 0; step < 10; step++) await stopShade.press("Shift+ArrowDown");
+    for (let step = 0; step < 10; step++) await stopShade.press("Shift+ArrowUp");
     await expect(firstGradientStop).toHaveValue("#0000ff 35%");
-    await positionedStopSliders.nth(0).fill("120");
+    for (let step = 0; step < 12; step++) await stopHue.press("Shift+ArrowLeft");
+    await expect(stopHue).toHaveAttribute("aria-valuenow", "120");
     await expect(firstGradientStop).toHaveValue("#00ff00 35%");
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
@@ -1184,9 +1199,15 @@ test("Chat Settings adds a formatted greeting after the setup wizard is skipped"
 
     const drawer = page.locator(".mari-chat-settings-drawer");
     await expect(drawer).toBeVisible();
-    const settingsProfileSelect = drawer.getByLabel("Profile", { exact: true });
-    await expect(settingsProfileSelect).toHaveAttribute("title", "Apply a settings profile to this chat");
-    await expect(settingsProfileSelect.locator("option:checked")).toHaveText("Custom settings profile");
+    // #9244: the profile field opens the shared picker window instead of a native select.
+    const settingsProfileField = drawer.getByRole("button", { name: "Profile", exact: true });
+    await expect(settingsProfileField).toHaveAttribute("title", "Apply a settings profile to this chat");
+    await expect(settingsProfileField).toHaveText("Custom settings profile");
+    await settingsProfileField.click();
+    const profilePicker = page.getByRole("dialog", { name: "Profile", exact: true });
+    await expect(profilePicker.locator("[data-pick-row]", { hasText: "Default" })).toBeVisible();
+    await settingsProfileField.click();
+    await expect(profilePicker).toBeHidden();
     // #8555 added the profile builder's Edit and New buttons: Edit carries the same "Cannot save" title for the
     // Default profile, and New (from this chat's settings) replaced the save-as-new icon.
     await expect(
@@ -1926,7 +1947,7 @@ test("Author's Notes resolves the shared prompt macro engine and preset variable
   }
 });
 
-test("message deletion uses unified chroma controls and selection states", async ({ page }, testInfo) => {
+test("message deletion follows the sheet rules and tints the delete selection", async ({ page }, testInfo) => {
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Message Delete Chroma Smoke", mode: "roleplay", characterIds: [] },
   });
@@ -1981,19 +2002,23 @@ test("message deletion uses unified chroma controls and selection states", async
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("Choose what you want to remove from this message.")).toBeVisible();
 
-    const dialogActions = dialog.locator('[data-component="MessageDeleteActions"] > button');
-    await expect(dialogActions).toHaveCount(3);
-    await expect(dialog.getByRole("button", { name: "Delete this message" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Delete more" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
+    // Sheet rules: the choices sit in one group with Delete message in the danger colour, and Cancel apart below.
+    const deleteActions = dialog.locator('[data-component="MessageDeleteActions"]');
+    const choices = deleteActions.locator(":scope > div > button");
+    await expect(choices).toHaveCount(2);
+    const deleteMessage = dialog.getByRole("button", { name: "Delete message", exact: true });
+    const selectMore = dialog.getByRole("button", { name: "Select more messages…", exact: true });
+    await expect(deleteMessage).toBeVisible();
+    await expect(selectMore).toBeVisible();
+    await expect(deleteActions.locator(":scope > button")).toHaveText("Cancel");
 
     // Compare idle theme colors, not pointer hover or WebKit's retained transition serialization.
     await page.mouse.move(0, 0);
-    await dialogActions.evaluateAll((buttons) => {
+    await choices.evaluateAll((buttons) => {
       for (const button of buttons) (button as HTMLElement).style.transition = "none";
     });
 
-    const readChromeStyles = (locator: typeof dialogActions) =>
+    const readChromeStyles = (locator: typeof choices) =>
       locator.evaluateAll((buttons) =>
         buttons.map((button) => {
           const style = getComputedStyle(button);
@@ -2005,49 +2030,42 @@ test("message deletion uses unified chroma controls and selection states", async
           };
         }),
       );
-    const tealStyles = await readChromeStyles(dialogActions);
-    expect(new Set(tealStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
-    expect(new Set(tealStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
-    expect(new Set(tealStyles.map(({ color }) => color)).size).toBe(1);
-    for (const { className } of tealStyles) {
-      expect(className).not.toMatch(/destructive|pink|red|rose/iu);
-    }
+    const destructiveColor = await readCssVariableColor(page, "--destructive");
+    const [deleteMessageStyle] = await readChromeStyles(deleteMessage);
+    const [selectMoreStyle] = await readChromeStyles(selectMore);
+    // Both rows share the sheet row surface; only Delete message is in the danger colour.
+    expect(selectMoreStyle?.backgroundColor).toBe(deleteMessageStyle?.backgroundColor);
+    expect(selectMoreStyle?.borderColor).toBe(deleteMessageStyle?.borderColor);
+    expect(deleteMessageStyle?.color).toBe(destructiveColor);
+    expect(selectMoreStyle?.color).not.toBe(destructiveColor);
 
+    // The danger colour does not follow the accent.
     await setAppAccentColor(page, "#3b82f6");
-    await expect.poll(async () => (await readChromeStyles(dialogActions))[0]?.color).not.toBe(tealStyles[0]?.color);
-    const blueStyles = await readChromeStyles(dialogActions);
-    expect(new Set(blueStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
-    expect(new Set(blueStyles.map(({ borderColor }) => borderColor)).size).toBe(1);
-    expect(new Set(blueStyles.map(({ color }) => color)).size).toBe(1);
+    expect((await readChromeStyles(deleteMessage))[0]?.color).toBe(destructiveColor);
 
     await testInfo.attach(`message-delete-dialog-${testInfo.project.name}.png`, {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
 
-    await dialog.getByRole("button", { name: "Delete more" }).click();
+    await selectMore.click();
     const selectionBar = page.locator('[data-component="MessageMultiSelectBar"]');
     await expect(selectionBar).toBeVisible();
     await expect(selectionBar).toContainText(/\d+ selected/);
 
     const deleteSelected = selectionBar.getByRole("button", { name: "Delete selected" });
     const cancelSelection = selectionBar.getByRole("button", { name: "Cancel" });
-    const selectionActions = selectionBar.locator("button").filter({ hasText: /Delete selected|Cancel/ });
     await expect(deleteSelected).toBeEnabled();
     await expect(cancelSelection).toBeVisible();
-    const selectionActionStyles = await readChromeStyles(selectionActions);
-    expect(selectionActionStyles).toHaveLength(2);
-    expect(selectionActionStyles[0]).toEqual(selectionActionStyles[1]);
+    // Picking messages to delete tints the bar's Delete and the selection in the danger colour, or in the steady
+    // accent while Accent Pulse animates it; Cancel keeps the chat chrome.
+    await expect(deleteSelected).toHaveClass(/mari-chrome-control--danger/u);
+    await expect(cancelSelection).not.toHaveClass(/mari-chrome-control--danger/u);
+    const pulse = (await page.locator("html").getAttribute("data-marinara-accent-animation")) !== null;
 
     const selectedCheckbox = messageRow.getByRole("checkbox", { name: "Deselect message" });
     await expect(selectedCheckbox).toBeVisible();
-    await expect(selectedCheckbox).toHaveCSS("background-color", "rgb(59, 130, 246)");
-    const selectionClassNames = await page
-      .locator('[aria-checked="true"], [data-component="MessageMultiSelectBar"]')
-      .evaluateAll((elements) => elements.map((element) => element.className));
-    for (const className of selectionClassNames) {
-      expect(className).not.toMatch(/destructive|pink|red|rose/iu);
-    }
+    await expect(selectedCheckbox).toHaveCSS("background-color", pulse ? "rgb(59, 130, 246)" : destructiveColor);
 
     await testInfo.attach(`message-delete-${testInfo.project.name}.png`, {
       body: await page.screenshot({ fullPage: true }),
@@ -2067,20 +2085,17 @@ test("message deletion uses unified chroma controls and selection states", async
     await assistantRow.getByRole("button", { name: "Delete" }).click();
     await expect(dialog).toBeVisible();
 
-    const assistantDialogActions = dialog.locator('[data-component="MessageDeleteActions"] > button');
-    await expect(assistantDialogActions).toHaveCount(5);
-    const deleteSwipe = dialog.getByRole("button", { name: "Delete only this swipe (2/2)" });
-    const deleteOtherSwipes = dialog.getByRole("button", { name: "Delete all other swipes" });
+    await expect(choices).toHaveCount(4);
+    const deleteSwipe = dialog.getByRole("button", { name: "Delete this swipe only (2 of 2)", exact: true });
+    const deleteOtherSwipes = dialog.getByRole("button", { name: "Delete other swipes", exact: true });
     await expect(deleteSwipe).toBeVisible();
     await expect(deleteOtherSwipes).toBeVisible();
-    const swipeStyles = await readChromeStyles(deleteSwipe);
-    const otherSwipeStyles = await readChromeStyles(deleteOtherSwipes);
-    const deleteMessageStyles = await readChromeStyles(dialog.getByRole("button", { name: "Delete this message" }));
-    expect(swipeStyles).toHaveLength(1);
-    expect(swipeStyles[0]).toEqual(deleteMessageStyles[0]);
-    expect(otherSwipeStyles).toEqual(deleteMessageStyles);
-    expect(swipeStyles[0]?.color).not.toBe(tealStyles[0]?.color);
-    expect(swipeStyles[0]?.className).not.toMatch(/destructive|pink|red|rose/iu);
+    // The swipe choices are ordinary rows; only Delete message is in the danger colour.
+    const [swipeStyle] = await readChromeStyles(deleteSwipe);
+    const [otherSwipeStyle] = await readChromeStyles(deleteOtherSwipes);
+    expect(otherSwipeStyle).toEqual(swipeStyle);
+    expect(swipeStyle?.backgroundColor).toBe((await readChromeStyles(deleteMessage))[0]?.backgroundColor);
+    expect(swipeStyle?.color).not.toBe(destructiveColor);
 
     await deleteOtherSwipes.click();
     await expect(dialog).toBeHidden();
@@ -2998,12 +3013,12 @@ test("resource panel sort fields share the canonical width", async ({ page }, te
   expect(lorebookWidth).toBe(personaWidth);
 });
 
-test("destructive confirmation actions use the shared accent button treatment", async ({ page }, testInfo) => {
+test("destructive confirmation actions use the shared danger button treatment", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop confirmation-dialog chrome is covered here.");
 
   await page.goto("/");
+  // Delete buttons keep the Settings danger look whatever the accent is.
   await setAppAccentColor(page, "#14b8a6");
-  const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
   await page.evaluate(() => {
     document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
   });
@@ -3027,9 +3042,8 @@ test("destructive confirmation actions use the shared accent button treatment", 
 
   const confirmDialog = page.getByRole("dialog", { name: "Delete Resource" });
   const confirmDelete = confirmDialog.getByRole("button", { name: "Delete", exact: true });
-  await expect(confirmDelete).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(confirmDelete).toHaveCSS("color", activeAccentColor);
-  expect(await confirmDelete.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+  await expect(confirmDelete).toHaveClass(/mari-chrome-control--danger/u);
+  await expect(confirmDelete).toHaveCSS("color", "rgb(255, 0, 0)");
   await confirmDialog.getByRole("button", { name: "Cancel" }).click();
 
   await page.evaluate(async () => {
@@ -3049,9 +3063,8 @@ test("destructive confirmation actions use the shared accent button treatment", 
 
   const choiceDialog = page.getByRole("dialog", { name: "Delete Resources" });
   const deleteAll = choiceDialog.getByRole("button", { name: "Delete All", exact: true });
-  await expect(deleteAll).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(deleteAll).toHaveCSS("color", activeAccentColor);
-  expect(await deleteAll.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+  await expect(deleteAll).toHaveClass(/mari-chrome-control--danger/u);
+  await expect(deleteAll).toHaveCSS("color", "rgb(255, 0, 0)");
   await choiceDialog.getByRole("button", { name: "Cancel" }).click();
 });
 
@@ -4461,7 +4474,7 @@ test("Character and Persona avatar actions stay separated and visually balanced"
         await expect(desktopTabs).toBeVisible();
         await expect(compactMenuButton).toBeHidden();
         await expect(editor.locator(".mari-editor-tab-rail")).toHaveCount(0);
-        await expect(desktopTabs.getByRole("button")).toHaveCount(panel === "characters" ? 11 : 8);
+        await expect(desktopTabs.getByRole("button")).toHaveCount(panel === "characters" ? 10 : 7);
         const [headerBox, identityBox, navigationBox, firstActionBox, tabBoxes] = await Promise.all([
           header.boundingBox(),
           header.locator(".mari-editor-header-main").boundingBox(),
@@ -4732,10 +4745,10 @@ test("Sprite image selection uses a regular file picker and Engine confirmation"
       useUIStore.getState().openCharacterDetail(id);
     }, character.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Sprites");
     await editor.getByRole("button", { name: "Manage", exact: true }).last().click();
     await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
-    const section = editor.locator('[data-editor-section="sprites"]');
+    const section = editor.locator('[data-editor-subsection="sprites"]');
     await expect(section.locator("input[webkitdirectory]")).toHaveCount(0);
     await expect(section.getByRole("button", { name: "Import folder", exact: true })).toHaveCount(0);
     const confirmation = page.getByRole("dialog", { name: "Import images", exact: true });
@@ -4835,8 +4848,10 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
       useUIStore.getState().setReviewImagePromptsBeforeSend(false);
     }, character.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
-    const create = editor.locator('[data-editor-section="sprites"]').getByRole("button", { name: "Create with AI" });
+    await openImagesSubsection(editor, "Character Sheet");
+    const create = editor
+      .locator('[data-editor-subsection="character-sheet"]')
+      .getByRole("button", { name: "Create with AI" });
     await editor.getByRole("button", { name: "Manage", exact: true }).click();
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet" });
@@ -4945,7 +4960,7 @@ test("Character-sheet generation offers the saved neutral full-body sprite as an
     await savedNeutral.getByRole("img").click();
     await page.getByRole("dialog").last().getByRole("button", { name: "Delete Sprite", exact: true }).click();
     const deletion = page.getByRole("dialog", { name: "Delete Sprite", exact: true });
-    await deletion.getByRole("button", { name: "Delete", exact: true }).click();
+    await deletion.getByRole("button", { name: "Delete sprite", exact: true }).click();
     await expect(deletion).not.toBeVisible();
     await create.click();
     await expect(neutral).toHaveCount(0);
@@ -4998,9 +5013,9 @@ test("Persona sheets accept neutral full-body references and save the result", a
       useUIStore.getState().openPersonaDetail(id);
     }, persona.id);
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Character Sheet");
     const create = editor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true });
     await create.click();
     const dialog = page.getByRole("dialog", { name: "Create Character Sheet", exact: true });
@@ -5052,8 +5067,8 @@ test("Persona sheets accept neutral full-body references and save the result", a
     const savedNeutral = editor.getByAltText("full_neutral", { exact: true }).locator("../..");
     await savedNeutral.hover();
     await savedNeutral.getByRole("button", { name: "Delete", exact: true }).click();
-    const deletion = page.getByRole("dialog", { name: "Delete Sprite", exact: true });
-    await deletion.getByRole("button", { name: "Delete", exact: true }).click();
+    const deletion = page.getByRole("dialog", { name: "Delete sprite", exact: true });
+    await deletion.getByRole("button", { name: "Delete sprite", exact: true }).click();
     await expect(deletion).not.toBeVisible();
     await create.click();
     await expect(neutral).toHaveCount(0);
@@ -5231,7 +5246,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
         .getByRole("navigation", { name: "Editor sections" })
         .getByRole("button", { name: "Character Sheet", exact: true }),
     ).toHaveCount(0);
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Character Sheet");
     await expect(editor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     const sheetThumbnail = editor.getByRole("button", { name: "Open full image", exact: true });
     const sheetPreview = page.getByRole("dialog", { name: "Image preview", exact: true });
@@ -5261,7 +5276,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     const sheetDialog = page.getByRole("dialog", { name: "Create Character Sheet" });
@@ -5270,7 +5285,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(sheetDialog.getByRole("button", { name: "Save as Character Sheet", exact: true })).toBeDisabled();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-    await openEditorSection(editor, "Gallery");
+    await openImagesSubsection(editor, "Gallery");
     await expect(
       editor.getByText(
         "Use the Select button above to enter batch editing mode and apply an action to multiple entries at once.",
@@ -5287,7 +5302,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(editor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await editor.getByRole("button", { name: "Cancel selection", exact: true }).click();
     await editor
-      .locator('[data-editor-section="gallery"]')
+      .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
@@ -5307,17 +5322,17 @@ test("Character and persona sheets persist an explicit reference choice and fall
     const personaEditor = page.locator(".mari-editor-shell");
     await expect(personaEditor).toBeVisible();
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).not.toBeInViewport();
-    await openEditorSection(personaEditor, "Sprites");
+    await openImagesSubsection(personaEditor, "Character Sheet");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
     await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
-      .locator('[data-editor-section="sprites"]')
+      .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
     await sheetDialog.getByRole("button", { name: "Cancel", exact: true }).click();
-    await openEditorSection(personaEditor, "Gallery");
+    await openImagesSubsection(personaEditor, "Gallery");
     await expect(personaEditor.getByRole("button", { name: "Select images", exact: true })).toBeVisible();
     await expect(personaEditor.getByRole("button", { name: "Select All", exact: true })).toBeVisible();
     await personaEditor.getByRole("button", { name: "Select All", exact: true }).click();
@@ -5327,7 +5342,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expect(personaEditor.getByRole("button", { name: "Set as avatar" })).toHaveCount(0);
     await personaEditor.getByRole("button", { name: "Cancel selection", exact: true }).click();
     await personaEditor
-      .locator('[data-editor-section="gallery"]')
+      .locator('[data-editor-subsection="gallery"]')
       .getByRole("button", { name: "Create with AI", exact: true })
       .click();
     await expect(sheetDialog).toBeVisible();
@@ -5527,7 +5542,7 @@ test("Matched full-body sprites approve a neutral anchor before sending each exp
     await rightPanel.locator('[data-touch-drag-card="character"]').filter({ hasText: characterName }).click();
 
     const editor = page.locator(".mari-editor-shell");
-    await openEditorSection(editor, "Sprites");
+    await openImagesSubsection(editor, "Sprites");
     await editor.getByRole("button", { name: "Full-body", exact: true }).click();
     await editor.getByRole("button", { name: "Add sprites", exact: true }).click();
     await editor.getByRole("button", { name: "Generate Sprite", exact: true }).click();
@@ -6610,16 +6625,26 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             });
             expect.soft(offset, `${layout} swipes align with the message row`).toBeLessThan(1);
           }
-          const input = control.getByRole("textbox");
-          await expect(input).toHaveValue("1");
+          // With two or more swipes a Roleplay counter is a button that opens the swipe list (#9176); Conversation
+          // layouts keep the field you type a number into, inside the same `.mari-swipe-input` box. `input` is
+          // whichever shows the number.
+          const NUMBER = ".mari-swipe-input input, button.mari-swipe-input";
+          const input = control.locator(NUMBER);
+          const counter = () =>
+            input.evaluate((element) =>
+              element instanceof HTMLInputElement ? element.value : (element.textContent ?? "").trim(),
+            );
+          await expect.poll(counter).toBe("1");
           // Compare the settled theme color, not WebKit's retained Oklab
           // serialization from the color transition between test themes.
           await input.evaluate((element) => {
             element.style.transition = "none";
           });
-          const metrics = await control.evaluate((element) => {
+          const metrics = await control.evaluate((element, number) => {
             const button = element.querySelector("button")!;
-            const field = element.querySelector("input")!;
+            // The bordered box is `.mari-swipe-input` in both kinds; the number's font is on the field or button.
+            const box = element.querySelector(".mari-swipe-input")!;
+            const field = element.querySelector(number)!;
             const icon = button.querySelector("svg")!;
             const styles = getComputedStyle(element);
             return {
@@ -6630,13 +6655,16 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
               buttonWidth: button.getBoundingClientRect().width,
               buttonHeight: button.getBoundingClientRect().height,
               iconWidth: icon.getBoundingClientRect().width,
-              inputWidth: field.getBoundingClientRect().width,
-              inputHeight: field.getBoundingClientRect().height,
+              inputWidth: box.getBoundingClientRect().width,
+              inputHeight: box.getBoundingClientRect().height,
               inputFontSize: getComputedStyle(field).fontSize,
-              inputRadius: getComputedStyle(field).borderRadius,
+              inputRadius: getComputedStyle(box).borderRadius,
             };
-          });
+          }, NUMBER);
           if (layout === "roleplay") roleplayMetrics = metrics;
+          // Known failure on phones: #9176 kept Conversation's typed counter on purpose, and a phone field gets a
+          // 17px font (so iOS does not zoom) while Roleplay's counter button stays at 10.6px. Left failing so the
+          // difference is decided, not hidden.
           else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
           const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
           await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
@@ -6661,15 +6689,27 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             );
             await action();
             expect(((await (await saved).json()) as { activeSwipeIndex: number }).activeSwipeIndex).toBe(index);
-            await expect(input).toHaveValue(String(index + 1));
+            await expect.poll(counter).toBe(String(index + 1));
+          };
+          // Jump straight to a swipe: Roleplay picks it in the list (the chat's first message lists its swipes as
+          // Greetings), Conversation types its number.
+          const jumpTo = async (index: number) => {
+            if (layout === "roleplay") {
+              await input.click();
+              const list = page.getByRole("listbox", { name: "Greetings", exact: true });
+              await list.getByRole("option").nth(index).click();
+              await expect(list).toBeHidden();
+            } else {
+              const field = control.getByRole("textbox");
+              await field.fill(String(index + 1));
+              await field.press("Enter");
+            }
           };
           await selectSwipe(1, () => control.getByRole("button", { name: "Next swipe", exact: true }).click());
           await selectSwipe(0, () => control.getByRole("button", { name: "Previous swipe", exact: true }).click());
-          await selectSwipe(1, () => input.fill("2"));
-          await input.press("Enter");
+          await selectSwipe(1, () => jumpTo(1));
           await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeEnabled();
-          await selectSwipe(0, () => input.fill("1"));
-          await input.press("Enter");
+          await selectSwipe(0, () => jumpTo(0));
           await expect(control.getByRole("button", { name: "Previous swipe", exact: true })).toBeDisabled();
         }
       }
@@ -6909,7 +6949,12 @@ for (const mode of ["conversation", "roleplay"] as const) {
       });
       expect(alternate.ok()).toBeTruthy();
       await page.reload();
-      await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toBeVisible();
+      // With two swipes a Roleplay counter is a button that opens the swipe list (#9176); Conversation keeps the field.
+      await expect(
+        mode === "roleplay"
+          ? row.getByRole("button", { name: /^Swipe 1 of 2: .*Choose another swipe$/u })
+          : row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true }),
+      ).toBeVisible();
       await expect.poll(async () => (await readSynced())[preference]).toBe(false);
       if (mode === "conversation") {
         await openAppearance();
@@ -9416,8 +9461,8 @@ for (const owner of ["character", "persona"] as const) {
         { owner, id: entity.id },
       );
       const editor = page.locator(".mari-editor-shell");
-      await openEditorSection(editor, "Gallery");
-      const gallery = editor.locator('[data-editor-section="gallery"]');
+      await openImagesSubsection(editor, "Gallery");
+      const gallery = editor.locator('[data-editor-subsection="gallery"]');
       const appUrl = page.url();
       const probe = () =>
         page.evaluate(() => (window as unknown as Window & { __gallerySave: GallerySaveProbe }).__gallerySave);
@@ -9498,11 +9543,18 @@ for (const owner of ["character", "persona"] as const) {
         exact: true,
       });
       const cancelDelete = confirmation.getByRole("button", { name: "Cancel", exact: true });
-      await expect(confirmation.getByRole("button", { name: /^Close Delete /u })).toBeFocused();
+      const confirmDelete = confirmation.getByRole("button", { name: "Delete", exact: true });
+      // Focus moves into the dialog and onto a safe control, never Delete. A phone sheet has no Close beside Cancel.
+      if (ios || android) {
+        await expect.poll(() => confirmation.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+        await expect(confirmDelete).not.toBeFocused();
+      } else {
+        await expect(confirmation.getByRole("button", { name: /^Close Delete /u })).toBeFocused();
+      }
       await cancelDelete.focus();
-      // WebKit on macOS uses Option+Tab to visit every control.
-      await page.keyboard.press(ios ? "Alt+Tab" : "Tab");
-      await expect(confirmation.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
+      // Delete comes first in the footer, just before Cancel. WebKit on macOS uses Option+Tab to visit every control.
+      await page.keyboard.press(ios ? "Alt+Shift+Tab" : "Shift+Tab");
+      await expect(confirmDelete).toBeFocused();
       await cancelDelete.click();
       await expect(confirmation).toHaveCount(0);
       await expect(deleteImage).toBeFocused();
@@ -11628,7 +11680,7 @@ test("Game widget editing and log deletion follow Chroma while weather effects r
     await logsButton.click();
     const logsDialog = page.getByRole("dialog").filter({ hasText: "Session Logs" });
     await expect(logsDialog).toBeVisible();
-    const deleteMessageButton = logsDialog.locator('button[title="Delete message"]').first();
+    const deleteMessageButton = logsDialog.locator('button[title="Delete message?"]').first();
     const logDeleteColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
     await expect(deleteMessageButton).toHaveCSS("color", logDeleteColor);
   } finally {
@@ -13638,29 +13690,25 @@ test("custom Agent character cards are created only after approval", async ({ pa
       useUIStore.getState().openModal("agent-write-approval");
     }, name);
 
-    const beforeResponse = await page.request.get("/api/characters");
-    expect(beforeResponse.ok()).toBeTruthy();
-    const before = (await beforeResponse.json()) as Array<{ data?: unknown }>;
-    expect(
-      before.some((row) => {
+    // The character list answers in pages (#9114), so search it by name.
+    const findCharacter = async () => {
+      const response = await page.request.get(`/api/characters?search=${encodeURIComponent(name)}`);
+      expect(response.ok()).toBeTruthy();
+      const { items } = (await response.json()) as { items: Array<{ id: string; data?: unknown }> };
+      return items.find((row) => {
         const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
         return (data as { name?: unknown } | null)?.name === name;
-      }),
-    ).toBe(false);
+      });
+    };
+    expect(await findCharacter()).toBeUndefined();
 
     const modal = page.getByRole("dialog");
     await expect(modal.getByText("Review Character Card", { exact: true })).toBeVisible();
     expect(await modal.locator("textarea").inputValue()).toContain(name);
-    await modal.getByRole("button", { name: "Accept", exact: true }).click();
+    await modal.getByRole("button", { name: "Apply update", exact: true }).click();
     await expect(modal).toBeHidden();
 
-    const afterResponse = await page.request.get("/api/characters");
-    expect(afterResponse.ok()).toBeTruthy();
-    const after = (await afterResponse.json()) as Array<{ id: string; data?: unknown }>;
-    const created = after.find((row) => {
-      const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
-      return (data as { name?: unknown } | null)?.name === name;
-    });
+    const created = await findCharacter();
     expect(created).toBeTruthy();
     createdId = created?.id ?? null;
   } finally {
@@ -14804,8 +14852,10 @@ test("Downloaded cards use Marinara destination and lorebook choices", async ({ 
   await importDialog.getByRole("button", { name: /Import as Persona/u }).click();
   await expect(importDialog.getByText("Embedded lorebook found", { exact: true })).toBeVisible();
   await expect(importDialog.getByText(/includes 2 lorebook entries/u)).toBeVisible();
-  await expect(importDialog.getByRole("button", { name: "No Import", exact: true })).toBeVisible();
-  await importDialog.getByRole("button", { name: "Import Lorebook", exact: true }).click();
+  // The lorebook choices sit in the window's footer, outside the dialog body.
+  const importWindow = page.getByRole("dialog", { name: "Import Card", exact: true });
+  await expect(importWindow.getByRole("button", { name: "Skip lorebook", exact: true })).toBeVisible();
+  await importWindow.getByRole("button", { name: "Import lorebook", exact: true }).click();
 
   await expect(page.getByText(`Imported "${cardName}" as a persona.`, { exact: true })).toBeVisible();
   expect(importedPersona).toMatchObject({
@@ -16676,7 +16726,7 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
     await drawer.getByRole("button").filter({ hasText: agentName }).click();
     const addDialog = page.getByRole("dialog");
     await expect(addDialog.getByRole("heading", { name: `Add ${agentName}` })).toBeVisible();
-    await addDialog.getByRole("button", { name: "Add", exact: true }).click();
+    await addDialog.getByRole("button", { name: "Add agent", exact: true }).click();
     await expect.poll(readAgentState).toEqual({ enabled: true, active: true });
 
     await page.reload();
@@ -18305,7 +18355,9 @@ test("character editor hands an editable resource context to floating Professor 
     }, character.id);
 
     // Home's own "Ask Professor Mari" stays mounted under the editor (#7312), so ask from the editor itself.
-    await page.locator(".mari-editor-shell").getByRole("button", { name: "Ask Professor Mari" }).click();
+    // The editor's own Ask sits in its "…" menu (#9227).
+    await page.locator(".mari-editor-shell [data-card-editor-more]").click();
+    await page.getByRole("menuitem", { name: "Ask Professor Mari", exact: true }).click();
     const composer = page.getByPlaceholder("Ask Professor Mari");
     // The handoff is a context chip in the composer's context row (floating window removed in 5bb03f918).
     const context = page.locator(".mari-workspace-composer__context");
@@ -24856,7 +24908,12 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByRole("button", { name: /My uploads/ }).click();
 
     const backgroundRowBeforeRename = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
-    await backgroundRowBeforeRename.getByTitle("Rename background").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRowBeforeRename,
+      backgroundRowBeforeRename.getByTitle("Rename background"),
+      "Rename background",
+    );
     const renameInput = backgroundRowBeforeRename.getByRole("textbox", { name: `Rename ${currentFilename}` });
     await renameInput.fill(`rainy-arcade-${suffix}`);
     const [renameResponse] = await Promise.all([
@@ -24904,22 +24961,28 @@ test("Background library organization works with desktop drag and touch drag", a
       await backgroundRow.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "1");
     }
-    await defaultToggle.scrollIntoViewIfNeeded();
-    const starBefore = await defaultToggle.boundingBox();
-    await defaultToggle.click();
-    await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
-    const starAfter = await defaultToggle.boundingBox();
-    expect(Math.abs((starAfter?.x ?? 0) - (starBefore?.x ?? 0))).toBeLessThan(1);
-    expect(Math.abs((starAfter?.y ?? 0) - (starBefore?.y ?? 0))).toBeLessThan(1);
-    if (!testInfo.project.name.includes("mobile")) {
+    if (testInfo.project.name.includes("mobile")) {
+      // Phones set the Roleplay default from the card's menu.
+      await chooseBackgroundCardAction(page, backgroundRow, defaultToggle, "Set as default for new Roleplay chats");
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
+      await chooseBackgroundCardAction(page, backgroundRow, defaultToggle, "Remove as Roleplay default");
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "false");
+    } else {
+      await defaultToggle.scrollIntoViewIfNeeded();
+      const starBefore = await defaultToggle.boundingBox();
+      await defaultToggle.click();
+      await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
+      const starAfter = await defaultToggle.boundingBox();
+      expect(Math.abs((starAfter?.x ?? 0) - (starBefore?.x ?? 0))).toBeLessThan(1);
+      expect(Math.abs((starAfter?.y ?? 0) - (starBefore?.y ?? 0))).toBeLessThan(1);
       await sortSelect.focus();
       await sortSelect.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "0");
       await expect(backgroundRow.locator("[data-background-default-indicator]")).toBeVisible();
       await backgroundRow.hover();
       await expect(backgroundActions).toHaveCSS("opacity", "1");
+      await defaultToggle.click();
     }
-    await defaultToggle.click();
 
     await page.getByRole("button", { name: "New Folder" }).click();
     const newFolderPrompt = page.getByRole("dialog", { name: "New Folder" }).getByRole("textbox");
@@ -25010,9 +25073,14 @@ test("Background library organization works with desktop drag and touch drag", a
       })
       .toBe(folderId);
 
-    // Dragging is pointer-only, so the same move has to be reachable from the card's action row.
+    // Dragging is pointer-only, so the same move has to be reachable from the card's actions (its menu on a phone).
     await page.locator('[data-background-folder-filter-id="all"]').click();
-    await backgroundRow.locator("[data-background-move]").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRow,
+      backgroundRow.locator("[data-background-move]"),
+      "Move to folder",
+    );
     await page.getByRole("dialog").getByRole("button", { name: "Unfiled", exact: true }).click();
     await expect
       .poll(async () => {
@@ -25021,7 +25089,12 @@ test("Background library organization works with desktop drag and touch drag", a
         return backgrounds.find((background) => background.id === backgroundId)?.folderId ?? null;
       })
       .toBeNull();
-    await backgroundRow.locator("[data-background-move]").click();
+    await chooseBackgroundCardAction(
+      page,
+      backgroundRow,
+      backgroundRow.locator("[data-background-move]"),
+      "Move to folder",
+    );
     await page.getByRole("dialog").getByRole("button", { name: createdFolder.name, exact: true }).click();
     await expect
       .poll(async () => {

@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import type { GalleryTagKind, GeneratedSceneVideo, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import type { CustomTagPatch } from "../lib/custom-emoji";
-import { characterKeys } from "./use-characters";
 
 export interface ChatImage {
   id: string;
@@ -231,7 +230,9 @@ export function useAssignGalleryImage(chatId: string) {
     onSuccess: (_result, { target }) => {
       qc.invalidateQueries({
         queryKey:
-          target.type === "character" ? characterKeys.gallery(target.id) : characterKeys.personaGallery(target.id),
+          // Same keys as characterKeys.gallery / personaGallery (use-characters is not imported: it pulls the
+          // whole client into the e2e type check).
+          target.type === "character" ? ["characters", "gallery", target.id] : ["persona-gallery", target.id],
       });
     },
   });

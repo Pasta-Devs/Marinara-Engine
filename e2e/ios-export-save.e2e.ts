@@ -76,7 +76,10 @@ for (const owner of ["character", "persona"] as const) {
         { owner, id },
       );
       const exportNative = async () => {
-        await page.getByTitle(owner === "character" ? "Export character" : "Export persona", { exact: true }).click();
+        await page.locator("[data-card-editor-more]").click();
+        await page
+          .getByRole("menuitem", { name: owner === "character" ? "Export character" : "Export persona", exact: true })
+          .click();
         await page.getByRole("button", { name: /^Marinara Native/u }).click();
       };
       const readyToast = page.locator("[data-sonner-toast]").filter({ hasText: "Your file is ready." });

@@ -175,9 +175,9 @@ You still turn on **Enable Tool Use** in the chat's **Function Calling** section
 
 ## Export and import tools
 
-- To export one tool, open it and click **Export function**. This saves a `.json` file.
-- To export every tool, click **Export functions to ZIP**.
-- To import, click **Import functions from ZIP or JSON** and pick a `.json` or `.zip` file. A message reports how many tools imported.
+- To export one tool, open it and click **Export tool**. This saves a `.json` file.
+- To export every tool, click **Export tools to ZIP**.
+- To import, click **Import tools from ZIP or JSON** and pick a `.json` or `.zip` file. A message reports how many tools imported.
 
 Imported webhook and script tools are always saved turned off, with **Include hidden chat context** off, even if the file asks for either. Marinara then shows the type, the webhook address and the permissions the file asked for. Open each imported tool, inspect it, and turn it on only if you trust it. Static tools keep their imported on/off state.
 

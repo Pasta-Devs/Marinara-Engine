@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { agentKeys } from "./use-agents";
+import { libraryFolderKeys } from "../lib/library-folder-keys";
 
 export interface CustomToolRow {
   id: string;
@@ -17,6 +18,8 @@ export interface CustomToolRow {
   includeHiddenContext: string;
   enabled: string;
   sortOrder: number;
+  /** True when the function sits in a paused library folder. */
+  pausedByFolder?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,11 +30,11 @@ export interface CustomToolCapabilities {
 
 export function isCustomToolSelectable(tool: CustomToolRow, capabilities?: CustomToolCapabilities | null): boolean {
   const enabled = tool.enabled === "true" || tool.enabled === "1";
-  if (!enabled) return false;
+  if (!enabled || tool.pausedByFolder === true) return false;
   return tool.executionType !== "script" || capabilities?.scriptExecutionEnabled === true;
 }
 
-const toolKeys = {
+export const toolKeys = {
   all: ["custom-tools"] as const,
   capabilities: ["custom-tools", "capabilities"] as const,
 };
@@ -81,6 +84,14 @@ export function useReorderCustomTools() {
   });
 }
 
+export function useSetCustomToolsEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { toolIds: string[]; enabled: boolean }) => api.put<void>("/custom-tools/enabled", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: toolKeys.all }),
+  });
+}
+
 export function useDeleteCustomTool() {
   const qc = useQueryClient();
   return useMutation({
@@ -88,6 +99,7 @@ export function useDeleteCustomTool() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: toolKeys.all });
       qc.invalidateQueries({ queryKey: agentKeys.all });
+      qc.invalidateQueries({ queryKey: libraryFolderKeys.list("functions") });
     },
   });
 }

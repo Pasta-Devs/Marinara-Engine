@@ -116,6 +116,14 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
         result.messy ? "; a messy critical" : result.bestial ? "; a bestial failure" : ""
       }.`
     : "";
+  // Dice groups and a push (1.826): each group's dice and counted 1s, and what the push threw again.
+  const groups = result.groups?.length
+    ? ` ${result.groups.map((group) => `${group.label} ${group.dice}${group.banes !== undefined ? ` (${group.banes} showing 1)` : ""}`).join(", ")}.`
+    : "";
+  const pushed =
+    result.pushed !== undefined
+      ? ` Pushed: ${result.pushed} ${result.pushed === 1 ? "die" : "dice"} thrown again.`
+      : "";
   // The plot die (1.822): its face and what the face carried.
   // "blank" only for a face that carried neither a symbol nor a bonus; one that gave a bonus is what it gave.
   const plotFace = result.plotFace
@@ -134,7 +142,7 @@ export function formatSkillCheckResultSummary(result: SkillCheckResult): string 
   const shift = result.shift
     ? ` Moved ${Math.abs(result.shift)} ${Math.abs(result.shift) === 1 ? "band" : "bands"} ${result.shift > 0 ? "better" : "worse"}.`
     : "";
-  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${hunger}${plot}${shift}`;
+  return `${result.skill} check (${needed}): ${arithmetic}. ${getSkillCheckOutcomeLabel(result)}.${complication}${unmodified}${exact}${highest}${dark}${result.darkOutcome === "light" ? " Only light dice decide the outcome." : ""}${duality}${hunger}${groups}${pushed}${plot}${shift}`;
 }
 
 function serializeSkillCheckAttribute(value: string): string {
@@ -200,8 +208,9 @@ export interface SkillCheckTagExtras {
   /** `reroll="rote"` — the standing re-throw the check applied, or the ask for one. */
   reroll?: string;
   /** `reason="untrained"` — the Engine did not roll the check, because the character cannot attempt
-   *  it untrained; `reason="unknown-roller"`, because it picks out no one party member. Only ever on an ask. */
-  reason?: "untrained" | "unknown-roller";
+   *  it untrained; `reason="unknown-roller"`, because it picks out no one party member;
+   *  `reason="not-pushable"` (1.826), because a push found no roll of it to push. Only ever on an ask. */
+  reason?: "untrained" | "unknown-roller" | "not-pushable";
   /** `effects="-1"` — what the character's conditions and worn or carried items added or took. */
   effects?: number;
   /** `from="Poisoned; Leather coat"` — the conditions and items that changed the check. */
@@ -257,6 +266,11 @@ export interface SkillCheckTagExtras {
   hungerLabel?: string;
   messy?: boolean;
   bestial?: boolean;
+  /** `gear="1"` and `push="true"`, the ask (1.826); `groups="Base:3:1|Skill:2"` and `pushed="2"`, the record. */
+  gear?: number;
+  push?: boolean;
+  groups?: { label: string; dice: number; banes?: number }[];
+  pushed?: number;
 }
 
 /** A name in `from=`: no brackets, which would end the tag, and no semicolons, which part the names. */
@@ -354,6 +368,19 @@ function serializeSkillCheckExtras(extras: SkillCheckTagExtras | undefined): str
     if (extras.messy) parts.push(`messy="true"`);
     if (extras.bestial) parts.push(`bestial="true"`);
   }
+  if (extras.gear != null && Number.isInteger(extras.gear) && extras.gear > 0) parts.push(`gear="${extras.gear}"`);
+  if (extras.push) parts.push(`push="true"`);
+  if (extras.groups?.length) {
+    // A label may not hold the separators the reader splits on.
+    const groupLabel = (text: string) => serializeSkillCheckAttribute(text.replace(/[:|[\]]/g, " "));
+    parts.push(
+      `groups="${extras.groups
+        .map((group) => `${groupLabel(group.label)}:${group.dice}${group.banes !== undefined ? `:${group.banes}` : ""}`)
+        .join("|")}"`,
+    );
+  }
+  if (extras.pushed != null && Number.isInteger(extras.pushed) && extras.pushed >= 0)
+    parts.push(`pushed="${extras.pushed}"`);
   if (extras.plot) parts.push(`plot="true"`);
   if (extras.plotFace != null && Number.isInteger(extras.plotFace) && extras.plotFace > 0) {
     parts.push(`plotFace="${extras.plotFace}"`);
@@ -453,6 +480,8 @@ export function serializeResolvedSkillCheckTag(result: SkillCheckResult, extras?
           ...(result.bestial ? { bestial: true } : {}),
         }
       : {}),
+    ...(result.groups?.length ? { groups: result.groups } : {}),
+    ...(result.pushed !== undefined ? { pushed: result.pushed } : {}),
     ...(result.dark
       ? {
           dark: result.dark,

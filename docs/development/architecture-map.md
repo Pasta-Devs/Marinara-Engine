@@ -41,7 +41,7 @@ Current contents:
 - `schemas`: Zod schemas for persisted and shared entities.
 - `constants`: providers, defaults, chat modes, model lists, agent prompts.
 - `utils`: pure helpers such as macro expansion, XML wrapping, and music scoring.
-- `features`: agent manifests and registry, function-call definitions, folder packages, turn-game engines for UNO, Chess, and Poker, Game Mode rulesets and their combat (`rulesets`, `ruleset-combat`, `tactical-combat` and the `combat-*` files), and the world generator with its share files (setting kits, worlds, tile, board and creature packs) in `world`.
+- `features`: agent manifests and registry, function-call definitions, folder packages, the turn-game engine contract and registry (the games themselves come from optional packages), Game Mode rulesets and their combat (`rulesets`, `ruleset-combat`, `tactical-combat` and the `combat-*` files), and the world generator with its share files (setting kits, worlds, tile, board and creature packs) in `world`. The `marinara-*.ts` files (`ai`, `bestiary`, `bestiary-threat`, `classes`, `combat`, `items`, `loot`, `party`) are the pure data and math of Classic Marinara, the Engine's own ruleset.
 
 Rules:
 
@@ -64,12 +64,12 @@ Current top-level shape:
 - `features`: extracted feature modules, currently including chat-settings sections, tracker-panel pieces, multiplayer, and the avatar agents' contract, setup, stage and renderers (`features/avatars`).
 - `hooks`: React Query hooks and runtime hooks for most API features.
 - `lib`: browser and client helpers. This currently mixes common helpers with mode-specific game helpers.
-- `stores`: Zustand stores for UI, chat runtime, agents, game state, game mode, assets, sidecar, translation, gallery, encounters, and the turn games.
+- `stores`: Zustand stores for UI, chat runtime, agents, game state, game mode, assets, sidecar, translation, gallery, encounters, combat and roleplay sheet screens, and the conversation games.
 - `styles`: global stylesheet and theme-specific CSS.
 
 Important current crossovers:
 
-- `components/game` imports `components/chat` for shared visual pieces such as weather and gallery drawers.
+- `components/game` imports `components/chat` for shared visual pieces such as weather effects, the pinned image overlay, and chat toolbar and control windows. The gallery lives in Chat Settings (`features/chat-settings/ChatGalleryPanel.tsx`), and game mode feeds it through `hooks/use-chat-gallery-actions.ts`.
 - `components/chat` imports game-state and encounter state for roleplay features.
 - `hooks/use-generate.ts` touches chat state, agent state, game state, game mode state, translation state, and UI settings.
 - `lib/game-*` helpers are game-only but live beside global helpers.
@@ -90,6 +90,8 @@ Current top-level shape:
 - `services/sidecar`: local runtime, model management, scene analysis, scene postprocessing.
 - `services/agents`: agent execution and knowledge routing.
 - Feature foundations: `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/noodle`, `services/memory-recall`, `services/avatars` (avatar model storage, generation and the emotion classifier for the avatar agents), `speech-to-text.service.ts`, and `discord-webhook.ts`.
+- `bin/mari.ts`: the `mari` command-line tool (the package's only `bin` entry), which talks to a running local server.
+- `assets/`: bundled data the server ships, such as default backgrounds, default game assets, board packs, overworld tiles, Mari skills, the Claude Code plugin, runtime requirement lockfiles, and the personal-extension runner script.
 - `db/schema`: file-table definitions for data stored under `DATA_DIR/storage`.
 - `db/file-schema.ts`, `db/file-query.ts`: native table metadata and query expressions.
 - `db/file-backed-store.ts`: in-memory table store, transaction boundary, crash recovery, and JSON snapshot persistence. See [File-Native Storage (Developers)](file-storage.md).
@@ -277,7 +279,7 @@ The old flat `types`, `schemas`, and `constants` layout is no longer the whole s
 These are good first cleanup passes because they reduce coupling without changing behavior.
 
 1. Split `components/chat` into common, conversation, and roleplay groups.
-   - Common candidates: `ChatCommonOverlays`, `ChatBranchSelector`, `ChatGalleryDrawer`, `WeatherEffects`, and shared message and input primitives.
+   - Common candidates: `ChatCommonOverlays`, `ChatBranchesPanel` and `ChatGalleryPanel` (both now in `features/chat-settings`), `WeatherEffects`, and shared message and input primitives.
    - Conversation candidates: `ChatConversationSurface`, `ConversationView`, `ConversationMessage`, `ConversationInput`.
    - Roleplay candidates: `ChatRoleplaySurface`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`. The roleplay HUD split is partly done in `RoleplayHUDActionsMenu.tsx` and `RoleplayHUDPanels.tsx`.
 2. Move game-only client helpers under a game module.

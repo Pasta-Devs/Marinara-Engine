@@ -15,10 +15,13 @@ export function AgentModeFilter({
   value,
   onChange,
   className,
+  modes,
 }: {
   value: AgentModeFilterValue;
   onChange: (value: AgentModeFilterValue) => void;
   className?: string;
+  /** Limit the pills to these modes (All always shows); the Profiles tab has no Game profiles. */
+  modes?: readonly ChatMode[];
 }) {
   const { t } = useTranslation();
   return (
@@ -27,7 +30,7 @@ export function AgentModeFilter({
       role="group"
       aria-label={t("ui.agents.agentcatalogview.filterByChatMode")}
     >
-      {MODE_FILTERS.map(([mode, labelKey]) => (
+      {MODE_FILTERS.filter(([mode]) => mode === "all" || !modes || modes.includes(mode)).map(([mode, labelKey]) => (
         <button
           key={mode}
           type="button"

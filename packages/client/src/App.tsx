@@ -1098,8 +1098,8 @@ export function App() {
     };
 
     // Whether the steady accent is already on the page. Focus moves on every tap, and re-applying
-    // it then re-resolved the cursor color on a probe, which made Safari restyle the whole page
-    // twice per tab switch (150-225 ms each on the tablet layout, Nov 15).
+    // it then re-resolved the cursor color on a probe element, which made Safari (WebKit) restyle
+    // the whole page twice per tab switch.
     let staticAccentApplied = false;
     const stopAccentAnimation = () => {
       if (accentAnimationTimer !== null) {

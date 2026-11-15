@@ -105,6 +105,7 @@ const LorebookEditor = preloadedLazy(() =>
   import("../lorebooks/LorebookEditor").then((module) => module.LorebookEditor),
 );
 const PresetEditor = preloadedLazy(() => import("../presets/PresetEditor").then((module) => module.PresetEditor));
+const ProfileEditor = preloadedLazy(() => import("../presets/ProfileEditor").then((module) => module.ProfileEditor));
 const ConnectionEditor = preloadedLazy(() =>
   import("../connections/ConnectionEditor").then((module) => module.ConnectionEditor),
 );
@@ -220,6 +221,13 @@ function readVisibleElementRect(element: HTMLElement) {
   return rect;
 }
 
+/** The focused element, looking inside open shadow roots (a field in one leaves its host as document.activeElement). */
+function deepActiveElement(): Element | null {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active;
+}
+
 function getViewportWidth() {
   return typeof window === "undefined" ? 0 : window.innerWidth;
 }
@@ -275,9 +283,11 @@ function MountOnceWhenOpened({
 function SidePanelFallback() {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
-      {localizeUi("ui.characters.characterlibraryview.loading")}
-    </div>
+    <DelayedFallback>
+      <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+        {localizeUi("ui.characters.characterlibraryview.loading")}
+      </div>
+    </DelayedFallback>
   );
 }
 
@@ -404,7 +414,7 @@ export function AppShell({
     let previousLayoutHeight = root.clientHeight || window.innerHeight;
     // Set once focus has left every text field while the keyboard is still up (Search closed, a field
     // blurred): the app takes its full height in one step instead of following the closing keyboard
-    // step by step, which moved the chat behind in 5-8 jumps (QC Nov 14 #4).
+    // step by step, which moved the chat behind in 5-8 jumps.
     let keyboardDismissed = false;
     let dismissTimer = 0;
     const supportsVirtualKeyboard = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
@@ -462,7 +472,7 @@ export function AppShell({
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
         const keyboardReported = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
         // Stays set until the keyboard is fully down, so its last steps do not move the app either.
-        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(document.activeElement)) {
+        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(deepActiveElement())) {
           keyboardDismissed = false;
         }
         const keyboardOpen = keyboardReported && !keyboardDismissed;
@@ -473,7 +483,7 @@ export function AppShell({
         // A focused field keeps the fit: an iPad's hardware-keyboard shortcut bar is shorter than the 80 px above.
         // ponytail: a layout viewport (innerHeight) that iOS reports short as well still leaves the band; nothing on
         // the page measures the screen any better. Upgrade path: size from screen geometry once a device shows it.
-        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(document.activeElement);
+        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(deepActiveElement());
         // Preserve normal pinch magnification, but fit the visible area while
         // the keyboard is open. Closing it restores the layout even while zoomed.
         const height =
@@ -501,9 +511,10 @@ export function AppShell({
     const noteKeyboardDismissal = (event: FocusEvent) => {
       window.clearTimeout(dismissTimer);
       // Focus landing on a button (Search hands focus back to what opened it) still closes the keyboard.
-      if (event.type === "focusin" && isTypingTarget(event.target as Element | null)) return;
+      // A field inside a shadow root retargets the event to its host, so look along the whole path.
+      if (event.type === "focusin" && event.composedPath().some((target) => isTypingTarget(target as Element))) return;
       const dismiss = () => {
-        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(document.activeElement)) return;
+        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(deepActiveElement())) return;
         keyboardDismissed = true;
         updateVisualViewportGeometry();
       };
@@ -853,6 +864,38 @@ export function AppShell({
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
+  // The editors and library views open from the right panel: a moment after it first opens (not during
+  // its own render), fetch their code while idle, so opening one renders at once without "Loading…".
+  useEffect(() => {
+    if (!rightPanelEverOpened) return;
+    const preload = () => {
+      for (const view of [
+        CharacterEditor,
+        CharacterLibraryView,
+        PersonaEditor,
+        LorebookEditor,
+        PresetEditor,
+        ProfileEditor,
+        ConnectionEditor,
+        RegexScriptEditor,
+        AgentEditor,
+        ToolEditor,
+        AgentCatalogView,
+      ]) {
+        view.preload().catch(() => undefined);
+      }
+    };
+    let idleId = 0;
+    const timer = window.setTimeout(() => {
+      if (typeof window.requestIdleCallback === "function")
+        idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
+      else preload();
+    }, 1_000);
+    return () => {
+      window.clearTimeout(timer);
+      if (idleId) window.cancelIdleCallback(idleId);
+    };
+  }, [rightPanelEverOpened]);
 
   // New layout: Chats live in the one sidebar on the right, so the left chat list never shows. Anything
   // that opens it (shortcuts, Home, the tour) opens that sidebar on its Chats view instead: the right
@@ -1002,6 +1045,7 @@ export function AppShell({
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -1367,6 +1411,8 @@ export function AppShell({
       </OvConnectionPageMobile>
     ) : presetDetailId ? (
       <PresetEditor />
+    ) : profileDetailId ? (
+      <ProfileEditor />
     ) : characterDetailId ? (
       <CharacterEditor />
     ) : characterLibraryOpen ? (

@@ -760,6 +760,25 @@ const dicePoolResolutionSchema = z
       })
       .strict()
       .optional(),
+    /** Optional (1.826): the pool told apart by where its dice come from, laid out in the order listed:
+     *  the ability's own dice, gear dice asked for with `gear="N"`, and the skill's group, which holds
+     *  the rest. A group with `banes` has its 1s counted, and a push never throws those again. The Year
+     *  Zero Engine's base, skill and gear dice. */
+    groups: z
+      .array(
+        z
+          .object({ id: sheetId, label, from: z.enum(["ability", "skill", "gear"]), banes: z.boolean().default(true) })
+          .strict(),
+      )
+      .min(1)
+      .max(3)
+      .optional(),
+    /** Optional (1.826): `push="true"` on a check takes the character's last roll of it and throws again,
+     *  once, every die that neither succeeded nor shows a counted 1. The Year Zero Engine's push. */
+    push: z
+      .object({ text: promptSafeText(200).optional() })
+      .strict()
+      .optional(),
     /** Optional: re-throws of the low faces the system grants without anybody paying for them, each
      *  named so the Game Master can ask for one on a check with `reroll=`. */
     reroll: z
@@ -18518,6 +18537,34 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         ["resolution", "hunger", "max"],
         `Hunger dice come from the pool, so max is at most ${resolution.pool.max}`,
       );
+    // Dice groups (1.826): one group per source, and the skill's group takes what is left of the pool.
+    if (resolution.groups) {
+      unique(resolution.groups, ["resolution", "groups"], "group");
+      resolution.groups.forEach((group, index) => {
+        if (resolution.groups!.findIndex((other) => other.from === group.from) !== index)
+          issue(["resolution", "groups", index, "from"], `Two groups take their dice from ${group.from}`);
+        if (resolution.groups!.findIndex((other) => other.label.trim() === group.label.trim()) !== index)
+          issue(["resolution", "groups", index, "label"], "Two groups share a label");
+      });
+      if (!resolution.groups.some((group) => group.from === "skill"))
+        issue(["resolution", "groups"], "A group from skill holds the dice no other group does");
+    }
+    // A push (1.826) reads "did not succeed" as at or above the target, and starts from the dice of an
+    // earlier roll, so nothing else may count them another way, add to them or hold some back.
+    if (resolution.push && resolution.stances) {
+      issue(
+        ["resolution", "push"],
+        "A push throws again the dice that did not succeed, read at or above the target, so leave stances out",
+      );
+    }
+    if ((resolution.push || resolution.groups) && resolution.explode) {
+      issue(
+        ["resolution", resolution.push ? "push" : "groups"],
+        "Dice groups and a push count the dice first thrown, so leave explode out",
+      );
+    }
+    if (resolution.push && resolution.hunger)
+      issue(["resolution", "push"], "Special dice are never thrown again, so leave push or hunger out");
     // A number above what the largest roll can count could never be reached at the table.
     const reachable = rulesetPoolMaxSuccesses(resolution);
     if (resolution.exceptional && resolution.exceptional.successes > reachable) {

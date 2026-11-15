@@ -93,7 +93,7 @@ test("regex bulk deletion confirms once and keeps failed and unselected scripts"
       useUIStore.getState().openRightPanel("presets");
     });
     const tabs = page.getByRole("group", { name: "Presets", exact: true });
-    const presetsTab = tabs.getByRole("button", { name: "Presets", exact: true });
+    const presetsTab = tabs.getByRole("button", { name: "Prompts", exact: true });
     const regexTab = tabs.getByRole("button", { name: "Regexes", exact: true });
     const selectPresets = page.getByRole("button", { name: "Select presets", exact: true });
     const selectRegex = page.getByRole("button", { name: "Select regex scripts", exact: true });

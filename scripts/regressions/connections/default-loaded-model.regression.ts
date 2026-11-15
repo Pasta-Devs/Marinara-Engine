@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { groupModelsByAccount } from "../../../packages/client/src/lib/connection-groups.js";
+import { modelSubtitle } from "../../../packages/client/src/lib/connection-identity.js";
 
 const { accountAllowsLoadedModel } =
   await import("../../../packages/server/src/services/storage/connection-accounts.storage.js");
@@ -28,6 +29,19 @@ assert.deepEqual(
     ["local", ["local-default", "local-llama"]],
     ["cloud", ["cloud-gpt"]],
   ],
+);
+
+// The "whatever is loaded" line follows the Connection's flag, never the row alone: an anchor shown before the
+// accounts load (or on a cloud Connection) has no line.
+assert.equal(modelSubtitle({ provider: "openai", model: "" }, null, false), "");
+assert.notEqual(modelSubtitle({ provider: "custom", model: "" }, null, true), "");
+const { standalone } = groupModelsByAccount(
+  [{ id: "cloud-anchor", model: "", provider: "openai", accountId: "cloud" }],
+  [],
+);
+assert.deepEqual(
+  standalone.map((row) => modelSubtitle(row)),
+  [""],
 );
 
 // Which Connections may hold a Default model: the same rule the server uses to send no model id.

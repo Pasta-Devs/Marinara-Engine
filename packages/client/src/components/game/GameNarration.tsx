@@ -1095,7 +1095,9 @@ function formatSkillCheckLogContent(
         content: localizeUi(
           skillCheck.reason === "untrained"
             ? "game.narration.skillCheckUntrained"
-            : "game.narration.skillCheckUnknownRoller",
+            : skillCheck.reason === "not-pushable"
+              ? "game.narration.skillCheckNotPushable"
+              : "game.narration.skillCheckUnknownRoller",
           { skill: skillCheck.skill },
         ),
       };

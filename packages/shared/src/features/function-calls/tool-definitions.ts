@@ -71,6 +71,8 @@ export interface CustomTool {
   /** Whether execution receives server-side context that is not exposed in the LLM tool schema. */
   includeHiddenContext: boolean;
   enabled: boolean;
+  /** True when the tool sits in a paused library folder (computed by the list route, not stored). */
+  pausedByFolder?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

@@ -28,8 +28,7 @@ import { saveIntoProfileSettings } from "../../../lib/chat-preset-apply";
 import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { ChatProfileBuilder } from "../../../components/chat/ChatProfileBuilder";
-
-const CHAT_PRESET_UNAPPLIED_SELECT_VALUE = "__chat_preset_unapplied__";
+import { ProfilePickerField } from "../../../components/chat/ProfilePickerField";
 
 interface SettingsProfilesSectionProps {
   order: number;
@@ -75,8 +74,6 @@ export function SettingsProfilesSection({
     if (appliedChatPreset) return appliedChatPreset;
     return presetList.find((p) => p.isDefault) ?? null;
   }, [presetList, appliedChatPreset]);
-  const chatPresetSelectValue =
-    appliedChatPreset?.id ?? (presetList.length > 0 ? CHAT_PRESET_UNAPPLIED_SELECT_VALUE : "");
   const [renamingPreset, setRenamingPreset] = useState(false);
   const [renamePresetVal, setRenamePresetVal] = useState("");
   const presetFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -95,7 +92,7 @@ export function SettingsProfilesSection({
   }, [chat.connectionId, chat.promptPresetId, metadata]);
 
   const handleSelectPreset = (id: string) => {
-    if (!id || id === CHAT_PRESET_UNAPPLIED_SELECT_VALUE || id === appliedChatPreset?.id) return;
+    if (!id || id === appliedChatPreset?.id) return;
     applyChatPreset.mutate({ presetId: id, chatId: chat.id });
   };
 
@@ -283,27 +280,20 @@ export function SettingsProfilesSection({
             className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
           />
         ) : (
-          <select
-            value={chatPresetSelectValue}
-            onChange={(e) => handleSelectPreset(e.target.value)}
-            aria-label={localizeUi("chat.settingsProfile.label")}
-            title={localizeUi("chat.settingsProfile.action.apply")}
-            className="mari-preset-native-select flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-          >
-            {presetList.length === 0 && <option value="">{localizeUi("ui.panels.ttsconfigcard.loading")}</option>}
-            {!appliedChatPreset && presetList.length > 0 && (
-              <option value={CHAT_PRESET_UNAPPLIED_SELECT_VALUE}>
-                {appliedPresetId
+          <ProfilePickerField
+            profiles={presetList}
+            value={appliedChatPreset?.id ?? ""}
+            onChange={handleSelectPreset}
+            missingLabel={
+              presetList.length === 0
+                ? localizeUi("ui.panels.ttsconfigcard.loading")
+                : appliedPresetId
                   ? localizeUi("chat.settingsProfile.option.missing")
-                  : localizeUi("chat.settingsProfile.option.custom")}
-              </option>
-            )}
-            {presetList.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.isDefault ? localizeUi("ui.noodle.noodlehome.default") : p.name}
-              </option>
-            ))}
-          </select>
+                  : localizeUi("chat.settingsProfile.option.custom")
+            }
+            triggerTitle={localizeUi("chat.settingsProfile.action.apply")}
+            triggerClassName="mari-preset-native-select flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus-visible:ring-[var(--primary)]/40"
+          />
         )}
         <button
           type="button"

@@ -63,7 +63,7 @@ export type IllustratorBackgroundPlan = {
 export type GeneratedIllustratorBackground = IllustratorBackgroundPlan & {
   filename: string;
   url: string;
-  /** An existing library picture of this place was shown instead of painting a new one. */
+  /** A library picture of this place was shown instead of painting a new one. */
   reused?: boolean;
 };
 
@@ -478,7 +478,7 @@ export async function generateIllustratorSceneBackground(
     planOverride?: IllustratorBackgroundPlan;
     promptOverride?: string;
     negativePromptOverride?: string;
-    /** After the plan is written: a library picture to show instead of painting (null paints). */
+    /** After the plan is written: a library picture to show instead of painting one (null paints). */
     reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null;
   },
 ): Promise<GeneratedIllustratorBackground> {
