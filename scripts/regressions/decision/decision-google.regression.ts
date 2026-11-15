@@ -91,6 +91,11 @@ try {
   );
   assert.equal(fromCatalog.connection?.endpoint, "https://generativelanguage.googleapis.com/v1beta/decisions");
   assert.equal(fromCatalog.connection?.dialect, "gemini");
+  // A google row without an account (imported, or its account removed) asks Google's own address.
+  const orphan = await resolveDecisionConnection(row({ account: null, baseUrl: "" }), noLinks);
+  assert.ok(orphan.connection, `resolves without an account: ${orphan.error}`);
+  assert.equal(orphan.connection.endpoint, "https://generativelanguage.googleapis.com/v1beta/decisions");
+  assert.equal(orphan.connection.dialect, "gemini");
 
   // (c) A Google chat model has no log-probabilities.
   const chat = await resolveDecisionConnection(

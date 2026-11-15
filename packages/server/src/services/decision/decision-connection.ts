@@ -122,10 +122,12 @@ export async function resolveDecisionConnection(
       const path = url.pathname.replace(/\/+$/, "");
       return /\/v1$/.test(path) ? `${url.origin}${path.slice(0, -3)}` : `${url.origin}/api`;
     };
+    // A google row without an account (imported, or its account removed) asks Google's own address.
+    const googleBase = accountBase || DECISION_SOURCE_BASE_URLS.google;
     const base =
       source === "google"
         ? // Gemini's decision endpoint sits under the account's /v1beta root.
-          (accountBase.match(/^(.*?\/v1beta)(?:\/|$)/)?.[1] ?? `${accountBase.replace(/\/+$/, "")}/v1beta`)
+          (googleBase.match(/^(.*?\/v1beta)(?:\/|$)/)?.[1] ?? `${googleBase.replace(/\/+$/, "")}/v1beta`)
         : nativeDecisions
           ? nativeBase()
           : vendor
