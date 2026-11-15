@@ -814,6 +814,9 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         entryId: { type: "string" },
         agentId: { type: "string" },
         presetId: { type: "string" },
+        sectionId: { type: "string" },
+        choiceBlockId: { type: "string" },
+        messageId: { type: "string" },
         widgetId: { type: "string" },
         extensionId: { type: "string" },
         query: { type: "string" },
@@ -842,6 +845,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           description:
             "Optional Browser Extension data permissions. Request only what the extension needs. Server Extensions cannot request these capabilities.",
         },
+        content: { type: "string", description: "The fixed reply text for chat.updateMessage." },
         css: { type: "string" },
         js: { type: "string" },
         serverJs: { type: "string" },
@@ -861,6 +865,11 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "object",
           description:
             "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
+        },
+        onboarding: {
+          type: "object",
+          description:
+            "The interactive onboarding block for character.onboarding.update. Put its fields (enabled, description, personality, backstory, appearance, scenario, variables, cardVariables) here directly, never inside another object. Each key you send replaces that whole field; omitted keys stay. Read skill builtin-onboarding with skill.get before writing one.",
         },
       },
       required: ["action"],
