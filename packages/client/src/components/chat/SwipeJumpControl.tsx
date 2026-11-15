@@ -7,6 +7,10 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 const SWIPE_BUTTON_CLASS =
   "mari-chat-style-control inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-[0.25em] transition-colors hover:bg-[var(--marinara-chat-message-action-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:opacity-30 max-md:min-h-[44px] max-md:min-w-[44px]";
 
+// The list button is the right end of the number capsule; the invisible ::after keeps a phone-sized tap target.
+const LIST_BUTTON_CLASS =
+  "relative flex h-full items-center rounded-r-full border-l border-[var(--marinara-chat-message-action-bg-hover)] px-1.5 text-[var(--marinara-chat-message-action-text)] transition-colors hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-message-action-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']";
+
 interface SwipeJumpControlProps {
   messageId: string;
   activeSwipeIndex: number;
@@ -83,7 +87,7 @@ export function SwipeJumpControl({
       <label className="sr-only" htmlFor={inputId}>
         {localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe")}
       </label>
-      <span className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] w-9 rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] transition-[background-color,border-color,box-shadow,color] focus-within:border-[var(--marinara-chat-chrome-button-border-active)] focus-within:bg-[var(--marinara-chat-chrome-button-bg-active)]">
+      <span className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] min-w-9 items-center rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] transition-[background-color,border-color,box-shadow,color] focus-within:border-[var(--marinara-chat-chrome-button-border-active)] focus-within:bg-[var(--marinara-chat-chrome-button-bg-active)]">
         <input
           id={inputId}
           type="text"
@@ -101,26 +105,30 @@ export function SwipeJumpControl({
             event.stopPropagation();
             if (event.key === "Enter") event.currentTarget.blur();
           }}
-          className="mari-chat-style-text h-full min-w-0 w-full rounded-[inherit] bg-transparent px-1.5 py-0.5 text-center tabular-nums text-[0.625rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] outline-none"
+          // Sized to the typed number, so the total sits right after it inside the capsule.
+          style={{ width: `${Math.max(inputValue.length, 1) + 2}ch` }}
+          className="mari-chat-style-text h-full min-w-0 shrink-0 rounded-l-full bg-transparent py-0.5 pl-1.5 text-center tabular-nums text-[0.75rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] outline-none"
           aria-label={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1ThroughValue1", {
             value1: displaySwipeCount,
           })}
           title={localizeUi("ui.chat.swipejumpcontrol.jumpToSwipe1Value1", { value1: displaySwipeCount })}
         />
+        <label htmlFor={inputId} aria-hidden="true" className="cursor-text pr-2 tabular-nums">
+          /{displaySwipeCount}
+        </label>
+        {picker && swipeCount > 1 && (
+          <SwipePicker
+            chatId={picker.chatId}
+            messageId={messageId}
+            activeSwipeIndex={activeSwipeIndex}
+            swipeCount={swipeCount}
+            currentContent={picker.content}
+            greeting={picker.greeting}
+            onSetActiveSwipe={onSetActiveSwipe}
+            triggerClassName={LIST_BUTTON_CLASS}
+          />
+        )}
       </span>
-      <span className="tabular-nums">/{displaySwipeCount}</span>
-      {picker && swipeCount > 1 && (
-        <SwipePicker
-          chatId={picker.chatId}
-          messageId={messageId}
-          activeSwipeIndex={activeSwipeIndex}
-          swipeCount={swipeCount}
-          currentContent={picker.content}
-          greeting={picker.greeting}
-          onSetActiveSwipe={onSetActiveSwipe}
-          triggerClassName={SWIPE_BUTTON_CLASS}
-        />
-      )}
       <button
         type="button"
         className={SWIPE_BUTTON_CLASS}
