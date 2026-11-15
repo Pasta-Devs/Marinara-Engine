@@ -130,6 +130,8 @@ function mapHeaders(headers: unknown, map: (value: string, name: string) => stri
   if (!isRecord(headers)) return headers;
   const out: Row = {};
   for (const [name, value] of Object.entries(headers)) {
+    // A header object comes from request JSON: never copy a key that would reach the prototype.
+    if (name === "__proto__" || name === "constructor" || name === "prototype") continue;
     if (typeof value !== "string") {
       out[name] = value;
       continue;

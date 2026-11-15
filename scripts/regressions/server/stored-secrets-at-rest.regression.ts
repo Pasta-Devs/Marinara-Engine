@@ -301,6 +301,17 @@ try {
   );
 
   console.info("Stored secrets regression passed (encrypt, mask, keep, clear, resolve, export, Mari reads).");
+  // Header names come from request JSON: a "__proto__" header never reaches the prototype or the stored copy.
+  {
+    const { sealConnectionHeaderSecrets } = await import("../../../packages/server/src/utils/stored-secrets.js");
+    const sealed = sealConnectionHeaderSecrets(
+      '{"customHeaders":{"__proto__":{"polluted":"yes"},"X-Key":"header-secret"}}',
+    ) as string;
+    const parsed = JSON.parse(sealed) as { customHeaders: Record<string, unknown> };
+    assert.equal(Object.prototype.hasOwnProperty.call(parsed.customHeaders, "__proto__"), false);
+    assert.match(String(parsed.customHeaders["X-Key"]), /^enc:v1:/u);
+    assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  }
 } finally {
   await app.close();
   await db._fileStore?.close();
