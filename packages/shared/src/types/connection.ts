@@ -31,15 +31,26 @@ export type APIProvider =
  * server the user already runs (Ollama, LM Studio, llama.cpp), asked for one yes/no
  * token and read from its log-probabilities, the way the local slots are.
  */
-export const DECISION_SOURCES = ["typesafe", "openrouter", "custom", "openai_compatible"] as const;
+export const DECISION_SOURCES = ["typesafe", "openrouter", "custom", "openai_compatible", "nanogpt"] as const;
 export type DecisionSource = (typeof DECISION_SOURCES)[number];
 
+/**
+ * `nanogpt` is a decision model in NanoGPT's own list (`/api/v1/decision-models`), asked at its
+ * Decisions API (`/api/v1/decisions`), which takes the System One body. It lives under a NanoGPT
+ * account and uses that account's key (#9310).
+ */
 export const DECISION_SOURCE_BASE_URLS = {
   typesafe: "https://api.typesafe.ai",
   openrouter: "https://openrouter.ai/api",
   custom: "",
   openai_compatible: "",
+  nanogpt: "https://nano-gpt.com/api",
 } as const;
+
+/** The path a System One source is asked at, after its base URL. */
+export function decisionSourcePath(source: string | null | undefined): string {
+  return source === "nanogpt" ? "/v1/decisions" : "/v1/systemone";
+}
 
 /**
  * Sources that run on a server the user names: the base URL is required, the key is
