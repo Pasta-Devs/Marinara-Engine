@@ -8,12 +8,15 @@ import {
   EyeOff,
   GitBranch,
   Languages,
+  Loader2,
   Pencil,
   RefreshCw,
   MoreHorizontal,
   ScrollText,
   Search,
   Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
@@ -70,6 +73,8 @@ export interface ConversationMessageActionsProps {
   swipeIndex?: number;
   swipeCount?: number;
   onCloseMobileSheet?: () => void;
+  /** Speak or stop this message aloud; omit to hide the button (text to speech is off). */
+  speech?: { speaking: boolean; loading: boolean; disabled: boolean; hasContent: boolean; onToggle: () => void };
 }
 
 export function ConversationMessageActions({
@@ -106,6 +111,7 @@ export function ConversationMessageActions({
   swipeIndex = 0,
   swipeCount = 1,
   onCloseMobileSheet,
+  speech,
 }: ConversationMessageActionsProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -147,6 +153,31 @@ export function ConversationMessageActions({
   const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
     null,
   );
+  // Speak sits left of Regenerate on desktop and above Translate in the phone and tablet sheet.
+  const speakAction = speech ? (
+    <MsgAction
+      icon={
+        speech.loading ? (
+          <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+        ) : speech.speaking ? (
+          <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
+        ) : (
+          <Volume2 size={MESSAGE_ACTION_ICON_SIZE} />
+        )
+      }
+      onClick={speech.onToggle}
+      disabled={speech.disabled}
+      title={
+        !speech.hasContent
+          ? localizeUi("ui.chat.chatmessage.noDialogueToSpeak")
+          : speech.loading
+            ? localizeUi("ui.panels.ttsconfigcard.loading")
+            : speech.speaking
+              ? localizeUi("ui.chat.chatmessage.stopSpeaking")
+              : localizeUi("ui.chat.chatmessage.speak")
+      }
+    />
+  ) : null;
   // Mobile overhaul: nothing inline; holding the message opens a sheet with every action.
   if (overhaulMobile && !thinkingOnly) {
     if (!mobileSheetOpen || !onCloseMobileSheet) return null;
@@ -187,6 +218,7 @@ export function ConversationMessageActions({
           <div className="mari-message-actions">
             <ReplyToMessageButton message={message} name={name} />
             <MessageMarksAction message={message} align="right" stopPropagation />
+            {speakAction}
             <MsgAction
               icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={onTranslate}
@@ -275,6 +307,7 @@ export function ConversationMessageActions({
         ) : null}
         {onPickReaction && <ReactionAddButton onPick={onPickReaction} />}
         <ReplyToMessageButton message={message} name={name} />
+        {speakAction}
         {regenerate ? (
           <MsgAction
             icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
@@ -435,6 +468,7 @@ export function ConversationMessageActions({
         onClick={onEdit}
         title={localizeUi("ui.noodle.noodlepostcard.edit")}
       />
+      {speakAction}
       {canRegenerate && onRegenerate && (
         <MsgAction
           icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}

@@ -4068,6 +4068,32 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
+  // One tap to hear the message, left of Regenerate; the voice menu keeps pause, restart, cache and volume.
+  const speakAction = ttsEnabled ? (
+    <ActionBtn
+      icon={
+        isLoadingThis ? (
+          <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+        ) : isSpeakingThis ? (
+          <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
+        ) : (
+          <Volume2 size={MESSAGE_ACTION_ICON_SIZE} />
+        )
+      }
+      onClick={handleSpeak}
+      title={
+        !hasTTSContent
+          ? localizeUi("ui.chat.chatmessage.noDialogueToSpeak")
+          : isLoadingThis
+            ? localizeUi("ui.panels.ttsconfigcard.loading")
+            : isSpeakingThis
+              ? localizeUi("ui.chat.chatmessage.stopSpeaking")
+              : localizeUi("ui.chat.chatmessage.speak")
+      }
+      disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
+    />
+  ) : null;
+
   const roleplayTtsControls = ttsEnabled && (
     <MessageAudioMenu align="right" dark>
       {isSpeakingThis && (ttsState === "playing" || ttsState === "paused") && (
@@ -4399,6 +4425,8 @@ export const ChatMessage = memo(function ChatMessage({
           onClick={handleCopy}
           title={localizeUi("lorebook.editor.batch.copy")}
         />
+        {/* Phones and tablets list it above Translate in the long-press menu. */}
+        {speakAction}
         <ActionBtn
           icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
           onClick={() => translate(message.id, message.content, message.chatId)}
@@ -4543,6 +4571,36 @@ export const ChatMessage = memo(function ChatMessage({
           )}
       </>
     );
+    // The new layout's Speak: the footer's own button style, left of Regenerate.
+    const ovSpeakButton = (
+      <button
+        type="button"
+        className={cn("ov-rpf__btn", isSpeakingThis && "is-on")}
+        title={
+          !hasTTSContent
+            ? localizeUi("ui.chat.chatmessage.noDialogueToSpeak")
+            : isLoadingThis
+              ? localizeUi("ui.panels.ttsconfigcard.loading")
+              : isSpeakingThis
+                ? localizeUi("ui.chat.chatmessage.stopSpeaking")
+                : localizeUi("ui.chat.chatmessage.speak")
+        }
+        aria-label={
+          isSpeakingThis ? localizeUi("ui.chat.chatmessage.stopSpeaking") : localizeUi("ui.chat.chatmessage.speak")
+        }
+        aria-pressed={isSpeakingThis}
+        disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
+        onClick={handleSpeak}
+      >
+        {isLoadingThis ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : isSpeakingThis ? (
+          <VolumeX size={14} />
+        ) : (
+          <Volume2 size={14} />
+        )}
+      </button>
+    );
     const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
@@ -4561,6 +4619,7 @@ export const ChatMessage = memo(function ChatMessage({
           onCopy={handleCopy}
           onBranch={onBranch ? () => onBranch(message.id) : undefined}
           more={rpActionsRow}
+          speak={!isUser && ttsEnabled ? ovSpeakButton : undefined}
           marksPanel={({ back, done }) => (
             <OvMessageMarksPanel message={message} noteSharing={noteSharing} onBack={back} onDone={done} />
           )}
@@ -5425,6 +5484,7 @@ export const ChatMessage = memo(function ChatMessage({
                 disabled={switchingRewriteVersion}
               />
             )}
+            {speakAction}
             <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
             <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
             {onToggleConversationStart && (

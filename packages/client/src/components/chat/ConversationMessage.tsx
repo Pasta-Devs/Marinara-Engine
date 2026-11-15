@@ -24,6 +24,7 @@ import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { useTranslate } from "../../hooks/use-translate";
+import { useMessageSpeech } from "../../hooks/use-message-speech";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
@@ -224,6 +225,16 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   // ── Translation ──
   const { translate, translations, translationSources, translating } = useTranslate();
+  const speech = useMessageSpeech(message, characterMap, personaInfo);
+  const speechAction = speech.enabled
+    ? {
+        speaking: speech.speaking,
+        loading: speech.loading,
+        hasContent: speech.hasContent,
+        disabled: !speech.hasContent || speech.busyElsewhere,
+        onToggle: speech.toggle,
+      }
+    : undefined;
   const translatedText = translations[message.id];
   const translationSource = translationSources[message.id];
   const isTranslating = !!translating[message.id];
@@ -1194,7 +1205,13 @@ export const ConversationMessage = memo(function ConversationMessage({
   if (groupedLayoutActive) {
     return (
       <>
-        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} hooks={messageHookProps} />
+        <ConversationMessageGrouped
+          ctx={ctx}
+          msgRef={msgRef}
+          reactionRow={reactionRow}
+          hooks={messageHookProps}
+          speech={speechAction}
+        />
         <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-4" />
         {replyCheckup && <div className="px-4">{replyCheckup}</div>}
         {sceneInvitation}
@@ -1309,6 +1326,7 @@ export const ConversationMessage = memo(function ConversationMessage({
               swipeIndex={message.activeSwipeIndex ?? 0}
               swipeCount={message.swipeCount ?? 1}
               onCloseMobileSheet={closeMobileSheet}
+              speech={speechAction}
             />
           )}
         </div>

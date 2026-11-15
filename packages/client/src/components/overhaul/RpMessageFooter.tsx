@@ -198,6 +198,7 @@ export function OvRpMessageFooter({
   marksPanel,
   placement = "footer",
   part = "all",
+  speak,
 }: {
   chatId: string;
   messageId: string;
@@ -224,6 +225,8 @@ export function OvRpMessageFooter({
    * top-right) or "generate" (Regenerate and swipes, everything that costs an API call: bottom-right).
    */
   part?: "all" | "tools" | "generate";
+  /** Speak button, left of Regenerate; only passed while a voice model is set up. */
+  speak?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState<null | { kind: "more" | "swipes" | "marks"; anchor: Anchor }>(null);
@@ -246,7 +249,7 @@ export function OvRpMessageFooter({
   const armed = useArmedAfterPaint(pinned || open !== null || touchFootersVisible());
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
-  if (part === "generate" && !onRegenerate && !hasSwipes && !onCreateSwipe) return null;
+  if (part === "generate" && !speak && !onRegenerate && !hasSwipes && !onCreateSwipe) return null;
   const footerClassName = cn(
     "ov-rpf",
     placement === "below" && "ov-rpf--below",
@@ -257,6 +260,7 @@ export function OvRpMessageFooter({
   if (!armed) return <div className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
   return (
     <div className={footerClassName} data-ov-rp-footer data-mari-part="actions">
+      {part === "generate" ? speak : null}
       {part === "generate" && onRegenerate ? (
         <button
           type="button"
@@ -311,6 +315,7 @@ export function OvRpMessageFooter({
       ) : null}
       {meta && part === "all" ? <span className="ov-rpf__meta">{meta}</span> : null}
       {part === "all" ? <span className="ov-rpf__grow" /> : null}
+      {part === "all" ? speak : null}
       {part === "all" && onRegenerate ? (
         <button
           type="button"
