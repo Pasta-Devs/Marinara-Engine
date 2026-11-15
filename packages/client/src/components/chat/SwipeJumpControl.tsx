@@ -109,6 +109,18 @@ export function SwipeJumpControl({
         />
       </span>
       <span className="tabular-nums">/{displaySwipeCount}</span>
+      {picker && swipeCount > 1 && (
+        <SwipePicker
+          chatId={picker.chatId}
+          messageId={messageId}
+          activeSwipeIndex={activeSwipeIndex}
+          swipeCount={swipeCount}
+          currentContent={picker.content}
+          greeting={picker.greeting}
+          onSetActiveSwipe={onSetActiveSwipe}
+          triggerClassName={SWIPE_BUTTON_CLASS}
+        />
+      )}
       <button
         type="button"
         className={SWIPE_BUTTON_CLASS}
@@ -134,18 +146,6 @@ export function SwipeJumpControl({
       >
         <ChevronRight size="1.15em" />
       </button>
-      {picker && swipeCount > 1 && (
-        <SwipePicker
-          chatId={picker.chatId}
-          messageId={messageId}
-          activeSwipeIndex={activeSwipeIndex}
-          swipeCount={swipeCount}
-          currentContent={picker.content}
-          greeting={picker.greeting}
-          onSetActiveSwipe={onSetActiveSwipe}
-          triggerClassName={SWIPE_BUTTON_CLASS}
-        />
-      )}
     </div>
   );
 }
