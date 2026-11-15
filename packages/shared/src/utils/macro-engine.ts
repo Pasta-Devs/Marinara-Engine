@@ -573,7 +573,8 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   {
     category: "Lorebooks",
     syntax: "{{lorebooksize::ID}}",
-    description: "Deprecated entry count. To order new entries, choose Growing in Lorebook Writer.",
+    description:
+      "Deprecated. Counts entries in the lorebook with this ID. For automatic ordering, choose Growing in Lorebook Writer.",
     descriptionKey: "macros.lorebooks.lorebookSizeDeprecated",
   },
   {

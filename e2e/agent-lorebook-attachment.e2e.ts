@@ -145,3 +145,74 @@ for (const theme of ["dark", "light"] as const) {
     }
   });
 }
+
+test("legacy structured lorebook agents can opt into Fixed and Growing order", async ({ page, request }, testInfo) => {
+  const bookResponse = await request.post("/api/lorebooks", { data: { name: "Order fixture" } });
+  expect(bookResponse.ok()).toBeTruthy();
+  const book = await bookResponse.json();
+  let agentId: string | undefined;
+  try {
+    const type = `custom-order-${testInfo.project.name}`;
+    const agentResponse = await request.post("/api/agents", {
+      data: {
+        type,
+        name: "Structured lorebook writer",
+        phase: "post_processing",
+        resultType: "lorebook_update",
+        promptTemplate: "Save important memories.",
+        settings: {
+          customCapabilities: { edit_lorebooks: true },
+          writableLorebookId: book.id,
+        },
+      },
+    });
+    expect(agentResponse.ok()).toBeTruthy();
+    agentId = (await agentResponse.json()).id;
+
+    await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false }, "if-missing");
+    await page.addInitScript(
+      (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+      version,
+    );
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    const openAgent = async () => {
+      await page.evaluate(async (agentType) => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().closeAllDetails();
+        useUIStore.getState().openAgentDetail(agentType);
+      }, type);
+    };
+    const order = page.getByRole("combobox", { name: "New entry order", exact: true });
+    const fixed = page.getByRole("spinbutton", { name: "Fixed order", exact: true });
+    const editor = page.locator(".mari-editor-shell").filter({ has: order });
+    const saveAndVerify = async (value: number | string) => {
+      await editor.getByRole("button", { name: "Save", exact: true }).click();
+      await expect
+        .poll(async () => {
+          const saved = await (await request.get(`/api/agents/${agentId}`)).json();
+          return JSON.parse(saved.settings).newLorebookEntryOrder;
+        })
+        .toBe(value);
+      await page.reload();
+      await openAgent();
+    };
+
+    await page.goto("/");
+    await openAgent();
+    await expect(order).toHaveValue("legacy");
+    await expect(fixed).toBeHidden();
+
+    await order.selectOption("fixed");
+    await expect(fixed).toHaveValue("100");
+    await saveAndVerify(100);
+    await expect(fixed).toHaveValue("100");
+
+    await order.selectOption("growing");
+    await saveAndVerify("growing");
+    await expect(order).toHaveValue("growing");
+    await expect(fixed).toBeHidden();
+  } finally {
+    if (agentId) await request.delete(`/api/agents/${agentId}`);
+    await request.delete(`/api/lorebooks/${book.id}`);
+  }
+});

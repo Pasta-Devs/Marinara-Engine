@@ -111,6 +111,23 @@ try {
           ["New memory", 151],
         ],
       );
+      const fixedProposal = buildLorebookWriteApprovalProposal({
+        chatId: chat.id,
+        agentType: "custom-keeper",
+        agentName: "Keeper",
+        preferredTargetLorebookId: orderedBook.id,
+        writableLorebookIds: [orderedBook.id],
+        writerOrder: 100,
+        updates: [{ name: "Fixed memory", content: "The lantern was lit again.", order: 30 }],
+      });
+      const fixed = await app.inject({
+        method: "POST",
+        url: `/api/chats/${chat.id}/agent-write-approval/commit`,
+        payload: fixedProposal,
+      });
+      assert.equal(fixed.statusCode, 200, fixed.body);
+      const fixedEntry = (await lorebooks.listEntries(orderedBook.id)).find((entry) => entry.name === "Fixed memory");
+      assert.equal(fixedEntry?.order, 100);
     } finally {
       await app.close();
     }

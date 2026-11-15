@@ -940,7 +940,7 @@ export function createLorebooksStorage(db: DB) {
       writerOrder?: LorebookWriterOrder,
     ): Promise<ReturnType<typeof parseEntryRow> | null> {
       if (writerOrder === "growing") {
-        // Keep the read and insert together so overlapping saves assign distinct orders.
+        // Serialize the read and insert with other Growing saves.
         return db.transaction(async (tx) => {
           const [last] = await tx
             .select({ order: lorebookEntries.order })
