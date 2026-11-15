@@ -1,4 +1,9 @@
-import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal, SourceMessageRef } from "@marinara-engine/shared";
+import type {
+  AgentWriteApprovalEnvelope,
+  AgentWriteApprovalProposal,
+  LorebookWriterOrder,
+  SourceMessageRef,
+} from "@marinara-engine/shared";
 import {
   mergeLorebookKeeperUpdateContent,
   readKeeperUpdateName as readUpdateName,
@@ -125,7 +130,10 @@ function buildExistingContentByName(
 
 export function formatLorebookWriteApprovalText(
   updates: Array<Record<string, unknown>>,
-  options: { existingEntries?: Array<{ name?: string | null; content?: string | null }> } = {},
+  options: {
+    existingEntries?: Array<{ name?: string | null; content?: string | null }>;
+    writerOrder?: LorebookWriterOrder;
+  } = {},
 ): string {
   const existingContentByName = buildExistingContentByName(options.existingEntries);
   return updates
@@ -135,7 +143,7 @@ export function formatLorebookWriteApprovalText(
       const tag = readUpdateTag(update);
       const targetLorebook =
         typeof update.targetLorebook === "string" && update.targetLorebook.trim() ? update.targetLorebook.trim() : null;
-      const order = readLorebookKeeperUpdateOrder(update);
+      const order = options.writerOrder === undefined ? readLorebookKeeperUpdateOrder(update) : undefined;
       const content = mergeLorebookKeeperUpdateContent({
         existingContent: existingContentByName.get(normalizeEntryName(name)) ?? "",
         replacementContent: readUpdateReplacementContent(update),
@@ -247,6 +255,7 @@ export function buildLorebookWriteApprovalProposal(args: {
   agentName: string;
   updates: Array<Record<string, unknown>>;
   preferredTargetLorebookId: string | null;
+  writerOrder?: LorebookWriterOrder;
   writableLorebookIds: string[] | null;
   allowTargetRouting?: boolean;
   writableLorebooks?: Array<{ id: string; name: string }>;
@@ -263,9 +272,13 @@ export function buildLorebookWriteApprovalProposal(args: {
     agentType: args.agentType,
     agentName: args.agentName,
     title: `${args.agentName} Lorebook Proposal`,
-    text: formatLorebookWriteApprovalText(args.updates, { existingEntries: args.existingEntries }),
+    text: formatLorebookWriteApprovalText(args.updates, {
+      existingEntries: args.existingEntries,
+      writerOrder: args.writerOrder,
+    }),
     payload: {
       preferredTargetLorebookId: args.preferredTargetLorebookId,
+      writerOrder: args.writerOrder,
       writableLorebookIds: args.writableLorebookIds,
       allowTargetRouting: args.allowTargetRouting,
       writableLorebooks: args.writableLorebooks,

@@ -13,9 +13,11 @@ import {
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
+  DEFAULT_LOREBOOK_WRITER_ORDER,
   LIMITS,
   createLorebookEntrySchema,
   type LorebookEntryImage,
+  type LorebookWriterOrder,
   normalizeLorebookCategory,
   normalizeAvatarCrop,
   type CreateLorebookInput,
@@ -933,7 +935,25 @@ export function createLorebooksStorage(db: DB) {
       return updated ? this.getEntry(id) : null;
     },
 
-    async createEntry(input: CreateLorebookEntryInput & EntryProvenanceInput) {
+    async createEntry(
+      input: CreateLorebookEntryInput & EntryProvenanceInput,
+      writerOrder?: LorebookWriterOrder,
+    ): Promise<ReturnType<typeof parseEntryRow> | null> {
+      if (writerOrder === "growing") {
+        // Serialize the read and insert with other Growing saves.
+        return db.transaction(async (tx) => {
+          const [last] = await tx
+            .select({ order: lorebookEntries.order })
+            .from(lorebookEntries)
+            .where(eq(lorebookEntries.lorebookId, input.lorebookId))
+            .orderBy(desc(lorebookEntries.order))
+            .limit(1);
+          // Older imports can contain fractional orders. New entries use whole numbers.
+          const order = Math.floor(Number(last?.order ?? 0)) + 1;
+          if (!Number.isSafeInteger(order)) throw new Error("No higher entry order is available in this lorebook.");
+          return createLorebooksStorage(tx).createEntry({ ...input, order });
+        });
+      }
       const images = createLorebookEntrySchema.shape.images.parse(input.images ?? []);
       const id = newId();
       const timestamp = now();
@@ -967,7 +987,7 @@ export function createLorebooksStorage(db: DB) {
         position: input.position ?? 0,
         outletName: input.outletName ?? "",
         depth: input.depth ?? 0,
-        order: input.order ?? 100,
+        order: writerOrder ?? input.order ?? DEFAULT_LOREBOOK_WRITER_ORDER,
         role: input.role ?? "system",
         sticky: input.sticky ?? null,
         cooldown: input.cooldown ?? null,

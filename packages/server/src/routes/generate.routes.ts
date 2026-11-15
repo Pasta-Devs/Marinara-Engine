@@ -127,6 +127,7 @@ import { runToolRounds } from "./generate/tool-rounds.js";
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import type { input as SchemaInput } from "zod";
+import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { translateGeneratedMessage } from "../services/translation.service.js";
 import { randomInt, randomUUID } from "crypto";
 import { existsSync } from "fs";
@@ -171,6 +172,7 @@ import {
   normalizeTrackerFieldLocksForState,
   trackerFieldLocksAreEmpty,
   customAgentHasCapability,
+  parseLorebookWriterOrder,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -1563,7 +1565,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         : null;
 
     // ── Discord webhook URL (parsed once, used for mirroring below) ──
-    const discordWebhookUrl = typeof earlyMeta.discordWebhookUrl === "string" ? earlyMeta.discordWebhookUrl : "";
+    // Stored encrypted (plain from older versions); the server resolves it, the browser only sees a mask.
+    const discordWebhookUrl = readChatMetadataSecret(earlyMeta, "discordWebhookUrl");
     let pendingUserDiscordMsg = "";
     let currentTurnUserMessageId: string | null = null;
     let currentTurnUserMessage: Awaited<ReturnType<typeof chats.createMessage>> | null = null;
@@ -7398,6 +7401,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                   ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                   : undefined,
+                writerOrder:
+                  resultAgent?.isCustomAgent === true
+                    ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                    : undefined,
                 lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                 worldName: agentContext.characters[0]?.world ?? chat.name,
                 existingEntries,
@@ -14682,6 +14689,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                       ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                       : undefined,
+                    writerOrder:
+                      resultAgent?.isCustomAgent === true
+                        ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                        : undefined,
                     lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                     worldName: agentContext.characters[0]?.world ?? chat.name,
                     // Anchor keeper lore to the turn it was extracted from so

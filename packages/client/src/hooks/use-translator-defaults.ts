@@ -29,7 +29,8 @@ export function useSaveTranslatorDefaults() {
         const chat = await api.get<Chat>(`/chats/${chatId}`);
         value = JSON.stringify(normalizeTranslatorSettings(chat.metadata));
       }
-      await api.put(path, { value });
+      // A saved DeepL key reads back as a mask; the server takes the real one from this chat.
+      await api.put(chatId ? `${path}?fromChatId=${encodeURIComponent(chatId)}` : path, { value });
       return Boolean(value);
     },
     onSuccess: (saved) => qc.setQueryData(queryKey, saved),

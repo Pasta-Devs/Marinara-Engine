@@ -145,7 +145,11 @@ export const DECISION_CONNECTION_TIMEOUT_BOUNDS_MS = { min: 500, max: 30_000 } a
  * answers one question per request, like a local slot, so it starts from that budget.
  */
 export function defaultDecisionTimeoutMs(source: string | null | undefined): number {
-  return source === "openai_compatible" ? DECISION_TIMEOUT_MS.sidecar : DECISION_TIMEOUT_MS.systemOne;
+  // NanoGPT's Decisions API answered Jev Latest in 1.1–2.5 s when measured (#9310), past the 1.5 s
+  // System One default, so it gets the chat-model limit.
+  return source === "openai_compatible" || source === "nanogpt"
+    ? DECISION_TIMEOUT_MS.sidecar
+    : DECISION_TIMEOUT_MS.systemOne;
 }
 
 /** A Decision connection's time limit: its own when set, otherwise its source's default. */
