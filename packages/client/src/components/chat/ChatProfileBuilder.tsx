@@ -379,7 +379,13 @@ function ChatProfileBuilderBody({
       if (trimmedName !== target.name) await renamePreset.mutateAsync({ id: target.id, name: trimmedName });
       result = await saveSettings.mutateAsync({ id: target.id, settings });
     } else {
-      result = await createPreset.mutateAsync({ name: trimmedName.slice(0, 120), mode, settings });
+      // A new profile starts from the open chat's settings, so its masked secrets are that chat's.
+      result = await createPreset.mutateAsync({
+        name: trimmedName.slice(0, 120),
+        mode,
+        settings,
+        fromChatId: initialSettings ? currentChatId : null,
+      });
       createdRef.current = result;
     }
     savedSnapshot.current = snapshot;

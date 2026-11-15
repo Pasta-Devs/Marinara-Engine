@@ -26,6 +26,7 @@ import { hostname } from "node:os";
 import { isatty } from "node:tty";
 import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
+import { recordServerLogLine } from "./log-buffer.js";
 import { LOG_REDACT_PATHS, scrubSecretText } from "./log-redaction.js";
 
 type TerminalLogStream = EventEmitter & {
@@ -88,8 +89,8 @@ export function protectTerminalLogger(log: object, prettyStdout = false): void {
   });
 }
 
-/** Short random id of this process start; tells two runs apart in one log file. */
-const bootId = randomBytes(4).toString("hex");
+/** Short random id of this process start; tells two runs apart in one log file (and the in-app console, a restart). */
+export const bootId = randomBytes(4).toString("hex");
 
 /** Opt in when an Error's message/stack can contain provider text. Fields must contain metadata only. */
 export const privateErrorLogFields = Symbol("privateErrorLogFields");
@@ -143,6 +144,11 @@ export const logger = pino({
       if (level >= 30)
         for (let index = 0; index < args.length; index++) args[index] = privateErrorLogArgument(args[index]);
       return method.apply(this, args);
+    },
+    // Tee each serialized line into the in-app console's buffer (lib/log-buffer.ts), unchanged.
+    streamWrite(line) {
+      recordServerLogLine(line);
+      return line;
     },
   },
   // pino-pretty hides hostname by default; bootId is hidden too, since a terminal only ever

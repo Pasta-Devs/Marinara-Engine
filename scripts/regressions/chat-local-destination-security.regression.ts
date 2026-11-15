@@ -24,10 +24,10 @@ const { backupRoutes, sanitizeProfileTableRows } = await import("../../packages/
 const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
 const { createChatPresetsStorage } = await import("../../packages/server/src/services/storage/chat-presets.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
-const { getChatTranslationConfig, TRANSLATOR_DEFAULTS_SETTINGS_KEY } = await import(
-  "../../packages/shared/src/index.js"
-);
+const { getChatTranslationConfig, TRANSLATOR_DEFAULTS_SETTINGS_KEY } =
+  await import("../../packages/shared/src/index.js");
 const schema = await import("../../packages/server/src/db/schema/index.js");
+const { decryptStoredSecret } = await import("../../packages/server/src/utils/stored-secrets.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 
 const db = await getDB();
@@ -63,12 +63,25 @@ const assertNoDestinations = (metadata: Row | undefined, where: string) => {
 const assertSettingsKept = (metadata: Row | undefined, where: string) => {
   for (const [key, value] of Object.entries(settings)) assert.equal(metadata?.[key], value, `${where} keeps ${key}`);
 };
-const chatRow = async (id: string) => ((await db.select().from(schema.chats).where(eq(schema.chats.id, id))) as Row[])[0];
-const chatMeta = async (id: string) => JSON.parse(String((await chatRow(id))?.metadata ?? "{}")) as Row;
+const chatRow = async (id: string) =>
+  ((await db.select().from(schema.chats).where(eq(schema.chats.id, id))) as Row[])[0];
+// The DeepL key and the Discord webhook are stored encrypted (stored-secrets-at-rest covers that); read them back.
+const readable = (metadata: Row | undefined, storedEncrypted = true) => {
+  if (!metadata) return metadata;
+  const out = { ...metadata };
+  for (const key of ["discordWebhookUrl", "translationDeeplApiKey"]) {
+    if (typeof out[key] === "string") {
+      if (out[key] && storedEncrypted) assert.match(String(out[key]), /^enc:v1:/u, `${key} is stored encrypted`);
+      out[key] = decryptStoredSecret(out[key]);
+    }
+  }
+  return out;
+};
+const chatMeta = async (id: string) => readable(JSON.parse(String((await chatRow(id))?.metadata ?? "{}")) as Row)!;
 const presetRow = async (id: string) =>
   ((await db.select().from(schema.chatPresets).where(eq(schema.chatPresets.id, id))) as Row[])[0];
 const presetMeta = async (id: string) =>
-  (JSON.parse(String((await presetRow(id))?.settings ?? "{}")) as { metadata?: Row }).metadata;
+  readable((JSON.parse(String((await presetRow(id))?.settings ?? "{}")) as { metadata?: Row }).metadata);
 const injectOk = async (options: Record<string, unknown>) => {
   const response = await app.inject(options);
   assert.equal(response.statusCode, 200, response.body);
@@ -225,7 +238,11 @@ try {
   assertSettingsKept(await presetMeta("profile-new-preset"), "a new settings profile from a full profile");
   const restoredChat = await chatMeta(ownChatId);
   const restoredPreset = await presetMeta(ownProfile.id);
-  const restoredDefaults = JSON.parse((await appSettings.get(TRANSLATOR_DEFAULTS_SETTINGS_KEY)) ?? "{}") as Row;
+  // Written above in the plain shape of an older version, which still reads as it is.
+  const restoredDefaults = readable(
+    JSON.parse((await appSettings.get(TRANSLATOR_DEFAULTS_SETTINGS_KEY)) ?? "{}") as Row,
+    false,
+  );
   for (const [where, metadata] of [
     ["a chat restored over its own", restoredChat],
     ["a settings profile restored over its own", restoredPreset],

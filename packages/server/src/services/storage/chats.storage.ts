@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { currentRoomGeneration, resolveRoomGenerationPolicy } from "../multiplayer/generation-policy.js";
+import { hasChatMetadataSecretMask, sealChatMetadataSecrets } from "../../utils/stored-secrets.js";
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
@@ -1650,7 +1651,7 @@ export function createChatsStorage(db: DB) {
         personaCharacterId: input.personaCharacterId ?? null,
         promptPresetId: input.promptPresetId,
         connectionId: input.connectionId,
-        metadata: JSON.stringify(metadata),
+        metadata: JSON.stringify(sealChatMetadataSecrets(metadata)),
         lastMessageAt: null,
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
@@ -1882,7 +1883,15 @@ export function createChatsStorage(db: DB) {
       }
       await db
         .update(chats)
-        .set({ metadata: JSON.stringify(metadata), updatedAt: now() })
+        .set({
+          metadata: JSON.stringify(
+            sealChatMetadataSecrets(
+              { ...metadata },
+              hasChatMetadataSecretMask(metadata) ? parseMetadata((await this.getById(id))?.metadata) : null,
+            ),
+          ),
+          updatedAt: now(),
+        })
         .where(eq(chats.id, id));
       return this.getById(id);
     },
@@ -2006,7 +2015,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(chats)
           .set({
-            metadata: JSON.stringify(merged),
+            metadata: JSON.stringify(sealChatMetadataSecrets(merged, current)),
             ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
           })
@@ -2060,7 +2069,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(chats)
           .set({
-            metadata: JSON.stringify(merged),
+            metadata: JSON.stringify(sealChatMetadataSecrets(merged, current)),
             characterIds: JSON.stringify(characterIds),
             ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),

@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Character Sprite Upload, List & Serving
 // ──────────────────────────────────────────────
+import { decryptCustomHeaders } from "../utils/stored-secrets.js";
 import type { FastifyInstance } from "fastify";
 import {
   isOpenAIGptImageModel,
@@ -452,7 +453,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
-    customHeaders: videoDefaults.customHeaders,
+    customHeaders: decryptCustomHeaders(videoDefaults.customHeaders),
     atlasModelOptions: isAtlasVideo
       ? videoDefaults.atlas.modelOptions[connection.model?.trim() || "google/veo3.1/text-to-video"]
       : undefined,
