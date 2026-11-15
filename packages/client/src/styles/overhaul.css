@@ -11928,6 +11928,18 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul="on"] [data-ovm-longpress] {
   -webkit-touch-callout: none;
 }
+/* Holding a message opens its menu. iOS/iPadOS start their own text selection on the same hold (a word,
+   a paragraph, sometimes the whole page) and the still-held finger then selects text inside the menu that
+   opens under it. Messages that answer a hold and that menu are not text-selectable; Edit (where the
+   hold is off) is how to pick out text to copy (Nov 15). Fields inside keep selection (globals.css). */
+:root[data-overhaul] :is([data-ovm-longpress], .ovm-sheet, .ovm-sheet-scrim) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+:root[data-overhaul] :is([data-ovm-longpress], .ovm-sheet) [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
 @media (hover: none) {
   /* Holding a tab opens its menu, so iOS should not show its own link callout. */
   :root[data-overhaul="on"] :is(.ov-tab, .ov-tabgroup) {
