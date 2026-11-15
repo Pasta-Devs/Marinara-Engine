@@ -71,7 +71,6 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
 
     // A package can shape the game its tag starts, as its own setup screen would (Wordle's chat, day and streaks).
     let config: unknown;
-    let exactBotCharacterIds = false;
     const startConfig = getCapabilityTurnGameStartConfig(args.commandType);
     if (startConfig) {
       const proposed = botCharacterIds;
@@ -94,7 +93,6 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
         botCharacterIds = start.botCharacterIds.filter(
           (id, index, ids) => proposed.includes(id) && ids.indexOf(id) === index,
         );
-        exactBotCharacterIds = true;
       }
     }
 
@@ -103,11 +101,13 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
       return true;
     }
 
+    // The seats were chosen above, so an empty list means the player plays alone (a one-seat game, or a package
+    // that seats no one), not every character in the chat.
     const outcome = await startTurnGame(args.db, args.chatId, {
       gameType,
       botCharacterIds,
       humanFirst: true,
-      ...(exactBotCharacterIds ? { exactBotCharacterIds } : {}),
+      exactBotCharacterIds: true,
       ...(config === undefined ? {} : { config }),
     });
     if (!outcome.ok) {

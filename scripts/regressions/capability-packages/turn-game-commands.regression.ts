@@ -71,7 +71,9 @@ let throwingHookChatId = "";
 cleanups.push(registerTurnGameEngine(fakeEngine("duel-match", "Duel Match", 2)));
 cleanups.push(registerTurnGameEngine(fakeEngine("card-table", "Card Table", 4)));
 cleanups.push(registerTurnGameEngine(fakeEngine("uno", "UNO", 8)));
+cleanups.push(registerTurnGameEngine(fakeEngine("daily-puzzle", "Daily Puzzle", 1)));
 cleanups.push(registerCapabilityConversationCommand({ commandType: "duel_match", tags: ["duel_match"] }));
+cleanups.push(registerCapabilityConversationCommand({ commandType: "daily_puzzle", tags: ["daily_puzzle"] }));
 cleanups.push(
   registerCapabilityConversationCommand({
     commandType: "card_table",
@@ -171,6 +173,7 @@ const cases: RegressionCase[] = [
         assert.equal(response.statusCode, 200);
         assert.deepEqual(response.json().commands, [
           { commandType: "duel_match", label: "Duel Match", description: null },
+          { commandType: "daily_puzzle", label: "Daily Puzzle", description: null },
           { commandType: "card_table", label: "Cards", description: "Let characters deal you in." },
         ]);
       } finally {
@@ -188,12 +191,21 @@ const cases: RegressionCase[] = [
       assert.match(on, /- \[card_table\] - start a game of Card Table at the table\./);
       assert.doesNotMatch(on, /\[phone\]/);
 
+      // A one-seat game says the persona plays alone, and still keeps the model from narrating the board.
+      const solo = on.split("\n").find((line) => line.startsWith("- [daily_puzzle]")) ?? "";
+      assert.match(solo, /Daily Puzzle seats only Romu/);
+      assert.match(solo, /do NOT describe the board or narrate moves/);
+      assert.doesNotMatch(solo, /opponent|characters who are around|against Romu/);
+
       const duelOff =
         (await reminder(chat.id, { conversationCommandToggles: { duel_match: false } }, "conversation")) ?? "";
       assert.doesNotMatch(duelOff, /\[duel_match\]/);
       assert.match(duelOff, /\[card_table\]/);
 
-      assert.doesNotMatch((await reminder(chat.id, {}, "roleplay")) ?? "", /\[duel_match\]|\[card_table\]/);
+      assert.doesNotMatch(
+        (await reminder(chat.id, {}, "roleplay")) ?? "",
+        /\[duel_match\]|\[card_table\]|\[daily_puzzle\]/,
+      );
     },
   },
   {
@@ -214,7 +226,20 @@ const cases: RegressionCase[] = [
       assert.deepEqual(game?.state, { config: { chatId: chat.id }, seats: ["human", kaelen.id] });
 
       // With a game running, no character is offered another one.
-      assert.doesNotMatch((await reminder(chat.id, {}, "conversation")) ?? "", /\[duel_match\]|\[card_table\]/);
+      assert.doesNotMatch(
+        (await reminder(chat.id, {}, "conversation")) ?? "",
+        /\[duel_match\]|\[card_table\]|\[daily_puzzle\]/,
+      );
+    },
+  },
+  {
+    name: "a one-seat game's tag starts it with the player alone, not every character in the chat",
+    async run() {
+      const chat = await conversationChat("one seat");
+      assert.equal(await startFromTag("daily_puzzle", chat.id, {}), true);
+      const game = await getActiveTurnGame(db, chat.id);
+      assert.equal(game?.engine.gameType, "daily-puzzle");
+      assert.deepEqual(game?.state, { config: { from: "default" }, seats: ["human"] });
     },
   },
   {

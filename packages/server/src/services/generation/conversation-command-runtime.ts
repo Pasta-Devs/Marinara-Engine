@@ -123,6 +123,12 @@ export function filterEnabledConversationCommands(
 function describePackageTurnGameCommand(game: CapabilityTurnGameCommand, personaName: string): string[] {
   const tag = `[${game.tag}]`;
   const label = game.gameLabel;
+  if (game.maxPlayers <= 1) {
+    return [
+      `- ${tag} - start a game of ${label} for ${personaName}. Include this ONLY when ${personaName} wants to play ${label} and you are happy for them to play right now. ${label} seats only ${personaName}: you do not take a seat, but you can watch and react in character. The system sets up and runs the game, so you do NOT describe the board or narrate moves.`,
+      `   If now is a bad moment, say so in character and do NOT include ${tag}. Saying yes IS including ${tag}.`,
+    ];
+  }
   if (game.maxPlayers === 2) {
     return [
       `- ${tag} - start a one-on-one game of ${label} against ${personaName}. Include this ONLY when ${personaName} proposes playing ${label} and YOU are willing to play right now. ${label} seats exactly two players: ${personaName} and you. Whichever character includes ${tag} takes the opponent's seat. The system sets up and runs the game, so you do NOT describe the board or narrate moves.`,
