@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
 import { SPLIT_PANE, forgetSplitPaneCopy, type SplitPage } from "../../lib/split-view-env";
 import { queryClient } from "../../lib/query-client";
+import { claimSoundOnPress, setSplitSideQuiet } from "../../lib/split-sound-gate";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useDeviceLookStore } from "../../stores/device-look.store";
@@ -49,7 +50,9 @@ import {
 type SplitMessage =
   | { type: "ov-split"; current: SplitPage }
   | { type: "ov-split"; open: SplitPage }
-  | { type: "ov-split"; action: "swap" | "only" | "close" };
+  | { type: "ov-split"; action: "swap" | "only" | "close" }
+  /** The sender was clicked: it plays sound now, and the other side goes quiet. */
+  | { type: "ov-split"; sound: "mine" };
 
 const origin = () => window.location.origin;
 
@@ -97,6 +100,19 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
 
   useEffect(startQuerySync, []);
 
+  // Only the side clicked last plays sound. Grabbing the divider isn't a click on the main side.
+  // Closing the split gives the main window its sound back.
+  useEffect(() => {
+    const stop = claimSoundOnPress(
+      () => post({ type: "ov-split", sound: "mine" }),
+      (target) => target instanceof Element && target.closest(".ov-split-divider") !== null,
+    );
+    return () => {
+      stop();
+      setSplitSideQuiet(false);
+    };
+  }, []);
+
   const post = (message: SplitMessage) => frameRef.current?.contentWindow?.postMessage(message, origin());
 
   // The frame's news: the page it is on, and its bar's buttons.
@@ -105,6 +121,7 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
       if (event.origin !== origin() || event.source !== frameRef.current?.contentWindow) return;
       const data = event.data;
       if (!data || data.type !== "ov-split") return;
+      if ("sound" in data) return setSplitSideQuiet(true);
       const store = useOverhaulStore.getState();
       const current = store.split;
       if (!current) return;
@@ -419,7 +436,11 @@ export function startSplitPane() {
     if (event.origin !== origin() || event.source !== window.parent) return;
     const data = event.data;
     if (data?.type === "ov-split" && "open" in data) showPage(data.open);
+    // The main side was clicked: it has the sound now.
+    if (data?.type === "ov-split" && "sound" in data) setSplitSideQuiet(true);
   });
+  // This side was clicked: take the sound (it starts quiet, see split-sound-gate).
+  claimSoundOnPress(() => window.parent.postMessage({ type: "ov-split", sound: "mine" } satisfies SplitMessage, origin()));
 
   // Look and settings changed in the main window show here too; where this side is stays its own.
   window.addEventListener("storage", (event) => {

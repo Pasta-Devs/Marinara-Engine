@@ -1,5 +1,7 @@
 // Split view: the second side's frame keeps where it is to itself (must run before any store loads).
 import { SPLIT_PANE } from "./lib/split-view-env";
+// Split view: only the side you clicked last plays sound. Installed before anything can start a sound.
+import "./lib/split-sound-gate";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
