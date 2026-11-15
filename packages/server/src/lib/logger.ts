@@ -26,6 +26,7 @@ import { hostname } from "node:os";
 import { isatty } from "node:tty";
 import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
+import { recordServerLogLine } from "./log-buffer.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -132,6 +133,11 @@ export const logger = pino({
       if (level >= 30)
         for (let index = 0; index < args.length; index++) args[index] = privateErrorLogArgument(args[index]);
       return method.apply(this, args);
+    },
+    // Tee each serialized line into the in-app console's buffer (lib/log-buffer.ts), unchanged.
+    streamWrite(line) {
+      recordServerLogLine(line);
+      return line;
     },
   },
   // pino-pretty hides hostname by default; bootId is hidden too, since a terminal only ever
