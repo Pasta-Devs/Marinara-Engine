@@ -131,6 +131,70 @@ export async function botBrowserRoutes(app: FastifyInstance, options: BotBrowser
     return data;
   });
 
+  // ── Search lorebooks on Chub ──
+  // Chub ignores its NSFW filters for lorebooks (identical results either way), so none are sent.
+  app.get<{
+    Querystring: {
+      q?: string;
+      page?: string;
+      sort?: string;
+      tags?: string;
+      excludeTags?: string;
+      asc?: string;
+      max_days_ago?: string;
+      special_mode?: string;
+    };
+  }>("/chub/lorebooks/search", async (req) => {
+    const {
+      q = "",
+      page = "1",
+      sort = "download_count",
+      tags,
+      excludeTags,
+      asc,
+      max_days_ago,
+      special_mode,
+    } = req.query;
+    const params = new URLSearchParams({
+      search: q,
+      first: "48",
+      page,
+      namespace: "lorebooks",
+      chub: "true",
+      count: "true",
+      include_forks: "true",
+      venus: "false",
+    });
+    if (sort && sort !== "default") params.set("sort", sort);
+    if (asc === "true") params.set("asc", "true");
+    if (max_days_ago && max_days_ago !== "0") params.set("max_days_ago", max_days_ago);
+    if (special_mode) params.set("special_mode", special_mode);
+    if (tags) params.set("topics", tags);
+    if (excludeTags) params.set("excludetopics", excludeTags);
+
+    return fetchJson(`${CHUB_API_BASE}/search?${params}`, {
+      allowedHosts: ["api.chub.ai"],
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  // ── Get a full lorebook (entries included) from Chub ──
+  // Search returns `lorebooks/<creator>/<slug>`; the detail API wants `<creator>/<slug>` (the prefix 404s).
+  app.get<{ Params: { "*": string } }>("/chub/lorebook/*", async (req, reply) => {
+    const rawPath = (req.params as Record<string, string>)["*"] ?? "";
+    const path = rawPath.replace(/^lorebooks\//, "");
+    const segments = path.split("/");
+    if (segments.length !== 2 || segments.some((segment) => !segment || segment === "." || segment === "..")) {
+      return reply.status(400).send({ error: "Invalid lorebook path" });
+    }
+    return fetchJson(`${CHUB_API_BASE}/api/lorebooks/${segments.map(encodeURIComponent).join("/")}?full=true`, {
+      allowedHosts: ["api.chub.ai"],
+      maxResponseBytes: 16 * 1024 * 1024,
+      headers: { Accept: "application/json" },
+    });
+  });
+
   // ── Get full character data from Chub ──
   app.get<{ Params: { "*": string } }>("/chub/character/*", async (req) => {
     const fullPath = (req.params as Record<string, string>)["*"];

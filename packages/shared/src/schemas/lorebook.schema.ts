@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { partialInput } from "../utils/zod-input.js";
 import { LIMITS } from "../constants/defaults.js";
+import { avatarCropSchema } from "./avatar-crop.schema.js";
 
 export const LOREBOOK_CATEGORY_VALUES = ["world", "character", "npc", "spellbook", "uncategorized"] as const;
 export type LorebookCategoryValue = (typeof LOREBOOK_CATEGORY_VALUES)[number];
@@ -140,6 +141,7 @@ const lorebookBaseSchema = z.object({
   description: z.string().default(""),
   category: lorebookCategorySchema.default("uncategorized"),
   imagePath: z.string().nullable().default(null),
+  imageCrop: avatarCropSchema.nullable().default(null),
   scanDepth: z.number().int().min(0).default(2),
   tokenBudget: z.number().int().min(0).default(2048),
   entryLimit: z

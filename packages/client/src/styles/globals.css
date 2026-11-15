@@ -2087,6 +2087,13 @@
   --mari-avatar-placeholder-text: #ecfdf5;
 }
 
+/* Same amber as the Lorebooks panel gradient (.mari-panel-gradient--lorebooks). */
+.mari-avatar-placeholder--lorebook {
+  --mari-avatar-placeholder-start: #f59e0b;
+  --mari-avatar-placeholder-end: #f97316;
+  --mari-avatar-placeholder-text: #fff7ed;
+}
+
 .mari-topbar-button {
   color: var(--marinara-chat-chrome-button-text);
   transition:

@@ -3,7 +3,9 @@
 // ──────────────────────────────────────────────
 import { logger } from "../lib/logger.js";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { userInfo } from "node:os";
 import { join } from "node:path";
 import { DATA_DIR } from "./data-dir.js";
 import { getEncryptionKeyOverride } from "../config/runtime-config.js";
@@ -65,6 +67,7 @@ function getEncryptionKey(): Buffer {
         );
       }
       cachedKey = decoded;
+      restrictKeyFile(keyPath);
       return cachedKey;
     }
   }
@@ -73,9 +76,43 @@ function getEncryptionKey(): Buffer {
   const newKey = randomBytes(32);
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(keyPath, newKey.toString("hex") + "\n", { mode: 0o600 });
+  restrictKeyFile(keyPath);
   logger.info("[CRYPTO] No ENCRYPTION_KEY found — generated and saved to %s", keyPath);
   cachedKey = newKey;
   return cachedKey;
+}
+
+/**
+ * Owner-only access to the key file. On Linux/macOS a key made by an older version, copied, or restored can be
+ * readable by other accounts, so the mode is tightened on every start. Windows ignores the mode, so the file's
+ * inherited permissions are replaced with full control for this account and SYSTEM only (best effort, once).
+ */
+function restrictKeyFile(keyPath: string) {
+  if (process.platform !== "win32") {
+    try {
+      if ((statSync(keyPath).mode & 0o077) !== 0) chmodSync(keyPath, 0o600);
+    } catch (error) {
+      logger.warn(error, "[CRYPTO] Could not make the encryption key file owner-only");
+    }
+    return;
+  }
+  let account = "";
+  try {
+    account = userInfo().username;
+  } catch {
+    return;
+  }
+  if (!account) return;
+  const domain = process.env.USERDOMAIN?.trim();
+  const principal = domain ? `${domain}\\${account}` : account;
+  execFile(
+    "icacls",
+    [keyPath, "/inheritance:r", "/grant:r", `${principal}:F`, "/grant:r", "*S-1-5-18:F"],
+    { windowsHide: true, timeout: 15_000 },
+    (error) => {
+      if (error) logger.warn(error, "[CRYPTO] Could not make the encryption key file owner-only");
+    },
+  );
 }
 
 /** A server-only key for `purpose`, derived from the persisted encryption key so it survives restarts. */
