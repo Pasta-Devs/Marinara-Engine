@@ -46,6 +46,8 @@ export interface DecisionConnection {
   timeoutMs?: number;
   /** The Model's non-secret Custom Request Headers, such as NanoGPT's `x-billing-mode`. */
   headers?: Record<string, string>;
+  /** Gemini's Decisions API: `input` for the state, `x-goog-api-key` for the key, plain ids for the questions. */
+  dialect?: "gemini";
 }
 
 export type DecisionConnectionError =
@@ -95,13 +97,14 @@ export async function resolveDecisionConnection(
   // log-probabilities, at the Connection's address. Older rows (and Connections of the old
   // "Decision" kind) keep their own source.
   const vendor = row.account && row.account.provider !== "decision" ? row.account.provider : null;
-  if (vendor && !speaksOpenAIChat(vendor)) return { connection: null, error: "invalid_source" };
+  const native = vendor ? NATIVE_DECISION_SOURCES[vendor as APIProvider] : undefined;
+  const nativeDecisions = !!native && (row.decisionSource === native || row.account?.decisionModel === true);
+  // A vendor that does not speak OpenAI chat (Gemini) has no log-probabilities: only its native decision model works.
+  if (vendor && !speaksOpenAIChat(vendor) && !nativeDecisions) return { connection: null, error: "invalid_source" };
   if (vendor && vendor !== "custom" && !row.apiKey.trim()) return { connection: null, error: "missing_key" };
   // NanoGPT's decision models answer only at its Decisions API and reject chat requests (#9310); OpenRouter's
   // answer at its System One endpoint. A chat model of either picked for decisions keeps the log-probability path.
   // The account's catalog entry says so too, so a row any picker made for a native decision model is asked right.
-  const native = vendor ? NATIVE_DECISION_SOURCES[vendor as APIProvider] : undefined;
-  const nativeDecisions = !!native && (row.decisionSource === native || row.account?.decisionModel === true);
   const source = nativeDecisions ? native : vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
   if (!Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
     return { connection: null, error: "invalid_source" };
@@ -112,14 +115,19 @@ export async function resolveDecisionConnection(
     // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
     // A native account's chat address ends in /api/v1 (NanoGPT, OpenRouter); its decision endpoint is under the
     // same /api on the same host.
-    const base = nativeDecisions
-      ? `${new URL(row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl).origin}/api`
-      : vendor
-        ? row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl
-        : decisionSourceTakesUrl(source)
-          ? row.baseUrl
-          : (source === "typesafe" && row.baseUrl?.trim()) ||
-            DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter" | "nanogpt"];
+    const accountBase = row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider]?.defaultBaseUrl || "";
+    const base =
+      source === "google"
+        ? // Gemini's decision endpoint sits under the account's /v1beta root.
+          (accountBase.match(/^(.*?\/v1beta)(?:\/|$)/)?.[1] ?? `${accountBase.replace(/\/+$/, "")}/v1beta`)
+        : nativeDecisions
+          ? `${new URL(accountBase).origin}/api`
+          : vendor
+            ? accountBase
+            : decisionSourceTakesUrl(source)
+              ? row.baseUrl
+              : (source === "typesafe" && row.baseUrl?.trim()) ||
+                DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter" | "nanogpt"];
     endpoint = new URL(
       source === "openai_compatible"
         ? decisionChatCompletionsUrl(base)
@@ -187,6 +195,7 @@ export async function resolveDecisionConnection(
       ),
       timeoutMs: resolveDecisionConnectionTimeoutMs(row.decisionTimeoutMs, source),
       ...(headers ? { headers } : {}),
+      ...(source === "google" ? { dialect: "gemini" as const } : {}),
     },
   };
 }

@@ -493,6 +493,8 @@ export function ConnectionSwitcherBody({
     label: string;
     restLabel: string;
     test: (provider: string, model: string, facts: CachedModelFacts | undefined) => boolean;
+    /** Providers whose list is only these models (Gemini: its chat models cannot answer the slot). */
+    only?: (provider: string) => boolean;
   };
   /** Last row: adds a provider; the host reopens or keeps this picker. */
   onAdd?: () => void;
@@ -875,7 +877,11 @@ export function ConnectionSwitcherBody({
   const isNow = (entry: Entry) => matchesNow(entry.choice);
   const leads = (group: SwitcherGroup | undefined, model: string, facts?: CachedModelFacts) =>
     !!leadCatalog && !!group?.account && leadCatalog.test(group.account.provider, model, facts);
+  /** A provider the lead models are exclusive to: its other models are not offered, starred or saved. */
+  const leadOnly = (group: SwitcherGroup | undefined, model: string, facts?: CachedModelFacts) =>
+    !!group?.account && !!leadCatalog?.only?.(group.account.provider) && !leads(group, model, facts);
   const acceptsCatalog = (model: string, facts?: CachedModelFacts, group?: SwitcherGroup) =>
+    !leadOnly(group, model, facts) &&
     (!modelFilter || modelFilter(model)) &&
     (!catalogFilter || catalogFilter(model, facts)) &&
     (kind === "all" || !!modelFilter || catalogMatchesKind(model, facts, kind) || leads(group, model, facts));
@@ -886,7 +892,10 @@ export function ConnectionSwitcherBody({
         if (!group.account) return { group, entries: group.rows.map((row) => entryOfRow(row, group)) };
         const byModel = new Map<string, Entry>();
         for (const model of starsOfRows(group.rows)) {
-          if (kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model)))
+          if (
+            !leadOnly(group, model, catalogOf(group)?.of(model)) &&
+            (kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model)))
+          )
             byModel.set(model, entryFor(group, anchorOf(group), model));
         }
         for (const row of group.rows) {
@@ -895,6 +904,7 @@ export function ConnectionSwitcherBody({
             row.model &&
             kept &&
             !byModel.has(row.model) &&
+            !leadOnly(group, row.model, catalogOf(group)?.of(row.model)) &&
             (kind === "chat" || !catalogFilter || acceptsCatalog(row.model, catalogOf(group)?.of(row.model)))
           ) {
             byModel.set(row.model, entryFor(group, anchorOf(group), row.model));
@@ -931,12 +941,20 @@ export function ConnectionSwitcherBody({
     const anchor = anchorOf(group);
     const starred = group.account
       ? [...starsOf(group)]
-          .filter((model) => kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model)))
+          .filter(
+            (model) =>
+              !leadOnly(group, model, catalogOf(group)?.of(model)) &&
+              (kind === "chat" || !catalogFilter || acceptsCatalog(model, catalogOf(group)?.of(model))),
+          )
           .map((model) => entryFor(group, anchor, model))
       : [];
     const seen = new Set(starred.map((entry) => entry.model));
     // A saved row without a model (an image server) is still a choice of its own.
-    const saved = group.rows.filter((row) => !row.model || !seen.has(row.model)).map((row) => entryOfRow(row, group));
+    const saved = group.rows
+      .filter(
+        (row) => !row.model || (!seen.has(row.model) && !leadOnly(group, row.model, catalogOf(group)?.of(row.model))),
+      )
+      .map((row) => entryOfRow(row, group));
     for (const entry of saved) seen.add(entry.model);
     const ids = catalogBrowse ? new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set])) : [];
     const fromCatalog = [...ids]

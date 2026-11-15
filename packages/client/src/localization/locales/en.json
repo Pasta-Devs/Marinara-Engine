@@ -2106,6 +2106,7 @@
   "connections.decision.smartOrder": "Also use it to pick who speaks in Smart response order",
   "connections.decision.source": "Decision source",
   "connections.decision.sources.custom": "Custom System One endpoint",
+  "connections.decision.sources.google": "Google Gemini",
   "connections.decision.sources.nanogpt": "NanoGPT",
   "connections.decision.sources.openai_compatible": "OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)",
   "connections.decision.sources.openrouter": "OpenRouter",

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
+  speaksOpenAIChat,
   type ConnectionAccountListItem,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
@@ -74,6 +75,8 @@ export function usesOf(
         decisions.find((model) => model.subscriptionIncluded) ??
         decisions[0];
       if (best) return [{ kind, job, model: best.id, name: best.name }];
+      // Gemini has no log-probabilities to fall back on: without a decision model of its own it offers none.
+      if (!speaksOpenAIChat(provider)) return [];
     }
     const logprobs = kind === "decision" ? models.filter((model) => model.capabilities?.logprobs) : [];
     const asText = kind === "chat" || (kind === "decision" && !logprobs.length && wanted === "decision");

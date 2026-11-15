@@ -4,7 +4,12 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { LOCAL_SIDECAR_CONNECTION_ID, type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
+import {
+  LOCAL_SIDECAR_CONNECTION_ID,
+  speaksOpenAIChat,
+  type ChatModelChoice,
+  type ConnectionPickerKind,
+} from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
@@ -376,6 +381,8 @@ function ModelPickerSlot({
                 label: t("connections.decision.nativeModels"),
                 restLabel: t("connections.decision.chatModels"),
                 test: (provider, _model, facts) => nativeDecision(provider, facts),
+                // Gemini answers no chat model's log-probabilities: a chat pick there would save a row that cannot run.
+                only: (provider) => !!NATIVE_DECISION_SOURCE[provider as ServiceId] && !speaksOpenAIChat(provider),
               }
             : undefined
         }

@@ -2711,7 +2711,7 @@ function readOpenAICompatibleModelLimits(model: Record<string, unknown>): Pick<R
   };
 }
 
-function normalizeModelsResponse(provider: string, json: Record<string, unknown>): RemoteModel[] {
+export function normalizeModelsResponse(provider: string, json: Record<string, unknown>): RemoteModel[] {
   switch (provider) {
     case "google": {
       // Google returns { models: [{ name: "models/gemini-...", displayName: "..." }] }
@@ -2722,12 +2722,17 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
         inputTokenLimit?: number;
         outputTokenLimit?: number;
       }>;
+      // Gemini's own decision models (`createDecision`) are kept as decision models: output `decisions`, like
+      // NanoGPT's and OpenRouter's, so the Decision picker lists them and chat lists skip them.
+      const isDecision = (m: { supportedGenerationMethods?: string[] }) =>
+        !!m.supportedGenerationMethods?.includes("createDecision");
       return models
         .filter(
           // Keep chat-capable models. Some catalog entries only advertise the
           // streaming method, and a missing field should not hide a model.
           (m) =>
             !m.supportedGenerationMethods ||
+            isDecision(m) ||
             m.supportedGenerationMethods.includes("generateContent") ||
             m.supportedGenerationMethods.includes("streamGenerateContent"),
         )
@@ -2735,6 +2740,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
           id: (m.name ?? "").replace(/^models\//, ""),
           name: m.displayName ?? (m.name ?? "").replace(/^models\//, ""),
           ...readOpenAICompatibleModelLimits(m as Record<string, unknown>),
+          ...(isDecision(m) ? { outputModalities: ["decisions"] } : {}),
         }))
         .filter((m) => m.id);
     }
