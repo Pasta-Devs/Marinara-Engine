@@ -199,7 +199,7 @@ export function ServerConsoleWindow() {
       closeLabel={t("serverConsole.close")}
       presentation={phoneLayout ? "sheet" : "window"}
       layer="top"
-      sheetClassName={cn(PHONE_SHEET_CLASS, PHONE_FULL_SHEET_CLASS, "z-[100001]")}
+      sheetClassName={cn(PHONE_SHEET_CLASS, PHONE_FULL_SHEET_CLASS, "z-[calc(var(--mari-layer-omnibar)_+_1)]")}
       getDefaultLayout={getServerConsoleDefaultLayout}
       minWidth={320}
       minHeight={240}

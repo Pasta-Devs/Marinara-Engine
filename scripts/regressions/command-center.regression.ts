@@ -3098,6 +3098,16 @@ assert.ok(!("mariDetailId" in mariSession));
       .map((value) => `${file}: ${value}`);
   });
   assert.deepEqual(offenders, [], "a numeric z-index at or above the omnibar layer would cover the omnibar");
+  // The one window meant to sit over the omnibar is the server console (FloatingWindow layer="top"): a tool the
+  // user opens to watch the app, Professor Mari included. Anything else that wants it is a new decision.
+  const topLayerUsers = files
+    .filter((file) => /\.tsx$/u.test(file) && /^\s+layer="top"$/mu.test(clientSource(file)))
+    .map((file) => file.replaceAll("\\", "/"));
+  assert.deepEqual(
+    topLayerUsers,
+    ["components/layout/ServerConsoleWindow.tsx"],
+    "only the server console sits above the omnibar",
+  );
 
   // Slice 15's "no pull under a modal" guard was dropped on purpose (L8): the pull and ⌘K now open
   // ON TOP of a dialog. The guard must not come back.
