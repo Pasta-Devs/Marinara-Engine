@@ -7,6 +7,7 @@ import {
   type ImageGenerationDefaultsProfile,
   type ImageGenerationQuality,
 } from "@marinara-engine/shared";
+import { decryptConnectionHeaderSecrets } from "../../utils/stored-secrets.js";
 
 export interface ImageDefaultsConnection {
   provider?: string | null;
@@ -31,7 +32,8 @@ export function resolveImageGenerationService(conn: ImageDefaultsConnection): st
 
 export function resolveConnectionImageDefaults(conn: ImageDefaultsConnection): ImageGenerationDefaultsProfile | null {
   const service = imageSourceToDefaultsService(resolveImageGenerationService(conn));
-  const params = parseDefaultParametersRoot(conn.defaultParameters);
+  // Saved header values are stored encrypted; the profile carries the usable values.
+  const params = decryptConnectionHeaderSecrets(parseDefaultParametersRoot(conn.defaultParameters));
   const customParameters =
     params.customParameters && typeof params.customParameters === "object" && !Array.isArray(params.customParameters)
       ? (params.customParameters as Record<string, unknown>)

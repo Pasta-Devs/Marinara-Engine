@@ -9,6 +9,7 @@ import {
   normalizeCustomRequestHeaders,
   resolveDecisionConnectionTimeoutMs,
 } from "@marinara-engine/shared";
+import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
 
 export interface DecisionConnectionRow {
   id: string;
@@ -70,7 +71,13 @@ function customHeadersOf(defaultParameters: string | null | undefined): Record<s
   if (!defaultParameters) return undefined;
   try {
     const parsed = JSON.parse(defaultParameters) as { customHeaders?: unknown } | null;
-    return normalizeCustomRequestHeaders(parsed?.customHeaders);
+    // Header values are stored encrypted (and older rows plain); requests get the usable values.
+    const headers = parsed?.customHeaders;
+    return normalizeCustomRequestHeaders(
+      headers && typeof headers === "object" && !Array.isArray(headers)
+        ? decryptCustomHeaders(headers as Record<string, string>)
+        : headers,
+    );
   } catch {
     return undefined;
   }

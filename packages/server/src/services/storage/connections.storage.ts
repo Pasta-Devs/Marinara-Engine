@@ -6,6 +6,7 @@ import type { DB } from "../../db/connection.js";
 import { apiConnections, chats, connectionAccounts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
+import { maskConnectionHeaderSecrets, sealConnectionHeaderSecrets } from "../../utils/stored-secrets.js";
 import {
   MAX_PINNED_MODELS,
   connectionBilling,
@@ -510,6 +511,7 @@ export function createConnectionsStorage(db: DB) {
         billing: connectionBilling(r),
         apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
         managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
+        defaultParameters: maskConnectionHeaderSecrets(r.defaultParameters),
       }));
     },
 
@@ -1596,7 +1598,11 @@ export function createConnectionsStorage(db: DB) {
     async updateDefaultParameters(id: string, params: Record<string, unknown> | null) {
       await db
         .update(apiConnections)
-        .set({ defaultParameters: params ? JSON.stringify(params) : null, updatedAt: now() })
+        // Custom header values often carry credentials, so they are stored encrypted like the API key.
+        .set({
+          defaultParameters: params ? JSON.stringify(sealConnectionHeaderSecrets(params)) : null,
+          updatedAt: now(),
+        })
         .where(eq(apiConnections.id, id));
     },
   };

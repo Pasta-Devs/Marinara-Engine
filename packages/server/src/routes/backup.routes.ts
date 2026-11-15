@@ -6,6 +6,11 @@ import {
 // ──────────────────────────────────────────────
 // Routes: Backup
 // ──────────────────────────────────────────────
+import {
+  maskConnectionHeaderSecrets,
+  resolveConnectionHeaderPlaceholders,
+  sealConnectionHeaderSecrets,
+} from "../utils/stored-secrets.js";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { Transform } from "node:stream";
 import { extname, join, relative } from "path";
@@ -771,7 +776,14 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
   if (tableName === "api_connections") {
     // The saved model list is a cache the provider can rebuild, like Noodle fan activity above, so
     // it stays out of portable profiles. Pinned models are settings and travel with the row.
-    return rows.map((row) => ({ ...row, apiKeyEncrypted: "", managementTokenEncrypted: "", savedModels: null }));
+    // Custom header values often carry credentials too: a profile keeps each header's name with the mask.
+    return rows.map((row) => ({
+      ...row,
+      apiKeyEncrypted: "",
+      managementTokenEncrypted: "",
+      savedModels: null,
+      defaultParameters: maskConnectionHeaderSecrets(row.defaultParameters),
+    }));
   }
   if (tableName === "connection_accounts") {
     // Accounts hold the shared key and management token, so they stay on this install like the rows above.
@@ -900,6 +912,23 @@ type ProfileApiConnectionImportPlan = {
   trustedIdentity: boolean;
 };
 
+function resolveImportedConnectionHeaders(raw: unknown, existing: Record<string, unknown> | undefined): unknown {
+  if (typeof raw !== "string" && (!raw || typeof raw !== "object" || Array.isArray(raw))) return raw;
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return raw;
+  const resolved = sealConnectionHeaderSecrets(
+    resolveConnectionHeaderPlaceholders(parsed as Record<string, unknown>, existing?.defaultParameters),
+  );
+  return typeof raw === "string" ? JSON.stringify(resolved) : resolved;
+}
+
 export function quarantineProfileApiConnectionRow(
   row: Record<string, unknown>,
   existing?: Record<string, unknown>,
@@ -914,6 +943,9 @@ export function quarantineProfileApiConnectionRow(
     managementTokenEncrypted: trustedIdentity ? existingManagementToken : "",
     // Like the key: the local saved model list still applies only to the same endpoint.
     savedModels: trustedIdentity ? (existing?.savedModels ?? null) : null,
+    // Exported header values are masks: like the key, the same endpoint keeps this install's values and any other
+    // row gets none (the header names stay for the user to fill in).
+    defaultParameters: resolveImportedConnectionHeaders(row.defaultParameters, trustedIdentity ? existing : undefined),
     profileImportReviewRequired: trustedIdentity ? "false" : "true",
     // A trusted row keeps its local account. Any other row keeps its exported account id: linkConnectionAccounts
     // keeps it there only while that account is the imported one with the same blank key and origin, and

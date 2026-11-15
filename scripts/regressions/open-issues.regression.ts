@@ -1418,6 +1418,7 @@ try {
     const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
     const { TRANSLATOR_DEFAULTS_SETTINGS_KEY, normalizeTranslatorSettings } =
       await import("../../packages/shared/src/utils/translator-defaults.js");
+    const { readChatMetadataSecret } = await import("../../packages/server/src/utils/stored-secrets.js");
     const appSettings = createAppSettingsStorage(db);
     const translatorChats = createChatsStorage(db);
     const createTranslatorChat = (mode: "conversation" | "roleplay" | "game") =>
@@ -1451,8 +1452,13 @@ try {
     for (const mode of ["conversation", "roleplay", "game"] as const) {
       const created = (await createTranslatorChat(mode))!;
       const metadata = JSON.parse(created.metadata);
+      // The inherited DeepL key is stored encrypted and reads back as the saved key.
+      assert.match(metadata.translationDeeplApiKey, /^enc:v1:/u, `${mode} stores the inherited DeepL key encrypted`);
       assert.deepEqual(
-        normalizeTranslatorSettings(metadata),
+        {
+          ...normalizeTranslatorSettings(metadata),
+          translationDeeplApiKey: readChatMetadataSecret(metadata, "translationDeeplApiKey"),
+        },
         defaults,
         `${mode} inherits persisted translator defaults`,
       );
