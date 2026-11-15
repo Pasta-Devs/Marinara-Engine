@@ -4695,6 +4695,19 @@ html[data-marinara-effects-paused="true"] .mari-home-browser-star {
   }
 }
 
+/* The same on every phone and tablet main.tsx detects, including an iPad with a keyboard or trackpad. */
+html[data-marinara-touch-device="true"] .mari-home-browser-star {
+  animation: none;
+  opacity: 0.3;
+  will-change: auto;
+}
+
+html[data-marinara-touch-device="true"] .y2k-star,
+html[data-marinara-touch-device="true"] .y2k-star-md,
+html[data-marinara-touch-device="true"] .y2k-star-lg {
+  animation-play-state: paused !important;
+}
+
 /* Home stays mounted under Professor Mari, editors and full panels. While it is covered
    (hooks/use-covered-surface-flag.ts), nothing on it animates: not the stars, the blink, the logo,
    nor anything a theme adds. On phones these hidden loops kept a CPU core 40-60% busy. */

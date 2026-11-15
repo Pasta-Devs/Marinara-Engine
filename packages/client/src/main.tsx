@@ -16,6 +16,7 @@ import { queryClient } from "./lib/query-client";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { formatRuntimeBuild, runningBuildIsServed } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
+import { isIosWebKitBrowser } from "./lib/generation-stream-policy";
 import "@fontsource/gloock/400.css";
 import "@fontsource-variable/figtree";
 import "./styles/globals.css";
@@ -27,6 +28,15 @@ import "./styles/globals.css";
 Object.assign(globalThis, { React, ReactDOM });
 
 registerClientRuntimeDiagnostics(formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__));
+// Phones and tablets: Home's stars hold still (battery). Set once before the first render, because the
+// media query alone missed iPads with a keyboard or trackpad attached (they report hover and a fine pointer).
+if (
+  isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints) ||
+  /Android|Mobi/u.test(navigator.userAgent) ||
+  window.matchMedia("(hover: none) and (pointer: coarse)").matches
+) {
+  document.documentElement.dataset.marinaraTouchDevice = "true";
+}
 // Prevent Chrome/Edge from sleeping this tab
 if (!SPLIT_PANE) startKeepAlive();
 installCsrfFetchShim();
