@@ -161,7 +161,7 @@ Unter **Voice** spricht ein Audiodienst Charakterstimmen und Erzähltext. Wähle
 
 Jede Quelle trägt eine Standardadresse und ein Standardmodell ein. **Default voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** legt fest, wie lange Marinara auf eine gesprochene Zeile wartet. Erhöhe den Wert bei einem langsamen Sprachserver.
 
-Um das Sprachkonto festzulegen, das Marinara standardmäßig nutzt, klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice (Text to Speech)**. Um damit Nachrichten vorlesen zu lassen, wähle es in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Eine Audioverbindung verwenden](../media/tts-setup.md#use-an-audio-connection).
+Um das Sprachkonto festzulegen, das Marinara standardmäßig nutzt, klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice (Text to Speech)**. Um damit Nachrichten vorlesen zu lassen, wähle es in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Eine Audioverbindung verwenden](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 

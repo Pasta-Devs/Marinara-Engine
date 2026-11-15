@@ -29,7 +29,7 @@ MarinaraはSourceごとに、キー、アドレス、モデル、声、パラメ
 
 リクエストは、Marinara自身のサーバーを経由して送られます。APIキーは、サーバー上で暗号化して保存されます。キーを保存すると、欄には伏せ字の点が並び、実際のキーがブラウザーに返ることはありません。
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### 音声の接続を使う
 

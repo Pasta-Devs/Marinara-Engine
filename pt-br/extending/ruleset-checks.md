@@ -41,6 +41,64 @@ O significado do número depende do tipo: `dice-sum` o soma à rolagem; `dice-po
 - `unmodified`: faces de um dado único que o registro marca quando o primeiro dado as mostra (1.136), para que tabelas que tratam à parte "um 66 não modificado" possam ser aplicadas: `[66, 100]`. O registro diz `unmodified="66"`, o cartão também, e o Game Master é instruído a aplicar o que as regras dizem sobre isso.
 - `difficultyLadder`: dificuldades entre as quais o GM deve escolher. `dc` é o número que o total precisa alcançar. O GM pode nomear um patamar em vez de escrever seu número, como `difficulty="Hard"`, e o Engine lê o número desse patamar.
 
+#### Um dado de trama
+
+Um teste somado pode rolar mais um dado cujas faces trazem símbolos, não números (Capability API 1.822). Um conjunto comunitário não precisa de nada; um empacotado declara 1.822.
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`: como o dado é chamado no cartão e para o Game Master.
+- `sides`: de 2 a 20.
+- `faces`: as faces que trazem alguma coisa. Cada uma tem um `symbol`, `"complication"`, `"opportunity"` ou `null`, e um `bonus` opcional (de -20 a 20) somado ao total. Uma face que você não lista fica em branco.
+- `text`: opcional. Uma linha que diz ao Game Master o que os símbolos significam na mesa.
+
+O dado só é rolado quando o Game Master pede, acrescentando `plot="true"` ao teste. Ele é rolado depois dos dados do próprio teste e não faz parte de `rolls`. O registro diz `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`. O bônus está dentro de `modifier`, então os dados e o modificador continuam somando o total. O cartão de dados diz o que o dado mostrou.
+
+Cada face listada precisa existir no dado e aparecer uma única vez.
+
+#### Um total natural e uma faixa deslocada
+
+Duas chaves opcionais cobrem sistemas somados que leem as faixas a partir de mais de um dado (Capability API 1.823). Um conjunto comunitário não precisa de nada; um empacotado declara 1.823.
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`: o total dos próprios dados, antes de qualquer acréscimo, que é um crítico. `atLeast` é um sucesso crítico e `atMost`, uma falha crítica; informe um ou os dois. Funciona com qualquer quantidade de dados, enquanto `naturals` exige um único dado. Um crítico cai na faixa cujo `on` é esse crítico ou, sem ela, na melhor ou na pior faixa.
+- `tierShift`: permite que o Game Master mova a faixa de resultado de um teste com `shift="+1"` ou `shift="-1"`, até `max` faixas (de 1 a 3) e nunca além das pontas. Exige `outcomes`. O registro diz `shift="+1"` quando a faixa se moveu, e o cartão de dados também. `text` é uma linha opcional que diz ao Game Master quando usá-lo.
+
+Um bônus fixo, como o +2 de um único edge, é um número, que o modificador de uma condição soma. `tierShift` serve para regras que movem uma faixa inteira.
+
+Cada limite de `naturalTotal` precisa ser um total que os dados podem mostrar (2d10 mostra de 2 a 20; quando o conjunto define `dice.faces`, os totais são lidos a partir delas), e `atMost` precisa ficar abaixo de `atLeast`.
+
+#### Um teste sem dados
+
+Alguns sistemas não rolam nada: em Amber e Nobilis, um teste é uma pontuação comparada a uma dificuldade, e a maior vence (Capability API 1.825). Um conjunto comunitário não precisa de nada; um empacotado declara 1.825.
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0, "sides": 6 },
+"abilityModifier": { "op": "identity" }
+```
+
+O total é o próprio número da ficha, comparado à dificuldade exatamente como num teste somado: o mesmo atributo, a mesma proficiência, o mesmo `adjust` e a mesma penalidade de ferimentos, as mesmas faixas de resultado, escalas e substituições. O registro diz `dice="0d6" rolls=""` com o modificador e o total, o cartão de dados mostra a comparação ("Warfare 4 vs 3") em vez de um dado, e o Game Master é informado de que o Engine compara em vez de rolar.
+
+Tudo o que lê um dado é recusado aqui, para que um teste sem dados não possa ignorar em silêncio uma chave que precisa de um: `advantage`, `openEnded`, `unmodified`, `dice.faces`, `duality`, `plotDie`, `naturalTotal` e uma política de `naturals`. Uma substituição ainda pode dar a certos testes seus próprios dados.
+
 ### `dice-pool`: rolar os dados e contá-los
 
 O número da ficha é o **tamanho da reserva**, não um bônus adicional. Uma pontuação de 3 e um ofício que vale 2 rolam cinco dados. Essa é a ideia: sem novo vocabulário de ficha nem novo editor, um sistema cujas pontuações são punhados de dados usa as mesmas `abilities`, `skills` e `proficiencyTiers` de qualquer outro.
@@ -79,6 +137,8 @@ O número da ficha é o **tamanho da reserva**, não um bônus adicional. Uma po
 - `botch`: opcional. Se **nenhum** dado teve sucesso e saiu uma face igual ou inferior a `upTo`, o teste é uma falha crítica. Uma reserva cujo único sucesso foi cancelado falhou, mas não é uma falha crítica. `"rule": "halfOrMore"` lê isso de outra forma: faces iguais ou inferiores a `upTo` em pelo menos metade dos dados rolados no início (sem contar explosões) são uma falha crítica quando nenhum dado teve sucesso e, caso contrário, mantêm o resultado e o marcam com `complication="true"`, algo que dá errado junto com ele. `"noSuccesses"` é o padrão.
 - `exceptional`: opcional. Essa quantidade de sucessos líquidos ou mais, num teste bem-sucedido, produz um sucesso crítico.
 - `situationalDice`: opcional. Limites de dados que o GM pode adicionar ou retirar com `bonus=` por acrobacias, ferimentos ou pouca luz.
+- `pairs`: opcional (Capability API 1.824). `{ "from": 10, "successes": 4 }` faz cada par de dados que mostra `from` ou mais contar `successes` juntos, em vez de um cada, e um teste que tem sucesso com um par é um sucesso crítico. Três 10 são um par e mais um: cinco. `from` fica igual ou acima do maior alvo, e `pairs` não pode ficar ao lado de `double` nem de `stances`.
+- `hunger`: opcional (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` permite que até `max` dados da reserva sejam dados especiais. O Game Master os pede num teste com `hunger="N"`, um número geralmente lido de uma trilha da ficha. Eles são os primeiros dados em `rolls`, fazem parte da reserva (nunca são dados extras) e nenhuma nova rolagem os toca. Um sucesso crítico com um deles na face crítica (a face de `pairs`, ou a maior do dado) é marcado com `messy="true"`, e uma falha com um deles mostrando 1 é marcada com `bestial="true"`. O registro também diz `hunger="2" hungerLabel="Hunger"`, e o cartão de dados mostra tudo isso. `max` não pode passar de `pool.max`.
 - `reroll`: opcional. Novas rolagens que o sistema concede sem que ninguém pague por elas, até seis, cada uma com um `id` que o GM nomeia num teste com `reroll=`. Faces iguais ou inferiores a `upTo` são roladas de novo: com `"once"`, a nova face vale, seja qual for; com `"until"`, até mostrarem mais. `upTo` vai de 1 até uma face abaixo do número de faces do dado, já que rolar de novo todas as faces nunca pararia, e um `until` para de qualquer forma depois de cem novas rolagens num teste. Nenhuma é rolada a menos que o teste a nomeie. Um teste faz uma única nova rolagem: quando um gasto ou uma entrada usada pelo personagem também comprou uma, rola-se a que alcança mais faces e, se alcançarem as mesmas, `until` prevalece sobre `once`.
 - `difficultyLadder`: `successes` informa quantos sucessos são necessários. Um patamar também pode nomear `target`, mas só se for ajustável e dentro dos limites. Esse alvo é o que um teste naquele patamar usa para contar: quando o GM nomeia o patamar com `difficulty=` ou escreve um `dc=` que exatamente um patamar exige. Quando vários patamares exigem o mesmo número de sucessos, `dc=` sozinho não diz qual foi o pretendido, então o alvo continua sendo o padrão; nomeie o patamar.
 

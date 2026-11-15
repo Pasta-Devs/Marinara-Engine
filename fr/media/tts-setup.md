@@ -29,7 +29,7 @@ Marinara garde un profil enregistré distinct pour chaque Source : sa clé, son 
 
 Les requêtes passent par le propre serveur de Marinara. Ta clé API est stockée chiffrée sur le serveur. Une fois que tu l'as enregistrée, le champ affiche des points masqués et la vraie clé ne revient jamais vers ton navigateur.
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### Utiliser une connexion Audio
 

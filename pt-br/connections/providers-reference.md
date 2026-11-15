@@ -163,7 +163,7 @@ Em **Voice** (voz), um serviço de áudio fala as vozes dos personagens e a narr
 
 Cada fonte preenche um endereço e um modelo padrão. **Default voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala. Aumente esse valor para um servidor de voz lento.
 
-Para escolher a conta de fala que Marinara usa por padrão, clique na linha **Voice (Text to Speech)** (voz: texto para fala) da caixa **Jobs** (tarefas). Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar uma conexão de áudio](../media/tts-setup.md#use-an-audio-connection).
+Para escolher a conta de fala que Marinara usa por padrão, clique na linha **Voice (Text to Speech)** (voz: texto para fala) da caixa **Jobs** (tarefas). Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar uma conexão de áudio](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 

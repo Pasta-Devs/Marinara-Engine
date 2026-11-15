@@ -161,7 +161,7 @@ OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI, Google의 이미지 및 동영�
 
 소스마다 기본 주소와 모델이 채워집니다. **Default voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 제한 시간, 초)는 Marinara가 음성 대사 한 줄을 기다리는 시간입니다. 음성 서버가 느리다면 값을 올리세요.
 
-Marinara가 기본으로 쓸 음성 계정을 고르려면 **Jobs**(작업) 상자에서 **Voice (Text to Speech)**(음성, TTS) 행을 클릭하세요. 그 계정으로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 계정을 **Source**(연결 소스)로 고르세요. [Text to Speech(TTS) 설정](../media/tts-setup.md)과 [오디오 연결 사용하기](../media/tts-setup.md#use-an-audio-connection)를 참고하세요.
+Marinara가 기본으로 쓸 음성 계정을 고르려면 **Jobs**(작업) 상자에서 **Voice (Text to Speech)**(음성, TTS) 행을 클릭하세요. 그 계정으로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 계정을 **Source**(연결 소스)로 고르세요. [Text to Speech(TTS) 설정](../media/tts-setup.md)과 [오디오 연결 사용하기](../media/tts-setup.md#use-a-voice-model-from-an-account)를 참고하세요.
 
 <a id="music--sound-effects"></a>
 

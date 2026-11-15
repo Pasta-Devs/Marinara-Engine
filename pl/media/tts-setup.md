@@ -29,7 +29,7 @@ Marinara trzyma osobny zapisany profil dla każdego źródła: jego klucz, adres
 
 Żądania przechodzą przez własny serwer aplikacji Marinara Engine. Klucz API jest przechowywany na serwerze w postaci zaszyfrowanej. Po zapisaniu klucza pole pokazuje zamaskowane kropki, a prawdziwy klucz nigdy nie wraca do przeglądarki.
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### Korzystanie z połączenia Audio
 
