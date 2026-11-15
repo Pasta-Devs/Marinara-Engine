@@ -194,7 +194,7 @@ export function ServerConsoleWindow() {
       getDefaultLayout={getServerConsoleDefaultLayout}
       minWidth={320}
       minHeight={240}
-      className={cn("marinara-chat-popover", NEUTRAL_SURFACE_VARIABLES)}
+      className={cn("marinara-chat-popover mari-server-console", NEUTRAL_SURFACE_VARIABLES)}
       headerClassName="marinara-chat-popover__header"
       titleClassName="marinara-chat-popover__title text-xs font-semibold leading-tight"
       rootAttributes={{ "data-server-console": true }}
