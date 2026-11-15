@@ -2,8 +2,9 @@
 // Server console feed
 //
 // Reads the server's recent log lines (GET /api/admin/logs) while `active`: the whole buffer first, then only
-// what is new every couple of seconds. It waits while the tab is hidden and stops for good on a 403, which
-// polling again cannot fix. The lines stay in this component's state; closing the console drops them.
+// what is new every couple of seconds. It waits while the tab is hidden, and after a 403 asks again only every
+// 30 s, so saving the admin secret recovers it. The lines stay in this component's state; closing the console
+// drops them.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "../lib/api-client";
@@ -30,6 +31,8 @@ export function useServerConsoleLogs(active: boolean) {
     let controller: AbortController | null = null;
     // The newest line seen (0: none yet), the server restarts seen, and how many gap markers were made.
     let cursor = 0;
+    // The server run the cursor belongs to (null: none read yet).
+    let runId: string | null = null;
     let epoch = 0;
     let gaps = 0;
     let firstRead = true;
@@ -51,10 +54,14 @@ export function useServerConsoleLogs(active: boolean) {
         setError(null);
         setLoaded(true);
         setLogLevel(reply.logLevel);
-        if (reply.latestId < cursor) {
-          // The server restarted and numbers its lines from 1 again: read the new buffer from the top.
+        const restarted = (runId !== null && reply.bootId !== runId) || reply.latestId < cursor;
+        runId = reply.bootId;
+        if (restarted) {
+          // The server restarted and numbers its lines from 1 again: read the new buffer from the top. The one gap
+          // marker added here covers lines that new buffer has already dropped, so its first read adds none.
           epoch++;
           cursor = 0;
+          firstRead = true;
           setRows((previous) => [...previous, addGap()].slice(-MAX_ROWS));
           inFlight = false;
           schedule(0);

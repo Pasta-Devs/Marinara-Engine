@@ -21,6 +21,8 @@ export interface ServerLogReply {
   truncated: boolean;
   /** The server's LOG_LEVEL, such as "warn". */
   logLevel: string;
+  /** Changes on every server start; line ids start over with it. */
+  bootId: string;
 }
 
 export const LEVEL_FILTERS = ["debug", "info", "warn", "error"] as const;

@@ -22,7 +22,7 @@ import {
   RUNTIME_DIAGNOSTICS_RATE_LIMIT,
   SERVER_LOGS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
-import { logger } from "../lib/logger.js";
+import { bootId, logger } from "../lib/logger.js";
 import { getServerLogSnapshot } from "../lib/log-buffer.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
@@ -101,7 +101,8 @@ export async function adminRoutes(app: FastifyInstance) {
       reply.header("Cache-Control", "no-store");
       const afterId = Number(req.query.afterId ?? 0);
       const limit = req.query.limit === undefined ? undefined : Number(req.query.limit);
-      return { ...getServerLogSnapshot(afterId, limit), logLevel: logger.level };
+      // bootId: line ids start over on a restart, so the console needs this to tell a new run from the old one.
+      return { ...getServerLogSnapshot(afterId, limit), logLevel: logger.level, bootId };
     },
   );
 

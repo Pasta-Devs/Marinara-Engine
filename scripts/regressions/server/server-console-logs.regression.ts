@@ -105,7 +105,7 @@ try {
   assert.doesNotThrow(() => recordServerLogLine(undefined as unknown as string));
 
   // 5. The real logger tees into the buffer, and the route serves it behind the privileged gate.
-  const { logger } = await import("../../../packages/server/src/lib/logger.js");
+  const { bootId, logger } = await import("../../../packages/server/src/lib/logger.js");
   const { buildApp } = await import("../../../packages/server/src/app.js");
   const app = await buildApp();
   try {
@@ -122,6 +122,8 @@ try {
     assert.equal(response.headers["ratelimit-limit"], "120", "the route has its own rate limit for polling");
     const body = response.json();
     assert.equal(body.logLevel, "info", "the reply names the server's LOG_LEVEL for the hint");
+    assert.equal(body.bootId, bootId, "the reply names this process start, so the console can spot a restart");
+    assert.match(body.bootId, /^[0-9a-f]{8}$/u);
     assert.ok(body.entries.some((entry: { msg: string }) => entry.msg === "[server-console] marker line"));
 
     const next = await app.inject({ method: "GET", url: `/api/admin/logs?afterId=${body.latestId}` });
