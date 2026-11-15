@@ -332,43 +332,44 @@ export function ModelsStep(props: ModelsStepProps) {
   useEffect(() => {
     props.runJobTestAction.current = runJobTest;
   });
+  // The type tabs show for a target with more than one type. A job tab (Voice) the target lists no tab for hides
+  // them; the Decision tab of a service with its own decision models keeps them.
+  const onListedTab = !props.isJobKind || (!!props.setupKind && props.availableKinds.includes(props.setupKind));
+  const showKindTabs =
+    props.step === 3 && !!props.target && props.availableKinds.length > 1 && !props.chat && onListedTab;
   return (
     <>
-      {props.step === 3 &&
-        props.target &&
-        props.availableKinds.length > 1 &&
-        !props.chat &&
-        (!props.isJobKind || (!!props.setupKind && props.availableKinds.includes(props.setupKind))) && (
-          <div
-            role="group"
-            aria-label={t("connections.add.kindFilter")}
-            className="flex shrink-0 flex-wrap gap-1.5 px-3 pt-3 pb-3"
-          >
-            {props.availableKinds.map((kind) => {
-              const Icon = KIND_ICONS[kind];
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  data-add-connection-capability={kind}
-                  aria-pressed={props.setupKind === kind}
-                  disabled={props.closeBlocked}
-                  onClick={() => {
-                    if (props.setupKind === kind) return;
-                    // Chat never sets up a row, so coming back to a job tab through it must set that tab up again.
-                    props.mediaSetupStarted.current = "";
-                    props.setMediaRowId(null);
-                    props.setSetupKind(kind);
-                  }}
-                  className="mari-connection-chip gap-1"
-                >
-                  <Icon size="0.75rem" aria-hidden />
-                  {t(`connections.add.kind.${kind}`)}
-                </button>
-              );
-            })}
-          </div>
-        )}
+      {showKindTabs && (
+        <div
+          role="group"
+          aria-label={t("connections.add.kindFilter")}
+          className="flex shrink-0 flex-wrap gap-1.5 px-3 pt-3 pb-3"
+        >
+          {props.availableKinds.map((kind) => {
+            const Icon = KIND_ICONS[kind];
+            return (
+              <button
+                key={kind}
+                type="button"
+                data-add-connection-capability={kind}
+                aria-pressed={props.setupKind === kind}
+                disabled={props.closeBlocked}
+                onClick={() => {
+                  if (props.setupKind === kind) return;
+                  // Chat never sets up a row, so coming back to a job tab through it must set that tab up again.
+                  props.mediaSetupStarted.current = "";
+                  props.setMediaRowId(null);
+                  props.setSetupKind(kind);
+                }}
+                className="mari-connection-chip gap-1"
+              >
+                <Icon size="0.75rem" aria-hidden />
+                {t(`connections.add.kind.${kind}`)}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {props.step === 3 && (props.setupKind === "image" || props.setupKind === "video") && props.mediaRow && (
         <ConnectionModelPicker
