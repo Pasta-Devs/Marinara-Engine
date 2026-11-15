@@ -70,7 +70,7 @@ import { getRuntimeMemorySnapshot } from "./utils/runtime-memory.js";
 import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
-import { followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
+import { bootId, followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -457,6 +457,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
     return {
       status: "ok",
+      // The restart sheet waits for a new bootId: the old process still answers while it shuts down.
+      bootId,
       version: APP_VERSION,
       commit,
       build: getBuildLabel(),

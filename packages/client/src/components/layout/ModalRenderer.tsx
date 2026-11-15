@@ -3,6 +3,8 @@
 // ──────────────────────────────────────────────
 import { lazy, Suspense } from "react";
 import { useUIStore } from "../../stores/ui.store";
+// Not lazy: the server goes down right after this sheet opens, so its chunk could not load.
+import { ServerRestartModal } from "../modals/ServerRestartModal";
 import type { ServiceId } from "../modals/CreateConnectionModal";
 import type { AddFor, ModelsFor } from "../../lib/add-connection";
 import { JOB, type JobKey } from "../../lib/connection-jobs";
@@ -227,6 +229,11 @@ export function ModalRenderer() {
           initialDoc={(modal?.props?.initialDoc as string | null) ?? null}
           initialSearchTerm={(modal?.props?.initialSearchTerm as string) ?? ""}
         />
+      );
+      break;
+    case "server-restart":
+      content = (
+        <ServerRestartModal open beforeBootId={(modal?.props?.beforeBootId as string | null | undefined) ?? null} />
       );
       break;
     case "faq-viewer":

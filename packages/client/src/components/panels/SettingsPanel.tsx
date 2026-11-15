@@ -209,6 +209,7 @@ import {
 } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
 import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use-agents";
+import { useRestartServer } from "../../hooks/use-server-restart";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
@@ -6947,13 +6948,7 @@ function AdvancedSettings() {
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
-  const restartServer = useMutation({
-    mutationFn: () => api.post<{ status: "restarting" }>("/admin/restart", { confirm: true }),
-    onSuccess: () => toast.success(localizeUi("settings.serverRestart.success")),
-    onError: (error) => {
-      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.serverRestart.error")));
-    },
-  });
+  const restartServer = useRestartServer();
   const { data: extensionPolicy, isLoading: extensionPolicyLoading } = usePersonalExtensionPolicy();
   const setExternalExtensionsEnabled = useSetExternalExtensionsEnabled();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();

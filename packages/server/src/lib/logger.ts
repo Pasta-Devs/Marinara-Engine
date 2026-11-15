@@ -87,8 +87,8 @@ export function protectTerminalLogger(log: object, prettyStdout = false): void {
   });
 }
 
-/** Short random id of this process start; tells two runs apart in one log file. */
-const bootId = randomBytes(4).toString("hex");
+/** Short random id of this process start; tells two runs apart in one log file, and lets the client see a restart. */
+export const bootId = randomBytes(4).toString("hex");
 
 /** Opt in when an Error's message/stack can contain provider text. Fields must contain metadata only. */
 export const privateErrorLogFields = Symbol("privateErrorLogFields");
