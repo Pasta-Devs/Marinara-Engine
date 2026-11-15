@@ -87,6 +87,7 @@ const LorebookEditor = preloadedLazy(() =>
   import("../lorebooks/LorebookEditor").then((module) => module.LorebookEditor),
 );
 const PresetEditor = preloadedLazy(() => import("../presets/PresetEditor").then((module) => module.PresetEditor));
+const ProfileEditor = preloadedLazy(() => import("../presets/ProfileEditor").then((module) => module.ProfileEditor));
 const ConnectionEditor = preloadedLazy(() =>
   import("../connections/ConnectionEditor").then((module) => module.ConnectionEditor),
 );
@@ -616,6 +617,7 @@ export function AppShell({
         PersonaEditor,
         LorebookEditor,
         PresetEditor,
+        ProfileEditor,
         ConnectionEditor,
         RegexScriptEditor,
         AgentEditor,
@@ -760,6 +762,7 @@ export function AppShell({
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -1031,6 +1034,8 @@ export function AppShell({
     )
   ) : presetDetailId ? (
     <PresetEditor />
+  ) : profileDetailId ? (
+    <ProfileEditor />
   ) : characterDetailId ? (
     <CharacterEditor />
   ) : characterLibraryOpen ? (

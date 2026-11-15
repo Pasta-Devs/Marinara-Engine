@@ -3,6 +3,7 @@ const EDITOR_IDS = [
   "personaDetailId",
   "lorebookDetailId",
   "presetDetailId",
+  "profileDetailId",
   "connectionDetailId",
   "agentDetailId",
   "toolDetailId",

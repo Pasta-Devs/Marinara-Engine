@@ -42,6 +42,18 @@ How to fill the slots:
 
 In the new chat wizard, the **Use a Profile** step has **New** beside the profile field, and **Edit** beside a saved profile. After you save, the wizard selects that profile.
 
+## The Profiles tab
+
+To manage profiles outside a chat, open the **Presets** panel and choose the **Profiles** tab. It lists every Conversation and Roleplay profile, the **Default** of each mode first. The pills above the list (**All**, **Conversation**, **Roleplay**) filter it by mode, and **Search profiles** filters it by name. A star marks each mode's default for new chats.
+
+- Click a profile to open it in the profile editor in the middle of the screen. **Back** saves your changes; **Cancel** discards them. The **Default** profiles cannot be edited, so they don't open.
+- **Create settings profile** opens an empty profile. Pick its mode with the **Conversation** and **Roleplay** pills; a saved profile keeps its mode.
+- Hover a row to star it as the default, duplicate it, export it or delete it. On a phone these buttons always show at the row's right edge.
+- **Select profiles** exports or deletes several at once. **Select all profiles** skips the Default profiles, which cannot be deleted. Each profile exports as its own file.
+- **Import settings profile (.json)** loads a `.marinara-settings-profile.json` file.
+
+**Edit** in Chat Settings still opens the builder as a window over the chat.
+
 ## Save chat settings into a profile
 
 To update a profile from a chat, apply it, change the chat, then use the icon row below the dropdown.
