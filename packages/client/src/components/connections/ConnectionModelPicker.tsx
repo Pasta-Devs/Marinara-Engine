@@ -87,6 +87,7 @@ type PickerRow = {
   pricing?: ModelCatalogPricing;
   deprecated?: boolean;
   retiresAt?: string;
+  decision?: true;
 };
 
 type CostFilter = "free" | "included" | "paid";
@@ -180,7 +181,7 @@ export function ConnectionModelPicker({
    * id or catalog id is picked; with none or several the search shows them instead.
    */
   preselect?: string;
-  /** Lists only the rows a job can use (the Add window's voice step lists speech models). */
+  /** Lists only the rows a job can use (the Add window's voice step lists speech models, its Decision tab decision models). */
   only?: (row: PickerRow) => boolean;
   /** Replaces the provider's built-in list (an image service such as NovelAI lists only its own models). */
   builtInModels?: readonly KnownModel[];
@@ -310,8 +311,9 @@ export function ConnectionModelPicker({
   useEffect(() => {
     if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
   }, [costFilter, costKinds]);
+  // A decision model can't chat, so it is listed only where the caller asks for it (the Decision tab).
   const inFilter = (row: PickerRow) =>
-    (!only || only(row)) &&
+    (only ? only(row) : !row.decision) &&
     (!upstream || upstreamOf(row.id) === upstream) &&
     (!costFilter || costKind(row) === costFilter);
   const filtering = !!upstream || !!costFilter;

@@ -64,6 +64,7 @@ import {
   jobSourceOf,
   NETWORK_ERROR,
   kindsOf,
+  NATIVE_DECISION_SOURCE,
   mediaBackendOf,
   ServiceTile,
   type AddableKind,
@@ -859,7 +860,13 @@ export function CreateConnectionModalContent({
   const targetRows = target ? accountRows(target.accountId) : [];
   const availableKinds = (() => {
     const fromService = service
-      ? kindsOf(service).filter((kind): kind is AddableKind => kind === "chat" || kind === "image" || kind === "video")
+      ? kindsOf(service).filter(
+          (kind): kind is AddableKind =>
+            kind === "chat" ||
+            kind === "image" ||
+            kind === "video" ||
+            (kind === "decision" && !!NATIVE_DECISION_SOURCE[service]),
+        )
       : [];
     if (fromService.length > 0) return fromService;
     const inferred: AddableKind[] = [];
