@@ -16283,7 +16283,7 @@
   "ui.panels.importsettings.undoingLastImport": "Undoing last import...",
   "ui.panels.importsettings.undoLastImport": "Undo Last Import",
   "ui.panels.importsettings.undoLastImportComplete": "Last import undone.",
-  "ui.panels.importsettings.undoLastImportConfirm": "Put back everything the last import replaced, as it was before that import ({{savedAt}})? Items the import added stay.",
+  "ui.panels.importsettings.undoLastImportConfirm": "Put back the items the last import replaced, as they were just before it ({{savedAt}})? Changes made since then to those items are lost. Everything else stays as it is, including items the import added.",
   "ui.panels.importsettings.undoLastImportFailed": "Undo failed",
   "ui.panels.importsettings.undoLastImportFailedValue": "Undo failed: {{value}}",
   "ui.panels.importsettings.undoLastImportSavedAt": "Safety copy saved {{savedAt}}",

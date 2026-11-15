@@ -6522,6 +6522,8 @@ function ImportSettings() {
         error: message.replace(/^Import failed:\s*/, ""),
       });
       toast.error(message);
+      // A failed import can still have replaced or cleared the safety copy.
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
     }
     e.target.value = "";
   };
@@ -6656,6 +6658,7 @@ function ImportSettings() {
         error: message,
       });
       toast.error(localizeUi("ui.panels.importsettings.undoLastImportFailedValue", { value: message }));
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
     }
   };
 

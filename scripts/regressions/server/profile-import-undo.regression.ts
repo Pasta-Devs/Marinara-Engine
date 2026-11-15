@@ -1,5 +1,5 @@
 // Import Profile saves a full safety copy before it overwrites anything, refuses to import when the copy
-// can't be saved, and "Undo Last Import" puts back what the import replaced.
+// can't be saved, and "Undo Last Import" puts back only what the last import wrote.
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
@@ -33,6 +33,9 @@ await app.register(backupRoutes, { prefix: "/api/backup" });
 await app.ready();
 
 const descriptionOf = async (id: string) => JSON.parse((await characters.getById(id))!.data as string).description;
+const setDescription = (id: string, description: string) => characters.update(id, { description } as any);
+const undoOffer = async () => (await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" })).json();
+const undo = () => app.inject({ method: "POST", url: "/api/backup/import-profile/undo" });
 const importProfile = async (profile: string) => {
   const preview = await app.inject({
     method: "POST",
@@ -49,42 +52,50 @@ const importProfile = async (profile: string) => {
 };
 
 try {
-  const nothingYet = await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" });
-  assert.deepEqual(nothingYet.json(), { available: false });
-  assert.equal((await app.inject({ method: "POST", url: "/api/backup/import-profile/undo" })).statusCode, 404);
+  assert.deepEqual(await undoOffer(), { available: false });
+  assert.equal((await undo()).statusCode, 404);
 
-  // Last week's profile has the old description; the user has edited it since.
-  const created = await characters.create({ name: "Ada", description: "old" } as any);
-  const id = created!.id;
+  // Last week's profile has Ada's old description. Since then Ada was edited and Bea was created.
+  const ada = (await characters.create({ name: "Ada", description: "old" } as any))!.id;
   const exported = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
   assert.equal(exported.statusCode, 200, exported.body);
-  await characters.update(id, { description: "new" } as any);
-  assert.equal(await descriptionOf(id), "new");
+  await setDescription(ada, "new");
+  const bea = (await characters.create({ name: "Bea", description: "before import" } as any))!.id;
 
   // No room for the safety copy: nothing is imported and no partial copy is left behind.
   const refused = await importProfile(exported.body);
   assert.notEqual(refused.statusCode, 200, "an import without a safety copy must not succeed");
   assert.match(refused.json().message, /Nothing was imported, because a safety copy could not be saved first/u);
   assert.match(refused.json().message, /Not enough free space for a safety copy/u);
-  assert.equal(await descriptionOf(id), "new", "the refused import changed nothing");
+  assert.equal(await descriptionOf(ada), "new", "the refused import changed nothing");
   assert.deepEqual(await fs.readdir(backups).catch(() => []), [], "no safety copy or partial file");
 
-  // With room, the import reverts the edit, and the copy from just before it is offered for undo.
+  // With room, the import reverts Ada, and the copy from just before it is offered for undo.
   freeBytes = 1024 ** 4;
-  const imported = await importProfile(exported.body);
-  assert.equal(imported.statusCode, 200, imported.body);
-  assert.equal(await descriptionOf(id), "old", "the import replaced the newer version");
-  const offered = (await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" })).json();
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  assert.equal(await descriptionOf(ada), "old", "the import replaced the newer version");
+  const offered = await undoOffer();
   assert.equal(offered.available, true);
   assert.ok(!Number.isNaN(Date.parse(offered.savedAt)), "savedAt is a date");
-  assert.deepEqual(await fs.readdir(backups), ["marinara-before-import.zip"]);
-  const copyBeforeUndo = await fs.stat(safetyCopy);
 
-  // Undo brings the edit back and keeps the same safety copy.
-  const undone = await app.inject({ method: "POST", url: "/api/backup/import-profile/undo" });
+  // A second import replaces the copy (and its record): undo now goes back to just before this one.
+  await setDescription(ada, "newer");
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  assert.equal(await descriptionOf(ada), "old");
+  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
+
+  // Bea was not in the file. An edit to her after the import must survive the undo.
+  await setDescription(bea, "edited after import");
+  const undone = await undo();
   assert.equal(undone.statusCode, 200, undone.body);
-  assert.equal(await descriptionOf(id), "new", "undo put back what the import replaced");
-  assert.equal((await fs.stat(safetyCopy)).mtimeMs, copyBeforeUndo.mtimeMs, "undo doesn't rewrite the safety copy");
+  assert.equal(await descriptionOf(ada), "newer", "undo put back what the last import replaced");
+  assert.equal(await descriptionOf(bea), "edited after import", "undo left items the import didn't write alone");
+
+  // Undo works once: a second one would put the same rows back over anything edited since.
+  assert.deepEqual(await undoOffer(), { available: false });
+  assert.deepEqual(await fs.readdir(backups), [], "the used safety copy and its record are removed");
+  assert.equal((await undo()).statusCode, 404);
+  await assert.rejects(fs.stat(safetyCopy));
 } finally {
   Object.assign(fs, { statfs: originalStatfs });
   syncBuiltinESMExports();

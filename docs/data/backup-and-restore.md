@@ -93,7 +93,7 @@ Before each import, Marinara saves a full copy of your data as `marinara-before-
 2. In **Profile & Marinara**, click **Undo Last Import**. The line under it shows when the safety copy was saved.
 3. Click **Undo Last Import** in the dialog to confirm.
 
-Undo puts back everything the last import replaced, as it was before that import. Items the import added stay.
+Undo puts back only the items and files the last import replaced, as they were just before it. If you changed one of those items after the import, that change is lost. Everything else stays as it is, including items the import added. You can undo an import once, and then the safety copy is deleted.
 
 ## Enter your keys again
 

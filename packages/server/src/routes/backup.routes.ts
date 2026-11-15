@@ -178,6 +178,8 @@ const PROFILE_IMPORT_MEMORY_WARNING_BYTES = 512 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE = "PROFILE_EXPORT_JSON_TOO_LARGE";
 const AUTOMATIC_BACKUP_SETTINGS_KEY = "automatic_backup";
 const PRE_IMPORT_BACKUP_FILENAME = "marinara-before-import.zip";
+/** The rows and files the last import wrote; without it there is nothing to undo. */
+const PRE_IMPORT_WRITES_FILENAME = "marinara-before-import.json";
 /** Root folder inside the safety copy; it must match the `marinara-backup-*` shape the backup reader accepts. */
 const PRE_IMPORT_BACKUP_ROOT = "marinara-backup-before-import";
 const AUTOMATIC_BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -316,6 +318,8 @@ type ProfileStorageSnapshot = {
   tables: ProfileTableSnapshots;
   files: ProfileFileAsset[];
 };
+/** What one import wrote: row keys by table, and file paths. Undo restores only these from the safety copy. */
+type ProfileImportWrites = { rows: Record<string, string[]>; files: string[] };
 type ProfileArchiveTableFile = { path: string; count: number; size: number };
 type ProfileArchiveStorageSnapshot = {
   version: 2;
@@ -1434,6 +1438,8 @@ async function importProfileStorageSnapshot(
   warnings: ProfileImportWarning[],
   onProgress?: ProfileImportProgressReporter,
   readAsset?: ProfileAssetReader,
+  /** Filled with the key of every row written over by key and every file restored, for Undo Last Import. */
+  writes?: ProfileImportWrites,
 ) {
   validateProfileStorageTableInputs(snapshot);
   const assetInputs = buildProfileImportAssetInputs(snapshot, readAsset, warnings);
@@ -1562,6 +1568,7 @@ async function importProfileStorageSnapshot(
                 target: conflictTarget,
                 set: buildProfileUpdateSet(tableName, cleanRow),
               });
+              if (writes) (writes.rows[tableName] ??= []).push(String(cleanRow[conflictTarget.key]));
             } else {
               await insert;
             }
@@ -1578,6 +1585,7 @@ async function importProfileStorageSnapshot(
         for (const asset of stagedAssets.assets) {
           files++;
           completedItems++;
+          writes?.files.push(asset.path);
           emit("files", `Restoring ${asset.path}`, files);
         }
         await flushDB();
@@ -3561,9 +3569,52 @@ function getPreImportBackupPath(): string {
   return join(getBackupsRoot(), PRE_IMPORT_BACKUP_FILENAME);
 }
 
+function getPreImportWritesPath(): string {
+  return join(getBackupsRoot(), PRE_IMPORT_WRITES_FILENAME);
+}
+
+async function writePreImportWrites(writes: ProfileImportWrites) {
+  const finalPath = getPreImportWritesPath();
+  await writeFile(`${finalPath}.pending`, JSON.stringify(writes), { encoding: "utf8", mode: PRIVATE_FILE_MODE });
+  await rename(`${finalPath}.pending`, finalPath);
+}
+
+async function readPreImportWrites(): Promise<ProfileImportWrites | null> {
+  try {
+    const parsed = JSON.parse(await readFile(getPreImportWritesPath(), "utf8")) as Partial<ProfileImportWrites>;
+    return parsed && typeof parsed.rows === "object" && parsed.rows !== null && Array.isArray(parsed.files)
+      ? (parsed as ProfileImportWrites)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep only the rows and files the last import wrote, so Undo leaves everything else as it is now. */
+function onlyRowsAndFilesWritten(
+  snapshot: ProfileStorageSnapshot,
+  writes: ProfileImportWrites,
+): ProfileStorageSnapshot {
+  const tables: ProfileTableSnapshots = {};
+  for (const [tableName, keys] of Object.entries(writes.rows)) {
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    const rows = snapshot.tables[tableName];
+    if (!keyColumn || !Array.isArray(rows) || !Array.isArray(keys)) continue;
+    const written = new Set(keys);
+    tables[tableName] = rows.filter((row) => written.has(String(row[keyColumn])));
+  }
+  const files = new Set(writes.files);
+  return {
+    ...snapshot,
+    tables,
+    files: snapshot.files.filter((file) => files.has(normalizeProfileAssetPath(file?.path) ?? "")),
+  };
+}
+
 /**
  * Full backup written just before Import Profile overwrites rows, so the import can be undone from
- * Settings. One copy is kept: each import replaces the previous one, and undoing never rewrites it.
+ * Settings. One copy is kept: each import replaces the previous one, and a finished undo removes it.
  */
 async function writePreImportBackup(app: FastifyInstance) {
   await flushDB();
@@ -4105,7 +4156,7 @@ export async function backupRoutes(app: FastifyInstance) {
   );
 
   /** `undo` imports the safety copy the last import saved, instead of an uploaded file, and saves no new copy. */
-  const runProfileImport = async (req: FastifyRequest, reply: FastifyReply, undo: boolean) => {
+  const handleProfileImport = async (req: FastifyRequest, reply: FastifyReply, undo: boolean) => {
     if (!requirePrivilegedAccess(req, reply, { feature: undo ? "Undo profile import" : "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
@@ -4115,7 +4166,8 @@ export async function backupRoutes(app: FastifyInstance) {
     let importInput: ProfileImportInput;
     if (undo) {
       const safetyCopyPath = getPreImportBackupPath();
-      if (!existsSync(safetyCopyPath)) {
+      const lastImportWrites = await readPreImportWrites();
+      if (!existsSync(safetyCopyPath) || !lastImportWrites) {
         return reply.status(404).send({
           error: "No safety copy",
           message: "There is no saved copy from before an import to put back.",
@@ -4123,6 +4175,11 @@ export async function backupRoutes(app: FastifyInstance) {
       }
       try {
         importInput = await readProfileImportArchive(safetyCopyPath);
+        const safetyData = importInput.envelope?.data as Record<string, unknown> | undefined;
+        if (!safetyData || !isProfileStorageSnapshot(safetyData.fileStorage)) {
+          throw new ProfileImportRequestError("The safety copy from before the last import could not be read.");
+        }
+        safetyData.fileStorage = onlyRowsAndFilesWritten(safetyData.fileStorage, lastImportWrites);
       } catch (err) {
         if (err instanceof ProfileImportRequestError) {
           return sendProfileImportRequestError(reply, err);
@@ -4224,6 +4281,8 @@ export async function backupRoutes(app: FastifyInstance) {
             imported: { characters: 0, personas: 0, lorebooks: 0, presets: 0, agents: 0, themes: 0 },
           });
           try {
+            // The previous import's record no longer matches the copy about to be written.
+            await rm(getPreImportWritesPath(), { force: true });
             await withAutomaticBackupLifecycleLock(() => writePreImportBackup(app));
           } catch (err) {
             const reason = getBackupErrorMessage(err, "The safety copy could not be written.");
@@ -4231,13 +4290,26 @@ export async function backupRoutes(app: FastifyInstance) {
           }
         }
         if (isProfileStorageSnapshot(data.fileStorage)) {
+          const writes: ProfileImportWrites = { rows: {}, files: [] };
           const imported = await importProfileStorageSnapshot(
             app,
             data.fileStorage,
             warnings,
             wantsProgressStream ? sendProgress : undefined,
             importInput.readAsset,
+            writes,
           );
+          if (undo) {
+            // Undone once; a second undo would put back the same rows over anything edited since.
+            await rm(getPreImportWritesPath(), { force: true });
+            await rm(getPreImportBackupPath(), { force: true }).catch((error: unknown) =>
+              logger.warn(error, "[backup] Could not remove the safety copy after undoing an import"),
+            );
+          } else {
+            await writePreImportWrites(writes).catch((error: unknown) =>
+              logger.warn(error, "[backup] Could not save what the import wrote; Undo Last Import is unavailable"),
+            );
+          }
           const payload = { success: true, imported, warnings };
           if (wantsProgressStream) {
             sendEvent({ type: "done", data: payload });
@@ -4746,16 +4818,18 @@ export async function backupRoutes(app: FastifyInstance) {
       config: { rateLimit: BACKUP_RATE_LIMIT },
       preParsing: profileImportJsonBodyLimit,
     },
-    (req, reply) => runProfileImport(req, reply, false),
+    (req, reply) => handleProfileImport(req, reply, false),
   );
 
   // The safety copy the last Import Profile saved, for the Undo button.
   app.get("/import-profile/undo", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Undo profile import" })) return;
     const safetyCopy = await stat(getPreImportBackupPath()).catch(() => null);
-    return safetyCopy?.isFile() ? { available: true, savedAt: safetyCopy.mtime.toISOString() } : { available: false };
+    return safetyCopy?.isFile() && existsSync(getPreImportWritesPath())
+      ? { available: true, savedAt: safetyCopy.mtime.toISOString() }
+      : { available: false };
   });
   app.post("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, (req, reply) =>
-    runProfileImport(req, reply, true),
+    handleProfileImport(req, reply, true),
   );
 }
