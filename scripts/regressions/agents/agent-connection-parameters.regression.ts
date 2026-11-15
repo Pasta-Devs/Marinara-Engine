@@ -145,12 +145,15 @@ const { getDB, closeDB } = await import("../../../packages/server/src/db/connect
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
-const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createAppSettingsStorage } =
+  await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
 const { createCapabilityLanguageModelHost } =
   await import("../../../packages/server/src/services/capability-packages/capability-language-model.service.js");
-const { executeAgent, executeAgentBatch } = await import("../../../packages/server/src/services/agents/agent-executor.js");
+const { executeAgent, executeAgentBatch } =
+  await import("../../../packages/server/src/services/agents/agent-executor.js");
 const { resolveAgentPipelineAgents } =
   await import("../../../packages/server/src/services/generation/agent-resolution.js");
 const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
@@ -873,7 +876,8 @@ try {
     assert.equal(tunedCall.body.top_p, 0.8);
     // The saved level replaced the package's none; this endpoint's model takes no level, as in the main chat.
     assert.equal("reasoning_effort" in tunedCall.body, false, "the user's saved level wins over the package's none");
-    assert.equal(tunedCall.body.max_tokens, 3000, "the raised level gets thinking room");
+    // 1000 plus thinking room is 3000; the connection's switched-on 8192 is larger, so it is the limit (2026-11-16).
+    assert.equal(tunedCall.body.max_tokens, 8192, "a larger saved Max Tokens raises the package's limit");
 
     const reasoningConnection = await connections.create({
       name: "Package reasoning",
@@ -890,7 +894,7 @@ try {
     });
     const reasoningBody = requests.at(-1)!.body;
     assert.equal(reasoningBody.reasoning_effort, "high", "the user's saved level wins over the package's low");
-    assert.equal(reasoningBody.max_completion_tokens, 3000, "the raised level gets thinking room");
+    assert.equal(reasoningBody.max_completion_tokens, 8192, "the saved 8192 is larger than 1000 with thinking room");
 
     const plainConnection = await connections.create({
       name: "Package plain",
@@ -928,7 +932,7 @@ try {
     const switchedOffBody = requests.at(-1)!.body;
     assert.equal(switchedOffBody.temperature, 0.2, "a switched-off connection temperature leaves the package's");
     assert.equal("top_p" in switchedOffBody, false, "a switched-off Top P is not sent");
-    assert.equal(switchedOffBody.max_tokens, 1000);
+    assert.equal(switchedOffBody.max_tokens, 8192, "Max Tokens is still switched on, and larger");
 
     const unsetReasoningConnection = await connections.create({
       name: "Package unset reasoning",
@@ -945,7 +949,7 @@ try {
     });
     const unsetReasoningBody = requests.at(-1)!.body;
     assert.equal(unsetReasoningBody.reasoning_effort, "low", "with no saved level the package's own level stands");
-    assert.equal(unsetReasoningBody.max_completion_tokens, 1000, "and its own budget is left alone");
+    assert.equal(unsetReasoningBody.max_completion_tokens, 8192, "no thinking room, but the larger saved Max Tokens");
 
     const packageCall = async (
       connection: Record<string, unknown>,
@@ -999,6 +1003,28 @@ try {
       },
     );
     assert.equal(nearLimitBody.max_completion_tokens, 100_000, "thinking room is capped at o4-mini's 100000 limit");
+
+    // The maintainer's (2026-11-16): the connection's switched-on Max Tokens is the limit whenever it is larger than
+    // the package's request, as a story package's chapter plan asking 34192 on a connection set to 65536.
+    const raisedBody = await packageCall(
+      { name: "Package raised", provider: "custom", model: "fixture-model" },
+      withoutReasoning({ maxTokens: 65_536 }),
+      { maxTokens: 34_192 },
+    );
+    assert.equal(raisedBody.max_tokens, 65_536, "a package call follows the connection's larger Max Tokens");
+    const capped = await packageCall(
+      { name: "Package raised past o4-mini", provider: "openai", model: "o4-mini" },
+      withoutReasoning({ maxTokens: 500_000 }),
+      { maxTokens: 1000 },
+    );
+    assert.equal(capped.max_completion_tokens, 100_000, "and is capped at the model's output limit like any call");
+    // A new connection saves 4096 with the switch on: it never cuts a package's longer request short.
+    const defaultBody = await packageCall(
+      { name: "Package default limit", provider: "custom", model: "fixture-model" },
+      withoutReasoning({ maxTokens: 4096 }),
+      { maxTokens: 24_576 },
+    );
+    assert.equal(defaultBody.max_tokens, 24_576, "a smaller saved Max Tokens leaves the package's own request");
   }
 
   // ── Main route: agents on the chat's connection send what the main chat sends for that connection ────────────
