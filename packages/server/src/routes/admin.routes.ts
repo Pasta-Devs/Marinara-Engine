@@ -22,9 +22,8 @@ import {
   RUNTIME_DIAGNOSTICS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
 import { bootId, logger } from "../lib/logger.js";
-import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
-import { noteSessionExitKind } from "../lib/session-postmortem.js";
-import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
+import { getRequestTimeoutSettings, saveRequestTimeoutSettings } from "../config/runtime-config.js";
+import { restartExitCode, restartServer } from "../lib/server-restart.js";
 import { collectRuntimeDiagnostics } from "../lib/runtime-diagnostics.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
@@ -100,32 +99,17 @@ export async function adminRoutes(app: FastifyInstance) {
       if (restartScheduled) {
         return reply.status(409).send({ error: "Server restart is already scheduled" });
       }
-      const docker = isDockerRuntime();
-      if (!docker && process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) {
-        return reply.status(409).send({
-          error:
-            "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
-        });
-      }
-      const exitCode = docker ? 0 : 75;
-
-      restartScheduled = true;
-      setTimeout(() => {
-        void (async () => {
-          armShutdownDeadline(app, "restart", { exitCode });
-          try {
-            // #5506 diagnostics: name this ending so the next startup reports
-            // an operator restart instead of an external kill.
-            noteSessionExitKind("restart");
-            await app.close();
-            logger.info("Server restart requested from Advanced Settings");
-            process.exit(exitCode);
-          } catch (error) {
-            logger.error(error, "Graceful server restart failed");
-            process.exit(1);
-          }
-        })();
-      }, 750);
+      const exitCode = restartExitCode();
+    if (exitCode === null) {
+      return reply.status(409).send({
+        error:
+          "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
+      });
+    }
+    restartScheduled = true;
+    logger.info("Server restart requested from Advanced Settings");
+    // Let the 202 reach the browser before the server starts closing.
+    setTimeout(() => restartServer(exitCode), 750);
 
       // The restart sheet waits for a different bootId on /api/health.
     return reply.status(202).send({ status: "restarting", bootId });

@@ -71,6 +71,7 @@ import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
 import { bootId, followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
+import { restartExitCode } from "./lib/server-restart.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -459,6 +460,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       status: "ok",
       // The restart sheet waits for a new bootId: the old process still answers while it shuts down.
       bootId,
+      // Settings disables Restart Server when nothing would start this server again.
+      canRestart: restartExitCode() !== null,
       version: APP_VERSION,
       commit,
       build: getBuildLabel(),
