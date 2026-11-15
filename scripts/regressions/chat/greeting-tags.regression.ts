@@ -70,3 +70,9 @@ assert.equal(greetingBody("[Ep4] Foot talk goes on."), "Foot talk goes on.");
 assert.equal(parseGreeting("**Drago**\nDrago asked about the new shoes.").preview, "Drago asked about the new shoes.");
 assert.equal(greetingBody("**Drago**\nDrago asked about the new shoes."), "Drago asked about the new shoes.");
 assert.equal(greetingBody("[Ep2] Rooftop. The door sticks.\nIt is late."), "The door sticks.\nIt is late.");
+// A repeated title line collapses whatever markup, quotes or parentheses wrap it.
+assert.equal(parseGreeting('("Car wash")\nCar wash\nThe soap is cold.').preview, "The soap is cold.");
+assert.equal(greetingBody('**"Car wash"**\nCar wash\nThe soap is cold.'), "The soap is cold.");
+assert.equal(greetingBody('[Ep2] **"Suzie"**\nSuzie\nHi.'), "Hi.");
+assert.equal(greetingBody("(Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");
+assert.equal(greetingBody("[Ep2] (Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");

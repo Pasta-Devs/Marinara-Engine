@@ -34,14 +34,21 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
 
 /** Some cards repeat their header line right under it; leave the copy out of what the picker shows. */
 function dropRepeatedHeader(text: string, after: string): string {
-  const header = text.trimStart().split("\n", 1)[0]!.replace(/[*_"]/g, "").trim();
-  return stripRepeatedHeader(header, after);
+  return stripRepeatedHeader(text.trimStart().split("\n", 1)[0]!, after);
 }
 
-/** Drops `header` from the start of `after` only when it fills a whole line, so "Drago" keeps the "Drago asked" that follows it. */
+/** A header or repeat line reduced to its words: no markup, quotes or one pair of parentheses. */
+function plainHeader(line: string): string {
+  const bare = line.replace(/[*_"]/g, "").trim();
+  return (/^\((.*)\)$/.exec(bare)?.[1] ?? bare).trim();
+}
+
+/** Drops the first line of `after` when it repeats `header` as a whole line, so "Drago" keeps the "Drago asked" that follows it. */
 function stripRepeatedHeader(header: string, after: string): string {
-  const tail = header && after.startsWith(header) ? after.slice(header.length) : null;
-  return tail !== null && /^[ \t]*(?:\n|$)/.test(tail) ? tail.trim() : after;
+  const nl = after.indexOf("\n");
+  const first = nl < 0 ? after : after.slice(0, nl);
+  const title = plainHeader(header);
+  return title && plainHeader(first) === title ? (nl < 0 ? "" : after.slice(nl + 1).trim()) : after;
 }
 
 /** The greeting without its header line (tags, a title line, or a repeat of them), markup kept. */
@@ -57,7 +64,7 @@ export function greetingBody(text: string, allowTags = true): string {
   // Prose after a plain-sentence title shares the header line; keep it.
   const cut = named ? -1 : afterTitle.search(/[.!?](?=\s|$)/);
   const lead = named ? afterTitle : cut < 0 ? "" : afterTitle.slice(cut + 1);
-  const below = stripRepeatedHeader(header, lines.slice(1).join("\n").trimStart());
+  const below = stripRepeatedHeader(rest, lines.slice(1).join("\n").trimStart());
   // Header and text may share one line: with nothing below, keep what follows the tags or title.
   return [lead.trim(), below].filter(Boolean).join("\n") || afterTitle.trim();
 }
