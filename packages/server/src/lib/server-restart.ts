@@ -10,9 +10,10 @@ export function setRestartHandler(handler: (exitCode: number) => void): void {
 /** The exit code that brings this server back, or null when nothing would start it again. */
 export function restartExitCode(): number | null {
   if (!stopForRestart) return null;
-  // Docker's restart policy restarts a clean exit; the launcher's supervisor (scripts/run-server.mjs) waits for 75.
-  if (isDockerRuntime()) return 0;
-  return process.env.MARINARA_RESTART_SUPERVISOR === String(process.ppid) ? 75 : null;
+  // The launchers (scripts/run-server.mjs) and the Docker entrypoint start a new server on 75.
+  if (process.env.MARINARA_RESTART_SUPERVISOR === String(process.ppid)) return 75;
+  // A custom Docker command skips the entrypoint's supervisor; then the restart policy must start the container again.
+  return isDockerRuntime() ? 0 : null;
 }
 
 export function restartServer(exitCode: number): void {
