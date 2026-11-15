@@ -191,6 +191,44 @@ try {
   const exported = await app.inject({ method: "GET", url: `/api/chat-presets/${profile.id}/export` });
   assert.ok(!exported.body.includes("translationDeeplApiKey"), "a profile export leaves the key out");
 
+  // A new chat set up from the profile (Chat Setup sends the profile's masked settings plus appliedChatPresetId)
+  // gets the profile's key, not a lost one; a mask without a newly applied profile keeps the chat's own value.
+  const fromProfile = (await chats.create({ name: "From profile", mode: "conversation", characterIds: [] }))!;
+  const setup = await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${fromProfile.id}/metadata`,
+    payload: { ...profile.settings.metadata, appliedChatPresetId: profile.id },
+  });
+  assert.equal(setup.statusCode, 200, setup.body);
+  assert.ok(!setup.body.includes(DEEPL_KEY), "the setup response is masked");
+  assert.equal(
+    readChatMetadataSecret(await storedMeta(fromProfile.id), "translationDeeplApiKey"),
+    DEEPL_KEY,
+    "a chat set up from a profile keeps the profile's DeepL key",
+  );
+  assert.equal(
+    readChatMetadataSecret(await storedMeta(fromProfile.id), "discordWebhookUrl"),
+    readChatMetadataSecret(profileMeta, "discordWebhookUrl"),
+    "and the profile's webhook",
+  );
+  assert.ok(readChatMetadataSecret(profileMeta, "discordWebhookUrl"), "the profile holds a webhook to carry over");
+  const keyless = await app.inject({
+    method: "POST",
+    url: "/api/chat-presets",
+    payload: { name: "No key", mode: "conversation", settings: { metadata: { translationProvider: "deepl" } } },
+  });
+  const plainChat = (await chats.create({ name: "Keyless profile", mode: "conversation", characterIds: [] }))!;
+  await app.inject({
+    method: "PATCH",
+    url: `/api/chats/${plainChat.id}/metadata`,
+    payload: { translationDeeplApiKey: STORED_SECRET_MASK, appliedChatPresetId: keyless.json().id },
+  });
+  assert.equal(
+    readChatMetadataSecret(await storedMeta(plainChat.id), "translationDeeplApiKey"),
+    "",
+    "a profile without a key gives the new chat none",
+  );
+
   // ── Translator defaults ──
   const defaultsPut = await app.inject({
     method: "PUT",
@@ -311,6 +349,29 @@ try {
     assert.equal(Object.prototype.hasOwnProperty.call(parsed.customHeaders, "__proto__"), false);
     assert.match(String(parsed.customHeaders["X-Key"]), /^enc:v1:/u);
     assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  }
+  // A decision model's saved custom headers are sent decrypted; an older plain value still works.
+  {
+    const { resolveDecisionConnection } =
+      await import("../../../packages/server/src/services/decision/decision-connection.js");
+    const { sealConnectionHeaderSecrets: seal } = await import("../../../packages/server/src/utils/stored-secrets.js");
+    const row = {
+      id: "decision-row",
+      provider: "decision",
+      baseUrl: "",
+      model: "",
+      apiKey: "typesafe-key",
+      decisionSource: "typesafe",
+    };
+    const sealedParams = seal(JSON.stringify({ customHeaders: { "X-Access": HEADER_VALUE } })) as string;
+    assert.match(sealedParams, /enc:v1:/u);
+    const resolved = await resolveDecisionConnection({ ...row, defaultParameters: sealedParams }, async () => null);
+    assert.equal(resolved.connection?.headers?.["X-Access"], HEADER_VALUE, "decision requests send the plain header");
+    const legacy = await resolveDecisionConnection(
+      { ...row, defaultParameters: JSON.stringify({ customHeaders: { "X-Access": "plain-old" } }) },
+      async () => null,
+    );
+    assert.equal(legacy.connection?.headers?.["X-Access"], "plain-old");
   }
 } finally {
   await app.close();

@@ -10,6 +10,7 @@ import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
 import {
+  isEncryptedStoredSecret,
   maskChatMetadataSecrets,
   maskChatRowSecrets,
   resolveChatMetadataSecretPlaceholders,
@@ -124,6 +125,7 @@ import {
 import { createGameWorldSnapshotsStorage } from "../services/storage/game-world-snapshots.storage.js";
 import { createMessageTrashStorage, MessageTrashPinnedLimitError } from "../services/storage/message-trash.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
@@ -1818,7 +1820,18 @@ export async function chatsRoutes(app: FastifyInstance) {
     const incoming = req.body as Record<string, unknown>;
     // The mask (or nothing) keeps a saved DeepL key or webhook, "" clears it, a new value replaces it; the
     // chat storage encrypts it on write.
-    resolveChatMetadataSecretPlaceholders(incoming);
+    // A settings profile being applied (Chat Setup) sends its own masked key or webhook: that mask stands for the
+    // profile's saved value. Any other mask keeps this chat's saved value.
+    const appliedPresetId = typeof incoming.appliedChatPresetId === "string" ? incoming.appliedChatPresetId : "";
+    const newlyApplied =
+      appliedPresetId && appliedPresetId !== parseChatMetadata(chat.metadata).appliedChatPresetId
+        ? await createChatPresetsStorage(app.db).getById(appliedPresetId)
+        : null;
+    resolveChatMetadataSecretPlaceholders(
+      incoming,
+      newlyApplied?.settings?.metadata as Record<string, unknown> | undefined,
+      parseChatMetadata(chat.metadata),
+    );
     if (Object.prototype.hasOwnProperty.call(incoming, "customMusicExternalFolder")) {
       // This chat's Music DJ folder (#8901). A typed path needs the folder picker's access; clearing it does not.
       const value = incoming.customMusicExternalFolder;
@@ -1848,7 +1861,9 @@ export async function chatsRoutes(app: FastifyInstance) {
       incoming[key] = parsed.data;
     }
     // Validate Discord webhook URL if provided
-    if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim()) {
+    // A saved (encrypted) webhook carried over above was checked when it was first entered.
+    const webhookIsSaved = isEncryptedStoredSecret(incoming.discordWebhookUrl);
+    if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim() && !webhookIsSaved) {
       const url = incoming.discordWebhookUrl.trim();
       if (!/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) {
         return reply.status(400).send({ error: "Invalid Discord webhook URL" });
