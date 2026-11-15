@@ -271,17 +271,25 @@ export function ConnectionModelPicker({
       ),
     [builtInModels, modelList.isLoading, provider, remoteModels],
   );
+  // A decision model can't chat, so it is listed only where the caller asks for it (the Decision tab). The
+  // vendor and cost chips come from the rows this list can show, so none of them leads to an empty list.
+  const listable = (row: PickerRow) => (only ? only(row) : !row.decision);
+  const listed = useMemo(
+    () => options.filter(listable),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listable reads only `only`
+    [options, only],
+  );
   // "Paid" only says something where the catalog also has models in the plan (NanoGPT).
   const showCostBadges = useUIStore((s) => s.showCostBadges);
   const showPaid = useMemo(
-    () => options.some((option) => option.cost === "included" || option.cost?.startsWith("multiplier:")),
-    [options],
+    () => listed.some((option) => option.cost === "included" || option.cost?.startsWith("multiplier:")),
+    [listed],
   );
   // Add mode explains the cost words its catalog uses, so a badge never needs a hover to read.
   const costLegend = showCostBadges
     ? (["included", "multiplier", "free", "paid"] as const)
         .filter((kind) =>
-          options.some((option) =>
+          listed.some((option) =>
             kind === "multiplier"
               ? option.cost?.startsWith("multiplier:")
               : option.cost === kind && (kind !== "paid" || showPaid),
@@ -293,29 +301,37 @@ export function ConnectionModelPicker({
   const optionsById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
   const upstreams = useMemo(
     () =>
-      subgroupByUpstream(options.map((row) => ({ model: row.id }))).flatMap((group) =>
+      subgroupByUpstream(listed.map((row) => ({ model: row.id }))).flatMap((group) =>
         group.upstream ? [group.upstream] : [],
       ),
-    [options],
+    [listed],
   );
   useEffect(() => {
     if (upstream && !upstreams.includes(upstream)) setUpstream(null);
   }, [upstream, upstreams]);
+  // A list saved before the provider listed a job's models (NanoGPT's decision models, #9310) has none of them,
+  // so a job list that finds nothing in a saved list asks the provider again, once.
+  const refetchedFor = useRef<string | null>(null);
+  const savedList = modelList.data;
+  useEffect(() => {
+    if (!only || !savedList?.fetchedAt || !savedList.models?.length || listed.length > 0) return;
+    if (refresh.isPending || modelList.isFetching || refetchedFor.current === connection.id) return;
+    refetchedFor.current = connection.id;
+    refresh.mutate(connection.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one refetch per connection; `refresh` is stable enough
+  }, [connection.id, listed.length, modelList.isFetching, only, savedList]);
   // Cost chips only where the list has more than one kind of cost to tell apart.
   const costKinds = useMemo(() => {
-    const kinds = new Set(options.map(costKind));
+    const kinds = new Set(listed.map(costKind));
     return (["free", "included", "paid"] as const).filter(
       (kind) => kinds.has(kind) && (kind !== "paid" || showPaid || kinds.has("free")),
     );
-  }, [options, showPaid]);
+  }, [listed, showPaid]);
   useEffect(() => {
     if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
   }, [costFilter, costKinds]);
-  // A decision model can't chat, so it is listed only where the caller asks for it (the Decision tab).
   const inFilter = (row: PickerRow) =>
-    (only ? only(row) : !row.decision) &&
-    (!upstream || upstreamOf(row.id) === upstream) &&
-    (!costFilter || costKind(row) === costFilter);
+    listable(row) && (!upstream || upstreamOf(row.id) === upstream) && (!costFilter || costKind(row) === costFilter);
   const filtering = !!upstream || !!costFilter;
 
   const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
