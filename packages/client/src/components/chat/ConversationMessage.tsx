@@ -216,6 +216,15 @@ export const ConversationMessage = memo(function ConversationMessage({
   // ── Translation ──
   const { translate, translations, translationSources, translating } = useTranslate();
   const speech = useMessageSpeech(message, characterMap, personaInfo);
+  const speechAction = speech.enabled
+    ? {
+        speaking: speech.speaking,
+        loading: speech.loading,
+        hasContent: speech.hasContent,
+        disabled: !speech.hasContent || speech.busyElsewhere,
+        onToggle: speech.toggle,
+      }
+    : undefined;
   const translatedText = translations[message.id];
   const translationSource = translationSources[message.id];
   const isTranslating = !!translating[message.id];
@@ -1174,7 +1183,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   if (groupedLayoutActive) {
     return (
       <>
-        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} />
+        <ConversationMessageGrouped ctx={ctx} msgRef={msgRef} reactionRow={reactionRow} speech={speechAction} />
         <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-4" />
         {replyCheckup && <div className="px-4">{replyCheckup}</div>}
         {sceneInvitation}
@@ -1278,17 +1287,7 @@ export const ConversationMessage = memo(function ConversationMessage({
               onShowGenerationReplay={() => setShowGenerationReplay(true)}
               onShowThinking={() => setShowThinking(true)}
               onPickReaction={handleToggleReaction}
-              speech={
-                speech.enabled
-                  ? {
-                      speaking: speech.speaking,
-                      loading: speech.loading,
-                      hasContent: speech.hasContent,
-                      disabled: !speech.hasContent || speech.busyElsewhere,
-                      onToggle: speech.toggle,
-                    }
-                  : undefined
-              }
+              speech={speechAction}
             />
           )}
         </div>

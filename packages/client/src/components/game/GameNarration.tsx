@@ -205,6 +205,8 @@ type GameSegmentVoiceEntry =
   | { status: "error"; speaker?: string; tone?: string; voice?: string; chunks: string[] };
 
 const GAME_VOICE_CACHE_MAX_ENTRIES = 80;
+/** A line that can be voiced on demand (autoplay off) but has no audio yet; kept out of the bounded audio cache. */
+const GAME_VOICE_IDLE_ENTRY: GameSegmentVoiceEntry = { status: "idle", chunks: [] };
 
 function revokeGameVoiceEntry(entry: GameSegmentVoiceEntry | undefined): void {
   if (entry?.status !== "ready") return;
@@ -1285,6 +1287,10 @@ export function GameNarration({
   const [gameVoicePlayingKey, setGameVoicePlayingKey] = useState<string | null>(null);
   const [gameVoicePausedKey, setGameVoicePausedKey] = useState<string | null>(null);
   const gameVoiceCacheRef = useRef<Map<string, GameSegmentVoiceEntry>>(new Map());
+  /** Lines that can be voiced on demand. Separate from the audio cache so its eviction never drops a play button. */
+  const gameVoiceIdleKeysRef = useRef(new Set<string>());
+  const getGameVoiceEntry = (key: string) =>
+    gameVoiceCacheRef.current.get(key) ?? (gameVoiceIdleKeysRef.current.has(key) ? GAME_VOICE_IDLE_ENTRY : undefined);
   const gameVoicePendingRef = useRef<Map<string, AbortController>>(new Map());
   const gameVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
   // Every voice <audio> currently created/playing. gameVoiceAudioRef only tracks
@@ -2607,7 +2613,7 @@ export function GameNarration({
       event.stopPropagation();
       queueLogScrollTopRestore();
       audioManager.unlock();
-      if (gameVoiceCacheRef.current.get(key)?.status === "idle") {
+      if (!gameVoiceCacheRef.current.has(key) && gameVoiceIdleKeysRef.current.has(key)) {
         // Generate this line now and play it once it is ready.
         requestedGameVoiceKeysRef.current.add(key);
         playWhenReadyGameVoiceKeyRef.current = key;
@@ -3518,27 +3524,27 @@ export function GameNarration({
   }, [active, narrationMessageChanged, scenePreparing, visibleChars, onReadable]);
 
   useEffect(() => {
-    if (!ttsConfig || !gameVoiceAvailable || isStreaming || generationFailed || disableVoiceGeneration) return;
+    if (!ttsConfig || !gameVoiceAvailable || isStreaming || generationFailed || disableVoiceGeneration) {
+      // A line asked for now can't be generated; drop the request so it never starts playing later on its own.
+      requestedGameVoiceKeysRef.current.clear();
+      playWhenReadyGameVoiceKeyRef.current = null;
+      return;
+    }
 
     const plans: GameVoiceEntryPlan[] = [];
     let idleAdded = false;
     const queuePlan = (key: string | null, requests: GameSegmentVoiceRequest[]) => {
       if (!key || gameVoicePendingRef.current.has(key)) return;
       const wanted = gameVoiceEnabled || requestedGameVoiceKeysRef.current.has(key);
-      const existing = gameVoiceCacheRef.current.get(key);
-      if (existing && !(existing.status === "idle" && wanted)) return;
+      if (gameVoiceCacheRef.current.has(key)) return;
       const audioJobs = buildGameVoiceAudioJobs(key, requests, ttsConfig);
       if (audioJobs.length === 0) return;
       if (!wanted) {
         // Autoplay is off: show a play button for the line without spending a request on it yet.
-        cacheGameVoiceEntry(key, {
-          status: "idle",
-          chunks: audioJobs.map((job) => job.chunk),
-          speaker: audioJobs[0]?.speaker,
-          tone: audioJobs[0]?.tone,
-          voice: audioJobs[0]?.voice,
-        });
-        idleAdded = true;
+        if (!gameVoiceIdleKeysRef.current.has(key)) {
+          gameVoiceIdleKeysRef.current.add(key);
+          idleAdded = true;
+        }
         return;
       }
       requestedGameVoiceKeysRef.current.delete(key);
@@ -4908,7 +4914,7 @@ export function GameNarration({
       ) : null;
 
     const voiceKey = getVoiceKeyForSegment(seg);
-    const voiceEntry = voiceKey ? gameVoiceCacheRef.current.get(voiceKey) : undefined;
+    const voiceEntry = voiceKey ? getGameVoiceEntry(voiceKey) : undefined;
     const voicePaused = gameVoicePausedKey === voiceKey;
     const voiceActive = gameVoicePlayingKey === voiceKey;
     const voiceButton =
@@ -5253,7 +5259,7 @@ export function GameNarration({
                 const charColor = findNamedMapValue(speakerColors, line.character);
                 const charNameColor = findNamedMapValue(speakerNameColors, line.character);
                 const sideVoiceKey = active ? getVoiceKeyForSideLine(active, line, i) : null;
-                const voiceEntry = sideVoiceKey ? gameVoiceCacheRef.current.get(sideVoiceKey) : undefined;
+                const voiceEntry = sideVoiceKey ? getGameVoiceEntry(sideVoiceKey) : undefined;
                 const voicePaused = gameVoicePausedKey === sideVoiceKey;
                 const voiceActive = gameVoicePlayingKey === sideVoiceKey;
                 const sourceMessageId = line.voiceSourceMessageId ?? active?.sourceMessageId ?? null;
@@ -6229,7 +6235,7 @@ export function GameNarration({
                         ) : null;
 
                       const voiceKey = getVoiceKeyForSegment(seg);
-                      const voiceEntry = voiceKey ? gameVoiceCacheRef.current.get(voiceKey) : undefined;
+                      const voiceEntry = voiceKey ? getGameVoiceEntry(voiceKey) : undefined;
                       const voicePaused = gameVoicePausedKey === voiceKey;
                       const voiceActive = gameVoicePlayingKey === voiceKey;
                       const voiceButton =
