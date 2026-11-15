@@ -364,8 +364,8 @@
     },
     {
       "path": "development/ios-pwa-safe-area.md",
-      "sha256": "3156c425a3719843d8dad63b50b90a23e7837607ee009d7f5d7b55e4e78b9bd5",
-      "bytes": 10581
+      "sha256": "f21a2ca10e2d939fb065b7d43b03cac863a013c95e14524712332d5e92581dba",
+      "bytes": 10584
     },
     {
       "path": "development/localization.md",
