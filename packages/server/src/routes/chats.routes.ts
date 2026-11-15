@@ -9,6 +9,11 @@ import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
+import {
+  maskChatMetadataSecrets,
+  maskChatRowSecrets,
+  resolveChatMetadataSecretPlaceholders,
+} from "../utils/stored-secrets.js";
 import { deletePendingForChat } from "../services/professor-mari/workspace-pending-store.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
@@ -497,7 +502,8 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
     ...chat,
     characterIds: resolveChatCharacterIds(chat.characterIds),
     personaCharacterId: (chat as T & { personaCharacterId?: string | null }).personaCharacterId ?? null,
-    metadata: parseChatMetadata(chat.metadata),
+    // Saved keys and the Discord webhook stay on the server: responses say only that one is saved.
+    metadata: maskChatMetadataSecrets(parseChatMetadata(chat.metadata)),
   });
 }
 type SummaryEntriesPatchBody =
@@ -1042,7 +1048,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         if (!updated && hideMessageIds.length > 0) {
           await storage.bulkSetHiddenFromAI(req.params.id, hideMessageIds, false);
         }
-        return updated;
+        return maskChatRowSecrets(updated);
       } catch (err) {
         if (hideMessageIds.length > 0) {
           await storage.bulkSetHiddenFromAI(req.params.id, hideMessageIds, false);
@@ -1810,6 +1816,9 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const incoming = req.body as Record<string, unknown>;
+    // The mask (or nothing) keeps a saved DeepL key or webhook, "" clears it, a new value replaces it; the
+    // chat storage encrypts it on write.
+    resolveChatMetadataSecretPlaceholders(incoming);
     if (Object.prototype.hasOwnProperty.call(incoming, "customMusicExternalFolder")) {
       // This chat's Music DJ folder (#8901). A typed path needs the folder picker's access; clearing it does not.
       const value = incoming.customMusicExternalFolder;

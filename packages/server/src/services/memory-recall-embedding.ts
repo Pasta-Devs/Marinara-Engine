@@ -5,6 +5,7 @@ import {
   PROVIDERS,
   localAuthProviderBaseUrl,
 } from "@marinara-engine/shared";
+import { decryptCustomHeaders } from "../utils/stored-secrets.js";
 import { createHash } from "node:crypto";
 import type { DB } from "../db/connection.js";
 import { logger } from "../lib/logger.js";
@@ -77,8 +78,12 @@ function canonicalCustomHeaders(defaultParameters: unknown): string {
     }
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "{}";
+  const rawHeaders = (parsed as Record<string, unknown>).customHeaders;
+  // Compare the real values: each save of an encrypted value differs even when the header did not change.
   const result = generationParametersSchema.shape.customHeaders.safeParse(
-    (parsed as Record<string, unknown>).customHeaders,
+    rawHeaders && typeof rawHeaders === "object" && !Array.isArray(rawHeaders)
+      ? decryptCustomHeaders(rawHeaders as Record<string, string>)
+      : rawHeaders,
   );
   if (!result.success) return "{}";
   return JSON.stringify(

@@ -97,7 +97,6 @@ export function translateMessage(
         targetLanguage: config.outputTargetLanguage,
         connectionId: config.connectionId,
         systemPrompt: config.outputSystemPrompt,
-        deeplApiKey: config.deeplApiKey,
         deeplxUrl: config.deeplxUrl,
       });
       if (attempt.invalidated) return;
