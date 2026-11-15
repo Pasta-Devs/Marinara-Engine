@@ -2,6 +2,13 @@
 // Regex Script Types (SillyTavern-compatible)
 // ──────────────────────────────────────────────
 
+export const CLEAN_HTML_ID = "default-clean-html";
+export const COLLAPSE_NEWLINES_ID = "default-collapse-newlines";
+
+export function isBuiltInRegexScript(id: string): boolean {
+  return id === CLEAN_HTML_ID || id === COLLAPSE_NEWLINES_ID;
+}
+
 /** Where a regex script is applied. */
 export type RegexPlacement = "ai_output" | "user_input";
 
