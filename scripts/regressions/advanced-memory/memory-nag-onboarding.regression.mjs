@@ -4,8 +4,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const drawer = readFileSync(
-  join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+const chatAgents = readFileSync(
+  join(repositoryRoot, "packages/client/src/features/chat-settings/agents/use-chat-agents.ts"),
   "utf8",
 );
 const english = JSON.parse(
@@ -13,11 +13,11 @@ const english = JSON.parse(
 );
 
 function section(start, end) {
-  const startIndex = drawer.indexOf(start);
+  const startIndex = chatAgents.indexOf(start);
   assert.notEqual(startIndex, -1, `Missing source section: ${start}`);
-  const endIndex = drawer.indexOf(end, startIndex);
+  const endIndex = chatAgents.indexOf(end, startIndex);
   assert.notEqual(endIndex, -1, `Missing source boundary: ${end}`);
-  return drawer.slice(startIndex, endIndex);
+  return chatAgents.slice(startIndex, endIndex);
 }
 
 function assertOrdered(source, needles, message) {

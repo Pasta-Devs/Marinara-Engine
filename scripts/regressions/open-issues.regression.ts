@@ -6452,6 +6452,10 @@ const chatSettingsDrawerSource = [
 ]
   .map((path) => readFileSync(path, "utf8"))
   .join("\n");
+// The drawer and the hook that holds Agents' state, for the checks that read only those two.
+const drawerAndAgentsStateSource = ["ChatSettingsDrawer.tsx", "agents/use-chat-agents.ts"]
+  .map((name) => readFileSync(join(chatSettingsDir, name), "utf8"))
+  .join("\n");
 assert.match(
   agentEditorSource,
   /lorebookReadBehindMessages:\s*localLorebookReadBehindMessages/u,
@@ -9585,10 +9589,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
 // focused UI/cache ordering fixes from being lost in future refactors.
 {
-  const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const chatSettingsSource = drawerAndAgentsStateSource;
   const memoryRecallSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx"),
     "utf8",
@@ -10184,10 +10185,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     );
   }
 
-  const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const chatSettingsSource = drawerAndAgentsStateSource;
   assert.match(
     chatSettingsSource,
     /const worldMapsSettingsDescription = localizeUi\("ui\.chat\.chatsettingsdrawer\.worldMapsFeatureSummary"\);/u,
@@ -10207,7 +10205,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   const standaloneRoleplayAgentSettings = sourceBetween(
     chatSettingsSource,
     "const renderStandaloneRoleplayAgentSettingsCard =",
-    "const updateAgentPromptTemplateSelection =",
+    "const renderAgentPromptTemplateSelect =",
     "Standalone Roleplay agent settings renderer",
   );
   assert.match(
@@ -10383,10 +10381,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   // messages-per-page and "Load More" vanished on a mis-evaluated
   // hasNextPage. Read-only newest-N windows must go through the peek hook,
   // which keys by limit.
-  const drawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const drawerSource = drawerAndAgentsStateSource;
   assert.doesNotMatch(
     drawerSource,
     /useChatMessages\(/u,
@@ -10641,10 +10636,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatConversationSurface.tsx"),
     "utf8",
   );
-  const settingsDrawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const settingsDrawerSource = drawerAndAgentsStateSource;
   const gameMapSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/components/game/GameMap.tsx"), "utf8");
   const generateRouteSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),

@@ -805,7 +805,7 @@ try {
     "Conversation chat settings must place Long-Term Memory below Calls with its activation control",
   );
   assert.match(
-    chatSettingsSource,
+    readFileSync(join(repositoryRoot, "packages/client/src/features/chat-settings/agents/use-chat-agents.ts"), "utf8"),
     /const setLtmEnabledForChat = useCallback\([\s\S]{0,900}activeAgentIds: enabled[\s\S]{0,300}filter\(\(id\) => id !== ltmPackageId\)/u,
     "Long-Term Memory activation must preserve other active agents while toggling its own ID",
   );
