@@ -908,6 +908,10 @@ export function App() {
       setAccentModeDataset();
     };
 
+    // Whether the steady accent is already on the page. Focus moves on every tap, and re-applying
+    // it then re-resolved the cursor color on a probe element, which made Safari (WebKit) restyle
+    // the whole page twice per tab switch.
+    let staticAccentApplied = false;
     const stopAccentAnimation = () => {
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);
@@ -915,6 +919,7 @@ export function App() {
       }
       delete root.dataset.marinaraAccentAnimation;
       applyStaticAccent();
+      staticAccentApplied = true;
     };
 
     const pauseAccentAnimation = () => {
@@ -951,6 +956,7 @@ export function App() {
     };
 
     const startAccentAnimation = () => {
+      staticAccentApplied = false;
       root.dataset.marinaraAccentAnimation =
         animatedAccentIsGradient && animatedGradientStops.length > 1 ? "gradient" : "solid";
       if (usesTimerDrivenAccentAnimation) {
@@ -968,7 +974,7 @@ export function App() {
         } else {
           startAccentAnimation();
         }
-      } else {
+      } else if (!staticAccentApplied || accentAnimationTimer !== null) {
         stopAccentAnimation();
       }
     };
@@ -991,6 +997,7 @@ export function App() {
       setAccentModeDataset();
     } else {
       applyStaticAccent();
+      staticAccentApplied = true;
     }
     syncAccentAnimationState();
     document.addEventListener("visibilitychange", handleVisibilityChange);
