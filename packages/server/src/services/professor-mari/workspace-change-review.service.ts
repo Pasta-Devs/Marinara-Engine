@@ -56,7 +56,9 @@ const PACKAGE_CONTROL_FILES = new Set([
 const ROOT_LAUNCHER_FILES = new Set([
   "start.sh",
   "start.bat",
+  "start-local.bat",
   "start-termux.sh",
+  "marinaralauncher.exe",
   "dockerfile",
   "docker-compose.yml",
   "docker-compose.yaml",
@@ -192,6 +194,10 @@ export function workspacePathAccessPolicy(
   if (fileSystemParts.length === 1 && ROOT_LAUNCHER_FILES.has(foldedName)) return "sensitive";
   if (folded === ".github/workflows" || folded.startsWith(".github/workflows/")) return "sensitive";
   if (folded === "win/installer" || folded.startsWith("win/installer/")) return "sensitive";
+  // The launchers run these on every start (update check, data protection, build), outside her sandbox, so a
+  // change here waits for the user's approval like a launcher change does.
+  if (folded === "scripts" || folded.startsWith("scripts/")) return "sensitive";
+  if (folded === "win" || folded.startsWith("win/")) return "sensitive";
   if (
     folded === "android/app/build.gradle" ||
     folded === "android/build.gradle" ||
@@ -244,14 +250,14 @@ const PACKAGE_CONTROL_NAME_PATTERN = [...PACKAGE_CONTROL_FILES].map(escapeRegExp
 const ROOT_LAUNCHER_NAME_PATTERN = [...ROOT_LAUNCHER_FILES].map(escapeRegExp).join("|");
 // Mirrors workspacePathAccessPolicy's scoping: package-control names are
 // sensitive at ANY depth (they may take a path prefix), while launcher names
-// and the workflow/installer/gradle paths are sensitive only at the workspace
+// and the workflow/installer/scripts/win/gradle paths are sensitive only at the workspace
 // root (no path prefix beyond an optional "./"). The left lookbehinds start a
 // match only where a path starts, so ordinary names that merely END with a
 // sensitive name (mypackage.json, new-start.sh) and a nested docs/start.sh
 // never match, and a long path is read once rather than again after every "/".
 const SENSITIVE_ROOT_SCOPED_PATTERN =
   `(?:${ROOT_LAUNCHER_NAME_PATTERN})(?![\\w.-])` +
-  `|\\.github/workflows/|win/installer/|android/gradle/wrapper/` +
+  `|\\.github/workflows/|win/|scripts/|android/gradle/wrapper/` +
   `|android/(?:app/)?build\\.gradle(?![\\w.-])|android/settings\\.gradle(?![\\w.-])`;
 const SENSITIVE_PATH_TARGET_PATTERN =
   `(?<![\\w./~-])(?:[\\w./~-]*/)?(?:${PACKAGE_CONTROL_NAME_PATTERN})(?![\\w.-])` +

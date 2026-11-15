@@ -151,6 +151,11 @@ for (const blocked of [
   'dd of="pnpm-lock.yaml" if=input',
   "git checkout -- package-lock.json",
   "git restore pnpm-lock.yaml",
+  // The launchers run scripts/ and win/ on start, outside the sandbox
+  "echo x > scripts/build.sh",
+  "cp evil.mjs ./scripts/check-launcher-update.mjs",
+  "sed -i 's/a/b/' win/data-protection.ps1",
+  String.raw`echo x > win\launcher.ps1`,
 ]) {
   assert.equal(bashCommandTargetsSensitivePath(blocked), true, `should refuse: ${blocked}`);
 }
@@ -180,6 +185,11 @@ for (const allowed of [
   "echo x > docs/start.sh",
   "rm docs/examples/docker-compose.yml",
   "touch examples/Dockerfile",
+  // scripts/ and win/ are root-scoped too; reads stay allowed
+  "echo x > docs/scripts/build.sh",
+  "cat scripts/build.sh",
+  "echo x > scripts2/build.sh",
+  "rm twin/notes.md",
 ]) {
   assert.equal(bashCommandTargetsSensitivePath(allowed), false, `should allow: ${allowed}`);
 }
