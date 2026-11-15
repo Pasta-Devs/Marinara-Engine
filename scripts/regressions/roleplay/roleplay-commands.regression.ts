@@ -1,0 +1,1103 @@
+import assert from "node:assert/strict";
+import { addAbortListener, getEventListeners } from "node:events";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { runInNewContext } from "node:vm";
+import { GENERATIVE_AUDIO_DEFAULTS } from "../../../packages/shared/src/types/connection.js";
+import {
+  ROLEPLAY_COMMAND_KEYS,
+  isRoleplayCommandEnabled,
+  isRoleplayCommandAllowed,
+  getRoleplayCommandActivity,
+  getRoleplayDocuments,
+  roleplayCommandsEnabled,
+} from "../../../packages/shared/src/types/roleplay-command.js";
+import {
+  appendRoleplayPromptTail,
+  buildRoleplayCommandsReminder,
+  buildRoleplayPersonalContext,
+  parseRoleplayCommands,
+  placeAfterPrefix,
+  placeRoleplayActivityInParts,
+  readRoleplayPersonalState,
+  RoleplayCommandStreamFilter,
+  resolveRoleplayWhisperRecipient,
+} from "../../../packages/server/src/services/generation/roleplay-commands.js";
+import { collectPastReasoningMetadata } from "../../../packages/server/src/services/generation/generation-parameters.js";
+import {
+  ARTIFACT_SVG_ATTR,
+  ARTIFACT_SVG_TAGS,
+  scopeArtifactSvgAttribute,
+} from "../../../packages/client/src/lib/artifact-svg.js";
+import {
+  buildHtmlArtifactMessages,
+  parseHtmlArtifactOutput,
+} from "../../../packages/server/src/services/generation/html-artifact.js";
+import { conversationPromptHistoryContent } from "../../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
+import { generateRoleplaySoundEffect } from "../../../packages/server/src/routes/tts.routes.js";
+import { prepareRoleplayRoll } from "../../../packages/server/src/services/generation/roleplay-rolls.js";
+import { prepareRoleplayInterruption } from "../../../packages/server/src/services/generation/roleplay-interrupt.js";
+import type { RPGStatsConfig } from "../../../packages/shared/src/types/character.js";
+import { buildCommittedTrackerContextBlock } from "../../../packages/server/src/services/generation/committed-tracker-context.js";
+import { isDiceRollResult, readRoleplayDiceRolls } from "../../../packages/client/src/lib/dice-roll-result.js";
+import { executeToolCalls } from "../../../packages/server/src/services/tools/tool-executor.js";
+import { parseRollDiceToolResult } from "../../../packages/server/src/services/game/dice.service.js";
+import { splitAtSceneBreaks } from "../../../packages/shared/src/utils/scene-breaks.js";
+
+const rollResult = JSON.stringify({ notation: "2d1+3", rolls: [1, 1], modifier: 3, total: 5 });
+const inlineRoll = {
+  command: { type: "roll", notation: "2d1+3" },
+  raw: '[roll: notation="2d1+3"]',
+  result: rollResult,
+  contentOffset: 6,
+  contentAnchor: "Before",
+};
+const positions = (text: string, activity: unknown[]) =>
+  readRoleplayDiceRolls(text, { roleplayCommandActivity: activity }).map(({ offset }) => offset);
+assert.deepEqual(
+  positions("Before after", [inlineRoll, { ...inlineRoll, contentOffset: 12, contentAnchor: "after" }]),
+  [6, 12],
+);
+assert.deepEqual(positions("Edited Before after", [inlineRoll]), [13], "an unchanged unique anchor follows an edit");
+assert.deepEqual(positions("All replaced", [inlineRoll]), [12], "a lost anchor leaves the real roll at the end");
+assert.deepEqual(positions("Changed Before Before after", [inlineRoll]), [27], "ambiguous anchors do not guess");
+const leadingRoll = { ...inlineRoll, contentOffset: 0, contentAnchor: "After the roll" };
+assert.deepEqual(positions("After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("Edited After the roll", [leadingRoll]), [7], "a leading roll follows its unique suffix");
+assert.deepEqual(positions("All replaced", [leadingRoll]), [12]);
+assert.deepEqual(positions("After the roll twice: After the roll", [leadingRoll]), [0]);
+assert.deepEqual(positions("New After the roll twice: After the roll", [leadingRoll]), [40]);
+assert.deepEqual(positions("Edited", [{ ...leadingRoll, contentAnchor: "" }]), [6], "empty anchors cannot pin a roll");
+assert.deepEqual(
+  positions("Before after", [{ ...inlineRoll, contentOffset: undefined }]),
+  [12],
+  "legacy rolls remain visible",
+);
+assert.deepEqual(
+  positions("Before after", [
+    { ...inlineRoll, deleted: true },
+    { ...inlineRoll, error: "Failed" },
+    { ...inlineRoll, result: "{}" },
+    { ...inlineRoll, result: "not JSON" },
+  ]),
+  [],
+);
+
+const cancelledSound = new AbortController();
+cancelledSound.abort();
+await assert.rejects(
+  generateRoleplaySoundEffect(null as never, "Cancelled cue", null, false, cancelledSound.signal),
+  { name: "AbortError" },
+  "a cancelled sound command must not resolve a connection or start a provider request",
+);
+
+// Execute the production entry point with controlled configuration/provider I/O.
+// This exercises shared locks and cancellation without a database or a paid audio call.
+const soundSource = readFileSync(new URL("../../../packages/server/src/routes/tts.routes.ts", import.meta.url), "utf8");
+const soundEntry = soundSource.match(/^export async function generateRoleplaySoundEffect\([\s\S]*?^}/m)?.[0];
+assert.ok(soundEntry);
+const generationSource = readFileSync(
+  new URL("../../../packages/server/src/services/audio/generative-audio.service.ts", import.meta.url),
+  "utf8",
+);
+const soundIdentity = generationSource.match(/^function cacheIdentity\([\s\S]*?^}/m)?.[0];
+assert.ok(soundIdentity);
+const sharedSoundEntry = generationSource.match(/^export async function generateAudioAsset\([\s\S]*?^}/m)?.[0];
+assert.ok(sharedSoundEntry);
+type AudioResult = { tag: string; path: string; cached: boolean };
+let finishAudio!: (value: AudioResult) => void;
+let failAudio!: (error: Error) => void;
+const deferredAudio = () =>
+  new Promise<AudioResult>((resolve, reject) => {
+    finishAudio = resolve;
+    failAudio = reject;
+  });
+let upstreamAudio = deferredAudio();
+const sharedAudio = new Map<string, Promise<AudioResult>>();
+const audioRequests: unknown[][] = [];
+const sound = runInNewContext(
+  stripTypeScriptTypes(
+    `${soundIdentity}\n${sharedSoundEntry.replace(/^export /, "")}\n${soundEntry.replace(/^export /, "")}`,
+  ) + "\ngenerateRoleplaySoundEffect",
+  {
+    addAbortListener,
+    Promise,
+    Symbol,
+    GENERATIVE_AUDIO_DEFAULTS,
+    resolveGenerativeAudioConfig: async () => ({
+      source: "elevenlabs",
+      ...GENERATIVE_AUDIO_DEFAULTS.elevenlabs,
+      model: "music_v1",
+      legacyId: "fixture",
+      soundEffects: true,
+      apiKey: "fixture-key",
+    }),
+    logDebugOverride: () => {},
+    isDebugAgentsEnabled: () => false,
+    locks: sharedAudio,
+    compose: (...args: unknown[]) => {
+      audioRequests.push(args);
+      return upstreamAudio;
+    },
+  },
+) as typeof generateRoleplaySoundEffect;
+const firstSound = new AbortController();
+const secondSound = new AbortController();
+const firstWait = sound(null as never, "Shared cue", null, false, firstSound.signal);
+const secondWait = sound(null as never, "Shared cue", null, false, secondSound.signal);
+await nextTurn();
+assert.equal(audioRequests.length, 1, "identical cues share a single generation");
+assert.equal(audioRequests[0]?.length, 4);
+assert.deepEqual(audioRequests[0]?.slice(1), ["sfx", "Shared cue", undefined]);
+assert(!audioRequests[0]?.includes(firstSound.signal), "shared provider work never receives the caller's signal");
+const gameWait = sharedAudio.get("sfx\0shared cue");
+assert.ok(gameWait, "Game audio joins the same pending generation");
+const cancelledWait = assert.rejects(firstWait, { name: "AbortError" });
+firstSound.abort();
+await Promise.race([
+  cancelledWait,
+  nextTurn().then(() => {
+    throw new Error("Cancellation must release the caller before audio generation finishes");
+  }),
+]);
+assert.equal(getEventListeners(firstSound.signal, "abort").length, 0);
+assert.equal(getEventListeners(secondSound.signal, "abort").length, 1, "the other caller is still waiting");
+const audioResult = { tag: "sfx:generated:fixture", path: "sfx/generated/fixture.mp3", cached: false };
+finishAudio(audioResult);
+assert.deepEqual(await secondWait, audioResult);
+assert.deepEqual(await gameWait, audioResult);
+assert.equal(sharedAudio.size, 0);
+assert.equal(getEventListeners(secondSound.signal, "abort").length, 0, "completed waits remove their abort listener");
+
+upstreamAudio = deferredAudio();
+const abandonedSound = new AbortController();
+const abandonedWait = sound(null as never, "Abandoned cue", null, false, abandonedSound.signal);
+await nextTurn();
+const abandonedFailure = assert.rejects(abandonedWait, { name: "AbortError" });
+abandonedSound.abort();
+await abandonedFailure;
+failAudio(new Error("Late provider failure"));
+await nextTurn();
+assert.equal(sharedAudio.size, 0, "a failure after cancellation clears the lock without an unhandled rejection");
+
+for (const key of ROLEPLAY_COMMAND_KEYS) {
+  assert.equal(isRoleplayCommandEnabled({}, key), false);
+  assert.equal(isRoleplayCommandEnabled({ roleplayCommandsEnabled: true }, key), false);
+  assert.equal(isRoleplayCommandEnabled({ roleplayCommandToggles: { [key]: true } }, key), false);
+}
+assert.equal(roleplayCommandsEnabled({ roleplayDmCommandsEnabled: true }), true);
+assert.equal(isRoleplayCommandEnabled({ roleplayDmCommandsEnabled: true }, "dm"), true);
+assert.equal(
+  isRoleplayCommandEnabled({ roleplayDmCommandsEnabled: true, roleplayCommandsEnabled: false }, "dm"),
+  false,
+);
+assert.equal(
+  isRoleplayCommandEnabled({ roleplayDmCommandsEnabled: true, roleplayCommandToggles: { dm: false } }, "dm"),
+  false,
+);
+
+const raw =
+  'Before [notes: content="I lied about [the key]. Truth: I hid it.\\nMy cover story is \\"lost\\"."] after [memory: id="key", content="Retrieve it at dawn"] the note.';
+const parsed = parseRoleplayCommands(raw);
+assert.equal(parsed.content, "Before  after  the note.");
+assert.equal(parsed.commands.length, 2);
+assert.equal(parsed.invalid, 0);
+
+const whisperRaw = 'Before [whisper: character="Bob" text="The [key] is \\"here\\".\\nKeep it secret."] after.';
+const whisper = parseRoleplayCommands(whisperRaw);
+assert.equal(whisper.content, "Before  after.");
+assert.deepEqual(whisper.commands, [
+  { type: "whisper", character: "Bob", text: 'The [key] is "here".\nKeep it secret.' },
+]);
+assert.equal(whisper.activity[0]?.contentOffset, 7);
+for (let split = 0; split <= whisperRaw.length; split++) {
+  const filter = new RoleplayCommandStreamFilter();
+  assert.equal(
+    filter.push(whisperRaw.slice(0, split)) + filter.push(whisperRaw.slice(split)) + filter.flush(),
+    whisper.content,
+  );
+}
+// Whispered dialogue keeps its own quotes without escaping them.
+for (const [raw, text] of [
+  ['Before [whisper: character="Bob" text=""I love you.""] after.', '"I love you."'],
+  [
+    'Before [whisper: character="Bob" text="She leans in: "Meet me at dawn," then pulls away."] after.',
+    'She leans in: "Meet me at dawn," then pulls away.',
+  ],
+  [
+    'Before [whisper: character="Bob" text="He says "It\'s [sealed]" and waits."] after.',
+    'He says "It\'s [sealed]" and waits.',
+  ],
+  // Real line breaks need no \n escape.
+  [
+    'Before [whisper: character="Bob" text=""Wait."\n\nShe is already gone."] after.',
+    '"Wait."\n\nShe is already gone.',
+  ],
+]) {
+  const nested = parseRoleplayCommands(raw);
+  assert.equal(nested.content, "Before  after.");
+  assert.deepEqual(nested.commands, [{ type: "whisper", character: "Bob", text }]);
+  for (let split = 0; split <= raw.length; split++) {
+    const filter = new RoleplayCommandStreamFilter();
+    assert.equal(filter.push(raw.slice(0, split)) + filter.push(raw.slice(split)) + filter.flush(), nested.content);
+  }
+}
+for (const raw of [
+  '[whisper: character="Bob" text="unfinished',
+  "[whis",
+  '[whisper: text="No recipient"]',
+  `[whisper: character="Bob" text="${"x".repeat(16_001)}"]`,
+]) {
+  assert.equal(parseRoleplayCommands(raw).content, "");
+  assert.equal(parseRoleplayCommands(raw).invalid, 1);
+}
+const whisperPeople = [
+  { id: "alice", name: "Alice" },
+  { id: "bob", name: "Bob" },
+];
+assert.deepEqual(resolveRoleplayWhisperRecipient(" bob ", whisperPeople, { id: "mari", name: "Mari" }), {
+  id: "bob",
+  kind: "character",
+});
+assert.deepEqual(resolveRoleplayWhisperRecipient("Mari", whisperPeople, { id: "mari", name: "Mari" }), {
+  id: "mari",
+  kind: "persona",
+});
+assert.equal(resolveRoleplayWhisperRecipient("Unknown", whisperPeople, { id: "mari", name: "Mari" }), null);
+assert.equal(
+  resolveRoleplayWhisperRecipient("Bob", [...whisperPeople, { id: "other", name: "BOB" }], {
+    id: "mari",
+    name: "Mari",
+  }),
+  null,
+);
+assert.equal(resolveRoleplayWhisperRecipient("Bob", whisperPeople, { id: "mari", name: "Bob" }), null);
+const whisperPermissions = {
+  roleplayCommandsEnabled: true,
+  roleplayCommandToggles: { whisper: true },
+  roleplayWhisperAudience: "narrator",
+  roleplayCommandNarratorId: "narrator",
+};
+assert.equal(isRoleplayCommandAllowed(whisperPermissions, "whisper", "alice"), false);
+assert.equal(isRoleplayCommandAllowed(whisperPermissions, "whisper", null), false);
+assert.equal(isRoleplayCommandAllowed(whisperPermissions, "whisper", "narrator"), true);
+assert.equal(parsed.commands[0]?.type, "notes");
+if (parsed.commands[0]?.type === "notes") assert.match(parsed.commands[0].content, /\nMy cover story is "lost"\./u);
+// Every possible two-chunk boundary, plus single-character streaming, must keep secrets hidden.
+for (let split = 0; split <= raw.length; split++) {
+  const filter = new RoleplayCommandStreamFilter();
+  assert.equal(filter.push(raw.slice(0, split)) + filter.push(raw.slice(split)) + filter.flush(), parsed.content);
+}
+const tinyChunks = new RoleplayCommandStreamFilter();
+assert.equal([...raw].map((char) => tinyChunks.push(char)).join("") + tinyChunks.flush(), parsed.content);
+for (const unfinished of ['[notes: content="secret', "[notes", "[not", '[notes content="secret']) {
+  assert.equal(parseRoleplayCommands(`Visible ${unfinished}`).content, "Visible ");
+  const filter = new RoleplayCommandStreamFilter();
+  assert.equal([...`Visible ${unfinished}`].map((char) => filter.push(char)).join("") + filter.flush(), "Visible ");
+}
+assert.equal(parseRoleplayCommands("A [normal aside] remains.").content, "A [normal aside] remains.");
+assert.equal(parseRoleplayCommands('[notes: content="' + "x".repeat(8001) + '"]').invalid, 1);
+assert.equal(
+  parseRoleplayCommands('[document: kind="letter", title="Invitation", content="Come at dawn."]').commands[0]?.type,
+  "document",
+);
+const rollText = 'I try the lock. [roll: notation="1d20+3", reason="Need 15"] A made-up outcome.';
+const rollFilter = new RoleplayCommandStreamFilter(true);
+assert.equal(rollFilter.push(rollText), "I try the lock. ");
+assert.equal(rollFilter.rollRequested, true);
+assert.equal(rollFilter.push("More invented outcomes"), "");
+assert.equal(parseRoleplayCommands(rollText).roll?.command.notation, "1d20+3");
+
+const interruptRaw = '[interrupt: part="I really hate myself!"]';
+const interruption = parseRoleplayCommands(`Before ${interruptRaw} After`);
+assert.equal(interruption.content, "Before  After");
+assert.deepEqual(interruption.commands, [{ type: "interrupt", part: "I really hate myself!" }]);
+assert.equal(interruption.activity[0]?.raw, interruptRaw);
+assert.equal(parseRoleplayCommands('[interrupt: part=""]').invalid, 1);
+assert.equal(parseRoleplayCommands('[interrupt: part="unfinished').invalid, 1);
+for (let split = 0; split <= interruptRaw.length; split++) {
+  const filter = new RoleplayCommandStreamFilter();
+  assert.equal(
+    filter.push(`Before ${interruptRaw.slice(0, split)}`) +
+      filter.push(`${interruptRaw.slice(split)} After`) +
+      filter.flush(),
+    "Before  After",
+    "interrupt commands stay hidden across every stream split",
+  );
+}
+const cut = (content: string, part: string) => {
+  const result = prepareRoleplayInterruption(content, part);
+  assert.equal(result.ok, true, result.ok ? undefined : result.error);
+  return result.ok ? result.content : "";
+};
+assert.equal(
+  cut('Mari cries. "And I really hate myself! I want to just finish myself already!"', "I really hate myself!"),
+  'Mari cries. "And I really hate myself—"',
+);
+assert.equal(
+  cut("Mari reaches for the heavy door. She steps outside.", "for the heavy door."),
+  "Mari reaches for the heavy door—",
+);
+assert.equal(cut("“Please listen to me!” She leaves.", "Please listen to me!”"), "“Please listen to me—”");
+assert.equal(cut("„Proszę zostań tutaj jeszcze chwilę!” Odchodzi.", "Proszę zostań tutaj"), "„Proszę zostań tutaj—“");
+assert.equal(cut('He said, "Don\'t leave me here!" and turned.', "Don't leave me"), 'He said, "Don\'t leave me—"');
+assert.equal(
+  cut("The girls' hands reach upward. Then they fall.", "The girls' hands reach"),
+  "The girls' hands reach—",
+);
+assert.equal(cut('He measures the board at 6" and moves away.', 'the board at 6"'), 'He measures the board at 6"—');
+assert.equal(cut("She says [one] (two) three.* and leaves.", "[one] (two) three.*"), "She says [one] (two) three.*—");
+assert.equal(cut("Zażółć gęślą jaźń. Potem odejdź.", "Zażółć gęślą jaźń."), "Zażółć gęślą jaźń—");
+assert.equal(cut("こんにちは 世界 皆さん。続けます。", "こんにちは 世界 皆さん。"), "こんにちは 世界 皆さん—");
+for (const [content, part] of [
+  ["Only two words here.", "two words"],
+  ["One two three.", "one two three"],
+  ["One two three.", "One  two three"],
+  ["One two three.", "one.* two three"],
+  ["one two three; one two three", "one two three"],
+  ["a a a a", "a a a"],
+]) {
+  const result = prepareRoleplayInterruption(content!, part!);
+  assert.equal(result.ok, false, "invalid or ambiguous literal quotes must leave source content untouched");
+  if (!result.ok) assert.ok(result.error);
+}
+
+const history = [
+  { role: "assistant", characterId: "alice", extra: { roleplayPrivateCommands: parsed.commands } },
+  {
+    role: "assistant",
+    characterId: "bob",
+    extra: JSON.stringify({ roleplayPrivateCommands: [{ type: "notes", content: "BOB_SECRET" }] }),
+  },
+  {
+    role: "assistant",
+    characterId: "alice",
+    extra: {
+      roleplayPrivateCommands: [
+        { type: "notes", content: "ALICE_LIE: I claimed the door was locked; it was open." },
+        { type: "memory", id: "key", content: "ALICE_REMINDER: retrieve the key tonight" },
+      ],
+    },
+  },
+];
+const alice = readRoleplayPersonalState(history).get("alice")!;
+const summarizedNote = { ...history[0], id: "summarized", extra: { ...history[0]!.extra, hiddenFromAI: true } };
+assert.equal(readRoleplayPersonalState([summarizedNote], "alice").size, 0);
+assert.equal(
+  readRoleplayPersonalState([summarizedNote], "alice", new Set(["summarized"])).get("alice")?.reminders.size,
+  1,
+  "summary-owned hides preserve pending private state",
+);
+assert.match(alice.notes, /ALICE_LIE/u);
+assert.doesNotMatch(alice.notes, /My cover story/u);
+assert.equal(alice.reminders.size, 1);
+assert.match(alice.reminders.get("key")!, /tonight/u);
+const remember = (id: string, content = id, characterId = "alice") => ({
+  role: "assistant",
+  characterId,
+  extra: { roleplayPrivateCommands: [{ type: "memory", id, content }] },
+});
+const threeReminders = [remember("oldest"), remember("second"), remember("third")];
+assert.deepEqual(
+  [...readRoleplayPersonalState(threeReminders).get("alice")!.reminders.keys()],
+  ["oldest", "second", "third"],
+);
+const overflow = readRoleplayPersonalState([
+  ...threeReminders,
+  remember("oldest", "updated"),
+  remember("fourth"),
+  remember("bob-one", "Bob only", "bob"),
+]);
+assert.deepEqual(
+  [...overflow.get("alice")!.reminders.keys()],
+  ["second", "third", "fourth"],
+  "updating an existing reminder preserves its creation order; the fourth evicts the oldest",
+);
+assert.equal(overflow.get("bob")!.reminders.size, 1, "the three-reminder cap belongs to each character");
+assert.deepEqual(
+  [
+    ...readRoleplayPersonalState(Array.from({ length: 25 }, (_, index) => remember(String(index))))
+      .get("alice")!
+      .reminders.keys(),
+  ],
+  ["22", "23", "24"],
+  "legacy history also resolves to the newest three active reminders",
+);
+const dismissed = readRoleplayPersonalState([
+  ...history,
+  {
+    role: "assistant",
+    characterId: "alice",
+    extra: { roleplayPrivateCommands: [{ type: "dismiss_notes" }, { type: "dismiss_memory", id: "key" }] },
+  },
+]);
+assert.equal(dismissed.get("alice")?.notes, "");
+assert.equal(dismissed.get("alice")?.reminders.size, 0);
+assert.equal(
+  readRoleplayPersonalState(
+    [...history, { role: "user", extra: { conversationStartForCharacterIds: ["alice"] } }],
+    "alice",
+  ).size,
+  0,
+);
+assert.equal(
+  readRoleplayPersonalState(
+    [{ ...history[0], extra: { ...history[0]!.extra, hiddenFromAICharacterIds: ["narrator"] } }],
+    "narrator",
+  ).size,
+  0,
+);
+
+const metadata = {
+  roleplayCommandsEnabled: true,
+  roleplayCommandToggles: { notes: true, memory: true, roll: true, illustrate: true, document: true },
+  roleplayCommandNarratorId: "narrator",
+};
+const characters = [
+  { id: "alice", name: "Alice" },
+  { id: "bob", name: "Bob" },
+  { id: "narrator", name: "Narrator" },
+];
+for (const format of ["xml", "markdown", "none"] as const) {
+  const context = (characterId: string, overrides = {}) =>
+    buildRoleplayPersonalContext({
+      messages: history,
+      metadata: { ...metadata, ...overrides },
+      characters,
+      characterId,
+      individual: true,
+      format,
+    });
+  assert.match(context("alice"), /ALICE_LIE/u);
+  assert.match(context("alice"), /ALICE_REMINDER/u);
+  assert.doesNotMatch(context("alice"), /BOB_SECRET/u);
+  assert.match(context("narrator"), /BOB_SECRET/u);
+  assert.match(context("narrator"), /ALICE_LIE/u);
+  assert.equal(
+    context("narrator").split("\n\n")[0],
+    "Private character state, do not reveal those notes to the reader or treat them as knowledge other characters posses. You are the selected narrator. Use those intentions to create plausible opportunities, obstacles, and consequences. Do not guarantee success, control the players' choices, or expose secrets without in-world discovery. Only change your own notes and reminders.",
+  );
+  assert.doesNotMatch(context("bob"), /ALICE_LIE/u);
+  assert.equal(context("narrator", { roleplayCommandNarratorId: "deleted-character" }), "");
+  assert.equal(context("alice", { roleplayCommandsEnabled: false }), "");
+  const reminder = buildRoleplayCommandsReminder({
+    metadata,
+    privateAvailable: true,
+    availableAgentIds: new Set(),
+    format,
+    characterNames: ["Alice"],
+  });
+  assert.doesNotMatch(reminder, /\[illustrate:/u, "an unavailable image agent must not be offered");
+  assert.doesNotMatch(reminder, /YOUR|LIES|DECEPTIONS|Maximum \d|\n\s*\n\s*-/u);
+  assert.match(reminder, /keep it short/iu);
+  assert.match(reminder, /modifier="\+2" dc="15"/u);
+  assert.match(
+    reminder,
+    /Optional modifier adds a situational bonus\/penalty once; optional dc sets the total needed to succeed\./u,
+  );
+  assert.match(reminder, /Keep DCs and modifiers in command\/tool fields, not narration\./u);
+  assert.doesNotMatch(reminder, /Set the stakes first|action and success rule/u);
+  assert.match(reminder, /edit existing notes[^.\n]*full updated contents[^.\n]*replaces?[^.\n]*previous/u);
+  assert.ok(
+    reminder.includes(
+      "only up to three reminders can exist at the same time; if you create more, the oldest one will be removed.",
+    ),
+  );
+  const section = format === "xml" ? "<commands>" : format === "markdown" ? "## Commands" : "Commands:";
+  assert.ok(reminder.startsWith(section));
+  assert.doesNotMatch(reminder, /\[interrupt:/u, "interrupt remains opt-in");
+  const interruptReminder = buildRoleplayCommandsReminder({
+    metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
+    privateAvailable: true,
+    availableAgentIds: new Set(),
+    format,
+    characterNames: ["Alice"],
+    interruptAvailable: true,
+  });
+  assert.match(interruptReminder, /at least three words quoted verbatim/u);
+  assert.match(interruptReminder, /only the latest user or other-character message/u);
+  assert.match(interruptReminder, /can plausibly intervene/u);
+  assert.match(interruptReminder, /Continue from the cut/u);
+  for (const interruptAvailable of [false, undefined])
+    assert.equal(
+      buildRoleplayCommandsReminder({
+        metadata: { roleplayCommandsEnabled: true, roleplayCommandToggles: { interrupt: true } },
+        privateAvailable: true,
+        availableAgentIds: new Set(),
+        format,
+        characterNames: ["Alice"],
+        interruptAvailable,
+      }),
+      "",
+      "continuations or missing targets must not advertise interrupt",
+    );
+  const tracker =
+    format === "xml"
+      ? "<context>\nTRACKER\n</context>"
+      : format === "markdown"
+        ? "# Context\nTRACKER"
+        : "Context:\nTRACKER";
+  const messages = [
+    { role: "user", content: "Old turn" },
+    { role: "assistant", content: "Old response" },
+    { role: "user", content: "Latest\n" + tracker },
+    { role: "assistant", content: "Prefill" },
+  ];
+  appendRoleplayPromptTail(messages, context("alice"), reminder, format);
+  assert.equal(messages[0]?.content, "Old turn");
+  assert.equal(messages[3]?.content, "Prefill");
+  assert.ok(messages[2]!.content.indexOf("ALICE_LIE") > messages[2]!.content.indexOf("TRACKER"));
+  assert.ok(messages[2]!.content.indexOf(section) > messages[2]!.content.indexOf("ALICE_LIE"));
+  if (format === "xml") assert.equal(messages[2]!.content.match(/<context>/gu)?.length, 1);
+  if (format === "markdown") assert.match(messages[2]!.content, /### Alice's Personal Notes/u);
+  const committed = buildCommittedTrackerContextBlock({
+    chatEnableAgents: true,
+    activeAgentIds: ["world-state"],
+    latestGameState: { location: "TRACKER_LAB" },
+    chatMetadata: {},
+    wrapFormat: format,
+  });
+  assert.ok(committed);
+  const separated = [
+    { role: "user", content: tracker, contextKind: "history" },
+    { role: "user", content: committed, contextKind: "injection" },
+    { role: "system", content: "OUTPUT_FORMAT", contextKind: "injection" },
+    { role: "user", content: "LATEST_INPUT", contextKind: "history" },
+    { role: "assistant", content: "PREFILL", contextKind: "injection" },
+  ];
+  const privateState = context("narrator") + "\nLiteral $& and $' stay intact.";
+  const publicTracker = { ...separated[1] };
+  appendRoleplayPromptTail(separated, privateState, reminder, format);
+  assert.equal(separated[0]!.content, tracker, "historical Context text must not receive private state");
+  assert.ok(separated[1]!.content.includes(privateState), "private state joins the earlier tracker injection verbatim");
+  assert.equal(publicTracker.content, committed, "a copied public agent prompt remains private-state free");
+  assert.equal(separated[2]!.content, "OUTPUT_FORMAT");
+  assert.equal(separated[3]!.content, "LATEST_INPUT", "live instructions must not modify historical turns");
+  assert.equal(separated[4]!.contextKind, "injection", "commands survive a history cutoff");
+  assert.ok(separated[4]!.content.includes(reminder));
+  assert.doesNotMatch(separated[4]!.content, /ALICE_LIE|BOB_SECRET/);
+  assert.equal(separated[5]!.content, "PREFILL");
+  if (format === "xml") assert.equal(separated[1]!.content.match(/<context>/gu)?.length, 1);
+  if (format === "markdown") {
+    const customHeading = [
+      { role: "user", content: "##Context\nTRACKER", contextKind: "injection" },
+      { role: "user", content: "Latest" },
+    ];
+    appendRoleplayPromptTail(customHeading, privateState, "", format);
+    assert.ok(customHeading[0]!.content.includes(privateState));
+    assert.equal(customHeading[1]!.content, "Latest");
+  }
+  const notesOnly = [
+    { role: "user", content: committed, contextKind: "injection" },
+    { role: "user", content: "LATEST_INPUT", contextKind: "history" },
+  ];
+  appendRoleplayPromptTail(notesOnly, privateState, "", format);
+  assert.equal(notesOnly.length, 2, "joining existing Context must not append an empty instruction message");
+  assert.ok(notesOnly[0]!.content.includes(privateState));
+  assert.equal(notesOnly[1]!.content, "LATEST_INPUT");
+}
+const incompleteContext = "<context>".repeat(20_000);
+const malformedMessages = [
+  { role: "user", content: incompleteContext, contextKind: "injection" },
+  { role: "user", content: "Latest", contextKind: "history" },
+];
+appendRoleplayPromptTail(malformedMessages, "PRIVATE", "", "xml");
+assert.equal(malformedMessages[0]!.content, incompleteContext, "unterminated Context stays untouched");
+assert.equal(malformedMessages[1]!.content, "Latest");
+assert.equal(malformedMessages[2]!.contextKind, "injection");
+assert.equal(malformedMessages[2]!.content, "\n\n<context>\nPRIVATE\n</context>");
+const surroundedContext = [{ role: "user", content: "</context>\n<context>\nTRACKER\n</context>\nSUFFIX" }];
+appendRoleplayPromptTail(surroundedContext, "Literal $&", "", "xml");
+assert.equal(surroundedContext[0]!.content, "</context>\n<context>\nTRACKER\nLiteral $&\n</context>\nSUFFIX");
+assert.equal(
+  buildRoleplayPersonalContext({
+    messages: history,
+    metadata,
+    characters,
+    characterId: "alice",
+    individual: false,
+    format: "xml",
+  }),
+  "",
+);
+const publicMessage = { id: "public", role: "assistant", extra: { thinking: "Public reasoning" } };
+const privateMessage = {
+  id: "private",
+  role: "assistant",
+  extra: { thinking: "ALICE_LIE", roleplayPrivateContext: true, encryptedReasoning: ["opaque-secret"] },
+};
+const reasoning = collectPastReasoningMetadata(
+  [publicMessage, privateMessage],
+  { excludePastReasoning: false, pastReasoningLimit: 0 },
+  "custom",
+  "fixture",
+);
+assert.equal(reasoning.has("public"), true);
+assert.equal(reasoning.has("private"), false);
+const visibleHistory = conversationPromptHistoryContent(
+  {
+    role: "assistant",
+    content: "She hands you a letter.",
+    extra: {
+      roleplayDocuments: [{ title: "Letter", content: "Meet at dawn." }],
+      roleplayPrivateCommands: [{ type: "notes", content: "ALICE_LIE" }],
+    },
+  },
+  "roleplay",
+);
+assert.match(visibleHistory, /Meet at dawn/u);
+assert.doesNotMatch(visibleHistory, /ALICE_LIE/u);
+
+const scoped = {
+  ...metadata,
+  roleplayCommandToggles: { roll: true, combat: true, illustrate: true, document: true },
+  roleplayRollAudience: "narrator",
+  roleplayCombatAudience: "narrator",
+  roleplayDocumentAudience: "narrator",
+  activeAgentIds: ["combat", "illustrator"],
+};
+for (const key of ["roll", "combat", "document"] as const) {
+  assert.equal(isRoleplayCommandAllowed(scoped, key, "narrator"), true);
+  for (const caller of ["alice", "deleted", null]) assert.equal(isRoleplayCommandAllowed(scoped, key, caller), false);
+  assert.equal(
+    isRoleplayCommandAllowed(
+      { ...scoped, roleplayRollAudience: "all", roleplayCombatAudience: "all", roleplayDocumentAudience: "all" },
+      key,
+      "alice",
+    ),
+    true,
+  );
+}
+for (const key of ["illustrate", "combat"] as const) {
+  assert.equal(isRoleplayCommandAllowed({ ...scoped, activeAgentIds: [] }, key, "narrator"), false);
+}
+for (const format of ["xml", "markdown", "none"] as const) {
+  const prompt = (characterId: string | null, availableAgentIds = new Set(["illustrator", "combat"])) =>
+    buildRoleplayCommandsReminder({
+      metadata: scoped,
+      characterId,
+      privateAvailable: true,
+      availableAgentIds,
+      format,
+      characterNames: ["Alice", "Narrator"],
+    });
+  assert.match(prompt("narrator"), /\[combat\]/u);
+  assert.match(prompt("narrator"), /\[roll: character=/u);
+  assert.match(prompt("narrator"), /\[document:/u);
+  assert.match(prompt("narrator"), /kind="note\|letter\|journal\|report\|poster\|terminal"/u);
+  assert.match(prompt("narrator"), /Supply plain text only; the Engine applies the built-in style/u);
+  assert.match(prompt("narrator"), /Do not generate HTML or CSS/u);
+  assert.match(prompt("alice"), /\[illustrate:.*characters=/u);
+  assert.match(prompt("alice"), /surprise the user or capture an important moment/u);
+  assert.doesNotMatch(prompt("alice"), /\[roll:|\[combat\]|\[document:/u);
+  assert.doesNotMatch(prompt(null), /\[roll:|\[combat\]|\[document:/u);
+  assert.doesNotMatch(prompt("narrator", new Set()), /\[illustrate:|\[combat\]/u);
+  assert.doesNotMatch(prompt("narrator"), /\n\s*\n\s*-/u);
+  assert.doesNotMatch(prompt("alice"), /appears exactly where you write the command/u);
+  // Render in-line tells the model the image is shown where the command is written (#7748).
+  const inline = buildRoleplayCommandsReminder({
+    metadata: { ...scoped, roleplayIllustrateInline: true },
+    characterId: "alice",
+    privateAvailable: true,
+    availableAgentIds: new Set(["illustrator"]),
+    format,
+    characterNames: ["Alice", "Narrator"],
+  });
+  assert.match(inline, /capture an important moment\. The image appears exactly where you write the command/u);
+  assert.match(inline, /between paragraphs/u);
+}
+const soundtrack = {
+  ...metadata,
+  roleplayCommandToggles: { music: true },
+  enableAgents: true,
+  activeAgentIds: ["spotify"],
+};
+for (const [overrides, allowed] of [
+  [{}, true],
+  [{ enableAgents: false }, false],
+  [{ enableAgents: undefined }, false],
+  [{ activeAgentIds: [] }, false],
+  [{ roleplayCommandsEnabled: false }, false],
+] as const) {
+  const selected = { ...soundtrack, ...overrides };
+  assert.equal(isRoleplayCommandAllowed(selected, "music", "alice"), allowed);
+  for (const installed of [true, false]) {
+    const prompt = buildRoleplayCommandsReminder({
+      metadata: selected,
+      characterId: "alice",
+      privateAvailable: true,
+      availableAgentIds: new Set(installed ? ["spotify"] : []),
+      format: "xml",
+      characterNames: ["Alice"],
+    });
+    assert.equal(prompt.includes("[music:"), allowed && installed);
+  }
+}
+const newSyntax =
+  '[combat] [illustrate: subject="The duel" characters="Alice, Narrator"] [roll: character="Alice" notation="d20" attribute="STR" reason="Lift the gate"]';
+const scanned = parseRoleplayCommands(newSyntax);
+assert.deepEqual(scanned.commands, [
+  { type: "combat" },
+  { type: "illustrate", subject: "The duel", characters: ["Alice", "Narrator"] },
+  { type: "roll", character: "Alice", notation: "d20", attribute: "STR", reason: "Lift the gate" },
+]);
+assert.equal(scanned.activity.map((item) => item.raw).join(" "), newSyntax);
+
+const attached = parseRoleplayCommands(
+  '[notes: content="OLDER_SECRET"] [memory: id="key" content="OLDER_REMINDER"]',
+).activity;
+const revised = parseRoleplayCommands(
+  '[notes: content="NEW_SECRET"] [memory: id="key" content="NEW_REMINDER"] [document: title="Letter" content="DOCUMENT_TEXT"]',
+).activity;
+const edited = revised.map((item) =>
+  item.command.type === "notes" ? { ...item, command: { ...item.command, content: "EDITED_SECRET" } } : item,
+);
+const currentHistory = (activity: typeof revised) => [
+  { role: "assistant", characterId: "alice", extra: { roleplayCommandActivity: attached } },
+  { role: "assistant", characterId: "alice", extra: { roleplayCommandActivity: activity } },
+];
+assert.equal(readRoleplayPersonalState(currentHistory(edited)).get("alice")?.notes, "EDITED_SECRET");
+assert.equal(edited[0]?.raw, revised[0]?.raw, "editing context preserves the exact original command");
+const removed = revised.map((item) => ({ ...item, deleted: true }));
+assert.equal(readRoleplayPersonalState(currentHistory(removed)).get("alice")?.notes, "");
+assert.equal(
+  readRoleplayPersonalState(currentHistory(removed)).get("alice")?.reminders.size,
+  0,
+  "deletion must not resurrect previous reminders",
+);
+assert.deepEqual(getRoleplayDocuments({ roleplayCommandActivity: removed }), []);
+const activityHistory = conversationPromptHistoryContent(
+  { role: "assistant", content: "Visible story", extra: { roleplayCommandActivity: edited } },
+  "roleplay",
+);
+assert.match(activityHistory, /DOCUMENT_TEXT/u);
+assert.doesNotMatch(activityHistory, /NEW_SECRET|EDITED_SECRET|NEW_REMINDER|\[document:|used .* command/u);
+assert.equal(
+  getRoleplayCommandActivity({
+    roleplayCommandActivity: [],
+    roleplayPrivateCommands: [{ type: "notes", content: "LEGACY" }],
+  }).length,
+  0,
+);
+
+const diceCharacters: { id: string; name: string; rpgStats?: RPGStatsConfig }[] = [
+  {
+    id: "dottore",
+    name: "Dottore",
+    rpgStats: {
+      enabled: true,
+      hp: { value: 10, max: 10 },
+      attributes: [
+        { name: "STR", value: 12 },
+        { name: "Dexterity", value: 8 },
+        { name: "Luck", value: 14 },
+      ],
+    },
+  },
+  { id: "mari", name: "Mari" },
+];
+const dice = (args: Record<string, unknown>) =>
+  prepareRoleplayRoll({ notation: "d20", character: "Dottore", ...args }, diceCharacters, "mari");
+assert.equal(dice({ attribute: "Strength" }).notation, "d20+1");
+assert.equal(dice({ attribute: "STR", notation: "d20+2" }).notation, "d20+3");
+assert.equal(dice({ attribute: "DEX" }).notation, "d20-1");
+assert.equal(dice({ attribute: "Luck" }).notation, "d20+2");
+assert.equal(dice({ attribute: "Unknown" }).notation, "d20");
+assert.equal(dice({ character: "Mari", attribute: "Strength" }).notation, "d20");
+assert.equal(dice({ character: undefined, attribute: "Strength" }).character, "Mari");
+assert.equal(
+  prepareRoleplayRoll(
+    { notation: "d20", attribute: "STR" },
+    [{ ...diceCharacters[0]!, rpgStats: { ...diceCharacters[0]!.rpgStats!, enabled: false } }],
+    "dottore",
+  ).notation,
+  "d20",
+);
+assert.throws(() => dice({ character: "Nobody", attribute: "Strength" }), /one chat participant/u);
+assert.throws(
+  () =>
+    prepareRoleplayRoll(
+      { character: "Dottore", notation: "d20" },
+      [...diceCharacters, { id: "copy", name: "Dottore" }],
+      "dottore",
+    ),
+  /one chat participant/u,
+);
+assert.throws(() => dice({ notation: "1d20+9007199254740971", attribute: "STR" }), /numeric range/u);
+
+// The native tool and text command reach the same real roller. Fix only the
+// random face, so the production path must supply every modifier and the DC.
+const executeRoll = async (args: Record<string, unknown>) => {
+  const [result] = await executeToolCalls(
+    [{ id: "roll", type: "function", function: { name: "roll_dice", arguments: JSON.stringify(args) } }],
+    { prepareDiceRoll: (input) => prepareRoleplayRoll(input, diceCharacters, "dottore") },
+  );
+  assert.ok(result);
+  return { ...result, payload: JSON.parse(result.result) };
+};
+// Every plain die now comes from the shared secure roller (crypto.getRandomValues, #8489), so a
+// pinned Math.random() no longer pins the dice. Pin the secure draw as well; the return undoes it.
+const pinSecureDraws = (draw: number) => {
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    value: <T extends ArrayBufferView>(array: T) => ((array as unknown as Uint32Array).fill(draw), array),
+    configurable: true,
+    writable: true,
+  });
+  return () => Reflect.deleteProperty(globalThis.crypto, "getRandomValues");
+};
+const random = Math.random;
+const unpinSecureDraws = pinSecureDraws(0);
+try {
+  Math.random = () => 0;
+  for (const [modifier, dc, total, success] of [
+    [2, 7, 7, true],
+    [-6, 0, -1, false],
+    [0, 0, 5, true],
+  ] as const) {
+    const command = parseRoleplayCommands(
+      `[roll: character="Dottore" notation="d20+3" attribute="STR" modifier="${modifier >= 0 ? "+" : ""}${modifier}" dc="${dc}"]`,
+    ).roll?.command;
+    assert.ok(command);
+    assert.equal(command.modifier, modifier);
+    assert.equal(command.dc, dc);
+    for (const args of [command, { notation: "d20+3", character: "Dottore", attribute: "STR", modifier, dc }]) {
+      const result = await executeRoll(args);
+      assert.equal(result.success, true);
+      assert.equal(result.payload.total, total);
+      assert.equal(result.payload.modifier, 4 + modifier, "notation, attribute and situation are each added once");
+      assert.equal(result.payload.dc, dc);
+      assert.equal(result.payload.success, success, "meeting the DC succeeds; falling short fails");
+      assert.equal(parseRollDiceToolResult(result.result)?.dc, dc);
+      assert.equal(isDiceRollResult(result.payload), true);
+    }
+  }
+  const legacy = await executeRoll({ notation: "d20", character: "Mari" });
+  assert.equal(legacy.payload.total, 1);
+  assert.equal("dc" in legacy.payload, false);
+  assert.equal("success" in legacy.payload, false);
+  const withoutStats = await executeRoll({ notation: "d20", character: "Mari", modifier: -2, dc: 0 });
+  assert.equal(withoutStats.payload.total, -1);
+  assert.equal(withoutStats.payload.success, false);
+
+  for (const key of ["modifier", "dc"] as const) {
+    for (const value of ["", "2.5", "no", "Infinity", "9007199254740992"]) {
+      const parsed = parseRoleplayCommands(`[roll: notation="d20" ${key}="${value}"]`);
+      assert.equal(parsed.roll, undefined, `${key}=${value} cannot silently become an unadjusted roll`);
+      assert.equal(parsed.invalid, 1);
+    }
+    for (const value of ["2", 2.5, null, true, {}, Number.MAX_SAFE_INTEGER + 1]) {
+      assert.equal((await executeRoll({ notation: "d20", [key]: value })).success, false);
+    }
+  }
+  for (const args of [
+    { notation: "d20", modifier: Number.MAX_SAFE_INTEGER },
+    { notation: "d20-2", modifier: Number.MIN_SAFE_INTEGER },
+  ]) {
+    const result = await executeRoll(args);
+    assert.equal(result.success, false);
+    assert.match(result.payload.error, /numeric range/u);
+    assert.equal(parseRollDiceToolResult(result.result), null);
+  }
+  for (const dc of [null, "10", 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const malformed = { ...legacy.payload, dc };
+    assert.equal(parseRollDiceToolResult(JSON.stringify(malformed)), null);
+    assert.equal(isDiceRollResult(malformed), false);
+  }
+} finally {
+  Math.random = random;
+  unpinSecureDraws();
+}
+// #7481: with Advanced Memory, a new Roleplay reply is saved as one message per scene or POV break.
+assert.deepEqual(
+  splitAtSceneBreaks("CYNO waits alone.\n\n***\n\nMARI and MAUKIE run."),
+  ["CYNO waits alone.", "***\n\nMARI and MAUKIE run."],
+  "the break line opens the next part",
+);
+for (const line of ["---", "___", "* * *", "- - -", "_ _ _\t", "*****", "   ***"])
+  assert.deepEqual(
+    splitAtSceneBreaks(`A\n${line}\nB`),
+    ["A", `${line.trimStart()}\nB`],
+    `${JSON.stringify(line)} is a break`,
+  );
+for (const line of ["**", "    ***", "*-*", "***bold***", "— — —", "--- and more"])
+  assert.deepEqual(splitAtSceneBreaks(`A\n${line}\nB`), [`A\n${line}\nB`], `${JSON.stringify(line)} is not a break`);
+assert.deepEqual(
+  splitAtSceneBreaks("A\n```\n***\n```\nB\n~~~md\n---\n~~~"),
+  ["A\n```\n***\n```\nB\n~~~md\n---\n~~~"],
+  "breaks inside code fences are code",
+);
+assert.deepEqual(splitAtSceneBreaks("A\n````\n***\n```\n---\n````\n***\nB"), [
+  "A\n````\n***\n```\n---\n````",
+  "***\nB",
+]);
+assert.deepEqual(splitAtSceneBreaks("  Only text.\n"), ["  Only text.\n"], "text without a break is unchanged");
+assert.deepEqual(splitAtSceneBreaks("***\nA"), ["***\nA"], "a leading break makes no empty part");
+assert.deepEqual(splitAtSceneBreaks("A\n\n***\n"), ["A\n\n***\n"], "nor does a trailing one");
+assert.deepEqual(
+  splitAtSceneBreaks("***\nA\n\n---\n\n***\nB\n***\n"),
+  ["***\nA", "---\n\n***\nB\n***"],
+  "adjacent breaks open the part after them; a trailing one stays with the last part",
+);
+assert.deepEqual(splitAtSceneBreaks("A\r\n***\r\nB\r\n---\r\nC"), ["A", "***\r\nB", "---\r\nC"]);
+const statusPanel = "Cyno waits.\n\n<details>\n<summary>Status</summary>\nHP 10\n\n---\n\nMood tense\n</details>";
+assert.deepEqual(splitAtSceneBreaks(statusPanel), [statusPanel], "a break inside an open HTML element is its content");
+assert.deepEqual(
+  splitAtSceneBreaks(`${statusPanel}\n\n***\n\n<div class="x"/>Mari runs.<br>\n---\nOn.`),
+  [statusPanel, '***\n\n<div class="x"/>Mari runs.<br>', "---\nOn."],
+  "a closed element, a self-closing tag or a void element doesn't stop a split",
+);
+assert.deepEqual(
+  splitAtSceneBreaks("Cyno, <b>alone\n***\nMari asks <name>.\n---\nMaukie <i>thinks"),
+  ["Cyno, <b>alone", "***\nMari asks <name>.", "---\nMaukie <i>thinks"],
+  "an unclosed inline tag or an angle-bracket placeholder doesn't stop later splits",
+);
+
+// A command is placed after the text before it, even when cleanup stripped a "Name:" from the reply's start.
+assert.equal(placeAfterPrefix("Maukie reads alone.\n\n***\n\nOn.", "Maukie reads alone."), 19);
+assert.equal(placeAfterPrefix("Maukie reads alone.\n\n***\n\nOn.", "Maukie Whiskers: Maukie reads alone."), 19);
+assert.equal(placeAfterPrefix("Maukie reads.\nMaukie reads.", "Maukie Whiskers: Maukie reads."), null, "never a guess");
+
+// Each command stays with the part its text was in, so it keeps that part's audience.
+{
+  const parts = [
+    { content: "CYNO alone.", start: 0 },
+    { content: "***\nMARI arrives.", start: 13 },
+  ];
+  const document = { command: { type: "document", title: "Map", content: "x" }, raw: "[document]" };
+  const lateWhisper = { command: { type: "whisper", character: "Mari", text: "here" }, raw: "[w1]", contentOffset: 30 };
+  const gapWhisper = { command: { type: "whisper", character: "Cyno", text: "wait" }, raw: "[w2]", contentOffset: 12 };
+  const interruption = { command: { type: "interrupt", part: "no" }, raw: "[interrupt]" };
+  const unplaced = { command: { type: "combat" }, raw: "[combat]" };
+  const placed = placeRoleplayActivityInParts(
+    parts,
+    [document, lateWhisper, gapWhisper, interruption, unplaced] as never,
+    (item: { contentOffset?: number }) => (item === document ? 4 : (item.contentOffset ?? null)),
+  );
+  assert.deepEqual(placed[0], [document, { ...gapWhisper, contentOffset: 11, contentAnchor: "CYNO alone." }]);
+  assert.deepEqual(placed[1], [
+    { ...lateWhisper, contentOffset: 17, contentAnchor: "***\nMARI arrives." },
+    interruption,
+    unplaced,
+  ]);
+}
+// HTML artifacts: a command result of their own, never message text (#8586).
+assert.deepEqual(parseRoleplayCommands('[html: prompt="SVG: a magic book"]').commands, [
+  { type: "html", prompt: "SVG: a magic book" },
+]);
+assert.doesNotMatch(parseRoleplayCommands('Open [html: prompt="a sign"] now').content, /\[html:/u);
+assert.equal(parseRoleplayCommands('[html: prompt=""]').invalid, 1);
+assert.equal(parseRoleplayCommands('[html: prompt="' + "x".repeat(2_001) + '"]').invalid, 1);
+const htmlCommandMetadata = {
+  ...metadata,
+  roleplayCommandsEnabled: true,
+  activeAgentIds: [],
+  roleplayCommandToggles: { ...metadata.roleplayCommandToggles, html: true },
+};
+assert.equal(isRoleplayCommandAllowed(htmlCommandMetadata, "html", "alice"), true, "no agent is needed");
+assert.equal(
+  isRoleplayCommandAllowed({ ...metadata, roleplayCommandsEnabled: true, roleplayCommandToggles: {} }, "html", "alice"),
+  false,
+  "the command starts off",
+);
+for (const format of ["xml", "markdown", "none"] as const) {
+  assert.match(
+    buildRoleplayCommandsReminder({
+      metadata: htmlCommandMetadata,
+      characterId: "alice",
+      privateAvailable: true,
+      availableAgentIds: new Set(),
+      format,
+      characterNames: ["Alice", "Narrator"],
+    }),
+    /\[html: prompt=/u,
+  );
+}
+// The model's two blocks.
+assert.deepEqual(
+  parseHtmlArtifactOutput("<artifact><b>Hi</b></artifact>\n<memory>Reads: Hi. Bold.</memory>", "a sign"),
+  {
+    html: "<b>Hi</b>",
+    memory: "Reads: Hi. Bold.",
+  },
+);
+assert.equal(parseHtmlArtifactOutput("<artifact>```html\n<b>Hi</b>\n```</artifact>", "a sign")?.html, "<b>Hi</b>");
+assert.equal(
+  parseHtmlArtifactOutput("<artifact><b>Hi</b></artifact>", "a sign")?.memory,
+  "a sign",
+  "the request stands in",
+);
+assert.equal(parseHtmlArtifactOutput("<artifact><b>Cut off", "a sign"), null, "a cut-off artifact is a failed run");
+assert.equal(
+  parseHtmlArtifactOutput("İİİ<artifact>x</artifact></ARTIFACT>", "a sign")?.html,
+  "x</artifact>",
+  "the last closing tag, whatever its case, at its place in the raw text",
+);
+assert.equal(parseHtmlArtifactOutput("<artifact>  </artifact>", "a sign"), null);
+assert.equal(parseHtmlArtifactOutput("no blocks", "a sign"), null);
+assert.equal(
+  parseHtmlArtifactOutput(`<artifact>x</artifact><memory>${"m".repeat(1_500)}</memory>`, "a sign")?.memory.length,
+  1_000,
+);
+// Models copy the narrator's label; the prompt adds its own, so it must not appear twice.
+assert.equal(
+  parseHtmlArtifactOutput("<artifact>x</artifact><memory>Artifact: a worn book</memory>", "a sign")?.memory,
+  "a worn book",
+);
+assert.equal(parseHtmlArtifactOutput("<artifact>x</artifact><memory>Artifact:</memory>", "a sign")?.memory, "a sign");
+// The drawing subset of SVG: what can load or run stays out, and references stay inside the artifact.
+for (const tag of ["use", "image", "foreignObject", "filter", "feImage", "animate", "set", "script", "style", "a"]) {
+  assert.ok(!(ARTIFACT_SVG_TAGS as readonly string[]).includes(tag), tag);
+}
+for (const attribute of ["href", "xlink:href", "src", "onload", "begin", "filter", "mask", "cursor"]) {
+  assert.ok(!(ARTIFACT_SVG_ATTR as readonly string[]).includes(attribute), attribute);
+}
+assert.equal(scopeArtifactSvgAttribute("id", "table", "a1-"), "a1-table");
+assert.equal(scopeArtifactSvgAttribute("fill", "url(#table)", "a1-"), "url(#a1-table)");
+assert.equal(scopeArtifactSvgAttribute("clip-path", ' URL( "#clip" ) ', "a1-"), "url(#a1-clip)");
+assert.equal(scopeArtifactSvgAttribute("href", "#table", "a1-"), "#a1-table");
+assert.equal(scopeArtifactSvgAttribute("fill", "#112233", "a1-"), "#112233");
+assert.equal(scopeArtifactSvgAttribute("d", "M0 0 L1 1", "a1-"), "M0 0 L1 1");
+assert.equal(scopeArtifactSvgAttribute("fill", "url(https://example.com/x.svg#g)", "a1-"), null);
+assert.equal(scopeArtifactSvgAttribute("fill", "\\75rl(https://example.com/x.svg)", "a1-"), null);
+assert.equal(scopeArtifactSvgAttribute("href", "https://example.com/x.svg", "a1-"), null);
+const artifactChatHtml = readFileSync(new URL("../../../packages/client/src/lib/chat-html.ts", import.meta.url), "utf8");
+assert.match(artifactChatHtml, /concat\(\s*allowSvg \? \[\] : \["svg"\],?\s*\)/u, "messages keep the SVG ban");
+const artifactPrompt = buildHtmlArtifactMessages({ reply: "One. Two.", offset: 4, request: "a sign" });
+assert.ok(
+  (buildHtmlArtifactMessages({ reply: "One.", offset: 4, request: "a sign", scene: "<speaker>Raven</speaker>" }).at(-1)!
+    .content as string).startsWith("<speaker>Raven</speaker>\n\n<reply>"),
+  "the scene comes before the reply",
+);
+assert.match(artifactPrompt.at(-1)!.content as string, /One\.\n\[ARTIFACT GOES HERE\]\n Two\./u);
+assert.match(artifactPrompt.at(-1)!.content as string, /<request>\na sign\n<\/request>/u);
+// The narrator keeps the memory, never the markup; a deleted or failed artifact is gone from it.
+const artifactMessage = (patch: Record<string, unknown>) => ({
+  role: "assistant",
+  content: "Prose.",
+  extra: {
+    roleplayCommandActivity: [
+      {
+        command: { type: "html", prompt: "a sign" },
+        raw: '[html: prompt="a sign"]',
+        artifact: { html: "<b>OPEN</b>", memory: "Reads: OPEN." },
+        ...patch,
+      },
+    ],
+  },
+});
+const artifactHistory = (patch: Record<string, unknown>) =>
+  conversationPromptHistoryContent(artifactMessage(patch) as never, "roleplay");
+assert.equal(artifactHistory({}), "Prose.\n\nArtifact: Reads: OPEN.");
+assert.equal(artifactHistory({ deleted: true }), "Prose.");
+assert.equal(artifactHistory({ error: "failed" }), "Prose.");
+assert.equal(artifactHistory({ artifact: undefined }), "Prose.", "a run still going adds nothing");
+// A reply's limit, and a defined intro staying as the card set it.
+const htmlRouteSource = readFileSync(
+  new URL("../../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.match(htmlRouteSource, /command\.type === "html" && definedIntro\?\.mode === "defined"\) continue;/u);
+assert.match(htmlRouteSource, /\+\+replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY/u);
+assert.match(htmlRouteSource, /createAgentConcurrencyLimiter\(\s*await resolveHtmlArtifactMaxParallelJobs\(/u);
+process.stdout.write("Roleplay commands regression passed.\n");

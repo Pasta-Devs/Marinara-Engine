@@ -1206,7 +1206,7 @@ export class MariImagesService {
     const filename = `lorebook-${lorebookId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${source.ext}`;
     await writeAppFile(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename), source.buffer);
     const imagePath = `/api/lorebooks/images/file/${filename}`;
-    const updated = await store.update(lorebookId, { imagePath });
+    const updated = await store.update(lorebookId, { imagePath, imageCrop: null });
     return { imagePath, row: updated };
   }
 

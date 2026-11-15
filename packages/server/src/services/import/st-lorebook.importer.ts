@@ -82,6 +82,8 @@ interface STWorldInfo {
   recursiveScanning?: boolean;
   max_recursion_depth?: number;
   maxRecursionDepth?: number;
+  /** Marinara extension: the online browser sends the source's tags. */
+  tags?: unknown;
   extensions?: Record<string, unknown>;
 }
 
@@ -460,6 +462,11 @@ export async function importSTLorebook(
         ? `${options.namePrefix} — ${wi.name ?? "Lorebook"}`
         : (wi.name ?? options?.fallbackName ?? "Imported Lorebook");
 
+      const importTags = Array.isArray(wi.tags)
+        ? [...new Set(wi.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()))].filter(
+            Boolean,
+          )
+        : [];
       // Only the settings the book carries; a reimport keeps the linked lorebook's own value for the rest.
       const recursiveScanning = wi.recursive_scanning ?? wi.recursiveScanning;
       const bookSettings = {
@@ -478,6 +485,7 @@ export async function importSTLorebook(
         recursiveScanning: bookSettings.recursiveScanning ?? false,
         maxRecursionDepth: bookSettings.maxRecursionDepth ?? 3,
         generatedBy: "import" as const,
+        ...(importTags.length > 0 ? { tags: importTags } : {}),
         ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
       };
 

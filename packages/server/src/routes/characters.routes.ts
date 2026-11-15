@@ -55,7 +55,11 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createNoodleStorage } from "../services/storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
-import { CHARACTERS_REFERENCE_SHEET, loadPrompt } from "../services/prompt-overrides/index.js";
+import {
+  CHARACTERS_LOREBOOK_COVER,
+  CHARACTERS_REFERENCE_SHEET,
+  loadPrompt,
+} from "../services/prompt-overrides/index.js";
 import { generateImage, ImageAnimationUnsupportedError } from "../services/image/image-generation.js";
 import {
   resolveConnectionImageDefaults,
@@ -482,7 +486,7 @@ type AvatarGenerationBody = {
   connectionId?: string;
   name?: string;
   appearance?: string;
-  purpose?: "avatar" | "character-sheet";
+  purpose?: "avatar" | "character-sheet" | "cover";
   referenceImages?: string[];
   width?: number;
   height?: number;
@@ -519,17 +523,18 @@ function validateAvatarGenerationDimensions(width: unknown, height: unknown) {
 }
 
 const avatarGenerationPromptId = (name: string, purpose: AvatarGenerationBody["purpose"] = "avatar") =>
-  `${purpose === "character-sheet" ? "character-sheet" : "avatar"}:${
+  `${purpose === "character-sheet" || purpose === "cover" ? purpose : "avatar"}:${
     name
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, "-")
       .replace(/(^-|-$)/g, "")
-      .slice(0, 120) || "character"
+      .slice(0, 120) || (purpose === "cover" ? "lorebook" : "character")
   }`;
 
 const AVATAR_GENERATION_HARD_NEGATIVE_PROMPT =
   "text, captions, logos, watermarks, borders, UI, collage layouts, duplicate faces, extra people, cropped-off heads";
+const COVER_HARD_NEGATIVE_PROMPT = "text, captions, logos, watermarks, borders, UI, lettering, title text";
 const CHARACTER_SHEET_HARD_NEGATIVE_PROMPT =
   "text, captions, logos, watermarks, decorative borders, unrelated characters, extra limbs, inconsistent faces, cropped-off body parts";
 
@@ -538,8 +543,11 @@ async function buildAvatarGenerationPrompt(
   body: AvatarGenerationBody,
   profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
 ): Promise<string> {
-  const name = body.name?.trim() || "Character";
+  const name = body.name?.trim() || (body.purpose === "cover" ? "Lorebook" : "Character");
   const appearance = body.appearance?.trim() || name;
+  if (body.purpose === "cover") {
+    return loadPrompt(promptOverridesStorage, CHARACTERS_LOREBOOK_COVER, { name, appearance });
+  }
   if (body.purpose === "character-sheet") {
     return loadPrompt(promptOverridesStorage, CHARACTERS_REFERENCE_SHEET, { name, appearance });
   }
@@ -551,8 +559,13 @@ async function buildAvatarGenerationPrompt(
 }
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
-  if (body.purpose !== undefined && body.purpose !== "avatar" && body.purpose !== "character-sheet") {
-    return { error: "purpose must be avatar or character-sheet" as const };
+  if (
+    body.purpose !== undefined &&
+    body.purpose !== "avatar" &&
+    body.purpose !== "character-sheet" &&
+    body.purpose !== "cover"
+  ) {
+    return { error: "purpose must be avatar, character-sheet or cover" as const };
   }
   if (!body.connectionId) {
     return { error: "connectionId is required" as const };
@@ -1422,9 +1435,16 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
+    const isCover = body.purpose === "cover";
+    // A cover is square, so both sides use the portrait width.
     const dimensions = validateAvatarGenerationDimensions(
       body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
+      body.height ??
+        (isCharacterSheet
+          ? imageSettings.characterSheet.height
+          : isCover
+            ? imageSettings.portrait.width
+            : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1434,13 +1454,17 @@ export async function charactersRoutes(app: FastifyInstance) {
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
     const compiled = compileImagePrompt({
-      kind: isCharacterSheet ? "illustration" : "avatar",
+      kind: isCharacterSheet || isCover ? "illustration" : "avatar",
       prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-      userPositive: isCharacterSheet ? undefined : body.appearance,
+      userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
       imageDefaults,
-      hardNegative: isCharacterSheet ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+      hardNegative: isCover
+        ? COVER_HARD_NEGATIVE_PROMPT
+        : isCharacterSheet
+          ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
+          : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
     });
     const previewSize = resolveImagePromptReviewSize({
       connection: resolved.conn,
@@ -1453,9 +1477,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     return {
       items: [
         {
-          id: avatarGenerationPromptId(body.name ?? "character", body.purpose),
-          kind: isCharacterSheet ? "illustration" : "avatar",
-          title: `${isCharacterSheet ? "Character sheet" : "Avatar"}: ${body.name?.trim() || "Character"}`,
+          id: avatarGenerationPromptId(body.name ?? (isCover ? "lorebook" : "character"), body.purpose),
+          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
+          title: `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"}: ${
+            body.name?.trim() || (isCover ? "Lorebook" : "Character")
+          }`,
           prompt: compiled.prompt,
           negativePrompt: compiled.negativePrompt,
           width: previewSize.width,
@@ -1473,9 +1499,16 @@ export async function charactersRoutes(app: FastifyInstance) {
     const conn = resolved.conn;
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const isCharacterSheet = body.purpose === "character-sheet";
+    const isCover = body.purpose === "cover";
+    // A cover is square, so both sides use the portrait width.
     const dimensions = validateAvatarGenerationDimensions(
       body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ?? (isCharacterSheet ? imageSettings.characterSheet.height : imageSettings.portrait.height),
+      body.height ??
+        (isCharacterSheet
+          ? imageSettings.characterSheet.height
+          : isCover
+            ? imageSettings.portrait.width
+            : imageSettings.portrait.height),
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1497,7 +1530,9 @@ export async function charactersRoutes(app: FastifyInstance) {
         ];
       }),
     );
-    const promptOverride = promptOverrideById.get(avatarGenerationPromptId(body.name ?? "character", body.purpose));
+    const promptOverride = promptOverrideById.get(
+      avatarGenerationPromptId(body.name ?? (isCover ? "lorebook" : "character"), body.purpose),
+    );
     const referenceImages = (body.referenceImages ?? [])
       .map((image) => image.trim())
       // A negative test walks the string; `^[A-Za-z0-9+/=\s]+$` recurses once per character in V8's regexp interpreter.
@@ -1521,29 +1556,31 @@ export async function charactersRoutes(app: FastifyInstance) {
           negativePrompt: promptOverride.negativePrompt || "",
         }
       : compileImagePrompt({
-          kind: isCharacterSheet ? "illustration" : "avatar",
+          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
           prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-          userPositive: isCharacterSheet ? undefined : body.appearance,
+          userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,
           imageDefaults,
-          hardNegative: isCharacterSheet
-            ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
-            : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+          hardNegative: isCover
+            ? COVER_HARD_NEGATIVE_PROMPT
+            : isCharacterSheet
+              ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
+              : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
         });
 
     const debugOverrideEnabled = body.debugMode === true || isDebugAgentsEnabled();
     logDebugOverride(
       debugOverrideEnabled,
       "[debug/characters/%s-generation] prompt:\n%s",
-      isCharacterSheet ? "character-sheet" : "avatar",
+      isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
       compiled.prompt,
     );
     if (compiled.negativePrompt) {
       logDebugOverride(
         debugOverrideEnabled,
         "[debug/characters/%s-generation] negative prompt:\n%s",
-        isCharacterSheet ? "character-sheet" : "avatar",
+        isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
         compiled.negativePrompt,
       );
     }
@@ -1575,10 +1612,16 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (err instanceof ImageAnimationUnsupportedError) {
         return reply.status(400).send({ error: err.message, code: err.code });
       }
-      logger.error(err, "%s generation failed", isCharacterSheet ? "Character sheet" : "Avatar");
+      logger.error(
+        err,
+        "%s generation failed",
+        isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar",
+      );
       return reply.status(500).send({
         error:
-          err instanceof Error ? err.message : `${isCharacterSheet ? "Character sheet" : "Avatar"} generation failed`,
+          err instanceof Error
+            ? err.message
+            : `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"} generation failed`,
       });
     }
   });

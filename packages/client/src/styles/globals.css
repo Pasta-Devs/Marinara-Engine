@@ -2086,6 +2086,13 @@
   --mari-avatar-placeholder-text: #ecfdf5;
 }
 
+/* Same amber as the Lorebooks panel gradient (.mari-panel-gradient--lorebooks). */
+.mari-avatar-placeholder--lorebook {
+  --mari-avatar-placeholder-start: #f59e0b;
+  --mari-avatar-placeholder-end: #f97316;
+  --mari-avatar-placeholder-text: #fff7ed;
+}
+
 .mari-topbar-button {
   color: var(--marinara-chat-chrome-button-text);
   transition:
@@ -3799,6 +3806,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 @layer base {
   * {
     @apply border-[var(--border)];
+  }
+  /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
+     sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
+     only drew a stray border around the whole sheet. */
+  [tabindex="-1"]:focus {
+    outline: none;
   }
 }
 

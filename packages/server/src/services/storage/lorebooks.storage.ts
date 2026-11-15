@@ -17,6 +17,7 @@ import {
   createLorebookEntrySchema,
   type LorebookEntryImage,
   normalizeLorebookCategory,
+  normalizeAvatarCrop,
   type CreateLorebookInput,
   type UpdateLorebookInput,
   type CreateLorebookEntryInput,
@@ -168,6 +169,7 @@ function parseLorebookRow(row: Record<string, unknown>) {
     hiddenFromLibrary: row.hiddenFromLibrary === "true",
     scope: parseLorebookScope(row.scope),
     imagePath: row.imagePath || null,
+    imageCrop: normalizeAvatarCrop(row.imageCrop),
     generatedBy: row.generatedBy || null,
     sourceAgentId: row.sourceAgentId || null,
     characterId: characterIds[0] ?? null,
@@ -177,6 +179,11 @@ function parseLorebookRow(row: Record<string, unknown>) {
     chatId: row.chatId || null,
     tags: JSON.parse((row.tags as string) || "[]"),
   };
+}
+
+function serializeImageCrop(value: unknown): string | null {
+  const crop = normalizeAvatarCrop(value);
+  return crop ? JSON.stringify(crop) : null;
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -554,6 +561,7 @@ export function createLorebooksStorage(db: DB) {
           description: input.description ?? "",
           category: input.category ?? "uncategorized",
           imagePath: input.imagePath ?? null,
+          imageCrop: serializeImageCrop(input.imageCrop),
           scanDepth: input.scanDepth ?? 2,
           tokenBudget: input.tokenBudget ?? 2048,
           entryLimit: normalizeLorebookEntryLimit(input.entryLimit),
@@ -588,6 +596,9 @@ export function createLorebooksStorage(db: DB) {
       if (input.description !== undefined) updates.description = input.description;
       if (input.category !== undefined) updates.category = input.category;
       if (input.imagePath !== undefined) updates.imagePath = input.imagePath;
+      // Removing the picture drops its crop; a crop sent with it wins.
+      if (input.imageCrop !== undefined) updates.imageCrop = serializeImageCrop(input.imageCrop);
+      else if (input.imagePath === null) updates.imageCrop = null;
       if (input.scanDepth !== undefined) updates.scanDepth = input.scanDepth;
       if (input.tokenBudget !== undefined) updates.tokenBudget = input.tokenBudget;
       if (input.entryLimit !== undefined) updates.entryLimit = normalizeLorebookEntryLimit(input.entryLimit);

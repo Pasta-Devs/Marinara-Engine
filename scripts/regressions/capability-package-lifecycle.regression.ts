@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 828 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 829 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,7 +140,7 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.828/,
+    /requires capability API 2\.0; this Engine supports 1\.829/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
@@ -800,7 +800,10 @@ try {
     "the shared Long-Term Memory settings must render the package's own settings view",
   );
   assert.match(
-    chatSettingsSource,
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/ConversationAgentsSection.tsx"),
+      "utf8",
+    ),
     /callsPackage \?\s[\s\S]{0,2200}ltmPackage \?\s[\s\S]{0,1800}setLtmEnabledForChat/u,
     "Conversation chat settings must place Long-Term Memory below Calls with its activation control",
   );
