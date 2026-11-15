@@ -3526,8 +3526,14 @@ export function GameNarration({
   useEffect(() => {
     if (!ttsConfig || !gameVoiceAvailable || isStreaming || generationFailed || disableVoiceGeneration) {
       // A line asked for now can't be generated; drop the request so it never starts playing later on its own.
-      requestedGameVoiceKeysRef.current.clear();
-      playWhenReadyGameVoiceKeyRef.current = null;
+      // A line already generating keeps its request and still plays once ready.
+      for (const key of requestedGameVoiceKeysRef.current) {
+        if (!gameVoicePendingRef.current.has(key)) requestedGameVoiceKeysRef.current.delete(key);
+      }
+      const playWhenReadyKey = playWhenReadyGameVoiceKeyRef.current;
+      if (playWhenReadyKey && !gameVoicePendingRef.current.has(playWhenReadyKey)) {
+        playWhenReadyGameVoiceKeyRef.current = null;
+      }
       return;
     }
 
