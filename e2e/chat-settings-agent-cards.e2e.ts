@@ -1,6 +1,6 @@
 // The per-agent cards in Chat Settings' Agents section show and save their own settings: each test clicks the real
 // control and reads the saved value back through the API.
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatSettings } from "./chat-settings-tools.js";
@@ -19,6 +19,7 @@ const AGENTS = [
   { id: "spotify", name: "Music DJ", category: "misc", phase: "post_processing" },
   { id: "haptic", name: "Haptic", category: "misc", phase: "post_processing" },
   { id: "illustrator", name: "Illustrator", category: "misc", phase: "post_processing" },
+  { id: "prose-guardian", name: "Prose Guardian", category: "writer", phase: "post_processing" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -449,6 +450,46 @@ test("Conversation's Commands card turns single commands and all commands off", 
       .click();
     await expect.poll(async () => (await readMetadata(request, chatId)).characterCommands).toBe(false);
     await expect(card.getByText("Memories", { exact: true })).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Chat Settings stays open when Prose Guardian's unsaved text fails to save on close", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["prose-guardian"]);
+  let failedSaves = 0;
+  // Only Prose Guardian's saves fail, so another metadata save during the test can't change the count.
+  const failSaves = async (route: Route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown> | null;
+    if (route.request().method() !== "PATCH" || !Object.keys(body ?? {}).some((key) => key.startsWith("proseGuardian")))
+      return route.fallback();
+    failedSaves += 1;
+    await route.fulfill({ status: 500, json: { error: "Save failed" } });
+  };
+  try {
+    await openApp(page, chatId);
+    const { settings, card } = await openAgentCard(page, chatId, "prose-guardian");
+    const banned = card.getByRole("textbox", { name: "Banned Words", exact: true });
+    await banned.fill("ozone, velvet");
+
+    await page.route(`**/api/chats/${chatId}/metadata`, failSaves);
+    // A real click blurs the field first, and its own save could change the stored text before the close runs.
+    // Dispatching the click leaves the blur to the close itself, so the close's save of the drafts is what fails.
+    await settings.locator('[data-window-control="close"]').dispatchEvent("click");
+    // One failed save from the field's blur, one from the close.
+    await expect.poll(() => failedSaves).toBe(2);
+    await expect(page.getByText("Failed to save Prose Guardian changes.", { exact: true }).first()).toBeVisible();
+    await expect(settings).toBeVisible();
+
+    await page.unroute(`**/api/chats/${chatId}/metadata`, failSaves);
+    // The failed save puts the old text back in the field, so type it again.
+    await banned.fill("ozone, velvet");
+    await settings.locator('[data-window-control="close"]').click();
+    await expect(settings).toHaveCount(0);
+    expect((await readMetadata(request, chatId)).proseGuardianBannedWords).toBe("ozone, velvet");
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
