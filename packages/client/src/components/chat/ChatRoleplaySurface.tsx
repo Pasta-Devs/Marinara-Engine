@@ -121,6 +121,18 @@ import {
 /** The VN page each message was left on (message id → paragraph, -1 = last), and the message each
  *  chat was left on (chat id → message id, "" = the newest reply). Kept in localStorage (theming
  *  round 6) so a reload or a chat switch opens where the reader was; the oldest entries drop off. */
+// Last measured top/bottom chrome insets per layout. A chat opens with these written at once, so its first frame
+// already sits where it will stay; without them Safari painted the messages a frame high (16 px default padding)
+// and then dropped them into place when the observer's first report arrived (jitter, Nov 15 recording).
+const lastChromeInsets = new Map<string, { top: number; bottom: number }>();
+
+function writeChromeInsets(scrollElement: HTMLElement, top: number, bottom: number) {
+  scrollElement.style.setProperty("--mari-roleplay-content-padding-top", `${Math.max(16, top + 12)}px`);
+  scrollElement.style.setProperty("--mari-roleplay-content-padding-bottom", `${Math.max(16, bottom + 12)}px`);
+  scrollElement.style.setProperty("--mari-roleplay-scroll-padding-top", `${Math.max(16, top + 8)}px`);
+  scrollElement.style.setProperty("--mari-roleplay-scroll-padding-bottom", `${Math.max(16, bottom + 12)}px`);
+}
+
 const VN_PLACES_KEY = "marinara-vn-reading-places";
 const VN_PLACES_LIMIT = 400;
 const vnReadingPlaces = new Map<string, number>();
@@ -1520,11 +1532,18 @@ export function ChatRoleplaySurface({
       const current = chromeInsetsRef.current;
       if (current.target === scrollElement && current.top === top && current.bottom === bottom) return;
       chromeInsetsRef.current = { target: scrollElement, top, bottom };
-      scrollElement.style.setProperty("--mari-roleplay-content-padding-top", `${Math.max(16, top + 12)}px`);
-      scrollElement.style.setProperty("--mari-roleplay-content-padding-bottom", `${Math.max(16, bottom + 12)}px`);
-      scrollElement.style.setProperty("--mari-roleplay-scroll-padding-top", `${Math.max(16, top + 8)}px`);
-      scrollElement.style.setProperty("--mari-roleplay-scroll-padding-bottom", `${Math.max(16, bottom + 12)}px`);
+      lastChromeInsets.set(insetsKey, { top, bottom });
+      writeChromeInsets(scrollElement, top, bottom);
     };
+
+    // Writes only (no layout read): the observer below still measures and corrects any difference.
+    const insetsKey = [overhaulMobile, phoneLayout, centerCompact, visualNovel && vnHistoryOpen].join("|");
+    const remembered = lastChromeInsets.get(insetsKey);
+    const scrollElementNow = scrollRef.current;
+    if (remembered && scrollElementNow && chromeInsetsRef.current.target !== scrollElementNow) {
+      chromeInsetsRef.current = { target: scrollElementNow, ...remembered };
+      writeChromeInsets(scrollElementNow, remembered.top, remembered.bottom);
+    }
 
     // The observer's first report (after layout, before paint) measures for free. Measuring here as well
     // made Safari lay out the whole page again each time a chat tab opened (Nov 15).
