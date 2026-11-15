@@ -58,6 +58,7 @@ export async function postDecisionRequest(
   body: unknown,
   signal: AbortSignal,
   extraHeaders?: Record<string, string>,
+  dialect?: DecisionConnection["dialect"],
 ): Promise<Response> {
   signal.throwIfAborted();
   let onAbort: (() => void) | undefined;
@@ -73,7 +74,11 @@ export async function postDecisionRequest(
         headers: {
           ...extraHeaders,
           "Content-Type": "application/json",
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          ...(apiKey
+            ? dialect === "gemini"
+              ? { "x-goog-api-key": apiKey }
+              : { Authorization: `Bearer ${apiKey}` }
+            : {}),
         },
         body: JSON.stringify(body),
         signal,
@@ -114,13 +119,19 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
   let trace: DecisionDebugRequest | undefined;
   try {
     signal.throwIfAborted();
+    // Gemini's ids are `[A-Za-z0-9_-]{1,64}` (ours carry a NUL), and its context field is a string `input`.
+    const gemini = req.connection.dialect === "gemini";
+    const wireId = (index: number) => (gemini ? `q${index}` : req.questions[index]!.id);
+    const context = gemini
+      ? { input: typeof req.state === "string" ? req.state : JSON.stringify(req.state) }
+      : { state: req.state };
     const body = {
       model: req.connection.model,
-      state: req.state,
+      ...context,
       questions: Object.fromEntries(
-        req.questions.map((q) => {
+        req.questions.map((q, index) => {
           const instructions = buildDecisionInstructions(q.instructions, req.questionShape ?? "text");
-          if (!q.options) return [q.id, { type: "noul", instructions }];
+          if (!q.options) return [wireId(index), { type: "noul", instructions }];
           // An option is described only by the criteria its author wrote (#7791), plus the
           // added "none" option. The others get an empty description, not null: System One
           // allows null, but some servers (Strands decider) accept only strings, and an
@@ -129,7 +140,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
             q.options.map((option, index) => [option, q.criteria?.[index] ?? ""]),
           );
           criteria[DECISION_CHOICE_NONE] = "None of the other options apply.";
-          return [q.id, { type: "choice", instructions, criteria }];
+          return [wireId(index), { type: "choice", instructions, criteria }];
         }),
       ),
     };
@@ -149,6 +160,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       body,
       signal,
       req.connection.headers,
+      req.connection.dialect,
     );
     if (!response.ok) {
       error = `http_${response.status}`;
@@ -159,8 +171,10 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       if (!payload || typeof payload.answers !== "object" || !payload.answers || Array.isArray(payload.answers)) {
         error = "invalid_response";
       } else {
-        for (const question of req.questions) {
-          const answer = Object.hasOwn(payload.answers, question.id) ? payload.answers[question.id] : undefined;
+        const sent = payload.answers;
+        for (const [index, question] of req.questions.entries()) {
+          const key = wireId(index);
+          const answer = Object.hasOwn(sent, key) ? sent[key] : undefined;
           if (question.options) {
             // Only an option that was offered counts; anything else is a malformed answer.
             if (

@@ -31,13 +31,14 @@ export type APIProvider =
  * server the user already runs (Ollama, LM Studio, llama.cpp), asked for one yes/no
  * token and read from its log-probabilities, the way the local slots are.
  */
-export const DECISION_SOURCES = ["typesafe", "openrouter", "custom", "openai_compatible", "nanogpt"] as const;
+export const DECISION_SOURCES = ["typesafe", "openrouter", "custom", "openai_compatible", "nanogpt", "google"] as const;
 export type DecisionSource = (typeof DECISION_SOURCES)[number];
 
 /**
  * `nanogpt` is a decision model in NanoGPT's own list (`/api/v1/decision-models`), asked at its
  * Decisions API (`/api/v1/decisions`), which takes the System One body. It lives under a NanoGPT
- * account and uses that account's key (#9310).
+ * account and uses that account's key (#9310). `google` is Gemini's `gemini-decision-1`, asked at its Decisions API
+ * (`/v1beta/decisions`) with the account's key; it too lives only under a Google account.
  */
 export const DECISION_SOURCE_BASE_URLS = {
   typesafe: "https://api.typesafe.ai",
@@ -45,10 +46,23 @@ export const DECISION_SOURCE_BASE_URLS = {
   custom: "",
   openai_compatible: "",
   nanogpt: "https://nano-gpt.com/api",
+  google: "https://generativelanguage.googleapis.com/v1beta",
 } as const;
+
+/**
+ * Account vendors whose catalog lists decision models of their own (output `decisions`), and the decision source
+ * those Models use. Such a model is asked at that source's System One endpoint with the account's key, not as a
+ * chat model read through log-probabilities.
+ */
+export const NATIVE_DECISION_SOURCES: Partial<Record<APIProvider, DecisionSource>> = {
+  nanogpt: "nanogpt",
+  openrouter: "openrouter",
+  google: "google",
+};
 
 /** The path a System One source is asked at, after its base URL. */
 export function decisionSourcePath(source: string | null | undefined): string {
+  if (source === "google") return "/decisions";
   return source === "nanogpt" ? "/v1/decisions" : "/v1/systemone";
 }
 

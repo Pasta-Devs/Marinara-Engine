@@ -207,7 +207,8 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     protocol: "openai_chat",
     name: "OpenRouter",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
-    modelsEndpoint: "/models",
+    // Also lists its decision models (output `decisions`), which the Decision picker offers.
+    modelsEndpoint: "/models?output_modalities=text,decisions",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,
