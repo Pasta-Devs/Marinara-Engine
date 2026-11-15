@@ -4,6 +4,7 @@
 // Calls image generation APIs (OpenAI DALL-E, Pollinations, Stability, etc.)
 // based on a user's configured image_generation connection.
 
+import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
 import { createHash, createHmac, randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -817,7 +818,8 @@ export function resolveLocalBackendHeaders(
   apiKey: string,
   customHeaders?: Record<string, string> | null,
 ): Record<string, string> {
-  const headers: Record<string, string> = { ...(customHeaders ?? {}) };
+  // Saved header values are stored encrypted; send the real values (and never a mask).
+  const headers: Record<string, string> = { ...(decryptCustomHeaders(customHeaders) ?? {}) };
   const token = apiKey.trim();
   if (token) headers.Authorization = /\s/.test(token) ? token : `Bearer ${token}`;
   return headers;

@@ -135,6 +135,7 @@ import { runToolRounds } from "./generate/tool-rounds.js";
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import type { input as SchemaInput } from "zod";
+import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { translateGeneratedMessage } from "../services/translation.service.js";
 import { randomInt, randomUUID } from "crypto";
 import { existsSync } from "fs";
@@ -1589,7 +1590,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         : null;
 
     // ── Discord webhook URL (parsed once, used for mirroring below) ──
-    const discordWebhookUrl = typeof earlyMeta.discordWebhookUrl === "string" ? earlyMeta.discordWebhookUrl : "";
+    // Stored encrypted (plain from older versions); the server resolves it, the browser only sees a mask.
+    const discordWebhookUrl = readChatMetadataSecret(earlyMeta, "discordWebhookUrl");
     let pendingUserDiscordMsg = "";
     let currentTurnUserMessageId: string | null = null;
     let currentTurnUserMessage: Awaited<ReturnType<typeof chats.createMessage>> | null = null;

@@ -842,11 +842,16 @@ export function getSpotifyRedirectUri() {
   return getSpotifyRedirectUriOverride() ?? getLoopbackFallbackRedirectUri();
 }
 
+// No cross-origin site is trusted unless CORS_ORIGINS names it. The dev client reaches the API through Vite's
+// proxy (same origin), so it needs no entry; trusting localhost:5173 by default let any other local web page
+// on that port (any Vite project's dev server) read and change Marinara's data with the user's session.
+const DEFAULT_CORS_ORIGINS: string[] = [];
+
 export function getCorsConfig() {
   const raw = normalizeEnvValue(process.env.CORS_ORIGINS);
   if (!raw) {
     return {
-      origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+      origin: DEFAULT_CORS_ORIGINS,
       credentials: true,
     };
   }
@@ -858,7 +863,7 @@ export function getCorsConfig() {
 
   if (origins.length === 0) {
     return {
-      origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+      origin: DEFAULT_CORS_ORIGINS,
       credentials: true,
     };
   }

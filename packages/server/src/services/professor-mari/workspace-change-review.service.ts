@@ -13,6 +13,7 @@ import type {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getMariPendingDir } from "./workspace-pending-store.js";
+import { getDataDir } from "../../config/runtime-config.js";
 
 const APPROVAL_TIMEOUT_MS = 10 * 60_000;
 const INSTALL_TIMEOUT_MS = 10 * 60_000;
@@ -56,7 +57,9 @@ const PACKAGE_CONTROL_FILES = new Set([
 const ROOT_LAUNCHER_FILES = new Set([
   "start.sh",
   "start.bat",
+  "start-local.bat",
   "start-termux.sh",
+  "marinaralauncher.exe",
   "dockerfile",
   "docker-compose.yml",
   "docker-compose.yaml",
@@ -151,7 +154,55 @@ function isServerSecretName(normalized: string) {
   if (normalized === ".env.example" || normalized === ".env.sample" || normalized === ".env.template") {
     return false;
   }
-  return normalized === ".env" || normalized.startsWith(".env.") || normalized === ".encryption-key";
+  return (
+    normalized === ".env" ||
+    normalized.startsWith(".env.") ||
+    normalized === ".encryption-key" ||
+    // Remote login, signed-in browsers and the app-made admin secret (config/login-credential.ts): changing one
+    // would let someone sign in from another device. The Claude CLI keeps its sign-in in .credentials.json.
+    normalized === ".remote-login.json" ||
+    normalized === ".remote-sessions.json" ||
+    normalized === ".admin-secret.json" ||
+    normalized === ".credentials.json"
+  );
+}
+
+// Folders under DATA_DIR (or set by the environment) that hold key material: backups carry a copy of the
+// encryption key, and the Claude and Codex sign-ins live in their config folders (inside the workspace in Docker).
+function protectedSecretDirs(): string[] {
+  const dirs = [resolve(getDataDir(), "backups")];
+  for (const value of [process.env.CLAUDE_CONFIG_DIR, process.env.CODEX_HOME]) {
+    const trimmed = value?.trim();
+    if (trimmed) dirs.push(resolve(trimmed));
+  }
+  return dirs;
+}
+
+// The policy runs for every file a sandbox walk visits, so the folded roots (with real paths) are kept briefly.
+let protectedRootsCache: { at: number; key: string; roots: string[] } | null = null;
+function protectedSecretRoots(): string[] {
+  const now = Date.now();
+  const dirs = protectedSecretDirs();
+  const key = dirs.join("\0");
+  if (protectedRootsCache && protectedRootsCache.key === key && now - protectedRootsCache.at < 5_000) {
+    return protectedRootsCache.roots;
+  }
+  const roots = new Set<string>();
+  for (const dir of dirs) {
+    roots.add(dir.toLowerCase());
+    try {
+      roots.add(realpathSync(dir).toLowerCase());
+    } catch {
+      // Not created yet; the configured path is the one to guard.
+    }
+  }
+  protectedRootsCache = { at: now, key, roots: [...roots] };
+  return protectedRootsCache.roots;
+}
+
+function isInsideProtectedSecretDir(absolutePath: string): boolean {
+  const target = resolve(absolutePath).toLowerCase();
+  return protectedSecretRoots().some((root) => target === root || target.startsWith(root + sep));
 }
 
 // Messages the user queued for her sit under DATA_DIR/storage, which she may read; these she may not, and may not write.
@@ -185,6 +236,7 @@ export function workspacePathAccessPolicy(
 
   if (fileSystemParts.includes(".git") || isServerSecretName(fileSystemParts.at(-1) ?? "")) return "forbidden";
   if (isInsideMariPendingDir(absolute)) return "forbidden";
+  if (isInsideProtectedSecretDir(absolute)) return "forbidden";
   // The sensitive checks use the same folded names, so "package.json." or "start.sh::$DATA" still count.
   const folded = fileSystemParts.join("/");
   const foldedName = fileSystemParts.at(-1) ?? "";
@@ -192,6 +244,10 @@ export function workspacePathAccessPolicy(
   if (fileSystemParts.length === 1 && ROOT_LAUNCHER_FILES.has(foldedName)) return "sensitive";
   if (folded === ".github/workflows" || folded.startsWith(".github/workflows/")) return "sensitive";
   if (folded === "win/installer" || folded.startsWith("win/installer/")) return "sensitive";
+  // The launchers run these on every start (update check, data protection, build), outside her sandbox, so a
+  // change here waits for the user's approval like a launcher change does.
+  if (folded === "scripts" || folded.startsWith("scripts/")) return "sensitive";
+  if (folded === "win" || folded.startsWith("win/")) return "sensitive";
   if (
     folded === "android/app/build.gradle" ||
     folded === "android/build.gradle" ||
@@ -244,14 +300,14 @@ const PACKAGE_CONTROL_NAME_PATTERN = [...PACKAGE_CONTROL_FILES].map(escapeRegExp
 const ROOT_LAUNCHER_NAME_PATTERN = [...ROOT_LAUNCHER_FILES].map(escapeRegExp).join("|");
 // Mirrors workspacePathAccessPolicy's scoping: package-control names are
 // sensitive at ANY depth (they may take a path prefix), while launcher names
-// and the workflow/installer/gradle paths are sensitive only at the workspace
+// and the workflow/installer/scripts/win/gradle paths are sensitive only at the workspace
 // root (no path prefix beyond an optional "./"). The left lookbehinds start a
 // match only where a path starts, so ordinary names that merely END with a
 // sensitive name (mypackage.json, new-start.sh) and a nested docs/start.sh
 // never match, and a long path is read once rather than again after every "/".
 const SENSITIVE_ROOT_SCOPED_PATTERN =
   `(?:${ROOT_LAUNCHER_NAME_PATTERN})(?![\\w.-])` +
-  `|\\.github/workflows/|win/installer/|android/gradle/wrapper/` +
+  `|\\.github/workflows/|win/|scripts/|android/gradle/wrapper/` +
   `|android/(?:app/)?build\\.gradle(?![\\w.-])|android/settings\\.gradle(?![\\w.-])`;
 const SENSITIVE_PATH_TARGET_PATTERN =
   `(?<![\\w./~-])(?:[\\w./~-]*/)?(?:${PACKAGE_CONTROL_NAME_PATTERN})(?![\\w.-])` +

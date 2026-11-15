@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Professor Mari Workspace Agent
 // ──────────────────────────────────────────────
+import { redactStoredSecretsDeep } from "../utils/stored-secrets.js";
 import {
   chatIdForMariSession,
   MARI_PERMISSIONS_MODES,
@@ -803,7 +804,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.get("/history", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    return getMariDbService(app.db).getHistory();
+    return redactStoredSecretsDeep(await getMariDbService(app.db).getHistory());
   });
 
   app.post("/db/command", async (req, reply) => {

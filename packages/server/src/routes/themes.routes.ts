@@ -14,6 +14,14 @@ import {
 } from "../services/themes/theme-gallery.service.js";
 import { logger } from "../lib/logger.js";
 
+function hasTemplates(meta: unknown): boolean {
+  const templates = (meta as { templates?: unknown } | null | undefined)?.templates;
+  if (!templates || typeof templates !== "object") return false;
+  return Object.values(templates as Record<string, unknown>).some((value) =>
+    typeof value === "string" ? value.trim().length > 0 : value != null,
+  );
+}
+
 const STARTER_READ_ONLY = "Starter themes are read-only. Clone it to make your own copy.";
 
 export async function themesRoutes(app: FastifyInstance) {
@@ -29,7 +37,16 @@ export async function themesRoutes(app: FastifyInstance) {
       const entry = entries.find((item) => `${STARTER_THEME_PREFIX}${item.id}` === theme.id);
       if (!entry?.version || theme.meta?.version === entry.version) continue;
       try {
-        await storage.saveStarter(await downloadGalleryTheme(entry.id));
+        const update = await downloadGalleryTheme(entry.id);
+        // An update that brings HTML templates the installed copy didn't have waits for someone to press
+        // Update in the gallery: new kinds of content are never added to an install in the background.
+        if (hasTemplates(update.meta) && !hasTemplates(theme.meta)) {
+          logger.info(
+            `[themes] Starter theme ${entry.id} ${entry.version} adds HTML templates; left for a manual update`,
+          );
+          continue;
+        }
+        await storage.saveStarter(update);
         logger.info(`[themes] Updated starter theme ${entry.id} to ${entry.version}`);
       } catch (error) {
         logger.warn(error, `[themes] Could not update starter theme ${entry.id}`);

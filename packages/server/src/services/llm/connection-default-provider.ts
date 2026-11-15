@@ -1,5 +1,6 @@
 import { generationParametersSchema } from "@marinara-engine/shared";
 
+import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider } from "./base-provider.js";
 
@@ -92,8 +93,11 @@ export function withConnectionDefaultParameters(
       parsed = null;
     }
   }
+  // Saved header values are stored encrypted (plain from older versions); send the real values.
   const headers = generationParametersSchema.shape.customHeaders.safeParse(
-    isPlainRecord(parsed) ? parsed.customHeaders : undefined,
+    isPlainRecord(parsed) && isPlainRecord(parsed.customHeaders)
+      ? decryptCustomHeaders(parsed.customHeaders as Record<string, string>)
+      : undefined,
   );
   provider.setCustomRequestHeaders(headers.success ? (headers.data ?? {}) : {});
   const customParameters = parseConnectionCustomParameters(defaultParameters);

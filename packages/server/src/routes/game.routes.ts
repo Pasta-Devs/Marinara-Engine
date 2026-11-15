@@ -5,6 +5,7 @@ import {
   dungeonSiteReplies,
   gameDay,
 } from "../services/game/dungeon-spawns.service.js";
+import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
 import {
   currentRoomGeneration,
@@ -3248,7 +3249,7 @@ function gameCardsForPrompt(cards: Array<Record<string, unknown>>): Array<Record
 }
 
 function getDiscordWebhookUrl(meta: Record<string, unknown>): string {
-  return typeof meta.discordWebhookUrl === "string" ? meta.discordWebhookUrl.trim() : "";
+  return readChatMetadataSecret(meta, "discordWebhookUrl");
 }
 
 function mirrorGameMessageToDiscord(meta: Record<string, unknown>, content: string, username: string): void {

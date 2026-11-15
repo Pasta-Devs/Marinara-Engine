@@ -44,6 +44,12 @@ import {
 } from "../services/memory-recall-embedding.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createChatsStorage } from "../services/storage/chats.storage.js";
+import {
+  maskChatMetadataSecrets,
+  resolveChatMetadataSecretPlaceholders,
+  sealChatMetadataSecrets,
+} from "../utils/stored-secrets.js";
 import { initializeChatWindowDefaults } from "../services/storage/chat-window-defaults.js";
 import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
@@ -75,6 +81,20 @@ export async function migrateOutsideReadsSetting(storage: {
   const old = [await storage.get(NANOGPT_PLAN_BADGES_SETTINGS_KEY), await storage.get(PRICE_CATALOG_SETTINGS_KEY)];
   if (old.includes("on")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "on");
   else if (old.includes("off")) await storage.set(OUTSIDE_READS_SETTINGS_KEY, "off");
+}
+
+function parseRecord(raw: unknown): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function maskTranslatorDefaults(value: string | null): string | null {
+  const settings = value ? parseRecord(value) : null;
+  return settings ? JSON.stringify(maskChatMetadataSecrets(settings)) : value;
 }
 
 const isAllowedSettingsKey = (key: string) => ALLOWED_KEYS.has(key) || isProfessorMariSeenRunSettingsKey(key);
@@ -191,10 +211,12 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Unknown settings key" });
     }
     const value = await storage.get(req.params.key);
+    // The translator defaults can hold a DeepL key: the response only says one is saved.
+    if (req.params.key === TRANSLATOR_DEFAULTS_SETTINGS_KEY) return { value: maskTranslatorDefaults(value) };
     return { value };
   });
 
-  app.put<{ Params: { key: string } }>("/:key", async (req, reply) => {
+  app.put<{ Params: { key: string }; Querystring: { fromChatId?: string } }>("/:key", async (req, reply) => {
     if (!isAllowedSettingsKey(req.params.key)) {
       return reply.status(404).send({ error: "Unknown settings key" });
     }
@@ -206,6 +228,22 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       }
       // Store only layout, hint and scoped regex preferences, never chat-specific content sent alongside them.
       input.value = JSON.stringify(favorite);
+    }
+    if (req.params.key === TRANSLATOR_DEFAULTS_SETTINGS_KEY && input.value) {
+      // Saved from a chat's settings: the mask stands for that chat's key (`?fromChatId=`), else the saved default's.
+      const fromChatId = typeof req.query?.fromChatId === "string" ? req.query.fromChatId : "";
+      const chat = fromChatId ? await createChatsStorage(app.db).getById(fromChatId) : null;
+      const settings = parseRecord(input.value);
+      if (settings) {
+        resolveChatMetadataSecretPlaceholders(
+          settings,
+          chat ? parseRecord(chat.metadata) : null,
+          parseRecord(await storage.get(TRANSLATOR_DEFAULTS_SETTINGS_KEY)),
+        );
+        input.value = JSON.stringify(sealChatMetadataSecrets(settings));
+      }
+      await storage.set(req.params.key, input.value);
+      return { value: maskTranslatorDefaults(input.value) };
     }
     await storage.set(req.params.key, input.value);
     return { value: input.value };
