@@ -19903,11 +19903,14 @@ test("Settings profile import reuses its preview upload and skips one invalid as
 
     const confirmation = page.getByRole("dialog", { name: "Import Profile" });
     await expect(confirmation).toContainText("Found: 2 files");
+    await expect(confirmation).toContainText("A safety copy is saved first");
     await confirmation.getByRole("button", { name: "Import", exact: true }).click();
 
     const status = page.locator('[role="status"][aria-live="polite"]');
     await expect(status).toContainText("Profile import complete with warnings");
     await expect(status).toContainText("game-assets/sprites/.native");
+    // The import saved a safety copy first, so the way back is offered right away.
+    await expect(page.getByRole("button", { name: "Undo Last Import", exact: true })).toBeVisible();
     await expect.poll(() => importRequests.length).toBe(2);
     expect(importRequests[0]!.bodyBytes).toBeGreaterThan(0);
     expect(importRequests[0]!.previewToken).toBeUndefined();

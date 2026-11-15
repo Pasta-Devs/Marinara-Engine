@@ -6252,11 +6252,7 @@ function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewRes
     warnings.length > 0
       ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
       : "";
-  return [
-    `Found: ${found}.`,
-    warningDetail,
-    "Importing writes profile data from this file and cannot be undone. Continue?",
-  ]
+  return [`Found: ${found}.`, warningDetail, localizeUi("ui.panels.importsettings.profileImportReplaceWarning")]
     .filter(Boolean)
     .join("\n");
 }
@@ -6508,79 +6504,7 @@ function ImportSettings() {
         const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
       }
-      let importCompleted = false;
-      for await (const event of readProfileImportStream(res)) {
-        if (event.type === "started") {
-          setProfileImportProgress((current) => ({
-            status: "running",
-            label: event.data?.label ?? "Profile import started",
-            completedItems: 0,
-            totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
-            startedAt,
-            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-          }));
-          continue;
-        }
-        if (event.type === "progress" && event.data) {
-          setProfileImportProgress((current) => ({
-            status: "running",
-            label: event.data?.label ?? "Importing profile",
-            completedItems: event.data?.completedItems ?? current?.completedItems ?? 0,
-            totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
-            startedAt,
-            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            imported: event.data?.imported,
-          }));
-          continue;
-        }
-        if (event.type === "error") {
-          throw new Error(getProfileImportErrorMessage(event.data));
-        }
-        if (event.type === "done") {
-          if (event.data?.success === false) throw new Error(event.data.error ?? event.data.message ?? "Unknown error");
-          importCompleted = true;
-          qc.invalidateQueries();
-          const imported = event.data?.imported;
-          const warnings = normalizeProfileImportWarnings(event.data?.warnings);
-          const summary = formatProfileImportStats(imported, localizeUi);
-          setProfileImportProgress((current) => {
-            const totalItems = Math.max(1, current?.totalItems ?? 1);
-            return {
-              status: "success",
-              label:
-                warnings.length > 0
-                  ? localizeUi("ui.panels.importsettings.profileImportCompleteWithWarnings")
-                  : "Profile import complete",
-              completedItems: totalItems,
-              totalItems,
-              startedAt,
-              elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-              imported,
-              warnings,
-            };
-          });
-          if (warnings.length > 0) {
-            const warningSummary = formatProfileImportWarningSummary(warnings, profileImportWarningCopy);
-            toast.warning(
-              summary
-                ? localizeUi("ui.panels.importsettings.importedValue1Value2", {
-                    value1: summary,
-                    value2: warningSummary,
-                  })
-                : warningSummary,
-            );
-          } else {
-            toast.success(
-              summary
-                ? localizeUi("ui.panels.importsettings.importedValue1", { value1: summary })
-                : localizeUi("ui.panels.importsettings.profileImported"),
-            );
-          }
-        }
-      }
-      if (!importCompleted) {
-        throw new Error("Profile import stream closed before completion.");
-      }
+      await followProfileImportStream(res, startedAt, false);
       previewToken = undefined;
     } catch (err) {
       await releaseProfilePreview();
@@ -6600,6 +6524,139 @@ function ImportSettings() {
       toast.error(message);
     }
     e.target.value = "";
+  };
+
+  /** Follows an import's progress stream until it finishes; throws when the server reports an error. */
+  const followProfileImportStream = async (res: Response, startedAt: number, undo: boolean) => {
+    let importCompleted = false;
+    for await (const event of readProfileImportStream(res)) {
+      if (event.type === "started") {
+        setProfileImportProgress((current) => ({
+          status: "running",
+          label: event.data?.label ?? "Profile import started",
+          completedItems: 0,
+          totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
+          startedAt,
+          elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        }));
+        continue;
+      }
+      if (event.type === "progress" && event.data) {
+        setProfileImportProgress((current) => ({
+          status: "running",
+          label: event.data?.label ?? "Importing profile",
+          completedItems: event.data?.completedItems ?? current?.completedItems ?? 0,
+          totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
+          startedAt,
+          elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+          imported: event.data?.imported,
+        }));
+        continue;
+      }
+      if (event.type === "error") {
+        throw new Error(getProfileImportErrorMessage(event.data));
+      }
+      if (event.type === "done") {
+        if (event.data?.success === false) throw new Error(event.data.error ?? event.data.message ?? "Unknown error");
+        importCompleted = true;
+        qc.invalidateQueries();
+        const imported = event.data?.imported;
+        const warnings = normalizeProfileImportWarnings(event.data?.warnings);
+        const summary = formatProfileImportStats(imported, localizeUi);
+        setProfileImportProgress((current) => {
+          const totalItems = Math.max(1, current?.totalItems ?? 1);
+          return {
+            status: "success",
+            label:
+              warnings.length > 0
+                ? localizeUi("ui.panels.importsettings.profileImportCompleteWithWarnings")
+                : undo
+                  ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
+                  : "Profile import complete",
+            completedItems: totalItems,
+            totalItems,
+            startedAt,
+            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+            imported,
+            warnings,
+          };
+        });
+        if (warnings.length > 0) {
+          const warningSummary = formatProfileImportWarningSummary(warnings, profileImportWarningCopy);
+          toast.warning(
+            summary
+              ? localizeUi("ui.panels.importsettings.importedValue1Value2", {
+                  value1: summary,
+                  value2: warningSummary,
+                })
+              : warningSummary,
+          );
+        } else {
+          toast.success(
+            undo
+              ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
+              : summary
+                ? localizeUi("ui.panels.importsettings.importedValue1", { value1: summary })
+                : localizeUi("ui.panels.importsettings.profileImported"),
+          );
+        }
+      }
+    }
+    if (!importCompleted) {
+      throw new Error("Profile import stream closed before completion.");
+    }
+  };
+
+  const undoProfileImportQuery = useQuery<{ available: boolean; savedAt?: string }>({
+    queryKey: ["backups", "import-profile-undo"],
+    queryFn: () => api.get("/backup/import-profile/undo"),
+    retry: false,
+  });
+  const undoSavedAt = undoProfileImportQuery.data?.available ? undoProfileImportQuery.data.savedAt : undefined;
+  const handleUndoProfileImport = async () => {
+    if (!undoSavedAt) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.panels.importsettings.undoLastImport"),
+      message: localizeUi("ui.panels.importsettings.undoLastImportConfirm", {
+        savedAt: new Date(undoSavedAt).toLocaleString(),
+      }),
+      confirmLabel: localizeUi("ui.panels.importsettings.undoLastImport"),
+      cancelLabel: localizeUi("ui.panels.importsettings.cancel"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    const startedAt = Date.now();
+    setProfileImportProgress({
+      status: "starting",
+      label: localizeUi("ui.panels.importsettings.undoingLastImport"),
+      completedItems: 0,
+      totalItems: 1,
+      startedAt,
+      elapsedSeconds: 0,
+    });
+    try {
+      const res = await api.raw("/backup/import-profile/undo", {
+        method: "POST",
+        headers: { Accept: "text/event-stream" },
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
+      }
+      await followProfileImportStream(res, startedAt, true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "network/server error";
+      setProfileImportProgress({
+        status: "error",
+        label: localizeUi("ui.panels.importsettings.undoLastImportFailed"),
+        completedItems: 0,
+        totalItems: 1,
+        startedAt,
+        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        error: message,
+      });
+      toast.error(localizeUi("ui.panels.importsettings.undoLastImportFailedValue", { value: message }));
+    }
   };
 
   return (
@@ -6638,6 +6695,24 @@ function ImportSettings() {
             tabIndex={-1}
             aria-hidden="true"
           />
+          {undoSavedAt && (
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => void handleUndoProfileImport()}
+                disabled={profileImportBusy}
+                className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
+              >
+                <RotateCcw size="0.8125rem" />
+                {localizeUi("ui.panels.importsettings.undoLastImport")}
+              </button>
+              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.importsettings.undoLastImportSavedAt", {
+                  savedAt: new Date(undoSavedAt).toLocaleString(),
+                })}
+              </span>
+            </div>
+          )}
 
           {profileImportProgress && (
             <div

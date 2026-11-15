@@ -177,6 +177,9 @@ function withOptionalNoodleAutoPostPaused<T>(operation: () => Promise<T>): Promi
 const PROFILE_IMPORT_MEMORY_WARNING_BYTES = 512 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE = "PROFILE_EXPORT_JSON_TOO_LARGE";
 const AUTOMATIC_BACKUP_SETTINGS_KEY = "automatic_backup";
+const PRE_IMPORT_BACKUP_FILENAME = "marinara-before-import.zip";
+/** Root folder inside the safety copy; it must match the `marinara-backup-*` shape the backup reader accepts. */
+const PRE_IMPORT_BACKUP_ROOT = "marinara-backup-before-import";
 const AUTOMATIC_BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const AUTOMATIC_BACKUP_OMISSION_HISTORY_LIMIT = 1_000;
 const AUTOMATIC_BACKUP_OMISSION_HISTORY_BYTES = 256 * 1024;
@@ -3295,6 +3298,19 @@ async function readProfileArchiveAsset(
   }
 }
 
+/** Read a profile or full-backup ZIP already on disk; the caller owns the file. */
+async function readProfileImportArchive(archivePath: string): Promise<ProfileImportInput> {
+  const zip = await readProfileZipArchive(archivePath);
+  const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
+  const warnings: ProfileImportWarning[] = [];
+  const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
+  return {
+    envelope,
+    readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
+    warnings,
+  };
+}
+
 async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImportInput> {
   const contentType = String(req.headers["content-type"] ?? "").toLowerCase();
   if (!contentType.includes("multipart/form-data")) {
@@ -3322,14 +3338,8 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
       if (fileStream.truncated) throw new ProfileImportRequestError("Profile archive upload was truncated.");
     }
     if (!receivedFile) throw new ProfileImportRequestError("No profile archive uploaded.");
-    const zip = await readProfileZipArchive(archivePath);
-    const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
-    const warnings: ProfileImportWarning[] = [];
-    const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
     return {
-      envelope,
-      readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
-      warnings,
+      ...(await readProfileImportArchive(archivePath)),
       cleanup: () => rm(uploadDir, { recursive: true, force: true }),
     };
   } catch (err) {
@@ -3534,6 +3544,47 @@ async function writeFullBackupArchive(
   return { omittedEntries: [...omittedEntries] };
 }
 
+/** Throw the Settings-panel message when the backups disk cannot hold an archive of this size. */
+async function assertBackupFits(backupsRoot: string, archiveBytes: number, backupLabel: string) {
+  const freeBytes = await statfs(backupsRoot)
+    .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
+    .catch((error) => {
+      const logError = error instanceof Error ? error : new Error(String(error));
+      logger.warn(logError, "[backup] Could not read free disk space; writing %s unchecked", backupLabel);
+      return null;
+    });
+  const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes, backupLabel);
+  if (error) throw new Error(error);
+}
+
+function getPreImportBackupPath(): string {
+  return join(getBackupsRoot(), PRE_IMPORT_BACKUP_FILENAME);
+}
+
+/**
+ * Full backup written just before Import Profile overwrites rows, so the import can be undone from
+ * Settings. One copy is kept: each import replaces the previous one, and undoing never rewrites it.
+ */
+async function writePreImportBackup(app: FastifyInstance) {
+  await flushDB();
+  const backupsRoot = getBackupsRoot();
+  const finalPath = getPreImportBackupPath();
+  const pendingPath = `${finalPath}.pending`;
+  const workingDir = await mkdtemp(join(tmpdir(), "marinara-pre-import-backup-"));
+  try {
+    await mkdir(backupsRoot, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
+    await hardenPrivateBackupTree(backupsRoot);
+    await rm(pendingPath, { force: true });
+    await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
+      assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
+    );
+    await rename(pendingPath, finalPath);
+  } finally {
+    await rm(pendingPath, { force: true }).catch(() => {});
+    await rm(workingDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number) {
   await flushDB();
   const backupsRoot = getBackupsRoot();
@@ -3556,18 +3607,8 @@ async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number
       pendingPath,
       "marinara-automatic-backup",
       workingDir,
-      async (archiveBytes) => {
-        // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
-        const freeBytes = await statfs(backupsRoot)
-          .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
-          .catch((error) => {
-            const logError = error instanceof Error ? error : new Error(String(error));
-            logger.warn(logError, "[backup] Could not read free disk space; writing the automatic backup unchecked");
-            return null;
-          });
-        const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes);
-        if (error) throw new Error(error);
-      },
+      // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
+      (archiveBytes) => assertBackupFits(backupsRoot, archiveBytes, "the automatic backup"),
     );
     const hadPreviousBackup = existsSync(finalPath);
     try {
@@ -4063,15 +4104,32 @@ export async function backupRoutes(app: FastifyInstance) {
     },
   );
 
-  const importProfile = async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
+  /** `undo` imports the safety copy the last import saved, instead of an uploaded file, and saves no new copy. */
+  const runProfileImport = async (req: FastifyRequest, reply: FastifyReply, undo: boolean) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: undo ? "Undo profile import" : "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
-    const previewOnly = (req.query as { preview?: unknown } | undefined)?.preview === "true";
+    const previewOnly = !undo && (req.query as { preview?: unknown } | undefined)?.preview === "true";
     const providedPreviewToken =
       typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
     let importInput: ProfileImportInput;
-    if (!previewOnly && providedPreviewToken) {
+    if (undo) {
+      const safetyCopyPath = getPreImportBackupPath();
+      if (!existsSync(safetyCopyPath)) {
+        return reply.status(404).send({
+          error: "No safety copy",
+          message: "There is no saved copy from before an import to put back.",
+        });
+      }
+      try {
+        importInput = await readProfileImportArchive(safetyCopyPath);
+      } catch (err) {
+        if (err instanceof ProfileImportRequestError) {
+          return sendProfileImportRequestError(reply, err);
+        }
+        return sendBackupRouteError(reply, err, "Undo profile import");
+      }
+    } else if (!previewOnly && providedPreviewToken) {
       const previewInput = await takeProfileImportPreview(providedPreviewToken);
       if (!previewInput) {
         return reply.status(410).send({
@@ -4149,13 +4207,29 @@ export async function backupRoutes(app: FastifyInstance) {
         sendEvent({
           type: "started",
           data: {
-            label: "Profile import started",
+            label: undo ? "Undoing the last import" : "Profile import started",
             totalItems,
           },
         });
       }
 
       try {
+        if (!undo) {
+          // Import overwrites rows that already exist, so keep a way back before the first write.
+          sendProgress({
+            phase: "safety-copy",
+            label: "Saving a safety copy",
+            completedItems: 0,
+            totalItems,
+            imported: { characters: 0, personas: 0, lorebooks: 0, presets: 0, agents: 0, themes: 0 },
+          });
+          try {
+            await withAutomaticBackupLifecycleLock(() => writePreImportBackup(app));
+          } catch (err) {
+            const reason = getBackupErrorMessage(err, "The safety copy could not be written.");
+            throw new Error(`Nothing was imported, because a safety copy could not be saved first. ${reason}`);
+          }
+        }
         if (isProfileStorageSnapshot(data.fileStorage)) {
           const imported = await importProfileStorageSnapshot(
             app,
@@ -4672,6 +4746,16 @@ export async function backupRoutes(app: FastifyInstance) {
       config: { rateLimit: BACKUP_RATE_LIMIT },
       preParsing: profileImportJsonBodyLimit,
     },
-    importProfile,
+    (req, reply) => runProfileImport(req, reply, false),
+  );
+
+  // The safety copy the last Import Profile saved, for the Undo button.
+  app.get("/import-profile/undo", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Undo profile import" })) return;
+    const safetyCopy = await stat(getPreImportBackupPath()).catch(() => null);
+    return safetyCopy?.isFile() ? { available: true, savedAt: safetyCopy.mtime.toISOString() } : { available: false };
+  });
+  app.post("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, (req, reply) =>
+    runProfileImport(req, reply, true),
   );
 }

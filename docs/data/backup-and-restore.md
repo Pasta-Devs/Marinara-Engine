@@ -74,15 +74,26 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 1. Open **Settings → Imports**.
 2. In **Profile & Marinara**, click **Import Profile (JSON/ZIP)**.
 3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
-4. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
-5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
+4. Read the **Import Profile** dialog. It lists what Marinara found. Items already in Marinara are replaced by the file's versions.
+5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...**. Marinara first saves a safety copy of your data, then a progress bar follows. When it finishes, a message says the profile was imported.
 
 If it did not work:
 
 - Unless you open Marinara at `localhost`, `127.0.0.1` or `[::1]`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
 - If a `.zip` is missing some media files, the import still finishes. A warning lists what is missing, and Marinara imports the rest.
+- If the disk is too full for the safety copy, nothing is imported. The error starts with "Nothing was imported, because a safety copy could not be saved first." Free up about as much space as a full backup takes, then import again.
 
 If you import the same profile twice, Marinara updates your items and does not copy them. Profiles from much older versions can make duplicates.
+
+### Undo an import
+
+Before each import, Marinara saves a full copy of your data as `marinara-before-import.zip` in the `backups/` folder of the data folder. It keeps only the copy from the latest import.
+
+1. Open **Settings → Imports**.
+2. In **Profile & Marinara**, click **Undo Last Import**. The line under it shows when the safety copy was saved.
+3. Click **Undo Last Import** in the dialog to confirm.
+
+Undo puts back everything the last import replaced, as it was before that import. Items the import added stay.
 
 ## Enter your keys again
 
