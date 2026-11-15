@@ -3536,6 +3536,15 @@ export function GameNarration({
       if (playWhenReadyKey && (voiceOff || !gameVoicePendingRef.current.has(playWhenReadyKey))) {
         playWhenReadyGameVoiceKeyRef.current = null;
       }
+      if (voiceOff) {
+        // Stop the clips still generating too, and forget their unfinished entries so the lines show play again.
+        for (const [key, controller] of gameVoicePendingRef.current) {
+          controller.abort();
+          if (gameVoiceCacheRef.current.get(key)?.status === "loading") gameVoiceCacheRef.current.delete(key);
+        }
+        gameVoicePendingRef.current.clear();
+        requestedGameVoiceKeysRef.current.clear();
+      }
       return;
     }
 
