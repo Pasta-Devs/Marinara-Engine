@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseGreeting, parseGreetings } from "../../../packages/client/src/lib/character-greetings";
+import { greetingBody, parseGreeting, parseGreetings } from "../../../packages/client/src/lib/character-greetings";
 
 // Tagged greeting: leading [..] groups are tags, the first line is the title.
 assert.deepEqual(parseGreeting("[Ep4][Drago][medium] Foot talk\nDrago asked about the new shoes."), {
@@ -54,4 +54,28 @@ assert.deepEqual(
   ],
 );
 
+// Cards that repeat the header as the first body line: the preview and the opened body skip it.
+const repeated = "**Rooftop**\n**Rooftop**\nThe door sticks.";
+assert.equal(parseGreeting(repeated).preview, "The door sticks.");
+assert.equal(greetingBody(repeated), "The door sticks.");
+assert.equal(greetingBody("[Ep2] Rooftop\nThe door sticks."), "The door sticks.");
+// Without tags on the card, a bracket line is story text, so the body keeps it.
+assert.equal(greetingBody("[OOC] Be kind.\nHi.", false), "[OOC] Be kind.\nHi.");
+
+// A tagged header line still matches its repeat once the tags are set aside.
+assert.equal(parseGreeting("[Ep2] **Rooftop**\nRooftop\nThe door sticks.").preview, "The door sticks.");
+
 console.log("greeting-tags regression passed");
+
+// A header sharing its line with the text keeps that text in the opened body.
+assert.equal(greetingBody("[Ep4] Foot talk goes on."), "Foot talk goes on.");
+// A body that begins with the title word keeps it unless the title is a whole line.
+assert.equal(parseGreeting("**Drago**\nDrago asked about the new shoes.").preview, "Drago asked about the new shoes.");
+assert.equal(greetingBody("**Drago**\nDrago asked about the new shoes."), "Drago asked about the new shoes.");
+assert.equal(greetingBody("[Ep2] Rooftop. The door sticks.\nIt is late."), "The door sticks.\nIt is late.");
+// A repeated title line collapses whatever markup, quotes or parentheses wrap it.
+assert.equal(parseGreeting('("Car wash")\nCar wash\nThe soap is cold.').preview, "The soap is cold.");
+assert.equal(greetingBody('**"Car wash"**\nCar wash\nThe soap is cold.'), "The soap is cold.");
+assert.equal(greetingBody('[Ep2] **"Suzie"**\nSuzie\nHi.'), "Hi.");
+assert.equal(greetingBody("(Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");
+assert.equal(greetingBody("[Ep2] (Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");
