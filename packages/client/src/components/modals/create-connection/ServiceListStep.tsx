@@ -70,7 +70,9 @@ export function ServiceListStep({
   kind,
 }: ServiceListStepProps) {
   const { t } = useTranslation();
-  const [type, setType] = useState<ModelType | "all">(kind === "chat" ? "text" : !kind ? "all" : kind);
+  const [type, setType] = useState<ModelType | "all">(
+    kind === "chat" ? "text" : kind === "decision" || !kind ? "all" : kind,
+  );
   const needle = query.trim().toLowerCase();
   const matches = (name: string, key?: ServiceId) =>
     !needle || `${name} ${key ? (SEARCH_ALIASES[key] ?? "") : ""}`.toLowerCase().includes(needle);
@@ -104,7 +106,7 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => useUIStore.getState().openModal("device-detail", { item: "local-model" }),
-      types: ["text"],
+      types: ["text", "decision"],
     });
   }
   for (const group of SERVICE_GROUPS) {

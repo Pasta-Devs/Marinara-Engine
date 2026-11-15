@@ -355,6 +355,8 @@ export function ModelsStep(props: ModelsStepProps) {
                   disabled={props.closeBlocked}
                   onClick={() => {
                     if (props.setupKind === kind) return;
+                    // Chat never sets up a row, so coming back to a job tab through it must set that tab up again.
+                    props.mediaSetupStarted.current = "";
                     props.setMediaRowId(null);
                     props.setSetupKind(kind);
                   }}

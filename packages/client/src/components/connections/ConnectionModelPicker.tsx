@@ -314,12 +314,12 @@ export function ConnectionModelPicker({
   const refetchedFor = useRef<string | null>(null);
   const savedList = modelList.data;
   useEffect(() => {
-    if (!only || !savedList?.fetchedAt || !savedList.models?.length || listed.length > 0) return;
+    if (reviewRequired || !only || !savedList?.fetchedAt || !savedList.models?.length || listed.length > 0) return;
     if (refresh.isPending || modelList.isFetching || refetchedFor.current === connection.id) return;
     refetchedFor.current = connection.id;
     refresh.mutate(connection.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one refetch per connection; `refresh` is stable enough
-  }, [connection.id, listed.length, modelList.isFetching, only, savedList]);
+  }, [connection.id, listed.length, modelList.isFetching, only, reviewRequired, savedList]);
   // Cost chips only where the list has more than one kind of cost to tell apart.
   const costKinds = useMemo(() => {
     const kinds = new Set(listed.map(costKind));
