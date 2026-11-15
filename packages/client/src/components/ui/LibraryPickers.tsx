@@ -9,11 +9,18 @@ import { BookOpen, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
-import { cn } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { PICKER_ROW_ART, PickerField, PickerListField, PickerListWindow, type PickerListItem } from "./PickerField";
 
 export type LibraryPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
-export type LibraryLorebook = { id: string; name: string; imagePath?: string | null; enabled?: boolean };
+export type LibraryLorebook = {
+  id: string;
+  name: string;
+  imagePath?: string | null;
+  imageCrop?: AvatarCrop | null;
+  enabled?: boolean;
+};
 
 /** Size of the picture in a picker row. */
 export const LIBRARY_ROW_ART = PICKER_ROW_ART;
@@ -22,10 +29,13 @@ export const LIBRARY_ROW_ART = PICKER_ROW_ART;
 // placeholder (the presets gradient with a page, the lorebooks amber with a book).
 export function LibraryArt({
   src,
+  crop,
   kind,
   className,
 }: {
   src: string | null;
+  /** The lorebook picture's saved crop (presets have none). */
+  crop?: AvatarCrop | null;
   kind: "preset" | "lorebook";
   className?: string;
 }) {
@@ -33,7 +43,7 @@ export function LibraryArt({
     <span
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden",
+        "relative flex shrink-0 items-center justify-center overflow-hidden",
         src
           ? "bg-[var(--muted)]"
           : kind === "preset"
@@ -43,7 +53,14 @@ export function LibraryArt({
       )}
     >
       {src ? (
-        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" draggable={false} />
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+          style={getAvatarCropStyle(crop)}
+          draggable={false}
+        />
       ) : kind === "preset" ? (
         <FileText size="0.875rem" />
       ) : (
@@ -148,8 +165,10 @@ function useLorebookItems(lorebooks: readonly LibraryLorebook[]) {
         id: lb.id,
         label: lb.name,
         badge: offBadge(lb),
-        icon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
-        smallIcon: <LibraryArt src={lb.imagePath ?? null} kind="lorebook" className="h-6 w-6 rounded-md" />,
+        icon: <LibraryArt src={lb.imagePath ?? null} crop={lb.imageCrop} kind="lorebook" className={LIBRARY_ROW_ART} />,
+        smallIcon: (
+          <LibraryArt src={lb.imagePath ?? null} crop={lb.imageCrop} kind="lorebook" className="h-6 w-6 rounded-md" />
+        ),
       })),
     [lorebooks],
   );

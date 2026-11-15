@@ -58,6 +58,7 @@ export function useLorebooks(category?: string, options: { includeHidden?: boole
 }
 
 export function useLorebookPages(options: {
+  enabled?: boolean;
   category?: string;
   search?: string;
   sort?: string;
@@ -103,6 +104,7 @@ export function useLorebookPages(options: {
     },
     getNextPageParam: getNextPageOffset,
     staleTime: 5 * 60_000,
+    enabled: options.enabled ?? true,
   });
 }
 

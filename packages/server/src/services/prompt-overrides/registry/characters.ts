@@ -5,6 +5,35 @@ export interface CharactersReferenceSheetCtx extends Record<string, string | num
   appearance: string;
 }
 
+export interface CharactersLorebookCoverCtx extends Record<string, string | number | undefined> {
+  name: string;
+  appearance: string;
+}
+
+export const CHARACTERS_LOREBOOK_COVER: PromptOverrideKeyDef<CharactersLorebookCoverCtx> = {
+  key: "characters.lorebookCover",
+  label: "Lorebook Cover",
+  description: "Cover illustration used by lorebook cover generation.",
+  variables: [
+    { name: "name", description: "Lorebook title.", example: "The Ashen Marches" },
+    {
+      name: "appearance",
+      description: "What the cover should show.",
+      example: "a ruined watchtower above a burning forest at dusk",
+    },
+  ],
+  defaultBuilder: (ctx) =>
+    [
+      `Cover illustration for a fantasy lore compendium titled "${ctx.name}".`,
+      `${ctx.appearance.replace(/[.s]+$/, "")}.`,
+      "Evocative scene or emblem, no text, no lettering.",
+    ].join(" "),
+  exampleContext: {
+    name: "The Ashen Marches",
+    appearance: "a ruined watchtower above a burning forest at dusk",
+  },
+};
+
 export const CHARACTERS_REFERENCE_SHEET: PromptOverrideKeyDef<CharactersReferenceSheetCtx> = {
   key: "characters.referenceSheet",
   label: "Character Reference Sheet",

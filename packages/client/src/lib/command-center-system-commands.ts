@@ -182,6 +182,16 @@ export function createResourceCommandDefinitions(source: CommandCenterTitleSourc
       action: { kind: "navigate", target: { kind: "surface", surface: "card-downloads" } },
     }),
     defineCommand({
+      id: "lorebook-browser",
+      title: title.lorebookBrowser,
+      kind: "resource",
+      icon: "lorebook",
+      aliases: ["download lorebooks", "browse lorebooks", "world info browser"],
+      keywords: ["discover lorebooks", "find world info"],
+      availability: AVAILABLE,
+      action: { kind: "navigate", target: { kind: "surface", surface: "lorebook-downloads" } },
+    }),
+    defineCommand({
       id: "character-library",
       title: title.characterLibrary,
       kind: "resource",
@@ -200,6 +210,16 @@ export function createResourceCommandDefinitions(source: CommandCenterTitleSourc
       keywords: ["my personas", "persona list"],
       availability: AVAILABLE,
       action: { kind: "navigate", target: { kind: "surface", surface: "persona-library" } },
+    }),
+    defineCommand({
+      id: "lorebook-library",
+      title: title.lorebookLibrary,
+      kind: "resource",
+      icon: "lorebook",
+      aliases: ["lorebook gallery", "world info library", "lorebook collection"],
+      keywords: ["my lorebooks", "lorebook list", "world info"],
+      availability: AVAILABLE,
+      action: { kind: "navigate", target: { kind: "surface", surface: "lorebook-library" } },
     }),
     defineCommand({
       id: "agent-library",

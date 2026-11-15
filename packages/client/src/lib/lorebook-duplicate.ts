@@ -10,6 +10,7 @@ export function buildLorebookDuplicateInput(lorebook: Lorebook): CreateLorebookI
     description: lorebook.description,
     category: lorebook.category,
     imagePath: lorebook.imagePath,
+    imageCrop: lorebook.imageCrop,
     scanDepth: lorebook.scanDepth,
     tokenBudget: lorebook.tokenBudget,
     entryLimit: lorebook.entryLimit,

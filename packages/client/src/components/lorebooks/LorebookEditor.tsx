@@ -26,6 +26,7 @@ import {
   useLorebook,
   useLorebooks,
   useUpdateLorebook,
+  useUploadLorebookImage,
   useLorebookEntries,
   useEntriesAcrossLorebooks,
   useCreateLorebookEntry,
@@ -85,7 +86,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { cn, copyToClipboard } from "../../lib/utils";
+import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -99,6 +100,8 @@ import {
   buildFolderForest,
   canReparentFolder,
   selectLorebookEntryRange,
+  normalizeAvatarCrop,
+  type AvatarCrop,
   type Lorebook,
   type LorebookEntry,
   type LorebookFolder,
@@ -120,6 +123,9 @@ import { leaveWithoutSaving } from "../../lib/editor-leave";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
 import { Modal } from "../ui/Modal";
+import { AvatarCropWidget } from "../ui/AvatarCropWidget";
+import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
+import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
@@ -328,6 +334,7 @@ function lorebookFormFields(lorebook: Lorebook) {
     characterIds: Array.from(new Set(characterSource)),
     personaIds: Array.from(new Set(personaSource)),
     tags: lorebook.tags ?? [],
+    imageCrop: normalizeAvatarCrop(lorebook.imageCrop),
   };
 }
 type LorebookFormFields = ReturnType<typeof lorebookFormFields>;
@@ -368,6 +375,8 @@ export function LorebookEditor() {
   const { data: rawCharacters } = useCharacters();
   const { data: rawPersonas } = usePersonas();
   const updateLorebook = useUpdateLorebook();
+  const uploadLorebookImage = useUploadLorebookImage();
+  const { data: rawImageConnections } = useConnections();
   const deleteLorebook = useDeleteLorebook();
   const createEntry = useCreateLorebookEntry();
   const bulkDeleteEntries = useBulkDeleteLorebookEntries();
@@ -606,7 +615,14 @@ export function LorebookEditor() {
   const [formCharacterIds, setFormCharacterIds] = useState<string[]>([]);
   const [formPersonaIds, setFormPersonaIds] = useState<string[]>([]);
   const [formTags, setFormTags] = useState<string[]>([]);
+  const [formImageCrop, setFormImageCrop] = useState<AvatarCrop | null>(null);
   const [newTag, setNewTag] = useState("");
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const [imageGeneratorOpen, setImageGeneratorOpen] = useState(false);
+  const [imageRemoving, setImageRemoving] = useState(false);
+  const imageGenerationAvailable = (rawImageConnections as Array<{ provider?: string }> | undefined)?.some(
+    (connection) => connection.provider === "image_generation",
+  );
 
   const characterNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -678,6 +694,7 @@ export function LorebookEditor() {
     setFormCharacterIds(form.characterIds);
     setFormPersonaIds(form.personaIds);
     setFormTags(form.tags);
+    setFormImageCrop(form.imageCrop);
     loadedFormRef.current = form;
     setLorebookDirty(false);
     loadedLorebookIdRef.current = lorebook.id;
@@ -1645,6 +1662,7 @@ export function LorebookEditor() {
           characterIds: formCharacterIds,
           personaIds: formPersonaIds,
           tags: formTags,
+          imageCrop: formImageCrop,
         };
         await updateLorebook.mutateAsync({ id: lorebookId, ...lorebookSavePatch(form, loadedFormRef.current) });
         loadedFormRef.current = form;
@@ -1684,9 +1702,89 @@ export function LorebookEditor() {
     formCharacterIds,
     formPersonaIds,
     formTags,
+    formImageCrop,
     updateLorebook,
     localizeUi,
   ]);
+
+  // The picture applies at once (like the persona editor's avatar); only its crop waits for Save.
+  const saveLorebookImage = useCallback(
+    async (image: string) => {
+      if (!lorebookId) return;
+      await uploadLorebookImage.mutateAsync({ id: lorebookId, image });
+      if (useUIStore.getState().lorebookDetailId !== lorebookId) return;
+      // The server starts a new picture uncropped. The editor skips reloading while dirty, so reset the
+      // crop here too, or an old unsaved crop would be saved onto the new picture.
+      setFormImageCrop(null);
+      if (loadedFormRef.current) loadedFormRef.current = { ...loadedFormRef.current, imageCrop: null };
+    },
+    [lorebookId, uploadLorebookImage],
+  );
+
+  const handleImageFileSelected = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast.error(localizeUi("ui.panels.lorebookspanel.chooseAnImageFileForTheLorebookPicture"));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = typeof reader.result === "string" ? reader.result : "";
+        if (!image) {
+          toast.error(localizeUi("ui.panels.agentspanel.couldNotReadThatImage"));
+          return;
+        }
+        saveLorebookImage(image).then(
+          () => toast.success(localizeUi("ui.panels.lorebookspanel.lorebookPictureUpdated")),
+          (error: unknown) =>
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : localizeUi("ui.panels.lorebookspanel.failedToUploadLorebookPicture"),
+            ),
+        );
+      };
+      reader.onerror = () => toast.error(localizeUi("ui.panels.agentspanel.couldNotReadThatImage"));
+      reader.readAsDataURL(file);
+    },
+    [saveLorebookImage, localizeUi],
+  );
+
+  const handleGeneratedImage = useCallback(
+    async (image: string) => {
+      await saveLorebookImage(image);
+      toast.success(localizeUi("lorebook.editor.image.generated"));
+    },
+    [saveLorebookImage, localizeUi],
+  );
+
+  const handleImageRemove = useCallback(async () => {
+    if (!lorebookId || imageRemoving) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("lorebook.editor.image.removeTitle"),
+      message: localizeUi("lorebook.editor.image.removeConfirm"),
+      confirmLabel: localizeUi("settings.notifications.customSound.actions.remove"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    setImageRemoving(true);
+    try {
+      // The server drops the crop with the picture.
+      await updateLorebook.mutateAsync({ id: lorebookId, imagePath: null });
+      if (useUIStore.getState().lorebookDetailId === lorebookId) {
+        setFormImageCrop(null);
+        if (loadedFormRef.current) loadedFormRef.current = { ...loadedFormRef.current, imageCrop: null };
+      }
+      toast.success(localizeUi("lorebook.editor.image.removed"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("lorebook.editor.image.removeFailed"));
+    } finally {
+      setImageRemoving(false);
+    }
+  }, [lorebookId, imageRemoving, updateLorebook, localizeUi]);
 
   useEditorLeaveSave(`lorebookDetailId:${lorebookId}`, lorebookDirty, handleSaveLorebook, saving);
 
@@ -2176,6 +2274,17 @@ export function LorebookEditor() {
             </div>
           </Modal>
 
+          <AvatarGenerationModal
+            open={imageGeneratorOpen}
+            mode="cover"
+            title={localizeUi("lorebook.editor.image.generateTitle")}
+            entityName={formName}
+            defaultAppearance={formDescription.trim().slice(0, 400)}
+            defaultAvatarUrl={lorebook.imagePath}
+            onClose={() => setImageGeneratorOpen(false)}
+            onUseAvatar={handleGeneratedImage}
+          />
+
           {/* Header */}
           <div className="mari-editor-header mari-editor-header--with-nav">
             <div className="mari-editor-header-main">
@@ -2185,8 +2294,17 @@ export function LorebookEditor() {
                 iconSize="1rem"
                 className="mari-editor-action inline-flex disabled:opacity-50"
               />
-              <div className="mari-editor-icon-tile">
-                <BookOpen size="1.125rem" />
+              <div className="mari-editor-icon-tile relative">
+                {lorebook.imagePath ? (
+                  <img
+                    src={lorebook.imagePath}
+                    alt=""
+                    className="pointer-events-none h-full w-full object-cover"
+                    style={getAvatarCropStyle(formImageCrop)}
+                  />
+                ) : (
+                  <BookOpen size="1.125rem" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <h2 className="mari-editor-title truncate">{lorebook.name}</h2>
@@ -2284,6 +2402,50 @@ export function LorebookEditor() {
               <div className="mari-editor-content-inner mari-editor-content-inner--wide">
                 <section data-editor-section="overview">
                   <div className="space-y-4">
+                    {/* Image */}
+                    <div className="mari-editor-panel space-y-1.5 p-3">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium">
+                        {t("lorebook.editor.image.label")}
+                        <HelpTooltip text={t("lorebook.editor.image.help")} />
+                      </span>
+                      {lorebook.imagePath && (
+                        <fieldset
+                          disabled={imageRemoving || uploadLorebookImage.isPending}
+                          className="min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-60"
+                        >
+                          <AvatarCropWidget
+                            src={lorebook.imagePath}
+                            alt={formName}
+                            crop={formImageCrop}
+                            onRemove={() => void handleImageRemove()}
+                            removing={imageRemoving}
+                            onChange={(next) => {
+                              setFormImageCrop(next);
+                              markLorebookDirty();
+                            }}
+                          />
+                        </fieldset>
+                      )}
+                      <fieldset disabled={imageRemoving} className="min-w-0 border-0 p-0 disabled:opacity-60">
+                        <AvatarReplaceActions
+                          kind="cover"
+                          hasAvatar={Boolean(lorebook.imagePath)}
+                          uploading={uploadLorebookImage.isPending}
+                          generationAvailable={Boolean(imageGenerationAvailable)}
+                          onUpload={() => imageFileRef.current?.click()}
+                          onGenerate={() => setImageGeneratorOpen(true)}
+                        />
+                      </fieldset>
+                      <input
+                        ref={imageFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        tabIndex={-1}
+                        onChange={handleImageFileSelected}
+                      />
+                    </div>
+
                     {/* Name */}
                     <div className="mari-editor-panel p-3" data-mari-field="name">
                       <label className="mb-1.5 block text-xs font-medium">

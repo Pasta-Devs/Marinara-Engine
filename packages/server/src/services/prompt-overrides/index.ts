@@ -7,6 +7,7 @@ export type { TemplateValidationResult } from "./template.js";
 export {
   PROMPT_OVERRIDE_REGISTRY,
   CHARACTERS_REFERENCE_SHEET,
+  CHARACTERS_LOREBOOK_COVER,
   SPRITES_ANIMATED_PORTRAIT,
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
@@ -38,6 +39,7 @@ export type {
   PromptOverrideKeyDef,
   PromptVariable,
   CharactersReferenceSheetCtx,
+  CharactersLorebookCoverCtx,
   SpritesExpressionSheetCtx,
   SpritesSinglePortraitCtx,
   SpritesAnimatedPortraitCtx,
