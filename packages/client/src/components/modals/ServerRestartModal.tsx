@@ -18,11 +18,6 @@ const TITLE_KEYS = {
   slow: "settings.serverRestart.sheet.title.slow",
   back: "settings.serverRestart.sheet.title.back",
 } as const;
-const DESCRIPTION_KEYS = {
-  restarting: "settings.serverRestart.sheet.description.restarting",
-  slow: "settings.serverRestart.sheet.description.slow",
-  back: "settings.serverRestart.sheet.description.back",
-} as const;
 const STEP_KEYS = {
   stopping: "settings.serverRestart.sheet.step.stopping",
   starting: "settings.serverRestart.sheet.step.starting",
@@ -91,7 +86,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       width="max-w-md"
       closeDisabled
       pullToClose={false}
-      closeButtonClassName="hidden"
+      hideHeader
       footer={
         slow ? (
           <>
@@ -124,9 +119,14 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
             {t("home.browser.version", { version: APP_VERSION })}
           </span>
         </div>
-        <p role="status" className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
-          {t(DESCRIPTION_KEYS[phase])}
+        <p role="status" className="sr-only">
+          {t(TITLE_KEYS[phase])}
         </p>
+        {phase === "slow" && (
+          <p className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
+            {t("settings.serverRestart.sheet.description.slow")}
+          </p>
+        )}
         <ol className="flex flex-col gap-0.5 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] p-1.5">
           {STEPS.map((item, index) => {
             const done = index < activeIndex || step === "back";

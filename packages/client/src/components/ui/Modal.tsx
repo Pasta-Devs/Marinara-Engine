@@ -51,6 +51,8 @@ interface ModalProps {
   /** Actions pinned under the scrolling content; main action first, stacked full-width on phones. */
   footer?: ReactNode;
   closeButtonClassName?: string;
+  /** Hide the header bar; `title` still names the dialog. For sheets that cannot be closed. */
+  hideHeader?: boolean;
   /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
@@ -81,6 +83,7 @@ export function Modal({
   pullToClose = true,
   footer,
   closeButtonClassName,
+  hideHeader = false,
   opaque = false,
   dragThrough = false,
   modeless = false,
@@ -356,26 +359,28 @@ export function Modal({
       >
         {pullClose && <div aria-hidden="true" className={`${SHEET_GRABBER_CLASS} sm:hidden`} />}
         {/* Header */}
-        <div
-          className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER} ${sheet && !titleSlot ? "max-sm:relative max-sm:min-h-13 max-sm:justify-center max-sm:px-12" : ""}`}
-        >
-          {titleSlot ?? (
-            <h2
-              className={`${NEUTRAL_PANEL_TITLE} ${sheet ? "max-sm:justify-center max-sm:text-center max-sm:text-[17px]" : ""}`}
-            >
-              {localizedTitle}
-            </h2>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={closeDisabled}
-            aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : "max-sm:after:absolute max-sm:after:-inset-1 max-sm:after:content-['']"} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
+        {!hideHeader && (
+          <div
+            className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER} ${sheet && !titleSlot ? "max-sm:relative max-sm:min-h-13 max-sm:justify-center max-sm:px-12" : ""}`}
           >
-            <X size="1rem" />
-          </button>
-        </div>
+            {titleSlot ?? (
+              <h2
+                className={`${NEUTRAL_PANEL_TITLE} ${sheet ? "max-sm:justify-center max-sm:text-center max-sm:text-[17px]" : ""}`}
+              >
+                {localizedTitle}
+              </h2>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={closeDisabled}
+              aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
+              className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : "max-sm:after:absolute max-sm:after:-inset-1 max-sm:after:content-['']"} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
+            >
+              <X size="1rem" />
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <div
