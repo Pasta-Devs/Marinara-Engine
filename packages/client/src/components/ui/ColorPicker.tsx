@@ -323,7 +323,9 @@ function MarinaraColorSelector({
   const { t } = useUiTranslation();
   const baseHex = value.slice(0, 7);
   const alpha = hexAlpha(value);
-  // The draft keeps hue and saturation while they cannot be read back from the hex (greys, black).
+  // The draft keeps hue, saturation and brightness exactly, since the rounded hex cannot give them back (and
+  // gives no hue at all for greys and black). It outlives a commit, so arrow steps add up exactly; a value from
+  // outside ends it.
   const [draft, setDraft] = useState<[number, number, number] | null>(null);
   const previousValueRef = useRef(value);
   const [hue, saturation, brightness] = draft ?? hexToHsv(baseHex);
@@ -339,10 +341,6 @@ function MarinaraColorSelector({
   const update = (next: [number, number, number]) => {
     setDraft(next);
     onChange(withAlpha(hsvToHex(...next), alpha), true);
-  };
-  const commit = () => {
-    onCommit();
-    setDraft(null);
   };
   const pickFromScreen = async () => {
     if (!EyeDropper) return;
@@ -373,7 +371,7 @@ function MarinaraColorSelector({
           saturation: Math.round(saturation),
           brightness: Math.round(brightness),
         })}
-        {...dragProps((x, y) => update([hue, Math.round(x * 100), Math.round((1 - y) * 100)]), commit)}
+        {...dragProps((x, y) => update([hue, Math.round(x * 100), Math.round((1 - y) * 100)]), onCommit)}
         onKeyDown={(event) => {
           const [dx, dy] = arrowStep(event);
           if (dx || dy) update([hue, clampPercent(saturation + dx), clampPercent(brightness + dy)]);
@@ -417,7 +415,7 @@ function MarinaraColorSelector({
             thumb={`hsl(${hue} 100% 50%)`}
             onPick={(x) => update([Math.min(359, Math.round(x * 360)), saturation, brightness])}
             onStep={(delta) => update([(hue + delta + 360) % 360, saturation, brightness])}
-            onCommit={commit}
+            onCommit={onCommit}
           />
         </div>
       </div>

@@ -35,12 +35,24 @@ The builder groups the slots under **Chat**, **Story**, **Pictures** and **Behin
 
 How to fill the slots:
 
-- Pick items from each slot's list. **Agents**, **Tools** and **Lorebooks** allow several picks. Use the checkboxes in **Tools** to turn each tool on or off. For a single-item slot, choose **None** to clear it.
-- In the agents and lorebooks lists on a computer, hold <kbd>Ctrl</kbd> (<kbd>Command</kbd> on macOS) to pick several items. On a phone, use the selection controls. **Clear selection** empties a list.
+- Tap a slot's field to open a picker window with search and your library's folders, like the preset and lorebook pickers. For a single-item slot, choose **None** to clear it.
+- **Agents** and **Lorebooks** allow several picks: tick them in the window, or use **Add all** on a folder. Each pick shows under the field with a remove button, and **Clear selection** empties the slot. **Tools** is a checkbox list: tick each tool to turn it on.
 - On a computer you can open a library sidebar while the editor stays open and drag an item onto its field.
 - **Parameters**, **Memory & summary** and **Translation** only show whether the profile holds them. Change them in Chat Settings, then save into the profile.
 
-In the new chat wizard, the **Use a Profile** step also has **New profile…** at the top of the list and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+In the new chat wizard, the **Use a Profile** step has **New** beside the profile field, and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+
+## The Profiles tab
+
+To manage profiles outside a chat, open the **Presets** panel and choose the **Profiles** tab. It lists every Conversation and Roleplay profile, the **Default** of each mode first. The pills above the list (**All**, **Conversation**, **Roleplay**) filter it by mode, and **Search profiles** filters it by name. A star marks each mode's default for new chats.
+
+- Click a profile to open it in the profile editor in the middle of the screen. **Back** saves your changes; **Cancel** discards them. The **Default** profiles cannot be edited, so they don't open.
+- **Create settings profile** opens an empty profile. Pick its mode with the **Conversation** and **Roleplay** pills; a saved profile keeps its mode.
+- Hover a row to star it as the default, duplicate it, export it or delete it. On a phone these buttons always show at the row's right edge.
+- **Select profiles** exports or deletes several at once. **Select all profiles** skips the Default profiles, which cannot be deleted. Each profile exports as its own file.
+- **Import settings profile (.json)** loads a `.marinara-settings-profile.json` file.
+
+**Edit** in Chat Settings still opens the builder as a window over the chat.
 
 ## Save chat settings into a profile
 

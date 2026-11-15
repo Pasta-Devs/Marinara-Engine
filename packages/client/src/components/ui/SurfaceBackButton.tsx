@@ -47,6 +47,8 @@ function backLabelKey(destination: BackDestination, hasActiveChat: boolean): str
       return "navigation.back.toConnection";
     case "presetDetailId":
       return "navigation.back.toPreset";
+    case "profileDetailId":
+      return "navigation.back.toProfile";
     case "characterDetailId":
       return "navigation.back.toCharacter";
     case "characterLibraryOpen":

@@ -2,7 +2,7 @@
 // Keeps new Node regressions out of the flat scripts/regressions/ folder and away from reading the app's source as
 // text. Files that were already there when this check arrived are listed in scripts/regressions/layout-exceptions.json.
 // That list never gains a file: an entry whose file is gone or has stopped reading source is an error until removed,
-// and a "readsSource" file that moves takes its entry with it.
+// and a "readsSource" file that moves takes its entry with it (each part of a split file that still reads source).
 // See CONTRIBUTING.md § Where a Node regression goes.
 import fs from "node:fs";
 import path from "node:path";

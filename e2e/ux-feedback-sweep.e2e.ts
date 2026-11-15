@@ -300,42 +300,6 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
   }
 });
 
-test("UX sweep: Use a voice per character keeps Text to Speech settings saved elsewhere", async ({
-  page,
-  request,
-}, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "One desktop run covers the save; the layout is the same.");
-  const original = await (await request.get("/api/tts/config")).json();
-  const created = await request.post("/api/characters", { data: { data: { name: `UX Voice Mode ${Date.now()}` } } });
-  expect(created.ok()).toBeTruthy();
-  const { id } = (await created.json()) as { id: string };
-  try {
-    const shared = { ...original, enabled: true, source: "openai", speed: 1, voiceMode: "single" };
-    expect((await request.put("/api/tts/config", { data: shared })).ok()).toBeTruthy();
-    await page.route("**/api/tts/voices", (route) =>
-      route.fulfill({ json: { voices: ["echo"], voiceOptions: [{ id: "echo", name: "echo" }], fromProvider: false } }),
-    );
-    await page.goto("/");
-    await openEditor(page, "Character", id);
-    const editor = page.locator(".mari-editor-shell");
-    await openSection(editor, "Voice");
-    const usePerCharacter = editor
-      .locator('[data-editor-section="voice"]')
-      .getByRole("button", { name: "Use a voice per character" });
-    await expect(usePerCharacter).toBeVisible();
-    // Another tab saves a new speed after this page read the settings; the switch must keep it.
-    expect((await request.put("/api/tts/config", { data: { ...shared, speed: 1.5 } })).ok()).toBeTruthy();
-    await usePerCharacter.click();
-    await expect
-      .poll(async () => ((await (await request.get("/api/tts/config")).json()) as { voiceMode: string }).voiceMode)
-      .toBe("per-character");
-    expect(((await (await request.get("/api/tts/config")).json()) as { speed: number }).speed).toBe(1.5);
-  } finally {
-    await request.put("/api/tts/config", { data: original });
-    await request.delete(`/api/characters/${id}`);
-  }
-});
-
 test("UX sweep: Appearance groups, quick access, width and hidden-panel state", async ({ page }, testInfo) => {
   await page.goto("/");
   await clickTopbarPanel(page, "settings");

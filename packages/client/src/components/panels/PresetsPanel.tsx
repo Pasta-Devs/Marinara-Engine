@@ -3,16 +3,7 @@ import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Presets (overhauled — search, assign, edit, duplicate)
 // ──────────────────────────────────────────────
-import {
-  useState,
-  useMemo,
-  useCallback,
-  useRef,
-  type ChangeEvent,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useState, useMemo, useCallback, useRef, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import {
   usePresets,
@@ -49,20 +40,18 @@ import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
-import { LibraryTabToolbar } from "./LibraryTabToolbar";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import {
   FileText,
   Trash2,
   Check,
   Copy,
-  ArrowUpDown,
   Code2,
   Hash,
   Star,
   Regex,
   GripVertical,
   Pencil,
-  ChevronDown,
   ChevronRight,
   FolderInput,
   Pause,
@@ -105,6 +94,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { ProfilesSection } from "./ProfilesSection";
 
 type PresetRow = {
   id: string;
@@ -319,8 +309,8 @@ export function PresetsPanel() {
   const updateMetadata = useUpdateChatMetadata();
   const [search, setSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"presets" | "regex" | "functions">("presets");
-  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | null>(null);
+  const [tab, setTab] = useState<"presets" | "regex" | "functions" | "profiles">("presets");
+  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | "profiles" | null>(null);
   const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -1197,34 +1187,6 @@ export function PresetsPanel() {
     ],
   );
 
-  const presetSort = (
-    <div className="relative">
-      <select
-        value={manualOrderActive || folderDrag.active ? "custom" : sort}
-        onChange={(e) => {
-          manualOrder.setActive(e.target.value === "custom");
-          folderDrag.setActive(e.target.value === "custom");
-          if (e.target.value !== "custom") setSort(e.target.value as ResourcePanelSort);
-        }}
-        className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-        title={localizeUi("ui.panels.agentspanel.sortOrder")}
-        aria-label={localizeUi("ui.panels.presetspanel.sortPresets")}
-      >
-        <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-          {localizeUi("dragDrop.manualOrder")}
-        </option>
-        <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-        <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-        <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-        <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-      </select>
-      <ArrowUpDown
-        size="0.625rem"
-        className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-      />
-    </div>
-  );
-
   const presetLibrary = (
     <>
       <input
@@ -1235,7 +1197,8 @@ export function PresetsPanel() {
         onChange={handlePresetImageSelected}
       />
 
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.panels.presetspanel.createPreset"),
           title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
@@ -1258,19 +1221,40 @@ export function PresetsPanel() {
           },
         }}
         search={{ value: search, placeholder: localizeUi("search.panels.presets"), onChange: setSearch }}
-        sort={presetSort}
+        sort={{
+          value: manualOrderActive || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.presetspanel.sortPresets"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setSort(value as ResourcePanelSort);
+          },
+        }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
           onCreate: handleCreateFolder,
-          helper: presetFolders.length > 0 && (
-            <p className="mari-folder-helper">
-              {localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}
-            </p>
-          ),
+          helper:
+            presetFolders.length > 0
+              ? localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")
+              : undefined,
         }}
       />
 
-      <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
+        {selectionMode && (
+          <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+            <input
+              type="checkbox"
+              checked={sortedPresets.length > 0 && sortedPresets.every((preset) => selectedPresetIds.has(preset.id))}
+              disabled={exportingSelected || sortedPresets.length === 0}
+              onChange={(event) =>
+                setSelectedPresetIds(new Set(event.target.checked ? sortedPresets.map((preset) => preset.id) : []))
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            {localizeUi("ui.panels.presetspanel.selectAllPresets")}
+          </label>
+        )}
         <div className="flex flex-col gap-0.5">
           {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
@@ -1481,7 +1465,7 @@ export function PresetsPanel() {
               : localizeUi("ui.panels.presetspanel.clickAPresetToEdit")}
           </p>
         )}
-      </PanelSection>
+      </div>
 
       {selectionMode && (
         <SelectionActionBar
@@ -1497,25 +1481,30 @@ export function PresetsPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <div className="flex flex-wrap gap-1" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
-        {(["presets", "regex", "functions"] as const).map((value) => (
+      {/* Same gap and equal-width columns as LibraryToolbar's action row, so the tabs line up with the buttons. */}
+      <div className="flex gap-2" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
+        {(["presets", "regex", "functions", "profiles"] as const).map((value) => (
           <button
             key={value}
             type="button"
             className={cn(
-              "mari-chrome-control h-8 min-h-8 flex-auto px-2 text-[0.625rem]",
+              "mari-chrome-control h-8 min-h-8 min-w-0 flex-1 px-2 text-[0.625rem]",
               tab === value && "mari-chrome-control--selected",
             )}
             aria-pressed={tab === value}
             onClick={() => setTab(value)}
           >
-            {localizeUi(
-              value === "presets"
-                ? "navigation.topbar.presets"
-                : value === "regex"
-                  ? "ui.panels.regexsection.regexes"
-                  : "ui.panels.functionssection.functions",
-            )}
+            <span className="truncate">
+              {localizeUi(
+                value === "presets"
+                  ? "ui.panels.presetspanel.prompts"
+                  : value === "regex"
+                    ? "ui.panels.regexsection.regexes"
+                    : value === "functions"
+                      ? "ui.panels.functionssection.functions"
+                      : "ui.panels.profilessection.profiles",
+              )}
+            </span>
           </button>
         ))}
       </div>
@@ -1579,6 +1568,21 @@ export function PresetsPanel() {
           openRegexDetail={openRegexDetail}
           updateRegex={updateRegex}
           deleteRegex={deleteRegex}
+        />
+      </div>
+
+      <div className={tab === "profiles" ? "contents" : "hidden"}>
+        <ProfilesSection
+          selectionMode={selectionTarget === "profiles"}
+          setSelectionMode={(enabled) => {
+            if (enabled) {
+              setSelectedPresetIds(new Set());
+              setSelectionTarget("profiles");
+            } else {
+              setSelectionTarget((target) => (target === "profiles" ? null : target));
+            }
+          }}
+          activeChatMode={activeChat?.mode ?? null}
         />
       </div>
 
@@ -1933,7 +1937,8 @@ function RegexSection({
 
   return (
     <>
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.characters.characterregexsection.createRegex"),
           title: localizeUi("ui.characters.characterregexsection.createRegex"),
@@ -1975,23 +1980,17 @@ function RegexSection({
                 onError: reportError,
               },
             ),
-          extra: folders.length > 0 && (
-            <button
-              type="button"
-              aria-pressed={showExecutionOrder}
-              onClick={() => setShowExecutionOrder((current) => !current)}
-              className={cn(
-                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
-                showExecutionOrder && "mari-chrome-control--selected",
-              )}
-            >
-              <ArrowUpDown size="0.75rem" />
-              {localizeUi("regex.library.executionOrder")}
-            </button>
-          ),
+          toggle:
+            folders.length > 0
+              ? {
+                  label: localizeUi("regex.library.executionOrder"),
+                  active: showExecutionOrder,
+                  onToggle: () => setShowExecutionOrder((current) => !current),
+                }
+              : undefined,
         }}
       />
-      <PanelSection title={localizeUi("ui.panels.regexsection.regexes")} icon={<Regex size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
         <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}
         </div>
@@ -2118,7 +2117,7 @@ function RegexSection({
           />
         )}
         {moveMenu}
-      </PanelSection>
+      </div>
     </>
   );
 }
@@ -2454,7 +2453,8 @@ function FunctionsSection({
 
   return (
     <>
-      <LibraryTabToolbar
+      <LibraryToolbar
+        tone="presets"
         create={{
           label: localizeUi("ui.panels.functionssection.createFunction"),
           title: localizeUi("ui.panels.functionssection.createFunction"),
@@ -2496,23 +2496,17 @@ function FunctionsSection({
                 onError: reportError,
               },
             ),
-          extra: folders.length > 0 && (
-            <button
-              type="button"
-              aria-pressed={showManualOrder}
-              onClick={() => setShowManualOrder((current) => !current)}
-              className={cn(
-                "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]",
-                showManualOrder && "mari-chrome-control--selected",
-              )}
-            >
-              <ArrowUpDown size="0.75rem" />
-              {localizeUi("dragDrop.manualOrder")}
-            </button>
-          ),
+          toggle:
+            folders.length > 0
+              ? {
+                  label: localizeUi("dragDrop.manualOrder"),
+                  active: showManualOrder,
+                  onToggle: () => setShowManualOrder((current) => !current),
+                }
+              : undefined,
         }}
       />
-      <PanelSection title={localizeUi("ui.panels.functionssection.functions")} icon={<Wrench size="0.8125rem" />}>
+      <div className="flex flex-col gap-1">
         <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}
         </div>
@@ -2710,7 +2704,7 @@ function FunctionsSection({
           />
         )}
         {moveMenu}
-      </PanelSection>
+      </div>
     </>
   );
 }
@@ -2729,40 +2723,4 @@ function getFunctionParameterCount(parametersSchema: string) {
   } catch {
     return 0;
   }
-}
-
-function PanelSection({
-  title,
-  icon,
-  action,
-  defaultOpen = true,
-  children,
-}: {
-  title: string;
-  icon: ReactNode;
-  action?: ReactNode;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="mt-1">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setOpen((current) => !current)}
-          className="flex items-center gap-1.5 px-1 py-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
-        >
-          <ChevronDown
-            size="0.75rem"
-            className={cn("mari-chrome-accent-icon mari-accent-animated transition-transform", open && "rotate-180")}
-          />
-          <span className="text-[var(--marinara-chat-chrome-button-text)]">{icon}</span>
-          {title}
-        </button>
-        {action}
-      </div>
-      {open && <div className="mt-1 flex flex-col gap-1">{children}</div>}
-    </div>
-  );
 }

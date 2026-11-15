@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { LorebookListField, PresetPickerField, type LibraryLorebook, type LibraryPreset } from "../ui/LibraryPickers";
+import { ProfilePickerField } from "./ProfilePickerField";
 import { advanceChatSetupDraft } from "../../lib/chat-setup-draft";
 import { useDiscardNewChatSetup } from "../../hooks/use-discard-new-chat-setup";
 import { useConnections, useModelParameterCapabilities } from "../../hooks/use-connections";
@@ -34,7 +35,12 @@ import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from
 import { useChatPresets, useApplyChatPreset, useIsApplyingChatPreset } from "../../hooks/use-chat-presets";
 import { nextWizardApplyHold, type WizardApplyHold } from "../../lib/chat-preset-apply";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
-import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
+import { useCapabilityAgentRegistry, usePackageTurnGameCommands } from "../../hooks/use-capability-packages";
+import {
+  buildConversationCommandToggleOptions,
+  readConversationCommandToggles,
+  type ConversationCommandToggleOption,
+} from "../../features/chat-settings/lib/conversation-command-toggles";
 import { useUIStore } from "../../stores/ui.store";
 import { openAddConnection } from "../../lib/add-connection";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
@@ -68,8 +74,6 @@ import {
   readCardOnboarding,
   resolveOnboardingGreeting,
   shouldFillGreetingFromPersona,
-  CONVERSATION_COMMAND_AGENT_IDS,
-  CONVERSATION_COMMAND_KEYS,
   CHAT_FOLLOWS_MAIN_KEY,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_AGENT_CONTEXT_SIZE,
@@ -91,6 +95,7 @@ import {
   type ChatMode,
   type ChatPreset,
   type ConversationCommandKey,
+  type ConversationCommandToggles,
   type AvatarCrop,
   type Lorebook,
   type Message,
@@ -189,14 +194,7 @@ const CONVERSATION_STEPS: WizardStep[] = [
   },
 ];
 
-const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
-  id: ConversationCommandKey;
-  label: string;
-  description: string;
-  /** Catalog keys for the label and description; entries without them still show their English text. */
-  labelKey?: string;
-  descriptionKey?: string;
-}> = [
+const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<ConversationCommandToggleOption & { id: ConversationCommandKey }> = [
   { id: "schedule_update", label: "Schedule Updates", description: "Let characters change their current status." },
   { id: "cross_post", label: "Cross-Post", description: "Let characters redirect a message into another chat." },
   { id: "selfie", label: "Selfies", description: "Let characters request generated selfies." },
@@ -296,7 +294,6 @@ const WIZARD_PANEL_CLASS = cn(
 );
 
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
-const NEW_PROFILE_OPTION = "__new-profile__";
 const WIZARD_INPUT_CLASS =
   "w-full min-w-0 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
 const WIZARD_NUMBER_INPUT_CLASS =
@@ -312,16 +309,6 @@ function readChatActiveAgentIds(chat: Chat): string[] {
   const metadata = readChatMetadata(chat);
   const activeIds = metadata.activeAgentIds;
   return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
-}
-
-function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const source = value as Record<string, unknown>;
-  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
-  for (const key of CONVERSATION_COMMAND_KEYS) {
-    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
-  }
-  return toggles;
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number, max: number, min = 1): number {
@@ -916,12 +903,16 @@ function ConversationQuickSetup({
     () => new Set(installedAgentManifests.map((agent) => agent.id)),
     [installedAgentManifests],
   );
-  const availableConversationCommandOptions = useMemo(() => {
-    return CONVERSATION_COMMAND_TOGGLE_OPTIONS.filter((command) => {
-      const agentId = CONVERSATION_COMMAND_AGENT_IDS[command.id];
-      return !agentId || installedAgentIds.has(agentId);
-    });
-  }, [installedAgentIds]);
+  const packageTurnGameCommands = usePackageTurnGameCommands(chat.mode === "conversation").data;
+  const availableConversationCommandOptions = useMemo(
+    () =>
+      buildConversationCommandToggleOptions(
+        installedAgentIds,
+        packageTurnGameCommands ?? [],
+        CONVERSATION_COMMAND_TOGGLE_OPTIONS,
+      ),
+    [installedAgentIds, packageTurnGameCommands],
+  );
   const availableConversationCommandIds = useMemo(
     () => new Set(availableConversationCommandOptions.map((command) => command.id)),
     [availableConversationCommandOptions],
@@ -1011,9 +1002,9 @@ function ConversationQuickSetup({
         typeof metadata.appliedChatPresetId === "string") &&
       metadata.characterCommands !== false,
   );
-  const [conversationCommandToggles, setConversationCommandToggles] = useState<
-    Partial<Record<ConversationCommandKey, boolean>>
-  >(() => readConversationCommandToggles(metadata.conversationCommandToggles));
+  const [conversationCommandToggles, setConversationCommandToggles] = useState<ConversationCommandToggles>(() =>
+    readConversationCommandToggles(metadata.conversationCommandToggles),
+  );
   const connectionOptions = useMemo(
     () =>
       appendLocalSidecarConnectionOption(
@@ -1671,7 +1662,9 @@ function ConversationQuickSetup({
                     {command.labelKey ? localizeUi(command.labelKey) : command.label}
                   </span>
                   <p className="mt-0.5 text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
-                    {command.descriptionKey ? localizeUi(command.descriptionKey) : command.description}
+                    {command.descriptionKey
+                      ? localizeUi(command.descriptionKey, command.descriptionValues)
+                      : command.description}
                   </p>
                 </div>
                 <div
@@ -3230,27 +3223,17 @@ function RoleplaySetupWizard({
       <div className="space-y-1.5">
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("chat.settingsProfile.label")}</label>
         <div className="flex items-center gap-2">
-          <select
+          <ProfilePickerField
+            profiles={chatPresetList}
             value={shortcutPresetId}
-            onChange={(event) => {
-              if (event.target.value === NEW_PROFILE_OPTION) return setProfileBuilder("new");
-              setShortcutPresetId(event.target.value);
-            }}
-            aria-label={localizeUi("chat.settingsProfile.label")}
-            className={WIZARD_INPUT_CLASS}
-          >
-            {chatPresetList.length === 0 && (
-              <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>
+            onChange={setShortcutPresetId}
+            missingLabel={localizeUi(
+              chatPresetList.length === 0
+                ? "ui.characters.characterlibraryview.loading"
+                : "chat.settingsProfile.option.missing",
             )}
-            {chatPresetList.length > 0 && (
-              <option value={NEW_PROFILE_OPTION}>{localizeUi("chat.settingsProfile.builder.newOption")}</option>
-            )}
-            {chatPresetList.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.isDefault ? localizeUi("ui.noodle.noodlehome.default") : preset.name}
-              </option>
-            ))}
-          </select>
+            triggerClassName={WIZARD_INPUT_CLASS}
+          />
           {shortcutPreset && !shortcutPreset.isDefault && (
             <button
               type="button"
@@ -3259,6 +3242,18 @@ function RoleplaySetupWizard({
               className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               {localizeUi("chat.settingsProfile.builder.edit")}
+            </button>
+          )}
+          {/* Chat Settings' "+ New" beside its profile field: a new profile is an action, not a pick. */}
+          {chatPresetList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setProfileBuilder("new")}
+              title={localizeUi("chat.settingsProfile.builder.newTitle")}
+              className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              <Plus size="0.75rem" aria-hidden />
+              {localizeUi("chat.settingsProfile.builder.new")}
             </button>
           )}
         </div>

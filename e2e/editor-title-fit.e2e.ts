@@ -40,6 +40,7 @@ test("character editor shows the whole name when it fits beside the byline", asy
     if (testInfo.project.name.includes("mobile")) {
       await expectFullName();
       // The Onboarding section (#7308) and Ask Professor Mari (#7312) pushed the actions onto a row of their own.
+      // Since #9227 that row is the section menu, Save, the favourite star and "…".
       const header = page.locator(".mari-editor-shell .mari-editor-header");
       await expect(header.getByRole("button", { name: "Editor sections", exact: true })).toBeVisible();
       const row = await header.evaluate((element) => {
@@ -56,7 +57,7 @@ test("character editor shows the whole name when it fits beside the byline", asy
         return { left: bounds.left, right: bounds.right, controls };
       });
       const rowCenters = row.controls.map((control) => control.center);
-      expect(row.controls).toHaveLength(8);
+      expect(row.controls).toHaveLength(4);
       expect(
         Math.max(...rowCenters) - Math.min(...rowCenters),
         "the section menu and every action share one row",

@@ -8,7 +8,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { Ban, Link2, Plus, UserPlus, Users, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { includesTextForMatch, type CharacterGroup, type Persona } from "@marinara-engine/shared";
-import { useCharacterGroups, useCharacters, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
+import { useCharacterGroups, useCharacterListRows, usePersonaGroups, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
@@ -28,6 +28,7 @@ import {
   UNGROUPED_CHARACTER_GROUP_ID,
   type CharacterIdentityChoice,
 } from "../../lib/character-identity-groups";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 export type CharacterSelectKind = "persona" | "character";
 
@@ -89,7 +90,13 @@ function Avatar({
   if (src) {
     return (
       <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-foreground/10">
-        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" style={getAvatarCropStyle(crop)} />
+        <img
+          src={avatarPreviewSrc(src)}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+          style={getAvatarCropStyle(crop)}
+        />
       </div>
     );
   }
@@ -159,7 +166,7 @@ export function CharacterPickerList({
 
   const personasQuery = usePersonas(isPersona);
   const { data: rawPersonaGroups } = usePersonaGroups();
-  const charactersQuery = useCharacters();
+  const charactersQuery = useCharacterListRows();
   const { data: rawCharacterGroups } = useCharacterGroups();
   const loading = (isPersona && personasQuery.isLoading) || (offersCharacters && charactersQuery.isLoading);
 

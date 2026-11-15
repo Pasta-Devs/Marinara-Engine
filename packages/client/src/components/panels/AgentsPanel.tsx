@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Trash2,
-  Search,
   PenLine,
   Radar,
   Puzzle,
@@ -23,8 +22,6 @@ import {
   Camera,
   Download,
   Check,
-  FolderPlus,
-  ArrowUpDown,
   ShieldCheck,
   TriangleAlert,
   Dices,
@@ -115,9 +112,9 @@ import {
 } from "../../hooks/use-library-folders";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import { AgentArtwork } from "../agents/AgentArtwork";
 import { AgentModeFilter, type AgentModeFilterValue } from "../agents/AgentModeFilter";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TilePack } from "@marinara-engine/shared";
 import { ApiError, api } from "../../lib/api-client";
@@ -183,7 +180,6 @@ type PendingRulesetImport = {
 };
 const AGENT_GRADIENT_SURFACE =
   "mari-panel-gradient-surface mari-panel-gradient--agents text-[var(--mari-panel-gradient-text)]";
-const AGENT_GRADIENT_BUTTON = "mari-panel-gradient-button mari-panel-gradient--agents";
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -283,7 +279,6 @@ export function AgentsPanel() {
   const manualOrder = useLibraryOrder("agent");
   const folderDrag = useLibraryFolderDrag("agent");
   const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const { data: agentConfigs, isLoading } = useAgentConfigs();
   const { data: capabilityAgents, isLoading: capabilityAgentsLoading } = useCapabilityAgentRegistry();
   const { data: capabilityCatalog } = useCapabilityCatalog();
@@ -624,11 +619,11 @@ export function AgentsPanel() {
   // a filter the user can no longer see or clear must not hide the rulesets.
   const visibleRulesets = installedRulesets.filter(
     ({ definition }) =>
-      !hasInstalledAgents ||
-      ((agentModeFilter === "all" || agentModeFilter === "game") &&
-        (!agentSearchQuery ||
-          definition.name.toLowerCase().includes(agentSearchQuery) ||
-          definition.coverage.summary.toLowerCase().includes(agentSearchQuery))),
+      // The mode filter only shows once agents exist; the search field always shows, so it always applies.
+      (!hasInstalledAgents || agentModeFilter === "all" || agentModeFilter === "game") &&
+      (!agentSearchQuery ||
+        definition.name.toLowerCase().includes(agentSearchQuery) ||
+        definition.coverage.summary.toLowerCase().includes(agentSearchQuery)),
   );
 
   const confirmAndUninstallRuleset = async (packageId: string, name: string) => {
@@ -1439,55 +1434,63 @@ export function AgentsPanel() {
         onChange={(event) => void handleRulesetFileSelected(event)}
       />
 
-      <button
-        type="button"
-        onClick={() => openAgentCatalog()}
-        className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
-      >
-        <Store size="0.875rem" />
-        {localizeUi("ui.agents.agentcatalogview.downloadAgents")}
-        {organizerUpdateCount > 0 && (
-          <span className="rounded-md bg-[var(--marinara-chat-chrome-accent,var(--primary))] px-1.5 py-0.5 text-[0.625rem] font-semibold leading-none text-[var(--primary-foreground)]">
-            {localizeUi("ui.panels.agentspanel.updateCount", { count: organizerUpdateCount })}
-          </span>
-        )}
-      </button>
-
-      <div className="flex gap-2">
-        <button
-          onClick={handleCreateAgent}
-          className={cn("flex-1 text-xs", AGENT_GRADIENT_BUTTON)}
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => void chooseAgentImportSource()}
-          aria-disabled={!agentImportsEnabled || agentImportPolicyLoading}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            (!agentImportsEnabled || agentImportPolicyLoading) && "cursor-not-allowed grayscale opacity-45",
-          )}
-          title={agentImportsEnabled ? localizeUi("ui.panels.agentspanel.importAgents") : agentImportsDisabledHelp}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => {
+      <LibraryToolbar
+        tone="agents"
+        library={{
+          download: {
+            label: localizeUi("ui.agents.agentcatalogview.downloadAgents"),
+            icon: Store,
+            onClick: () => openAgentCatalog(),
+            badge:
+              organizerUpdateCount > 0
+                ? localizeUi("ui.panels.agentspanel.updateCount", { count: organizerUpdateCount })
+                : undefined,
+          },
+        }}
+        create={{
+          label: localizeUi("ui.panels.agentspanel.createAgent"),
+          title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
+          onClick: handleCreateAgent,
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.agentspanel.importAgents"),
+          title: localizeUi("ui.panels.agentspanel.importAgents"),
+          onClick: () => void chooseAgentImportSource(),
+          disabledReason: !agentImportsEnabled || agentImportPolicyLoading ? agentImportsDisabledHelp : undefined,
+        }}
+        select={{
+          active: selectionMode,
+          label: selectionMode
+            ? localizeUi("ui.panels.agentspanel.exitAgentSelectionMode")
+            : localizeUi("ui.panels.agentspanel.selectAgents"),
+          title: localizeUi("ui.panels.agentspanel.selectAgents"),
+          disabled: selectableAgents.length === 0,
+          onToggle: () => {
             if (selectionMode) exitSelectionMode();
             else setSelectionMode(true);
-          }}
-          disabled={selectableAgents.length === 0}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          title={localizeUi("ui.panels.agentspanel.selectAgents")}
-        >
-          <Check size="0.8125rem" />
-        </button>
-      </div>
+          },
+        }}
+        search={{ value: agentSearch, placeholder: localizeUi("search.panels.agents"), onChange: setAgentSearch }}
+        sort={{
+          value: manualOrder.active || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.agentspanel.sortAgents"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setSort(value as ResourcePanelSort);
+          },
+        }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          onCreate: handleCreateFolder,
+          helper:
+            agentFolders.length > 0
+              ? localizeUi("ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr")
+              : undefined,
+        }}
+      >
+        {hasInstalledAgents && <AgentModeFilter value={agentModeFilter} onChange={setAgentModeFilter} />}
+      </LibraryToolbar>
 
       {agentImportError && (
         <div role="alert" className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-500">
@@ -1511,77 +1514,23 @@ export function AgentsPanel() {
         </div>
       )}
 
-      {hasInstalledAgents && (
-        <div className="flex gap-1.5">
-          <div className="relative flex-1">
-            <Search
-              size="0.8125rem"
-              className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-            />
-            <input
-              value={agentSearch}
-              onChange={(event) => setAgentSearch(event.target.value)}
-              placeholder={localize("Search agents")}
-              className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={manualOrder.active || folderDrag.active ? "custom" : sort}
-              onChange={(event) => {
-                manualOrder.setActive(event.target.value === "custom");
-                folderDrag.setActive(event.target.value === "custom");
-                if (event.target.value !== "custom") setSort(event.target.value as ResourcePanelSort);
-              }}
-              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-              title={localizeUi("ui.panels.agentspanel.sortOrder")}
-              aria-label={localizeUi("ui.panels.agentspanel.sortAgents")}
-            >
-              <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-                {localizeUi("dragDrop.manualOrder")}
-              </option>
-              <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-              <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-              <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-              <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-            </select>
-            <ArrowUpDown
-              size="0.625rem"
-              className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-            />
-          </div>
-        </div>
-      )}
-
       {isLoading && (
         <div className="mari-chrome-text-muted py-4 text-center text-xs">
           {localizeUi("ui.characters.characterlibraryview.loading")}
         </div>
       )}
 
-      {hasInstalledAgents && agentFilterActive && !hasVisibleAgents && (
+      {/* With no agents installed the search still filters rulesets, so say so when none match. */}
+      {(hasInstalledAgents
+        ? agentFilterActive && !hasVisibleAgents
+        : agentSearchActive && installedRulesets.length > 0 && visibleRulesets.length === 0) && (
         <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
-          {localizeUi("ui.panels.agentspanel.noAgentsMatchFilters")}
+          {localizeUi(hasInstalledAgents ? "ui.panels.agentspanel.noAgentsMatchFilters" : "search.panels.noMatches")}
         </p>
       )}
 
-      {hasInstalledAgents && (
+      {(hasInstalledAgents || agentFolders.length > 0) && (
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleCreateFolder}
-              className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-            >
-              <FolderPlus size="0.75rem" />
-              {localizeUi("ui.panels.backgroundpicker.newFolder")}
-            </button>
-          </div>
-          <AgentModeFilter value={agentModeFilter} onChange={setAgentModeFilter} />
-          {agentFolders.length > 0 && (
-            <p className="mari-folder-helper">
-              {localizeUi("ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr")}
-            </p>
-          )}
           {draggedAgentId && (
             <div
               data-agent-folder-root

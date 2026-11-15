@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { TapTimings } from "./components/layout/TapTimings";
 import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
@@ -313,6 +314,9 @@ function normalizeCursorColorForSvg(color: string, fallback: string) {
 
 function resolveCssColor(color: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
+  // A plain hex accent needs no probe. Reading the probe's computed style forced a whole-page style pass
+  // while the app was starting (~100 ms on a slowed phone).
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color.trim())) return color.trim();
   if (!colorProbe) {
     colorProbe = document.createElement("span");
     colorProbe.setAttribute("aria-hidden", "true");
@@ -904,6 +908,10 @@ export function App() {
       setAccentModeDataset();
     };
 
+    // Whether the steady accent is already on the page. Focus moves on every tap, and re-applying
+    // it then re-resolved the cursor color on a probe element, which made Safari (WebKit) restyle
+    // the whole page twice per tab switch.
+    let staticAccentApplied = false;
     const stopAccentAnimation = () => {
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);
@@ -911,6 +919,7 @@ export function App() {
       }
       delete root.dataset.marinaraAccentAnimation;
       applyStaticAccent();
+      staticAccentApplied = true;
     };
 
     const pauseAccentAnimation = () => {
@@ -947,6 +956,7 @@ export function App() {
     };
 
     const startAccentAnimation = () => {
+      staticAccentApplied = false;
       root.dataset.marinaraAccentAnimation =
         animatedAccentIsGradient && animatedGradientStops.length > 1 ? "gradient" : "solid";
       if (usesTimerDrivenAccentAnimation) {
@@ -964,7 +974,7 @@ export function App() {
         } else {
           startAccentAnimation();
         }
-      } else {
+      } else if (!staticAccentApplied || accentAnimationTimer !== null) {
         stopAccentAnimation();
       }
     };
@@ -987,6 +997,7 @@ export function App() {
       setAccentModeDataset();
     } else {
       applyStaticAccent();
+      staticAccentApplied = true;
     }
     syncAccentAnimationState();
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -1257,6 +1268,7 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <TapTimings />
       <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />

@@ -191,6 +191,23 @@ function settleDeletedMessages(qc: QueryClient, chatId: string, messageIds: stri
   void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
 }
 
+/** Ids the transcript hides on read: deletes still pending, and confirmed ones newer than the cached data. */
+function hiddenMessageIds(qc: QueryClient, chatId: string, pending: string[], confirmed: ConfirmedDelete[]) {
+  const dataUpdatedAt = qc.getQueryState(chatKeys.messages(chatId))?.dataUpdatedAt ?? 0;
+  return [...pending, ...stillHiddenDeletes(confirmed, dataUpdatedAt)];
+}
+
+/** The cached transcript as the chat shows it, without the messages it hides on read. */
+export function getShownCachedMessages(qc: QueryClient, chatId: string): Message[] {
+  const pending = qc
+    .getMutationCache()
+    .findAll({ mutationKey: chatMessageDeleteKey(chatId), status: "pending" })
+    .flatMap((mutation) => deletedMessageIds(mutation.state.variables));
+  const hidden = new Set(hiddenMessageIds(qc, chatId, pending, useDeletedMessages.getState().byChat[chatId] ?? []));
+  const messages = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId))?.pages.flat() ?? [];
+  return hidden.size ? messages.filter((message) => !hidden.has(message.id)) : messages;
+}
+
 export function rememberRecentMessageContentEdit(
   chatId: string,
   messageId: string,
@@ -497,9 +514,8 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
   const pendingDeleteKey = pendingDeleteIds.join(",");
   const hidePendingDeletes = useCallback(
     (data: InfiniteData<Message[]>) => {
-      const dataUpdatedAt = queryClient.getQueryState(chatKeys.messages(chatId ?? ""))?.dataUpdatedAt ?? 0;
       const pending = pendingDeleteKey ? pendingDeleteKey.split(",") : [];
-      const hidden = [...pending, ...stillHiddenDeletes(confirmedDeletes ?? [], dataUpdatedAt)];
+      const hidden = hiddenMessageIds(queryClient, chatId ?? "", pending, confirmedDeletes ?? []);
       return hidden.length ? (removeMessagesFromPages(data, hidden) ?? data) : data;
     },
     [pendingDeleteKey, confirmedDeletes, chatId, queryClient],
@@ -577,12 +593,15 @@ export function useChatMessageSearchSource(chatId: string | null, enabled: boole
  * Professor Mari's own conversations. They are ordinary chats behind an internal
  * marker, so they are absent from the normal chat list and need their own read.
  */
+/** Shared with the omnibar host, which fetches it while idle so Search's Continue row is complete on open. */
+export const professorMariChatsQuery = {
+  queryKey: chatKeys.professorMari(),
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
+  staleTime: 30_000,
+};
+
 export function useProfessorMariChats() {
-  return useQuery({
-    queryKey: chatKeys.professorMari(),
-    queryFn: ({ signal }) => api.get<Chat[]>("/chats/internal/professor-mari/chats", { signal }),
-    staleTime: 30_000,
-  });
+  return useQuery(professorMariChatsQuery);
 }
 
 /** Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail. */

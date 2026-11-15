@@ -429,9 +429,9 @@ test("function library folders pause offered tools and bulk toggles keep each fu
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openRightPanel("presets");
     });
-    await tabGroup.getByRole("button", { name: "Functions", exact: true }).click();
-    const selectFunctions = page.getByRole("button", { name: "Select functions", exact: true });
-    const exitSelection = page.getByRole("button", { name: "Exit function selection", exact: true });
+    await tabGroup.getByRole("button", { name: "Tools", exact: true }).click();
+    const selectFunctions = page.getByRole("button", { name: "Select tools", exact: true });
+    const exitSelection = page.getByRole("button", { name: "Exit tool selection", exact: true });
     const created = page.waitForResponse(
       (response) => response.url().endsWith("/api/library-folders/functions") && response.request().method() === "POST",
     );
@@ -453,7 +453,7 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     await expect(folder.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true })).toBeChecked();
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer functions in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
     await expect(
       folder.getByRole("checkbox", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
@@ -489,7 +489,7 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     expect((await toolState())[0]?.[0]).toBe(false);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer functions in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
     await expect.poll(toolState).toEqual([
       [false, false],
       [false, false],

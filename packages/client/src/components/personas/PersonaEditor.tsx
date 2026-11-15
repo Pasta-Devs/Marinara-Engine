@@ -107,6 +107,7 @@ import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import type { ContextMenuItem } from "../ui/ContextMenu";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
 import { PersonaCombatIconSection } from "../characters/GameModeIconSection";
 import { StatIconPicker } from "../ui/StatIconPicker";
@@ -690,7 +691,11 @@ function PersonaGalleryTab({
                   )}
                 >
                   {!selectingImages ? (
-                    <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
+                    <CustomEmojiTagButton
+                      image={image}
+                      allowBackground
+                      onApply={(patch) => tag.mutate({ imageId: image.id, patch })}
+                    />
                   ) : (
                     <button
                       type="button"
@@ -1992,96 +1997,63 @@ export function PersonaEditor() {
     );
   }
 
-  const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled = !dirty || mutationBusy;
   const saveLabel = localizeUi(saving ? "editor.save.saving" : "editor.save.action");
   const saveButtonClass = cn(
     "mari-editor-action mari-editor-action--primary mari-editor-action--save inline-flex",
     saveDisabled && "cursor-not-allowed opacity-50",
   );
-  const headerActions = (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          if (!personaId) return;
-          requestProfessorMariOpen({
-            destination: "omnibar",
-            draft: localizeUi("professorMari.handoff.explainResourceDraft"),
-            context: {
-              source: "persona-editor",
-              capability: "explain",
-              resource: { kind: "persona", id: personaId, label: formData.name },
-            },
-          });
-        }}
-        className={headerActionButtonClass}
-        title={localizeUi("professorMari.handoff.ask")}
-        aria-label={localizeUi("professorMari.handoff.ask")}
-      >
-        <MessageCircleQuestion size="1rem" />
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setExportDialogOpen(true)}
-        className={headerActionButtonClass}
-        title={localizeUi("ui.personas.personaeditor.exportPersona")}
-      >
-        <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M10 13V3m0 0l-4 4m4-4l4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleAddAsCharacter}
-        disabled={createCharacter.isPending || uploadCharacterAvatar.isPending}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.addPersonaAsCharacter")}
-      >
-        {createCharacter.isPending || uploadCharacterAvatar.isPending ? (
-          <Loader2 size="1rem" className="animate-spin" />
-        ) : (
-          <UserPlus size="1rem" />
-        )}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          if (!personaId) return;
-          duplicatePersona.mutate(personaId, {
-            onSuccess: () => {
-              toast.success(localizeUi("ui.personas.personaeditor.personaDuplicated"));
-            },
-          });
-        }}
-        disabled={duplicatePersona.isPending}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.duplicatePersona")}
-      >
-        {duplicatePersona.isPending ? <Loader2 size="1rem" className="animate-spin" /> : <Copy size="1rem" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={mutationBusy}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.deletePersona")}
-      >
-        <Trash2 size="1rem" />
-      </button>
-    </>
-  );
+  // Every persona action sits behind "…" so the section pills keep their room.
+  const headerMenuItems: ContextMenuItem[] = [
+    {
+      label: localizeUi("professorMari.handoff.ask"),
+      icon: <MessageCircleQuestion size="0.75rem" />,
+      disabled: !personaId,
+      onSelect: () => {
+        if (!personaId) return;
+        requestProfessorMariOpen({
+          destination: "omnibar",
+          draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+          context: {
+            source: "persona-editor",
+            capability: "explain",
+            resource: { kind: "persona", id: personaId, label: formData.name },
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.exportPersona"),
+      icon: <Upload size="0.75rem" />,
+      onSelect: () => setExportDialogOpen(true),
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.addPersonaAsCharacter"),
+      icon: <UserPlus size="0.75rem" />,
+      disabled: createCharacter.isPending || uploadCharacterAvatar.isPending,
+      onSelect: () => void handleAddAsCharacter(),
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.duplicatePersona"),
+      icon: <Copy size="0.75rem" />,
+      disabled: !personaId || duplicatePersona.isPending,
+      onSelect: () => {
+        if (!personaId) return;
+        duplicatePersona.mutate(personaId, {
+          onSuccess: () => {
+            toast.success(localizeUi("ui.personas.personaeditor.personaDuplicated"));
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.deletePersona"),
+      icon: <Trash2 size="0.75rem" />,
+      destructive: true,
+      disabled: mutationBusy,
+      onSelect: () => void handleDelete(),
+    },
+  ];
 
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
@@ -2159,7 +2131,7 @@ export function PersonaEditor() {
         workingOffscreen={workingOffscreen}
         onRevealWorkingField={revealWorkingField}
         wrapContent={(content) => <MariFieldReviewProvider value={mariReview.value}>{content}</MariFieldReviewProvider>}
-        actionsSlot={headerActions}
+        menuItems={headerMenuItems}
       >
         <section data-editor-section="metadata">
           <PersonaMetadataTab

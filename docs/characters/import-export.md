@@ -53,7 +53,7 @@ To move a whole SillyTavern install, use the bulk importer in **Settings** on th
 ## Export a character
 
 1. Open the character in the editor.
-2. Click **Export character** in the header. The **Export Character** window opens.
+2. Click **…** in the header, then **Export character**. The **Export Character** window opens.
 3. Pick a format. Marinara downloads the file.
 
 | Format | What you get | Best for |

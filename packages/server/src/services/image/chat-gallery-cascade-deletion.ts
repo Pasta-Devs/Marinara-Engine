@@ -61,6 +61,9 @@ function legacyCandidateWindow(source: ChatGalleryImage) {
 
 function matchingLegacyMetadata(source: ChatGalleryImage, candidate: EntityGalleryImage): boolean {
   if (candidate.sourceChatImageId) return false;
+  // Legacy copies were separate files. A row on the chat picture's own file was assigned to the
+  // character/persona by hand, so it stays when the chat picture is deleted.
+  if (candidate.filePath === source.filePath) return false;
   const sourceCreatedAt = Date.parse(source.createdAt);
   const candidateCreatedAt = Date.parse(candidate.createdAt);
   if (

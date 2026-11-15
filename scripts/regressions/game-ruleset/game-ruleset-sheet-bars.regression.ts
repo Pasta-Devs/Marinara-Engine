@@ -1,11 +1,11 @@
 /**
- * A pool or track drawn as a bar or dots (Capability API 1.827): `display: "bar"` adds a fill bar to
+ * A pool or track drawn as a bar or dots (Capability API 1.828): `display: "bar"` adds a fill bar to
  * its row on the sheet, `display: "dots"` a row of dots.
  *
  * What is pinned here:
  *   - The schema takes `display` on a live pool, a plain track and a party pool, and nothing but
  *     `counter`, `bar` or `dots`.
- *   - A packaged ruleset that uses it, on the sheet or the party, declares 1.827; one without it
+ *   - A packaged ruleset that uses it, on the sheet or the party, declares 1.828; one without it
  *     installs as before.
  */
 import assert from "node:assert/strict";
@@ -76,13 +76,13 @@ try {
   });
   const tracked = doc((document) => (document.sheet.live.tracks[0].display = "bar"));
   for (const document of [barred, tracked, party]) {
-    assert.match(getCapabilityPackageInstallIssue(manifest(826) as any, document) ?? "", /capabilityApi 1\.827/);
-    assert.equal(getCapabilityPackageInstallIssue(manifest(827) as any, document), null);
+    assert.match(getCapabilityPackageInstallIssue(manifest(827) as any, document) ?? "", /capabilityApi 1\.828/);
+    assert.equal(getCapabilityPackageInstallIssue(manifest(828) as any, document), null);
   }
   assert.doesNotMatch(
-    getCapabilityPackageInstallIssue(manifest(826) as any, doc()) ?? "",
-    /1\.827/,
-    "a ruleset without it is not held to 1.827",
+    getCapabilityPackageInstallIssue(manifest(827) as any, doc()) ?? "",
+    /1\.828/,
+    "a ruleset without it is not held to 1.828",
   );
 } finally {
   if (previousDataDir === undefined) delete process.env.DATA_DIR;

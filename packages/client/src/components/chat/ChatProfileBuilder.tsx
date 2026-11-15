@@ -2,7 +2,7 @@
 // Settings profile builder: fill a profile's slots by drag or click,
 // then pick the chats that should use it.
 // ──────────────────────────────────────────────
-import { useId, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -30,8 +30,14 @@ import {
   type ChatPreset,
   type ChatPresetSettings,
 } from "@marinara-engine/shared";
+import { CharacterSelect } from "../characters/CharacterSelect";
+import { LorebookListField, PresetPickerField } from "../ui/LibraryPickers";
 import { Modal } from "../ui/Modal";
+import { PickerField, PickerListField, PickerTileArt } from "../ui/PickerField";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
+import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import { leaveWithoutSaving } from "../../lib/editor-leave";
 import {
   getActiveChatResourceDrag,
   getActiveChatResourceMouseDrag,
@@ -39,6 +45,7 @@ import {
   type ChatResourceDragPayload,
 } from "../../lib/chat-resource-drag";
 import { iconOf } from "../agents/organizer/organizer-model";
+import { PROFILE_MODES } from "../presets/profile-detail-id";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
@@ -48,6 +55,7 @@ import { usePresets } from "../../hooks/use-presets";
 import { usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useAgentConfigs } from "../../hooks/use-agents";
+import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { isCustomToolSelectable, useCustomToolCapabilities, useCustomTools } from "../../hooks/use-custom-tools";
 import { useCapabilityAgentRegistry, useCapabilityCatalog } from "../../hooks/use-capability-packages";
 import { useChats } from "../../hooks/use-chats";
@@ -179,6 +187,34 @@ interface ChatProfileBuilderProps {
   /** Save and close without step 2 (the new chat wizard applies the profile itself). */
   saveOnly?: boolean;
   onSaved?: (profile: ChatPreset) => void;
+  /**
+   * `page` renders the editor as a full-page surface (the Presets panel's Profiles tab) instead of a dialog;
+   * step 2 still opens as a dialog on top. A new profile can pick its chat mode there.
+   */
+  variant?: "modal" | "page";
+  /** The page's editor-leave key (`profileDetailId:<id>`), so leaving saves first like the other editors. */
+  leaveKey?: string;
+}
+
+/** Saves on leave and reports dirty state, like the other center editors. Only mounted by the page variant. */
+function PageLeaveGuard({
+  leaveKey,
+  dirty,
+  save,
+  busy,
+}: {
+  leaveKey: string;
+  dirty: boolean;
+  save: () => Promise<boolean>;
+  busy: boolean;
+}) {
+  const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  useEditorLeaveSave(leaveKey, dirty, save, busy);
+  useEffect(() => {
+    setEditorDirty(dirty);
+  }, [dirty, setEditorDirty]);
+  useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
+  return null;
 }
 
 export function ChatProfileBuilder(props: ChatProfileBuilderProps) {
@@ -190,13 +226,15 @@ export function ChatProfileBuilder(props: ChatProfileBuilderProps) {
 
 function ChatProfileBuilderBody({
   onClose,
-  mode,
+  mode: initialMode,
   profile,
   initialSettings,
   initialName,
   currentChatId,
   saveOnly = false,
   onSaved,
+  variant = "modal",
+  leaveKey,
 }: ChatProfileBuilderProps) {
   const { t } = useTranslation();
   const fieldId = useId();
@@ -216,14 +254,20 @@ function ChatProfileBuilderBody({
     queryFn: () => api.get<Array<{ filename: string; url: string }>>("/backgrounds"),
   });
   const { data: chats } = useChats();
+  const { data: agentFolders } = useLibraryFolders("agents");
   const createPreset = useCreateChatPreset();
   const saveSettings = useSaveChatPresetSettings();
   const renamePreset = useUpdateChatPreset();
   const setActive = useSetActiveChatPreset();
   const applyPreset = useApplyChatPreset();
 
+  // Only a new profile on the page can change mode; a saved profile's mode is fixed.
+  const [mode, setMode] = useState<ChatMode>(initialMode);
   const [name, setName] = useState(profile?.name ?? initialName ?? t("chat.settingsProfile.builder.defaultName"));
   const [settings, setSettings] = useState<ChatPresetSettings>(profile?.settings ?? initialSettings ?? {});
+  const snapshot = JSON.stringify([name.trim(), mode, settings]);
+  const savedSnapshot = useRef(snapshot);
+  const dirty = snapshot !== savedSnapshot.current;
   const [overSlot, setOverSlot] = useState<SlotKey | null>(null);
   const [saved, setSaved] = useState<ChatPreset | null>(null);
   const [makeDefault, setMakeDefault] = useState(profile?.isActive ?? false);
@@ -319,17 +363,52 @@ function ChatProfileBuilderBody({
   };
 
   const trimmedName = name.trim();
+  // A new profile is created once; a later save (a save on leave after step 2) updates that one.
+  const createdRef = useRef<ChatPreset | null>(null);
+  // Back can save while a Save click is still running (or the other way round); both share one request, so a
+  // new profile is never created twice.
+  const inFlightRef = useRef<Promise<ChatPreset> | null>(null);
+  const persist = (): Promise<ChatPreset> =>
+    (inFlightRef.current ??= persistNow().finally(() => {
+      inFlightRef.current = null;
+    }));
+  const persistNow = async (): Promise<ChatPreset> => {
+    const target = profile ?? createdRef.current;
+    let result: ChatPreset;
+    if (target) {
+      if (trimmedName !== target.name) await renamePreset.mutateAsync({ id: target.id, name: trimmedName });
+      result = await saveSettings.mutateAsync({ id: target.id, settings });
+    } else {
+      result = await createPreset.mutateAsync({ name: trimmedName.slice(0, 120), mode, settings });
+      createdRef.current = result;
+    }
+    savedSnapshot.current = snapshot;
+    return result;
+  };
+  const saveOnLeave = async () => {
+    if (!trimmedName) {
+      // Stay on the page, but say why: a silent refusal looks like a dead Back button.
+      toast.error(t("chat.settingsProfile.builder.nameRequired"));
+      return false;
+    }
+    try {
+      // Not `onSaved?.(await persist())`: an absent onSaved would skip the save itself.
+      const result = await persist();
+      onSaved?.(result);
+      return true;
+    } catch {
+      toast.error(t("chat.settingsProfile.saveFailed"));
+      return false;
+    }
+  };
+  // On the page, leave without the save-on-leave the back button does: Cancel discards, and Done (step 2)
+  // comes after the save, while busy is still set, which the leave guard would refuse.
+  const leave = () => (variant === "page" ? leaveWithoutSaving(onClose) : onClose());
   const handleSave = async () => {
     if (!trimmedName || busy) return;
     setBusy(true);
     try {
-      let result: ChatPreset;
-      if (profile) {
-        if (trimmedName !== profile.name) await renamePreset.mutateAsync({ id: profile.id, name: trimmedName });
-        result = await saveSettings.mutateAsync({ id: profile.id, settings });
-      } else {
-        result = await createPreset.mutateAsync({ name: trimmedName.slice(0, 120), mode, settings });
-      }
+      const result = await persist();
       onSaved?.(result);
       if (saveOnly) onClose();
       else setSaved(result);
@@ -359,13 +438,141 @@ function ChatProfileBuilderBody({
       const failed = results.filter((result) => result.status === "rejected").length;
       if (failed > 0) toast.error(t("chat.settingsProfile.builder.applyFailed", { count: failed }));
       else if (ids.length > 0) toast.success(t("chat.settingsProfile.builder.applied", { count: ids.length }));
-      onClose();
+      leave();
     } catch {
       // Chat applies are settled above, so only the default switch can throw here.
       toast.error(t("chat.settingsProfile.builder.defaultFailed"));
     } finally {
       setBusy(false);
     }
+  };
+
+  // The Agents panel files custom agents by their config id, while a profile stores their type.
+  const agentFolderList = useMemo(() => {
+    const typeById = new Map((agentConfigs ?? []).map((config) => [config.id, config.type]));
+    return (agentFolders ?? []).map((folder) => ({
+      ...folder,
+      itemIds: folder.itemIds.map((id) => typeById.get(id) ?? id),
+    }));
+  }, [agentConfigs, agentFolders]);
+
+  const setSlot = (key: SlotKey, ids: string[]) => setSettings((prev) => withSlot(key, prev, ids));
+  /** A new profile's slots after a mode switch: the same filters the `library` memo applies to that mode. */
+  const keepForMode = (prev: ChatPresetSettings, next: ChatMode): ChatPresetSettings => {
+    let out = next === "roleplay" ? prev : withSlot("preset", prev, []);
+    const manifests = new Map((agentManifests ?? []).map((manifest) => [manifest.id, manifest]));
+    out = withSlot(
+      "agent",
+      out,
+      slotIds("agent", out).filter((id) => {
+        const manifest = manifests.get(id);
+        return !manifest || isAgentManifestAvailableInChatMode(next, manifest);
+      }),
+    );
+    if (next !== "conversation") {
+      out = withSlot(
+        "tool",
+        out,
+        slotIds("tool", out).filter((id) => id !== "update_about_me"),
+      );
+    }
+    return out;
+  };
+  const toggleInSlot = (key: SlotKey, id: string) =>
+    setSettings((prev) => {
+      const current = slotIds(key, prev);
+      return withSlot(key, prev, current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
+    });
+  const addToSlot = (key: SlotKey, add: string[]) =>
+    setSettings((prev) => withSlot(key, prev, Array.from(new Set([...slotIds(key, prev), ...add]))));
+
+  // A slot's field: the shared picker window (#9077) instead of a native select. Presets, lorebooks
+  // and personas use their shared fields; the rest show their picture or their library's gradient tile.
+  const renderPicker = (key: SlotKey, ids: string[]) => {
+    const meta = SLOT_META[key];
+    const ariaLabel = label(key);
+    const pickOne = (id: string) => setSlot(key, id ? [id] : []);
+    const fieldClass =
+      "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+    if (key === "preset")
+      return (
+        <PresetPickerField
+          value={ids[0] ?? ""}
+          presets={presets ?? []}
+          ariaLabel={ariaLabel}
+          noneLabel={t("chat.settingsProfile.builder.none")}
+          missingLabel={ids[0]}
+          triggerClassName={fieldClass}
+          onChange={pickOne}
+        />
+      );
+    if (key === "lore")
+      return (
+        <LorebookListField
+          lorebooks={lorebooks ?? []}
+          selectedIds={ids}
+          onToggle={(id) => toggleInSlot(key, id)}
+          onAdd={(add) => addToSlot(key, add)}
+          ariaLabel={ariaLabel}
+          keepMissing
+          triggerClassName={fieldClass}
+        />
+      );
+    if (key === "persona")
+      return (
+        <CharacterSelect
+          kind="persona"
+          allowNone
+          withCharacters={false}
+          value={ids[0] ? { persona: ids[0] } : null}
+          onChange={(next) => pickOne(next && "persona" in next ? next.persona : "")}
+          aria-label={ariaLabel}
+          title={ariaLabel}
+          className={fieldClass}
+        />
+      );
+    const items = library[key].map((item) => ({
+      id: item.id,
+      label: item.name,
+      icon: <PickerTileArt src={item.image} type={meta.type} icon={meta.icon} />,
+      smallIcon: <PickerTileArt src={item.image} type={meta.type} icon={meta.icon} className="h-6 w-6 rounded-md" />,
+    }));
+    const texts = {
+      searchLabel: t("chat.wizard.select.search"),
+      emptyLabel: t("chat.settingsProfile.builder.noItems"),
+      noMatchesLabel: t("ui.lorebooks.linkedresourcepicker.noMatches"),
+    };
+    if (meta.multi)
+      return (
+        <PickerListField
+          items={items}
+          folders={key === "agent" ? agentFolderList : undefined}
+          selectedIds={ids}
+          onToggle={(id) => toggleInSlot(key, id)}
+          onAdd={(add) => addToSlot(key, add)}
+          title={ariaLabel}
+          triggerLabel={t("chat.settingsProfile.builder.chooseAgents")}
+          triggerIcon={<Bot size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />}
+          triggerClassName={fieldClass}
+          ariaLabel={ariaLabel}
+          removeLabel={(name) => t("chat.settingsProfile.builder.remove", { name })}
+          keepMissing
+          {...texts}
+          searchLabel={t("ui.agents.agentcatalogview.searchAgents")}
+        />
+      );
+    return (
+      <PickerField
+        value={ids[0] ?? ""}
+        items={items}
+        ariaLabel={ariaLabel}
+        noneLabel={t("chat.settingsProfile.builder.none")}
+        missingLabel={ids[0]}
+        triggerClassName={fieldClass}
+        onChange={pickOne}
+        {...texts}
+      />
+    );
   };
 
   const renderSlot = (key: SlotKey) => {
@@ -468,36 +675,7 @@ function ChatProfileBuilderBody({
               ))}
             </div>
           ) : (
-            <select
-              aria-labelledby={`${fieldId}-${key}`}
-              multiple={!!meta.multi}
-              size={meta.multi ? Math.min(5, Math.max(2, items.length)) : undefined}
-              value={meta.multi ? ids : (ids[0] ?? "")}
-              onChange={(event) =>
-                setSettings((prev) =>
-                  withSlot(
-                    key,
-                    prev,
-                    Array.from(event.target.selectedOptions, (option) => option.value).filter(Boolean),
-                  ),
-                )
-              }
-              className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-            >
-              {!meta.multi && <option value="">{t("chat.settingsProfile.builder.none")}</option>}
-              {ids
-                .filter((id) => !items.some((item) => item.id === id))
-                .map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              {items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            renderPicker(key, ids)
           )}
         </div>
         {!summary && items.length === 0 && (
@@ -524,78 +702,173 @@ function ChatProfileBuilderBody({
     "min-h-9 rounded-lg bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none disabled:opacity-50";
   const checkClass = "h-4 w-4 shrink-0 accent-[var(--primary)]";
 
-  if (saved) {
-    const count = [...checkedChats].filter((id) => modeChats.some((chat) => chat.id === id)).length;
-    return (
-      <Modal
-        open
-        onClose={onClose}
-        title={t("chat.settingsProfile.builder.useTitle", { name: saved.name })}
-        width="max-w-lg"
-        contentClassName={CONTENT_CLASS}
-        footer={
-          <>
-            <button type="button" className={SHEET_BUTTON_PRIMARY} disabled={busy} onClick={handleApply}>
-              {count > 0
-                ? t("chat.settingsProfile.builder.applyTo", { count })
-                : t("chat.settingsProfile.builder.done")}
-            </button>
-            <span className="text-center text-xs text-[var(--muted-foreground)]">
-              {t("chat.settingsProfile.builder.stepTwoHint")}
-            </span>
-          </>
-        }
-      >
-        <div className={bodyClass}>
-          <label className="flex min-h-11 items-center gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2">
-            <input
-              type="checkbox"
-              autoFocus
-              className={checkClass}
-              checked={makeDefault}
-              onChange={(event) => setMakeDefault(event.target.checked)}
-            />
-            <span className="flex flex-col">
-              <span className="text-sm text-[var(--foreground)]">
-                {t(`chat.settingsProfile.builder.newChats.${mode}`)}
-              </span>
-              <span className="text-xs text-[var(--muted-foreground)]">
-                {t("chat.settingsProfile.builder.makeDefault")}
-              </span>
-            </span>
-          </label>
-          <span className="text-[0.6875rem] font-semibold tracking-wider text-[var(--muted-foreground)] uppercase">
-            {t("chat.settingsProfile.builder.existingChats")}
+  const count = [...checkedChats].filter((id) => modeChats.some((chat) => chat.id === id)).length;
+  const stepTwo = saved && (
+    <Modal
+      open
+      onClose={leave}
+      title={t("chat.settingsProfile.builder.useTitle", { name: saved.name })}
+      width="max-w-lg"
+      contentClassName={CONTENT_CLASS}
+      footer={
+        <>
+          <button type="button" className={SHEET_BUTTON_PRIMARY} disabled={busy} onClick={handleApply}>
+            {count > 0 ? t("chat.settingsProfile.builder.applyTo", { count }) : t("chat.settingsProfile.builder.done")}
+          </button>
+          <span className="text-center text-xs text-[var(--muted-foreground)]">
+            {t("chat.settingsProfile.builder.stepTwoHint")}
           </span>
-          {modeChats.length === 0 ? (
-            <span className="text-xs text-[var(--muted-foreground)]">{t("chat.settingsProfile.builder.noChats")}</span>
-          ) : (
-            <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-              {modeChats.map((chat) => (
-                <label
-                  key={chat.id}
-                  className="flex min-h-10 items-center gap-3 rounded-lg px-3 py-1.5 hover:bg-[var(--accent)]"
-                >
-                  <input
-                    type="checkbox"
-                    className={checkClass}
-                    checked={checkedChats.has(chat.id)}
-                    onChange={(event) =>
-                      setCheckedChats((prev) => {
-                        const next = new Set(prev);
-                        if (event.target.checked) next.add(chat.id);
-                        else next.delete(chat.id);
-                        return next;
-                      })
-                    }
-                  />
-                  <span className="truncate text-sm text-[var(--foreground)]">{chat.name}</span>
-                </label>
-              ))}
-            </div>
+        </>
+      }
+    >
+      <div className={bodyClass}>
+        <label className="flex min-h-11 items-center gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2">
+          <input
+            type="checkbox"
+            autoFocus
+            className={checkClass}
+            checked={makeDefault}
+            onChange={(event) => setMakeDefault(event.target.checked)}
+          />
+          <span className="flex flex-col">
+            <span className="text-sm text-[var(--foreground)]">
+              {t(`chat.settingsProfile.builder.newChats.${mode}`)}
+            </span>
+            <span className="text-xs text-[var(--muted-foreground)]">
+              {t("chat.settingsProfile.builder.makeDefault")}
+            </span>
+          </span>
+        </label>
+        <span className="text-[0.6875rem] font-semibold tracking-wider text-[var(--muted-foreground)] uppercase">
+          {t("chat.settingsProfile.builder.existingChats")}
+        </span>
+        {modeChats.length === 0 ? (
+          <span className="text-xs text-[var(--muted-foreground)]">{t("chat.settingsProfile.builder.noChats")}</span>
+        ) : (
+          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+            {modeChats.map((chat) => (
+              <label
+                key={chat.id}
+                className="flex min-h-10 items-center gap-3 rounded-lg px-3 py-1.5 hover:bg-[var(--accent)]"
+              >
+                <input
+                  type="checkbox"
+                  className={checkClass}
+                  checked={checkedChats.has(chat.id)}
+                  onChange={(event) =>
+                    setCheckedChats((prev) => {
+                      const next = new Set(prev);
+                      if (event.target.checked) next.add(chat.id);
+                      else next.delete(chat.id);
+                      return next;
+                    })
+                  }
+                />
+                <span className="truncate text-sm text-[var(--foreground)]">{chat.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+  if (saved && variant === "modal") return stepTwo;
+
+  const nameInput = (className: string) => (
+    <input
+      value={name}
+      onChange={(event) => setName(event.target.value)}
+      maxLength={120}
+      aria-label={t("chat.settingsProfile.builder.nameLabel")}
+      className={className}
+    />
+  );
+  const modeBadge = (
+    <span className="shrink-0 rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted-foreground)]">
+      {t(`chat.settingsProfile.builder.mode.${mode}`)}
+    </span>
+  );
+  // The pills of the Profiles tab's mode filter (agents/AgentModeFilter.tsx), without All.
+  const modePicker = (
+    <div className="flex flex-wrap gap-1" role="group" aria-label={t("chat.settingsProfile.builder.modeLabel")}>
+      {PROFILE_MODES.map((value) => (
+        <button
+          key={value}
+          type="button"
+          className={cn(
+            "mari-chrome-control h-8 min-h-8 flex-auto px-3 text-[0.625rem]",
+            mode === value && "mari-chrome-control--selected",
           )}
+          aria-pressed={mode === value}
+          disabled={busy}
+          onClick={() => {
+            if (value === mode) return;
+            // Keep the slots both modes share; drop only what the new mode can't hold.
+            setMode(value);
+            setSettings((prev) => keepForMode(prev, value));
+          }}
+        >
+          {t(`chat.settingsProfile.builder.mode.${value}`)}
+        </button>
+      ))}
+    </div>
+  );
+  const fields = GROUPS.map((group) => {
+    const rows = group.rows.map((row) => row.filter((key) => slots.includes(key))).filter((row) => row.length > 0);
+    return (
+      <section key={group.label} className="flex flex-col gap-2">
+        <h3 className="pl-0.5 text-[0.6875rem] font-semibold tracking-wider text-[var(--muted-foreground)] uppercase">
+          {t(group.label)}
+        </h3>
+        {rows.map((row) => (
+          <div key={row.join()} className={cn("grid gap-2", row.length > 1 && "sm:grid-cols-2")}>
+            {row.map(renderSlot)}
+          </div>
+        ))}
+      </section>
+    );
+  });
+  const footer = (
+    <div className="flex flex-wrap items-center gap-2 px-5 py-3">
+      <span className="min-w-40 flex-1 text-xs text-[var(--muted-foreground)]">
+        {t("chat.settingsProfile.builder.filled", { filled, total: slots.length })}
+      </span>
+      <div className="ml-auto flex gap-2">
+        <button type="button" className={buttonClass} onClick={leave}>
+          {t("chat.settingsProfile.saveChoice.cancel")}
+        </button>
+        <button type="button" className={primaryClass} disabled={!trimmedName || busy} onClick={handleSave}>
+          {t(saveOnly ? "chat.settingsProfile.builder.save" : "chat.settingsProfile.builder.saveAndChoose")}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (variant === "page") {
+    // PresetEditor's center shell: back button, icon tile and the name as the title.
+    return (
+      <div data-settings-profile-editor className="mari-editor-shell flex min-h-0 flex-1 flex-col overflow-hidden">
+        {leaveKey && <PageLeaveGuard leaveKey={leaveKey} dirty={dirty} save={saveOnLeave} busy={busy} />}
+        <div className="mari-editor-header">
+          <div className="mari-editor-header-main">
+            <SurfaceBackButton />
+            <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--settings">
+              <SlidersHorizontal size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+            </div>
+            {nameInput("mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]")}
+          </div>
         </div>
-      </Modal>
+        <div className={bodyClass}>
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+            <div className="flex items-center gap-2">{profile ? modeBadge : modePicker}</div>
+            {fields}
+          </div>
+        </div>
+        <div className="border-t border-[var(--border)]">
+          <div className="mx-auto w-full max-w-3xl">{footer}</div>
+        </div>
+        {stepTwo}
+      </div>
     );
   }
 
@@ -612,50 +885,14 @@ function ChatProfileBuilderBody({
     >
       <div className={cn(bodyClass, "gap-4")}>
         <div className="flex items-center gap-2">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={120}
-            aria-label={t("chat.settingsProfile.builder.nameLabel")}
-            className="min-h-9 min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 text-sm font-semibold text-[var(--foreground)] ring-1 ring-transparent outline-none focus:ring-[var(--ring)]"
-          />
-          <span className="shrink-0 rounded-md border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted-foreground)]">
-            {t(`chat.settingsProfile.builder.mode.${mode}`)}
-          </span>
+          {nameInput(
+            "min-h-9 min-w-0 flex-1 rounded-lg bg-[var(--secondary)] px-3 text-sm font-semibold text-[var(--foreground)] ring-1 ring-transparent outline-none focus:ring-[var(--ring)]",
+          )}
+          {modeBadge}
         </div>
-        {GROUPS.map((group) => {
-          const rows = group.rows
-            .map((row) => row.filter((key) => slots.includes(key)))
-            .filter((row) => row.length > 0);
-          return (
-            <section key={group.label} className="flex flex-col gap-2">
-              <h3 className="pl-0.5 text-[0.6875rem] font-semibold tracking-wider text-[var(--muted-foreground)] uppercase">
-                {t(group.label)}
-              </h3>
-              {rows.map((row) => (
-                <div key={row.join()} className={cn("grid gap-2", row.length > 1 && "sm:grid-cols-2")}>
-                  {row.map(renderSlot)}
-                </div>
-              ))}
-            </section>
-          );
-        })}
+        {fields}
       </div>
-      <div className="flex flex-col border-t border-[var(--border)]">
-        <div className="flex flex-wrap items-center gap-2 px-5 py-3">
-          <span className="min-w-40 flex-1 text-xs text-[var(--muted-foreground)]">
-            {t("chat.settingsProfile.builder.filled", { filled, total: slots.length })}
-          </span>
-          <div className="ml-auto flex gap-2">
-            <button type="button" className={buttonClass} onClick={onClose}>
-              {t("chat.settingsProfile.saveChoice.cancel")}
-            </button>
-            <button type="button" className={primaryClass} disabled={!trimmedName || busy} onClick={handleSave}>
-              {t(saveOnly ? "chat.settingsProfile.builder.save" : "chat.settingsProfile.builder.saveAndChoose")}
-            </button>
-          </div>
-        </div>
-      </div>
+      <div className="flex flex-col border-t border-[var(--border)]">{footer}</div>
     </Modal>
   );
 }

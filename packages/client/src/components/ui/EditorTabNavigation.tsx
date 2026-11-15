@@ -57,7 +57,11 @@ export function EditorTabNavigation<T extends string>({
 
   return (
     <div className={cn("mari-editor-navigation min-w-0", className)}>
-      <nav aria-label={navigationLabel} className="mari-editor-navigation-tabs flex min-w-0 items-center gap-1">
+      {/* Equal columns: every section is as wide as the widest label, so the bar reads as one row. */}
+      <nav
+        aria-label={navigationLabel}
+        className="mari-editor-navigation-tabs grid min-w-0 auto-cols-fr grid-flow-col items-center gap-1"
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeId === tab.id;

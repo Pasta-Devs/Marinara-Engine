@@ -210,12 +210,16 @@ function showAgentWarning(raw: unknown, chatId: string) {
   toast.warning(message, { duration: 20000 });
 }
 
+let agentBackgroundChoiceSeq = 0;
 function applyAgentBackgroundChoice(chosen: string | null | undefined) {
   const url = chatBackgroundMetadataToUrl(chosen);
   if (!url) return;
+  // A later choice wins even if its check answers first (a pinned place corrects the agent's pick).
+  const seq = ++agentBackgroundChoiceSeq;
 
   fetch(url, { method: "HEAD" })
     .then((res) => {
+      if (seq !== agentBackgroundChoiceSeq) return;
       if (res.ok) {
         useUIStore.getState().setChatBackground(url);
       } else {
@@ -680,6 +684,7 @@ import {
   chatKeys,
   forgetRecentMessageContentEdit,
   forgetUnchangedMessageContentEdit,
+  getShownCachedMessages,
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
 } from "./use-chats";
@@ -1590,11 +1595,12 @@ export function useGenerate() {
         pendingSplitPartIds.includes(id) || [...splitPartIdsBefore.values()].some((ids) => ids.includes(id));
       // A reply held for a rewrite is shown by the live stream and joins the message list only after its
       // agent results, so while this stream is live they check the held reply (#7592). Any other reply
-      // the list does not show, such as one the user deleted, still turns its results away.
+      // the list does not show, such as one the user deleted, still turns its results away. Deletes are hidden
+      // on read while the cache keeps them, so the check reads the list as shown.
       const heldUnlistedReplies = new Map<string, Message>();
       const agentResultOwnsVisibleSwipe = (result: AgentResultEventPayload) =>
         agentResultMatchesVisibleSwipe(
-          getCachedMessages(qc, params.chatId),
+          getShownCachedMessages(qc, params.chatId),
           result,
           useChatStore.getState().abortControllers.get(params.chatId) === abortController
             ? heldUnlistedReplies
@@ -4011,7 +4017,7 @@ export function useGenerate() {
                 if (retryAgentEventGenerationId && retryAgentEventGenerationId !== result.generationId) break;
                 retryAgentEventGenerationId ??= result.generationId;
               }
-              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result);
+              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result);
               if (!ownsVisibleSwipe) {
                 console.debug(
                   `[Retry Agent] Skipped ${result.agentName} (${result.agentType}): reply ${result.messageId} swipe ${result.swipeIndex} is not on screen`,
@@ -4080,7 +4086,10 @@ export function useGenerate() {
                       for (const pending of pendingEntries) {
                         enqueuePendingCardUpdate(pending);
                       }
-                      if (isActiveChat() && agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result)) {
+                      if (
+                        isActiveChat() &&
+                        agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result)
+                      ) {
                         useUIStore.getState().openModal("character-card-update");
                       }
                     }

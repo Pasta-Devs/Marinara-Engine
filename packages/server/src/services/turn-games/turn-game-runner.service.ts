@@ -29,6 +29,8 @@ export interface TurnGameStartOptions {
   config?: unknown;
   /** Which of the chat's characters play (defaults to all). */
   botCharacterIds?: string[];
+  /** Seat exactly `botCharacterIds`, so an empty list seats the player alone. Set only by server-side starts. */
+  exactBotCharacterIds?: boolean;
   /** Explicit seat order by seatId; unspecified seats are appended. */
   seatOrder?: string[];
   /** Whether the human seat goes first (default true). */
@@ -62,7 +64,7 @@ function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function humanSeatIdFromChat(chat: { personaId: string | null }): string {
+export function humanSeatIdFromChat(chat: { personaId: string | null }): string {
   return chat.personaId || HUMAN_FALLBACK_SEAT;
 }
 
@@ -127,8 +129,8 @@ async function resolveSeats(
   }
 
   const botIds =
-    opts.botCharacterIds && opts.botCharacterIds.length > 0
-      ? opts.botCharacterIds.filter((id) => allCharIds.includes(id))
+    opts.exactBotCharacterIds || (opts.botCharacterIds && opts.botCharacterIds.length > 0)
+      ? (opts.botCharacterIds ?? []).filter((id) => allCharIds.includes(id))
       : allCharIds;
 
   const bots: Seat[] = [];

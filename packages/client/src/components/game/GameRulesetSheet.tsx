@@ -80,7 +80,7 @@ const stepButtonClass =
 /** Most dots a row draws; a longer scale shows as a bar, since a row of 40 dots reads as nothing. */
 const SHEET_MAX_DOTS = 20;
 
-/** A pool's or plain track's fill bar or row of dots, where the ruleset draws it as one (1.827). The
+/** A pool's or plain track's fill bar or row of dots, where the ruleset draws it as one (1.828). The
  *  number beside it already says the value, so it is decoration for a glance and stays out of the
  *  reading order. Dots are one per point up to the maximum, filled up to the value, the way a dot
  *  rating reads; a scale that goes below 0 or past 20 shows as a bar. */

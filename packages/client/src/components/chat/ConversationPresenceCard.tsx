@@ -42,6 +42,7 @@ import {
 import { ConversationPresenceScheduleSection } from "./ConversationPresenceScheduleSection";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type StatusEntry = {
   status: ConversationPresenceStatus;
@@ -581,7 +582,7 @@ export function ConversationPresenceCard({
               {characters[0].avatarUrl ? (
                 <span className={avatarShellClass}>
                   <img
-                    src={characters[0].avatarUrl}
+                    src={avatarPreviewSrc(characters[0].avatarUrl)}
                     alt={characters[0].name}
                     className="h-full w-full object-cover"
                     style={getAvatarCropStyle(characters[0].avatarCrop)}
@@ -617,7 +618,7 @@ export function ConversationPresenceCard({
                   {character.avatarUrl ? (
                     <span className={avatarShellClass}>
                       <img
-                        src={character.avatarUrl}
+                        src={avatarPreviewSrc(character.avatarUrl)}
                         alt={character.name}
                         className="h-full w-full object-cover"
                         style={getAvatarCropStyle(character.avatarCrop)}
@@ -729,7 +730,7 @@ export function ConversationPresenceCard({
                         {character.avatarUrl ? (
                           <span className="relative block h-9 w-9 shrink-0 overflow-hidden rounded-xl ring-1 ring-[var(--border)]/80">
                             <img
-                              src={character.avatarUrl}
+                              src={avatarPreviewSrc(character.avatarUrl)}
                               alt={character.name}
                               className="h-full w-full object-cover"
                               style={getAvatarCropStyle(character.avatarCrop)}

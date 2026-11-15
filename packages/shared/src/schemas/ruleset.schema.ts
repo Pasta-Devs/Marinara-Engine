@@ -1402,7 +1402,7 @@ const livePoolSchema = z
      *  "1 3rd-level slot", "2 3rd-level slots". The pool's label when left out. */
     unit: label.optional(),
     units: label.optional(),
-    /** How the sheet draws it (Capability API 1.827): `bar` adds a fill bar to its row, for what a player
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
      *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
      *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
      *  track has its own boxes and ignores it. */
@@ -1451,7 +1451,7 @@ const liveTrackSchema = z
      *  rating of the character's own). A wound track's is always its number of levels. */
     max: z.union([z.number().int(), rulesetValueRefSchema]),
     default: z.number().int().optional(),
-    /** How the sheet draws it (Capability API 1.827): `bar` adds a fill bar to its row, for what a player
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
      *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
      *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
      *  track has its own boxes and ignores it. */

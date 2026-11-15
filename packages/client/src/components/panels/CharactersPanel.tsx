@@ -31,13 +31,9 @@ import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import {
-  Plus,
   Trash2,
-  Download,
   User,
   Check,
-  Search,
-  FolderPlus,
   FolderInput,
   ChevronDown,
   ChevronRight,
@@ -45,7 +41,6 @@ import {
   Users,
   X,
   UserMinus,
-  ArrowUpDown,
   Tag,
   Hash,
   Star,
@@ -65,11 +60,13 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import { PanelListSkeleton } from "../ui/PanelStates";
 import { PanelVirtualList } from "./PanelVirtualList";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { CharacterBulkTagsModal } from "../characters/CharacterBulkTagsModal";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type CharacterRow = CharacterCatalogSummaryEntry;
 type GroupRow = {
@@ -828,212 +825,151 @@ export function CharactersPanel() {
       data-component="CharactersPanelScroll"
       className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto p-3 [scrollbar-gutter:stable]"
     >
-      <div
-        className="mari-chrome-segmented mari-chrome-segmented--two"
-        data-component="CharacterLibraryActions"
-        style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-      >
-        <button
-          type="button"
-          onClick={openBotBrowser}
-          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
-          title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
-        >
-          <span className="shrink-0 leading-none">
-            <Bot size="0.875rem" />
-          </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-            {localizeUi("ui.panels.resourceLibraryLauncher.download")}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => openCharacterLibrary()}
-          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
-          title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
-        >
-          <span className="shrink-0 leading-none">
-            <Users size="0.875rem" />
-          </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-            {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
-          </span>
-        </button>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => openModal("create-character")}
-          className="mari-panel-gradient-button mari-panel-gradient--characters flex-1 text-xs"
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => openModal("import-character")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={localizeUi("ui.chat.chatbranchselector.import")}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => {
+      <LibraryToolbar
+        tone="characters"
+        library={{
+          download: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.download"),
+            title: localizeUi("ui.panels.resourceLibraryLauncher.downloadCards"),
+            icon: Bot,
+            onClick: openBotBrowser,
+          },
+          openLibrary: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.openLibrary"),
+            title: localizeUi("ui.panels.characterspanel.openCharactersLibrary"),
+            icon: Users,
+            onClick: () => openCharacterLibrary(),
+          },
+          dataComponent: "CharacterLibraryActions",
+        }}
+        create={{
+          label: localizeUi("ui.panels.characterspanel.createCharacter"),
+          title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
+          onClick: () => openModal("create-character"),
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.characterspanel.importCharacters"),
+          title: localizeUi("ui.chat.chatbranchselector.import"),
+          onClick: () => openModal("import-character"),
+        }}
+        select={{
+          active: selectionMode,
+          label: selectionMode
+            ? localizeUi("ui.panels.characterspanel.exitCharacterSelectionMode")
+            : localizeUi("ui.panels.characterspanel.selectCharacters"),
+          title: localizeUi("settings.common.select"),
+          onToggle: () => {
             if (selectionMode) {
               exitSelectionMode();
             } else {
               setSelectionMode(true);
             }
-          }}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          title={localizeUi("settings.common.select")}
-        >
-          <Check size="0.8125rem" />
-        </button>
-      </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search size="0.8125rem" className="mari-chrome-field-icon absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search.panels.charactersAndTags")}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-        <div className="relative">
-          <select
-            value={manualOrderActive || folderDrag.active ? "custom" : sort}
-            onChange={(e) => {
-              manualOrder.setActive(e.target.value === "custom");
-              folderDrag.setActive(e.target.value === "custom");
-              if (e.target.value !== "custom") setCharacterLibrarySort(e.target.value as CharacterLibrarySort);
-            }}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-          >
-            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-              {localizeUi("dragDrop.manualOrder")}
-            </option>
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-            <option value="favorites">{localizeUi("ui.panels.characterspanel.favorites")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <FolderPlus size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.newFolder")}
-          </button>
-        </div>
-        {parsedGroups.length > 0 && (
-          <p className="mari-folder-helper">
-            {localizeUi("ui.panels.characterspanel.dragAndDropCharactersToFoldersDoubleClickOr")}
-          </p>
-        )}
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-1">
-        {(["all", "favorites", "non-favorites"] as const).map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => setFavFilter(opt)}
-            aria-pressed={favFilter === opt}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--compact",
-              favFilter === opt && "mari-chrome-control--selected",
-            )}
-          >
-            {opt === "all"
-              ? localizeUi("ui.noodle.stageprofilesourcepicker.all")
-              : opt === "favorites"
-                ? localizeUi("ui.panels.characterspanel.favs")
-                : localizeUi("ui.panels.characterspanel.nonFavs")}
-          </button>
-        ))}
-        {allTags.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setTagsExpanded(!tagsExpanded)}
-            aria-expanded={tagsExpanded}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--compact",
-              (includedTags.size > 0 || excludedTags.size > 0) && "mari-chrome-control--selected",
-            )}
-          >
-            <Tag size="0.625rem" />
-            {localizeUi("ui.panels.backgroundpicker.tagsValue1", { value1: allTags.length })}
-            <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
-          </button>
-        )}
-      </div>
-
-      {allTags.length > 0 && tagsExpanded && (
+          },
+        }}
+        search={{ value: search, placeholder: t("search.panels.charactersAndTags"), onChange: setSearch }}
+        sort={{
+          value: manualOrderActive || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.characterspanel.sortCharacters"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setCharacterLibrarySort(value as CharacterLibrarySort);
+          },
+          extraOptions: [{ value: "favorites", label: localizeUi("ui.panels.characterspanel.favorites") }],
+        }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          onCreate: handleCreateFolder,
+          helper:
+            parsedGroups.length > 0
+              ? localizeUi("ui.panels.characterspanel.dragAndDropCharactersToFoldersDoubleClickOr")
+              : undefined,
+        }}
+      >
         <div className="flex flex-wrap gap-1">
-          {(includedTags.size > 0 || excludedTags.size > 0) && (
+          {(["all", "favorites", "non-favorites"] as const).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => setFavFilter(opt)}
+              aria-pressed={favFilter === opt}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--compact",
+                favFilter === opt && "mari-chrome-control--selected",
+              )}
+            >
+              {opt === "all"
+                ? localizeUi("ui.noodle.stageprofilesourcepicker.all")
+                : opt === "favorites"
+                  ? localizeUi("ui.panels.characterspanel.favs")
+                  : localizeUi("ui.panels.characterspanel.nonFavs")}
+            </button>
+          ))}
+          {allTags.length > 0 && (
             <button
               type="button"
-              onClick={clearTagFilters}
-              className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
+              onClick={() => setTagsExpanded(!tagsExpanded)}
+              aria-expanded={tagsExpanded}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--compact",
+                (includedTags.size > 0 || excludedTags.size > 0) && "mari-chrome-control--selected",
+              )}
             >
-              <X size="0.5rem" /> {localizeUi("lorebook.editor.batch.clear")}
+              <Tag size="0.625rem" />
+              {localizeUi("ui.panels.backgroundpicker.tagsValue1", { value1: allTags.length })}
+              <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
             </button>
           )}
-          {allTags.map((tag) => {
-            const included = includedTags.has(tag);
-            const excluded = excludedTags.has(tag);
-            return (
-              <div
-                key={tag}
-                className={cn(
-                  "mari-chrome-control mari-chrome-control--compact group/tag gap-0 p-0",
-                  included ? "mari-chrome-control--selected" : excluded ? "mari-chrome-control--danger" : "",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleIncludedTag(tag)}
-                  aria-pressed={included}
-                  className="px-2 py-1"
-                >
-                  {tag}
-                </button>
-                <button
-                  type="button"
-                  aria-label={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteTag(tag);
-                  }}
-                  className="mr-1 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
-                  title={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
-                >
-                  <X size="0.5rem" />
-                </button>
-              </div>
-            );
-          })}
         </div>
-      )}
+
+        {allTags.length > 0 && tagsExpanded && (
+          <div className="flex flex-wrap gap-1">
+            {(includedTags.size > 0 || excludedTags.size > 0) && (
+              <button
+                type="button"
+                onClick={clearTagFilters}
+                className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
+              >
+                <X size="0.5rem" /> {localizeUi("lorebook.editor.batch.clear")}
+              </button>
+            )}
+            {allTags.map((tag) => {
+              const included = includedTags.has(tag);
+              const excluded = excludedTags.has(tag);
+              return (
+                <div
+                  key={tag}
+                  className={cn(
+                    "mari-chrome-control mari-chrome-control--compact group/tag gap-0 p-0",
+                    included ? "mari-chrome-control--selected" : excluded ? "mari-chrome-control--danger" : "",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleIncludedTag(tag)}
+                    aria-pressed={included}
+                    className="px-2 py-1"
+                  >
+                    {tag}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTag(tag);
+                    }}
+                    className="mr-1 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
+                    title={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
+                  >
+                    <X size="0.5rem" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </LibraryToolbar>
 
       <div className="flex flex-col gap-0.5">
         {folderFilterActive && folderStatus}
@@ -1327,7 +1263,7 @@ export function CharactersPanel() {
                           <div className="absolute inset-0 overflow-hidden rounded-lg">
                             {member.avatarPath ? (
                               <img
-                                src={member.avatarPath}
+                                src={avatarPreviewSrc(member.avatarPath)}
                                 alt={memberName}
                                 loading="lazy"
                                 className="h-full w-full object-cover"
@@ -1686,7 +1622,7 @@ export function CharactersPanel() {
                 {avatarUrl ? (
                   <div className="absolute inset-0 overflow-hidden rounded-xl">
                     <img
-                      src={avatarUrl}
+                      src={avatarPreviewSrc(avatarUrl)}
                       alt={charName}
                       className="h-full w-full object-cover"
                       style={getAvatarCropStyle(normalizeAvatarCrop(char.parsed.extensions?.avatarCrop))}

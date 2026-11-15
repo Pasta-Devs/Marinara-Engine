@@ -91,9 +91,20 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
     [...observedHeaders].some(
       (header) => header.matches("[data-phone-toast-header]") && header.parentElement?.contains(node),
     );
+  // Measuring reads styles and layout. Done in the mutation delivery, it forced a full restyle and
+  // layout in the middle of every render while a toast showed (a lasting "update ready" toast made
+  // opening Chat settings measure the page twice). One measure per frame, run before that frame
+  // paints, keeps the toast clear of new controls just the same.
+  let refreshFrame = 0;
+  const refreshHeadersBeforePaint = () => {
+    if (refreshFrame) return;
+    refreshFrame = window.requestAnimationFrame(() => {
+      refreshFrame = 0;
+      if (watching) refreshHeaders();
+    });
+  };
   const layoutObserver = new MutationObserver((records) => {
-    // Streaming messages and toast animations cannot move these headers. Keep relevant updates in
-    // this delivery: deferring them to another animation frame can paint a toast over new controls.
+    // Streaming messages and toast animations cannot move these headers.
     if (
       records.some(
         (record) =>
@@ -104,11 +115,13 @@ export function watchPhoneToastTop(host: HTMLElement): () => void {
               : [...record.addedNodes, ...record.removedNodes].some(containsHeader))),
       )
     ) {
-      refreshHeaders();
+      refreshHeadersBeforePaint();
     }
   });
   const stopWatching = () => {
     watching = false;
+    if (refreshFrame) window.cancelAnimationFrame(refreshFrame);
+    refreshFrame = 0;
     layoutObserver.disconnect();
     resizeObserver.disconnect();
     observedHeaders.clear();

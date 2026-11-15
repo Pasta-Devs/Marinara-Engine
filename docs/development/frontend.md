@@ -338,8 +338,11 @@ Panels keep their state through a `mountedPanels` Set held in a `useState` insid
 | `EmojiPicker`      | Searchable emoji popover (portal-rendered)                            |
 | `GifPicker`        | GIF search via the Giphy API                                          |
 | `HelpTooltip`      | Hover icon that shows a portal-positioned tooltip                     |
+| `LibraryToolbar`   | The toolbar every library panel shares (see below)                    |
 
 All UI components use controlled props (value plus onChange) and portal rendering for overlays.
+
+**Library panels use `LibraryToolbar`.** Characters, Personas, Lorebooks, Agents and the Presets panel's tabs render their top controls through it: an optional library row (one full-width button, or the Download / Open Library pair), create / import / export / select, search with the shared sort menu, New Folder, then panel filters as `children`. The rows are typed props, not slots, so a new library panel gets the same markup instead of a copy that drifts. Add a prop there rather than hand-building a toolbar in a panel.
 
 ## API client (`lib/api-client.ts`)
 

@@ -386,6 +386,7 @@ export function ModelsStep(props: ModelsStepProps) {
               accountName={props.targetName}
               onChoose={chooseJobModel}
               only={props.setupKind === "voice" ? isSpeechModel : undefined}
+              offerDefault={false}
               autoFocusSearch
             />
           )}

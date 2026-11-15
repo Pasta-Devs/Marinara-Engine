@@ -68,6 +68,11 @@ export interface ConnectionAccountListItem {
   showUsageFiveHour: boolean;
   showUsageWeekly: boolean;
   treatAsLocalEndpoint: boolean;
+  /**
+   * The server can answer with whatever model it has loaded (a local or self-hosted engine, or the Grok CLI), so a
+   * chat Model of this Connection may leave its model empty: the "Default" model. Its requests send no model id.
+   */
+  loadedModel: boolean;
   enabled: boolean;
   maxRequestsPerMinute: number | null;
   maxParallelJobs: number | null;

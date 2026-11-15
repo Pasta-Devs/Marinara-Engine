@@ -48,7 +48,7 @@ Opening a persona replaces the chat area with the full-page Persona Editor. The 
 - The avatar tile. Click it to upload a picture. With an image-generation connection set up, a wand button generates one too.
 - The name field and a comment field, for a short label such as `Modern AU version`.
 - **Save**, which is off until you change something.
-- **Export persona**, **Add persona as character**, **Duplicate persona** and **Delete persona**.
+- The **…** (**More actions**) menu, with **Ask Professor Mari**, **Export persona**, **Add persona as character**, **Duplicate persona** and **Delete persona**.
 
 Leaving the editor saves your changes first. If saving fails, the editor stays open with your draft.
 
@@ -113,7 +113,7 @@ A **Game Mode Icon** block sets your token picture in a Game Mode fight. See [Ga
 
 To import, click **Import** in the **Personas** panel. The **Import Persona** window takes `.marinara` and `.json` files, and several at once. A Marinara file restores full details, sprites and gallery structure. A generic JSON file from another tool is mapped field by field into a new persona. A name is required. Each file shows a success or failure mark.
 
-To export, click **Export persona** in the editor, or use **Export** in selection mode. The **Export Persona** window offers two formats:
+To export, click **…** then **Export persona** in the editor, or use **Export** in selection mode. The **Export Persona** window offers two formats:
 
 | Format | What you get |
 | --- | --- |
@@ -124,13 +124,13 @@ A bulk export downloads one zip with one file per persona.
 
 ## Duplicate or delete a persona
 
-To duplicate, click **Duplicate** on a row or **Duplicate persona** in the editor. The copy is named "{original name} (Copy)" and keeps all card fields, colors, stats and convo fields. No chat changes its persona.
+To duplicate, click **Duplicate** on a row or **Duplicate persona** in the editor's **…** menu. The copy is named "{original name} (Copy)" and keeps all card fields, colors, stats and convo fields. No chat changes its persona.
 
 To delete, click **Delete** on a row or **Delete persona** in the editor, then confirm. You cannot undo it. To delete many, click **Select**, tick the personas, and use **Delete** in the selection bar. If a deletion fails, those personas stay selected so you can try again.
 
 ## Add a persona as a character
 
-**Add persona as character** in the editor header creates a new card in your characters. It copies the name, description, personality, scenario, backstory, appearance, tags, creator, version and avatar. The persona stays as it was. To edit the new card, see [Creating and Editing Characters](creating-and-editing-characters.md).
+**Add persona as character** in the editor header's **…** menu creates a new card in your characters. It copies the name, description, personality, scenario, backstory, appearance, tags, creator, version and avatar. The persona stays as it was. To edit the new card, see [Creating and Editing Characters](creating-and-editing-characters.md).
 
 ## Related guides
 

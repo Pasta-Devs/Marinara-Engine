@@ -71,6 +71,8 @@ import {
   resolveSpriteExpressionState,
 } from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
+import { useLocationBackgroundPinFollower } from "../../hooks/use-location-background-pins";
+import { useChatGalleryBackgroundPins } from "../../hooks/use-chat-gallery-owners";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -197,6 +199,7 @@ import { ChatHelpOverlay } from "./ChatHelpOverlay";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
+import { useStableCallback } from "../../hooks/use-stable-callback";
 
 export type { CharacterMap };
 
@@ -2185,6 +2188,34 @@ const LocalChatArea = memo(function LocalChatArea({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatBackground, chat?.id, pendingNewChatSetupId]);
 
+  // Pinned places (Chat settings > Background): arriving at one shows its picture.
+  const pinCharacterNames = useMemo(
+    () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
+    [chatCharIds, characterMap],
+  );
+  // Who wrote the message the World State belongs to: "my bedroom" in John's reply is John's.
+  const trackedMessageId = useGameStateStore((state) =>
+    state.current?.chatId === chat?.id ? (state.current?.messageId ?? null) : null,
+  );
+  const trackedMessage = trackedMessageId ? messages?.find((message) => message.id === trackedMessageId) : undefined;
+  const pinSpeakerName = !trackedMessage
+    ? null
+    : trackedMessage.role === "user"
+      ? (personaInfo?.name ?? null)
+      : trackedMessage.characterId
+        ? (characterMap.get(trackedMessage.characterId)?.name ?? null)
+        : null;
+  const galleryBackgroundPins = useChatGalleryBackgroundPins(chat?.mode === "roleplay" ? chat : null);
+  useLocationBackgroundPinFollower({
+    chatId: chat?.id ?? null,
+    chatMode: chat?.mode,
+    chatMetadata: chat?.metadata,
+    userName: personaInfo?.name ?? null,
+    characterNames: pinCharacterNames,
+    speakerName: pinSpeakerName,
+    galleryPins: galleryBackgroundPins,
+  });
+
   const expressionSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingExpressions = useRef<Record<string, string>>(spriteExpressions);
   const pendingSpritePlacements = useRef<Record<string, SpritePlacement>>(spritePlacements);
@@ -2968,7 +2999,7 @@ const LocalChatArea = memo(function LocalChatArea({
     [updateMessageExtra],
   );
 
-  const handleBranch = useCallback(
+  const handleBranchLatest = useCallback(
     async (messageId: string) => {
       const chatId = activeChatId;
       if (!chatId || branchChat.isPending || branchPendingRef.current) return;
@@ -3007,6 +3038,8 @@ const LocalChatArea = memo(function LocalChatArea({
     },
     [activeChatId, branchChat, localizeUi],
   );
+  // Stable for the memoized message rows: branchChat is a new object every render.
+  const handleBranch = useStableCallback(handleBranchLatest);
 
   const handleCloneSceneFromHere = useCallback(
     (messageId: string) => {
@@ -3045,7 +3078,7 @@ const LocalChatArea = memo(function LocalChatArea({
   // Peek prompt state
   const [peekPromptData, setPeekPromptData] = useState<PeekPromptData | null>(null);
 
-  const handlePeekPrompt = useCallback(
+  const handlePeekPromptLatest = useCallback(
     (messageId?: string) => {
       if (!activeChatId) return;
       peekPrompt.mutate(messageId ? { chatId: activeChatId, messageId } : activeChatId, {
@@ -3087,6 +3120,8 @@ const LocalChatArea = memo(function LocalChatArea({
     },
     [activeChatId, chatMeta.groupChatMode, checkMessage, handleReplyCheckupLink, messages, peekPrompt],
   );
+  // Stable for the memoized message rows: peekPrompt is a new object every render.
+  const handlePeekPrompt = useStableCallback(handlePeekPromptLatest);
 
   // R2: only the newest reply gets the quiet line, and only for facts about the reply itself.
   const replyCheckup = useMemo(() => {

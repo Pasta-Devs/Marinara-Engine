@@ -1,10 +1,11 @@
-import type { ChangeEventHandler, CSSProperties, ReactNode, RefObject } from "react";
-import { ArrowDown, ArrowUp, Save, User } from "lucide-react";
+import { useState, type ChangeEventHandler, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { ArrowDown, ArrowUp, MoreHorizontal, Save, User } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EditorTabNavigation, type EditorTabItem } from "../ui/EditorTabNavigation";
 import { useTranslation } from "react-i18next";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 interface CardEditorProps<T extends string> {
   variant: "character" | "persona";
@@ -39,7 +40,10 @@ interface CardEditorProps<T extends string> {
   onRevealWorkingField: () => void;
   children: ReactNode;
 
+  /** Actions that stay visible beside Save, such as the favourite star. */
   actionsSlot?: ReactNode;
+  /** The rest of the card actions, behind a "…" button so the section pills keep their room. */
+  menuItems?: ContextMenuItem[];
   wrapContent?: (content: ReactNode) => ReactNode;
 }
 
@@ -70,9 +74,12 @@ export function CardEditor<T extends string>({
   onRevealWorkingField,
   children,
   actionsSlot,
+  menuItems,
   wrapContent,
 }: CardEditorProps<T>) {
   const { t } = useTranslation();
+  const [actionsMenu, setActionsMenu] = useState<{ x: number; y: number; keyboard: boolean } | null>(null);
+  const moreLabel = t("editor.actions.more");
   const character = variant === "character";
   const resolvedVersion = version || "1.0";
   const creatorText = creator
@@ -204,6 +211,33 @@ export function CardEditor<T extends string>({
             <span className="mari-editor-save-label">{saveLabel}</span>
           </button>
           {actionsSlot}
+          {menuItems && menuItems.length > 0 && (
+            <button
+              type="button"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                setActionsMenu({ x: rect.right, y: rect.bottom + 4, keyboard: event.detail === 0 });
+              }}
+              className="mari-editor-action inline-flex"
+              title={moreLabel}
+              aria-label={moreLabel}
+              aria-haspopup="menu"
+              aria-expanded={!!actionsMenu}
+              data-card-editor-more
+            >
+              <MoreHorizontal size="1rem" />
+            </button>
+          )}
+          {actionsMenu && menuItems && (
+            <ContextMenu
+              x={actionsMenu.x}
+              y={actionsMenu.y}
+              autoFocus={actionsMenu.keyboard}
+              align="end"
+              items={menuItems}
+              onClose={() => setActionsMenu(null)}
+            />
+          )}
         </div>
         <SurfaceCloseButton disabled={busy} dividerClassName="" />
       </div>

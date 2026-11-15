@@ -202,6 +202,158 @@ test("Chat Settings saves the chat's lorebook choices", async ({ page, request }
   }
 });
 
+// A merged group with automation on shows every member control: the on/off eye, the pin, remove, and the name.
+test("Chat Settings switches, pins, removes and opens the chat's characters", async ({ page, request }) => {
+  const adaId = await createCharacter(request, "Cast Ada");
+  const boId = await createCharacter(request, "Cast Bo");
+  const cyId = await createCharacter(request, "Cast Cy");
+  const chatId = await createChat(request, "roleplay", [adaId, boId, cyId]);
+  const metadata = { groupChatMode: "merged", autoActiveCharacters: "decision" };
+  expect((await request.patch(`/api/chats/${chatId}/metadata`, { data: metadata })).ok()).toBeTruthy();
+  const readCharacterIds = async () =>
+    ((await (await request.get(`/api/chats/${chatId}`)).json()) as { characterIds: string[] }).characterIds;
+  try {
+    await openApp(page, chatId);
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const characters = settings.locator('[data-drawer="roleplay-characters"]');
+    await setOpen(characters, true);
+    const row = (id: string) => characters.locator(`[data-drag-kind="chat-settings-character"][data-drag-id="${id}"]`);
+
+    // Switching a member off by hand while automation runs also pins them, so the next turn keeps the choice.
+    await row(adaId).getByTitle("Disable in chat", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).inactiveCharacterIds).toEqual([adaId]);
+    expect((await readMetadata(request, chatId)).autoActiveCharacterPins).toEqual([adaId]);
+    await expect(row(adaId).getByRole("button", { name: /^Pinned, so automation/u })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await row(boId)
+      .getByRole("button", { name: /^Pin, so automation/u })
+      .click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).autoActiveCharacterPins).toEqual([adaId, boId]);
+    await row(adaId)
+      .getByRole("button", { name: /^Pinned, so automation/u })
+      .click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).autoActiveCharacterPins).toEqual([boId]);
+
+    // The last active member can't be switched off.
+    await row(boId).getByTitle("Disable in chat", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).inactiveCharacterIds).toEqual([adaId, boId]);
+    await row(cyId).getByTitle("Disable in chat", { exact: true }).click();
+    await expect(page.getByText("Keep one character active", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "OK", exact: true }).click();
+    expect((await readMetadata(request, chatId)).inactiveCharacterIds).toEqual([adaId, boId]);
+
+    // Removing a switched-off member also drops them from the switched-off list.
+    await row(boId).locator('[data-chat-settings-remove-resource="character"]').click();
+    await expect.poll(readCharacterIds).toEqual([adaId, cyId]);
+    await expect.poll(async () => (await readMetadata(request, chatId)).inactiveCharacterIds).toEqual([adaId]);
+    await expect(row(boId)).toHaveCount(0);
+
+    // The name closes Chat Settings and opens the full card on its Card tab.
+    await row(cyId).getByTitle("Open character card", { exact: true }).click();
+    await expect(settings).toBeHidden();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const module = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState(): { characterDetailId: string | null; characterDetailInitialTab: string | null } };
+          };
+          const state = module.useUIStore.getState();
+          return [state.characterDetailId, state.characterDetailInitialTab];
+        }),
+      )
+      .toEqual([cyId, "card"]);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await Promise.all([adaId, boId, cyId].map((id) => request.delete(`/api/characters/${id}`)));
+  }
+});
+
+test("Chat Settings removes a Game party member and persona, and opens a member's card", async ({ page, request }) => {
+  const adaId = await createCharacter(request, "Party Ada");
+  const boId = await createCharacter(request, "Party Bo");
+  const chatId = await createChat(request, "game", [adaId, boId]);
+  const personaResponse = await request.post("/api/characters/personas", { data: { name: "Party Hero" } });
+  expect(personaResponse.ok()).toBeTruthy();
+  const personaId = ((await personaResponse.json()) as { id: string }).id;
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { personaId } })).ok()).toBeTruthy();
+  const readChat = async () =>
+    (await (await request.get(`/api/chats/${chatId}`)).json()) as { characterIds: string[]; personaId: string | null };
+  try {
+    await openApp(page, chatId);
+    await expect(page.locator('[data-chat-mode="game"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const party = settings.locator('[data-drawer="game-party"]');
+    await setOpen(party, true);
+    const body = party.locator(":scope > .mari-drawer__body");
+    await expect(body.getByText("Party Hero", { exact: true })).toBeVisible();
+
+    await body.locator('[data-chat-settings-remove-resource="persona"]').click();
+    await expect.poll(async () => (await readChat()).personaId).toBeNull();
+    await expect(body.getByRole("button", { name: /Choose\s+Persona/u })).toBeVisible();
+
+    const memberName = (name: string) =>
+      body.getByTitle("Open character card", { exact: true }).filter({ hasText: name });
+    // The row holding the name also holds the member's edit and remove buttons.
+    await memberName("Party Bo").locator("xpath=..").getByTitle("Remove from party", { exact: true }).click();
+    await expect.poll(async () => (await readChat()).characterIds).toEqual([adaId]);
+    await expect(memberName("Party Bo")).toHaveCount(0);
+
+    // The name closes Chat Settings and opens the full card on its Card tab.
+    await memberName("Party Ada").click();
+    await expect(settings).toBeHidden();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const module = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState(): { characterDetailId: string | null; characterDetailInitialTab: string | null } };
+          };
+          const state = module.useUIStore.getState();
+          return [state.characterDetailId, state.characterDetailInitialTab];
+        }),
+      )
+      .toEqual([adaId, "card"]);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/characters/personas/${personaId}`);
+    await Promise.all([adaId, boId].map((id) => request.delete(`/api/characters/${id}`)));
+  }
+});
+
+// Playing as a character stores it in personaCharacterId; Remove leaves the chat with no persona of either kind.
+test("Chat Settings removes a played-as character persona", async ({ page, request }) => {
+  const heroId = await createCharacter(request, "Played Hero");
+  const partnerId = await createCharacter(request, "Played Partner");
+  const chatId = await createChat(request, "roleplay", [partnerId]);
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { personaCharacterId: heroId } })).ok()).toBeTruthy();
+  const readPersona = async () => {
+    const stored = (await (await request.get(`/api/chats/${chatId}`)).json()) as {
+      personaId: string | null;
+      personaCharacterId: string | null;
+    };
+    return [stored.personaId ?? null, stored.personaCharacterId ?? null];
+  };
+  try {
+    await openApp(page, chatId);
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toBeVisible();
+    const settings = await openChatSettings(page);
+    const persona = settings.locator('[data-drawer="roleplay-persona"]');
+    await setOpen(persona, true);
+    const body = persona.locator(":scope > .mari-drawer__body");
+    await expect(body.getByTitle("Change persona", { exact: true })).toContainText("Played Hero");
+
+    await body.locator('[data-chat-settings-remove-resource="persona"]').click();
+    await expect.poll(readPersona).toEqual([null, null]);
+    await expect(body.getByRole("button", { name: /Choose\s+Persona/u })).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await Promise.all([heroId, partnerId].map((id) => request.delete(`/api/characters/${id}`)));
+  }
+});
+
 // Connected chats differs by mode: Conversation links to a Roleplay or Game chat and has Cross-Chat Awareness,
 // Roleplay shows the linked conversation and has Allow character DMs, and Game can start the link from its side.
 test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {

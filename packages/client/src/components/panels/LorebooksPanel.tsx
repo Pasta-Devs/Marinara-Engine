@@ -15,24 +15,7 @@ import {
   type TouchEvent,
 } from "react";
 import { toast } from "sonner";
-import {
-  Plus,
-  Copy,
-  Download,
-  Check,
-  BookOpen,
-  Search,
-  UserRound,
-  ArrowUpDown,
-  Tag,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  FolderPlus,
-  X,
-  Trash2,
-  Camera,
-} from "lucide-react";
+import { Copy, BookOpen, UserRound, Tag, ChevronDown, ChevronRight, ChevronUp, X, Trash2, Camera } from "lucide-react";
 import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import { useChatStore } from "../../stores/chat.store";
@@ -65,8 +48,8 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import { LorebookSelectionEnableActions } from "./library/LorebookSelectionEnableActions";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import { PanelVirtualList } from "./PanelVirtualList";
@@ -132,7 +115,6 @@ export function LorebooksPanel() {
   const { active: manualOrderActive, orderItems: orderLibraryItems } = manualOrder;
   const folderDrag = useLibraryFolderDrag("lorebook");
   const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const activeCategory = useUIStore((s) => s.lorebookPanelCategory);
   const setActiveCategory = useUIStore((s) => s.setLorebookPanelCategory);
   const searchQuery = useUIStore((s) => s.lorebookPanelSearch);
@@ -756,95 +738,49 @@ export function LorebooksPanel() {
         onChange={handleLorebookImageSelected}
       />
 
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => openModal("create-lorebook")}
-          className="mari-panel-gradient-button mari-panel-gradient--lorebooks flex-1 text-xs"
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => openModal("import-lorebook")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={localizeUi("ui.chat.chatbranchselector.import")}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => {
+      <LibraryToolbar
+        tone="lorebooks"
+        create={{
+          label: localizeUi("ui.panels.lorebookspanel.createLorebook"),
+          title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
+          onClick: () => openModal("create-lorebook"),
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.lorebookspanel.importLorebooks"),
+          title: localizeUi("ui.chat.chatbranchselector.import"),
+          onClick: () => openModal("import-lorebook"),
+        }}
+        select={{
+          active: selectionMode,
+          label: selectionMode
+            ? localizeUi("ui.panels.lorebookspanel.exitLorebookSelectionMode")
+            : localizeUi("ui.panels.lorebookspanel.selectLorebooks"),
+          title: localizeUi("settings.common.select"),
+          onToggle: () => {
             if (selectionMode) exitSelectionMode();
             else setSelectionMode(true);
-          }}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          title={localizeUi("settings.common.select")}
-        >
-          <Check size="0.8125rem" />
-        </button>
-      </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-          />
-          <input
-            type="text"
-            placeholder={localize("Search lorebooks")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-        <div className="relative">
-          <select
-            value={manualOrderActive || folderDrag.active ? "custom" : sort}
-            onChange={(e) => {
-              manualOrder.setActive(e.target.value === "custom");
-              folderDrag.setActive(e.target.value === "custom");
-              if (e.target.value !== "custom") setSort(e.target.value as LorebookPanelSort);
-            }}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-          >
-            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-              {localizeUi("dragDrop.manualOrder")}
-            </option>
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-            <option value="tokens">{localizeUi("ui.lorebooks.lorebookeditor.tokenBudget")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <FolderPlus size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.newFolder")}
-          </button>
-        </div>
-        {lorebookFolders.length > 0 && (
-          <p className="mari-folder-helper">
-            {localizeUi("ui.panels.lorebookspanel.dragAndDropLorebooksToFoldersDoubleClickOr")}
-          </p>
-        )}
-      </div>
+          },
+        }}
+        search={{ value: searchQuery, placeholder: localizeUi("search.panels.lorebooks"), onChange: setSearchQuery }}
+        sort={{
+          value: manualOrderActive || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.lorebookspanel.sortLorebooks"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setSort(value as LorebookPanelSort);
+          },
+          extraOptions: [{ value: "tokens", label: localizeUi("ui.lorebooks.lorebookeditor.tokenBudget") }],
+        }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          onCreate: handleCreateFolder,
+          helper:
+            lorebookFolders.length > 0
+              ? localizeUi("ui.panels.lorebookspanel.dragAndDropLorebooksToFoldersDoubleClickOr")
+              : undefined,
+        }}
+      />
 
       {/* Filters */}
       <div className="flex gap-1 md:hidden">

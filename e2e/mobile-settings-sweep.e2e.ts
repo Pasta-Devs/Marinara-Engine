@@ -247,13 +247,25 @@ for (const theme of ["dark", "light"] as const) {
         const module = await import("/src/stores/ui.store.ts" as string);
         module.useUIStore.getState().openConnectionDetail(id);
       }, connection.id);
-      const name = page.getByPlaceholder("e.g. Claude Sonnet — RP", { exact: true });
+      // The connection editor is the model window since the Connections redesign; its name field is "Model name".
+      const name = page
+        .getByRole("dialog", { name: "Keyboard fixture", exact: true })
+        .getByRole("textbox", { name: "Model name", exact: true });
       await expect(name).toHaveValue("Keyboard fixture");
       await name.focus();
       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
       const hidden = await name.evaluate((field) => {
-        const scroll = field.closest<HTMLElement>(".mari-editor-content")!;
-        scroll.scrollTop = 110;
+        // The window's scrolling body is the field's nearest ancestor that scrolls; mark it for the check below.
+        let scroll = field.parentElement;
+        while (
+          scroll &&
+          !(scroll.scrollHeight > scroll.clientHeight && /auto|scroll/u.test(getComputedStyle(scroll).overflowY))
+        )
+          scroll = scroll.parentElement;
+        if (!scroll) throw new Error("The model name field has no scrolling body");
+        scroll.dataset.e2eScroller = "";
+        // Scroll just past the field, as the keyboard's pan leaves it above the visible body.
+        scroll.scrollTop += field.getBoundingClientRect().top - scroll.getBoundingClientRect().top + 10;
         const clipped = field.getBoundingClientRect().top < scroll.getBoundingClientRect().top;
         (window as typeof window & { __keyboardViewport: (height: number, top: number) => void }).__keyboardViewport(
           390,
@@ -266,14 +278,18 @@ for (const theme of ["dark", "light"] as const) {
         .poll(() =>
           name.evaluate((field) => {
             const rect = field.getBoundingClientRect();
-            const scroll = field.closest<HTMLElement>(".mari-editor-content")!.getBoundingClientRect();
+            const scroll = field.closest<HTMLElement>("[data-e2e-scroller]")!.getBoundingClientRect();
             return rect.top >= scroll.top && rect.bottom <= Math.min(scroll.bottom, 490);
           }),
         )
         .toBe(true);
       await name.fill("Visible while typing");
-      await expect(name).toBeFocused();
-      await expect(name).toHaveValue("Visible while typing");
+      // The window is titled by the name being typed, so it is found by its new name now.
+      const renamed = page
+        .getByRole("dialog", { name: "Visible while typing", exact: true })
+        .getByRole("textbox", { name: "Model name", exact: true });
+      await expect(renamed).toBeFocused();
+      await expect(renamed).toHaveValue("Visible while typing");
       await testInfo.attach(`connection-keyboard-${theme}`, {
         body: await page.screenshot(),
         contentType: "image/png",

@@ -29,6 +29,7 @@ import { getActiveTurnGame, loadTurnGameForDrain } from "./turn-game-runner.serv
 
 const MAX_BOT_TURNS = 100;
 const HUMAN_FALLBACK_SEAT = "human";
+// Games whose packages predate the engine flag `silentBotMoves` (Capability API 1.827).
 const SILENT_BOT_MOVE_GAME_TYPES = new Set(["tic-tac-toe", "rock-paper-scissors"]);
 
 /** The non-null shape `getActiveTurnGame` / `loadTurnGameForDrain` resolve to. */
@@ -439,7 +440,7 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
       .filter(Boolean)
       .join(" ");
 
-    if (SILENT_BOT_MOVE_GAME_TYPES.has(engine.gameType)) {
+    if (engine.silentBotMoves === true || SILENT_BOT_MOVE_GAME_TYPES.has(engine.gameType)) {
       await engineStorage.updateStateById(active.row.id, JSON.stringify(nextState), true, active.row.chatId);
     } else {
       // ── Narration: a natural in-character turn — may banter with the table AND flavor the move ──
