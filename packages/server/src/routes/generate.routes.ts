@@ -171,6 +171,7 @@ import {
   normalizeTrackerFieldLocksForState,
   trackerFieldLocksAreEmpty,
   customAgentHasCapability,
+  parseLorebookWriterOrder,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -7398,6 +7399,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                   ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                   : undefined,
+                writerOrder:
+                  resultAgent?.isCustomAgent === true
+                    ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                    : undefined,
                 lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                 worldName: agentContext.characters[0]?.world ?? chat.name,
                 existingEntries,
@@ -14682,6 +14687,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                       ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                       : undefined,
+                    writerOrder:
+                      resultAgent?.isCustomAgent === true
+                        ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                        : undefined,
                     lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                     worldName: agentContext.characters[0]?.world ?? chat.name,
                     // Anchor keeper lore to the turn it was extracted from so

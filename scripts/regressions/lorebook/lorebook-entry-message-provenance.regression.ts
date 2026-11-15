@@ -63,8 +63,55 @@ try {
     assert.equal((await add("First", "growing"))?.order, 1);
     assert.equal((await add("Fixed", 130))?.order, 130);
     const concurrent = await Promise.all([add("Next", "growing"), add("Last", "growing")]);
-    assert.deepEqual(concurrent.map((entry) => entry?.order), [131, 132]);
+    assert.deepEqual(
+      concurrent.map((entry) => entry?.order),
+      [131, 132],
+    );
     assert.equal((await add("Legacy default"))?.order, 100);
+  }
+
+  {
+    const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
+    const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.routes.js");
+    const { buildLorebookWriteApprovalProposal } =
+      await import("../../../packages/server/src/routes/generate/agent-write-approval.js");
+    const orderedBook = await lorebooks.create({ name: "Approved memories" });
+    const chat = await chats.create({ name: "Approval", mode: "roleplay", characterIds: [] });
+    const proposal = buildLorebookWriteApprovalProposal({
+      chatId: chat.id,
+      agentType: "custom-keeper",
+      agentName: "Keeper",
+      preferredTargetLorebookId: orderedBook.id,
+      writableLorebookIds: [orderedBook.id],
+      writerOrder: "growing",
+      updates: [
+        { name: "New memory", content: "The lantern went out.", order: 5 },
+        { name: "Old memory", content: "The lantern was lit.", order: 9 },
+      ],
+    });
+    assert.doesNotMatch(proposal.text, /^Order:/mu, "configured order supersedes model order in the proposal");
+    await lorebooks.createEntry({ lorebookId: orderedBook.id, name: "Old memory", order: 150 });
+    const app = Fastify();
+    app.decorate("db", db);
+    await app.register(chatsRoutes, { prefix: "/api/chats" });
+    try {
+      const result = await app.inject({
+        method: "POST",
+        url: `/api/chats/${chat.id}/agent-write-approval/commit`,
+        payload: proposal,
+      });
+      assert.equal(result.statusCode, 200, result.body);
+      const entries = await lorebooks.listEntries(orderedBook.id);
+      assert.deepEqual(
+        entries.map(({ name, order }) => [name, order]),
+        [
+          ["Old memory", 150],
+          ["New memory", 151],
+        ],
+      );
+    } finally {
+      await app.close();
+    }
   }
 
   // ── createEntry persists agent attribution + source refs ──
@@ -506,7 +553,11 @@ try {
       phase: "parallel",
       promptTemplate: "Save facts",
       connectionId: null,
-      settings: { enabledTools: ["save_lorebook_entry"], writableLorebookId: toolBook.id },
+      settings: {
+        enabledTools: ["save_lorebook_entry"],
+        writableLorebookId: toolBook.id,
+        newLorebookEntryOrder: hasUserSource ? "growing" : 42,
+      },
       isCustomAgent: true,
       provider: {},
       model: "fixture",
@@ -559,6 +610,7 @@ try {
     };
     const createdId = await save("New fact", "Invented claim", "create");
     await save("New fact", "Second invented claim", "append");
+    assert.equal((await lorebooks.getEntry(createdId))?.order, hasUserSource ? 1 : 42);
     const original = (await lorebooks.createEntry({
       lorebookId: toolBook.id,
       name: "Old fact",
@@ -568,6 +620,7 @@ try {
     await save("Old fact", "Invented replacement", "replace");
     await save("Old fact", "Extra invented detail", "append");
     const humanId = await save("Human owned", "Agent draft", "create");
+    assert.equal((await lorebooks.getEntry(humanId))?.order, hasUserSource ? 101 : 42);
     await lorebooks.updateEntry(humanId, { content: "Human correction" });
     const assistant = (await chats.createMessage({
       chatId: chat.id,

@@ -4,6 +4,7 @@ import {
   normalizeLorebookCategory,
   type AgentContext,
   type LorebookEntry,
+  type LorebookWriterOrder,
   type SourceMessageRef,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
@@ -491,6 +492,7 @@ export async function persistLorebookKeeperUpdates(args: {
   allowTargetRouting?: boolean;
   /** Human-approved names have already crossed the model-output decoding boundary. */
   namesAreVerbatim?: boolean;
+  writerOrder?: LorebookWriterOrder;
   writableLorebooks?: WritableLorebookSummary[];
   lorebookNamingScheme?: LorebookNamingScheme;
   worldName?: string | null;
@@ -517,6 +519,7 @@ export async function persistLorebookKeeperUpdates(args: {
     writableLorebooks,
     allowTargetRouting = true,
     namesAreVerbatim = false,
+    writerOrder,
     lorebookNamingScheme = {},
     worldName,
     sourceAgentId,
@@ -609,6 +612,7 @@ export async function persistLorebookKeeperUpdates(args: {
         writtenEntryIds,
         updates: targetUpdates,
         namesAreVerbatim,
+        writerOrder,
         revectorizeEntry,
         signal,
       });
@@ -661,7 +665,7 @@ export async function persistLorebookKeeperUpdates(args: {
     const content = readKeeperUpdateContent(update);
     const keys = readKeeperUpdateKeys(update);
     const tag = readKeeperUpdateTag(update);
-    const order = readLorebookKeeperUpdateOrder(update);
+    const order = writerOrder === undefined ? readLorebookKeeperUpdateOrder(update) : undefined;
     const existing = entryByName.get(rawName.toLowerCase());
 
     if (existing && (existing.locked === true || existing.locked === "true")) {
@@ -712,16 +716,19 @@ export async function persistLorebookKeeperUpdates(args: {
       newFacts: update.newFacts,
     });
     signal?.throwIfAborted();
-    const created = await lorebooksStore.createEntry({
-      lorebookId: targetLorebookId,
-      name: rawName,
-      content: createContent,
-      keys,
-      tag,
-      enabled: true,
-      ...(order !== undefined ? { order } : {}),
-      ...(provenance ?? {}),
-    });
+    const created = await lorebooksStore.createEntry(
+      {
+        lorebookId: targetLorebookId,
+        name: rawName,
+        content: createContent,
+        keys,
+        tag,
+        enabled: true,
+        ...(order !== undefined ? { order } : {}),
+        ...(provenance ?? {}),
+      },
+      writerOrder,
+    );
     signal?.throwIfAborted();
     if (created && typeof created === "object" && "id" in created) {
       const createdEntry = created as { id: string; name?: string | null; locked?: unknown };
