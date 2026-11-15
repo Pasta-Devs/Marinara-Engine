@@ -114,14 +114,20 @@ export async function resolveDecisionConnection(
     // TypeSafe may be sent to another address that serves its API (#7084). It keeps
     // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
     // A native account's chat address ends in /api/v1 (NanoGPT, OpenRouter); its decision endpoint is under the
-    // same /api on the same host.
+    // same /api. The path before /v1 is kept, so a gateway prefix (…/openrouter/api/v1) still applies; an address
+    // without /v1 falls back to the host's /api.
     const accountBase = row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider]?.defaultBaseUrl || "";
+    const nativeBase = () => {
+      const url = new URL(accountBase);
+      const path = url.pathname.replace(/\/+$/, "");
+      return /\/v1$/.test(path) ? `${url.origin}${path.slice(0, -3)}` : `${url.origin}/api`;
+    };
     const base =
       source === "google"
         ? // Gemini's decision endpoint sits under the account's /v1beta root.
           (accountBase.match(/^(.*?\/v1beta)(?:\/|$)/)?.[1] ?? `${accountBase.replace(/\/+$/, "")}/v1beta`)
         : nativeDecisions
-          ? `${new URL(accountBase).origin}/api`
+          ? nativeBase()
           : vendor
             ? accountBase
             : decisionSourceTakesUrl(source)

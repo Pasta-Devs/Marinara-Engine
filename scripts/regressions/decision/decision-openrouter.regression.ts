@@ -36,6 +36,13 @@ assert.equal(native.connection.model, "typesafe/jev-latest");
 const blank = await resolveDecisionConnection(row({ account: { provider: "openrouter", baseUrl: "" } }), noLinks);
 assert.equal(blank.connection?.endpoint, "https://openrouter.ai/api/v1/systemone");
 
+// An account behind a gateway path keeps its prefix; only the trailing /v1 is replaced.
+const gateway = await resolveDecisionConnection(
+  row({ account: { provider: "openrouter", baseUrl: "https://gw.example.com/openrouter/api/v1/" } }),
+  noLinks,
+);
+assert.equal(gateway.connection?.endpoint, "https://gw.example.com/openrouter/api/v1/systemone");
+
 // A row any picker made (source openai_compatible) is still right when the account's catalog lists a decision model.
 const fromCatalog = await resolveDecisionConnection(
   row({
