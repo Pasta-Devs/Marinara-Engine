@@ -45,6 +45,7 @@ import {
   type ChatResourceDragPayload,
 } from "../../lib/chat-resource-drag";
 import { iconOf } from "../agents/organizer/organizer-model";
+import { PROFILE_MODES } from "../presets/profile-detail-id";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
@@ -194,9 +195,6 @@ interface ChatProfileBuilderProps {
   /** The page's editor-leave key (`profileDetailId:<id>`), so leaving saves first like the other editors. */
   leaveKey?: string;
 }
-
-/** The chat modes that have settings profiles; Game chats have none. */
-const PROFILE_BUILDER_MODES = ["conversation", "roleplay"] as const;
 
 /** Saves on leave and reports dirty state, like the other center editors. Only mounted by the page variant. */
 function PageLeaveGuard({
@@ -459,6 +457,27 @@ function ChatProfileBuilderBody({
   }, [agentConfigs, agentFolders]);
 
   const setSlot = (key: SlotKey, ids: string[]) => setSettings((prev) => withSlot(key, prev, ids));
+  /** A new profile's slots after a mode switch: the same filters the `library` memo applies to that mode. */
+  const keepForMode = (prev: ChatPresetSettings, next: ChatMode): ChatPresetSettings => {
+    let out = next === "roleplay" ? prev : withSlot("preset", prev, []);
+    const manifests = new Map((agentManifests ?? []).map((manifest) => [manifest.id, manifest]));
+    out = withSlot(
+      "agent",
+      out,
+      slotIds("agent", out).filter((id) => {
+        const manifest = manifests.get(id);
+        return !manifest || isAgentManifestAvailableInChatMode(next, manifest);
+      }),
+    );
+    if (next !== "conversation") {
+      out = withSlot(
+        "tool",
+        out,
+        slotIds("tool", out).filter((id) => id !== "update_about_me"),
+      );
+    }
+    return out;
+  };
   const toggleInSlot = (key: SlotKey, id: string) =>
     setSettings((prev) => {
       const current = slotIds(key, prev);
@@ -772,7 +791,7 @@ function ChatProfileBuilderBody({
   // The pills of the Profiles tab's mode filter (agents/AgentModeFilter.tsx), without All.
   const modePicker = (
     <div className="flex flex-wrap gap-1" role="group" aria-label={t("chat.settingsProfile.builder.modeLabel")}>
-      {PROFILE_BUILDER_MODES.map((value) => (
+      {PROFILE_MODES.map((value) => (
         <button
           key={value}
           type="button"
@@ -784,9 +803,9 @@ function ChatProfileBuilderBody({
           disabled={busy}
           onClick={() => {
             if (value === mode) return;
-            // Slots depend on the mode (prompt presets are Roleplay-only, agents differ), so start them over.
+            // Keep the slots both modes share; drop only what the new mode can't hold.
             setMode(value);
-            setSettings(initialSettings ?? {});
+            setSettings((prev) => keepForMode(prev, value));
           }}
         >
           {t(`chat.settingsProfile.builder.mode.${value}`)}

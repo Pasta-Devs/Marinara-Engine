@@ -16,7 +16,7 @@ import { api } from "../../lib/api-client";
 import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import { newProfileDetailId } from "../presets/profile-detail-id";
+import { isProfileMode, newProfileDetailId, PROFILE_MODES, type ProfileMode } from "../presets/profile-detail-id";
 import {
   useChatPresets,
   useDeleteChatPreset,
@@ -24,12 +24,6 @@ import {
   useImportChatPreset,
   useSetActiveChatPreset,
 } from "../../hooks/use-chat-presets";
-
-/** The chat modes that have settings profiles (the server seeds a Default for each). */
-export const PROFILE_MODES = ["conversation", "roleplay"] as const satisfies readonly ChatMode[];
-export type ProfileMode = (typeof PROFILE_MODES)[number];
-
-const isProfileMode = (mode: unknown): mode is ProfileMode => PROFILE_MODES.includes(mode as ProfileMode);
 
 interface ProfilesSectionProps {
   selectionMode: boolean;

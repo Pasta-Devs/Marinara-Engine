@@ -6,14 +6,12 @@
 import { useEffect } from "react";
 import { ChatProfileBuilder } from "../chat/ChatProfileBuilder";
 import { useChatPresets } from "../../hooks/use-chat-presets";
-import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { NEW_PROFILE_PREFIX, readNewProfileMode } from "./profile-detail-id";
 
 export function ProfileEditor() {
   const profileDetailId = useUIStore((s) => s.profileDetailId);
   const closeProfileDetail = useUIStore((s) => s.closeProfileDetail);
-  const activeChatId = useChatStore((s) => s.activeChat?.id);
   const { data: profiles, isFetched } = useChatPresets();
 
   const newMode = profileDetailId ? readNewProfileMode(profileDetailId) : null;
@@ -49,7 +47,8 @@ export function ProfileEditor() {
       onClose={closeProfileDetail}
       mode={profile?.mode ?? newMode!}
       profile={profile ?? null}
-      currentChatId={activeChatId}
+      // No currentChatId: edited from the library, the profile isn't for the open chat, so step 2
+      // starts with nothing ticked instead of nominating that chat for an overwrite.
     />
   );
 }
