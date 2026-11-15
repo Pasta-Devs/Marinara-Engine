@@ -1897,6 +1897,7 @@ export function BotBrowserView() {
   const performSwitch = useCallback((newId: string) => {
     const newProv = getProvider(newId);
     searchSeqRef.current += 1;
+    detailRequestRef.current += 1;
     setLoading(false);
     setSourceId(newId);
     setSourceOpen(false);
@@ -2354,7 +2355,9 @@ export function BotBrowserView() {
     setImporting(true);
     try {
       const lorebookDetail = (selectedCard?.id === card.id ? detail : null) ?? (await provider.fetchDetail(card));
-      const embedded = lorebookDetail?.embeddedLorebook as Record<string, unknown> | undefined;
+      // fetchDetail answers null when Chub could not be read; that is a failed import, not an empty book.
+      if (!lorebookDetail) throw new Error(localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+      const embedded = lorebookDetail.embeddedLorebook as Record<string, unknown> | undefined;
       if (!hasLorebookEntries(embedded))
         throw new Error(localizeUi("ui.botBrowser.botbrowserview.lorebookHasNoEntries"));
       const response = await fetch("/api/import/st-lorebook", {
@@ -3851,10 +3854,25 @@ function DetailView({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setZoomed(true)}
-                  className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  title={localizeUi("ui.botBrowser.detailview.enlargeImage")}
-                  aria-label={localizeUi("ui.botBrowser.detailview.enlargeImage")}
+                  // A blurred cover stays veiled: only the NSFW toggle reveals it, so it does not enlarge.
+                  onClick={() => {
+                    if (!card.blurCover) setZoomed(true);
+                  }}
+                  aria-disabled={card.blurCover || undefined}
+                  className={cn(
+                    "block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+                    card.blurCover ? "cursor-default" : "cursor-zoom-in",
+                  )}
+                  title={localizeUi(
+                    card.blurCover
+                      ? "ui.botBrowser.botbrowserview.unblurNsfwLorebookCovers"
+                      : "ui.botBrowser.detailview.enlargeImage",
+                  )}
+                  aria-label={localizeUi(
+                    card.blurCover
+                      ? "ui.botBrowser.botbrowserview.unblurNsfwLorebookCovers"
+                      : "ui.botBrowser.detailview.enlargeImage",
+                  )}
                 >
                   <img
                     src={card.avatarUrl}

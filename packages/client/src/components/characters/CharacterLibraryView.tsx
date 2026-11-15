@@ -37,6 +37,7 @@ import { useUIStore, type CardLibraryKind, type UIState } from "../../stores/ui.
 import { useSetLorebooksEnabled } from "../../hooks/use-lorebooks";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
+import { toast } from "sonner";
 import {
   useCharacterLibrarySource,
   useLorebookLibrarySource,
@@ -499,7 +500,12 @@ export function CharacterLibraryView() {
           aria-pressed={active}
           disabled={setLorebooksEnabled.isPending}
           title={localizeUi("ui.characters.characterlibraryview.lorebookActiveHint")}
-          onClick={() => setLorebooksEnabled.mutate({ ids: [card.id], enabled: !active })}
+          onClick={() =>
+            setLorebooksEnabled.mutate(
+              { ids: [card.id], enabled: !active },
+              { onError: () => toast.error(localizeUi("ui.panels.lorebookspanel.couldNotSwitchLorebooks")) },
+            )
+          }
           className={cn(detailActionClass, "disabled:opacity-60")}
         >
           <Check size="0.875rem" className={cn(!active && "opacity-0")} />
