@@ -12,6 +12,8 @@ Marinara Engine nie rozmawia z urządzeniem bezpośrednio. Wysyła komendy do da
 
 Jeśli aplikacja Intiface Central nie działa z uruchomionym serwerem, Marinara nie wyśle sygnałów dotykowych. Potrzebny jest też zainstalowany agent **Haptic Feedback**. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 
+> **Wskazówka:** Nie masz jeszcze zabawki? Nic straconego, możesz ją teraz kupić ze zniżką w sklepie [Lovense](https://www.lovense.com/r/dupchb)!
+
 ## Dodanie agenta Haptic Feedback
 
 1. Otwórz czat w trybie Conversation, Roleplay lub Game.

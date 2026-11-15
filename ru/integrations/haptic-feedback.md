@@ -12,6 +12,8 @@ Marinara Engine не общается с устройством напрямую
 
 Если Intiface Central не запущена или ее сервер не стартовал, Marinara не сможет отправлять сигналы касания. Также нужен установленный агент **Haptic Feedback**. См. [Обзор агентов](../agents/agents-overview.md).
 
+> **Совет:** Еще нет игрушки? Не беда, вы можете приобрести ее прямо сейчас со скидкой в магазине [Lovense](https://www.lovense.com/r/dupchb)!
+
 ## Добавление агента Haptic Feedback
 
 1. Откройте чат Conversation, Roleplay или Game.

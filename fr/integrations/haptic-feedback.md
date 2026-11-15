@@ -12,6 +12,8 @@ Marinara Engine ne parle pas directement à l'appareil. Il envoie ses commandes 
 
 Tant qu'Intiface Central ne tourne pas avec son serveur démarré, Marinara ne peut pas envoyer de signaux tactiles. L'agent **Haptic Feedback** doit aussi être installé. Voir la [vue d'ensemble des agents](../agents/agents-overview.md).
 
+> **Astuce :** Pas encore de jouet ? Pas de souci, tu peux t'en procurer un dès maintenant avec une réduction chez [Lovense](https://www.lovense.com/r/dupchb) !
+
 ## Ajouter l'agent Haptic Feedback
 
 1. Ouvre un chat en mode Conversation, Roleplay ou Game.

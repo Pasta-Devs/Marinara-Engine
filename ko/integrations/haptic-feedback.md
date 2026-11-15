@@ -12,6 +12,8 @@ Marinara Engine이 기기와 직접 통신하지는 않습니다. 대신 무료 
 
 Intiface Central이 실행 중이고 서버가 시작되어 있지 않으면 Marinara는 촉감 신호를 보낼 수 없습니다. **Haptic Feedback** 에이전트도 설치되어 있어야 합니다. [에이전트: 채팅을 도와주는 AI](../agents/agents-overview.md)를 참고하세요.
 
+> **팁:** 아직 토이가 없으신가요? 걱정하지 마세요. 지금 [Lovense](https://www.lovense.com/r/dupchb)에서 할인된 가격으로 구매할 수 있습니다!
+
 ## Haptic Feedback 에이전트 추가하기
 
 1. Conversation, Roleplay 또는 Game 채팅을 여세요.

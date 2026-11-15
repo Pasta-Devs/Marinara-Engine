@@ -12,6 +12,8 @@ Marinara Engine 不直接和设备通信，而是把命令发给一个免费的�
 
 如果 Intiface Central 没运行，或者服务器没启动，Marinara 就发不出触碰指令。另外还需要先安装 **Haptic Feedback** 智能体。见[智能体概览](../agents/agents-overview.md)。
 
+> **提示：** 还没有玩具？没关系，现在就可以在 [Lovense](https://www.lovense.com/r/dupchb) 以优惠价入手一个！
+
 ## 添加 Haptic Feedback 智能体
 
 1. 打开一个 Conversation、Roleplay 或 Game 聊天。

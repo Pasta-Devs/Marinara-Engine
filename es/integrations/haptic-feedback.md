@@ -12,6 +12,8 @@ Marinara Engine no se comunica con el dispositivo directamente. Envía comandos 
 
 Si Intiface Central no se está ejecutando con su servidor iniciado, Marinara no puede enviar señales de contacto. También necesitas tener instalado el agente **Haptic Feedback**. Consulta [Descripción general de los agentes](../agents/agents-overview.md).
 
+> **Consejo:** ¿Todavía no tienes un juguete? No te preocupes: ¡puedes conseguir uno ahora con descuento en [Lovense](https://www.lovense.com/r/dupchb)!
+
 ## Agrega el agente Haptic Feedback
 
 1. Abre un chat de Conversation, Roleplay o Game.

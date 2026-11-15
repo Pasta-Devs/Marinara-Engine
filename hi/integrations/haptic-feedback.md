@@ -12,6 +12,8 @@ Marinara Engine डिवाइस से सीधे बात नहीं �
 
 जब तक Intiface Central चल न रहा हो और उसका सर्वर शुरू न हो, Marinara टच क्यू नहीं भेज पाता। आपके पास **Haptic Feedback** एजेंट भी इंस्टॉल होना चाहिए। देखें [एजेंट: आपकी चैट में मदद करने वाले AI](../agents/agents-overview.md)।
 
+> **Tip:** अभी तक टॉय नहीं है? कोई बात नहीं, आप [Lovense](https://www.lovense.com/r/dupchb) से अभी छूट के साथ एक ले सकते हैं!
+
 ## Haptic Feedback एजेंट जोड़ें
 
 1. कोई Conversation, Roleplay या Game चैट खोलें।
