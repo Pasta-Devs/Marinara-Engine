@@ -53,6 +53,8 @@ interface ModalProps {
   closeButtonClassName?: string;
   /** Hide the header bar; `title` still names the dialog. For sheets that cannot be closed. */
   hideHeader?: boolean;
+  /** Show the backdrop at full strength at once, for a modal that replaces another one without a bright gap. */
+  instantBackdrop?: boolean;
   /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
@@ -84,6 +86,7 @@ export function Modal({
   footer,
   closeButtonClassName,
   hideHeader = false,
+  instantBackdrop = false,
   opaque = false,
   dragThrough = false,
   modeless = false,
@@ -292,9 +295,11 @@ export function Modal({
     };
   }, [open, mounted, pullToClose, closeDisabled, mobileFullscreen, modeless, dragThrough]);
 
-  if (!mounted) return null;
+  // Render in the same commit as `open`: a modal that replaces another must not leave a frame with neither.
+  if (!mounted && !open) return null;
 
   const isEntering = animating === "enter";
+  const backdropShown = isEntering || (instantBackdrop && animating !== "exit");
   // Below `sm` a plain dialog is a bottom sheet; full-screen, modeless and drag-through ones keep their shape.
   const sheet = !mobileFullscreen && !modeless && !dragThrough;
   const phoneSheet = sheet && window.matchMedia("(max-width: 639px)").matches;
@@ -320,7 +325,7 @@ export function Modal({
               "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
             } as CSSProperties)
           : {}),
-        opacity: isEntering ? 1 : 0,
+        opacity: backdropShown ? 1 : 0,
         transition: "opacity 150ms ease-out",
       }}
       onTransitionEnd={handleAnimationEnd}
@@ -332,7 +337,7 @@ export function Modal({
           data-backdrop-dismiss-surface="true"
           className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
           style={{
-            opacity: isEntering ? 1 : 0,
+            opacity: backdropShown ? 1 : 0,
             transition: "opacity 150ms ease-out",
           }}
         />
@@ -349,6 +354,8 @@ export function Modal({
         } ${sheet ? PHONE_BOTTOM_SHEET_CLASS : ""} ${panelClassName ?? ""}`}
         style={{
           ...panelStyle,
+          // The shell's unlayered message-in keyframe would override this inline slide on phones.
+          animation: phoneSheet ? "none" : undefined,
           opacity: isEntering ? 1 : 0,
           // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
           transform: isEntering ? undefined : phoneSheet ? "translateY(100%)" : "scale(0.97) translateY(6px)",

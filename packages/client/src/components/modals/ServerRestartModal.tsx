@@ -30,7 +30,7 @@ function formatElapsed(ms: number) {
 }
 
 /** Blocks the app while the server restarts, then reloads the page on the new process. */
-export function ServerRestartModal({ open, beforeBootId }: { open: boolean; beforeBootId: string | null }) {
+export function ServerRestartModal({ open, beforeBootId }: { open: boolean; beforeBootId?: string }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<RestartStep>("stopping");
   const [now, setNow] = useState(() => Date.now());
@@ -43,6 +43,8 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       const reload = window.setTimeout(() => reloadBrowser("server-restart"), 800);
       return () => window.clearTimeout(reload);
     }
+    // Opened at the click: probe only once the restart answered with the bootId it replaces.
+    if (beforeBootId === undefined) return;
     let cancelled = false;
     const poll = async () => {
       while (!cancelled) {
@@ -87,6 +89,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       closeDisabled
       pullToClose={false}
       hideHeader
+      instantBackdrop
       footer={
         slow ? (
           <>
