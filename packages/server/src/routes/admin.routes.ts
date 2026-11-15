@@ -21,7 +21,7 @@ import {
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
   RUNTIME_DIAGNOSTICS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
-import { logger } from "../lib/logger.js";
+import { bootId, logger } from "../lib/logger.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
 import { noteSessionExitKind } from "../lib/session-postmortem.js";
 import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
@@ -127,7 +127,8 @@ export async function adminRoutes(app: FastifyInstance) {
         })();
       }, 750);
 
-      return reply.status(202).send({ status: "restarting" });
+      // The restart sheet waits for a different bootId on /api/health.
+    return reply.status(202).send({ status: "restarting", bootId });
     },
   );
 

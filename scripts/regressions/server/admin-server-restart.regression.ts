@@ -19,11 +19,12 @@ assert.doesNotMatch(adminRoutes, /\bspawn\(/u, "The server must never fork its o
 assert.match(appFactory, /forceCloseConnections: false/u);
 assert.match(
   readFileSync(new URL("../../../packages/client/src/hooks/use-server-restart.ts", import.meta.url), "utf8"),
-  /api\.post<\{ status: "restarting" \}>\("\/admin\/restart", \{ confirm: true \}\)/u,
+  /api\.post<\{ status: "restarting"; bootId: string \}>\("\/admin\/restart", \{ confirm: true \}\)/u,
 );
 assert.match(settingsPanel, /useRestartServer\(\)/u);
 assert.match(settingsPanel, /controlId="restart-server"/u);
 
+const realExit = process.exit.bind(process);
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-admin-restart-"));
 process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
@@ -71,6 +72,19 @@ try {
     assert.equal(completedResponse.status, 200);
     await completedResponse.json();
     await closing;
+
+    // A supervised restart answers with this process's bootId, then closes and exits with the restart code.
+    const restartApp = await buildApp();
+    const exited = new Promise<number | undefined>((resolve) => {
+      process.exit = ((code?: number) => resolve(code)) as typeof process.exit;
+    });
+    process.env.MARINARA_RESTART_SUPERVISOR = String(process.ppid);
+    const health = (await restartApp.inject({ method: "GET", url: "/api/health" })).json() as { bootId?: string };
+    assert.match(health.bootId ?? "", /^[0-9a-f]{8}$/u, "health names this process");
+    const restart = await restartApp.inject({ method: "POST", url: "/api/admin/restart", payload: { confirm: true } });
+    assert.equal(restart.statusCode, 202);
+    assert.deepEqual(restart.json(), { status: "restarting", bootId: health.bootId });
+    assert.equal(await exited, 75, "the launcher starts a replacement on exit code 75");
   } finally {
     releaseRequest();
     await (closing ?? app.close());
@@ -80,3 +94,5 @@ try {
 }
 
 process.stdout.write("Admin server restart regression passed.\n");
+// The restart armed a force-exit timer; leave without waiting for it.
+realExit(0);

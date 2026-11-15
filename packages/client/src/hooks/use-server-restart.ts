@@ -26,9 +26,8 @@ export function useRestartServer() {
       const logo = new Image();
       logo.src = "/logo.png";
       await logo.decode().catch(() => {});
-      const before = await probeServerHealth();
-      await api.post<{ status: "restarting" }>("/admin/restart", { confirm: true });
-      return before.ok ? (before.bootId ?? null) : null;
+      const { bootId } = await api.post<{ status: "restarting"; bootId: string }>("/admin/restart", { confirm: true });
+      return bootId;
     },
     onSuccess: (beforeBootId) => {
       // Its Refresh would hit the down server; the sheet reloads into the new build anyway.
