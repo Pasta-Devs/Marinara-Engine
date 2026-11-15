@@ -164,6 +164,7 @@ These have no value until a theme sets one, so the user's own setting applies un
 | `--mari-chat-font-size`                                                                                                                                                                                                      | Message text size. The Accessibility minimum still applies                                                                                                                                                                        |
 | `--mari-composer-placeholder`                                                                                                                                                                                                | The message box placeholder, as a quoted string: `"> waiting for user input..."`. Set it on `:root` or on one composer, such as `[data-composer="game"]`. Text that asks for keys or passwords is ignored                         |
 | `--mari-page-veil`                                                                                                                                                                                                           | A colour laid over Settings, the Library, editors and Docs, so long text stays readable over a backdrop. `transparent` by default                                                                                                 |
+| `--mari-page-floor` | The near-solid sheet every full page stands on over a backdrop. `color-mix(in srgb, var(--background) 94%, transparent)` by default; `transparent` drops it |
 | `--mari-top-bar-bg`                                                                                                                                                                                                          | A whole `background` value for the top bar: an image, a gradient or several layers. `--mari-top-bar-rendering: pixelated` keeps pixel art crisp. The tabs and icons always stay on top and visible                                |
 | `--mari-top-bar-plate`, `--mari-top-bar-plate-radius`                                                                                                                                                                        | Over top-bar art, every tab, open-chat tab, icon button and the logo sits on a plate so it stays readable. These set the plate's colour and its corner radius (default `0.5rem`); set the radius to `0` for square pixel buttons. |
 | `--mari-msg-head-rule`                                                                                                                                                                                                       | The line under the name in roleplay messages (a `border-bottom` value, such as `none` or `2px dashed currentColor`)                                                                                                               |
@@ -283,9 +284,12 @@ Home's decorations and the light scheme never hide it), and it shows behind chat
 conversation and game surfaces go transparent and the stock chat background steps aside. A
 background the user picked for a chat still shows on top of it. Panels keep `--card` and
 `--sidebar`, so make those translucent if you want the art to show behind them, and use
-`--mari-page-veil` to tint full pages. To give pages a panel of their own, style
-`[data-mari-part="page"]` (see Hooks): it holds every Library page, editor, Settings and Docs, so
-Lorebooks gets the same panel as Characters.
+`--mari-page-veil` to tint full pages. Over a backdrop every full page also stands on a near-solid
+sheet of your `--background` (`--mari-page-floor`, 94% by default), so long lists and editors stay
+readable; set `--mari-page-floor` to another colour, or to `transparent` to let more art through. To
+give pages a panel of their own, style `[data-mari-part="page"]` (see Hooks): it holds every Library
+page, editor, Settings and Docs, so Lorebooks gets the same panel as Characters. A theme that paints
+that hook with `!important` replaces the floor with its own panel.
 
 | Token                            | Default                                                                                                                                                                                                           |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

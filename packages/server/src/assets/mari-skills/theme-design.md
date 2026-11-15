@@ -11,7 +11,7 @@ The reference for every token, part and slot is `docs/appearance/theme-author-gu
 
 ## What a theme can do here
 
-- **Tokens** on `:root` (all schemes), `[data-theme="light"]` and `[data-theme="dark"]`: the core colours (`--background`, `--card`, `--primary`, `--sidebar`, `--border`…), the new-layout tokens (`--ov-*`, `--mari-selected-tint`) and the theme tokens (`--mari-font-*`, `--mari-top-bar-*`, `--mari-home-widget-*`, `--mari-chat-*`, `--mari-page-veil`, `--mari-accent-text`, `--mari-confirm-scrim`, long-reply tokens such as `--mari-message-measure`…).
+- **Tokens** on `:root` (all schemes), `[data-theme="light"]` and `[data-theme="dark"]`: the core colours (`--background`, `--card`, `--primary`, `--sidebar`, `--border`…), the new-layout tokens (`--ov-*`, `--mari-selected-tint`) and the theme tokens (`--mari-font-*`, `--mari-top-bar-*`, `--mari-home-widget-*`, `--mari-chat-*`, `--mari-page-veil`, `--mari-page-floor`, `--mari-accent-text`, `--mari-confirm-scrim`, long-reply tokens such as `--mari-message-measure`…).
 - **Parts**: `[data-mari-part="…"]` hooks for messages (`message` is the whole full-width row; paint `bubble`, or each bubble sits in a second box), avatars, the composer, the top bar, page titles, the page surface every Library page/editor/Settings/Docs sits on (`page`), Home widgets, time, dialogue, VN boxes. Prefer these over internal classes.
 - **Art**: `--mari-app-backdrop` (and `-layers`), `--mari-ambient` (under the bars, mostly see-through), `--mari-home-art`, `border-image` frames, `--mari-focus-frame`. Pictures are named `url("theme:name.webp")` and live in the theme's package, not in the CSS.
 - **Weather**: `--mari-weather-*` tokens restyle rain, snow, fog, petals, lightning; `data-mari-weather` / `data-mari-sky` on `<html>` let art follow the story weather. A theme can thin weather out but never switch it off.
@@ -136,7 +136,7 @@ Go through these against the CSS you wrote, then ask the user to look at the nam
 - [ ] Body text at least 4.5:1 against what is actually behind it (picture included); top-bar labels at least 3:1 everywhere, including small status words like "Online" on a tab.
 - [ ] Both Light and Dark checked. A colour that passes at night can fail by day.
 - [ ] Every Library page has the same panel behind it (style `[data-mari-part="page"]`).
-- [ ] Text over art has a plate, veil (`--mari-page-veil`) or wash. Version labels, timestamps and swipe counters too.
+- [ ] Text over art has a plate, veil (`--mari-page-veil`) or wash. Full pages already stand on `--mari-page-floor` (94% `--background`) over a backdrop; don't set it to transparent unless your own page panel is solid. Version labels, timestamps and swipe counters too.
 - [ ] Nothing cut mid-letter at narrow widths (phone, narrow split view, big theme fonts). Prefer smaller text or an ellipsis to a new row.
 - [ ] Icons centred in their buttons and inside their fields, never overlapping text.
 - [ ] Spacing even inside cards; dividers as wide as the box they belong to; tip and help boxes aligned with the content column.

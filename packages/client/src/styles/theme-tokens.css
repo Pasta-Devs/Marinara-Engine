@@ -232,6 +232,22 @@
 :root[data-mari-app-backdrop] .mari-app [data-component="CenterContent"][data-center-page] {
   background: linear-gradient(var(--mari-page-veil), var(--mari-page-veil)) !important;
 }
+/* ─── Page floor ───
+   A veil alone let busy art show through long lists and editors (Velvet Casket's graveyard behind
+   Lorebooks, Nov 15). So whenever art sits behind the app, every full page (Library pages, viewers,
+   editors, Settings, Docs) also stands on a near-solid sheet of the theme's own background colour.
+   A theme that paints [data-mari-part="page"] itself (a glass pane, a sail, a sheet with art at its
+   edges) keeps its own design, since its !important rules sit in an earlier layer. A theme can also
+   set --mari-page-floor to another colour, or to transparent to drop it. Phones and small tablets
+   keep their own sheet paint (.mari-mobile-detail-sheet). */
+:root {
+  --mari-page-floor: color-mix(in srgb, var(--background) 94%, transparent);
+}
+:root:is([data-mari-app-backdrop], [data-mari-chat-art-behind])
+  .mari-app
+  [data-mari-part="page"]:not(.mari-mobile-detail-sheet) {
+  background: linear-gradient(var(--mari-page-floor), var(--mari-page-floor)) !important;
+}
 
 /* ─── Ambient overlay (theming round 3) ───
    --mari-ambient takes a whole `background` value (falling leaves, rain, scanlines, a vignette) for
