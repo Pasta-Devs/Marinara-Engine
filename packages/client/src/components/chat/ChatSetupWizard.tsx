@@ -1419,8 +1419,9 @@ function ConversationQuickSetup({
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
         <input
           type="text"
-          // Not a person's name: keeps Safari from offering contact AutoFill above the keyboard.
-          name="chat-title"
+          // Not a person's name. Safari ignores autocomplete="off" for its contact AutoFill bar; a field
+          // whose name says "search" is one it leaves alone (Nov 15: "AutoFill Contact" over the keyboard).
+          name="chat-title-search"
           autoComplete="off"
           data-form-type="other"
           key={userEditedName ? "user" : chat.name}
@@ -2779,7 +2780,7 @@ function RoleplaySetupWizard({
           <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
           <input
             type="text"
-            name="chat-title"
+            name="chat-title-search"
             autoComplete="off"
             data-form-type="other"
             key={userEditedName ? "user" : chat.name}

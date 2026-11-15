@@ -24,6 +24,7 @@ import { countBlockingReviews } from "../../../lib/professor-mari-presentation";
 import { getChatCharacterIds } from "../../../lib/chat-macros";
 import type { useProfessorMariWorkspaceStatus } from "../../../hooks/use-professor-mari-workspace-status";
 import type { useLorebooks } from "../../../hooks/use-lorebooks";
+import { isUnfinishedSetup } from "../../../hooks/use-setup-drafts";
 import type { useChats, useProfessorMariChats } from "../../../hooks/use-chats";
 import type { useCharacters, usePersonas } from "../../../hooks/use-characters";
 
@@ -85,7 +86,7 @@ export function useOmnibarEmptyState({
     const lastActive = (chat: Chat) => chat.lastMessageAt ?? chat.updatedAt;
     return (
       [...(chats ?? [])]
-        .filter((chat) => chat.id !== activeChatId)
+        .filter((chat) => chat.id !== activeChatId && !isUnfinishedSetup(chat))
         .sort((a, b) => lastActive(b).localeCompare(lastActive(a)))
         .flatMap((chat) => {
           const row = rowById.get(`chat:${chat.id}`);

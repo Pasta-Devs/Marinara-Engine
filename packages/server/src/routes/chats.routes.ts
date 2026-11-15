@@ -396,6 +396,13 @@ function hasProfessorMariCharacter(chat: { characterIds?: unknown }) {
   return resolveChatCharacterIds(chat.characterIds).includes(PROFESSOR_MARI_ID);
 }
 
+function isSetupDraftChat(chat: { mode?: unknown; metadata?: unknown }) {
+  const metadata = parseChatMetadata(chat.metadata);
+  if (metadata.setupPending !== true) return false;
+  if (chat.mode !== "game") return true;
+  return !metadata.gameSessionStatus || metadata.gameSessionStatus === "setup";
+}
+
 function shouldHideProfessorMariChat(chat: { metadata?: unknown }) {
   return isHomeProfessorMariChat(chat);
 }
@@ -1128,7 +1135,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       const page = await storage.listRecent(pageSize, offset);
       if (page.length === 0) break;
       for (const chat of page) {
-        if (!shouldHideProfessorMariChat(chat) && !seenRecentChatIds.has(chat.id)) {
+        // A new chat still in its setup is a draft, not a recent chat (stray "New Conversation", Nov 15).
+        if (!shouldHideProfessorMariChat(chat) && !isSetupDraftChat(chat) && !seenRecentChatIds.has(chat.id)) {
           seenRecentChatIds.add(chat.id);
           recentChats.push(chat);
         }

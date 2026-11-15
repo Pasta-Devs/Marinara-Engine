@@ -80,7 +80,7 @@ import { isMobileShellViewport, selectSidebarShown, useUIStore, type UserStatus 
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
-import { isSetupKeptForLater } from "../../hooks/use-setup-drafts";
+import { isSetupKeptForLater, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import { ChatRowPeek } from "./ChatRowPeek";
 import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
@@ -468,7 +468,12 @@ export function ChatSidebar() {
   const modeChats = useMemo(
     () =>
       (chats ?? []).filter(
-        (chat) => chat.mode === activeTab && !(chat.mode === "conversation" && chat.metadata?.gameId),
+        (chat) =>
+          chat.mode === activeTab &&
+          !(chat.mode === "conversation" && chat.metadata?.gameId) &&
+          // A new chat still in its setup is a draft, not a chat yet: it joins the list once set up
+          // (or kept as "Setup not finished"). It showed as a stray "New Conversation" (Nov 15).
+          !isUnfinishedSetup(chat),
       ),
     [chats, activeTab],
   );
@@ -2045,7 +2050,7 @@ export function ChatSidebar() {
                 ) : null}
                 {overhaulActive ? (
                   <small className="ov-mode-count" data-fit-part="count">
-                    {chats?.filter((c) => c.mode === tab).length ?? 0}
+                    {chats?.filter((c) => c.mode === tab && !isUnfinishedSetup(c)).length ?? 0}
                   </small>
                 ) : null}
                 {tabUnread > 0 && !isActive && (

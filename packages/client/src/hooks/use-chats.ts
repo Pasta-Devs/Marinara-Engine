@@ -333,8 +333,13 @@ export function useChats(options: { enabled?: boolean; refetchOnMount?: boolean 
     select: (chats) => (pendingNames.size ? chats.map((chat) => withPendingName(chat, pendingNames)) : chats),
     enabled: options.enabled ?? true,
     placeholderData: (previousData) => previousData,
-    staleTime: 10_000,
-    refetchOnMount: options.refetchOnMount ?? "always",
+    // The list only changes when a chat is made, changed or removed, and every one of those here
+    // refreshes it (invalidateQueries on chatKeys.list()). So opening a tab never re-downloads it
+    // (~470 KB with 400 chats, which held an iPad's tap timings at 1-2 s, Nov 15). Changes from
+    // another device or window come in when the app comes back to the front.
+    staleTime: Infinity,
+    refetchOnMount: options.refetchOnMount ?? true,
+    refetchOnWindowFocus: "always",
     refetchOnReconnect: true,
     retry: (failureCount, error) => {
       const status = error instanceof ApiError ? error.status : 0;

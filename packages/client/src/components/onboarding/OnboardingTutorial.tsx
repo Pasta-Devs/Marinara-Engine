@@ -1154,7 +1154,9 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
               step out and the next one in left the screen without a card (and the page under it undimmed)
               for half a second per step, and a fading first card let the page show through it (Nov 14). */}
           <motion.div
-            initial={{ y: 8, scale: 0.98 }}
+            // No entrance motion: the tour opens while the app is still busy starting up, and on an iPad the
+            // little rise-and-grow stuttered (Nov 15: the walkthrough's first step jitters).
+            initial={false}
             animate={{ y: 0, scale: 1 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className={TUTORIAL_CARD_CLASS}
@@ -1184,7 +1186,9 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
         </div>
       ) : (
         <motion.div
-          initial={{ y: 8, scale: 0.98 }}
+          // No entrance motion: the tour opens while the app is still busy starting up, and on an iPad the
+          // little rise-and-grow stuttered (Nov 15: the walkthrough's first step jitters).
+          initial={false}
           animate={{ y: 0, scale: 1 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className={TUTORIAL_CARD_CLASS}
