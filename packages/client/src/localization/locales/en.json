@@ -8197,7 +8197,7 @@
   "ui.agents.agenteditor.lorebookContextSources": "Lorebook Context Sources",
   "ui.agents.agenteditor.lorebookOrderFixed": "Fixed",
   "ui.agents.agenteditor.lorebookOrderGrowing": "Growing",
-  "ui.agents.agenteditor.lorebookOrderGrowingDescription": "Starts at 1 in an empty lorebook. Each new entry gets an order one higher than the highest existing order.",
+  "ui.agents.agenteditor.lorebookOrderGrowingDescription": "Starts at 1 in an empty lorebook. Each new entry gets the next whole number above the highest existing order.",
   "ui.agents.agenteditor.lorebookWriter": "Lorebook Writer",
   "ui.agents.agenteditor.lowresBadAnatomyTextArtifacts": "lowres, bad anatomy, text artifacts",
   "ui.agents.agenteditor.maintainHiddenArc": "Maintain hidden arc",

@@ -948,7 +948,8 @@ export function createLorebooksStorage(db: DB) {
             .where(eq(lorebookEntries.lorebookId, input.lorebookId))
             .orderBy(desc(lorebookEntries.order))
             .limit(1);
-          const order = Number(last?.order ?? 0) + 1;
+          // Older imports can contain fractional orders. New entries use whole numbers.
+          const order = Math.floor(Number(last?.order ?? 0)) + 1;
           if (!Number.isSafeInteger(order)) throw new Error("No higher entry order is available in this lorebook.");
           return createLorebooksStorage(tx).createEntry({ ...input, order });
         });

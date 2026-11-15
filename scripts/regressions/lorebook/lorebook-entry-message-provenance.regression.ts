@@ -68,6 +68,8 @@ try {
       [131, 132],
     );
     assert.equal((await add("Legacy default"))?.order, 100);
+    await lorebooks.createEntry({ lorebookId: orderedBook.id, name: "Imported", order: 140.5 });
+    assert.equal((await add("After imported order", "growing"))?.order, 141);
   }
 
   {
