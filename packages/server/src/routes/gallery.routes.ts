@@ -87,6 +87,7 @@ import {
 } from "../services/image/spatial-location-reference.js";
 import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
+import { MARI_PREVIEW_CHAT_ID, findMariPreviewFile } from "../services/mari-db/mari-images.service.js";
 import {
   compactVideoPromptText,
   excerptIllustrationPromptForVideo,
@@ -2731,7 +2732,12 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!image) {
       image = (await storage.listByChatAndFilePath(chatId, `${chatId}/${filename}`))[0] ?? null;
     }
-    const storedFile = image ? resolveStoredGalleryFile(image.filePath, GALLERY_DIR) : null;
+    // Professor Mari's preview assets have no gallery row; their manifest says which files are hers to serve.
+    const storedFile = image
+      ? resolveStoredGalleryFile(image.filePath, GALLERY_DIR)
+      : chatId === MARI_PREVIEW_CHAT_ID
+        ? await findMariPreviewFile(filename)
+        : null;
     if (!storedFile || !existsSync(storedFile.absolutePath)) {
       return reply.status(404).send({ error: "Not found" });
     }

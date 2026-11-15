@@ -454,6 +454,24 @@ async function readManifest() {
   return parseManifest(await readFile(path, "utf8"));
 }
 
+export const MARI_PREVIEW_CHAT_ID = PREVIEW_CHAT_ID;
+
+/**
+ * The file a preview asset URL (`/api/gallery/file/mari-images/<file>`) names, while the manifest still lists it.
+ * Preview assets have no gallery row, so the gallery file route asks here instead (#9329). A file in the folder that
+ * the manifest doesn't list, a link, or a refused manifest is not found.
+ */
+export async function findMariPreviewFile(
+  filename: string,
+): Promise<{ absolutePath: string; filename: string } | null> {
+  try {
+    if (!(await readManifest()).some((asset) => asset.filename === filename)) return null;
+    return { absolutePath: realPathInAppFolder(PREVIEW_DIR, join(PREVIEW_DIR, filename)), filename };
+  } catch {
+    return null;
+  }
+}
+
 async function writeManifest(assets: MariImageAsset[]) {
   await writeAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2));
 }
