@@ -7,7 +7,12 @@ import { getEnabledConversationSchedules } from "./conversation-context-utils.js
 import { getCurrentStatus, type WeekSchedule } from "../conversation/schedule.service.js";
 import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
 import { runTurnGameBotTurns } from "../turn-games/turn-game-bot-runner.service.js";
-import { getActiveTurnGame, startTurnGame } from "../turn-games/turn-game-runner.service.js";
+import { getActiveTurnGame, humanSeatIdFromChat, startTurnGame } from "../turn-games/turn-game-runner.service.js";
+import {
+  getCapabilityTurnGameStartConfig,
+  turnGameTypeForCommand,
+} from "../capability-packages/capability-command-registry.service.js";
+import { withDeadline } from "../capability-packages/capability-prompt-context.service.js";
 
 interface TurnGameCommandArgs {
   commandType: string;
@@ -15,16 +20,12 @@ interface TurnGameCommandArgs {
   chatId: string;
   chatMeta: Record<string, unknown>;
   db: DB;
-  chats: { getById(id: string): Promise<{ characterIds?: unknown } | null> };
+  chats: { getById(id: string): Promise<{ characterIds?: unknown; personaId?: string | null } | null> };
   conn: unknown;
   baseUrl: string;
   reply: GenerationOutput;
   signal: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
-}
-
-function normalizeGameType(commandType: string) {
-  return commandType.replaceAll("_", "-");
 }
 
 function readCharacterIds(value: unknown): string[] {
@@ -38,7 +39,7 @@ function readCharacterIds(value: unknown): string[] {
 
 /** Package-agnostic bridge from a registered bracket command to a registered engine. */
 export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<boolean> {
-  const gameType = normalizeGameType(args.commandType);
+  const gameType = turnGameTypeForCommand(args.commandType);
   const engine = getTurnGameEngine(gameType);
   if (!engine) return false;
 
@@ -51,7 +52,8 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
     const chat = await args.chats.getById(args.chatId);
     const characterIds = readCharacterIds(chat?.characterIds);
     const schedules = getEnabledConversationSchedules(args.chatMeta) as Record<string, WeekSchedule>;
-    const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(args.chatMeta));
+    const timeZone = resolveConversationTimeZone(args.chatMeta);
+    const scheduleNow = toZonedWallClockDate(new Date(), timeZone);
     const available = characterIds.filter((characterId) => {
       const schedule = schedules[characterId];
       return !schedule || getCurrentStatus(schedule, scheduleNow).status !== "offline";
@@ -66,15 +68,47 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
       botCharacterIds = [args.characterId, ...botCharacterIds.filter((id) => id !== args.characterId)];
     }
     botCharacterIds = botCharacterIds.slice(0, botCapacity);
+
+    // A package can shape the game its tag starts, as its own setup screen would (Wordle's chat, day and streaks).
+    let config: unknown;
+    const startConfig = getCapabilityTurnGameStartConfig(args.commandType);
+    if (startConfig) {
+      const proposed = botCharacterIds;
+      const start = await withDeadline(
+        startConfig({
+          chatId: args.chatId,
+          characterId: args.characterId,
+          botCharacterIds: [...proposed],
+          humanSeatId: humanSeatIdFromChat({ personaId: chat?.personaId ?? null }),
+          timeZone: timeZone ?? null,
+        }),
+        `${gameType} start config`,
+      );
+      if (start === null) {
+        logger.info("[commands] %s declined to start in chat %s", gameType, args.chatId);
+        return true;
+      }
+      config = start?.config;
+      if (Array.isArray(start?.botCharacterIds)) {
+        botCharacterIds = start.botCharacterIds.filter(
+          (id, index, ids) => proposed.includes(id) && ids.indexOf(id) === index,
+        );
+      }
+    }
+
     if (botCharacterIds.length + 1 < engine.minPlayers) {
       logger.warn("[commands] %s requested without enough available players in chat %s", gameType, args.chatId);
       return true;
     }
 
+    // The seats were chosen above, so an empty list means the player plays alone (a one-seat game, or a package
+    // that seats no one), not every character in the chat.
     const outcome = await startTurnGame(args.db, args.chatId, {
       gameType,
       botCharacterIds,
       humanFirst: true,
+      exactBotCharacterIds: true,
+      ...(config === undefined ? {} : { config }),
     });
     if (!outcome.ok) {
       logger.warn("[commands] %s start failed in chat %s: %s", gameType, args.chatId, outcome.error ?? "");
