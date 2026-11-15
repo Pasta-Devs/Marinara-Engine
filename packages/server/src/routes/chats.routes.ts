@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { partialInput } from "@marinara-engine/shared";
+import { parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
@@ -2439,6 +2439,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         writableLorebookIds,
         allowTargetRouting: payload.allowTargetRouting !== false,
         namesAreVerbatim: true,
+        writerOrder: parseLorebookWriterOrder(payload.writerOrder),
         writableLorebooks,
         lorebookNamingScheme: getLorebookNamingScheme({ lorebookNamingScheme: payload.lorebookNamingScheme }),
         worldName:
