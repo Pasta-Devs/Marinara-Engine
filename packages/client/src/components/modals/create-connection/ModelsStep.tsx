@@ -398,7 +398,7 @@ export function ModelsStep(props: ModelsStepProps) {
               only={
                 props.setupKind === "voice"
                   ? isSpeechModel
-                  : props.mediaRow.decisionSource === "nanogpt"
+                  : Object.values(NATIVE_DECISION_SOURCE).includes(props.mediaRow.decisionSource as DecisionSource)
                     ? isDecisionModel
                     : undefined
               }

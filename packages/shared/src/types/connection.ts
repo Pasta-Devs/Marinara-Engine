@@ -47,6 +47,16 @@ export const DECISION_SOURCE_BASE_URLS = {
   nanogpt: "https://nano-gpt.com/api",
 } as const;
 
+/**
+ * Account vendors whose catalog lists decision models of their own (output `decisions`), and the decision source
+ * those Models use. Such a model is asked at that source's System One endpoint with the account's key, not as a
+ * chat model read through log-probabilities.
+ */
+export const NATIVE_DECISION_SOURCES: Partial<Record<APIProvider, DecisionSource>> = {
+  nanogpt: "nanogpt",
+  openrouter: "openrouter",
+};
+
 /** The path a System One source is asked at, after its base URL. */
 export function decisionSourcePath(source: string | null | undefined): string {
   return source === "nanogpt" ? "/v1/decisions" : "/v1/systemone";

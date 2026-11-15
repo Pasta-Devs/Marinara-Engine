@@ -1,5 +1,6 @@
 import {
   DECISION_SOURCE_BASE_URLS,
+  NATIVE_DECISION_SOURCES,
   PROVIDERS,
   speaksOpenAIChat,
   type APIProvider,
@@ -96,12 +97,12 @@ export async function resolveDecisionConnection(
   const vendor = row.account && row.account.provider !== "decision" ? row.account.provider : null;
   if (vendor && !speaksOpenAIChat(vendor)) return { connection: null, error: "invalid_source" };
   if (vendor && vendor !== "custom" && !row.apiKey.trim()) return { connection: null, error: "missing_key" };
-  // NanoGPT's decision models answer only at its Decisions API and reject chat requests (#9310).
-  // A NanoGPT chat model picked for decisions keeps the log-probability path.
-  // Its catalog entry says so too, so a row any picker made for a NanoGPT decision model is asked right.
-  const nanoDecisions =
-    vendor === "nanogpt" && (row.decisionSource === "nanogpt" || row.account?.decisionModel === true);
-  const source = nanoDecisions ? "nanogpt" : vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
+  // NanoGPT's decision models answer only at its Decisions API and reject chat requests (#9310); OpenRouter's
+  // answer at its System One endpoint. A chat model of either picked for decisions keeps the log-probability path.
+  // The account's catalog entry says so too, so a row any picker made for a native decision model is asked right.
+  const native = vendor ? NATIVE_DECISION_SOURCES[vendor as APIProvider] : undefined;
+  const nativeDecisions = !!native && (row.decisionSource === native || row.account?.decisionModel === true);
+  const source = nativeDecisions ? native : vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
   if (!Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
     return { connection: null, error: "invalid_source" };
   }
@@ -109,9 +110,10 @@ export async function resolveDecisionConnection(
   try {
     // TypeSafe may be sent to another address that serves its API (#7084). It keeps
     // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
-    // NanoGPT's chat address ends in /api/v1; its Decisions API is /api/v1/decisions on the same host.
-    const base = nanoDecisions
-      ? `${new URL(row.account?.baseUrl.trim() || PROVIDERS.nanogpt.defaultBaseUrl).origin}/api`
+    // A native account's chat address ends in /api/v1 (NanoGPT, OpenRouter); its decision endpoint is under the
+    // same /api on the same host.
+    const base = nativeDecisions
+      ? `${new URL(row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl).origin}/api`
       : vendor
         ? row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl
         : decisionSourceTakesUrl(source)
@@ -177,7 +179,10 @@ export async function resolveDecisionConnection(
           1,
           typeof row.maxStateTokens === "number" && Number.isFinite(row.maxStateTokens)
             ? Math.floor(row.maxStateTokens)
-            : catalogStateBudget(defaultDecisionStateTokens(source), nanoDecisions ? row.account?.context : undefined),
+            : catalogStateBudget(
+                defaultDecisionStateTokens(source),
+                nativeDecisions ? row.account?.context : undefined,
+              ),
         ),
       ),
       timeoutMs: resolveDecisionConnectionTimeoutMs(row.decisionTimeoutMs, source),

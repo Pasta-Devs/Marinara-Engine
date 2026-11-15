@@ -4,12 +4,14 @@ import {
   DECISION_SOURCE_BASE_URLS,
   IMAGE_GENERATION_SOURCES,
   IMAGE_SOURCE_VENDOR,
+  NATIVE_DECISION_SOURCES,
   VIDEO_GENERATION_SOURCES,
   isChatProvider,
   isLocalAuthProvider,
   speaksOpenAIChat,
   type APIProvider,
   type ConnectionTestErrorCode,
+  type DecisionSource,
 } from "@marinara-engine/shared";
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { JOB } from "../../../lib/connection-jobs";
@@ -134,9 +136,9 @@ export const isDecisionModel = (row: { decision?: true }) => !!row.decision;
 /**
  * Chat services with decision models of their own, asked at their own decision API with the account's key, and
  * the decision source their Models use. Other chat services answer decisions through a chat model's
- * log-probabilities. OpenRouter, Gemini and OpenAI can join here (#9310).
+ * log-probabilities. Gemini and OpenAI can join in the shared table (#9310).
  */
-export const NATIVE_DECISION_SOURCE: Partial<Record<ServiceId, "nanogpt">> = { nanogpt: "nanogpt" };
+export const NATIVE_DECISION_SOURCE: Partial<Record<ServiceId, DecisionSource>> = NATIVE_DECISION_SOURCES;
 /** Speech a chat service's own key buys, as the audio source that speaks to its address. */
 export const SPEECH_SOURCE: Partial<Record<APIProvider, string>> = { openai: "openai", xai: "xai", nanogpt: "openai" };
 /** Jobs a chat service's Connection also does with its key: decision (chat with log-probabilities) and voice. */
