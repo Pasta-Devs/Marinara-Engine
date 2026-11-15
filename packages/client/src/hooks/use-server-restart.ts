@@ -22,10 +22,10 @@ export function useRestartServer() {
   // Hook-level callbacks still run when the caller unmounts first (the agent update dialog does).
   return useMutation({
     mutationFn: async () => {
-      // Load the sheet's chunk and logo while the server still answers; it goes down right after the POST.
+      // The logo comes from the server that is about to stop.
       const logo = new Image();
       logo.src = "/logo.png";
-      await Promise.all([import("../components/layout/ModalRenderer"), logo.decode().catch(() => {})]);
+      await logo.decode().catch(() => {});
       const before = await probeServerHealth();
       await api.post<{ status: "restarting" }>("/admin/restart", { confirm: true });
       return before.ok ? (before.bootId ?? null) : null;

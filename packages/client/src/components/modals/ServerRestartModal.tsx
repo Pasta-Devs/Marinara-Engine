@@ -40,6 +40,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
   const [step, setStep] = useState<RestartStep>("stopping");
   const [now, setNow] = useState(() => Date.now());
   const startedAt = useRef(now);
+  const lastProbeOk = useRef(false);
   const stepStartedAt = useRef<Record<RestartStep, number | null>>({ stopping: now, starting: null, back: null });
 
   useEffect(() => {
@@ -52,7 +53,8 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       while (!cancelled) {
         const probe = await probeServerHealth();
         if (cancelled) return;
-        const next = nextRestartStep(step, beforeBootId, probe);
+        const next = nextRestartStep(step, beforeBootId, probe, lastProbeOk.current);
+        lastProbeOk.current = probe.ok;
         setNow(Date.now());
         if (next !== step) {
           stepStartedAt.current[next] ??= Date.now();

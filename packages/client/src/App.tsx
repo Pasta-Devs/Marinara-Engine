@@ -26,6 +26,7 @@ import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesIn
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
+import { ServerRestartModal } from "./components/modals/ServerRestartModal";
 import { StorageMigrationNoticeModal } from "./components/modals/StorageMigrationNoticeModal";
 import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
@@ -531,6 +532,7 @@ export function App() {
   const fightOnScreen = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
+  const restartModal = useUIStore((s) => (s.modal?.type === "server-restart" ? s.modal : null));
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const settingsTab = useUIStore((s) => s.settingsTab);
@@ -1334,10 +1336,18 @@ export function App() {
         }
       />
       {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
-      {hasModalOpen && (
-        <Suspense fallback={null}>
-          <LazyModalRenderer />
-        </Suspense>
+      {/* Not in the lazy ModalRenderer: the server goes down right after this sheet opens. */}
+      {restartModal ? (
+        <ServerRestartModal
+          open
+          beforeBootId={(restartModal.props?.beforeBootId as string | null | undefined) ?? null}
+        />
+      ) : (
+        hasModalOpen && (
+          <Suspense fallback={null}>
+            <LazyModalRenderer />
+          </Suspense>
+        )
       )}
       <AppDialogRenderer />
       <AppBannerHost />
