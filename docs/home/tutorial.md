@@ -20,7 +20,7 @@ Every card has a skip button. On the first card it reads **Skip Tutorial**. On l
 
 ## How the tour works
 
-The tour starts on Home and shows one card at a time. Each card has a title, a short explanation and progress dots. A ring highlights the part of the screen the card talks about, and some steps open that part for you: the Library step opens the sidebar on **Library**, the Chats step switches it to **Chats**, and the Connections step opens the Connections page.
+The tour starts on Home and shows one card at a time. Each card has a title, a short explanation and progress dots. A ring highlights the part of the screen the card talks about, and some steps open that part for you: the Library step opens the sidebar's **Library** view (with the Characters page on a computer), the Chats step switches it to **Chats**, and the Connections step opens the Connections page.
 
 Click **Next** to go to the next card. On a phone or tablet the cards and highlights work the same way, and say where things are on a touch screen.
 
