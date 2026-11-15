@@ -59,11 +59,30 @@ const CHROME_DROPPED_TAGS = new Set(["form", "select", "button", "nav", "footer"
 
 const CHROME_DROPPED_ROLES = new Set(["navigation", "banner", "contentinfo"]);
 
-const CHROME_DROPPED_CLASSES = new Set(["mw-editsection", "catlinks", "printfooter", "noprint", "metadata"]);
+/**
+ * Whole class names that are chrome. Compound menu forms live here rather than as a bare `menu`
+ * token, because `menu-guide` is a documentation page's content, not a menu.
+ */
+const CHROME_DROPPED_CLASSES = new Set([
+  "mw-editsection",
+  "catlinks",
+  "printfooter",
+  "noprint",
+  "metadata",
+  "menu-bar",
+  "menu-item",
+  "menu-list",
+  "menu-toggle",
+]);
 
-const CHROME_DROPPED_CLASS_PARTS = ["sidebar", "breadcrumb", "menu", "nav-"];
+/** Class tokens that are chrome on their own. Matched exactly, never as a substring. */
+const CHROME_DROPPED_CLASS_TOKENS = new Set(["sidebar", "breadcrumb", "navigation", "toc", "nav"]);
 
-const CHROME_DROPPED_ID_PARTS = ["navigation", "sidebar", "toc"];
+/** Id tokens that are chrome on their own. `protocol-overview` must survive. */
+const CHROME_DROPPED_ID_TOKENS = new Set(["navigation", "sidebar", "toc"]);
+
+/** The share of a container's text chrome removal may take before the read is retried. */
+const CHROME_RETRY_SHARE = 0.5;
 
 /**
  * Elements that end a line. Table cells and captions are here so a wiki infobox reads as
@@ -200,26 +219,55 @@ const CONTENT_CANDIDATES: Array<(element: Element) => boolean> = [
   (element) => element.name === "body",
 ];
 
-function isDropped(element: Element, dropChrome: boolean): boolean {
+/**
+ * How much chrome to remove. `full` applies the class and id rules too; `tags` keeps those but
+ * still drops navigation, footers and forms; `minimal` drops only what is never prose.
+ */
+type ChromeMode = "full" | "tags" | "minimal";
+
+/** Split an id or class into words, so `protocol-overview` is not read as containing `toc`. */
+function chromeTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[-_\s]+/u)
+    .filter(Boolean);
+}
+
+function isDropped(element: Element, mode: ChromeMode): boolean {
   if (ALWAYS_DROPPED_TAGS.has(element.name)) return true;
-  if (!dropChrome) return false;
+  if (mode === "minimal") return false;
   if (CHROME_DROPPED_TAGS.has(element.name)) return true;
   if (CHROME_DROPPED_ROLES.has(attribute(element, "role"))) return true;
+  if (mode === "tags") return false;
 
   for (const name of classNames(element)) {
-    if (CHROME_DROPPED_CLASSES.has(name)) return true;
-    for (const part of CHROME_DROPPED_CLASS_PARTS) {
-      if (name.includes(part)) return true;
+    const normalized = name.toLowerCase();
+    if (CHROME_DROPPED_CLASSES.has(normalized)) return true;
+    for (const token of chromeTokens(normalized)) {
+      if (CHROME_DROPPED_CLASS_TOKENS.has(token)) return true;
     }
   }
 
-  const id = attribute(element, "id");
-  if (id) {
-    for (const part of CHROME_DROPPED_ID_PARTS) {
-      if (id.includes(part)) return true;
-    }
+  for (const token of chromeTokens(attribute(element, "id"))) {
+    if (CHROME_DROPPED_ID_TOKENS.has(token)) return true;
   }
   return false;
+}
+
+/** How much text a dropped subtree held, so the caller can tell a trimmed page from a whole one. */
+function textLengthOf(node: ChildNode): number {
+  let total = 0;
+  const stack: ChildNode[] = [node];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) break;
+    if (current.type === "text") {
+      total += (current as Text).data.length;
+      continue;
+    }
+    for (const child of childrenOf(current)) stack.push(child);
+  }
+  return total;
 }
 
 /**
@@ -326,11 +374,12 @@ type WalkItem = { kind: "enter"; node: ChildNode } | { kind: "leave" };
 function collectText(
   container: ChildNode,
   maxChars: number,
-  dropChrome: boolean,
-): { text: string; truncated: boolean } {
+  mode: ChromeMode,
+): { text: string; truncated: boolean; droppedChars: number } {
   const parts: string[] = [];
   let length = 0;
   let truncated = false;
+  let droppedChars = 0;
   const stack: WalkItem[] = [{ kind: "enter", node: container }];
 
   const emit = (value: string) => {
@@ -341,8 +390,12 @@ function collectText(
     }
     const room = maxChars - length;
     if (value.length > room) {
-      parts.push(value.slice(0, room));
-      length = maxChars;
+      // Never cut between the halves of a surrogate pair; a lone half renders as a replacement mark.
+      let end = room;
+      const last = value.charCodeAt(end - 1);
+      if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+      parts.push(value.slice(0, end));
+      length += end;
       truncated = true;
       return;
     }
@@ -381,7 +434,10 @@ function collectText(
       }
       continue;
     }
-    if (isDropped(node, dropChrome)) continue;
+    if (isDropped(node, mode)) {
+      droppedChars += textLengthOf(node);
+      continue;
+    }
     if (node.name === "br") {
       emitBreak();
       continue;
@@ -397,13 +453,13 @@ function collectText(
     }
   }
 
-  return { text: parts.join(""), truncated };
+  return { text: parts.join(""), truncated, droppedChars };
 }
 
 function extractTitle(flat: FlatEntry[]): string {
   for (const entry of flat) {
     if (!isElement(entry.node) || entry.node.name !== "title") continue;
-    const raw = collectText(entry.node, TITLE_MAX_CHARS, false).text;
+    const raw = collectText(entry.node, TITLE_MAX_CHARS, "minimal").text;
     return raw.replace(/\s+/gu, " ").trim();
   }
   return "";
@@ -419,12 +475,21 @@ export function extractReadableText(html: string, options: ExtractReadableTextOp
   const containerIndex = selectContainer(flat);
   const selected = containerIndex >= 0 ? flat[containerIndex] : undefined;
   const container: ChildNode = selected ? selected.node : document;
+  const containerTextLength = selected ? selected.subtreeTextLength : (flat[0]?.subtreeTextLength ?? 0);
 
-  let extracted = collectText(container, maxChars, true);
-  // Chrome removal is broad on purpose, but a page-wide <form> (ASP.NET) or a class that merely
-  // contains "nav" can take the whole page with it. If nothing survived, read it again without
-  // the chrome rules rather than returning an empty page.
-  if (!extracted.text.trim()) extracted = collectText(container, maxChars, false);
+  let extracted = collectText(container, maxChars, "full");
+  // Chrome removal is broad on purpose, but a mislabelled container can take most of the page with
+  // it. Retry with only the tag rules, which still drops navigation and footers, when the class and
+  // id rules took a sizeable share and left too little to read. A page that kept a real article
+  // beside a genuine sidebar keeps the sidebar out.
+  const droppedShare = containerTextLength > 0 ? extracted.droppedChars / containerTextLength : 0;
+  const keptTooLittle = extracted.text.trim().length < MIN_CONTENT_CHARS;
+  if (keptTooLittle && droppedShare >= CHROME_RETRY_SHARE) {
+    const tagsOnly = collectText(container, maxChars, "tags");
+    if (tagsOnly.text.trim().length > extracted.text.trim().length) extracted = tagsOnly;
+  }
+  // A page-wide <form> (ASP.NET) is the last case: even the tag rules take the whole page.
+  if (!extracted.text.trim()) extracted = collectText(container, maxChars, "minimal");
 
   const text = extracted.text
     .replace(/\r\n?/gu, "\n")

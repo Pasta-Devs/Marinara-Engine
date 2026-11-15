@@ -321,7 +321,7 @@ const cases: RegressionCase[] = [
         const clipped = await callWebFetch({ url: "https://1.1.1.1/long", maxChars: 500 });
         assert.equal(clipped.success, true);
         const text = String(clipped.payload.text);
-        assert.equal(clipped.payload.chars, text.length);
+        assert.equal(clipped.payload.chars, String(clipped.payload.title).length + text.length);
         assert.equal(clipped.payload.truncated, true);
         assert.ok(text.length <= 500, `text was ${text.length} characters`);
         assert.ok(
@@ -439,6 +439,59 @@ const cases: RegressionCase[] = [
       assert.match(aspNet.text, /Real content that must survive/u);
 
       assert.equal(decodeHtmlEntities("&hellip;&mdash;&ndash;&laquo;&raquo;&#x27;&unknown;"), "…—–«»'&unknown;");
+    },
+  },
+  {
+    name: "web_fetch keeps content whose id or class only contains a chrome word",
+    run() {
+      // `protocol-overview` contains "toc" and `menu-guide` contains "menu"; neither is chrome.
+      const page = `<html><body><main>
+<p>Short intro line.</p>
+<div id="protocol-overview"><p>${"The protocol overview explains the handshake. ".repeat(10)}</p></div>
+<div class="menu-guide"><p>${"The menu guide explains ordering. ".repeat(10)}</p></div>
+</main></body></html>`;
+      const extracted = extractReadableText(page);
+      assert.match(extracted.text, /protocol overview explains the handshake/u);
+      assert.match(extracted.text, /menu guide explains ordering/u);
+    },
+  },
+  {
+    name: "web_fetch still drops a genuine sidebar and keeps prose beside a large nav",
+    run() {
+      const sidebar = extractReadableText(
+        `<body><main><p>${"Article prose. ".repeat(30)}</p><div class="sidebar"><p>${"Sidebar links. ".repeat(30)}</p></div></main></body>`,
+      );
+      assert.match(sidebar.text, /Article prose/u);
+      assert.doesNotMatch(sidebar.text, /Sidebar links/u);
+
+      const besideNav = extractReadableText(
+        `<body><main><nav class="nav"><p>${"Menu links. ".repeat(60)}</p></nav><p>${"Article prose. ".repeat(30)}</p></main></body>`,
+      );
+      assert.match(besideNav.text, /Article prose/u);
+      assert.doesNotMatch(besideNav.text, /Menu links/u);
+      assert.equal(besideNav.truncated, false);
+    },
+  },
+  {
+    name: "web_fetch reads the first part of an oversized page instead of failing",
+    async run() {
+      const originalFetch = globalThis.fetch;
+      const oversized = `<html><head><title>Big</title></head><body><article><p>${"word ".repeat(600_000)}</p></article></body></html>`;
+      assert.ok(oversized.length > 2 * 1024 * 1024, "the fixture must exceed the response cap");
+      globalThis.fetch = (async () =>
+        new Response(oversized, {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        })) as typeof fetch;
+
+      try {
+        const result = await callWebFetch({ url: "https://1.1.1.1/big", maxChars: 500 });
+        assert.equal(result.success, true);
+        assert.equal(result.payload.truncated, true);
+        assert.ok(String(result.payload.text).length > 0, "the first part of the page is still read");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     },
   },
 ];

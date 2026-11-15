@@ -1111,7 +1111,8 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
       url: finalUrl,
       ...(title ? { title } : {}),
       text: clipped.text,
-      chars: clipped.text.length,
+      // The title comes out of the same budget, so it counts toward the reported total.
+      chars: title.length + clipped.text.length,
       truncated: extracted.truncated || clipped.truncated,
     };
   } catch (err) {
