@@ -1319,7 +1319,7 @@
 
 /* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
    !important on purpose: theme and accent-mode rules kept outranking this and the
-   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
+   bubbles came back each time. scripts/regressions/ui/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent !important;
   border-color: transparent !important;
