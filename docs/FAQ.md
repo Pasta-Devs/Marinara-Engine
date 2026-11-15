@@ -126,7 +126,24 @@ Yes. Add an image generation account, such as **Pollinations** (no key needed) o
 
 ## How do I read the documentation inside the app?
 
-Click **Docs** in the top bar. On a phone, the Docs are in the Library (the stack button at the top right). In the classic layout, click **Documentation** in Home's bookmarks. In the Home FAQ, you can also click **Open Documentation**.
+Click **Docs** in the top bar. On a phone, the Docs are at the bottom of the Library page (the stack button at the top right). In the classic layout, click **Documentation** in Home's bookmarks. In the Home FAQ, you can also click **Open Documentation**.
+
+- **Search all guides**, at the top right of the Docs page, searches every guide and shows the matching line of each. In the guide you open, every hit is highlighted: press <kbd>Enter</kbd> or the arrows to step through them.
+- **On this page** lists the open guide's sections. Click one to jump there.
+- **All guides** lists every guide by topic. **Previous** and **Next** at the end of a guide go to its neighbours.
+- To read the guides in another language, pick it in **Settings → General → Language → Documentation Language**.
+
+## Can I go back to the old layout?
+
+Yes. Turn off **New layout (UI overhaul preview)** in **Settings → Appearance → Theme**. It is saved per browser, so each device can use the layout it suits best. Your chats, characters and settings stay the same either way.
+
+## Why doesn't my chat list show a chat I started on another device?
+
+The Chats list updates at once for changes made on this device. Changes from another device show up when you come back to the app from another app or browser tab. See [When the list updates](chats/managing-chats.md#when-the-list-updates).
+
+## How do I copy part of a message on a phone or tablet?
+
+Holding a message opens its menu, so it doesn't select text. Use **Copy** in that menu for the whole message, or **Edit** to select and copy part of it, then **Cancel**.
 
 ## Where do I get help or report a bug?
 

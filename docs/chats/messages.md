@@ -81,7 +81,7 @@ In the new layout on a phone or tablet, swipes and long-presses replace the butt
 - **Swipe the newest reply** left or right to move between its swipes. Swiping left past the last one asks "Generate a new reply?" before it makes one, because a new reply costs a request.
 - **Swipe the title** in the top bar left or right to move between your open tabs. Home counts as the tab before the first one. This works in the phone layout, which a tablet uses when held upright; turned sideways, a tablet shows the tab bar instead.
 - **Swipe a chat** in the chat list to the left to show **Pin**, **Rename**, **Tags** and **Delete**.
-- **Long-press a message** for its actions: Regenerate, Edit, Copy, Branch and the rest.
+- **Long-press a message** for its actions: Regenerate, Edit, Copy, Branch and the rest. Holding a message doesn't select its text. To copy part of a message, open **Edit** and select the words there.
 - **Long-press a chat** in the chat list for the same actions.
 
 Turn the swipes off with **Swipe gestures on touch screens** in Settings > Chatting > Editing & Swipes. Long-press keeps working either way.
