@@ -71,6 +71,7 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
 
     // A package can shape the game its tag starts, as its own setup screen would (Wordle's chat, day and streaks).
     let config: unknown;
+    let exactBotCharacterIds = false;
     const startConfig = getCapabilityTurnGameStartConfig(args.commandType);
     if (startConfig) {
       const proposed = botCharacterIds;
@@ -84,15 +85,16 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
         }),
         `${gameType} start config`,
       );
-      if (!start) {
+      if (start === null) {
         logger.info("[commands] %s declined to start in chat %s", gameType, args.chatId);
         return true;
       }
-      config = start.config;
-      if (Array.isArray(start.botCharacterIds)) {
+      config = start?.config;
+      if (Array.isArray(start?.botCharacterIds)) {
         botCharacterIds = start.botCharacterIds.filter(
           (id, index, ids) => proposed.includes(id) && ids.indexOf(id) === index,
         );
+        exactBotCharacterIds = true;
       }
     }
 
@@ -105,6 +107,7 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
       gameType,
       botCharacterIds,
       humanFirst: true,
+      ...(exactBotCharacterIds ? { exactBotCharacterIds } : {}),
       ...(config === undefined ? {} : { config }),
     });
     if (!outcome.ok) {

@@ -64,6 +64,8 @@ const characters = createCharactersStorage(db);
 const cleanups: Array<() => void> = [];
 const startContexts: unknown[] = [];
 let declinedChatId = "";
+let soloChatId = "";
+let silentHookChatId = "";
 
 cleanups.push(registerTurnGameEngine(fakeEngine("duel-match", "Duel Match", 2)));
 cleanups.push(registerTurnGameEngine(fakeEngine("card-table", "Card Table", 4)));
@@ -77,6 +79,9 @@ cleanups.push(
     startConfig: (context) => {
       startContexts.push(context);
       if (context.chatId === declinedChatId) return null;
+      if (context.chatId === soloChatId) return { botCharacterIds: [] };
+      // A JavaScript package can return nothing at all.
+      if (context.chatId === silentHookChatId) return undefined as never;
       return { config: { chatId: context.chatId }, botCharacterIds: context.botCharacterIds.slice(1) };
     },
   }),
@@ -217,6 +222,26 @@ const cases: RegressionCase[] = [
       declinedChatId = chat.id;
       assert.equal(await startFromTag("card_table", chat.id, {}), true);
       assert.equal(await getActiveTurnGame(db, chat.id), null);
+    },
+  },
+  {
+    name: "a start hook's empty seat list starts the game with the player alone, not every character",
+    async run() {
+      const chat = await conversationChat("solo");
+      soloChatId = chat.id;
+      assert.equal(await startFromTag("card_table", chat.id, {}), true);
+      const game = await getActiveTurnGame(db, chat.id);
+      assert.deepEqual(game?.state, { config: { from: "default" }, seats: ["human"] });
+    },
+  },
+  {
+    name: "a start hook that returns nothing leaves the start as it was",
+    async run() {
+      const chat = await conversationChat("silent hook");
+      silentHookChatId = chat.id;
+      assert.equal(await startFromTag("card_table", chat.id, {}), true);
+      const game = await getActiveTurnGame(db, chat.id);
+      assert.deepEqual(game?.state, { config: { from: "default" }, seats: ["human", mira.id, kaelen.id] });
     },
   },
   {

@@ -20,8 +20,9 @@ export interface CapabilityConversationCommandRegistration {
   toggle?: { label?: string; description?: string };
   /**
    * Capability API 1.827. Called when a character's tag starts this command's turn game, before the game is set
-   * up. Return the game's config and, if some should sit out, the proposed characters to seat; return null to not
-   * start the game. Without it the game starts with the engine's default config.
+   * up. Return the game's config and, if some should sit out, the proposed characters to seat. Return null to not
+   * start the game; returning nothing changes nothing. It has 2 seconds, and if it throws or runs out of time the
+   * game does not start. Without it the game starts with the engine's default config.
    */
   startConfig?: (
     context: CapabilityTurnGameStartContext,
@@ -43,8 +44,8 @@ export interface CapabilityTurnGameStartContext {
 export interface CapabilityTurnGameStart {
   config?: unknown;
   /**
-   * Seats only these of the proposed characters, in the order given. An empty list seats every character in the
-   * chat, as `startTurnGame` does for one, so a game that should start without them says so in its config.
+   * Seats only these of the proposed characters, in the order given; ids not proposed are dropped. An empty list
+   * seats the player alone, and the game does not start if that is fewer players than it needs.
    */
   botCharacterIds?: string[];
 }

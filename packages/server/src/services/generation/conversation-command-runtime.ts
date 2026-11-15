@@ -2,6 +2,7 @@ import { currentRoomGeneration, roomConversationCommandAllowed } from "../multip
 import {
   BUILT_IN_AGENTS,
   CONVERSATION_COMMAND_AGENT_IDS,
+  getTurnGameEngine,
   readConversationCommandToggles as readStoredConversationCommandToggles,
   type ChatMode,
   type ConversationCommandKey,
@@ -18,6 +19,7 @@ import { describeHapticDeviceType, getChatHapticIntifaceUrl } from "./haptic-run
 import {
   listCapabilityConversationCommandInstructions,
   listCapabilityTurnGameCommands,
+  turnGameTypeForCommand,
   type CapabilityTurnGameCommand,
 } from "../capability-packages/capability-command-registry.service.js";
 
@@ -51,10 +53,10 @@ export function isConversationCommandEnabled(metadata: Record<string, unknown>, 
 
 function getConversationCommandKey(command: CharacterCommand): string | null {
   switch (command.type) {
-    // A package command's toggle is keyed by its type: the turn games (`uno`, `wordle`) have one, other
-    // package commands have none, so their key is never stored as off.
+    // A package turn game's toggle is keyed by its command type (`uno`, `wordle`). Other package commands have no
+    // toggle, so one whose type matches a built-in key (`music`) is not gated by that key's switch or agent.
     case "capability":
-      return command.commandType;
+      return getTurnGameEngine(turnGameTypeForCommand(command.commandType)) ? command.commandType : null;
     case "schedule_update":
       return "schedule_update";
     case "cross_post":
@@ -98,7 +100,9 @@ function getConversationCommandKey(command: CharacterCommand): string | null {
 }
 
 function isConversationCommandAvailable(key: string): boolean {
-  const packageAgentId = CONVERSATION_COMMAND_AGENT_IDS[key as ConversationCommandKey];
+  const packageAgentId = Object.hasOwn(CONVERSATION_COMMAND_AGENT_IDS, key)
+    ? CONVERSATION_COMMAND_AGENT_IDS[key as ConversationCommandKey]
+    : undefined;
   return !packageAgentId || BUILT_IN_AGENTS.some((agent) => agent.id === packageAgentId);
 }
 
