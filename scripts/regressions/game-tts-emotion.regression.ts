@@ -295,6 +295,7 @@ function runVoiceBlockingEffect(overrides: Record<string, unknown> = {}) {
   const calls = { stopped: 0, retryCleared: 0 };
   const state = {
     gameVoiceEnabled: true,
+    gameVoiceAvailable: true,
     isStreaming: false,
     scenePreparing: false,
     directionsActive: false,
