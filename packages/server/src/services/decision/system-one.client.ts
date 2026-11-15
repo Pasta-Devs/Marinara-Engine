@@ -57,6 +57,7 @@ export async function postDecisionRequest(
   apiKey: string,
   body: unknown,
   signal: AbortSignal,
+  extraHeaders?: Record<string, string>,
 ): Promise<Response> {
   signal.throwIfAborted();
   let onAbort: (() => void) | undefined;
@@ -68,7 +69,9 @@ export async function postDecisionRequest(
     return await Promise.race([
       safeFetch(endpoint, {
         method: "POST",
+        // Custom headers first: validation already refuses host-managed names, and auth still wins.
         headers: {
+          ...extraHeaders,
           "Content-Type": "application/json",
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         },
@@ -140,7 +143,13 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       "[decision] System One request:\n%s",
       debugJson(body),
     );
-    const response = await postDecisionRequest(req.connection.endpoint, req.connection.apiKey, body, signal);
+    const response = await postDecisionRequest(
+      req.connection.endpoint,
+      req.connection.apiKey,
+      body,
+      signal,
+      req.connection.headers,
+    );
     if (!response.ok) {
       error = `http_${response.status}`;
     } else {

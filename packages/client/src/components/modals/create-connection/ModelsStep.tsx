@@ -41,6 +41,8 @@ import {
   type ServiceId,
   type Target,
   isSpeechModel,
+  isDecisionModel,
+  NATIVE_DECISION_SOURCE,
   jobSourceOf,
   errorText,
   SELF_HOSTED,
@@ -215,7 +217,8 @@ export function ModelsStep(props: ModelsStepProps) {
     const rowProvider = JOB_PROVIDER[kind];
     const vendor = account.provider as APIProvider;
     const backend = props.selectedMedia?.job === kind ? props.selectedMedia : undefined;
-    const source = backend?.source ?? (kind === "decision" ? "openai_compatible" : SPEECH_SOURCE[vendor]);
+    const native = kind === "decision" ? NATIVE_DECISION_SOURCE[vendor] : undefined;
+    const source = backend?.source ?? (kind === "decision" ? (native ?? "openai_compatible") : SPEECH_SOURCE[vendor]);
     if (!source || (!backend && !isChatProvider(vendor))) {
       props.onClose();
       props.onUnsupportedJob(account.id);
@@ -227,9 +230,9 @@ export function ModelsStep(props: ModelsStepProps) {
     );
     const own = linked.find((row) => row.provider === rowProvider && jobSourceOf(row) === source);
     if (!placeholder && own) return props.setMediaRowId(own.id);
-    const lentModel = backend
-      ? undefined
-      : linked.find((row) => row.id === props.modelsFor?.connectionId)?.model?.trim();
+    // A native decision row starts empty: the chat model it was opened from can't answer there.
+    const lentModel =
+      backend || native ? undefined : linked.find((row) => row.id === props.modelsFor?.connectionId)?.model?.trim();
     const preset = backend && AUDIO_SOURCE_OPTIONS.find((option) => option.id === source);
     const fields =
       kind === "decision"
@@ -329,9 +332,14 @@ export function ModelsStep(props: ModelsStepProps) {
   useEffect(() => {
     props.runJobTestAction.current = runJobTest;
   });
+  // The type tabs show for a target with more than one type. A job tab (Voice) the target lists no tab for hides
+  // them; the Decision tab of a service with its own decision models keeps them.
+  const onListedTab = !props.isJobKind || (!!props.setupKind && props.availableKinds.includes(props.setupKind));
+  const showKindTabs =
+    props.step === 3 && !!props.target && props.availableKinds.length > 1 && !props.chat && onListedTab;
   return (
     <>
-      {props.step === 3 && props.target && props.availableKinds.length > 1 && !props.chat && !props.isJobKind && (
+      {showKindTabs && (
         <div
           role="group"
           aria-label={t("connections.add.kindFilter")}
@@ -348,6 +356,8 @@ export function ModelsStep(props: ModelsStepProps) {
                 disabled={props.closeBlocked}
                 onClick={() => {
                   if (props.setupKind === kind) return;
+                  // Chat never sets up a row, so coming back to a job tab through it must set that tab up again.
+                  props.mediaSetupStarted.current = "";
                   props.setMediaRowId(null);
                   props.setSetupKind(kind);
                 }}
@@ -385,7 +395,13 @@ export function ModelsStep(props: ModelsStepProps) {
               connection={{ ...props.pickerRow, model: props.mediaRow.model ?? "" }}
               accountName={props.targetName}
               onChoose={chooseJobModel}
-              only={props.setupKind === "voice" ? isSpeechModel : undefined}
+              only={
+                props.setupKind === "voice"
+                  ? isSpeechModel
+                  : props.mediaRow.decisionSource === "nanogpt"
+                    ? isDecisionModel
+                    : undefined
+              }
               offerDefault={false}
               autoFocusSearch
             />

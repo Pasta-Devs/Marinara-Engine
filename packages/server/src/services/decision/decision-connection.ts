@@ -3,8 +3,10 @@ import {
   PROVIDERS,
   speaksOpenAIChat,
   type APIProvider,
+  decisionSourcePath,
   decisionSourceTakesUrl,
   defaultDecisionStateTokens,
+  normalizeCustomRequestHeaders,
   resolveDecisionConnectionTimeoutMs,
 } from "@marinara-engine/shared";
 
@@ -19,14 +21,20 @@ export interface DecisionConnectionRow {
   credentialsFromConnectionId?: string | null;
   maxStateTokens?: number | null;
   decisionTimeoutMs?: number | null;
-  /** The Connection it belongs to, filled in by the storage for decision rows with an account. */
-  account?: { provider: string; baseUrl: string } | null;
+  /** The Model's settings JSON; only its Custom Request Headers apply to a decision request. */
+  defaultParameters?: string | null;
+  /**
+   * The Connection it belongs to, filled in by the storage for decision rows with an account, with what that
+   * Connection's catalog says about the model: a decision model (NanoGPT's `decisions` output) and its context.
+   */
+  account?: { provider: string; baseUrl: string; decisionModel?: boolean; context?: number } | null;
 }
 
 export interface DecisionConnection {
   /**
-   * How the endpoint is asked. `system_one` posts to `/v1/systemone`; `chat_logprobs`
-   * is an ordinary chat model at `/chat/completions`, answered the way a local slot is.
+   * How the endpoint is asked. `system_one` posts the System One body (to `/v1/systemone`, or
+   * NanoGPT's `/v1/decisions`); `chat_logprobs` is an ordinary chat model at `/chat/completions`,
+   * answered the way a local slot is.
    */
   protocol: "system_one" | "chat_logprobs";
   endpoint: string;
@@ -35,6 +43,8 @@ export interface DecisionConnection {
   maxStateTokens: number;
   /** The connection's own time limit. Unset on the managed sidecar, which has its own budget. */
   timeoutMs?: number;
+  /** The Model's non-secret Custom Request Headers, such as NanoGPT's `x-billing-mode`. */
+  headers?: Record<string, string>;
 }
 
 export type DecisionConnectionError =
@@ -55,6 +65,25 @@ export function decisionChatCompletionsUrl(base: string): string {
     : `${trimmed}/v1/chat/completions`;
 }
 
+/** The Custom Request Headers saved in a Model's settings, validated like a chat Model's. Bad JSON sends none. */
+function customHeadersOf(defaultParameters: string | null | undefined): Record<string, string> | undefined {
+  if (!defaultParameters) return undefined;
+  try {
+    const parsed = JSON.parse(defaultParameters) as { customHeaders?: unknown } | null;
+    return normalizeCustomRequestHeaders(parsed?.customHeaders);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The default chat budget, capped below a model's own context when its catalog gives one: Clef takes 1,800
+ * tokens in all, and a request past a model's context gives no answer. A quarter is left for the questions.
+ */
+function catalogStateBudget(fallback: number, context: number | undefined): number {
+  return context && context > 0 ? Math.min(fallback, Math.max(1, Math.floor(context * 0.75))) : fallback;
+}
+
 /** Always resolve keys on use, so key rotation and import quarantine apply immediately. */
 export async function resolveDecisionConnection(
   row: DecisionConnectionRow,
@@ -67,7 +96,12 @@ export async function resolveDecisionConnection(
   const vendor = row.account && row.account.provider !== "decision" ? row.account.provider : null;
   if (vendor && !speaksOpenAIChat(vendor)) return { connection: null, error: "invalid_source" };
   if (vendor && vendor !== "custom" && !row.apiKey.trim()) return { connection: null, error: "missing_key" };
-  const source = vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
+  // NanoGPT's decision models answer only at its Decisions API and reject chat requests (#9310).
+  // A NanoGPT chat model picked for decisions keeps the log-probability path.
+  // Its catalog entry says so too, so a row any picker made for a NanoGPT decision model is asked right.
+  const nanoDecisions =
+    vendor === "nanogpt" && (row.decisionSource === "nanogpt" || row.account?.decisionModel === true);
+  const source = nanoDecisions ? "nanogpt" : vendor ? "openai_compatible" : (row.decisionSource ?? "typesafe");
   if (!Object.hasOwn(DECISION_SOURCE_BASE_URLS, source)) {
     return { connection: null, error: "invalid_source" };
   }
@@ -75,14 +109,19 @@ export async function resolveDecisionConnection(
   try {
     // TypeSafe may be sent to another address that serves its API (#7084). It keeps
     // TypeSafe's key rules and defaults; a blank address is TypeSafe's own.
-    const base = vendor
-      ? row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl
-      : decisionSourceTakesUrl(source)
-        ? row.baseUrl
-        : (source === "typesafe" && row.baseUrl?.trim()) ||
-          DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter"];
+    // NanoGPT's chat address ends in /api/v1; its Decisions API is /api/v1/decisions on the same host.
+    const base = nanoDecisions
+      ? `${new URL(row.account?.baseUrl.trim() || PROVIDERS.nanogpt.defaultBaseUrl).origin}/api`
+      : vendor
+        ? row.account?.baseUrl.trim() || PROVIDERS[vendor as APIProvider].defaultBaseUrl
+        : decisionSourceTakesUrl(source)
+          ? row.baseUrl
+          : (source === "typesafe" && row.baseUrl?.trim()) ||
+            DECISION_SOURCE_BASE_URLS[source as "typesafe" | "openrouter" | "nanogpt"];
     endpoint = new URL(
-      source === "openai_compatible" ? decisionChatCompletionsUrl(base) : `${base.replace(/\/+$/, "")}/v1/systemone`,
+      source === "openai_compatible"
+        ? decisionChatCompletionsUrl(base)
+        : `${base.replace(/\/+$/, "")}${decisionSourcePath(source)}`,
     );
     if (
       !["http:", "https:"].includes(endpoint.protocol) ||
@@ -103,10 +142,14 @@ export async function resolveDecisionConnection(
       return { connection: null, error: "needs_relinking" };
     }
     // A link never lends a provider key to another host, including after either row is edited.
-    const expectedProvider = source === "openrouter" ? "openrouter" : decisionSourceTakesUrl(source) ? "custom" : null;
+    const expectedProvider =
+      source === "openrouter" || source === "nanogpt" ? source : decisionSourceTakesUrl(source) ? "custom" : null;
     try {
       const linkedOrigin = new URL(
-        linked.baseUrl || (linked.provider === "openrouter" ? DECISION_SOURCE_BASE_URLS.openrouter : ""),
+        linked.baseUrl ||
+          (linked.provider === "openrouter" || linked.provider === "nanogpt"
+            ? DECISION_SOURCE_BASE_URLS[linked.provider]
+            : ""),
       ).origin;
       if (!expectedProvider || linked.provider !== expectedProvider || linkedOrigin !== endpoint.origin) {
         return { connection: null, error: "needs_relinking" };
@@ -121,6 +164,7 @@ export async function resolveDecisionConnection(
   // A chat server serves many models and needs to be told which; "jev-latest" means
   // nothing to it, so there is no default to fall back on.
   if (chat && !row.model.trim()) return { connection: null, error: "missing_model" };
+  const headers = customHeadersOf(row.defaultParameters);
   return {
     connection: {
       protocol: chat ? "chat_logprobs" : "system_one",
@@ -133,10 +177,11 @@ export async function resolveDecisionConnection(
           1,
           typeof row.maxStateTokens === "number" && Number.isFinite(row.maxStateTokens)
             ? Math.floor(row.maxStateTokens)
-            : defaultDecisionStateTokens(source),
+            : catalogStateBudget(defaultDecisionStateTokens(source), nanoDecisions ? row.account?.context : undefined),
         ),
       ),
       timeoutMs: resolveDecisionConnectionTimeoutMs(row.decisionTimeoutMs, source),
+      ...(headers ? { headers } : {}),
     },
   };
 }
