@@ -141,6 +141,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const characterDetailId = useUIStore((s) => s.characterDetailId);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -168,10 +169,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     Boolean(characterDetailId) ||
     (characterLibraryOpen && cardLibraryKind === "characters");
   const panelContextActive: Record<RightPanelButtonPanel, boolean> = {
-    lorebooks: (rightPanelOpen && rightPanel === "lorebooks") || Boolean(lorebookDetailId),
+    lorebooks:
+      (rightPanelOpen && rightPanel === "lorebooks") ||
+      Boolean(lorebookDetailId) ||
+      (characterLibraryOpen && cardLibraryKind === "lorebooks"),
     presets:
       (rightPanelOpen && rightPanel === "presets") ||
       Boolean(presetDetailId) ||
+      Boolean(profileDetailId) ||
       Boolean(regexDetailId) ||
       Boolean(toolDetailId),
     connections: (rightPanelOpen && rightPanel === "connections") || Boolean(connectionDetailId),
@@ -188,6 +193,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     !characterDetailId &&
     !lorebookDetailId &&
     !presetDetailId &&
+    !profileDetailId &&
     !connectionDetailId &&
     !agentDetailId &&
     !toolDetailId &&

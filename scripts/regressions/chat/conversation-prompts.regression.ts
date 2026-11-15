@@ -128,6 +128,36 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "a turn game's toggle stops its tag, for the built-in games and package games alike",
+    async run() {
+      // A game's tag reaches the filter as a package command, the shape the parser gives it. The server reads the
+      // engine registry from shared's dist, so the games' engines are registered there.
+      const { registerTurnGameEngine } = await import("../../../packages/shared/dist/index.js");
+      const games = ["uno", "chess", "poker", "eightball", "tic_tac_toe", "rock_paper_scissors", "blackjack", "wordle"];
+      const cleanups = games.map((game) =>
+        registerTurnGameEngine({ gameType: game.replace(/_/g, "-") } as Parameters<typeof registerTurnGameEngine>[0]),
+      );
+      try {
+        const commands = [...games, "phone", "music"].map((commandType) => ({
+          type: "capability",
+          commandType,
+          payload: null,
+        })) as Parameters<typeof filterEnabledConversationCommands>[0];
+        const commandTypes = (kept: typeof commands) =>
+          kept.map((command) => (command.type === "capability" ? command.commandType : command.type));
+
+        assert.deepEqual(commandTypes(filterEnabledConversationCommands(commands, {})), [...games, "phone", "music"]);
+        const allOff = filterEnabledConversationCommands(commands, {
+          conversationCommandToggles: { ...Object.fromEntries(games.map((game) => [game, false])), music: false },
+        });
+        // A package command that starts no game has no toggle, even when its type matches a built-in key.
+        assert.deepEqual(commandTypes(allOff), ["phone", "music"]);
+      } finally {
+        for (const cleanup of cleanups) cleanup();
+      }
+    },
+  },
+  {
     name: "character advanced prompts stay wired into Conversation and Game runtime assembly",
     run() {
       const generateRouteSource = readFileSync(

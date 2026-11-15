@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page, type Request as PlaywrightRequest } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { chooseCharacter } from "./character-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -829,6 +829,7 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
 }) => {
   const data = await fixture(request, "conversation");
   const skipped = collectSkippedAgentLogs(page);
+  let releaseReload = () => {};
   try {
     expect(
       (
@@ -874,6 +875,26 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
     await emit({ type: "token", data: reply.content }, { type: "message_saved", data: reply });
     const row = page.locator(`[data-message-id="${reply.id}"]`);
     await expect(row).toBeVisible();
+    // Hold the transcript reload the delete starts: until a reload lands, the deleted reply is only hidden on read
+    // and is still in the cache, which is the window the checks must cover. (The saved part below cancels this
+    // reload, so none lands before the stream's end.)
+    const transcript = `/api/chats/${data.chat.id}/messages`;
+    const reloadHeld = new Promise<void>((resolve) => (releaseReload = resolve));
+    const heldReloads: PlaywrightRequest[] = [];
+    await page.route(
+      (url) => url.pathname === transcript,
+      async (route) => {
+        if (route.request().method() === "GET") {
+          heldReloads.push(route.request());
+          await reloadHeld;
+        }
+        await route.fallback();
+      },
+    );
+    const deleted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" && new URL(response.url()).pathname === `${transcript}/${reply.id}`,
+    );
     if (isMobile) await row.click({ position: { x: 80, y: 24 } });
     else await row.hover();
     await row.getByRole("button", { name: "Delete" }).click();
@@ -881,6 +902,18 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
       .getByRole("dialog", { name: "Delete message" })
       .getByRole("button", { name: "Delete message", exact: true })
       .click();
+    expect((await deleted).ok()).toBeTruthy();
+    await expect(row).toHaveCount(0);
+    const addMessage = async (content: string) =>
+      (
+        await request.post(`/api/chats/${data.chat.id}/messages`, {
+          data: { role: "assistant", characterId: data.character.id, content },
+        })
+      ).json();
+    // Another saved part rewrites the cached transcript before any reload lands: the deleted reply stays hidden.
+    const followUp = await addMessage("The hinges settle.");
+    await emit({ type: "message_saved", data: followUp });
+    await expect(page.locator(`[data-message-id="${followUp.id}"]`)).toBeVisible();
     await expect(row).toHaveCount(0);
 
     // The stream is still live, but the deleted reply is no longer on screen, so its result is turned away.
@@ -894,11 +927,24 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
     await expect
       .poll(() => skipped)
       .toEqual([expect.stringContaining(`[Agent] Skipped Echo Chamber (echo-chamber): reply ${reply.id} swipe 0 `)]);
+    // Let the held reloads go and settle (the app cancelled them), so none reaches the server after the note below.
+    expect(heldReloads.length).toBeGreaterThan(0);
+    releaseReload();
+    await Promise.all(heldReloads.map((held) => held.response()));
+
+    // The stream's end writes its saved parts back and refreshes the chat. The deleted reply must stay off screen:
+    // a note saved only on the server shows when that refresh has landed. This checks the screen only; keeping the
+    // reply out of the cache itself (use-generate.ts) is not visible here.
+    const note = await addMessage("Footsteps fade down the hall.");
     await emit({ type: "done", data: {} });
     await page.evaluate(() =>
       (window as unknown as { echoStream: ReadableStreamDefaultController }).echoStream.close(),
     );
+    await expect(page.locator(`[data-message-id="${note.id}"]`)).toBeVisible();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(row).toHaveCount(0);
   } finally {
+    releaseReload();
     await data.cleanup();
   }
 });

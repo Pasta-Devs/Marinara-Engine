@@ -94,6 +94,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
+import { ProfilesSection } from "./ProfilesSection";
 
 type PresetRow = {
   id: string;
@@ -308,8 +309,8 @@ export function PresetsPanel() {
   const updateMetadata = useUpdateChatMetadata();
   const [search, setSearch] = useState("");
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"presets" | "regex" | "functions">("presets");
-  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | null>(null);
+  const [tab, setTab] = useState<"presets" | "regex" | "functions" | "profiles">("presets");
+  const [selectionTarget, setSelectionTarget] = useState<"presets" | "regex" | "functions" | "profiles" | null>(null);
   const selectionMode = selectionTarget === "presets";
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -1240,6 +1241,20 @@ export function PresetsPanel() {
       />
 
       <div className="flex flex-col gap-1">
+        {selectionMode && (
+          <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
+            <input
+              type="checkbox"
+              checked={sortedPresets.length > 0 && sortedPresets.every((preset) => selectedPresetIds.has(preset.id))}
+              disabled={exportingSelected || sortedPresets.length === 0}
+              onChange={(event) =>
+                setSelectedPresetIds(new Set(event.target.checked ? sortedPresets.map((preset) => preset.id) : []))
+              }
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            {localizeUi("ui.panels.presetspanel.selectAllPresets")}
+          </label>
+        )}
         <div className="flex flex-col gap-0.5">
           {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
             const isEditing = editingFolderId === folder.id;
@@ -1468,7 +1483,7 @@ export function PresetsPanel() {
     <div className="flex min-h-full flex-col gap-2 p-3">
       {/* Same gap and equal-width columns as LibraryToolbar's action row, so the tabs line up with the buttons. */}
       <div className="flex gap-2" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
-        {(["presets", "regex", "functions"] as const).map((value) => (
+        {(["presets", "regex", "functions", "profiles"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -1485,7 +1500,9 @@ export function PresetsPanel() {
                   ? "ui.panels.presetspanel.prompts"
                   : value === "regex"
                     ? "ui.panels.regexsection.regexes"
-                    : "ui.panels.functionssection.functions",
+                    : value === "functions"
+                      ? "ui.panels.functionssection.functions"
+                      : "ui.panels.profilessection.profiles",
               )}
             </span>
           </button>
@@ -1551,6 +1568,21 @@ export function PresetsPanel() {
           openRegexDetail={openRegexDetail}
           updateRegex={updateRegex}
           deleteRegex={deleteRegex}
+        />
+      </div>
+
+      <div className={tab === "profiles" ? "contents" : "hidden"}>
+        <ProfilesSection
+          selectionMode={selectionTarget === "profiles"}
+          setSelectionMode={(enabled) => {
+            if (enabled) {
+              setSelectedPresetIds(new Set());
+              setSelectionTarget("profiles");
+            } else {
+              setSelectionTarget((target) => (target === "profiles" ? null : target));
+            }
+          }}
+          activeChatMode={activeChat?.mode ?? null}
         />
       </div>
 

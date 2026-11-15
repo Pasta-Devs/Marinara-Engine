@@ -9,6 +9,10 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+/** Whether a control can take focus now: one hidden by CSS (a phone sheet's Close, say) cannot. */
+const isShown = (element: HTMLElement) =>
+  !element.hidden && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0;
+
 function restoreDialogFocus(restoreFocusRef: RefObject<HTMLElement | null> | undefined, fallback: HTMLElement | null) {
   window.requestAnimationFrame(() => (restoreFocusRef?.current ?? fallback)?.focus());
 }
@@ -39,10 +43,11 @@ export function useDialogFocusScope(
       if (roots.some((root) => root.contains(document.activeElement))) return;
       initialFocusRef?.current?.focus();
       if (roots.some((root) => root.contains(document.activeElement))) return;
+      // The dialog's first control (its Close), unless CSS hides it, as on a phone sheet: then the dialog itself,
+      // since the next visible control there is often the main action. Tab and Shift+Tab stay inside from either.
+      const first = container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       const fallback =
-        container.querySelector<HTMLElement>("[data-autofocus]") ??
-        container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
-        container;
+        container.querySelector<HTMLElement>("[data-autofocus]") ?? (first && isShown(first) ? first : container);
       fallback.focus();
     });
 
@@ -63,10 +68,7 @@ export function useDialogFocusScope(
       ];
       const focusable = roots
         .flatMap((root) => Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)))
-        .filter(
-          (element) =>
-            !element.hidden && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0,
-        );
+        .filter(isShown);
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) {
@@ -76,7 +78,8 @@ export function useDialogFocusScope(
       }
 
       const active = document.activeElement;
-      if (!roots.some((root) => root.contains(active))) {
+      // Focus on the dialog itself counts as outside its controls: Shift+Tab from there would leave the dialog.
+      if (active === container || !roots.some((root) => root.contains(active))) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
       } else if (event.shiftKey && active === first) {

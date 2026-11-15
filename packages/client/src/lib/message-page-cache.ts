@@ -56,11 +56,36 @@ export function removeMessagesFromPages<T extends { id: string }>(
 export type ConfirmedDelete = { id: string; at: number };
 
 /**
- * Ids to keep hidden: only deletes confirmed after the cached transcript was fetched. Any successful
- * fetch after the delete (a later refetch, a trash restore) ends the hiding; a failed one keeps it.
+ * The deletes to keep once a transcript fetch has landed. A fetch that started after a delete and still holds
+ * the message shows it came back (a trash restore), so that delete ends. The others stay, so a local copy
+ * saved before the delete (a finished stream's saved parts) can't bring the message back.
  */
-export function stillHiddenDeletes(deletes: ConfirmedDelete[], dataUpdatedAt: number): string[] {
-  return deletes.filter((entry) => entry.at > dataUpdatedAt).map((entry) => entry.id);
+export function deletesAfterFetch(
+  deletes: ConfirmedDelete[],
+  fetchStartedAt: number,
+  fetchedIds: ReadonlySet<string>,
+): ConfirmedDelete[] {
+  return deletes.filter((entry) => entry.at >= fetchStartedAt || !fetchedIds.has(entry.id));
+}
+
+/**
+ * Calls `listener` each time a chat's transcript fetch lands, with the ids it brought from the server: every
+ * loaded page for a full fetch, only the new oldest page for Load more (which keeps the cached pages as they
+ * were). Hand-made cache writes (`setQueryData`) don't count. Returns the unsubscribe function.
+ */
+export function onTranscriptFetched(
+  qc: QueryClient,
+  listener: (chatId: string, fetchedIds: Set<string>, loadMore: boolean) => void,
+): () => void {
+  return qc.getQueryCache().subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "success" || event.action.manual) return;
+    const chatId = chatIdOfMessagesQueryKey(event.query.queryKey);
+    const pages = (event.query.state.data as InfiniteData<{ id: string }[]> | undefined)?.pages;
+    if (!chatId || !pages) return;
+    const loadMore = Boolean(event.query.state.fetchMeta?.fetchMore);
+    const fetched = loadMore ? (pages[pages.length - 1] ?? []) : pages.flat();
+    listener(chatId, new Set(fetched.map((message) => message.id)), loadMore);
+  });
 }
 
 export function shouldRefetchMessagesOnReconnect(loadedPageCount: number): boolean {

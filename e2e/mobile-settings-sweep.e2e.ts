@@ -284,8 +284,12 @@ for (const theme of ["dark", "light"] as const) {
         )
         .toBe(true);
       await name.fill("Visible while typing");
-      await expect(name).toBeFocused();
-      await expect(name).toHaveValue("Visible while typing");
+      // The window is titled by the name being typed, so it is found by its new name now.
+      const renamed = page
+        .getByRole("dialog", { name: "Visible while typing", exact: true })
+        .getByRole("textbox", { name: "Model name", exact: true });
+      await expect(renamed).toBeFocused();
+      await expect(renamed).toHaveValue("Visible while typing");
       await testInfo.attach(`connection-keyboard-${theme}`, {
         body: await page.screenshot(),
         contentType: "image/png",

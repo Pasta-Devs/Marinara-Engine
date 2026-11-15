@@ -60,8 +60,10 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     ui.openRightPanel("settings");
   } else if (target.kind === "surface") {
     if (target.surface === "card-downloads") ui.openBotBrowser();
+    else if (target.surface === "lorebook-downloads") ui.openLorebookBrowser();
     else if (target.surface === "character-library") ui.openCharacterLibrary();
     else if (target.surface === "persona-library") ui.openPersonaLibrary();
+    else if (target.surface === "lorebook-library") ui.openLorebookLibrary();
     else if (target.surface === "agent-catalog") ui.openAgentCatalog();
     else ui.openGameAssetsBrowser();
   } else if (target.kind === "resource") {

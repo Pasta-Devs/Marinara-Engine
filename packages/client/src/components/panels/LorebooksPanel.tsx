@@ -15,7 +15,20 @@ import {
   type TouchEvent,
 } from "react";
 import { toast } from "sonner";
-import { Copy, BookOpen, UserRound, Tag, ChevronDown, ChevronRight, ChevronUp, X, Trash2, Camera } from "lucide-react";
+import {
+  Bot,
+  Copy,
+  BookOpen,
+  Library,
+  UserRound,
+  Tag,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  X,
+  Trash2,
+  Camera,
+} from "lucide-react";
 import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import { useChatStore } from "../../stores/chat.store";
@@ -31,7 +44,7 @@ import {
 } from "../../hooks/use-lorebooks";
 import type { Lorebook, LorebookCategory, LorebookEntry, LorebookFolder } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import { cn } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { getChatCharacterIds } from "../../lib/chat-macros";
@@ -181,6 +194,8 @@ export function LorebooksPanel() {
   const moveLorebookItem = useMoveLibraryItem("lorebooks");
   const openModal = useUIStore((s) => s.openModal);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
+  const openLorebookBrowser = useUIStore((s) => s.openLorebookBrowser);
+  const openLorebookLibrary = useUIStore((s) => s.openLorebookLibrary);
 
   const getCharacterNames = useCallback((lb: LorebookListItem) => {
     if (Array.isArray(lb.characterNames) && lb.characterNames.length > 0) return lb.characterNames;
@@ -740,6 +755,21 @@ export function LorebooksPanel() {
 
       <LibraryToolbar
         tone="lorebooks"
+        library={{
+          download: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.download"),
+            title: localizeUi("ui.panels.resourceLibraryLauncher.downloadLorebooks"),
+            icon: Bot,
+            onClick: openLorebookBrowser,
+          },
+          openLibrary: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.openLibrary"),
+            title: localizeUi("ui.panels.lorebookspanel.openLorebooksLibrary"),
+            icon: Library,
+            onClick: openLorebookLibrary,
+          },
+          dataComponent: "LorebookLibraryActions",
+        }}
         create={{
           label: localizeUi("ui.panels.lorebookspanel.createLorebook"),
           title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
@@ -1199,7 +1229,13 @@ function LorebookRow({
   const { t: localizeUi } = useUiTranslation();
   const gradient = CATEGORY_COLORS[lorebook.category] ?? CATEGORY_COLORS.uncategorized;
   const imageContent = lorebook.imagePath ? (
-    <img src={lorebook.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
+    <img
+      src={lorebook.imagePath}
+      alt=""
+      className="h-full w-full object-cover"
+      style={getAvatarCropStyle(lorebook.imageCrop)}
+      draggable={false}
+    />
   ) : (
     <BookOpen size="1rem" />
   );

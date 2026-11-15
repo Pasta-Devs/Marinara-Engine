@@ -1319,7 +1319,7 @@
 
 /* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
    !important on purpose: theme and accent-mode rules kept outranking this and the
-   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
+   bubbles came back each time. scripts/regressions/ui/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent !important;
   border-color: transparent !important;
@@ -2084,6 +2084,13 @@
   --mari-avatar-placeholder-start: #34d399;
   --mari-avatar-placeholder-end: #14b8a6;
   --mari-avatar-placeholder-text: #ecfdf5;
+}
+
+/* Same amber as the Lorebooks panel gradient (.mari-panel-gradient--lorebooks). */
+.mari-avatar-placeholder--lorebook {
+  --mari-avatar-placeholder-start: #f59e0b;
+  --mari-avatar-placeholder-end: #f97316;
+  --mari-avatar-placeholder-text: #fff7ed;
 }
 
 .mari-topbar-button {
@@ -9176,4 +9183,14 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 [data-message-id]:is([aria-busy="true"], :hover, :focus-within),
 :nth-last-child(-n + 6) > [data-message-id] {
   content-visibility: visible;
+}
+
+/* iPadOS/iOS pick a picture up for native drag and drop after a short press, which swallows the tap:
+   tapping a character or persona picture often did nothing while its name worked. Pictures inside
+   buttons and links never start a drag or a callout on touch screens. */
+@media (hover: none) {
+  :is(button, a, [role="button"]) img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
 }

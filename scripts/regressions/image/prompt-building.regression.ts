@@ -89,7 +89,13 @@ const cases: RegressionCase[] = [
       );
 
       assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.useCampaignArtStyle"\)\}/);
-      assert.match(drawerSource, /generatedArtStylePrompt: generatedCampaignArtStyle \|\| campaignArtStyle/);
+      assert.match(
+        readFileSync(
+          new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
+          "utf8",
+        ),
+        /generatedArtStylePrompt: generatedCampaignArtStyle \|\| campaignArtStyle/,
+      );
       assert.match(gameSurfaceSource, /reviewImagePromptsBeforeSend/);
       assert.match(gameSurfaceSource, /previewTurnStoryboardPrompts\.mutateAsync\(payload\)/);
       assert.match(gameSurfaceSource, /plannedStoryboard = preview\.plannedStoryboard/);

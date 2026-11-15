@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
 import { countBlockingReviews } from "../../lib/professor-mari-presentation";
 import { useAgentConfigs } from "../../hooks/use-agents";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { requestChatRetryWithConnection } from "../../lib/chat-floating-ui-events";
 import { useConnections } from "../../hooks/use-connections";
@@ -330,7 +330,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     readOmnibarFrecencyEntries(),
   );
   const chats = useChats();
-  const characters = useCharacters();
+  const characters = useCharacterListRows();
   const personas = usePersonas();
   const lorebooks = useLorebooks(undefined, { includeHidden: true });
   const presets = usePresets();
@@ -885,6 +885,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   );
   const idle = !query.trim() && presentation.groups.length === 0;
   const listVisible = pane !== "mari" && !idle;
+  // The suggestions shown before you type come from several lists that arrive at different times. They
+  // stay invisible (in place) until those have arrived, or for at most 0.6 s, so rows never pop in and
+  // push the list down while Search opens.
+  const idleSourcesSettled = [chats, characters, personas, lorebooks, mariChats, mariWorkspaceStatus].every(
+    (source) => source.isFetched || source.isError,
+  );
+  const [idleHoldExpired, setIdleHoldExpired] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIdleHoldExpired(true), 600);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const holdIdleList = !query.trim() && !queryScope && !idleSourcesSettled && !idleHoldExpired;
   // The filter bar only renders once there is a query, so availability always comes from the results.
   const tabAvailability = presentation.categoryAvailability;
   const availableFilters = COMMAND_CENTER_CATEGORY_FILTERS.filter(
@@ -2322,6 +2334,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         {pane !== "mari" && idle ? <OmnibarEmpty /> : null}
         {!listVisible ? null : (
           <OmnibarResultList
+            held={holdIdleList}
             listRef={listRef}
             query={query}
             loading={loading}

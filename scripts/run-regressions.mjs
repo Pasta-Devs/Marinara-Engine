@@ -27,12 +27,12 @@ function repositoryRelative(file) {
 // regression-timeout-policy fails on a path that names no regression, which would otherwise drop to the default.
 export const REGRESSION_TIMEOUTS_MS = new Map([
   // 20s main-server phase + six sequential 40s PTY bounds + 10s setup/cleanup margin.
-  ['scripts/regressions/server-signal-shutdown.regression.ts', 270_000],
-  ['scripts/regressions/restart-supervisor.regression.ts', 90_000],
+  ['scripts/regressions/server/server-signal-shutdown.regression.ts', 270_000],
+  ['scripts/regressions/launcher/restart-supervisor.regression.ts', 90_000],
   // Two provider deadlines (8 s each): a silent getContext and a claim that answers late.
   ['scripts/regressions/scene-package-origin.regression.ts', 60_000],
   // Two slow Decision recall passes (5.5 s each) prove that each has its own time limit.
-  ['scripts/regressions/advanced-memory-recall-shortlist.regression.ts', 60_000],
+  ['scripts/regressions/advanced-memory/advanced-memory-recall-shortlist.regression.ts', 60_000],
   // Hundreds of complete d20 and dice-pool fights: 75-130 s on CI runners and up to about 180 s locally.
   ['scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts', 300_000],
   // An out-of-memory control and a small-heap 64 MB gallery round trip: 20 s alone, 26 s to over 60 s in the CI pool.
@@ -41,7 +41,7 @@ export const REGRESSION_TIMEOUTS_MS = new Map([
   // CI runners (about 1.6x slower), where it was being retried.
   ['scripts/regressions/chat-request-validation.regression.ts', 150_000],
   // Eighteen blink and talk pictures lined up with their face at full size: about 10 s, more on a busy runner.
-  ['scripts/regressions/avatar-variant-composite.regression.ts', 120_000],
+  ['scripts/regressions/avatars/avatar-variant-composite.regression.ts', 120_000],
   // Every cap of the ruleset schema proved at its edge, against the whole 5e ruleset: about 40 s.
   ['scripts/regressions/game-ruleset/game-ruleset-caps.regression.ts', 120_000],
   // Every language's ruleset strings read and drawn against the whole 5e ruleset: about 60 s alone.

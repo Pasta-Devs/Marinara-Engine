@@ -47,12 +47,16 @@ function backLabelKey(destination: BackDestination, hasActiveChat: boolean): str
       return "navigation.back.toConnection";
     case "presetDetailId":
       return "navigation.back.toPreset";
+    case "profileDetailId":
+      return "navigation.back.toProfile";
     case "characterDetailId":
       return "navigation.back.toCharacter";
     case "characterLibraryOpen":
       return destination.cardLibraryKind === "personas"
         ? "navigation.back.toPersonaLibrary"
-        : "navigation.back.toCharacterLibrary";
+        : destination.cardLibraryKind === "lorebooks"
+          ? "navigation.back.toLorebookLibrary"
+          : "navigation.back.toCharacterLibrary";
     case "agentCatalogOpen":
       return "navigation.back.toAgentCatalog";
     case "lorebookDetailId":

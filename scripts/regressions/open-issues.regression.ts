@@ -5245,6 +5245,13 @@ assert.equal(characterMatchesSearch(searchableCharacter, "scientist"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
+// A light list row (useCharacterListRows) has the catalog summary and no description; it still matches.
+const summaryRowCharacter = parseCharacterDisplayData({
+  data: { name: "Il Dottore", summary: "A Fatui researcher from Snezhnaya.", tags: [] },
+  comment: "",
+});
+assert.equal(characterMatchesSearch(summaryRowCharacter, "snezhnaya"), true);
+assert.equal(characterMatchesSearch(summaryRowCharacter, "friendly bard"), false);
 
 const olderActiveChat = {
   id: "older-active",
@@ -6136,7 +6143,10 @@ assert.match(
   "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
 );
 assert.match(
-  conversationGroupSettingsSource,
+  readFileSync(
+    new URL("../../packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx", import.meta.url),
+    "utf8",
+  ),
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
@@ -6432,10 +6442,20 @@ const gameSetupWizardSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameSetupWizard.tsx", import.meta.url),
   "utf8",
 );
-const chatSettingsDrawerSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
+// Chat Settings' sections and agent cards live in their own folders, so read the drawer and both.
+const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
+const chatSettingsDrawerSource = [
+  join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
+  ...["sections", "agents"].flatMap((folder) =>
+    readdirSync(join(chatSettingsDir, folder)).map((name) => join(chatSettingsDir, folder, name)),
+  ),
+]
+  .map((path) => readFileSync(path, "utf8"))
+  .join("\n");
+// The drawer and the hook that holds Agents' state, for the checks that read only those two.
+const drawerAndAgentsStateSource = ["ChatSettingsDrawer.tsx", "agents/use-chat-agents.ts"]
+  .map((name) => readFileSync(join(chatSettingsDir, name), "utf8"))
+  .join("\n");
 assert.match(
   agentEditorSource,
   /lorebookReadBehindMessages:\s*localLorebookReadBehindMessages/u,
@@ -6470,7 +6490,7 @@ for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "ag
 }
 assert.match(
   chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<Section\s+id=["']conversation-agents["']/u,
+  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<ConversationAgentsSection\b/u,
   "Conversation Agents visibility must consume the conversation agent-settings surface",
 );
 assert.match(
@@ -9569,10 +9589,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
 // focused UI/cache ordering fixes from being lost in future refactors.
 {
-  const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const chatSettingsSource = drawerAndAgentsStateSource;
   const memoryRecallSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx"),
     "utf8",
@@ -10168,10 +10185,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     );
   }
 
-  const chatSettingsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const chatSettingsSource = drawerAndAgentsStateSource;
   assert.match(
     chatSettingsSource,
     /const worldMapsSettingsDescription = localizeUi\("ui\.chat\.chatsettingsdrawer\.worldMapsFeatureSummary"\);/u,
@@ -10191,7 +10205,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   const standaloneRoleplayAgentSettings = sourceBetween(
     chatSettingsSource,
     "const renderStandaloneRoleplayAgentSettingsCard =",
-    "const updateAgentPromptTemplateSelection =",
+    "const renderAgentPromptTemplateSelect =",
     "Standalone Roleplay agent settings renderer",
   );
   assert.match(
@@ -10367,10 +10381,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   // messages-per-page and "Load More" vanished on a mis-evaluated
   // hasNextPage. Read-only newest-N windows must go through the peek hook,
   // which keys by limit.
-  const drawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const drawerSource = chatSettingsDrawerSource;
   assert.doesNotMatch(
     drawerSource,
     /useChatMessages\(/u,
@@ -10625,10 +10636,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatConversationSurface.tsx"),
     "utf8",
   );
-  const settingsDrawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  const settingsDrawerSource = drawerAndAgentsStateSource;
   const gameMapSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/components/game/GameMap.tsx"), "utf8");
   const generateRouteSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
@@ -10674,14 +10682,20 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(stopGenerationActionSource, /bg-\[var\(--secondary\)\][\s\S]*hover:bg-\[var\(--accent\)\]/u);
   assert.match(stopGenerationActionSource, /text-\[var\(--muted-foreground\)\]/u);
   assert.doesNotMatch(stopGenerationActionSource, /red-/u);
+  // Conversation's card is in agents/, so count across the drawer and its folders.
   assert.equal(
-    (
-      settingsDrawerSource.match(
-        /packageId=\{ltmPackage\.id\}[\s\S]*?className="block overflow-hidden(?: rounded-lg)?"/gu,
-      ) ?? []
-    ).length,
+    (chatSettingsDrawerSource.match(/<LongTermMemoryCapabilitySettings\s[\s\S]*?packageId=\{ltmPackage\.id\}/gu) ?? [])
+      .length,
     3,
     "Long-Term Memory must use the same un-nested Agent Settings surface in every chat mode",
+  );
+  assert.match(
+    readFileSync(
+      join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /className = "block overflow-hidden rounded-lg"[\s\S]*?className=\{className\}/u,
+    "the shared Long-Term Memory surface must stay un-nested",
   );
 
   assert.match(
@@ -10967,24 +10981,17 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
 // #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
 // the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
 {
-  // The two buttons live in the Characters and Game party sections, so read the drawer and every section.
-  const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
-  const drawerSource = [
-    join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
-    ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
-  ]
-    .map((path) => readFileSync(path, "utf8"))
-    .join("\n");
-  const cardOpens = drawerSource.match(
+  // The two buttons live in the Characters and Game party sections, which chatSettingsDrawerSource includes.
+  const cardOpens = chatSettingsDrawerSource.match(
     /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) \{\s*rememberSettingsReturn\(\);\s*useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
   );
   assert.equal(cardOpens?.length, 2, "both member-name buttons open the card after a guarded, unforced close");
   assert.match(
-    drawerSource,
+    chatSettingsDrawerSource,
     /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;\s*if \(!\(await \(inlineCardFlushRef\.current\?\.\(\) \?\? Promise\.resolve\(true\)\)\)\) return false;[\s\S]{0,80}onClose\(\{ force \}\);/u,
     "the drawer's close waits for the inline card editor's saves",
   );
-  assert.match(drawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
+  assert.match(chatSettingsDrawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
   const inlineEditorSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/inline-editors/InlineChatCardEditor.tsx"),
     "utf8",

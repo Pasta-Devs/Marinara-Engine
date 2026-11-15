@@ -9,6 +9,8 @@ export const lorebooks = fileTable("lorebooks", {
   description: text("description").notNull().default(""),
   category: text("category").notNull().default("uncategorized"),
   imagePath: text("image_path"),
+  /** JSON AvatarCrop for the picture (the avatar crop widget's shape); null shows it uncropped. */
+  imageCrop: text("image_crop"),
   scanDepth: integer("scan_depth").notNull().default(2),
   tokenBudget: integer("token_budget").notNull().default(2048),
   entryLimit: integer("entry_limit").notNull().default(100),

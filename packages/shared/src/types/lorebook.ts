@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Lorebook / World Info Types
 // ──────────────────────────────────────────────
+import type { AvatarCrop } from "./avatar-crop.js";
 
 /** Top-level lorebook categories. */
 export type LorebookCategory = "world" | "character" | "npc" | "spellbook" | "uncategorized";
@@ -53,6 +54,8 @@ export interface Lorebook {
   category: LorebookCategory;
   /** Optional picture displayed for this lorebook in the library UI */
   imagePath: string | null;
+  /** Crop of the picture for square and round icons; null shows it uncropped */
+  imageCrop: AvatarCrop | null;
   /** Default scan depth for entries that don't override */
   scanDepth: number;
   /** Max output tokens allocated to this lorebook */

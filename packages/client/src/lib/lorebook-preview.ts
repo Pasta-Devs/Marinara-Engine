@@ -1,10 +1,11 @@
-import type { Lorebook } from "@marinara-engine/shared";
+import type { AvatarCrop, Lorebook } from "@marinara-engine/shared";
 
 export type LorebookPreviewModel = {
   id: string;
   name: string;
   description?: string;
   imageSrc?: string;
+  imageCrop?: AvatarCrop | null;
   category: Lorebook["category"];
   entryCount?: number;
   isGlobal: boolean;
@@ -22,6 +23,7 @@ export function buildLorebookPreviewModel(
     name: lorebook.name,
     description: lorebook.description?.trim() || undefined,
     imageSrc: lorebook.imagePath ?? undefined,
+    imageCrop: lorebook.imageCrop,
     category: lorebook.category,
     entryCount: lorebook.entryCount,
     isGlobal: lorebook.isGlobal,

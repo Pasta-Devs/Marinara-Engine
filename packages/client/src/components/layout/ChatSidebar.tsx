@@ -60,7 +60,7 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
-import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
@@ -100,6 +100,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 // Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
 const CharacterScheduleManagerModal = lazy(async () => ({
@@ -114,7 +115,38 @@ type ChatListEntry = {
   branchCount: number;
   branchRows?: BranchTreeRow<Chat>[];
 };
-const CHAT_LIST_PAGE_SIZE = 100;
+// 40 rows at a time, the next 40 joining as you scroll near the end: every row is ~45 elements, and 100 of
+// them made each sidebar toggle and chat switch re-style ~4,500 elements (1-2 s on an iPad, Nov 14).
+const CHAT_LIST_PAGE_SIZE = 40;
+
+/** "Load more", pressed for you when it scrolls within reach (you can still press it). */
+function LoadMoreChatsButton({ onLoadMore, children }: { onLoadMore: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLButtonElement | null>(null);
+  const latest = useRef(onLoadMore);
+  latest.current = onLoadMore;
+  useEffect(() => {
+    const button = ref.current;
+    if (!button || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) latest.current();
+      },
+      { rootMargin: "0px 0px 600px 0px" },
+    );
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={() => latest.current()}
+      className="mari-chrome-control mari-chrome-control--primary justify-center text-xs"
+    >
+      {children}
+    </button>
+  );
+}
 
 const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> = {
   online: 0,
@@ -1338,7 +1370,7 @@ export function ChatSidebar() {
                   <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
                     <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
                       <img
-                        src={a.avatarUrl}
+                        src={avatarPreviewSrc(a.avatarUrl)}
                         alt={a.name}
                         className="h-full w-full object-cover"
                         style={getAvatarCropStyle(a.avatarCrop)}
@@ -1369,7 +1401,7 @@ export function ChatSidebar() {
                         )}
                       >
                         <img
-                          src={a.avatarUrl}
+                          src={avatarPreviewSrc(a.avatarUrl)}
                           alt={a.name}
                           className="h-full w-full object-cover"
                           style={getAvatarCropStyle(a.avatarCrop)}
@@ -1902,13 +1934,12 @@ export function ChatSidebar() {
           {unfiledChats.map(renderChatRow)}
 
           {hasMoreDisplayChats && (
-            <button
-              type="button"
-              onClick={() => setVisibleChatLimit((limit) => limit + CHAT_LIST_PAGE_SIZE)}
-              className="mari-chrome-control mari-chrome-control--primary justify-center text-xs"
+            <LoadMoreChatsButton
+              key={visibleDisplayChats.length}
+              onLoadMore={() => setVisibleChatLimit((limit) => limit + CHAT_LIST_PAGE_SIZE)}
             >
               {t("navigation.chatSidebar.loadMore", { count: visibleDisplayChats.length })}
-            </button>
+            </LoadMoreChatsButton>
           )}
         </div>
       </div>
@@ -2473,7 +2504,7 @@ function UserStatusFooter({
             aria-label={localizeUi("ui.layout.chatsidebar.characterScheduleManager")}
             className="mari-chrome-control mari-chrome-control--small ml-1 h-7 w-7 shrink-0 justify-center p-0! max-md:h-9 max-md:min-h-9 max-md:w-9"
           >
-            <CalendarClock className="shrink-0" size="1.25rem" strokeWidth={2.25} />
+            <CalendarClock className="shrink-0" size="1rem" strokeWidth={2.25} />
           </button>
         )}
       </div>

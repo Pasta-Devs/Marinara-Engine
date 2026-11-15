@@ -36,7 +36,7 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 ## The Presets panel
 
-The panel has three tabs: **Prompts**, **Regexes** and **Functions**. Each tab has the same row of buttons at the top, a search box and **New Folder**. On the **Prompts** tab, use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once. The **Regexes** tab holds your regex scripts; see [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts). The **Functions** tab holds your custom tools; see [Custom Tools](../extending/custom-tools.md).
+The panel has four tabs: **Prompts**, **Regexes**, **Tools** and **Profiles**. Each tab has the same row of buttons at the top and a search box. On the **Prompts** tab, use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once; **Select all presets** ticks every preset the search shows. The **Regexes** tab holds your regex scripts; see [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts). The **Tools** tab holds your custom tools; see [Custom Tools](../extending/custom-tools.md). The **Profiles** tab holds your chat settings profiles; see [Settings Profiles](../chats/settings-profiles.md#the-profiles-tab).
 
 - **Search presets** filters the list.
 - The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.

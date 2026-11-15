@@ -55,6 +55,7 @@ Each family has its own switch. All start on except **Videos**, which you must t
 | **8-Ball Pool** | Rack up a game of pool. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Accept a tic-tac-toe challenge. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Accept a match. | Rock-Paper-Scissors |
+| Other games, named after the game | Start or accept that game. | That game, such as Blackjack or Wordle |
 
 For **Influence** and **Notes**, see [Connected Chats](../chats/connected-chats.md). The last column names the agent to install from **Agent Organizer**.
 

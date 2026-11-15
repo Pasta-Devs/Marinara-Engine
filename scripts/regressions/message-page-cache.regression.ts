@@ -14,9 +14,10 @@ import { createRequire } from "node:module";
 import {
   chatIdOfMessagesQueryKey,
   createLeadingTrailingCoalescer,
+  deletesAfterFetch,
   INACTIVE_CHAT_MAX_MESSAGE_PAGES,
+  onTranscriptFetched,
   shouldRefetchMessagesOnReconnect,
-  stillHiddenDeletes,
   trimInactiveMessagePageCaches,
   removeMessagesFromPages,
   trimMessagePagesToNewest,
@@ -292,23 +293,77 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
   assert.equal(removeMessagesFromPages(undefined, ["m1"]), undefined, "an empty cache stays empty");
 }
 
-// ── Confirmed deletes stay hidden only until a transcript fetch newer than the delete lands
+// ── Confirmed deletes end only when a fetch that started after them shows the message again
 {
   const deletes = [
     { id: "m1", at: 1_000 },
     { id: "m2", at: 2_000 },
   ];
+  const ids = (kept: { id: string }[]) => kept.map((entry) => entry.id);
   assert.deepEqual(
-    stillHiddenDeletes(deletes, 500),
+    ids(deletesAfterFetch(deletes, 3_000, new Set(["m0"]))),
     ["m1", "m2"],
-    "data older than both deletes (or a failed refetch, which keeps dataUpdatedAt) hides both",
+    "a later fetch without the messages keeps both, so a copy saved before the delete can't write them back",
   );
-  assert.deepEqual(stillHiddenDeletes(deletes, 1_500), ["m2"], "a fetch after the first delete ends only that hiding");
   assert.deepEqual(
-    stillHiddenDeletes(deletes, 3_000),
-    [],
-    "any later successful fetch (a superseding refetch, a trash restore) shows the server truth again",
+    ids(deletesAfterFetch(deletes, 500, new Set(["m1", "m2"]))),
+    ["m1", "m2"],
+    "a fetch that started before both deletes may still hold them, so it ends neither",
   );
+  assert.deepEqual(
+    ids(deletesAfterFetch(deletes, 1_500, new Set(["m1", "m2"]))),
+    ["m2"],
+    "a fetch after the first delete that holds it again (a trash restore) ends only that one",
+  );
+  assert.deepEqual(
+    ids(deletesAfterFetch(deletes, 2_000, new Set(["m2"]))),
+    ["m1", "m2"],
+    "a fetch that started in the same millisecond as a delete may predate it, so it keeps that one",
+  );
+  assert.deepEqual(ids(deletesAfterFetch(deletes, 3_000, new Set(["m1", "m2"]))), [], "a restore of both ends both");
+}
+
+// ── Only what a fetch brought from the server reaches the delete check (real query client)
+{
+  const clientRequire = createRequire(new URL("../../packages/client/package.json", import.meta.url));
+  const { InfiniteQueryObserver, QueryClient } = clientRequire(
+    "@tanstack/react-query",
+  ) as typeof import("@tanstack/react-query");
+  const qc = new QueryClient();
+  const seen: Array<{ chatId: string; ids: string[]; loadMore: boolean }> = [];
+  const stop = onTranscriptFetched(qc, (chatId, fetchedIds, loadMore) =>
+    seen.push({ chatId, ids: [...fetchedIds], loadMore }),
+  );
+  // Newest page first; Load more asks for the page before the oldest loaded one.
+  const server: Record<string, { id: string }[]> = { newest: [{ id: "m3" }, { id: "m4" }], older: [{ id: "m1" }] };
+  const options = {
+    queryKey: ["chats", "messages", "chat-1"],
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => server[pageParam ?? "newest"],
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (_last: unknown, pages: unknown[]) => (pages.length === 1 ? "older" : undefined),
+    // Fresh for good, so watching the query below doesn't refetch it.
+    staleTime: Infinity,
+  };
+  await qc.fetchInfiniteQuery(options);
+  assert.deepEqual(seen, [{ chatId: "chat-1", ids: ["m3", "m4"], loadMore: false }], "a full fetch reports its pages");
+
+  // A saved stream part written by hand is not a fetch, even though it holds a message the server may not have.
+  qc.setQueryData(options.queryKey, (old: { pages: { id: string }[][]; pageParams: unknown[] } | undefined) =>
+    old ? { ...old, pages: [[...old.pages[0], { id: "m5" }], ...old.pages.slice(1)] } : old,
+  );
+  assert.equal(seen.length, 1, "a hand-made cache write is not reported");
+
+  // Load more keeps the cached pages as they were (m5 included) and adds one: only the new page was fetched.
+  const observer = new InfiniteQueryObserver(qc, options);
+  const unsubscribe = observer.subscribe(() => {});
+  await observer.fetchNextPage();
+  unsubscribe();
+  assert.deepEqual(
+    seen.slice(1),
+    [{ chatId: "chat-1", ids: ["m1"], loadMore: true }],
+    "Load more reports only its page",
+  );
+  stop();
 }
 
 console.info("Message page cache regressions passed.");

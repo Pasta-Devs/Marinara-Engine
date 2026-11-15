@@ -104,7 +104,8 @@ export function CommandCenterMedia({
           decoding={size === "preview" ? "auto" : "async"}
           onLoad={() => setLoadedSrc(resolvedSrc)}
           onError={() => setFailedSrc(resolvedSrc)}
-          style={kind === "avatar" ? avatarCropStyle : undefined}
+          // A square row box (a lorebook picture) honours a saved crop too; the wide preview box never gets one.
+          style={kind === "avatar" || role === "row" ? avatarCropStyle : undefined}
           className={cn(
             "size-full object-cover transition-opacity duration-200 motion-reduce:transition-none",
             loadedSrc === resolvedSrc ? "opacity-100" : "opacity-0",

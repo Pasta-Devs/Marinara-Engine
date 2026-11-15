@@ -1,0 +1,591 @@
+import assert from "node:assert/strict";
+import AdmZip from "adm-zip";
+import { closeSync, mkdtempSync, openSync, readSync, writeSync } from "node:fs";
+import { copyFile, mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  buildBackupRestoreNotes,
+  collectBackupDirectorySourcesForRegression,
+  inspectStoredBackupArchiveForRegression,
+  isPermittedLargeStoredBackupEntry,
+  limitAutomaticBackupOmissionHistory,
+  readStoredBackupImportForRegression,
+  readStoredBackupAssetForRegression,
+  writeStoredBackupArchiveForRegression,
+} from "../../../packages/server/src/routes/backup.routes.js";
+import {
+  cleanupStagedProfileAssets,
+  promoteStagedProfileAssets,
+  stageProfileImportAssets,
+} from "../../../packages/server/src/services/import/profile-import-assets.js";
+import {
+  AUTOMATIC_BACKUP_FILENAME,
+  AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES,
+  automaticBackupArchiveFilename,
+  automaticBackupFreeSpaceError,
+  isAutomaticBackupFilename,
+  listAutomaticBackupFiles,
+  normalizeAutomaticBackupRetentionCount,
+  parseAutomaticBackupRetentionCount,
+  pruneAutomaticBackupFiles,
+} from "../../../packages/server/src/services/backup/automatic-backup-retention.js";
+
+assert.equal(parseAutomaticBackupRetentionCount(1), 1);
+assert.equal(parseAutomaticBackupRetentionCount(9_999), 9_999);
+assert.equal(parseAutomaticBackupRetentionCount(0), null);
+assert.equal(parseAutomaticBackupRetentionCount(10_000), null);
+assert.equal(parseAutomaticBackupRetentionCount(3.5), null);
+assert.equal(parseAutomaticBackupRetentionCount("3"), null);
+assert.equal(normalizeAutomaticBackupRetentionCount(undefined), 1);
+assert.equal(normalizeAutomaticBackupRetentionCount(0), 1);
+assert.equal(normalizeAutomaticBackupRetentionCount(10_000), 9_999);
+assert.equal(normalizeAutomaticBackupRetentionCount(3.9), 3);
+assert.equal(
+  limitAutomaticBackupOmissionHistory(Array.from({ length: 1_001 }, (_, index) => `missing-${index}`)).length,
+  1_000,
+);
+assert.deepEqual(limitAutomaticBackupOmissionHistory(["kept", 42, "also-kept"]), ["kept", "also-kept"]);
+assert.equal(limitAutomaticBackupOmissionHistory(["x".repeat(256 * 1024 + 1)]).length, 0);
+const archiveBytes = 5 * 1024 ** 3;
+assert.equal(
+  automaticBackupFreeSpaceError(archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES, archiveBytes),
+  null,
+);
+assert.equal(
+  automaticBackupFreeSpaceError(archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES - 1, archiveBytes),
+  "Not enough free space for the automatic backup: 5.2 GiB free, about 5.3 GiB needed.",
+);
+assert.equal(
+  automaticBackupFreeSpaceError(0, 100 * 1024 ** 2),
+  "Not enough free space for the automatic backup: 0 MiB free, about 356 MiB needed.",
+);
+
+const backupRouteSource = await readFile(
+  new URL("../../../packages/server/src/routes/backup.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  backupRouteSource,
+  /withAutomaticBackupLifecycleLock\(\(\) =>\s*writeAutomaticBackup\(app, settings\.retentionCount\)/u,
+);
+assert.match(
+  backupRouteSource,
+  /withAutomaticBackupLifecycleLock\(\(\) =>\s*pruneAutomaticBackupFiles\(backupsRoot, next\.retentionCount\)/u,
+);
+assert.match(
+  backupRouteSource,
+  /statfs\(backupsRoot\)[\s\S]*?automaticBackupFreeSpaceError\(/u,
+  "the automatic backup must check the backups disk before writing its archive",
+);
+assert.equal(
+  isPermittedLargeStoredBackupEntry(
+    "marinara-automatic-backup/backgrounds/violet night.gif",
+    0,
+    376_363_985,
+    376_363_985,
+  ),
+  true,
+  "a large stored background from Marinara's own streaming backup must remain importable",
+);
+assert.equal(
+  isPermittedLargeStoredBackupEntry(
+    "marinara-automatic-backup/profile-tables/messages.jsonl",
+    0,
+    376_363_985,
+    376_363_985,
+  ),
+  false,
+  "large non-media backup entries must keep the untrusted per-entry ceiling",
+);
+assert.equal(
+  isPermittedLargeStoredBackupEntry("marinara-automatic-backup/backgrounds/meta.json", 0, 376_363_985, 376_363_985),
+  false,
+  "a recognized directory must not make oversized metadata eligible for streaming import",
+);
+assert.equal(
+  isPermittedLargeStoredBackupEntry("marinara-automatic-backup/backgrounds/violet night.gif", 8, 1_024, 376_363_985),
+  false,
+  "compressed large assets must not bypass ZIP-bomb defenses",
+);
+const omissionNotes = buildBackupRestoreNotes(["marinara-automatic-backup/backgrounds/missing.gif"]);
+assert.match(omissionNotes, /Warning: this backup completed without the following files/u);
+assert.match(omissionNotes, /marinara-automatic-backup\/backgrounds\/missing\.gif/u);
+
+const zipFixtureRoot = mkdtempSync(join(tmpdir(), "marinara-large-backup-regression-"));
+try {
+  const sourcePath = join(zipFixtureRoot, "large.gif");
+  const archivePath = join(zipFixtureRoot, "large.zip");
+  const useReportedBackgroundSize = process.env.MARINARA_REAL_LARGE_BACKUP_REGRESSION === "1";
+  const entryLimitBytes = useReportedBackgroundSize ? 256 * 1024 * 1024 : 1024 * 1024;
+  const logicalSize = useReportedBackgroundSize ? 376_363_985 : entryLimitBytes + 1;
+  const descriptor = openSync(sourcePath, "w");
+  writeSync(descriptor, Buffer.from("GIF89a", "ascii"), 0, 6, 0);
+  writeSync(descriptor, Buffer.from([0]), 0, 1, logicalSize - 1);
+  closeSync(descriptor);
+  await writeStoredBackupArchiveForRegression(
+    archivePath,
+    [
+      {
+        entryName: "marinara-automatic-backup/backgrounds/large.gif",
+        filePath: sourcePath,
+        size: logicalSize,
+        tolerateSourceChanges: true,
+      },
+    ],
+    { entryLimitBytes },
+  );
+  const archiveSize = (await stat(archivePath)).size;
+  assert.ok(archiveSize > logicalSize, "the streamed media entry above the ordinary limit should produce a valid ZIP");
+  const archiveHandle = openSync(archivePath, "r");
+  const end = Buffer.alloc(22);
+  readSync(archiveHandle, end, 0, end.length, archiveSize - end.length);
+  closeSync(archiveHandle);
+  assert.equal(end.readUInt32LE(0), 0x06054b50);
+  assert.equal(end.readUInt16LE(8), 1);
+  const restoredAsset = await readStoredBackupAssetForRegression(
+    archivePath,
+    "marinara-automatic-backup/backgrounds/large.gif",
+    entryLimitBytes,
+  );
+  const restoreRoot = join(zipFixtureRoot, "restored");
+  const largeStage = await stageProfileImportAssets(
+    restoreRoot,
+    [
+      {
+        path: "backgrounds/large.gif",
+        expectedSize: restoredAsset.expectedSize,
+        read: restoredAsset.read,
+      },
+    ],
+    logicalSize * 2,
+  );
+  await promoteStagedProfileAssets(largeStage);
+  assert.equal(
+    (await stat(join(restoreRoot, "backgrounds", "large.gif"))).size,
+    logicalSize,
+    "a production backup entry above the ordinary limit must restore through the production streaming importer",
+  );
+  await cleanupStagedProfileAssets(largeStage);
+
+  const zip64ManifestPath = join(zipFixtureRoot, "marinara-profile.json");
+  const zip64RestorePath = join(zipFixtureRoot, "RESTORE.txt");
+  const zip64Archive = join(zipFixtureRoot, "full-backup-zip64.zip");
+  await writeFile(
+    zip64ManifestPath,
+    JSON.stringify({
+      type: "marinara_profile",
+      version: 1,
+      exportedAt: "2026-08-13T00:00:00.000Z",
+      data: {
+        fileStorage: {
+          version: 2,
+          tables: {},
+          files: [{ path: "backgrounds/large.gif", size: logicalSize }],
+        },
+      },
+    }),
+  );
+  await writeFile(zip64RestorePath, buildBackupRestoreNotes());
+  const zip64ManifestSize = (await stat(zip64ManifestPath)).size;
+  const zip64RestoreSize = (await stat(zip64RestorePath)).size;
+  await writeStoredBackupArchiveForRegression(
+    zip64Archive,
+    [
+      {
+        entryName: "marinara-automatic-backup/marinara-profile.json",
+        filePath: zip64ManifestPath,
+        size: zip64ManifestSize,
+      },
+      {
+        entryName: "marinara-automatic-backup/backgrounds/large.gif",
+        filePath: sourcePath,
+        size: logicalSize,
+        tolerateSourceChanges: true,
+      },
+      {
+        entryName: "marinara-automatic-backup/RESTORE.txt",
+        filePath: zip64RestorePath,
+        size: zip64RestoreSize,
+      },
+    ],
+    {
+      entryLimitBytes: Math.max(zip64ManifestSize, zip64RestoreSize),
+      unlimitedArchiveSize: true,
+      forceZip64: true,
+    },
+  );
+  const zip64Inspection = await inspectStoredBackupArchiveForRegression(zip64Archive);
+  assert.equal(zip64Inspection.isFullBackup, true, "a stored ZIP64 full backup must receive the restore policy");
+  assert.equal(zip64Inspection.entries.length, 3);
+  assert.equal(
+    new AdmZip(zip64Archive).test(),
+    true,
+    "the streamed ZIP64 backup must be readable by standard ZIP tools",
+  );
+  const zip64Import = await readStoredBackupImportForRegression(zip64Archive, "backgrounds/large.gif");
+  assert.equal(zip64Import.isFullBackup, true);
+  assert.ok(zip64Import.asset && !Buffer.isBuffer(zip64Import.asset));
+  const zip64Restore = await stageProfileImportAssets(join(zipFixtureRoot, "zip64-restored"), [
+    { path: "backgrounds/large.gif", expectedSize: logicalSize, read: () => zip64Import.asset },
+  ]);
+  try {
+    await promoteStagedProfileAssets(zip64Restore);
+    assert.equal((await stat(join(zipFixtureRoot, "zip64-restored", "backgrounds", "large.gif"))).size, logicalSize);
+  } finally {
+    await cleanupStagedProfileAssets(zip64Restore);
+  }
+
+  const manyEntriesSource = join(zipFixtureRoot, "empty-entry.json");
+  const manyEntriesArchive = join(zipFixtureRoot, "many-entries.zip");
+  await writeFile(manyEntriesSource, "");
+  await writeStoredBackupArchiveForRegression(
+    manyEntriesArchive,
+    Array.from({ length: 8_193 }, (_, index) => ({
+      entryName: `storage/entries/${String(index).padStart(4, "0")}.json`,
+      filePath: manyEntriesSource,
+      size: 0,
+    })),
+  );
+  assert.equal(
+    (await inspectStoredBackupArchiveForRegression(manyEntriesArchive)).entries.length,
+    8_193,
+    "profile archives must not fail at the former artificial 8,192-entry ceiling",
+  );
+
+  const wideDirectoryArchive = join(zipFixtureRoot, "wide-directory.zip");
+  const wideDirectorySources = [
+    {
+      entryName: "marinara-automatic-backup/marinara-profile.json",
+      filePath: zip64ManifestPath,
+      size: zip64ManifestSize,
+    },
+    {
+      entryName: "marinara-automatic-backup/backgrounds/large.gif",
+      filePath: sourcePath,
+      size: logicalSize,
+    },
+    ...Array.from({ length: 8_193 }, (_, index) => ({
+      entryName: `marinara-automatic-backup/storage/${String(index).padStart(4, "0")}/${"x".repeat(980)}.json`,
+      filePath: manyEntriesSource,
+      size: 0,
+    })),
+    // Production defers restore notes until all file omissions are known.
+    {
+      entryName: "marinara-automatic-backup/RESTORE.txt",
+      filePath: zip64RestorePath,
+      size: zip64RestoreSize,
+    },
+  ];
+  await assert.rejects(
+    writeStoredBackupArchiveForRegression(wideDirectoryArchive, wideDirectorySources),
+    /central directory is too large/u,
+    "ordinary profile exports must retain their central-directory resource limit",
+  );
+  await assert.rejects(
+    writeStoredBackupArchiveForRegression(wideDirectoryArchive, wideDirectorySources, { unlimitedArchiveSize: true }),
+    /central directory is too large/u,
+    "unlimited payload size alone must not make native profile exports exceed their reader's metadata limit",
+  );
+  await writeStoredBackupArchiveForRegression(wideDirectoryArchive, wideDirectorySources, {
+    unlimitedArchiveSize: true,
+    fullBackup: true,
+  });
+  const wideDirectoryEnd = Buffer.alloc(22);
+  const wideDirectoryFd = openSync(wideDirectoryArchive, "r");
+  try {
+    const archiveSize = (await stat(wideDirectoryArchive)).size;
+    assert.equal(readSync(wideDirectoryFd, wideDirectoryEnd, 0, 22, archiveSize - 22), 22);
+  } finally {
+    closeSync(wideDirectoryFd);
+  }
+  assert.ok(wideDirectoryEnd.readUInt32LE(12) > 8 * 1024 * 1024);
+  const ordinaryWideDirectory = join(zipFixtureRoot, "ordinary-wide-directory.zip");
+  await copyFile(wideDirectoryArchive, ordinaryWideDirectory);
+  const ordinaryDirectoryFd = openSync(ordinaryWideDirectory, "r+");
+  try {
+    const centralOffset = wideDirectoryEnd.readUInt32LE(16);
+    const firstHeader = Buffer.alloc(46);
+    assert.equal(readSync(ordinaryDirectoryFd, firstHeader, 0, 46, centralOffset), 46);
+    // Break the full-backup root, then damage the next record: the ordinary limit
+    // must reject the first record without traversing or materializing the rest.
+    writeSync(ordinaryDirectoryFd, Buffer.from("x"), 0, 1, centralOffset + 46);
+    const nextRecord =
+      centralOffset + 46 + firstHeader.readUInt16LE(28) + firstHeader.readUInt16LE(30) + firstHeader.readUInt16LE(32);
+    writeSync(ordinaryDirectoryFd, Buffer.alloc(4), 0, 4, nextRecord);
+  } finally {
+    closeSync(ordinaryDirectoryFd);
+  }
+  await assert.rejects(
+    inspectStoredBackupArchiveForRegression(ordinaryWideDirectory),
+    /central directory is too large/u,
+  );
+  const wideCentralDirectory = Buffer.alloc(wideDirectoryEnd.readUInt32LE(12));
+  const wideCentralOffset = wideDirectoryEnd.readUInt32LE(16);
+  const wideCentralFd = openSync(wideDirectoryArchive, "r");
+  try {
+    assert.equal(
+      readSync(wideCentralFd, wideCentralDirectory, 0, wideCentralDirectory.length, wideCentralOffset),
+      wideCentralDirectory.length,
+    );
+  } finally {
+    closeSync(wideCentralFd);
+  }
+  const recordOffsets: number[] = [];
+  for (let offset = 0; offset < wideCentralDirectory.length;) {
+    recordOffsets.push(offset);
+    offset +=
+      46 +
+      wideCentralDirectory.readUInt16LE(offset + 28) +
+      wideCentralDirectory.readUInt16LE(offset + 30) +
+      wideCentralDirectory.readUInt16LE(offset + 32);
+  }
+  const restoreOffset = recordOffsets.at(-1)!;
+  const lateStorageOffset = recordOffsets.at(-2)!;
+  assert.ok(lateStorageOffset > 8 * 1024 * 1024);
+  for (const failure of ["missing-restore", "overlap"] as const) {
+    const corruptDirectory = Buffer.from(wideCentralDirectory);
+    if (failure === "missing-restore") {
+      corruptDirectory.write("X", restoreOffset + 46 + Buffer.byteLength("marinara-automatic-backup/"));
+    } else {
+      // The overlap must fail before even reading the late damaged record.
+      corruptDirectory.writeUInt32LE(corruptDirectory.readUInt32LE(42), recordOffsets[1]! + 42);
+      corruptDirectory.writeUInt32LE(0, lateStorageOffset);
+    }
+    const corruptArchive = join(zipFixtureRoot, `${failure}-wide-directory.zip`);
+    await copyFile(wideDirectoryArchive, corruptArchive);
+    const fd = openSync(corruptArchive, "r+");
+    try {
+      writeSync(fd, corruptDirectory, 0, corruptDirectory.length, wideCentralOffset);
+    } finally {
+      closeSync(fd);
+    }
+    let materializedEntries = 0;
+    await assert.rejects(
+      inspectStoredBackupArchiveForRegression(corruptArchive, () => {
+        materializedEntries++;
+      }),
+      failure === "missing-restore" ? /central directory is too large/u : /overlap|archive order/u,
+      "an inconsistent backup must be refused before materializing the larger directory",
+    );
+    assert.equal(materializedEntries, 0);
+    await rm(corruptArchive);
+  }
+  let materializedEntries = 0;
+  const wideDirectoryInspection = await inspectStoredBackupArchiveForRegression(wideDirectoryArchive, () => {
+    materializedEntries++;
+  });
+  assert.equal(wideDirectoryInspection.isFullBackup, true);
+  assert.equal(wideDirectoryInspection.entries.length, wideDirectorySources.length);
+  assert.equal(materializedEntries, wideDirectorySources.length, "the validation pass retains no entry objects");
+  const wideDirectoryImport = await readStoredBackupImportForRegression(wideDirectoryArchive, "backgrounds/large.gif");
+  assert.equal(wideDirectoryImport.isFullBackup, true);
+  assert.ok(wideDirectoryImport.asset && !Buffer.isBuffer(wideDirectoryImport.asset));
+  const wideDirectoryRestore = await stageProfileImportAssets(join(zipFixtureRoot, "wide-directory-restored"), [
+    { path: "backgrounds/large.gif", expectedSize: logicalSize, read: () => wideDirectoryImport.asset },
+  ]);
+  try {
+    await promoteStagedProfileAssets(wideDirectoryRestore);
+    assert.equal(
+      (await stat(join(zipFixtureRoot, "wide-directory-restored", "backgrounds", "large.gif"))).size,
+      logicalSize,
+    );
+  } finally {
+    await cleanupStagedProfileAssets(wideDirectoryRestore);
+  }
+
+  await writeStoredBackupArchiveForRegression(
+    wideDirectoryArchive,
+    wideDirectorySources.filter((source) => !source.entryName.endsWith("/RESTORE.txt")),
+    { unlimitedArchiveSize: true, fullBackup: true },
+  );
+  await assert.rejects(
+    inspectStoredBackupArchiveForRegression(wideDirectoryArchive),
+    /central directory is too large/u,
+    "large directories must not bypass ordinary profile-import limits without a valid full-backup shape",
+  );
+
+  const retainedSource = join(zipFixtureRoot, "retained.gif");
+  const missingSource = join(zipFixtureRoot, "missing.gif");
+  const partialArchive = join(zipFixtureRoot, "partial.zip");
+  const retainedGif = Buffer.concat([Buffer.from("GIF89a", "ascii"), Buffer.alloc(32, 0x2a)]);
+  await writeFile(retainedSource, retainedGif);
+  const partialResult = await writeStoredBackupArchiveForRegression(
+    partialArchive,
+    [
+      {
+        entryName: "marinara-automatic-backup/backgrounds/retained.gif",
+        filePath: retainedSource,
+        size: retainedGif.length,
+      },
+      {
+        entryName: "marinara-automatic-backup/backgrounds/missing.gif",
+        filePath: missingSource,
+        size: 10,
+        tolerateSourceChanges: true,
+      },
+      {
+        entryName: "marinara-automatic-backup/backgrounds/../invalid.gif",
+        filePath: retainedSource,
+        size: retainedGif.length,
+        tolerateSourceChanges: true,
+      },
+      {
+        entryName: "marinara-automatic-backup/storage/oversized.data",
+        filePath: sourcePath,
+        size: logicalSize,
+        tolerateSourceChanges: true,
+      },
+    ],
+    { skipFailedFileEntries: true, entryLimitBytes },
+  );
+  assert.deepEqual(partialResult.omittedEntries.sort(), [
+    "marinara-automatic-backup/backgrounds/../invalid.gif",
+    "marinara-automatic-backup/backgrounds/missing.gif",
+    "marinara-automatic-backup/storage/oversized.data",
+  ]);
+  const partialSize = (await stat(partialArchive)).size;
+  const partialHandle = openSync(partialArchive, "r");
+  const partialEnd = Buffer.alloc(22);
+  readSync(partialHandle, partialEnd, 0, partialEnd.length, partialSize - partialEnd.length);
+  closeSync(partialHandle);
+  assert.equal(partialEnd.readUInt32LE(0), 0x06054b50);
+  assert.equal(
+    partialEnd.readUInt16LE(8),
+    1,
+    "unreadable assets and oversized non-media must be omitted without losing valid entries",
+  );
+  const retainedAsset = await readStoredBackupAssetForRegression(
+    partialArchive,
+    "marinara-automatic-backup/backgrounds/retained.gif",
+  );
+  const partialRestore = await stageProfileImportAssets(
+    join(zipFixtureRoot, "partial-restored"),
+    [{ path: "backgrounds/retained.gif", expectedSize: retainedAsset.expectedSize, read: retainedAsset.read }],
+    1024 * 1024,
+  );
+  await promoteStagedProfileAssets(partialRestore);
+  assert.deepEqual(
+    await readFile(join(zipFixtureRoot, "partial-restored", "backgrounds", "retained.gif")),
+    retainedGif,
+    "a strict file entry must retain a valid single-pass CRC when other sources are omitted",
+  );
+  await cleanupStagedProfileAssets(partialRestore);
+  const mismatchedStoredArchive = join(zipFixtureRoot, "mismatched-stored-size.zip");
+  const mismatchedStoredBytes = await readFile(partialArchive);
+  const endOffset = mismatchedStoredBytes.length - 22;
+  const centralDirectoryOffset = mismatchedStoredBytes.readUInt32LE(endOffset + 16);
+  const storedSize = mismatchedStoredBytes.readUInt32LE(centralDirectoryOffset + 20);
+  mismatchedStoredBytes.writeUInt32LE(storedSize - 1, centralDirectoryOffset + 20);
+  await writeFile(mismatchedStoredArchive, mismatchedStoredBytes);
+  await assert.rejects(
+    readStoredBackupAssetForRegression(mismatchedStoredArchive, "marinara-automatic-backup/backgrounds/retained.gif"),
+    /stored entry size does not match/u,
+    "a stored asset must not stream beyond the compressed range declared by its ZIP entry",
+  );
+  await assert.rejects(
+    writeStoredBackupArchiveForRegression(
+      join(zipFixtureRoot, "invalid-name.zip"),
+      [
+        {
+          entryName: "marinara-automatic-backup/backgrounds/../invalid.gif",
+          filePath: retainedSource,
+          size: retainedGif.length,
+        },
+      ],
+      { skipFailedFileEntries: true, entryLimitBytes },
+    ),
+    /Invalid profile ZIP entry name/u,
+    "strict exports must continue rejecting invalid entry names",
+  );
+  await assert.rejects(
+    writeStoredBackupArchiveForRegression(
+      join(zipFixtureRoot, "invalid-direct.zip"),
+      [
+        {
+          entryName: "storage/oversized.data",
+          filePath: sourcePath,
+          size: logicalSize,
+        },
+      ],
+      { entryLimitBytes },
+    ),
+    /too large for profile ZIP import\/export/u,
+    "a strict profile export must fail instead of emitting a non-media entry its importer rejects",
+  );
+} finally {
+  await rm(zipFixtureRoot, { recursive: true, force: true });
+}
+
+const storageFixtureRoot = await mkdtemp(join(tmpdir(), "marinara-backup-lease-regression-"));
+try {
+  await mkdir(join(storageFixtureRoot, ".writer-lease"));
+  await mkdir(join(storageFixtureRoot, "tables", ".writer-lease"), { recursive: true });
+  await writeFile(join(storageFixtureRoot, ".writer-lease", "owner.json"), "{}", "utf8");
+  await writeFile(join(storageFixtureRoot, "tables", ".writer-lease", "keep.json"), "{}", "utf8");
+  await writeFile(join(storageFixtureRoot, "tables", "settings.json"), "{}", "utf8");
+  assert.deepEqual(
+    (await collectBackupDirectorySourcesForRegression(storageFixtureRoot, "marinara-automatic-backup/storage")).sort(),
+    [
+      "marinara-automatic-backup/storage/tables/.writer-lease/keep.json",
+      "marinara-automatic-backup/storage/tables/settings.json",
+    ],
+    "full backups must leave out the top-level storage writer lease and nothing else",
+  );
+} finally {
+  await rm(storageFixtureRoot, { recursive: true, force: true });
+}
+
+const timestampedName = automaticBackupArchiveFilename(new Date("2026-07-27T20:00:00.000Z"));
+assert.equal(timestampedName, "marinara-automatic-backup-2026-07-27T20-00-00-000Z.zip");
+assert.equal(isAutomaticBackupFilename(AUTOMATIC_BACKUP_FILENAME), true);
+assert.equal(isAutomaticBackupFilename(timestampedName), true);
+assert.equal(
+  isAutomaticBackupFilename(automaticBackupArchiveFilename(new Date("2026-07-27T20:00:00.000Z"), "a1b2c3d4")),
+  true,
+);
+assert.equal(isAutomaticBackupFilename(`${AUTOMATIC_BACKUP_FILENAME}.pending`), false);
+assert.equal(isAutomaticBackupFilename("marinara-backup-manual.zip"), false);
+
+const fixtureRoot = await mkdtemp(join(tmpdir(), "marinara-automatic-retention-regression-"));
+try {
+  const automaticFiles = [
+    AUTOMATIC_BACKUP_FILENAME,
+    automaticBackupArchiveFilename(new Date("2026-07-26T20:00:00.000Z")),
+    automaticBackupArchiveFilename(new Date("2026-07-25T20:00:00.000Z")),
+    automaticBackupArchiveFilename(new Date("2026-07-24T20:00:00.000Z")),
+    automaticBackupArchiveFilename(new Date("2026-07-23T20:00:00.000Z")),
+  ];
+  for (const [index, filename] of automaticFiles.entries()) {
+    const path = join(fixtureRoot, filename);
+    await writeFile(path, filename, "utf8");
+    const modifiedAt = new Date(Date.UTC(2026, 6, 27 - index, 20, 0, 0));
+    await utimes(path, modifiedAt, modifiedAt);
+  }
+
+  const manualFile = join(fixtureRoot, "marinara-backup-manual.zip");
+  const pendingFile = join(fixtureRoot, `${AUTOMATIC_BACKUP_FILENAME}.pending`);
+  const manualDirectory = join(fixtureRoot, "marinara-backup-2026-07-27");
+  await writeFile(manualFile, "manual", "utf8");
+  await writeFile(pendingFile, "pending", "utf8");
+  await mkdir(manualDirectory);
+  await writeFile(join(manualDirectory, "RESTORE.txt"), "manual directory backup", "utf8");
+
+  const removed = await pruneAutomaticBackupFiles(fixtureRoot, 3);
+  assert.deepEqual(
+    removed.sort(),
+    automaticFiles.slice(3).sort(),
+    "only the oldest excess automatic archives should be pruned",
+  );
+  assert.deepEqual(
+    (await listAutomaticBackupFiles(fixtureRoot)).map((file) => file.filename),
+    automaticFiles.slice(0, 3),
+  );
+  assert.equal(await readFile(manualFile, "utf8"), "manual");
+  assert.equal(await readFile(pendingFile, "utf8"), "pending");
+  assert.equal(await readFile(join(manualDirectory, "RESTORE.txt"), "utf8"), "manual directory backup");
+} finally {
+  await rm(fixtureRoot, { recursive: true, force: true });
+}
+
+console.log("Automatic backup retention regression passed.");
