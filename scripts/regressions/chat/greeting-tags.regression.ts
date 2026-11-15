@@ -62,6 +62,9 @@ assert.equal(greetingBody("[Ep2] Rooftop\nThe door sticks."), "The door sticks."
 // Without tags on the card, a bracket line is story text, so the body keeps it.
 assert.equal(greetingBody("[OOC] Be kind.\nHi.", false), "[OOC] Be kind.\nHi.");
 
+// A tagged header line still matches its repeat once the tags are set aside.
+assert.equal(parseGreeting("[Ep2] **Rooftop**\nRooftop\nThe door sticks.").preview, "The door sticks.");
+
 console.log("greeting-tags regression passed");
 
 // A header sharing its line with the text keeps that text in the opened body.

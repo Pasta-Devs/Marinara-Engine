@@ -22,14 +22,14 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
   const named = GREETING_TITLE_PREFIX.exec(rest);
   if (named) {
     const preview = rest.slice(named[0].length).replace(/[*_"]/g, "").trim();
-    return { tags, title: (named[1] ?? named[2])!.trim(), preview: dropRepeatedHeader(text, preview) };
+    return { tags, title: (named[1] ?? named[2])!.trim(), preview: dropRepeatedHeader(rest, preview) };
   }
   const plain = rest.replace(/[*_"]/g, "").trim();
   const cut = plain.search(/[.!?](?=\s|$)|\n/);
   if (cut < 0) return { tags, title: plain, preview: "" };
   const end = plain[cut] === "\n" ? cut : cut + 1;
   const preview = plain.slice(end).trim();
-  return { tags, title: plain.slice(0, end).trim(), preview: match ? dropRepeatedHeader(text, preview) : preview };
+  return { tags, title: plain.slice(0, end).trim(), preview: match ? dropRepeatedHeader(rest, preview) : preview };
 }
 
 /** Some cards repeat their header line right under it; leave the copy out of what the picker shows. */
