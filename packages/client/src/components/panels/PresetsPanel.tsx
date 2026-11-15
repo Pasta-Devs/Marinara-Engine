@@ -1285,7 +1285,7 @@ export function PresetsPanel() {
           </label>
         )}
         {builtInPresets.length > 0 && (
-          <div className="flex flex-col gap-1">
+          <div className="stagger-children flex flex-col gap-1 rounded-xl transition-colors">
             {builtInPresets.map(renderPresetRow)}
             {(otherRootPresets.length > 0 || hasVisiblePresetFolder) && (
               <hr className="mx-2 my-1 border-[var(--border)]" />

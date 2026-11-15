@@ -4,7 +4,7 @@ export function BuiltInPresetBadge() {
   const { t } = useTranslation();
   return (
     <span className="mari-chrome-muted-badge w-fit shrink-0 rounded px-1 py-0.5 text-[0.5625rem] leading-3 text-[var(--foreground)]!">
-      {t("ui.panels.presetspanel.builtIn")}
+      {t("presets.library.builtIn")}
     </span>
   );
 }

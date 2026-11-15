@@ -95,7 +95,14 @@ test("the Presets tabs mark built-ins and let profiles and prompts move into fol
     await expect(profileRows.nth(0).locator(".mari-panel-gradient--presets")).toBeVisible();
     await expect(page.locator("[data-settings-profile-list] > hr")).toBeVisible();
     const profileId = (await profileRows.first().getAttribute("data-settings-profile-row"))!;
+    const roleplayProfileId = (await profileRows.nth(1).getAttribute("data-settings-profile-row"))!;
     const profile = page.locator(`[data-settings-profile-row="${profileId}"]`);
+    const roleplayProfile = page.locator(`[data-settings-profile-row="${roleplayProfileId}"]`);
+    const conversationFilter = panel.getByRole("button", { name: "Conversation", exact: true });
+    const roleplayFilter = panel.getByRole("button", { name: "Roleplay", exact: true });
+    const allModes = panel.getByRole("button", { name: "All", exact: true });
+    const profileSearch = panel.getByPlaceholder("Search profiles");
+    await conversationFilter.click();
     await page.getByRole("button", { name: "New Folder", exact: true }).click();
     const rename = page.getByRole("textbox", { name: "Rename folder" });
     await rename.fill("Filed profiles");
@@ -109,6 +116,12 @@ test("the Presets tabs mark built-ins and let profiles and prompts move into fol
     await profile.getByRole("button", { name: "Move to folder", exact: true }).click();
     await page.getByRole("menuitemradio", { name: "Filed profiles" }).click();
     await expect(profileFolder.getByText("Built-in", { exact: true })).toBeVisible();
+    await roleplayFilter.click();
+    await expect(profileFolder).toHaveCount(0);
+    await profileSearch.fill("Custom profile");
+    await expect(panel.getByText("Nothing matches your search", { exact: true })).toBeVisible();
+    await profileSearch.clear();
+    await allModes.click();
     await profileFolderToggle.click();
     await expect(profileFolderToggle).toHaveAttribute("aria-expanded", "false");
     await expect(profileFolder.locator("[inert]").getByText("Built-in", { exact: true })).toHaveCount(1);
@@ -136,6 +149,15 @@ test("the Presets tabs mark built-ins and let profiles and prompts move into fol
         (folder: { id: string }) => folder.id === profileFolderId,
       ),
     ).toMatchObject({ itemIds: [profileId] });
+
+    await allModes.click();
+    if (!isMobile) await roleplayProfile.hover();
+    await roleplayProfile.getByRole("button", { name: "Move to folder", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Filed profiles" }).click();
+    await expect(profileFolder.getByText("2 profiles", { exact: true })).toBeVisible();
+    await roleplayFilter.click();
+    await expect(profileFolder.getByText("1 of 2 profiles", { exact: true })).toBeVisible();
+    await expect(profileFolder.locator("[data-settings-profile-row]")).toHaveCount(1);
 
     await tabs.getByRole("button", { name: "Regexes", exact: true }).click();
     const regexRows = page.locator('[data-preset-regex-root] [data-touch-reorder-item="preset-regex"]');

@@ -87,7 +87,12 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
   const rootProfiles = rowsByFolder.get(null) ?? [];
   const builtInProfiles = rootProfiles.filter((profile) => profile.isDefault);
   const otherRootProfiles = rootProfiles.filter((profile) => !profile.isDefault);
-  const visibleFolders = folders.filter((folder) => !query || rowsByFolder.has(folder.id));
+  const visibleFolders = folders.filter(
+    (folder) =>
+      folder.id === editingFolder?.id ||
+      rowsByFolder.has(folder.id) ||
+      (!query && (modeFilter === "all" || folder.itemIds.length === 0)),
+  );
   const reportFolderError = () => toast.error(localizeUi("ui.panels.profilessection.folderSaveFailed"));
   const { openMoveMenu, moveMenu } = useLibraryMoveMenu(folders, moveProfiles, reportFolderError);
   // The built-in Default profiles can't be deleted, so they are never selectable.
@@ -409,7 +414,14 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
                   folder={folder}
                   dataAttribute="data-profile-folder"
                   itemCount={folder.itemIds.length}
-                  itemCountLabel={localizeUi("ui.panels.profilessection.folderCount", { count: rows.length })}
+                  itemCountLabel={
+                    rows.length === folder.itemIds.length
+                      ? localizeUi("ui.panels.profilessection.folderCount", { count: rows.length })
+                      : localizeUi("ui.panels.profilessection.folderFilteredCount", {
+                          count: rows.length,
+                          total: folder.itemIds.length,
+                        })
+                  }
                   deleteConfirmMessage={localizeUi("ui.panels.profilessection.deleteFolderConfirm", {
                     name: folder.name,
                   })}
@@ -422,7 +434,13 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
                   selectionMode={selectionMode}
                   searching={Boolean(query)}
                 >
-                  {rows.map(renderRow)}
+                  {rows.length > 0 ? (
+                    rows.map(renderRow)
+                  ) : (
+                    <p className="mari-chrome-text-muted px-2 py-1 text-[0.625rem]">
+                      {localizeUi("ui.panels.profilessection.emptyFolder")}
+                    </p>
+                  )}
                 </PausableLibraryFolder>
               );
             })}
