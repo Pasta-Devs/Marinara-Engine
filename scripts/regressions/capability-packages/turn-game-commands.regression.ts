@@ -66,6 +66,7 @@ const startContexts: unknown[] = [];
 let declinedChatId = "";
 let soloChatId = "";
 let silentHookChatId = "";
+let throwingHookChatId = "";
 
 cleanups.push(registerTurnGameEngine(fakeEngine("duel-match", "Duel Match", 2)));
 cleanups.push(registerTurnGameEngine(fakeEngine("card-table", "Card Table", 4)));
@@ -82,6 +83,7 @@ cleanups.push(
       if (context.chatId === soloChatId) return { botCharacterIds: [] };
       // A JavaScript package can return nothing at all.
       if (context.chatId === silentHookChatId) return undefined as never;
+      if (context.chatId === throwingHookChatId) throw new Error("the package's hook broke");
       return { config: { chatId: context.chatId }, botCharacterIds: context.botCharacterIds.slice(1) };
     },
   }),
@@ -242,6 +244,15 @@ const cases: RegressionCase[] = [
       assert.equal(await startFromTag("card_table", chat.id, {}), true);
       const game = await getActiveTurnGame(db, chat.id);
       assert.deepEqual(game?.state, { config: { from: "default" }, seats: ["human", mira.id, kaelen.id] });
+    },
+  },
+  {
+    name: "a start hook that throws keeps the game from starting without failing the reply",
+    async run() {
+      const chat = await conversationChat("throwing hook");
+      throwingHookChatId = chat.id;
+      assert.equal(await startFromTag("card_table", chat.id, {}), true);
+      assert.equal(await getActiveTurnGame(db, chat.id), null);
     },
   },
   {
