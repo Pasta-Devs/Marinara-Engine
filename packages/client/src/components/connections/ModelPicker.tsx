@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { LOCAL_SIDECAR_CONNECTION_ID, type ChatModelChoice, type ConnectionPickerKind } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import {
+  connectionKeys,
+  type ConnectionModelList,
   useConnections,
   useCreateConnection,
   useDeleteConnection,
@@ -21,6 +24,8 @@ import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { openAddConnection } from "../../lib/add-connection";
 import type { JobKey } from "../../lib/connection-jobs";
 import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-source";
+import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
+import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 import { ProviderIcon } from "./ProviderIcon";
 
@@ -89,6 +94,10 @@ function ModelPickerSlot({
   const testRow = useTestConnection();
   const testEmbedding = useTestEmbedding();
   const decisionOptions = useDecisionOptions(decision && open);
+  const queryClient = useQueryClient();
+  /** The provider's own decision model, asked at its decision API rather than through log-probabilities (#9317). */
+  const nativeDecision = (provider: string, facts: { outputModalities?: readonly string[] } | undefined) =>
+    !!NATIVE_DECISION_SOURCE[provider as ServiceId] && !!facts && isDecisionCatalogModel(facts);
   // A Decision row exists only for a model that passed its test, so the saved rows are the memory.
   const decisionRows = new Set(
     ((rows ?? []) as Array<{ provider?: string; accountId?: string | null; model?: string | null }>)
@@ -181,6 +190,19 @@ function ModelPickerSlot({
     const existing = (
       rows as Array<{ id: string; provider?: string; accountId?: string | null; model?: string | null }> | undefined
     )?.find((row) => row.provider === "decision" && row.accountId === account.id && row.model === model);
+    // The account's list the picker browsed (shared query keys, one per saved Model of the account): a decision
+    // model there takes its native source.
+    const listed = (rows as Array<{ id: string; accountId?: string | null }> | undefined)
+      ?.filter((row) => row.accountId === account.id)
+      .map((row) =>
+        queryClient
+          .getQueryData<ConnectionModelList>(connectionKeys.models(row.id))
+          ?.models.find((entry) => entry.id === model),
+      )
+      .find(Boolean);
+    const native = nativeDecision(account.provider, listed)
+      ? NATIVE_DECISION_SOURCE[account.provider as ServiceId]
+      : undefined;
     let id = existing?.id;
     try {
       if (!id) {
@@ -190,7 +212,7 @@ function ModelPickerSlot({
           apiKey: "",
           baseUrl: account.baseUrl ?? "",
           accountId: account.id,
-          decisionSource: "openai_compatible",
+          decisionSource: native ?? "openai_compatible",
           model,
         })) as { id?: string };
         id = created.id;
@@ -342,7 +364,18 @@ function ModelPickerSlot({
             ? {
                 label: t("connections.decision.knownGood"),
                 test: (accountId, model, facts) =>
-                  !!facts?.capabilities?.logprobs || decisionRows.has(`${accountId}|${model}`),
+                  !!facts?.capabilities?.logprobs ||
+                  decisionRows.has(`${accountId}|${model}`) ||
+                  nativeDecision(accounts?.find((item) => item.id === accountId)?.provider ?? "", facts),
+              }
+            : undefined
+        }
+        leadCatalog={
+          decision
+            ? {
+                label: t("connections.decision.nativeModels"),
+                restLabel: t("connections.decision.chatModels"),
+                test: (provider, _model, facts) => nativeDecision(provider, facts),
               }
             : undefined
         }
@@ -352,14 +385,28 @@ function ModelPickerSlot({
           ...(decision
             ? (decisionOptions.data?.options ?? [])
                 .filter((option) => option.group === "connection" && !option.unavailable)
-                .map((option) => ({
-                  value: option.id,
-                  icon: <ProviderIcon provider="custom" size="sm" />,
-                  label:
-                    (rows as Array<{ id: string; model?: string | null }> | undefined)
-                      ?.find((row) => row.id === option.id)
-                      ?.model?.trim() || option.label,
-                }))
+                .map((option) => {
+                  const row = (
+                    rows as
+                      | Array<{
+                          id: string;
+                          model?: string | null;
+                          accountId?: string | null;
+                          decisionSource?: string | null;
+                        }>
+                      | undefined
+                  )?.find((item) => item.id === option.id);
+                  const account = row?.accountId ? accounts?.find((item) => item.id === row.accountId) : undefined;
+                  // Line 2 says where the Model lives: its account, or its decision source when it has none (#9317).
+                  return {
+                    value: option.id,
+                    icon: <ProviderIcon provider={account?.provider ?? "custom"} size="sm" />,
+                    label: row?.model?.trim() || option.label,
+                    subtitle:
+                      account?.name ||
+                      (row?.decisionSource ? t(`connections.decision.sources.${row.decisionSource}`) : undefined),
+                  };
+                })
             : []),
         ].map((extra) => ({
           ...extra,
