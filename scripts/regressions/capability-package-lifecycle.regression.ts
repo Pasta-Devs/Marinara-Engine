@@ -800,7 +800,10 @@ try {
     "the shared Long-Term Memory settings must render the package's own settings view",
   );
   assert.match(
-    chatSettingsSource,
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/ConversationAgentsSection.tsx"),
+      "utf8",
+    ),
     /callsPackage \?\s[\s\S]{0,2200}ltmPackage \?\s[\s\S]{0,1800}setLtmEnabledForChat/u,
     "Conversation chat settings must place Long-Term Memory below Calls with its activation control",
   );
