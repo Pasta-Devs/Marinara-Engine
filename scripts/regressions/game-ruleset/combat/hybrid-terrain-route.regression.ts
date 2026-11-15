@@ -7,17 +7,17 @@ const dataDir = mkdtempSync(join(tmpdir(), "marinara-hybrid-terrain-"));
 process.env.DATA_DIR = dataDir;
 process.env.FILE_STORAGE_DIR = join(dataDir, "storage");
 
-const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { gameRoutes } = await import("../../packages/server/src/routes/game.routes.js");
+const { default: Fastify } = await import("../../../../packages/server/node_modules/fastify/fastify.js");
+const { getDB, closeDB } = await import("../../../../packages/server/src/db/connection.js");
+const { gameRoutes } = await import("../../../../packages/server/src/routes/game.routes.js");
 const { validateTacticalEncounterBlueprint } =
-  await import("../../packages/server/src/services/game/tactical-battlefield.service.js");
+  await import("../../../../packages/server/src/services/game/tactical-battlefield.service.js");
 const { injectGameGmPromptRuntime } =
-  await import("../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
-const { summarizeTacticalBattlefield } = await import("../../packages/shared/src/index.js");
+  await import("../../../../packages/server/src/services/generation/game-gm-prompt-runtime.js");
+const { summarizeTacticalBattlefield } = await import("../../../../packages/shared/src/index.js");
 const { createGameRulesetsStorage } =
-  await import("../../packages/server/src/services/storage/game-rulesets.storage.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  await import("../../../../packages/server/src/services/storage/game-rulesets.storage.js");
+const { createChatsStorage } = await import("../../../../packages/server/src/services/storage/chats.storage.js");
 
 const db = await getDB();
 const app = Fastify();
@@ -417,7 +417,7 @@ try {
   // A ruleset that turns Game Mode's own items off (#6822) keeps them out of these fights too: no item
   // does anything in one, while every other action still does.
   const ember = JSON.parse(
-    readFileSync(new URL("../../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8"),
   ) as Record<string, any>;
   const closed = { ...ember, id: "ember-no-items", items: { ...ember.items, native: false } };
   await createGameRulesetsStorage(db).put({

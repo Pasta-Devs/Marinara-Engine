@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { deflateSync, crc32 as zlibCrc32 } from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { fetchJannyCharacterCard } from "../../packages/server/src/services/bot-browser/janny-character-card.js";
-import { parsePngCharacterCard } from "../../packages/client/src/lib/png-parser.js";
-import { readCharacterCardDetailFields } from "../../packages/client/src/lib/character-import.js";
-import { MAX_FILE_SIZES } from "../../packages/shared/src/constants/defaults.js";
+import { fetchJannyCharacterCard } from "../../../packages/server/src/services/bot-browser/janny-character-card.js";
+import { parsePngCharacterCard } from "../../../packages/client/src/lib/png-parser.js";
+import { readCharacterCardDetailFields } from "../../../packages/client/src/lib/character-import.js";
+import { MAX_FILE_SIZES } from "../../../packages/shared/src/constants/defaults.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function pngChunk(type: string, data: Buffer) {
   const typeBytes = Buffer.from(type, "ascii");

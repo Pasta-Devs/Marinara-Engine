@@ -2,13 +2,13 @@
 // server must too: such a card is inspected and imported like any other.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import multipart from "../../packages/server/node_modules/@fastify/multipart/index.js";
-import { closeDB, getDB } from "../../packages/server/src/db/connection.js";
-import { errorHandler } from "../../packages/server/src/middleware/error-handler.js";
-import { importRoutes } from "../../packages/server/src/routes/import.routes.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import multipart from "../../../packages/server/node_modules/@fastify/multipart/index.js";
+import { closeDB, getDB } from "../../../packages/server/src/db/connection.js";
+import { errorHandler } from "../../../packages/server/src/middleware/error-handler.js";
+import { importRoutes } from "../../../packages/server/src/routes/import.routes.js";
 
-const AdmZip = createRequire(new URL("../../packages/server/package.json", import.meta.url))("adm-zip");
+const AdmZip = createRequire(new URL("../../../packages/server/package.json", import.meta.url))("adm-zip");
 const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);

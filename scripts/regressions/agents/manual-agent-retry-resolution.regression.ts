@@ -1,22 +1,22 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getDefaultAgentPrompt, replaceBuiltInAgentDefinitions } from "../../packages/shared/dist/index.js";
-import type { AgentContext, AgentResult } from "../../packages/shared/src/types/agent.js";
-import type { BuiltInAgentManifest } from "../../packages/shared/src/features/agents/agent-manifest.types.js";
-import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
-import { normalizeAgentContextSize } from "../../packages/server/src/services/agents/agent-executor.js";
+import { getDefaultAgentPrompt, replaceBuiltInAgentDefinitions } from "../../../packages/shared/dist/index.js";
+import type { AgentContext, AgentResult } from "../../../packages/shared/src/types/agent.js";
+import type { BuiltInAgentManifest } from "../../../packages/shared/src/features/agents/agent-manifest.types.js";
+import type { ResolvedAgent } from "../../../packages/server/src/services/agents/agent-pipeline.js";
+import { normalizeAgentContextSize } from "../../../packages/server/src/services/agents/agent-executor.js";
 import {
   getAgentFallbackPrompt,
   resolveEffectiveAgentSettings,
-} from "../../packages/server/src/services/generation/agent-resolution.js";
-import { resolveAgentGenerationTools } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
-import type { SpotifyRuntimeAgent } from "../../packages/server/src/services/generation/spotify-agent-runtime.js";
+} from "../../../packages/server/src/services/generation/agent-resolution.js";
+import { resolveAgentGenerationTools } from "../../../packages/server/src/services/generation/tool-resolution-runtime.js";
+import type { SpotifyRuntimeAgent } from "../../../packages/server/src/services/generation/spotify-agent-runtime.js";
 import {
   resolveLorebookKeeperRetryAnchor,
   resolveRetryAgentContextPolicy,
   resolveRetryAgentPhaseToolInputs,
   validateSpotifyRetryPlayback,
-} from "../../packages/server/src/routes/generate/retry-agents-route.js";
+} from "../../../packages/server/src/routes/generate/retry-agents-route.js";
 
 assert.deepEqual(
   [
@@ -74,7 +74,7 @@ const manifests = [
 replaceBuiltInAgentDefinitions(manifests);
 
 const retryRouteSource = readFileSync(
-  new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+  new URL("../../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
 );
 assert.match(
@@ -88,7 +88,7 @@ assert.match(
   "custom lorebook retry events must identify their historical message and swipe",
 );
 const toolRuntimeSource = readFileSync(
-  new URL("../../packages/server/src/services/generation/tool-resolution-runtime.ts", import.meta.url),
+  new URL("../../../packages/server/src/services/generation/tool-resolution-runtime.ts", import.meta.url),
   "utf8",
 );
 const agentArgsStart = toolRuntimeSource.indexOf("export type ResolveAgentGenerationToolsArgs");

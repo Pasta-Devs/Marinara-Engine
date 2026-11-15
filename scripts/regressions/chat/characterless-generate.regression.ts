@@ -11,12 +11,12 @@ process.env.FILE_STORAGE_DIR = join(dir, "storage");
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
-const requireServer = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+const requireServer = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { generateRoutes } = await import("../../packages/server/src/routes/generate.routes.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
-const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 let content = '[react: emoji="😂"]';
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];

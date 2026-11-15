@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DB } from "../../packages/server/src/db/connection.js";
+import type { DB } from "../../../packages/server/src/db/connection.js";
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-st-group-import-"));
 const dataDir = join(fixtureRoot, "data", "default-user");
@@ -65,10 +65,10 @@ try {
       .join("\n"),
   );
 
-  const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
-  const { chats, characters, messages } = await import("../../packages/server/src/db/schema/index.js");
+  const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
+  const { chats, characters, messages } = await import("../../../packages/server/src/db/schema/index.js");
   const { scanSTFolder, runSTBulkImport } =
-    await import("../../packages/server/src/services/import/st-bulk.importer.js");
+    await import("../../../packages/server/src/services/import/st-bulk.importer.js");
   db = await createFileNativeDB();
 
   const scan = await scanSTFolder(fixtureRoot);

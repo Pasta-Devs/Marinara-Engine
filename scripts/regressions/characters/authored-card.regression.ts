@@ -3,8 +3,8 @@ import {
   cardFromPersona,
   independentCardFields,
   personaFromCard,
-} from "../../packages/shared/src/utils/authored-card.js";
-import type { Persona } from "../../packages/shared/src/types/persona.js";
+} from "../../../packages/shared/src/utils/authored-card.js";
+import type { Persona } from "../../../packages/shared/src/types/persona.js";
 
 const metadata = {
   id: "persona-42",

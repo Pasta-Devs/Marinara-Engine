@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 import {
   getCustomAgentResultCapability,
   normalizeCustomAgentCapabilities,
-} from "../../packages/shared/src/types/agent.js";
-import { CUSTOM_AGENT_RESULT_EXAMPLES } from "../../packages/client/src/lib/custom-agent-result-examples.js";
+} from "../../../packages/shared/src/types/agent.js";
+import { CUSTOM_AGENT_RESULT_EXAMPLES } from "../../../packages/client/src/lib/custom-agent-result-examples.js";
 import {
   resolveActiveCharacterIds,
   resolveCharacterActivityUpdate,
   shouldRunCharacterActivityAgents,
-} from "../../packages/server/src/routes/generate/generate-route-utils.js";
+} from "../../../packages/server/src/routes/generate/generate-route-utils.js";
 
 const chatCharacterIds = ["char-a", "char-b", "char-c"];
 
@@ -80,7 +80,7 @@ assert.equal(
 assert.match(CUSTOM_AGENT_RESULT_EXAMPLES.character_activity_update.value, /activeCharacterIds/u);
 
 const generateRouteSource = readFileSync(
-  fileURLToPath(new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url)),
+  fileURLToPath(new URL("../../../packages/server/src/routes/generate.routes.ts", import.meta.url)),
   "utf8",
 );
 assert.ok(

@@ -10,13 +10,13 @@ process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
 
-const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
-const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { resolveChatConnectionOrFallback } =
-  await import("../../packages/server/src/services/generation/connection-resolution.js");
-const { sidecarModelService } = await import("../../packages/server/src/services/sidecar/sidecar-model.service.js");
-const { createLLMProvider } = await import("../../packages/server/src/services/llm/provider-registry.js");
-const { LOCAL_SIDECAR_CONNECTION_ID } = await import("../../packages/shared/src/index.js");
+  await import("../../../packages/server/src/services/generation/connection-resolution.js");
+const { sidecarModelService } = await import("../../../packages/server/src/services/sidecar/sidecar-model.service.js");
+const { createLLMProvider } = await import("../../../packages/server/src/services/llm/provider-registry.js");
+const { LOCAL_SIDECAR_CONNECTION_ID } = await import("../../../packages/shared/src/index.js");
 
 try {
   const db = await getDB();

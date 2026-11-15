@@ -9,7 +9,7 @@
     "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"]
   },
   "include": [
-    "character-activity-agent.regression.ts",
+    "agents/character-activity-agent.regression.ts",
     "shutdown-deadline.regression.ts",
     "termux-postmortem.regression.ts"
   ]

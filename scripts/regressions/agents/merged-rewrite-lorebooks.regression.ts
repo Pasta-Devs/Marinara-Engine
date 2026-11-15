@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import type { AgentContext } from "../../packages/shared/src/types/agent.js";
-import { executeAgent } from "../../packages/server/src/services/agents/agent-executor.js";
-import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
-import { mergePairedBuiltInRewriteAgents } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
+import type { AgentContext } from "../../../packages/shared/src/types/agent.js";
+import { executeAgent } from "../../../packages/server/src/services/agents/agent-executor.js";
+import type { ResolvedAgent } from "../../../packages/server/src/services/agents/agent-pipeline.js";
+import { mergePairedBuiltInRewriteAgents } from "../../../packages/server/src/services/generation/prose-guardian-settings.js";
 import {
   BaseLLMProvider,
   type ChatCompletionResult,
   type ChatMessage,
   type ChatOptions,
-} from "../../packages/server/src/services/llm/base-provider.js";
+} from "../../../packages/server/src/services/llm/base-provider.js";
 
 class RecordingProvider extends BaseLLMProvider {
   requests: ChatMessage[][] = [];
