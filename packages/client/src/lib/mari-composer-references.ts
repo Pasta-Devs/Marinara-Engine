@@ -1,5 +1,6 @@
 // Pure logic behind Professor Mari's `@` reference picker: which rows exist, how a query ranks them, how a
 // pick is written into the draft, and which picked references are still in the text.
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import type { MariComposerReference, ProfessorMariContextResource } from "@marinara-engine/shared";
 import type { CSSProperties } from "react";
 import { buildCharacterPreviewModel } from "./character-preview";
@@ -107,7 +108,9 @@ function referenceMedia(
     }
     case "lorebook": {
       const src = buildLorebookPreviewModel(raw as Parameters<typeof buildLorebookPreviewModel>[0]).imageSrc;
-      return src ? { src } : undefined;
+      return src
+        ? { src, avatarCropStyle: getAvatarCropStyle(normalizeAvatarCrop((raw as { imageCrop?: unknown }).imageCrop)) }
+        : undefined;
     }
     case "preset": {
       const src = resolvePresetArtwork({

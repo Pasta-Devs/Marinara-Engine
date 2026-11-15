@@ -501,7 +501,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   messages: ["extra"],
   message_swipes: ["extra"],
   memory_chunks: ["embedding"],
-  lorebooks: ["scope", "tags"],
+  lorebooks: ["scope", "tags", "imageCrop"],
   library_folders: ["itemIds"],
   lorebook_entries: [
     "keys",

@@ -74,6 +74,7 @@ export function useOmnibarScreenContext({
   const rightPanelOpen = useUIStore((state) => state.rightPanelOpen);
   const rightPanel = useUIStore((state) => state.rightPanel);
   const botBrowserOpen = useUIStore((state) => state.botBrowserOpen);
+  const botBrowserKind = useUIStore((state) => state.botBrowserKind);
   const gameAssetsBrowserOpen = useUIStore((state) => state.gameAssetsBrowserOpen);
   const characterLibraryOpen = useUIStore((state) => state.characterLibraryOpen);
   const cardLibraryKind = useUIStore((state) => state.cardLibraryKind);
@@ -139,11 +140,13 @@ export function useOmnibarScreenContext({
     const surfaceResultIds = rightPanelOpen
       ? [rightPanel === "connections" ? "integrations" : rightPanel === "settings" ? "settings" : rightPanel]
       : botBrowserOpen
-        ? ["card-browser"]
+        ? [botBrowserKind === "lorebooks" ? "lorebook-browser" : "card-browser"]
         : gameAssetsBrowserOpen
           ? ["game-assets"]
           : characterLibraryOpen
-            ? [cardLibraryKind === "personas" ? "persona-library" : "character-library"]
+            ? [
+                `${cardLibraryKind === "characters" ? "character" : cardLibraryKind === "personas" ? "persona" : "lorebook"}-library`,
+              ]
             : agentCatalogOpen
               ? ["agent-library", "packages"]
               : activeChatId
@@ -178,6 +181,7 @@ export function useOmnibarScreenContext({
     activeChatId,
     agentCatalogOpen,
     agents.data,
+    botBrowserKind,
     botBrowserOpen,
     cardLibraryKind,
     characterLibraryOpen,

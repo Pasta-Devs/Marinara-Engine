@@ -40,6 +40,8 @@ export interface AvatarCropWidgetProps {
   onChange: (next: SourceRectAvatarCrop) => void;
   onRemove?: () => void;
   removing?: boolean;
+  /** Wording: "avatar" (characters, personas) or "image" (a lorebook picture). */
+  kind?: "avatar" | "image";
 }
 
 const MIN_CROP_PX = 24;
@@ -54,7 +56,15 @@ const STAGE_GUTTER_PX = 12;
 const MAX_DISPLAY_W = 360 - 2 * STAGE_GUTTER_PX;
 const MAX_DISPLAY_H = 360 - 2 * STAGE_GUTTER_PX;
 
-export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing = false }: AvatarCropWidgetProps) {
+export function AvatarCropWidget({
+  src,
+  alt,
+  crop,
+  onChange,
+  onRemove,
+  removing = false,
+  kind = "avatar",
+}: AvatarCropWidgetProps) {
   const { t: localizeUi } = useUiTranslation();
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgRect, setImgRect] = useState<{ w: number; h: number } | null>(null);
@@ -230,7 +240,8 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          <Crop size="0.75rem" /> {localizeUi("ui.ui.avatarcropwidget.avatarCrop")}
+          <Crop size="0.75rem" />{" "}
+          {localizeUi(kind === "image" ? "ui.ui.avatarcropwidget.imageCrop" : "ui.ui.avatarcropwidget.avatarCrop")}
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -258,7 +269,9 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
               onClick={onRemove}
               disabled={removing}
               className="mari-editor-action mari-editor-action--compact mari-editor-action--accent inline-flex whitespace-nowrap gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
-              title={localizeUi("ui.ui.avatarcropwidget.removeAvatar")}
+              title={localizeUi(
+                kind === "image" ? "ui.ui.avatarcropwidget.removeImage" : "ui.ui.avatarcropwidget.removeAvatar",
+              )}
             >
               {removing
                 ? localizeUi("ui.ui.avatarcropwidget.removing")
@@ -268,7 +281,11 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
         </div>
       </div>
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi("ui.ui.avatarcropwidget.dragTheSquareToPanTheCornersToResize")}
+        {localizeUi(
+          kind === "image"
+            ? "ui.ui.avatarcropwidget.dragTheSquareToPanTheCornersToResizeImage"
+            : "ui.ui.avatarcropwidget.dragTheSquareToPanTheCornersToResize",
+        )}
       </p>
 
       <div className="flex gap-4 max-md:flex-col max-md:items-center">

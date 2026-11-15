@@ -162,6 +162,7 @@ export function LorebooksSection({
                 >
                   <LibraryArt
                     src={lorebook.imagePath ?? null}
+                    crop={lorebook.imageCrop}
                     kind="lorebook"
                     className={lorebook.isExcluded ? "h-6 w-6 rounded-md grayscale" : "h-6 w-6 rounded-md"}
                   />

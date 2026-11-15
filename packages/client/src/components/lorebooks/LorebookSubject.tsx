@@ -1,6 +1,6 @@
 import { BookOpen, X } from "lucide-react";
 import type { LorebookPreviewModel } from "../../lib/lorebook-preview";
-import { cn } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { CommandCenterMedia } from "../command-center/CommandCenterMedia";
 
 type Props = {
@@ -26,6 +26,7 @@ export function LorebookSubject({ lorebook, label, compact = false, onRemove, re
         src={lorebook.imageSrc}
         alt=""
         kind="artwork"
+        avatarCropStyle={getAvatarCropStyle(lorebook.imageCrop)}
         className={compact ? "size-8" : "size-10"}
       />
       <div className="min-w-0 flex-1">

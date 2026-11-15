@@ -47,12 +47,14 @@ for (const field of ["mes_example", "alternate_greetings", "system_prompt", "pos
 }
 for (const field of ["backstory", "appearance", "world", "depth_prompt"] as const) {
   assert.ok(
-    estimateCharacterCardTokens({ ...compactFieldsOnly, extensions: { [field]: fullCard.extensions[field] } }) > compactEstimate,
+    estimateCharacterCardTokens({ ...compactFieldsOnly, extensions: { [field]: fullCard.extensions[field] } }) >
+      compactEstimate,
     `extensions.${field} contributes independently to the full-card estimate`,
   );
 }
 assert.ok(
-  estimateCharacterCardTokens({ ...compactFieldsOnly, character_book: { entries: fullCard.character_book.entries } }) > compactEstimate,
+  estimateCharacterCardTokens({ ...compactFieldsOnly, character_book: { entries: fullCard.character_book.entries } }) >
+    compactEstimate,
   "character-book entries contribute without relying on the book title or description",
 );
 
@@ -67,7 +69,7 @@ assert.match(
 );
 
 const librarySource = readFileSync(
-  new URL("../../../packages/client/src/components/characters/CharacterLibraryView.tsx", import.meta.url),
+  new URL("../../../packages/client/src/components/characters/card-library-sources.ts", import.meta.url),
   "utf8",
 );
 assert.match(

@@ -152,7 +152,14 @@ export function LorebookAssignmentSection({
                 value1: ownerName || ownerType,
               })
             : lorebook.description || localizeUi("ui.panels.agentcard.noDescription"),
-          icon: <LibraryArt src={lorebook.imagePath ?? null} kind="lorebook" className={LIBRARY_ROW_ART} />,
+          icon: (
+            <LibraryArt
+              src={lorebook.imagePath ?? null}
+              crop={lorebook.imageCrop}
+              kind="lorebook"
+              className={LIBRARY_ROW_ART}
+            />
+          ),
         })),
     [lorebooks, ownerId, ownerType, ownerName, localizeUi],
   );
