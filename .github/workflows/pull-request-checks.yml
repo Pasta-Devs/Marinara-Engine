@@ -249,7 +249,7 @@ jobs:
       - name: Verify Windows restart ownership and ESM loader paths
         env:
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/restart-supervisor.regression.ts
       - name: Retain Windows restart diagnostic evidence
         if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -262,7 +262,7 @@ jobs:
         # Retain the fixture's own readiness/close deadlines without the general
         # regression runner's shorter 30s whole-file cap.
         timeout-minutes: 5
-        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server-signal-shutdown.regression.ts
+        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server/server-signal-shutdown.regression.ts
 
   container-build-test:
     runs-on: ubuntu-latest

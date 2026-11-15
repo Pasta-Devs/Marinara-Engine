@@ -10,7 +10,7 @@
   },
   "include": [
     "agents/character-activity-agent.regression.ts",
-    "shutdown-deadline.regression.ts",
-    "termux-postmortem.regression.ts"
+    "server/shutdown-deadline.regression.ts",
+    "server/termux-postmortem.regression.ts"
   ]
 }

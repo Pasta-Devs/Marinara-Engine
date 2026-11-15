@@ -96,7 +96,7 @@ test("batchable files are queued in groups of 20 unless --isolated", () => {
     .slice(0, 45);
   assert.equal(combat.length, 45);
   const others = [
-    "scripts/regressions/regression-timeout-policy.regression.mjs",
+    "scripts/regressions/tooling/regression-timeout-policy.regression.mjs",
     "scripts/regressions/tooling/regression-batching.regression.mjs",
   ];
   const items = queueItems([others[0], ...combat, others[1]], false);
