@@ -22,13 +22,51 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
   const named = GREETING_TITLE_PREFIX.exec(rest);
   if (named) {
     const preview = rest.slice(named[0].length).replace(/[*_"]/g, "").trim();
-    return { tags, title: (named[1] ?? named[2])!.trim(), preview };
+    return { tags, title: (named[1] ?? named[2])!.trim(), preview: dropRepeatedHeader(rest, preview) };
   }
   const plain = rest.replace(/[*_"]/g, "").trim();
   const cut = plain.search(/[.!?](?=\s|$)|\n/);
   if (cut < 0) return { tags, title: plain, preview: "" };
   const end = plain[cut] === "\n" ? cut : cut + 1;
-  return { tags, title: plain.slice(0, end).trim(), preview: plain.slice(end).trim() };
+  const preview = plain.slice(end).trim();
+  return { tags, title: plain.slice(0, end).trim(), preview: match ? dropRepeatedHeader(rest, preview) : preview };
+}
+
+/** Some cards repeat their header line right under it; leave the copy out of what the picker shows. */
+function dropRepeatedHeader(text: string, after: string): string {
+  return stripRepeatedHeader(text.trimStart().split("\n", 1)[0]!, after);
+}
+
+/** A header or repeat line reduced to its words: no markup, quotes or one pair of parentheses. */
+function plainHeader(line: string): string {
+  const bare = line.replace(/[*_"]/g, "").trim();
+  return (/^\((.*)\)$/.exec(bare)?.[1] ?? bare).trim();
+}
+
+/** Drops the first line of `after` when it repeats `header` as a whole line, so "Drago" keeps the "Drago asked" that follows it. */
+function stripRepeatedHeader(header: string, after: string): string {
+  const nl = after.indexOf("\n");
+  const first = nl < 0 ? after : after.slice(0, nl);
+  const title = plainHeader(header);
+  return title && plainHeader(first) === title ? (nl < 0 ? "" : after.slice(nl + 1).trim()) : after;
+}
+
+/** The greeting without its header line (tags, a title line, or a repeat of them), markup kept. */
+export function greetingBody(text: string, allowTags = true): string {
+  const lines = text.trimStart().split("\n");
+  const header = lines[0]!.trim();
+  const isHeader = (allowTags && GREETING_TAG_PREFIX.test(header)) || GREETING_TITLE_PREFIX.test(header + "\n");
+  if (!isHeader) return text.trim();
+  const tags = allowTags ? GREETING_TAG_PREFIX.exec(header) : null;
+  const rest = tags ? header.slice(tags[0].length) : header;
+  const named = GREETING_TITLE_PREFIX.exec(rest);
+  const afterTitle = named ? rest.slice(named[0].length) : rest;
+  // Prose after a plain-sentence title shares the header line; keep it.
+  const cut = named ? -1 : afterTitle.search(/[.!?](?=\s|$)/);
+  const lead = named ? afterTitle : cut < 0 ? "" : afterTitle.slice(cut + 1);
+  const below = stripRepeatedHeader(rest, lines.slice(1).join("\n").trimStart());
+  // Header and text may share one line: with nothing below, keep what follows the tags or title.
+  return [lead.trim(), below].filter(Boolean).join("\n") || afterTitle.trim();
 }
 
 /** Brackets count as tags only when at least two greetings use them, so a single `[OOC]` opener stays text. */

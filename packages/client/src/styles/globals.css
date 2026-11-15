@@ -3807,6 +3807,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   * {
     @apply border-[var(--border)];
   }
+  /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
+     sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
+     only drew a stray border around the whole sheet. */
+  [tabindex="-1"]:focus {
+    outline: none;
+  }
 }
 
 input,
