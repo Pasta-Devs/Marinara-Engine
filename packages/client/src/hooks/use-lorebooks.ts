@@ -26,7 +26,8 @@ import {
 export const lorebookKeys = {
   all: ["lorebooks"] as const,
   list: () => [...lorebookKeys.all, "list"] as const,
-  byCategory: (cat: string) => [...lorebookKeys.all, "category", cat] as const,
+  categories: () => [...lorebookKeys.all, "category"] as const,
+  byCategory: (cat: string) => [...lorebookKeys.categories(), cat] as const,
   page: (category: string, search: string, sort: string, activeKey: string) =>
     [...lorebookKeys.list(), "page", category, search, sort, activeKey] as const,
   detail: (id: string) => [...lorebookKeys.all, "detail", id] as const,
@@ -201,7 +202,7 @@ export function useUpdateLorebook() {
       // pre-save snapshot for one frame and remounts conditional sections.
       qc.setQueryData(lorebookKeys.detail(variables.id), data);
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
-      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.categories() });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
     },
   });
@@ -217,7 +218,7 @@ export function useSetLorebooksEnabled() {
       // Refetch the lists even when nothing changed: a caller showing a stale state learns the real one.
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
-      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.categories() });
       if (result.changedIds.length === 0) return;
       for (const id of result.changedIds) qc.invalidateQueries({ queryKey: lorebookKeys.detail(id) });
     },
