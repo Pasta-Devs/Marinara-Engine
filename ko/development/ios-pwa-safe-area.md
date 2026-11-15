@@ -46,7 +46,7 @@ iPhone을 가로로 돌리면 카메라(노치 또는 Dynamic Island)가 왼쪽�
 
 Marinara는 세로 방향의 상태 표시줄 띠와 같은 방식으로 이 공간을 피합니다.
 
-- `packages/client/src/styles/globals.css`는 두 여백을 한 번 읽어 `:root`의 `--mari-safe-area-inset-left`와 `--mari-safe-area-inset-right`에 저장합니다. 나머지는 모두 이 변수를 읽고 `env()`를 직접 읽지 않습니다. `scripts/regressions/mobile-safe-area-inset.regression.ts`가 이 규칙을 검사합니다. 대화 상자, omnibar, 전체 화면 편집기와 TopBar 컨트롤은 카메라와 둥근 모서리에 대한 이 보호를 유지합니다.
+- `packages/client/src/styles/globals.css`는 두 여백을 한 번 읽어 `:root`의 `--mari-safe-area-inset-left`와 `--mari-safe-area-inset-right`에 저장합니다. 나머지는 모두 이 변수를 읽고 `env()`를 직접 읽지 않습니다. `scripts/regressions/ui/mobile-safe-area-inset.regression.ts`가 이 규칙을 검사합니다. 대화 상자, omnibar, 전체 화면 편집기와 TopBar 컨트롤은 카메라와 둥근 모서리에 대한 이 보호를 유지합니다.
 - iPhone에서는 `AppShell.tsx`가 `window.orientation`(사용할 수 없으면 `screen.orientation.angle`)으로 카메라 쪽을 식별합니다. 90°에서는 왼쪽, −90°/270°에서는 오른쪽입니다. `<html>`의 `data-mari-camera-side` 속성으로 CSS가 반대쪽 **셸** 여백인 `--mari-shell-inset-left` 또는 `--mari-shell-inset-right`만 0으로 설정할 수 있습니다. 알 수 없는 회전, iPad와 Android에서는 시스템 여백을 유지합니다.
 - 휴대폰 셸에서 `.mari-app`은 셸 변수로부터 `left`와 `right` 값을 가져옵니다. 카메라 위에는 세로 방향의 상태 표시줄 띠와 같은 색으로 body의 페이지 배경이 표시되며, 반대쪽 가장자리에는 대칭인 빈 여백이 생기지 않습니다.
 - 셸 안의 고정 요소는 셸이 아니라 화면을 기준으로 배치되므로 스스로 해당 공간을 피합니다. `AppShell.tsx`의 휴대폰 시트와 배경은 셸 변수와 함께 `MOBILE_SHELL_PANEL_X_CLASS`를 사용합니다. 셸의 별 같은 장식은 `absolute`이므로 셸 안에 머뭅니다.

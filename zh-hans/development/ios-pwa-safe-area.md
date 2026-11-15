@@ -46,7 +46,7 @@ iPhone 横放时，摄像头（刘海或 Dynamic Island）位于左侧或右侧�
 
 Marinara 避开这部分空间的方式与竖屏时的状态栏色带相同：
 
-- `packages/client/src/styles/globals.css` 只读取一次两侧边距，将其写入 `:root` 上的 `--mari-safe-area-inset-left` 和 `--mari-safe-area-inset-right`。其他地方都读取这些变量，不直接读取 `env()`。`scripts/regressions/mobile-safe-area-inset.regression.ts` 会检查这一规则。弹窗、omnibar、全屏编辑器和 TopBar 控件仍保留针对摄像头与圆角的保护。
+- `packages/client/src/styles/globals.css` 只读取一次两侧边距，将其写入 `:root` 上的 `--mari-safe-area-inset-left` 和 `--mari-safe-area-inset-right`。其他地方都读取这些变量，不直接读取 `env()`。`scripts/regressions/ui/mobile-safe-area-inset.regression.ts` 会检查这一规则。弹窗、omnibar、全屏编辑器和 TopBar 控件仍保留针对摄像头与圆角的保护。
 - 在 iPhone 上，`AppShell.tsx` 通过 `window.orientation`（不可用时改用 `screen.orientation.angle`）识别摄像头在哪一侧。90° 时摄像头在左侧，−90°/270° 时在右侧。`<html>` 上的 `data-mari-camera-side` 属性让 CSS 只将相反一侧的**外壳**边距 `--mari-shell-inset-left` 或 `--mari-shell-inset-right` 设为零。未知旋转方向、iPad 和 Android 保留系统边距。
 - 在手机外壳中，`.mari-app` 从外壳变量取得 `left` 和 `right`。摄像头上方显示 body 的页面背景，颜色与竖屏状态栏色带相同，而不会在另一端出现镜像空白边距。
 - 外壳内的固定元素相对屏幕定位，而非相对外壳，因此要自行避让。`AppShell.tsx` 中的手机面板及其背景使用带外壳变量的 `MOBILE_SHELL_PANEL_X_CLASS`。外壳的星星等装饰使用 `absolute`，所以会留在外壳内。

@@ -46,7 +46,7 @@ iPhoneを横向きにすると、カメラ(ノッチまたはDynamic Island)は�
 
 Marinaraは縦向きのステータスバー部分と同じように、この空間を避けます。
 
-- `packages/client/src/styles/globals.css`が両側の値を1回だけ読み、`:root`の`--mari-safe-area-inset-left`と`--mari-safe-area-inset-right`に格納します。他の箇所はすべてこの変数を読み、`env()`を直接読みません。`scripts/regressions/mobile-safe-area-inset.regression.ts`がこれを検証します。ダイアログ、omnibar、全画面エディター、TopBarの操作部品は、カメラや丸い角からの保護を維持します。
+- `packages/client/src/styles/globals.css`が両側の値を1回だけ読み、`:root`の`--mari-safe-area-inset-left`と`--mari-safe-area-inset-right`に格納します。他の箇所はすべてこの変数を読み、`env()`を直接読みません。`scripts/regressions/ui/mobile-safe-area-inset.regression.ts`がこれを検証します。ダイアログ、omnibar、全画面エディター、TopBarの操作部品は、カメラや丸い角からの保護を維持します。
 - iPhoneでは、`AppShell.tsx`が`window.orientation`(利用できない場合は`screen.orientation.angle`)からカメラ側を識別します。90°では左、−90°/270°では右です。`<html>`の`data-mari-camera-side`属性によって、CSSは反対側の**シェル**の余白である`--mari-shell-inset-left`または`--mari-shell-inset-right`だけを0にできます。不明な回転角度、iPad、Androidではシステムの余白を維持します。
 - スマートフォンのシェルでは、`.mari-app`は`left`と`right`をシェル変数から取得します。カメラの上にはbodyのページ背景が縦向きのステータスバー部分と同じ色で表示され、反対側に対称な余白はできません。
 - シェル内の固定要素はシェルではなく画面を基準に配置されるため、自分で余白を確保します。`AppShell.tsx`のスマートフォン用シートと背景は、シェル変数とともに`MOBILE_SHELL_PANEL_X_CLASS`を使います。シェルの星などの装飾は`absolute`なので、シェル内に収まります。
