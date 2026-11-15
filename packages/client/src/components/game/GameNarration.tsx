@@ -3530,8 +3530,10 @@ export function GameNarration({
       for (const key of requestedGameVoiceKeysRef.current) {
         if (!gameVoicePendingRef.current.has(key)) requestedGameVoiceKeysRef.current.delete(key);
       }
+      // Voice switched off drops it even then.
+      const voiceOff = !ttsConfig || !gameVoiceAvailable;
       const playWhenReadyKey = playWhenReadyGameVoiceKeyRef.current;
-      if (playWhenReadyKey && !gameVoicePendingRef.current.has(playWhenReadyKey)) {
+      if (playWhenReadyKey && (voiceOff || !gameVoicePendingRef.current.has(playWhenReadyKey))) {
         playWhenReadyGameVoiceKeyRef.current = null;
       }
       return;
@@ -3666,8 +3668,8 @@ export function GameNarration({
     const entry = gameVoiceCacheRef.current.get(key);
     if (!entry || entry.status === "loading" || entry.status === "idle") return;
     playWhenReadyGameVoiceKeyRef.current = null;
-    if (entry.status === "ready") playGameVoiceKey(key);
-  }, [gameVoiceVersion, playGameVoiceKey]);
+    if (entry.status === "ready" && gameVoiceAvailable) playGameVoiceKey(key);
+  }, [gameVoiceAvailable, gameVoiceVersion, playGameVoiceKey]);
 
   const activeVoiceKey = active ? getVoiceKeyForSegment(active) : null;
   const activeSideLines = useMemo(
