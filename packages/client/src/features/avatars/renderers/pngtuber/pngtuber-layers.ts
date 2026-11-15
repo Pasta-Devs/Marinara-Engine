@@ -2,7 +2,7 @@
 // PNGTuber avatars: layer sets from sprites, and the frame rules the renderer follows (lane: 2D)
 // ──────────────────────────────────────────────
 // Pure functions (no DOM), shared by the renderer and the setup panel and pinned by
-// scripts/regressions/avatar-2d-renderers.regression.ts.
+// scripts/regressions/avatars/avatar-2d-renderers.regression.ts.
 import {
   AVATAR_EMOTIONS,
   AVATAR_EXTRA_FEELINGS,

@@ -20,7 +20,7 @@
     "game-setup-suggestions.regression.ts",
     "game-narration-html-cache.regression.ts",
     "game-session-log-memo.regression.ts",
-    "tts-safari-play-guard.regression.ts",
+    "tts/tts-safari-play-guard.regression.ts",
     "client-runtime-diagnostics.regression.ts",
     "character-form-rebase.regression.ts",
     "mari-editor-fields.regression.ts",
@@ -38,7 +38,7 @@
     "onboarding-preview-highlight.regression.ts",
     "state-editor.regression.ts",
     "preset-section-tokens.regression.ts",
-    "local-music-playback-errors.regression.ts",
+    "tts/local-music-playback-errors.regression.ts",
     "marinara-host-namespace.regression.ts",
     "narrator-avatar-borders.regression.ts"
   ]
