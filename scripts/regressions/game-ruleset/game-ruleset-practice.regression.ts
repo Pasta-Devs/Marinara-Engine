@@ -175,6 +175,28 @@ try {
   assert.doesNotMatch(block, /Tinker [+-]?\d+ \(/, "no meter at the top rank");
   assert.doesNotMatch(block, /Sway [+-]?\d+ \(/, "no meter where none is kept");
 
+  // The Game Master is told a rank-up starts practice over only where op="advance" can change a rank.
+  const { buildRulesetRoleplayReminder } = await import("../../../packages/server/src/services/game/gm-prompts.js");
+  const practiceLine = (ruleset: RulesetDefinition) =>
+    buildRulesetRoleplayReminder({ ruleset, sheetBlocks: ["Blake: Scrap +2 (60%)"] })
+      .split("\n")
+      .find((line) => line.includes('op="practice"'));
+  assert.match(
+    practiceLine(definition) ?? "",
+    /op="advance", never practice, and it starts that skill's practice over at 0%/,
+  );
+  for (const advancement of [undefined, { saves: true }]) {
+    const noRankUps = parsed(
+      doc((document) => {
+        if (advancement) document.sheet.advancement = advancement;
+        else delete document.sheet.advancement;
+      }),
+    );
+    const line = practiceLine(noRankUps);
+    assert.match(line ?? "", /stops at 99%/, "the meter is still taught");
+    assert.doesNotMatch(line ?? "", /over at 0%|op="advance"/, "no reset a ruleset without skill advances can make");
+  }
+
   // The package gate.
   const manifest = (minor: number) => ({
     schemaVersion: 2,

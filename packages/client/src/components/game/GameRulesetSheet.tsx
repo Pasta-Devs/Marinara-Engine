@@ -27,6 +27,7 @@ import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
   readRulesetLive,
+  RULESET_PROGRESS_MAX,
   rulesetKeptCalls,
   rulesetKeptForm,
   rulesetCheckEffects,
@@ -1574,11 +1575,11 @@ export function GameRulesetSheet({
                                     apply({
                                       op: "practice",
                                       skill: entry.id,
-                                      to: Math.max(0, Math.min(99, Math.round(next))),
+                                      to: Math.max(0, Math.min(RULESET_PROGRESS_MAX, Math.round(next))),
                                     })
                                   }
                                   min={0}
-                                  max={99}
+                                  max={RULESET_PROGRESS_MAX}
                                   integer
                                   selectOnFocus
                                   ariaLabel={localizeUi("game.ruleset.sheet.practiceAria", {

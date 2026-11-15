@@ -1600,7 +1600,7 @@ function renderRulesetSheetSection(
     `- [sheet: who="Name" op="track" track="Track" by="+1"] - or to="N" to set it.`,
     ...(ruleset.sheet.progress
       ? [
-          `- [sheet: who="Name" op="practice" skill="Skill" by="5"] - adds practice toward a trained skill's next rank, or to="N" sets it; it stops at 99%. A rank change starts it over at 0%${ruleset.sheet.advancement?.skills ? ', so a rank-up is op="advance", never practice' : ""}.`,
+          `- [sheet: who="Name" op="practice" skill="Skill" by="5"] - adds practice toward a trained skill's next rank, or to="N" sets it; it stops at 99%.${ruleset.sheet.advancement?.skills ? ` A rank-up is op="advance", never practice, and it starts that skill's practice over at 0%.` : ""}`,
         ]
       : []),
     ...(woundTracks.length > 0
