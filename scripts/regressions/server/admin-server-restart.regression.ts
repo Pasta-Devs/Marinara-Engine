@@ -59,6 +59,7 @@ try {
     assert.equal(unmanagedHealth.canRestart, false, "Settings disables Restart Server without a supervisor");
     const unsupported = await app.inject({ method: "POST", url: "/api/admin/restart", payload: { confirm: true } });
     assert.equal(unsupported.statusCode, 409, "Unsupervised starts must not fork an orphan replacement");
+    assert.equal(unsupported.json().code, "restart-unavailable", "the client localizes the toast by this code");
 
     const address = app.server.address();
     assert(address && typeof address !== "string");

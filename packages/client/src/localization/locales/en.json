@@ -7754,6 +7754,7 @@
   "settings.serverRestart.description": "Gracefully closes storage and server services before starting Marinara again. Remote access requires the saved admin secret.",
   "settings.serverRestart.error": "Could not restart the server.",
   "settings.serverRestart.restarting": "Restarting…",
+  "settings.serverRestart.scheduled": "The server is already restarting.",
   "settings.serverRestart.sheet.description.slow": "Big libraries and updates can need a few minutes.",
   "settings.serverRestart.sheet.reload": "Reload now",
   "settings.serverRestart.sheet.step.back": "Reloading this page",

@@ -97,22 +97,23 @@ export async function adminRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Must send { confirm: true } to restart the server" });
       }
       if (restartScheduled) {
-        return reply.status(409).send({ error: "Server restart is already scheduled" });
+        return reply.status(409).send({ error: "Server restart is already scheduled", code: "restart-scheduled" });
       }
       const exitCode = restartExitCode();
-    if (exitCode === null) {
-      return reply.status(409).send({
-        error:
-          "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
-      });
-    }
-    restartScheduled = true;
-    logger.info("Server restart requested from Advanced Settings");
-    // Let the 202 reach the browser before the server starts closing.
-    setTimeout(() => restartServer(exitCode), 750);
+      if (exitCode === null) {
+        return reply.status(409).send({
+          code: "restart-unavailable",
+          error:
+            "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
+        });
+      }
+      restartScheduled = true;
+      logger.info("Server restart requested from Advanced Settings");
+      // Let the 202 reach the browser before the server starts closing.
+      setTimeout(() => restartServer(exitCode), 750);
 
       // The restart sheet waits for a different bootId on /api/health.
-    return reply.status(202).send({ status: "restarting", bootId });
+      return reply.status(202).send({ status: "restarting", bootId });
     },
   );
 

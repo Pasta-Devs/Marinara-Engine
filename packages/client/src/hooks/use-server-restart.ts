@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { api, getPrivilegedActionErrorMessage, requestTimeoutSignal } from "../lib/api-client";
+import { api, ApiError, getPrivilegedActionErrorMessage, requestTimeoutSignal } from "../lib/api-client";
 import { dismissAppUpdatePrompt } from "../lib/app-update-prompt";
 import type { RestartProbe } from "../lib/server-restart";
 import { useUIStore } from "../stores/ui.store";
@@ -73,7 +73,14 @@ export function useRestartServer() {
     },
     onError: (error) => {
       useUIStore.getState().closeModal();
-      toast.error(getPrivilegedActionErrorMessage(error, t("settings.serverRestart.error")));
+      const code = error instanceof ApiError ? (error.payload as { code?: string } | undefined)?.code : undefined;
+      toast.error(
+        code === "restart-unavailable"
+          ? t("settings.serverRestart.unavailable")
+          : code === "restart-scheduled"
+            ? t("settings.serverRestart.scheduled")
+            : getPrivilegedActionErrorMessage(error, t("settings.serverRestart.error")),
+      );
     },
   });
 }
