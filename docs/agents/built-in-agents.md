@@ -121,15 +121,6 @@ A cheaper alternative to Knowledge Retrieval. It reads short descriptions of you
 - **Where it works**: Roleplay.
 - **Key settings**: **Use chat-active lorebooks** and a **Fixed Source Lorebooks** picker. A coverage badge shows what percentage of source entries have a description. See [Knowledge sources](knowledge-sources.md).
 
-### Web Researcher
-
-Looks up real-world facts on the web before the reply, so characters get games, films, music, history and other real details right instead of guessing. Use it when a scene names a real game, film, series, book, song, person, place or event and the reply should get the details right.
-
-- **Phase**: Pre-Generation.
-- **Where it works**: Roleplay.
-- **Key settings**: the standard agent connection and context controls. It uses the Engine's `web_search` and `web_fetch` tools, so its connection must support native tool calls. It reads at most two pages per run, adds a short verified-facts block with source URLs to the prompt, and marks anything it could not confirm as unverified. When the scene has no real-world references it adds nothing.
-- **Availability**: needs the Engine release that adds the `web_fetch` tool. Staging builds have it now.
-
 ## Tracker agents
 
 Tracker agents keep a running record of the scene, the characters and your stats. **Add as Prompt Section** adds an agent's latest output to the prompt so the model stays consistent. It is on by default for every tracker except Expression Engine and Background.

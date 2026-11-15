@@ -176,6 +176,8 @@ Creating a tool does not make the AI use it. You also turn tool use on for the c
 
 With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in **Functions**. Game chats also need **Let the GM search lore** for `search_lorebook`.
 
+> **Note:** A few built-in tools stay off until you tick them, even with **Enable Tool Use** on. `web_fetch` is one, because it lets the AI choose which web address to read. The Spotify tools work the same way.
+
 To limit a chat to a chosen set:
 
 1. Click **Add Functions**. A picker opens with a search box that matches tool names only.

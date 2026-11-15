@@ -13,7 +13,8 @@ export const webFetchToolManifest = {
       },
       maxChars: {
         type: "integer",
-        description: "Maximum characters of page text to return. Defaults to 6000 and is capped at 12000.",
+        description:
+          "Maximum characters of page text to return, including the title. Defaults to 6000 and is capped at 12000.",
         minimum: 500,
         maximum: 12000,
       },

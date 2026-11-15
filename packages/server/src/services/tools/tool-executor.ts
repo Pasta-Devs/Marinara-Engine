@@ -1020,6 +1020,39 @@ async function webSearch(args: Record<string, unknown>): Promise<Record<string, 
   }
 }
 
+/** Decode a page body with the charset it declares, rather than assuming UTF-8. */
+function decodeWebPageBody(body: ArrayBuffer, contentType: string): string {
+  const bytes = new Uint8Array(body);
+  const declared = charsetFromContentType(contentType) ?? charsetFromDocument(bytes);
+  try {
+    return new TextDecoder(declared ?? "utf-8", { fatal: false }).decode(bytes);
+  } catch {
+    // An unknown or malformed charset label is not worth failing the fetch over.
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  }
+}
+
+function charsetFromContentType(contentType: string): string | null {
+  const match = /charset\s*=\s*"?([a-z0-9_:.-]+)/iu.exec(contentType);
+  return match?.[1] ?? null;
+}
+
+function charsetFromDocument(bytes: Uint8Array): string | null {
+  // <meta charset> has to be readable before the charset is known, so sniff the head as latin1.
+  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 2048));
+  const match = /<meta[^>]+charset\s*=\s*["']?\s*([a-z0-9_:.-]+)/iu.exec(head);
+  return match?.[1] ?? null;
+}
+
+/** Clip to a character budget without splitting a surrogate pair. */
+function clipWebPageText(value: string, maxChars: number): { text: string; truncated: boolean } {
+  if (value.length <= maxChars) return { text: value, truncated: false };
+  let end = maxChars;
+  const last = value.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return { text: value.slice(0, end).trimEnd(), truncated: true };
+}
+
 async function webFetch(args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const rawUrl = typeof args.url === "string" ? args.url.trim() : "";
   if (!rawUrl) return { error: "web_fetch requires a non-empty url" };
@@ -1034,6 +1067,9 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
   }
   const maxChars = clampInteger(args.maxChars, WEB_FETCH_DEFAULT_MAX_CHARS, 500, WEB_FETCH_MAX_CHARS);
 
+  // safeFetch rebuilds a buffered Response from the body, so its own `url` is empty. The callback
+  // reports the address that actually answered, which is what a citation should name.
+  let finalUrl = url.toString();
   try {
     const res = await safeFetch(url, {
       headers: {
@@ -1044,33 +1080,49 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
       policy: { allowedProtocols: ["https:"], maxRedirects: 3 },
       allowedContentTypes: ["text/html", "application/xhtml+xml", "text/plain"],
       maxResponseBytes: WEB_FETCH_RESPONSE_MAX_BYTES,
+      // Only the readable text is returned, so the first part of an oversized page still helps.
+      truncateResponseBody: true,
+      onFinalUrl: (resolved) => {
+        finalUrl = resolved;
+      },
     });
     if (!res.ok) {
-      return { url: url.toString(), status: res.status, error: `Web page request failed (${res.status})` };
+      return { url: finalUrl, status: res.status, error: `Web page request failed (${res.status})` };
     }
-    const finalUrl = res.url || url.toString();
+
     const contentType = res.headers.get("content-type") ?? "";
-    const body = await res.text();
-    const { title, text } = contentType.toLowerCase().includes("text/plain")
-      ? { title: "", text: body }
-      : extractReadableText(body);
-    const trimmed = text.trim();
-    if (!trimmed) {
+    const body = decodeWebPageBody(await res.arrayBuffer(), contentType);
+
+    if (contentType.toLowerCase().includes("text/plain")) {
+      const trimmed = body.trim();
+      if (!trimmed) return { url: finalUrl, error: "The page had no readable text." };
+      const clipped = clipWebPageText(trimmed, maxChars);
+      return { url: finalUrl, text: clipped.text, chars: clipped.text.length, truncated: clipped.truncated };
+    }
+
+    const extracted = extractReadableText(body, { maxChars });
+    const title = extracted.title;
+    // The title travels with the text, so it comes out of the same budget.
+    const clipped = clipWebPageText(extracted.text, Math.max(200, maxChars - title.length));
+    if (!clipped.text) {
       return { url: finalUrl, ...(title ? { title } : {}), error: "The page had no readable text." };
     }
-    const clipped = trimmed.length > maxChars ? trimmed.slice(0, maxChars).trimEnd() : trimmed;
     return {
       url: finalUrl,
       ...(title ? { title } : {}),
-      text: clipped,
-      chars: clipped.length,
-      truncated: clipped.length < trimmed.length,
+      text: clipped.text,
+      chars: clipped.text.length,
+      truncated: extracted.truncated || clipped.truncated,
     };
   } catch (err) {
-    return {
-      url: url.toString(),
-      error: err instanceof Error ? err.message : "Web page request failed.",
-    };
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("Refused to fetch")) {
+      // safeFetch names the host and the address it resolved to. That belongs in the server log,
+      // not in the model's context, where it would map the user's network.
+      logger.warn("[web_fetch] Refused outbound request: %s", message);
+      return { url: finalUrl, error: "That address is not allowed." };
+    }
+    return { url: finalUrl, error: message || "Web page request failed." };
   }
 }
 
