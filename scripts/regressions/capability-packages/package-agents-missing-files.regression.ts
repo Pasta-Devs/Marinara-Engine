@@ -95,6 +95,24 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "once the files read again, the agents load and the package no longer needs a check",
+    async run() {
+      const restored = agentsPackage("restored-agents", ["restored"]);
+      writeFileSync(registryPath, JSON.stringify({ schemaVersion: 1, packages: [restored] }, null, 2));
+      const file = join(packagesRoot, "versions", "restored-agents", "1.0.0", "agents.json");
+      const original = readFileSync(file);
+      writeFileSync(file, "[]");
+      assert.deepEqual(await capabilityPackageManager.agentDefinitions(), []);
+      assert.equal(installed()[0]!.readiness, "error");
+      writeFileSync(file, original);
+      assert.deepEqual(
+        (await capabilityPackageManager.agentDefinitions()).map(({ id }) => id),
+        ["restored"],
+      );
+      assert.deepEqual([installed()[0]!.readiness, installed()[0]!.readinessError], ["ready", null]);
+    },
+  },
+  {
     name: "an agents file changed on disk is skipped the same way",
     async run() {
       const changed = agentsPackage("changed-agents", ["changed"]);
