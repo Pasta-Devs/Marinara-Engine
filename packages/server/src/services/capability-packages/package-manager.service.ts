@@ -14091,6 +14091,9 @@ export function resolveCapabilityPackageIconUrl(
   return `${officialArtworkRoot(branch)}/${entry.manifest.id}.png`;
 }
 
+/** What Agents shows for a package whose agent files can't be read (#9195). */
+const PACKAGE_FILES_UNREADABLE = "Its files are missing or changed on disk. Reinstall it to use it again.";
+
 async function readInstalledAgentDefinitions(installed: InstalledCapabilityPackage) {
   const entrypoint = installed.manifest.entrypoints.agents;
   if (!entrypoint) return [];
@@ -15223,7 +15226,23 @@ export const capabilityPackageManager = {
       // its agent definitions visible until restart, just like the active client module.
       const servable = await resolveServableInstalledPackage(installed);
       if (!servable) continue;
-      const parsed = await readInstalledAgentDefinitions(servable);
+      // One package whose files went missing or changed on disk (an install cut off when a phone died, #9195) must
+      // not stop the Engine from starting: its agents are left out, and the package says it needs a check, so
+      // Agents shows it with Update or reinstall (a reinstall marks it ready again).
+      let parsed: Awaited<ReturnType<typeof readInstalledAgentDefinitions>>;
+      try {
+        parsed = await readInstalledAgentDefinitions(servable);
+      } catch (error) {
+        logger.warn(error, "[capability] Skipping the agents of package %s %s", servable.id, servable.version);
+        if (servable.version === installed.version && installed.readinessError !== PACKAGE_FILES_UNREADABLE) {
+          await capabilityPackageManager
+            .markRuntimeReadiness(installed.id, "error", PACKAGE_FILES_UNREADABLE)
+            .catch((markError: unknown) =>
+              logger.warn(markError, "[capability] Could not mark package %s as needing a check", installed.id),
+            );
+        }
+        continue;
+      }
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
         ids.add(definition.id);
