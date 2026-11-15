@@ -69,12 +69,16 @@ async function fetchBytes(url: string, maximum: number): Promise<Buffer> {
   return Buffer.from(await response.arrayBuffer());
 }
 
+const MIN_REFRESH_MS = 60 * 1000;
 let cached: { at: number; base: string; entries: ThemeGalleryEntry[] } | null = null;
 
 /** The gallery's list of themes, fetched at most every 10 minutes (the commit it came from is kept, so
  *  a theme file downloaded later matches the list it was picked from). */
 export async function fetchThemeGallery(force = false): Promise<{ base: string; entries: ThemeGalleryEntry[] }> {
-  if (!force && cached && Date.now() - cached.at < INDEX_TTL_MS) return cached;
+  // A forced refresh still reuses a list under a minute old, so repeated refreshes can't use up the
+  // GitHub API allowance that pinning the gallery (and the docs packs) relies on.
+  const age = cached ? Date.now() - cached.at : Infinity;
+  if (cached && (age < MIN_REFRESH_MS || (!force && age < INDEX_TTL_MS))) return cached;
   const base = await resolvePinnedBase(themeGalleryBaseUrl());
   const raw = await fetchBytes(`${base}/${GALLERY_FOLDER}/index.json`, MAX_INDEX_BYTES);
   const parsed = galleryIndexSchema.parse(JSON.parse(raw.toString("utf8")));

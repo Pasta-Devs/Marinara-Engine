@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile, chmod } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { APP_VERSION } from "@marinara-engine/shared";
@@ -218,11 +218,35 @@ async function refreshAuth(auth: CodexAuthJson, authFilePath: string): Promise<O
   auth.last_refresh = new Date().toISOString();
 
   await mkdir(dirname(authFilePath), { recursive: true });
-  await writeFile(authFilePath, `${JSON.stringify(auth, null, 2)}\n`, "utf8");
-  await chmod(authFilePath, 0o600).catch(() => {});
+  await writeCodexAuthFile(authFilePath, `${JSON.stringify(auth, null, 2)}\n`);
   logger.info("[openai-chatgpt] Refreshed local Codex ChatGPT auth token");
 
   return authFromJson(auth, authFilePath, true);
+}
+
+/**
+ * Saves the Codex sign-in owner-only and whole: a temp file beside it, then a rename, so a crash or a full disk
+ * mid-write can't leave the user's Codex login half written. If the rename is refused (Windows, while another
+ * program holds the file open), it falls back to writing in place as before.
+ */
+async function writeCodexAuthFile(authFilePath: string, contents: string) {
+  const tempPath = `${authFilePath}.${process.pid}.${Date.now()}.tmp`;
+  // A failed temp write (a full disk) rejects here and leaves auth.json untouched.
+  try {
+    await writeFile(tempPath, contents, { encoding: "utf8", mode: 0o600 });
+  } catch (error) {
+    await rm(tempPath, { force: true }).catch(() => {});
+    throw error;
+  }
+  try {
+    await rename(tempPath, authFilePath);
+  } catch (error) {
+    // Only a refused rename (Windows, while another program holds auth.json open) falls back to writing in place.
+    await rm(tempPath, { force: true }).catch(() => {});
+    logger.debug(error, "[openai-chatgpt] Atomic auth save failed; writing in place");
+    await writeFile(authFilePath, contents, { encoding: "utf8", mode: 0o600 });
+  }
+  await chmod(authFilePath, 0o600).catch(() => {});
 }
 
 async function loadAuthImpl(): Promise<OpenAIChatGPTAuth> {

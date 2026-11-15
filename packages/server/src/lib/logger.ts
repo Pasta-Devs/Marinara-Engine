@@ -26,6 +26,7 @@ import { hostname } from "node:os";
 import { isatty } from "node:tty";
 import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
+import { LOG_REDACT_PATHS, scrubSecretText } from "./log-redaction.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -124,6 +125,16 @@ const stdoutIsTerminal = isatty(1);
 const developmentLogs = getNodeEnv() !== "production";
 export const prettyLogs = (getLogFormat() ?? (developmentLogs || stdoutIsTerminal ? "pretty" : "json")) === "pretty";
 
+// A provider error's message can echo the key that was sent; scrub it, and the stack that repeats it.
+function scrubbedErrorSerializer(value: unknown) {
+  const serialized = pino.stdSerializers.err(value as Error) as unknown;
+  if (!serialized || typeof serialized !== "object") return serialized;
+  const record = serialized as Record<string, unknown>;
+  if (typeof record.message === "string") record.message = scrubSecretText(record.message);
+  if (typeof record.stack === "string") record.stack = scrubSecretText(record.stack);
+  return record;
+}
+
 export const logger = pino({
   level: getLogLevel(),
   hooks: {
@@ -131,6 +142,19 @@ export const logger = pino({
       // Pino copies a bare Error's message into msg before serializing it; intercept marked errors first.
       if (level >= 30)
         for (let index = 0; index < args.length; index++) args[index] = privateErrorLogArgument(args[index]);
+      let hasMessage = false;
+      for (let index = 0; index < args.length; index++) {
+        const arg = args[index];
+        if (typeof arg === "string") {
+          args[index] = scrubSecretText(arg);
+          hasMessage = true;
+        }
+      }
+      // logger.error(err) alone: pino would copy the raw err.message into msg after this hook, so give it the
+      // scrubbed message instead (the err field itself is scrubbed by its serializer).
+      if (!hasMessage && args[0] instanceof Error) {
+        (args as unknown[]).push(scrubSecretText(args[0].message));
+      }
       return method.apply(this, args);
     },
   },
@@ -147,7 +171,9 @@ export const logger = pino({
   base: { pid: process.pid, hostname: hostname(), bootId },
   mixin: logContextMixin,
   // Pino only serialises `err` by default; `{ error }` would otherwise print as `{}`.
-  serializers: { err: pino.stdSerializers.err, error: pino.stdSerializers.err },
+  serializers: { err: scrubbedErrorSerializer, error: scrubbedErrorSerializer },
+  // Credential fields never reach the log, and messages are scrubbed of key-shaped text (lib/log-redaction.ts).
+  redact: { paths: LOG_REDACT_PATHS, censor: "[redacted]" },
 });
 protectTerminalLogger(logger, prettyLogs);
 

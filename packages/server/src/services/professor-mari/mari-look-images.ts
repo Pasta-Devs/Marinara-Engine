@@ -10,12 +10,18 @@ export type LookImage = { data: string; mimeType: string };
 const LOOK_MAX_SIDE = 1024;
 const MAX_PICTURES_PER_LOOK = 4;
 const KEEP_MS = 10 * 60 * 1000;
+const MAX_STASHED_LOOKS = 32;
 const MARKER = /\[mari-look:([0-9a-f-]{36})\]/giu;
 
 const stash = new Map<string, { images: LookImage[]; at: number }>();
 
 function prune(now: number) {
   for (const [id, entry] of stash) if (now - entry.at > KEEP_MS) stash.delete(id);
+  // Oldest first (Map keeps insertion order): a look that is never taken can't pile up.
+  for (const id of stash.keys()) {
+    if (stash.size <= MAX_STASHED_LOOKS) break;
+    stash.delete(id);
+  }
 }
 
 /** Small pictures (stickers, weather sprites) are enlarged to this so their colours and outlines can be judged. */
@@ -66,6 +72,7 @@ export function stashLookImages(images: Array<LookImage | null>): string | null 
 
 /** Takes the pictures a tool output points at (each only once) and returns the output without the markers. */
 export function takeLookImages(text: string): { text: string; images: LookImage[] } {
+  prune(Date.now());
   const images: LookImage[] = [];
   const cleaned = text.replace(MARKER, (_match, id: string) => {
     const entry = stash.get(id.toLowerCase());

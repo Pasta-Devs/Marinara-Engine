@@ -116,6 +116,38 @@ try {
   for (const path of [".env", ".env::$DATA", ".env.local.", ".git/config", ".git./config", ".GIT/hooks/pre-commit"]) {
     assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "forbidden", path);
   }
+  // 1b. Login files, the backups folder (a full backup holds the key) and the Claude/Codex sign-in folders are
+  // forbidden too: changing a login file lets another device sign in, and the sign-ins are account tokens.
+  for (const name of [
+    ".remote-login.json",
+    ".REMOTE-SESSIONS.json",
+    ".admin-secret.json.",
+    "backups/marinara-automatic-backup.zip",
+    "backups/manual-1/.encryption-key",
+    "BACKUPS/x.zip",
+    "claude-config/.credentials.json",
+  ]) {
+    assert.equal(workspacePathAccessPolicy(workspace, join(dataDir, name)), "forbidden", name);
+  }
+  {
+    const previous = { claude: process.env.CLAUDE_CONFIG_DIR, codex: process.env.CODEX_HOME };
+    process.env.CLAUDE_CONFIG_DIR = join(workspace, "claude-home");
+    process.env.CODEX_HOME = join(workspace, "codex-home");
+    for (const path of ["claude-home/.claude.json", "codex-home/auth.json"]) {
+      assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "forbidden", path);
+    }
+    if (previous.claude === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = previous.claude;
+    if (previous.codex === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previous.codex;
+  }
+  // Scripts the launchers run outside her sandbox wait for approval, like the launchers themselves.
+  for (const path of ["scripts/check-launcher-update.mjs", "Scripts/protect-launcher-data.mjs.", "win/launcher.ps1"]) {
+    assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "sensitive", path);
+  }
+  for (const path of ["packages/server/data/backups-notes.md", "src/backups/list.ts"]) {
+    assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "normal", path);
+  }
   for (const path of [".env.example", "packages/server/data/encryption-key-notes.md", "src/.encryption-keys.ts"]) {
     assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "normal", path);
   }
