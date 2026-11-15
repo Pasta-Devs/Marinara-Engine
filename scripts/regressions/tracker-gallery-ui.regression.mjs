@@ -193,8 +193,11 @@ assert.match(
 );
 assert.match(chatSettingsDrawer, /"Add the Agent in Chat Settings"/u);
 assert.match(chatSettingsDrawer, /"Enable it per chat from Chat Settings"/u);
+const lorebookKeeperSettings = readSource(
+  "packages/client/src/features/chat-settings/agents/LorebookKeeperSettings.tsx",
+);
 assert.equal(
-  (chatSettingsDrawer.match(/!h-8 !min-h-8 w-full whitespace-nowrap !py-0/gu) ?? []).length,
+  (lorebookKeeperSettings.match(/!h-8 !min-h-8 w-full whitespace-nowrap !py-0/gu) ?? []).length,
   2,
   "Lorebook Keeper actions must share one explicit height",
 );

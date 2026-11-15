@@ -684,6 +684,7 @@ import {
   chatKeys,
   forgetRecentMessageContentEdit,
   forgetUnchangedMessageContentEdit,
+  getHiddenMessageIds,
   getShownCachedMessages,
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
@@ -711,7 +712,14 @@ function sortMessagesByCreatedAt(messages: Message[]): Message[] {
   });
 }
 
-export function upsertPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
+/** Saved copies, minus messages deleted since: a copy saved before its delete must not bring it back. */
+function withoutDeletedMessages(qc: QueryClient, chatId: string, messages: Message[]) {
+  const hidden = getHiddenMessageIds(qc, chatId);
+  return hidden.size ? messages.filter((message) => !hidden.has(message.id)) : messages;
+}
+
+export function upsertPersistedMessages(qc: QueryClient, chatId: string, saved: Message[]) {
+  const incoming = withoutDeletedMessages(qc, chatId, saved);
   if (incoming.length === 0) return;
 
   const sortedIncoming = sortMessagesByCreatedAt(
@@ -723,7 +731,8 @@ export function upsertPersistedMessages(qc: QueryClient, chatId: string, incomin
   );
 }
 
-function appendMissingPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
+function appendMissingPersistedMessages(qc: QueryClient, chatId: string, saved: Message[]) {
+  const incoming = withoutDeletedMessages(qc, chatId, saved);
   if (incoming.length === 0) return;
 
   const sortedIncoming = sortMessagesByCreatedAt(

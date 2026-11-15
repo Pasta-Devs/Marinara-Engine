@@ -10624,6 +10624,7 @@
   "ui.chat.conversationcommands.gifsDescription": "Let characters send a short looping GIF made by the selfie model.",
   "ui.chat.conversationcommands.gifSent": "{{name}} sent a GIF",
   "ui.chat.conversationcommands.gifsNeedModel": "Characters can send GIFs only when the selfie model is GPT Image 2.6 Flare or Sunburst.",
+  "ui.chat.conversationcommands.packageGameDescription": "Let characters start a game of {{game}} when you agree to play.",
   "ui.chat.conversationcommands.videos": "Videos",
   "ui.chat.conversationcommands.videosDescription": "Let characters send short video messages.",
   "ui.chat.conversationgamespicker.noConversationGamesAreInstalledOpenAgentsDownloadAgents": "No conversation games are installed. Open Agents → Agent Organizer to add one.",

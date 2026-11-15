@@ -22,7 +22,7 @@
     "game-session-log-memo.regression.ts",
     "tts/tts-safari-play-guard.regression.ts",
     "client-runtime-diagnostics.regression.ts",
-    "character-form-rebase.regression.ts",
+    "characters/character-form-rebase.regression.ts",
     "mari-editor-fields.regression.ts",
     "game-ruleset/ruleset-catalog-picker.regression.ts",
     "game-ruleset/ruleset-catalog-refresh.regression.ts",

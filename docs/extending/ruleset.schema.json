@@ -12866,6 +12866,14 @@
                     "minLength": 1,
                     "maxLength": 80
                   },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
+                  },
                   "$comment": {}
                 },
                 "required": [
@@ -13090,6 +13098,14 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
                   },
                   "startFrom": {
                     "type": "object",
@@ -26409,6 +26425,14 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 80
+              },
+              "display": {
+                "type": "string",
+                "enum": [
+                  "counter",
+                  "bar",
+                  "dots"
+                ]
               },
               "$comment": {}
             },

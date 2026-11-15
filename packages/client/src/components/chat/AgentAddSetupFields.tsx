@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from "react";
+import { SPOTIFY_SOURCE_OPTIONS } from "../../lib/spotify-source-options";
 import { LorebookListField } from "../ui/LibraryPickers";
 import { Check, FolderOpen, Loader2, Upload } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -104,13 +105,6 @@ export type AgentAddSpriteSubject = {
 export const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
 export const DEFAULT_PROSE_GUARDIAN_AVOID =
   "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
-
-const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
-  { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
-  { id: "playlist", label: "Playlist", description: "Keep choices inside one Spotify playlist." },
-  { id: "artist", label: "Artist", description: "Search only around a named artist, like HOYO-MiX." },
-  { id: "any", label: "Any Spotify", description: "Let the DJ use Spotify search when it fits." },
-];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);

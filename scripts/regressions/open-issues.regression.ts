@@ -6143,7 +6143,10 @@ assert.match(
   "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
 );
 assert.match(
-  conversationGroupSettingsSource,
+  readFileSync(
+    new URL("../../packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx", import.meta.url),
+    "utf8",
+  ),
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
@@ -6439,10 +6442,16 @@ const gameSetupWizardSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameSetupWizard.tsx", import.meta.url),
   "utf8",
 );
-const chatSettingsDrawerSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
+// Chat Settings' sections and agent cards live in their own folders, so read the drawer and both.
+const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
+const chatSettingsDrawerSource = [
+  join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
+  ...["sections", "agents"].flatMap((folder) =>
+    readdirSync(join(chatSettingsDir, folder)).map((name) => join(chatSettingsDir, folder, name)),
+  ),
+]
+  .map((path) => readFileSync(path, "utf8"))
+  .join("\n");
 assert.match(
   agentEditorSource,
   /lorebookReadBehindMessages:\s*localLorebookReadBehindMessages/u,
@@ -10682,13 +10691,18 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(stopGenerationActionSource, /text-\[var\(--muted-foreground\)\]/u);
   assert.doesNotMatch(stopGenerationActionSource, /red-/u);
   assert.equal(
-    (
-      settingsDrawerSource.match(
-        /packageId=\{ltmPackage\.id\}[\s\S]*?className="block overflow-hidden(?: rounded-lg)?"/gu,
-      ) ?? []
-    ).length,
+    (settingsDrawerSource.match(/<LongTermMemoryCapabilitySettings\s[\s\S]*?packageId=\{ltmPackage\.id\}/gu) ?? [])
+      .length,
     3,
     "Long-Term Memory must use the same un-nested Agent Settings surface in every chat mode",
+  );
+  assert.match(
+    readFileSync(
+      join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /className = "block overflow-hidden rounded-lg"[\s\S]*?className=\{className\}/u,
+    "the shared Long-Term Memory surface must stay un-nested",
   );
 
   assert.match(
@@ -10974,24 +10988,17 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
 // #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
 // the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
 {
-  // The two buttons live in the Characters and Game party sections, so read the drawer and every section.
-  const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
-  const drawerSource = [
-    join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
-    ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
-  ]
-    .map((path) => readFileSync(path, "utf8"))
-    .join("\n");
-  const cardOpens = drawerSource.match(
+  // The two buttons live in the Characters and Game party sections, which chatSettingsDrawerSource includes.
+  const cardOpens = chatSettingsDrawerSource.match(
     /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) \{\s*rememberSettingsReturn\(\);\s*useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
   );
   assert.equal(cardOpens?.length, 2, "both member-name buttons open the card after a guarded, unforced close");
   assert.match(
-    drawerSource,
+    chatSettingsDrawerSource,
     /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;\s*if \(!\(await \(inlineCardFlushRef\.current\?\.\(\) \?\? Promise\.resolve\(true\)\)\)\) return false;[\s\S]{0,80}onClose\(\{ force \}\);/u,
     "the drawer's close waits for the inline card editor's saves",
   );
-  assert.match(drawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
+  assert.match(chatSettingsDrawerSource, /onFlushChange=\{handleInlineCardFlushChange\}/u);
   const inlineEditorSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/inline-editors/InlineChatCardEditor.tsx"),
     "utf8",

@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 826 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 828 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,7 +140,7 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.826/,
+    /requires capability API 2\.0; this Engine supports 1\.828/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
@@ -788,8 +788,16 @@ try {
   );
   assert.match(
     chatSettingsSource,
-    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<CapabilityElement/u,
+    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,
     "Game chat settings must render the Long-Term Memory package controls",
+  );
+  assert.match(
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /<CapabilityElement\s+packageId=\{packageId\}\s+view="settings"/u,
+    "the shared Long-Term Memory settings must render the package's own settings view",
   );
   assert.match(
     chatSettingsSource,
