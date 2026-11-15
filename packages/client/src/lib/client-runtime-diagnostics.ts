@@ -23,6 +23,7 @@ const RELOAD_REASONS = [
   "render-recovery",
   "reset-ui",
   "capability-refresh",
+  "server-restart",
 ] as const;
 const ERROR_NAMES = [
   "Error",

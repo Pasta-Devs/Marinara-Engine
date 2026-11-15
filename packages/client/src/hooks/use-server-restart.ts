@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api, getPrivilegedActionErrorMessage, requestTimeoutSignal } from "../lib/api-client";
+import { dismissAppUpdatePrompt } from "../lib/app-update-prompt";
 import type { RestartProbe } from "../lib/server-restart";
 import { useUIStore } from "../stores/ui.store";
 
@@ -29,7 +30,11 @@ export function useRestartServer() {
       await api.post<{ status: "restarting" }>("/admin/restart", { confirm: true });
       return before.ok ? (before.bootId ?? null) : null;
     },
-    onSuccess: (beforeBootId) => useUIStore.getState().openModal("server-restart", { beforeBootId }),
+    onSuccess: (beforeBootId) => {
+      // Its Refresh would hit the down server; the sheet reloads into the new build anyway.
+      dismissAppUpdatePrompt();
+      useUIStore.getState().openModal("server-restart", { beforeBootId });
+    },
     onError: (error) => toast.error(getPrivilegedActionErrorMessage(error, t("settings.serverRestart.error"))),
   });
 }

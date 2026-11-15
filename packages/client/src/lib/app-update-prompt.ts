@@ -24,3 +24,7 @@ export function showAppUpdatePrompt(refresh: () => void | Promise<void>) {
     },
   });
 }
+
+export function dismissAppUpdatePrompt() {
+  toast.dismiss(APP_UPDATE_TOAST_ID);
+}

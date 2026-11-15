@@ -17,7 +17,11 @@ assert.match(adminRoutes, /await app\.close\(\)/u);
 assert.match(adminRoutes, /armShutdownDeadline\(app, "restart", \{ exitCode \}\)/u);
 assert.doesNotMatch(adminRoutes, /\bspawn\(/u, "The server must never fork its own replacement");
 assert.match(appFactory, /forceCloseConnections: false/u);
-assert.match(settingsPanel, /api\.post<\{ status: "restarting" \}>\("\/admin\/restart", \{ confirm: true \}\)/u);
+assert.match(
+  readFileSync(new URL("../../../packages/client/src/hooks/use-server-restart.ts", import.meta.url), "utf8"),
+  /api\.post<\{ status: "restarting" \}>\("\/admin\/restart", \{ confirm: true \}\)/u,
+);
+assert.match(settingsPanel, /useRestartServer\(\)/u);
 assert.match(settingsPanel, /controlId="restart-server"/u);
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-admin-restart-"));

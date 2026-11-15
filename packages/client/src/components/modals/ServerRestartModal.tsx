@@ -7,6 +7,7 @@ import { MarinaraWordmark } from "../ui/MarinaraWordmark";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { probeServerHealth } from "../../hooks/use-server-restart";
 import { nextRestartStep, type RestartStep } from "../../lib/server-restart";
+import { reloadBrowser } from "../../lib/browser-runtime";
 import { cn } from "../../lib/utils";
 
 const SLOW_AFTER_MS = 60_000;
@@ -43,7 +44,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
 
   useEffect(() => {
     if (step === "back") {
-      const reload = window.setTimeout(() => window.location.reload(), 800);
+      const reload = window.setTimeout(() => reloadBrowser("server-restart"), 800);
       return () => window.clearTimeout(reload);
     }
     let cancelled = false;
@@ -95,7 +96,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
             <button
               type="button"
               className={cn(SHEET_BUTTON_PRIMARY, "inline-flex items-center justify-center gap-1.5")}
-              onClick={() => window.location.reload()}
+              onClick={() => reloadBrowser("server-restart")}
             >
               <RotateCw size="0.95rem" aria-hidden="true" />
               {t("settings.serverRestart.sheet.reload")}
@@ -113,7 +114,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
         ) : undefined
       }
     >
-      <div role="status" aria-live="polite" className="flex flex-col gap-4 pb-1">
+      <div className="flex flex-col gap-4 pb-1">
         <div className="flex flex-col items-center pt-1 text-center">
           <img src="/logo.png" alt="" aria-hidden="true" className="mb-1 h-[2.35rem] w-auto object-contain" />
           <MarinaraWordmark className="text-[1.35rem] leading-none" />
@@ -121,7 +122,7 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
             {t("home.browser.version", { version: APP_VERSION })}
           </span>
         </div>
-        <p className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
+        <p role="status" className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
           {t(DESCRIPTION_KEYS[phase])}
         </p>
         <ol className="flex flex-col gap-0.5 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] p-1.5">
