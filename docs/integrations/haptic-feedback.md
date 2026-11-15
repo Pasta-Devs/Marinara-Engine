@@ -12,6 +12,8 @@ Marinara Engine does not talk to the device directly. It sends commands to a fre
 
 Without Intiface Central running with its server started, Marinara cannot send touch cues. You also need the **Haptic Feedback** agent installed. See [Agents overview](../agents/agents-overview.md).
 
+> **Tip:** No toy yet? No worries, you can grab one now with a discount from [Lovense](https://www.lovense.com/r/dupchb)!
+
 ## Add the Haptic Feedback agent
 
 1. Open a Conversation, Roleplay or Game chat.
