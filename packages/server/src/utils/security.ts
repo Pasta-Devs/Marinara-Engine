@@ -67,6 +67,8 @@ export interface SafeFetchOptions extends Omit<RequestInit, "dispatcher"> {
    * page's readable text, and a truncated document is still useful.
    */
   truncateResponseBody?: boolean;
+  /** Called when `truncateResponseBody` cut the body short, so the caller can say so. */
+  onResponseTruncated?: () => void;
   /** Observe nonempty raw response chunks before buffering or decoding. */
   onResponseData?: () => void;
   /**
@@ -611,6 +613,7 @@ async function readCappedResponse(
   decodeCompressedResponse = false,
   onResponseData?: () => void,
   truncate = false,
+  onTruncated?: () => void,
 ): Promise<Response> {
   if (!response.body) {
     await dispatcher?.close().catch(() => undefined);
@@ -633,6 +636,7 @@ async function readCappedResponse(
         const room = maxBytes - total;
         if (room > 0) chunks.push(value.subarray(0, room));
         total = maxBytes;
+        onTruncated?.();
         await reader.cancel().catch(() => undefined);
         break;
       }
@@ -842,6 +846,7 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     bufferResponse = true,
     decodeCompressedResponse = false,
     truncateResponseBody = false,
+    onResponseTruncated,
     onResponseData,
     onFinalUrl,
     agentOptions,
@@ -940,6 +945,7 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
           decodeCompressedResponse,
           onResponseData,
           truncateResponseBody,
+          onResponseTruncated,
         )
       : capStreamingResponse(response, maxResponseBytes, internalDispatcher, onResponseData);
   }

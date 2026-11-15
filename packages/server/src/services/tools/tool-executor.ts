@@ -1070,6 +1070,7 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
   // safeFetch rebuilds a buffered Response from the body, so its own `url` is empty. The callback
   // reports the address that actually answered, which is what a citation should name.
   let finalUrl = url.toString();
+  let bodyTruncated = false;
   try {
     const res = await safeFetch(url, {
       headers: {
@@ -1082,6 +1083,9 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
       maxResponseBytes: WEB_FETCH_RESPONSE_MAX_BYTES,
       // Only the readable text is returned, so the first part of an oversized page still helps.
       truncateResponseBody: true,
+      onResponseTruncated: () => {
+        bodyTruncated = true;
+      },
       onFinalUrl: (resolved) => {
         finalUrl = resolved;
       },
@@ -1097,7 +1101,12 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
       const trimmed = body.trim();
       if (!trimmed) return { url: finalUrl, error: "The page had no readable text." };
       const clipped = clipWebPageText(trimmed, maxChars);
-      return { url: finalUrl, text: clipped.text, chars: clipped.text.length, truncated: clipped.truncated };
+      return {
+        url: finalUrl,
+        text: clipped.text,
+        chars: clipped.text.length,
+        truncated: clipped.truncated || bodyTruncated,
+      };
     }
 
     const extracted = extractReadableText(body, { maxChars });
@@ -1113,7 +1122,7 @@ async function webFetch(args: Record<string, unknown>): Promise<Record<string, u
       text: clipped.text,
       // The title comes out of the same budget, so it counts toward the reported total.
       chars: title.length + clipped.text.length,
-      truncated: extracted.truncated || clipped.truncated,
+      truncated: extracted.truncated || clipped.truncated || bodyTruncated,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "";

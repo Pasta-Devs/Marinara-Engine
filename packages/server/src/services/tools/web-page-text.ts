@@ -225,33 +225,38 @@ const CONTENT_CANDIDATES: Array<(element: Element) => boolean> = [
  */
 type ChromeMode = "full" | "tags" | "minimal";
 
-/** Split an id or class into words, so `protocol-overview` is not read as containing `toc`. */
-function chromeTokens(value: string): string[] {
-  return value
-    .toLowerCase()
-    .split(/[-_\s]+/u)
-    .filter(Boolean);
+const CHROME_TOKEN_PATTERN = /[a-z0-9]+/gu;
+
+/** True when any word in the value is in the set. Scans in place, without an array per class. */
+function hasChromeToken(value: string, tokens: Set<string>): boolean {
+  const lower = value.toLowerCase();
+  CHROME_TOKEN_PATTERN.lastIndex = 0;
+  for (let match = CHROME_TOKEN_PATTERN.exec(lower); match; match = CHROME_TOKEN_PATTERN.exec(lower)) {
+    if (tokens.has(match[0])) return true;
+  }
+  return false;
 }
 
-function isDropped(element: Element, mode: ChromeMode): boolean {
-  if (ALWAYS_DROPPED_TAGS.has(element.name)) return true;
-  if (mode === "minimal") return false;
-  if (CHROME_DROPPED_TAGS.has(element.name)) return true;
-  if (CHROME_DROPPED_ROLES.has(attribute(element, "role"))) return true;
-  if (mode === "tags") return false;
+/**
+ * Why an element is dropped, or null to keep it. The two reasons are counted apart: a page trimmed
+ * by a tag rule (a nav, a footer, a script) is ordinary, while one trimmed by a class or id rule may
+ * have lost real prose.
+ */
+function dropReason(element: Element, mode: ChromeMode): "tag" | "rule" | null {
+  if (ALWAYS_DROPPED_TAGS.has(element.name)) return "tag";
+  if (mode === "minimal") return null;
+  if (CHROME_DROPPED_TAGS.has(element.name)) return "tag";
+  if (CHROME_DROPPED_ROLES.has(attribute(element, "role"))) return "tag";
+  if (mode === "tags") return null;
 
   for (const name of classNames(element)) {
     const normalized = name.toLowerCase();
-    if (CHROME_DROPPED_CLASSES.has(normalized)) return true;
-    for (const token of chromeTokens(normalized)) {
-      if (CHROME_DROPPED_CLASS_TOKENS.has(token)) return true;
-    }
+    if (CHROME_DROPPED_CLASSES.has(normalized)) return "rule";
+    if (hasChromeToken(normalized, CHROME_DROPPED_CLASS_TOKENS)) return "rule";
   }
 
-  for (const token of chromeTokens(attribute(element, "id"))) {
-    if (CHROME_DROPPED_ID_TOKENS.has(token)) return true;
-  }
-  return false;
+  if (hasChromeToken(attribute(element, "id"), CHROME_DROPPED_ID_TOKENS)) return "rule";
+  return null;
 }
 
 /** How much text a dropped subtree held, so the caller can tell a trimmed page from a whole one. */
@@ -375,11 +380,12 @@ function collectText(
   container: ChildNode,
   maxChars: number,
   mode: ChromeMode,
-): { text: string; truncated: boolean; droppedChars: number } {
+): { text: string; truncated: boolean; tagDroppedChars: number; ruleDroppedChars: number } {
   const parts: string[] = [];
   let length = 0;
   let truncated = false;
-  let droppedChars = 0;
+  let tagDroppedChars = 0;
+  let ruleDroppedChars = 0;
   const stack: WalkItem[] = [{ kind: "enter", node: container }];
 
   const emit = (value: string) => {
@@ -434,8 +440,11 @@ function collectText(
       }
       continue;
     }
-    if (isDropped(node, mode)) {
-      droppedChars += textLengthOf(node);
+    const reason = dropReason(node, mode);
+    if (reason) {
+      const dropped = textLengthOf(node);
+      if (reason === "rule") ruleDroppedChars += dropped;
+      else tagDroppedChars += dropped;
       continue;
     }
     if (node.name === "br") {
@@ -453,7 +462,7 @@ function collectText(
     }
   }
 
-  return { text: parts.join(""), truncated, droppedChars };
+  return { text: parts.join(""), truncated, tagDroppedChars, ruleDroppedChars };
 }
 
 function extractTitle(flat: FlatEntry[]): string {
@@ -477,19 +486,34 @@ export function extractReadableText(html: string, options: ExtractReadableTextOp
   const container: ChildNode = selected ? selected.node : document;
   const containerTextLength = selected ? selected.subtreeTextLength : (flat[0]?.subtreeTextLength ?? 0);
 
+  // Only the class and id rules are evidence about prose: a page trimmed by a nav, a footer or a
+  // script is ordinary, and counting that text would make every page look trimmed.
+  const ruleShare = (read: { ruleDroppedChars: number }) =>
+    containerTextLength > 0 ? read.ruleDroppedChars / containerTextLength : 0;
+
   let extracted = collectText(container, maxChars, "full");
+  let kept = extracted.text.trim();
   // Chrome removal is broad on purpose, but a mislabelled container can take most of the page with
   // it. Retry with only the tag rules, which still drops navigation and footers, when the class and
   // id rules took a sizeable share and left too little to read. A page that kept a real article
   // beside a genuine sidebar keeps the sidebar out.
-  const droppedShare = containerTextLength > 0 ? extracted.droppedChars / containerTextLength : 0;
-  const keptTooLittle = extracted.text.trim().length < MIN_CONTENT_CHARS;
-  if (keptTooLittle && droppedShare >= CHROME_RETRY_SHARE) {
+  if (kept.length < MIN_CONTENT_CHARS && ruleShare(extracted) >= CHROME_RETRY_SHARE) {
     const tagsOnly = collectText(container, maxChars, "tags");
-    if (tagsOnly.text.trim().length > extracted.text.trim().length) extracted = tagsOnly;
+    const tagsKept = tagsOnly.text.trim();
+    if (tagsKept.length > kept.length) {
+      extracted = tagsOnly;
+      kept = tagsKept;
+    }
   }
   // A page-wide <form> (ASP.NET) is the last case: even the tag rules take the whole page.
-  if (!extracted.text.trim()) extracted = collectText(container, maxChars, "minimal");
+  if (!kept) {
+    extracted = collectText(container, maxChars, "minimal");
+    kept = extracted.text.trim();
+  }
+
+  // A page that still yields prose after the class and id rules took a sizeable share is not the
+  // whole page, so say so rather than returning the remainder as complete.
+  const trimmedByRules = kept.length > 0 && ruleShare(extracted) >= CHROME_RETRY_SHARE;
 
   const text = extracted.text
     .replace(/\r\n?/gu, "\n")
@@ -498,5 +522,5 @@ export function extractReadableText(html: string, options: ExtractReadableTextOp
     .replace(/\n{3,}/gu, "\n\n")
     .trim();
 
-  return { title, text, truncated: extracted.truncated };
+  return { title, text, truncated: extracted.truncated || trimmedByRules };
 }
