@@ -160,7 +160,7 @@ OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI और Google के इमे�
 
 हर सोर्स एक डिफ़ॉल्ट पता और मॉडल भर देता है। **Default voice** (डिफ़ॉल्ट आवाज़) वह आवाज़ है जो तब इस्तेमाल होती है जब इससे ज़्यादा खास कुछ सेट न हो, जैसे हर कैरेक्टर की अपनी आवाज़। **Request timeout (seconds)** बताता है कि Marinara बोली जाने वाली एक लाइन के लिए कितनी देर इंतज़ार करता है। धीमे वॉइस सर्वर के लिए इसे बढ़ाएँ।
 
-Marinara डिफ़ॉल्ट रूप से कौन-सा स्पीच अकाउंट इस्तेमाल करे, यह चुनने के लिए **Jobs** (काम) बॉक्स में **Voice (Text to Speech)** पंक्ति पर क्लिक करें। किसी अकाउंट से संदेश ज़ोर से पढ़वाने के लिए उसे **Text to Speech** (टेक्स्ट टू स्पीच) कार्ड में **Source** (सोर्स) के रूप में चुनें। [Text to Speech (TTS) सेटअप](../media/tts-setup.md) और [ऑडियो कनेक्शन इस्तेमाल करें](../media/tts-setup.md#use-an-audio-connection) देखें।
+Marinara डिफ़ॉल्ट रूप से कौन-सा स्पीच अकाउंट इस्तेमाल करे, यह चुनने के लिए **Jobs** (काम) बॉक्स में **Voice (Text to Speech)** पंक्ति पर क्लिक करें। किसी अकाउंट से संदेश ज़ोर से पढ़वाने के लिए उसे **Text to Speech** (टेक्स्ट टू स्पीच) कार्ड में **Source** (सोर्स) के रूप में चुनें। [Text to Speech (TTS) सेटअप](../media/tts-setup.md) और [ऑडियो कनेक्शन इस्तेमाल करें](../media/tts-setup.md#use-a-voice-model-from-an-account) देखें।
 
 <a id="music--sound-effects"></a>
 

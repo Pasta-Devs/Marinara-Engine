@@ -41,6 +41,64 @@ Znaczenie otrzymanej liczby zależy od rodzaju: `dice-sum` dodaje ją do rzutu, 
 - `unmodified`: wyniki pojedynczej kości, które zapis oznacza, gdy wypadną na pierwszej kości (1.136), aby dało się stosować tabele traktujące osobno "niezmodyfikowane 66": `[66, 100]`. Zapis zawiera `unmodified="66"`, karta rzutu to podaje, a instrukcje nakazują modelowi Game Master zastosować to, co mówią o tym zasady.
 - `difficultyLadder`: trudności, spośród których ma wybierać Game Master. `dc` to liczba, którą suma musi osiągnąć. Zamiast liczby Game Master może podać nazwę stopnia, np. `difficulty="Hard"`, a Engine odczyta liczbę z tego stopnia.
 
+#### Kość fabularna
+
+Test z sumą może rzucić jeszcze jedną kością, której ścianki mają symbole zamiast liczb (Capability API 1.822). Zestaw społecznościowy niczego nie potrzebuje; zestaw dostarczany jako pakiet deklaruje 1.822.
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`: nazwa kości na karcie rzutu i dla Game Master.
+- `sides`: od 2 do 20.
+- `faces`: ścianki, na których coś jest. Każda ma `symbol` – `"complication"`, `"opportunity"` lub `null` – i opcjonalny `bonus` (od -20 do 20) dodawany do sumy. Ścianka, której nie wymienisz, jest pusta.
+- `text`: opcjonalne. Jedna linia, która mówi Game Master, co symbole znaczą przy stole.
+
+Kością rzuca się tylko wtedy, gdy prosi o to Game Master, dodając do testu `plot="true"`. Jest rzucana po własnych kościach testu i nie należy do `rolls`. Zapis zawiera `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`. Premia wchodzi w `modifier`, więc kości i modyfikator nadal dają razem sumę. Karta rzutu podaje, co wypadło na kości.
+
+Każda wymieniona ścianka musi istnieć na kości i może być wymieniona tylko raz.
+
+#### Naturalna suma i przesunięty przedział
+
+Dwa opcjonalne klucze obsługują systemy z sumą, które odczytują przedziały wyników z więcej niż jednej kości (Capability API 1.823). Zestaw społecznościowy niczego nie potrzebuje; zestaw dostarczany jako pakiet deklaruje 1.823.
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`: suma samych kości, przed dodaniem czegokolwiek, która daje wynik krytyczny. `atLeast` wyznacza krytyczny sukces, a `atMost` krytyczną porażkę; podaj jedno lub oba. Działa przy dowolnej liczbie kości, podczas gdy `naturals` wymaga pojedynczej kości. Wynik krytyczny trafia do przedziału, którego `on` wskazuje ten wynik krytyczny, a w przeciwnym razie do najlepszego lub najgorszego przedziału.
+- `tierShift`: pozwala Game Master przesunąć przedział wyniku jednego testu przez `shift="+1"` lub `shift="-1"`, najwyżej o `max` przedziałów (od 1 do 3) i nigdy poza skrajne przedziały. Wymaga `outcomes`. Gdy przedział się przesunął, zapis zawiera `shift="+1"`, a karta rzutu to podaje. `text` to opcjonalna linia, która mówi Game Master, kiedy tego używać.
+
+Stała premia, np. +2 za pojedynczą przewagę, jest liczbą, którą dodaje modyfikator stanu. `tierShift` służy regułom, które przesuwają cały przedział.
+
+Każda granica `naturalTotal` musi być sumą, którą kości mogą pokazać (2d10 pokazuje od 2 do 20, odczytywane przez `dice.faces`, jeśli zestaw je podaje), a `atMost` musi być niższe niż `atLeast`.
+
+#### Test bez kości
+
+Niektóre systemy w ogóle nie rzucają kośćmi: w grach Amber i Nobilis test to wartość porównywana z trudnością, a wygrywa wyższa z nich (Capability API 1.825). Zestaw społecznościowy niczego nie potrzebuje; zestaw dostarczany jako pakiet deklaruje 1.825.
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0, "sides": 6 },
+"abilityModifier": { "op": "identity" }
+```
+
+Sumą jest sama liczba z arkusza postaci, porównywana z trudnością dokładnie tak jak w teście z sumą: ten sam atrybut, wyszkolenie, `adjust` i kara za rany, te same przedziały wyników, drabiny trudności i nadpisania. Zapis zawiera `dice="0d6" rolls=""` z modyfikatorem i sumą, karta rzutu zamiast kości pokazuje porównanie ("Warfare 4 vs 3"), a instrukcje mówią Game Master, że Engine porównuje wartości zamiast rzucać kośćmi.
+
+Wszystko, co opiera się na kości, jest tu odrzucane, więc test bez kości nie może po cichu zignorować klucza, który jej wymaga: `advantage`, `openEnded`, `unmodified`, `dice.faces`, `duality`, `plotDie`, `naturalTotal` i reguła `naturals`. Nadpisanie nadal może dać wybranym testom własne kości.
+
 ### `dice-pool`: rzucanie kości i liczenie wyników
 
 Liczba z arkusza to **wielkość puli**, a nie premia dodawana do niej. Cecha 3 i umiejętność zawodowa warta 2 dają pięć kości. To cała zasada: bez nowego słownika arkusza, bez nowego edytora; system, którego wartości są garściami kości, zapisuje się tymi samymi `abilities`, `skills` i `proficiencyTiers` co każdy inny.
@@ -79,6 +137,8 @@ Liczba z arkusza to **wielkość puli**, a nie premia dodawana do niej. Cecha 3 
 - `botch`: opcjonalne. Jeśli **żadna** kość nie dała sukcesu, a pojawił się wynik nie większy niż `upTo`, test jest krytyczną porażką. Pula, której jedyny sukces anulowano, ponosi zwykłą, nie krytyczną porażkę. `"rule": "halfOrMore"` odczytuje to inaczej: wyniki nie większe niż `upTo` na co najmniej połowie kości rzuconych na początku (bez eksplozji) oznaczają krytyczną porażkę, gdy żadna kość nie dała sukcesu, a w przeciwnym razie zostawiają wynik bez zmian i oznaczają go `complication="true"`: obok wyniku coś idzie nie tak. Wartość domyślna to `"noSuccesses"`.
 - `exceptional`: opcjonalne. Tyle sukcesów netto lub więcej w udanym teście oznacza krytyczny sukces.
 - `situationalDice`: opcjonalne. Zakres kości dodawanych lub odejmowanych przez Game Master dla jednego testu przez `bonus=`, np. za wyczyny, rany lub słabe światło.
+- `pairs`: opcjonalne (Capability API 1.824). `{ "from": 10, "successes": 4 }` sprawia, że każda para kości z wynikiem co najmniej `from` daje razem `successes` sukcesów, zamiast po jednym z każdej kości, a udany test z parą jest krytycznym sukcesem. Trzy kości z wynikiem 10 to jedna para i jeszcze jedna kość: pięć sukcesów. `from` nie może być niższe niż najwyższy próg, a `pairs` nie może występować obok `double` ani `stances`.
+- `hunger`: opcjonalne (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` pozwala, aby najwyżej `max` kości puli było kośćmi specjalnymi. Game Master prosi o nie w teście przez `hunger="N"`, zwykle odczytując ich liczbę z toru w arkuszu. Są to pierwsze kości w `rolls`, należą do puli (nigdy nie są dodatkowymi kośćmi) i nie dotyczy ich żaden ponowny rzut. Krytyczny sukces, w którym jedna z nich pokazuje ściankę krytyczną (ściankę z `pairs` albo najwyższą ściankę kości), jest oznaczany `messy="true"`, a porażka, w której jedna z nich pokazuje 1, jest oznaczana `bestial="true"`. Zapis zawiera też `hunger="2" hungerLabel="Hunger"`, a karta rzutu podaje to wszystko. `max` nie może być większe niż `pool.max`.
 - `reroll`: opcjonalne. Ponowne rzuty przyznawane przez system bez żadnej opłaty, do sześciu, każdy z `id`, które Game Master podaje w teście przez `reroll=`. Wyniki nie większe niż `upTo` rzuca się ponownie: `"once"` oznacza, że nowy wynik zostaje, jakikolwiek jest, a `"until"`, że rzuca się nimi, aż wypadnie wyższy wynik. `upTo` wynosi od 1 do liczby o jeden mniejszej niż liczba ścianek kości, ponieważ ponowny rzut każdego wyniku nigdy by się nie skończył, a `until` i tak zatrzymuje się po stu ponownych rzutach w jednym teście. Żaden nie jest wykonywany, jeśli test go nie wskazuje. Jeden test wykonuje jeden ponowny rzut: jeśli wydatek lub wpis użyty przez postać także go kupił, wykonuje się ten, który obejmuje więcej wyników, a przy równym zasięgu `until` ma pierwszeństwo przed `once`.
 - `difficultyLadder`: `successes` określa liczbę wymaganych sukcesów. Stopień może też wskazywać `target`, ale tylko gdy próg jest regulowany i w jego zakresie. Z tego progu korzysta test na danym stopniu: gdy Game Master wskazuje stopień przez `difficulty=` albo zapisuje `dc=` wymagane przez dokładnie jeden stopień. Gdy kilka stopni wymaga tej samej liczby sukcesów, samo `dc=` nie określa, o który chodzi, więc próg pozostaje domyślny; podaj nazwę stopnia.
 

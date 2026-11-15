@@ -29,7 +29,7 @@ Marinara guarda um perfil salvo separado para cada Source: a chave, o endereço,
 
 As requisições passam pelo próprio servidor do Marinara. A sua chave de API é guardada criptografada no servidor. Depois que você a salva, o campo mostra pontinhos mascarados, e a chave real nunca volta para o seu navegador.
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### Usar uma conexão de áudio
 

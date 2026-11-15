@@ -29,7 +29,7 @@ Marinara는 Source마다 키, 주소, 모델, 목소리, 파라미터를 담은 
 
 요청은 Marinara 자체 서버를 거칩니다. API 키는 서버에 암호화되어 저장됩니다. 키를 저장하고 나면 입력란에는 가림 표시된 점이 나타나고, 실제 키는 브라우저로 다시 돌아오지 않습니다.
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### 오디오 연결 사용하기
 

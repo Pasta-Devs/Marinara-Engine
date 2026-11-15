@@ -29,7 +29,7 @@ Marinara 会为每个 Source 单独保存一套配置：密钥、地址、模型
 
 请求经由 Marinara 自己的服务器发出。你的 API 密钥加密保存在服务器上。保存之后，输入框只显示一串圆点，真正的密钥不会回传到你的浏览器。
 
-<a id="use-an-audio-connection"></a>
+<a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
 ### 使用音频连接
 

@@ -161,7 +161,7 @@ W sekcji **Voice** usługa audio odpowiada za głosy postaci i narrację. Wybier
 
 Każde źródło wpisuje domyślny adres i model. **Default voice** (domyślny głos) to głos używany wtedy, gdy nie ustawiono nic bardziej szczegółowego, na przykład głosu dla konkretnej postaci. **Request timeout (seconds)** (limit czasu żądania w sekundach) to czas, przez jaki Marinara czeka na jedną wypowiadaną kwestię. Przy wolnym serwerze głosu zwiększ tę wartość.
 
-Żeby wybrać konto mowy, którego Marinara używa domyślnie, kliknij wiersz **Voice (Text to Speech)** (głos, synteza mowy) w sekcji **Jobs** (zadania). Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech** (synteza mowy). Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md) i [Korzystanie z połączenia Audio](../media/tts-setup.md#use-an-audio-connection).
+Żeby wybrać konto mowy, którego Marinara używa domyślnie, kliknij wiersz **Voice (Text to Speech)** (głos, synteza mowy) w sekcji **Jobs** (zadania). Żeby czytać nim wiadomości na głos, wybierz je jako **Source** (źródło) w sekcji **Text to Speech** (synteza mowy). Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md) i [Korzystanie z połączenia Audio](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 

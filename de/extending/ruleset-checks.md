@@ -41,6 +41,64 @@ Was die berechnete Zahl bedeutet, bestimmt die Auflösungsart: `dice-sum` addier
 - `unmodified`: Augenzahlen eines einzelnen Würfels, die der Datensatz markiert, wenn der erste Würfel sie zeigt (1.136). So lassen sich Tabellen anwenden, die „eine unmodifizierte 66“ gesondert behandeln: `[66, 100]`. Der Datensatz sagt `unmodified="66"`, die Karte zeigt es, und der Game Master wird angewiesen anzuwenden, was die Regeln dazu sagen.
 - `difficultyLadder`: Die Schwierigkeitswerte, aus denen der Game Master wählen soll. `dc` ist die Zahl, die die Summe erreichen muss. Statt die Zahl zu schreiben, darf der Game Master auch eine Stufe nennen, etwa `difficulty="Hard"`; die Engine liest die Zahl dann an der Stufe ab.
 
+#### Ein Handlungswürfel
+
+Eine Summenprobe kann einen weiteren Würfel werfen, dessen Seiten statt Zahlen Symbole tragen (Capability API 1.822). Ein Community-Regelsatz braucht dafür nichts; ein als Paket ausgelieferter Regelsatz deklariert 1.822.
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`: Wie der Würfel auf der Karte und gegenüber dem Game Master heißt.
+- `sides`: 2 bis 20.
+- `faces`: Die Seiten, die etwas tragen. Jede hat ein `symbol` – `"complication"`, `"opportunity"` oder `null` – und optional einen `bonus` (-20 bis 20), der zur Summe addiert wird. Eine Seite, die du nicht aufführst, ist leer.
+- `text`: Optional. Eine Zeile, die dem Game Master sagt, was die Symbole am Spieltisch bedeuten.
+
+Der Würfel wird nur geworfen, wenn der Game Master es verlangt, indem er der Probe `plot="true"` hinzufügt. Er wird nach den eigenen Würfeln der Probe geworfen und gehört nicht zu `rolls`. Der Datensatz sagt `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`. Der Bonus steckt in `modifier`, sodass Würfel und Modifikator zusammen weiterhin die Summe ergeben. Die Würfelkarte nennt, was der Würfel zeigte.
+
+Jede aufgeführte Seite muss auf dem Würfel vorkommen und darf nur einmal aufgeführt sein.
+
+#### Eine natürliche Summe und ein verschobener Ergebnisbereich
+
+Zwei optionale Schlüssel decken Summensysteme ab, die ihre Ergebnisbereiche an mehr als einem Würfel ablesen (Capability API 1.823). Ein Community-Regelsatz braucht dafür nichts; ein als Paket ausgelieferter Regelsatz deklariert 1.823.
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`: Welche Summe der Würfel selbst, vor jedem Zuschlag, als kritisch gilt. `atLeast` ist ein kritischer Erfolg und `atMost` ein kritischer Fehlschlag; gib eines oder beide an. Das funktioniert mit beliebig vielen Würfeln, während `naturals` einen einzelnen Würfel voraussetzt. Ein kritisches Ergebnis landet in dem Bereich, dessen `on` es nennt, sonst im besten beziehungsweise schlechtesten Bereich.
+- `tierShift`: Lässt den Game Master den Ergebnisbereich einer Probe mit `shift="+1"` oder `shift="-1"` verschieben, um bis zu `max` Bereiche (1 bis 3) und nie über die Enden hinaus. Es braucht `outcomes`. Der Datensatz sagt `shift="+1"`, wenn sich der Bereich verschoben hat, und die Würfelkarte zeigt das an. `text` ist eine optionale Zeile, die dem Game Master sagt, wann er es einsetzen soll.
+
+Ein fester Bonus wie die +2 eines einzelnen Edges ist eine Zahl, die der Modifikator eines Zustands addiert. `tierShift` ist für Regeln gedacht, die einen ganzen Bereich verschieben.
+
+Jede Grenze in `naturalTotal` muss eine Summe sein, die die Würfel zeigen können (2d10 zeigt 2 bis 20, über `dice.faces` gelesen, wo der Regelsatz sie angibt), und `atMost` muss unter `atLeast` liegen.
+
+#### Eine Probe ohne Würfel
+
+Manche Systeme würfeln überhaupt nicht: In Amber und Nobilis ist eine Probe ein Wert, der mit einer Schwierigkeit verglichen wird, und der höhere gewinnt (Capability API 1.825). Ein Community-Regelsatz braucht dafür nichts; ein als Paket ausgelieferter Regelsatz deklariert 1.825.
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0, "sides": 6 },
+"abilityModifier": { "op": "identity" }
+```
+
+Die Summe ist die Zahl auf dem Charakterbogen selbst und wird genau wie bei einer Summenprobe mit der Schwierigkeit verglichen: mit demselben Attribut, derselben Ausbildung, demselben `adjust` und demselben Wundabzug, denselben Ergebnisbereichen, Schwierigkeitsskalen und Überschreibungen. Der Datensatz sagt `dice="0d6" rolls=""` mit dem Modifikator und der Summe, die Würfelkarte zeigt statt eines Würfels den Vergleich („Warfare 4 vs 3“), und der Game Master erfährt, dass die Engine vergleicht, statt zu würfeln.
+
+Alles, was einen Würfel liest, wird hier abgelehnt, damit eine Probe ohne Würfel einen Schlüssel, der einen Würfel braucht, nicht stillschweigend übergehen kann: `advantage`, `openEnded`, `unmodified`, `dice.faces`, `duality`, `plotDie`, `naturalTotal` und eine `naturals`-Regel. Eine Überschreibung kann bestimmten Proben trotzdem eigene Würfel geben.
+
 ### `dice-pool`: Würfel werfen und zählen
 
 Die Zahl auf dem Bogen ist die **Größe des Pools**, kein zusätzlicher Bonus. Ein Grundwert von 3 und eine Tätigkeit mit Wert 2 ergeben fünf Würfel. Mehr steckt nicht dahinter: Es braucht weder neue Bogenbegriffe noch einen neuen Editor. Ein System, dessen Werte eine Handvoll Würfel bedeuten, wird mit denselben `abilities`, `skills` und `proficiencyTiers` geschrieben wie jedes andere.
@@ -79,6 +137,8 @@ Die Zahl auf dem Bogen ist die **Größe des Pools**, kein zusätzlicher Bonus. 
 - `botch`: Optional. Wenn **kein** Würfel erfolgreich war und eine Augenzahl bis einschließlich `upTo` vorkam, ist die Probe ein Patzer. Ein Pool, dessen einziger Erfolg nachträglich gestrichen wurde, ist gescheitert, aber kein Patzer. `"rule": "halfOrMore"` liest den Patzer anders: Zeigt mindestens die Hälfte der zuerst geworfenen Würfel (Explosionen nicht mitgezählt) eine Augenzahl bis einschließlich `upTo`, ist das ein Patzer, wenn kein Würfel erfolgreich war. Andernfalls bleibt das Ergebnis bestehen und wird mit `complication="true"` markiert: Neben dem Ergebnis geht etwas schief. `"noSuccesses"` ist der Standard.
 - `exceptional`: Optional. Eine erfolgreiche Probe mit mindestens so vielen verbleibenden Erfolgen ist ein kritischer Erfolg.
 - `situationalDice`: Optional. Wie viele Würfel der Game Master bei einer Probe mit `bonus=` hinzufügen oder abziehen darf, etwa für Kunststücke, Wunden oder schlechtes Licht.
+- `pairs`: Optional (Capability API 1.824). `{ "from": 10, "successes": 4 }` lässt jedes Paar von Würfeln mit `from` oder mehr zusammen `successes` Erfolge zählen, wo die beiden sonst je einen gezählt hätten, und eine Probe, die mit einem Paar gelingt, ist ein kritischer Erfolg. Drei 10en ergeben ein Paar und eine einzelne: fünf Erfolge. `from` ist mindestens so hoch wie der höchste Zielwert, und `pairs` kann nicht neben `double` oder `stances` stehen.
+- `hunger`: Optional (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` lässt bis zu `max` Würfel des Pools Sonderwürfel sein. Der Game Master verlangt sie bei einer Probe mit `hunger="N"` und liest die Zahl meist von einer Leiste auf dem Bogen ab. Sie sind die ersten Würfel in `rolls`, sie gehören zum Pool (sind also nie zusätzliche Würfel), und kein erneuter Wurf erfasst sie. Ein kritischer Erfolg, bei dem einer von ihnen die kritische Augenzahl zeigt (die von `pairs` oder die höchste des Würfels), wird mit `messy="true"` markiert, ein Fehlschlag, bei dem einer von ihnen eine 1 zeigt, mit `bestial="true"`. Der Datensatz sagt außerdem `hunger="2" hungerLabel="Hunger"`, und die Würfelkarte zeigt all das. `max` darf nicht größer sein als `pool.max`.
 - `reroll`: Optional. Wiederholungswürfe, die das System gewährt, ohne dass jemand dafür bezahlt – bis zu sechs, jeweils mit einer `id`, die der Game Master bei einer Probe mit `reroll=` nennt. Augenzahlen bis einschließlich `upTo` werden erneut geworfen: mit `"once"` einmal, und die neue Augenzahl bleibt, wie sie fällt, mit `"until"` so lange, bis sie höher ausfällt. `upTo` reicht von 1 bis eins unter der Seitenzahl des Würfels, weil ein erneuter Wurf jeder Augenzahl nie enden würde; ein `until` endet ohnehin nach hundert erneuten Würfen bei einer Probe. Geworfen wird nur ein Wiederholungswurf, den die Probe nennt. Eine Probe wirft genau einen Wiederholungswurf: Hat auch ein Einsatz oder ein vom Charakter genutzter Eintrag einen gekauft, wird derjenige geworfen, der mehr Augenzahlen erfasst; bei gleicher Reichweite geht `until` vor `once`.
 - `difficultyLadder`: `successes` gibt die nötigen Erfolge an. Eine Stufe darf auch ein `target` nennen, aber nur, wenn der Zielwert veränderlich ist, und nur innerhalb seines Bereichs. Mit diesem Zielwert zählt eine Probe auf dieser Stufe: wenn der Game Master die Stufe mit `difficulty=` nennt oder ein `dc=` schreibt, das genau eine Stufe verlangt. Verlangen mehrere Stufen dieselbe Zahl an Erfolgen, kann `dc=` allein nicht sagen, welche gemeint war, und der Zielwert bleibt beim Standard. Nenne dann die Stufe.
 

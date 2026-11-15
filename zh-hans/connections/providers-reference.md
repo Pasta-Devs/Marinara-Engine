@@ -162,7 +162,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 每个来源都会填好默认的地址和模型。**Default voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长。语音服务器较慢时调高它。
 
-要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框里的 **Voice (Text to Speech)**(语音合成) 行。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见 [Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用音频连接](../media/tts-setup.md#use-an-audio-connection)。
+要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框里的 **Voice (Text to Speech)**(语音合成) 行。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见 [Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用音频连接](../media/tts-setup.md#use-a-voice-model-from-an-account)。
 
 <a id="music--sound-effects"></a>
 

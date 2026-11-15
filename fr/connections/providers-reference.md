@@ -160,7 +160,7 @@ Sous **Voice**, un service audio fait parler les voix des personnages et la narr
 
 Chaque source remplit une adresse et un modèle par défaut. Le réglage **Default voice** (voix par défaut) désigne la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. Le réglage **Request timeout (seconds)** (délai d'attente de la requête, en secondes) fixe le temps pendant lequel Marinara attend une réplique parlée. Augmente-le pour un serveur vocal lent.
 
-Pour choisir le compte de synthèse vocale que Marinara utilise par défaut, clique sur la ligne **Voice (Text to Speech)** (voix, synthèse vocale) dans l'encadré **Jobs** (tâches). Pour lire les messages à voix haute avec l'un d'eux, choisis-le comme **Source** dans la carte **Text to Speech** (synthèse vocale). Consulte [Configuration du Text to Speech (TTS)](../media/tts-setup.md) et [Utiliser une connexion Audio](../media/tts-setup.md#use-an-audio-connection).
+Pour choisir le compte de synthèse vocale que Marinara utilise par défaut, clique sur la ligne **Voice (Text to Speech)** (voix, synthèse vocale) dans l'encadré **Jobs** (tâches). Pour lire les messages à voix haute avec l'un d'eux, choisis-le comme **Source** dans la carte **Text to Speech** (synthèse vocale). Consulte [Configuration du Text to Speech (TTS)](../media/tts-setup.md) et [Utiliser une connexion Audio](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 

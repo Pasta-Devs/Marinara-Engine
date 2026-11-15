@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "529c19951c12d5b45fc78fdc212f3aa6b9f9e4f9d6873dbd6a103abcc6801621",
-      "bytes": 18664
+      "sha256": "09dbe4e3ebad3f581906948f8d022ce17ee130befd2eb2495dfe13ea24b632cb",
+      "bytes": 18674
     },
     {
       "path": "connections/subscription-clis.md",
@@ -434,8 +434,8 @@
     },
     {
       "path": "extending/ruleset-checks.md",
-      "sha256": "1b59c2bf6f31b1a5ba4eb8f4670d3cfee01c69e3e48bf39ed6ee17d8c25c80f8",
-      "bytes": 37101
+      "sha256": "4c42ff902faefbd9defefe0c49f4b835efad1a1c8fb7bc06530473e37e28a61a",
+      "bytes": 42282
     },
     {
       "path": "extending/ruleset-combat.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "dced82a8d683220fd2cc4c96662a27db223a33852a4bc1ba75a8e06452888008",
-      "bytes": 23765
+      "sha256": "035307d35ab66bb4f28dd76f8f3d39fbd4baca7aa3e8dc6951aca83eddd4a607",
+      "bytes": 23811
     },
     {
       "path": "prompts/conditional-prompts.md",

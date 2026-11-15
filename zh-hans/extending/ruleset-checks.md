@@ -41,6 +41,64 @@
 - `unmodified`：单颗骰子的若干点数，第一颗骰子显示这些点数时，记录会加以标记（1.136），这样就能应用那些单独处理“未修正的 66”的表：`[66, 100]`。记录写明 `unmodified="66"`，骰子卡也会显示，Game Master 会被告知按规则对它的规定处理。
 - `difficultyLadder`：向 Game Master 提供的难度候选。`dc` 是总和必须达到的数字。Game Master 也可以不写数字，而是直接点名某一档，如 `difficulty="Hard"`，Engine 会从该档读出数字。
 
+#### 情节骰
+
+求和检定可以再掷一颗骰子，它的骰面带的是符号而不是数字（Capability API 1.822）。社区规则集无须声明；打包规则集声明 1.822。
+
+```json
+"plotDie": {
+  "label": "Plot die",
+  "sides": 6,
+  "faces": [
+    { "face": 1, "symbol": "complication", "bonus": 2 },
+    { "face": 2, "symbol": "complication", "bonus": 4 },
+    { "face": 5, "symbol": "opportunity" },
+    { "face": 6, "symbol": "opportunity" }
+  ],
+  "text": "A complication goes wrong alongside the result; an opportunity offers something more."
+}
+```
+
+- `label`：这颗骰子在骰子卡上和对 Game Master 的称呼。
+- `sides`：2 到 20。
+- `faces`：带有内容的骰面。每个骰面有一个 `symbol`，取 `"complication"`、`"opportunity"` 或 `null`，以及一个可选的 `bonus`(-20 到 20)，加到总和上。未列出的骰面是空白面。
+- `text`：可选。一行文字，告诉 Game Master 这些符号在牌桌上意味着什么。
+
+只有 Game Master 在检定中加上 `plot="true"` 提出要求时，才会掷这颗骰子。它在检定自身的骰子之后掷出，不属于 `rolls`。记录写明 `plotFace="2" plotSymbol="complication" plotBonus="4" plotLabel="Plot die"`。加值包含在 `modifier` 之内，因此骰子与调整值相加仍等于总和。骰子卡会显示这颗骰子掷出了什么。
+
+列出的每个骰面都必须是这颗骰子上有的面，且只能列出一次。
+
+#### 自然总和与移动结果档
+
+有两个可选键，适用于从多颗骰子读取结果档的求和系统（Capability API 1.823）。社区规则集无须声明；打包规则集声明 1.823。
+
+```json
+"dice": { "count": 2, "sides": 10 },
+"naturalTotal": { "atLeast": 19 },
+"tierShift": { "max": 1, "text": "A double edge is +1, a double bane -1." }
+```
+
+- `naturalTotal`：算作大成功或大失败的骰子自身总和（加上任何数值之前）。`atLeast` 是大成功，`atMost` 是大失败；可以只给一个，也可以两个都给。它适用于任意数量的骰子，而 `naturals` 需要单颗骰子。大成功或大失败落入以 `on` 指定给它的那一档，否则落入最好或最差的一档。
+- `tierShift`：让 Game Master 用 `shift="+1"` 或 `shift="-1"` 移动单次检定的结果档，最多移动 `max` 档（1 到 3），且不会越过两端。它需要 `outcomes`。结果档移动过时，记录会写明 `shift="+1"`，骰子卡也会显示。`text` 是可选的一行文字，告诉 Game Master 何时使用它。
+
+像单个 edge 带来的 +2 这样的固定加值只是一个数字，由状态的调整值加上。`tierShift` 用于让结果整档移动的规则。
+
+`naturalTotal` 的每个界限都必须是骰子能够掷出的总和（2d10 掷出 2 到 20；规则集给出 `dice.faces` 时，按其换算），且 `atMost` 必须低于 `atLeast`。
+
+#### 不掷骰的检定
+
+有些系统完全不掷骰：在 Amber 和 Nobilis 中，检定就是拿评级与难度比较，较高的一方获胜（Capability API 1.825）。社区规则集无须声明；打包规则集声明 1.825。
+
+```json
+"kind": "dice-sum",
+"dice": { "count": 0, "sides": 6 },
+"abilityModifier": { "op": "identity" }
+```
+
+总和就是人物卡自身的数字，与难度比较的方式和求和检定完全相同：同样的属性、熟练、`adjust` 和伤势惩罚，同样的结果档、难度梯度和覆盖。记录写明 `dice="0d6" rolls=""`，以及调整值和总和；骰子卡显示的是比较结果（“Warfare 4 vs 3”）而不是骰子；Game Master 也会被告知 Engine 是在比较而不是掷骰。
+
+凡是读取骰子的设置在这里都会被拒绝，这样不掷骰的检定就不会悄悄忽略某个需要骰子的键：`advantage`、`openEnded`、`unmodified`、`dice.faces`、`duality`、`plotDie`、`naturalTotal`，以及 `naturals` 规则。覆盖仍然可以给特定检定指定它们自己的骰子。
+
 ### `dice-pool`：掷骰并计数
 
 人物卡数字代表**骰池大小**，而不是额外加值。评级 3 加专业技能 2 就掷五颗骰子。原理仅此而已：无需新人物卡词汇或编辑器，评级代表一把骰子的系统同样使用 `abilities`、`skills` 和 `proficiencyTiers` 编写。
@@ -79,6 +137,8 @@
 - `botch`：可选，**没有任何**骰子成功，且出现不高于 `upTo` 的点数时为大失败。唯一一次成功被抵消的骰池是普通失败，不是大失败。`"rule": "halfOrMore"` 换一种读法：首次掷出的骰子（不计爆骰）中至少一半点数不高于 `upTo` 时，若没有骰子成功就是大失败；否则结果照常成立，并标记 `complication="true"`，表示同时出了岔子。默认值是 `"noSuccesses"`。
 - `exceptional`：可选，成功的检定净成功数达到此值或更多时为大成功。
 - `situationalDice`：可选，Game Master 为特技、伤势或昏暗照明等情境，用 `bonus=` 对单次检定增减骰子的范围。
+- `pairs`：可选（Capability API 1.824）。`{ "from": 10, "successes": 4 }` 让每一对点数达到或超过 `from` 的骰子合计算作 `successes` 次成功，而不是各算一次；检定成功且掷出一对时，就是大成功。三个 10 是一对再加一个：五次成功。`from` 必须达到或高于最高目标，且 `pairs` 不能与 `double` 或 `stances` 并用。
+- `hunger`：可选（Capability API 1.824）。`{ "label": "Hunger", "max": 5, "text": "..." }` 让骰池中最多 `max` 颗骰子成为特殊骰。Game Master 在检定中用 `hunger="N"` 要求使用它们，数量通常读自人物卡上的某条轨道。它们是 `rolls` 中最前面的几颗骰子，属于骰池本身（绝不是额外的骰子），任何重掷都不会碰它们。大成功时若其中一颗显示大成功面（`pairs` 的点数，或骰子的最高面），会标记 `messy="true"`；失败时若其中一颗显示 1，会标记 `bestial="true"`。记录还会写明 `hunger="2" hungerLabel="Hunger"`，骰子卡会显示所有这些内容。`max` 不能超过 `pool.max`。
 - `reroll`：可选，系统免费给予的重掷，最多六项，每项有一个 `id`，Game Master 在检定中用 `reroll=` 点名。点数不高于 `upTo` 的骰子会再掷一次：`"once"` 表示新点数无论是多少都保留，`"until"` 则一直重掷到点数更高为止。`upTo` 取 1 到骰子面数减一，因为重掷所有点数永远不会停下；`until` 在单次检定重掷一百次后也会停止。检定不点名就不会重掷。一次检定只进行一次重掷：如果角色的消耗或使用的条目也买了一次，就采用覆盖点数更多的那一次，覆盖相同时 `until` 优先于 `once`。
 - `difficultyLadder`：`successes` 是要求的成功次数。某一档也可指定 `target`，但仅当目标可调且在范围之内时有效。该档的检定就按这个目标计数：Game Master 用 `difficulty=` 点名该档时，或者写下恰好只有一档需要的 `dc=` 时。如果几档需要相同的成功次数，单靠 `dc=` 无法说明指的是哪一档，目标就保持默认；请点名该档。
 
