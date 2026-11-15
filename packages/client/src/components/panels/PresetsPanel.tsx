@@ -63,7 +63,13 @@ import { cn } from "../../lib/utils";
 import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
-import { getFolderImportEntries, isPatternSafe, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
+import {
+  getFolderImportEntries,
+  isBuiltInRegexScript,
+  isPatternSafe,
+  isStockMarinaraUniversalPreset,
+} from "@marinara-engine/shared";
+import { BuiltInPresetBadge } from "./BuiltInPresetBadge";
 import {
   createCustomToolFolderPackageFiles,
   importCustomToolEntries,
@@ -374,6 +380,11 @@ export function PresetsPanel() {
   const rootPresets = useMemo(
     () => sortedPresets.filter((preset) => !folderedPresetIds.has(preset.id)),
     [sortedPresets, folderedPresetIds],
+  );
+  const builtInPresets = rootPresets.filter(isStockMarinaraUniversalPreset);
+  const otherRootPresets = rootPresets.filter((preset) => !isStockMarinaraUniversalPreset(preset));
+  const hasVisiblePresetFolder = presetFolders.some(
+    (folder) => !presetSearchActive || folder.itemIds.some((id) => presetById.has(id)),
   );
 
   // Presets shows GLOBAL regex scripts only. Character-scoped scripts (non-empty
@@ -923,6 +934,11 @@ export function PresetsPanel() {
       const wrapFormat = (preset.wrapFormat ?? "xml") as string;
       const isDefault = String(preset.isDefault) === "true";
       const isStock = isStockMarinaraUniversalPreset(preset);
+      const defaultBadge = isDefault && (
+        <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
+          {localizeUi("ui.panels.presetspanel.default")}
+        </span>
+      );
       const artwork = resolvePresetArtwork(preset);
       const pictureLabel = artwork
         ? localizeUi("ui.panels.presetspanel.replacePresetPicture")
@@ -1040,19 +1056,31 @@ export function PresetsPanel() {
             )}
             <div
               data-preset-open-action={preset.id}
-              className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-36 [@media(pointer:coarse)]:pr-36")}
+              className={cn(
+                "min-w-0 flex-1",
+                !selectionMode &&
+                  (isStock && !activeChat
+                    ? "max-md:pr-24 [@media(pointer:coarse)]:pr-24"
+                    : "max-md:pr-36 [@media(pointer:coarse)]:pr-36"),
+              )}
             >
               <div className="flex min-w-0 items-center gap-1.5">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5" title={preset.name}>
+                <span
+                  className={cn("min-w-0 flex-1 text-sm font-medium leading-5", isStock ? "break-words" : "truncate")}
+                  title={preset.name}
+                >
                   {preset.name}
                 </span>
-                {isDefault && (
-                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
-                    {localizeUi("ui.panels.presetspanel.default")}
-                  </span>
-                )}
+                {!isStock && defaultBadge}
               </div>
-              <div className="flex min-w-0 items-center gap-2 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+              <div
+                className={cn(
+                  "flex min-w-0 items-center gap-x-2 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]",
+                  isStock && "flex-wrap gap-y-0.5",
+                )}
+              >
+                {isStock && <BuiltInPresetBadge />}
+                {isStock && defaultBadge}
                 <span className="flex shrink-0 items-center gap-0.5">
                   {wrapFormat === "xml" ? <Code2 size="0.5625rem" /> : <Hash size="0.5625rem" />}
                   {wrapFormat.toUpperCase()}
@@ -1168,6 +1196,7 @@ export function PresetsPanel() {
       );
     },
     [
+      activeChat,
       activePresetId,
       canAssignToActiveChat,
       deletePreset,
@@ -1254,6 +1283,14 @@ export function PresetsPanel() {
             />
             {localizeUi("ui.panels.presetspanel.selectAllPresets")}
           </label>
+        )}
+        {builtInPresets.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {builtInPresets.map(renderPresetRow)}
+            {(otherRootPresets.length > 0 || hasVisiblePresetFolder) && (
+              <hr className="mx-2 my-1 border-[var(--border)]" />
+            )}
+          </div>
         )}
         <div className="flex flex-col gap-0.5">
           {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
@@ -1455,7 +1492,7 @@ export function PresetsPanel() {
         )}
 
         <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-          {rootPresets.map((preset) => renderPresetRow(preset))}
+          {otherRootPresets.map(renderPresetRow)}
         </div>
 
         {activeChat && !selectionMode && (
@@ -1826,8 +1863,9 @@ function RegexSection({
           disabled={busy}
           onClick={() => (selectionMode ? toggleSelection(script.id) : openRegexDetail(script.id))}
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="min-w-0 break-words text-xs font-medium">{script.name}</span>
+            {isBuiltInRegexScript(script.id) && <BuiltInPresetBadge />}
             {paused && enabled && (
               <span
                 title={localizeUi("regex.library.pausedByFolder")}
