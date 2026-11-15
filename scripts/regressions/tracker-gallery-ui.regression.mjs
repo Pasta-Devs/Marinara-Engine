@@ -22,6 +22,7 @@ const trackerHeader = readSource("packages/client/src/features/tracker-panel/com
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
 const chatSettingsDrawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
+const chatAgents = readSource("packages/client/src/features/chat-settings/agents/use-chat-agents.ts");
 const roleplayAgentMenuIcon = readSource("packages/client/src/features/chat-settings/roleplay-agent-menu-icon.tsx");
 const groupChatSection = readSource("packages/client/src/features/chat-settings/sections/GroupChatSection.tsx");
 const connectedChatsSections = readSource(
@@ -187,12 +188,12 @@ assert.match(
   "paired agent setting toggles must stretch to the same height",
 );
 assert.match(
-  chatSettingsDrawer,
+  chatAgents,
   /function getActiveAgentMenuDescription/u,
   "active agent menus must strip package installation instructions from their descriptions",
 );
-assert.match(chatSettingsDrawer, /"Add the Agent in Chat Settings"/u);
-assert.match(chatSettingsDrawer, /"Enable it per chat from Chat Settings"/u);
+assert.match(chatAgents, /"Add the Agent in Chat Settings"/u);
+assert.match(chatAgents, /"Enable it per chat from Chat Settings"/u);
 const lorebookKeeperSettings = readSource(
   "packages/client/src/features/chat-settings/agents/LorebookKeeperSettings.tsx",
 );
