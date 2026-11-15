@@ -77,6 +77,7 @@ const ConsoleLineView = memo(function ConsoleLineView({ line }: { line: ConsoleL
         <span className="font-semibold">{line.label.padEnd(5)}</span>{" "}
         {line.tag && <span className="font-semibold">{line.tag}</span>}
         {line.message}
+        {line.payload !== null && <span className="text-[var(--foreground)]">{line.payload}</span>}
       </div>
       {line.fields.map((field, index) => (
         <div key={`${field.key}-${index}`} className={cn("pl-6", valueClass)}>
@@ -197,7 +198,8 @@ export function ServerConsoleWindow() {
       titleIcon={<Terminal size="0.8125rem" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={t("serverConsole.close")}
       presentation={phoneLayout ? "sheet" : "window"}
-      sheetClassName={cn(PHONE_SHEET_CLASS, PHONE_FULL_SHEET_CLASS)}
+      layer="top"
+      sheetClassName={cn(PHONE_SHEET_CLASS, PHONE_FULL_SHEET_CLASS, "z-[100001]")}
       getDefaultLayout={getServerConsoleDefaultLayout}
       minWidth={320}
       minHeight={240}

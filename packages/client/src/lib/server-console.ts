@@ -67,6 +67,8 @@ export interface ConsoleLine {
   /** A leading `[tag]` of the message, shown stronger. */
   tag: string | null;
   message: string;
+  /** Text sent to or received from a model (a prompt message, a debug dump), shown apart from the level colour. */
+  payload: string | null;
   fields: ConsoleFieldText[];
   /** The same line as plain text, for copy and download. */
   text: string;
@@ -128,12 +130,34 @@ function collectFields(fields: Record<string, unknown> | undefined): ConsoleFiel
 }
 
 const TAG_PATTERN = /^(\[[^\]\r\n]+\])([\s\S]*)$/u;
+/** One prompt message, as generate.routes.ts logs it: `  [SYSTEM] <content>`. */
+const ROLE_PATTERN = /^\s*(\[(?:SYSTEM|USER|ASSISTANT|TOOL|DEVELOPER|FUNCTION)\])([\s\S]*)$/u;
+/** A debug dump: `[debug/<area>] <what>:` on its first line, the dumped text on the lines after it. */
+const DEBUG_DUMP_PATTERN = /^(\[debug[^\]\r\n]*\])([^\r\n]*:)[ \t]*\r?\n([\s\S]+)$/u;
+/** The prompt summary's next lines are its parameters (Model, Temp, …), so they keep the level colour. */
+const PROMPT_SUMMARY_PATTERN = /Prompt sent to model/u;
+
+/** Splits a message into its `[tag]`, the rest of its text, and the model text it carries (`payload`). */
+function splitMessage(msg: string): { tag: string | null; message: string; payload: string | null } {
+  const role = ROLE_PATTERN.exec(msg);
+  if (role) return { tag: role[1]!, message: "", payload: role[2]! };
+  // A leading line break keeps a dump readable in the terminal; here it would leave the label alone on its line.
+  const trimmed = msg.replace(/^(?:\r?\n)+/u, "");
+  const dump = DEBUG_DUMP_PATTERN.exec(trimmed);
+  if (dump && !PROMPT_SUMMARY_PATTERN.test(dump[2]!)) {
+    return { tag: dump[1]!, message: `${dump[2]!}\n`, payload: dump[3]! };
+  }
+  const tagged = TAG_PATTERN.exec(trimmed);
+  return tagged
+    ? { tag: tagged[1]!, message: tagged[2]!, payload: null }
+    : { tag: null, message: trimmed, payload: null };
+}
 
 /** One server line as a console row; `epoch` counts server restarts, so keys never repeat. */
 export function toConsoleLine(entry: ServerLogEntry, epoch: number): ConsoleLine {
   const timeText = formatTime(entry.time);
   const label = getLevelLabel(entry.level);
-  const tagMatch = TAG_PATTERN.exec(entry.msg);
+  const parts = splitMessage(entry.msg);
   const fields = collectFields(entry.fields);
   const lines = [`[${timeText}] ${label.padEnd(5)} ${entry.msg}`];
   for (const field of fields) {
@@ -152,8 +176,7 @@ export function toConsoleLine(entry: ServerLogEntry, epoch: number): ConsoleLine
     filter: getLevelFilter(entry.level),
     timeText,
     label,
-    tag: tagMatch ? tagMatch[1]! : null,
-    message: tagMatch ? tagMatch[2]! : entry.msg,
+    ...parts,
     fields,
     text,
     searchText: text.toLowerCase(),
