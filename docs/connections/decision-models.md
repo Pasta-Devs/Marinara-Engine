@@ -16,7 +16,7 @@ Before you start, see [Which one to pick](#which-one-to-pick).
    - **None (decisions off)** is the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
    - **Built-in model** lists the models Marinara runs on your computer: **Built-in model**, **Built-in model (utility)**, and **Built-in model (decisions)**. Nothing leaves your computer.
    - **Connections** lists your accounts that can answer decisions: hosted, or a chat model on a server you already run.
-4. To test it, click the **Decision settings** gear on the row and click **Test**. That button shows for the Built-in model entries. For a TypeSafe or OpenRouter account, open **Edit model** on its model and click **Test provider**. For an **Own decision server** account, use **Test** in the account's **⋯** menu.
+4. To test it, click the **Decision settings** gear on the row and click **Test**. That button shows for the Built-in model entries. For a TypeSafe, OpenRouter, or NanoGPT decision model, open **Edit model** on it and click **Test provider**. For an **Own decision server** account, use **Test** in the account's **⋯** menu.
 
 A passing test shows the probability of yes and how long the answer took. For a model on your computer it also says whether log-probabilities were available and whether the model answers directly. Log-probabilities are the model's confidence numbers for each word it could write. The test sends a fixed sample, not your chat.
 
@@ -28,7 +28,7 @@ Entries that cannot answer right now stay in the list, gray, with the reason. Ch
 
 - **A model you already run in the Built-in model.** Costs nothing extra. Best for most people who use the Built-in model.
 - **A chat model on your own server** (Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server). Costs nothing extra. Good when your model runs outside Marinara, so it is not loaded twice.
-- **A hosted Decision account** (TypeSafe or OpenRouter key). Billed per request, and one turn can make several. Good for phones and computers that run no local model.
+- **A hosted decision model** (TypeSafe, OpenRouter, or NanoGPT). Billed per request, and one turn can make several. A NanoGPT subscription includes some decision models. Good for phones and computers that run no local model.
 - **The Built-in decision model.** Uses separate disk and GPU memory. Needs Linux x86-64 and a supported NVIDIA GPU. For a separate decision model beside your chat model.
 
 If you already run a local model, try it first, and test turns from your own chats. Wording matters a lot. See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
@@ -76,7 +76,7 @@ It is asked like the Built-in model: one yes-or-no word per statement. Statement
 A hosted Decision account sends the selected recent messages and statements to the service and can cost money. Smart response order also sends a [character roster](#what-the-model-sees).
 
 1. Click **Connections** in the top bar, then click **Add**.
-2. Search for **TypeSafe** or **Own decision server**, or click **Text** in the type chips. For OpenRouter, click **OpenRouter** instead.
+2. Click **Decision** in the type chips, then click **TypeSafe** or **Own decision server**. For OpenRouter, search for **OpenRouter** instead. For NanoGPT, see [Through NanoGPT](#through-nanogpt).
 3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**.
 4. Under **Found in TypeSafe — use it for:**, tick **Decision**, then click **Done**. The **Decision** row under **Behind the scenes** in the **Jobs** box now shows the model.
 5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
@@ -89,12 +89,25 @@ A decision model has these fields. Click the model in the panel to open **Edit m
 
 | Field | What it does |
 | --- | --- |
-| **Decision source** | **TypeSafe**, **OpenRouter**, **Custom System One endpoint**, or **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. It is fixed when you create the model. |
+| **Decision source** | **TypeSafe**, **OpenRouter**, **NanoGPT**, **Custom System One endpoint**, or **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. It is fixed when you create the model. |
 | **API key source** | **Enter a separate key (optional for local servers)** or **Use key from …** another account. Linked keys follow later key changes. A custom System One or OpenAI-compatible model can borrow a custom chat account's key only when both addresses have the same scheme, host, and port. |
-| **Recent-message token budget** | How many estimated tokens of chat to send. 1 to 30,000. Default 30,000 for TypeSafe and OpenRouter, and 3,500 for custom servers. Marinara drops older messages first, then trims the oldest part of the newest message. A rejected or over-budget request gives no answer. |
-| **Time limit (seconds)** | How long to wait for each statement during chats. 0.5 to 30. Default 1.5, or 4 for an OpenAI-compatible chat model. See [Time limits](#time-limits). |
+| **Recent-message token budget** | How many estimated tokens of chat to send. 1 to 30,000. Default 30,000 for TypeSafe, OpenRouter, and NanoGPT, and 3,500 for custom servers. A NanoGPT model with a smaller input limit gets three quarters of it instead. Marinara drops older messages first, then trims the oldest part of the newest message. A rejected or over-budget request gives no answer. |
+| **Time limit (seconds)** | How long to wait for each statement during chats. 0.5 to 30. Default 1.5, or 4 for NanoGPT and for an OpenAI-compatible chat model. See [Time limits](#time-limits). |
+| **Custom Request Headers** | Extra headers sent with every decision request, as a JSON object, for example `{"x-billing-mode": "paygo"}`. Not for keys: authentication headers are rejected. |
 
 TypeSafe sends to `https://api.typesafe.ai`. You can replace its **Base URL** with another server that runs TypeSafe's API, without `/v1/systemone`. It still needs your TypeSafe key, which goes to that server. **Custom System One endpoint** accepts a System One server you run, such as Open-Jev or [Strands decider](#run-strands-decider-yourself). Enter its address without `/v1/systemone`. A chat model server such as Ollama does not speak System One. Use **OpenAI-compatible chat model** for it.
+
+### Through NanoGPT
+
+NanoGPT lists its own decision models, such as Jev Latest, and answers them at its Decisions API with your NanoGPT key. Some are included in a NanoGPT subscription; the rest bill to your balance.
+
+1. Connect NanoGPT as usual. In **Add**, the **Decision** type chip lists it too.
+2. Under **Found in NanoGPT — use it for:**, tick **Decision**. Marinara picks a decision model included in your plan, Jev Latest first.
+3. To pick another one, click **⋯** on the NanoGPT account, click **Add model**, then the **Decision** tab. It lists only decision models. A **Plan** pill marks the ones in your subscription. Select one and click **Test decision**.
+
+Decision models are left out of every chat model list, since they cannot chat.
+
+By default, NanoGPT decides whether a request uses your subscription or your balance. To always use the balance, open **Edit model** on the decision model and enter `{"x-billing-mode": "paygo"}` in **Custom Request Headers**.
 
 Some hosted services answer slower than 1.5 seconds at times, which makes decisions look randomly broken. Test a few times and set the limit above the slowest answer. Statements asked before the reply, such as a preset's decisions or an activation question for an agent that runs before the reply, can hold up the reply for up to that long each.
 
@@ -147,6 +160,7 @@ A self-hosted Open-Jev behind a Custom System One account still uses 0.5, becaus
 A decision that does not arrive in time gives no answer, and generation continues with the feature's fallback (see [Where Marinara uses it](#where-marinara-uses-it)). Every limit is per statement. A request with several statements gets the limit for each, and each Choice answer counts as a statement. A local model works on only a few requests at a time, so statements wait their turn, and a statement's time starts when the model starts on it.
 
 - **TypeSafe, OpenRouter, or Custom System One account:** 1.5 seconds, or your **Time limit**
+- **NanoGPT decision model:** 4 seconds, or your **Time limit**. It answered in 0.4 to 2.5 seconds when measured.
 - **OpenAI-compatible chat model account:** 4 seconds, or your **Time limit**. A model that must think first gets at least 20 seconds.
 - **Built-in model:** 4 seconds. A model that must think first gets 20 seconds.
 - **Built-in decision model:** 4 seconds for the first statement. Each further one gets the model's measured time: 0.35 seconds for Open-Jev 2B and 0.8 seconds for Open-Jev 9B. A model you installed from a repository gets 4 seconds for each.
