@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDown, ListFilter, Search, Shuffle, X } from "lucide-react";
+import { ChevronDown, List, ListFilter, Search, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
@@ -18,6 +18,8 @@ interface SwipePickerProps {
   greeting: boolean;
   /** Resolves `true` once the switch is saved. */
   onSetActiveSwipe: (index: number) => void | Promise<boolean | undefined>;
+  /** Classes of the list button, so it matches the arrows next to it. */
+  triggerClassName: string;
 }
 
 type Row = GreetingEntry & { index: number; haystack: string; body: string };
@@ -45,6 +47,7 @@ export function SwipePicker({
   currentContent,
   greeting,
   onSetActiveSwipe,
+  triggerClassName,
 }: SwipePickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -225,11 +228,10 @@ export function SwipePicker({
           event.stopPropagation();
           openPicker();
         }}
-        className="mari-swipe-input mari-chat-style-control inline-flex h-[1.375rem] w-9 items-center justify-center rounded-full border border-[var(--marinara-chat-message-action-bg-hover)] bg-[color-mix(in_srgb,var(--marinara-chat-chrome-text)_5%,transparent)] text-[0.625rem] font-medium text-[var(--marinara-chat-message-action-text-hover)] tabular-nums transition-[background-color,border-color,box-shadow,color] hover:border-[var(--marinara-chat-chrome-button-border-active)] hover:bg-[var(--marinara-chat-chrome-button-bg-active)] focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] focus-visible:outline-none"
+        className={triggerClassName}
       >
-        {activeSwipeIndex + 1}
+        <List size="1.05em" />
       </button>
-      <span className="tabular-nums">/{swipeCount}</span>
 
       <Modal
         open={open}
