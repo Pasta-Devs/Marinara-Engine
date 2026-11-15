@@ -250,7 +250,7 @@ const PACKAGE_CONTROL_NAME_PATTERN = [...PACKAGE_CONTROL_FILES].map(escapeRegExp
 const ROOT_LAUNCHER_NAME_PATTERN = [...ROOT_LAUNCHER_FILES].map(escapeRegExp).join("|");
 // Mirrors workspacePathAccessPolicy's scoping: package-control names are
 // sensitive at ANY depth (they may take a path prefix), while launcher names
-// and the workflow/installer/gradle paths are sensitive only at the workspace
+// and the workflow/installer/scripts/win/gradle paths are sensitive only at the workspace
 // root (no path prefix beyond an optional "./"). The left lookbehinds start a
 // match only where a path starts, so ordinary names that merely END with a
 // sensitive name (mypackage.json, new-start.sh) and a nested docs/start.sh
