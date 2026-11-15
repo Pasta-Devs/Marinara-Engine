@@ -56,6 +56,17 @@ try {
   const book = await lorebooks.create({ name: "Provenance lore" });
   assert.ok(book);
 
+  {
+    const orderedBook = await lorebooks.create({ name: "Ordered memories" });
+    const add = (name: string, writerOrder?: number | "growing") =>
+      lorebooks.createEntry({ lorebookId: orderedBook.id, name }, writerOrder);
+    assert.equal((await add("First", "growing"))?.order, 1);
+    assert.equal((await add("Fixed", 130))?.order, 130);
+    const concurrent = await Promise.all([add("Next", "growing"), add("Last", "growing")]);
+    assert.deepEqual(concurrent.map((entry) => entry?.order), [131, 132]);
+    assert.equal((await add("Legacy default"))?.order, 100);
+  }
+
   // ── createEntry persists agent attribution + source refs ──
   {
     const created = await lorebooks.createEntry({
