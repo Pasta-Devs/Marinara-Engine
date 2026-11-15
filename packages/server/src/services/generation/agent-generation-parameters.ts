@@ -309,8 +309,9 @@ export function resolveCapabilityChatOptions(
   }
   // The maintainer's (2026-11-16): a package call gets the connection's switched-on Max Tokens whenever that is larger
   // than what the package asked for, capped as any call is at the model's output limit. A story package's chapters,
-  // arcs and summaries hit their own smaller limit while the connection allowed 65536. It only raises the limit: a new
-  // connection saves 4096 with the switch on, which would cut every package's longer request short.
+  // arcs and summaries hit their own smaller limit while the connection allowed 65536. It only raises a limit the
+  // package named: a new connection saves 4096 with the switch on, which would cut a package's longer request short,
+  // and a call that names none keeps the provider's own (Dottore, #9328).
   if (saved("maxTokens") && sends("maxTokens") && resolved.maxTokens > 0) {
     const connectionMax = clampGenerationMaxOutputTokens({
       provider: source.provider,
@@ -318,7 +319,7 @@ export function resolveCapabilityChatOptions(
       maxTokens: resolved.maxTokens,
       maxTokensOverride: source.maxTokensOverride,
     });
-    if (connectionMax > (merged.maxTokens ?? 0)) merged.maxTokens = connectionMax;
+    if (typeof merged.maxTokens === "number" && connectionMax > merged.maxTokens) merged.maxTokens = connectionMax;
   }
   return definedOnly(merged);
 }

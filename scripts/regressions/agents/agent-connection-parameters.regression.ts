@@ -1025,6 +1025,14 @@ try {
       { maxTokens: 24_576 },
     );
     assert.equal(defaultBody.max_tokens, 24_576, "a smaller saved Max Tokens leaves the package's own request");
+    // A call that names no limit keeps the provider's own default (4096 here): the connection's value is never put
+    // where none was asked (Dottore, #9328).
+    const unnamedBody = await packageCall(
+      { name: "Package no limit", provider: "custom", model: "fixture-model" },
+      withoutReasoning({ maxTokens: 9000 }),
+      {},
+    );
+    assert.equal(unnamedBody.max_tokens, 4096, "a package call that names no limit keeps the provider's default");
   }
 
   // ── Main route: agents on the chat's connection send what the main chat sends for that connection ────────────
