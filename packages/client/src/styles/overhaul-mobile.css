@@ -634,6 +634,11 @@
   justify-content: stretch !important;
   gap: 0 !important;
 }
+/* The roleplay row is hover-reveal (opacity-0 + group-hover), so the Nov 7 touch pass gave it pointer-events: none
+   and no row in the Roleplay hold menu took a tap on phones and tablets. In the sheet it is always shown (Nov 15). */
+:root[data-overhaul] .ovm-sheet .ovm-sheet__more.ov-rpf-menu .mari-message-actions {
+  pointer-events: auto;
+}
 .ovm-sheet__more.ov-rpf-menu .mari-message-actions > * + * {
   border-top: 1px solid var(--ov-line);
 }
