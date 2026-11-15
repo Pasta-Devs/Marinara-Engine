@@ -226,6 +226,8 @@ interface UseChatAgentsOptions {
   gameSetupConfig: Record<string, unknown>;
 }
 
+export type ChatAgents = ReturnType<typeof useChatAgents>;
+
 /**
  * Agents' state, effects and handlers for Chat Settings. The drawer calls it once, before its guarded close, and
  * draws both faces of Agents from the result.
