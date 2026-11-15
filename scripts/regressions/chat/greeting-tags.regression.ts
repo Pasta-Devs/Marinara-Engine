@@ -69,3 +69,4 @@ assert.equal(greetingBody("[Ep4] Foot talk goes on."), "Foot talk goes on.");
 // A body that begins with the title word keeps it unless the title is a whole line.
 assert.equal(parseGreeting("**Drago**\nDrago asked about the new shoes.").preview, "Drago asked about the new shoes.");
 assert.equal(greetingBody("**Drago**\nDrago asked about the new shoes."), "Drago asked about the new shoes.");
+assert.equal(greetingBody("[Ep2] Rooftop. The door sticks.\nIt is late."), "The door sticks.\nIt is late.");
