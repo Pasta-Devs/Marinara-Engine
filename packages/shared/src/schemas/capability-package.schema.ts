@@ -1620,7 +1620,10 @@ const capabilityPackageManifestBaseSchema = z
 //        (its config, fewer of the proposed characters, or null to not start it), and a turn-game engine may set
 //        `silentBotMoves: true`. Soft seam: an older Engine ignores all three, so a package passes them without
 //        raising its declared capabilityApi. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 827 } as const);
+// 1.828: how a live pool or plain track is drawn (`display: "bar"` or `"dots"`): a fill bar or a row of
+//        dots beside its number on the sheet. Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 828 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

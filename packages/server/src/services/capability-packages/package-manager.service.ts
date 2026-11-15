@@ -9401,6 +9401,14 @@ function capabilityPackageInstallIssueFor(
   ) {
     return "A ruleset whose pool is told apart by groups or may be pushed requires schemaVersion 2 and capabilityApi 1.826 or newer";
   }
+  // How a pool or track is drawn, 1.828: a strict key on the sheet's and the party's pools and tracks.
+  if (!declaresApi(828)) {
+    const drawn = (rows: unknown) => Array.isArray(rows) && rows.some((row) => plainRecord(row)?.display !== undefined);
+    const sheetLive = plainRecord(plainRecord(ruleset?.sheet)?.live);
+    if (drawn(sheetLive?.pools) || drawn(sheetLive?.tracks) || drawn(plainRecord(ruleset?.party)?.pools)) {
+      return "A ruleset that chooses how a pool or track is drawn requires schemaVersion 2 and capabilityApi 1.828 or newer";
+    }
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||

@@ -45,6 +45,8 @@ A skill or save may carry a `cap`, a value reference that is the most its check 
 
 A plain track's `max` may be a value reference instead of a number, so a rating the character has sets how far it goes: `"max": { "field": "willpower_rating" }`. Its `min` and `default` stay numbers. A wound track with named levels has a `max` equal to its number of levels; a track of numbered boxes is as long as its own `max` (see Numbered boxes below). `alwaysShow: true` prints a track in the Game Master's sheet block even at its default, for a rating that matters on every turn; without it a track at its default is left out, because three death saves at zero say nothing. These three are Capability API 1.37 for a packaged ruleset.
 
+A live pool or a plain track may set `"display": "bar"` to show a fill bar in its row on the sheet, next to its number, for something a player reads at a glance, such as Health or Stress. `"dots"` shows a row of dots instead, one for each point up to its maximum, filled up to its value, for a rating counted in dots such as Hunger or Humanity. A scale that goes below 0 or past 20 shows as a bar, because dots can't count below nothing and a row that long can't be read at a glance. `"counter"`, or leaving it out, shows only the number. A wound track draws its own boxes and ignores it. A party sheet's pools take it too. This is Capability API 1.828 for a packaged ruleset.
+
 ## Live states: a form, a stance, a light
 
 An enum field is chosen when a character is made and stays chosen, and a condition is only on or off. A **live state** is one value out of a closed set that changes in play: a shapeshifter's form, a fighting stance, how lit a lantern is.
