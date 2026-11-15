@@ -4838,7 +4838,7 @@ export async function backupRoutes(app: FastifyInstance) {
   );
 
   // The safety copy the last Import Profile saved, for the Undo button.
-  app.get("/import-profile/undo", async (req, reply) => {
+  app.get("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Undo profile import" })) return;
     const safetyCopy = await stat(getPreImportBackupPath()).catch(() => null);
     return safetyCopy?.isFile() && existsSync(getPreImportWritesPath())
