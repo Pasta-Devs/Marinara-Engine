@@ -151,6 +151,12 @@ export const RUNTIME_DIAGNOSTICS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** The in-app server console polls every few seconds while it is open; leave room for two open tabs. */
+export const SERVER_LOGS_RATE_LIMIT = {
+  max: 120,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Setting the remote login; also bounds tries of the one-time setup code. */
 export const ACCESS_LOGIN_RATE_LIMIT = {
   max: 10,
@@ -331,6 +337,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       limit: RUNTIME_DIAGNOSTICS_RATE_LIMIT.max,
       windowMs: RUNTIME_DIAGNOSTICS_RATE_LIMIT.timeWindow,
     },
+  },
+  {
+    pattern: /^\/api\/admin\/logs(?:\?|$)/,
+    rule: { key: "server-logs", limit: SERVER_LOGS_RATE_LIMIT.max, windowMs: SERVER_LOGS_RATE_LIMIT.timeWindow },
   },
   {
     pattern: /^\/api\/personal-extensions\/revision-history\/?$/,
