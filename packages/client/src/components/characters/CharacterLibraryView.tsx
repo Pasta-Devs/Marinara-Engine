@@ -52,7 +52,7 @@ const detailActionClass =
 
 type StoreKey = keyof UIState;
 
-/** Everything that differs between the library kinds. The view reads only this, never the kind itself. */
+/** Everything that differs between the library kinds; only the detail actions branch on the kind itself. */
 type LibraryKindConfig = {
   singular: "character" | "persona" | "lorebook";
   plural: "characters" | "personas" | "lorebooks";
@@ -60,6 +60,9 @@ type LibraryKindConfig = {
   heading: string;
   /** Label of the Edit button's noun ("Edit Character"). */
   editNounKey: string;
+  /** Header counts: all loaded, and while more pages remain. */
+  countKey: string;
+  loadedCountKey: string;
   placeholderClass: string;
   gradientClass: string;
   PlaceholderIcon: LucideIcon;
@@ -85,6 +88,8 @@ export const CARD_LIBRARY_KINDS: Record<CardLibraryKind, LibraryKindConfig> = {
     title: "Character Library",
     heading: "Browse your characters",
     editNounKey: "ui.characters.cardlibrarydetailcard.character",
+    countKey: "ui.characters.characterlibraryview.cardCount",
+    loadedCountKey: "ui.characters.characterlibraryview.loadedCount",
     placeholderClass: "mari-avatar-placeholder--character",
     gradientClass: "mari-panel-gradient--characters",
     PlaceholderIcon: User,
@@ -107,6 +112,8 @@ export const CARD_LIBRARY_KINDS: Record<CardLibraryKind, LibraryKindConfig> = {
     title: "Persona Library",
     heading: "Browse your personas",
     editNounKey: "ui.characters.cardlibrarydetailcard.persona",
+    countKey: "ui.characters.characterlibraryview.cardCount",
+    loadedCountKey: "ui.characters.characterlibraryview.loadedCount",
     placeholderClass: "mari-avatar-placeholder--persona",
     gradientClass: "mari-panel-gradient--personas",
     PlaceholderIcon: User,
@@ -129,6 +136,8 @@ export const CARD_LIBRARY_KINDS: Record<CardLibraryKind, LibraryKindConfig> = {
     title: "Lorebook Library",
     heading: "Browse your lorebooks",
     editNounKey: "ui.characters.cardlibrarydetailcard.lorebook",
+    countKey: "ui.characters.characterlibraryview.lorebookCount",
+    loadedCountKey: "ui.characters.characterlibraryview.loadedLorebookCount",
     placeholderClass: "mari-avatar-placeholder--lorebook",
     gradientClass: "mari-panel-gradient--lorebooks",
     PlaceholderIcon: BookOpen,
@@ -550,11 +559,11 @@ export function CharacterLibraryView() {
               </h1>
               <p className="text-xs text-[var(--marinara-chat-chrome-panel-muted)] md:text-sm">
                 {hasNextPage
-                  ? localizeUi("ui.characters.characterlibraryview.loadedCount", {
+                  ? localizeUi(config.loadedCountKey, {
                       visible: filteredCards.length,
                       loaded: cards.length,
                     })
-                  : localizeUi("ui.characters.characterlibraryview.cardCount", {
+                  : localizeUi(config.countKey, {
                       visible: filteredCards.length,
                       count: cards.length,
                     })}

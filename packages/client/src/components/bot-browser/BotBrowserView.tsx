@@ -1652,7 +1652,7 @@ const chubLorebookProvider: ProviderConfig = {
         const topics: string[] = Array.isArray(n.topics) ? n.topics.map(String) : [];
         return {
           id: fullPath,
-          name: n.name || "Unnamed",
+          name: String(n.name ?? "").trim() || "Unnamed",
           // fullPath is `lorebooks/<creator>/<slug>`.
           creator: fullPath.split("/")[1] || "",
           tagline: n.tagline || "",
@@ -2546,7 +2546,9 @@ export function BotBrowserView() {
           />
           <div className="min-w-0">
             <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
-              {localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
+              {browserKind === "lorebooks"
+                ? localizeUi("ui.botBrowser.botbrowserview.lorebookDownloads")
+                : localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
             </p>
             <h1 className="truncate text-base font-semibold text-[var(--marinara-chat-chrome-panel-title)] md:text-2xl">
               {browserKind === "lorebooks"
@@ -2816,7 +2818,11 @@ export function BotBrowserView() {
                       setQuery(e.target.value);
                       setPage(1);
                     }}
-                    placeholder={localizeUi("ui.botBrowser.botbrowserview.searchCharacters")}
+                    placeholder={localizeUi(
+                      browserKind === "lorebooks"
+                        ? "search.panels.lorebooks"
+                        : "ui.botBrowser.botbrowserview.searchCharacters",
+                    )}
                     className="mari-chrome-field h-10 w-full py-0 pl-9 pr-8 text-sm md:h-9"
                   />
                   {query && (
