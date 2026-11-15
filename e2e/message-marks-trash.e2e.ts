@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { seedUIState } from "./ui-state-fixture.js";
@@ -68,6 +68,26 @@ async function holdMessageTrash(request: APIRequestContext, baseURL: string) {
   return () => withLock(release);
 }
 
+async function openChat(page: Page, chatId: string, mobile: boolean) {
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: false,
+    rightPanelOpen: false,
+    chatHelpSeenModes: ["conversation", "roleplay", "game"],
+  });
+  await page.addInitScript(
+    ({ chatId, appVersion }) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+      localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+    },
+    { chatId, appVersion: version },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Chats" }).click();
+  if (mobile) await page.getByRole("button", { name: "Close chats" }).click();
+}
+
 for (const mode of ["conversation", "roleplay"] as const) {
   test(`${mode} message marks stay visible and trash reports partial restores`, async ({
     page,
@@ -98,23 +118,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
       const message = await messageResponse.json();
       messageId = message.id;
 
-      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
-      await seedUIState(page, {
-        hasCompletedOnboarding: true,
-        sidebarOpen: false,
-        rightPanelOpen: false,
-        chatHelpSeenModes: ["conversation", "roleplay", "game"],
-      });
-      await page.addInitScript(
-        ({ chatId, appVersion }) => {
-          localStorage.setItem("marinara-active-chat-id", chatId);
-          localStorage.setItem("marinara:whats-new:seen-version", appVersion);
-        },
-        { chatId: chat.id, appVersion: version },
-      );
-      await page.goto("/");
-      await page.getByRole("button", { name: "Chats" }).click();
-      if (testInfo.project.name.includes("mobile")) await page.getByRole("button", { name: "Close chats" }).click();
+      await openChat(page, chat.id, testInfo.project.name.includes("mobile"));
 
       const messageRow = page.locator(`[data-message-id="${messageId}"]`);
       await expect(messageRow).toContainText("Synthetic message for marks and restore.");
@@ -271,3 +275,56 @@ for (const mode of ["conversation", "roleplay"] as const) {
     }
   });
 }
+
+test("a message deleted in the chat shows again when restored from the trash", async ({
+  page,
+  request,
+  baseURL,
+  isMobile,
+}) => {
+  const releaseMessageTrash = await holdMessageTrash(request, baseURL!);
+  let chatId: string | undefined;
+  let cleanupFailures: unknown[] = [];
+  try {
+    const chat = await (
+      await request.post("/api/chats", { data: { name: "Trash restore fixture", mode: "conversation" } })
+    ).json();
+    chatId = chat.id;
+    const message = await (
+      await request.post(`/api/chats/${chat.id}/messages`, {
+        data: { role: "assistant", content: "A message to delete and restore." },
+      })
+    ).json();
+    await openChat(page, chat.id, isMobile);
+    const row = page.locator(`[data-message-id="${message.id}"]`);
+    await expect(row).toContainText("A message to delete and restore.");
+
+    // Delete it in the app, so the chat keeps hiding it after the reload: only a fetch that shows it again ends that.
+    if (isMobile) await row.click({ position: { x: 80, y: 24 } });
+    else await row.hover();
+    await row.getByRole("button", { name: "Delete" }).click();
+    await page
+      .getByRole("dialog", { name: "Delete message" })
+      .getByRole("button", { name: "Delete message", exact: true })
+      .click();
+    await expect(row).toHaveCount(0);
+    await expect.poll(async () => (await (await request.get(`/api/chats/${chat.id}/trash`)).json()).length).toBe(1);
+
+    const searchPanel = await openChatMessageSearch(page);
+    await searchPanel.getByRole("tab", { name: "Trash", exact: true }).click();
+    await searchPanel.getByRole("button", { name: "Restore", exact: true }).click();
+    await expect(page.getByText("Message restored", { exact: true })).toBeVisible();
+    await expect(row).toContainText("A message to delete and restore.");
+  } finally {
+    const results = await Promise.allSettled([
+      chatId
+        ? request.delete(`/api/chats/${chatId}?force=true`).then((response) => {
+            if (!response.ok()) throw new Error(`Chat fixture cleanup failed (${response.status()})`);
+          })
+        : Promise.resolve(),
+      releaseMessageTrash(),
+    ]);
+    cleanupFailures = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
+  }
+  if (cleanupFailures.length > 0) throw new AggregateError(cleanupFailures, "Could not clean up trash restore fixture");
+});
