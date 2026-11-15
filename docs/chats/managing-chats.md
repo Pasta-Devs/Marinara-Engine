@@ -4,7 +4,7 @@ Your chats live in the sidebar on the right, under **Chats**. Click **Library** 
 
 ## The chat list and mode tabs
 
-Under the buttons are three mode tabs, each with how many chats it holds. Each tab lists only the chats of that mode.
+At the top are **Import**, **New folder**, **Select chats** and **New**. On a phone, all but **New** are in the **⋯** menu beside it. Under them are three mode tabs, each with how many chats it holds (on a phone the first reads **Conversation**). Each tab lists only the chats of that mode.
 
 | Tab | Mode |
 | --- | --- |

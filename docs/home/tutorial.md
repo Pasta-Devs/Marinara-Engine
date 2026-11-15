@@ -34,7 +34,7 @@ Click **Next** to go to the next card. On a phone or tablet the cards and highli
 | 4 | **Three Ways to Chat** | The **Convo**, **Roleplay** and **Game** tabs and what each mode is for. |
 | 5 | **Connections: Set This Up First** | Opens the Connections page. Add a connection before you chat. |
 | 6 | **Agents** | Opens the Agents page, where you install optional features. |
-| 7 | **Settings (and SillyTavern Imports)** | Opens **Settings**, whose **Data** tab imports from SillyTavern. |
+| 7 | **Settings (and SillyTavern Imports)** | Opens **Settings** on the **Data** tab, where SillyTavern imports are. |
 | 8 | **Tabs and Search** | The tabs in the top bar and the search button (<kbd>Ctrl</kbd>+<kbd>K</kbd>). |
 | 9 | **The Docs, and You're Set!** | The **Docs** button, and the language list for the guides. |
 
