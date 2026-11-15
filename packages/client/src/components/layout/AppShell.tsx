@@ -1359,12 +1359,17 @@ export function AppShell({
               ? overhaulLibraryPage
               : null;
 
+  // Professor Mari's tab stays mounted once opened (rendered below, hidden while another page or Home shows):
+  // remounting her whole chat on every visit cost ~0.5-2 s of long frames and 8 requests on an iPad (Nov 15).
+  const mariPageActive = overhaulPages && overhaulMari && !overhaulSchedules;
+  const [mariPageMounted, setMariPageMounted] = useState(false);
+  if (mariPageActive && !mariPageMounted) setMariPageMounted(true);
+  if (!overhaulPages && mariPageMounted) setMariPageMounted(false);
+
   const detailView =
     overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
-    ) : overhaulPages && overhaulMari ? (
-      <OverhaulMariPage />
-    ) : overhaulPages && overhaulDocsTab ? (
+    ) : mariPageActive ? null : overhaulPages && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : ovViewer === "regex" ? (
       <OvRegexViewer>{regexDetailId ? <RegexScriptEditor key={regexDetailId} /> : null}</OvRegexViewer>
@@ -1383,9 +1388,7 @@ export function AppShell({
       )
     ) : overhaulPages && overhaulSchedules ? (
       <OverhaulSchedulesPage />
-    ) : overhaulPages && overhaulMari ? (
-      <OverhaulMariPage />
-    ) : overhaulPages && overhaulDocsTab ? (
+    ) : mariPageActive ? null : overhaulPages && overhaulDocsTab ? (
       <OverhaulDocsPage key={overhaulDocsTab} tabId={overhaulDocsTab} />
     ) : regexDetailId ? (
       <RegexScriptEditor />
@@ -1440,8 +1443,8 @@ export function AppShell({
       <LibraryLandingPage key={overhaulLibraryPage} section={overhaulLibraryPage} />
     ) : null;
 
-  const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
-  const hasDetailView = detailView != null;
+  const hasDetailView = detailView != null || mariPageActive;
+  const showAmbientDecor = isPageActive && !activeChatId && !hasDetailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   // Per-chat themes and the chat's root hooks step aside while a full page covers the chat.
   useEffect(() => {
     useCenterPageOpen.setState({ open: hasDetailView });
@@ -2067,7 +2070,9 @@ export function AppShell({
               }
             >
               <Suspense fallback={<MainPaneFallback />}>
-                {(shellOverlayMode || !hasDetailView) && (
+                {/* Home (no chat open) stays mounted under a page on wide screens too, so coming back to it
+                    doesn't rebuild the whole Home screen (~1 s of long frames on an iPad, Nov 15). */}
+                {(shellOverlayMode || !hasDetailView || !activeChatId) && (
                   <ChatArea
                     chatWindowIntroAllowed={
                       chatWindowIntroAllowed &&
@@ -2115,6 +2120,33 @@ export function AppShell({
                 </motion.aside>
               )}
             </AnimatePresence>
+            {mariPageMounted && (
+              // Professor Mari's tab: the same page surface as the sheet above, kept mounted and hidden
+              // (inline display so no theme rule can show it) while she isn't the open tab.
+              <aside
+                data-component={mariPageActive ? (shellOverlayMode ? "MobileDetailSheet" : "DetailEditor") : undefined}
+                data-mari-part={mariPageActive ? "page" : undefined}
+                aria-label={localizeUi("ui.layout.appshell.detailEditor")}
+                aria-hidden={mariPageActive ? undefined : true}
+                inert={!mariPageActive}
+                tabIndex={-1}
+                style={mariPageActive ? undefined : { display: "none" }}
+                className={cn(
+                  "mari-detail-editor-surface mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
+                  shellOverlayMode &&
+                    cn(
+                      "mari-mobile-detail-sheet !fixed bottom-0 z-50 bg-[var(--background)]/95 shadow-2xl backdrop-blur-xl",
+                      MOBILE_SHELL_PANEL_TOP_CLASS,
+                      MOBILE_SHELL_PANEL_X_CLASS,
+                      MOBILE_SHELL_PANEL_BOTTOM_PADDING_CLASS,
+                    ),
+                )}
+              >
+                <Suspense fallback={<MainPaneFallback />}>
+                  <OverhaulMariPage active={mariPageActive} />
+                </Suspense>
+              </aside>
+            )}
           </div>
           {/* Floating avatar notification bubbles (right edge) */}
           {SPLIT_PANE ? null : (

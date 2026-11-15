@@ -1449,10 +1449,15 @@ export function HomeProfessorMariChat({
       ),
     [localizeUi, setWorkspaceToolsIssue],
   );
+  // Her tab stays mounted while hidden: coming back within the poll interval reuses the last status
+  // instead of asking the server again (each visit waited on it, 1.8-2.2 s on an iPad, Nov 15).
+  const workspaceStatusCheckedAtRef = useRef(0);
   useEffect(() => {
     if (!pageActive) return;
-    void refreshWorkspaceStatus()
+    const fresh = Date.now() - workspaceStatusCheckedAtRef.current < 15_000;
+    void (fresh ? Promise.resolve() : refreshWorkspaceStatus())
       .then(() => {
+        if (!fresh) workspaceStatusCheckedAtRef.current = Date.now();
         if (workspaceToolsIssueFromCacheRef.current) setWorkspaceToolsIssue(() => null);
       })
       .catch((error) => {
@@ -1464,7 +1469,11 @@ export function HomeProfessorMariChat({
       });
     const refreshVisibleWorkspaceStatus = () => {
       if (document.hidden) return;
-      void refreshWorkspaceStatus().catch(() => undefined);
+      void refreshWorkspaceStatus()
+        .then(() => {
+          workspaceStatusCheckedAtRef.current = Date.now();
+        })
+        .catch(() => undefined);
     };
     const timer = window.setInterval(refreshVisibleWorkspaceStatus, 15_000);
     document.addEventListener("visibilitychange", refreshVisibleWorkspaceStatus);

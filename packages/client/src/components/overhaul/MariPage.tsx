@@ -6,10 +6,10 @@
 // ──────────────────────────────────────────────
 import { HomeProfessorMariChat } from "../chat/HomeProfessorMariChat";
 
-export function OverhaulMariPage() {
+export function OverhaulMariPage({ active = true }: { active?: boolean }) {
   return (
     <section className="ov-mari mari-workspace-canvas" data-component="OverhaulMariPage">
-      <HomeProfessorMariChat pageActive embeddedTab launchHidden chatWindowOpen />
+      <HomeProfessorMariChat pageActive={active} embeddedTab launchHidden chatWindowOpen />
     </section>
   );
 }
