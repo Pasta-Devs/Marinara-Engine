@@ -112,6 +112,7 @@ const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
     { icon: Languages, labelKey: "chat.help.actions.translate" },
     { icon: Pencil, labelKey: "chat.help.actions.edit" },
     { icon: Shield, labelKey: "chat.help.actions.rewrite" },
+    { icon: Volume2, labelKey: "ui.chat.chatmessage.speak" },
     { icon: RefreshCw, labelKey: "chat.help.actions.regenerateOrRestart" },
     { icon: ChevronsLeftRight, labelKey: "chat.help.actions.swipes" },
     { icon: Flag, labelKey: "chat.help.actions.conversationStart" },

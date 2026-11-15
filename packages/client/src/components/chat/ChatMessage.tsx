@@ -3840,6 +3840,32 @@ export const ChatMessage = memo(function ChatMessage({
       </div>
     );
 
+  // One tap to hear the message, left of Regenerate; the voice menu keeps pause, restart, cache and volume.
+  const speakAction = ttsEnabled ? (
+    <ActionBtn
+      icon={
+        isLoadingThis ? (
+          <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+        ) : isSpeakingThis ? (
+          <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
+        ) : (
+          <Volume2 size={MESSAGE_ACTION_ICON_SIZE} />
+        )
+      }
+      onClick={handleSpeak}
+      title={
+        !hasTTSContent
+          ? localizeUi("ui.chat.chatmessage.noDialogueToSpeak")
+          : isLoadingThis
+            ? localizeUi("ui.panels.ttsconfigcard.loading")
+            : isSpeakingThis
+              ? localizeUi("ui.chat.chatmessage.stopSpeaking")
+              : localizeUi("ui.chat.chatmessage.speak")
+      }
+      disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
+    />
+  ) : null;
+
   const roleplayTtsControls = ttsEnabled && (
     <MessageAudioMenu align="right" dark>
       {isSpeakingThis && (ttsState === "playing" || ttsState === "paused") && (
@@ -4567,6 +4593,7 @@ export const ChatMessage = memo(function ChatMessage({
                   disabled={switchingRewriteVersion}
                 />
               )}
+              {speakAction}
               <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
               <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
               {onToggleConversationStart && (
@@ -5039,6 +5066,7 @@ export const ChatMessage = memo(function ChatMessage({
                 disabled={switchingRewriteVersion}
               />
             )}
+            {speakAction}
             <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
             <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
             {onToggleConversationStart && (
