@@ -1,5 +1,5 @@
 // Server log redaction: credential fields are censored and key-shaped text is scrubbed from messages, from a bare
-// logged Error's message and from error messages and stacks, while ordinary lines pass through unchanged.
+// logged Error's message, from %s substitutions and from error messages and stacks, while ordinary lines pass through unchanged.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -37,7 +37,10 @@ writeFileSync(
 logger.error(new Error("request failed sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"));
 logger.error({ err: new Error("bad key AIzaSyA1234567890abcdefghijklmnopqrstu") }, "context");
 logger.warn({ "x-api-key": "root-secret-value", headers: { authorization: "Bearer abcdefghijklmnop" }, req: { headers: { "x-api-key": "nested-secret-value" } } }, "headers");
-logger.warn("ordinary line");
+logger.warn({ "x-goog-api-key": "root-goog-value", req: { headers: { "x-goog-api-key": "nested-goog-value", "xi-api-key": "nested-xi-value" } } }, "provider headers");
+logger.warn("request:\\n%s", { toString: () => '{"key":"sk-SUBSTITUTEDABCDEFGHIJKLMNOP0123"}' });
+logger.warn("eleven %s", "sk_0123456789abcdef0123456789abcdef");
+logger.warn("ordinary line %s", "value");
 `,
 );
 const require = createRequire(join(repoRoot, "packages/server/package.json"));
@@ -57,6 +60,11 @@ for (const secret of [
   "root-secret-value",
   "nested-secret-value",
   "abcdefghijklmnop",
+  "root-goog-value",
+  "nested-goog-value",
+  "nested-xi-value",
+  "sk-SUBSTITUTED",
+  "sk_0123456789abcdef",
 ]) {
   assert.ok(!output.includes(secret), `log leaked ${secret}`);
 }
@@ -68,6 +76,12 @@ const headers = lines.find((line) => line.msg === "headers");
 assert.equal(headers?.["x-api-key"], "[redacted]");
 assert.equal(headers?.headers?.authorization, "[redacted]");
 assert.equal(headers?.req?.headers?.["x-api-key"], "[redacted]");
-assert.ok(lines.some((line) => line.msg === "ordinary line"));
+const provider = lines.find((line) => line.msg === "provider headers");
+assert.equal(provider?.["x-goog-api-key"], "[redacted]");
+assert.equal(provider?.req?.headers?.["x-goog-api-key"], "[redacted]");
+assert.equal(provider?.req?.headers?.["xi-api-key"], "[redacted]");
+assert.ok(lines.some((line) => line.msg === 'request:\n{"key":"sk-[redacted]"}'));
+assert.ok(lines.some((line) => line.msg === "eleven sk_[redacted]"));
+assert.ok(lines.some((line) => line.msg === "ordinary line value"));
 
 console.log("Log redaction regression passed.");
