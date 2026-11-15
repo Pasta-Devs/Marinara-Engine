@@ -22,13 +22,31 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
   const named = GREETING_TITLE_PREFIX.exec(rest);
   if (named) {
     const preview = rest.slice(named[0].length).replace(/[*_"]/g, "").trim();
-    return { tags, title: (named[1] ?? named[2])!.trim(), preview };
+    return { tags, title: (named[1] ?? named[2])!.trim(), preview: dropRepeatedHeader(text, preview) };
   }
   const plain = rest.replace(/[*_"]/g, "").trim();
   const cut = plain.search(/[.!?](?=\s|$)|\n/);
   if (cut < 0) return { tags, title: plain, preview: "" };
   const end = plain[cut] === "\n" ? cut : cut + 1;
-  return { tags, title: plain.slice(0, end).trim(), preview: plain.slice(end).trim() };
+  const preview = plain.slice(end).trim();
+  return { tags, title: plain.slice(0, end).trim(), preview: match ? dropRepeatedHeader(text, preview) : preview };
+}
+
+/** Some cards repeat their header line right under it; leave the copy out of what the picker shows. */
+function dropRepeatedHeader(text: string, after: string): string {
+  const header = text.trimStart().split("\n", 1)[0]!.replace(/[*_"]/g, "").trim();
+  return header && after.startsWith(header) ? after.slice(header.length).trim() : after;
+}
+
+/** The greeting without its header line (tags, a title line, or a repeat of them), markup kept. */
+export function greetingBody(text: string, allowTags = true): string {
+  const lines = text.trimStart().split("\n");
+  const header = lines[0]!.trim();
+  const isHeader = (allowTags && GREETING_TAG_PREFIX.test(header)) || GREETING_TITLE_PREFIX.test(header + "\n");
+  if (!isHeader) return text.trim();
+  let body = lines.slice(1).join("\n").trimStart();
+  if (body.startsWith(header)) body = body.slice(header.length).trimStart();
+  return body;
 }
 
 /** Brackets count as tags only when at least two greetings use them, so a single `[OOC]` opener stays text. */

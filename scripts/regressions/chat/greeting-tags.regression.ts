@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseGreeting, parseGreetings } from "../../../packages/client/src/lib/character-greetings";
+import { greetingBody, parseGreeting, parseGreetings } from "../../../packages/client/src/lib/character-greetings";
 
 // Tagged greeting: leading [..] groups are tags, the first line is the title.
 assert.deepEqual(parseGreeting("[Ep4][Drago][medium] Foot talk\nDrago asked about the new shoes."), {
@@ -53,5 +53,13 @@ assert.deepEqual(
     [[], "Plain one."],
   ],
 );
+
+// Cards that repeat the header as the first body line: the preview and the opened body skip it.
+const repeated = "**Rooftop**\n**Rooftop**\nThe door sticks.";
+assert.equal(parseGreeting(repeated).preview, "The door sticks.");
+assert.equal(greetingBody(repeated), "The door sticks.");
+assert.equal(greetingBody("[Ep2] Rooftop\nThe door sticks."), "The door sticks.");
+// Without tags on the card, a bracket line is story text, so the body keeps it.
+assert.equal(greetingBody("[OOC] Be kind.\nHi.", false), "[OOC] Be kind.\nHi.");
 
 console.log("greeting-tags regression passed");

@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Search, Shuffle, X } from "lucide-react";
+import { ChevronDown, ListFilter, Search, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { useMessageSwipes } from "../../hooks/use-chats";
-import { parseGreeting, parseGreetings, type GreetingEntry } from "../../lib/character-greetings";
+import { greetingBody, parseGreeting, parseGreetings, type GreetingEntry } from "../../lib/character-greetings";
 import { cn } from "../../lib/utils";
+import { RoleplayMessagePreview } from "./ChatMessage";
 
 interface SwipePickerProps {
   chatId: string;
@@ -19,7 +20,9 @@ interface SwipePickerProps {
   onSetActiveSwipe: (index: number) => void | Promise<boolean | undefined>;
 }
 
-type Row = GreetingEntry & { index: number; haystack: string };
+type Row = GreetingEntry & { index: number; haystack: string; body: string };
+/** More chips than this start folded behind the Filters button. */
+const OPEN_FILTERS_MAX = 8;
 
 /** Lists below this size get no search box and no fixed height. */
 const SEARCH_MIN = 8;
@@ -48,6 +51,10 @@ export function SwipePicker({
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<string[][]>([[], [], [], []]);
   const [activeRow, setActiveRow] = useState(0);
+  // null = folded only when there are many chips; the Filters button sets it either way.
+  // Rows open only after a click or an arrow key, so the list shows whole when the picker opens.
+  const [reading, setReading] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState<boolean | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -56,9 +63,12 @@ export function SwipePicker({
 
   const rows = useMemo<Row[]>(() => {
     const sorted = [...(swipes.data ?? [])].sort((a, b) => a.index - b.index);
-    return parseGreetings(sorted.map((swipe) => swipe.content)).map((entry, i) => ({
+    const entries = parseGreetings(sorted.map((swipe) => swipe.content));
+    const tagged = entries.some((entry) => entry.tags.length > 0);
+    return entries.map((entry, i) => ({
       ...entry,
       index: sorted[i]!.index,
+      body: greetingBody(sorted[i]!.content, tagged),
       haystack: `${entry.tags.join(" ")} ${entry.title} ${entry.preview}`.toLowerCase(),
     }));
   }, [swipes.data]);
@@ -99,12 +109,15 @@ export function SwipePicker({
     if (!visible.length) return;
     const clamped = Math.max(0, Math.min(next, visible.length - 1));
     setActiveRow(clamped);
+    setReading(true);
     document.getElementById(optionId(visible[clamped]!))?.scrollIntoView({ block });
   };
 
   const openPicker = () => {
     setQuery("");
     setFilters([[], [], [], []]);
+    setFiltersOpen(null);
+    setReading(false);
     setActiveRow(0);
     scrollToCurrent.current = true;
     setOpen(true);
@@ -158,46 +171,42 @@ export function SwipePicker({
     setActiveRow(0);
   };
 
-  const chips = groups.flatMap((values, slot) =>
-    values.length
-      ? [
+  // One wrapping line per tag position, so no group scrolls out of sight.
+  const chips = groups.map((values, slot) =>
+    values.map((value) => {
+      const on = filters[slot]!.includes(value);
+      const count = rows.filter((row) => matches(row, slot) && hasTag(row, slot, value)).length;
+      return (
+        <button
+          key={`${slot}-${value}`}
+          type="button"
+          aria-pressed={on}
+          onClick={() => toggleTag(slot, value)}
+          className={cn(
+            "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs whitespace-nowrap transition-colors max-md:h-9",
+            on
+              ? "border-[var(--primary)] bg-[var(--primary)] font-semibold text-[var(--primary-foreground)]"
+              : "border-[var(--marinara-chat-chrome-panel-border)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+            !on && !count && "opacity-40",
+          )}
+        >
+          {value}
           <span
-            key={`sep-${slot}`}
-            aria-hidden="true"
-            className="h-4 w-px shrink-0 bg-[var(--marinara-chat-chrome-panel-divider)] first:hidden"
-          />,
-          ...values.map((value) => {
-            const on = filters[slot]!.includes(value);
-            const count = rows.filter((row) => matches(row, slot) && hasTag(row, slot, value)).length;
-            return (
-              <button
-                key={`${slot}-${value}`}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleTag(slot, value)}
-                className={cn(
-                  "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs whitespace-nowrap transition-colors max-md:h-9",
-                  on
-                    ? "border-[var(--primary)] bg-[var(--primary)] font-semibold text-[var(--primary-foreground)]"
-                    : "border-[var(--marinara-chat-chrome-panel-border)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
-                  !on && !count && "opacity-40",
-                )}
-              >
-                {value}
-                <span
-                  className={cn(
-                    "text-[0.6875rem] tabular-nums",
-                    on ? "opacity-70" : "text-[var(--marinara-chat-chrome-panel-muted)]",
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          }),
-        ]
-      : [],
+            className={cn(
+              "text-[0.6875rem] tabular-nums",
+              on ? "opacity-70" : "text-[var(--marinara-chat-chrome-panel-muted)]",
+            )}
+          >
+            {count}
+          </span>
+        </button>
+      );
+    }),
   );
+  // Cards with real tags have titles worth scanning; the rest need more text to tell apart.
+  const tagged = rows.some((row) => row.tags.length > 0);
+  const chipTotal = groups.reduce((total, values) => total + values.length, 0);
+  const showFilters = filtersOpen ?? chipTotal <= OPEN_FILTERS_MAX;
 
   return (
     <>
@@ -302,23 +311,60 @@ export function SwipePicker({
               )}
             </div>
           )}
-          {chips.length > 0 && (
-            <div
-              role="toolbar"
-              aria-label={localizeUi("ui.chat.swipepicker.filterLabel")}
-              className="-mx-5 flex items-center gap-1.5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {pickedCount > 0 && (
+          {chipTotal > 0 && (
+            <div className="grid gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setFilters([[], [], [], []])}
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary)] max-md:h-9"
+                  aria-expanded={showFilters}
+                  aria-controls={`greeting-filters-${messageId}`}
+                  onClick={() => setFiltersOpen(!showFilters)}
+                  className={cn(
+                    "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors max-md:h-9",
+                    pickedCount > 0
+                      ? "border-[var(--primary)] text-[var(--primary)]"
+                      : "border-[var(--marinara-chat-chrome-panel-border)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+                  )}
                 >
-                  <X size="0.8rem" aria-hidden="true" />
-                  {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
+                  <ListFilter size="0.9rem" aria-hidden="true" />
+                  {localizeUi("ui.chat.swipepicker.filters")}
+                  {pickedCount > 0 && <span className="font-semibold tabular-nums">{pickedCount}</span>}
+                  <ChevronDown
+                    size="0.8rem"
+                    aria-hidden="true"
+                    className={cn("transition-transform", showFilters && "rotate-180")}
+                  />
                 </button>
+                {!showFilters && pickedCount > 0 && (
+                  <span className="min-w-0 truncate text-xs text-[var(--primary)]">{filters.flat().join(" · ")}</span>
+                )}
+                {pickedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters([[], [], [], []])}
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary)] max-md:h-9"
+                  >
+                    <X size="0.8rem" aria-hidden="true" />
+                    {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
+                  </button>
+                )}
+              </div>
+              {showFilters && (
+                <div
+                  id={`greeting-filters-${messageId}`}
+                  role="group"
+                  aria-label={localizeUi("ui.chat.swipepicker.filterLabel")}
+                  className="grid gap-1.5"
+                >
+                  {chips
+                    .filter((group) => group.length > 0)
+                    .map((group, i) => (
+                      <div key={i} className="flex flex-wrap gap-1.5">
+                        {group}
+                      </div>
+                    ))}
+                </div>
               )}
-              {chips}
             </div>
           )}
         </div>
@@ -389,21 +435,32 @@ export function SwipePicker({
                 {sectionRows.map((row) => {
                   const isCurrent = row.index === activeSwipeIndex;
                   const isActive = visible[activeRow] === row;
+                  const isOpen = isActive && reading;
                   return (
                     <div
                       key={row.index}
                       id={optionId(row)}
                       role="option"
                       aria-selected={isCurrent}
-                      onClick={() => void choose(row)}
-                      onMouseMove={() => !isActive && setActiveRow(visible.indexOf(row))}
+                      aria-expanded={isOpen}
+                      // First click opens the row to read it; a click on the open row uses it.
+                      onClick={() => (isOpen ? void choose(row) : moveActive(visible.indexOf(row)))}
                       className={cn(
-                        "relative grid cursor-pointer grid-cols-[1fr_auto] gap-x-2.5 gap-y-0.5 rounded-lg py-2 pr-3 pl-4 [contain-intrinsic-size:auto_4rem] [content-visibility:auto] max-md:py-2.5",
-                        isActive && "bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+                        "relative grid cursor-pointer grid-cols-[2ch_1fr_auto] gap-x-2.5 gap-y-0.5 rounded-lg py-2 pr-3 pl-2 [contain-intrinsic-size:auto_4rem] [content-visibility:auto] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] max-md:py-2.5",
+                        isActive &&
+                          "bg-[var(--marinara-chat-chrome-highlight-bg-hover)] ring-1 ring-[var(--marinara-chat-chrome-panel-border)]",
                         isCurrent &&
-                          "before:absolute before:top-2.5 before:bottom-2.5 before:left-1 before:w-[3px] before:rounded-full before:bg-[var(--primary)] before:content-['']",
+                          "before:absolute before:top-2.5 before:bottom-2.5 before:left-0 before:w-[3px] before:rounded-full before:bg-[var(--primary)] before:content-['']",
                       )}
                     >
+                      <span
+                        className={cn(
+                          "row-span-3 pt-0.5 text-right text-[0.6875rem] tabular-nums",
+                          isCurrent ? "text-[var(--primary)]" : "text-[var(--marinara-chat-chrome-panel-muted)]",
+                        )}
+                      >
+                        {row.index + 1}
+                      </span>
                       <span className="line-clamp-2 text-[0.8125rem] leading-snug font-semibold [overflow-wrap:anywhere]">
                         {row.title || localizeUi("ui.chat.swipepicker.untitled")}
                       </span>
@@ -416,10 +473,31 @@ export function SwipePicker({
                           row.tags.slice(1).join(" · ")
                         )}
                       </span>
-                      {row.preview && (
-                        <span className="col-span-2 line-clamp-2 text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)] [overflow-wrap:anywhere]">
-                          {row.preview}
-                        </span>
+                      {isOpen && row.body ? (
+                        <>
+                          <RoleplayMessagePreview
+                            content={row.body}
+                            className="col-span-2 max-h-[12rem] overflow-hidden text-xs leading-relaxed [mask-image:linear-gradient(to_bottom,black_9rem,transparent_12rem)] [overflow-wrap:anywhere]"
+                          />
+                          {!isCurrent && (
+                            <span className="col-span-2 mt-1.5 inline-flex h-8 w-fit items-center rounded-lg bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] max-md:h-10 max-md:w-full max-md:justify-center">
+                              {localizeUi(
+                                greeting ? "ui.chat.swipepicker.useGreeting" : "ui.chat.swipepicker.useSwipe",
+                              )}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        row.preview && (
+                          <span
+                            className={cn(
+                              "col-span-2 text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)] [overflow-wrap:anywhere]",
+                              tagged ? "line-clamp-1" : "line-clamp-3",
+                            )}
+                          >
+                            {row.preview}
+                          </span>
+                        )
                       )}
                     </div>
                   );
