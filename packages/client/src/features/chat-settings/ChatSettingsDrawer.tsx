@@ -561,6 +561,17 @@ function getChatActiveAgentIds(chat: Chat): string[] {
   return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
 }
 
+// Opening Chat settings read every card's onboarding JSON again; cache it per card object (the
+// query cache keeps a card's identity until it changes), checked against the same data string.
+const cardOnboardingCache = new WeakMap<object, { data: string; value: ReturnType<typeof readCardOnboarding> }>();
+function readCardOnboardingCached(character: { data: string }) {
+  const cached = cardOnboardingCache.get(character);
+  if (cached && cached.data === character.data) return cached.value;
+  const value = readCardOnboarding(character.data);
+  cardOnboardingCache.set(character, { data: character.data, value });
+  return value;
+}
+
 export function ChatSettingsDrawer({
   chat,
   open: windowOpen,
@@ -2270,7 +2281,7 @@ export function ChatSettingsDrawer({
   const onboardingByCharacterId = useMemo(() => {
     const byId = new Map<string, CardOnboarding>();
     for (const character of characters) {
-      const cardOnboarding = readCardOnboarding(character.data);
+      const cardOnboarding = readCardOnboardingCached(character);
       if (!cardOnboarding?.onboarding.enabled || !hasOnboardingContent(cardOnboarding.onboarding)) continue;
       byId.set(character.id, cardOnboarding);
     }

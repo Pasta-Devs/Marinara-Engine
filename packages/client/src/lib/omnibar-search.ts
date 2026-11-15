@@ -455,9 +455,24 @@ export function scoreSubsequence(query: string, value: string) {
   return -1;
 }
 
+// Every keystroke scores the same few thousand titles, aliases and keywords; normalizing them
+// (Unicode decomposition + two regexes each) was most of the omnibar's typing cost. The texts barely
+// change between keystrokes, so remember them (bounded: cleared when it grows past the limit).
+const normalizedCandidates = new Map<string, string>();
+const NORMALIZED_CANDIDATES_LIMIT = 20_000;
+function normalizeCandidate(value: string) {
+  let normalized = normalizedCandidates.get(value);
+  if (normalized === undefined) {
+    if (normalizedCandidates.size >= NORMALIZED_CANDIDATES_LIMIT) normalizedCandidates.clear();
+    normalized = normalizeProfessorMariNavigationQuery(value);
+    normalizedCandidates.set(value, normalized);
+  }
+  return normalized;
+}
+
 function scoreText(query: string, values: readonly string[]) {
   return values.reduce((best, value) => {
-    const normalized = normalizeProfessorMariNavigationQuery(value);
+    const normalized = normalizeCandidate(value);
     if (!normalized) return best;
     if (normalized === query) return Math.max(best, 300 + normalized.length);
     if (normalized.startsWith(query)) return Math.max(best, 200 + query.length);
@@ -565,7 +580,7 @@ function scoreKeywords(query: string, keywords: readonly string[] | undefined) {
 
 function scoreContainedText(query: string, values: readonly string[]) {
   return values.reduce((best, value) => {
-    const normalized = normalizeProfessorMariNavigationQuery(value);
+    const normalized = normalizeCandidate(value);
     if (normalized.length < 2 || normalized.length >= query.length) return best;
     return query.includes(normalized) ? Math.max(best, 150 + normalized.length) : best;
   }, -1);

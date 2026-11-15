@@ -131,7 +131,7 @@ export function getChatSettingsWindowProps(anchor: ChatToolbarFloatingPanelAncho
       : undefined;
   return {
     getDefaultLayout: getChatSettingsDefaultLayout,
-    className: cn("marinara-chat-popover animate-message-in", NEUTRAL_SURFACE_VARIABLES),
+    className: cn("marinara-chat-popover animate-message-in mari-cs-enter", NEUTRAL_SURFACE_VARIABLES),
     sheetClassName: cn(
       "fixed bottom-3 z-[70] w-[min(34rem,calc(100vw-var(--mari-chat-ui-inset-left,0px)-var(--mari-chat-ui-inset-right,0px)-1.5rem))] overflow-hidden max-md:inset-x-2 max-md:bottom-[calc(0.75rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto",
       anchor ? "" : "right-[calc(var(--mari-chat-ui-inset-right,0px)+0.75rem)] top-14",

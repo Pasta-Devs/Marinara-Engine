@@ -9177,3 +9177,13 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 :nth-last-child(-n + 6) > [data-message-id] {
   content-visibility: visible;
 }
+
+/* iPadOS/iOS pick a picture up for native drag and drop after a short press, which swallows the tap:
+   tapping a character or persona picture often did nothing while its name worked. Pictures inside
+   buttons and links never start a drag or a callout on touch screens. */
+@media (hover: none) {
+  :is(button, a, [role="button"]) img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
+}

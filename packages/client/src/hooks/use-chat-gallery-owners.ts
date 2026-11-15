@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { galleryBackgroundPins, type LocationBackgroundPin } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
-import { characterKeys, useCharacters, usePersonas } from "./use-characters";
+import { characterKeys, useCharacterListRows, usePersonas } from "./use-characters";
 import { getChatCharacterIds } from "../lib/chat-macros";
 import type { GalleryAssignTarget } from "./use-gallery";
 
@@ -23,7 +23,7 @@ function cardName(data: unknown): string {
 export function useChatGalleryOwners(
   chat: { characterIds?: unknown; personaId?: string | null } | null | undefined,
 ): GalleryAssignTarget[] {
-  const { data: allCharacters } = useCharacters({ includeBuiltIn: true, enabled: !!chat });
+  const { data: allCharacters } = useCharacterListRows({ includeBuiltIn: true, enabled: !!chat });
   const { data: allPersonas } = usePersonas(!!chat?.personaId);
   const characterIdsKey = JSON.stringify(getChatCharacterIds(chat ?? null));
   const personaId = chat?.personaId ?? null;

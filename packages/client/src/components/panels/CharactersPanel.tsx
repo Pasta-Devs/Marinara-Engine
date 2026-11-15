@@ -66,6 +66,7 @@ import { PanelVirtualList } from "./PanelVirtualList";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { CharacterBulkTagsModal } from "../characters/CharacterBulkTagsModal";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type CharacterRow = CharacterCatalogSummaryEntry;
 type GroupRow = {
@@ -1262,7 +1263,7 @@ export function CharactersPanel() {
                           <div className="absolute inset-0 overflow-hidden rounded-lg">
                             {member.avatarPath ? (
                               <img
-                                src={member.avatarPath}
+                                src={avatarPreviewSrc(member.avatarPath)}
                                 alt={memberName}
                                 loading="lazy"
                                 className="h-full w-full object-cover"
@@ -1621,7 +1622,7 @@ export function CharactersPanel() {
                 {avatarUrl ? (
                   <div className="absolute inset-0 overflow-hidden rounded-xl">
                     <img
-                      src={avatarUrl}
+                      src={avatarPreviewSrc(avatarUrl)}
                       alt={charName}
                       className="h-full w-full object-cover"
                       style={getAvatarCropStyle(normalizeAvatarCrop(char.parsed.extensions?.avatarCrop))}
