@@ -128,6 +128,27 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "a turn game's toggle stops its tag, for the built-in games and package games alike",
+    run() {
+      // A game's tag reaches the filter as a package command, the shape the parser gives it.
+      const games = ["uno", "chess", "poker", "eightball", "tic_tac_toe", "rock_paper_scissors", "blackjack", "wordle"];
+      const commands = [...games, "phone"].map((commandType) => ({
+        type: "capability",
+        commandType,
+        payload: null,
+      })) as Parameters<typeof filterEnabledConversationCommands>[0];
+      const commandTypes = (kept: typeof commands) =>
+        kept.map((command) => (command.type === "capability" ? command.commandType : command.type));
+
+      assert.deepEqual(commandTypes(filterEnabledConversationCommands(commands, {})), [...games, "phone"]);
+      const allOff = filterEnabledConversationCommands(commands, {
+        conversationCommandToggles: Object.fromEntries(games.map((game) => [game, false])),
+      });
+      // A package command with no toggle of its own stays on.
+      assert.deepEqual(commandTypes(allOff), ["phone"]);
+    },
+  },
+  {
     name: "character advanced prompts stay wired into Conversation and Game runtime assembly",
     run() {
       const generateRouteSource = readFileSync(

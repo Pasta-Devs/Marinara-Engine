@@ -170,6 +170,7 @@ import {
   isCapabilityPackageAvailable,
   useCapabilityAgentRegistry,
   useInstalledCapabilityPackages,
+  usePackageTurnGameCommands,
 } from "../../hooks/use-capability-packages";
 import {
   useUpdateChat,
@@ -255,7 +256,6 @@ import {
   getAgentPromptTemplateOptions,
   AGENT_COST_HIGH_CALLS,
   AGENT_COST_HIGH_TOKENS,
-  CONVERSATION_COMMAND_AGENT_IDS,
   isAgentManifestAvailableInChatMode,
   isAgentConfigDeleted,
   isBuiltInAgentRuntimeDisabled,
@@ -328,7 +328,7 @@ import {
   resolveSelectedGameVideoPromptTemplateId,
 } from "./lib/game-video-prompt-templates";
 import {
-  CONVERSATION_COMMAND_TOGGLE_OPTIONS,
+  buildConversationCommandToggleOptions,
   readConversationCommandToggles,
 } from "./lib/conversation-command-toggles";
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
@@ -1076,12 +1076,11 @@ export function ChatSettingsDrawer({
       />
     );
   };
-  const availableConversationCommandOptions = useMemo(() => {
-    return CONVERSATION_COMMAND_TOGGLE_OPTIONS.filter((command) => {
-      const agentId = CONVERSATION_COMMAND_AGENT_IDS[command.id];
-      return !agentId || installedAgentIds.has(agentId);
-    });
-  }, [installedAgentIds]);
+  const packageTurnGameCommands = usePackageTurnGameCommands(isConversation).data;
+  const availableConversationCommandOptions = useMemo(
+    () => buildConversationCommandToggleOptions(installedAgentIds, packageTurnGameCommands ?? []),
+    [installedAgentIds, packageTurnGameCommands],
+  );
   const hasConversationCommands = availableConversationCommandOptions.length > 0;
   const illustratorInstalled = installedAgentIds.has("illustrator");
   const readLatestActiveAgentIds = useCallback(() => {
@@ -5150,7 +5149,9 @@ export function ChatSettingsDrawer({
                                 key={command.id}
                                 label={command.labelKey ? localizeUi(command.labelKey) : command.label}
                                 description={
-                                  command.descriptionKey ? localizeUi(command.descriptionKey) : command.description
+                                  command.descriptionKey
+                                    ? localizeUi(command.descriptionKey, command.descriptionValues)
+                                    : command.description
                                 }
                                 checked={enabled}
                                 onChange={(nextEnabled) =>

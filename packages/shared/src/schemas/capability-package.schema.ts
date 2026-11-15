@@ -1613,7 +1613,14 @@ const capabilityPackageManifestBaseSchema = z
 //        push of the last roll (`resolution.push`, asked for with `push="true"`): the Year Zero Engine's base,
 //        skill and gear dice. Not a soft seam: an Engine that cannot read them refuses the whole ruleset
 //        file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 826 } as const);
+// 1.827: a turn game's conversation command gets a per-chat Commands toggle and a character prompt line. An
+//        Engine this new lists every registered command whose type names a registered turn-game engine, so a
+//        game needs no change for either. `registerConversationCommand` also takes `toggle: { label?,
+//        description? }` for the toggle's copy and `startConfig(context)` for the game a character's tag starts
+//        (its config, fewer of the proposed characters, or null to not start it), and a turn-game engine may set
+//        `silentBotMoves: true`. Soft seam: an older Engine ignores all three, so a package passes them without
+//        raising its declared capabilityApi. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 827 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

@@ -62,7 +62,7 @@ function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function humanSeatIdFromChat(chat: { personaId: string | null }): string {
+export function humanSeatIdFromChat(chat: { personaId: string | null }): string {
   return chat.personaId || HUMAN_FALLBACK_SEAT;
 }
 

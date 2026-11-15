@@ -98,6 +98,11 @@ export interface TurnGameEngine<TState, TMove, TConfig, TPublic = unknown> {
    * how freely a seated character may talk about their own position in chat.
    */
   readonly hiddenInformation: boolean;
+  /**
+   * OPTIONAL (Capability API 1.827). True to apply a character's move without an in-character message about it,
+   * as tic-tac-toe and rock-paper-scissors do. Leave it out to narrate each move.
+   */
+  readonly silentBotMoves?: boolean;
 
   /** The default house-rule config (used when the UI sends nothing). */
   defaultConfig(): TConfig;
