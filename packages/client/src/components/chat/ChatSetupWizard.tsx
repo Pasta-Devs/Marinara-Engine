@@ -1419,6 +1419,10 @@ function ConversationQuickSetup({
         <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
         <input
           type="text"
+          // Not a person's name: keeps Safari from offering contact AutoFill above the keyboard.
+          name="chat-title"
+          autoComplete="off"
+          data-form-type="other"
           key={userEditedName ? "user" : chat.name}
           defaultValue={chat.name}
           onBlur={(event) => {
@@ -2775,6 +2779,9 @@ function RoleplaySetupWizard({
           <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.characters.metadatatab.name")}</label>
           <input
             type="text"
+            name="chat-title"
+            autoComplete="off"
+            data-form-type="other"
             key={userEditedName ? "user" : chat.name}
             defaultValue={chat.name}
             onBlur={(event) => {

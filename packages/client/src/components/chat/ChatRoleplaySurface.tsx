@@ -1526,8 +1526,12 @@ export function ChatRoleplaySurface({
       scrollElement.style.setProperty("--mari-roleplay-scroll-padding-bottom", `${Math.max(16, bottom + 12)}px`);
     };
 
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
+    // The observer's first report (after layout, before paint) measures for free. Measuring here as well
+    // made Safari lay out the whole page again each time a chat tab opened (Nov 15).
+    if (typeof ResizeObserver === "undefined") {
+      measure();
+      return;
+    }
     const observer = new ResizeObserver(measure);
     if (scrollRef.current) observer.observe(scrollRef.current);
     if (topChromeRef.current) observer.observe(topChromeRef.current);

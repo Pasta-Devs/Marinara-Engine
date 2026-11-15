@@ -317,6 +317,9 @@ function withCapturedEditorField(
 /** Mari workspace changes whose theme switch already got its "Keep this theme?" try (see the history effect). */
 const mariThemeTriesHandled = new Set<string>();
 
+/** How many past messages her transcript draws at first, and how many more each Show older adds. */
+const MARI_HEAD_WINDOW = 24;
+
 export function HomeProfessorMariChat({
   pageActive = true,
   attachedFooter = false,
@@ -1932,6 +1935,25 @@ export function HomeProfessorMariChat({
     ? displayMessages.findIndex((message) => message.id === lastUserMessageId)
     : displayMessages.length;
   const transcriptHeadMessages = displayMessages.slice(0, activeTurnStartIndex);
+  // Her history draws its latest turns first, with Show older for the rest: every visit to her tab built
+  // the whole history, about 1.1 s in Safari on the tablet layout with 80 messages (Nov 15).
+  const [headWindow, setHeadWindow] = useState(MARI_HEAD_WINDOW);
+  const olderAnchorRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    setHeadWindow(MARI_HEAD_WINDOW);
+  }, [chatId]);
+  const showOlderHead = () => {
+    const node = scrollRef.current;
+    olderAnchorRef.current = node ? node.scrollHeight - node.scrollTop : null;
+    setHeadWindow((count) => count + MARI_HEAD_WINDOW);
+  };
+  // Older turns arrive above: keep the turn you were reading where it was (Safari has no scroll anchoring).
+  useLayoutEffect(() => {
+    const keep = olderAnchorRef.current;
+    const node = scrollRef.current;
+    olderAnchorRef.current = null;
+    if (keep !== null && node) node.scrollTop = node.scrollHeight - keep;
+  }, [headWindow]);
   const activeTurnMessages = displayMessages.slice(activeTurnStartIndex);
   const showConnectionFirstHint = shouldShowProfessorMariConnectionHint({
     chatId,
@@ -3905,7 +3927,14 @@ export function HomeProfessorMariChat({
                           showConnectionFirstHint={showConnectionFirstHint}
                           showJumpToLatest={showJumpToLatest}
                           showNextStepCards={showNextStepCards}
-                          transcriptHeadMessages={transcriptHeadMessages}
+                          // A review being opened can sit in an older turn: then the whole history shows.
+                          transcriptHeadMessages={
+                            requestedReviewId ? transcriptHeadMessages : transcriptHeadMessages.slice(-headWindow)
+                          }
+                          hiddenHeadCount={
+                            requestedReviewId ? 0 : Math.max(0, transcriptHeadMessages.length - headWindow)
+                          }
+                          onShowOlderHead={showOlderHead}
                           workspaceRunClock={workspaceRunClock}
                           workspaceStatus={workspaceStatus}
                           workspaceTimeline={workspaceTimeline}

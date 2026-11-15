@@ -114,7 +114,8 @@ export function RecentChats() {
       const fits = Math.max(1, Math.floor((list.getBoundingClientRect().height + 0.5) / rowHeight));
       setFitRows((current) => (current === fits ? current : fits));
     };
-    measure();
+    // No measure() here: the observer's first report comes after layout and before paint, when reading
+    // sizes is free. Measuring in this effect made Safari lay out the page again on every Home visit.
     const observer = new ResizeObserver(measure);
     observer.observe(list);
     return () => observer.disconnect();

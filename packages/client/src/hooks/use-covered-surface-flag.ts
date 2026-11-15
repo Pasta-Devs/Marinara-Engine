@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
+import { afterNextPaint } from "../lib/after-paint";
 
 /**
  * Marks <html data-<flag>="true"> while another surface (Professor Mari, an editor, a full panel) sits on top of
@@ -71,9 +72,19 @@ function watchCovered(getElement: () => HTMLElement | null, onChange: (covered: 
     return true;
   };
 
+  // Every hit test waits for a painted frame: run while the page still had changes pending (a tab
+  // just mounted), each one made Safari lay out the whole page again, 110-370 ms on a tablet (Nov 15).
+  const cancels = new Set<() => void>();
+  const checkAfterPaint = () => {
+    const cancel = afterNextPaint(() => {
+      cancels.delete(cancel);
+      onChange(isCovered());
+    });
+    cancels.add(cancel);
+  };
   const check = () => {
     settleTimer = null;
-    onChange(isCovered());
+    checkAfterPaint();
   };
 
   const schedule = () => {
@@ -85,7 +96,7 @@ function watchCovered(getElement: () => HTMLElement | null, onChange: (covered: 
     }, 600);
   };
 
-  check();
+  checkAfterPaint();
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, {
     childList: true,
@@ -102,5 +113,6 @@ function watchCovered(getElement: () => HTMLElement | null, onChange: (covered: 
     document.removeEventListener("visibilitychange", schedule);
     if (settleTimer !== null) window.clearTimeout(settleTimer);
     if (trailingTimer !== null) window.clearTimeout(trailingTimer);
+    for (const cancel of cancels) cancel();
   };
 }

@@ -1026,7 +1026,35 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     }
   }, [isLast, commitDocsLanguage, finish]);
 
-  const isCentered = isMobileViewport || currentStep.centerCard || !currentStep.target || !targetRect;
+  // A step whose control isn't on screen yet (the sidebar is still switching views) keeps the card where
+  // the last step put it for that moment, instead of centering it and then jumping beside the control
+  // (tablet walkthrough jitter, Nov 15).
+  const lastTooltipStyleRef = useRef<React.CSSProperties | null>(null);
+  // Coming from a centered step there is no last place to hold, so the card waits unseen (at most
+  // 0.6 s) for the control, then appears beside it, rather than showing centered and jumping.
+  const [targetWaitOverStep, setTargetWaitOverStep] = useState(-1);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setTargetWaitOverStep(step), 600);
+    return () => window.clearTimeout(timer);
+  }, [step]);
+  const holdingForTarget =
+    !isMobileViewport &&
+    !currentStep.centerCard &&
+    !!currentStep.target &&
+    !targetRect &&
+    !lastTooltipStyleRef.current &&
+    targetWaitOverStep !== step;
+  const waitingForTarget =
+    !isMobileViewport &&
+    !currentStep.centerCard &&
+    !!currentStep.target &&
+    !targetRect &&
+    !!lastTooltipStyleRef.current;
+  const isCentered =
+    isMobileViewport || currentStep.centerCard || !currentStep.target || (!targetRect && !waitingForTarget);
+  const tooltipStyle = targetRect ? computeTooltipStyle(targetRect, currentStep) : lastTooltipStyleRef.current;
+  if (!isCentered && targetRect) lastTooltipStyleRef.current = tooltipStyle;
+  if (isCentered) lastTooltipStyleRef.current = null;
 
   // Mari turns toward the highlighted control, wherever the card ended up beside (or, on a phone, below) it.
   const [cardBox, setCardBox] = useState<Rect | null>(null);
@@ -1135,7 +1163,11 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             onKeyDown={handleTutorialKeyDown}
             aria-label={dialogLabel}
             data-component="OnboardingTutorial.Card"
-            style={{ width: Math.min(380, getViewportWidth() - 32), maxHeight: centeredCardMaxHeight }}
+            style={{
+              width: Math.min(380, getViewportWidth() - 32),
+              maxHeight: centeredCardMaxHeight,
+              visibility: holdingForTarget ? "hidden" : undefined,
+            }}
           >
             <TourCardContent
               step={step}
@@ -1161,7 +1193,11 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           onKeyDown={handleTutorialKeyDown}
           aria-label={dialogLabel}
           data-component="OnboardingTutorial.Card"
-          style={computeTooltipStyle(targetRect!, currentStep)}
+          style={{
+            ...tooltipStyle,
+            // Between steps the card glides to its next place rather than jumping.
+            transition: "top 0.2s ease, left 0.2s ease, right 0.2s ease, bottom 0.2s ease",
+          }}
         >
           <TourCardContent
             step={step}

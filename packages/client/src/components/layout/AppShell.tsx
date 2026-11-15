@@ -415,6 +415,13 @@ export function AppShell({
       (window.matchMedia("(display-mode: standalone)").matches ||
         (navigator as Navigator & { standalone?: boolean }).standalone === true);
     root.toggleAttribute("data-mari-ios-webkit", isIosWebKit);
+    // Safari zooms the whole page into any field whose text is under 16 px and leaves it zoomed (Nov 15:
+    // the chat setup zoomed in on its Name field). maximum-scale stops that zoom; iOS still lets people
+    // pinch-zoom, so nobody loses zooming. Only on iPhone/iPad Safari: Android would block pinch-zoom.
+    const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const viewportBefore = viewportMeta?.content ?? null;
+    if (isIosWebKit && viewportMeta && !/maximum-scale/.test(viewportMeta.content))
+      viewportMeta.content = `${viewportMeta.content}, maximum-scale=1`;
     const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -557,6 +564,7 @@ export function AppShell({
       root.style.removeProperty("--mari-visual-viewport-height");
       root.style.removeProperty("--mari-visual-viewport-offset-top");
       root.removeAttribute("data-mari-ios-webkit");
+      if (viewportMeta && viewportBefore !== null) viewportMeta.content = viewportBefore;
       root.removeAttribute("data-mari-camera-side");
       root.removeAttribute("data-mari-software-keyboard-open");
     };
@@ -1837,7 +1845,11 @@ export function AppShell({
       className={cn(
         "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden",
         overhaulActive && "mari-overhaul flex-col",
-        showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
+        showAmbientDecor && "retro-scanlines noise-bg",
+        // The grid is a background on this box, which the new layout's pages always cover. Changing
+        // this box's own style made Safari restyle every element on the page (~120 ms on the tablet
+        // layout) on each trip to and from Home, so the new layout leaves it off.
+        showAmbientDecor && !overhaulActive && "geometric-grid",
       )}
     >
       {/* A theme's backdrop art (styles/theme-tokens.css): its own layer, under everything. */}

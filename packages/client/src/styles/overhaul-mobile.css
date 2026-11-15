@@ -4964,7 +4964,9 @@
 }
 /* A bottom sheet (Chat settings) covers the composer; the composer stays hidden behind it so its
    edge can't show under the sheet's rounded bottom corners (DM13). */
-:root[data-overhaul="mobile"]:has(.mari-window[data-presentation="sheet"]) [data-mari-part="composer"] {
+/* Only a sheet that is showing: a minimized or hidden window stays in the page with [hidden], and
+   counting it left a chat with no message box at all (Nov 15, phone Convo). */
+:root[data-overhaul="mobile"]:has(.mari-window[data-presentation="sheet"]:not([hidden])) [data-mari-part="composer"] {
   visibility: hidden;
 }
 /* Chat settings sheet: the Connection row's label has no chip of its own (DM12; framed chat widgets

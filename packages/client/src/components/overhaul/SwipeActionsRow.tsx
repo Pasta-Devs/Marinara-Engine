@@ -76,6 +76,11 @@ export function SwipeActionsRow({
     };
   }, [open, onOpenChange]);
 
+  // The tray's buttons are built the first time the row is swiped, not for every row up front: a long
+  // chat list carried hundreds of hidden buttons that each tab switch restyled (Nov 15, iPad).
+  const [trayBuilt, setTrayBuilt] = useState(false);
+  if (!trayBuilt && (open || dragging || pull !== null)) setTrayBuilt(true);
+
   if (!enabled) return <>{children}</>;
   const shown = pull ?? (open ? trayWidth : 0);
   return (
@@ -106,23 +111,24 @@ export function SwipeActionsRow({
         {children}
       </div>
       <div className="ovm-swiperow__tray" aria-hidden={!open}>
-        {actions.map((action) => (
-          <button
-            key={action.key}
-            type="button"
-            tabIndex={open ? 0 : -1}
-            aria-label={action.label}
-            className={cn("ovm-swiperow__action", action.tone === "danger" && "is-danger")}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenChange(false);
-              action.onSelect();
-            }}
-          >
-            {action.icon}
-            <span>{action.label}</span>
-          </button>
-        ))}
+        {(trayBuilt || open || dragging || pull !== null) &&
+          actions.map((action) => (
+            <button
+              key={action.key}
+              type="button"
+              tabIndex={open ? 0 : -1}
+              aria-label={action.label}
+              className={cn("ovm-swiperow__action", action.tone === "danger" && "is-danger")}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenChange(false);
+                action.onSelect();
+              }}
+            >
+              {action.icon}
+              <span>{action.label}</span>
+            </button>
+          ))}
       </div>
     </div>
   );

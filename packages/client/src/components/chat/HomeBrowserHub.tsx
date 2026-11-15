@@ -1317,7 +1317,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       setGridColumns(columns);
       setGridRowHeight(Math.floor(referenceRowHeight * 2) / 2);
     };
-    measure();
+    // With ResizeObserver, its first report (after layout, before paint) measures for free; reading
+    // sizes here made Safari lay out the whole page again on every Home visit (Nov 15).
+    if (typeof ResizeObserver === "undefined") measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(feedShell);
     observer?.observe(content);

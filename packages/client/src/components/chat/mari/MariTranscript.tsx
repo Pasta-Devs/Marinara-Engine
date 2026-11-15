@@ -21,6 +21,7 @@ import { MariTurnReviews, MariWorkTimelineOutcome } from "./CompactMariMessage";
 import { ProfessorMariRecovery, continuedThereByContext, toMessageExtra } from "./mari-chat-helpers";
 import { WorkspaceTimelineItem, getMessageRunError, getMessageRunTime } from "./mari-tool-presentation";
 import { LoadingHistoryState } from "./MariChatStates";
+import { TranscriptWindowControls } from "../TranscriptWindowControls";
 import { MariWorkTimeline } from "./MariWorkTimeline";
 import { MariConnectionGuidance } from "./MariConnectionGuidance";
 
@@ -89,6 +90,9 @@ type MariTranscriptProps = {
   showNextStepCards: boolean;
   todoListNode: ReactElement | null;
   transcriptHeadMessages: Message[];
+  /** Past messages left out above (Show older brings them in). */
+  hiddenHeadCount: number;
+  onShowOlderHead: () => void;
   workspaceRunClock: { startedAt: number; endedAt: number | null } | null;
   workspaceStatus: MariWorkspaceStatus | null;
   workspaceTimeline: WorkspaceTimelineItem[];
@@ -148,6 +152,8 @@ export function MariTranscript({
   showNextStepCards,
   todoListNode,
   transcriptHeadMessages,
+  hiddenHeadCount,
+  onShowOlderHead,
   workspaceRunClock,
   workspaceStatus,
   workspaceTimeline,
@@ -195,6 +201,13 @@ export function MariTranscript({
                 {localizeUi("ui.chat.homeprofessormarichat.professorMariWorkspaceToolsAreUnavailable")}{" "}
                 <span className="mari-note__detail">{workspaceToolsIssue}</span>
               </MariNote>
+            ) : null}
+            {hiddenHeadCount > 0 ? (
+              <TranscriptWindowControls
+                hiddenBeforeCount={hiddenHeadCount}
+                hiddenAfterCount={0}
+                onShowOlder={onShowOlderHead}
+              />
             ) : null}
             {transcriptHeadMessages.map((message) => (
               // Older turns skip style and layout while off screen (mari.css).

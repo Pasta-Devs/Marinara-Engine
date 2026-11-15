@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
 import { looksLikeSecretRequest } from "../lib/theme-guard";
+import { afterNextPaint } from "../lib/after-paint";
 
 const MAX_LENGTH = 120;
 
@@ -23,25 +24,39 @@ export function parseCssStringToken(raw: string): string | null {
   return text ? text.slice(0, MAX_LENGTH) : null;
 }
 
+// The last text each kind of message box got, so a box mounting with a new chat tab starts with it.
+const lastThemed = new Map<string, string | null>();
+
 export function useThemedPlaceholder(composer: "roleplay" | "conversation" | "game", fallback: string) {
-  const [themed, setThemed] = useState<string | null>(null);
+  const [themed, setThemed] = useState<string | null>(() => lastThemed.get(composer) ?? null);
   useEffect(() => {
     if (typeof document === "undefined") return;
     const read = () => {
       const element =
         document.querySelector(`[data-mari-part="composer"][data-composer="${composer}"]`) ?? document.documentElement;
       const text = parseCssStringToken(getComputedStyle(element).getPropertyValue("--mari-composer-placeholder"));
-      setThemed(text && !looksLikeSecretRequest(text) ? text : null);
+      const next = text && !looksLikeSecretRequest(text) ? text : null;
+      lastThemed.set(composer, next);
+      setThemed(next);
     };
-    read();
+    // Read once the frame is painted: reading a computed style right after a chat tab mounts made Safari
+    // restyle the whole page on the spot (about 0.1-0.3 s on a tablet, Nov 15).
+    let cancel = afterNextPaint(read);
+    const schedule = () => {
+      cancel();
+      cancel = afterNextPaint(read);
+    };
     // Themes arrive as <style> elements in <head>; per-chat themes and tags change <html> attributes.
-    const observer = new MutationObserver(read);
+    const observer = new MutationObserver(schedule);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-custom-theme", "data-chat-id", "data-chat-tags", "data-theme", "data-visual-theme"],
     });
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancel();
+    };
   }, [composer]);
   return themed ?? fallback;
 }

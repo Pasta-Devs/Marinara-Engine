@@ -119,6 +119,7 @@ import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTopBar";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
 import { RowActionSheet } from "../overhaul/RowActionSheet";
 import { useChatRowPreviewSlot } from "../../lib/theme-slots";
@@ -365,6 +366,9 @@ export function ChatSidebar() {
   // status dots refresh when time alone changes them, without per-row timers.
   const presenceNow = usePresenceClock();
   const chatListBackgrounds = useUIStore((s) => s.chatListBackgrounds);
+  // Hover-only row parts (background peek, pencil and tag buttons) are left out on touch screens:
+  // never seen there, yet every one of them was restyled on each tab switch (Nov 15, iPad).
+  const canHover = useMatchMedia("(hover: hover)");
   const hasAnyDetailOpen = useUIStore((s) => s.hasAnyDetailOpen);
   const editorDirty = useUIStore((s) => s.editorDirty);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -1507,7 +1511,7 @@ export function ChatSidebar() {
             )}
 
             {/* Chat background banner — active/hovered only, behind everything */}
-            {bannerUrl && (
+            {bannerUrl && (canHover || chatListBackgrounds === "always" || isActive) && (
               <span
                 aria-hidden
                 className={cn(
@@ -1718,7 +1722,7 @@ export function ChatSidebar() {
                       aria-label={localizeUi("ui.layout.chatsidebar.pinned")}
                     />
                   ) : null}
-                  {overhaulDesktop && !multiSelectMode ? (
+                  {overhaulDesktop && canHover && !multiSelectMode ? (
                     <button
                       type="button"
                       data-chat-rename=""
@@ -1735,7 +1739,7 @@ export function ChatSidebar() {
                       <Pencil size="0.6875rem" />
                     </button>
                   ) : null}
-                  {overhaulDesktop && !multiSelectMode ? (
+                  {overhaulDesktop && canHover && !multiSelectMode ? (
                     <button
                       type="button"
                       data-chat-tags-button=""
