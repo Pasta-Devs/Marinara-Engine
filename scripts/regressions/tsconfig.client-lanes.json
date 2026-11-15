@@ -23,7 +23,7 @@
     "tts/tts-safari-play-guard.regression.ts",
     "ui/client-runtime-diagnostics.regression.ts",
     "characters/character-form-rebase.regression.ts",
-    "mari-editor-fields.regression.ts",
+    "mari/mari-editor-fields.regression.ts",
     "game-ruleset/ruleset-catalog-picker.regression.ts",
     "game-ruleset/ruleset-catalog-refresh.regression.ts",
     "game-ruleset/ruleset-combat-bridge-client.regression.ts",
@@ -40,6 +40,6 @@
     "preset-section-tokens.regression.ts",
     "tts/local-music-playback-errors.regression.ts",
     "marinara-host-namespace.regression.ts",
-    "narrator-avatar-borders.regression.ts"
+    "roleplay/narrator-avatar-borders.regression.ts"
   ]
 }
