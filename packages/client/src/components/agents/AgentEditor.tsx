@@ -1037,13 +1037,7 @@ export function AgentEditor() {
       setLocalWritableLorebookId(writableLorebookId);
       setLocalLorebookReadBehindMessages(normalizeLorebookReadBehindMessages(settings.lorebookReadBehindMessages));
       const writerOrder = parseLorebookWriterOrder(settings.newLorebookEntryOrder);
-      setLocalLorebookOrderMode(
-        writerOrder === "growing"
-          ? "growing"
-          : writerOrder === undefined && settings.resultType === "lorebook_update"
-            ? "legacy"
-            : "fixed",
-      );
+      setLocalLorebookOrderMode(writerOrder === "growing" ? "growing" : writerOrder === undefined ? "legacy" : "fixed");
       setLocalFixedLorebookOrder(String(typeof writerOrder === "number" ? writerOrder : DEFAULT_LOREBOOK_WRITER_ORDER));
       setLocalLorebookBackfillEnabled(settings.lorebookBackfillEnabled === true);
       setLocalLorebookBackfillChunkSize(normalizeLorebookBackfillChunkSize(settings.lorebookBackfillChunkSize));
@@ -2931,18 +2925,20 @@ export function AgentEditor() {
                         value={localLorebookOrderMode}
                         aria-describedby={localLorebookOrderMode === "growing" ? growingOrderDescriptionId : undefined}
                         onChange={(event) => {
-                          setLocalLorebookOrderMode(event.target.value as typeof localLorebookOrderMode);
+                          const mode = event.target.value;
+                          if (mode !== "fixed" && mode !== "growing" && mode !== "legacy") return;
+                          setLocalLorebookOrderMode(mode);
                           markDirty();
                         }}
                         className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                       >
                         <option value="fixed">{localizeUi("ui.agents.agenteditor.lorebookOrderFixed")}</option>
                         <option value="growing">{localizeUi("ui.agents.agenteditor.lorebookOrderGrowing")}</option>
-                        {(localResultType === "lorebook_update" || localLorebookOrderMode === "legacy") && (
-                          <option value="legacy">
-                            {localizeUi("ui.agents.agenteditor.lorebookOrderAgentSupplied")}
-                          </option>
-                        )}
+                        <option value="legacy">
+                          {localResultType === "lorebook_update"
+                            ? localizeUi("ui.agents.agenteditor.lorebookOrderAgentSupplied")
+                            : localizeUi("ui.agents.agenteditor.lorebookOrderDefault")}
+                        </option>
                       </select>
                     </label>
                     {localLorebookOrderMode === "growing" && (

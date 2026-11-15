@@ -8196,6 +8196,7 @@
   "ui.agents.agenteditor.localModelSidecar": "Built-in model",
   "ui.agents.agenteditor.lorebookContextSources": "Lorebook Context Sources",
   "ui.agents.agenteditor.lorebookOrderAgentSupplied": "Agent-supplied (defaults to 100)",
+  "ui.agents.agenteditor.lorebookOrderDefault": "Default (100)",
   "ui.agents.agenteditor.lorebookOrderFixed": "Fixed",
   "ui.agents.agenteditor.lorebookOrderGrowing": "Growing",
   "ui.agents.agenteditor.lorebookOrderGrowingDescription": "Starts at 1 in an empty lorebook. Each new entry gets the next whole number above the highest existing order.",
