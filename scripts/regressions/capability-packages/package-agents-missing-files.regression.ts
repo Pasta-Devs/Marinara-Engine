@@ -113,6 +113,26 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "a restart-required update whose previous manifest is corrupt is skipped, and the others still load",
+    async run() {
+      const updating = {
+        ...agentsPackage("updating-agents", ["updating"]),
+        status: "restart-required",
+        previousVersion: "0.9.0",
+      };
+      const other = agentsPackage("steady-agents", ["steady"]);
+      const previousRoot = join(packagesRoot, "versions", "updating-agents", "0.9.0");
+      mkdirSync(previousRoot, { recursive: true });
+      writeFileSync(join(previousRoot, "manifest.json"), "{");
+      writeFileSync(registryPath, JSON.stringify({ schemaVersion: 1, packages: [updating, other] }, null, 2));
+      assert.deepEqual(
+        (await capabilityPackageManager.agentDefinitions()).map(({ id }) => id),
+        ["steady"],
+      );
+      assert.equal(installed()[0]!.readinessError, null, "a previous version's files say nothing about the new one");
+    },
+  },
+  {
     name: "an agents file changed on disk is skipped the same way",
     async run() {
       const changed = agentsPackage("changed-agents", ["changed"]);

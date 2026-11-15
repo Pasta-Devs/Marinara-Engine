@@ -15243,25 +15243,36 @@ export const capabilityPackageManager = {
     const definitions = [];
     const ids = new Set<string>();
     for (const installed of registry.packages) {
-      // A restart-required update still has its previous package runtime active. Keep
-      // its agent definitions visible until restart, just like the active client module.
-      const servable = await resolveServableInstalledPackage(installed);
-      if (!servable) continue;
       // One package whose files went missing or changed on disk (an install cut off when a phone died, #9195) must
       // not stop the Engine from starting: its agents are left out, and the package says it needs a check, so
-      // Agents shows it with Update or reinstall. The mark goes once its files read again (or a reinstall).
-      // Only a package with no server entrypoint: one with a runtime has its readiness set by that runtime's start.
-      const current = servable.version === installed.version && !installed.manifest.entrypoints.server;
+      // Agents shows it with Update or reinstall. The mark goes once its files read again (or a reinstall). Only
+      // the installed version of a package with no server entrypoint is marked: one with a runtime has its
+      // readiness set by that runtime's start, and a previous version's files say nothing about the new one.
+      const marksOwnReadiness = !installed.manifest.entrypoints.server;
+      let servable: InstalledCapabilityPackage | null = null;
       let parsed: Awaited<ReturnType<typeof readInstalledAgentDefinitions>>;
       try {
+        // A restart-required update still has its previous package runtime active. Keep
+        // its agent definitions visible until restart, just like the active client module.
+        servable = await resolveServableInstalledPackage(installed);
+        if (!servable) continue;
         parsed = await readInstalledAgentDefinitions(servable);
       } catch (error) {
-        logger.warn(error, "[capability] Skipping the agents of package %s %s", servable.id, servable.version);
-        if (current && installed.readinessError !== PACKAGE_FILES_UNREADABLE)
+        logger.warn(error, "[capability] Skipping the agents of package %s %s", installed.id, servable?.version);
+        // The helper writes only when the mark changes; this check spares it a registry read on every refresh.
+        if (
+          marksOwnReadiness &&
+          servable?.version === installed.version &&
+          installed.readinessError !== PACKAGE_FILES_UNREADABLE
+        )
           await markPackageFilesUnreadable(installed.id, installed.version, true);
         continue;
       }
-      if (current && installed.readinessError === PACKAGE_FILES_UNREADABLE)
+      if (
+        marksOwnReadiness &&
+        servable.version === installed.version &&
+        installed.readinessError === PACKAGE_FILES_UNREADABLE
+      )
         await markPackageFilesUnreadable(installed.id, installed.version, false);
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
