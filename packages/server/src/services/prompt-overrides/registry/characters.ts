@@ -25,7 +25,7 @@ export const CHARACTERS_LOREBOOK_COVER: PromptOverrideKeyDef<CharactersLorebookC
   defaultBuilder: (ctx) =>
     [
       `Cover illustration for a fantasy lore compendium titled "${ctx.name}".`,
-      `${ctx.appearance.replace(/[.s]+$/, "")}.`,
+      `${ctx.appearance.replace(/[.\s]+$/, "")}.`,
       "Evocative scene or emblem, no text, no lettering.",
     ].join(" "),
   exampleContext: {

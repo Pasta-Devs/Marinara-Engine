@@ -43,7 +43,10 @@ try {
   assert.equal(detailUrl?.searchParams.get("full"), "true");
 
   // A bare `<creator>/<slug>` works too.
-  await app.inject({ method: "GET", url: "/api/bot-browser/chub/lorebook/someone/world-atlas" });
+  const beforeBare = captured.length;
+  const bare = await app.inject({ method: "GET", url: "/api/bot-browser/chub/lorebook/someone/world-atlas" });
+  assert.equal(bare.statusCode, 200);
+  assert.equal(captured.length, beforeBare + 1);
   assert.equal(captured.at(-1)?.pathname, "/api/lorebooks/someone/world-atlas");
 
   // Anything that is not exactly `<creator>/<slug>` is refused before any outbound request.

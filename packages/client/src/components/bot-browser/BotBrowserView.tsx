@@ -1837,6 +1837,8 @@ export function BotBrowserView() {
   const resultsScrollTopRef = useRef(0);
   const restoreResultsScrollRef = useRef(false);
   const openDetailScrollRef = useRef(false);
+  // Each detail fetch gets a number; a reply for an older one (another card opened since, or closed) is dropped.
+  const detailRequestRef = useRef(0);
 
   // ── Auth state ──
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -2043,6 +2045,7 @@ export function BotBrowserView() {
   // One step-back for the button, a failed detail load and hardware Back.
   const closeDetail = () => {
     restoreResultsScrollRef.current = true;
+    detailRequestRef.current += 1;
     setSelectedCard(null);
     setDetail(null);
   };
@@ -2055,10 +2058,13 @@ export function BotBrowserView() {
     setSelectedCard(card);
     setDetail(null);
     setDetailLoading(true);
+    const requestId = ++detailRequestRef.current;
     try {
       const d = await provider.fetchDetail(card);
+      if (requestId !== detailRequestRef.current) return;
       setDetail(d);
     } catch (err) {
+      if (requestId !== detailRequestRef.current) return;
       if (err instanceof BrowserSourceError) {
         // Keep the page open: its picture, creator and site link come from the listing.
         toast.error(err.message);
@@ -2068,7 +2074,7 @@ export function BotBrowserView() {
       else toast.error(localizeUi("ui.botBrowser.botbrowserview.failedToLoadCharacterDetails"));
       closeDetail();
     } finally {
-      setDetailLoading(false);
+      if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
   };
 
@@ -2351,12 +2357,16 @@ export function BotBrowserView() {
       }
       const imageDataUrl = await readImageDataUrl(card.avatarUrl);
       if (imageDataUrl) {
-        const imageResponse = await fetch(`/api/lorebooks/${imported.lorebookId}/image`, {
+        // The lorebook exists by now, so a failed cover is a warning, never a failed import.
+        const imageSaved = await fetch(`/api/lorebooks/${imported.lorebookId}/image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: imageDataUrl }),
-        });
-        if (!imageResponse.ok) toast.warning(localizeUi("ui.botBrowser.botbrowserview.lorebookImportedWithoutImage"));
+        }).then(
+          (imageResponse) => imageResponse.ok,
+          () => false,
+        );
+        if (!imageSaved) toast.warning(localizeUi("ui.botBrowser.botbrowserview.lorebookImportedWithoutImage"));
       }
       toast.success(localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", { value1: card.name }));
       void qc.invalidateQueries({ queryKey: lorebookKeys.all });
