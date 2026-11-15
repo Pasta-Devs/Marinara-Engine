@@ -2414,6 +2414,7 @@ export function LorebookEditor() {
                           className="min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-60"
                         >
                           <AvatarCropWidget
+                            kind="image"
                             src={lorebook.imagePath}
                             alt={formName}
                             crop={formImageCrop}

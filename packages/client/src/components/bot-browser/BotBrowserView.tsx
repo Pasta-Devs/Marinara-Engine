@@ -43,7 +43,7 @@ import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { characterKeys, fetchAllCharacterPages } from "../../hooks/use-characters";
-import { lorebookKeys } from "../../hooks/use-lorebooks";
+import { fetchAllLorebookPages, lorebookKeys } from "../../hooks/use-lorebooks";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
@@ -156,6 +156,8 @@ interface BrowseCard {
   stat3Label: string;
   stat3Icon: "star" | "download" | "heart" | "eye" | "message" | "hash";
   nsfw: boolean;
+  /** Lorebooks: Chub's NSFW marks are coarse, so a marked cover is blurred, never hidden, while NSFW is off. */
+  blurCover?: boolean;
   externalUrl: string;
   _raw: unknown;
 }
@@ -360,6 +362,16 @@ async function readImageDataUrl(url: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+async function filterLorebookImportTags(sourceTags: string[], mode: TagImportMode): Promise<string[]> {
+  if (mode === "all" || sourceTags.length === 0) return sourceTags;
+  if (mode === "none") return [];
+  const lorebooks = await fetchAllLorebookPages();
+  const existingTagKeys = new Set(
+    lorebooks.flatMap((lorebook) => lorebook.tags ?? []).map((tag) => tag.toLocaleLowerCase()),
+  );
+  return sourceTags.filter((tag) => existingTagKeys.has(tag.toLocaleLowerCase()));
 }
 
 async function filterPersonaImportTags(sourceTags: string[], mode: TagImportMode): Promise<string[]> {
@@ -1625,7 +1637,7 @@ const chubLorebookProvider: ProviderConfig = {
   hasSortDirection: true,
   hasTokenFilters: false,
   extraToggles: [],
-  nsfwAvailable: false,
+  nsfwAvailable: true,
   nsfwMode: "free",
   search: async (p) => {
     const preset = CHUB_SORT_PRESETS.find((pr) => pr.value === p.sort) ?? CHUB_SORT_PRESETS[0];
@@ -1650,6 +1662,9 @@ const chubLorebookProvider: ProviderConfig = {
       cards: nodes.map((n: any) => {
         const fullPath = String(n.fullPath ?? "");
         const topics: string[] = Array.isArray(n.topics) ? n.topics.map(String) : [];
+        // Chub has no NSFW flag on lorebooks and almost never sets its NSFW-image mark, so any author tag
+        // mentioning NSFW counts ("SFW <-> NSFW" too). It only blurs the cover, so a wrong guess costs a click.
+        const markedNsfw = n.nsfw_image === true || topics.some((topic) => topic.toLowerCase().includes("nsfw"));
         return {
           id: fullPath,
           name: String(n.name ?? "").trim() || "Unnamed",
@@ -1667,7 +1682,8 @@ const chubLorebookProvider: ProviderConfig = {
           stat3: n.nTokens || 0,
           stat3Label: "Tokens",
           stat3Icon: "hash" as const,
-          nsfw: n.nsfw === true || topics.some((topic) => topic.trim().toLowerCase() === "nsfw"),
+          nsfw: markedNsfw,
+          blurCover: markedNsfw && !p.nsfw,
           externalUrl: `https://chub.ai/${fullPath}`,
           _raw: n,
         };
@@ -2348,6 +2364,7 @@ export function BotBrowserView() {
           ...embedded,
           name: card.name,
           description: optionalString(embedded?.description) ?? card.tagline,
+          tags: await filterLorebookImportTags(card.tags, tagImportMode),
           __filename: card.name,
         }),
       });
@@ -2909,63 +2926,64 @@ export function BotBrowserView() {
                   </button>
                 )}
 
-                {/* NSFW toggle; lorebook sources have none */}
-                {providerKind(provider) === "cards" &&
-                  (() => {
-                    const isLoginProvider = provider.nsfwMode === "login";
-                    const isLoggedInForProvider = sourceId === "pygmalion" && pygLoggedIn;
-                    const nsfwGreyedOut = isLoginProvider && isLoggedInForProvider;
-                    return (
-                      <label
-                        className={cn(
-                          "mari-chrome-control h-10 select-none px-3 py-0 text-xs md:h-9",
-                          nsfwGreyedOut
-                            ? "cursor-not-allowed opacity-40"
-                            : effectiveNsfwAvailable
-                              ? "cursor-pointer"
-                              : "cursor-pointer opacity-50",
-                        )}
-                        title={
-                          nsfwGreyedOut
-                            ? localizeUi("ui.botBrowser.botbrowserview.nsfwDependsOnYourAccountSettings")
-                            : effectiveNsfwAvailable
-                              ? localizeUi("ui.botBrowser.botbrowserview.toggleNsfwContent")
-                              : provider.nsfwHintKey
-                                ? localizeUi(provider.nsfwHintKey)
-                                : sourceId === "wyvern"
-                                  ? localizeUi("ui.botBrowser.botbrowserview.useThePopularNsfwSortOption")
-                                  : sourceId === "datacat"
-                                    ? localizeUi("ui.botBrowser.botbrowserview.datacatIsNsfwOnly_a49a06a")
-                                    : localizeUi("ui.botBrowser.botbrowserview.clickToLogInToValue1ForNsfwContent", {
-                                        value1: activeProviderName,
-                                      })
-                        }
-                        onClick={nsfwGreyedOut ? (e: React.MouseEvent) => e.preventDefault() : handleNsfwClick}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={nsfwGreyedOut ? true : nsfw}
-                          disabled={nsfwGreyedOut || !effectiveNsfwAvailable}
-                          onChange={(e) => {
-                            if (!nsfwGreyedOut && effectiveNsfwAvailable) {
-                              setNsfw(e.target.checked);
-                              setPage(1);
-                            }
-                          }}
-                          className="accent-[var(--primary)]"
-                        />{" "}
-                        {localizeUi("ui.botBrowser.botbrowserview.nsfw")}
-                        {nsfwGreyedOut && (
-                          <span className="ml-0.5 text-[0.55rem] text-[var(--muted-foreground)]">
-                            {localizeUi("ui.botBrowser.botbrowserview.account")}
-                          </span>
-                        )}
-                        {!nsfwGreyedOut && isLoginProvider && !effectiveNsfwAvailable && (
-                          <LogIn size="0.625rem" className="ml-0.5 opacity-70" />
-                        )}
-                      </label>
-                    );
-                  })()}
+                {/* NSFW toggle; for lorebooks it unblurs covers Chub marks NSFW instead of filtering */}
+                {(() => {
+                  const isLoginProvider = provider.nsfwMode === "login";
+                  const isLoggedInForProvider = sourceId === "pygmalion" && pygLoggedIn;
+                  const nsfwGreyedOut = isLoginProvider && isLoggedInForProvider;
+                  return (
+                    <label
+                      className={cn(
+                        "mari-chrome-control h-10 select-none px-3 py-0 text-xs md:h-9",
+                        nsfwGreyedOut
+                          ? "cursor-not-allowed opacity-40"
+                          : effectiveNsfwAvailable
+                            ? "cursor-pointer"
+                            : "cursor-pointer opacity-50",
+                      )}
+                      title={
+                        nsfwGreyedOut
+                          ? localizeUi("ui.botBrowser.botbrowserview.nsfwDependsOnYourAccountSettings")
+                          : effectiveNsfwAvailable
+                            ? providerKind(provider) === "lorebooks"
+                              ? localizeUi("ui.botBrowser.botbrowserview.unblurNsfwLorebookCovers")
+                              : localizeUi("ui.botBrowser.botbrowserview.toggleNsfwContent")
+                            : provider.nsfwHintKey
+                              ? localizeUi(provider.nsfwHintKey)
+                              : sourceId === "wyvern"
+                                ? localizeUi("ui.botBrowser.botbrowserview.useThePopularNsfwSortOption")
+                                : sourceId === "datacat"
+                                  ? localizeUi("ui.botBrowser.botbrowserview.datacatIsNsfwOnly_a49a06a")
+                                  : localizeUi("ui.botBrowser.botbrowserview.clickToLogInToValue1ForNsfwContent", {
+                                      value1: activeProviderName,
+                                    })
+                      }
+                      onClick={nsfwGreyedOut ? (e: React.MouseEvent) => e.preventDefault() : handleNsfwClick}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={nsfwGreyedOut ? true : nsfw}
+                        disabled={nsfwGreyedOut || !effectiveNsfwAvailable}
+                        onChange={(e) => {
+                          if (!nsfwGreyedOut && effectiveNsfwAvailable) {
+                            setNsfw(e.target.checked);
+                            setPage(1);
+                          }
+                        }}
+                        className="accent-[var(--primary)]"
+                      />{" "}
+                      {localizeUi("ui.botBrowser.botbrowserview.nsfw")}
+                      {nsfwGreyedOut && (
+                        <span className="ml-0.5 text-[0.55rem] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.botBrowser.botbrowserview.account")}
+                        </span>
+                      )}
+                      {!nsfwGreyedOut && isLoginProvider && !effectiveNsfwAvailable && (
+                        <LogIn size="0.625rem" className="ml-0.5 opacity-70" />
+                      )}
+                    </label>
+                  );
+                })()}
 
                 {/* Login button / auth info / logout for providers requiring login */}
                 {provider.nsfwMode === "login" &&
@@ -3666,7 +3684,10 @@ function CardTile({ card, onClick }: { card: BrowseCard; onClick: () => void }) 
             src={card.avatarUrl}
             alt={card.name}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            className={cn(
+              "h-full w-full object-cover transition-transform group-hover:scale-105",
+              card.blurCover && "scale-110 blur-xl group-hover:scale-110",
+            )}
             onError={() => setImgError(true)}
           />
         )}
@@ -3838,7 +3859,7 @@ function DetailView({
                   <img
                     src={card.avatarUrl}
                     alt={card.name}
-                    className="h-full w-full object-cover"
+                    className={cn("h-full w-full object-cover", card.blurCover && "scale-110 blur-xl")}
                     onError={() => setImgError(true)}
                   />
                 </button>
@@ -3853,38 +3874,36 @@ function DetailView({
               />
             ) : null}
             <div className="flex flex-col gap-2 max-md:flex-1">
-              {!isLorebook && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 p-2.5">
-                  <p className="mb-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                    {localizeUi("ui.botBrowser.detailview.importedTags")}
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {TAG_IMPORT_OPTIONS.map((option) => (
-                      <label
-                        key={option.value}
-                        className={`cursor-pointer rounded-md border px-2 py-1.5 transition-colors ${
-                          tagImportMode === option.value
-                            ? "border-[var(--primary)] bg-[var(--primary)]/10"
-                            : "border-[var(--border)] hover:border-[var(--muted-foreground)]"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="botBrowserTagImportMode"
-                          value={option.value}
-                          checked={tagImportMode === option.value}
-                          onChange={() => onTagImportModeChange(option.value)}
-                          className="sr-only"
-                        />
-                        <span className="block text-[0.6875rem] font-medium">{option.label}</span>
-                        <span className="block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                          {option.description}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/60 p-2.5">
+                <p className="mb-2 text-[0.6875rem] font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.botBrowser.detailview.importedTags")}
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {TAG_IMPORT_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`cursor-pointer rounded-md border px-2 py-1.5 transition-colors ${
+                        tagImportMode === option.value
+                          ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                          : "border-[var(--border)] hover:border-[var(--muted-foreground)]"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="botBrowserTagImportMode"
+                        value={option.value}
+                        checked={tagImportMode === option.value}
+                        onChange={() => onTagImportModeChange(option.value)}
+                        className="sr-only"
+                      />
+                      <span className="block text-[0.6875rem] font-medium">{option.label}</span>
+                      <span className="block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
+                        {option.description}
+                      </span>
+                    </label>
+                  ))}
                 </div>
-              )}
+              </div>
               <button
                 onClick={() => onImport(card)}
                 disabled={importing}
