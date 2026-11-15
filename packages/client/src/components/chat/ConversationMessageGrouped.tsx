@@ -491,7 +491,7 @@ export function ConversationMessageGrouped({
           // Omitting the ambiguous whole-block picker prevents mobile taps from
           // reacting to the final segment instead of the intended speaker.
           onPickReaction={undefined}
-          speech={hideActions ? undefined : speech}
+          speech={speech}
         />
       )}
       {hooks ? <MessageTemplateSlot hook={hooks.input} createdAt={ctx.message.createdAt} /> : null}

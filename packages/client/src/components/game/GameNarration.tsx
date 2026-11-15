@@ -3533,8 +3533,25 @@ export function GameNarration({
   useEffect(() => {
     if (!ttsConfig || !gameVoiceAvailable || isStreaming || generationFailed || disableVoiceGeneration) {
       // A line asked for now can't be generated; drop the request so it never starts playing later on its own.
-      requestedGameVoiceKeysRef.current.clear();
-      playWhenReadyGameVoiceKeyRef.current = null;
+      // A line already generating keeps its request and still plays once ready.
+      for (const key of requestedGameVoiceKeysRef.current) {
+        if (!gameVoicePendingRef.current.has(key)) requestedGameVoiceKeysRef.current.delete(key);
+      }
+      // Voice switched off drops it even then.
+      const voiceOff = !ttsConfig || !gameVoiceAvailable;
+      const playWhenReadyKey = playWhenReadyGameVoiceKeyRef.current;
+      if (playWhenReadyKey && (voiceOff || !gameVoicePendingRef.current.has(playWhenReadyKey))) {
+        playWhenReadyGameVoiceKeyRef.current = null;
+      }
+      if (voiceOff) {
+        // Stop the clips still generating too, and forget their unfinished entries so the lines show play again.
+        for (const [key, controller] of gameVoicePendingRef.current) {
+          controller.abort();
+          if (gameVoiceCacheRef.current.get(key)?.status === "loading") gameVoiceCacheRef.current.delete(key);
+        }
+        gameVoicePendingRef.current.clear();
+        requestedGameVoiceKeysRef.current.clear();
+      }
       return;
     }
 
@@ -3667,8 +3684,8 @@ export function GameNarration({
     const entry = gameVoiceCacheRef.current.get(key);
     if (!entry || entry.status === "loading" || entry.status === "idle") return;
     playWhenReadyGameVoiceKeyRef.current = null;
-    if (entry.status === "ready") playGameVoiceKey(key);
-  }, [gameVoiceVersion, playGameVoiceKey]);
+    if (entry.status === "ready" && gameVoiceAvailable) playGameVoiceKey(key);
+  }, [gameVoiceAvailable, gameVoiceVersion, playGameVoiceKey]);
 
   const activeVoiceKey = active ? getVoiceKeyForSegment(active) : null;
   const activeSideLines = useMemo(
