@@ -97,9 +97,18 @@ The UI debug toggle keeps working through `logDebugOverride`. That is the intend
 
 Print prompt text as it is, with `%s`. For a structured value (a message array, a provider request body, a parsed reply), pass `debugJson(value)` to `%s`, not `%j` or `JSON.stringify(value)`. It prints indented JSON whose line breaks inside strings are real line breaks, so a multi-line prompt stays readable, and it renders only when the line is printed. A redacting replacer goes in its second argument, as with `JSON.stringify`. An in-app debug view prints the same text with `readableJson` from `@marinara-engine/shared`. The `debug-log-line-breaks` regression covers this and the format choice.
 
+## In-app console
+
+Settings → Advanced → **Open Console** shows recent server lines in the app, for installs whose terminal is out of reach (a NAS, a VPS, Docker, Termux).
+
+- `lib/log-buffer.ts` keeps the last 1,500 lines in memory, at most about 4M characters, with each message and each field block cut at 16k characters. Nothing is written to disk, and a restart empties it.
+- `logger.ts` copies every serialized line into it through Pino's `hooks.streamWrite`, so the buffer holds what the terminal or log file got, at the same `LOG_LEVEL`. Lines that skip Pino, such as dotenv's `injected env` line or a child process's raw output, are not in it.
+- `GET /api/admin/logs?afterId=` returns the lines after `afterId`, plus `latestId`, `truncated` (lines were dropped before this read) and the server's `logLevel`. It sits behind `requirePrivilegedAccess` and is `no-store`. It runs at route `logLevel: "silent"`, so the console's own polls never show up in it.
+- The rules on this page matter here too: anything you log at warn or error is what a remote admin reads in the app, so keep prompts and provider bodies at debug.
+
 ## Checks
 
-The regressions `logging-request-trail`, `logging-failure-lines` and `logging-startup-timeline` cover this page:
+The regressions `logging-request-trail`, `logging-failure-lines` and `logging-startup-timeline` cover this page, and `server-console-logs` covers the in-app console:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-
