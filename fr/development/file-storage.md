@@ -56,7 +56,7 @@ Un seul processus serveur écrit dans un dossier de stockage à la fois. Au dém
 
 Cette preuve exige d'abord la même machine : un identifiant d'hôte identique, le dossier personnel privé de l'application Termux ou, quand un des deux côtés n'a pas d'identifiant d'hôte, un stockage que seule cette machine peut atteindre. Sous Linux et Android, il s'agit d'un système de fichiers local. Sous Windows, il s'agit d'un lecteur `Fixed` (pas d'un chemin réseau, amovible ou UNC), et le bail doit provenir d'un écrivain Windows natif portant le nom de cet ordinateur. Un bail sur la même machine est récupéré quand il appartient à un démarrage antérieur (sous Windows, des heures de démarrage distantes de 5 minutes au plus comptent comme le même démarrage), quand son socket de vivacité ne répond plus (Docker et Termux), ou quand son PID s'est terminé ou appartient désormais à un processus plus récent (sauf avec la preuve par lecteur Windows). Un stockage partagé ou réseau reste verrouillé, et l'erreur nomme le bail à supprimer à la main une fois tous les processus arrêtés.
 
-`scripts/regressions/storage-writer-lock.regression.ts` couvre ces preuves.
+`scripts/regressions/server/storage-writer-lock.regression.ts` couvre ces preuves.
 
 ## Transactions
 

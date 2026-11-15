@@ -56,7 +56,7 @@ storage/
 
 증명에는 먼저 같은 머신이어야 합니다. 호스트 ID가 일치하거나, Termux 앱 전용 홈이거나, 한쪽에 호스트 ID가 없을 때는 이 머신만 접근할 수 있는 저장소여야 합니다. Linux와 Android에서는 로컬 파일 시스템이 여기에 해당합니다. Windows에서는 `Fixed` 드라이브(네트워크, 이동식, UNC 경로가 아닌 드라이브)여야 하며, 리스는 이 컴퓨터 이름을 가진 네이티브 Windows 쓰기 프로세스가 만든 것이어야 합니다. 같은 머신의 리스는 이전 부팅에 속할 때(Windows에서는 부팅 시각이 5분 이내로 차이 나면 같은 부팅으로 봅니다), 활성 확인 소켓이 더 이상 응답하지 않을 때(Docker와 Termux), 또는 PID가 종료되었거나 (Windows 드라이브 증명을 제외하면) 이제 더 새로운 프로세스에 속할 때 회수됩니다. 공유 저장소나 네트워크 저장소는 잠긴 채로 남으며, 오류에는 모든 프로세스를 멈춘 뒤 직접 제거할 리스가 표시됩니다.
 
-`scripts/regressions/storage-writer-lock.regression.ts`가 이 증명들을 다룹니다.
+`scripts/regressions/server/storage-writer-lock.regression.ts`가 이 증명들을 다룹니다.
 
 ## 트랜잭션
 

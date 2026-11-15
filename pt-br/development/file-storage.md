@@ -56,7 +56,7 @@ Só um processo do servidor grava em uma pasta de armazenamento por vez. Na inic
 
 A prova exige primeiro a mesma máquina: um ID de host igual, a home privada do aplicativo Termux ou, quando um dos lados não tem ID de host, um armazenamento que só esta máquina alcança. No Linux e no Android, isso é um sistema de arquivos local. No Windows, é uma unidade `Fixed` (não um caminho de rede, removível ou UNC), e a concessão precisa vir de um gravador nativo do Windows com o nome deste computador. Uma concessão na mesma máquina é recuperada quando pertence a um boot anterior (no Windows, horários de boot com até 5 minutos de diferença contam como o mesmo boot), quando o socket de atividade dela não responde mais (Docker e Termux) ou quando o PID dela terminou ou (exceto na prova da unidade do Windows) agora pertence a um processo mais novo. O armazenamento compartilhado ou em rede continua travado, e o erro indica a concessão a remover manualmente depois que todos os processos forem parados.
 
-`scripts/regressions/storage-writer-lock.regression.ts` cobre essas provas.
+`scripts/regressions/server/storage-writer-lock.regression.ts` cobre essas provas.
 
 ## Transações
 

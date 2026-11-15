@@ -56,7 +56,7 @@ storage/
 
 证明首先要求是同一台机器：主机 ID 一致、Termux 的应用私有主目录，或者在某一方没有主机 ID 时，存储只有这台机器能访问到。在 Linux 和 Android 上，这指的是本地文件系统。在 Windows 上，它是一个 `Fixed` 驱动器（不是网络、可移动或 UNC 路径），而且租约必须来自这台电脑名下的原生 Windows 写入者。同一台机器上的租约会在以下情况被回收：它属于更早的一次启动（在 Windows 上，启动时间相差不超过 5 分钟算作同一次启动），它的存活套接字不再响应（Docker 和 Termux），或者它的 PID 已经退出，或（Windows 驱动器证明除外）现在属于一个更新的进程。共享存储或网络存储保持锁定，错误信息会指出在所有进程停止后需要手动删除的租约。
 
-`scripts/regressions/storage-writer-lock.regression.ts` 覆盖了这些证明。
+`scripts/regressions/server/storage-writer-lock.regression.ts` 覆盖了这些证明。
 
 ## 事务
 
