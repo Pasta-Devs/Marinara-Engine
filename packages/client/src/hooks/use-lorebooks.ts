@@ -217,9 +217,9 @@ export function useSetLorebooksEnabled() {
       // Refetch the lists even when nothing changed: a caller showing a stale state learns the real one.
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
       if (result.changedIds.length === 0) return;
       for (const id of result.changedIds) qc.invalidateQueries({ queryKey: lorebookKeys.detail(id) });
-      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
     },
   });
 }
