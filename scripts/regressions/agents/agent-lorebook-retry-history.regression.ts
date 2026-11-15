@@ -14,7 +14,8 @@ const require = createRequire(new URL("../../../packages/server/package.json", i
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
 const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
@@ -32,6 +33,7 @@ replaceBuiltInAgentDefinitions([
   },
 ]);
 let storyOutput = "OLD_KEY";
+let keeperUpdates: Array<Record<string, unknown>> = [];
 const prompts: string[] = [];
 OpenAIProvider.prototype.chat = async function* () {
   yield storyOutput;
@@ -41,7 +43,7 @@ OpenAIProvider.prototype.chatComplete = async (messages) => {
   const prompt = messages.map((message) => String(message.content)).join("\n");
   if (prompt.includes("RETRY_INTENT_TASK")) prompts.push(prompt);
   return {
-    content: '{"updates":[]}',
+    content: JSON.stringify({ updates: keeperUpdates }),
     toolCalls: [],
     finishReason: "stop",
     usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
@@ -103,6 +105,7 @@ try {
         lorebookReadBehindMessages: variant === "custom_backfill" ? 0 : 1,
         lorebookBackfillEnabled: variant === "custom_backfill",
         lorebookBackfillChunkSize: 2,
+        ...(variant === "custom_backfill" ? { newLorebookEntryOrder: "growing", writableLorebookId: book.id } : {}),
         batchWithOtherAgents: false,
       },
     });
@@ -146,6 +149,10 @@ try {
     );
     await chats.patchMetadata(chat.id, { enableAgents: true });
     prompts.length = 0;
+    keeperUpdates =
+      variant === "custom_backfill"
+        ? [{ name: "Backfilled memory", content: "The group read the ledger.", order: 5 }]
+        : [];
     const response = await app.inject({
       method: "POST",
       url: "/api/generate/retry-agents",
@@ -159,6 +166,10 @@ try {
     assert.equal(response.statusCode, 200, response.body);
     assert(!response.body.includes('"type":"error"'), response.body);
     assert.equal(prompts.length, 1, `${variant} executes one historical agent call`);
+    if (variant === "custom_backfill") {
+      const saved = (await books.listEntries(book.id)).find((entry) => entry.name === "Backfilled memory");
+      assert.equal(saved?.order, 101, response.body);
+    }
     const block = prompts[0]!.match(/<triggered_lorebook_context>[\s\S]*?<\/triggered_lorebook_context>/u)?.[0] ?? "";
     console.log(JSON.stringify({ variant, block }));
     try {

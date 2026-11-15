@@ -131,7 +131,7 @@ export function SettingsProfilesSection({
         : "profile";
     if (choice !== "profile" && choice !== "chats") return;
     try {
-      await saveChatPreset.mutateAsync({ id: profileId, settings });
+      await saveChatPreset.mutateAsync({ id: profileId, settings, fromChatId: chat.id });
     } catch {
       toast.error(localizeUi("chat.settingsProfile.saveFailed"));
       return;

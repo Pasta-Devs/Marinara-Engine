@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 // CRUD for the saved chat-settings bundles applied to new chats.
 // One profile per mode is marked active and used as the starting state.
+import { sealChatMetadataSecrets } from "../../utils/stored-secrets.js";
 import { eq, and, ne, asc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { chats, chatPresets, lorebooks, personas } from "../../db/schema/index.js";
@@ -217,7 +218,9 @@ function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): C
   if (lorebookIds.length) out.lorebookIds = lorebookIds;
   const presetVariables = sanitizePresetVariables(input.presetVariables, input.promptPresetId);
   if (presetVariables) out.presetVariables = presetVariables;
-  if (input.metadata) out.metadata = sanitizePresetMetadata(input.metadata as Record<string, unknown>);
+  // A profile's DeepL key and Discord webhook are stored encrypted like the chat's own.
+  if (input.metadata)
+    out.metadata = sealChatMetadataSecrets(sanitizePresetMetadata(input.metadata as Record<string, unknown>));
   return out;
 }
 

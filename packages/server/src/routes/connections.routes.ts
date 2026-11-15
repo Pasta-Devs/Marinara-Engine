@@ -1,5 +1,10 @@
 import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
 import {
+  decryptCustomHeaders,
+  maskConnectionHeaderSecrets,
+  resolveConnectionHeaderPlaceholders,
+} from "../utils/stored-secrets.js";
+import {
   fetchProviderModels,
   resolveAudioConfig,
   TTS_CONNECTION_UNAVAILABLE,
@@ -572,7 +577,9 @@ export function localBackendDiscoveryHeaders(conn: {
   const root = parseDefaultParametersRoot(conn.defaultParameters);
   const rawProfile =
     conn.provider === "video_generation" ? root[VIDEO_DEFAULTS_STORAGE_KEY] : root[IMAGE_DEFAULTS_STORAGE_KEY];
-  const customHeaders = normalizeCustomRequestHeaders(isRecord(rawProfile) ? rawProfile.customHeaders : undefined);
+  const customHeaders = normalizeCustomRequestHeaders(
+    isRecord(rawProfile) ? decryptCustomHeaders(rawProfile.customHeaders as Record<string, string>) : undefined,
+  );
   return resolveLocalBackendHeaders(conn.apiKey || "", customHeaders);
 }
 
@@ -700,6 +707,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ...withoutSavedModels(conn),
           apiKeyEncrypted: conn.apiKeyEncrypted ? "••••••••" : "",
           managementTokenEncrypted: conn.managementTokenEncrypted ? "••••••••" : "",
+          ...("defaultParameters" in conn
+            ? {
+                defaultParameters: maskConnectionHeaderSecrets(
+                  (conn as { defaultParameters?: unknown }).defaultParameters,
+                ),
+              }
+            : {}),
         } as unknown as T)
       : conn;
 
@@ -836,6 +850,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
         params[VIDEO_DEFAULTS_STORAGE_KEY] = rawRecord[VIDEO_DEFAULTS_STORAGE_KEY];
       }
     }
+    // Custom headers sent back masked keep their saved values; the storage encrypts them on write.
+    if (params) params = resolveConnectionHeaderPlaceholders(params, conn.defaultParameters);
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       await storage.updateDefaultParameters(req.params.id, params);
       resetMemoryRecallVectorizerCache();
@@ -2385,7 +2401,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
-        customHeaders: defaults.customHeaders,
+        customHeaders: decryptCustomHeaders(defaults.customHeaders),
         atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel.trim()] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });

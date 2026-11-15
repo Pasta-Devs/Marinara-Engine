@@ -2,6 +2,11 @@ import { partialInput } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import {
+  hasChatMetadataSecretMask,
+  redactStoredSecretsDeep,
+  resolveChatMetadataSecretPlaceholders,
+} from "../../utils/stored-secrets.js";
 import { applyChatModelOverride, readChatModelOverride } from "../generation/connection-resolution.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
@@ -3157,12 +3162,14 @@ export class MariDbService {
 
   constructor(private readonly db: DB) {}
 
-  executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
-    return withArgumentNotes(() => this.runCli(envelope));
+  // Saved DeepL keys, Discord webhooks and connection header values show only as saved (the mask) in what Mari
+  // reads back, whether they are stored encrypted or still plain from an older version.
+  async executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
+    return redactStoredSecretsDeep(await withArgumentNotes(() => this.runCli(envelope)));
   }
 
-  executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
-    return withArgumentNotes(() => this.runAction(envelope));
+  async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
+    return redactStoredSecretsDeep(await withArgumentNotes(() => this.runAction(envelope)));
   }
 
   private async runCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
@@ -6404,7 +6411,7 @@ export class MariDbService {
 
   getPendingApprovals(): MariDbPendingApproval[] {
     this.ensurePendingHydrated();
-    return Array.from(this.pending.values()).map((record) => this.pendingView(record));
+    return Array.from(this.pending.values()).map((record) => redactStoredSecretsDeep(this.pendingView(record)));
   }
 
   // #4931: the raw (serialized) snapshot of one pending change, for the synthetic prompt render.
@@ -6425,13 +6432,13 @@ export class MariDbService {
     if (!Number.isInteger(index) || index < 0 || index >= PREVIEW_LIMIT) return null;
     const change = this.pending.get(id)?.plan.changes[index];
     if (!change) return null;
-    return {
+    return redactStoredSecretsDeep({
       table: change.table,
       id: change.id,
       action: change.action,
       beforeRaw: change.beforeRaw ?? null,
       afterRaw: change.afterRaw ?? null,
-    };
+    });
   }
 
   async getHistory(): Promise<MariDbHistoryEntry[]> {
@@ -9392,6 +9399,29 @@ export class MariDbService {
       }
       return {};
     };
+    // Mari reads saved secrets as the mask. Writing a row back with the mask keeps the saved value, so her other
+    // changes to the row still apply and the check below sees no new key.
+    for (const change of changes) {
+      if (!change.afterRaw) continue;
+      const column =
+        change.table === "chats"
+          ? "metadata"
+          : change.table === "chat_presets"
+            ? "settings"
+            : change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY
+              ? "value"
+              : null;
+      if (!column) continue;
+      const root = parseJsonRecordValue(change.afterRaw[column]);
+      const holder = change.table === "chat_presets" ? root.metadata : root;
+      if (!isRecord(holder) || !hasChatMetadataSecretMask(holder)) continue;
+      resolveChatMetadataSecretPlaceholders(holder, localDestinations(change, change.beforeRaw));
+      change.afterRaw = {
+        ...change.afterRaw,
+        [column]: typeof change.afterRaw[column] === "string" ? JSON.stringify(root) : root,
+      };
+      change.after = parseRow(change.table, change.afterRaw);
+    }
     for (const change of changes) {
       const after = localDestinations(change, change.afterRaw);
       const before = localDestinations(change, change.beforeRaw);

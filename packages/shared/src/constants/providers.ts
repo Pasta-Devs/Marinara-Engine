@@ -220,7 +220,7 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     name: "NanoGPT",
     defaultBaseUrl: "https://nano-gpt.com/api/v1",
     // Detailed catalog: the plain one omits context_length and max_output_tokens.
-    modelsEndpoint: "/models?detailed=true",
+    modelsEndpoint: "/models?detailed=true&output_modalities=text,decisions",
     supportsStreaming: true,
     usesAuthHeader: true,
     apiKeyHeader: null,

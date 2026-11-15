@@ -20,10 +20,12 @@ import {
   AVATAR_STORAGE_RATE_LIMIT,
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
   RUNTIME_DIAGNOSTICS_RATE_LIMIT,
+  SERVER_LOGS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
 import { bootId, logger } from "../lib/logger.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings } from "../config/runtime-config.js";
 import { restartExitCode, restartServer } from "../lib/server-restart.js";
+import { getServerLogSnapshot } from "../lib/log-buffer.js";
 import { collectRuntimeDiagnostics } from "../lib/runtime-diagnostics.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
@@ -87,6 +89,21 @@ export async function adminRoutes(app: FastifyInstance) {
     reply.header("Cache-Control", "no-store");
     return collectRuntimeDiagnostics();
   });
+
+  // The in-app server console (lib/log-buffer.ts). Read-only. Its own polls are not logged
+  // (logLevel "silent"), or at LOG_LEVEL=info the console would mostly show itself.
+  app.get<{ Querystring: { afterId?: string; limit?: string } }>(
+    "/logs",
+    { logLevel: "silent", config: { rateLimit: SERVER_LOGS_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Server console" })) return;
+      reply.header("Cache-Control", "no-store");
+      const afterId = Number(req.query.afterId ?? 0);
+      const limit = req.query.limit === undefined ? undefined : Number(req.query.limit);
+      // bootId: line ids start over on a restart, so the console needs this to tell a new run from the old one.
+      return { ...getServerLogSnapshot(afterId, limit), logLevel: logger.level, bootId };
+    },
+  );
 
   app.post<{ Body: { confirm?: boolean } }>(
     "/restart",

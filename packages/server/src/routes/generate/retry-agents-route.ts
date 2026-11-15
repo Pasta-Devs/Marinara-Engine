@@ -10,6 +10,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   getCustomAgentResultCapability,
   customAgentHasCapability,
+  parseLorebookWriterOrder,
   isAgentAvailableInChatMode,
   isAgentConfigDeleted,
   isExternallyImportedAgent,
@@ -481,6 +482,10 @@ function markRetryLorebookResultForApproval(args: {
         writableLorebookIds,
         allowTargetRouting: !isBuiltInLorebookAgent || agentContext.memory._lorebookKeeperTargetIsExplicit !== true,
         writableLorebooks,
+        writerOrder:
+          resultAgent?.isCustomAgent === true
+            ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+            : undefined,
         lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
         worldName: agentContext.characters[0]?.world ?? chatName,
         existingEntries,
@@ -3651,6 +3656,10 @@ async function applyRetryResultEffects(args: {
             writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
               ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
               : undefined,
+            writerOrder:
+              resultAgent?.isCustomAgent === true
+                ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                : undefined,
             lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
             worldName: agentContext.characters[0]?.world ?? (chat as any).name,
             // Anchor retried lore to the regenerated turn so message deletion

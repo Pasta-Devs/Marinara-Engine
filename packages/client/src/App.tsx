@@ -22,6 +22,7 @@ import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { TapTimings } from "./components/layout/TapTimings";
+import { ServerConsoleHost } from "./components/layout/ServerConsoleHost";
 import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
@@ -1273,6 +1274,7 @@ export function App() {
     <>
       <CustomThemeInjector />
       <TapTimings />
+      <ServerConsoleHost />
       <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />
