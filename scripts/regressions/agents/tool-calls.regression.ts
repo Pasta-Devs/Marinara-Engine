@@ -458,22 +458,37 @@ const cases: RegressionCase[] = [
   {
     name: "web_fetch still drops a genuine sidebar and keeps prose beside a large nav",
     run() {
+      const prose = "Article prose. ".repeat(30);
+      const links = "Links: a b c";
+
+      // A rule-based trim that takes a sizeable share of the prose is reported.
       const sidebar = extractReadableText(
-        `<body><main><p>${"Article prose. ".repeat(30)}</p><div class="sidebar"><p>${"Sidebar links. ".repeat(30)}</p></div></main></body>`,
+        `<body><main><p>${prose}</p><div class="sidebar"><p>${"Sidebar links. ".repeat(30)}</p></div></main></body>`,
       );
       assert.match(sidebar.text, /Article prose/u);
       assert.doesNotMatch(sidebar.text, /Sidebar links/u);
-      // The class rule took a sizeable share, so the remainder is not the whole page.
       assert.equal(sidebar.truncated, true);
 
-      // A large inline script must not inflate the rule share and pull the sidebar back in.
-      const scripted = extractReadableText(
-        `<body><main><p>${"Short prose. ".repeat(4)}</p><div class="sidebar"><p>${"Sidebar links. ".repeat(30)}</p></div><script>${"var x = 1; ".repeat(2000)}</script></main></body>`,
+      // A script inside the dropped block is not prose, so it must not inflate the share.
+      const withScript = extractReadableText(
+        `<body><main><p>${prose}</p><div class="sidebar"><p>${links}</p><script>${"var x = 1; ".repeat(500)}</script></div></main></body>`,
       );
-      assert.doesNotMatch(scripted.text, /Sidebar links/u);
+      assert.doesNotMatch(withScript.text, /Links:/u);
+      assert.equal(withScript.truncated, false);
+
+      const withoutScript = extractReadableText(
+        `<body><main><p>${prose}</p><div class="sidebar"><p>${links}</p></div></main></body>`,
+      );
+      assert.equal(withoutScript.truncated, false);
+
+      // A short article beside a genuine sidebar and a 20 KB script keeps the sidebar out.
+      const shortPage = extractReadableText(
+        `<body><main><p>${"Short prose. ".repeat(4)}</p><div class="sidebar"><p>${links}</p><script>${"var x = 1; ".repeat(2000)}</script></div></main></body>`,
+      );
+      assert.doesNotMatch(shortPage.text, /Links:/u);
 
       const besideNav = extractReadableText(
-        `<body><main><nav class="nav"><p>${"Menu links. ".repeat(60)}</p></nav><p>${"Article prose. ".repeat(30)}</p></main></body>`,
+        `<body><main><nav class="nav"><p>${"Menu links. ".repeat(60)}</p></nav><p>${prose}</p></main></body>`,
       );
       assert.match(besideNav.text, /Article prose/u);
       assert.doesNotMatch(besideNav.text, /Menu links/u);

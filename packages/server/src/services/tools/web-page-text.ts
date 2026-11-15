@@ -179,6 +179,8 @@ interface FlatEntry {
   parentIndex: number;
   ownTextLength: number;
   subtreeTextLength: number;
+  /** The same total with script, style and head text left out, so a share measures prose. */
+  readableTextLength: number;
 }
 
 function isElement(node: ChildNode): node is Element {
@@ -270,6 +272,8 @@ function textLengthOf(node: ChildNode): number {
       total += (current as Text).data.length;
       continue;
     }
+    // Script, style and head text is not prose, so it never counts as text a rule removed.
+    if (isElement(current) && ALWAYS_DROPPED_TAGS.has(current.name)) continue;
     for (const child of childrenOf(current)) stack.push(child);
   }
   return total;
@@ -319,6 +323,7 @@ function flatten(root: Document): FlatEntry[] {
       parentIndex: current.parentIndex,
       ownTextLength: current.node.type === "text" ? (current.node as Text).data.length : 0,
       subtreeTextLength: 0,
+      readableTextLength: 0,
     });
     const children = childrenOf(current.node);
     for (let child = children.length - 1; child >= 0; child -= 1) {
@@ -331,9 +336,15 @@ function flatten(root: Document): FlatEntry[] {
     const entry = flat[index];
     if (!entry) continue;
     entry.subtreeTextLength += entry.ownTextLength;
+    entry.readableTextLength += entry.ownTextLength;
+    // A script, style or head subtree is never prose, so it leaves the readable total entirely.
+    if (isElement(entry.node) && ALWAYS_DROPPED_TAGS.has(entry.node.name)) entry.readableTextLength = 0;
     if (entry.parentIndex < 0) continue;
     const parent = flat[entry.parentIndex];
-    if (parent) parent.subtreeTextLength += entry.subtreeTextLength;
+    if (parent) {
+      parent.subtreeTextLength += entry.subtreeTextLength;
+      parent.readableTextLength += entry.readableTextLength;
+    }
   }
 
   return flat;
@@ -484,12 +495,15 @@ export function extractReadableText(html: string, options: ExtractReadableTextOp
   const containerIndex = selectContainer(flat);
   const selected = containerIndex >= 0 ? flat[containerIndex] : undefined;
   const container: ChildNode = selected ? selected.node : document;
-  const containerTextLength = selected ? selected.subtreeTextLength : (flat[0]?.subtreeTextLength ?? 0);
+  const containerReadableLength = selected ? selected.readableTextLength : (flat[0]?.readableTextLength ?? 0);
 
-  // Only the class and id rules are evidence about prose: a page trimmed by a nav, a footer or a
-  // script is ordinary, and counting that text would make every page look trimmed.
-  const ruleShare = (read: { ruleDroppedChars: number }) =>
-    containerTextLength > 0 ? read.ruleDroppedChars / containerTextLength : 0;
+  // Only the class and id rules are evidence about prose, and only prose is the scale. Script,
+  // style, head and tag-dropped text leave both sides, so the share measures what a rule removed
+  // against what the page actually offered to read.
+  const ruleShare = (read: { ruleDroppedChars: number; tagDroppedChars: number }) => {
+    const readable = containerReadableLength - read.tagDroppedChars;
+    return readable > 0 ? read.ruleDroppedChars / readable : 0;
+  };
 
   let extracted = collectText(container, maxChars, "full");
   let kept = extracted.text.trim();
