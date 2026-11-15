@@ -222,10 +222,10 @@ const CONTENT_CANDIDATES: Array<(element: Element) => boolean> = [
 ];
 
 /**
- * How much chrome to remove. `full` applies the class and id rules too; `tags` keeps those but
- * still drops navigation, footers and forms; `minimal` drops only what is never prose.
+ * How much chrome to remove. `full` applies the class and id rules too; `minimal` drops only what
+ * is never prose, for a page whose whole body sits inside a tag the rules would take.
  */
-type ChromeMode = "full" | "tags" | "minimal";
+type ChromeMode = "full" | "minimal";
 
 const CHROME_TOKEN_PATTERN = /[a-z0-9]+/gu;
 
@@ -249,7 +249,6 @@ function dropReason(element: Element, mode: ChromeMode): "tag" | "rule" | null {
   if (mode === "minimal") return null;
   if (CHROME_DROPPED_TAGS.has(element.name)) return "tag";
   if (CHROME_DROPPED_ROLES.has(attribute(element, "role"))) return "tag";
-  if (mode === "tags") return null;
 
   for (const name of classNames(element)) {
     const normalized = name.toLowerCase();
@@ -507,19 +506,9 @@ export function extractReadableText(html: string, options: ExtractReadableTextOp
 
   let extracted = collectText(container, maxChars, "full");
   let kept = extracted.text.trim();
-  // Chrome removal is broad on purpose, but a mislabelled container can take most of the page with
-  // it. Retry with only the tag rules, which still drops navigation and footers, when the class and
-  // id rules took a sizeable share and left too little to read. A page that kept a real article
-  // beside a genuine sidebar keeps the sidebar out.
-  if (kept.length < MIN_CONTENT_CHARS && ruleShare(extracted) >= CHROME_RETRY_SHARE) {
-    const tagsOnly = collectText(container, maxChars, "tags");
-    const tagsKept = tagsOnly.text.trim();
-    if (tagsKept.length > kept.length) {
-      extracted = tagsOnly;
-      kept = tagsKept;
-    }
-  }
-  // A page-wide <form> (ASP.NET) is the last case: even the tag rules take the whole page.
+  // A page-wide <form> (ASP.NET) is the last case: the tag rules take the whole page. Reading it
+  // with only the always-dropped rules is the one retry that cannot re-admit class-dropped chrome,
+  // because it only runs when nothing at all survived.
   if (!kept) {
     extracted = collectText(container, maxChars, "minimal");
     kept = extracted.text.trim();

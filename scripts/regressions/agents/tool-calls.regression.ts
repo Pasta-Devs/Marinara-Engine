@@ -487,6 +487,20 @@ const cases: RegressionCase[] = [
       );
       assert.doesNotMatch(shortPage.text, /Links:/u);
 
+      // A nav-heavy page must not shrink the scale enough to re-admit the sidebar.
+      const navHeavy = extractReadableText(
+        `<body><main><nav>${"Menu links. ".repeat(100)}</nav><div class="sidebar"><p>${"Sidebar links. ".repeat(30)}</p></div><p>${"Short prose. ".repeat(4)}</p></main></body>`,
+      );
+      assert.doesNotMatch(navHeavy.text, /Sidebar links/u);
+      assert.equal(navHeavy.truncated, true);
+
+      // A sibling script must not pull the sidebar back in either.
+      const siblingScript = extractReadableText(
+        `<body><main><p>${"Short prose. ".repeat(4)}</p><div class="sidebar"><p>${"Sidebar links. ".repeat(32)}</p></div><script>${"var x = 1; ".repeat(2000)}</script></main></body>`,
+      );
+      assert.doesNotMatch(siblingScript.text, /Sidebar links/u);
+      assert.equal(siblingScript.truncated, true);
+
       const besideNav = extractReadableText(
         `<body><main><nav class="nav"><p>${"Menu links. ".repeat(60)}</p></nav><p>${prose}</p></main></body>`,
       );
