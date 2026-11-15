@@ -4,12 +4,14 @@
 import type { FastifyInstance } from "fastify";
 import {
   BUILT_IN_TOOLS,
+  bulkSetCustomToolsEnabledSchema,
   createCustomToolSchema,
   reorderCustomToolsSchema,
   updateCustomToolSchema,
 } from "@marinara-engine/shared";
 import { createCustomToolsStorage } from "../services/storage/custom-tools.storage.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { isCustomToolScriptEnabled } from "../config/runtime-config.js";
 
 const SCRIPT_TOOL_DISABLED_MESSAGE =
@@ -34,6 +36,15 @@ export async function customToolsRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool reorder" })) return;
     const input = reorderCustomToolsSchema.parse(req.body);
     return storage.reorder(input.toolIds);
+  });
+
+  app.put("/enabled", { config: { rateLimit: CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool bulk toggle" })) return;
+    const { toolIds, enabled } = bulkSetCustomToolsEnabledSchema.parse(req.body);
+    if (!(await storage.setEnabled(toolIds, enabled))) {
+      return reply.status(404).send({ error: "One or more custom tools were not found" });
+    }
+    return reply.status(204).send();
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {

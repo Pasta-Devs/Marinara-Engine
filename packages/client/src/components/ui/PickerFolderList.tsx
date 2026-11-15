@@ -36,8 +36,8 @@ const matches = (item: PickerFolderItem, query: string) =>
 
 export type PickerFolderListProps = {
   /** Already in display order. */
-  items: PickerFolderItem[];
-  folders: LibraryFolder[];
+  items: readonly PickerFolderItem[];
+  folders: readonly LibraryFolder[];
   selectedIds: readonly string[];
   multiple?: boolean;
   /** Single pick: picks the row. Multiple: toggles it. */
@@ -51,10 +51,10 @@ export type PickerFolderListProps = {
   /** Shown when the search matches nothing. */
   noMatchesLabel: string;
   /** Rows above the folders, never grouped (such as "None" for presets). */
-  leadingItems?: PickerFolderItem[];
+  leadingItems?: readonly PickerFolderItem[];
 };
 
-type Group = { id: string; name: string; items: PickerFolderItem[] };
+type Group = { id: string; name: string; items: readonly PickerFolderItem[] };
 
 const UNGROUPED_ID = "__ungrouped__";
 

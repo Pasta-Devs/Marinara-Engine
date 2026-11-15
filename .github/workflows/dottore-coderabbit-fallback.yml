@@ -1,0 +1,67 @@
+name: Dottore CodeRabbit Fallback
+
+# When Dottore could not review a pull request head (its Dottore Review status there is a failure), a Pasta-Devs
+# owner or member can ask `@coderabbitai review` to stand in for it: once CodeRabbit's check run succeeds on that head,
+# this posts the required Dottore Review status. CodeRabbit's inline findings are review threads, which the ruleset still
+# requires resolved.
+# GitHub runs check_run workflows only from the default branch.
+on:
+  check_run:
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  fallback:
+    name: Dottore CodeRabbit fallback
+    # A review CodeRabbit did not run concludes skipped, not success.
+    if: >
+      github.event.check_run.app.slug == 'coderabbitai' &&
+      github.event.check_run.name == 'CodeRabbit' &&
+      github.event.check_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stand CodeRabbit's review in for a failed Dottore review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          CHECK_URL: ${{ github.event.check_run.html_url }}
+        run: |
+          # Inert: reads the open pull requests, the head's statuses and the PR's comments and posts one status; runs no
+          # PR code.
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Unexpected head SHA."; exit 1; }
+          # A fork PR's check run lists no pull requests, so find the open PR whose current head is this SHA.
+          PR_NUM=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate \
+            --jq '.[] | select(.head.sha == $ENV.HEAD_SHA) | .number')
+          PR_NUM=${PR_NUM%%$'\n'*}
+          if [ -z "$PR_NUM" ]; then
+            echo "No open pull request has head $HEAD_SHA."
+            exit 0
+          fi
+          read -r DOTTORE_STATE FAILED_AT < <(gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
+            --jq '.statuses[] | select(.context == "Dottore Review") | "\(.state) \(.updated_at)"') || true
+          if [ "$DOTTORE_STATE" != failure ]; then
+            echo "Dottore Review on PR #$PR_NUM at $HEAD_SHA is '${DOTTORE_STATE:-missing}', not a failure; no fallback."
+            exit 0
+          fi
+          # The check run does not say who asked for it, so require an owner's or member's request after the failure.
+          export FAILED_AT
+          REQUESTED_BY=$(gh api "repos/$REPO/issues/$PR_NUM/comments?since=$FAILED_AT&per_page=100" --paginate \
+            --jq '.[] | select(.created_at >= $ENV.FAILED_AT)
+              | select(.author_association == "OWNER" or .author_association == "MEMBER")
+              | select(.body | test("@coderabbitai\\s+(full\\s+)?review\\b"; "i")) | .user.login')
+          REQUESTED_BY=${REQUESTED_BY%%$'\n'*}
+          if [ -z "$REQUESTED_BY" ]; then
+            echo "No Pasta-Devs owner or member asked @coderabbitai to review PR #$PR_NUM since Dottore failed; no fallback."
+            exit 0
+          fi
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=success -f context="Dottore Review" -f target_url="$CHECK_URL" \
+            -f description="Dottore could not review this head; CodeRabbit did, asked by $REQUESTED_BY. Resolve its threads to merge." \
+            >/dev/null
+          echo "PR #$PR_NUM: Dottore Review set to success from CodeRabbit's review of $HEAD_SHA, asked by $REQUESTED_BY."

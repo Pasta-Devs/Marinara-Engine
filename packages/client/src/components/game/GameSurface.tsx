@@ -5504,8 +5504,13 @@ function GameSurfaceComponent({
         try {
           const result =
             sc.resolvedResult ??
-            // A check the Engine settled as not attempted untrained is owed nothing.
-            (isEngineRollableSkillCheckTag(sc) && !sc.reason && !poolModeActive
+            // A check the Engine settled as not attempted untrained is owed nothing, and one with no
+            // difficulty (a push that found nothing to push, 1.826) has nothing to be rolled against.
+            (isEngineRollableSkillCheckTag(sc) &&
+            !sc.reason &&
+            !poolModeActive &&
+            !sc.push &&
+            (sc.dc !== undefined || !!sc.difficulty)
               ? (
                   await skillCheck.mutateAsync({
                     chatId: activeChatId,
@@ -5535,6 +5540,7 @@ function GameSurfaceComponent({
                     ...(sc.plot ? { plot: true } : {}),
                     shift: sc.shift,
                     hunger: Number.isInteger(sc.hunger) && sc.hunger! >= 0 && sc.hunger! <= 100 ? sc.hunger : undefined,
+                    gear: Number.isInteger(sc.gear) && sc.gear! >= 0 && sc.gear! <= 100 ? sc.gear : undefined,
                     messageId: msg.id,
                   })
                 ).result

@@ -5251,6 +5251,13 @@ assert.equal(characterMatchesSearch(searchableCharacter, "scientist"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
+// A light list row (useCharacterListRows) has the catalog summary and no description; it still matches.
+const summaryRowCharacter = parseCharacterDisplayData({
+  data: { name: "Il Dottore", summary: "A Fatui researcher from Snezhnaya.", tags: [] },
+  comment: "",
+});
+assert.equal(characterMatchesSearch(summaryRowCharacter, "snezhnaya"), true);
+assert.equal(characterMatchesSearch(summaryRowCharacter, "friendly bard"), false);
 
 const olderActiveChat = {
   id: "older-active",
@@ -6911,8 +6918,8 @@ assert.match(
 assert.match(presetsPanelSource, /\{isSelected && \(/u);
 assert.match(
   presetsPanelSource,
-  /PanelSection title=\{localizeUi\("ui\.panels\.presetspanel\.prompts"\)\}/u,
-  "The prompt-preset section must be labelled Prompts alongside Regexes and Functions",
+  /value === "presets"\s*\? "ui\.panels\.presetspanel\.prompts"/u,
+  "The prompt-preset tab must be labelled Prompts alongside Regexes and Functions",
 );
 assert.match(characterGreetingsSource, /type CharacterGreeting = \{[^}]*alternateIndex: number \| null[^}]*\};/u);
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
@@ -9579,8 +9586,12 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
     "utf8",
   );
+  const memoryRecallSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx"),
+    "utf8",
+  );
   assert.match(
-    chatSettingsSource,
+    memoryRecallSource,
     /<SettingsSwitch[\s\S]{0,220}checked=\{effectiveValue\}/u,
     "Memory Recall must expose its switch state to assistive technology",
   );
@@ -10969,10 +10980,14 @@ assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!stor
 // #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
 // the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).
 {
-  const drawerSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
-    "utf8",
-  );
+  // The two buttons live in the Characters and Game party sections, so read the drawer and every section.
+  const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
+  const drawerSource = [
+    join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
+    ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
+  ]
+    .map((path) => readFileSync(path, "utf8"))
+    .join("\n");
   const cardOpens = drawerSource.match(
     /void requestClose\(false\)\.then\(\(closed\) => \{\s*if \(closed\) \{\s*rememberSettingsReturn\(\);\s*useUIStore\.getState\(\)\.openCharacterDetail\(c\.id, \{ initialTab: "card" \}\);/gu,
   );

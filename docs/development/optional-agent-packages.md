@@ -1712,8 +1712,13 @@ The browser view gets `openCharacter(characterId, { tab })`. It opens the charac
 given tab when there is one, so a package can send the user to a card field it reads. Older Engines
 do not have it: check that `openCharacter` exists before you show the link.
 
+Since #9191 `tab` also takes a section inside a tab: `character-sheet`, `image-instructions`, `sprites` or
+`gallery`, all in the **Images** tab. `sprites` and `gallery` were tabs before, so old links keep working. The
+character's selfie instructions (`conversationImageInstructions`) moved from `convo` to `image-instructions`;
+an Engine from before #9191 does not know that id and opens the editor at the top.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: scenes from package threads

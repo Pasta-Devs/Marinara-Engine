@@ -3285,6 +3285,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   box-shadow: inset 0 0 0 1px var(--marinara-editor-border-strong);
 }
 
+/* The label truncates (overflow: hidden), so its line box must hold the whole glyph: the header's
+   `line-height: 1` for actions cut the descenders off "g" and "y". */
+.mari-editor-tab-label {
+  line-height: normal;
+}
+
 .mari-editor-tab-badge {
   margin-left: auto;
   border: 1px solid var(--marinara-editor-border);
@@ -3798,9 +3804,10 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     max-width: 8rem;
   }
 
+  /* The actions stay flush right, under the ✕, as they are on desktop. */
   .mari-editor-header--with-nav .mari-editor-actions {
     width: auto;
-    margin-left: 0;
+    margin-left: auto;
     justify-content: flex-end;
     border-top: 0;
     padding-top: 0;
@@ -3835,7 +3842,7 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
 }
 
-/* The character editor carries eleven sections and seven actions, so its header
+/* The character editor carries ten sections plus Save, its favourite star and "…", so its header
    compacts earlier than the others: tighter spacing, an icon-only Save until
    there is room, section icons only on very wide screens, and icon-only
    sections (named in tooltips) in the narrowest desktop band. */
@@ -3894,17 +3901,6 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 
   .mari-editor-header--dense .mari-editor-actions {
     gap: 0.25rem;
-  }
-
-  /* Character and persona cards: their 2.75rem-wide actions do not fit beside the section menu. A character's
-     seven need about 425px and a persona's six about 370px, where a 390px phone has about 365px. The menu gives
-     way first, and the tap height stays 2.75rem, only the width is narrower. */
-  .mari-editor-header--card .mari-editor-navigation {
-    flex-basis: 4rem;
-  }
-
-  .mari-editor-header--card .mari-editor-actions .mari-editor-action {
-    min-width: 2.25rem;
   }
 }
 
@@ -9383,4 +9379,14 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
   bottom: auto !important;
   height: calc(var(--mari-visual-viewport-height, 100dvh) - var(--ov-topbar-height, 0px)) !important;
   max-height: none !important;
+}
+
+/* iPadOS/iOS pick a picture up for native drag and drop after a short press, which swallows the tap:
+   tapping a character or persona picture often did nothing while its name worked. Pictures inside
+   buttons and links never start a drag or a callout on touch screens. */
+@media (hover: none) {
+  :is(button, a, [role="button"]) img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
 }

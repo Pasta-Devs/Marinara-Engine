@@ -324,6 +324,9 @@ export async function adminRoutes(app: FastifyInstance) {
         db.delete(schema.appSettings).where(like(schema.appSettings.key, "agent_home_widget:%")).run(),
       );
       await runDelete("custom_tools", () => db.delete(schema.customTools).run());
+      await runDelete("library_folders:functions", () =>
+        db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "functions")).run(),
+      );
       await runDelete("regex_scripts", () => db.delete(schema.regexScripts).run());
       await runDelete("library_folders:regex", () =>
         db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "regex")).run(),

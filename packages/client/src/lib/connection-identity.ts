@@ -134,9 +134,12 @@ export function isLoadedModelRow(row: Pick<ConnectionIdentityRow, "provider" | "
   return isChatProvider(row.provider ?? "") && !row.model?.trim();
 }
 
-/** The one line under a Model's name everywhere: its model id, else its media service. */
-export function modelSubtitle(row: ConnectionIdentityRow, upstream: string | null = null): string {
-  if (isLoadedModelRow(row)) return translate("connections.loadedModel.subtitle");
+/**
+ * The one line under a Model's name everywhere: its model id, else its media service. `loadedModel` is the
+ * Connection's own flag: only there is an empty chat row the Default model; elsewhere it is an anchor with no line.
+ */
+export function modelSubtitle(row: ConnectionIdentityRow, upstream: string | null = null, loadedModel = false): string {
+  if (loadedModel && isLoadedModelRow(row)) return translate("connections.loadedModel.subtitle");
   return (
     modelIdLabel(row.model, upstream) ||
     row.imageService ||

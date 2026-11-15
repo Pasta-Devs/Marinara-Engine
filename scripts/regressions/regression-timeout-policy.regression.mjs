@@ -4,13 +4,19 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { regressionTimeoutMs } from "../run-regressions.mjs";
+import { discoverRegressions, REGRESSION_TIMEOUTS_MS, regressionTimeoutMs } from "../run-regressions.mjs";
 
 assert.equal(regressionTimeoutMs("scripts/regressions/server-signal-shutdown.regression.ts"), 270_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/restart-supervisor.regression.ts"), 90_000);
-assert.equal(regressionTimeoutMs("scripts/regressions/ruleset-combat-director.regression.ts"), 300_000);
+assert.equal(regressionTimeoutMs("scripts/regressions/game-ruleset/ruleset-combat-director.regression.ts"), 300_000);
 assert.equal(regressionTimeoutMs("scripts/regressions/native-export-memory.regression.ts"), 90_000);
-assert.equal(regressionTimeoutMs("scripts/regressions/prompt.regression.ts"), 30_000);
+assert.equal(regressionTimeoutMs("scripts/regressions/prompt/assembly.regression.ts"), 30_000);
+
+// A moved or renamed file would silently lose its longer limit and time out under CI load.
+const discovered = new Set(discoverRegressions());
+for (const file of REGRESSION_TIMEOUTS_MS.keys()) {
+  assert(discovered.has(file), `${file} has a time limit in run-regressions.mjs but names no regression`);
+}
 
 // The shard action runs on Ubuntu; native Windows checks do not require Bash.
 if (process.platform !== "win32") {
@@ -91,8 +97,10 @@ try {
   }
   // Shards are disjoint, cover every file and each carry one of the slowest files.
   const everyFile = canonical.trim().split("\n");
-  const shards = [1, 2, 3, 4].map((index) =>
-    execFileSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", `${index}/4`], {
+  // The node-shards matrix in .github/workflows/playwright.yml.
+  const shardCount = 8;
+  const shards = Array.from({ length: shardCount }, (_, offset) => offset + 1).map((index) =>
+    execFileSync(process.execPath, [join(scripts, "run-regressions.mjs"), "--list", "--shard", `${index}/${shardCount}`], {
       encoding: "utf8",
       timeout: 10_000,
     })
@@ -101,7 +109,7 @@ try {
   );
   assert.deepEqual(shards.flat().sort(), everyFile);
   assert.equal(new Set(shards.flat()).size, everyFile.length, "a file must run in exactly one shard");
-  const slowest = [...everyFile].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)).slice(0, 4);
+  const slowest = [...everyFile].sort((a, b) => regressionTimeoutMs(b) - regressionTimeoutMs(a)).slice(0, shardCount);
   for (const [index, shard] of shards.entries()) {
     assert.equal(shard.filter((file) => slowest.includes(file)).length, 1, `shard ${index + 1} takes one of the slowest files`);
   }
@@ -132,7 +140,7 @@ try {
   assert.equal(missed.status, 1, "filters that match nothing must fail");
   assert.match(missed.stderr, /no-such-a, no-such-b/u);
   const imported = execFileSync(process.execPath, ["--input-type=module", "-"], {
-    input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt.regression.ts'));`,
+    input: `import { regressionTimeoutMs } from ${JSON.stringify(pathToFileURL(join(scripts, "run-regressions.mjs")).href)}; console.log(regressionTimeoutMs('scripts/regressions/prompt/assembly.regression.ts'));`,
     encoding: "utf8",
     timeout: 10_000,
   });

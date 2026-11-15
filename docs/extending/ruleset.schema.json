@@ -2852,6 +2852,57 @@
               ],
               "additionalProperties": false
             },
+            "groups": {
+              "minItems": 1,
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "from": {
+                    "type": "string",
+                    "enum": [
+                      "ability",
+                      "skill",
+                      "gear"
+                    ]
+                  },
+                  "banes": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "from"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "push": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
             "reroll": {
               "minItems": 1,
               "maxItems": 6,

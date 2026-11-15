@@ -1268,6 +1268,25 @@ function renderRulesetKindCheckLine(
             `Add hunger="N" to make N of the pool's dice ${resolution.hunger.label} dice, up to ${resolution.hunger.max}; they are never thrown again. The engine marks messy="true" on a critical with a ${resolution.hunger.label} die on the critical face, and bestial="true" on a failure with a ${resolution.hunger.label} die showing 1${resolution.hunger.text ? `: ${resolution.hunger.text}` : "."}`,
           ]
         : []),
+      // Dice groups and a push (1.826), each where declared.
+      ...(resolution.groups?.some((group) => group.from === "gear")
+        ? [
+            `Add gear="N" for the dice the character's gear adds (${resolution.groups.find((group) => group.from === "gear")!.label}).`,
+          ]
+        : []),
+      ...(resolution.groups?.some((group) => group.banes)
+        ? [
+            `The engine marks groups="..." with each group's dice and how many of the ${resolution.groups
+              .filter((group) => group.banes)
+              .map((group) => group.label)
+              .join(", ")} dice show 1; narrate those 1s as the rules say.`,
+          ]
+        : []),
+      ...(resolution.push
+        ? [
+            `When the player pushes a roll, write the same check again, with the same dc and push="true" and no rolls or result: the engine takes the character's roll of it from your previous reply, throws once more every die that neither succeeded nor shows a counted 1, and marks pushed="N". A roll is pushed once${resolution.push.text ? `. ${resolution.push.text}` : "."}`,
+          ]
+        : []),
       ...withClause,
       ...untrainedClause,
       ...effectsClause,

@@ -22,11 +22,19 @@ export function useEditorSections<T extends string>(
     });
   }, []);
 
+  /** Accepts a tab id or a sub-section id (`data-editor-subsection`): a sub-section lights up the tab that holds
+   *  it, so old tab ids that became sub-sections (Sprites, Gallery → Images) still land in the right place. */
   const scrollToSection = useCallback(
-    (section: T, smooth = true) => {
-      const target = contentRef.current?.querySelector<HTMLElement>(`[data-editor-section="${section}"]`);
+    (section: string, smooth = true) => {
+      const root = contentRef.current;
+      // Ids can come from packages (Capability API `openCharacter(id, { tab })`), so escape them.
+      const id = CSS.escape(section);
+      const target =
+        root?.querySelector<HTMLElement>(`[data-editor-section="${id}"]`) ??
+        root?.querySelector<HTMLElement>(`[data-editor-subsection="${id}"]`);
       if (!target) return;
-      onSectionChange(section);
+      const tab = target.closest<HTMLElement>("[data-editor-section]")?.dataset.editorSection;
+      if (tab) onSectionChange(tab as T);
       scrollToElement(target, smooth);
     },
     [onSectionChange, scrollToElement],

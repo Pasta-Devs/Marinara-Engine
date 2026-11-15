@@ -8,10 +8,23 @@ export type EditorSectionJump = {
   label: string;
 };
 
-export function EditorSectionJumps({ items, className }: { items: readonly EditorSectionJump[]; className?: string }) {
+export function EditorSectionJumps({
+  items,
+  className,
+  onJump,
+}: {
+  items: readonly EditorSectionJump[];
+  className?: string;
+  /** Replaces the plain `scrollIntoView`, e.g. with the editor's anchored scroll when lazy sections sit between. */
+  onJump?: (id: string) => void;
+}) {
   const localize = useLocalizedUiText();
 
   const scrollToSection = (id: string) => {
+    if (onJump) {
+      onJump(id);
+      return;
+    }
     const target = document.getElementById(id);
     if (!target) return;
 

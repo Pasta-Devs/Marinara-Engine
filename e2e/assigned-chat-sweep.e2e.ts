@@ -829,6 +829,7 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
 }) => {
   const data = await fixture(request, "conversation");
   const skipped = collectSkippedAgentLogs(page);
+  let releaseReload = () => {};
   try {
     expect(
       (
@@ -874,13 +875,29 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
     await emit({ type: "token", data: reply.content }, { type: "message_saved", data: reply });
     const row = page.locator(`[data-message-id="${reply.id}"]`);
     await expect(row).toBeVisible();
+    // Hold the transcript reload the delete starts: until it lands, the deleted reply is only hidden on read and
+    // is still in the cache, which is the window the check must cover.
+    const transcript = `/api/chats/${data.chat.id}/messages`;
+    const reloadHeld = new Promise<void>((resolve) => (releaseReload = resolve));
+    await page.route(
+      (url) => url.pathname === transcript,
+      async (route) => {
+        if (route.request().method() === "GET") await reloadHeld;
+        await route.fallback();
+      },
+    );
+    const deleted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" && new URL(response.url()).pathname === `${transcript}/${reply.id}`,
+    );
     if (isMobile) await row.click({ position: { x: 80, y: 24 } });
     else await row.hover();
     await row.getByRole("button", { name: "Delete" }).click();
     await page
       .getByRole("dialog", { name: "Delete message" })
-      .getByRole("button", { name: "Delete this message" })
+      .getByRole("button", { name: "Delete message", exact: true })
       .click();
+    expect((await deleted).ok()).toBeTruthy();
     await expect(row).toHaveCount(0);
 
     // The stream is still live, but the deleted reply is no longer on screen, so its result is turned away.
@@ -894,11 +911,13 @@ test("Agent results for a reply deleted while its stream is live stay turned awa
     await expect
       .poll(() => skipped)
       .toEqual([expect.stringContaining(`[Agent] Skipped Echo Chamber (echo-chamber): reply ${reply.id} swipe 0 `)]);
+    releaseReload();
     await emit({ type: "done", data: {} });
     await page.evaluate(() =>
       (window as unknown as { echoStream: ReadableStreamDefaultController }).echoStream.close(),
     );
   } finally {
+    releaseReload();
     await data.cleanup();
   }
 });

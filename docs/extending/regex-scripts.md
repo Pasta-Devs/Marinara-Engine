@@ -46,16 +46,17 @@ On the **Regex scripts** page, each script in the list shows its run number, its
 
 In the classic layout, each row in the **Regexes** list shows the script name, an **AI** or **User** tag, the pattern as `/pattern/flags`, an on/off toggle (takes effect right away), **Edit regex** (pencil) and **Delete regex** (trash). With no scripts, the list reads "No regexes yet". Drag a row by its handle to change the run order.
 
+To find a script, type in **Search regexes**. It matches script names and patterns, and opens any folder that holds a match. You cannot drag scripts to reorder them while a search is active.
+
 ### Organize scripts in folders
 
 1. Click **New Folder** and name the folder.
 2. Click the folder icon on a script row to open **Move to folder**.
 3. Pick the folder. To move a script out, pick **No folder (top level)**.
 
-Click a folder name to expand or collapse it. Turn the folder switch off to pause its scripts across chats. The header shows **Paused**. Each script keeps its saved switch position. A gray switch in the on position shows a script that is enabled but paused by the folder. Deleting the folder moves its scripts to the top level, where they follow their own switches.
+Click a folder name to expand or collapse it. Turn the folder switch off to pause its scripts across chats. The header shows **Paused**. Each script keeps its saved switch position. A script that is enabled but sits in a paused folder shows a gray switch and a **Paused by folder** label. Deleting the folder moves its scripts to the top level, where they follow their own switches.
 
-Folders group scripts without changing when they run. Click **Execution order** to see the full list in the order it runs. Drag a script by its handle to change that order. When you have no folders, the list is already in execution order. In this view, a pause icon marks an enabled script whose folder is paused.
-
+Folders group scripts without changing when they run. Click **Execution order** to see the full list in the order it runs. Drag a script by its handle to change that order. When you have no folders, the list is already in execution order.
 ### Change several scripts at once
 
 1. Click **Select regex scripts**.

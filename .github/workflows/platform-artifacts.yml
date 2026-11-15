@@ -2,8 +2,16 @@ name: Platform Artifact Checks
 
 # Branch/PR proof only. Release signing, tags, registries and uploads to releases
 # remain owned by the existing release workflows.
+# Pull requests run it only when they touch builds, dependencies, the launcher, shutdown, updates, Docker, Android or
+# the installer; every other code change is proven on each staging push. Linux runs the full Node lane on every PR and
+# windows-launcher-regressions (pull-request-checks.yml) the Windows restart and shutdown checks.
 on:
   workflow_dispatch:
+  push:
+    branches: [staging]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     paths:
@@ -17,8 +25,21 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "patches/**"
-      - "packages/**"
-      - "scripts/**"
+      - "packages/*/package.json"
+      - "packages/*/scripts/**"
+      - "packages/server/src/index.ts"
+      - "packages/server/src/lib/shutdown-*.ts"
+      - "packages/server/src/routes/updates.routes.ts"
+      - "packages/server/src/services/updates/**"
+      - "scripts/*"
+      - "scripts/regressions/launcher/**"
+      - "scripts/regressions/fixtures/restart-*"
+      - "scripts/regressions/fixtures/*-shutdown.*"
+      - "scripts/regressions/dev-launcher-process.regression.mjs"
+      - "scripts/regressions/pnpm-runner.regression.mjs"
+      - "scripts/regressions/restart-supervisor.regression.ts"
+      - "scripts/regressions/server-signal-shutdown.regression.ts"
+      - "scripts/regressions/update-apply-hardening.regression.ts"
       - "start*"
       - "android/**"
       - "win/**"

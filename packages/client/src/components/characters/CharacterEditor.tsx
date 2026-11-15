@@ -1,4 +1,5 @@
 import { CardProseSectionHeader as SectionHeader, CardProseTextarea as TextareaTab } from "../cards/CardProse";
+import { CardImagesTab, SelfieInstructionsField } from "../cards/CardImagesTab";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
 import { CardEditor } from "../cards/CardEditor";
@@ -187,7 +188,7 @@ import {
 } from "../ui/neutral-surface-styles";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
-import { ContextMenu } from "../ui/ContextMenu";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { useEditorSections } from "../../hooks/use-editor-sections";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
@@ -258,8 +259,7 @@ const TABS = [
   { id: "onboarding", label: "Onboarding", icon: UserPlus },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
-  { id: "sprites", label: "Sprites", icon: Image },
-  { id: "gallery", label: "Gallery", icon: Camera },
+  { id: "images", label: "Images", icon: Image },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "voice", label: "Voice", icon: Volume2 },
   { id: "rpstats", label: "Roleplay stats", icon: Dices },
@@ -279,8 +279,7 @@ const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
   onboarding: "Onboarding",
   convo: "Convo profile",
   lorebook: "Lorebook",
-  sprites: "Sprites",
-  gallery: "Gallery",
+  images: "Images",
   colors: "Colors",
   voice: "Voice",
   rpstats: "Roleplay stats",
@@ -294,8 +293,7 @@ const OVERHAUL_TAB_ORDER = (
     "card",
     "onboarding",
     "lorebook",
-    "sprites",
-    "gallery",
+    "images",
     "colors",
     "voice",
     // The mode sections sit together, in mode order (owner 2026-11-07).
@@ -1380,7 +1378,6 @@ export function CharacterEditor() {
         ? { field: "first_mes", value: formData.first_mes ?? "" }
         : null;
 
-  const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled =
     !dirty || unreadableOnboarding || saving || updateSheet.isPending || avatarUploading || lorebookEmbedding;
   const saveLabel = avatarUploading
@@ -1400,102 +1397,68 @@ export function CharacterEditor() {
     : localizeUi("ui.characters.charactereditor.addToFavorites");
 
   const headerActions = (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          if (!characterId) return;
-          requestProfessorMariOpen({
-            destination: "omnibar",
-            draft: localizeUi("professorMari.handoff.explainResourceDraft"),
-            context: {
-              source: "character-editor",
-              capability: "explain",
-              resource: { kind: "character", id: characterId, label: formData.name },
-            },
-          });
-        }}
-        className={headerActionButtonClass}
-        title={localizeUi("professorMari.handoff.ask")}
-        aria-label={localizeUi("professorMari.handoff.ask")}
-      >
-        <MessageCircleQuestion size="1rem" />
-      </button>
-
-      <button
-        type="button"
-        onClick={() => updateExtension("fav", !formData.extensions.fav)}
-        data-character-favorite-toggle
-        data-favorite={formData.extensions.fav ? "true" : "false"}
-        className="mari-editor-action mari-editor-action--favorite inline-flex"
-        title={favoriteLabel}
-        aria-label={favoriteLabel}
-      >
-        {formData.extensions.fav ? <Star size="1rem" fill="currentColor" /> : <StarOff size="1rem" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setExportDialogOpen(true)}
-        className={headerActionButtonClass}
-        title={localizeUi("ui.characters.charactereditor.exportCharacter")}
-        aria-label={localizeUi("ui.characters.charactereditor.exportCharacter")}
-      >
-        <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M10 13V3m0 0l-4 4m4-4l4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleImportAsPersona}
-        disabled={createPersona.isPending || uploadPersonaAvatar.isPending}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.characters.charactereditor.importCharacterAsPersona")}
-        aria-label={localizeUi("ui.characters.charactereditor.importCharacterAsPersona")}
-      >
-        {createPersona.isPending || uploadPersonaAvatar.isPending ? (
-          <Loader2 size="1rem" className="animate-spin" />
-        ) : (
-          <UserPlus size="1rem" />
-        )}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          if (!characterId) return;
-          duplicateCharacter.mutate(characterId, {
-            onSuccess: () => {
-              toast.success(localizeUi("ui.characters.charactereditor.characterDuplicated"));
-            },
-          });
-        }}
-        className="mari-editor-action inline-flex"
-        title={localizeUi("ui.characters.charactereditor.duplicateCharacter")}
-        aria-label={localizeUi("ui.characters.charactereditor.duplicateCharacter")}
-      >
-        <Copy size="1rem" />
-      </button>
-
-      <button
-        type="button"
-        onClick={handleDelete}
-        className="mari-editor-action inline-flex"
-        title={localizeUi("ui.characters.charactereditor.deleteCharacter")}
-        aria-label={localizeUi("ui.characters.charactereditor.deleteCharacter")}
-      >
-        <Trash2 size="1rem" />
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={() => updateExtension("fav", !formData.extensions.fav)}
+      data-character-favorite-toggle
+      data-favorite={formData.extensions.fav ? "true" : "false"}
+      className="mari-editor-action mari-editor-action--favorite inline-flex"
+      title={favoriteLabel}
+      aria-label={favoriteLabel}
+    >
+      {formData.extensions.fav ? <Star size="1rem" fill="currentColor" /> : <StarOff size="1rem" />}
+    </button>
   );
+
+  const headerMenuItems: ContextMenuItem[] = [
+    {
+      label: localizeUi("professorMari.handoff.ask"),
+      icon: <MessageCircleQuestion size="0.75rem" />,
+      disabled: !characterId,
+      onSelect: () => {
+        if (!characterId) return;
+        requestProfessorMariOpen({
+          destination: "omnibar",
+          draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+          context: {
+            source: "character-editor",
+            capability: "explain",
+            resource: { kind: "character", id: characterId, label: formData.name },
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.characters.charactereditor.exportCharacter"),
+      icon: <Upload size="0.75rem" />,
+      onSelect: () => setExportDialogOpen(true),
+    },
+    {
+      label: localizeUi("ui.characters.charactereditor.importCharacterAsPersona"),
+      icon: <UserPlus size="0.75rem" />,
+      disabled: createPersona.isPending || uploadPersonaAvatar.isPending,
+      onSelect: () => void handleImportAsPersona(),
+    },
+    {
+      label: localizeUi("ui.characters.charactereditor.duplicateCharacter"),
+      icon: <Copy size="0.75rem" />,
+      disabled: !characterId || duplicateCharacter.isPending,
+      onSelect: () => {
+        if (!characterId) return;
+        duplicateCharacter.mutate(characterId, {
+          onSuccess: () => {
+            toast.success(localizeUi("ui.characters.charactereditor.characterDuplicated"));
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.characters.charactereditor.deleteCharacter"),
+      icon: <Trash2 size="0.75rem" />,
+      destructive: true,
+      onSelect: () => void handleDelete(),
+    },
+  ];
 
   // ── UI overhaul: only the sections and card fields this character uses ──
   const overhaulExt = formData.extensions as Record<string, unknown>;
@@ -1509,8 +1472,11 @@ export function CharacterEditor() {
       overhaulHasText(overhaulExt.convoDisplayName) ||
       overhaulHasText(overhaulExt.conversationImageInstructions),
     lorebook: true,
-    sprites: (overhaulSprites?.length ?? 0) > 0,
-    gallery: (overhaulGallery?.length ?? 0) > 0,
+    images:
+      (overhaulSprites?.length ?? 0) > 0 ||
+      (overhaulGallery?.length ?? 0) > 0 ||
+      typeof overhaulExt.characterSheetImageId === "string" ||
+      overhaulHasText(overhaulExt.conversationImageInstructions),
     colors:
       overhaulHasText(overhaulExt.nameColor) ||
       overhaulHasText(overhaulExt.dialogueColor) ||
@@ -1569,7 +1535,20 @@ export function CharacterEditor() {
       titlePlaceholder={localizeUi("ui.characters.charactereditor.characterName")}
       actions={characterId ? <CharacterChatButton characterId={characterId} characterName={formData.name} /> : null}
       save={{ dirty, onSave: handleSave, disabled: saveDisabled }}
-      menuContent={<div className="mari-editor-actions">{headerActions}</div>}
+      menu={[
+        {
+          label: favoriteLabel,
+          icon: formData.extensions.fav ? <Star size={14} fill="currentColor" /> : <StarOff size={14} />,
+          onSelect: () => updateExtension("fav", !formData.extensions.fav),
+        },
+        ...headerMenuItems.map((item) => ({
+          label: item.label,
+          icon: item.icon,
+          disabled: item.disabled,
+          danger: item.destructive,
+          onSelect: item.onSelect,
+        })),
+      ]}
     />
   ) : null;
   const overhaulRail = overhaulActive ? (
@@ -1742,6 +1721,7 @@ export function CharacterEditor() {
           workingOffscreen={workingOffscreen}
           onRevealWorkingField={revealWorkingField}
           actionsSlot={headerActions}
+          menuItems={overhaulActive ? undefined : headerMenuItems}
           hideHeader={overhaulActive}
           wrapBody={(body) =>
             overhaulActive ? (
@@ -1832,40 +1812,55 @@ export function CharacterEditor() {
               />
             </LazyEditorSection>
           )}
-          {showSection("sprites") && (
-            <LazyEditorSection key={`sprites:${characterId}`} id="sprites">
+          {showSection("images") && (
+            <section data-editor-section="images">
               {characterId && (
-                <SpritesTab
-                  characterId={characterId}
-                  characterName={formData.name}
-                  defaultAppearance={imageAppearanceGeneratorSeed(
-                    formData.extensions,
-                    (formData.extensions.appearance as string) ?? formData.description,
-                  )}
-                  defaultAvatarUrl={avatarPreview}
-                  characterSheetImageId={
-                    typeof formData.extensions.characterSheetImageId === "string"
-                      ? formData.extensions.characterSheetImageId
-                      : null
+                <CardImagesTab
+                  variant="character"
+                  entityKey={characterId}
+                  onJump={scrollToSection}
+                  sheet={
+                    <CharacterSheetSection
+                      characterId={characterId}
+                      characterName={formData.name ?? ""}
+                      characterSheetImageId={
+                        typeof formData.extensions.characterSheetImageId === "string"
+                          ? formData.extensions.characterSheetImageId
+                          : null
+                      }
+                      useAsReference={formData.extensions.useCharacterSheetAsReference === true}
+                      onChange={updateCharacterSheet}
+                      saving={saving || updateSheet.isPending}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    />
                   }
-                  useCharacterSheetAsReference={formData.extensions.useCharacterSheetAsReference === true}
-                  onUpdateCharacterSheet={updateCharacterSheet}
-                  characterSheetSaving={saving || updateSheet.isPending}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  instructions={
+                    <SelfieInstructionsField
+                      value={(formData.extensions.conversationImageInstructions as string) ?? ""}
+                      onChange={(value) => updateExtension("conversationImageInstructions", value)}
+                    />
+                  }
+                  sprites={
+                    <SpritesTab
+                      characterId={characterId}
+                      characterName={formData.name}
+                      defaultAppearance={imageAppearanceGeneratorSeed(
+                        formData.extensions,
+                        (formData.extensions.appearance as string) ?? formData.description,
+                      )}
+                      defaultAvatarUrl={avatarPreview}
+                    />
+                  }
+                  gallery={
+                    <CharacterGalleryTab
+                      characterId={characterId}
+                      characterName={formData.name}
+                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    />
+                  }
                 />
               )}
-            </LazyEditorSection>
-          )}
-          {showSection("gallery") && (
-            <LazyEditorSection key={`gallery:${characterId}`} id="gallery">
-              {characterId && (
-                <CharacterGalleryTab
-                  characterId={characterId}
-                  characterName={formData.name}
-                  onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                />
-              )}
-            </LazyEditorSection>
+            </section>
           )}
           {showSection("colors") && (
             <section data-editor-section="colors">
@@ -2814,8 +2809,6 @@ function ConvoTab({
                 })()
             : undefined
         }
-        imageInstructions={(ext.conversationImageInstructions as string) ?? ""}
-        onImageInstructionsChange={(value) => updateExtension("conversationImageInstructions", value)}
         schedule={schedule}
         onEditSchedule={
           kind === "character" && characterId
@@ -5736,21 +5729,11 @@ function SpritesTab({
   characterName,
   defaultAppearance,
   defaultAvatarUrl,
-  characterSheetImageId,
-  useCharacterSheetAsReference,
-  onUpdateCharacterSheet,
-  characterSheetSaving,
-  onCreateCharacterSheet,
 }: {
   characterId: string;
   characterName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
-  characterSheetImageId: string | null;
-  useCharacterSheetAsReference: boolean;
-  onUpdateCharacterSheet: (patch: CharacterSheetUpdate) => Promise<void>;
-  characterSheetSaving: boolean;
-  onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
@@ -6216,18 +6199,6 @@ function SpritesTab({
     [characterId, displayExpression, uploadSprite, wandCleanupSprite, localizeUi],
   );
 
-  const characterSheetSection = (
-    <CharacterSheetSection
-      characterId={characterId}
-      characterName={characterName ?? ""}
-      characterSheetImageId={characterSheetImageId}
-      useAsReference={useCharacterSheetAsReference}
-      onChange={onUpdateCharacterSheet}
-      saving={characterSheetSaving}
-      onCreateCharacterSheet={onCreateCharacterSheet}
-    />
-  );
-
   if (category === "clips") {
     return (
       <div className="space-y-6">
@@ -6236,8 +6207,6 @@ function SpritesTab({
           subtitle={localizeUi("ui.characters.spritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
           helpText={localizeUi("sprites.library.help")}
         />
-
-        {characterSheetSection}
 
         {categoryTabs}
 
@@ -6253,7 +6222,6 @@ function SpritesTab({
         subtitle={localizeUi("sprites.library.intro")}
         helpText={localizeUi("sprites.library.help")}
       />
-      {characterSheetSection}
       <SpriteLibraryShell
         library={library}
         busy={spriteBusy}

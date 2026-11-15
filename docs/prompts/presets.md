@@ -49,7 +49,7 @@ Regex scripts have their own page, [Library → Regex scripts](../extending/rege
 
 ## In the classic layout: the Presets panel
 
-The **Presets** tab contains **Prompts** and **Functions**. Use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once. Use the **Regexes** tab to organize scripts into folders or turn several on or off together. See [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts).
+The panel has four tabs: **Prompts**, **Regexes**, **Tools** and **Profiles**. Each tab has the same row of buttons at the top and a search box. On the **Prompts** tab, use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once; **Select all presets** ticks every preset the search shows. The **Regexes** tab holds your regex scripts; see [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts). The **Tools** tab holds your custom tools; see [Custom Tools](../extending/custom-tools.md). The **Profiles** tab holds your chat settings profiles; see [Settings Profiles](../chats/settings-profiles.md#the-profiles-tab).
 
 - **Search presets** filters the list.
 - The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.

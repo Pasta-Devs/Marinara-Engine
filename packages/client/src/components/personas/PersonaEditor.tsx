@@ -1,4 +1,5 @@
 import { CardProseSectionHeader, type CardProseSectionHeaderProps } from "../cards/CardProse";
+import { CardImagesTab } from "../cards/CardImagesTab";
 import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useCardEditorDraft } from "../../hooks/use-card-editor-draft";
 import { useCardEditorSave } from "../../hooks/use-card-editor-save";
@@ -107,6 +108,7 @@ import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import type { ContextMenuItem } from "../ui/ContextMenu";
 import { RulesetSheetsSection } from "../rulesets/RulesetSheetsSection";
 import { PersonaCombatIconSection } from "../characters/GameModeIconSection";
 import { StatIconPicker } from "../ui/StatIconPicker";
@@ -205,8 +207,7 @@ const TABS = [
   { id: "card", label: "Card", icon: IdCard },
   { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
-  { id: "sprites", label: "Sprites", icon: Image },
-  { id: "gallery", label: "Gallery", icon: Camera },
+  { id: "images", label: "Images", icon: Image },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "rpstats", label: "Roleplay stats", icon: Dices },
   { id: "stats", label: "Stats", icon: Activity },
@@ -265,15 +266,14 @@ const OVERHAUL_SECTION_LABELS: Record<TabId, string> = {
   card: "Card",
   convo: "Convo profile",
   lorebook: "Lorebook",
-  sprites: "Sprites",
-  gallery: "Gallery",
+  images: "Images",
   colors: "Colors",
   rpstats: "Roleplay stats",
   stats: "Game Mode",
 };
 // The mode sections sit together, in mode order (owner 2026-11-07).
 const OVERHAUL_TAB_ORDER = (
-  ["card", "lorebook", "sprites", "gallery", "colors", "convo", "rpstats", "stats", "metadata"] as const
+  ["card", "lorebook", "images", "colors", "convo", "rpstats", "stats", "metadata"] as const
 ).map((id) => TABS.find((tab) => tab.id === id)!);
 const OVERHAUL_OPTIONAL_CARD_FIELDS = [
   { id: "summary", label: "Summary" },
@@ -2058,96 +2058,63 @@ export function PersonaEditor() {
     );
   }
 
-  const headerActionButtonClass = "mari-editor-action inline-flex";
   const saveDisabled = !dirty || mutationBusy;
   const saveLabel = localizeUi(saving ? "editor.save.saving" : "editor.save.action");
   const saveButtonClass = cn(
     "mari-editor-action mari-editor-action--primary mari-editor-action--save inline-flex",
     saveDisabled && "cursor-not-allowed opacity-50",
   );
-  const headerActions = (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          if (!personaId) return;
-          requestProfessorMariOpen({
-            destination: "omnibar",
-            draft: localizeUi("professorMari.handoff.explainResourceDraft"),
-            context: {
-              source: "persona-editor",
-              capability: "explain",
-              resource: { kind: "persona", id: personaId, label: formData.name },
-            },
-          });
-        }}
-        className={headerActionButtonClass}
-        title={localizeUi("professorMari.handoff.ask")}
-        aria-label={localizeUi("professorMari.handoff.ask")}
-      >
-        <MessageCircleQuestion size="1rem" />
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setExportDialogOpen(true)}
-        className={headerActionButtonClass}
-        title={localizeUi("ui.personas.personaeditor.exportPersona")}
-      >
-        <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M10 13V3m0 0l-4 4m4-4l4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleAddAsCharacter}
-        disabled={createCharacter.isPending || uploadCharacterAvatar.isPending}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.addPersonaAsCharacter")}
-      >
-        {createCharacter.isPending || uploadCharacterAvatar.isPending ? (
-          <Loader2 size="1rem" className="animate-spin" />
-        ) : (
-          <UserPlus size="1rem" />
-        )}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          if (!personaId) return;
-          duplicatePersona.mutate(personaId, {
-            onSuccess: () => {
-              toast.success(localizeUi("ui.personas.personaeditor.personaDuplicated"));
-            },
-          });
-        }}
-        disabled={duplicatePersona.isPending}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.duplicatePersona")}
-      >
-        {duplicatePersona.isPending ? <Loader2 size="1rem" className="animate-spin" /> : <Copy size="1rem" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={mutationBusy}
-        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
-        title={localizeUi("ui.personas.personaeditor.deletePersona")}
-      >
-        <Trash2 size="1rem" />
-      </button>
-    </>
-  );
+  // Every persona action sits behind "…" so the section pills keep their room.
+  const headerMenuItems: ContextMenuItem[] = [
+    {
+      label: localizeUi("professorMari.handoff.ask"),
+      icon: <MessageCircleQuestion size="0.75rem" />,
+      disabled: !personaId,
+      onSelect: () => {
+        if (!personaId) return;
+        requestProfessorMariOpen({
+          destination: "omnibar",
+          draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+          context: {
+            source: "persona-editor",
+            capability: "explain",
+            resource: { kind: "persona", id: personaId, label: formData.name },
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.exportPersona"),
+      icon: <Upload size="0.75rem" />,
+      onSelect: () => setExportDialogOpen(true),
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.addPersonaAsCharacter"),
+      icon: <UserPlus size="0.75rem" />,
+      disabled: createCharacter.isPending || uploadCharacterAvatar.isPending,
+      onSelect: () => void handleAddAsCharacter(),
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.duplicatePersona"),
+      icon: <Copy size="0.75rem" />,
+      disabled: !personaId || duplicatePersona.isPending,
+      onSelect: () => {
+        if (!personaId) return;
+        duplicatePersona.mutate(personaId, {
+          onSuccess: () => {
+            toast.success(localizeUi("ui.personas.personaeditor.personaDuplicated"));
+          },
+        });
+      },
+    },
+    {
+      label: localizeUi("ui.personas.personaeditor.deletePersona"),
+      icon: <Trash2 size="0.75rem" />,
+      destructive: true,
+      disabled: mutationBusy,
+      onSelect: () => void handleDelete(),
+    },
+  ];
 
   // ── UI overhaul: only the sections and card fields this persona uses ──
   const overhaulSectionInUse: Record<TabId, boolean> = {
@@ -2156,8 +2123,7 @@ export function PersonaEditor() {
     convo:
       overhaulHasText(formData.aboutMe) || overhaulHasText(formData.convoDisplayName) || formData.convoBehavior != null,
     lorebook: true,
-    sprites: false,
-    gallery: false,
+    images: !!formData.characterSheetImageId,
     colors:
       overhaulHasText(formData.nameColor) ||
       overhaulHasText(formData.dialogueColor) ||
@@ -2202,7 +2168,13 @@ export function PersonaEditor() {
       onTitleChange={(value) => updateField("name", value)}
       titlePlaceholder={localizeUi("ui.personas.personaeditor.personaName")}
       save={{ dirty, onSave: handleSave, disabled: saveDisabled }}
-      menuContent={<div className="mari-editor-actions">{headerActions}</div>}
+      menu={headerMenuItems.map((item) => ({
+        label: item.label,
+        icon: item.icon,
+        disabled: item.disabled,
+        danger: item.destructive,
+        onSelect: item.onSelect,
+      }))}
     />
   ) : null;
   const overhaulRail = overhaulActive ? (
@@ -2372,7 +2344,7 @@ export function PersonaEditor() {
         workingOffscreen={workingOffscreen}
         onRevealWorkingField={revealWorkingField}
         wrapContent={(content) => <MariFieldReviewProvider value={mariReview.value}>{content}</MariFieldReviewProvider>}
-        actionsSlot={headerActions}
+        menuItems={overhaulActive ? undefined : headerMenuItems}
         hideHeader={overhaulActive}
         wrapBody={(body) =>
           overhaulActive ? (
@@ -2433,35 +2405,44 @@ export function PersonaEditor() {
             {personaId && <PersonaLorebookTab personaId={personaId} personaName={formData.name} />}
           </LazyEditorSection>
         )}
-        {showSection("sprites") && (
-          <LazyEditorSection key={`sprites:${personaId}`} id="sprites">
+        {showSection("images") && (
+          <section data-editor-section="images">
             {personaId && (
-              <PersonaSpritesTab
-                personaId={personaId}
-                personaName={formData.name}
-                defaultAppearance={formData.appearance || formData.description}
-                defaultAvatarUrl={avatarPreview}
-                characterSheetImageId={formData.characterSheetImageId}
-                useCharacterSheetAsReference={formData.useCharacterSheetAsReference}
-                updateField={updateField}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+              <CardImagesTab
+                variant="persona"
+                entityKey={personaId}
+                onJump={scrollToSection}
+                sheet={
+                  <PersonaCharacterSheetSection
+                    personaId={personaId}
+                    personaName={formData.name ?? ""}
+                    characterSheetImageId={formData.characterSheetImageId}
+                    useAsReference={formData.useCharacterSheetAsReference}
+                    updateField={updateField}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                  />
+                }
+                sprites={
+                  <PersonaSpritesTab
+                    personaId={personaId}
+                    personaName={formData.name}
+                    defaultAppearance={formData.appearance || formData.description}
+                    defaultAvatarUrl={avatarPreview}
+                  />
+                }
+                gallery={
+                  <PersonaGalleryTab
+                    personaId={personaId}
+                    personaName={formData.name}
+                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    editorBusy={mutationBusy}
+                    galleryAvatarPending={mutationKind === "gallery-avatar"}
+                    onSetAvatar={handleSetGalleryAvatar}
+                  />
+                }
               />
             )}
-          </LazyEditorSection>
-        )}
-        {showSection("gallery") && (
-          <LazyEditorSection key={`gallery:${personaId}`} id="gallery">
-            {personaId && (
-              <PersonaGalleryTab
-                personaId={personaId}
-                personaName={formData.name}
-                onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
-                editorBusy={mutationBusy}
-                galleryAvatarPending={mutationKind === "gallery-avatar"}
-                onSetAvatar={handleSetGalleryAvatar}
-              />
-            )}
-          </LazyEditorSection>
+          </section>
         )}
         {showSection("colors") && (
           <section data-editor-section="colors">
@@ -2529,19 +2510,11 @@ function PersonaSpritesTab({
   personaName,
   defaultAppearance,
   defaultAvatarUrl,
-  characterSheetImageId,
-  useCharacterSheetAsReference,
-  updateField,
-  onCreateCharacterSheet,
 }: {
   personaId: string;
   personaName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
-  characterSheetImageId: string | null;
-  useCharacterSheetAsReference: boolean;
-  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
-  onCreateCharacterSheet: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
@@ -2937,17 +2910,6 @@ function PersonaSpritesTab({
     [displayExpression, personaId, uploadSprite, wandCleanupSprite, localizeUi],
   );
 
-  const characterSheetSection = (
-    <PersonaCharacterSheetSection
-      personaId={personaId}
-      personaName={personaName ?? ""}
-      characterSheetImageId={characterSheetImageId}
-      useAsReference={useCharacterSheetAsReference}
-      updateField={updateField}
-      onCreateCharacterSheet={onCreateCharacterSheet}
-    />
-  );
-
   if (category === "clips") {
     return (
       <div className="space-y-6">
@@ -2956,8 +2918,6 @@ function PersonaSpritesTab({
           subtitle={localizeUi("ui.personas.personaspritestab.uploadVnStyleSpritesAndVideoCallClipsFor")}
           helpText={PERSONA_SPRITES_HELP}
         />
-
-        {characterSheetSection}
 
         {categoryTabs}
 
@@ -2973,8 +2933,6 @@ function PersonaSpritesTab({
         subtitle={localizeUi("ui.personas.personaspritestab.uploadVnStyleSpritesForYourPersonaTheseAre")}
         helpText={PERSONA_SPRITES_HELP}
       />
-
-      {characterSheetSection}
 
       {categoryTabs}
 

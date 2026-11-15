@@ -55,6 +55,12 @@ export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Bulk enable/disable of custom tools rewrites every listed tool in one transaction; a person clicks it, not a script. */
+export const CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Experience file imports: each one streams a whole file through the package checks. */
 export const EXPERIENCE_FILE_IMPORT_RATE_LIMIT = {
   max: 10,

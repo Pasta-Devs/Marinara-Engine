@@ -130,7 +130,8 @@ test("A Tracker Panel edit is the base for regenerating the edited reply", async
         .click();
     }
     expect((await regeneration).request().postDataJSON()).toMatchObject({ regenerateMessageId: reply.id });
-    await expect(row.getByRole("textbox", { name: "Jump to swipe, 1 through 2", exact: true })).toHaveValue("2");
+    // With two swipes a Roleplay counter is a button that opens the swipe list (#9176).
+    await expect(row.getByRole("button", { name: /^Swipe 2 of 2: .*Choose another swipe$/u })).toBeVisible();
     const prompt = prompts.join("\n");
     expect(prompt).toContain("Location: Right place");
     expect(prompt).not.toContain("Old town");

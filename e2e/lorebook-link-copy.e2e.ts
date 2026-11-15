@@ -98,7 +98,8 @@ for (const kind of ["character", "persona"] as const) {
       await request.post("/api/lorebooks", { data: { name: "Empty links" }, failOnStatusCode: true })
     ).json();
     try {
-      await page.route(kind === "character" ? "**/api/characters/personas/list" : "**/api/characters", (route) =>
+      // The character list answers in pages (#9114), so its requests carry a query.
+      await page.route(kind === "character" ? "**/api/characters/personas/list" : "**/api/characters?*", (route) =>
         route.fulfill({ status: 503, json: { error: "Unrelated library unavailable" } }),
       );
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));

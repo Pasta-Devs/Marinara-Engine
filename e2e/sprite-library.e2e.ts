@@ -93,13 +93,19 @@ test("sprite metadata stays optional and folder moves work without dragging", as
       const openSprites = async () => {
         await page.goto("/");
         const sections = page.getByRole("button", { name: "Editor sections", exact: true });
-        await expect(sections.or(page.getByRole("button", { name: "Sprites", exact: true })).first()).toBeVisible({
+        await expect(sections.or(page.getByRole("button", { name: "Images", exact: true })).first()).toBeVisible({
           timeout: 45000,
         });
         if (await sections.isVisible()) {
           await sections.click();
-          await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-        } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+          await page.getByRole("menuitemradio", { name: "Images", exact: true }).click();
+        } else await page.getByRole("button", { name: "Images", exact: true }).click();
+        // Sprites sit inside the Images tab since #9191; jump to them so the lazy section loads.
+        await page
+          .locator('[data-editor-section="images"]')
+          .getByRole("navigation")
+          .getByRole("button", { name: "Sprites", exact: true })
+          .click();
       };
       const library = page.locator("[data-sprite-library]");
       for (const unavailable of ["failed", "orphan"] as const) {
@@ -282,16 +288,22 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await page.goto("/");
     const sections = page.getByRole("button", { name: "Editor sections", exact: true });
     async function openSprites() {
-      await expect(page.getByRole("button", { name: "Sprites", exact: true }).or(sections).first()).toBeVisible({
+      await expect(page.getByRole("button", { name: "Images", exact: true }).or(sections).first()).toBeVisible({
         timeout: 45000,
       });
       if (await sections.isVisible()) {
         await sections.click();
-        await page.getByRole("menuitemradio", { name: "Sprites", exact: true }).click();
-      } else await page.getByRole("button", { name: "Sprites", exact: true }).click();
+        await page.getByRole("menuitemradio", { name: "Images", exact: true }).click();
+      } else await page.getByRole("button", { name: "Images", exact: true }).click();
+      // Sprites sit inside the Images tab since #9191; jump to them so the lazy section loads.
+      await page
+        .locator('[data-editor-section="images"]')
+        .getByRole("navigation")
+        .getByRole("button", { name: "Sprites", exact: true })
+        .click();
     }
     await openSprites();
-    const section = page.locator('[data-editor-section="sprites"]');
+    const section = page.locator('[data-editor-subsection="sprites"]');
     const library = section.locator("[data-sprite-library]");
     const frontSection = library.locator(`[data-sprite-folder="${front}"]`);
     await section.getByRole("button", { name: "Full-body", exact: true }).click();
@@ -438,17 +450,20 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await expect.poll(folderOrder).toEqual([front, alternate]);
     await frontSection.getByRole("button", { name: "Front", exact: true }).click();
     await expect(library.locator("[data-sprite-card]")).toHaveCount(3);
-    await expect(section.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
+    // The sheet's Manage toggle sits in its own sub-section above Sprites since #9191.
+    const sheetSection = page.locator('[data-editor-subsection="character-sheet"]');
+    await sheetSection.scrollIntoViewIfNeeded();
+    await expect(sheetSection.getByRole("button", { name: "Manage", exact: true })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
     await expect(library.getByRole("slider")).toHaveCount(0);
 
-    await section.getByRole("button", { name: "Manage", exact: true }).click();
-    await expect(section.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
-    await expect(section.getByText("No character sheet selected", { exact: true })).toBeVisible();
-    await expect(section.getByRole("checkbox", { name: /Use character sheet/ })).toBeDisabled();
-    await section.getByRole("button", { name: "Close", exact: true }).click();
+    await sheetSection.getByRole("button", { name: "Manage", exact: true }).click();
+    await expect(sheetSection.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
+    await expect(sheetSection.getByText("No character sheet selected", { exact: true })).toBeVisible();
+    await expect(sheetSection.getByRole("checkbox", { name: /Use character sheet/ })).toBeDisabled();
+    await sheetSection.getByRole("button", { name: "Close", exact: true }).click();
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
     const addPanel = library.getByRole("region", { name: "Add sprites", exact: true });
     const upload = (await addPanel.getByRole("button", { name: "Upload images", exact: true }).boundingBox())!;

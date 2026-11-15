@@ -9,12 +9,12 @@ There are two kinds of sprite:
 - **Facial Expressions** are portrait images for moods such as happy, sad or angry.
 - **Full-body** images are whole-body images for poses such as idle, walk or battle stance.
 
-Sprites appear on screen in Roleplay Mode and Game Mode, not in Conversation chats. You can upload them in any mode, because a character keeps its sprites in every chat. A persona has the same **Sprites** tab.
+Sprites appear on screen in Roleplay Mode and Game Mode, not in Conversation chats. You can upload them in any mode, because a character keeps its sprites in every chat. A persona has the same **Sprites** section.
 
-## Find the Sprites tab
+## Find the sprites
 
 1. Open a character (or a persona) in its editor.
-2. Click the **Sprites** tab.
+2. Click the **Images** tab, then **Sprites** at the top of it.
 3. At the top, pick a category: **Facial Expressions**, **Full-body** or **Clips**.
 
 The sections below cover **Facial Expressions** and **Full-body**. **Clips** is part of the call feature. See [Conversation Audio and Video Calls](../conversation/calls.md).
@@ -25,7 +25,7 @@ You can upload PNG, JPEG, GIF, WebP, AVIF and SVG images. Transparent PNG files 
 
 ### Upload one or more sprites
 
-1. Open the **Sprites** tab and pick **Facial Expressions** or **Full-body**.
+1. Open **Images → Sprites** and pick **Facial Expressions** or **Full-body**.
 2. Click **Add sprites**.
 3. Click **Upload images**, browse into your folder and select its images. You can select several together.
 4. In **Import images**, click **Import**. **Cancel** adds nothing.
@@ -38,7 +38,7 @@ In the persona editor, use the **Add Sprite** name field and **Upload** button f
 
 Whole-folder upload is available in the persona editor. For characters, use **Upload images** above and select the images inside your folder.
 
-1. Open the persona's **Sprites** tab.
+1. Open the persona's **Images** tab and click **Sprites**.
 2. In the **Add Sprite** box, click **Upload Folder**.
 3. Choose the folder that holds your images.
 
@@ -156,11 +156,11 @@ Click **Select** to show checkboxes and **Select all sprites**, then drag the se
 
 ### Character Sheet
 
-The character editor's **Character Sheet** row opens with **Manage**. Create or upload a sheet there. Turn on **Use as reference image** to prefer it for the character's likeness.
+The **Character Sheet** sits at the top of the **Images** tab, above the sprites, and opens with **Manage**. Create or upload a sheet there. Turn on **Use as reference image** to prefer it for the character's likeness.
 
 ## Export sprites
 
-1. Open the **Sprites** tab.
+1. Open **Images → Sprites**.
 2. Click **Export** above the character grid, or in the persona's **Add Sprite** box.
 3. Choose **Expressions only** or **Full-body only** to export the current category, or **All sprites** for everything.
 

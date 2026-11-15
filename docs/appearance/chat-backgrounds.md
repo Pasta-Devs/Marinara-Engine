@@ -83,7 +83,7 @@ To remove a tag, click it while editing tags.
 
 Tags are lowercase and can hold letters, numbers, spaces, hyphens and underscores, up to 40 characters each.
 
-Tag pictures with the places they show, such as `guest bedroom` or `harbor tavern`. The **Background** agent reads tags when it picks, and Illustrator reuses a picture whose tag of two or more words names the story's place instead of painting a new one. See [Reusing pictures you already have](../media/scene-backgrounds.md#reusing-pictures-you-already-have).
+Tag pictures with the places they show, such as `guest bedroom` or `harbor tavern`. The **Background** agent reads tags when it picks, and Illustrator reuses a picture whose tag of two or more words names the story's place instead of painting a new one (one-word tags don't count for this). See [Reusing pictures you already have](../media/scene-backgrounds.md#reusing-pictures-you-already-have).
 
 ### Download a background
 

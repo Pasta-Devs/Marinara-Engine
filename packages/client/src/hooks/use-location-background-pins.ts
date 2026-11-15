@@ -16,7 +16,6 @@ import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useUIStore } from "../stores/ui.store";
 import { useUpdateChatMetadata } from "./use-chats";
-import { chatUsesWorldMaps } from "./use-scene-shelter";
 import { useSpatialContext } from "./use-spatial-context";
 
 type BackgroundListItem = { filename: string; source?: string };
@@ -58,6 +57,16 @@ export const useLocationPinStatus = create<LocationPinStatus & { publish: (statu
     publish: (status) => set(status),
   }),
 );
+
+function chatUsesAgent(metadata: unknown, agentId: string): boolean {
+  const meta = readMetadata(metadata);
+  return meta.enableAgents === true && Array.isArray(meta.activeAgentIds) && meta.activeAgentIds.includes(agentId);
+}
+
+/** Whether the chat runs the World Maps agent (its current place can match a pinned place). */
+export function chatUsesWorldMaps(metadata: unknown): boolean {
+  return chatUsesAgent(metadata, "hierarchical-maps");
+}
 
 /**
  * The picture to show for a pin in the story's weather: its weather version when the
@@ -120,6 +129,7 @@ export function useLocationBackgroundPinFollower(args: {
   const weather = stateKnown ? (gameState?.weather ?? null) : null;
 
   const mapsActive = isRoleplay && chatUsesWorldMaps(chatMetadata);
+  const tracksLocation = chatUsesAgent(chatMetadata, "world-state");
   const spatial = useSpatialContext(chatId, mapsActive);
   const spatialData = mapsActive ? spatial.data : undefined;
   const placeId = spatialData?.currentLocationId ?? null;
@@ -167,8 +177,14 @@ export function useLocationBackgroundPinFollower(args: {
   useEffect(() => {
     if (!chatId || !isRoleplay || pins.length === 0 || !known) return;
     if (!matchPinId || !matchBackground) {
-      // Left the pinned place: arriving there again shows its picture again.
-      if (shownPinId) updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+      // Left the pinned place: arriving there again shows its picture again. Only once what the shown pin
+      // matches on has loaded: a map place pin needs the map; a name pin the tracker location when the chat
+      // runs World State, else the map's current place. So a chat still loading never forgets a hand pick.
+      const shownPin = shownPinId ? pins.find((pin) => pin.id === shownPinId) : undefined;
+      const shownPinLoaded = stateKnown || (!!spatialData && (!!shownPin?.placeId || (!tracksLocation && !!placeId)));
+      if (shownPinId && (!shownPin || shownPinLoaded)) {
+        updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+      }
       return;
     }
     if (shownPinId === matchPinId) return;
@@ -177,5 +193,18 @@ export function useLocationBackgroundPinFollower(args: {
     if (url) useUIStore.getState().setChatBackground(url);
     updateMeta.mutate({ id: chatId, [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: matchPinId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, isRoleplay, known, matchPinId, matchBackground, shownPinId]);
+  }, [
+    chatId,
+    isRoleplay,
+    known,
+    stateKnown,
+    !!spatialData,
+    placeId,
+    tracksLocation,
+    pins,
+    matchPinId,
+    matchBackground,
+    shownPinId,
+    library,
+  ]);
 }

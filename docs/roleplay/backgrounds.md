@@ -69,7 +69,7 @@ If it did not work: check that **Story is at** under the list shows the place, a
 
 A picture in a character's or persona's **Gallery** can be labelled as a background. It then shows up in every chat that character is in, with no pins to set in each chat.
 
-1. Open the character's **Gallery** tab. Click the tag button on a picture and choose **Use as background**.
+1. Open the character's **Images → Gallery**. Click the tag button on a picture and choose **Use as background**.
 2. Type the places it shows, separated by commas, such as `{{char}}'s bedroom, {{char}}'s room`. In a character's gallery `{{char}}` is that character; in a persona's, `{{user}}` is that persona. Leave it empty if the picture isn't one place.
 
 The picture's tag button then reads **Background:** and its places. Click it to **Edit places** or **Remove background tag**.

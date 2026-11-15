@@ -40,7 +40,9 @@ Before Illustrator paints a new place, it looks for a picture you already have, 
 2. A library picture whose name, or a tag of two or more words, appears in the World State location. For example, `generated-guest-bedroom.png`, or a picture tagged `guest bedroom`, serves "Smith House, guest bedroom".
 3. Without a World State location, the place name Illustrator's prompt model writes is matched the same way.
 
-If one fits, it is shown (in the story's weather, when that version exists) and nothing is painted. Only a place with no match gets a new picture. Tagging your uploads with place names (see [Tag a background](../appearance/chat-backgrounds.md#tag-a-background)) is the easiest way to save image requests.
+Case, accents and "'s" don't matter, and the most specific name wins over a plain `bedroom.png`. If one fits, it is shown (in the story's weather, when that version exists) and nothing is painted. Only a place with no match gets a new picture.
+
+To make sure a place keeps its picture, name the file after the place (`kitchen.png` for "Kitchen"), or give it a tag of two or more words, such as `smith house kitchen` (see [Tag a background](../appearance/chat-backgrounds.md#tag-a-background)). One-word tags like `kitchen` or `night` are ignored here, because they usually describe how a picture looks.
 
 ## Weather versions of backgrounds
 

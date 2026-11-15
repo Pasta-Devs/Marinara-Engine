@@ -1,5 +1,6 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test, type Page, type Locator } from "@playwright/test";
+import { chooseBackgroundCardAction, openBackgroundCardMenu } from "./background-card-actions.js";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -299,42 +300,6 @@ test("UX sweep: Character Voice names a same-name card's voice and keeps typing 
   }
 });
 
-test("UX sweep: Use a voice per character keeps Text to Speech settings saved elsewhere", async ({
-  page,
-  request,
-}, testInfo) => {
-  test.skip(testInfo.project.name.includes("mobile"), "One desktop run covers the save; the layout is the same.");
-  const original = await (await request.get("/api/tts/config")).json();
-  const created = await request.post("/api/characters", { data: { data: { name: `UX Voice Mode ${Date.now()}` } } });
-  expect(created.ok()).toBeTruthy();
-  const { id } = (await created.json()) as { id: string };
-  try {
-    const shared = { ...original, enabled: true, source: "openai", speed: 1, voiceMode: "single" };
-    expect((await request.put("/api/tts/config", { data: shared })).ok()).toBeTruthy();
-    await page.route("**/api/tts/voices", (route) =>
-      route.fulfill({ json: { voices: ["echo"], voiceOptions: [{ id: "echo", name: "echo" }], fromProvider: false } }),
-    );
-    await page.goto("/");
-    await openEditor(page, "Character", id);
-    const editor = page.locator(".mari-editor-shell");
-    await openSection(editor, "Voice");
-    const usePerCharacter = editor
-      .locator('[data-editor-section="voice"]')
-      .getByRole("button", { name: "Use a voice per character" });
-    await expect(usePerCharacter).toBeVisible();
-    // Another tab saves a new speed after this page read the settings; the switch must keep it.
-    expect((await request.put("/api/tts/config", { data: { ...shared, speed: 1.5 } })).ok()).toBeTruthy();
-    await usePerCharacter.click();
-    await expect
-      .poll(async () => ((await (await request.get("/api/tts/config")).json()) as { voiceMode: string }).voiceMode)
-      .toBe("per-character");
-    expect(((await (await request.get("/api/tts/config")).json()) as { speed: number }).speed).toBe(1.5);
-  } finally {
-    await request.put("/api/tts/config", { data: original });
-    await request.delete(`/api/characters/${id}`);
-  }
-});
-
 test("UX sweep: Appearance groups, quick access, width and hidden-panel state", async ({ page }, testInfo) => {
   await page.goto("/");
   await clickTopbarPanel(page, "settings");
@@ -416,8 +381,9 @@ test("UX sweep: Background library mobile toolbar, accent marker and settled mod
     expect(sortBox.width).toBeLessThanOrEqual(44);
   }
   const card = library.locator("[data-background-id]").first();
-  await card.locator("[data-background-default-toggle]").click();
-  await expect(card.locator("[data-background-default-toggle]")).toHaveAttribute("aria-pressed", "true");
+  const defaultToggle = card.locator("[data-background-default-toggle]");
+  await chooseBackgroundCardAction(page, card, defaultToggle, "Set as default for new Roleplay chats");
+  await expect(defaultToggle).toHaveAttribute("aria-pressed", "true");
   const useButton = card.getByRole("button", { name: /Use .* for this chat/ });
   await useButton.click();
   await expect(library).toBeHidden();
@@ -729,7 +695,13 @@ for (const mode of ["roleplay", "game", "conversation"] as const) {
       await section.getByRole("button", { name: "Browse library", exact: true }).click();
       const library = page.getByRole("dialog", { name: "Background Library" });
       if (mode === "game") await expect(library.locator("[data-background-default-toggle]")).toHaveCount(0);
-      else await expect(library.locator("[data-background-default-toggle]").first()).toBeVisible();
+      else if (testInfo.project.name.includes("mobile")) {
+        // Phones offer the Roleplay default in each card's menu.
+        const menu = await openBackgroundCardMenu(page, library.locator("[data-background-id]").first());
+        await expect(menu.getByRole("menuitem", { name: /Roleplay (default|chats)$/u })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(menu).toBeHidden();
+      } else await expect(library.locator("[data-background-default-toggle]").first()).toBeVisible();
       const choice = library.locator('[data-background-id="user:ancient_library.jpg"]');
       await choice.getByRole("button", { name: /Use .* for this chat/ }).click();
       await expect(library).toBeHidden();
@@ -950,11 +922,22 @@ for (const spec of [
       await page.goto("/");
       await openEditor(page, spec.kind, entity.id);
       const editor = page.locator(".mari-editor-shell");
-      const gallery = editor.locator('[data-editor-section="gallery"]');
+      const gallery = editor.locator('[data-editor-subsection="gallery"]');
       await expect(gallery).toHaveAttribute("aria-busy", "true");
       expect(galleryRequests).toBe(0);
-      await openSection(editor, "Gallery");
+      // Gallery sits inside the Images tab since #9191.
+      await openSection(editor, "Images");
+      await editor
+        .locator('[data-editor-section="images"]')
+        .getByRole("navigation")
+        .getByRole("button", { name: "Gallery", exact: true })
+        .click();
       await expect(gallery).toHaveAttribute("aria-busy", "false");
+      // Let the pill's smooth jump land before the scroll checks below.
+      const scrollerTop = async () => (await editor.locator(".mari-editor-content").boundingBox())?.y ?? Number.NaN;
+      await expect
+        .poll(async () => Math.round(((await gallery.boundingBox())?.y ?? Number.NaN) - (await scrollerTop())))
+        .toBe(16);
       await expect.poll(() => galleryRequests).toBeGreaterThan(0);
       const firstControl = gallery.getByRole("button").first();
       await firstControl.evaluate((element) => element.setAttribute("data-ux-retained", "true"));

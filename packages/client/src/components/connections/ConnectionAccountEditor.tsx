@@ -535,7 +535,7 @@ export function ConnectionAccountEditor({
                   tile={<ModelTile row={row} account={account} />}
                   title={row.name?.trim() || row.model}
                   tooltip={row.model && row.model !== row.name ? [row.name, row.model].join("\n") : row.name}
-                  subtitle={modelSubtitle(row, upstream)}
+                  subtitle={modelSubtitle(row, upstream, !!account?.loadedModel)}
                   kind={modelKindOf(row.provider)}
                   roles={rolesOf(row)}
                   customized={isChatProvider(row.provider) && !!row.ownSettings}

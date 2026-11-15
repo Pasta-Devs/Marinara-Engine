@@ -268,7 +268,11 @@ const drawer = readFileSync(
   "utf8",
 );
 assert.match(drawer, /const advancedMemoryAvailable = isRoleplayMode \|\| isGame;/);
-assert.match(drawer, /gameMode=\{isGame\}/);
+const memoryRecallSection = readFileSync(
+  new URL("../../packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(memoryRecallSection, /gameMode=\{isGame\}/);
 const settingsPanel = readFileSync(
   new URL("../../packages/client/src/components/chat/AdvancedMemorySettings.tsx", import.meta.url),
   "utf8",
