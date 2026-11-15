@@ -145,6 +145,17 @@ The Chats list updates at once for changes made on this device. Changes from ano
 
 Holding a message opens its menu, so it doesn't select text. Use **Copy** in that menu for the whole message, or **Edit** to select and copy part of it, then **Cancel**.
 
+## My ui/kolacheee copy stopped updating. What do I do?
+
+The `ui/kolacheee` test branch was rewritten on GitHub on November 15, 2026. The app did not change, but copies made before that date can't move forward on their own: the launcher says your copy "has changes that are not on GitHub, so it was not updated", and **Apply Update** fails. Fix it once. Close Marinara, open a terminal in your Marinara folder (PowerShell on Windows, Termux on Android) and run:
+
+```bash
+git fetch origin "+refs/heads/ui/kolacheee:refs/remotes/origin/ui/kolacheee"
+git checkout -B ui/kolacheee origin/ui/kolacheee
+```
+
+Then start Marinara as usual. Your chats, characters and settings are not touched, and later updates work as before. If you changed Marinara's code yourself on this branch, save those changes first: this puts your copy exactly on the version from GitHub.
+
 ## Where do I get help or report a bug?
 
 Start with [Troubleshooting](TROUBLESHOOTING.md). On Home, **Discord** opens the community chat and **Support** opens the project's support page. Report bugs and feature requests on the project's GitHub page.
