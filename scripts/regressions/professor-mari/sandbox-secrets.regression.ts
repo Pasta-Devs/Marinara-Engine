@@ -116,6 +116,10 @@ try {
   for (const path of [".env", ".env::$DATA", ".env.local.", ".git/config", ".git./config", ".GIT/hooks/pre-commit"]) {
     assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "forbidden", path);
   }
+  // Scripts the launchers run outside her sandbox wait for approval, like the launchers themselves.
+  for (const path of ["scripts/check-launcher-update.mjs", "Scripts/protect-launcher-data.mjs.", "win/launcher.ps1"]) {
+    assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "sensitive", path);
+  }
   for (const path of [".env.example", "packages/server/data/encryption-key-notes.md", "src/.encryption-keys.ts"]) {
     assert.equal(workspacePathAccessPolicy(workspace, join(workspace, path)), "normal", path);
   }

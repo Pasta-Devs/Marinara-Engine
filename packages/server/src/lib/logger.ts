@@ -26,6 +26,7 @@ import { hostname } from "node:os";
 import { isatty } from "node:tty";
 import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
+import { LOG_REDACT_PATHS, scrubSecretText } from "./log-redaction.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -124,6 +125,16 @@ const stdoutIsTerminal = isatty(1);
 const developmentLogs = getNodeEnv() !== "production";
 export const prettyLogs = (getLogFormat() ?? (developmentLogs || stdoutIsTerminal ? "pretty" : "json")) === "pretty";
 
+// A provider error's message can echo the key that was sent; scrub it, and the stack that repeats it.
+function scrubbedErrorSerializer(value: unknown) {
+  const serialized = pino.stdSerializers.err(value as Error) as unknown;
+  if (!serialized || typeof serialized !== "object") return serialized;
+  const record = serialized as Record<string, unknown>;
+  if (typeof record.message === "string") record.message = scrubSecretText(record.message);
+  if (typeof record.stack === "string") record.stack = scrubSecretText(record.stack);
+  return record;
+}
+
 export const logger = pino({
   level: getLogLevel(),
   hooks: {
@@ -147,7 +158,15 @@ export const logger = pino({
   base: { pid: process.pid, hostname: hostname(), bootId },
   mixin: logContextMixin,
   // Pino only serialises `err` by default; `{ error }` would otherwise print as `{}`.
-  serializers: { err: pino.stdSerializers.err, error: pino.stdSerializers.err },
+  // msg is serialized after pino has filled in %s/%j substitutions and a bare Error's message, so every message
+  // line is scrubbed here, whatever produced its text.
+  serializers: {
+    err: scrubbedErrorSerializer,
+    error: scrubbedErrorSerializer,
+    msg: (value: unknown) => (typeof value === "string" ? scrubSecretText(value) : value),
+  },
+  // Credential fields never reach the log (lib/log-redaction.ts).
+  redact: { paths: LOG_REDACT_PATHS, censor: "[redacted]" },
 });
 protectTerminalLogger(logger, prettyLogs);
 
