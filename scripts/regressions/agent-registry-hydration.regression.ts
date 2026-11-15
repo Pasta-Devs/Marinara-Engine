@@ -245,7 +245,7 @@ const capabilityPackageManagerSource = await readFile(
 );
 assert.match(
   capabilityPackageManagerSource,
-  /const servable = await resolveServableInstalledPackage\(installed\);[\s\S]*?readInstalledAgentDefinitions\(servable\)/u,
+  /(?:const )?servable = await resolveServableInstalledPackage\(installed\);[\s\S]*?readInstalledAgentDefinitions\(servable\)/u,
   "The capability-agent registry must retain the previous agent definitions while an update waits for restart",
 );
 assert.match(
