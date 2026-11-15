@@ -58,10 +58,6 @@ export function SwipeJumpControl({
   const handleInputChange = (value: string) => {
     if (!/^\d*$/.test(value)) return;
     setInputValue(value);
-    if (value === "") return;
-    const displayIndex = Number.parseInt(value, 10);
-    if (Number.isNaN(displayIndex) || displayIndex < 1 || displayIndex > displaySwipeCount) return;
-    setSwipeByDisplayIndex(displayIndex);
   };
 
   return (

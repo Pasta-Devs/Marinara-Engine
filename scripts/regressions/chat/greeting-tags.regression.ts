@@ -63,3 +63,9 @@ assert.equal(greetingBody("[Ep2] Rooftop\nThe door sticks."), "The door sticks."
 assert.equal(greetingBody("[OOC] Be kind.\nHi.", false), "[OOC] Be kind.\nHi.");
 
 console.log("greeting-tags regression passed");
+
+// A header sharing its line with the text keeps that text in the opened body.
+assert.equal(greetingBody("[Ep4] Foot talk goes on."), "Foot talk goes on.");
+// A body that begins with the title word keeps it unless the title is a whole line.
+assert.equal(parseGreeting("**Drago**\nDrago asked about the new shoes.").preview, "Drago asked about the new shoes.");
+assert.equal(greetingBody("**Drago**\nDrago asked about the new shoes."), "Drago asked about the new shoes.");
