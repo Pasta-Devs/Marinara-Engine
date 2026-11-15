@@ -27,8 +27,8 @@ function repositoryRelative(file) {
 // regression-timeout-policy fails on a path that names no regression, which would otherwise drop to the default.
 export const REGRESSION_TIMEOUTS_MS = new Map([
   // 20s main-server phase + six sequential 40s PTY bounds + 10s setup/cleanup margin.
-  ['scripts/regressions/server-signal-shutdown.regression.ts', 270_000],
-  ['scripts/regressions/restart-supervisor.regression.ts', 90_000],
+  ['scripts/regressions/server/server-signal-shutdown.regression.ts', 270_000],
+  ['scripts/regressions/launcher/restart-supervisor.regression.ts', 90_000],
   // Two provider deadlines (8 s each): a silent getContext and a claim that answers late.
   ['scripts/regressions/scene-package-origin.regression.ts', 60_000],
   // Two slow Decision recall passes (5.5 s each) prove that each has its own time limit.

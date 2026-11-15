@@ -35,11 +35,11 @@ on:
       - "scripts/regressions/launcher/**"
       - "scripts/regressions/fixtures/restart-*"
       - "scripts/regressions/fixtures/*-shutdown.*"
-      - "scripts/regressions/dev-launcher-process.regression.mjs"
-      - "scripts/regressions/pnpm-runner.regression.mjs"
-      - "scripts/regressions/restart-supervisor.regression.ts"
-      - "scripts/regressions/server-signal-shutdown.regression.ts"
-      - "scripts/regressions/update-apply-hardening.regression.ts"
+      - "scripts/regressions/launcher/dev-launcher-process.regression.mjs"
+      - "scripts/regressions/launcher/pnpm-runner.regression.mjs"
+      - "scripts/regressions/launcher/restart-supervisor.regression.ts"
+      - "scripts/regressions/server/server-signal-shutdown.regression.ts"
+      - "scripts/regressions/launcher/update-apply-hardening.regression.ts"
       - "start*"
       - "android/**"
       - "win/**"
@@ -86,13 +86,13 @@ jobs:
         id: restart-source
         env:
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/restart-supervisor.regression.ts
       - name: Compare compiled-server restart ownership
         if: success() || steps.restart-source.outcome == 'failure'
         env:
           MARINARA_RESTART_COMPILED: "true"
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/restart-supervisor.regression.ts
       - name: Retain restart diagnostic evidence
         if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -105,9 +105,9 @@ jobs:
         # This file runs several separately bounded console/PTY scenarios; the
         # general regression runner's 30s whole-file cap cuts those short.
         timeout-minutes: 5
-        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server-signal-shutdown.regression.ts
+        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server/server-signal-shutdown.regression.ts
       - name: Exercise update apply policy
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/update-apply-hardening.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/update-apply-hardening.regression.ts
 
   container-runtime:
     name: Container runtime (${{ matrix.variant }}, ${{ matrix.arch }})
