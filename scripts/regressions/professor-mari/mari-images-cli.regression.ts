@@ -189,6 +189,12 @@ try {
   assert.ok(avatar.style.dropped?.includes("priscilla barielle"), `avatar drops the name: ${avatar.style.dropped}`);
   assert.ok(!avatar.style.dropped?.includes("no text"), "a no-clause moved to the negative is not dropped");
   assert.match(avatar.style.note ?? "", /Kind avatar rewrote your prompt.*--kind illustration/);
+  // Avatar distils a sentence starting "No glasses" into "avoid glasses" before moving it; still not a drop.
+  const negated = (await images("preview", "--style", "--kind", "avatar", "--prompt", "red hair. No glasses")) as {
+    style: Style;
+  };
+  assert.deepEqual(negated.style.dropped, [], `avatar no-clause is not dropped: ${negated.style.dropped}`);
+  assert.equal(negated.style.note, undefined);
   const kept = (await images("preview", "--style", "--prompt", character)) as { style: Style };
   assert.deepEqual(kept.style.dropped, [], "illustration keeps every tag, weighted ones included");
   assert.equal(kept.style.note, undefined);

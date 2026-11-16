@@ -433,6 +433,8 @@ function promptTagKey(tag: string) {
     .trim();
 }
 
+// The phrases the image prompt compiler reads as "move this to the negative".
+const NEGATION_PREFIX = /^(?:avoid|no|without|exclude|do not include|don't include)\s+/;
 // Commas, semicolons, line breaks and sentence ends. Wider than the compiler, which breaks a sentence only before
 // a negation ("garden. avoid hat"); a finer split only makes each tag easier to find in the final prompt.
 const PROMPT_TAG_SEPARATOR = /[,;\n]+|(?<=[.!?])\s+/;
@@ -448,8 +450,8 @@ function escapeRegExp(value: string) {
  */
 function droppedPromptTags(requested: string, final: string, movedToNegative: string[]): string[] {
   const finalText = final.split(PROMPT_TAG_SEPARATOR).map(promptTagKey).filter(Boolean).join(", ");
-  // A whole-phrase match finds "glasses" in the moved "avoid hat, glasses", so the negation word needs no stripping.
-  const movedText = movedToNegative.map(promptTagKey).join(", ");
+  // Kind avatar distils "no glasses" into "avoid glasses" before it is moved, so both sides drop the negation word.
+  const movedText = movedToNegative.map((fragment) => promptTagKey(fragment).replace(NEGATION_PREFIX, "")).join(", ");
   const appearsIn = (text: string, key: string) =>
     new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegExp(key)}(?:$|[^\\p{L}\\p{N}])`, "u").test(text);
   const seen = new Set<string>();
@@ -460,7 +462,7 @@ function droppedPromptTags(requested: string, final: string, movedToNegative: st
     if (!key || seen.has(key)) continue;
     seen.add(key);
     if (appearsIn(finalText, key)) continue;
-    if (appearsIn(movedText, key)) continue;
+    if (appearsIn(movedText, key.replace(NEGATION_PREFIX, ""))) continue;
     dropped.push(tag);
   }
   return dropped;
