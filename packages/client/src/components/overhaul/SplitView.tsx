@@ -10,12 +10,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
-import { SPLIT_PANE, SPLIT_PLACE_FIELDS, forgetSplitPaneCopy, type SplitPage } from "../../lib/split-view-env";
+import { SPLIT_PANE, type SplitPage } from "../../lib/split-view-env";
+import { SERVER_SAVED_EVENT } from "../../lib/api-client";
 import { queryClient } from "../../lib/query-client";
 import { claimSoundOnPress, setSplitSideQuiet } from "../../lib/split-sound-gate";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useDeviceLookStore } from "../../stores/device-look.store";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { overhaulTabKey, useOverhaulStore, type OverhaulSplit, type OverhaulTab } from "../../stores/overhaul.store";
 import { useChats } from "../../hooks/use-chats";
@@ -63,61 +63,27 @@ function startQuerySync() {
   const channel = new BroadcastChannel("marinara-split-sync");
   const self = Math.random().toString(36).slice(2);
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const unsubscribe = queryClient.getMutationCache().subscribe((event) => {
-    if (event.type !== "updated" || event.action.type !== "success" || timer) return;
+  const nudge = () => {
+    if (timer) return;
     timer = setTimeout(() => {
       timer = null;
       channel.postMessage({ from: self });
     }, 250);
+  };
+  const unsubscribe = queryClient.getMutationCache().subscribe((event) => {
+    if (event.type === "updated" && event.action.type === "success") nudge();
   });
+  // Saves made without a mutation (a setting stored straight on the server) count too.
+  window.addEventListener(SERVER_SAVED_EVENT, nudge);
   channel.onmessage = (event: MessageEvent<{ from?: string }>) => {
     if (event.data?.from && event.data.from !== self) void queryClient.invalidateQueries();
   };
   return () => {
     unsubscribe();
+    window.removeEventListener(SERVER_SAVED_EVENT, nudge);
     channel.close();
     if (timer) clearTimeout(timer);
   };
-}
-
-// ── Settings saved by one side show on the other ──
-// Each side keeps its own place (open page, editor, Settings category, tabs) and takes the other's
-// settings: the frame saves its settings under the main window's place (lib/split-view-env.ts), so
-// Settings can be open on either side.
-
-/** The saved fields of `persisted` that are settings, over `current` (which keeps its place). */
-function takeSettings<S>(key: string, persisted: unknown, current: S): S {
-  const place = SPLIT_PLACE_FIELDS[key];
-  const settings = Object.fromEntries(
-    Object.entries((persisted ?? {}) as Record<string, unknown>).filter(([field]) => !place?.test(field)),
-  );
-  return { ...current, ...settings };
-}
-
-/** Load the other side's settings in one update that leaves this side's place out. */
-function rehydrateSettings(key: string, store: typeof useUIStore | typeof useOverhaulStore) {
-  // (Restoring the place afterwards let a render in between move this side to the other side's page.)
-  const persist = store.persist as typeof useUIStore.persist;
-  persist.setOptions({ merge: (persisted, current) => takeSettings(key, persisted, current) });
-  void Promise.resolve(persist.rehydrate()).finally(() => persist.setOptions({ merge: undefined }));
-}
-
-function followSavedSettings() {
-  const onStorage = (event: StorageEvent) => {
-    if (event.storageArea !== window.localStorage || !event.key) return;
-    if (event.key === "marinara-device-look") void useDeviceLookStore.persist.rehydrate();
-    if (event.key === "marinara-engine-ui") {
-      forgetSplitPaneCopy("marinara-engine-ui");
-      forgetSplitPaneCopy("marinara-engine-ui:host");
-      rehydrateSettings(event.key, useUIStore);
-    }
-    if (event.key === "marinara-overhaul-layout") {
-      forgetSplitPaneCopy(event.key);
-      rehydrateSettings(event.key, useOverhaulStore);
-    }
-  };
-  window.addEventListener("storage", onStorage);
-  return () => window.removeEventListener("storage", onStorage);
 }
 
 // ── Main window: the second side ──
@@ -138,7 +104,6 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
   const frameKey = useRef<string | null>(null);
 
   useEffect(startQuerySync, []);
-  useEffect(followSavedSettings, []);
 
   // Only the side clicked last plays sound. Grabbing the divider isn't a click on the main side.
   // Closing the split gives the main window its sound back.
@@ -463,9 +428,6 @@ export function startSplitPane() {
   claimSoundOnPress(() =>
     window.parent.postMessage({ type: "ov-split", sound: "mine" } satisfies SplitMessage, origin()),
   );
-
-  // Look and settings changed in the main window show here too; where this side is stays its own.
-  followSavedSettings();
 }
 
 /** The second side's own bar: what it shows, Chat settings for a chat, and swap / only this / close. */
