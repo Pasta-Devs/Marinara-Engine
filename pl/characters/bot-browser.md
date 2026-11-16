@@ -11,6 +11,8 @@ Karta postaci to plik z imieniem jednej postaci, jej osobowością, powitaniem i
 
 Panel Card Browser wypełnia cały obszar treści i ma tytuł **Browse character cards online** (przeglądanie kart postaci online). Aby wyjść, kliknij strzałkę wstecz w lewym górnym rogu.
 
+Przycisk **Download** w panelu **Lorebooks** (lorebooki) otwiera tę samą przeglądarkę z lorebookami do pobrania. Zobacz [Pobieranie lorebooka z serwisu Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 Po zamknięciu i ponownym otwarciu ostatnie wyszukiwanie, filtry i wybrana postać nadal tam są. Przeładowanie aplikacji je resetuje.
 
 ## Wybór źródła

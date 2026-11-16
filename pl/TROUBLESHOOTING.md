@@ -5,7 +5,7 @@ Znajdź swój objaw i wykonaj opisaną naprawę. Większość problemów znika p
 ## Od czego zacząć
 
 1. Odśwież stronę z pominięciem pamięci podręcznej: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> w systemie Windows lub Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> na komputerze Mac.
-2. Zajrzyj do konsoli serwera (okna terminala, w którym działa Marinara) i poszukaj czerwonych linii z błędami. Zwykle nazywają one prawdziwy problem.
+2. Zajrzyj do konsoli serwera (okna terminala, w którym działa Marinara) i poszukaj czerwonych linii z błędami. Zwykle nazywają one prawdziwy problem. Jeśli serwer działa na innym urządzeniu lub w innym środowisku (NAS, VPS, kontener Docker), otwórz **Settings → Advanced → Open Console** (ustawienia → zaawansowane → otwórz konsolę), żeby przeczytać te same wpisy w aplikacji.
 3. Jeśli chcesz poprosić o pomoc, najpierw włącz **Debug mode** (tryb diagnostyczny). Zobacz [Uzyskiwanie dalszej pomocy](#get-more-help).
 
 <a id="my-character-does-not-reply"></a>

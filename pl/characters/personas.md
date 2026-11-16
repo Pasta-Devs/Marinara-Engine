@@ -34,7 +34,7 @@ Panel **Personas** to twoja biblioteka person. Kliknij wiersz, żeby otworzyć t
 | **Import** (import) | Otwiera okno **Import Persona** (import persony). |
 | **Select** (zaznaczanie) | Włącza tryb zaznaczania do zbiorczego usuwania i eksportu. |
 | Pole wyszukiwania | Tekst zastępczy **Search personas/tags** (szukaj person/tagów). Przeszukuje nazwę, opis, komentarz i tagi. Wyszukiwanie po tagach opisuje sekcja [Wyszukiwanie](library-organization.md#search). |
-| Lista rozwijana sortowania | **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest** (najnowsze), **Oldest** (najstarsze) albo **Tokens** (szacowany rozmiar promptu). |
+| Lista rozwijana sortowania | **Manual order** (kolejność ręczna), **A-Z**, **Z-A**, **Newest** (najnowsze), **Oldest** (najstarsze), **Most tokens** (najwięcej tokenów) albo **Fewest tokens** (najmniej tokenów) (szacowany rozmiar, widoczny także w każdym wierszu). |
 | **New Folder** (nowy folder) | Tworzy folder. |
 | **Tags** (tagi) | Rozwija listę tagów do filtrowania. |
 

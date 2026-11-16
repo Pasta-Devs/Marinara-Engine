@@ -44,6 +44,10 @@ Wybierz kolejność na liście rozwijanej sortowania obok pola wyszukiwania.
 | **Newest** | Najpierw ostatnio utworzone. |
 | **Oldest** | Najpierw najstarsze. |
 | **Favorites** | Najpierw ulubione, potem cała reszta. |
+| **Most tokens** (najwięcej tokenów) | Najpierw największe karty, według szacunku pokazanego w każdym wierszu. Foldery są sortowane według łącznego rozmiaru kart. |
+| **Fewest tokens** (najmniej tokenów) | Najpierw najmniejsze karty. |
+
+Sortowanie według rozmiaru pomaga znaleźć karty do skrócenia lub rozbudowania. Licznik szacuje rozmiar tekstu samej karty. Nie korzysta z tokenizatora twojego modelu. Persony, lorebooki i presety promptów mają te same dwie opcje sortowania.
 
 Żeby ustawić własną kolejność, przeciągnij wiersz w górę lub w dół albo naciśnij <kbd>Alt</kbd>+<kbd>Up</kbd> lub <kbd>Alt</kbd>+<kbd>Down</kbd> na wierszu, który ma fokus. Każdy z tych sposobów przełącza sortowanie na **Manual order** (kolejność ręczna).
 

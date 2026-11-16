@@ -1,6 +1,6 @@
 {
   "language": "pl",
-  "sourceCommit": "dd2e4b15c5da79e29dc70e8b10404c68ee9bc275",
+  "sourceCommit": "9e484de9275574c6b9d1119328d7c4d41f40bb49",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "446e0fabd1229b7415136dd33d0e409d3c4f336674c697db938e3ccbd436f279",
-      "bytes": 53864
+      "sha256": "111c8723fbeed2c39ce282b7c91b4f78265756b6552626d323f0c85ee263dcb9",
+      "bytes": 54108
     },
     {
       "path": "UPGRADING.md",
@@ -109,8 +109,8 @@
     },
     {
       "path": "characters/bot-browser.md",
-      "sha256": "b62436523993211d0ebdccd3da81deba4332af1b2f6e19947b3699efbdf7af19",
-      "bytes": 14500
+      "sha256": "8cbdab445abf619b927f1523da6d235dc0ed635607b51605c5bd1033d864d1fb",
+      "bytes": 14725
     },
     {
       "path": "characters/choosing-your-persona.md",
@@ -144,13 +144,13 @@
     },
     {
       "path": "characters/library-organization.md",
-      "sha256": "45325f6947baf79012a7e8b719539fa75003e28a4fed2b6d088bd94c2fadf276",
-      "bytes": 7547
+      "sha256": "5a5d18c1234fc95072da49c4ada8f310d321a78d85f98d98b81a033a572b3af4",
+      "bytes": 8042
     },
     {
       "path": "characters/personas.md",
-      "sha256": "72c95c4f5ff19aa23c79746f4abf5f6371fed5931fd0e5680138e8c506e28a27",
-      "bytes": 12600
+      "sha256": "0ffc147c03f65e24a5f7cd29cadeaed73751bab3133d5df729e596e177f2b383",
+      "bytes": 12693
     },
     {
       "path": "characters/sprites.md",
@@ -209,8 +209,8 @@
     },
     {
       "path": "chats/settings-profiles.md",
-      "sha256": "cea6b9da05fe7b44d4fa842c515e8c9028ab8661c256c5ec3ebc5e012bd322c7",
-      "bytes": 10986
+      "sha256": "6dc3954b77b1d215f8d0303bc32bc9ce2ddde2139e0ebd76db473d0838575ac9",
+      "bytes": 12552
     },
     {
       "path": "chats/slash-commands.md",
@@ -229,8 +229,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "01f8bb711ad019f61c79c65de9f87b5ad43a4a35e2b898d0c1d51d7e03cd3841",
-      "bytes": 30769
+      "sha256": "78a7f39c9e4eec46335fdc325e87fc1bef2dfcad895db4201b64d54e629a231e",
+      "bytes": 34839
     },
     {
       "path": "connections/local-model.md",
@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "a9eccd75fc263b5c2461ca6fd15389f4f62b23a41200f4480a59840debe11b56",
-      "bytes": 19000
+      "sha256": "b310b7749f6eaa3cedf802dce784e42148105f5297d06c421a66d09a657d2c33",
+      "bytes": 19343
     },
     {
       "path": "connections/subscription-clis.md",
@@ -374,8 +374,8 @@
     },
     {
       "path": "development/logging.md",
-      "sha256": "7347242f3fd5406e0a4caa39f1472d9bb0cf2dfd0c28407b6149845692e56b01",
-      "bytes": 8098
+      "sha256": "6f615977aaeafc047431b80c3868d84e76145c22b0eb366221abf676fd02b478",
+      "bytes": 9521
     },
     {
       "path": "development/ltx-director-storyboard.md",
@@ -409,8 +409,8 @@
     },
     {
       "path": "extending/custom-tools.md",
-      "sha256": "984702c3161baa9da41b893493d9dcb38cbd8604e8e48446a009a78cd5bec9bf",
-      "bytes": 15710
+      "sha256": "4f27b60b3ec10a9ed8bdf1abbba15eddf81c26715f55d45ab58ce626fb619ed6",
+      "bytes": 15667
     },
     {
       "path": "extending/personal-extensions.md",
@@ -604,8 +604,8 @@
     },
     {
       "path": "integrations/home-assistant.md",
-      "sha256": "bc9f6f3a4ce65b639825c40d96d93b15db5633840b3e7293917a10e8b1e9cafd",
-      "bytes": 12277
+      "sha256": "706eea26f725638cfd94220e78ff7198ee75e00b02e835c622785e4e05862176",
+      "bytes": 12260
     },
     {
       "path": "integrations/message-translation.md",
@@ -619,8 +619,8 @@
     },
     {
       "path": "lorebooks/import-export.md",
-      "sha256": "37d157710b6296045d6da1b22b9f50ba3e40eb70e36fd2dc6e4f11015de921c9",
-      "bytes": 5808
+      "sha256": "eb7608ffd963e54128b62835fda27110c1aaff969bcdd9462aa01dcbfe06e0a3",
+      "bytes": 7030
     },
     {
       "path": "lorebooks/linking-to-characters.md",
@@ -629,8 +629,8 @@
     },
     {
       "path": "lorebooks/overview.md",
-      "sha256": "bc607065b9d154fa5cad003c2828148815129e509a55de830eb061a23f368ccd",
-      "bytes": 7287
+      "sha256": "e2a86bddb6f5408df3050fee7e6c1abaf7315f95c95d19bbb267d54a27b1d034",
+      "bytes": 9056
     },
     {
       "path": "lorebooks/semantic-search.md",
@@ -679,8 +679,8 @@
     },
     {
       "path": "media/style-profiles.md",
-      "sha256": "5b850552a9241829169a1428e3b1b5cf4a03a19611ab3d950525e95ca53f756b",
-      "bytes": 8879
+      "sha256": "67e03fb95ded16685fe8767e486af49dd8fa784722920e34b0a38f2bc27a6046",
+      "bytes": 9678
     },
     {
       "path": "media/tts-setup.md",
@@ -709,8 +709,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "55837a0c126cffd2d633284980a92dadaa61b5b13a433ea70a66fb89b728266a",
-      "bytes": 15840
+      "sha256": "9330f74606355c0fc4b7e4d76abb5b439abde16b199c3f8f243463981fc9f4c7",
+      "bytes": 16446
     },
     {
       "path": "prompts/prompt-overrides.md",
@@ -754,8 +754,8 @@
     },
     {
       "path": "settings/settings-overview.md",
-      "sha256": "205aabb4db8fc02905630b51ad692b11e9efb761b7881579df45ff957963d1ab",
-      "bytes": 16935
+      "sha256": "aad5d29165ba7fbd8806741ead4eec9087766553d7a645f55cb7d2579dcc1ce5",
+      "bytes": 17320
     }
   ]
 }
