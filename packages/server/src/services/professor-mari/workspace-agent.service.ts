@@ -4162,9 +4162,9 @@ export class ProfessorMariWorkspaceService {
     let chipRepairPending = false;
     let chipRepairUsed = false;
 
-    const persistAssistantMessage = async () => {
+    const persistAssistantMessage = async (): Promise<void> => {
       const persistedText = assistantText.trim();
-      if (!persistedText || assistantMessagePersisted) return null;
+      if (!persistedText || assistantMessagePersisted) return;
 
       // The row may already exist from an earlier attempt whose EXTRA write
       // failed (the Manual-mode deferral marker lives there, and losing it
@@ -4172,7 +4172,7 @@ export class ProfessorMariWorkspaceService {
       // instead of early-returning past them or creating a duplicate.
       const message =
         persistedAssistantMessage ?? (await createAssistantMessage(chatStorage, args.chatId, persistedText));
-      if (!message) return null;
+      if (!message) return;
       persistedAssistantMessage = message;
       if (replyIsFiller === false && message.content !== persistedText) {
         await chatStorage.updateMessageContent(message.id, persistedText);
@@ -4218,7 +4218,6 @@ export class ProfessorMariWorkspaceService {
         runUnderstoodRequest = { ...runUnderstoodRequest, messageId: message.id };
         this.latestUnderstoodRequest = runUnderstoodRequest;
       }
-      return persistedAssistantMessage;
     };
 
     // Waiting wins: a question, a hold or a staged change ends the run with Send now still in the list, and a run that
