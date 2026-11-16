@@ -44,6 +44,10 @@ assert.equal(atEnd("  /he")?.start, 2);
 // Mid-line after whitespace too, so one message can run several commands.
 assert.deepEqual(atEnd("hello /he"), { trigger: "/", query: "he", start: 6, end: 9, quoted: false });
 assert.equal(activeToken("hi /ne there", 6)?.end, 6);
+// a command after an open bare reference wins over reading "Alice /skills" as one name
+assert.deepEqual(atEnd("Ask @Alice /skills"), { trigger: "/", query: "skills", start: 11, end: 18, quoted: false });
+assert.equal(atEnd("Ask @Fel Lock")?.query, "Fel Lock");
+assert.equal(atEnd('@"Alice /x')?.query, "Alice /x");
 assert.equal(atEnd("/usr/bin"), null);
 assert.equal(atEnd("see /usr/bin"), null);
 assert.equal(atEnd("and/or"), null);
