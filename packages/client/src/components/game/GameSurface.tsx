@@ -52,6 +52,7 @@ import {
 // ──────────────────────────────────────────────
 // Game: Main Surface (rendered by ChatArea when mode === "game")
 // ──────────────────────────────────────────────
+import { readBlobAsDataUrl } from "../../lib/chat-attachment-images";
 import { useExperienceMapPack } from "../../hooks/use-map-pack";
 import { ExperiencePeopleSpritesContext } from "../../hooks/use-overworld-view";
 import {
@@ -1909,21 +1910,6 @@ function readPersistedGameAudioSettings(): GameAudioSettings {
   } catch {
     return defaults;
   }
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Failed to read the selected image."));
-    };
-    reader.onerror = () => reject(new Error("Failed to read the selected image."));
-    reader.readAsDataURL(file);
-  });
 }
 
 type CombatStatusEffectLike = NonNullable<Combatant["statusEffects"]>[number];
@@ -7959,7 +7945,7 @@ function GameSurfaceComponent({
             } satisfies GameNpc);
 
       try {
-        const avatar = await readFileAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file);
         const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}`, {
           name: targetNpc.name,
           avatar,
@@ -7998,7 +7984,7 @@ function GameSurfaceComponent({
           await handleNpcPortraitUpload(memberName, file);
           return;
         }
-        const avatar = await readFileAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file);
         if (character) {
           await uploadCharacterAvatar.mutateAsync({ id: memberId, avatar });
         } else {
