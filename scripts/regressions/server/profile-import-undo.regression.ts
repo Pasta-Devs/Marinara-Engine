@@ -1,5 +1,6 @@
 // Import Profile saves a full safety copy before it overwrites anything, refuses to import when the copy
-// can't be saved, and "Undo Last Import" puts back only what the last import wrote.
+// can't be saved, and "Undo Last Import" puts back only what the last import wrote. The Undo record
+// lives in the database and commits with the import, so it always describes the last finished import.
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
@@ -10,26 +11,20 @@ const root = await fs.mkdtemp(join(tmpdir(), "marinara-profile-import-undo-"));
 process.env.DATA_DIR = root;
 process.env.FILE_STORAGE_DIR = join(root, "storage");
 const backups = join(root, "backups");
-const safetyCopy = join(backups, "marinara-before-import.zip");
+const UNDO_SETTING = "profile_import_undo";
 
 // The free-space check reads statfs; the first import runs on a "full disk".
 const originalStatfs = fs.statfs;
 let freeBytes = 0;
-// Windows refuses to move or delete a file another program holds open. One case makes moving the
-// old copy fail, another makes removing the used record fail.
-const busy = () => Object.assign(new Error("resource busy"), { code: "EBUSY" });
-const originalRename = fs.rename;
+// Windows refuses to delete a file another program holds open; one case makes removing a copy fail.
 const originalRm = fs.rm;
 let copyBusy = false;
-let recordBusy = false;
 Object.assign(fs, {
   statfs: async (path: string) => ({ ...(await originalStatfs(path)), bsize: 1, bavail: freeBytes }),
-  rename: async (from: string, to: string) => {
-    if (copyBusy && String(to).endsWith("marinara-before-import.zip.previous")) throw busy();
-    return originalRename(from, to);
-  },
   rm: async (path: string, options?: Parameters<typeof originalRm>[1]) => {
-    if (recordBusy && String(path).endsWith("marinara-before-import.json")) throw busy();
+    if (copyBusy && /marinara-before-import-.*\.zip$/u.test(String(path))) {
+      throw Object.assign(new Error("resource busy"), { code: "EBUSY" });
+    }
     return originalRm(path, options);
   },
 });
@@ -38,10 +33,12 @@ syncBuiltinESMExports();
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { backupRoutes } = await import("../../../packages/server/src/routes/backup.routes.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const appSettingsModule = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
 
 const db = await getDB();
 const characters = createCharactersStorage(db);
+const settings = appSettingsModule.createAppSettingsStorage(db);
 const app = Fastify();
 app.decorate("db", db);
 await app.register(backupRoutes, { prefix: "/api/backup" });
@@ -52,8 +49,11 @@ const setDescription = (id: string, description: string) => characters.update(id
 const sources = join(root, "knowledge-sources");
 const readSource = (name: string) => fs.readFile(join(sources, name), "utf8");
 const writeSource = (name: string, text: string) => fs.writeFile(join(sources, name), text);
+const backupFiles = async () => (await fs.readdir(backups).catch(() => [] as string[])).sort();
+const undoRecord = async () => JSON.parse((await settings.get(UNDO_SETTING)) ?? "null");
 const undoOffer = async () => (await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" })).json();
 const undo = () => app.inject({ method: "POST", url: "/api/backup/import-profile/undo" });
+const deleteCopy = () => app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
 const importProfile = async (profile: string) => {
   const preview = await app.inject({
     method: "POST",
@@ -91,7 +91,7 @@ try {
   assert.match(refused.json().message, /Nothing was imported, because a safety copy could not be saved first/u);
   assert.match(refused.json().message, /Not enough free space for a safety copy/u);
   assert.equal(await descriptionOf(ada), "new", "the refused import changed nothing");
-  assert.deepEqual(await fs.readdir(backups).catch(() => []), [], "no safety copy or partial file");
+  assert.deepEqual(await backupFiles(), [], "no safety copy or partial file");
 
   // With room, the import reverts Ada, and the copy from just before it is offered for undo.
   freeBytes = 1024 ** 4;
@@ -101,6 +101,9 @@ try {
   const offered = await undoOffer();
   assert.equal(offered.available, true);
   assert.ok(!Number.isNaN(Date.parse(offered.savedAt)), "savedAt is a date");
+  const firstCopies = await backupFiles();
+  assert.equal(firstCopies.length, 1);
+  assert.equal((await undoRecord()).copy, firstCopies[0], "the record names the copy");
 
   // A later import refused for space leaves this import's undo in place.
   freeBytes = 0;
@@ -109,29 +112,36 @@ try {
   freeBytes = 1024 ** 4;
 
   // So does one that fails after saving its own copy: a row without an id passes the preview and
-  // fails the import. The previous copy and record are back, with nothing set aside left over.
+  // fails the import. Its rollback keeps the previous record, and its own copy is removed.
   const broken = JSON.parse(exported.body);
   broken.data.fileStorage.tables.characters = [...(broken.data.fileStorage.tables.characters ?? []), { name: "No id" }];
   assert.notEqual((await importProfile(JSON.stringify(broken))).statusCode, 200);
   assert.deepEqual(await undoOffer(), offered, "a failed import keeps the previous undo");
-  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
+  assert.deepEqual(await backupFiles(), firstCopies, "the failed import's own copy is removed");
 
-  // So does one whose old copy can't be moved aside after its record was.
-  copyBusy = true;
-  assert.notEqual((await importProfile(exported.body)).statusCode, 200);
-  copyBusy = false;
-  assert.deepEqual(await undoOffer(), offered, "an import that can't move the old copy keeps the previous undo");
-  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
-
-  // A second import replaces the copy (and its record): undo now goes back to just before this one.
-  // other.txt is in that copy but not in the file, so the import doesn't write it.
+  // A second import replaces the record, and the copy the old record named goes. other.txt is in
+  // that copy but not in the file, so the import doesn't write it. The file also carries a planted
+  // Undo record, which must not reach this install.
   await setDescription(ada, "newer");
   await writeSource("notes.txt", "newer");
   await writeSource("other.txt", "before import");
-  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  const planted = JSON.parse(exported.body);
+  const plantedValue = JSON.stringify({ copy: firstCopies[0], rows: { characters: [bea] }, files: [] });
+  planted.data.fileStorage.tables.app_settings = [
+    ...(planted.data.fileStorage.tables.app_settings ?? []),
+    { key: UNDO_SETTING, value: plantedValue, updatedAt: "2000-01-01T00:00:00.000Z" },
+  ];
+  assert.equal((await importProfile(JSON.stringify(planted))).statusCode, 200);
   assert.equal(await descriptionOf(ada), "old");
   assert.equal(await readSource("notes.txt"), "old");
-  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
+  const secondCopies = await backupFiles();
+  assert.equal(secondCopies.length, 1, "the replaced copy is removed");
+  assert.notEqual(secondCopies[0], firstCopies[0]);
+  const secondRecord = await undoRecord();
+  assert.equal(secondRecord.copy, secondCopies[0], "the planted record was ignored");
+  assert.ok(!(secondRecord.rows.app_settings ?? []).includes(UNDO_SETTING), "the planted row isn't listed");
+  const reexported = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.ok(!reexported.body.includes(UNDO_SETTING), "the Undo record is never exported");
 
   // Bea and other.txt were not in the file. Edits to them after the import must survive the undo.
   await setDescription(bea, "edited after import");
@@ -145,44 +155,63 @@ try {
 
   // Undo works once: a second one would put the same rows back over anything edited since.
   assert.deepEqual(await undoOffer(), { available: false });
-  assert.deepEqual(await fs.readdir(backups), [], "the used safety copy and its record are removed");
+  assert.equal(await undoRecord(), null, "the undo cleared the record");
+  assert.deepEqual(await backupFiles(), [], "the used safety copy is removed");
   assert.equal((await undo()).statusCode, 404);
-  await assert.rejects(fs.stat(safetyCopy));
 
-  // If the used record can't be removed, the undo still worked and says so, and it isn't offered
-  // again, because the copy is gone.
+  // If the used copy can't be removed, the undo still worked and says so. It isn't offered again,
+  // because its record is gone, but the leftover copy can still be deleted.
   assert.equal((await importProfile(exported.body)).statusCode, 200);
-  recordBusy = true;
+  copyBusy = true;
   const undoneBusy = await undo();
-  recordBusy = false;
+  copyBusy = false;
   assert.equal(undoneBusy.statusCode, 200, undoneBusy.body);
   assert.equal(await descriptionOf(ada), "newer", "the undo put the rows back");
-  assert.deepEqual(await undoOffer(), { available: false }, "an undo whose record stays isn't offered again");
-  await fs.rm(join(backups, "marinara-before-import.json"));
+  const leftover = await undoOffer();
+  assert.equal(leftover.available, false, "an undo whose copy stays isn't offered again");
+  assert.ok(!Number.isNaN(Date.parse(leftover.savedAt)), "the leftover copy is still reported");
+  assert.equal((await deleteCopy()).statusCode, 200);
+  assert.deepEqual(await backupFiles(), [], "Delete removes the leftover copy");
 
-  // A copy left without its record (a failed record save, a stop mid-import) can't be undone from,
-  // but it is still reported so it can be deleted. A stop between the set-aside renames also leaves
-  // the previous pair at full size; deleting removes that too.
+  // A copy newer than the one the record names means an import stopped while saving: the record no
+  // longer describes the last import, so Undo is withheld. Delete still removes everything,
+  // half-written copies included, and changes no data.
   assert.equal((await importProfile(exported.body)).statusCode, 200);
-  await fs.rename(join(backups, "marinara-before-import.json"), join(backups, "marinara-before-import.json.previous"));
-  await fs.copyFile(safetyCopy, `${safetyCopy}.previous`);
-  const lone = await undoOffer();
-  assert.equal(lone.available, false, "a copy without its record can't be undone from");
-  assert.ok(!Number.isNaN(Date.parse(lone.savedAt)), "a copy without its record is still reported");
+  const [recorded] = await backupFiles();
+  const stopped = "marinara-before-import-9999-12-31T23-59-59-999Z-ffffffff.zip";
+  await fs.copyFile(join(backups, recorded), join(backups, stopped));
+  await fs.writeFile(join(backups, `${stopped.replace("ffffffff", "eeeeeeee")}.pending`), "partial");
+  const withheld = await undoOffer();
+  assert.equal(withheld.available, false, "Undo is withheld when a newer copy exists");
+  assert.ok(!Number.isNaN(Date.parse(withheld.savedAt)), "the newer copy is reported for deleting");
   assert.equal((await undo()).statusCode, 404);
-  const deletedLone = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
-  assert.equal(deletedLone.statusCode, 200, deletedLone.body);
-  assert.deepEqual(await fs.readdir(backups), [], "the lone copy and the set-aside pair are removed");
-
-  // Delete Safety Copy frees the space without undoing anything.
-  assert.equal((await importProfile(exported.body)).statusCode, 200);
-  const deleted = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
-  assert.equal(deleted.statusCode, 200, deleted.body);
+  assert.equal((await deleteCopy()).statusCode, 200);
+  assert.deepEqual(await backupFiles(), [], "Delete removes every copy and half-written copy");
+  assert.equal(await undoRecord(), null, "Delete removes the record");
   assert.deepEqual(await undoOffer(), { available: false });
-  assert.deepEqual(await fs.readdir(backups), [], "the copy and its record are removed");
-  assert.equal(await descriptionOf(ada), "old", "deleting the copy changed no data");
+  assert.equal(await descriptionOf(ada), "old", "deleting the copies changed no data");
+
+  // A tampered record can't point the next import's clean-up at a file outside backups/.
+  const outside = join(root, "keep-me.txt");
+  await fs.writeFile(outside, "keep");
+  await settings.set(UNDO_SETTING, JSON.stringify({ copy: "../keep-me.txt", rows: {}, files: [] }));
+  assert.deepEqual(await undoOffer(), { available: false }, "a malformed record offers nothing");
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  assert.equal(
+    await fs.readFile(outside, "utf8").catch(() => "deleted"),
+    "keep",
+    "the file the record named outside backups/ stays",
+  );
+  assert.equal((await undoOffer()).available, true, "the import replaced the malformed record");
+  assert.equal((await deleteCopy()).statusCode, 200);
+
+  // A record whose copy is gone offers nothing.
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  await fs.rm(join(backups, (await backupFiles())[0]));
+  assert.deepEqual(await undoOffer(), { available: false });
+  assert.equal((await undo()).statusCode, 404);
 } finally {
-  Object.assign(fs, { statfs: originalStatfs, rename: originalRename, rm: originalRm });
+  Object.assign(fs, { statfs: originalStatfs, rm: originalRm });
   syncBuiltinESMExports();
   await app.close();
   await closeDB();

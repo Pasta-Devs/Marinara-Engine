@@ -87,7 +87,7 @@ If you import the same profile twice, Marinara updates your items and does not c
 
 ### Undo an import
 
-Before each import, Marinara saves a full copy of your data as `marinara-before-import.zip` in the `backups/` folder of the data folder. It keeps only the copy from the latest import.
+Before each import, Marinara saves a full copy of your data in the `backups/` folder of the data folder, as a file whose name starts with `marinara-before-import-` and ends with the date and time. When the import finishes, the copy from the import before it is deleted, so only the latest one is kept.
 
 1. Open **Settings → Imports**.
 2. In **Profile & Marinara**, click **Undo Last Import**. The line under it shows when the safety copy was saved.
