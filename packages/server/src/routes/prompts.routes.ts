@@ -139,7 +139,7 @@ export async function promptsRoutes(app: FastifyInstance) {
   // ═══════════════════════════════════════════
 
   app.get("/", async () => {
-    return storage.list();
+    return storage.listWithTokenEstimates();
   });
 
   app.get("/default", async () => {

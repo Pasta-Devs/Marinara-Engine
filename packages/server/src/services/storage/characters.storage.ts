@@ -25,6 +25,9 @@ import {
   PROFESSOR_MARI_ID,
   parseCardTagSearchTerms,
   matchesAllCardSearchTags,
+  compareTokenEstimates,
+  estimatePersonaTokens,
+  isTokenSort,
   normalizeNameAliases,
   applyCharacterCardFieldAlternatives,
   applyPersonaCardFieldAlternatives,
@@ -305,8 +308,14 @@ function personaMatchesSearch(row: PersonaStorageRow, search: string | undefined
   return matchesAllCardSearchTags(tags, parseCardTagSearchTerms(search ?? ""));
 }
 
-function comparePersonaRows(sort: string | undefined) {
+function comparePersonaRows(sort: string | undefined, tokenEstimates?: ReadonlyMap<string, number>) {
   const byId = (a: PersonaStorageRow, b: PersonaStorageRow) => a.id.localeCompare(b.id);
+  if (isTokenSort(sort)) {
+    return (a: PersonaStorageRow, b: PersonaStorageRow) =>
+      compareTokenEstimates(sort, tokenEstimates?.get(a.id), tokenEstimates?.get(b.id)) ||
+      a.name.localeCompare(b.name) ||
+      byId(a, b);
+  }
   switch (sort) {
     case "name-desc":
       return (a: PersonaStorageRow, b: PersonaStorageRow) => b.name.localeCompare(a.name) || byId(a, b);
@@ -1084,9 +1093,12 @@ export function createCharactersStorage(db: DB) {
 
     async listPersonasPage(options: PersonaListPageOptions) {
       // `name` and the other searched fields live inside `data`, so search and sort run on the flat view.
-      const rows = (await selectPersonaRows(db))
-        .filter((row) => personaMatchesSearch(row, options.search))
-        .sort(comparePersonaRows(options.sort));
+      const matching = (await selectPersonaRows(db)).filter((row) => personaMatchesSearch(row, options.search));
+      // Estimate each row once, not on every comparison.
+      const tokenEstimates = isTokenSort(options.sort)
+        ? new Map(matching.map((row) => [row.id, estimatePersonaTokens(row)]))
+        : undefined;
+      const rows = matching.sort(comparePersonaRows(options.sort, tokenEstimates));
       return toPaginatedList(
         rows.slice(options.offset, options.offset + options.limit + 1),
         options.limit,

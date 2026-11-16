@@ -25,7 +25,12 @@ import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../li
 import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
-import { normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
+import {
+  normalizeBasicPanelSort,
+  normalizeLibrarySort,
+  type BasicPanelSort,
+  type LibrarySort,
+} from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
 import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
@@ -70,7 +75,15 @@ export type ChatModeShortcut = "conversation" | "roleplay" | "game";
 
 /** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
 export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
-export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
+export const CHARACTER_LIBRARY_SORT_OPTIONS = [
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "favorites",
+  "tokens-desc",
+  "tokens-asc",
+] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas" | "lorebooks";
 export type BotBrowserKind = "cards" | "lorebooks";
@@ -88,9 +101,17 @@ export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
   "uncategorized",
 ] as const satisfies readonly (LorebookCategory | "all" | "active")[];
 export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[number];
-export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
+export const LOREBOOK_PANEL_SORT_OPTIONS = [
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "tokens-desc",
+  "tokens-asc",
+] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
+export type { LibrarySort };
 export type ConnectionPanelSort = BasicPanelSort | "custom";
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22 | 26 | 30 | 34;
 export type VisualTheme = "default" | "sillytavern";
@@ -459,7 +480,9 @@ function normalizeLorebookPanelCategory(value: unknown): LorebookPanelCategory {
     : "all";
 }
 
-function normalizeLorebookPanelSort(value: unknown): LorebookPanelSort {
+export function normalizeLorebookPanelSort(value: unknown): LorebookPanelSort {
+  // The old Token Budget sort ("tokens") lands on the size sort that replaced it.
+  if (value === "tokens") return "tokens-desc";
   return LOREBOOK_PANEL_SORT_OPTIONS.includes(value as LorebookPanelSort) ? (value as LorebookPanelSort) : "name-asc";
 }
 
@@ -925,9 +948,9 @@ export interface UIState {
   /** Last selected sort order for character lists and the full-page character library */
   characterLibrarySort: CharacterLibrarySort;
   /** Last selected sort order for the full-page persona library */
-  personaLibrarySort: ResourcePanelSort;
+  personaLibrarySort: LibrarySort;
   /** Last selected sort order for the full-page lorebook library */
-  lorebookLibrarySort: ResourcePanelSort;
+  lorebookLibrarySort: LibrarySort;
   /** Search text for the compact Characters panel */
   characterPanelSearch: string;
   /** Included tag filters for the compact Characters panel */
@@ -959,7 +982,7 @@ export interface UIState {
   /** Sort order for imported characters in the Browser panel */
   botBrowserPanelSort: ResourcePanelSort;
   /** Sort order for the compact Presets panel */
-  presetPanelSort: ResourcePanelSort;
+  presetPanelSort: LibrarySort;
   /** Sort order for the compact Connections panel */
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
@@ -1403,8 +1426,8 @@ export interface UIState {
   setPersonaLibrarySelectedId: (id: string | null) => void;
   setLorebookLibrarySelectedId: (id: string | null) => void;
   setCharacterLibrarySort: (sort: CharacterLibrarySort) => void;
-  setPersonaLibrarySort: (sort: ResourcePanelSort) => void;
-  setLorebookLibrarySort: (sort: ResourcePanelSort) => void;
+  setPersonaLibrarySort: (sort: LibrarySort) => void;
+  setLorebookLibrarySort: (sort: LibrarySort) => void;
   setCharacterPanelSearch: (search: string) => void;
   setCharacterPanelIncludedTags: (tags: string[]) => void;
   setCharacterPanelExcludedTags: (tags: string[]) => void;
@@ -1420,7 +1443,7 @@ export interface UIState {
   setLorebookPanelActiveTag: (tag: string | null) => void;
   setLorebookPanelTagsExpanded: (expanded: boolean) => void;
   setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
-  setPresetPanelSort: (sort: ResourcePanelSort) => void;
+  setPresetPanelSort: (sort: LibrarySort) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (
@@ -2490,8 +2513,8 @@ export const useUIStore = create<UIState>()(
         personaLibrarySelectedId: null,
         lorebookLibrarySelectedId: null,
         characterLibrarySort: "name-asc" as CharacterLibrarySort,
-        personaLibrarySort: "name-asc" as ResourcePanelSort,
-        lorebookLibrarySort: "name-asc" as ResourcePanelSort,
+        personaLibrarySort: "name-asc" as LibrarySort,
+        lorebookLibrarySort: "name-asc" as LibrarySort,
         characterPanelSearch: "",
         characterPanelIncludedTags: [],
         characterPanelExcludedTags: [],
@@ -2507,7 +2530,7 @@ export const useUIStore = create<UIState>()(
         lorebookPanelActiveTag: null,
         lorebookPanelTagsExpanded: false,
         botBrowserPanelSort: "name-asc" as ResourcePanelSort,
-        presetPanelSort: "name-asc" as ResourcePanelSort,
+        presetPanelSort: "name-asc" as LibrarySort,
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
@@ -2928,8 +2951,8 @@ export const useUIStore = create<UIState>()(
         setPersonaLibrarySelectedId: (id) => set({ personaLibrarySelectedId: id }),
         setLorebookLibrarySelectedId: (id) => set({ lorebookLibrarySelectedId: id }),
         setCharacterLibrarySort: (sort) => set({ characterLibrarySort: normalizeCharacterLibrarySort(sort) }),
-        setPersonaLibrarySort: (sort) => set({ personaLibrarySort: normalizeBasicPanelSort(sort) }),
-        setLorebookLibrarySort: (sort) => set({ lorebookLibrarySort: normalizeBasicPanelSort(sort) }),
+        setPersonaLibrarySort: (sort) => set({ personaLibrarySort: normalizeLibrarySort(sort) }),
+        setLorebookLibrarySort: (sort) => set({ lorebookLibrarySort: normalizeLibrarySort(sort) }),
         setCharacterPanelSearch: (search) => set({ characterPanelSearch: normalizePanelText(search) }),
         setCharacterPanelIncludedTags: (tags) => set({ characterPanelIncludedTags: normalizePanelStringArray(tags) }),
         setCharacterPanelExcludedTags: (tags) => set({ characterPanelExcludedTags: normalizePanelStringArray(tags) }),
@@ -2947,7 +2970,7 @@ export const useUIStore = create<UIState>()(
         setLorebookPanelActiveTag: (tag) => set({ lorebookPanelActiveTag: tag ? tag.trim() || null : null }),
         setLorebookPanelTagsExpanded: (expanded) => set({ lorebookPanelTagsExpanded: expanded }),
         setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
-        setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
+        setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeLibrarySort(sort) }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
         setLibraryManualOrder: (kind, order) =>
           set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
@@ -4123,8 +4146,8 @@ export const useUIStore = create<UIState>()(
             ? persisted.cardLibraryKind
             : "characters";
         persisted.botBrowserKind = persisted.botBrowserKind === "lorebooks" ? "lorebooks" : "cards";
-        persisted.personaLibrarySort = normalizeBasicPanelSort(persisted.personaLibrarySort);
-        persisted.lorebookLibrarySort = normalizeBasicPanelSort(persisted.lorebookLibrarySort);
+        persisted.personaLibrarySort = normalizeLibrarySort(persisted.personaLibrarySort);
+        persisted.lorebookLibrarySort = normalizeLibrarySort(persisted.lorebookLibrarySort);
         persisted.characterPanelSearch = normalizePanelText(persisted.characterPanelSearch);
         persisted.characterPanelIncludedTags = normalizePanelStringArray(persisted.characterPanelIncludedTags);
         persisted.characterPanelExcludedTags = normalizePanelStringArray(persisted.characterPanelExcludedTags);
@@ -4145,7 +4168,7 @@ export const useUIStore = create<UIState>()(
             : null;
         persisted.lorebookPanelTagsExpanded = persisted.lorebookPanelTagsExpanded === true;
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
-        persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
+        persisted.presetPanelSort = normalizeLibrarySort(persisted.presetPanelSort);
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
         persisted.connectionPanelSort =
           persisted.connectionPanelSort === "custom"

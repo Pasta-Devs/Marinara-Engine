@@ -28,9 +28,12 @@ import {
   X,
   Trash2,
   Camera,
+  Hash,
 } from "lucide-react";
 import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
-import { sortPanelFolders } from "../../lib/panel-sort";
+import { sortFoldersByTokens, sortItemsByTokens, sortPanelFolders } from "../../lib/panel-sort";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { isTokenSort } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
 import {
   fetchAllLorebookPages,
@@ -320,8 +323,14 @@ export function LorebooksPanel() {
         return list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return list.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-      case "tokens":
-        return list.sort((a, b) => (b.tokenBudget ?? 0) - (a.tokenBudget ?? 0));
+      case "tokens-desc":
+      case "tokens-asc":
+        return sortItemsByTokens(
+          list,
+          sort,
+          (lorebook) => lorebook.tokenEstimate,
+          (lorebook) => lorebook.name,
+        );
       default:
         return list;
     }
@@ -329,14 +338,11 @@ export function LorebooksPanel() {
   const sorted = useMemo(() => orderLibraryItems(sortedBySort), [orderLibraryItems, sortedBySort]);
 
   const sortedFolders = useMemo(() => {
-    const folders = sortPanelFolders(lorebookFolders, sort === "tokens" ? "name-asc" : sort);
-    if (sort !== "tokens") return folders;
-    const tokens = new Map(sorted.map((lorebook) => [lorebook.id, lorebook.tokenBudget ?? 0]));
-    const totals = new Map(
-      folders.map((folder) => [folder.id, folder.itemIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
-    );
-    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
-  }, [lorebookFolders, sort, sorted]);
+    if (!isTokenSort(sort)) return sortPanelFolders(lorebookFolders, sort);
+    // The server totals every matching book, so folders whose books are not loaded yet still rank right.
+    const totals = lorebookPages.data?.pages[0]?.folderTokenTotals ?? {};
+    return sortFoldersByTokens(lorebookFolders, sort, (folder) => totals[folder.id] ?? 0);
+  }, [lorebookFolders, sort, lorebookPages.data]);
 
   const folderFilterActive = searchQuery.trim().length > 0 || activeCategory !== "all" || activeTag !== null;
 
@@ -800,7 +806,7 @@ export function LorebooksPanel() {
             folderDrag.setActive(value === "custom");
             if (value !== "custom") setSort(value as LorebookPanelSort);
           },
-          extraOptions: [{ value: "tokens", label: localizeUi("ui.lorebooks.lorebookeditor.tokenBudget") }],
+          tokenSort: true,
         }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
@@ -1339,6 +1345,13 @@ function LorebookRow({
           ) : (
             lorebook.description || "No description"
           )}
+        </div>
+        <div
+          className="mari-chrome-text-muted flex items-center gap-1 text-[0.625rem]"
+          title={localizeUi("ui.panels.lorebookspanel.tokenEstimateHint")}
+        >
+          <Hash size="0.5625rem" />
+          {formatEstimatedTokens(lorebook.tokenEstimate ?? 0, localizeUi)}
         </div>
       </div>
       {!selectionMode && (

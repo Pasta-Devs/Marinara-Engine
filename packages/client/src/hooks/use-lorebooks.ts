@@ -101,13 +101,16 @@ export function useLorebookPages(options: {
         if (options.active.personaId) params.set("personaId", options.active.personaId);
         if (options.active.chatId) params.set("chatId", options.active.chatId);
       }
-      return api.get<PaginatedList<LorebookListItem>>(`/lorebooks?${params.toString()}`);
+      return api.get<LorebookPage>(`/lorebooks?${params.toString()}`);
     },
     getNextPageParam: getNextPageOffset,
     staleTime: 5 * 60_000,
     enabled: options.enabled ?? true,
   });
 }
+
+/** A lorebook list page; under a size sort it also carries each folder's total over matching books. */
+export type LorebookPage = PaginatedList<LorebookListItem> & { folderTokenTotals?: Record<string, number> };
 
 export function flattenLorebookPages(data: { pages?: Array<PaginatedList<LorebookListItem>> } | undefined) {
   return flattenPaginatedItems(data?.pages);

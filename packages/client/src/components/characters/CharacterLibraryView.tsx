@@ -33,6 +33,8 @@ import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { isTokenSort } from "@marinara-engine/shared";
+import { sortItemsByTokens } from "../../lib/panel-sort";
 import { useUIStore, type CardLibraryKind, type UIState } from "../../stores/ui.store";
 import { useSetLorebooksEnabled } from "../../hooks/use-lorebooks";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
@@ -347,6 +349,14 @@ export function CharacterLibraryView() {
   }, [cards, search]);
 
   const sortedCards = useMemo(() => {
+    // Same order as the server's pages, so a page loaded later lands below the rows already shown.
+    if (isTokenSort(sort))
+      return sortItemsByTokens(
+        filteredCards,
+        sort,
+        (card) => card.tokenEstimate,
+        (card) => card.name,
+      );
     const list = [...filteredCards];
     switch (sort) {
       case "name-asc":
@@ -625,6 +635,8 @@ export function CharacterLibraryView() {
                 {config.hasFavorites && (
                   <option value="favorites">{localizeUi("ui.characters.characterlibraryview.favoritesFirst")}</option>
                 )}
+                <option value="tokens-desc">{localizeUi("ui.panels.librarysort.mostTokens")}</option>
+                <option value="tokens-asc">{localizeUi("ui.panels.librarysort.fewestTokens")}</option>
               </select>
               <ArrowUpDown
                 size="0.6875rem"
