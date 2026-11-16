@@ -22,6 +22,7 @@ import {
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
 } from "./SettingControls";
+import { showConfirmDialog } from "@/lib/app-dialogs";
 
 const SELECT_CLASS =
   "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
@@ -120,8 +121,8 @@ export function UiStyleSettings() {
     setSelectedTarget(null);
     setPickMode(true);
   };
-  const handleResetAll = () => {
-    if (!window.confirm(t("settings.appearance.uiStyles.resetAllConfirm"))) return;
+  const handleResetAll = async () => {
+    if (!(await showConfirmDialog({ message: t("settings.appearance.uiStyles.resetAllConfirm") }))) return;
     resetAll();
     setSelectedTarget(null);
   };
@@ -131,13 +132,19 @@ export function UiStyleSettings() {
     if (naming?.trim()) savePreset(naming);
     setNaming(null);
   };
-  const handleApplyPreset = (preset: UiStylePreset) => {
-    if (savedTargets.length > 0 && !window.confirm(t("settings.appearance.uiStyles.applyPresetConfirm"))) return;
+  const handleApplyPreset = async (preset: UiStylePreset) => {
+    if (
+      savedTargets.length > 0 &&
+      !(await showConfirmDialog({ message: t("settings.appearance.uiStyles.applyPresetConfirm") }))
+    )
+      return;
     applyPreset(preset.id);
     setSelectedTarget(null);
   };
-  const handleDeletePreset = (preset: UiStylePreset) => {
-    if (window.confirm(t("settings.appearance.uiStyles.deletePresetConfirm", { name: preset.name }))) {
+  const handleDeletePreset = async (preset: UiStylePreset) => {
+    if (
+      await showConfirmDialog({ message: t("settings.appearance.uiStyles.deletePresetConfirm", { name: preset.name }) })
+    ) {
       deletePreset(preset.id);
     }
   };

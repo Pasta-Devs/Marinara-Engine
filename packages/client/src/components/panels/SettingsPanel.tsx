@@ -6766,12 +6766,12 @@ function ImportButton({
         const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
         const preview = previews[0];
         if (preview) {
-          importEmbeddedLorebook = window.confirm(
-            localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
+          importEmbeddedLorebook = await showConfirmDialog({
+            message: localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
               name: preview.name ?? file.name,
               count: preview.embeddedLorebookEntries,
             }),
-          );
+          });
         }
       }
 

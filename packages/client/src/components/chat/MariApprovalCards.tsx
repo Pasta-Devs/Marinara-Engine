@@ -385,11 +385,11 @@ export function MariHeldChangeCard({
   const labels = fields.map(({ key }) => fieldLabel(key));
   const only = held?.length === 1 ? held[0] : null;
   const editorKind = only?.id ? mariEditorKindForAction(only.action) : null;
-  const openAtField = (path: string) => {
+  const openAtField = async (path: string) => {
     if (
       !editorKind ||
       !only?.id ||
-      !openEditorAtField(editorKind, only.id, path, localizeUi("commandCenter.dirtyEditor"))
+      !(await openEditorAtField(editorKind, only.id, path, localizeUi("commandCenter.dirtyEditor")))
     )
       return;
     useUIStore.getState().setOmnibarOpen(false);

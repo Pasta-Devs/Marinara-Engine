@@ -38,6 +38,7 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
 } from "../panels/settings/SettingControls";
 import { UiStylePartSelect } from "../panels/settings/UiStyleSettings";
+import { showConfirmDialog } from "@/lib/app-dialogs";
 
 type ColorKey = "background" | "color" | "borderColor";
 type NumberKey = "borderRadius" | "borderWidth" | "opacity" | "blur" | "fontSize";
@@ -280,8 +281,8 @@ export function UiStyleEditorCard({
     };
   }, [mobile]);
 
-  const requestClose = () => {
-    if (dirty && !window.confirm(t("settings.appearance.uiStyles.discardConfirm"))) return;
+  const requestClose = async () => {
+    if (dirty && !(await showConfirmDialog({ message: t("settings.appearance.uiStyles.discardConfirm") }))) return;
     setPreview(null);
     setSelectedTarget(null);
   };

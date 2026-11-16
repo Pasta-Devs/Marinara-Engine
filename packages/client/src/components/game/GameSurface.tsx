@@ -12125,11 +12125,11 @@ function GameSurfaceComponent({
     setQueuedQte(null);
   }, []);
 
-  const handleReturnToPreCombatTurn = useCallback(() => {
+  const handleReturnToPreCombatTurn = useCallback(async () => {
     if (!latestAssistantMsg?.id) return;
-    const confirmed = window.confirm(
-      localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
-    );
+    const confirmed = await showConfirmDialog({
+      message: localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
+    });
     if (!confirmed) return;
 
     setCombatParty(null);

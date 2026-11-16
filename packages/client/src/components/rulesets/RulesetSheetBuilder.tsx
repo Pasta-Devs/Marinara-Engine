@@ -82,6 +82,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput } from "./RulesetTypedInput";
 import { RollCellButton, rollRulesetCell } from "./RulesetRollCellButton";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { showConfirmDialog } from "@/lib/app-dialogs";
 
 /** A bonus with its sign, as a sheet prints one. */
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
@@ -2147,9 +2148,9 @@ export function RulesetSheetBuilder({
       {ready && !rulesetSheetBuildIsBlank(definition, rawBuild) && (
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             // Everything typed and picked goes, so it is asked first.
-            if (!window.confirm(t("ui.rulesets.builder.startOverConfirm"))) return;
+            if (!(await showConfirmDialog({ message: t("ui.rulesets.builder.startOverConfirm") }))) return;
             setMoreWanted(new Set());
             onApply(defaultRulesetSheetBuild(definition), {});
           }}

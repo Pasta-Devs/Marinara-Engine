@@ -17,6 +17,7 @@ import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "@/components/ui/Spinner";
+import { showConfirmDialog } from "@/lib/app-dialogs";
 
 function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
   if (field === "backstory" || field === "appearance" || field === "aboutMe") {
@@ -178,9 +179,9 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
       return;
     }
     if (overrideStale && staleUpdates.length > 0) {
-      const ok = window.confirm(
-        localizeUi("ui.modals.charactercardupdatemodal.someProposedCardEditsNoLongerMatchTheCurrent"),
-      );
+      const ok = await showConfirmDialog({
+        message: localizeUi("ui.modals.charactercardupdatemodal.someProposedCardEditsNoLongerMatchTheCurrent"),
+      });
       if (!ok) return;
     }
     // Apply each edit as a targeted substring replace inside the field's current
