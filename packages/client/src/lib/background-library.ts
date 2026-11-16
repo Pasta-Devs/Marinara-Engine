@@ -56,3 +56,39 @@ export function filterAndSortBackgrounds<T extends SortableBackgroundLibraryItem
     return nameComparison;
   });
 }
+
+export type CharacterBackgroundGroupItem = {
+  imageId: string;
+  title: string;
+  places: string | null;
+  owner: { type: "character" | "persona"; id: string; name: string };
+};
+
+/**
+ * Character and persona gallery backgrounds, one group per owner. The chat's owners come first
+ * in chat order; everyone else follows A–Z. A search matches a place or the owner's name.
+ */
+export function groupCharacterBackgrounds<T extends CharacterBackgroundGroupItem>(
+  chatBackgrounds: readonly T[],
+  otherBackgrounds: readonly T[],
+  search: string,
+): Array<{ owner: T["owner"]; inChat: boolean; backgrounds: T[] }> {
+  const query = search.trim().toLowerCase();
+  const chatImageIds = new Set(chatBackgrounds.map((background) => background.imageId));
+  const groups = new Map<string, { owner: T["owner"]; inChat: boolean; backgrounds: T[] }>();
+  const add = (background: T, inChat: boolean) => {
+    const text = [background.title, background.places ?? "", background.owner.name].join(" ").toLowerCase();
+    if (query && !text.includes(query)) return;
+    const key = `${background.owner.type}:${background.owner.id}`;
+    const group = groups.get(key) ?? { owner: background.owner, inChat, backgrounds: [] as T[] };
+    group.backgrounds.push(background);
+    groups.set(key, group);
+  };
+  for (const background of chatBackgrounds) add(background, true);
+  for (const background of otherBackgrounds) if (!chatImageIds.has(background.imageId)) add(background, false);
+  const all = [...groups.values()];
+  const others = all
+    .filter((group) => !group.inChat)
+    .sort((a, b) => a.owner.name.localeCompare(b.owner.name, undefined, { numeric: true, sensitivity: "base" }));
+  return [...all.filter((group) => group.inChat), ...others];
+}

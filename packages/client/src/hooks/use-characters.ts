@@ -76,6 +76,8 @@ export const characterKeys = {
   detail: (id: string) => [...characterKeys.all, "detail", id] as const,
   versions: (id: string) => [...characterKeys.detail(id), "versions"] as const,
   gallery: (id: string) => [...characterKeys.all, "gallery", id] as const,
+  /** Every character's pictures labeled "background" (the background library's All characters). */
+  galleryBackgrounds: () => [...characterKeys.all, "gallery-backgrounds"] as const,
   galleryClips: (id: string) => [...characterKeys.all, "gallery", id, "clips"] as const,
   personaGallery: (id: string) => ["persona-gallery", id] as const,
   personaGalleryClips: (id: string) => ["persona-gallery", id, "clips"] as const,
@@ -1146,6 +1148,7 @@ export function useUploadCharacterGalleryImage(characterId: string) {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1186,6 +1189,7 @@ export function useBakeCharacterGalleryImages(characterId: string) {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1196,6 +1200,7 @@ export function useDeleteCharacterGalleryImage(characterId: string) {
     mutationFn: (imageId: string) => api.delete(`/characters/${characterId}/gallery/${imageId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1219,6 +1224,7 @@ export function useTagCharacterGalleryImage(characterId: string) {
       api.patch<CharacterGalleryImage>(`/characters/${characterId}/gallery/${imageId}/tag`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
