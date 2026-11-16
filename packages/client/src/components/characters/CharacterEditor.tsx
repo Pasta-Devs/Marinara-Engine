@@ -4369,7 +4369,7 @@ function CharacterGalleryTab({
                             type="button"
                             onClick={() => void handleSetAvatar(image)}
                             disabled={setAvatar.isPending}
-                            className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25 disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25 disabled:opacity-50"
                             title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
                           >
                             {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.75rem" />}
@@ -4459,7 +4459,7 @@ function CharacterGalleryTab({
                 type="button"
                 onClick={() => void handleSetAvatar(lightbox)}
                 disabled={setAvatar.isPending}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
                 title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
               >
                 {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
@@ -5251,7 +5251,7 @@ function CharacterClipCard({
                 type="button"
                 onClick={() => onUpload(clip)}
                 disabled={uploading || uploadDisabled || generationDisabled}
-                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 title={localizeUi("ui.characters.characterclipcard.uploadReplacement")}
                 aria-label={localizeUi("ui.characters.characterclipcard.uploadReplacementForValue1", {
                   value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
@@ -5275,7 +5275,7 @@ function CharacterClipCard({
                 type="button"
                 onClick={() => void onDelete(clip)}
                 disabled={deleting}
-                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 title={localizeUi("lorebook.editor.batch.delete")}
                 aria-label={localizeUi("ui.characters.characterclipcard.deleteValue1", {
                   value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
