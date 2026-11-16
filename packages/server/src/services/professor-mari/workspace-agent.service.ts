@@ -192,11 +192,14 @@ export type WorkspaceCommandResult = {
   input: Record<string, unknown>;
   output: string;
   success: boolean;
+  /** #9342: pictures from `mari images look` (data URLs) for her next request; `output` only names them. */
+  images?: string[];
 };
 
 export type WorkspaceCommandExecution = {
   output: string;
   actionResult?: MariWorkspaceActionResult;
+  images?: string[];
 };
 
 const ACTION_RESULT_TABLES = {

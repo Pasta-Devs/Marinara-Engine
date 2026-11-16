@@ -810,6 +810,16 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
   app.post("/db/command", async (req, reply) => {
     if (!privileged(req, reply, true)) return;
     const body = cliSchema.parse(req.body);
-    return getMariDbService(app.db).executeCli(body);
+    // #9342: `mari images look` pictures only reach Mari through her direct runtime; the shell CLI would print
+    // megabytes of base64, so it gets a note instead.
+    const { images, ...result } = await getMariDbService(app.db).executeCli(body);
+    if (!images?.length) return result;
+    return {
+      ...result,
+      notes: [
+        ...(result.notes ?? []),
+        `${images.length} picture(s) not shown: run mari images look on its own (no pipes or ;) so the pictures reach you.`,
+      ],
+    };
   });
 }

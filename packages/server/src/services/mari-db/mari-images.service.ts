@@ -30,6 +30,7 @@ import {
   parseImageDataUrl,
 } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
+import { getSharp } from "../image/sharp-runtime.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
@@ -146,6 +147,9 @@ type ImageTarget =
 
 const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force", "no-style"]);
 const PREVIEW_CHAT_ID = "mari-images";
+// #9342: `look` sends at most this many pictures per call, each scaled to fit this long side.
+const LOOK_MAX_IMAGES = 4;
+const LOOK_LONG_SIDE = { high: 1024, low: 512 } as const;
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
 const PREVIEW_MANIFEST_PATH = join(PREVIEW_DIR, "manifest.json");
@@ -931,6 +935,9 @@ export class MariImagesService {
         return this.list(context, parsed.flags, parsed.positionals);
       case "get":
         return this.get(context, parsed.flags, parsed.positionals);
+      case "look":
+      case "view":
+        return this.look(context, parsed.flags, parsed.positionals);
       default:
         return {
           ok: false,
@@ -1842,11 +1849,77 @@ export class MariImagesService {
     return { ok: true, mode: "read", command: context.command, output: asset };
   }
 
+  // #9342: Mari sees the pictures. Each one is scaled down and re-encoded, rides on `images` (her runtime attaches
+  // them to her next request), and the text output only names them, so history keeps a small stub, never pixels.
+  private async look(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
+    const detail = flagString(flags, "detail")?.trim().toLowerCase() || "high";
+    if (detail !== "high" && detail !== "low") throw new Error("--detail takes low or high.");
+    const refs = [...positionals];
+    // --asset names the asset a --target asset points at; on its own it is one more ref.
+    const explicit =
+      flagString(flags, "source") ?? (flagString(flags, "target") ? undefined : flagString(flags, "asset"));
+    if (explicit) refs.push(explicit);
+    const target = this.parseTarget(flags, false);
+    if (target) {
+      const current = await this.currentImageReferenceForTarget(target);
+      if (!current) throw new Error(`That ${target.type} has no image to look at.`);
+      refs.push(current);
+    }
+    if (refs.length === 0)
+      throw new Error(
+        "Usage: mari images look <asset-id|app-url|file> [more, up to 4] [--detail low|high], or --target <target> for its current image.",
+      );
+    if (refs.length > LOOK_MAX_IMAGES)
+      throw new Error(`mari images look takes at most ${LOOK_MAX_IMAGES} images per call; you passed ${refs.length}.`);
+
+    // Resolve every ref first, so one bad ref fails the call before any image is processed.
+    const sources = [];
+    for (const ref of refs) sources.push({ ref, image: await this.resolveImageReference(ref, context) });
+    const sharp = await getSharp();
+    const longSide = LOOK_LONG_SIDE[detail];
+    const images: string[] = [];
+    const looked = [];
+    for (const { ref, image } of sources) {
+      const pipeline = sharp(image.buffer).rotate();
+      const meta = await pipeline.metadata();
+      const resized = pipeline.resize({ width: longSide, height: longSide, fit: "inside", withoutEnlargement: true });
+      // A transparent sprite keeps its alpha as PNG; JPEG would turn it black.
+      const { data, info } = await (meta.hasAlpha ? resized.png() : resized.jpeg({ quality: 85 })).toBuffer({
+        resolveWithObject: true,
+      });
+      const mimeType = meta.hasAlpha ? "image/png" : "image/jpeg";
+      images.push(`data:${mimeType};base64,${data.toString("base64")}`);
+      looked.push({
+        image: images.length,
+        ref: ref.startsWith("data:") || ref.length > 200 ? image.label : ref,
+        label: image.asset ? `asset:${image.asset.id}` : image.label,
+        ...(image.asset ? { kind: image.asset.kind, prompt: clip(image.asset.prompt, 300) } : {}),
+        original: meta.width && meta.height ? `${meta.width}x${meta.height}` : null,
+        sent: `${info.width}x${info.height}`,
+      });
+    }
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        looked,
+        note: "The pictures are attached to your next message, in this order. Describe only what you see in them.",
+      },
+      images,
+    };
+  }
+
   private helpText() {
     return [
       "Usage: mari images <command> (mari images help shows this)",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
+      "Look at images: look <asset-id|app-url|file> [up to 4] [--detail low|high], or look --target <target> for its current image (alias: view). You see the pictures in your next message.",
       "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
       "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",
