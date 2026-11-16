@@ -91,18 +91,11 @@ function drawOnSquare(
   const drawWidth = contentWidth * scale;
   const drawHeight = contentHeight * scale;
   // The baseline sits as far above the bottom as the margin around the set's biggest piece.
-  const top = place === "baseline" ? outSide * (1 - 0.04 / 1.08) - drawHeight : (outSide - drawHeight) / 2;
-  ctx.drawImage(
-    image,
-    bounds.left,
-    bounds.top,
-    contentWidth,
-    contentHeight,
-    (outSide - drawWidth) / 2,
-    top,
-    drawWidth,
-    drawHeight,
-  );
+  // Whole-pixel placement: at full size the art is copied pixel for pixel, so fitting a piece that was
+  // fitted before gives back the same picture instead of softening it a little more each time.
+  const top = Math.round(place === "baseline" ? outSide * (1 - 0.04 / 1.08) - drawHeight : (outSide - drawHeight) / 2);
+  const left = Math.round((outSide - drawWidth) / 2);
+  ctx.drawImage(image, bounds.left, bounds.top, contentWidth, contentHeight, left, top, drawWidth, drawHeight);
   return canvas.toDataURL("image/png");
 }
 
@@ -279,6 +272,140 @@ function cleanGallerySheetOutlines(
   }
 }
 
+/** Green-screen colour, however dark: green standing well above red and blue. */
+function isKeyGreen(pixels: Uint8ClampedArray, offset: number): boolean {
+  const others = Math.max(pixels[offset]!, pixels[offset + 2]!);
+  const green = pixels[offset + 1]!;
+  return green - others > 50 || (green - others > 14 && green > others * 1.3);
+}
+
+/**
+ * Green-screen bits the edge pass doesn't reach, on a piece whose backdrop is already see-through: a dark
+ * green fleck caught between hair strands, a pocket of backdrop in shadow, a green dot near the edge. Small
+ * green bits near the edge take the colour of the art around them (or go see-through when there is no
+ * art around them), and tiny loose specks off the drawing are dropped. Big green areas and anything deep
+ * inside the drawing are the art's own green and stay. Returns whether anything changed.
+ */
+function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: number): boolean {
+  const total = width * height;
+  const reach = Math.max(8, Math.round(Math.max(width, height) * 0.15));
+  const distance = new Uint16Array(total).fill(65535);
+  let frontier: number[] = [];
+  for (let i = 0; i < total; i++) {
+    if (pixels[i * 4 + 3]! <= 24) {
+      distance[i] = 0;
+      frontier.push(i);
+    }
+  }
+  for (let step = 1; step <= reach && frontier.length; step++) {
+    const next: number[] = [];
+    for (const index of frontier) {
+      const x = index % width;
+      for (const n of [
+        x > 0 ? index - 1 : -1,
+        x < width - 1 ? index + 1 : -1,
+        index >= width ? index - width : -1,
+        index < total - width ? index + width : -1,
+      ]) {
+        if (n >= 0 && distance[n] === 65535) {
+          distance[n] = step;
+          next.push(n);
+        }
+      }
+    }
+    frontier = next;
+  }
+  let changed = false;
+
+  const green = new Uint8Array(total);
+  for (let i = 0; i < total; i++)
+    if (distance[i]! > 0 && distance[i]! <= reach && isKeyGreen(pixels, i * 4)) green[i] = 1;
+  const bits = labelMask(green, width, height);
+  const small = new Uint8Array(bits.regions.length + 1);
+  for (const region of bits.regions) small[region.id] = region.area <= Math.max(12, total * 0.002) ? 1 : 0;
+  // Each small bit plus its soft rim: the pixels just around it where the green blends into the art.
+  const remove = new Uint8Array(total);
+  for (let index = 0; index < total; index++) {
+    if (!green[index] || !small[bits.labels[index]!]) continue;
+    const x = index % width;
+    const y = (index - x) / width;
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || xx >= width || yy < 0 || yy >= height) continue;
+        const n = yy * width + xx;
+        const o = n * 4;
+        if (n === index || (pixels[o + 3]! > 24 && pixels[o + 1]! > Math.max(pixels[o]!, pixels[o + 2]!)))
+          remove[n] = 1;
+      }
+    }
+  }
+  const source = new Uint8ClampedArray(pixels);
+  const sample: number[][] = [[], [], []];
+  for (let index = 0; index < total; index++) {
+    if (!remove[index]) continue;
+    const x = index % width;
+    const y = (index - x) / width;
+    let median: number[] | null = null;
+    for (const r of [2, 4, 8, 16]) {
+      for (const channel of sample) channel.length = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= height) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= width) continue;
+          const o = (yy * width + xx) * 4;
+          if (source[o + 3]! < 200 || remove[yy * width + xx] || isKeyGreen(source, o)) continue;
+          for (let channel = 0; channel < 3; channel++) sample[channel]!.push(source[o + channel]!);
+        }
+      }
+      if (sample[0]!.length >= 5) {
+        median = sample.map((values) => values.sort((a, b) => a - b)[values.length >> 1]!);
+        break;
+      }
+    }
+    const offset = index * 4;
+    if (median) {
+      pixels[offset] = median[0]!;
+      pixels[offset + 1] = median[1]!;
+      pixels[offset + 2] = median[2]!;
+    } else pixels[offset + 3] = 0;
+    changed = true;
+  }
+
+  // Loose specks: a few opaque pixels on their own, away from the drawing.
+  const opaque = new Uint8Array(total);
+  for (let i = 0; i < total; i++) if (pixels[i * 4 + 3]! > 24) opaque[i] = 1;
+  const islands = labelMask(opaque, width, height);
+  const speck = Math.max(4, total * 0.0004);
+  const loose = new Uint8Array(islands.regions.length + 1);
+  for (const region of islands.regions) loose[region.id] = region.area <= speck ? 1 : 0;
+  for (let i = 0; i < total; i++) {
+    if (opaque[i] && loose[islands.labels[i]!]) {
+      pixels[i * 4 + 3] = 0;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/**
+ * The outline pass, then (on a green screen) the green-bit pass. Each can uncover a little more edge for
+ * the other, so they repeat until nothing changes: running Clean up again on the result finds nothing
+ * left to do and gives back the same picture.
+ */
+function cleanEdgesUntilSettled(pixels: Uint8ClampedArray, width: number, height: number, background: number[]) {
+  const greenScreen = background[1]! - Math.max(background[0]!, background[2]!) > 80;
+  for (let round = 0; round < 4; round++) {
+    const before = new Uint8ClampedArray(pixels);
+    cleanGallerySheetOutlines(pixels, width, height, background);
+    if (greenScreen) removeGreenBits(pixels, width, height);
+    if (pixels.every((value, index) => value === before[index])) break;
+  }
+}
+
 /**
  * The outline passes for a sticker or emoji that was saved before. One still on the sheets' green screen
  * is keyed out like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks
@@ -325,7 +452,7 @@ export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string 
     for (let offset = 3; offset < kept.length; offset += 4) if (kept[offset]! > 24) opaque++;
     return drawn > 0 && opaque >= drawn * 0.8 ? keyed.dataUrl : null;
   }
-  cleanGallerySheetOutlines(pixels, width, height, [0, 255, 0]);
+  cleanEdgesUntilSettled(pixels, width, height, [0, 255, 0]);
   ctx.putImageData(frame, 0, 0);
   return canvas.toDataURL("image/png");
 }
@@ -400,7 +527,7 @@ export async function keyOutGallerySheetBackground(dataUrl: string): Promise<{ d
       pocket[i] = 1;
   }
   for (let i = 0; i < width * height; i++) if (pocket[i]) pixels[i * 4 + 3] = 0;
-  cleanGallerySheetOutlines(pixels, width, height, background);
+  cleanEdgesUntilSettled(pixels, width, height, background);
   ctx.putImageData(frame, 0, 0);
   let edge = 0;
   let opaqueEdge = 0;
@@ -709,4 +836,33 @@ export async function isBlankGallerySheetImage(dataUrl: string): Promise<boolean
 export async function readImageSize(dataUrl: string): Promise<{ width: number; height: number }> {
   const image = await loadImage(dataUrl);
   return { width: image.naturalWidth, height: image.naturalHeight };
+}
+
+/**
+ * Whether two pictures have the same size and the same pixels, so saving one over the other changes
+ * nothing. Colours are compared as they show (weighted by opacity) with a little leeway: Safari shifts the
+ * colour of half see-through edge pixels slightly every time a picture goes through a canvas, and that
+ * alone must not count as a change (else each Clean up would save the picture again, a shade darker).
+ */
+export async function sameGalleryPicture(a: string, b: string): Promise<boolean> {
+  const [first, second] = await Promise.all([loadImage(a), loadImage(b)]);
+  const width = first.naturalWidth;
+  const height = first.naturalHeight;
+  if (width !== second.naturalWidth || height !== second.naturalHeight) return false;
+  const read = (image: HTMLImageElement) => {
+    const { ctx } = canvas2d(width, height);
+    ctx.drawImage(image, 0, 0);
+    return ctx.getImageData(0, 0, width, height).data;
+  };
+  const left = read(first);
+  const right = read(second);
+  for (let offset = 0; offset < left.length; offset += 4) {
+    const alpha = left[offset + 3]!;
+    if (Math.abs(alpha - right[offset + 3]!) > 1) return false;
+    for (let channel = 0; channel < 3; channel++) {
+      const shown = (data: Uint8ClampedArray) => (data[offset + channel]! * data[offset + 3]!) / 255;
+      if (Math.abs(shown(left) - shown(right)) > 3) return false;
+    }
+  }
+  return true;
 }
