@@ -350,6 +350,9 @@ const mutationOutput = (sentinel: string) =>
   assert.equal(bashIsLoneMariRead("mari images get $(cat id)"), false);
   assert.equal(bashIsLoneMariRead("mari db get x > out.json"), false);
   assert.equal(bashIsLoneMariRead("mari images list --apply"), false);
+  assert.equal(bashIsLoneMariRead("mari characters get c1 --help"), false);
+  assert.equal(bashIsLoneMariRead("mari characters get -h"), false);
+  assert.equal(bashIsLoneMariRead("mari characters list --has-avatar"), true);
   assert.equal(bashIsLoneMariRead("echo mari images get x"), false);
 
   const state = newRoundReviewState();

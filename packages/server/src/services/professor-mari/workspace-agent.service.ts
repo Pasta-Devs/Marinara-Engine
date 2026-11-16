@@ -3118,7 +3118,10 @@ function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
  */
 export function bashIsLoneMariRead(command: string): boolean {
   const normalized = command.trim();
-  if (!normalized || /[;&|<>`\n\r]|\$\(/u.test(normalized) || /\s--apply\b/u.test(normalized)) return false;
+  // `--help` succeeds without reading anything, so it cannot pay a write's debt either.
+  if (!normalized || /[;&|<>`\n\r]|\$\(/u.test(normalized) || /\s(?:--apply|--help|-h)(?:\s|=|$)/u.test(normalized)) {
+    return false;
+  }
   return /^mari\s+[a-z][a-z-]*\s+(?:get|list|look|view|search)(?:\s|$)/u.test(normalized);
 }
 
