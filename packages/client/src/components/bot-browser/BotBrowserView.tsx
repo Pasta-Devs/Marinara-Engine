@@ -3801,7 +3801,7 @@ function DetailView({
       const blob = await buildCharacterCardPng(card.avatarUrl, charData);
 
       await saveBlobToDevice(blob, `${(card.name || "character").replace(/[^a-zA-Z0-9_-]/g, "_")}.png`);
-    toast.success(localizeUi("ui.botBrowser.detailview.downloadedValue1AsPngCharacterCard", { value1: card.name }));
+      toast.success(localizeUi("ui.botBrowser.detailview.downloadedValue1AsPngCharacterCard", { value1: card.name }));
     } catch (err) {
       if (err instanceof PygmalionSessionExpiredError) onPygmalionSessionExpired?.();
       else toast.error(err instanceof Error ? err.message : localizeUi("ui.botBrowser.detailview.downloadFailed"));

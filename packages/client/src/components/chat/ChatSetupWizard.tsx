@@ -31,7 +31,13 @@ import { useConnections, useModelParameterCapabilities } from "../../hooks/use-c
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
-import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys, conversationStatusKeys } from "../../hooks/use-chats";
+import {
+  useUpdateChat,
+  useUpdateChatMetadata,
+  useCreateMessage,
+  chatKeys,
+  conversationStatusKeys,
+} from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset, useIsApplyingChatPreset } from "../../hooks/use-chat-presets";
 import { nextWizardApplyHold, type WizardApplyHold } from "../../lib/chat-preset-apply";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
