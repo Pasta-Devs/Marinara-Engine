@@ -52,7 +52,7 @@ Read the entity first, then write it in its own first-person voice into `aboutMe
 
 ## Avatars and folders
 
-**An avatar is not a card field**: creates and updates ignore it, and a patch `avatarPath` sits in the card JSON unread. `mari images generate --prompt <text>` makes an unassigned preview asset; `mari images assign --asset <id> --target character-avatar --character <id> --apply` copies it into `DATA_DIR/avatars/` and writes `/api/avatars/file/<file>` onto the row (`--target persona-avatar --persona <id>` for a persona). Without `--apply` nothing is saved. Clear with `mari images delete --target character-avatar --character <id> [--delete-file] --apply`; without `--delete-file` the file stays.
+**An avatar is not a card field**: creates and updates ignore it, and a patch `avatarPath` sits in the card JSON unread. `mari images generate --prompt <text>` makes an unassigned preview asset (show it with the result's `show` line; prompts, `--kind` and `--style` are in the images handbook); `mari images assign --asset <id> --target character-avatar --character <id> --apply` copies it into `DATA_DIR/avatars/` and writes `/api/avatars/file/<file>` onto the row (`--target persona-avatar --persona <id>` for a persona). Without `--apply` nothing is saved. Clear with `mari images delete --target character-avatar --character <id> [--delete-file] --apply`; without `--delete-file` the file stays.
 
 **Folders have no create action.** `character.folder.list` returns `{id, name, description, characterIds}`; creation is UI-only, and an unknown name is an error. `character.moveToFolder` takes `characterId` plus `folderId` or `folderName`, removes the character from every other folder and adds it once.
 

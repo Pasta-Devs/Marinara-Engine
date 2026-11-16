@@ -1776,23 +1776,23 @@ export class MariImagesService {
 
   private helpText() {
     return [
-      "Usage: mari images <command>",
+      "Usage: mari images <command> (mari images help shows this)",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
-      "HITL preview: preview --operation generate|edit --prompt <text> [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>]]",
-      "Create preview asset: generate --prompt <text> [--target <target>] [--kind <kind>] [--width <n>] [--height <n>] [--style [default|<id|name>]]",
+      "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",
       "Style: without --style the prompt and negative go out as written (--no-style says so explicitly). --style or --style default applies the default style profile; --style <id|name> a chosen one, including its per-image tags for --kind. Results show a style block: what was added, removed or moved.",
-      "Show a result: put ![alt](asset.url) in your reply.",
-      "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
-      "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
-      "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
-      "Apply: assign --asset <asset-id> --target lorebook-image --lorebook <id>",
-      "Apply: assign --asset <asset-id> --target sprite --character <id> --expression happy",
-      "Apply: assign --asset <asset-id> --target background --name <name> [--tags a,b]",
-      "Apply: assign --asset <asset-id> --target chat-gallery --chat <id>",
-      "Apply: assign --asset <asset-id> --target character-gallery --character <id>",
-      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery ...",
-      "Notes: preview never generates or saves. generate/edit save a review asset only. assign/delete mutate app image state.",
+      "Show a result: put the result's show line, ![alt](asset.url), in your reply.",
+      "Apply: assign --asset <asset-id> --target character-avatar --character <id> --apply",
+      "Apply: assign --asset <asset-id> --target persona-avatar --persona <id> --apply",
+      "Apply: assign --asset <asset-id> --target lorebook-image --lorebook <id> --apply",
+      "Apply: assign --asset <asset-id> --target sprite --character <id> --expression happy --apply",
+      "Apply: assign --asset <asset-id> --target background --name <name> [--tags a,b] --apply",
+      "Apply: assign --asset <asset-id> --target chat-gallery --chat <id> --apply",
+      "Apply: assign --asset <asset-id> --target character-gallery --character <id> --apply",
+      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery ... [--delete-file] --apply",
+      "Notes: preview never generates or saves. generate/edit save a review asset only. assign/delete change app images only with --apply; without it they show what would change.",
     ].join("\n");
   }
 }

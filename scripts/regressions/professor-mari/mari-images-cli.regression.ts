@@ -2,7 +2,7 @@
 // gallery row, only a manifest entry), and her prompt goes to the image model as written unless she asks for a style
 // profile, in which case the result shows what the profile added.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
@@ -14,6 +14,11 @@ const originalEnv = { DATA_DIR: process.env.DATA_DIR, FILE_STORAGE_DIR: process.
 process.env.DATA_DIR = root;
 process.env.FILE_STORAGE_DIR = join(root, "storage");
 process.env.LOG_LEVEL = "silent";
+const skillsDir = join(import.meta.dirname, "../../../packages/server/src/assets/mari-skills");
+const systemPromptFile = join(
+  import.meta.dirname,
+  "../../../packages/server/src/services/professor-mari/workspace-agent.service.ts",
+);
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
@@ -210,6 +215,31 @@ try {
   const full = (await images("styles", "house")) as { perImageTags: Record<string, string>; positiveTags: string };
   assert.equal(full.perImageTags.avatar, "portrait, upper body, dynamic pose");
   assert.ok(full.positiveTags.endsWith("house tag 39"), "the full profile is not cut");
+
+  // 6. Every subcommand and flag a handbook or Mari's system prompt uses with `mari images` is in the help text, so the
+  // two cannot drift apart (as #9326 checks for app_data arguments).
+  const help = String(await images("help"));
+  const sources = [
+    ...readdirSync(skillsDir)
+      .filter((name) => name.endsWith(".md"))
+      .map((name) => ({ name, text: readFileSync(join(skillsDir, name), "utf8") })),
+    { name: "workspace-agent.service.ts", text: readFileSync(systemPromptFile, "utf8") },
+  ];
+  const undocumented: string[] = [];
+  let examples = 0;
+  for (const { name, text } of sources) {
+    for (const match of text.matchAll(/`mari images ([^`]+)`/g)) {
+      examples += 1;
+      const command = match[1]!;
+      const sub = command.split(/\s+/)[0]!;
+      if (/^[a-z]/.test(sub) && !new RegExp(`\\b${sub}\\b`).test(help)) undocumented.push(`${name}: ${sub}`);
+      for (const flag of command.match(/--[a-z][a-z-]*/g) ?? []) {
+        if (!help.includes(flag)) undocumented.push(`${name}: ${flag}`);
+      }
+    }
+  }
+  assert.ok(examples >= 10, `found mari images examples in the handbooks (${examples})`);
+  assert.deepEqual(undocumented, [], "handbook mari images examples use only documented subcommands and flags");
 
   console.log("mari images CLI regression passed.");
 } finally {
