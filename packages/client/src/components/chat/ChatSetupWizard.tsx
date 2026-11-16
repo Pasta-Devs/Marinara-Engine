@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   ChevronRight,
+  Loader2,
   Plug,
   Check,
   Plus,
@@ -1559,8 +1560,9 @@ function ConversationQuickSetup({
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Spinner
-              size="sm"
+            <Loader2
+              size="0.875rem"
+              aria-hidden="true"
               className={generateSchedule ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
             />
             <div>
