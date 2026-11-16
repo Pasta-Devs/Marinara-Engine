@@ -154,6 +154,19 @@ function cleanGallerySheetOutlines(
       ? pixels[offset + keyChannel]! - Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!)
       : 0;
 
+  // Small green bits in the band (a tinted hair tip, a fleck on a dark outline) are spill, however dark;
+  // a big green area there is the sticker's own green and stays.
+  const greenish = new Uint8Array(total);
+  if (keySaturated) {
+    for (let i = 0; i < total; i++) {
+      const d = distance[i]!;
+      if (d > 0 && d <= band && spill(i * 4) > 50) greenish[i] = 1;
+    }
+  }
+  const greenBits = labelMask(greenish, width, height);
+  const smallBit = new Uint8Array(greenBits.regions.length + 1);
+  for (const region of greenBits.regions) smallBit[region.id] = region.area < total * 0.0005 ? 1 : 0;
+
   const source = new Uint8ClampedArray(pixels);
   const radius = 2;
   const sample: number[][] = [[], [], [], []];
@@ -202,7 +215,7 @@ function cleanGallerySheetOutlines(
       const onOutline = median[0]! > 200 && median[1]! > 200 && median[2]! > 200;
       // A speck on the flat white outline, a green fleck, or a see-through pinhole.
       // A fleck is green among mostly not-green neighbours, so the edge of a sticker's own green fill stays.
-      const fleck = green > 40 && count >= opaque * 0.75;
+      const fleck = (green > 40 && count >= opaque * 0.75) || smallBit[greenBits.labels[index]!] === 1;
       if (fleck || pinhole || (onOutline && differs && alike >= count * 0.5)) {
         pixels[offset] = median[0]!;
         pixels[offset + 1] = median[1]!;
@@ -211,8 +224,8 @@ function cleanGallerySheetOutlines(
         continue;
       }
     }
-    // Whatever stays: take the green tint off the soft edge.
-    if (green > 0 && d <= 3)
+    // Whatever stays: take the green tint off the soft edge and off small green bits.
+    if (green > 0 && (d <= 3 || smallBit[greenBits.labels[index]!] === 1))
       pixels[offset + keyChannel] = Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!);
   }
 }
@@ -272,6 +285,21 @@ export async function keyOutGallerySheetBackground(dataUrl: string): Promise<{ d
     if (y > 0) push(x, y - 1);
     if (y < height - 1) push(x, y + 1);
   }
+  // Pockets of backdrop the fill couldn't reach (between hair strands, inside a bent arm): anything still
+  // this close to the key colour is backdrop, since the prompt keeps that colour out of the stickers.
+  const pocket = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const offset = i * 4;
+    if (
+      pixels[offset + 3]! > 24 &&
+      Math.abs(pixels[offset]! - background[0]!) +
+        Math.abs(pixels[offset + 1]! - background[1]!) +
+        Math.abs(pixels[offset + 2]! - background[2]!) <
+        160
+    )
+      pocket[i] = 1;
+  }
+  for (let i = 0; i < width * height; i++) if (pocket[i]) pixels[i * 4 + 3] = 0;
   cleanGallerySheetOutlines(pixels, width, height, background);
   ctx.putImageData(frame, 0, 0);
   let edge = 0;
