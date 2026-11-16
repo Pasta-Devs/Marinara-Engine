@@ -243,7 +243,9 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     const enable = drawer.getByRole("checkbox", { name: /^Enable Agents/ });
     if (!(await enable.isChecked())) await enable.check();
     await drawer.getByRole("button", { name: /Misc Agents/ }).click();
-    await drawer.getByRole("button").filter({ hasText: "Illustrator" }).last().click();
+    // Scoped to Agents: other sections, like the gallery, can show "Illustrator" too.
+    const agentsSection = drawer.locator('[data-drawer="roleplay-agents"]');
+    await agentsSection.getByRole("button").filter({ hasText: "Illustrator" }).last().click();
     const add = page.getByRole("dialog", { name: "Add Illustrator" });
     await expect(add).toBeVisible();
     const addInterval = add.locator('input[type="number"][max="100"]');
@@ -290,7 +292,7 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
       .getByRole("button", { name: "Remove Agent", exact: true })
       .click();
     await expect(card).toHaveCount(0);
-    await drawer.getByRole("button").filter({ hasText: "Illustrator" }).last().click();
+    await agentsSection.getByRole("button").filter({ hasText: "Illustrator" }).last().click();
     await expect(add).toBeVisible();
     await expect(addInterval).toHaveValue("7");
     await addInterval.fill("2");

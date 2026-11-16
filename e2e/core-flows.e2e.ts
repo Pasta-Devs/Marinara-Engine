@@ -16728,7 +16728,9 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
     await page.getByRole("button", { name: "Chat Settings" }).click();
     const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(reloadedDrawer);
-    await expect(reloadedDrawer.getByText(agentName, { exact: true }).first()).toBeVisible();
+    await expect(
+      reloadedDrawer.locator('[data-drawer="conversation-agents"]').getByText(agentName, { exact: true }).first(),
+    ).toBeVisible();
     const customAgentSection = reloadedDrawer.getByRole("button", { name: "Collapse Custom Agents" });
     await expect(customAgentSection).toHaveAttribute("aria-expanded", "true");
     await customAgentSection.click();

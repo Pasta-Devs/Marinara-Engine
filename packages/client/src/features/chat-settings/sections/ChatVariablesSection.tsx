@@ -25,7 +25,6 @@ import {
 
 interface ChatVariablesSectionProps {
   sectionId: string;
-  order: number;
   chatId: string;
   /** The chat's saved macro variables, including any a prompt or lorebook set. */
   variables: Record<string, string>;
@@ -36,7 +35,7 @@ interface ChatVariablesSectionProps {
 // scripts/check-locales.mjs would report it as a token translators must keep.
 const EXAMPLE_TAG = "{{char1}}";
 
-export function ChatVariablesSection({ sectionId, order, chatId, variables }: ChatVariablesSectionProps) {
+export function ChatVariablesSection({ sectionId, chatId, variables }: ChatVariablesSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   // save() queues the whole mutation so each patch uses the last successful name.
@@ -180,7 +179,6 @@ export function ChatVariablesSection({ sectionId, order, chatId, variables }: Ch
   return (
     <ChatSettingsSection
       id={sectionId}
-      style={{ order }}
       label={localizeUi("ui.chatSettings.chatvariablessection.chatVariables")}
       icon={<Braces size="0.875rem" />}
       count={rows.filter((row) => row.savedName !== null).length}
