@@ -9,7 +9,12 @@ import type { TFunction } from "i18next";
 import { api } from "./api-client";
 import { dataImageUrlToFile } from "./data-image-file";
 import { readImageDimensions } from "./custom-emoji";
-import { cleanUpSavedGalleryPiece, fitGallerySheetCell, fitGallerySheetSet } from "./gallery-sheet-cut";
+import {
+  cleanUpSavedGalleryPiece,
+  fitGallerySheetCell,
+  fitGallerySheetSet,
+  sameGalleryPicture,
+} from "./gallery-sheet-cut";
 
 export type CleanableGalleryImage = {
   id: string;
@@ -52,9 +57,10 @@ export async function cleanUpGalleryImages(
   if (targets.length === 0) return 0;
   const read = await Promise.allSettled(
     targets.map(async (image) => {
-      const cleaned = await cleanUpSavedGalleryPiece(await readAsDataUrl(image.url));
+      const original = await readAsDataUrl(image.url);
+      const cleaned = await cleanUpSavedGalleryPiece(original);
       if (!cleaned) throw new Error("The backdrop did not key out cleanly");
-      return { image, cleaned };
+      return { image, original, cleaned };
     }),
   );
   const ready = read.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
@@ -71,8 +77,14 @@ export async function cleanUpGalleryImages(
       .filter((entry) => entry.image.customKind === "emoji")
       .map(async (entry) => fitted.set(entry.image, await fitGallerySheetCell(entry.cleaned, "emoji"))),
   );
+  // A picture the passes leave pixel for pixel as it was is already clean: it isn't saved again.
+  const changed = await Promise.all(
+    ready.map(async (entry) => !(await sameGalleryPicture(entry.original, fitted.get(entry.image)!))),
+  );
+  const toSave = ready.filter((_, index) => changed[index]);
+  const alreadyClean = ready.length - toSave.length;
   const results = await Promise.allSettled(
-    ready.map(async ({ image }) => {
+    toSave.map(async ({ image }) => {
       const dataUrl = fitted.get(image)!;
       const { width, height } = await readImageDimensions(dataUrl);
       const stem = (image.filePath.split(/[\\/]/).pop() ?? "image").replace(/\.[^.]+$/, "");
@@ -83,10 +95,14 @@ export async function cleanUpGalleryImages(
       await api.upload(options.replacePath(image.id), form);
     }),
   );
-  const completed = results.filter((result) => result.status === "fulfilled").length;
+  const saved = results.filter((result) => result.status === "fulfilled").length;
+  const completed = saved + alreadyClean;
   const failed = targets.length - completed;
   if (failed > 0)
     toast.error(localizeUi("ui.gallery.batch.cleanUpPartial", { completed, count: targets.length, failed }));
+  else if (saved === 0) toast.success(localizeUi("ui.gallery.batch.alreadyClean", { count: targets.length }));
+  else if (alreadyClean > 0)
+    toast.success(localizeUi("ui.gallery.batch.cleanedUpSome", { completed: saved, count: targets.length }));
   else toast.success(localizeUi("ui.gallery.batch.cleanedUp", { count: targets.length }));
-  return completed;
+  return saved;
 }
