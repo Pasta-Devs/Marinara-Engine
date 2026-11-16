@@ -3657,6 +3657,13 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   white-space: nowrap;
 }
 
+/* #9394: opening a step shows its whole line (a full image prompt), wrapped instead of cut at the ellipsis. */
+.mari-phase[open] > summary .mari-live-work__step-label,
+.mari-live-work__step-details[open] > summary .mari-live-work__step-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .mari-live-work__step-subject {
   margin-inline-start: 0.4rem;
   color: var(--foreground);
