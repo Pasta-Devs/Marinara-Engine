@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ChevronDown, IdCard, ImageIcon, ImagePlus, Loader2, Sticker, Wand2, ZoomIn } from "lucide-react";
+import {
+  Camera,
+  ChevronDown,
+  IdCard,
+  ImageIcon,
+  ImagePlus,
+  Loader2,
+  PencilLine,
+  RotateCcw,
+  Sticker,
+  Wand2,
+  X,
+  ZoomIn,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
@@ -133,6 +146,9 @@ export function AvatarGenerationModal({
   const [saving, setSaving] = useState(false);
   const [reviewItems, setReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  /** The whole prompt, opened for editing: sent exactly as written instead of the one built from the fields. */
+  const [fullPrompt, setFullPrompt] = useState<ImagePromptReviewItem | null>(null);
+  const [fullPromptLoading, setFullPromptLoading] = useState(false);
   const reviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
 
   const imageConnections = useMemo(() => {
@@ -181,6 +197,7 @@ export function AvatarGenerationModal({
     setShowFullView(false);
     setReviewItems([]);
     setReviewSubmitting(false);
+    setFullPrompt(null);
     // Seeds are read when the dialog opens; edits made since stay until it closes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultAppearance, defaultAvatarUrl, open]);
@@ -194,6 +211,7 @@ export function AvatarGenerationModal({
       setGeneratedAvatar(null);
       setGeneratedPrompt("");
       setShowFullView(false);
+      setFullPrompt(null);
       sheetCells.reset();
     },
     [appearance, galleryCreate, galleryKind, sheetCells.reset],
@@ -239,8 +257,33 @@ export function AvatarGenerationModal({
     promptOverrides,
   });
 
+  /** Build the prompt from the fields as it would be sent, and open it for editing. */
+  const openFullPrompt = async () => {
+    if (!effectiveConnectionId || fullPromptLoading) return;
+    setFullPromptLoading(true);
+    try {
+      // Reference pictures don't change the words, so the preview is built without them.
+      const preview = await api.post<{ items: ImagePromptReviewItem[] }>(
+        "/characters/avatar-generation/preview",
+        buildPayload(),
+      );
+      const item = preview.items[0];
+      if (!item) throw new Error();
+      setFullPrompt(item);
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : localizeUi("ui.ui.avatargenerationmodal.fullPromptFailed"),
+      );
+    } finally {
+      setFullPromptLoading(false);
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!effectiveConnectionId || !appearance.trim() || generating) return;
+    if (!effectiveConnectionId || generating) return;
+    if (fullPrompt ? !fullPrompt.prompt.trim() : !appearance.trim()) return;
     if (isStickerSheet && sheetNames.length === 0) return;
     setGenerating(true);
     sheetCells.reset();
@@ -259,7 +302,12 @@ export function AvatarGenerationModal({
           )
         : undefined;
       const payload = buildPayload(referenceImages);
-      if (reviewImagePromptsBeforeSend) {
+      if (fullPrompt) {
+        // The user wrote the prompt themselves, so it goes as written, with no second review.
+        promptOverrides = [
+          { id: fullPrompt.id, prompt: fullPrompt.prompt.trim(), negativePrompt: fullPrompt.negativePrompt },
+        ];
+      } else if (reviewImagePromptsBeforeSend) {
         const preview = await api.post<{ items: ImagePromptReviewItem[] }>(
           "/characters/avatar-generation/preview",
           payload,
@@ -400,7 +448,7 @@ export function AvatarGenerationModal({
               onClick={handleGenerate}
               disabled={
                 !effectiveConnectionId ||
-                !appearance.trim() ||
+                (fullPrompt ? !fullPrompt.prompt.trim() : !appearance.trim()) ||
                 (isStickerSheet && sheetNames.length === 0) ||
                 generating ||
                 saving
@@ -526,6 +574,71 @@ export function AvatarGenerationModal({
                     placeholder={DEFAULT_STICKER_NAMES}
                   />
                 </label>
+              )}
+
+              {fullPrompt ? (
+                <div className="space-y-1.5" data-avatar-generation-full-prompt="">
+                  <div className="flex items-center gap-1">
+                    <label
+                      htmlFor="avatar-generation-full-prompt"
+                      className="mr-auto text-xs font-medium text-[var(--foreground)]"
+                    >
+                      {localizeUi("ui.ui.avatargenerationmodal.fullPrompt")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void openFullPrompt()}
+                      disabled={fullPromptLoading || generating || saving}
+                      title={localizeUi("ui.ui.avatargenerationmodal.rebuildFullPromptHint")}
+                      className="inline-flex min-h-7 items-center gap-1 rounded-lg px-2 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors disabled:opacity-50 max-sm:min-h-11 max-sm:text-[13px] [@media(hover:hover)]:hover:text-[var(--foreground)]"
+                    >
+                      {fullPromptLoading ? (
+                        <Loader2 size="0.75rem" className="animate-spin" />
+                      ) : (
+                        <RotateCcw size="0.75rem" />
+                      )}
+                      {localizeUi("ui.ui.avatargenerationmodal.rebuildFullPrompt")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFullPrompt(null)}
+                      disabled={generating || saving}
+                      aria-label={localizeUi("ui.ui.avatargenerationmodal.stopEditingFullPrompt")}
+                      title={localizeUi("ui.ui.avatargenerationmodal.stopEditingFullPrompt")}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors disabled:opacity-50 max-sm:h-11 max-sm:w-11 [@media(hover:hover)]:hover:text-[var(--foreground)]"
+                    >
+                      <X size="0.875rem" />
+                    </button>
+                  </div>
+                  <textarea
+                    id="avatar-generation-full-prompt"
+                    value={fullPrompt.prompt}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setFullPrompt((current) => (current ? { ...current, prompt: value } : current));
+                    }}
+                    disabled={generating || saving}
+                    rows={9}
+                    className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs max-sm:text-base leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--primary)]/30 transition-all focus:ring-[var(--primary)]/50"
+                  />
+                  <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] max-sm:text-[13px]">
+                    {localizeUi("ui.ui.avatargenerationmodal.fullPromptHint")}
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void openFullPrompt()}
+                  disabled={!effectiveConnectionId || fullPromptLoading || generating || saving}
+                  className="inline-flex min-h-8 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors disabled:opacity-50 max-sm:min-h-11 max-sm:text-[13px] [@media(hover:hover)]:hover:text-[var(--foreground)]"
+                >
+                  {fullPromptLoading ? (
+                    <Loader2 size="0.75rem" className="animate-spin" />
+                  ) : (
+                    <PencilLine size="0.75rem" />
+                  )}
+                  {localizeUi("ui.ui.avatargenerationmodal.editFullPrompt")}
+                </button>
               )}
 
               {isCharacterSheet && neutralFullBodyReferenceUrl && (
