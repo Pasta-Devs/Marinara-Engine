@@ -13,7 +13,7 @@ import { cn } from "../../lib/utils";
 import {
   cropGallerySheetBox,
   detectGallerySheetPieces,
-  fitGallerySheetCell,
+  fitGallerySheetSet,
   gallerySheetGridBoxes,
   isBlankGallerySheetImage,
   keyOutGallerySheetBackground,
@@ -33,6 +33,8 @@ type SheetCell = {
   name: string;
   /** Where the piece sits on the sheet; a recut starts from it. */
   box: GallerySheetBox;
+  /** The piece as cut from the keyed sheet, before fitting; a recut refits the whole set from these. */
+  piece: string;
   image: string;
   selected: boolean;
 };
@@ -84,6 +86,8 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
   const [editTarget, setEditTarget] = useState<GallerySheetEditTarget | null>(null);
   const [keyedSheet, setKeyedSheet] = useState<KeyedSheet | null>(null);
   const sourceRef = useRef<CutSource | null>(null);
+  const cellsRef = useRef<SheetCell[]>([]);
+  cellsRef.current = cells;
   const runRef = useRef(0);
 
   const runCut = useCallback(
@@ -119,7 +123,10 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
             })),
           );
         }
-        const images = await Promise.all(pieces.map((piece) => fitGallerySheetCell(piece.dataUrl, kind)));
+        const images = await fitGallerySheetSet(
+          pieces.map((piece) => piece.dataUrl),
+          kind,
+        );
         if (run !== runRef.current) return;
         setKeyedSheet({ dataUrl: keyed.dataUrl, ...size });
         setCells((previous) =>
@@ -128,6 +135,7 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
             // A re-cut keeps names and picks made so far.
             name: previous[index]?.name ?? source.names[index] ?? `${kind}_${index + 1}`,
             box: pieces[index]!.box,
+            piece: pieces[index]!.dataUrl,
             image,
             selected: previous[index]?.selected ?? true,
           })),
@@ -180,25 +188,32 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
         toast.error(localizeUi("ui.ui.gallerysheetcells.boxEmpty"));
         return;
       }
-      const image = await fitGallerySheetCell(cropped, kind);
+      // The set shares one scale and baseline, so a recut refits every piece (a bigger piece shrinks the rest).
+      const current = cellsRef.current;
+      const pieces = current.map((cell) => cell.piece);
+      if (target === "new") pieces.push(cropped);
+      else pieces[target] = cropped;
+      const images = await fitGallerySheetSet(pieces, kind);
       if (run !== runRef.current) return;
-      if (target === "new") {
-        setCells((previous) => [
-          ...previous,
-          {
+      setCells((previous) => {
+        const next: SheetCell[] = previous.map((cell, index) => ({ ...cell, image: images[index] ?? cell.image }));
+        if (target === "new") {
+          next.push({
             id: `${run}-added-${Date.now()}`,
             name: `${kind}_${previous.length + 1}`,
             box,
-            image,
+            piece: cropped,
+            image: images[images.length - 1]!,
             selected: true,
-          },
-        ]);
-      } else {
-        update(target, { box, image, selected: true });
-      }
+          });
+        } else if (next[target]) {
+          next[target] = { ...next[target]!, box, piece: cropped, selected: true };
+        }
+        return next;
+      });
       setEditTarget(null);
     },
-    [keyedSheet, kind, localizeUi, update],
+    [keyedSheet, kind, localizeUi],
   );
 
   const selectedItems = useMemo<GallerySheetCut[]>(() => {

@@ -2,7 +2,7 @@ import { embedCharacterBookImages, LOREBOOK_EXPORT_IMAGE_MAX_BYTES } from "../se
 // ──────────────────────────────────────────────
 // Routes: Characters, Personas & Groups
 // ──────────────────────────────────────────────
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   canonicalizeLegacyPersonaInput,
@@ -723,6 +723,44 @@ async function isValidUploadedGalleryImage(filePath: string, filename: string): 
   }
   await unlink(storedPath).catch(() => undefined);
   return false;
+}
+
+/**
+ * Swap a gallery image's picture for a new upload (the gallery's "Clean up" for stickers and emoji): the new
+ * file is checked like any upload, the row keeps its id, tag and place, and the old file goes once nothing
+ * else points at it.
+ */
+async function replaceGalleryImageFile(input: {
+  req: FastifyRequest;
+  reply: FastifyReply;
+  db: FastifyInstance["db"];
+  dir: string;
+  /** Where the file is stored under the gallery folder, and the route its picture is served from. */
+  folder: string;
+  urlBase: string;
+  image: { filePath: string };
+  save: (patch: { filePath: string; width: number | null; height: number | null }) => Promise<unknown>;
+}) {
+  const data = await input.req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
+  if (!data) return input.reply.status(400).send({ error: "No file uploaded" });
+  const ext = extname(data.filename).toLowerCase();
+  if (!ALLOWED_GALLERY_EXTS.has(ext)) return input.reply.status(400).send({ error: `Unsupported file type: ${ext}` });
+  const filename = `${newId()}${ext}`;
+  const filePath = join(input.dir, filename);
+  await pipeline(data.file, createWriteStream(filePath));
+  if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+    return input.reply.status(400).send({ error: "Unsupported or invalid image" });
+  }
+  const fields = data.fields as Record<string, { value?: string } | undefined>;
+  const width = fields?.width?.value ? parseInt(fields.width.value, 10) : NaN;
+  const height = fields?.height?.value ? parseInt(fields.height.value, 10) : NaN;
+  const updated = await input.save({
+    filePath: `${input.folder}/${filename}`,
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  });
+  await unlinkGalleryFileIfUnreferenced({ db: input.db, filePath: input.image.filePath });
+  return { ...(updated as object), url: `${input.urlBase}/gallery/file/${encodeURIComponent(filename)}` };
 }
 
 async function copyGalleryImageToAvatar(
@@ -2436,6 +2474,22 @@ export async function charactersRoutes(app: FastifyInstance) {
     return characterGallery.setTag(imageId, tag.patch);
   });
 
+  app.post<{ Params: { id: string; imageId: string } }>("/:id/gallery/:imageId/replace", async (req, reply) => {
+    const { id, imageId } = req.params;
+    const image = await characterGallery.getById(imageId);
+    if (!image || image.characterId !== id) return reply.status(404).send({ error: "Not found" });
+    return replaceGalleryImageFile({
+      req,
+      reply,
+      db: app.db,
+      dir: await ensureCharacterGalleryDir(image.characterId),
+      folder: `characters/${image.characterId}`,
+      urlBase: `/api/characters/${image.characterId}`,
+      image,
+      save: (patch) => characterGallery.replaceFile(imageId, patch),
+    });
+  });
+
   // ── Duplicate ──
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const result = await storage.duplicateCharacter(req.params.id);
@@ -3567,6 +3621,25 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
     return personaGallery.setTag(imageId, tag.patch);
   });
+
+  app.post<{ Params: { id: string; imageId: string } }>(
+    "/personas/:id/gallery/:imageId/replace",
+    async (req, reply) => {
+      const { id, imageId } = req.params;
+      const image = await personaGallery.getById(imageId);
+      if (!image || image.personaId !== id) return reply.status(404).send({ error: "Not found" });
+      return replaceGalleryImageFile({
+        req,
+        reply,
+        db: app.db,
+        dir: await ensurePersonaGalleryDir(image.personaId),
+        folder: `personas/${image.personaId}`,
+        urlBase: `/api/characters/personas/${image.personaId}`,
+        image,
+        save: (patch) => personaGallery.replaceFile(imageId, patch),
+      });
+    },
+  );
 
   // ── Persona Duplicate ──
   app.post<{ Params: { id: string } }>("/personas/:id/duplicate", async (req, reply) => {
