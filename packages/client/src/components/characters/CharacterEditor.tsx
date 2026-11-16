@@ -74,6 +74,7 @@ import {
   useDeleteCharacterVersion,
   useRenameCharacterVersion,
   useResetCharacterVersions,
+  characterKeys,
   spriteKeys,
   type CharacterCallVideoGenerationInput,
   type CharacterGalleryClip,
@@ -6663,7 +6664,7 @@ function LorebookTab({
       }>(`/characters/${characterId}/embedded-lorebook/import`);
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       if (result.lorebookId) {
-        qc.invalidateQueries({ queryKey: ["characters", "detail", characterId] });
+        qc.invalidateQueries({ queryKey: characterKeys.detail(characterId) });
       }
       toast.success(
         result.reimported
@@ -6706,7 +6707,7 @@ function LorebookTab({
       // Reconcile the editor (patches formData when dirty) then refresh caches so
       // the tab, entries list, and Embedded badge update from server state.
       onUnembed?.();
-      qc.invalidateQueries({ queryKey: ["characters", "detail", characterId] });
+      qc.invalidateQueries({ queryKey: characterKeys.detail(characterId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       toast.success(localizeUi("ui.characters.lorebooktab.removedTheEmbeddedLorebookFromTheCard"));
     } catch (error) {

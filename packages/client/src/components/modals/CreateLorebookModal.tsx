@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
+import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
@@ -56,7 +57,7 @@ export function CreateLorebookModal({
         entries: [],
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["lorebooks"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.all });
       onClose();
       setForm({ name: "", description: "", category: defaultCategory });
     },

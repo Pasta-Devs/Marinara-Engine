@@ -4,6 +4,7 @@
 import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
+import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,7 +76,7 @@ export function ImportLorebookModal({ open, onClose }: Props) {
     decisionImports.notify(nextResults, localizeUi);
     setStatus("done");
     if (nextResults.some((result) => result.success)) {
-      qc.invalidateQueries({ queryKey: ["lorebooks"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.all });
     }
   };
 
