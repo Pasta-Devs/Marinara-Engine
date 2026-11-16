@@ -29,6 +29,8 @@ export const RULESET_BUILDER_MAX = {
   fields: 24,
   lists: 8,
   columns: 11,
+  /** Groups on the sheet: each stat or skill group, one per list, and one for the fields. */
+  sections: 20,
 } as const;
 
 /** How a check rolls: the common families, each written out as the resolution kind that plays it. */
@@ -450,7 +452,7 @@ const defaultSummary = (name: string) => `${name} rules, made with the ruleset b
 
 /** Why a draft cannot be saved as the form shows it. Each is something the writer would otherwise drop
  *  without a word (a skill whose stat is gone, a pool or track with no room) or the schema would refuse. */
-export type RulesetBuilderProblem = "orphanSkill" | "emptyPool" | "emptyTrack" | "unsafeText";
+export type RulesetBuilderProblem = "orphanSkill" | "emptyPool" | "emptyTrack" | "unsafeText" | "tooManySections";
 
 const UNSAFE_LABEL = /[\u0000-\u001F\u007F\[\]]|\{\{|\}\}/;
 const UNSAFE_PROMPT = /[\[\]]|\{\{|\}\}/;
@@ -463,6 +465,8 @@ const NOT_TEXT = new Set([
   "type",
   "display",
   "spdx",
+  // A file's own license line: the form never shows or writes it, so it is not the player's to fix.
+  "attribution",
   "reservedIds",
   "reservedRanks",
   "reservedColumns",
@@ -484,6 +488,10 @@ export function rulesetBuilderProblems(draft: RulesetBuilderDraft): RulesetBuild
     return false;
   };
   if (unsafe(draft, "")) problems.push("unsafeText");
+  // Counted on what the writer makes, so a list, the fields' group and a group two rows share all count
+  // the way they are written.
+  const written = rulesetFromBuilderDraft(draft) as { sheet: { sections: unknown[] } };
+  if (written.sheet.sections.length > RULESET_BUILDER_MAX.sections) problems.push("tooManySections");
   return problems;
 }
 

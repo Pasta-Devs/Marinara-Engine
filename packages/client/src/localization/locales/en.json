@@ -6859,6 +6859,7 @@
   "rulesetBuilder.problems.emptyPool": "A pool needs a maximum above 0. Set one, or remove the pool.",
   "rulesetBuilder.problems.emptyTrack": "A track's maximum must be above its minimum. Fix it, or remove the track.",
   "rulesetBuilder.problems.orphanSkill": "A skill's stat was removed. Choose another stat for it, or remove the skill.",
+  "rulesetBuilder.problems.tooManySections": "A ruleset holds up to 20 groups, counting each stat and skill group, one for each list, and one for the sheet fields. Put some rows in the same group.",
   "rulesetBuilder.problems.unsafeText": "Names and prompts can't contain square brackets, double curly braces or tabs.",
   "rulesetBuilder.prompt.checkGuidance.help": "When to ask for a check, and how to pick the skill and difficulty.",
   "rulesetBuilder.prompt.checkGuidance.label": "Checks",

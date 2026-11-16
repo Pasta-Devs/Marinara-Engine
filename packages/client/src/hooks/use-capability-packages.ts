@@ -52,9 +52,10 @@ export function useInstalledRulesets(enabled = true) {
 export function useRulesetSource(rulesetId: string | undefined, version: number | undefined, enabled = true) {
   return useQuery({
     queryKey: capabilityPackageKeys.rulesetSource(rulesetId ?? "", version ?? 0),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<{ ruleset: string }>(
         `/game-rulesets/source?rulesetId=${encodeURIComponent(rulesetId!)}&version=${version}`,
+        { signal },
       ),
     enabled: enabled && !!rulesetId && !!version,
   });

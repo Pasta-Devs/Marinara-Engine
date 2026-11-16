@@ -29,6 +29,7 @@ import {
   type RulesetBuilderDraft,
   type RulesetBuilderList,
 } from "@marinara-engine/shared";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { Modal } from "../ui/Modal";
 import { useImportRuleset } from "../../hooks/use-capability-packages";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
@@ -315,11 +316,6 @@ function patchRow<T>(rows: T[], index: number, next: T | null): T[] {
   return next === null ? rows.filter((_, at) => at !== index) : rows.map((row, at) => (at === index ? next : row));
 }
 
-const toNumber = (value: string, fallback: number) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
-};
-
 export function RulesetBuilderModal({
   open,
   onClose,
@@ -425,6 +421,8 @@ export function RulesetBuilderModal({
     <Modal
       open={open}
       onClose={onClose}
+      // A save in flight finishes and pins either way, so the form stays until it does.
+      closeDisabled={saving}
       title={localizeUi(editing ? "rulesetBuilder.editTitle" : "rulesetBuilder.newTitle")}
       width="max-w-2xl"
       mobileFullscreen
@@ -501,10 +499,10 @@ export function RulesetBuilderModal({
               </label>
               <label className="flex items-center gap-1.5">
                 {localizeUi("rulesetBuilder.poolTarget")}
-                <input
-                  type="number"
+                <DraftNumberInput
                   value={draft.dice.target ?? 6}
-                  onChange={(event) => set({ dice: { ...draft.dice, target: toNumber(event.target.value, 6) } })}
+                  commitOnValidChange
+                  onCommit={(value) => set({ dice: { ...draft.dice, target: value } })}
                   className={NUMBER}
                 />
               </label>
@@ -539,19 +537,19 @@ export function RulesetBuilderModal({
                     }
                     className={INPUT}
                   />
-                  <input
-                    type="number"
+                  <DraftNumberInput
                     value={step.value}
-                    aria-label={localizeUi(
+                    ariaLabel={localizeUi(
                       draft.dice.preset === "pool"
                         ? "rulesetBuilder.difficultySuccesses"
                         : "rulesetBuilder.difficultyNumber",
                     )}
-                    onChange={(event) =>
+                    commitOnValidChange
+                    onCommit={(value) =>
                       set({
                         ladder: patchRow(draft.ladder, index, {
                           ...step,
-                          value: toNumber(event.target.value, step.value),
+                          value,
                         }),
                       })
                     }
@@ -624,15 +622,15 @@ export function RulesetBuilderModal({
                     <span className="text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:hidden">
                       {localizeUi(`rulesetBuilder.${key}`)}
                     </span>
-                    <input
-                      type="number"
+                    <DraftNumberInput
                       value={ability[key]}
-                      aria-label={localizeUi(`rulesetBuilder.${key}`)}
-                      onChange={(event) =>
+                      ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
+                      commitOnValidChange
+                      onCommit={(value) =>
                         set({
                           abilities: patchRow(draft.abilities, index, {
                             ...ability,
-                            [key]: toNumber(event.target.value, ability[key]),
+                            [key]: value,
                           }),
                         })
                       }
@@ -746,13 +744,13 @@ export function RulesetBuilderModal({
                   }
                   className={INPUT}
                 />
-                <input
-                  type="number"
+                <DraftNumberInput
                   value={rank.bonus}
-                  aria-label={localizeUi("rulesetBuilder.rankBonus")}
-                  onChange={(event) =>
+                  ariaLabel={localizeUi("rulesetBuilder.rankBonus")}
+                  commitOnValidChange
+                  onCommit={(value) =>
                     set({
-                      ranks: patchRow(draft.ranks, index, { ...rank, bonus: toNumber(event.target.value, rank.bonus) }),
+                      ranks: patchRow(draft.ranks, index, { ...rank, bonus: value }),
                     })
                   }
                   className={NUMBER}
@@ -823,13 +821,13 @@ export function RulesetBuilderModal({
                   }
                   className={INPUT}
                 />
-                <input
-                  type="number"
+                <DraftNumberInput
                   value={pool.max}
-                  aria-label={localizeUi("rulesetBuilder.max")}
-                  onChange={(event) =>
+                  ariaLabel={localizeUi("rulesetBuilder.max")}
+                  commitOnValidChange
+                  onCommit={(value) =>
                     set({
-                      pools: patchRow(draft.pools, index, { ...pool, max: toNumber(event.target.value, pool.max) }),
+                      pools: patchRow(draft.pools, index, { ...pool, max: value }),
                     })
                   }
                   className={NUMBER}
@@ -871,16 +869,16 @@ export function RulesetBuilderModal({
                   className={INPUT}
                 />
                 {(["min", "max"] as const).map((key) => (
-                  <input
+                  <DraftNumberInput
                     key={key}
-                    type="number"
                     value={track[key]}
-                    aria-label={localizeUi(`rulesetBuilder.${key}`)}
-                    onChange={(event) =>
+                    ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
+                    commitOnValidChange
+                    onCommit={(value) =>
                       set({
                         tracks: patchRow(draft.tracks, index, {
                           ...track,
-                          [key]: toNumber(event.target.value, track[key]),
+                          [key]: value,
                         }),
                       })
                     }

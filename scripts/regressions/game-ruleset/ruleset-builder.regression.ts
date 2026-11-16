@@ -317,6 +317,37 @@ for (const preset of presets) {
   assert.ok(!columnIds.includes(oldColumn.id), `a new column does not take ${oldColumn.id}: ${columnIds}`);
 }
 
+// A sheet holds 20 groups: each stat or skill group, one per list and one for the fields. The form
+// stops the save past that, and a form at exactly 20 writes a ruleset the Engine takes.
+{
+  const grouped = rulesetBuilderStarter("d20", "Grouped");
+  grouped.abilities = Array.from({ length: RULESET_BUILDER_MAX.abilities }, (_, index) => ({
+    key: rulesetBuilderKey(),
+    label: `Stat ${index + 1}`,
+    min: 0,
+    max: 5,
+    default: 0,
+    group: `Group ${index + 1}`,
+  }));
+  grouped.skills = [];
+  grouped.lists = [];
+  grouped.fields = [];
+  assert.ok(!rulesetBuilderProblems(grouped).includes("tooManySections"), "20 groups is the limit, not past it");
+  assert.equal((parsed(rulesetFromBuilderDraft(grouped)) as any).sheet.sections.length, 20);
+  grouped.fields = [{ key: rulesetBuilderKey(), label: "Concept", type: "text" }];
+  assert.ok(rulesetBuilderProblems(grouped).includes("tooManySections"), "the fields' group makes 21");
+  assert.equal(parseRulesetDefinition(rulesetFromBuilderDraft(grouped)).ok, false, "which the Engine refuses");
+}
+
+// A file's own license line is not the form's to check: a bracket in it doesn't stop every save.
+{
+  const licensed = parsed(rulesetFromBuilderDraft(rulesetBuilderStarter("d20", "Licensed"))) as any;
+  licensed.license = { spdx: "CC-BY-4.0", attribution: "Rules adapted from [Some Game] by Someone" };
+  const opened = rulesetBuilderDraftFrom(parsed(licensed) as any);
+  assert.ok(opened, "the file opens");
+  assert.deepEqual(rulesetBuilderProblems(opened), []);
+}
+
 // A new ruleset never takes an installed ruleset's id.
 assert.equal(rulesetBuilderFreeId("My Rules", ["local/my-rules", "my-rules-2"]), "my-rules-3");
 assert.equal(rulesetBuilderFreeId("Fresh", ["5e-2014"]), "fresh");

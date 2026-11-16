@@ -118,7 +118,15 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
   // The builder saves the way an import does, so it needs imports on.
   const imports = useAgentImportPolicy();
   const canBuild = imports.data?.enabled === true;
-  const pinnedEntry = pinnedId ? installed.data?.find((entry) => entry.definition.id === pinnedId) : undefined;
+  // Matched as the resolver matches a pin, by id and package, so a package and a stored ruleset that
+  // share an id are never confused.
+  const pinnedPackageId =
+    metadata.gameRuleset && typeof metadata.gameRuleset === "object"
+      ? ((metadata.gameRuleset as { packageId?: unknown }).packageId as string | null | undefined)
+      : undefined;
+  const pinnedEntry = pinnedId
+    ? installed.data?.find((entry) => entry.definition.id === pinnedId && entry.packageId === (pinnedPackageId ?? null))
+    : undefined;
   // The builder opens a ruleset only when it can write it back unchanged; any other is its author's file.
   // Only the player's own (`local/`) rulesets open: saving a packaged or repository one would make a
   // local copy under another id, a second sheet on every character.
@@ -288,7 +296,12 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
           {localizeUi("chat.settings.ruleset.newRuleset")}
         </button>
         {pinnedDraft && (
-          <button type="button" disabled={busy} onClick={() => setBuilder("edit")} className={builderButton}>
+          <button
+            type="button"
+            disabled={busy || !canBuild}
+            onClick={() => setBuilder("edit")}
+            className={builderButton}
+          >
             <PencilRuler size="0.75rem" />
             {localizeUi("chat.settings.ruleset.editRuleset")}
           </button>
