@@ -624,6 +624,9 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
       return `Listing ${humanizeIdentifier(info.target)}`;
     case "get":
       return "Reading image asset";
+    case "look":
+    case "view":
+      return "Looking at image";
     case "help":
       return "Opening image command help";
     default:
@@ -632,6 +635,8 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
 }
 
 function mariImagesDetail(info: NonNullable<ReturnType<typeof extractMariImagesCommand>>) {
+  // `look` names what she looks at as its first value: an asset id, app URL or file, not a target kind.
+  if ((info.action === "look" || info.action === "view") && info.target) return compactCommand(info.target, 70);
   if (info.target && !["list", "get"].includes(info.action)) return humanizeIdentifier(info.target);
   if (info.asset) return compactCommand(info.asset, 70);
   if (info.source) return compactCommand(info.source, 70);
