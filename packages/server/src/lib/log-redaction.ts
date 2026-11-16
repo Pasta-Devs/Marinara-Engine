@@ -81,11 +81,12 @@ function formatEncodedSize(encodedLength: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** The marker that stands in for one base64 payload, e.g. `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA…ElFTkSuQmCC]`. */
+/** The marker that stands in for one base64 payload, e.g. `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`. */
 export function inlineMediaMarker(mediaType: string, base64: string) {
   const head = base64.slice(0, INLINE_MEDIA_EDGE_LENGTH);
   const tail = base64.slice(-INLINE_MEDIA_EDGE_LENGTH);
-  return `[${mediaType} base64, ~${formatEncodedSize(base64.length)}: ${head}…${tail}]`;
+  // ASCII "...", not "…": a Windows console that does not read UTF-8 prints "…" as "ÔÇª".
+  return `[${mediaType} base64, ~${formatEncodedSize(base64.length)}: ${head}...${tail}]`;
 }
 
 /** Whether the log keeps inline media whole (`LOG_INLINE_MEDIA=full`). Read per line, so a .env reload applies. */

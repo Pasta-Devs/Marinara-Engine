@@ -12,10 +12,10 @@ import { pathToFileURL } from "node:url";
 const { inlineMediaMarker } = await import("../../../packages/server/src/lib/log-redaction.js");
 
 const base64 = `iVBORw0KGgo${"A".repeat(40_000)}ElFTkSuQmCC`;
-assert.equal(inlineMediaMarker("image/png", base64), "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]");
+assert.equal(inlineMediaMarker("image/png", base64), "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA...AAAAAElFTkSuQmCC]");
 assert.equal(
   inlineMediaMarker("application/pdf", "A".repeat(4_000_000)),
-  `[application/pdf base64, ~2.9 MB: ${"A".repeat(16)}…${"A".repeat(16)}]`,
+  `[application/pdf base64, ~2.9 MB: ${"A".repeat(16)}...${"A".repeat(16)}]`,
 );
 
 // The real logger, in a child process with JSON output, so pino's own %s / %j substitution and serializers run.
@@ -82,7 +82,7 @@ function run(inlineMedia?: string) {
       try {
         return JSON.parse(line) as { msg?: string };
       } catch {
-        assert.fail(`unparsable log line (${line.length} chars): ${line.slice(0, 120)}…${line.slice(-120)}`);
+        assert.fail(`unparsable log line (${line.length} chars): ${line.slice(0, 120)}...${line.slice(-120)}`);
       }
     });
   const msg = (prefix: string) => {
@@ -93,11 +93,11 @@ function run(inlineMedia?: string) {
   return { output: result.stdout, msg };
 }
 
-const edges = "iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]";
+const edges = "iVBORw0KGgoAAAAA...AAAAAElFTkSuQmCC]";
 const short = run();
 // Folded lines are 76 characters, so a shorter run is the tell.
 assert.ok(!short.output.includes("A".repeat(50)), "a base64 run reached the log");
-const foldedMarker = "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA…AAAElFTkSuQmCC==]";
+const foldedMarker = "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA...AAAElFTkSuQmCC==]";
 assert.ok(short.msg("payload foldedText").includes(`Before\r\n${foldedMarker}\r\nThanks for reading`));
 assert.ok(short.msg("payload foldedAnthropic").includes(`"data": "${foldedMarker}"`));
 assert.ok(short.msg("payload foldedGoogle").includes(`"data": "${foldedMarker}"`));
