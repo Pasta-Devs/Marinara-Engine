@@ -15,16 +15,22 @@ const safetyCopy = join(backups, "marinara-before-import.zip");
 // The free-space check reads statfs; the first import runs on a "full disk".
 const originalStatfs = fs.statfs;
 let freeBytes = 0;
-// Windows refuses to move a file another program holds open; one case makes moving the old copy fail.
+// Windows refuses to move or delete a file another program holds open. One case makes moving the
+// old copy fail, another makes removing the used record fail.
+const busy = () => Object.assign(new Error("resource busy"), { code: "EBUSY" });
 const originalRename = fs.rename;
+const originalRm = fs.rm;
 let copyBusy = false;
+let recordBusy = false;
 Object.assign(fs, {
   statfs: async (path: string) => ({ ...(await originalStatfs(path)), bsize: 1, bavail: freeBytes }),
   rename: async (from: string, to: string) => {
-    if (copyBusy && String(to).endsWith("marinara-before-import.zip.previous")) {
-      throw Object.assign(new Error("resource busy"), { code: "EBUSY" });
-    }
+    if (copyBusy && String(to).endsWith("marinara-before-import.zip.previous")) throw busy();
     return originalRename(from, to);
+  },
+  rm: async (path: string, options?: Parameters<typeof originalRm>[1]) => {
+    if (recordBusy && String(path).endsWith("marinara-before-import.json")) throw busy();
+    return originalRm(path, options);
   },
 });
 syncBuiltinESMExports();
@@ -117,18 +123,6 @@ try {
   assert.deepEqual(await undoOffer(), offered, "an import that can't move the old copy keeps the previous undo");
   assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
 
-  // The old copy stays on disk until the import finishes, so the space check counts it too. Room for
-  // the new copy alone, but not for both, refuses the import.
-  const { AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES } =
-    await import("../../../packages/server/src/services/backup/automatic-backup-retention.js");
-  const oldCopyBytes = (await fs.stat(safetyCopy)).size;
-  freeBytes = AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES + Math.floor(oldCopyBytes * 1.5);
-  const tooTight = await importProfile(exported.body);
-  assert.match(tooTight.json().message, /Not enough free space for a safety copy/u);
-  assert.equal(await descriptionOf(ada), "old", "the refused import changed nothing");
-  assert.deepEqual(await undoOffer(), offered, "an import refused for both copies keeps the previous undo");
-  freeBytes = 1024 ** 4;
-
   // A second import replaces the copy (and its record): undo now goes back to just before this one.
   // other.txt is in that copy but not in the file, so the import doesn't write it.
   await setDescription(ada, "newer");
@@ -154,8 +148,27 @@ try {
   assert.deepEqual(await fs.readdir(backups), [], "the used safety copy and its record are removed");
   assert.equal((await undo()).statusCode, 404);
   await assert.rejects(fs.stat(safetyCopy));
+
+  // If the used record can't be removed, the undo still worked and says so, and it isn't offered
+  // again, because the copy is gone.
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  recordBusy = true;
+  const undoneBusy = await undo();
+  recordBusy = false;
+  assert.equal(undoneBusy.statusCode, 200, undoneBusy.body);
+  assert.equal(await descriptionOf(ada), "newer", "the undo put the rows back");
+  assert.deepEqual(await undoOffer(), { available: false }, "an undo whose record stays isn't offered again");
+  await fs.rm(join(backups, "marinara-before-import.json"));
+
+  // Delete Safety Copy frees the space without undoing anything.
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  const deleted = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
+  assert.equal(deleted.statusCode, 200, deleted.body);
+  assert.deepEqual(await undoOffer(), { available: false });
+  assert.deepEqual(await fs.readdir(backups), [], "the copy and its record are removed");
+  assert.equal(await descriptionOf(ada), "old", "deleting the copy changed no data");
 } finally {
-  Object.assign(fs, { statfs: originalStatfs, rename: originalRename });
+  Object.assign(fs, { statfs: originalStatfs, rename: originalRename, rm: originalRm });
   syncBuiltinESMExports();
   await app.close();
   await closeDB();

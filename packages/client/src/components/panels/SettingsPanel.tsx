@@ -6502,7 +6502,9 @@ function ImportSettings() {
       if (event.type === "started") {
         setProfileImportProgress((current) => ({
           status: "running",
-          label: event.data?.label ?? "Profile import started",
+          label: undo
+            ? localizeUi("ui.panels.importsettings.undoingLastImport")
+            : (event.data?.label ?? "Profile import started"),
           completedItems: 0,
           totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
           startedAt,
@@ -6513,7 +6515,11 @@ function ImportSettings() {
       if (event.type === "progress" && event.data) {
         setProfileImportProgress((current) => ({
           status: "running",
-          label: event.data?.label ?? "Importing profile",
+          label: undo
+            ? localizeUi("ui.panels.importsettings.undoingLastImport")
+            : event.data?.phase === "safety-copy"
+              ? localizeUi("ui.panels.importsettings.savingSafetyCopy")
+              : (event.data?.label ?? "Importing profile"),
           completedItems: event.data?.completedItems ?? current?.completedItems ?? 0,
           totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
           startedAt,
@@ -6631,6 +6637,28 @@ function ImportSettings() {
       setProfileUndoRunning(false);
     }
   };
+  const handleDeleteSafetyCopy = async () => {
+    if (!undoSavedAt) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
+      message: localizeUi("ui.panels.importsettings.deleteSafetyCopyConfirm", {
+        savedAt: new Date(undoSavedAt).toLocaleString(),
+      }),
+      confirmLabel: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
+      cancelLabel: localizeUi("ui.panels.importsettings.cancel"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      await api.delete("/backup/import-profile/undo");
+      toast.success(localizeUi("ui.panels.importsettings.deleteSafetyCopyComplete"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "network/server error";
+      toast.error(localizeUi("ui.panels.importsettings.deleteSafetyCopyFailedValue", { value: message }));
+    } finally {
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -6688,6 +6716,15 @@ function ImportSettings() {
                 {profileUndoRunning
                   ? localizeUi("ui.panels.importsettings.undoingLastImport")
                   : localizeUi("ui.panels.importsettings.undoLastImport")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteSafetyCopy()}
+                disabled={profileImportBusy}
+                className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              >
+                <Trash2 size="0.8125rem" />
+                {localizeUi("ui.panels.importsettings.deleteSafetyCopy")}
               </button>
               <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.importsettings.undoLastImportSavedAt", {

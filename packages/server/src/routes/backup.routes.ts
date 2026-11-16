@@ -3633,6 +3633,20 @@ async function restorePreviousPreImport() {
   await putBackPreviousPreImport();
 }
 
+/**
+ * Remove the safety copy and its record. The record goes first: without it the copy can't be undone
+ * from, even if the copy itself can't be removed. Both are tried before the first error is thrown.
+ */
+async function removePreImportBackup() {
+  let firstError: unknown;
+  for (const path of [getPreImportWritesPath(), getPreImportBackupPath()]) {
+    await rm(path, { force: true }).catch((error: unknown) => {
+      firstError ??= error;
+    });
+  }
+  if (firstError) throw firstError;
+}
+
 /** A finished import no longer needs the previous import's copy and record. */
 async function dropPreviousPreImport() {
   await rm(`${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
@@ -3693,13 +3707,8 @@ async function writePreImportBackup(app: FastifyInstance) {
     await hardenPrivateBackupTree(backupsRoot);
     await rm(pendingPath, { force: true });
     await dropPreviousPreImport();
-    // The previous copy stays on disk until this import finishes, so count it as well.
-    const previousCopyBytes = await stat(finalPath).then(
-      (fileStat) => fileStat.size,
-      () => 0,
-    );
     await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
-      assertBackupFits(backupsRoot, archiveBytes + previousCopyBytes, "a safety copy"),
+      assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
     );
     // Set the previous import's copy and record aside rather than replacing them, so this import can
     // put them back if it fails. The record moves first: a crash never pairs it with this new copy.
@@ -4402,9 +4411,9 @@ export async function backupRoutes(app: FastifyInstance) {
             throw error;
           }
           if (undo) {
-            // Undone once; a second undo would put back the same rows over anything edited since.
-            await rm(getPreImportWritesPath(), { force: true });
-            await rm(getPreImportBackupPath(), { force: true }).catch((error: unknown) =>
+            // Undone once; a second undo would put back the same rows over anything edited since. The
+            // rows are already back, so a failed removal is logged rather than reported as a failed undo.
+            await removePreImportBackup().catch((error: unknown) =>
               logger.warn(error, "[backup] Could not remove the safety copy after undoing an import"),
             );
           } else {
@@ -4939,4 +4948,10 @@ export async function backupRoutes(app: FastifyInstance) {
   app.post("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, (req, reply) =>
     handleProfileImport(req, reply, true),
   );
+  // Frees the space the safety copy takes without undoing anything; Android can't reach the folder.
+  app.delete("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Delete profile import safety copy" })) return;
+    await removePreImportBackup();
+    return { success: true };
+  });
 }

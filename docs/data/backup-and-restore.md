@@ -108,6 +108,8 @@ Branch chats the import replaced stay unlinked from the chat they branched from.
 
 Profiles from much older versions only add items, so Marinara saves no safety copy for them and there is nothing to undo.
 
+The safety copy takes as much space as a full backup. To free that space without undoing the import, click **Delete Safety Copy** next to **Undo Last Import**, then confirm. Your data stays as it is, but you can no longer undo that import.
+
 ## Enter your keys again
 
 **Import Profile** never brings back API keys or webhook links, even from a **Download Backup** `.zip`. An API key is the secret code a service gives you. The profile file and the profile inside a backup have these values blanked. So after you import on a new computer, you must enter them again:
