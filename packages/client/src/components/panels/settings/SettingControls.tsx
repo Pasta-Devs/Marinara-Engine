@@ -23,6 +23,7 @@ import { cn } from "../../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { Spinner } from "@/components/ui/Spinner";
+import { Switch } from "../../ui/Switch";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -674,25 +675,15 @@ export function SettingsSwitch({
   const localizedDescription = localizeStringNode(description, localize);
   const localizedTitle = title ? localize(title) : undefined;
   const switchControl = (
-    <label
-      htmlFor={inputId}
+    <Switch
+      id={inputId}
+      checked={checked}
+      onCheckedChange={onChange}
+      disabled={disabled}
       title={localizedTitle}
-      className={cn("relative inline-flex h-5 w-9 shrink-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}
-    >
-      <input
-        id={inputId}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        aria-label={!label && ariaLabel ? localize(ariaLabel) : undefined}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <SettingsSwitchTrack
-        checked={checked}
-        className={cn("peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]", switchClassName)}
-      />
-    </label>
+      aria-label={!label && ariaLabel ? localize(ariaLabel) : undefined}
+      className={switchClassName}
+    />
   );
   const switchCluster = (
     <span className="inline-flex shrink-0 items-center gap-1.5">

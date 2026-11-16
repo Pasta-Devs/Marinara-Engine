@@ -140,6 +140,7 @@ import { MultiplayerPrepareButton } from "../../features/multiplayer/Multiplayer
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
 import { CharacterSelect, changedId } from "../characters/CharacterSelect";
 import { Spinner } from "@/components/ui/Spinner";
+import { Switch } from "@/components/ui/Switch";
 
 // ─── Step definitions ─────────────────────────
 
@@ -1529,8 +1530,7 @@ function ConversationQuickSetup({
 
   const renderAutomationStep = () => (
     <div className="space-y-2">
-      <button
-        onClick={() => setAutonomousEnabled((value) => !value)}
+      <label
         className={cn(
           "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
           autonomousEnabled && "mari-chat-option-field--active",
@@ -1548,24 +1548,11 @@ function ConversationQuickSetup({
             </p>
           </div>
         </div>
-        <div
-          className={cn(
-            "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-            autonomousEnabled && "mari-chat-option-switch--active",
-          )}
-        >
-          <div
-            className={cn(
-              "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-              autonomousEnabled && "translate-x-3.5",
-            )}
-          />
-        </div>
-      </button>
+        <Switch checked={autonomousEnabled} onCheckedChange={setAutonomousEnabled} />
+      </label>
 
       {autonomousEnabled && (
-        <button
-          onClick={() => setGenerateSchedule((value) => !value)}
+        <label
           className={cn(
             "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
             generateSchedule && "mari-chat-option-field--active",
@@ -1585,20 +1572,8 @@ function ConversationQuickSetup({
               </p>
             </div>
           </div>
-          <div
-            className={cn(
-              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              generateSchedule && "mari-chat-option-switch--active",
-            )}
-          >
-            <div
-              className={cn(
-                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                generateSchedule && "translate-x-3.5",
-              )}
-            />
-          </div>
-        </button>
+          <Switch checked={generateSchedule} onCheckedChange={setGenerateSchedule} />
+        </label>
       )}
 
       {autonomousEnabled && generateSchedule && (
@@ -1608,8 +1583,7 @@ function ConversationQuickSetup({
       )}
 
       {hasConversationCommands && (
-        <button
-          onClick={() => setCommandsEnabled((value) => !value)}
+        <label
           className={cn(
             "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
             commandsEnabled && "mari-chat-option-field--active",
@@ -1627,20 +1601,8 @@ function ConversationQuickSetup({
               </p>
             </div>
           </div>
-          <div
-            className={cn(
-              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              commandsEnabled && "mari-chat-option-switch--active",
-            )}
-          >
-            <div
-              className={cn(
-                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                commandsEnabled && "translate-x-3.5",
-              )}
-            />
-          </div>
-        </button>
+          <Switch checked={commandsEnabled} onCheckedChange={setCommandsEnabled} />
+        </label>
       )}
 
       {hasConversationCommands && commandsEnabled && (
@@ -2916,17 +2878,7 @@ function RoleplaySetupWizard({
 
     return (
       <div className="space-y-3">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={agentsEnabled}
-          onClick={() =>
-            updateMeta.mutate({
-              id: chat.id,
-              enableAgents: !agentsEnabled,
-              activeAgentIds: !agentsEnabled ? readLatestActiveAgentIds() : [],
-            })
-          }
+        <label
           className={cn(
             "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
             agentsEnabled && "mari-chat-option-field--active",
@@ -2938,20 +2890,17 @@ function RoleplaySetupWizard({
               {localizeUi("ui.chat.roleplaysetupwizard.addOptionalHelpersToThisRoleplayYouCanEdit")}
             </p>
           </div>
-          <div
-            className={cn(
-              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              agentsEnabled && "mari-chat-option-switch--active",
-            )}
-          >
-            <div
-              className={cn(
-                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                agentsEnabled && "translate-x-3.5",
-              )}
-            />
-          </div>
-        </button>
+          <Switch
+            checked={agentsEnabled}
+            onCheckedChange={() =>
+              updateMeta.mutate({
+                id: chat.id,
+                enableAgents: !agentsEnabled,
+                activeAgentIds: !agentsEnabled ? readLatestActiveAgentIds() : [],
+              })
+            }
+          />
+        </label>
 
         {import.meta.env.VITE_MARINARA_LITE !== "true" && (
           <AdvancedMemorySettings
