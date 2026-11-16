@@ -3752,21 +3752,38 @@
   color: var(--destructive);
 }
 
-/* Settings: the section a jump chip points at flashes once. */
-@keyframes ov-flash {
-  0%,
-  35% {
-    background-color: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-    box-shadow: inset 3px 0 0 var(--ov-accent);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: inset 3px 0 0 transparent;
-  }
+/* Settings: the section or row a jump lands on lights up in the accent, holds, then fades (SettingsPage.tsx
+   highlightJumpTarget: hold 1.6s, fade 0.6s). The lit state is a plain style so reduced motion still shows it.
+   The tint is a background-image layer and the ring an inset outline, so a theme's own section panel colour and
+   shadow stay underneath (Apogee Lounge paints sections with background + box-shadow !important). It sits in
+   mari-protected so a theme's !important section rules can't hide it. Nothing changes size, so no rows move. */
+@property --ov-flash-mix {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
 }
-/* Inset only, so nothing is clipped by the column or the scroll edge. */
-.ov-flash {
-  animation: ov-flash 1.8s ease-out;
+@layer mari-protected {
+  .ov-flash.ov-flash {
+    --ov-flash-mix: 20% !important;
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--ov-accent) var(--ov-flash-mix), transparent),
+      color-mix(in srgb, var(--ov-accent) var(--ov-flash-mix), transparent)
+    ) !important;
+    outline: 2px solid color-mix(in srgb, var(--ov-accent) calc(var(--ov-flash-mix) * 3.5), transparent) !important;
+    outline-offset: -2px !important;
+    /* Lights up quickly, fades out gently (a transition, since it must also beat the theme's !important). */
+    transition: --ov-flash-mix 0.2s ease-out !important;
+  }
+  .ov-flash.ov-flash--out {
+    --ov-flash-mix: 0% !important;
+    transition: --ov-flash-mix 0.6s ease-in !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ov-flash.ov-flash,
+    .ov-flash.ov-flash--out {
+      transition: none !important;
+    }
+  }
 }
 
 /* Professor Mari as a tab. */
