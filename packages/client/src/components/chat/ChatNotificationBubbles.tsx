@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { chatKeys } from "../../hooks/use-chats";
 import { Loader2, Phone, PhoneIncoming, PhoneOff, X, MessageCircle } from "lucide-react";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameModeStore } from "../../stores/game-mode.store";
@@ -59,8 +60,8 @@ export function ChatNotificationBubbles() {
 
   const refreshCallState = (chatId: string) => {
     queryClient.invalidateQueries({ queryKey: ["conversation-calls", "status", chatId] });
-    queryClient.invalidateQueries({ queryKey: ["chats", "messages", chatId] });
-    queryClient.invalidateQueries({ queryKey: ["chats", "list"] });
+    queryClient.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+    queryClient.invalidateQueries({ queryKey: chatKeys.list() });
   };
 
   const acceptCall = async (notif: ChatNotification) => {

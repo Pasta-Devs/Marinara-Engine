@@ -46,7 +46,7 @@ import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
-import { prepareImageAttachment } from "../../lib/chat-attachment-images";
+import { prepareImageAttachment, readBlobAsDataUrl } from "../../lib/chat-attachment-images";
 import { isFileDrag } from "../../lib/chat-resource-drag";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
 import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generation-stream-policy";
@@ -292,15 +292,6 @@ function isSupportedChatAttachment(file: File): boolean {
     return true;
   }
   return TEXT_ATTACHMENT_EXTENSIONS.has(getFileExtension(file.name));
-}
-
-function readFileAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 function useIsMobileComposerViewport() {
@@ -901,7 +892,7 @@ export function ConversationInput({
         }
 
         try {
-          const data = await readFileAsDataUrl(file);
+          const data = await readBlobAsDataUrl(file);
           appendAttachmentForChat(originChatId, { type: inferAttachmentType(file), data, name: displayName });
         } catch {
           toast.error(localizeUi("ui.chat.chatinput.failedToReadValue1", { value1: displayName }));
