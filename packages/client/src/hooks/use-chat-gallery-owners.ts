@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { galleryBackgroundPins, type AvatarCrop, type LocationBackgroundPin } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
-import { characterKeys, useCharacterListRows, usePersonas } from "./use-characters";
+import { characterKeys, characterListQuery, useCharacterListRows, usePersonas } from "./use-characters";
 import { getChatCharacterIds } from "../lib/chat-macros";
 import type { GalleryAssignTarget } from "./use-gallery";
 
@@ -137,9 +137,20 @@ export function useChatOwnerBackgrounds(
  * Every character's pictures labeled "background", in one request. Loads only while `enabled`,
  * so the background library asks for them when someone opens "All characters".
  */
-export function useAllCharacterBackgrounds(enabled: boolean): { backgrounds: OwnerBackground[]; loading: boolean } {
-  const { data: characters, isLoading: charactersLoading } = useCharacterListRows({ includeBuiltIn: true, enabled });
-  const { data: images, isLoading } = useQuery({
+export function useAllCharacterBackgrounds(enabled: boolean): {
+  backgrounds: OwnerBackground[];
+  loading: boolean;
+  error: boolean;
+  refetch: () => void;
+} {
+  // Drains every catalog page: one page would drop pictures of characters past the first 100.
+  const { data: characters, isLoading: charactersLoading } = useQuery({ ...characterListQuery(true), enabled });
+  const {
+    data: images,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: characterKeys.galleryBackgrounds(),
     queryFn: () => api.get<Array<GalleryBackgroundImage & { characterId: string }>>("/characters/gallery/backgrounds"),
     enabled,
@@ -153,7 +164,7 @@ export function useAllCharacterBackgrounds(enabled: boolean): { backgrounds: Own
       return owner ? [ownerBackground(owner, image)] : [];
     });
   }, [characters, images]);
-  return { backgrounds, loading: enabled && (isLoading || charactersLoading) };
+  return { backgrounds, loading: enabled && (isLoading || charactersLoading), error: isError, refetch };
 }
 
 /** The chat's characters' and persona's gallery backgrounds that name places, as pinned places. */

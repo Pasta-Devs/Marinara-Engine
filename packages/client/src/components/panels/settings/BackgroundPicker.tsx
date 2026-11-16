@@ -442,7 +442,12 @@ export function BackgroundPicker({
     !!previewUrl &&
     /^\/api\/characters\/(?!personas\/)[^/]+\/gallery\/file\//u.test(previewUrl) &&
     !ownerBackgrounds.some((background) => background.url === previewUrl);
-  const { backgrounds: allCharacterBackgrounds, loading: allCharactersLoading } = useAllCharacterBackgrounds(
+  const {
+    backgrounds: allCharacterBackgrounds,
+    loading: allCharactersLoading,
+    error: allCharactersError,
+    refetch: refetchAllCharacters,
+  } = useAllCharacterBackgrounds(
     (open && sourceFilter === "characters" && showAllCharacters) || previewIsOtherCharacterBackground,
   );
   const selectedOwnerBackground =
@@ -1695,32 +1700,48 @@ export function BackgroundPicker({
                 </div>
               )}
 
-              {!(showAllCharacters && allCharactersLoading) && characterGroups.length === 0 && (
+              {showAllCharacters && allCharactersError && characterGroups.length === 0 && (
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
-                  <Image size="1.25rem" className="text-[var(--muted-foreground)]/40" />
-                  <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
-                    {searchQuery.trim()
-                      ? localizeUi("ui.panels.backgroundpicker.noBackgroundsMatchThoseFilters")
-                      : showAllCharacters
-                        ? localizeUi("ui.panels.backgroundpicker.noCharacterBackgrounds")
-                        : localizeUi("ui.panels.backgroundpicker.noChatCharacterBackgrounds")}
+                  <p className="mari-chrome-text-muted text-[0.625rem] max-sm:text-[13px]">
+                    {localizeUi("ui.panels.backgroundpicker.characterBackgroundsFailed")}
                   </p>
-                  {!searchQuery.trim() && (
-                    <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
-                      {localizeUi("ui.panels.backgroundpicker.characterBackgroundsHint")}
-                    </p>
-                  )}
-                  {!showAllCharacters && (
-                    <button
-                      type="button"
-                      onClick={() => setCharacterScope("all")}
-                      className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
-                    >
-                      {localizeUi("ui.panels.backgroundpicker.showAllCharacters")}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => refetchAllCharacters()}
+                    className="text-[0.625rem] underline max-sm:text-[13px]"
+                  >
+                    {localizeUi("ui.panels.backgroundpicker.retry")}
+                  </button>
                 </div>
               )}
+              {!(showAllCharacters && allCharactersLoading) &&
+                !(showAllCharacters && allCharactersError) &&
+                characterGroups.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <Image size="1.25rem" className="text-[var(--muted-foreground)]/40" />
+                    <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
+                      {searchQuery.trim()
+                        ? localizeUi("ui.panels.backgroundpicker.noBackgroundsMatchThoseFilters")
+                        : showAllCharacters
+                          ? localizeUi("ui.panels.backgroundpicker.noCharacterBackgrounds")
+                          : localizeUi("ui.panels.backgroundpicker.noChatCharacterBackgrounds")}
+                    </p>
+                    {!searchQuery.trim() && (
+                      <p className="mari-chrome-text-muted text-[0.625rem] max-sm:!text-[13px]">
+                        {localizeUi("ui.panels.backgroundpicker.characterBackgroundsHint")}
+                      </p>
+                    )}
+                    {!showAllCharacters && (
+                      <button
+                        type="button"
+                        onClick={() => setCharacterScope("all")}
+                        className={cn(SETTINGS_BUTTON_CLASS, "max-sm:!min-h-11 max-sm:!text-[13px]")}
+                      >
+                        {localizeUi("ui.panels.backgroundpicker.showAllCharacters")}
+                      </button>
+                    )}
+                  </div>
+                )}
             </>
           )}
           {cardMenu && (

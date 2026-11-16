@@ -108,7 +108,7 @@ type UseCharactersOptions =
       includeBuiltIn?: boolean;
     };
 
-function characterListQuery(includeBuiltIn: boolean) {
+export function characterListQuery(includeBuiltIn: boolean) {
   return {
     queryKey: includeBuiltIn ? characterKeys.listWithBuiltIns() : characterKeys.list(),
     // #9114: the route answers one page at a time (a single response of the whole library passed V8's string
