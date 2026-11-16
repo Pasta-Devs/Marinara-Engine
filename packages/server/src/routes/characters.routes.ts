@@ -656,7 +656,9 @@ async function buildAvatarGenerationPrompt(
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
   if (body.purpose !== undefined && !AVATAR_GENERATION_PURPOSES.includes(body.purpose)) {
-    return { error: `purpose must be one of ${AVATAR_GENERATION_PURPOSES.join(", ")}` as const };
+    return {
+      error: `purpose must be ${AVATAR_GENERATION_PURPOSES.slice(0, -1).join(", ")} or ${AVATAR_GENERATION_PURPOSES.at(-1)}`,
+    } as const;
   }
   if (!body.connectionId) {
     return { error: "connectionId is required" as const };
