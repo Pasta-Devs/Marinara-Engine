@@ -10,7 +10,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
-import { SPLIT_PANE, forgetSplitPaneCopy, type SplitPage } from "../../lib/split-view-env";
+import { SPLIT_PANE, SPLIT_PLACE_FIELDS, forgetSplitPaneCopy, type SplitPage } from "../../lib/split-view-env";
 import { queryClient } from "../../lib/query-client";
 import { claimSoundOnPress, setSplitSideQuiet } from "../../lib/split-sound-gate";
 import { useUIStore } from "../../stores/ui.store";
@@ -34,7 +34,6 @@ import {
 import {
   HOME_PAGE,
   SPLIT_DIVIDER,
-  canSplit,
   clampSplitSize,
   closeSplit,
   endSplitDrag,
@@ -81,6 +80,46 @@ function startQuerySync() {
   };
 }
 
+// ── Settings saved by one side show on the other ──
+// Each side keeps its own place (open page, editor, Settings category, tabs) and takes the other's
+// settings: the frame saves its settings under the main window's place (lib/split-view-env.ts), so
+// Settings can be open on either side.
+
+/** The saved fields of `persisted` that are settings, over `current` (which keeps its place). */
+function takeSettings<S>(key: string, persisted: unknown, current: S): S {
+  const place = SPLIT_PLACE_FIELDS[key];
+  const settings = Object.fromEntries(
+    Object.entries((persisted ?? {}) as Record<string, unknown>).filter(([field]) => !place?.test(field)),
+  );
+  return { ...current, ...settings };
+}
+
+/** Load the other side's settings in one update that leaves this side's place out. */
+function rehydrateSettings(key: string, store: typeof useUIStore | typeof useOverhaulStore) {
+  // (Restoring the place afterwards let a render in between move this side to the other side's page.)
+  const persist = store.persist as typeof useUIStore.persist;
+  persist.setOptions({ merge: (persisted, current) => takeSettings(key, persisted, current) });
+  void Promise.resolve(persist.rehydrate()).finally(() => persist.setOptions({ merge: undefined }));
+}
+
+function followSavedSettings() {
+  const onStorage = (event: StorageEvent) => {
+    if (event.storageArea !== window.localStorage || !event.key) return;
+    if (event.key === "marinara-device-look") void useDeviceLookStore.persist.rehydrate();
+    if (event.key === "marinara-engine-ui") {
+      forgetSplitPaneCopy("marinara-engine-ui");
+      forgetSplitPaneCopy("marinara-engine-ui:host");
+      rehydrateSettings(event.key, useUIStore);
+    }
+    if (event.key === "marinara-overhaul-layout") {
+      forgetSplitPaneCopy(event.key);
+      rehydrateSettings(event.key, useOverhaulStore);
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+}
+
 // ── Main window: the second side ──
 
 /** The divider and the second side's frame. Rendered by AppShell beside the main page. */
@@ -99,6 +138,7 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
   const frameKey = useRef<string | null>(null);
 
   useEffect(startQuerySync, []);
+  useEffect(followSavedSettings, []);
 
   // Only the side clicked last plays sound. Grabbing the divider isn't a click on the main side.
   // Closing the split gives the main window its sound back.
@@ -127,16 +167,6 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
       if (!current) return;
       if ("current" in data) {
         setReady(true);
-        // Settings stay on the main side: open them there, and send the second side back to its page.
-        if (!canSplit(data.current)) {
-          if (!canSplit(current.page)) closeSplit();
-          else {
-            pending.current = current.page;
-            post({ type: "ov-split", open: current.page });
-          }
-          openInMain(data.current);
-          return;
-        }
         frameKey.current = splitPageKey(data.current);
         if (pending.current) {
           // Still on the way to the page it was sent to: news from before that is stale.
@@ -414,16 +444,6 @@ export function SplitDropOverlay() {
 
 // ── Inside the frame: the second side ──
 
-const PLACE_FIELD =
-  /DetailId$|DetailChatId$|Open$|^sidebar|^rightPanel|LibrarySelectedId$|LibraryKind$|^noodle|settingsTab/;
-
-function mergeKeepingPlace(persisted: unknown, current: ReturnType<typeof useUIStore.getState>) {
-  const settings = Object.fromEntries(
-    Object.entries((persisted ?? {}) as Record<string, unknown>).filter(([key]) => !PLACE_FIELD.test(key)),
-  );
-  return { ...current, ...settings };
-}
-
 /** Runs in the frame before its first paint: open the page it was made for, without the side panes. */
 export function startSplitPane() {
   if (!SPLIT_PANE) return;
@@ -440,22 +460,12 @@ export function startSplitPane() {
     if (data?.type === "ov-split" && "sound" in data) setSplitSideQuiet(true);
   });
   // This side was clicked: take the sound (it starts quiet, see split-sound-gate).
-  claimSoundOnPress(() => window.parent.postMessage({ type: "ov-split", sound: "mine" } satisfies SplitMessage, origin()));
+  claimSoundOnPress(() =>
+    window.parent.postMessage({ type: "ov-split", sound: "mine" } satisfies SplitMessage, origin()),
+  );
 
   // Look and settings changed in the main window show here too; where this side is stays its own.
-  window.addEventListener("storage", (event) => {
-    if (event.storageArea !== window.localStorage || !event.key) return;
-    if (event.key === "marinara-device-look") void useDeviceLookStore.persist.rehydrate();
-    if (event.key !== "marinara-engine-ui") return;
-    forgetSplitPaneCopy("marinara-engine-ui");
-    forgetSplitPaneCopy("marinara-engine-ui:host");
-    // Take the main window's settings in one update that leaves this side's place out. (Restoring the
-    // place afterwards let a render in between move this side to the main side's page.)
-    useUIStore.persist.setOptions({ merge: mergeKeepingPlace });
-    void Promise.resolve(useUIStore.persist.rehydrate()).finally(() =>
-      useUIStore.persist.setOptions({ merge: undefined }),
-    );
-  });
+  followSavedSettings();
 }
 
 /** The second side's own bar: what it shows, Chat settings for a chat, and swap / only this / close. */

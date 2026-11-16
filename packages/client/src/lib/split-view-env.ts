@@ -9,7 +9,9 @@
 // import): the frame reads the saved settings like any window, but where it
 // is (open chat, editor, Library page, tabs) stays its own. Those saves go to
 // memory instead of this device's storage, or a reload of the main window
-// would open the second side's page. Nothing here imports a store.
+// would open the second side's page. The settings in those saves still reach
+// this device's storage (with the main window's place kept), so Settings work
+// on either side. Nothing here imports a store.
 // ──────────────────────────────────────────────
 
 /** A page that can be on a side of the split: a tab, a Library section, the Docs, or Home. */
@@ -46,6 +48,52 @@ export const SPLIT_PANE_PLACE_KEYS = new Set([
   "marinara-engine-ui:host",
 ]);
 
+/**
+ * In the saves that say where a window is, the fields that do (the rest are settings, shared by both sides).
+ * The open Settings category is a place too: each side shows its own.
+ */
+export const SPLIT_PLACE_FIELDS: Record<string, RegExp> = {
+  "marinara-engine-ui":
+    /DetailId$|DetailChatId$|Open$|^sidebar|^rightPanel|LibrarySelectedId$|LibraryKind$|ScrollTop$|^noodle|settingsTab/,
+  "marinara-overhaul-layout": /^(tabs|tabGroups|libraryPage|settingsTab|docsTabs|split|sidePane)$/,
+};
+SPLIT_PLACE_FIELDS["marinara-engine-ui:host"] = SPLIT_PLACE_FIELDS["marinara-engine-ui"];
+
+type Saved = { state?: Record<string, unknown>; version?: number };
+
+function parseSaved(raw: string | null): Saved | null {
+  try {
+    const saved = raw === null ? null : (JSON.parse(raw) as Saved);
+    return saved && typeof saved === "object" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `mine`'s settings with `theirs`'s place, as a save; null when `theirs` already has those settings.
+ * The second side's settings go into this device's storage this way, under the main window's place.
+ */
+export function savedSettingsOver(key: string, theirs: string | null, mine: string): string | null {
+  const place = SPLIT_PLACE_FIELDS[key];
+  const own = parseSaved(mine);
+  if (!place || !own?.state) return null;
+  const other = parseSaved(theirs);
+  const otherState = other?.state ?? {};
+  const state: Record<string, unknown> = {};
+  let changed = !other || other.version !== own.version;
+  for (const [field, value] of Object.entries(otherState)) {
+    if (place.test(field)) state[field] = value;
+    else if (!(field in own.state)) changed = true;
+  }
+  for (const [field, value] of Object.entries(own.state)) {
+    if (place.test(field)) continue;
+    state[field] = value;
+    if (!changed && JSON.stringify(otherState[field]) !== JSON.stringify(value)) changed = true;
+  }
+  return changed ? JSON.stringify({ ...other, ...own, state }) : null;
+}
+
 const overlay = new Map<string, string | null>();
 
 /** Drop the frame's own copy of a key, so its next read sees what the main window saved. */
@@ -67,6 +115,10 @@ if (SPLIT_PANE && typeof Storage !== "undefined") {
     proto.setItem = function (this: Storage, key: string, value: string) {
       if (this === local && SPLIT_PANE_PLACE_KEYS.has(key)) {
         overlay.set(key, String(value));
+        // Settings changed here are saved for real, under the main window's place (the main window
+        // picks them up from the storage event).
+        const shared = savedSettingsOver(key, getItem.call(this, key), String(value));
+        if (shared !== null) setItem.call(this, key, shared);
         return;
       }
       setItem.call(this, key, value);

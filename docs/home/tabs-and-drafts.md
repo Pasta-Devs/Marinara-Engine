@@ -23,7 +23,7 @@ On a phone, close a tab with the **X** on its card in **All Tabs**.
 
 On a computer, you can show two pages side by side, such as a chat and the character you are editing.
 
-1. Drag a tab to the far left or right edge of the page. You can also drag Home, a Library section, a chat from the Chats list, or the **Docs** button.
+1. Drag a tab to the far left or right edge of the page. You can also drag Home, a Library section (Settings too), a chat from the Chats list, or the **Docs** button.
 2. Drop it. The page splits: what you dragged on that side, and the page you were on beside it.
 
 Or right-click a tab (press and hold on a touch screen) and choose **Open in split view**.
@@ -34,7 +34,7 @@ Each side works on its own: a reply can stream on one side while you edit on the
 - **Tabs:** the top bar's tabs, the Chats list and the Library open things on the main side. The tab shown on the second side is marked; click it to trade the two sides. Closing either tab ends the split.
 - **Size:** drag the divider between the sides. Double-click it to make them even. With the divider focused, the arrow keys move it too.
 - **Narrow second side:** below about 900 pixels it switches to the tablet layout, and below about 560 to the phone layout.
-- **Settings** always open on the main side.
+- **Settings** work on either side. A setting changed on one side shows on the other at once, and each side keeps its own open category.
 
 Split view needs room for two pages. Phones never split. A tablet held sideways splits once its side panels are closed. When the window gets too narrow, the second page is put away, and the split comes back when there is room again.
 
