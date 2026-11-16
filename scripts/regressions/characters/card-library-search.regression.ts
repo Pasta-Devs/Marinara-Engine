@@ -6,6 +6,10 @@ import {
   matchesCardLibrarySearch,
   parseCardLibrarySearchQuery,
 } from "../../../packages/client/src/lib/card-library-search.js";
+import {
+  characterMatchesSearch,
+  parseCharacterDisplayData,
+} from "../../../packages/client/src/lib/character-display.js";
 
 const characterLibrarySearchDocument = {
   name: "Il Dottore",
@@ -103,5 +107,26 @@ assert.equal(
   matchesCardLibrarySearch({ ...aliasedLibrarySearchDocument, aliases: [] }, parseCardLibrarySearchQuery("kal-el")),
   false,
 );
+
+const searchableCharacter = parseCharacterDisplayData({
+  data: JSON.stringify({
+    name: "Il Dottore",
+    description: "A Fatui researcher from Snezhnaya.",
+    creator: "Pasta Devs",
+    tags: ["scientist", "villain"],
+  }),
+  comment: "Modern AU version",
+});
+assert.equal(characterMatchesSearch(searchableCharacter, "scientist"), true);
+assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
+assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
+assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
+// A light list row (useCharacterListRows) has the catalog summary and no description; it still matches.
+const summaryRowCharacter = parseCharacterDisplayData({
+  data: { name: "Il Dottore", summary: "A Fatui researcher from Snezhnaya.", tags: [] },
+  comment: "",
+});
+assert.equal(characterMatchesSearch(summaryRowCharacter, "snezhnaya"), true);
+assert.equal(characterMatchesSearch(summaryRowCharacter, "friendly bard"), false);
 
 console.info("Card library search regression checks passed.");
