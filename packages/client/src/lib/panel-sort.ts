@@ -11,7 +11,9 @@ export function normalizeBasicPanelSort(value: unknown): BasicPanelSort {
 /** The sorts a card library offers: the basic ones plus the size pair. */
 export type LibrarySort = BasicPanelSort | TokenSort;
 
+/** A stored `"tokens"` (the old largest-first persona sort) lands on Most tokens. */
 export function normalizeLibrarySort(value: unknown): LibrarySort {
+  if (value === "tokens") return "tokens-desc";
   return isTokenSort(value) ? value : normalizeBasicPanelSort(value);
 }
 

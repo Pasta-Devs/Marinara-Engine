@@ -6,7 +6,11 @@ import {
 } from "../../../packages/shared/src/utils/token-sort.js";
 import { estimatePersonaTokens } from "../../../packages/shared/src/utils/character-token-estimator.js";
 import { normalizeLorebookPanelSort } from "../../../packages/client/src/stores/ui.store.js";
-import { sortFoldersByTokens, sortItemsByTokens } from "../../../packages/client/src/lib/panel-sort.js";
+import {
+  normalizeLibrarySort,
+  sortFoldersByTokens,
+  sortItemsByTokens,
+} from "../../../packages/client/src/lib/panel-sort.js";
 
 process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
@@ -61,6 +65,9 @@ assert.deepEqual(
 assert.equal(normalizeLorebookPanelSort("tokens"), "tokens-desc");
 assert.equal(normalizeLorebookPanelSort("tokens-asc"), "tokens-asc");
 assert.equal(normalizeLorebookPanelSort("bogus"), "name-asc");
+// The old hidden persona "Tokens" sort lands on Most tokens too.
+assert.equal(normalizeLibrarySort("tokens"), "tokens-desc");
+assert.equal(normalizeLibrarySort("bogus"), "name-asc");
 
 // One persona estimate counts the six text fields and ignores non-strings.
 assert.equal(estimatePersonaTokens({ description: "abcd".repeat(4), mes_example: "abcd".repeat(4) }), 8);

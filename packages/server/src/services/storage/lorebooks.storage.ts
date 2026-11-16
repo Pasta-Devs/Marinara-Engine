@@ -335,9 +335,15 @@ async function getLorebookEntryTotals(db: DB): Promise<LorebookEntryTotals> {
   const generation = db._fileStore?.getTableWriteGeneration("lorebook_entries");
   const cached = entryTotalsCache.get(db);
   if (generation !== undefined && cached?.generation === generation) return cached.totals;
-  const entryRows = await db
-    .select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content })
-    .from(lorebookEntries);
+  const totals = sumLorebookEntries(
+    await db.select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content }).from(lorebookEntries),
+  );
+  // A write that landed while reading leaves the stored generation behind, so the next call recomputes.
+  if (generation !== undefined) entryTotalsCache.set(db, { generation, totals });
+  return totals;
+}
+
+function sumLorebookEntries(entryRows: Array<{ lorebookId: string; content: string | null }>): LorebookEntryTotals {
   const totals: LorebookEntryTotals = new Map();
   for (const entry of entryRows) {
     const total = totals.get(entry.lorebookId) ?? { count: 0, tokens: 0 };
@@ -345,9 +351,17 @@ async function getLorebookEntryTotals(db: DB): Promise<LorebookEntryTotals> {
     total.tokens += estimateTextTokens(entry.content ?? "");
     totals.set(entry.lorebookId, total);
   }
-  // A write that landed while reading leaves the stored generation behind, so the next call recomputes.
-  if (generation !== undefined) entryTotalsCache.set(db, { generation, totals });
   return totals;
+}
+
+/** Entry totals for just these books; the whole-library pass is only for ranking by size. */
+async function getLorebookEntryTotalsFor(db: DB, bookIds: string[]): Promise<LorebookEntryTotals> {
+  return sumLorebookEntries(
+    await db
+      .select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content })
+      .from(lorebookEntries)
+      .where(inArray(lorebookEntries.lorebookId, bookIds)),
+  );
 }
 
 async function hydrateLorebookRows(
@@ -368,7 +382,7 @@ async function hydrateLorebookRows(
       .from(lorebookPersonaLinks)
       .where(inArray(lorebookPersonaLinks.lorebookId, bookIds))
       .orderBy(asc(lorebookPersonaLinks.lorebookId), asc(lorebookPersonaLinks.personaId)),
-    options.entryTotals ?? getLorebookEntryTotals(db),
+    options.entryTotals ?? getLorebookEntryTotalsFor(db, bookIds),
   ]);
   const characterIdsByBook = new Map<string, string[]>();
   for (const link of characterRows) {
