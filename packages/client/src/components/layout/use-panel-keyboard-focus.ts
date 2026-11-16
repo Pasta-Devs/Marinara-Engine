@@ -68,10 +68,13 @@ export function usePanelKeyboardFocus({
     if (!event.currentTarget.contains(event.target as Node)) return;
     event.preventDefault();
     onClose();
+    // The first match on screen: a phone hides some top-bar toggles and lists them in More instead.
     const opener =
       openerRef.current && document.contains(openerRef.current)
         ? openerRef.current
-        : document.querySelector<HTMLElement>(toggleSelector);
+        : Array.from(document.querySelectorAll<HTMLElement>(toggleSelector)).find((element) =>
+            element.checkVisibility ? element.checkVisibility() : element.offsetParent !== null,
+          );
     window.requestAnimationFrame(() => opener?.focus({ preventScroll: true }));
   };
 

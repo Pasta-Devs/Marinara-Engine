@@ -1,3 +1,5 @@
+import { PHONE_LAYOUT_QUERY } from "../stores/floating-window.store";
+
 export const CHAT_FLOATING_UI_DISMISS_EVENT = "marinara:chat-floating-ui-dismiss";
 export const CHAT_SUMMARY_OPEN_REQUEST_EVENT = "marinara:chat-summary-open-request";
 export const CHAT_LOREBOOK_ENTRIES_OPEN_REQUEST_EVENT = "marinara:chat-lorebook-entries-open-request";
@@ -103,7 +105,7 @@ export function isBrowserExtensionUi(target: EventTarget | null) {
 }
 
 export function isDesktopShellNavigationTarget(target: EventTarget | null) {
-  if (typeof window === "undefined" || window.matchMedia("(max-width: 767px)").matches) return false;
+  if (typeof window === "undefined" || window.matchMedia(PHONE_LAYOUT_QUERY).matches) return false;
   const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
   // A window toggle in the topbar, such as Chat Settings, is a chat control: pressing it closes chat popovers.
   if (element?.closest("[data-window-opener]")) return false;

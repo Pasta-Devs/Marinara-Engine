@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
+import { presetKeys } from "../../hooks/use-presets";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
@@ -41,7 +42,7 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
 
   const createPreset = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post("/prompts", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["presets"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: presetKeys.all }),
   });
 
   const reset = () => {

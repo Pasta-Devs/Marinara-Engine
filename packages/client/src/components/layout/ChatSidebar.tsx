@@ -326,7 +326,8 @@ export function ChatSidebar() {
   const sidebarKeyboard = usePanelKeyboardFocus({
     open: sidebarIsOpen,
     containerRef: sidebarNavRef,
-    toggleSelector: '[data-component="TopBar"] [data-tour="sidebar-toggle"]',
+    // On a phone Chats is a row of the top bar's More menu, so focus goes back to More.
+    toggleSelector: '[data-component="TopBar"] [data-tour="sidebar-toggle"], [data-topbar-more]',
     onClose: closeSidebarFromKeyboard,
   });
   const chatModeShortcutRequest = useUIStore((s) => s.chatModeShortcutRequest);

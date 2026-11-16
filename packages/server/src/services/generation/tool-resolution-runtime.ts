@@ -170,7 +170,11 @@ const CONVERSATION_ONLY_TOOL_NAMES = new Set(["update_about_me"]);
 
 // Tools that are off unless the user explicitly enables them via activeToolIds
 // (excluded from the "no filter set = all tools on" default).
-const DEFAULT_OFF_TOOL_NAMES = new Set(["update_about_me", ...(DEFAULT_AGENT_TOOLS.spotify ?? [])]);
+// web_fetch belongs here because it is the only tool that lets the model pick where the Engine sends a
+// request. Left on by default, a card, lorebook entry or fetched page could tell the model to fetch an
+// attacker's URL with the persona and recent messages in the query string. web_search cannot be used
+// that way: it only ever talks to DuckDuckGo.
+const DEFAULT_OFF_TOOL_NAMES = new Set(["update_about_me", "web_fetch", ...(DEFAULT_AGENT_TOOLS.spotify ?? [])]);
 
 export function isChatToolEnabledByDefault(toolName: string): boolean {
   return !AGENT_ONLY_TOOL_NAMES.has(toolName) && !DEFAULT_OFF_TOOL_NAMES.has(toolName);

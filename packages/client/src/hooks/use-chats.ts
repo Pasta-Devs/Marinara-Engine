@@ -89,6 +89,11 @@ export const chatKeys = {
   branchGraph: (groupId: string) => [...chatKeys.group(groupId), "branchGraph"] as const,
 };
 
+export const conversationStatusKeys = {
+  all: ["conversation-status"] as const,
+  detail: (chatId: string) => [...conversationStatusKeys.all, chatId] as const,
+};
+
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS = 300;
 const chatMetadataMutationVersions = new Map<string, number>();

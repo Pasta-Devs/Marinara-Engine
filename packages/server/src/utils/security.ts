@@ -61,8 +61,21 @@ export interface SafeFetchOptions extends Omit<RequestInit, "dispatcher"> {
   allowMissingContentType?: boolean;
   bufferResponse?: boolean;
   decodeCompressedResponse?: boolean;
+  /**
+   * Return the first `maxResponseBytes` of an oversized body instead of failing the request.
+   * Buffered responses only. Use it when the caller reads a prefix of the body anyway, such as a
+   * page's readable text, and a truncated document is still useful.
+   */
+  truncateResponseBody?: boolean;
+  /** Called when `truncateResponseBody` cut the body short, so the caller can say so. */
+  onResponseTruncated?: () => void;
   /** Observe nonempty raw response chunks before buffering or decoding. */
   onResponseData?: () => void;
+  /**
+   * Called once with the address that produced the returned response, after any redirects. A
+   * buffered Response is rebuilt from the body, so its own `url` is empty and cannot report this.
+   */
+  onFinalUrl?: (url: string) => void;
   agentOptions?: Omit<AgentOptions, "connect">;
   /** Start TCP keepalive probes after this many idle milliseconds without exposing custom DNS/connect hooks. */
   keepAliveInitialDelayMs?: number;
@@ -599,6 +612,8 @@ async function readCappedResponse(
   dispatcher?: Dispatcher,
   decodeCompressedResponse = false,
   onResponseData?: () => void,
+  truncate = false,
+  onTruncated?: () => void,
 ): Promise<Response> {
   if (!response.body) {
     await dispatcher?.close().catch(() => undefined);
@@ -612,11 +627,20 @@ async function readCappedResponse(
       const { done, value } = await reader.read();
       if (done) break;
       if (value.byteLength) onResponseData?.();
-      total += value.byteLength;
-      if (total > maxBytes) {
+      const nextTotal = total + value.byteLength;
+      if (nextTotal > maxBytes) {
+        if (!truncate) {
+          await reader.cancel().catch(() => undefined);
+          throw new Error(`Outbound response exceeded ${maxBytes} bytes`);
+        }
+        const room = maxBytes - total;
+        if (room > 0) chunks.push(value.subarray(0, room));
+        total = maxBytes;
+        onTruncated?.();
         await reader.cancel().catch(() => undefined);
-        throw new Error(`Outbound response exceeded ${maxBytes} bytes`);
+        break;
       }
+      total = nextTotal;
       chunks.push(value);
     }
   } finally {
@@ -821,7 +845,10 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     allowMissingContentType = false,
     bufferResponse = true,
     decodeCompressedResponse = false,
+    truncateResponseBody = false,
+    onResponseTruncated,
     onResponseData,
+    onFinalUrl,
     agentOptions,
     keepAliveInitialDelayMs,
     dispatcher,
@@ -909,8 +936,17 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
       }
     }
 
+    onFinalUrl?.(current.url.toString());
     return bufferResponse
-      ? readCappedResponse(response, maxResponseBytes, internalDispatcher, decodeCompressedResponse, onResponseData)
+      ? readCappedResponse(
+          response,
+          maxResponseBytes,
+          internalDispatcher,
+          decodeCompressedResponse,
+          onResponseData,
+          truncateResponseBody,
+          onResponseTruncated,
+        )
       : capStreamingResponse(response, maxResponseBytes, internalDispatcher, onResponseData);
   }
 

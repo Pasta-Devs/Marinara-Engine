@@ -8,6 +8,7 @@
 // flow has been replaced so users can edit row-level params without leaving
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
+import { estimateTextTokens } from "@marinara-engine/shared";
 import {
   useState,
   useEffect,
@@ -113,7 +114,7 @@ import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
 import { LorebookScanTest, type LorebookScanPreviewMatch } from "./LorebookScanTest";
-import { ExpandableTextarea, estimateTokens } from "./LorebookFormFields";
+import { ExpandableTextarea } from "./LorebookFormFields";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { LorebookTextImportDialog } from "./LorebookTextImportDialog";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
@@ -727,7 +728,7 @@ export function LorebookEditor() {
       case "name-desc":
         return [...result].sort((a, b) => b.name.localeCompare(a.name));
       case "tokens":
-        return [...result].sort((a, b) => estimateTokens(b.content) - estimateTokens(a.content));
+        return [...result].sort((a, b) => estimateTextTokens(b.content) - estimateTextTokens(a.content));
       case "keys":
         return [...result].sort((a, b) => b.keys.length - a.keys.length);
       case "fired":
@@ -3292,7 +3293,7 @@ export function LorebookEditor() {
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Hash size="0.625rem" />
-                          {entries.reduce((sum, e) => sum + estimateTokens(e.content), 0).toLocaleString()}{" "}
+                          {entries.reduce((sum, e) => sum + estimateTextTokens(e.content), 0).toLocaleString()}{" "}
                           {localizeUi("ui.lorebooks.lorebookeditor.tokensEst")}
                         </span>
                         {activationStats && (

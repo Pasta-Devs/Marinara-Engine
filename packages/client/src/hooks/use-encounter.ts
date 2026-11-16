@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Hook: Combat Encounter API calls
 // ──────────────────────────────────────────────
+import { useShallow } from "zustand/react/shallow";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
@@ -25,7 +26,37 @@ let encounterRun = 0;
 
 export function useEncounter() {
   const qc = useQueryClient();
-  const store = useEncounterStore();
+  const store = useEncounterStore(
+    useShallow(
+      ({
+        addLogEntry,
+        closeConfigModal,
+        endCombat,
+        initCombat,
+        openConfigModal,
+        reset,
+        setError,
+        setLoading,
+        setPendingLogs,
+        setProcessing,
+        setSummaryStatus,
+        updateCombat,
+      }) => ({
+        addLogEntry,
+        closeConfigModal,
+        endCombat,
+        initCombat,
+        openConfigModal,
+        reset,
+        setError,
+        setLoading,
+        setPendingLogs,
+        setProcessing,
+        setSummaryStatus,
+        updateCombat,
+      }),
+    ),
+  );
   const activeChatId = useChatStore((s) => s.activeChatId);
 
   /** Start combat: show config modal → init → render. */

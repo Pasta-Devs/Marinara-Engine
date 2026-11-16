@@ -26,7 +26,7 @@ For a first try, pick **Static Result**: it needs nothing else.
 Rules for names and descriptions:
 
 - The name is 1 to 100 characters. The description is 1 to 500 characters.
-- Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
+- Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `web_fetch` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
 The buttons at the top of the **Tools** tab are:
@@ -175,6 +175,8 @@ Creating a tool does not make the AI use it. You also turn tool use on for the c
 4. Check it works: ask the AI something your tool answers, such as "What are your store hours?" for the `store_hours` example. The reply should use the tool's text.
 
 With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in the **Tools** tab. Game chats also need **Let the GM search lore** for `search_lorebook`.
+
+> **Note:** A few built-in tools stay off until you tick them, even with **Enable Tool Use** on. `web_fetch` is one, because it lets the AI choose which web address to read. The Spotify tools work the same way.
 
 To limit a chat to a chosen set:
 

@@ -154,7 +154,11 @@ import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { useUIStore } from "../../stores/ui.store";
 import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
-import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import {
+  CHAT_SETTINGS_WINDOW_ID,
+  PHONE_LAYOUT_QUERY,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
 import { getChatSettingsWindowProps, useTrackerPanelClearance } from "../../components/chat/chat-settings-window";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useChatControlDockStore, useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
@@ -330,7 +334,7 @@ export function ChatSettingsDrawer({
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   // Phones show Chat Settings as a full-width sheet.
-  const phoneLayout = useMatchMedia("(max-width: 767px)");
+  const phoneLayout = useMatchMedia(PHONE_LAYOUT_QUERY);
   const trackerPanelClearance = useTrackerPanelClearance(!phoneLayout);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelEnabled = useUIStore((s) => s.setTrackerPanelEnabled);

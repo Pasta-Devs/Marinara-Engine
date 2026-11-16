@@ -3,6 +3,7 @@ import { Check, Clock3, Loader2, LocateFixed } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../../lib/api-client";
+import { conversationStatusKeys } from "../../hooks/use-chats";
 import {
   detectConversationTimeZone,
   formatConversationTimeZone,
@@ -48,7 +49,7 @@ export function ConversationTimeZoneSelect({
             predicate: (query) =>
               query.queryKey[0] === "chats" && (query.queryKey[1] === "list" || query.queryKey[1] === "detail"),
           }),
-          queryClient.invalidateQueries({ queryKey: ["conversation-status"] }),
+          queryClient.invalidateQueries({ queryKey: conversationStatusKeys.all }),
         ]);
       } catch (error) {
         if (requestId === requestIdRef.current) {

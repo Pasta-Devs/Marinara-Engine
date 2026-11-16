@@ -12,6 +12,7 @@ const TOOL_ORDER = [
   "trigger-event",
   "search-lorebook",
   "web-search",
+  "web-fetch",
   "save-lorebook-entry",
   "read-chat-summary",
   "append-chat-summary",
