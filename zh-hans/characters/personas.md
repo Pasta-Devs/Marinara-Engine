@@ -34,7 +34,7 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 | **Import**(导入) | 打开 **Import Persona**(导入用户角色) 窗口。 |
 | **Select**(选择) | 开启选择模式，用于批量删除和导出。 |
 | 搜索框 | 占位文字是 **Search personas/tags**(搜索用户角色/标签)。它会匹配名称、描述、备注和标签。按标签搜索的方法见[搜索](library-organization.md#search)。 |
-| 排序下拉菜单 | **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest**、**Oldest** 或 **Tokens**(估算的提示词长度)。 |
+| 排序下拉菜单 | **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest**、**Oldest** 或 **Most tokens**(Token 数从多到少) 或 **Fewest tokens**(Token 数从少到多，各行也显示估算大小)。 |
 | **New Folder**(新建文件夹) | 新建一个文件夹。 |
 | **Tags**(标签) | 展开用于筛选的标签列表。 |
 

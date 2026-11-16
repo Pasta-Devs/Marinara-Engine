@@ -13,6 +13,8 @@ Der Card Browser füllt den gesamten Inhaltsbereich aus und trägt den Titel **B
 
 Schließt du ihn und öffnest ihn erneut, sind deine letzte Suche, die Filter und der ausgewählte Charakter noch da. Ein Neuladen der App setzt sie zurück.
 
+Die Schaltfläche **Download** (Herunterladen) im Panel **Lorebooks** öffnet denselben Browser mit herunterladbaren Lorebooks. Siehe [Ein Lorebook von Chub herunterladen](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 ## Eine Quelle wählen
 
 Klick auf die Quellen-Schaltfläche im Kopfbereich. Das Menü listet in dieser Reihenfolge: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** und **PlotLight Personas**. Beim ersten Mal ist **ChubAI** ausgewählt. Ein Wechsel der Quelle leert Suchtext, Tags und Filter. Jede Quelle behält ihre eigene Einstellung für Erwachseneninhalte und ihren eigenen Login.

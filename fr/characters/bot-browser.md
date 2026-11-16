@@ -13,6 +13,8 @@ Le Card Browser occupe toute la zone de contenu, sous le titre **Browse characte
 
 Si tu le fermes puis le rouvres, ta dernière recherche, tes filtres et le personnage sélectionné sont toujours là. Recharger l'application les remet à zéro.
 
+Le bouton **Download** (télécharger) du panneau **Lorebooks** ouvre le même navigateur sur les lorebooks à télécharger. Voir [Télécharger un lorebook depuis Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 ## Choisir une source
 
 Clique sur le bouton de source dans l'en-tête. Le menu liste, dans l'ordre : **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** et **PlotLight Personas**. **ChubAI** est sélectionné la première fois. Changer de source efface le texte de recherche, les tags et les filtres. Chaque source garde son propre réglage de contenu adulte et sa propre connexion au site.

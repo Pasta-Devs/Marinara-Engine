@@ -146,7 +146,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI、Googleの画像と動画�
 
 ## Decision
 
-**Decisions**(判定)の下にあるタイルは、**TypeSafe**(デフォルトのアドレスは`https://api.typesafe.ai`)、**Own decision server**(自分の判定サーバー)、**Built-in model (decisions)**(判定用の内蔵モデル)です。OpenAIのチャット形式を使うチャットサービスも判定に使えますが、対数確率(考えられる各回答のスコア)を返すモデルに限られます。Decisionモデルは、チャットについてのはい・いいえの質問に答えます。[Decisionモデル](decision-models.md)を参照してください。
+**Decisions**(判定)の下にあるタイルは、**TypeSafe**(デフォルトのアドレスは`https://api.typesafe.ai`)、**Own decision server**(自分の判定サーバー)、**Built-in model (decisions)**(判定用の内蔵モデル)です。**Add**(追加)の種類の**Decision**(判定)には、これらに加え、独自の判定モデルを持つ**NanoGPT**、**OpenRouter**、**Google Gemini**も表示されます([NanoGPT経由](decision-models.md#through-nanogpt)、[OpenRouterまたはGoogle Gemini経由](decision-models.md#through-openrouter-or-google-gemini)を参照)。ほかのOpenAIのチャット形式を使うチャットサービスも判定に使えますが、対数確率(考えられる各回答のスコア)を返すモデルに限られます。Decisionモデルは、チャットについてのはい・いいえの質問に答えます。[Decisionモデル](decision-models.md)を参照してください。
 
 ## Audio
 

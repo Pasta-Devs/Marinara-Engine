@@ -111,9 +111,18 @@ Le réglage de débogage de l'interface fonctionne toujours via `logDebugOverrid
 
 <a id="checks"></a>
 
+## Console dans l'application
+
+**Settings → Advanced → Open Console** (Paramètres → Avancé → Ouvrir la console) affiche les lignes récentes du serveur dans l'application, pour les installations dont le terminal est inaccessible (NAS, VPS, Docker ou Termux).
+
+- `lib/log-buffer.ts` conserve les 1 500 dernières lignes en mémoire, dans la limite d'environ 4 millions de caractères, avec un maximum de 16 000 caractères par message et par bloc de champs. Rien n'est écrit sur disque et un redémarrage vide le tampon.
+- `logger.ts` y copie chaque ligne sérialisée via `hooks.streamWrite` de Pino. Le tampon contient donc ce que le terminal ou le fichier journal a reçu, au même `LOG_LEVEL`. Les lignes qui ne passent pas par Pino, comme `injected env` de dotenv ou la sortie brute d'un processus enfant, n'y figurent pas.
+- `GET /api/admin/logs?afterId=` renvoie les lignes après `afterId`, avec `latestId`, `truncated` (des lignes ont été supprimées avant cette lecture) et le `logLevel` du serveur. La route est protégée par `requirePrivilegedAccess` et utilise `no-store`. Elle utilise `logLevel: "silent"` pour que les interrogations de la console elle-même ne figurent jamais dans le tampon.
+- Les règles de cette page s'appliquent aussi ici. Tout ce que tu journalises au niveau warn ou error est lisible à distance par un administrateur dans l'application. Garde donc les prompts et les corps des requêtes et des réponses des fournisseurs au niveau debug.
+
 ## Vérifications
 
-Les régressions `logging-request-trail`, `logging-failure-lines` et `logging-startup-timeline` couvrent cette page :
+Les régressions `logging-request-trail`, `logging-failure-lines` et `logging-startup-timeline` couvrent cette page, et `server-console-logs` couvre la console dans l'application :
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

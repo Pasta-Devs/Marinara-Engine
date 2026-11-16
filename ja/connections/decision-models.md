@@ -16,7 +16,9 @@ Decisionモデルとは、「Does the latest message move the scene to a new pla
    - **None (decisions off)**(なし、判定オフ)がデフォルトです。何も問い合わせず、エージェントエディターの起動質問欄は無効のままです。
    - **Built-in model**(内蔵モデル)には、Marinaraが自分のコンピューター上で動かすモデルが並びます。**Built-in model**、**Built-in model (utility)**(補助用の内蔵モデル)、**Built-in model (decisions)**(判定用の内蔵モデル)です。情報はコンピューターの外に出ません。
    - **Connections**には、判定に回答できる自分のアカウントが並びます。ホスト型のサービスか、すでに動かしているサーバー上のチャットモデルです。
-4. テストするには、行にある**Decision settings**(判定の設定)の歯車をクリックし、**Test**(テスト)をクリックします。このボタンは内蔵モデルの項目に表示されます。TypeSafeまたはOpenRouterのアカウントでは、そのモデルの**Edit model**(モデルの編集)を開き、**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**(自分の判定サーバー)のアカウントでは、アカウントの**⋯**メニューにある**Test**を使います。
+
+   左側のアカウントをクリックすると、そのモデルを閲覧できます。NanoGPT、OpenRouter、Google Geminiのアカウントでは、最初に**Decision models**(判定モデル)に専用の判定モデルが、続いて**Chat models**(チャットモデル)にチャットモデルが並びます。Google Geminiのチャットモデルは判定に回答できないため、判定モデルのみ表示されます。以前に選んだ判定モデルは**Starred**(お気に入り)の上に表示され、モデル名の下にアカウント名が付きます。
+4. テストするには、行にある**Decision settings**(判定の設定)の歯車をクリックし、**Test**(テスト)をクリックします。このボタンは内蔵モデルの項目に表示されます。TypeSafe、OpenRouter、NanoGPT、Google Geminiの判定モデルでは、モデルの**Edit model**(モデルの編集)を開き、**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**(自分の判定サーバー)のアカウントでは、アカウントの**⋯**メニューにある**Test**を使います。
 
 テストに成功すると、「はい」の確率と、回答にかかった時間が表示されます。自分のコンピューター上のモデルでは、対数確率が利用できたかと、モデルが直接回答するかも表示されます。対数確率とは、モデルが書く可能性のある各単語について、モデルがどれだけ確信しているかを表す数値です。テストでは固定のサンプルを送り、自分のチャットは送りません。
 
@@ -30,7 +32,7 @@ Decisionモデルとは、「Does the latest message move the scene to a new pla
 
 - **内蔵モデルですでに動かしているモデル。** 追加の費用はかかりません。内蔵モデルを使っているほとんどの人に最適です。
 - **自分のサーバー上のチャットモデル**(Ollama、LM Studio、llama.cpp、またはほかのOpenAI互換サーバー)。追加の費用はかかりません。モデルをMarinaraの外で動かしている場合に向いており、同じモデルを二重に読み込まずに済みます。
-- **ホスト型のDecisionアカウント**(TypeSafeまたはOpenRouterのキー)。リクエストごとに課金され、1ターンで複数回のリクエストが発生することがあります。スマートフォンや、ローカルモデルを動かさないコンピューターに向いています。
+- **ホスト型の判定モデル**(TypeSafe、OpenRouter、NanoGPT、Google Gemini)。リクエストごとに課金され、1ターンで複数回リクエストすることがあります。NanoGPTのサブスクリプションには一部の判定モデルが含まれ、OpenRouterには無料のものもあります。スマートフォンやローカルモデルを動かさないコンピューターに向いています。
 - **Built-in decision model**(内蔵の判定モデル)。別途ディスク容量とGPUメモリーを使います。Linux x86-64と対応するNVIDIA GPUが必要です。チャットモデルと並行して、別の判定モデルを動かしたい場合に使います。
 
 すでにローカルモデルを動かしているなら、まずそれを試し、自分のチャットのターンでテストしてください。判定文の表現は結果を大きく左右します。[判定文の書き方](../prompts/conditional-prompts.md#writing-statements)を参照してください。
@@ -84,7 +86,7 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 ホスト型のDecisionアカウントは、選択した最近のメッセージと判定文をサービスに送信し、料金が発生することがあります。Smart応答順では[キャラクター一覧](#what-the-model-sees)も送信します。
 
 1. 上部バーの**Connections**(接続)をクリックし、**Add**(追加)をクリックします。
-2. **Decisions**(判定)の下で、**TypeSafe**または**Own decision server**(自分の判定サーバー)をクリックします。OpenRouterの場合は、**Chat**(チャット)の下の**OpenRouter**をクリックして接続し、モデルの**⋯**メニューにある**Use this key for decisions**(このキーをDecisionに使用)を使います。
+2. 種類のボタンで**Decision**(判定)をクリックし、**TypeSafe**または**Own decision server**をクリックします。NanoGPTは[NanoGPT経由](#through-nanogpt)、OpenRouterまたはGoogle Geminiは[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
 3. **API key**(APIキー)を入力します。**Own decision server**の場合は**Server address**(サーバーのアドレス)を入力します。**Connect**(接続)をクリックします。ウィンドウが閉じ、パネルに新しいアカウントが表示されます。
 4. **Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックし、新しいモデルを選びます。
 5. テストするには、パネルでモデルをクリックして**Edit model**(モデルの編集)を開き、**Provider tests**(プロバイダーのテスト)カードの**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**のモデルには、そこに**Test provider**ボタンがありません。代わりに、パネルでアカウントの**⋯**メニューを開き、**Test**(テスト)をクリックします。
@@ -97,12 +99,41 @@ Decisionエディター(判定モデルの**Edit model**)には、次の欄が�
 
 | 欄 | 内容 |
 | --- | --- |
-| **Decision source**(判定のソース) | **TypeSafe**、**OpenRouter**、**Custom System One endpoint**(カスタムSystem Oneエンドポイント)、**OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI互換チャットモデル)のいずれかです。モデルを作成した時点で固定されます。 |
+| **Decision source**(判定のソース) | **TypeSafe**、**OpenRouter**、**NanoGPT**、**Google Gemini**、**Custom System One endpoint**(カスタムSystem Oneエンドポイント)、**OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI互換チャットモデル)のいずれかです。モデルを作成した時点で固定されます。 |
 | **API key source**(APIキーの取得元) | **Enter a separate key (optional for local servers)**(別のキーを入力、ローカルサーバーでは任意)か、ほかのアカウントの**Use key from …**(…のキーを使用)です。リンクしたキーは、後からのキーの変更に追従します。カスタムSystem OneモデルやOpenAI互換モデルがカスタムチャットアカウントのキーを借りられるのは、両方のアドレスのスキーム、ホスト、ポートが同じ場合だけです。 |
-| **Recent-message token budget**(最近のメッセージのトークン予算) | 送信するチャットの推定トークン数です。1から30,000まで。デフォルトは、TypeSafeとOpenRouterで30,000、カスタムサーバーで3,500です。Marinaraは古いメッセージから除外し、続いて最新メッセージの最も古い部分を切り詰めます。拒否されたリクエストや予算を超えたリクエストは、回答なしになります。 |
-| **Time limit (seconds)**(制限時間、秒) | チャット中に、判定文ごとに回答を待つ時間です。0.5から30まで。デフォルトは1.5、OpenAI互換チャットモデルでは4です。[制限時間](#time-limits)を参照してください。 |
+| **Recent-message token budget**(最近のメッセージのトークン予算) | 送信するチャットの推定トークン数です。1から30,000まで。デフォルトはTypeSafe、OpenRouter、NanoGPT、Google Geminiで30,000、カスタムサーバーで3,500です。NanoGPT、OpenRouter、Google Geminiのアカウントの判定モデルで入力上限がこれより小さい場合は、その上限の4分の3を使います。Marinaraは古いメッセージから除外し、続いて最新メッセージの最も古い部分を切り詰めます。拒否されたリクエストや予算を超えたリクエストは、回答なしになります。 |
+| **Time limit (seconds)**(制限時間、秒) | チャット中に、判定文ごとに回答を待つ時間です。0.5から30まで。デフォルトは1.5、NanoGPTとOpenAI互換チャットモデルでは4です。[制限時間](#time-limits)を参照してください。 |
+| **Custom Request Headers**(カスタムリクエストヘッダー) | 判定リクエストのたびに送る追加ヘッダーです。`{"x-billing-mode": "paygo"}`のようなJSONオブジェクトで指定します。キーには使えません。認証ヘッダーは拒否されます。 |
 
 TypeSafeは`https://api.typesafe.ai`に送信します。**Base URL**(ベースURL)は、TypeSafeのAPIを動かしている別のサーバーのアドレスに置き換えられます。アドレスには`/v1/systemone`を含めません。その場合もTypeSafeのキーが必要で、キーはそのサーバーに送信されます。**Custom System One endpoint**には、Open-Jevや[Strands decider](#run-strands-decider-yourself)など、自分で動かしているSystem Oneサーバーを指定できます。アドレスは`/v1/systemone`を含めずに入力します。OllamaなどのチャットモデルサーバーはSystem Oneに対応していません。その場合は**OpenAI-compatible chat model**を使ってください。
+
+<a id="through-nanogpt"></a>
+### NanoGPT経由
+
+NanoGPTにはJev Latestなどの独自の判定モデルがあり、MarinaraはNanoGPTのキーを使ってDecisions APIに問い合わせます。一部はNanoGPTのサブスクリプションに含まれ、それ以外の料金は残高から引かれます。
+
+1. 通常どおりNanoGPTを接続します。**Add**では、種類の**Decision**にもNanoGPTが表示されます。
+2. **Found in NanoGPT — use it for:**(NanoGPTに対応する機能)で**Decision**にチェックを入れます。Marinaraがプランに含まれる判定モデルを選びます。優先されるのはJev Latestです。
+3. 別のモデルを選ぶには、NanoGPTアカウントの**⋯**、**Add model**(モデルを追加)、**Decision**タブの順にクリックします。ここには判定モデルだけが並び、サブスクリプションに含まれるものには**Plan**(プラン)の印が付きます。モデルを選び、**Test decision**(判定をテスト)をクリックします。
+
+判定モデルはチャットに対応していないため、チャット用モデルの一覧には表示されません。
+
+デフォルトでは、サブスクリプションと残高のどちらを使うかはNanoGPTが決めます。常に残高を使うには、判定モデルの**Edit model**を開き、**Custom Request Headers**に`{"x-billing-mode": "paygo"}`と入力します。
+
+<a id="through-openrouter-or-google-gemini"></a>
+### OpenRouterまたはGoogle Gemini経由
+
+OpenRouterとGoogle Geminiのアカウントにも独自の判定モデルがあり、Marinaraはアカウントのキーを使って各サービスの判定APIに問い合わせます。OpenRouterには多数のモデルがあり、名前の末尾が`:free`のものは無料です。Google Geminiには**Gemini Decision 1**が1つだけあります。
+
+1. 通常どおりOpenRouterまたはGoogle Geminiを接続します。
+2. **Jobs**ボックスの**Behind the scenes**にある**Decision**の行をクリックし、左側のアカウントを選びます。**Decision models**からモデルを選びます。
+3. テストするには、モデルの**Edit model**を開き、**Test provider**をクリックします。
+
+OpenRouterアカウントでは、その下の**Chat models**に対数確率を返すチャットモデルが並び、これらも使えます。Google Geminiアカウントでは判定モデルだけを選べます。
+
+このバージョンより前に追加したアカウントでは、保存されたモデル一覧が古く、最初は**Decision models**が表示されないことがあります。選択ウィンドウの更新ボタンをクリックしてください。Marinaraも保存済みのモデル一覧を1日1回更新します。
+
+**Add**で作成した単独の**OpenRouter**判定アカウントも引き続き使えます。そのアカウントのキーで同じAPIに問い合わせます。
 
 ホスト型サービスの中には、ときどき回答が1.5秒より遅くなるものがあり、判定が不規則に壊れているように見えます。数回テストし、最も遅い回答より長い制限時間に設定してください。プリセットの判定や、返信前に動くエージェントの起動質問など、返信前に問い合わせる判定文は、それぞれ最大でその時間だけ返信を遅らせることがあります。
 
@@ -149,7 +180,7 @@ TypeSafeは`https://api.typesafe.ai`に送信します。**Base URL**(ベースU
 確率はモデル間で比較できません。同じ例でも、あるモデルでは0.99、別のモデルでは0.2になることがあります。はい・いいえのデフォルトのしきい値は、モデルによって異なります。
 
 - **内蔵モデル、またはOpenAI互換チャットモデルのアカウント:** 0.5
-- **TypeSafe、OpenRouter、またはCustom System Oneのアカウント:** 0.5
+- **TypeSafe、OpenRouter、NanoGPT、Google Gemini、またはCustom System Oneのアカウント:** 0.5
 - **Built-in decision model:** モデルマニフェストの推奨値。Open-Jev 2Bと9Bでは0.1
 
 エージェントの**Run when probability is at least**(実行に必要な最小確率)は、この値を上書きします。保存した値が異なると、エディターはモデルの推奨値に戻すことを提案します。モデルを切り替えるたびに確認してください。プロンプトの判定文とロアブックのDecision欄はモデルのデフォルトを使い、エージェントのしきい値を変えてもこれらは変わりません。
@@ -162,7 +193,8 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 
 時間内に届かない判定は回答なしとなり、生成は機能ごとのフォールバックで続行します([Marinaraでの用途](#where-marinara-uses-it)を参照)。制限時間はすべて判定文単位です。複数の判定文を含むリクエストでは、判定文ごとに制限時間が与えられ、Choiceの回答候補もそれぞれ1つの判定文と数えます。ローカルモデルは一度に少数のリクエストしか処理しないため、判定文は順番を待ちます。各判定文の時間は、モデルがその処理を始めた時点から計測します。
 
-- **TypeSafe、OpenRouter、またはCustom System Oneのアカウント:** 1.5秒、または設定した**Time limit**(制限時間)
+- **TypeSafe、OpenRouter、Google Gemini、またはCustom System Oneのアカウント:** 1.5秒、または設定した**Time limit**(制限時間)。測定時、OpenRouterとGoogle Geminiの回答は0.2秒から0.5秒でした。
+- **NanoGPTの判定モデル:** 4秒、または設定した**Time limit**。測定時の回答は0.4秒から2.5秒でした。
 - **OpenAI互換チャットモデルのアカウント:** 4秒、または設定した**Time limit**。先に推論する必要があるモデルには、少なくとも20秒が与えられます。
 - **内蔵モデル:** 4秒。先に推論する必要があるモデルには20秒が与えられます。
 - **Built-in decision model:** 最初の判定文は4秒。以降の判定文には、それぞれモデルの測定時間が与えられます。Open-Jev 2Bでは0.35秒、Open-Jev 9Bでは0.8秒です。リポジトリーからインストールしたモデルは、判定文ごとに4秒です。
@@ -190,6 +222,7 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 ## トラブルシューティング
 
 - **テストが失敗する。** メッセージに理由が表示されます。キーが拒否された、サービスがリクエストを制限している、内蔵モデルが動いていない、判定モデルがインストールされていない、モデルがはい・いいえで答えなかった、時間切れになった、のいずれかです。
+- **選択ウィンドウにアカウントのDecision modelsが表示されない。** 保存されたモデル一覧が判定モデルより古い状態です。選択ウィンドウでアカウント名の横にある更新ボタンをクリックしてください。
 - **サーバーにそのエンドポイントがないと表示される。** Decisionのソースがサーバーに合っていません。Ollama、LM Studioなどのチャットモデルサーバーには**OpenAI-compatible chat model**(OpenAI互換チャットモデル)が必要です。**Custom System One endpoint**(カスタムSystem Oneエンドポイント)は、Open-JevなどのSystem Oneサーバー専用です。
 - **回答が制限時間を超えた、または判定がときどきしか動かない。** サービスの回答が、ときどき**Time limit**(制限時間)より遅くなっています。数回テストし、最も遅い回答より長い制限時間に上げてください。
 - **起動質問があるエージェントが毎ターン動く。** Decisionモデルが設定されていないか回答していないため、質問がない場合と同じようにエージェントが動いています。テストを実行してください。
@@ -244,7 +277,7 @@ Open-JevモデルにはLinux **x86-64**、コンピュート能力7.5以降のNV
 
    NVIDIA GPUかApple siliconが見つかればそれを使い、なければプロセッサーで動作しますが遅くなります。初回起動時にモデルと約4.6 GBのベース重みをダウンロードし、Pythonパッケージは約5.5 GBを使います。サーバーにパスワードはないので、`127.0.0.1`で運用してください。
 
-2. **Server address**(サーバーのアドレス)を`http://127.0.0.1:8000`にして、**Own decision server**(自分の判定サーバー)のアカウントを追加します。モデル名は何でもかまいません。
+2. 種類のボタンで**Decision**(判定)をクリックし、**TypeSafe**または**Own decision server**をクリックします。NanoGPTは[NanoGPT経由](#through-nanogpt)、OpenRouterまたはGoogle Geminiは[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
 3. **Decision**の行でそれを選び、アカウントの**⋯**メニューにある**Test**(テスト)でテストします。起動後の最初の回答には約2秒かかり、デフォルトの制限時間より長いため、チャットを始める前に1回テストしてください。
 
 確率は校正済みなので、セルフホストのOpen-Jevと違い、デフォルトのしきい値0.5が適しています([しきい値](#thresholds)を参照)。回答は判定文の表現に左右されるため、[判定文の書き方](../prompts/conditional-prompts.md#writing-statements)に従ってください。

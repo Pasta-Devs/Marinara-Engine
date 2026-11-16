@@ -8,14 +8,14 @@ L'appel de fonctions, c'est quand l'IA demande à l'application d'exécuter une 
 
 ## Créer un outil
 
-Avant de commencer, ouvre le panneau **Presets** depuis la barre du haut. Les outils se trouvent dans son onglet **Functions** (fonctions). Si tu ouvres Marinara depuis un autre appareil, enregistre d'abord le secret d'administration dans **Settings → Advanced → Admin Access** (Paramètres → Avancé → Accès administrateur). Il doit correspondre au `ADMIN_SECRET` du serveur ; consulte la [Référence de configuration du serveur](../CONFIGURATION.md).
+Avant de commencer, ouvre le panneau **Presets** depuis la barre du haut. Les outils se trouvent dans son onglet **Tools** (outils). Si tu ouvres Marinara depuis un autre appareil, enregistre d'abord le secret d'administration dans **Settings → Advanced → Admin Access** (Paramètres → Avancé → Accès administrateur). Il doit correspondre au `ADMIN_SECRET` du serveur ; consulte la [Référence de configuration du serveur](../CONFIGURATION.md).
 
 Pour un premier essai, choisis **Static Result** (résultat fixe) : il n'a besoin de rien d'autre.
 
 ### Création d'un outil
 
-1. Ouvre **Presets → Functions** depuis la barre du haut.
-2. Clique sur **Create function** (créer une fonction, icône plus). Un éditeur d'outil vierge s'ouvre.
+1. Ouvre **Presets → Tools** depuis la barre du haut.
+2. Clique sur **Create tool** (créer un outil, icône plus). Un éditeur d'outil vierge s'ouvre.
 3. Saisis un nom en minuscules et en snake_case, comme `check_weather`. C'est exactement ce nom que l'IA appelle. Il commence par une lettre minuscule, puis n'emploie que des lettres minuscules, des chiffres et des tirets bas.
 4. Remplis **Description** (description). Rédige-la comme une consigne adressée à l'IA, car c'est ce texte qu'elle lit pour décider quand appeler l'outil. Exemple : `Get the current weather for a city the user names.`
 5. Ajoute les paramètres dont l'outil a besoin (voir [Ajouter des paramètres](#add-parameters)).
@@ -29,22 +29,22 @@ Règles pour les noms et les descriptions :
 - Deux outils ne peuvent pas porter le même nom, et un outil ne peut pas utiliser un nom intégré comme `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` ou `update_about_me`. Un conflit affiche un message comme `"your_name" is a reserved built-in tool name.`
 - Si tu quittes l'éditeur avec des modifications non enregistrées, une bannière propose **Keep editing** (continuer à modifier), **Discard** (abandonner) ou **Save & close** (enregistrer et fermer).
 
-Les boutons en haut de l'onglet **Functions** sont :
+Les boutons en haut de l'onglet **Tools** sont :
 
-- **Create function** (icône plus)
-- **Import functions from ZIP or JSON** (importer des fonctions depuis un ZIP ou un JSON)
-- **Export functions to ZIP** (exporter les fonctions vers un ZIP), grisé tant que tu n'as aucun outil
-- **Select functions** (sélectionner des fonctions, icône de coche)
+- **Create tool** (icône plus)
+- **Import tools from ZIP or JSON** (importer des outils depuis un ZIP ou un JSON)
+- **Export tools to ZIP** (exporter les outils vers un ZIP), grisé tant que tu n'as aucun outil
+- **Select tools** (sélectionner des outils, icône de coche)
 
-En dessous, **Search functions** (rechercher des fonctions) recherche dans le nom et la description des outils.
+En dessous, **Search tools** (chercher des outils) recherche dans le nom et la description des outils.
 
 Chaque outil de la liste affiche :
 
 - son nom, son type, son nombre de paramètres et sa description
 - un interrupteur marche/arrêt
-- **Edit function** (modifier la fonction) et **Delete Function** (supprimer la fonction)
+- **Edit tool** (modifier l'outil) et **Delete Tool** (supprimer l'outil)
 
-Fais glisser un outil par sa poignée pour réorganiser la liste. Cet ordre ne sert qu'à l'affichage. Tu ne peux pas réorganiser les outils par glisser-déposer pendant une recherche. Tant que tu n'as aucun outil, la liste indique **No functions yet**.
+Fais glisser un outil par sa poignée pour réorganiser la liste. Cet ordre ne sert qu'à l'affichage. Tu ne peux pas réorganiser les outils par glisser-déposer pendant une recherche. Tant que tu n'as aucun outil, la liste indique **No tools yet** (aucun outil pour le moment).
 
 ### Organiser les outils dans des dossiers
 
@@ -58,8 +58,8 @@ Les outils sont rangés par dossier. Clique sur **Manual order** (ordre manuel) 
 
 ### Modifier plusieurs outils d'un coup
 
-1. Clique sur **Select functions**.
-2. Coche les outils à modifier ou coche **Select all functions** (sélectionner toutes les fonctions).
+1. Clique sur **Select tools**.
+2. Coche les outils à modifier ou coche **Select all tools** (sélectionner tous les outils).
 3. Clique sur **Enable selected** (activer la sélection), **Disable selected** (désactiver la sélection) ou **Move to folder**. Tu peux aussi exporter ou supprimer la sélection.
 
 **Enable selected** agit sur les interrupteurs individuels. Réactive un dossier en pause pour que ses outils soient à nouveau proposés.
@@ -178,7 +178,7 @@ Créer un outil ne suffit pas à ce que l'IA s'en serve. Tu dois aussi activer l
 3. Active **Enable Tool Use** (autoriser l'usage des outils). Sa description indique **Allow AI to call functions (dice rolls, game state, etc.)**. Il est désactivé par défaut dans un nouveau chat.
 4. Vérifie que ça marche : pose à l'IA une question à laquelle ton outil répond, comme "What are your store hours?" pour l'exemple `store_hours`. La réponse devrait utiliser le texte de l'outil.
 
-Quand **Enable Tool Use** est activé et qu'aucun outil n'est ajouté en dessous, le chat peut utiliser tous les outils activés globalement qu'il prend en charge : les outils intégrés, plus chaque outil personnalisé dont l'interrupteur est activé dans **Functions** et dont le dossier est actif. Les chats Game exigent aussi **Let the GM search lore** (laisser le GM rechercher dans le lore) pour `search_lorebook`.
+Quand **Enable Tool Use** est activé et qu'aucun outil n'est ajouté en dessous, le chat peut utiliser tous les outils activés globalement qu'il prend en charge : les outils intégrés, plus chaque outil personnalisé dont l'interrupteur est activé dans l'onglet **Tools** et dont le dossier est actif. Les chats Game exigent aussi **Let the GM search lore** (laisser le GM rechercher dans le lore) pour `search_lorebook`.
 
 Pour limiter un chat à une sélection :
 
@@ -190,7 +190,7 @@ Dès que tu ajoutes des outils, seuls ces outils fonctionnent dans ce chat. **Ne
 
 Les chats Game peuvent utiliser une connexion séparée pour planifier les outils. Consulte [Planification facultative des outils et recherches dans le lore](../game/getting-started.md#optional-tool-planning-and-lore-searches) pour connaître son coût et son fonctionnement.
 
-Si ça n'a pas marché : vérifie que **Enable Tool Use** est activé, que l'outil figure dans la liste du chat si tu as ajouté des outils précis, et que l'interrupteur de l'outil est activé dans **Functions** et que son dossier est actif. Une **Description** plus claire et des descriptions de paramètres plus claires aident l'IA à décider quand l'appeler.
+Si ça n'a pas marché : vérifie que **Enable Tool Use** est activé, que l'outil figure dans la liste du chat si tu as ajouté des outils précis, et que l'interrupteur de l'outil est activé dans l'onglet **Tools** et que son dossier est actif. Une **Description** plus claire et des descriptions de paramètres plus claires aident l'IA à décider quand l'appeler.
 
 ## Rattacher des outils à un agent
 
@@ -204,9 +204,9 @@ Tu dois quand même activer **Enable Tool Use** dans la section **Function Calli
 
 ## Exporter et importer des outils
 
-- Pour exporter un seul outil, ouvre-le et clique sur **Export function** (exporter la fonction). Un fichier `.json` est enregistré.
-- Pour exporter tous les outils, clique sur **Export functions to ZIP**.
-- Pour importer, clique sur **Import functions from ZIP or JSON** et choisis un fichier `.json` ou `.zip`. Un message indique combien d'outils ont été importés.
+- Pour exporter un seul outil, ouvre-le et clique sur **Export tool** (exporter l'outil). Un fichier `.json` est enregistré.
+- Pour exporter tous les outils, clique sur **Export tools to ZIP** (exporter les outils vers un ZIP).
+- Pour importer, clique sur **Import tools from ZIP or JSON** (importer des outils depuis un ZIP ou un JSON) et choisis un fichier `.json` ou `.zip`. Un message indique combien d'outils ont été importés.
 
 Les outils de type webhook et script importés sont toujours enregistrés désactivés, avec **Include hidden chat context** désactivé, même si le fichier demande l'un ou l'autre. Marinara affiche ensuite le type, l'adresse du webhook et les permissions demandées par le fichier. Ouvre chaque outil importé, examine-le, et ne l'active que si tu lui fais confiance. Les outils statiques conservent l'état marche/arrêt qu'ils avaient à l'import.
 

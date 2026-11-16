@@ -67,9 +67,29 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 스위치 아래의 **Semantic search (embeddings)**(시맨틱 검색) 패널은 [로어북 시맨틱 검색](semantic-search.md)에서 다룹니다.
 
+## 로어북 이미지 설정하기
+
+이미지는 **Lorebooks** 패널, 로어북 라이브러리, 로어북 선택 창에 표시됩니다.
+
+1. 로어북을 열고 **Overview** 탭을 그대로 두세요. 첫 섹션은 **Image**(이미지)입니다.
+2. **Upload image**(이미지 업로드)를 클릭하고 파일을 고르거나, **Generate with AI**(AI로 생성)를 클릭해 이미지 생성 연결로 표지를 만드세요. 연결을 설정하기 전에는 **Generate with AI**가 비활성화됩니다.
+3. 이미지 위의 사각형을 끌어 표시할 부분을 정하고, 모서리를 끌어 크기를 바꾸세요. 둥근 미리보기에 결과가 표시됩니다.
+4. **Save**를 클릭하세요.
+
+새 이미지는 처음에 잘리지 않은 상태입니다. 이미지를 빼려면 **Remove**(제거)를 클릭하세요.
+
+<a id="the-lorebook-library"></a>
+## 로어북 라이브러리
+
+로어북 라이브러리는 로어북의 이미지, 설명, 항목 수를 전체 페이지에 표시합니다. **Lorebooks** 패널 상단의 **Open Library**(라이브러리 열기)로 여세요.
+
+로어북을 클릭하면 더 크게 볼 수 있습니다. **Edit Lorebook**(로어북 편집)은 편집기를 열고, 뒤로 화살표는 라이브러리로 돌아갑니다. **Active**(활성)는 **Enabled** 스위치와 마찬가지로 모든 채팅에서 로어북을 켜거나 끕니다.
+
 ## Lorebooks 패널
 
-패널 위쪽에는 아이콘 버튼이 3개 있으며, 마우스를 올리면 이름이 표시됩니다.
+패널 상단의 **Download**(다운로드)는 카드 브라우저에서 다운로드할 수 있는 로어북을 보여 줍니다. [로어북 가져오기와 내보내기](import-export.md#download-a-lorebook-from-chub)를 참고하세요. **Open Library**는 [로어북 라이브러리](#the-lorebook-library)를 엽니다.
+
+그 아래에는 마우스를 올리면 이름이 표시되는 아이콘 버튼 세 개가 있습니다.
 
 - **New**는 **Create Lorebook** 창을 엽니다.
 - **Import**(가져오기)는 **Import Lorebook**(로어북 가져오기) 창을 엽니다. [로어북 가져오기와 내보내기](import-export.md)를 참고하세요.
@@ -78,7 +98,7 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 버튼 아래에는 다음이 있습니다.
 
 - **Search lorebooks**(로어북 검색)는 이름, 설명, 연결된 캐릭터나 페르소나 이름, 태그로 걸러 냅니다.
-- **Sort order**(정렬 순서)에는 **Manual order**(수동 정렬), **A-Z**, **Z-A**, **Newest**, **Oldest**, **Token Budget**이 있습니다. **Manual order**에서는 로어북을 원하는 자리로 끌어다 놓거나 <kbd>Alt</kbd>+<kbd>Up</kbd>과 <kbd>Alt</kbd>+<kbd>Down</kbd>을 사용하세요.
+- **Sort order**(정렬 순서)에는 **Manual order**(수동 정렬), **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens**(토큰이 많은 순), **Fewest tokens**(토큰이 적은 순)가 있습니다. 크기순 정렬은 비활성 항목을 포함한 모든 항목의 추정 크기를 사용하며, 이 값은 각 행에도 표시됩니다. **Manual order**에서는 로어북을 원하는 자리로 끌어다 놓거나 <kbd>Alt</kbd>+<kbd>Up</kbd>과 <kbd>Alt</kbd>+<kbd>Down</kbd>을 사용하세요.
 - **New Folder**(새 폴더)는 라이브러리 폴더를 만듭니다. 로어북을 폴더 위로 끌어다 놓으세요. 휴대폰에서는 로어북을 길게 누른 다음 끌어다 놓으세요. 이 폴더는 로어북 안의 항목 폴더와는 별개입니다.
 
 행마다 **Copy**(복사) 버튼과 **Delete**(삭제) 버튼이 있습니다. **Copy**는 로어북을 복제합니다. 두 버튼은 행 위에 마우스를 올리면 나타나고, 모바일에서는 항상 보입니다. 꺼 둔 로어북에는 **OFF**(꺼짐) 배지가 붙습니다. 그림을 클릭하면 그림을 올리거나 바꿀 수 있습니다.

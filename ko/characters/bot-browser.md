@@ -11,6 +11,8 @@
 
 Card Browser는 콘텐츠 영역 전체를 채우며, 제목은 **Browse character cards online**(온라인에서 캐릭터 카드 살펴보기)입니다. 나가려면 왼쪽 위의 뒤로 화살표를 클릭하세요.
 
+**Lorebooks**(로어북) 패널의 **Download** 버튼을 누르면 같은 브라우저에서 다운로드할 수 있는 로어북을 볼 수 있습니다. [Chub에서 로어북 다운로드하기](../lorebooks/import-export.md#download-a-lorebook-from-chub)를 참고하세요.
+
 닫았다가 다시 열어도 마지막 검색어, 필터, 선택한 캐릭터가 그대로 남아 있습니다. 앱을 새로 고치면 초기화됩니다.
 
 ## 소스 고르기

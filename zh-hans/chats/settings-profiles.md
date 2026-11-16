@@ -35,12 +35,25 @@
 
 填写槽位的方法：
 
-- 从每个槽位的列表中选择项目。**Agents**、**Tools** 和 **Lorebooks** 可以选多个。用 **Tools** 里的复选框逐个开启或关闭工具。对于只能放一项的槽位，选择 **None**(无) 即可清空。
-- 在电脑上的智能体和世界书列表中，按住 <kbd>Ctrl</kbd>(macOS 上是 <kbd>Command</kbd>)，就能选择多个项目。在手机上，使用选择控件。**Clear selection**(清除选择) 会清空列表。
+- 点击槽位的字段，会打开和预设及世界书选择器一样的窗口，里面有搜索框和你的库文件夹。只能放一项的槽位可以用 **None**(无) 清空。
+- **Agents** 和 **Lorebooks** 可以选多项。在窗口中勾选，或用文件夹上的 **Add all**(全部添加)。各项会连同移除按钮显示在字段下方，**Clear selection**(清除选择) 会清空槽位。**Tools** 是复选框列表，勾选各工具即可启用。
 - 在电脑上，可以在编辑器保持打开的同时打开资料库侧边栏，然后把项目拖到对应的字段上。
 - **Parameters**、**Memory & summary** 和 **Translation** 只显示方案是否包含这些设置。先在 Chat Settings 中修改，再保存到方案里。
 
-在新建聊天的设置向导中，**Use a Profile**(使用方案) 步骤的列表顶部也有 **New profile…**(新建方案)，已保存的方案旁边有 **Edit**。保存后，向导会选中该方案。
+在新建聊天向导的 **Use a Profile**(使用方案) 步骤中，方案字段旁有 **New**，已保存的方案旁有 **Edit**。保存后，向导会选中该方案。
+
+<a id="the-profiles-tab"></a>
+## Profiles 选项卡
+
+要在聊天之外管理方案，打开 **Presets**(预设) 面板并选择 **Profiles**(方案) 选项卡。这里会列出所有 Conversation 和 Roleplay 方案，各模式的 **Default**(默认) 方案排在前面。列表上方的 **All**(全部)、**Conversation** 和 **Roleplay** 按模式筛选，**Search profiles**(搜索方案) 按名称筛选。星标表示每种模式下新聊天使用的默认方案。
+
+- 点击方案会在屏幕中央打开方案编辑器。**Back**(返回) 保存更改，**Cancel**(取消) 放弃更改。**Default** 方案无法编辑，因此不会打开。
+- **Create settings profile**(创建设置方案) 会打开一个空白方案。用 **Conversation** 和 **Roleplay** 按钮选择模式。保存后，方案的模式会保留。
+- 将鼠标悬停在一行上，可以加星设为默认、复制、导出或删除。手机上这些按钮始终显示在行的右侧。
+- **Select profiles**(选择方案) 可一次导出或删除多个方案。**Select all profiles**(选择所有方案) 会跳过无法删除的 Default 方案。每个方案会单独导出为一个文件。
+- **Import settings profile (.json)**(导入设置方案) 会加载 `.marinara-settings-profile.json` 文件。
+
+Chat Settings 中的 **Edit** 仍会在聊天上方弹出方案编辑窗口。
 
 ## 把聊天设置保存到方案
 

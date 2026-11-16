@@ -165,6 +165,7 @@ Marinara नोटिफ़िकेशन के लिए एक बिल्�
 | **Include reasoning in exports** | मॉडल की छिपी हुई सोच को चैट एक्सपोर्ट में जोड़ता है। |
 | **Include private notes in exports** | संदेशों पर आपके निजी नोट JSONL और टेक्स्ट एक्सपोर्ट में जोड़ता है। ट्रांसक्रिप्ट शेयर करते समय इसे बंद रखें। |
 | **Debug mode** | सपोर्ट के लिए मॉडल के पेलोड सर्वर कंसोल में लॉग करता है। |
+| **Open Console** (कंसोल खोलें) | सर्वर की हाल की लॉग लाइनें ऐसी विंडो में दिखाता है जिसे आप खिसका सकते हैं। लॉग सिर्फ़ पढ़ सकते हैं। यह इस कंप्यूटर से या **Admin Access** में सेव एडमिन सीक्रेट के साथ काम करता है। प्रॉम्प्ट और जवाब देखने के लिए विंडो में **Debug mode** चालू करें। सब कुछ लॉग करने के लिए `.env` में `LOG_LEVEL=debug` सेट करें। |
 
 और जानने के लिए [संदेश की क्रियाएँ: एडिट, डिलीट, स्वाइप, दोबारा जेनरेट](../chats/messages.md), [यूज़र पर्सोना: बनाना और बदलना](../characters/personas.md), [एक चैट के लिए मॉडल चुनना](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt: देखें कि AI को क्या मिला](../chats/peek-prompt.md), [गाइडेड जेनरेशन और Impersonate](../chats/guided-and-impersonate.md), [चैट का एक्सपोर्ट और इंपोर्ट](../chats/export-import.md) और [Marinara Engine की समस्याएँ सुलझाना](../TROUBLESHOOTING.md) देखें।
 

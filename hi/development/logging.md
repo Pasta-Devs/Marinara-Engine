@@ -111,9 +111,18 @@ UI का डिबग स्विच `logDebugOverride` से काम क�
 
 <a id="checks"></a>
 
+## ऐप में सर्वर कंसोल
+
+अगर टर्मिनल तक पहुँच नहीं है, जैसे NAS, VPS, Docker या Termux वाले इंस्टॉल में, तो **Settings → Advanced → Open Console** से सर्वर की हाल की लॉग लाइनें ऐप में देखें।
+
+- `lib/log-buffer.ts` मेमोरी में आखिरी 1,500 लाइनें रखता है, कुल लगभग 40 लाख वर्ण तक। हर संदेश और हर फ़ील्ड ब्लॉक को 16,000 वर्णों पर काटता है। बफ़र डिस्क पर नहीं लिखा जाता और सर्वर दोबारा शुरू करने पर खाली हो जाता है।
+- `logger.ts` Pino के `hooks.streamWrite` से हर सीरियलाइज़ की हुई लाइन बफ़र में कॉपी करता है। उसमें टर्मिनल या लॉग फ़ाइल वाली लाइनें उसी `LOG_LEVEL` पर रहती हैं। Pino से होकर न जाने वाली लाइनें, जैसे dotenv की `injected env` लाइन या चाइल्ड प्रोसेस का सीधे लिखा आउटपुट, उसमें नहीं आतीं।
+- `GET /api/admin/logs?afterId=` से `afterId` के बाद की लाइनें, `latestId`, `truncated` (पढ़ने से पहले कुछ लाइनें हट गईं) और सर्वर का `logLevel` मिलता है। रूट `requirePrivilegedAccess` के पीछे है और `no-store` इस्तेमाल करता है। रूट पर `logLevel: "silent"` है, इसलिए कंसोल की अपनी पोलिंग लॉग में नहीं दिखती।
+- दूर से जुड़ा एडमिन ऐप में warn और error लेवल की लाइनें पढ़ सकता है। प्रॉम्प्ट और प्रोवाइडर की रिक्वेस्ट और जवाब की बॉडी debug पर रखें।
+
 ## जाँच
 
-`logging-request-trail`, `logging-failure-lines` और `logging-startup-timeline` रिग्रेशन इस पेज को कवर करते हैं:
+`logging-request-trail`, `logging-failure-lines` और `logging-startup-timeline` रिग्रेशन इस पेज को कवर करते हैं। `server-console-logs` ऐप का कंसोल जाँचता है:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

@@ -34,7 +34,7 @@ El panel **Personas** es tu biblioteca de personas. Haz clic en una fila para ab
 | **Import** (Importar) | Abre la ventana **Import Persona** (Importar persona). |
 | **Select** (Seleccionar) | Activa el modo de selección para eliminar y exportar en lote. |
 | Cuadro de búsqueda | Texto de marcador de posición **Search personas/tags** (Buscar personas/etiquetas). Coincide con el nombre, la descripción, el comentario y las etiquetas. Para las búsquedas por etiquetas, consulta [Búsqueda](library-organization.md#search). |
-| Menú desplegable de orden | **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** (Más recientes), **Oldest** (Más antiguas) o **Tokens** (tamaño estimado del prompt). |
+| Menú desplegable de orden | **Manual order** (Orden manual), **A-Z**, **Z-A**, **Newest** (Más recientes), **Oldest** (Más antiguas), **Most tokens** (Más tokens) o **Fewest tokens** (Menos tokens) (tamaño estimado, que también aparece en cada fila). |
 | **New Folder** (Nueva carpeta) | Crea una carpeta. |
 | **Tags** (Etiquetas) | Despliega la lista de etiquetas para filtrar. |
 

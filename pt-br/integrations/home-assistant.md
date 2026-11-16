@@ -6,7 +6,7 @@ Esta integração permite que os seus personagens de IA controlem dispositivos r
 
 A integração é um pequeno programa que se instala dentro do Home Assistant e o liga ao seu servidor Marinara. Na primeira configuração, ela cria o seguinte para você. Você nunca copia endereços de ferramentas nem configura ferramentas na mão.
 
-- Ferramentas de casa inteligente na aba **Functions** (funções) do painel Presets. Veja [Ferramentas personalizadas](../extending/custom-tools.md).
+- Ferramentas de casa inteligente na aba **Tools** (ferramentas) do painel Presets. Veja [Ferramentas personalizadas](../extending/custom-tools.md).
 - Um agente chamado **Home Assistant**, um ajudante de IA que roda junto com o seu chat. Veja [Agentes: ajudantes de IA para os seus chats](../agents/agents-overview.md).
 - Entidades do Home Assistant (dispositivos, sensores e controles), para que você acompanhe e controle Marinara pelo Home Assistant.
 
@@ -53,7 +53,7 @@ Veja [Acesso remoto](../REMOTE_ACCESS.md) para saber qual opção escolher.
 
 Se não funcionou: o Home Assistant mostra um erro quando não consegue alcançar Marinara. Veja [Solução de problemas](#troubleshooting).
 
-Quando dá certo, a integração registra um webhook privado no Home Assistant, cria as ferramentas na aba **Functions** do Marinara apontando para esse webhook, cria o agente **Home Assistant** com todas as ferramentas ativas na lista e cria as entidades descritas abaixo.
+Quando dá certo, a integração registra um webhook privado no Home Assistant, cria as ferramentas na aba **Tools** do Marinara apontando para esse webhook, cria o agente **Home Assistant** com todas as ferramentas ativas na lista e cria as entidades descritas abaixo.
 
 ## Adicionar o agente a um chat
 
@@ -158,9 +158,9 @@ Verifique se Marinara está em funcionamento e se o **Host** e a **Port** corres
 
 A chamada do webhook provavelmente está bloqueada. Acrescente `WEBHOOK_LOCAL_URLS_ENABLED=true` ao `.env` e salve. Sem essa configuração, as chamadas de ferramenta podem falhar com um aviso de que `http` não é permitido ou de que um endereço privado foi recusado. Se Marinara e Home Assistant estão na mesma máquina, a integração usa o endereço interno automaticamente. Se Marinara está em outro dispositivo, verifique se o endereço local do Home Assistant é alcançável a partir desse dispositivo.
 
-### As ferramentas não aparecem em Functions
+### As ferramentas não aparecem em Tools
 
-Pressione **Marinara Sync HA Tools** ou reinicie o Home Assistant e depois confira a aba **Functions** no painel Presets.
+Pressione **Marinara Sync HA Tools** ou reinicie o Home Assistant e depois confira a aba **Tools** no painel Presets.
 
 ### O agente Home Assistant não está no meu chat
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Desinstalar
 
-Exclua a integração em **Settings → Devices & Services → Marinara Engine** no Home Assistant. Isso remove as entidades. As ferramentas na aba **Functions** do Marinara e o agente **Home Assistant** continuam lá. Exclua-os na mão no Marinara se não quiser mais usá-los.
+Exclua a integração em **Settings → Devices & Services → Marinara Engine** no Home Assistant. Isso remove as entidades. As ferramentas na aba **Tools** do Marinara e o agente **Home Assistant** continuam lá. Exclua-os na mão no Marinara se não quiser mais usá-los.
 
 ## Guias relacionados
 

@@ -111,9 +111,18 @@ Przełącznik debugowania interfejsu nadal działa przez `logDebugOverride`. To 
 
 <a id="checks"></a>
 
+## Konsola w aplikacji
+
+Wybierz **Settings → Advanced → Open Console** (ustawienia → zaawansowane → otwórz konsolę), żeby zobaczyć w aplikacji ostatnie wpisy serwera, gdy nie masz dostępu do terminala (NAS, VPS, Docker, Termux).
+
+- `lib/log-buffer.ts` przechowuje w pamięci do 1500 ostatnich wpisów i najwyżej około 4 mln znaków. Każda wiadomość i każdy blok pól są przycinane do 16 tys. znaków. Bufor nie zapisuje nic na dysku, a ponowne uruchomienie go opróżnia.
+- `logger.ts` kopiuje każdy zserializowany wpis za pomocą `hooks.streamWrite` biblioteki Pino. Bufor zawiera to, co trafiło do terminala lub pliku dziennika przy tym samym `LOG_LEVEL`. Wpisy z pominięciem Pino, na przykład komunikat `injected env` z dotenv lub surowe wyjście procesu potomnego, nie trafiają do bufora.
+- `GET /api/admin/logs?afterId=` zwraca wpisy po `afterId`, a także `latestId`, `truncated` (wpisy zostały usunięte przed tym odczytem) oraz `logLevel` serwera. Trasa wymaga `requirePrivilegedAccess` i ma `no-store`. Używa `logLevel: "silent"`, więc żądania odświeżania samej konsoli nie pojawiają się w dzienniku.
+- Te same zasady logowania obowiązują w konsoli. Zdalny administrator widzi w aplikacji wszystkie wpisy z poziomów warn i error, więc prompty i treści zapytań do dostawców i ich odpowiedzi zapisuj na poziomie debug.
+
 ## Kontrole
 
-Regresje `logging-request-trail`, `logging-failure-lines` i `logging-startup-timeline` obejmują tę stronę:
+Regresje `logging-request-trail`, `logging-failure-lines` i `logging-startup-timeline` obejmują tę stronę, a `server-console-logs` sprawdza konsolę w aplikacji:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

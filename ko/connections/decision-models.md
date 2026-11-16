@@ -16,7 +16,9 @@ Decision 모델은 "Does the latest message move the scene to a new place?"처�
    - **None (decisions off)**(없음, 판단 끔)가 기본값입니다. 아무것도 묻지 않으며, 에이전트 편집기의 활성화 질문 필드는 비활성 상태로 남습니다.
    - **Built-in model**(내장 모델) 그룹에는 Marinara가 내 컴퓨터에서 실행하는 모델이 있습니다. **Built-in model**, **Built-in model (utility)**(내장 모델, 보조), **Built-in model (decisions)**(결정 사이드카, 실험적)입니다. 정보가 컴퓨터 밖으로 나가지 않습니다.
    - **Connections** 그룹에는 판정에 답할 수 있는 내 계정이 있습니다. 호스팅 서비스이거나, 이미 실행 중인 서버의 채팅 모델입니다.
-4. 테스트하려면 행의 **Decision settings**(판단 설정) 톱니바퀴를 클릭한 다음 **Test**(테스트)를 클릭하세요. 이 버튼은 내장 모델 항목에 표시됩니다. TypeSafe나 OpenRouter 계정이라면 해당 모델의 **Edit model**(모델 편집)을 열고 **Test provider**(연결 테스트)를 클릭하세요. **Own decision server**(자체 판단 서버) 계정이라면 계정의 **⋯** 메뉴에 있는 **Test**를 사용하세요.
+
+   왼쪽에서 계정을 클릭하면 해당 계정의 모델을 살펴볼 수 있습니다. NanoGPT, OpenRouter 또는 Google Gemini 계정에서는 위쪽의 **Decision models**(판단 모델)에 전용 판단 모델이 먼저 표시되고, 아래쪽의 **Chat models**(채팅 모델)에 채팅 모델이 표시됩니다. Google Gemini의 채팅 모델은 판단에 답할 수 없어 판단 모델만 표시됩니다. 이전에 고른 판단 모델은 **Starred**(즐겨찾기) 위에 표시되며, 모델 이름 아래에 계정 이름이 나옵니다.
+4. 테스트하려면 행의 **Decision settings**(판단 설정) 톱니바퀴를 클릭한 다음 **Test**(테스트)를 클릭하세요. 이 버튼은 내장 모델 항목에 표시됩니다. TypeSafe, OpenRouter, NanoGPT 또는 Google Gemini 판단 모델은 **Edit model**(모델 편집)을 열고 **Test provider**(연결 테스트)를 클릭하세요. **Own decision server**(자체 판단 서버) 계정은 계정의 **⋯** 메뉴에서 **Test**를 사용하세요.
 
 테스트에 성공하면 "예"일 확률과 답하는 데 걸린 시간이 표시됩니다. 내 컴퓨터의 모델이라면 로그 확률을 사용할 수 있었는지, 모델이 바로 답하는지도 알려 줍니다. 로그 확률은 모델이 쓸 수 있는 각 단어에 대한 확신도 수치입니다. 테스트는 내 채팅이 아닌 고정된 샘플을 보냅니다.
 
@@ -30,7 +32,7 @@ Decision 모델은 "Does the latest message move the scene to a new place?"처�
 
 - **내장 모델에서 이미 실행 중인 모델.** 추가 비용이 없습니다. 내장 모델을 쓰는 대부분의 사용자에게 가장 좋습니다.
 - **내 서버의 채팅 모델**(Ollama, LM Studio, llama.cpp 또는 다른 OpenAI 호환 서버). 추가 비용이 없습니다. 모델이 Marinara 밖에서 실행될 때 적합하며, 모델을 두 번 로드하지 않아도 됩니다.
-- **호스팅된 Decision 계정**(TypeSafe 또는 OpenRouter 키). 요청마다 과금되며 한 턴에 여러 번 요청할 수 있습니다. 휴대전화나 로컬 모델을 실행하지 않는 컴퓨터에 적합합니다.
+- **호스팅된 판단 모델**(TypeSafe, OpenRouter, NanoGPT 또는 Google Gemini). 요청마다 과금되며 한 턴에 여러 번 요청할 수 있습니다. NanoGPT 구독에는 일부 판단 모델이 포함되며, OpenRouter는 무료 모델도 제공합니다. 휴대폰이나 로컬 모델을 실행하지 않는 컴퓨터에 적합합니다.
 - **Built-in decision model**(결정 사이드카). 별도의 디스크와 GPU 메모리를 사용합니다. Linux x86-64와 지원되는 NVIDIA GPU가 필요합니다. 채팅 모델 옆에 별도의 Decision 모델을 둘 때 쓰입니다.
 
 이미 로컬 모델을 실행하고 있다면 먼저 그 모델을 써 보고, 자신의 채팅 턴으로 테스트하세요. 표현이 결과를 크게 좌우합니다. [판정문 작성하기](../prompts/conditional-prompts.md#writing-statements)를 참고하세요.
@@ -84,7 +86,7 @@ Marinara는 모델에 예/아니요 질문 하나를 보내 토큰 하나를 쓰
 호스팅된 Decision 계정은 선택한 최근 메시지와 판정문을 서비스로 보내며 비용이 발생할 수 있습니다. Smart 응답 순서는 [캐릭터 명단](#what-the-model-sees)도 보냅니다.
 
 1. 상단 바에서 **Connections**를 클릭한 다음 **Add**(추가)를 클릭하세요.
-2. **Decisions**(판단) 아래에서 **TypeSafe**나 **Own decision server**를 클릭하세요. OpenRouter라면 **Chat**(채팅) 아래의 **OpenRouter**를 클릭해 연결한 다음, 모델의 **⋯** 메뉴에서 **Use this key for decisions**(이 키를 판단에 사용)를 사용하세요.
+2. 유형 버튼에서 **Decision**(판단)을 클릭한 다음 **TypeSafe** 또는 **Own decision server**를 클릭하세요. NanoGPT는 [NanoGPT로 연결하기](#through-nanogpt)를, OpenRouter나 Google Gemini는 [OpenRouter 또는 Google Gemini로 연결하기](#through-openrouter-or-google-gemini)를 참고하세요.
 3. **API key**(API 키)를 입력하세요. **Own decision server**라면 **Server address**(서버 주소)를 입력하세요. **Connect**(연결)를 클릭하세요. 창이 닫히고 패널에 새 계정이 표시됩니다.
 4. **Behind the scenes** 아래의 **Decision** 행을 클릭하고 새 모델을 고르세요.
 5. 테스트하려면 패널에서 모델을 클릭해 **Edit model**을 연 다음 **Provider tests**(연결 테스트) 카드의 **Test provider**를 클릭하세요. **Own decision server** 모델에는 그곳에 **Test provider** 버튼이 없습니다. 대신 패널에서 계정의 **⋯** 메뉴를 열고 **Test**를 클릭하세요.
@@ -97,12 +99,41 @@ Decision 편집기(Decision 모델의 **Edit model**)에는 다음 필드가 있
 
 | 필드 | 하는 일 |
 | --- | --- |
-| **Decision source**(판단 소스) | **TypeSafe**, **OpenRouter**, **Custom System One endpoint**(사용자 지정 System One 엔드포인트) 또는 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**입니다. 모델을 만들 때 고정됩니다. |
+| **Decision source**(판단 소스) | **TypeSafe**, **OpenRouter**, **NanoGPT**, **Google Gemini**, **Custom System One endpoint**(사용자 지정 System One 엔드포인트) 또는 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**입니다. 모델을 만들 때 고정됩니다. |
 | **API key source**(API 키 소스) | **Enter a separate key (optional for local servers)**(별도의 키를 입력하세요, 로컬 서버는 선택 사항) 또는 다른 계정의 **Use key from …**(…의 키 사용)입니다. 연결된 키는 이후의 키 변경을 따라갑니다. 사용자 지정 System One 모델이나 OpenAI 호환 모델은 두 주소의 스킴, 호스트, 포트가 같을 때만 사용자 지정 채팅 계정의 키를 빌릴 수 있습니다. |
-| **Recent-message token budget**(최근 메시지 토큰 예산) | 보낼 채팅의 추정 토큰 수입니다. 1부터 30,000까지입니다. 기본값은 TypeSafe와 OpenRouter가 30,000, 사용자 지정 서버가 3,500입니다. Marinara는 오래된 메시지부터 버린 다음 가장 최신 메시지의 앞부분을 잘라 냅니다. 거부되거나 예산을 넘긴 요청은 답 없음이 됩니다. |
-| **Time limit (seconds)**(제한 시간, 초) | 채팅 중 판정문 하나마다 기다리는 시간입니다. 0.5부터 30까지입니다. 기본값은 1.5이며, OpenAI 호환 채팅 모델은 4입니다. [시간 제한](#time-limits)을 참고하세요. |
+| **Recent-message token budget**(최근 메시지 토큰 예산) | 보낼 채팅의 추정 토큰 수입니다. 1부터 30,000까지입니다. 기본값은 TypeSafe, OpenRouter, NanoGPT, Google Gemini가 30,000, 사용자 지정 서버가 3,500입니다. NanoGPT, OpenRouter 또는 Google Gemini 계정의 판단 모델 입력 한도가 이보다 작으면 그 한도의 4분의 3을 사용합니다. Marinara는 오래된 메시지부터 버린 다음 가장 최신 메시지의 앞부분을 잘라 냅니다. 거부되거나 예산을 넘긴 요청은 답 없음이 됩니다. |
+| **Time limit (seconds)**(제한 시간, 초) | 채팅 중 판정문 하나마다 기다리는 시간입니다. 0.5부터 30까지입니다. 기본값은 1.5이며, NanoGPT와 OpenAI 호환 채팅 모델은 4입니다. [시간 제한](#time-limits)을 참고하세요. |
+| **Custom Request Headers**(사용자 지정 요청 헤더) | 각 판단 요청에 추가할 헤더를 JSON 객체로 지정합니다. 예를 들어 `{"x-billing-mode": "paygo"}`를 쓸 수 있습니다. 키는 넣을 수 없으며 인증 헤더는 거부됩니다. |
 
 TypeSafe는 `https://api.typesafe.ai`로 요청을 보냅니다. **Base URL**(기본 URL)을 TypeSafe의 API를 실행하는 다른 서버로 바꿀 수 있으며, 이때 `/v1/systemone`은 빼고 입력합니다. 이 경우에도 TypeSafe 키가 필요하며 키는 그 서버로 전송됩니다. **Custom System One endpoint**는 Open-Jev나 [Strands decider](#run-strands-decider-yourself)처럼 직접 실행하는 System One 서버를 받습니다. 주소는 `/v1/systemone` 없이 입력하세요. Ollama 같은 채팅 모델 서버는 System One을 사용하지 않습니다. 이런 서버에는 **OpenAI-compatible chat model**을 사용하세요.
+
+<a id="through-nanogpt"></a>
+### NanoGPT로 연결하기
+
+NanoGPT에는 Jev Latest와 같은 자체 판단 모델이 있습니다. Marinara는 NanoGPT 키로 Decisions API에 요청을 보냅니다. 일부 모델은 NanoGPT 구독에 포함되며, 나머지 모델은 잔액에서 요금이 차감됩니다.
+
+1. 평소처럼 NanoGPT를 연결하세요. **Add**의 **Decision** 유형에도 NanoGPT가 표시됩니다.
+2. **Found in NanoGPT — use it for:**(NanoGPT에서 찾은 항목의 용도)에서 **Decision**을 체크하세요. Marinara는 구독에 포함된 판단 모델을 고르며 Jev Latest를 우선합니다.
+3. 다른 모델을 고르려면 NanoGPT 계정의 **⋯**, **Add model**(모델 추가), **Decision** 탭 순으로 클릭하세요. 판단 모델만 나열됩니다. 구독에 포함된 모델에는 **Plan**(요금제) 표시가 붙습니다. 모델을 고른 뒤 **Test decision**(판단 테스트)을 클릭하세요.
+
+판단 모델은 채팅할 수 없으므로 채팅 모델 목록에 표시되지 않습니다.
+
+기본적으로 NanoGPT가 요청에 구독을 적용할지 잔액을 쓸지 정합니다. 항상 잔액을 쓰려면 판단 모델의 **Edit model**을 열고 **Custom Request Headers**에 `{"x-billing-mode": "paygo"}`를 입력하세요.
+
+<a id="through-openrouter-or-google-gemini"></a>
+### OpenRouter 또는 Google Gemini로 연결하기
+
+OpenRouter와 Google Gemini 계정에도 자체 판단 모델이 있습니다. Marinara는 해당 계정 키를 사용해 서비스의 판단 API에 요청합니다. OpenRouter에는 모델이 많고, 이름이 `:free`로 끝나는 모델은 무료입니다. Google Gemini에는 **Gemini Decision 1** 하나가 있습니다.
+
+1. 평소처럼 OpenRouter 또는 Google Gemini를 연결하세요.
+2. **Jobs** 상자의 **Behind the scenes** 아래에서 **Decision** 행을 클릭한 다음 왼쪽의 계정을 클릭하세요. **Decision models**에서 모델을 고르세요.
+3. 테스트하려면 모델의 **Edit model**을 열고 **Test provider**를 클릭하세요.
+
+OpenRouter 계정에서는 로그 확률을 반환하는 채팅 모델이 아래의 **Chat models**에 표시되며, 이 모델도 사용할 수 있습니다. Google Gemini 계정에는 판단 모델만 있습니다.
+
+이 버전 전에 추가한 계정은 판단 모델이 나오기 전에 모델 목록을 저장했기 때문에 처음에는 **Decision models**가 보이지 않을 수 있습니다. 선택 창에서 새로 고침 버튼을 누르세요. Marinara도 저장된 모델 목록을 하루에 한 번 새로 고칩니다.
+
+**Add**에서 추가한 별도의 **OpenRouter** 판단 계정도 계속 작동합니다. 해당 계정 키로 같은 API에 요청합니다.
 
 일부 호스팅 서비스는 가끔 1.5초보다 느리게 답하며, 그러면 판정이 무작위로 고장 난 것처럼 보입니다. 여러 번 테스트하고 가장 느린 답보다 제한을 높게 설정하세요. 프리셋의 판정이나 답글 전에 실행되는 에이전트의 활성화 질문처럼 답글 전에 묻는 판정문은 각각 최대 그 시간만큼 답글을 지연시킬 수 있습니다.
 
@@ -149,7 +180,7 @@ TypeSafe는 `https://api.typesafe.ai`로 요청을 보냅니다. **Base URL**(�
 확률은 모델 간에 비교할 수 없습니다. 같은 예가 한 모델에서는 0.99, 다른 모델에서는 0.2가 될 수 있습니다. 기본 예/아니요 임계값은 모델에 따라 다릅니다.
 
 - **내장 모델 또는 OpenAI 호환 채팅 모델 계정:** 0.5
-- **TypeSafe, OpenRouter 또는 Custom System One 계정:** 0.5
+- **TypeSafe, OpenRouter, NanoGPT, Google Gemini 또는 Custom System One 계정:** 0.5
 - **Built-in decision model:** 모델 매니페스트의 권장값. Open-Jev 2B와 9B는 0.1
 
 에이전트의 **Run when probability is at least**(실행할 최소 확률)가 이 값을 재정의합니다. 저장된 값이 다르면 편집기가 모델 권장값으로 되돌리기를 제안합니다. 모델을 바꿀 때마다 확인하세요. 프롬프트 판정문과 로어북 Decision 필드는 모델의 기본값을 사용하며, 에이전트의 임계값은 이들의 값을 바꾸지 않습니다.
@@ -162,7 +193,8 @@ Custom System One 계정 뒤에서 직접 호스팅하는 Open-Jev도 0.5를 사
 
 시간 안에 도착하지 않은 판정은 답 없음이 되며, 생성은 해당 기능의 대체 동작으로 계속됩니다([Marinara에서 사용하는 곳](#where-marinara-uses-it) 참고). 모든 제한은 판정문별로 적용됩니다. 판정문이 여러 개인 요청은 각 판정문에 제한 시간이 주어지며, 각 Choice 답도 판정문 하나로 셉니다. 로컬 모델은 한 번에 몇 개의 요청만 처리하므로 판정문은 차례를 기다리고, 판정문의 시간은 모델이 그 판정문을 처리하기 시작할 때부터 계산합니다.
 
-- **TypeSafe, OpenRouter 또는 Custom System One 계정:** 1.5초 또는 설정한 **Time limit**
+- **TypeSafe, OpenRouter, Google Gemini 또는 Custom System One 계정:** 1.5초 또는 설정한 **Time limit**. 측정 결과 OpenRouter와 Google Gemini의 응답 시간은 0.2초에서 0.5초였습니다.
+- **NanoGPT 판단 모델:** 4초 또는 설정한 **Time limit**. 측정 결과 응답 시간은 0.4초에서 2.5초였습니다.
 - **OpenAI 호환 채팅 모델 계정:** 4초 또는 설정한 **Time limit**. 먼저 생각해야 하는 모델은 최소 20초가 주어집니다.
 - **내장 모델:** 4초. 먼저 생각해야 하는 모델은 20초가 주어집니다.
 - **Built-in decision model:** 첫 판정문은 4초. 이후 판정문에는 모델의 측정 시간이 주어집니다. Open-Jev 2B는 0.35초, Open-Jev 9B는 0.8초입니다. 저장소에서 설치한 모델은 판정문마다 4초가 주어집니다.
@@ -190,6 +222,7 @@ Custom System One 계정 뒤에서 직접 호스팅하는 Open-Jev도 0.5를 사
 ## 문제 해결
 
 - **테스트 실패.** 메시지에 이유가 나옵니다. 키 거부, 서비스의 요청 제한, 내장 모델 미실행, Decision 모델 미설치, 예/아니요로 답하지 않음, 시간 초과 중 하나입니다.
+- **선택 창에 계정의 Decision models가 표시되지 않습니다.** 저장된 모델 목록이 판단 모델보다 오래되었습니다. 선택 창에서 계정 이름 옆의 새로 고침 버튼을 누르세요.
 - **서버에 해당 엔드포인트가 없음.** Decision 소스와 서버가 맞지 않습니다. Ollama, LM Studio 및 다른 채팅 모델 서버에는 **OpenAI-compatible chat model**이 필요합니다. **Custom System One endpoint**는 Open-Jev 같은 System One 서버 전용입니다.
 - **답이 시간 제한을 넘기거나 판정이 가끔만 작동함.** 서비스가 때때로 **Time limit**보다 느립니다. 여러 번 테스트하고 가장 느린 답보다 제한을 높이세요.
 - **활성화 질문이 있는 에이전트가 매 턴 실행됨.** Decision 모델이 설정되지 않았거나 답하지 않아, 에이전트가 질문이 없는 것처럼 실행됩니다. 테스트를 실행하세요.
@@ -244,7 +277,7 @@ Open-Jev 모델에는 Linux **x86-64**, 컴퓨트 기능 7.5 이상인 NVIDIA GP
 
    NVIDIA GPU나 Apple silicon이 있으면 사용하고, 없으면 프로세서에서 더 느리게 실행됩니다. 처음 시작할 때 모델과 약 4.6 GB의 기본 가중치를 다운로드하며, Python 패키지는 약 5.5 GB를 차지합니다. 서버에 비밀번호가 없으므로 `127.0.0.1`에서만 실행하세요.
 
-2. **Server address**가 `http://127.0.0.1:8000`인 **Own decision server** 계정을 추가하세요. 모델 이름은 무엇이든 됩니다.
+2. 유형 버튼에서 **Decision**(판단)을 클릭한 다음 **TypeSafe** 또는 **Own decision server**를 클릭하세요. NanoGPT는 [NanoGPT로 연결하기](#through-nanogpt)를, OpenRouter나 Google Gemini는 [OpenRouter 또는 Google Gemini로 연결하기](#through-openrouter-or-google-gemini)를 참고하세요.
 3. **Decision** 행에서 이 모델을 고른 다음 계정의 **⋯** 메뉴에 있는 **Test**로 테스트하세요. 시작 후 첫 답은 약 2초가 걸려 기본 시간 제한보다 길므로, 채팅 전에 한 번 테스트하세요.
 
 확률이 보정되어 있으므로, 직접 호스팅하는 Open-Jev와 달리 기본 임계값 0.5가 적합합니다([임계값](#thresholds) 참고). 답이 표현에 좌우되므로 [판정문 작성하기](../prompts/conditional-prompts.md#writing-statements)를 따르세요.

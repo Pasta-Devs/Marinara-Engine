@@ -146,7 +146,7 @@ Zobacz [Dostawcy generowania obrazów i konfiguracja](../media/image-providers.m
 
 ## Decision
 
-W sekcji **Decisions** są kafelki **TypeSafe** (domyślny adres `https://api.typesafe.ai`), **Own decision server** (własny serwer decyzyjny) i **Built-in model (decisions)** (model wbudowany, decyzje). Usługi czatu korzystające z formatu czatu OpenAI też mogą obsługiwać decyzje, ale tylko z modelem, który zwraca logarytmy prawdopodobieństw (oceny każdej możliwej odpowiedzi). Model decyzyjny odpowiada na pytania typu tak lub nie dotyczące twojego czatu. Zobacz [Modele decyzyjne](decision-models.md).
+W sekcji **Decisions** są kafelki **TypeSafe** (domyślny adres `https://api.typesafe.ai`), **Own decision server** (własny serwer decyzyjny) i **Built-in model (decisions)** (model wbudowany, decyzje). Filtr typu **Decision** (decyzje) w **Add** (dodaj) pokazuje te pozycje oraz **NanoGPT**, **OpenRouter** i **Google Gemini**, które mają własne modele decyzyjne. Zobacz [Przez usługę NanoGPT](decision-models.md#through-nanogpt) i [Przez usługę OpenRouter lub Google Gemini](decision-models.md#through-openrouter-or-google-gemini). Inne usługi czatu korzystające z formatu czatu OpenAI też mogą obsługiwać decyzje, ale tylko z modelem, który zwraca logarytmy prawdopodobieństw (oceny każdej możliwej odpowiedzi). Model decyzyjny odpowiada na pytania typu tak lub nie dotyczące twojego czatu. Zobacz [Modele decyzyjne](decision-models.md).
 
 ## Audio
 

@@ -16,7 +16,9 @@ Antes de começar, veja [Qual escolher](#which-one-to-pick).
    - **None (decisions off)** (nenhum: decisões desligadas) é o padrão. Nada é perguntado, e os campos de perguntas de ativação no editor de agentes ficam desativados.
    - **Built-in model** (modelo embutido) lista os modelos que Marinara roda no seu computador: **Built-in model**, **Built-in model (utility)** e **Built-in model (decisions)**. Nada sai do seu computador.
    - **Connections** lista as suas contas que podem responder decisões: hospedadas, ou um modelo de chat em um servidor que você já executa.
-4. Para testá-lo, clique na engrenagem **Decision settings** (configurações de decisão) da linha e clique em **Test** (testar). Esse botão aparece nas opções do modelo embutido. Para uma conta TypeSafe ou OpenRouter, abra **Edit model** (editar modelo) no modelo dela e clique em **Test provider** (testar provedor). Para uma conta **Own decision server** (servidor de decisão próprio), use **Test** no menu **⋯** da conta.
+
+   Clique em uma conta à esquerda para ver os modelos. As contas NanoGPT, OpenRouter e Google Gemini mostram primeiro seus próprios modelos de decisão em **Decision models** (modelos de decisão), com os modelos de chat logo abaixo em **Chat models** (modelos de chat). Uma conta Google Gemini mostra apenas os modelos de decisão, pois os modelos de chat dela não respondem a decisões. Um modelo de decisão escolhido antes aparece acima de **Starred** (favoritos), com o nome da conta abaixo dele.
+4. Para testar o modelo, clique na engrenagem **Decision settings** (configurações de decisão) da linha e clique em **Test** (testar). Esse botão aparece nas opções de modelo embutido. Para um modelo de decisão TypeSafe, OpenRouter, NanoGPT ou Google Gemini, abra **Edit model** (editar modelo) e clique em **Test provider** (testar provedor). Para uma conta **Own decision server** (servidor de decisão próprio), use **Test** no menu **⋯** da conta.
 
 Um teste bem-sucedido mostra a probabilidade de sim e quanto tempo a resposta levou. Para um modelo no seu computador, ele também informa se havia log-probabilidades disponíveis e se o modelo responde diretamente. Log-probabilidades são os números de confiança do modelo para cada palavra que ele poderia escrever. O teste envia uma amostra fixa, não o seu chat.
 
@@ -30,7 +32,7 @@ As opções que não podem responder agora continuam na lista, em cinza, com o m
 
 - **Um modelo que você já roda no modelo embutido.** Não custa nada a mais. É a melhor opção para a maioria de quem usa o modelo embutido.
 - **Um modelo de chat no seu próprio servidor** (Ollama, LM Studio, llama.cpp ou outro servidor compatível com OpenAI). Não custa nada a mais. Boa opção quando o seu modelo roda fora do Marinara, para que ele não seja carregado duas vezes.
-- **Uma conta Decision hospedada** (chave da TypeSafe ou do OpenRouter). Cobrada por solicitação, e um turno pode fazer várias. Boa opção para celulares e computadores que não rodam um modelo local.
+- **Um modelo de decisão hospedado** (TypeSafe, OpenRouter, NanoGPT ou Google Gemini). A cobrança é por solicitação, e um turno pode fazer várias. A assinatura do NanoGPT inclui alguns modelos de decisão, e o OpenRouter oferece alguns gratuitos. É uma boa opção para celulares e computadores sem modelo local.
 - **O modelo de decisão embutido.** Usa espaço em disco e memória da GPU separados. Precisa de Linux x86-64 e de uma GPU NVIDIA compatível. Para ter um modelo de decisão separado, ao lado do seu modelo de chat.
 
 Se você já roda um modelo local, experimente-o primeiro e teste turnos dos seus próprios chats. A redação faz muita diferença. Veja [Escrever declarações](../prompts/conditional-prompts.md#writing-statements).
@@ -84,7 +86,7 @@ Ele é consultado como o modelo embutido: uma palavra de sim ou não por declara
 Uma conta Decision hospedada envia ao serviço as mensagens recentes selecionadas e as declarações, e pode gerar cobranças. A ordem de resposta Smart também envia uma [lista de personagens](#what-the-model-sees).
 
 1. Clique em **Connections** na barra superior e depois em **Add** (adicionar).
-2. Em **Decisions** (decisões), clique em **TypeSafe** ou **Own decision server**. Para o OpenRouter, clique em **OpenRouter** em **Chat**, conecte a conta e use **Use this key for decisions** (usar esta chave para decisões) no menu **⋯** do modelo.
+2. Clique no filtro de tipo **Decision** e depois em **TypeSafe** ou **Own decision server**. Para o NanoGPT, veja [Pelo NanoGPT](#through-nanogpt). Para o OpenRouter ou o Google Gemini, veja [Pelo OpenRouter ou Google Gemini](#through-openrouter-or-google-gemini).
 3. Informe a **API key** (chave de API) ou, para **Own decision server**, o **Server address** (endereço do servidor). Clique em **Connect** (conectar). A janela fecha e o painel mostra a conta nova.
 4. Clique na linha **Decision**, em **Behind the scenes**, e escolha o modelo novo.
 5. Para testá-lo, clique no modelo no painel para abrir **Edit model** e depois clique em **Test provider** no cartão **Provider tests** (testes do provedor). Um modelo de **Own decision server** não tem o botão **Test provider** ali. Em vez disso, abra o menu **⋯** da conta no painel e clique em **Test**.
@@ -97,12 +99,43 @@ O editor de Decision (**Edit model** em um modelo de decisão) tem estes campos:
 
 | Campo | O que faz |
 | --- | --- |
-| **Decision source** (fonte de decisão) | **TypeSafe**, **OpenRouter**, **Custom System One endpoint** (endpoint System One personalizado) ou **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. Ela fica fixa a partir da criação do modelo. |
+| **Decision source** (fonte de decisão) | **TypeSafe**, **OpenRouter**, **NanoGPT**, **Google Gemini**, **Custom System One endpoint** (endpoint System One personalizado) ou **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. Ela fica fixa a partir da criação do modelo. |
 | **API key source** (origem da chave de API) | **Enter a separate key (optional for local servers)** (informar uma chave separada: opcional para servidores locais) ou **Use key from …** (usar a chave de) outra conta. As chaves vinculadas acompanham as alterações posteriores da chave. Um modelo System One personalizado ou compatível com OpenAI só pode emprestar a chave de uma conta de chat personalizada quando os dois endereços têm o mesmo esquema, host e porta. |
-| **Recent-message token budget** (orçamento de tokens de mensagens recentes) | Quantos tokens estimados do chat enviar. De 1 a 30.000. Padrão de 30.000 para TypeSafe e OpenRouter, e de 3.500 para servidores personalizados. Marinara descarta primeiro as mensagens mais antigas e depois corta a parte mais antiga da mensagem mais recente. Uma solicitação recusada ou acima do orçamento não fornece resposta. |
-| **Time limit (seconds)** (limite de tempo em segundos) | Quanto tempo esperar por cada declaração durante os chats. De 0,5 a 30. Padrão de 1,5, ou 4 para um modelo de chat compatível com OpenAI. Veja [Tempos limite](#time-limits). |
+| **Recent-message token budget** (orçamento de tokens de mensagens recentes) | Quantos tokens estimados do chat enviar. De 1 a 30.000. O padrão é 30.000 para TypeSafe, OpenRouter, NanoGPT e Google Gemini e 3.500 para servidores próprios. Um modelo de decisão de uma conta NanoGPT, OpenRouter ou Google Gemini com limite de entrada menor recebe três quartos desse limite. Marinara descarta primeiro as mensagens mais antigas e depois corta a parte inicial da mensagem mais recente. Uma solicitação recusada ou acima do orçamento fica sem resposta. |
+| **Time limit (seconds)** (limite de tempo em segundos) | Quanto tempo esperar por cada declaração durante os chats. De 0,5 a 30. O padrão é 1,5 segundo, ou 4 segundos para NanoGPT e modelos de chat compatíveis com OpenAI. Veja [Tempos limite](#time-limits). |
+| **Custom Request Headers** (cabeçalhos personalizados da solicitação) | Cabeçalhos extras enviados com cada solicitação de decisão, como um objeto JSON, por exemplo `{"x-billing-mode": "paygo"}`. Os cabeçalhos de autenticação são recusados, então deixe as chaves fora daqui. |
 
 TypeSafe envia para `https://api.typesafe.ai`. Você pode trocar a **Base URL** (URL base) dela pelo endereço de outro servidor que execute a API da TypeSafe, sem `/v1/systemone`. A chave da TypeSafe continua necessária e é enviada a esse servidor. **Custom System One endpoint** aceita um servidor System One que você executa, como Open-Jev ou [Strands decider](#run-strands-decider-yourself). Informe o endereço dele sem `/v1/systemone`. Um servidor de modelos de chat como o Ollama não fala System One. Para ele, use **OpenAI-compatible chat model**.
+
+<a id="through-nanogpt"></a>
+
+### Pelo NanoGPT
+
+O NanoGPT lista seus próprios modelos de decisão, como Jev Latest, e responde pela API Decisions usando sua chave do NanoGPT. Alguns modelos estão incluídos na assinatura, e os demais são cobrados do seu saldo.
+
+1. Conecte o NanoGPT normalmente. Em **Add**, ele também aparece no filtro de tipo **Decision**.
+2. Em **Found in NanoGPT — use it for:** (encontrado no NanoGPT – usar para), marque **Decision**. Marinara escolhe um modelo de decisão incluído no seu plano, dando preferência ao Jev Latest.
+3. Para escolher outro, clique em **⋯** na conta NanoGPT, depois em **Add model** (adicionar modelo) e na aba **Decision**. A aba lista apenas modelos de decisão. O selo **Plan** marca os modelos incluídos na assinatura. Selecione um e clique em **Test decision**.
+
+Os modelos de decisão ficam fora das listas de modelos de chat porque não conseguem conversar.
+
+Por padrão, o NanoGPT decide se a solicitação usa a assinatura ou o saldo. Para sempre usar o saldo, abra **Edit model** no modelo de decisão e informe `{"x-billing-mode": "paygo"}` em **Custom Request Headers**.
+
+<a id="through-openrouter-or-google-gemini"></a>
+
+### Pelo OpenRouter ou Google Gemini
+
+As contas OpenRouter e Google Gemini também listam seus próprios modelos de decisão. Marinara consulta a API de decisão do serviço com a chave da conta. O OpenRouter lista vários, alguns gratuitos (os nomes terminam em `:free`). O Google Gemini lista um, **Gemini Decision 1**.
+
+1. Conecte o OpenRouter ou o Google Gemini normalmente.
+2. Clique na linha **Decision** em **Behind the scenes**, na caixa **Jobs**, e depois na conta à esquerda. Escolha um modelo em **Decision models**.
+3. Para testá-lo, abra **Edit model** e clique em **Test provider**.
+
+Na conta OpenRouter, os modelos de chat que retornam log-probabilidades aparecem logo abaixo, em **Chat models**, e também funcionam. Uma conta Google Gemini oferece somente seu modelo de decisão.
+
+Uma conta adicionada antes desta versão pode começar sem **Decision models** porque a lista salva é anterior a esses modelos. Clique no botão de atualizar no seletor ou aguarde a atualização automática. Marinara atualiza as listas salvas de modelos uma vez por dia.
+
+Uma conta de decisão independente do **OpenRouter** criada em **Add** continua funcionando. Ela consulta a mesma API com sua própria chave.
 
 Alguns serviços hospedados às vezes levam mais de 1,5 segundo para responder, o que faz as decisões parecerem falhar ao acaso. Teste algumas vezes e defina o limite acima da resposta mais lenta. As declarações feitas antes da resposta, como as decisões de um preset ou a pergunta de ativação de um agente que roda antes da resposta, podem atrasar a resposta por até esse tempo cada uma.
 
@@ -149,7 +182,7 @@ Um serviço de decisão hospedado recebe essas listas junto com as mensagens.
 As probabilidades não são comparáveis entre modelos. O mesmo exemplo pode pontuar 0,99 em um e 0,2 em outro. O limiar padrão de sim ou não depende do modelo:
 
 - **Modelo embutido ou conta de modelo de chat compatível com OpenAI:** 0,5
-- **Conta TypeSafe, OpenRouter ou Custom System One:** 0,5
+- **Conta TypeSafe, OpenRouter, NanoGPT, Google Gemini ou Custom System One:** 0,5
 - **Modelo de decisão embutido:** a recomendação do manifesto do modelo: 0,1 para Open-Jev 2B e 9B
 
 O ajuste **Run when probability is at least** (rodar quando a probabilidade for pelo menos) de um agente substitui esse padrão. O editor oferece restaurar a recomendação do modelo quando o valor salvo é diferente. Confira esse ajuste sempre que trocar de modelo. As declarações em prompts e os campos Decision de lorebooks usam o padrão do modelo, e o limiar de um agente não muda o deles.
@@ -162,7 +195,8 @@ Um Open-Jev hospedado por você em uma conta Custom System One continua usando 0
 
 Uma decisão que não chega a tempo não fornece resposta, e a geração continua com o comportamento alternativo do recurso (veja [Onde Marinara o usa](#where-marinara-uses-it)). Todo limite é por declaração. Uma solicitação com várias declarações recebe o limite para cada uma, e cada resposta Choice conta como uma declaração. Um modelo local processa só algumas solicitações por vez; por isso, as declarações aguardam a sua vez, e o tempo de uma declaração começa quando o modelo começa a processá-la.
 
-- **Conta TypeSafe, OpenRouter ou Custom System One:** 1,5 segundo, ou o seu **Time limit**
+- **Conta TypeSafe, OpenRouter, Google Gemini ou Custom System One:** 1,5 segundo ou o seu **Time limit**. Nos testes, OpenRouter e Google Gemini responderam em 0,2 a 0,5 segundo.
+- **Modelo de decisão do NanoGPT:** 4 segundos ou o seu **Time limit**. Nos testes, respondeu em 0,4 a 2,5 segundos.
 - **Conta de modelo de chat compatível com OpenAI:** 4 segundos, ou o seu **Time limit**. Um modelo que precisa raciocinar antes recebe pelo menos 20 segundos.
 - **Modelo embutido:** 4 segundos. Um modelo que precisa raciocinar antes recebe 20 segundos.
 - **Modelo de decisão embutido:** 4 segundos para a primeira declaração. Cada uma das seguintes recebe o tempo medido do modelo: 0,35 segundo para Open-Jev 2B e 0,8 segundo para Open-Jev 9B. Um modelo que você instalou a partir de um repositório recebe 4 segundos para cada uma.
@@ -189,6 +223,7 @@ Qualquer modelo pode responder errado, e respostas sim corretas podem ficar pert
 
 ## Solução de problemas
 
+- **Uma conta não mostra modelos em Decision models no seletor.** A lista salva é anterior aos modelos de decisão. Clique no botão de atualizar ao lado do nome da conta no seletor.
 - **O teste falha.** A mensagem diz por quê: a chave foi recusada, o serviço está limitando as solicitações, o modelo embutido não está rodando, o modelo de decisão não está instalado, o modelo não respondeu sim ou não, ou o tempo acabou.
 - **O servidor não tem esse endpoint.** A fonte Decision não corresponde ao servidor. Ollama, LM Studio e outros servidores de modelos de chat precisam de **OpenAI-compatible chat model**. **Custom System One endpoint** serve só para servidores System One, como Open-Jev.
 - **A resposta passou do tempo limite, ou as decisões só funcionam às vezes.** O serviço às vezes é mais lento que o **Time limit**. Teste algumas vezes e aumente o limite para acima da resposta mais lenta.

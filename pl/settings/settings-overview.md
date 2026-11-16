@@ -175,6 +175,7 @@ Te przełączniki leżą w **Settings → Advanced → Message Tools**. Wszystki
 | **Include reasoning in exports** (dołącz rozumowanie do eksportów) | Dodaje ukryte myślenie modelu do eksportów czatu. |
 | **Include private notes in exports** (dołącz prywatne notatki do eksportów) | Dodaje twoje prywatne notatki do wiadomości w eksportach JSONL i tekstowych. Zostaw wyłączone, gdy udostępniasz zapis rozmowy. |
 | **Debug mode** (tryb debugowania) | Zapisuje dane wysyłane do modeli w konsoli serwera na potrzeby wsparcia. |
+| **Open Console** (otwórz konsolę) | Otwiera ostatnie wpisy z dziennika serwera w przesuwanym oknie tylko do odczytu. Działa na komputerze z serwerem i na innych urządzeniach po zapisaniu sekretu administratora w **Admin Access**. Włącz w oknie **Debug mode**, żeby zobaczyć prompty i odpowiedzi, lub ustaw `LOG_LEVEL=debug` w pliku `.env`, żeby zobaczyć wszystkie wpisy. |
 
 Więcej znajdziesz w: [Działania na wiadomości: edycja, usuwanie, swipe'y, ponowne generowanie](../chats/messages.md), [Persony użytkownika: tworzenie i edycja](../characters/personas.md), [Wybór modelu dla jednego czatu](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt: zobacz, co dostał model AI](../chats/peek-prompt.md), [Sterowane generowanie i Impersonate](../chats/guided-and-impersonate.md), [Eksport i import czatów](../chats/export-import.md) i [Rozwiązywanie problemów w aplikacji Marinara Engine](../TROUBLESHOOTING.md).
 

@@ -146,7 +146,7 @@ Veja [Provedores de geração de imagens e configuração](../media/image-provid
 
 ## Decisão
 
-Em **Decisions** (decisões), os botões são **TypeSafe** (endereço padrão `https://api.typesafe.ai`), **Own decision server** e **Built-in model (decisions)**. Os serviços de chat que usam o formato de chat da OpenAI também podem fazer decisões, mas só com um modelo que retorne log-probabilidades (pontuações para cada resposta possível). Um modelo de decisão responde a perguntas de sim ou não sobre o seu chat. Veja [Modelos de decisão](decision-models.md).
+Em **Decisions** (decisões), os botões são **TypeSafe** (endereço padrão `https://api.typesafe.ai`), **Own decision server** e **Built-in model (decisions)**. O filtro de tipo **Decision** (decisão) em **Add** (adicionar) mostra essas opções e também **NanoGPT**, **OpenRouter** e **Google Gemini**, que têm seus próprios modelos de decisão. Veja [Pelo NanoGPT](decision-models.md#through-nanogpt) e [Pelo OpenRouter ou Google Gemini](decision-models.md#through-openrouter-or-google-gemini). Outros serviços de chat que usam o formato de chat da OpenAI também podem fazer decisões, mas só com um modelo que retorne log-probabilidades (pontuações para cada resposta possível). Um modelo de decisão responde a perguntas de sim ou não sobre o seu chat. Veja [Modelos de decisão](decision-models.md).
 
 <a id="audio"></a>
 

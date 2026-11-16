@@ -11,6 +11,8 @@ O card de personagem é um arquivo que guarda o nome, a personalidade, a saudaç
 
 O Card Browser ocupa toda a área de conteúdo, com o título **Browse character cards online**. Para sair, clique na seta para trás, no canto superior esquerdo.
 
+O botão **Download** no painel **Lorebooks** (lorebooks) abre o mesmo navegador com lorebooks disponíveis para baixar. Veja [Baixar um lorebook do Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 Se você fechar e abrir de novo, a última busca, os filtros e o personagem selecionado continuam lá. Recarregar o aplicativo zera tudo isso.
 
 ## Escolha uma fonte

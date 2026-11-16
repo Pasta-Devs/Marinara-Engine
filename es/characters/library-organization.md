@@ -43,6 +43,10 @@ Elige un orden en el menú desplegable de orden, junto al cuadro de búsqueda.
 | **Z-A** | Nombres de la Z a la A. |
 | **Newest** (Más recientes) | Primero los creados más recientemente. |
 | **Oldest** (Más antiguos) | Primero los creados hace más tiempo. |
+| **Most tokens** (Más tokens) | Primero las tarjetas más grandes, según la estimación que muestra cada fila. Las carpetas se ordenan por el total de sus tarjetas. |
+| **Fewest tokens** (Menos tokens) | Primero las tarjetas más pequeñas. |
+
+La ordenación por tamaño te ayuda a encontrar tarjetas que quieras abreviar o ampliar. La cifra estima el tamaño del texto propio de la tarjeta y no procede del tokenizador de tu modelo. Las personas, los lorebooks y los presets de prompts ofrecen las mismas dos opciones.
 | **Favorites** (Favoritos) | Primero los favoritos, luego el resto. |
 
 Para fijar un orden manual, arrastra una fila hacia arriba o hacia abajo, o pulsa <kbd>Alt</kbd>+<kbd>Up</kbd> o <kbd>Alt</kbd>+<kbd>Down</kbd> en una fila con el foco. Cualquiera de las dos cosas cambia el orden a **Manual order**.

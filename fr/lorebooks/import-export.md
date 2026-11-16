@@ -25,6 +25,20 @@ Si ça n'a pas marché : lis l'erreur à côté du fichier. Un fichier qui n'est
 
 Un lorebook importé fonctionne tout de suite avec les mots-clés. Si tu utilises la recherche sémantique, reconstruis ses vecteurs. Voir [Recherche sémantique pour les lorebooks](semantic-search.md).
 
+<a id="download-a-lorebook-from-chub"></a>
+
+## Télécharger un lorebook depuis Chub
+
+Tu peux importer des lorebooks partagés sur [Chub](https://chub.ai/lorebooks) sans enregistrer de fichier au préalable.
+
+1. Ouvre le panneau **Lorebooks**.
+2. Clique sur **Download** (télécharger) en haut. Le Card Browser s'ouvre avec le titre **Browse lorebooks online** (parcourir les lorebooks en ligne).
+3. Recherche, trie ou filtre par tags, puis clique sur un lorebook. Sa page affiche la description et les 30 premières entrées. Clique sur une entrée pour la lire.
+4. Dans **Imported tags** (tags importés), choisis **All tags** (tous les tags), **No tags** (aucun tag) ou **Existing only** (seulement les tags que tes lorebooks utilisent déjà).
+5. Clique sur **Import** (importer). Le lorebook, toutes ses entrées, son image et les tags choisis apparaissent dans le panneau **Lorebooks**.
+
+Chub ne peut pas filtrer les lorebooks pour adultes, donc ils restent toujours visibles. Si les tags d'un lorebook mentionnent NSFW, il affiche un badge **NSFW** et son image reste floutée tant que la case **NSFW** est décochée. Coche-la pour voir ces images. Les lorebooks sans ce tag restent nets, quel que soit leur contenu.
+
 ## Exporter un lorebook
 
 1. Dans le panneau **Lorebooks**, clique sur un lorebook pour l'ouvrir.

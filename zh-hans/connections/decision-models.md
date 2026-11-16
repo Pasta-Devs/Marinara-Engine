@@ -16,7 +16,9 @@ Decision 模型是一种小模型，替 Marinara 回答是或否的问题，例�
    - **None (decisions off)**(无，关闭判定) 是默认选项。不会发出任何询问，智能体编辑器里的激活问题字段保持禁用。
    - **Built-in model**(内置模型) 列出 Marinara 在你电脑上运行的模型：**Built-in model**、**Built-in model (utility)**(内置模型，辅助) 和 **Built-in model (decisions)**(内置模型，判定)。所有内容都不会离开你的电脑。
    - **Connections** 列出能回答判定的账号：托管服务，或者你已在运行的服务器上的聊天模型。
-4. 要测试它，点击这一行上的 **Decision settings**(判定设置) 齿轮，再点击 **Test**(测试)。这个按钮出现在内置模型的条目上。TypeSafe 或 OpenRouter 账号要在它的模型上打开 **Edit model**(编辑模型)，点击 **Test provider**(测试服务商)。**Own decision server**(自有判定服务器) 账号则用账号 **⋯** 菜单里的 **Test**。
+
+   点击左侧的账号即可浏览它的模型。NanoGPT、OpenRouter 或 Google Gemini 账号会先在 **Decision models**(判定模型) 下列出自己的判定模型，再在下方的 **Chat models**(聊天模型) 中列出聊天模型。Google Gemini 的聊天模型无法回答判定，因此它的账号只列出判定模型。你之前选过的判定模型会在 **Starred**(已加星标) 上方显示，模型名下方会显示账号名。
+4. 要测试它，点击这一行上的 **Decision settings**(判定设置) 齿轮，再点击 **Test**(测试)。这个按钮出现在内置模型的条目上。测试 TypeSafe、OpenRouter、NanoGPT 或 Google Gemini 判定模型时，打开模型的 **Edit model**(编辑模型)，再点击 **Test provider**(测试服务商)。**Own decision server**(自有判定服务器) 账号则使用账号的 **⋯** 菜单中的 **Test**。
 
 测试通过时，会显示“是”的概率和回答耗时。如果是你电脑上的模型，还会说明能否拿到对数概率，以及模型是否直接作答。对数概率是模型对它可能写出的每个词给出的置信度数值。测试发送的是固定样本，不是你的聊天。
 
@@ -30,7 +32,7 @@ Decision 模型是一种小模型，替 Marinara 回答是或否的问题，例�
 
 - **内置模型里已经在运行的模型。** 没有额外费用。最适合大多数使用内置模型的人。
 - **你自己服务器上的聊天模型**（Ollama、LM Studio、llama.cpp 或其他 OpenAI 兼容服务器）。没有额外费用。适合模型运行在 Marinara 之外的情况，这样就不会加载两份。
-- **托管的 Decision 账号**（TypeSafe 或 OpenRouter 密钥）。按请求计费，一个回合可能发出多次请求。适合手机，以及不运行本地模型的电脑。
+- **托管的判定模型**（TypeSafe、OpenRouter、NanoGPT 或 Google Gemini）。按请求计费，一个回合可能发出多次请求。NanoGPT 订阅包含部分判定模型，OpenRouter 也列有一些免费模型。适合手机和不运行本地模型的电脑。
 - **内置判定模型。** 单独占用磁盘空间和显存。需要 Linux x86-64 和受支持的 NVIDIA GPU。适合在聊天模型之外再运行一个独立的判定模型。
 
 如果已经在运行本地模型，先试它，并用你自己聊天里的回合来测试。措辞的影响很大。见[编写陈述](../prompts/conditional-prompts.md#writing-statements)。
@@ -84,7 +86,7 @@ Marinara 向模型提一个是或否的问题，让它只写一个 Token，再�
 托管的 Decision 账号会把选定的最近消息和陈述发给该服务，可能产生费用。Smart 回复顺序还会发送[角色名单](#what-the-model-sees)。
 
 1. 点击顶栏里的 **Connections**，再点击 **Add**(添加)。
-2. 在 **Decisions**(判定) 下点击 **TypeSafe** 或 **Own decision server**。如果用 OpenRouter，在 **Chat**(聊天) 下点击 **OpenRouter** 并完成连接，然后用模型 **⋯** 菜单里的 **Use this key for decisions**(将此密钥用于判定)。
+2. 点击类型按钮中的 **Decision**(判定)，再点击 **TypeSafe** 或 **Own decision server**。如果用 NanoGPT，见[通过 NanoGPT](#through-nanogpt)；如果用 OpenRouter 或 Google Gemini，见[通过 OpenRouter 或 Google Gemini](#through-openrouter-or-google-gemini)。
 3. 填写 **API key**(API 密钥)；如果是 **Own decision server**，则填写 **Server address**(服务器地址)。点击 **Connect**(连接)。窗口关闭，面板里会出现新账号。
 4. 点击 **Behind the scenes** 下的 **Decision** 行，选择新模型。
 5. 要测试它，在面板里点击该模型打开 **Edit model**，然后点击 **Provider tests**(服务商测试) 卡片里的 **Test provider**。**Own decision server** 模型在那里没有 **Test provider** 按钮。请改为在面板里打开账号的 **⋯** 菜单，点击 **Test**。
@@ -97,12 +99,41 @@ Decision 编辑器（在判定模型上打开 **Edit model**）有这些字段�
 
 | 字段 | 作用 |
 | --- | --- |
-| **Decision source**(判定来源) | **TypeSafe**、**OpenRouter**、**Custom System One endpoint**(自定义 System One 端点) 或 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**。创建模型时即固定。 |
+| **Decision source**(判定来源) | **TypeSafe**、**OpenRouter**、**NanoGPT**、**Google Gemini**、**Custom System One endpoint**(自定义 System One 端点) 或 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**。创建模型时即固定。 |
 | **API key source**(API 密钥来源) | **Enter a separate key (optional for local servers)**(输入单独的密钥，本地服务器可不填)，或者用 **Use key from …**(使用……的密钥) 借用另一个账号的密钥。关联的密钥会跟随之后的密钥更改。自定义 System One 或 OpenAI 兼容模型只有在两个地址的协议、主机和端口都相同时，才能借用自定义聊天账号的密钥。 |
-| **Recent-message token budget**(最近消息 Token 预算) | 发送多少估算 Token 的聊天内容。范围 1 到 30,000。TypeSafe 和 OpenRouter 默认 30,000，自定义服务器默认 3,500。Marinara 先丢弃较旧的消息，再裁掉最新消息里最旧的部分。请求被拒绝或超出预算时，不会得到答案。 |
-| **Time limit (seconds)**(时限，秒) | 聊天中每条陈述等待多久。范围 0.5 到 30。默认 1.5，OpenAI 兼容聊天模型默认 4。见[时限](#time-limits)。 |
+| **Recent-message token budget**(最近消息 Token 预算) | 发送多少估算 Token 的聊天内容。范围 1 到 30,000。TypeSafe、OpenRouter、NanoGPT 和 Google Gemini 默认 30,000，自定义服务器默认 3,500。如果 NanoGPT、OpenRouter 或 Google Gemini 账号中的判定模型输入上限更小，则使用该上限的四分之三。Marinara 先丢弃较旧的消息，再裁掉最新消息里最旧的部分。请求被拒绝或超出预算时，不会得到答案。 |
+| **Time limit (seconds)**(时限，秒) | 聊天中每条陈述等待多久。范围 0.5 到 30。默认 1.5，NanoGPT 和 OpenAI 兼容聊天模型默认 4。见[时限](#time-limits)。 |
+| **Custom Request Headers**(自定义请求头) | 随每次判定请求发送的额外请求头，以 JSON 对象填写，例如 `{"x-billing-mode": "paygo"}`。此处不能填写密钥，身份验证请求头会被拒绝。 |
 
 TypeSafe 发送到 `https://api.typesafe.ai`。可以把它的 **Base URL**(基础 URL) 换成另一台运行 TypeSafe API 的服务器，不带 `/v1/systemone`。这样仍然需要你的 TypeSafe 密钥，而密钥会发到那台服务器。**Custom System One endpoint** 接受你自己运行的 System One 服务器，例如 Open-Jev 或 [Strands decider](#run-strands-decider-yourself)。填写它的地址时不带 `/v1/systemone`。Ollama 这类聊天模型服务器不使用 System One。它要用 **OpenAI-compatible chat model**。
+
+<a id="through-nanogpt"></a>
+### 通过 NanoGPT
+
+NanoGPT 提供 Jev Latest 等自己的判定模型。Marinara 会用你的 NanoGPT 密钥通过 Decisions API 请求判定。部分模型包含在 NanoGPT 订阅中，其余模型会从余额扣费。
+
+1. 照常连接 NanoGPT。**Add** 的 **Decision** 类型按钮也会列出它。
+2. 在 **Found in NanoGPT — use it for:**(在 NanoGPT 中找到，可用于) 下勾选 **Decision**。Marinara 会从你的订阅中选择判定模型，优先选择 Jev Latest。
+3. 要换一个，点击 NanoGPT 账号的 **⋯**，再点击 **Add model**(添加模型)，然后打开 **Decision** 选项卡。这里只列出判定模型，订阅包含的模型会带有 **Plan**(套餐) 标记。选择一个模型，点击 **Test decision**(测试判定)。
+
+判定模型无法聊天，因此不会出现在任何聊天模型列表中。
+
+默认情况下，NanoGPT 决定请求使用订阅还是余额。要始终使用余额，打开判定模型的 **Edit model**，在 **Custom Request Headers** 中输入 `{"x-billing-mode": "paygo"}`。
+
+<a id="through-openrouter-or-google-gemini"></a>
+### 通过 OpenRouter 或 Google Gemini
+
+OpenRouter 和 Google Gemini 账号也会列出各自的判定模型，Marinara 会用该账号的密钥请求对应服务的判定 API。OpenRouter 列出了许多模型，其中名称以 `:free` 结尾的可以免费使用。Google Gemini 只列出一个，即 **Gemini Decision 1**。
+
+1. 照常连接 OpenRouter 或 Google Gemini。
+2. 点击 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行，再点击左侧的账号。在 **Decision models** 下选一个模型。
+3. 要测试它，打开模型的 **Edit model**，点击 **Test provider**。
+
+在 OpenRouter 账号中，会返回对数概率的聊天模型列在下方的 **Chat models** 中，也可以用来判定。Google Gemini 账号只提供它的判定模型。
+
+在此版本之前添加的账号一开始可能没有 **Decision models**，因为保存的模型列表早于这些判定模型。点击选择器里的刷新按钮，或等待 Marinara 每天刷新一次已保存的模型列表。
+
+通过 **Add** 创建的独立 **OpenRouter** 判定账号仍可使用。它会用自己的密钥向同一个 API 发请求。
 
 有些托管服务有时回答慢于 1.5 秒，让判定看起来像是随机失灵。多测试几次，把时限设在最慢那次回答的耗时以上。回复之前询问的陈述，例如预设里的判定，或者回复前运行的智能体的激活问题，每条都可能让回复最多多等这么久。
 
@@ -149,7 +180,7 @@ TypeSafe 发送到 `https://api.typesafe.ai`。可以把它的 **Base URL**(基�
 不同模型的概率没法直接比较。同一个例子在一个模型上可能得 0.99，在另一个模型上只有 0.2。默认的是或否阈值取决于模型：
 
 - **内置模型，或 OpenAI 兼容聊天模型账号：** 0.5
-- **TypeSafe、OpenRouter 或 Custom System One 账号：** 0.5
+- **TypeSafe、OpenRouter、NanoGPT、Google Gemini 或 Custom System One 账号：** 0.5
 - **内置判定模型：** 模型清单的建议值：Open-Jev 2B 和 9B 为 0.1
 
 智能体的 **Run when probability is at least**(运行所需的最低概率) 会覆盖这个值。保存的值与模型建议值不同时，编辑器会提供恢复建议值的选项。每次换模型都要检查它。提示词陈述和世界书 Decision 字段使用模型的默认值，智能体的阈值不会改变它们的阈值。
@@ -162,7 +193,8 @@ TypeSafe 发送到 `https://api.typesafe.ai`。可以把它的 **Base URL**(基�
 
 没有及时返回的判定算作没有答案，生成会按该功能的备用行为继续（见 [Marinara 在哪里使用它](#where-marinara-uses-it)）。所有时限都按陈述计算。一次请求里有多条陈述时，每条都获得这段时限；每个 Choice 答案也算一条陈述。本地模型一次只处理少量请求，所以陈述要排队，每条陈述的计时从模型开始处理它时算起。
 
-- **TypeSafe、OpenRouter 或 Custom System One 账号：** 1.5 秒，或你设置的 **Time limit**
+- **TypeSafe、OpenRouter、Google Gemini 或 Custom System One 账号：** 1.5 秒，或你设置的 **Time limit**。实测中，OpenRouter 和 Google Gemini 在 0.2 到 0.5 秒内回答。
+- **NanoGPT 判定模型：** 4 秒，或你设置的 **Time limit**。实测中，它在 0.4 到 2.5 秒内回答。
 - **OpenAI 兼容聊天模型账号：** 4 秒，或你设置的 **Time limit**。必须先推理的模型至少获得 20 秒。
 - **内置模型：** 4 秒。必须先推理的模型获得 20 秒。
 - **内置判定模型：** 第一条陈述 4 秒。之后每条使用模型的实测时间：Open-Jev 2B 为 0.35 秒，Open-Jev 9B 为 0.8 秒。从仓库安装的模型每条获得 4 秒。
@@ -190,6 +222,7 @@ TypeSafe 发送到 `https://api.typesafe.ai`。可以把它的 **Base URL**(基�
 ## 故障排查
 
 - **测试失败。** 消息会说明原因：密钥被拒绝、服务正在限制请求、内置模型没有运行、判定模型没有安装、模型没有回答是或否，或者超时。
+- **选择器中某个账号没有显示 Decision models。** 它保存的模型列表早于判定模型。点击选择器里账号名旁的刷新按钮。
 - **服务器没有该端点。** Decision 来源与服务器不匹配。Ollama、LM Studio 等聊天模型服务器需要 **OpenAI-compatible chat model**。**Custom System One endpoint** 只用于 Open-Jev 等 System One 服务器。
 - **回答超过了时限，或者判定只是偶尔有效。** 该服务有时比 **Time limit** 慢。多测试几次，把时限提高到最慢那次回答以上。
 - **带激活问题的智能体每回合都运行。** 没有设置 Decision 模型，或者它没有回答，所以智能体就像没有问题一样运行。运行一次测试。
@@ -244,7 +277,7 @@ Open-Jev 模型需要 Linux **x86-64**、计算能力 7.5 或更高的 NVIDIA GP
 
    检测到 NVIDIA GPU 或 Apple silicon 时会使用它们，否则在处理器上运行，速度较慢。首次启动会下载模型和约 4.6 GB 的基础权重，它的 Python 包约占 5.5 GB。服务器没有密码，因此要让它保持在 `127.0.0.1` 上。
 
-2. 添加一个 **Own decision server** 账号，**Server address** 填 `http://127.0.0.1:8000`。模型名称随便填都行。
+2. 点击类型按钮中的 **Decision**(判定)，再点击 **TypeSafe** 或 **Own decision server**。如果用 NanoGPT，见[通过 NanoGPT](#through-nanogpt)；如果用 OpenRouter 或 Google Gemini，见[通过 OpenRouter 或 Google Gemini](#through-openrouter-or-google-gemini)。
 3. 在 **Decision** 行上选中它，然后用账号 **⋯** 菜单里的 **Test** 测试。它启动后的第一次回答约需 2 秒，比默认时限更长，所以开始聊天前先测试一次。
 
 它的概率经过校准，所以默认的 0.5 阈值适合它，这一点和自托管的 Open-Jev 不同（见[阈值](#thresholds)）。它的回答受措辞影响，所以请按照[编写陈述](../prompts/conditional-prompts.md#writing-statements)来写。

@@ -8,14 +8,14 @@
 
 ## 도구 만들기
 
-시작하기 전에 상단 바에서 **Presets**(프리셋) 패널을 여세요. 도구는 이 패널의 **Functions**(기능) 탭에 있습니다. 다른 기기에서 Marinara를 연다면 먼저 **Settings → Advanced → Admin Access**(설정 → 고급 → 관리자 접근)에 관리자 시크릿을 저장하세요. 이 값은 서버의 `ADMIN_SECRET`과 일치해야 합니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
+시작하기 전에 상단 바에서 **Presets**(프리셋) 패널을 여세요. 도구는 이 패널의 **Tools**(도구) 탭에 있습니다. 다른 기기에서 Marinara를 연다면 먼저 **Settings → Advanced → Admin Access**(설정 → 고급 → 관리자 접근)에 관리자 시크릿을 저장하세요. 이 값은 서버의 `ADMIN_SECRET`과 일치해야 합니다. [서버 설정 참고 문서](../CONFIGURATION.md)를 참고하세요.
 
 처음이라면 **Static Result**(고정 응답)를 고르세요. 다른 준비가 필요 없습니다.
 
 ### 단계별로 도구 만들기
 
-1. 상단 바에서 **Presets → Functions**를 여세요.
-2. 더하기 아이콘인 **Create function**(함수 만들기)을 클릭하세요. 빈 도구 편집기가 열립니다.
+1. 상단 바에서 **Presets → Tools**를 여세요.
+2. 더하기 아이콘인 **Create tool**(도구 만들기)을 클릭하세요. 빈 도구 편집기가 열립니다.
 3. `check_weather`처럼 소문자 snake_case로 이름을 입력하세요. AI가 호출할 때 쓰는 이름과 정확히 같습니다. 이름은 소문자로 시작하고, 그다음부터는 소문자, 숫자, 밑줄을 사용합니다.
 4. **Description**(설명)을 채우세요. AI가 이 글을 읽고 언제 도구를 호출할지 판단하므로, AI에게 주는 지시처럼 쓰세요. 예: `Get the current weather for a city the user names.`
 5. 도구에 필요한 파라미터를 추가하세요([파라미터 추가하기](#add-parameters) 참고).
@@ -29,22 +29,22 @@
 - 두 도구가 같은 이름을 쓸 수 없고, `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `update_about_me` 같은 기본 제공 이름도 쓸 수 없습니다. 이름이 겹치면 `"your_name" is a reserved built-in tool name.` 같은 메시지가 나옵니다.
 - 저장하지 않은 변경 사항을 남긴 채 편집기를 벗어나면 **Keep editing**(계속 편집), **Discard**(변경 취소), **Save & close**(저장 & 닫기)를 고르는 배너가 나타납니다.
 
-**Functions** 탭 상단에 다음 버튼이 있습니다.
+**Tools** 탭 상단에 다음 버튼이 있습니다.
 
-- **Create function**(더하기 아이콘)
-- **Import functions from ZIP or JSON**(ZIP 또는 JSON에서 기능 가져오기)
-- **Export functions to ZIP**(기능을 ZIP으로 내보내기). 도구가 없으면 회색으로 비활성화됩니다.
-- **Select functions**(기능 선택, 체크 아이콘)
+- **Create tool**(더하기 아이콘)
+- **Import tools from ZIP or JSON**(ZIP 또는 JSON에서 도구 가져오기)
+- **Export tools to ZIP**(도구를 ZIP으로 내보내기). 도구가 없으면 회색으로 비활성화됩니다.
+- **Select tools**(도구 선택, 체크 아이콘)
 
-그 아래 **Search functions**(기능 검색)에서는 도구 이름과 설명을 검색할 수 있습니다.
+그 아래 **Search tools**(도구 검색)에서는 도구 이름과 설명을 검색할 수 있습니다.
 
 목록의 각 도구에는 다음이 표시됩니다.
 
 - 이름, 유형, 파라미터 개수와 설명
 - 켜기/끄기 스위치
-- **Edit function**(함수 편집)과 **Delete Function**(함수 삭제)
+- **Edit tool**(도구 편집)과 **Delete Tool**(도구 삭제)
 
-손잡이를 끌어 목록 순서를 바꿀 수 있습니다. 순서는 표시용일 뿐입니다. 검색 중에는 도구를 끌 수 없습니다. 도구가 없으면 목록에 **No functions yet**(아직 기능이 없습니다)이 표시됩니다.
+손잡이를 끌어 목록 순서를 바꿀 수 있습니다. 순서는 표시용일 뿐입니다. 검색 중에는 도구를 끌 수 없습니다. 도구가 없으면 목록에 **No tools yet**(아직 도구가 없습니다)이 표시됩니다.
 
 ### 폴더로 도구 정리하기
 
@@ -58,8 +58,8 @@
 
 ### 도구 여러 개를 한 번에 변경하기
 
-1. **Select functions**를 클릭하세요.
-2. 변경할 도구를 체크하거나 **Select all functions**(모든 기능 선택)를 체크하세요.
+1. **Select tools**(도구 선택)를 클릭하세요.
+2. 변경할 도구를 체크하거나 **Select all tools**(모든 도구 선택)를 체크하세요.
 3. **Enable selected**(선택 항목 켜기), **Disable selected**(선택 항목 끄기), **Move to folder** 중 하나를 클릭하세요. 선택한 도구를 내보내거나 삭제할 수도 있습니다.
 
 **Enable selected**는 각 도구의 스위치를 바꿉니다. 일시 중지된 폴더의 도구를 다시 제공하려면 폴더를 먼저 켜세요.
@@ -178,7 +178,7 @@ AI가 `x`를 2로, `y`를 3으로 지정해 호출하면 도구는 합계 5를 �
 3. **Enable Tool Use**(도구 사용 활성화)를 켜세요. 설명에는 **Allow AI to call functions (dice rolls, game state, etc.)**라고 적혀 있습니다. 새 채팅에서는 기본적으로 꺼져 있습니다.
 4. 작동하는지 확인하세요. `store_hours` 예제라면 "What are your store hours?"처럼 도구가 답할 수 있는 질문을 AI에게 하세요. 답변에 도구의 문구가 쓰여야 합니다.
 
-**Enable Tool Use**를 켜고 그 아래에 아무것도 추가하지 않으면, 채팅은 지원하는 전역 활성화 도구를 모두 사용할 수 있습니다. 기본 제공 도구와, **Functions**에서 스위치를 켠 모든 사용자 지정 도구입니다. Game 채팅에서 `search_lorebook`을 쓰려면 **Let the GM search lore**(게임 마스터의 로어 검색 허용)도 필요합니다.
+**Enable Tool Use**를 켜고 그 아래에 아무것도 추가하지 않으면, 채팅은 지원하는 전역 활성화 도구를 모두 사용할 수 있습니다. 기본 제공 도구와, **Tools**에서 스위치를 켠 모든 사용자 지정 도구입니다. Game 채팅에서 `search_lorebook`을 쓰려면 **Let the GM search lore**(게임 마스터의 로어 검색 허용)도 필요합니다.
 
 채팅에서 쓸 도구를 골라 제한하려면 다음과 같이 하세요.
 
@@ -190,7 +190,7 @@ AI가 `x`를 2로, `y`를 3으로 지정해 호출하면 도구는 합계 5를 �
 
 Game 채팅은 도구 계획에 별도의 연결을 쓸 수 있습니다. 비용과 동작은 [선택적 도구 계획과 로어 검색](../game/getting-started.md#optional-tool-planning-and-lore-searches)을 참고하세요.
 
-작동하지 않는 경우: **Enable Tool Use**가 켜져 있는지, 특정 도구를 추가했다면 그 도구가 채팅 목록에 있는지, **Functions**에서 도구의 스위치가 켜져 있는지 확인하세요. **Description**과 파라미터 설명을 더 분명하게 쓰면 AI가 언제 도구를 호출할지 판단하는 데 도움이 됩니다.
+작동하지 않는 경우: **Enable Tool Use**가 켜져 있는지, 특정 도구를 추가했다면 그 도구가 채팅 목록에 있는지, **Tools**에서 도구의 스위치가 켜져 있는지 확인하세요. **Description**과 파라미터 설명을 더 분명하게 쓰면 AI가 언제 도구를 호출할지 판단하는 데 도움이 됩니다.
 
 ## 에이전트에 도구 붙이기
 
@@ -204,9 +204,9 @@ Game 채팅은 도구 계획에 별도의 연결을 쓸 수 있습니다. 비용
 
 ## 도구 내보내기와 가져오기
 
-- 도구 하나를 내보내려면 그 도구를 열고 **Export function**(함수 내보내기)을 클릭하세요. `.json` 파일로 저장됩니다.
-- 도구 전체를 내보내려면 **Export functions to ZIP**을 클릭하세요.
-- 가져오려면 **Import functions from ZIP or JSON**을 클릭하고 `.json` 또는 `.zip` 파일을 고르세요. 몇 개를 가져왔는지 메시지로 알려 줍니다.
+- 도구 하나를 내보내려면 그 도구를 열고 **Export tool**(도구 내보내기)을 클릭하세요. `.json` 파일로 저장됩니다.
+- 도구 전체를 내보내려면 **Export tools to ZIP**(도구를 ZIP으로 내보내기)을 클릭하세요.
+- 가져오려면 **Import tools from ZIP or JSON**(ZIP 또는 JSON에서 도구 가져오기)을 클릭하고 `.json` 또는 `.zip` 파일을 고르세요. 몇 개를 가져왔는지 메시지로 알려 줍니다.
 
 가져온 웹훅 도구와 스크립트 도구는 파일이 둘 중 무엇을 요청하더라도 항상 꺼진 상태로, **Include hidden chat context**도 꺼진 채로 저장됩니다. 그런 다음 Marinara는 유형, 웹훅 주소, 파일이 요청한 권한을 보여 줍니다. 가져온 도구를 하나씩 열어 확인하고, 믿을 수 있을 때만 켜세요. Static 도구는 가져온 켜기/끄기 상태를 그대로 유지합니다.
 

@@ -67,9 +67,29 @@ Token 是模型用来计数的文本小片段，在英文中大约相当于四�
 
 开关下方的 **Semantic search (embeddings)**(语义搜索与嵌入) 面板在[世界书的语义搜索](semantic-search.md)里介绍。
 
+## 为世界书设置图片
+
+图片会显示在 **Lorebooks** 面板、世界书库和世界书选择器中。
+
+1. 打开世界书，留在 **Overview** 选项卡。第一个区域是 **Image**(图片)。
+2. 点击 **Upload image**(上传图片) 并选择文件，或点击 **Generate with AI**(用 AI 生成)，通过图片生成连接制作封面。设好连接之前，**Generate with AI** 会显示为灰色。
+3. 拖动图片上的方框，选出要显示的部分；拖动方框的角可调整大小。圆形预览会显示裁剪效果。
+4. 点击 **Save**。
+
+新图片默认没有裁剪。要去掉图片，点击 **Remove**(移除)。
+
+<a id="the-lorebook-library"></a>
+## 世界书库
+
+世界书库是一个整页视图，会显示各本世界书的图片、简介和条目数。点击 **Lorebooks** 面板顶部的 **Open Library**(打开书库) 即可打开。
+
+点击一本世界书可以放大查看。**Edit Lorebook**(编辑世界书) 会打开编辑器，返回箭头会回到世界书库。**Active**(启用) 和 **Enabled** 开关一样，可以在所有聊天中启用或停用这本世界书。
+
 ## Lorebooks 面板
 
-面板顶部有三个图标按钮，鼠标悬停时会显示名称。
+面板顶部的 **Download**(下载) 会打开 Card Browser 并显示可下载的世界书，见[导入和导出世界书](import-export.md#download-a-lorebook-from-chub)。**Open Library** 会打开[世界书库](#the-lorebook-library)。
+
+下方有三个图标按钮，将鼠标悬停在上面即可看到名称。
 
 - **New** 打开 **Create Lorebook** 窗口。
 - **Import**(导入) 打开 **Import Lorebook**(导入世界书) 窗口。见[导入与导出世界书](import-export.md)。
@@ -78,7 +98,7 @@ Token 是模型用来计数的文本小片段，在英文中大约相当于四�
 按钮下方：
 
 - **Search lorebooks**(搜索世界书) 按名称、描述、关联的角色或用户角色名称以及标签筛选。
-- **Sort order**(排序方式) 提供 **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest**、**Oldest** 和 **Token Budget**。选 **Manual order** 时，把世界书拖到想要的位置，或者用 <kbd>Alt</kbd>+<kbd>Up</kbd> 和 <kbd>Alt</kbd>+<kbd>Down</kbd>。
+- **Sort order**(排序方式) 提供 **Manual order**(手动排序)、**A-Z**、**Z-A**、**Newest**、**Oldest**、**Most tokens**(Token 数从多到少) 和 **Fewest tokens**(Token 数从少到多)。按大小排序时使用世界书全部条目的估算大小，包括已停用的条目。每行也会显示这一估算值。选 **Manual order** 时，把世界书拖到想要的位置，或者用 <kbd>Alt</kbd>+<kbd>Up</kbd> 和 <kbd>Alt</kbd>+<kbd>Down</kbd>。
 - **New Folder**(新建文件夹) 会建立一个库文件夹。把世界书拖到上面即可。在手机上，按住世界书，再拖动。这些文件夹和世界书内部的条目文件夹是两回事。
 
 每一行都有 **Copy**(复制，复制出这本世界书的副本) 和 **Delete**(删除) 按钮。鼠标悬停在该行时它们才出现，在手机上则一直可见。已关闭的世界书会显示 **OFF** 标记。点击图片可以上传或替换图片。

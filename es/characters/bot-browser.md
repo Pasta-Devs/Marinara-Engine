@@ -13,6 +13,8 @@ El Card Browser ocupa toda el área de contenido, con el título **Browse charac
 
 Si lo cierras y lo vuelves a abrir, tu última búsqueda, tus filtros y el personaje seleccionado siguen ahí. Al recargar la app se reinician.
 
+El botón **Download** (Descargar) del panel **Lorebooks** abre el mismo navegador con lorebooks disponibles para descargar. Consulta [Descargar un lorebook de Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 ## Elegir una fuente
 
 Haz clic en el botón de fuente del encabezado. El menú muestra, en este orden: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, **DataCat**, **PlotLight** y **PlotLight Personas** (Personas de PlotLight). **ChubAI** está seleccionada la primera vez. Cambiar de fuente borra tu texto de búsqueda, tus etiquetas y tus filtros. Cada fuente conserva su propia configuración de contenido para adultos y su propio inicio de sesión.

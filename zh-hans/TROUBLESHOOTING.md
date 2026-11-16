@@ -5,7 +5,7 @@
 ## 先试这几步
 
 1. 强制刷新页面：Windows 或 Linux 上按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>，Mac 上按 <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>。
-2. 看服务器控制台（运行 Marinara 的那个终端窗口）里有没有红色报错行。这些行通常会点明真正的问题。
+2. 看服务器控制台（运行 Marinara 的那个终端窗口）里有没有红色报错行。这些行通常会点明真正的问题。 如果服务器运行在别处（NAS、VPS 或 Docker），打开 **Settings → Advanced → Open Console**(设置 → 高级 → 打开控制台)，即可在应用里查看同样的日志行。
 3. 要求助的话，先打开 **Debug mode**(调试模式)。见[获取更多帮助](#get-more-help)。
 
 <a id="my-character-does-not-reply"></a>

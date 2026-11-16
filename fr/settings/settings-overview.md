@@ -177,6 +177,7 @@ Ces interrupteurs sont dans **Settings → Advanced → Message Tools**. Tous so
 | **Include reasoning in exports** | Ajoute le raisonnement masqué du modèle aux exports de chat. |
 | **Include private notes in exports** | Ajoute tes notes privées de message aux exports JSONL et texte. Laisse-le désactivé quand tu partages une transcription. |
 | **Debug mode** | Enregistre les données envoyées au modèle dans la console du serveur, pour le support. |
+| **Open Console** (ouvrir la console) | Affiche les lignes récentes du journal du serveur dans une fenêtre déplaçable, en lecture seule. Elle fonctionne sur le même ordinateur ou avec le secret d'administration enregistré dans **Admin Access** (accès administrateur). Active **Debug mode** (mode débogage) dans la fenêtre pour voir tes prompts et tes réponses, ou définis `LOG_LEVEL=debug` dans `.env` pour tout journaliser. |
 
 Pour en savoir plus, voir [Actions sur les messages](../chats/messages.md), [Personas](../characters/personas.md), [Choisir un modèle pour un seul chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [Génération guidée et Impersonate](../chats/guided-and-impersonate.md), [Exporter et importer des chats](../chats/export-import.md) et [Résoudre les problèmes de Marinara Engine](../TROUBLESHOOTING.md).
 

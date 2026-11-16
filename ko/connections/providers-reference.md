@@ -146,7 +146,7 @@ OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI, Google의 이미지 및 동영�
 
 ## Decision
 
-**Decisions** 아래의 타일은 **TypeSafe**(기본 주소 `https://api.typesafe.ai`), **Own decision server**(자체 판단 서버), **Built-in model (decisions)**(결정 사이드카, 실험적)입니다. OpenAI 채팅 형식을 쓰는 채팅 서비스도 판정을 할 수 있지만, 로그 확률(가능한 답마다 매기는 점수)을 반환하는 모델에서만 가능합니다. Decision 모델은 채팅에 관한 예/아니요 질문에 답합니다. [Decision 모델](decision-models.md)을 참고하세요.
+**Decisions** 아래의 타일은 **TypeSafe**(기본 주소 `https://api.typesafe.ai`), **Own decision server**(자체 판단 서버), **Built-in model (decisions)**(결정 사이드카, 실험적)입니다. **Add**(추가)의 **Decision**(판단) 유형에는 이 항목들과 자체 판단 모델을 제공하는 **NanoGPT**, **OpenRouter**, **Google Gemini**가 표시됩니다. [NanoGPT로 연결하기](decision-models.md#through-nanogpt)와 [OpenRouter 또는 Google Gemini로 연결하기](decision-models.md#through-openrouter-or-google-gemini)를 참고하세요. 다른 OpenAI 채팅 형식을 쓰는 채팅 서비스도 판정을 할 수 있지만, 로그 확률(가능한 답마다 매기는 점수)을 반환하는 모델에서만 가능합니다. Decision 모델은 채팅에 관한 예/아니요 질문에 답합니다. [Decision 모델](decision-models.md)을 참고하세요.
 
 ## Audio
 

@@ -6,7 +6,7 @@ Ta integracja pozwala postaciom AI sterować prawdziwymi urządzeniami inteligen
 
 Integracja to niewielki program, który instaluje się wewnątrz platformy Home Assistant i łączy ją z serwerem Marinara Engine. Przy pierwszej konfiguracji sama tworzy poniższe elementy. Nigdzie nie trzeba kopiować adresów narzędzi ani konfigurować narzędzi ręcznie.
 
-- Narzędzia inteligentnego domu w zakładce **Functions** (funkcje) panelu Presets. Zobacz [Własne narzędzia](../extending/custom-tools.md).
+- Narzędzia inteligentnego domu w zakładce **Tools** (narzędzia) panelu Presets. Zobacz [Własne narzędzia](../extending/custom-tools.md).
 - Jednego agenta o nazwie **Home Assistant**, czyli pomocnika AI, który pracuje obok czatu. Zobacz [Agenci: pomocnicy AI w czatach](../agents/agents-overview.md).
 - Encje Home Assistant (urządzenia, czujniki i kontrolki), dzięki którym można podglądać aplikację Marinara Engine i sterować nią z platformy Home Assistant.
 
@@ -53,7 +53,7 @@ Którą opcję wybrać, wyjaśnia przewodnik [Dostęp zdalny](../REMOTE_ACCESS.m
 
 Jeśli się nie udało: Home Assistant pokazuje błąd, gdy nie może połączyć się z aplikacją Marinara Engine. Zobacz [Rozwiązywanie problemów](#troubleshooting).
 
-Po udanej konfiguracji integracja rejestruje prywatny webhook w platformie Home Assistant, tworzy w zakładce **Functions** aplikacji Marinara Engine narzędzia wskazujące na ten webhook, tworzy agenta **Home Assistant** z listą wszystkich włączonych narzędzi i tworzy encje opisane niżej.
+Po udanej konfiguracji integracja rejestruje prywatny webhook w platformie Home Assistant, tworzy w zakładce **Tools** aplikacji Marinara Engine narzędzia wskazujące na ten webhook, tworzy agenta **Home Assistant** z listą wszystkich włączonych narzędzi i tworzy encje opisane niżej.
 
 ## Dodanie agenta do czatu
 
@@ -158,9 +158,9 @@ Sprawdź, czy aplikacja Marinara Engine działa i czy **Host** i **Port** odpowi
 
 Najprawdopodobniej blokowane jest wywołanie webhooka. Dopisz `WEBHOOK_LOCAL_URLS_ENABLED=true` do pliku `.env` i zapisz go. Bez tego wywołania narzędzi mogą kończyć się komunikatem o niedozwolonym protokole `http` albo o odrzuconym adresie prywatnym. Kiedy Marinara Engine i Home Assistant działają na tym samym komputerze, integracja sama używa adresu wewnętrznego. Kiedy Marinara Engine działa na innym urządzeniu, sprawdź, czy lokalny adres platformy Home Assistant jest z niego osiągalny.
 
-### Narzędzia nie pojawiają się w sekcji Functions
+### Narzędzia nie pojawiają się w sekcji Tools
 
-Naciśnij **Marinara Sync HA Tools** albo uruchom ponownie platformę Home Assistant, a potem sprawdź zakładkę **Functions** w panelu Presets.
+Naciśnij **Marinara Sync HA Tools** albo uruchom ponownie platformę Home Assistant, a potem sprawdź zakładkę **Tools** w panelu Presets.
 
 ### Agenta Home Assistant nie ma w moim czacie
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Odinstalowanie
 
-Usuń integrację w platformie Home Assistant w **Settings → Devices & Services → Marinara Engine**. Usuwa to encje. Narzędzia w zakładce **Functions** aplikacji Marinara Engine i agent **Home Assistant** zostają. Jeśli nie są już potrzebne, usuń je ręcznie w aplikacji Marinara Engine.
+Usuń integrację w platformie Home Assistant w **Settings → Devices & Services → Marinara Engine**. Usuwa to encje. Narzędzia w zakładce **Tools** aplikacji Marinara Engine i agent **Home Assistant** zostają. Jeśli nie są już potrzebne, usuń je ręcznie w aplikacji Marinara Engine.
 
 ## Powiązane przewodniki
 

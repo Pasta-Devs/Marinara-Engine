@@ -67,9 +67,30 @@ Der Tab hat außerdem diese Schalter.
 
 Das Panel **Semantic search (embeddings)** unter den Schaltern beschreibt [Semantische Suche für Lorebooks](semantic-search.md).
 
+## Einem Lorebook ein Bild geben
+
+Das Bild erscheint im Panel **Lorebooks**, in der Lorebook-Bibliothek und in der Lorebook-Auswahl.
+
+1. Öffne das Lorebook und bleib im Tab **Overview** (Übersicht). **Image** (Bild) ist der erste Abschnitt.
+2. Klick auf **Upload image** (Bild hochladen) und wähl eine Datei oder klick auf **Generate with AI** (Mit KI generieren), um mit deiner Verbindung für Bildgenerierung ein Titelbild zu erstellen. **Generate with AI** ist ausgegraut, bis du eine solche Verbindung einrichtest.
+3. Zieh das Quadrat auf dem Bild an die gewünschte Stelle und ändere seine Größe an den Ecken. Die runde Vorschau zeigt das Ergebnis.
+4. Klick auf **Save** (Speichern).
+
+Ein neues Bild ist zunächst unbeschnitten. Um das Bild zu entfernen, klick auf **Remove** (Entfernen).
+
+<a id="the-lorebook-library"></a>
+
+## Die Lorebook-Bibliothek
+
+Die Lorebook-Bibliothek zeigt deine Lorebooks mit Bildern, Beschreibungen und der Anzahl ihrer Einträge auf einer eigenen Seite. Öffne sie über **Open Library** (Bibliothek öffnen) oben im Panel **Lorebooks**.
+
+Klick auf ein Lorebook, um es größer zu sehen. **Edit Lorebook** (Lorebook bearbeiten) öffnet den Editor, und der Zurück-Pfeil führt zurück zur Bibliothek. **Active** (Aktiv) schaltet das Lorebook wie der Schalter **Enabled** für alle Chats ein oder aus.
+
 ## Das Lorebooks-Panel
 
-Oben im Panel sitzen drei Symbol-Schaltflächen. Zeig mit der Maus darauf, um ihren Namen einzublenden.
+Oben im Panel öffnet **Download** (Herunterladen) den Card Browser mit Lorebooks zum Herunterladen (siehe [Lorebooks importieren und exportieren](import-export.md#download-a-lorebook-from-chub)), und **Open Library** öffnet die [Lorebook-Bibliothek](#the-lorebook-library).
+
+Darunter sitzen drei Symbol-Schaltflächen. Zeig mit der Maus darauf, um ihren Namen einzublenden.
 
 - **New** öffnet das Fenster **Create Lorebook**.
 - **Import** (Importieren) öffnet das Fenster **Import Lorebook** (Lorebook importieren). Siehe [Lorebooks importieren und exportieren](import-export.md).
@@ -78,7 +99,7 @@ Oben im Panel sitzen drei Symbol-Schaltflächen. Zeig mit der Maus darauf, um ih
 Unter den Schaltflächen:
 
 - **Search lorebooks** (Lorebooks durchsuchen) filtert nach Name, Beschreibung, verknüpften Charakter- oder Persona-Namen und Tags (Schlagwörtern).
-- **Sort order** (Sortierreihenfolge) bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** und **Token Budget**. Mit **Manual order** ziehst du die Lorebooks an ihren Platz oder nutzt <kbd>Alt</kbd>+<kbd>Pfeil nach oben</kbd> und <kbd>Alt</kbd>+<kbd>Pfeil nach unten</kbd>.
+- **Sort order** (Sortierreihenfolge) bietet **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** , **Most tokens** (meiste Tokens) und **Fewest tokens** (wenigste Tokens). Die Sortierung nach Größe berücksichtigt die geschätzte Größe aller Einträge eines Lorebooks, auch der deaktivierten. Jede Zeile zeigt den geschätzten Wert. Mit **Manual order** ziehst du die Lorebooks an ihren Platz oder nutzt <kbd>Alt</kbd>+<kbd>Up</kbd> und <kbd>Alt</kbd>+<kbd>Down</kbd>.
 - **New Folder** (Neuer Ordner) legt einen Bibliotheksordner an. Zieh ein Lorebook darauf. Auf dem Handy hältst du das Lorebook gedrückt und ziehst es dann. Diese Ordner sind unabhängig von den Eintragsordnern innerhalb eines Lorebooks.
 
 Jede Zeile hat die Schaltflächen **Copy** (Kopieren; dupliziert das Lorebook) und **Delete** (Löschen). Sie erscheinen, wenn du mit der Maus über die Zeile fährst, und sind auf Mobilgeräten immer sichtbar. Ein ausgeschaltetes Lorebook zeigt ein **OFF**-Badge. Klick auf das Bild, um es hochzuladen oder zu ersetzen.

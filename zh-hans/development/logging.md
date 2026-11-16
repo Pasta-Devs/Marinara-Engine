@@ -111,9 +111,18 @@ UI 调试开关仍通过 `logDebugOverride` 工作。这是在 `LOG_LEVEL` 隐�
 
 <a id="checks"></a>
 
+## 应用内控制台
+
+在 NAS、VPS、Docker、Termux 等无法直接访问终端的安装环境中，可通过 Settings → Advanced → **Open Console**(打开控制台) 在应用里查看最近的服务器日志。
+
+- `lib/log-buffer.ts` 在内存中保留最近 1,500 行，总计最多约 400 万个字符，每条消息和每个字段块都在 16,000 个字符处截断。日志不会写入磁盘，重启会清空缓冲区。
+- `logger.ts` 通过 Pino 的 `hooks.streamWrite` 将每一行序列化日志复制到缓冲区，因此它和终端或日志文件收到的内容一致，也遵循同一个 `LOG_LEVEL`。绕过 Pino 的行不会进入缓冲区，例如 dotenv 的 `injected env` 行或子进程的原始输出。
+- `GET /api/admin/logs?afterId=` 返回 `afterId` 之后的行，以及 `latestId`、`truncated`（这次读取前是否丢弃了日志行）和服务器的 `logLevel`。该路由由 `requirePrivilegedAccess` 保护，使用 `no-store`。路由设置为 `logLevel: "silent"`，因此控制台自己的轮询不会出现在日志里。
+- 本页的规则在这里也适用。远程管理员会在应用里读到 warn 或 error 级别的日志，因此提示词和发给服务商的请求体及其响应体应留在 debug 级别。
+
 ## 检查
 
-回归测试 `logging-request-trail`、`logging-failure-lines` 和 `logging-startup-timeline` 覆盖本页：
+回归测试 `logging-request-trail`、`logging-failure-lines` 和 `logging-startup-timeline` 覆盖本页，`server-console-logs` 覆盖应用内控制台：
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

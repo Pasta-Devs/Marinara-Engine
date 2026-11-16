@@ -25,6 +25,20 @@ Wenn es nicht funktioniert hat: Lies den Fehler neben der Datei. Eine Datei, die
 
 Ein importiertes Lorebook funktioniert sofort mit Schlüsselwörtern. Nutzt du die semantische Suche, bau seine Vektoren neu auf. Siehe [Semantische Suche für Lorebooks](semantic-search.md).
 
+<a id="download-a-lorebook-from-chub"></a>
+
+## Ein Lorebook von Chub herunterladen
+
+Lorebooks auf [Chub](https://chub.ai/lorebooks) kannst du importieren, ohne vorher eine Datei zu speichern.
+
+1. Öffne das Panel **Lorebooks**.
+2. Klick oben auf **Download** (Herunterladen). Der Card Browser öffnet sich mit dem Titel **Browse lorebooks online** (Lorebooks online durchsuchen).
+3. Suche, sortiere oder filtere nach Tags und klick dann auf ein Lorebook. Seine Seite zeigt die Beschreibung und die ersten 30 Einträge. Klick auf einen Eintrag, um ihn zu lesen.
+4. Wähl unter **Imported tags** (importierte Tags) **All tags** (alle Tags), **No tags** (keine Tags) oder **Existing only** (nur vorhandene Tags, die deine Lorebooks bereits verwenden).
+5. Klick auf **Import** (Importieren). Das Lorebook, alle seine Einträge, sein Bild und die gewählten Tags erscheinen im Panel **Lorebooks**.
+
+Chub kann Lorebooks für Erwachsene nicht herausfiltern, daher werden sie immer angezeigt. Erwähnen die Tags eines Lorebooks NSFW, erscheint ein **NSFW**-Kennzeichen. Sein Bild bleibt unscharf, solange das Kontrollkästchen **NSFW** ausgeschaltet ist. Hak es an, um diese Bilder zu sehen. Lorebooks ohne einen solchen Tag werden unabhängig vom Inhalt scharf angezeigt.
+
 ## Ein Lorebook exportieren
 
 1. Klick im Panel **Lorebooks** auf ein Lorebook, um es zu öffnen.

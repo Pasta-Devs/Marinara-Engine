@@ -11,6 +11,8 @@
 
 Card Browser 会占满整个内容区，标题是 **Browse character cards online**(在线浏览角色卡)。想离开，点击左上角的返回箭头。
 
+**Lorebooks**(世界书) 面板中的 **Download** 按钮也会打开这个浏览器，显示可下载的世界书。见[从 Chub 下载世界书](../lorebooks/import-export.md#download-a-lorebook-from-chub)。
+
 关掉再打开，上次的搜索、筛选条件和选中的角色都还在。重新加载应用会把它们清空。
 
 ## 选择来源

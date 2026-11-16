@@ -5,7 +5,7 @@
 ## 最初に試すこと
 
 1. ページをハードリフレッシュします。WindowsやLinuxでは<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>、Macでは<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>を押します。
-2. サーバーコンソール(Marinaraを動かしているターミナルウィンドウ)に赤いエラー行が出ていないか確認します。たいていは、その行に本当の原因が書かれています。
+2. サーバーコンソール(Marinaraを動かしているターミナルウィンドウ)に赤いエラー行が出ていないか確認します。たいていは、その行に本当の原因が書かれています。サーバーが別の環境(NAS、VPS、Docker)で動いている場合は、**Settings → Advanced → Open Console**(設定 → 詳細設定 → コンソールを開く)を開くと、アプリ内で同じ行を読めます。
 3. 助けを求めるときは、先に**Debug mode**(デバッグモード)をオンにしてください。[さらに助けを求める](#get-more-help)を参照してください。
 
 <a id="my-character-does-not-reply"></a>

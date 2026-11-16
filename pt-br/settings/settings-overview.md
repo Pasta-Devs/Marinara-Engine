@@ -177,6 +177,7 @@ Estes botões ficam em **Settings → Advanced → Message Tools**. Todos vêm d
 | **Include reasoning in exports** | Inclui o raciocínio oculto do modelo nas exportações de chat. |
 | **Include private notes in exports** | Inclui as suas notas privadas de mensagem nas exportações em JSONL e em texto. Mantenha desativado quando for compartilhar uma transcrição. |
 | **Debug mode** | Registra no console do servidor o que é enviado ao modelo, para dar suporte. |
+| **Open Console** (abrir console) | Abre os registros recentes do servidor em uma janela móvel e somente para leitura. Funciona no próprio computador do servidor ou com o segredo de administrador salvo em **Admin Access**. Ative **Debug mode** na janela para ver seus prompts e respostas, ou defina `LOG_LEVEL=debug` no arquivo `.env` para ver todos os registros. |
 
 Para saber mais, veja [Ações de mensagem](../chats/messages.md), [Personas](../characters/personas.md), [Como escolher um modelo para um chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [Geração guiada e Impersonate](../chats/guided-and-impersonate.md), [Exportando e importando chats](../chats/export-import.md) e [Solução de problemas](../TROUBLESHOOTING.md).
 

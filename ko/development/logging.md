@@ -111,9 +111,18 @@ UI 디버그 토글은 계속 `logDebugOverride`를 통해 동작합니다. `LOG
 
 <a id="checks"></a>
 
+## 앱 내 콘솔
+
+NAS, VPS, Docker, Termux처럼 터미널을 직접 볼 수 없는 환경에서는 Settings → Advanced → **Open Console**(콘솔 열기)에서 최근 서버 로그를 앱으로 볼 수 있습니다.
+
+- `lib/log-buffer.ts`는 최근 1,500줄을 메모리에 보관합니다. 총 약 400만 자까지 보관하며 각 메시지와 필드 블록은 16,000자에서 잘립니다. 디스크에 쓰지 않으며 다시 시작하면 비워집니다.
+- `logger.ts`는 Pino의 `hooks.streamWrite`를 통해 직렬화된 줄을 모두 복사합니다. 버퍼에는 같은 `LOG_LEVEL`에서 터미널이나 로그 파일에 기록된 줄이 들어갑니다. dotenv의 `injected env` 줄이나 하위 프로세스의 원시 출력처럼 Pino를 거치지 않는 줄은 들어가지 않습니다.
+- `GET /api/admin/logs?afterId=`는 `afterId` 뒤의 줄과 `latestId`, `truncated`(읽기 전에 버려진 줄이 있는지), 서버의 `logLevel`을 반환합니다. `requirePrivilegedAccess`로 보호되며 `no-store`가 적용됩니다. 경로의 `logLevel: "silent"` 설정 덕분에 콘솔 자체의 폴링은 로그에 나타나지 않습니다.
+- 이 페이지의 규칙은 콘솔에도 적용됩니다. 원격 관리자는 앱에서 warn 및 error 로그를 읽으므로 프롬프트와 제공자 요청과 응답의 본문은 debug 수준에 두세요.
+
 ## 검사
 
-`logging-request-trail`, `logging-failure-lines`, `logging-startup-timeline` 회귀가 이 페이지를 검증합니다.
+`logging-request-trail`, `logging-failure-lines`, `logging-startup-timeline` 회귀 테스트는 이 페이지를 검증하며, `server-console-logs`는 앱 내 콘솔을 검증합니다.
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-
