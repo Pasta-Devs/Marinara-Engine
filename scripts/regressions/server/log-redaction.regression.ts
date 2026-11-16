@@ -6,6 +6,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const { scrubSecretText } = await import("../../../packages/server/src/lib/log-redaction.js");
 
@@ -33,7 +34,7 @@ const dir = mkdtempSync(join(tmpdir(), "marinara-log-redaction-"));
 const script = join(dir, "log.mts");
 writeFileSync(
   script,
-  `const { logger } = await import(${JSON.stringify(join(repoRoot, "packages/server/src/lib/logger.ts"))});
+  `const { logger } = await import(${JSON.stringify(pathToFileURL(join(repoRoot, "packages/server/src/lib/logger.ts")).href)});
 logger.error(new Error("request failed sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"));
 logger.error({ err: new Error("bad key AIzaSyA1234567890abcdefghijklmnopqrstu") }, "context");
 logger.warn({ "x-api-key": "root-secret-value", headers: { authorization: "Bearer abcdefghijklmnop" }, req: { headers: { "x-api-key": "nested-secret-value" } } }, "headers");

@@ -97,6 +97,8 @@ The UI debug toggle keeps working through `logDebugOverride`. That is the intend
 
 Print prompt text as it is, with `%s`. For a structured value (a message array, a provider request body, a parsed reply), pass `debugJson(value)` to `%s`, not `%j` or `JSON.stringify(value)`. It prints indented JSON whose line breaks inside strings are real line breaks, so a multi-line prompt stays readable, and it renders only when the line is printed. A redacting replacer goes in its second argument, as with `JSON.stringify`. An in-app debug view prints the same text with `readableJson` from `@marinara-engine/shared`. The `debug-log-line-breaks` regression covers this and the format choice.
 
+Inline media never reaches the log whole. `debugJson` replaces each base64 payload with a marker such as `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`: its type, its size, and the first and last 16 characters. That covers `data:` URLs (whole strings or inside text) and the bare `data` fields of Anthropic and Google media parts, also when the base64 is wrapped across lines. The `msg` serializer does the same for `data:` URLs in plain `%s` and `%j` lines; a bare `data` field is shortened only through `debugJson`. Only the printed copy changes; the value passed in is never edited. `LOG_INLINE_MEDIA=full` in `.env` prints the payloads whole again. The `log-inline-media` regression covers this.
+
 ## In-app console
 
 Settings → Advanced → **Open Console** shows recent server lines in the app, for installs whose terminal is out of reach (a NAS, a VPS, Docker, Termux).

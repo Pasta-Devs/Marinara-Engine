@@ -27,7 +27,7 @@ import { isatty } from "node:tty";
 import { getLogFormat, getLogLevel, getNodeEnv } from "../config/runtime-config.js";
 import { logContextMixin } from "./log-context.js";
 import { recordServerLogLine } from "./log-buffer.js";
-import { LOG_REDACT_PATHS, scrubSecretText } from "./log-redaction.js";
+import { inlineMediaLogReplacer, LOG_REDACT_PATHS, scrubSecretText, shortenInlineMediaText } from "./log-redaction.js";
 
 type TerminalLogStream = EventEmitter & {
   fd?: number;
@@ -169,7 +169,7 @@ export const logger = pino({
   serializers: {
     err: scrubbedErrorSerializer,
     error: scrubbedErrorSerializer,
-    msg: (value: unknown) => (typeof value === "string" ? scrubSecretText(value) : value),
+    msg: (value: unknown) => (typeof value === "string" ? scrubSecretText(shortenInlineMediaText(value)) : value),
   },
   // Credential fields never reach the log (lib/log-redaction.ts).
   redact: { paths: LOG_REDACT_PATHS, censor: "[redacted]" },
@@ -202,7 +202,8 @@ export function debugJson(
   value: unknown,
   replacer?: Parameters<typeof readableJson>[1],
 ): { toString(): string; toJSON(): string } {
-  const render = () => readableJson(value, replacer);
+  // Inline media is shortened here (lib/log-redaction.ts), so a prompt carrying pictures stays readable.
+  const render = () => readableJson(value, inlineMediaLogReplacer(replacer));
   return { toString: render, toJSON: render };
 }
 
