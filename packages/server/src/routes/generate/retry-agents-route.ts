@@ -4088,7 +4088,7 @@ async function applyRetryResultEffects(args: {
             const referenceResolution = await resolveIllustratorCharacterReferences({
               charactersStore: chars,
               chatScope:
-                usesChatIllustratorSettings && chat.mode === "roleplay"
+                chat.mode === "roleplay"
                   ? {
                       chatId,
                       characterIds: parseJsonField<string[]>(chat.characterIds, []),

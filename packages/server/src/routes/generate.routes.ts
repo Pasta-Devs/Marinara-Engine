@@ -15279,7 +15279,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       const referenceResolution = await resolveIllustratorCharacterReferences({
                         charactersStore: chars,
                         chatScope:
-                          usesChatIllustratorSettings && requestChatMode === "roleplay"
+                          requestChatMode === "roleplay"
                             ? { chatId: input.chatId, characterIds: allCharacterIds, getById: chars.getById }
                             : undefined,
                         characterGallery,

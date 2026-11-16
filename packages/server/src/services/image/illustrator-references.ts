@@ -598,6 +598,11 @@ export async function resolveIllustratorCharacterReferences(args: {
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();
+  const uniqueChatMatch = (matches: CharacterReferenceSource[]): CharacterReferenceSource | undefined => {
+    if (matches.length <= 1) return matches[0];
+    const castMatches = matches.filter((source) => chatIds.has(source.id));
+    return castMatches.length === 1 ? castMatches[0] : undefined;
+  };
 
   for (const requestedName of requestedNames) {
     const exactChatMatches = chatSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
@@ -610,11 +615,11 @@ export async function resolveIllustratorCharacterReferences(args: {
               source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
           );
     // Chat aliases are useful for nicknames; outside the chat, require a unique full name.
-    const matches =
+    const match =
       chatMatches.length > 0
-        ? chatMatches
-        : globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
-    if (matches.length === 1) selected.set(matches[0]!.id, matches[0]!);
+        ? uniqueChatMatch(chatMatches)
+        : uniqueChatMatch(globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName));
+    if (match) selected.set(match.id, match);
   }
 
   for (const source of chatSources) {
@@ -623,7 +628,7 @@ export async function resolveIllustratorCharacterReferences(args: {
       source.promptAliases.some(
         (alias) =>
           textContainsAlias(normalizedPromptText, alias) &&
-          chatSources.filter((candidate) => candidate.promptAliases.includes(alias)).length === 1,
+          uniqueChatMatch(chatSources.filter((candidate) => candidate.promptAliases.includes(alias)))?.id === source.id,
       )
     ) {
       selected.set(source.id, source);

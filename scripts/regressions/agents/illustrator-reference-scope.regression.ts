@@ -77,4 +77,22 @@ assert.deepEqual(scopedLookups, [
   ["disabled", "roleplay"],
   ["missing", "roleplay"],
 ]);
+for (const [requestedNames, promptText] of [
+  [["Doctor Ash"], ""],
+  [[], "Doctor Ash watches."],
+] as const) {
+  const resolution = await resolveIllustratorCharacterReferences({
+    charactersStore,
+    chatScope: {
+      chatId: "roleplay",
+      characterIds: ["chat", "duplicate"],
+      getById: async (id) => (await charactersStore.list()).find((row) => row.id === id) ?? null,
+    },
+    chatCharacters: [cards[0]!],
+    requestedNames: [...requestedNames],
+    promptText,
+    includeReferenceImages: false,
+  });
+  assert.deepEqual(resolution.characterIds, ["chat"]);
+}
 console.info("Illustrator reference scope regression passed");

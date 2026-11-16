@@ -333,6 +333,32 @@ try {
   assert.doesNotMatch(personaPrompt.data.item.prompt, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
   assert.doesNotMatch(textRequests.at(-1)!, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
 
+  const customAgent = await createAgentsStorage(db).create({
+    type: "custom-image-fixture",
+    name: "Custom image fixture",
+    phase: "post_processing",
+    connectionId: textConnection.id,
+    promptTemplate: "Write a scene image prompt.",
+    settings: {
+      imageConnectionId: imageConnection.id,
+      customCapabilities: { trigger_image_generation: true },
+      includeCharacterAppearance: true,
+      resultType: "image_prompt",
+    },
+  });
+  await chats.patchMetadata(personaChat.id, { activeAgentIds: ["illustrator", customAgent.type] });
+  const customRetry = await retry({
+    chatId: personaChat.id,
+    agentTypes: ["custom-image-fixture"],
+    illustratorRetryTargets: undefined,
+    illustratorMessageRange: undefined,
+    forceImageGeneration: true,
+  });
+  const customPrompt = parseEvents(customRetry.body).find((event) => event.type === "illustration");
+  assert.ok(customPrompt, customRetry.body);
+  assert.match(customPrompt.data.prompt, /SELECTED_ASTER_APPEARANCE/);
+  assert.doesNotMatch(customPrompt.data.prompt, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
+
   replaceBuiltInAgentDefinitions([]);
   const beforeUninstalled = textRequests.length + imageRequests;
   const uninstalled = await retry({ illustratorMessageRange: undefined });
