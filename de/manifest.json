@@ -1,6 +1,6 @@
 {
   "language": "de",
-  "sourceCommit": "dd2e4b15c5da79e29dc70e8b10404c68ee9bc275",
+  "sourceCommit": "01802712efdd6c6694253ea82eea2b852919a69b",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -679,8 +679,8 @@
     },
     {
       "path": "media/style-profiles.md",
-      "sha256": "5a364d6a06813f1401c7efcf1920096ccc45c304d6acbb345eaf1ce4f3461e92",
-      "bytes": 9002
+      "sha256": "bbc37b1713654cde49bf66c34eb172b5d93bd49b1b8dc9d8a5254af77ccb00c2",
+      "bytes": 9822
     },
     {
       "path": "media/tts-setup.md",
