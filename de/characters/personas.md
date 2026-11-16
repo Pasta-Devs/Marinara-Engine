@@ -34,7 +34,7 @@ Das Panel **Personas** ist deine Persona-Bibliothek. Klick auf eine Zeile, um di
 | **Import** (Importieren) | Öffnet das Fenster **Import Persona**. |
 | **Select** (Auswählen) | Schaltet den Auswahlmodus ein, um mehrere Personas auf einmal zu löschen oder zu exportieren. |
 | Suchfeld | Platzhaltertext **Search personas/tags** (Personas/Tags durchsuchen). Es durchsucht Name, Beschreibung, Kommentar und Tags. Zur Suche nach Tags siehe [Suche](library-organization.md#search). |
-| Sortier-Dropdown | **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest** oder **Tokens** (geschätzte Prompt-Größe). |
+| Sortier-Dropdown | **Manual order** (manuelle Reihenfolge), **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens** (meiste Tokens) oder **Fewest tokens** (wenigste Tokens) (geschätzte Größe, auch in jeder Zeile angezeigt). |
 | **New Folder** (Neuer Ordner) | Legt einen Ordner an. |
 | **Tags** | Klappt die Tag-Liste zum Filtern auf. |
 

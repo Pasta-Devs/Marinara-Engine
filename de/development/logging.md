@@ -111,9 +111,18 @@ Der Debug-Schalter der Oberfläche funktioniert weiter über `logDebugOverride`.
 
 <a id="checks"></a>
 
+## Konsole in der App
+
+Unter **Settings → Advanced → Open Console** (Einstellungen → Erweitert → Konsole öffnen) siehst du aktuelle Serverzeilen in der App. Das hilft bei Installationen, deren Terminal du nicht direkt erreichst (NAS, VPS, Docker, Termux).
+
+- `lib/log-buffer.ts` hält die letzten 1.500 Zeilen im Arbeitsspeicher, höchstens etwa 4 Millionen Zeichen. Jede Meldung und jeder Feldblock wird bei 16.000 Zeichen gekürzt. Der Puffer schreibt nichts auf die Festplatte und wird beim Neustart geleert.
+- `logger.ts` kopiert jede serialisierte Zeile über Pinos `hooks.streamWrite` in den Puffer. Der Puffer enthält damit dieselben Zeilen wie das Terminal oder die Logdatei beim selben `LOG_LEVEL`. Zeilen, die Pino umgehen, etwa die Zeile `injected env` von dotenv oder die Rohausgabe eines Kindprozesses, fehlen.
+- `GET /api/admin/logs?afterId=` liefert die Zeilen nach `afterId` sowie `latestId`, `truncated` (vor dieser Abfrage sind Zeilen entfallen) und den `logLevel` des Servers. Die Route ist durch `requirePrivilegedAccess` geschützt und verwendet `no-store`. Sie läuft mit `logLevel: "silent"`, damit die Abfragen der Konsole selbst nicht im Puffer auftauchen.
+- Die Regeln auf dieser Seite gelten auch hier. Alles, was du auf warn oder error protokollierst, kann ein Admin aus der Ferne in der App lesen. Belasse Prompts und Anbieter-Payloads deshalb auf debug.
+
 ## Prüfungen
 
-Die Regressionen `logging-request-trail`, `logging-failure-lines` und `logging-startup-timeline` decken diese Seite ab:
+Die Regressionen `logging-request-trail`, `logging-failure-lines` und `logging-startup-timeline` decken diese Seite ab. `server-console-logs` deckt die Konsole in der App ab:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

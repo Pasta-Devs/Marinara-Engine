@@ -43,6 +43,10 @@ Wähle im Sortier-Dropdown neben dem Suchfeld eine Reihenfolge.
 | **Z-A** | Namen von Z bis A. |
 | **Newest** | Zuletzt erstellte zuerst. |
 | **Oldest** | Zuerst erstellte zuerst. |
+| **Most tokens** (meiste Tokens) | Größte Karten zuerst, nach der geschätzten Größe in jeder Zeile. Ordner werden nach der Gesamtgröße ihrer Karten sortiert. |
+| **Fewest tokens** (wenigste Tokens) | Kleinste Karten zuerst. |
+
+Die Sortierung nach Größe hilft dir, Karten zu finden, die du kürzen oder ausbauen möchtest. Die Zahl schätzt den Umfang des Kartentexts selbst und stammt nicht vom Tokenizer deines Modells. Personas, Lorebooks und Prompt-Presets bieten dieselben beiden Sortierungen.
 | **Favorites** | Favoriten zuerst, dann der Rest. |
 
 Für eine manuelle Reihenfolge ziehst du eine Zeile nach oben oder unten oder drückst auf einer fokussierten Zeile <kbd>Alt</kbd>+<kbd>Up</kbd> oder <kbd>Alt</kbd>+<kbd>Down</kbd>. Beides stellt die Sortierung auf **Manual order** um.

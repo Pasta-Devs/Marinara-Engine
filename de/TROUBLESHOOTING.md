@@ -5,7 +5,7 @@ Such dir dein Symptom heraus und folge dann der Lösung. Die meisten Probleme ve
 ## Erste Versuche
 
 1. Lade die Seite vollständig neu, also ohne Cache: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> unter Windows oder Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> auf dem Mac.
-2. Such in der Server-Konsole (dem Terminal-Fenster, in dem Marinara läuft) nach roten Fehlerzeilen. Sie nennen meist das eigentliche Problem.
+2. Such in der Server-Konsole (dem Terminal-Fenster, in dem Marinara läuft) nach roten Fehlerzeilen. Sie nennen meist das eigentliche Problem. Läuft der Server woanders (auf einem NAS, einem VPS oder in Docker), öffne **Settings → Advanced → Open Console** (Einstellungen → Erweitert → Konsole öffnen) um dieselben Zeilen in der App zu lesen.
 3. Willst du um Hilfe bitten, schalte zuerst den **Debug mode** (Debug-Modus) ein. Siehe [Weitere Hilfe bekommen](#get-more-help).
 
 <a id="my-character-does-not-reply"></a>

@@ -146,7 +146,7 @@ Siehe [Anbieter für Bildgenerierung und Einrichtung](../media/image-providers.m
 
 ## Decision
 
-Unter **Decisions** stehen die Kacheln **TypeSafe** (Standardadresse `https://api.typesafe.ai`), **Own decision server** (eigener Decision-Server) und **Built-in model (decisions)**. Chat-Dienste, die das Chatformat von OpenAI nutzen, können ebenfalls Decisions beantworten, aber nur mit einem Modell, das Log-Wahrscheinlichkeiten liefert (Werte für jede mögliche Antwort). Ein Decision-Modell beantwortet Ja/Nein-Fragen zu deinem Chat. Siehe [Decision-Modelle](decision-models.md).
+Unter **Decisions** stehen die Kacheln **TypeSafe** (Standardadresse `https://api.typesafe.ai`), **Own decision server** (eigener Decision-Server) und **Built-in model (decisions)**. Der Typfilter **Decision** (Entscheidungen) unter **Add** (Hinzufügen) listet diese sowie **NanoGPT**, **OpenRouter** und **Google Gemini** mit ihren eigenen Decision-Modellen. Siehe [Über NanoGPT](decision-models.md#through-nanogpt) und [Über OpenRouter oder Google Gemini](decision-models.md#through-openrouter-or-google-gemini). Andere Chat-Dienste, die das Chatformat von OpenAI nutzen, können ebenfalls Decisions beantworten, aber nur mit einem Modell, das Log-Wahrscheinlichkeiten liefert (Werte für jede mögliche Antwort). Ein Decision-Modell beantwortet Ja/Nein-Fragen zu deinem Chat. Siehe [Decision-Modelle](decision-models.md).
 
 ## Audio
 
