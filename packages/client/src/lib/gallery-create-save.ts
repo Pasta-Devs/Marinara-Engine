@@ -28,7 +28,13 @@ export async function saveGalleryCreation(
   if (result.kind === "background") {
     const [image] = await upload([dataImageUrlToFile(result.dataUrl, `${fileStem}-background`)]);
     if (!image) throw new Error(localizeUi("ui.ui.avatargenerationmodal.failedToSaveGalleryImages"));
-    await tag({ imageId: image.id, patch: { customKind: "background", customName: null } });
+    try {
+      await tag({ imageId: image.id, patch: { customKind: "background", customName: null } });
+    } catch {
+      // The picture is saved; only its label failed, so don't fail the save (a retry would upload it twice).
+      toast.error(localizeUi("ui.ui.avatargenerationmodal.someNotLabelled", { count: 1 }));
+      return;
+    }
     toast.success(localizeUi("ui.ui.avatargenerationmodal.backgroundSaved"));
     return;
   }

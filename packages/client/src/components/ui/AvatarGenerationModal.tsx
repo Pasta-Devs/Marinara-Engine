@@ -187,6 +187,7 @@ export function AvatarGenerationModal({
   useEffect(() => {
     if (!open) return;
     galleryDraftsRef.current = {};
+    setStickerNames({ "sticker-sheet": DEFAULT_STICKER_NAMES, "emoji-sheet": DEFAULT_EMOJI_NAMES });
     setGalleryKind("character-sheet");
     sheetCells.reset();
     setAppearance(galleryCreate ? galleryCreate.seeds["character-sheet"] : (defaultAppearance ?? ""));
@@ -244,11 +245,13 @@ export function AvatarGenerationModal({
     resolve?.(overrides);
   };
 
+  const payloadName = entityName.trim() || (isCover ? "Lorebook" : "Character");
   const buildPayload = (referenceImages?: string[], promptOverrides?: ImagePromptOverride[]) => ({
     connectionId: effectiveConnectionId,
     purpose: mode,
-    name: entityName.trim() || (isCover ? "Lorebook" : "Character"),
-    appearance: appearance.trim(),
+    name: payloadName,
+    // The server wants a description; a card with none (or a hand-written full prompt) still gets one.
+    appearance: appearance.trim() || fullPrompt?.prompt.trim() || payloadName,
     referenceImages,
     stickers: isStickerSheet ? sheetNames : undefined,
     width: canvasWidth,
