@@ -468,8 +468,13 @@ const personalExtensionsHookSource = readSourceText(
   new URL("../../packages/client/src/hooks/use-personal-extensions.ts", import.meta.url),
   "utf8",
 );
-const chatSettingsDrawerSource = readSourceText(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
+// Roleplay/Game Agents and the agent-card renderers it uses moved out of ChatSettingsDrawer.tsx.
+const roleplayAgentsSectionSource = readSourceText(
+  new URL("../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx", import.meta.url),
+  "utf8",
+);
+const agentSettingsRenderersSource = readSourceText(
+  new URL("../../packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx", import.meta.url),
   "utf8",
 );
 const reducedAmbientEffectsHookSource = readSourceText(
@@ -488,7 +493,7 @@ const professorMariHelpersSource = readSourceText(
 const professorMariTokenBranch =
   professorMariRunSource.match(/if \(event\.type === "token"[\s\S]*?continue;/u)?.[0] ?? "";
 const roleplayTrackerSettingsBranch =
-  chatSettingsDrawerSource.match(
+  roleplayAgentsSectionSource.match(
     /activeInCat\.map\(\(agent\) => \{[\s\S]*?\{\/\* Available agents to add \*\//u,
   )?.[0] ?? "";
 assert.match(professorMariHomeSource, /rafThrottle<void>\(appendPendingWorkspaceText\)/u);
@@ -498,11 +503,11 @@ assert.match(professorMariHomeSource, /void refreshAfterWorkspaceRun\(chat\.id, 
 assert.match(professorMariHelpersSource, /WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS/u);
 assert.doesNotMatch(personalExtensionsHookSource, /refetchInterval/u);
 assert.match(
-  chatSettingsDrawerSource,
+  agentSettingsRenderersSource,
   /const renderAgentPromptTemplateSelect = \(agentId: string\) => \(\s*<AgentPromptTemplateSelect/u,
 );
 assert.match(
-  chatSettingsDrawerSource,
+  roleplayAgentsSectionSource,
   /active && agent\.id !== "illustrator" && renderAgentPromptTemplateSelect\(agent\.id\)/u,
 );
 assert.match(

@@ -305,10 +305,13 @@ assert.match(
 );
 
 // ── 10. Drawer/wizard reuse decoded crop boundaries ──
-// Chat Settings' sections live beside the drawer, so these checks read the drawer and every section.
+// Chat Settings' sections live beside the drawer, so these checks read the drawer, every section and the
+// Roleplay/Game Agents code that lists Expression Engine sprite owners.
 const chatSettingsDir = join(repoRoot, "packages/client/src/features/chat-settings");
 const drawerSource = [
   join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
+  join(chatSettingsDir, "agents/RoleplayAgentsSection.tsx"),
+  join(chatSettingsDir, "agents/agent-settings-renderers.tsx"),
   ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
 ]
   .map((path) => readFileSync(path, "utf8"))

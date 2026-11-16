@@ -1,7 +1,6 @@
 // Conversation's face of Agents in Chat Settings: the Commands, Illustrator, Calls and Long-Term Memory cards and the
-// schedule preferences. Its state lives in useChatAgents; the render helpers it shares with the Roleplay and Game face
-// stay in the drawer and are passed in.
-import type { ReactNode } from "react";
+// schedule preferences. Its state lives in useChatAgents, and the render helpers it shares with the Roleplay and Game
+// face in agent-settings-renderers.
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { Archive, Image, Puzzle, Sparkles } from "lucide-react";
 import { VIDEO_FIRST_FRAMES, normalizeVideoFirstFrame, type Chat } from "@marinara-engine/shared";
@@ -22,6 +21,7 @@ import { cn } from "../../../lib/utils";
 import { ConversationCommandsSettings } from "./ConversationCommandsSettings";
 import { LongTermMemoryCapabilitySettings, LongTermMemoryEnableSwitch } from "./LongTermMemorySettings";
 import { getAgentSettingsMenuId, type ChatAgents } from "./use-chat-agents";
+import type { AgentSettingsRenderers } from "./agent-settings-renderers";
 
 interface ConversationAgentsSectionProps {
   order: number;
@@ -33,15 +33,8 @@ interface ConversationAgentsSectionProps {
   textConnectionsList: ChatConnectionOption[];
   requestClose: () => Promise<boolean>;
   rememberSettingsReturn: () => void;
-  // The drawer's render helpers that the Roleplay and Game face uses too.
-  renderAgentLorebookAttachment: (agentType: string) => ReactNode;
-  renderIllustratorPromptConnectionSelect: () => ReactNode;
-  renderIllustratorImageStyleSelect: () => ReactNode;
-  renderIllustratorImagesPerGeneration: () => ReactNode;
-  renderIllustratorVideoRunInterval: () => ReactNode;
-  renderCustomAgentPicker: () => ReactNode;
-  renderActiveCustomAgentSettingsCard: () => ReactNode;
-  renderHapticSettingsCard: () => ReactNode;
+  /** The render helpers both faces of Agents use. */
+  renderers: AgentSettingsRenderers;
 }
 
 export function ConversationAgentsSection({
@@ -53,18 +46,21 @@ export function ConversationAgentsSection({
   textConnectionsList,
   requestClose,
   rememberSettingsReturn,
-  renderAgentLorebookAttachment,
-  renderIllustratorPromptConnectionSelect,
-  renderIllustratorImageStyleSelect,
-  renderIllustratorImagesPerGeneration,
-  renderIllustratorVideoRunInterval,
-  renderCustomAgentPicker,
-  renderActiveCustomAgentSettingsCard,
-  renderHapticSettingsCard,
+  renderers,
 }: ConversationAgentsSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const updateMeta = useUpdateChatMetadata();
+  const {
+    renderAgentLorebookAttachment,
+    renderIllustratorPromptConnectionSelect,
+    renderIllustratorImageStyleSelect,
+    renderIllustratorImagesPerGeneration,
+    renderIllustratorVideoRunInterval,
+    renderCustomAgentPicker,
+    renderActiveCustomAgentSettingsCard,
+    renderHapticSettingsCard,
+  } = renderers;
   const {
     hasConversationCommands,
     conversationCommandsEnabled,

@@ -1,4 +1,4 @@
-import { matchesAudioGenerationConnectionId } from "../../lib/connection-filters";
+import { matchesAudioGenerationConnectionId } from "../../../lib/connection-filters";
 import { Puzzle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,12 +7,12 @@ import {
   roleplayCommandsEnabled,
   type Chat,
 } from "@marinara-engine/shared";
-import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { AgentSettingsCard } from "../../components/chat/AgentSettingsControls";
-import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
-import { cn } from "../../lib/utils";
-import { normalizeRollOutcomeToneMode } from "../../components/dice/dice-tone";
-import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
+import { useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { AgentSettingsCard } from "../../../components/chat/AgentSettingsControls";
+import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
+import { cn } from "../../../lib/utils";
+import { normalizeRollOutcomeToneMode } from "../../../components/dice/dice-tone";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 
 export function RoleplayCommandsSettings({
   chat,

@@ -1,13 +1,13 @@
 import { Image } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AvatarCrop } from "@marinara-engine/shared";
-import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../../lib/utils";
 import {
   AgentSettingsActionButton,
   AgentSettingsSegmentedControl,
   AgentSettingsToggle,
   SpriteRangeSlider,
-} from "../../components/chat/AgentSettingsControls";
+} from "../../../components/chat/AgentSettingsControls";
 import {
   SPRITE_DISPLAY_OPACITY_PERCENT_MAX,
   SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
@@ -15,7 +15,7 @@ import {
   SPRITE_DISPLAY_SCALE_PERCENT_MIN,
   hasSpriteDisplayMode,
   type SpriteDisplayMode,
-} from "../../components/chat/sprite-display-modes";
+} from "../../../components/chat/sprite-display-modes";
 
 type SpriteOwnerKind = "character" | "persona";
 
