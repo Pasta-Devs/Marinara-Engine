@@ -95,7 +95,7 @@ type ImageCapability = {
   notes: string[];
 };
 
-type MariImageAsset = {
+export type MariImageAsset = {
   id: string;
   filename: string;
   filePath: string;
@@ -695,6 +695,101 @@ export async function findMariPreviewFile(
   }
 }
 
+/** One preview asset's manifest record, or null once the manifest no longer lists it (it keeps the newest 200). */
+export async function getMariPreviewAsset(assetId: string): Promise<MariImageAsset | null> {
+  return (await readManifest()).find((asset) => asset.id === assetId) ?? null;
+}
+
+/**
+ * The reference `resolveImageReference` reads for an edited asset's saved source label (`asset:<id>`,
+ * `gallery:<chat>/<file>`, `avatar:<file>`...), or null when the label names nothing it can read again: a pasted
+ * data URL, raw base64 or a file path. Only app URLs and asset ids come out, never a path on disk.
+ */
+export function mariSourceReference(label: string | null | undefined): string | null {
+  const at = label?.indexOf(":") ?? -1;
+  if (!label || at <= 0) return null;
+  const kind = label.slice(0, at);
+  const rest = label.slice(at + 1);
+  if (!rest) return null;
+  const slash = rest.indexOf("/");
+  const pair = slash > 0 && slash < rest.length - 1 ? [rest.slice(0, slash), rest.slice(slash + 1)] : null;
+  const enc = encodeURIComponent;
+  switch (kind) {
+    case "asset":
+      return rest;
+    case "avatar":
+      return `/api/avatars/file/${enc(rest)}`;
+    case "lorebook-image":
+      return `/api/lorebooks/images/file/${enc(rest)}`;
+    case "background":
+      return `/api/backgrounds/file/${enc(rest)}`;
+    case "gallery":
+      return pair ? `/api/gallery/file/${enc(pair[0]!)}/${enc(pair[1]!)}` : null;
+    case "persona-gallery":
+      return pair ? `/api/characters/personas/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "character-gallery":
+      return pair ? `/api/characters/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "sprite":
+      return pair ? `/api/sprites/${enc(pair[0]!)}/file/${enc(pair[1]!)}` : null;
+    default:
+      return null;
+  }
+}
+
+/** Whether the lightbox can rerun an asset: a generate always, an edit while its source image can be read again. */
+export function isMariPreviewAssetRegenerable(asset: MariImageAsset): boolean {
+  return asset.operation !== "edit" || mariSourceReference(asset.sourceImage) !== null;
+}
+
+// The parts of Mari's reply extra that name the assets her tools made: the continuity she reads on later turns, the
+// work timeline and the action results.
+const MARI_ASSET_EXTRA_KEYS = ["mariWorkspaceContinuity", "mariWorkspaceTimeline", "mariWorkspaceActionResults"];
+
+/**
+ * After a lightbox regenerate, points one of Mari's replies at the new asset: her text shows the new picture, and the
+ * tool results she reads on later turns name the new asset, so "assign that one" afterwards means the picture the user
+ * sees. False when the message never showed the old asset.
+ */
+export async function swapMariPreviewAssetInMessage(
+  db: DB,
+  chatId: string,
+  messageId: string,
+  previous: Pick<MariImageAsset, "id" | "url" | "filename">,
+  next: Pick<MariImageAsset, "id" | "url" | "filename">,
+): Promise<boolean> {
+  const chats = createChatsStorage(db);
+  const message = await chats.getMessage(messageId);
+  if (!message || message.chatId !== chatId || message.role !== "assistant") return false;
+  if (!message.content.includes(previous.url)) return false;
+  // The id is a fresh unique id and part of the url and filename, so plain replacement can't hit unrelated text.
+  const swap = (text: string) =>
+    text
+      .split(previous.url)
+      .join(next.url)
+      .split(previous.filename)
+      .join(next.filename)
+      .split(previous.id)
+      .join(next.id);
+  await chats.updateMessageContent(messageId, swap(message.content));
+
+  let extra: Json = {};
+  try {
+    const parsed = typeof message.extra === "string" ? (JSON.parse(message.extra) as unknown) : message.extra;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) extra = parsed as Json;
+  } catch {
+    // An unreadable extra has nothing to point at the new asset.
+  }
+  const partial: Json = {};
+  for (const key of MARI_ASSET_EXTRA_KEYS) {
+    if (extra[key] === undefined) continue;
+    const before = JSON.stringify(extra[key]);
+    const after = swap(before);
+    if (after !== before) partial[key] = JSON.parse(after) as unknown;
+  }
+  if (Object.keys(partial).length > 0) await chats.updateMessageExtra(messageId, partial);
+  return true;
+}
+
 async function writeManifest(assets: MariImageAsset[]) {
   await writeAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2));
 }
@@ -1193,6 +1288,40 @@ export class MariImagesService {
         targetSuggestion: target,
       },
     };
+  }
+
+  /**
+   * The lightbox's Regenerate: reruns one preview asset with an edited prompt and its saved kind, size and operation,
+   * as a new asset. Null when the manifest no longer lists it.
+   */
+  async regeneratePreviewAsset(
+    assetId: string,
+    input: { prompt: string; negativePrompt?: string; connectionId?: string },
+  ): Promise<{ previous: MariImageAsset; asset: MariImageAsset } | null> {
+    const previous = await getMariPreviewAsset(assetId);
+    if (!previous) return null;
+    const flags = new Map<string, string | boolean>([
+      ["prompt", input.prompt],
+      ["negative", input.negativePrompt ?? ""],
+      ["connection", input.connectionId?.trim() || previous.connectionId],
+      ["kind", previous.kind],
+      // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
+      ["no-style", true],
+    ]);
+    if (previous.width) flags.set("width", String(previous.width));
+    if (previous.height) flags.set("height", String(previous.height));
+    if (previous.operation === "edit") {
+      const source = mariSourceReference(previous.sourceImage);
+      if (!source) throw new Error("This image was edited from a picture that can't be read again.");
+      flags.set("source", source);
+    }
+    const result = await this.generateOrEdit(
+      previous.operation,
+      { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
+      flags,
+    );
+    const asset = (result.output as { asset: MariImageAsset }).asset;
+    return { previous, asset };
   }
 
   private resolveOperation(flags: Map<string, string | boolean>): "generate" | "edit" {
