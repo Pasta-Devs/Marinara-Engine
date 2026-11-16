@@ -8,6 +8,7 @@ import { setExpressionToolManifest } from "./tools/set-expression/manifest.js";
 import { triggerEventToolManifest } from "./tools/trigger-event/manifest.js";
 import { searchLorebookToolManifest } from "./tools/search-lorebook/manifest.js";
 import { webSearchToolManifest } from "./tools/web-search/manifest.js";
+import { webFetchToolManifest } from "./tools/web-fetch/manifest.js";
 import { saveLorebookEntryToolManifest } from "./tools/save-lorebook-entry/manifest.js";
 import { readChatSummaryToolManifest } from "./tools/read-chat-summary/manifest.js";
 import { appendChatSummaryToolManifest } from "./tools/append-chat-summary/manifest.js";
@@ -29,6 +30,7 @@ export const BUILT_IN_TOOLS: ToolDefinition[] = [
   triggerEventToolManifest,
   searchLorebookToolManifest,
   webSearchToolManifest,
+  webFetchToolManifest,
   saveLorebookEntryToolManifest,
   readChatSummaryToolManifest,
   appendChatSummaryToolManifest,
