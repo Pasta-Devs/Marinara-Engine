@@ -45,7 +45,7 @@ try {
 
   // Onboarding text goes through the same lint.
   const listed = (await mari.executeAction({ action: "character.list" })) as Result;
-  const characterId = ((listed.output as Array<{ id?: string }>)[0]?.id ?? "") as string;
+  const characterId = ((listed.output as { items: Array<{ id?: string }> }).items[0]?.id ?? "") as string;
   assert.ok(characterId, "the created card is listed");
   // Creator Notes carry card CSS (themes handbook), whose nested rules end in "}}".
   const css = (await mari.executeAction({
@@ -94,7 +94,7 @@ try {
   const book = (await mari.executeAction({ action: "lorebook.create", data: { name: "Brace test" } })) as Result;
   assert.equal(book.ok, true, `lorebook.create failed: ${String(book.error ?? "")}`);
   const books = (await mari.executeAction({ action: "lorebook.list" })) as Result;
-  const bookId = ((books.output as Array<{ id?: string }>)[0]?.id ?? "") as string;
+  const bookId = ((books.output as { items: Array<{ id?: string }> }).items[0]?.id ?? "") as string;
   const badEntry = (await mari.executeAction({
     action: "lorebook.addEntry",
     lorebookId: bookId,
