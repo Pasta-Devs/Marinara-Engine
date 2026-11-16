@@ -30,15 +30,19 @@ Starter themes aren't part of the install, so they take no space until you want 
 | Theme | Look |
 | --- | --- |
 | **Apogee Lounge** | The observation lounge of a 1970s space liner, with a gas giant through the window and messages on moulded panels. |
+| **Crepuscular** | A night-sea almanac: hooded figures keep a vigil on a cliff under a watchful moon (they are having pancakes), with messages down one ruled ledger column. |
 | **Dewglass** | Glossy 2000s glass: messages are gel droplets over a sunny lagoon or an aurora night. |
 | **Granite Watch** | A Cold War command post under the mountain: replies print as teleprinter paper and widgets hang on clipboards. |
 | **Gutterlight** | A rainy gothic city drawn as a crime comic, with inked panels and caption boxes. |
 | **Lantern Meadow** | Calm and very readable, with no motion. |
 | **Lantern Path** | A reading column with gentle motion. |
 | **Maple's Bramble Cottage** | A cozy cottage, with a reading column for long replies. |
+| **MARI to the Moon** | A trading terminal: every reply is an order ticket, the top bar runs a ticker tape and the Chats list is a watchlist. |
 | **NEON//GRID** | Neon cyberpunk, made for long replies. |
 | **Petal OS** | A playful retro desktop with pixel fonts. |
+| **Quiet Iris** | A calm ship intelligence: matte graphite instruments, one red-amber lens, and every chat docked along a single lit spine. |
 | **Rosalind's Folio** | A storybook layout with visual novel touches. |
+| **Sanguine Keep** | A moonlit gothic castle: crimson velvet and gilt by night, pale marble by day, with portraits in lancet windows and messages on reliquary panels. |
 | **Swiss Poster** | Quiet, clean poster design with no motion. |
 | **Under Sail** | The deck of a sailing ship at sea: every message is a canvas sail hung from a timber yard. |
 | **Velvet Casket** | Pastel goth by day and traditional goth by night, with coffin-shaped messages. |
