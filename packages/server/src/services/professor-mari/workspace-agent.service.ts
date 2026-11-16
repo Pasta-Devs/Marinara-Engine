@@ -4176,6 +4176,7 @@ export class ProfessorMariWorkspaceService {
       persistedAssistantMessage = message;
       if (replyIsFiller === false && message.content !== persistedText) {
         await chatStorage.updateMessageContent(message.id, persistedText);
+        persistedAssistantMessage = { ...message, content: persistedText };
       }
 
       await saveAssistantMessageExtra(chatStorage, message.id, {
@@ -4217,7 +4218,7 @@ export class ProfessorMariWorkspaceService {
         runUnderstoodRequest = { ...runUnderstoodRequest, messageId: message.id };
         this.latestUnderstoodRequest = runUnderstoodRequest;
       }
-      return message;
+      return persistedAssistantMessage;
     };
 
     // Waiting wins: a question, a hold or a staged change ends the run with Send now still in the list, and a run that
