@@ -41,7 +41,7 @@ export function MariTodoList({
                 <Check />
               ) : todo.status === "in_progress" ? (
                 running && !stale ? (
-                  <Spinner size="lg" />
+                  <Spinner size="sm" />
                 ) : (
                   <Circle className="fill-current" />
                 )
