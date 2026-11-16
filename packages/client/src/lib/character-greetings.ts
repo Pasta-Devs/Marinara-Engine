@@ -32,6 +32,35 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
   return { tags, title: plain.slice(0, end).trim(), preview: match ? dropRepeatedHeader(rest, preview) : preview };
 }
 
+/** Lists from this size on get search and filters, in the picker and in the character editor. */
+export const GREETING_LIST_MIN = 8;
+
+/** A greeting's tag group and title line as written, so `tagText + titleText + rest` is the exact text. */
+export function splitGreetingHeader(text: string) {
+  const match = GREETING_TAG_PREFIX.exec(text);
+  const tagText = match?.[0] ?? "";
+  const after = text.slice(tagText.length);
+  const named = GREETING_TITLE_PREFIX.exec(after);
+  const titleText = named ? named[0] + (/^\r?\n/.exec(after.slice(named[0].length))?.[0] ?? "") : "";
+  return {
+    tags: match ? [...match[1]!.matchAll(/\[([^\]]+)\]/g)].map((tag) => tag[1]!.trim()) : [],
+    tagText,
+    title: named ? (named[1] ?? named[2])! : "",
+    titleText,
+    rest: text.slice(tagText.length + titleText.length),
+  };
+}
+
+/** Writes new tags and a new title into a greeting; keeps the author's header form and the text under it. */
+export function setGreetingHeader(text: string, tags: readonly string[], title: string) {
+  const header = splitGreetingHeader(text);
+  const gap = header.tagText ? /\s*$/.exec(header.tagText)![0] : " ";
+  const tagText = tags.length ? `${tags.map((tag) => `[${tag}]`).join("")}${gap}` : "";
+  if (!title.trim()) return tagText + header.rest;
+  const titleText = header.titleText ? header.titleText.replace(header.title, () => title) : `**${title}**\n`;
+  return tagText + titleText + header.rest;
+}
+
 /** Some cards repeat their header line right under it; leave the copy out of what the picker shows. */
 function dropRepeatedHeader(text: string, after: string): string {
   return stripRepeatedHeader(text.trimStart().split("\n", 1)[0]!, after);
