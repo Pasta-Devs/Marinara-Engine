@@ -145,7 +145,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 ## Decision
 
-**Decisions** 下的按钮有 **TypeSafe**(默认地址 `https://api.typesafe.ai`)、**Own decision server**(自有判定服务器) 和 **Built-in model (decisions)**(内置模型，判定)。使用 OpenAI 聊天格式的聊天服务也能做判定，但只限返回对数概率（每个可能答案的分数）的模型。Decision 模型回答关于你聊天的是或否问题。见 [Decision 模型](decision-models.md)。
+**Decisions** 下的按钮有 **TypeSafe**(默认地址 `https://api.typesafe.ai`)、**Own decision server**(自有判定服务器) 和 **Built-in model (decisions)**(内置模型，判定)。**Add**(添加) 中的 **Decision**(判定) 类型按钮会列出这些选项，以及有自己判定模型的 **NanoGPT**、**OpenRouter** 和 **Google Gemini**，见[通过 NanoGPT](decision-models.md#through-nanogpt)和[通过 OpenRouter 或 Google Gemini](decision-models.md#through-openrouter-or-google-gemini)。其他使用 OpenAI 聊天格式的聊天服务也能做判定，但只限返回对数概率（每个可能答案的分数）的模型。Decision 模型回答关于你聊天的是或否问题。见 [Decision 模型](decision-models.md)。
 
 <a id="audio"></a>
 
