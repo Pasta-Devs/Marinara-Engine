@@ -44,6 +44,10 @@ Escolha uma ordem no menu suspenso de ordenação, ao lado da caixa de busca.
 | **Newest** | Os criados mais recentemente primeiro. |
 | **Oldest** | Os criados há mais tempo primeiro. |
 | **Favorites** | Favoritos primeiro, depois o resto. |
+| **Most tokens** (mais tokens) | Primeiro os cartões maiores, pelo tamanho estimado exibido em cada linha. As pastas são ordenadas pelo total dos seus cartões. |
+| **Fewest tokens** (menos tokens) | Primeiro os cartões menores. |
+
+A ordenação por tamanho ajuda a encontrar cartões para encurtar ou ampliar. A contagem estima o tamanho do texto do próprio cartão, sem usar o tokenizador do modelo. Personas, lorebooks e presets de prompt oferecem as mesmas duas opções.
 
 Para definir uma ordem manual, arraste uma linha para cima ou para baixo, ou pressione <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd> em uma linha com foco. Qualquer um dos dois muda a ordenação para **Manual order**.
 

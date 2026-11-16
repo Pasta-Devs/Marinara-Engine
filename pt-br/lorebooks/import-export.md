@@ -21,6 +21,20 @@ Marinara mantém a data do próprio arquivo como data de criação.
 
 Se não funcionou: leia o erro ao lado do arquivo. Um arquivo que não é um lorebook, ou que está danificado, falha sozinho enquanto os outros arquivos são importados.
 
+<a id="download-a-lorebook-from-chub"></a>
+
+## Baixar um lorebook do Chub
+
+Você pode importar lorebooks compartilhados no [Chub](https://chub.ai/lorebooks) sem precisar salvar um arquivo antes.
+
+1. Abra o painel **Lorebooks**.
+2. Clique em **Download** (baixar) no topo. O Card Browser abre com o título **Browse lorebooks online** (navegar por lorebooks online).
+3. Busque, ordene ou filtre por tags e clique em um lorebook. A página exibe a descrição e as primeiras 30 entradas. Clique em uma entrada para ler.
+4. Em **Imported tags** (tags importadas), escolha **All tags** (todas as tags), **No tags** (nenhuma tag) ou **Existing only** (só as tags que seus lorebooks já usam).
+5. Clique em **Import**. O lorebook, todas as entradas, a imagem e as tags escolhidas aparecem no painel **Lorebooks**.
+
+O Chub não oferece filtro para lorebooks adultos, então eles continuam visíveis. Um lorebook com NSFW nas tags exibe o selo **NSFW**, e sua imagem fica desfocada enquanto a caixa **NSFW** estiver desmarcada. Marque-a para ver essas imagens. As imagens dos lorebooks sem essa tag aparecem sem desfoque, qualquer que seja o conteúdo.
+
 ## Depois da importação
 
 Um lorebook importado funciona com palavras-chave de imediato. Se você usa a busca semântica, gere os vetores dele de novo. Veja [Busca semântica para lorebooks](semantic-search.md).

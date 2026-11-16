@@ -5,7 +5,7 @@ Encontre o seu sintoma e siga a solução. A maioria dos problemas some depois q
 ## Primeiras tentativas
 
 1. Recarregue a página de forma forçada: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> no Windows ou no Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> no Mac.
-2. Olhe o console do servidor (a janela de terminal que roda Marinara) e procure linhas de erro em vermelho. Elas costumam apontar o problema de verdade.
+2. Olhe o console do servidor (a janela de terminal que roda Marinara) e procure linhas de erro em vermelho. Elas costumam apontar o problema de verdade. Se o servidor estiver rodando em outro lugar (um NAS, um VPS ou no Docker), abra **Settings → Advanced → Open Console** (Configurações → Avançado → abrir console) para ler as mesmas linhas no aplicativo.
 3. Para pedir ajuda, ative antes o **Debug mode** (modo de depuração). Veja [Onde buscar mais ajuda](#get-more-help).
 
 <a id="my-character-does-not-reply"></a>

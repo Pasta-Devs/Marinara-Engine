@@ -111,9 +111,18 @@ O ajuste de debug da interface continua funcionando por `logDebugOverride`. Esse
 
 <a id="checks"></a>
 
+## Console no aplicativo
+
+Abra **Settings → Advanced → Open Console** (Configurações → Avançado → abrir console) para ver no aplicativo as linhas recentes do servidor quando você não tem acesso ao terminal (NAS, VPS, Docker, Termux).
+
+- `lib/log-buffer.ts` mantém as últimas 1.500 linhas na memória, até cerca de 4 milhões de caracteres. Cada mensagem e cada bloco de campos são cortados em 16 mil caracteres. Nada é gravado em disco, e reiniciar esvazia o buffer.
+- `logger.ts` copia cada linha serializada pelo `hooks.streamWrite` do Pino. O buffer guarda o que chegou ao terminal ou ao arquivo de log, no mesmo `LOG_LEVEL`. As linhas que passam fora do Pino, como a linha `injected env` do dotenv ou a saída bruta de um processo filho, ficam fora do buffer.
+- `GET /api/admin/logs?afterId=` retorna as linhas após `afterId`, além de `latestId`, `truncated` (linhas foram descartadas antes da leitura) e o `logLevel` do servidor. A rota exige `requirePrivilegedAccess` e usa `no-store`. Ela roda com `logLevel: "silent"`, então as consultas periódicas do console não aparecem no próprio log.
+- As regras de registro desta página também valem aqui. Um administrador remoto lê no aplicativo tudo que você registra em warn ou error, portanto mantenha prompts e corpos das solicitações e respostas dos provedores em debug.
+
 ## Verificações
 
-As regressões `logging-request-trail`, `logging-failure-lines` e `logging-startup-timeline` cobrem esta página:
+As regressões `logging-request-trail`, `logging-failure-lines` e `logging-startup-timeline` cobrem esta página, e `server-console-logs` cobre o console no aplicativo:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

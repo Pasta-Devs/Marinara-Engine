@@ -8,14 +8,14 @@ A chamada de funções significa que a IA pede ao aplicativo que execute uma aç
 
 ## Criar uma ferramenta
 
-Antes de começar, abra o painel **Presets** pela barra superior. As ferramentas ficam na aba **Functions** (funções) dele. Se você abrir Marinara de outro dispositivo, primeiro salve o segredo de administrador em **Settings → Advanced → Admin Access** (Configurações → Avançado → acesso de administrador). Ele precisa coincidir com o `ADMIN_SECRET` do servidor; veja a [Referência de configuração do servidor](../CONFIGURATION.md).
+Antes de começar, abra o painel **Presets** pela barra superior. As ferramentas ficam na aba **Tools** (ferramentas) dele. Se você abrir Marinara de outro dispositivo, primeiro salve o segredo de administrador em **Settings → Advanced → Admin Access** (Configurações → Avançado → acesso de administrador). Ele precisa coincidir com o `ADMIN_SECRET` do servidor; veja a [Referência de configuração do servidor](../CONFIGURATION.md).
 
 Para uma primeira tentativa, escolha **Static Result** (resultado estático): ele não precisa de mais nada.
 
 ### Como criar uma ferramenta
 
-1. Abra **Presets → Functions** pela barra superior.
-2. Clique em **Create function** (criar função, ícone de mais). Um editor de ferramenta em branco se abre.
+1. Abra **Presets → Tools** pela barra superior.
+2. Clique em **Create tool** (criar ferramenta, ícone de mais). Um editor de ferramenta em branco se abre.
 3. Digite um nome em snake_case minúsculo, como `check_weather`. Esse é exatamente o nome que a IA chama. Ele começa com uma letra minúscula e depois usa letras minúsculas, números e sublinhados.
 4. Preencha **Description** (descrição). Escreva o texto como uma instrução para a IA, porque a IA o lê para decidir quando chamar a ferramenta. Exemplo: `Get the current weather for a city the user names.`
 5. Adicione os parâmetros de que a ferramenta precisa (veja [Adicionar parâmetros](#add-parameters)).
@@ -29,22 +29,22 @@ Regras para nomes e descrições:
 - Duas ferramentas não podem ter o mesmo nome, e uma ferramenta não pode usar um nome integrado, como `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` ou `update_about_me`. Um conflito mostra uma mensagem como `"your_name" is a reserved built-in tool name.`
 - Se você sair do editor com alterações não salvas, uma faixa oferece **Keep editing** (continuar editando), **Discard** (descartar) ou **Save & close** (salvar e fechar).
 
-No topo da aba **Functions** ficam estes botões:
+No topo da aba **Tools** ficam estes botões:
 
-- **Create function** (ícone de mais)
-- **Import functions from ZIP or JSON** (importar funções de ZIP ou JSON)
-- **Export functions to ZIP** (exportar funções para ZIP), esmaecido quando você não tem ferramentas
-- **Select functions** (selecionar funções, ícone de marca de seleção)
+- **Create tool** (ícone de mais)
+- **Import tools from ZIP or JSON** (importar ferramentas de ZIP ou JSON)
+- **Export tools to ZIP** (exportar ferramentas para ZIP), esmaecido quando você não tem ferramentas
+- **Select tools** (selecionar ferramentas, ícone de marca de seleção)
 
-Abaixo dos botões, **Search functions** (buscar funções) pesquisa nos nomes e nas descrições das ferramentas.
+Abaixo dos botões, **Search tools** (buscar ferramentas) pesquisa nos nomes e nas descrições das ferramentas.
 
 Cada ferramenta da lista mostra:
 
 - o nome, o tipo, a quantidade de parâmetros e a descrição
 - um botão liga/desliga
-- **Edit function** (editar função) e **Delete Function** (excluir função)
+- **Edit tool** (editar ferramenta) e **Delete Tool** (excluir ferramenta)
 
-Arraste uma ferramenta pela alça para reordenar a lista. A ordem serve só para exibição. Durante uma busca, você não pode arrastar as ferramentas. Sem ferramentas, a lista mostra **No functions yet**.
+Arraste uma ferramenta pela alça para reordenar a lista. A ordem serve só para exibição. Durante uma busca, você não pode arrastar as ferramentas. Sem ferramentas, a lista mostra **No tools yet**.
 
 
 ### Organizar ferramentas em pastas
@@ -59,8 +59,8 @@ Quando há pastas, a lista agrupa as ferramentas por pasta. Clique em **Manual o
 
 ### Alterar várias ferramentas de uma vez
 
-1. Clique em **Select functions**.
-2. Marque as ferramentas que você quer alterar ou marque **Select all functions** (selecionar todas as funções).
+1. Clique em **Select tools**.
+2. Marque as ferramentas que você quer alterar ou marque **Select all tools** (selecionar todas as ferramentas).
 3. Clique em **Enable selected** (ativar selecionadas), **Disable selected** (desativar selecionadas) ou **Move to folder**. Você também pode exportar ou excluir a seleção.
 
 **Enable selected** altera os botões de cada ferramenta. Retome uma pasta pausada para disponibilizar suas ferramentas novamente.
@@ -179,7 +179,7 @@ Criar uma ferramenta não faz a IA usá-la. Você também precisa ativar o uso d
 3. Ative **Enable Tool Use** (permitir o uso de ferramentas). A descrição dela diz **Allow AI to call functions (dice rolls, game state, etc.)**. Em um chat novo, ela vem desativada.
 4. Confira se funciona: pergunte à IA algo que a sua ferramenta responde, como "What are your store hours?" no exemplo de `store_hours`. A resposta deve usar o texto da ferramenta.
 
-Com **Enable Tool Use** ativado e nada adicionado abaixo dele, o chat pode usar todas as ferramentas ativadas globalmente que sejam compatíveis com ele: as ferramentas integradas e cada ferramenta personalizada cujo botão liga/desliga está ativado em **Functions**. Os chats de Game também precisam de **Let the GM search lore** (permitir que o GM busque lore) para `search_lorebook`.
+Com **Enable Tool Use** ativado e nada adicionado abaixo dele, o chat pode usar todas as ferramentas ativadas globalmente que sejam compatíveis com ele: as ferramentas integradas e cada ferramenta personalizada cujo botão liga/desliga está ativado na aba **Tools**. Os chats de Game também precisam de **Let the GM search lore** (permitir que o GM busque lore) para `search_lorebook`.
 
 Para limitar um chat a um conjunto escolhido:
 
@@ -191,7 +191,7 @@ Depois que você adiciona qualquer ferramenta, só essas ferramentas funcionam n
 
 Os chats de Game podem usar uma conexão separada para o planejamento de ferramentas. Veja [Planejamento opcional de ferramentas e buscas de lore](../game/getting-started.md#optional-tool-planning-and-lore-searches) para saber o custo e o funcionamento.
 
-Se não funcionou: confirme que **Enable Tool Use** está ativado, que a ferramenta está na lista do chat, se você adicionou ferramentas específicas, e que o botão liga/desliga da ferramenta em **Functions** está ativado. Uma **Description** mais clara e descrições de parâmetros mais claras ajudam a IA a decidir quando chamá-la.
+Se não funcionou: confirme que **Enable Tool Use** está ativado, que a ferramenta está na lista do chat, se você adicionou ferramentas específicas, e que o botão liga/desliga da ferramenta na aba **Tools** está ativado. Uma **Description** mais clara e descrições de parâmetros mais claras ajudam a IA a decidir quando chamá-la.
 
 ## Anexar ferramentas a um agente
 
@@ -205,9 +205,9 @@ Você ainda precisa ativar **Enable Tool Use** na seção **Function Calling** d
 
 ## Exportar e importar ferramentas
 
-- Para exportar uma ferramenta, abra-a e clique em **Export function** (exportar função). Isso salva um arquivo `.json`.
-- Para exportar todas as ferramentas, clique em **Export functions to ZIP**.
-- Para importar, clique em **Import functions from ZIP or JSON** e escolha um arquivo `.json` ou `.zip`. Uma mensagem informa quantas ferramentas foram importadas.
+- Para exportar uma ferramenta, abra-a e clique em **Export tool** (exportar ferramenta). Isso salva um arquivo `.json`.
+- Para exportar todas as ferramentas, clique em **Export tools to ZIP**.
+- Para importar, clique em **Import tools from ZIP or JSON** e escolha um arquivo `.json` ou `.zip`. Uma mensagem informa quantas ferramentas foram importadas.
 
 As ferramentas de webhook e de script importadas são sempre salvas desativadas, com **Include hidden chat context** desligado, mesmo que o arquivo peça um dos dois. Marinara então mostra o tipo, o endereço do webhook e as permissões que o arquivo pediu. Abra cada ferramenta importada, inspecione-a e ative-a só se confiar nela. As ferramentas estáticas mantêm o estado de ativação importado.
 
