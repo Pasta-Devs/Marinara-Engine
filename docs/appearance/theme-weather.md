@@ -221,7 +221,7 @@ By default a storm only flashes the screen. Add `--mari-weather-lightning-bolt` 
 }
 ```
 
-The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Most starter themes use bolts: Apogee Lounge, Dewglass, Gutterlight, Under Sail and Velvet Casket. Granite Watch turns them off because it is set indoors.
+The bolt strikes down the left or right edge of the screen, never across the middle where the chat text is. It forks into several branches and glows in your lightning colour. It only shows while the app's own flash is up and fades with it, so a theme can't add flashes or make them faster. In pixel style the bolt is drawn in blocks on the pixel grid. Most starter themes use bolts: Apogee Lounge, Crepuscular, Dewglass, Gutterlight, MARI to the Moon, Sanguine Keep, Under Sail and Velvet Casket. Granite Watch and Quiet Iris turn them off because they are set indoors.
 
 ## Make your backdrop follow the weather
 
@@ -307,6 +307,10 @@ Every starter theme in the theme gallery shows off weather. Download one, click 
 - **Under Sail**: a squall at sea with white-blue bolts down the rigging, sea fog, snow on the rail and ratlines, and gull feathers in the wind.
 - **Apogee Lounge**: space weather seen through the lounge window. A storm becomes an ion storm in a nebula with violet plasma bolts, rain becomes micrometeor streaks, snow becomes an ice field and fog becomes nebula haze. A mask keeps all of it inside the glass.
 - **Granite Watch**: an indoor theme, so weather stays as faint as a theme allows. Rain reads as drips from the conduits, snow as plaster dust, bolts are off and the app's flash is tinted as a lamp flicker. Look here to see how to quiet weather for an indoor setting.
+- **Quiet Iris**: another indoor theme, but with a viewport. Weather only shows through the glass, the backdrop swaps to a version with rain, frost or fog on the viewport, bolts are off and the bay dims a little in a storm.
+- **MARI to the Moon**: market weather seen through the trading den's window. Rain falls as green ticks, a storm is a crash with red bolts and red screens, snow is falling coins and diamonds, wind blows banknotes, blossom launches little rockets and fog is FUD over the skyline.
+- **Sanguine Keep**: weather seen through the castle's windows. A stencil per backdrop keeps rain, snow, petals, leaves and bolts inside the window glass of the great hall (or the stair tower on phones), never over the stone.
+- **Crepuscular**: the same sea read through an almanac. Snow is powdered sugar, dust is crumbs, fireflies are watching eyes, wind blows paper scraps, bolts are thin engraved branches and the vigil carries on under umbrellas. Indoors, the sea is seen through a leaded window.
 
 ## Related guides
 
