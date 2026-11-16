@@ -512,20 +512,11 @@ export async function keyOutGallerySheetBackground(dataUrl: string): Promise<{ d
     if (y > 0) push(x, y - 1);
     if (y < height - 1) push(x, y + 1);
   }
-  // Pockets of backdrop the fill couldn't reach (between hair strands, inside a bent arm): anything still
-  // this close to the key colour is backdrop, since the prompt keeps that colour out of the stickers.
+  // Pockets of backdrop the fill couldn't reach (between hair strands, inside a bent arm): anything as close
+  // to the key colour as the fill itself allows is backdrop. Same tolerance as the fill, so a light green
+  // the art uses keeps its colour; shaded green bits near the edge are left to the green-bit pass.
   const pocket = new Uint8Array(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const offset = i * 4;
-    if (
-      pixels[offset + 3]! > 24 &&
-      Math.abs(pixels[offset]! - background[0]!) +
-        Math.abs(pixels[offset + 1]! - background[1]!) +
-        Math.abs(pixels[offset + 2]! - background[2]!) <
-        160
-    )
-      pocket[i] = 1;
-  }
+  for (let i = 0; i < width * height; i++) if (near(i * 4)) pocket[i] = 1;
   for (let i = 0; i < width * height; i++) if (pocket[i]) pixels[i * 4 + 3] = 0;
   cleanEdgesUntilSettled(pixels, width, height, background);
   ctx.putImageData(frame, 0, 0);
