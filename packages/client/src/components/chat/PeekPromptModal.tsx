@@ -31,10 +31,6 @@ const PROMPT_TAG_CLASS =
 const PROMPT_TAG_ACTIVE_CLASS =
   "border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]";
 
-function estimateTokens(text: string): number {
-  return estimateTextTokens(text);
-}
-
 function fmtTokens(n: number): string {
   return n.toLocaleString();
 }
@@ -389,7 +385,7 @@ function CollapsibleBlock({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(defaultOpen);
-  const tokens = estimateTokens(content);
+  const tokens = estimateTextTokens(content);
 
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 overflow-hidden">
@@ -432,7 +428,7 @@ function ChatHistorySection({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
-  const tokens = estimateTokens(rawContent);
+  const tokens = estimateTextTokens(rawContent);
 
   const msgRoleColor = (role: string) => {
     if (role === "assistant") return PROMPT_TAG_ACTIVE_CLASS;
@@ -485,7 +481,7 @@ function ChatHistorySection({
 
 function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; roleColor: string }) {
   const [open, setOpen] = useState(false);
-  const tokens = estimateTokens(entry.content);
+  const tokens = estimateTextTokens(entry.content);
   const preview = entry.content.split("\n")[0]?.slice(0, 80) ?? "";
 
   return (
@@ -555,7 +551,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
     () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
     [data.chatMode, data.messages],
   );
-  const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
+  const totalTokens = useMemo(() => estimateTextTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
   const search = useMemo(() => {
     // Search the original messages, not parsed sections: parsing trims whitespace and removes history wrappers.
     const pattern = deferredQuery ? new RegExp(deferredQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu") : null;

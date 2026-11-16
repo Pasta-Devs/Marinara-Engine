@@ -204,6 +204,3 @@ export function ExpandableTextarea({
   );
 }
 
-export function estimateTokens(text: string): number {
-  return estimateTextTokens(text);
-}
