@@ -2199,19 +2199,18 @@ const MARI_IMAGE_CAPTION_OPTIONS = {
     "[Picture not shown: your model can't read images and no working Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and to check that setting; don't guess what it shows.]",
 } satisfies ImageCaptionFallbackOptions;
 
-/**
- * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
- * shows them and the rest of the run keeps them; the stored chat and later turns keep only the text.
- */
 /** #9342: the most pictures a run carries; older looks fall back to their text stub so requests stay a sane size. */
 export const MARI_RUN_IMAGE_LIMIT = 8;
 
-/** Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} pictures across the run's messages and strips older ones in place. */
+/**
+ * Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} looked-at pictures across the run's messages and strips older ones in
+ * place. Only messages marked `fromImageLook` count or get trimmed: the user's own attachments always stay.
+ */
 export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIMIT): void {
   let kept = 0;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
-    if (!message.images?.length) continue;
+    if (!message.fromImageLook || !message.images?.length) continue;
     const room = Math.max(0, limit - kept);
     if (message.images.length > room) {
       const { images, ...rest } = message;
@@ -2221,13 +2220,17 @@ export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIM
   }
 }
 
+/**
+ * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
+ * shows them and the rest of the run keeps them (up to the cap); the stored chat and later turns keep only the text.
+ */
 export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
   const images = results.flatMap((result) => result.images ?? []);
   return {
     role: "user",
     content: formatCommandResultForPrompt(results),
     contextKind: "history",
-    ...(images.length > 0 ? { images } : {}),
+    ...(images.length > 0 ? { images, fromImageLook: true } : {}),
   };
 }
 

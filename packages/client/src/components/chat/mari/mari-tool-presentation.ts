@@ -419,12 +419,15 @@ function firstCommandValue(tokens: string[], start = 0) {
   return null;
 }
 
-/** `mari images look` refs: the bare values, skipping every `--flag value` pair (all of look's flags take one). */
+/** Flags of `mari images look` that take a value (without `--target`, the only path that reads a bare ref). */
+const LOOK_VALUE_FLAGS = new Set(["--detail", "--source", "--asset", "--id"]);
+
+/** `mari images look` refs: the first bare value, skipping the values of {@link LOOK_VALUE_FLAGS}. */
 function firstLookRef(tokens: string[]) {
   for (let index = 3; index < tokens.length; index += 1) {
     const token = tokens[index]!;
-    if (token.startsWith("--")) {
-      if (!token.includes("=")) index += 1;
+    if (token.startsWith("-")) {
+      if (LOOK_VALUE_FLAGS.has(token)) index += 1;
       continue;
     }
     return token;

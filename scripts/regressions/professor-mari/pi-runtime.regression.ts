@@ -2076,25 +2076,27 @@ try {
     assert.equal((await lastAssistant(invalid.chat.id))?.extra.mariQuestions, undefined);
   }
 
-  // #9342: a run carries at most 8 pictures; the oldest looks lose theirs first and keep their text.
+  // #9342: a run carries at most 8 looked-at pictures; the oldest looks lose theirs first and keep their text, and
+  // the user's own attachments never count or get trimmed.
   {
     const run: ChatMessage[] = [
-      { role: "user", content: "a", images: ["a1", "a2", "a3", "a4"] },
+      { role: "user", content: "mine", images: ["u1", "u2", "u3"] },
+      { role: "user", content: "a", images: ["a1", "a2", "a3", "a4"], fromImageLook: true },
       { role: "assistant", content: "x" },
-      { role: "user", content: "b", images: ["b1", "b2", "b3"] },
-      { role: "user", content: "c", images: ["c1", "c2"] },
+      { role: "user", content: "b", images: ["b1", "b2", "b3"], fromImageLook: true },
+      { role: "user", content: "c", images: ["c1", "c2"], fromImageLook: true },
     ];
     capRunImages(run);
     assert.deepEqual(
       run.map((message) => message.images ?? null),
-      [["a2", "a3", "a4"], null, ["b1", "b2", "b3"], ["c1", "c2"]],
+      [["u1", "u2", "u3"], ["a2", "a3", "a4"], null, ["b1", "b2", "b3"], ["c1", "c2"]],
     );
     capRunImages(run, 2);
     assert.deepEqual(
       run.map((message) => message.images ?? null),
-      [null, null, null, ["c1", "c2"]],
+      [["u1", "u2", "u3"], null, null, null, ["c1", "c2"]],
     );
-    assert.equal(run[0]!.content, "a", "the text stays");
+    assert.equal(run[1]!.content, "a", "the look's text stays");
   }
   // #9342: `mari images look` pictures reach her next request in every runtime, stay for the rest of the run, and
   // never reach the saved chat (the next turn starts with text only).
