@@ -101,6 +101,15 @@ Si el total alcanza o supera la DC, la prueba tiene éxito. Dos tiradas anulan e
 
 El banner muestra **CRITICAL SUCCESS**, **SUCCESS** (Éxito), **FAILURE** (Fallo) o **CRITICAL FAILURE**.
 
+### Pruebas de habilidad en una partida Gentle
+
+En una partida con el estilo de historia **Gentle** (Suave), el GM pide menos pruebas, y la tirada en sí funciona igual. Consulta [El estilo de historia Gentle](getting-started.md#the-gentle-story-style).
+
+- El GM pide una prueba solo cuando la habilidad o la elección de tu propio personaje puede cambiar el resultado.
+- Nunca hace tiradas contra algo que tu personaje no puede controlar o que forma parte de quien es, como una discapacidad, una condición crónica, su cuerpo o su trasfondo. La historia lo muestra como parte del personaje, junto con las formas en que ya se adapta.
+- La amabilidad, la confianza y el crecimiento entre personajes nacen de lo que hacen juntos, no de una tirada.
+- Una prueba fallida supone un contratiempo para el intento, no para el personaje: el intento falla, tarda más, cuesta algo o llama la atención. Un **CRITICAL FAILURE** es una complicación mayor, no una catástrofe.
+
 ### Ventaja y desventaja
 
 El GM puede pedir una prueba con ventaja (se tiran dos d20 y se conserva el más alto) o con desventaja (se conserva el más bajo). El banner muestra el modo junto a la DC y marca el dado usado. Si el GM pide ambas a la vez, Marinara deja esa prueba sin tocar en vez de adivinar, así que no recibes ningún banner para ella.

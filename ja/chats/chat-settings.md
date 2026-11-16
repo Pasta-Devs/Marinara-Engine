@@ -25,7 +25,7 @@ Chat Settingsは、チャットを作成すると自動で開きます。閉じ�
 - **Chat Name**(チャット名): チャット一覧に表示される名前です。クリックすると名前を変更できます。モデルには一切送られません。
 - **Chat Branches**(チャットの分岐): 分岐の切り替え、名前変更、エクスポート、インポートができます。[チャットの分岐](branches.md)を参照してください。
 - **Connection**(接続): このチャットで返信するモデルです。下記を参照してください。
-- **Prompt Preset**(プロンプトプリセット): このチャットで使う、保存済みのプロンプト構成です。
+- **Prompt Preset**(プロンプトプリセット): このチャットで使う、保存済みのプロンプト構成です。ゲームでは、物語のスタイル、暴力表現、コンテンツの制限、レーティングのガイドラインも含まれます。[ゲーム中の変更](../game/getting-started.md#change-them-during-a-game)を参照してください。
 - **Advanced Parameters**(詳細パラメーター): temperatureなどの生成設定を、このチャットだけ上書きします。[生成パラメーター](../prompts/generation-parameters.md)を参照してください。
 - **Persona**(ペルソナ): 自分が演じる人物です。[チャットで使うペルソナの選択](../characters/choosing-your-persona.md)を参照してください。(Conversation、Roleplay)
 - **Characters**(キャラクター): チャットに登場するキャラクターです。(Conversation、Roleplay)

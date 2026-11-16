@@ -37,7 +37,7 @@ Wenn es nicht funktioniert hat, siehe [Die Weltgenerierung scheitert mit einem J
 | Schritt | Was du festlegst |
 | --- | --- |
 | **Connection** | **Game Name** (Spielname), das **Model**, auf dem der GM läuft, und optional ein **Scene effects model**. Die Karte **Game Mode** zeigt vorerst nur **VN** (siehe [VN oder Overworld](#vn-or-overworld)). |
-| **World** | Genre, Schauplatz, Ton, Schwierigkeit, Inhaltsfreigabe und Sprache. **Combat Preference** (bevorzugte Kampfart) ist **Turn-Based** oder **Tactical**. Jedes neue Spiel nutzt **MRPG**-Klassen (Marinara RPG; siehe [MRPG-Klassen](mrpg-classes.md)). Ist ein Regelsatz installiert, erscheint eine Auswahl **Rules** (Regeln). Siehe [Regeln auswählen](#choose-rules). |
+| **World** | Genre, Schauplatz, Ton, Schwierigkeit, Inhaltsfreigabe, Erzählstil, Gewalt, inhaltliche Grenzen und Sprache. **Combat Preference** (bevorzugte Kampfart) ist **Turn-Based** oder **Tactical**. Jedes neue Spiel nutzt **MRPG**-Klassen (Marinara RPG; siehe [MRPG-Klassen](mrpg-classes.md)). Ist ein Regelsatz installiert, erscheint eine Auswahl **Rules** (Regeln). Siehe [Regeln auswählen](#choose-rules). |
 | **Party** | Deine Persona (der Charakter, den du spielst), **Game Master Mode**, Partymitglieder und **GM intro message** (Intro-Nachricht des GM). Siehe [Die Intro-Nachricht des GM](#the-gm-intro-message). Der MRPG-Startbaum jedes Mitglieds stammt aus dem Abschnitt **Game Mode** seiner Karte (siehe [Die Bäume eines Charakters wählen](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | Was du dir vom Abenteuer wünschst. |
 | **Lorebooks** | Lorebooks, die der GM als verbindlich behandelt. Ein Lorebook ist eine Sammlung von Hintergrundfakten zur Welt. Siehe [Lorebooks](../lorebooks/overview.md). |
@@ -57,7 +57,10 @@ Ist der Agent **Hierarchical Maps** heruntergeladen (er heißt jetzt World Maps,
 | Genre | Fantasy | Mehrfachauswahl, eigene Einträge möglich. Ein zuerst gewähltes Setting-Kit setzt sein eigenes. |
 | Tone | Heroic | Mehrfachauswahl. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** oder **Brutal**. Höhere Stufen machen Kämpfe schwieriger: In einem MRPG-Spiel gibt es mehr und stärkere Gegner (siehe [Kämpfe in einem MRPG-Spiel](combat.md#battles-in-an-mrpg-game)), in einem Legacy-Spiel treffen Gegner härter (siehe [Skalierung nach Schwierigkeit](combat.md#difficulty-scaling)). |
-| Content Rating | SFW | **SFW** oder **NSFW**. NSFW erlaubt Inhalte für Erwachsene, erzwingt sie aber nicht. |
+| Content Rating (sexual content) | SFW | **SFW** oder **NSFW**. Gilt nur für sexuelle Inhalte. NSFW erlaubt sie, erzwingt sie aber nicht. |
+| Story style (Erzählstil) | Standard | **Gentle** (Behutsam) lässt den GM weniger belastend erzählen. Siehe [Erzählstil, Gewalt und inhaltliche Grenzen](#story-style-violence-and-content-boundaries). |
+| Violence (Gewalt) | Serious (SFW) oder Graphic (NSFW) | **Mild**, **Serious** (Ernst) oder **Graphic** (Drastisch). Wird unabhängig von der Altersfreigabe eingestellt. |
+| Content boundaries (Inhaltliche Grenzen) | Keine | Themen, die der GM aus der Geschichte heraushält. |
 | Language | English | Der gesamte Text im Spiel wird in dieser Sprache geschrieben. |
 | Game Master Mode | Standalone GM | **Character GM** nutzt eine deiner Charakterkarten als GM. |
 | Scene effects model | Built-in model | Erst, wenn du es heruntergeladen hast. Bis dahin ist der Standard **Skip - use inline tags from GM**. |
@@ -68,6 +71,43 @@ Ist der Agent **Hierarchical Maps** heruntergeladen (er heißt jetzt World Maps,
 | Quick Time Events | On | Für Screenreader oder Spiel ohne Zeitdruck ausschalten. |
 | Start Muted | Off | Startet das Spiel mit stummgeschaltetem Audio. |
 | Game Presentation | Standard | Siehe unten. |
+
+### Erzählstil, Gewalt und inhaltliche Grenzen
+
+Im Schritt **World** gibt es vier Einstellungen, die festlegen, was in der Geschichte vorkommen darf und wie belastend es wird. Sie stehen zusammen unter **Content Rating (sexual content)**. Nach dem Spielstart kannst du alle außer der Altersfreigabe ändern. Siehe [Während eines Spiels ändern](#change-them-during-a-game).
+
+| Einstellung | Was sie festlegt |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**: Romantik und Zuneigung, Sexszenen werden ausgeblendet. **NSFW**: Sexszenen dürfen explizit beschrieben werden. Die Einstellung entscheidet über nichts anderes. |
+| **Story style** | **Standard**: Fehler und Pech haben spürbare Konsequenzen. **Gentle**: echte Herausforderungen, aber Rückschläge eskalieren nicht zu Bestrafung oder Trauma. |
+| **Violence** | **Mild**, **Serious** oder **Graphic**: wie Gewalt dargestellt wird. Der Anfangswert ist **Serious** bei SFW und **Graphic** bei NSFW, wie es der jeweiligen Altersfreigabe schon immer entsprach. |
+| **Content boundaries** | Themen, die du nie in der Geschichte haben möchtest, eines pro Zeile, etwa `harm to animals`. |
+
+#### Der Erzählstil Gentle
+
+Wähle **Gentle**, wenn du die Geschichte und ihre Charaktere genießen möchtest, ohne dass der GM jeden Fehltritt bestraft. Mit **Gentle** gilt:
+
+- Rückschläge kosten Zeit, Ansehen oder Ressourcen oder führen zu einem Umweg. Der GM reagiert darauf nicht mit Verletzungen, Erniedrigung, dem Verlust einer dir wichtigen Person oder einem Trauma, auf das du nicht selbst hingesteuert hast.
+- Der GM verlangt nur dann eine Fertigkeitsprobe, wenn die Fähigkeiten oder Entscheidungen deines Charakters etwas bewirken können. Er würfelt nie gegen etwas, das dein Charakter nicht beeinflussen kann, etwa eine Behinderung, eine Erkrankung, seinen Körper oder seine Herkunft. Siehe [Fertigkeitsproben in einem Gentle-Spiel](dice-and-skill-checks.md#skill-checks-in-a-gentle-game).
+- Die Welt wird warmherzig gestaltet: Handlungsbögen entstehen ebenso aus Hoffnungen und Beziehungen wie aus Verletzungen, und Wendungen überraschen dich, statt dein Vertrauen zu missbrauchen.
+
+**Gentle** ersetzt nur die eingebauten GM-Anweisungen. Hast du einen eigenen **GM Prompt** geschrieben, behält der GM deinen Text. Kampf, Schaden und die Schwierigkeitseinstellung funktionieren in beiden Stilen gleich.
+
+#### Inhaltliche Grenzen
+
+Schreib ein Thema pro Zeile, bis zu 40 Themen und insgesamt 2.000 Zeichen. Alles jenseits einer dieser Grenzen wird weggelassen. Für den GM ist jedes Thema eine feste Grenze, die Vorrang vor der Altersfreigabe, dem Ton, der Persönlichkeit aller Charaktere und der Handlung hat. Er spricht diese Themen nicht an, nutzt sie weder als Drohung, Wendung noch als Hintergrundgeschichte und deutet sie auch nicht an. Sprichst du selbst eines an, hält sich der GM kurz und geht zu etwas anderem über. Die Grenzen gelten in beiden Erzählstilen und bei beiden Altersfreigaben. Deine eigenen Richtlinien zur Altersfreigabe können sie nicht aufheben.
+
+> **Hinweis:** Die Geschichte wird von einem KI-Modell geschrieben. Marinara kann daher nicht garantieren, dass ein aufgeführtes Thema niemals vorkommt. Rutscht eines durch, nutze einen Swipe oder bearbeite die Antwort.
+
+#### Die Richtlinien zur Altersfreigabe bearbeiten
+
+Klapp unter den Schaltflächen für die Altersfreigabe **Edit rating guidelines** (Richtlinien zur Altersfreigabe bearbeiten) auf. Dort siehst du den Text, den der GM für die gewählte Altersfreigabe, Gewaltstufe und den Erzählstil erhält. Bearbeite ihn, um eigene Inhaltsregeln für dieses Spiel festzulegen, oder klick auf **Reset to default** (Auf Standard zurücksetzen), um zum eingebauten Text zurückzukehren. Solange du ihn unverändert lässt, folgt er deiner Auswahl von Altersfreigabe, Gewalt und Stil.
+
+#### Während eines Spiels ändern
+
+Öffne **Chat Settings → Prompt Preset** (Chat-Einstellungen → Prompt-Preset). In einem Spiel enthält dieser Abschnitt auch **Story style**, **Violence**, **Content boundaries** und **Rating guidelines** (Richtlinien zur Altersfreigabe). Änderungen gelten ab dem nächsten Zug. Die Altersfreigabe selbst steht fest, sobald das Spiel erstellt ist.
+
+Ein Prompt-Preset kann auch einen Erzählstil, eine Gewaltstufe und Grenzen enthalten, damit du sie in jedem Spiel wiederverwenden kannst. Siehe [Erzähleinstellungen für Game Mode](../prompts/presets.md#game-story-settings).
 
 <a id="choose-rules"></a>
 
@@ -189,7 +229,15 @@ Hat ein Aufruf fast geklappt, bietet Marinara das Fenster **Repair JSON** (JSON 
 
 ### Der GM erzählt fröhlich, obwohl du einen düsteren Ton gewählt hast
 
-Manche Modelle bleiben gut gelaunt. Trag im Vorlieben-Feld des Assistenten eine klare Anweisung ein, etwa „keep narration grim, do not soften failures“. Oder wechsle auf ein Modell, dessen Grundton zum Ton passt.
+Prüfe, ob **Story style** für das Spiel auf **Standard** steht: **Gentle** hält Rückschläge absichtlich leicht (siehe [Der Erzählstil Gentle](#the-gentle-story-style)). Manche Modelle bleiben gut gelaunt. Trag im Vorlieben-Feld des Assistenten eine klare Anweisung ein, etwa „keep narration grim, do not soften failures“. Oder wechsle auf ein Modell, dessen Grundton zum Ton passt.
+
+### Das Modell lehnt einen Zug ab
+
+Die Toast-Meldung **The model declined this request** erscheint, wenn das Modell den Zug nicht schreiben wollte. Manche Modelle lehnen bestimmte Formulierungen in den Richtlinien zur Altersfreigabe eines Spiels, einem Preset oder einer Charakterkarte ab. Versuch der Reihe nach Folgendes:
+
+1. Versuch den Zug erneut. Manche Ablehnungen treten nur einmal auf.
+2. Falls du die Richtlinien zur Altersfreigabe bearbeitet hast, öffne **Chat Settings → Prompt Preset** und setze **Rating guidelines** auf den eingebauten Text zurück.
+3. Probier für dieses Spiel ein anderes Modell.
 
 ## Wo welches Thema steht
 

@@ -65,6 +65,10 @@ Use **Convert** quando uma cena tiver virado uma história que você quer manter
 
 Clonar mantém a cena original aberta. Converter, não.
 
+## A classificação de conteúdo de uma cena
+
+Quando Marinara planeja uma cena, ele a classifica como **SFW** ou **NSFW** de acordo com o assunto dela, e as regras de conteúdo da cena seguem essa classificação. Uma cena iniciada a partir de um chat de Game Mode segue o jogo: a classificação de conteúdo, as diretrizes da classificação, o nível de violência, o estilo da história e os limites de conteúdo dele. Veja [Estilo da história, violência e limites de conteúdo](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
 ## Cenas e chats conectados
 
 Uma cena é independente. Ela não puxa contexto de uma Conversation conectada, mesmo quando o chat de origem puxa, e ignora as observações curtas de direcionamento que uma conversa conectada pode enviar a um Roleplay vinculado. Para um vínculo contínuo de mão dupla entre uma conversa e um roleplay, use um chat conectado. Veja [Conectar uma Conversation a um Roleplay ou Game](../chats/connected-chats.md).

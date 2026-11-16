@@ -25,7 +25,7 @@
 - **Chat Name**(聊天名称)：聊天列表里显示的名字。点击即可改名。它永远不会发给模型。
 - **Chat Branches**(聊天分支)：切换、改名、导出和导入分支。见[聊天分支](branches.md)。
 - **Connection**(连接)：这个聊天由哪个模型回复。见下文。
-- **Prompt Preset**(提示词预设)：这个聊天保存的提示词结构。
+- **Prompt Preset**(提示词预设)：这个聊天保存的提示词结构。在游戏中，这里还提供故事风格、暴力程度、内容边界和分级指南。见[在游戏中修改这些设置](../game/getting-started.md#change-them-during-a-game)。
 - **Advanced Parameters**(高级参数)：为这个聊天覆盖温度之类的生成设置。见[生成参数](../prompts/generation-parameters.md)。
 - **Persona**(用户角色)：你扮演谁。见[在聊天里选择用户角色](../characters/choosing-your-persona.md)。（Conversation 和 Roleplay）
 - **Characters**(角色)：聊天里的角色。（Conversation 和 Roleplay）

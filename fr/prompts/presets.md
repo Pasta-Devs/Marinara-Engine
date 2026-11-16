@@ -71,6 +71,17 @@ Deux cartes en lecture seule affichent le nombre de **Sections** et de **Groups*
 - **Roleplay Mode** n'est pas modifiable ici. Le Roleplay utilise le prompt assemblé à partir de tes **Sections**.
 - **Game Mode** est un champ de texte pour le prompt Game de ce preset. Laisse-le vide pour utiliser le prompt intégré.
 
+#### Réglages d'histoire du jeu
+
+Un preset peut apporter un style d'histoire, un niveau de violence et des limites de contenu au Game Mode, pour t'éviter de les définir à chaque partie. Voir [Style de l'histoire, violence et limites de contenu](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
+1. Dans l'onglet **Prompts**, sous **Game story settings** (réglages d'histoire du jeu), active **Bring story settings to games that use this preset** (appliquer les réglages d'histoire aux parties qui utilisent ce preset).
+2. Choisis un **Story style** (style de l'histoire) et un niveau de **Violence**. **Follow rating** (suivre la classification) conserve pour chaque partie le niveau de violence par défaut de sa classification.
+3. Facultatif : saisis des **Content boundaries** (limites de contenu), une par ligne.
+4. Clique sur **Save**.
+
+Quand tu choisis ce preset pour une partie, dans l'assistant de configuration ou dans **Chat Settings → Prompt Preset** (réglages du chat → preset de prompt), la partie adopte le style d'histoire et la violence du preset. Les limites du preset s'ajoutent à celles que la partie a déjà, sans supprimer aucune de ses propres limites. Les modifications ultérieures du preset ne changent pas les parties qui l'ont déjà choisi. Le réglage est conservé lorsque tu dupliques, exportes ou importes le preset.
+
 Le **Marinara's Universal Preset** intégré fournit le texte du prompt, mais aucun paramètre de génération. Ses anciens réglages enregistrés d'échantillonnage, de raisonnement, de mise en forme et de tokens sont ignorés : ce sont les réglages de ton compte, les remplacements du chat et les valeurs par défaut de l'application qui s'appliquent. Crée une copie modifiable pour le personnaliser.
 
 ## Sections et marqueurs
@@ -170,7 +181,7 @@ Sous le menu déroulant, un badge indique d'où vient le prompt.
 
 Le champ de texte montre le prompt utilisé. Modifie-le pour créer une copie locale au chat. Si ton texte correspond exactement au preset ou au prompt par défaut, Marinara considère qu'il n'est pas personnalisé. Tant qu'une modification personnalisée existe, une icône de réinitialisation apparaît (infobulle **Reset to default prompt**).
 
-Les chats Game ajoutent deux contrôles. **GM prompt style** (style de prompt du GM) ne remplace que le prompt Game, et une modification locale au chat l'emporte toujours. **Extra instructions** (instructions supplémentaires) ajoute du texte au prompt Game, jusqu'à 2 000 caractères, par exemple "Write in the style of Terry Pratchett."
+Les chats Game ajoutent d'autres contrôles. **Story style**, **Violence**, **Content boundaries** et **Rating guidelines** (règles de classification) définissent ce que l'histoire de la partie peut contenir. Voir [Les modifier pendant une partie](../game/getting-started.md#change-them-during-a-game). Deux autres contrôles façonnent le prompt. **GM prompt style** (style de prompt du GM) ne remplace que le prompt Game, et une modification locale au chat l'emporte toujours. **Extra instructions** (instructions supplémentaires) ajoute du texte au prompt Game, jusqu'à 2 000 caractères, par exemple "Write in the style of Terry Pratchett."
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

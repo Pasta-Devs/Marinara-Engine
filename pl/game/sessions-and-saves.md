@@ -104,7 +104,7 @@ Game Mode przechowuje migawkę konfiguracji użytej przy tworzeniu każdej nowej
 3. Przejrzyj zapisaną przygodę, obsadę, model, prompt (tekst, który Marinara wysyła do AI), parametry generowania oraz ustawienia wizualne, storyboardu i narzędzi świata.
 4. Kliknij **Copy setup** (kopiowanie konfiguracji), żeby skopiować tekst, albo **Download setup** (pobranie konfiguracji), żeby zapisać plik tekstowy.
 
-> **Ostrzeżenie:** Tekst zawiera twoje długie preferencje gracza i własne instrukcje dla GM. Przeczytaj go przed publikacją. Dane logowania, adresy serwerów, klucze API i lokalne identyfikatory bazy danych nigdy się w nim nie znajdują.
+> **Ostrzeżenie:** Tekst zawiera twoje długie preferencje gracza i własne instrukcje dla GM. Pobrany plik zawiera też wytyczne kategorii treści i granice treści gry. Przeczytaj go przed publikacją. Dane logowania, adresy serwerów, klucze API i lokalne identyfikatory bazy danych nigdy się w nim nie znajdują.
 
 Karty postaci, persony, lorebooki, modele i konta są wymienione z nazwy, ale nie są dołączane, więc druga osoba potrzebuje własnych odpowiedników. Kampanie utworzone przed wprowadzeniem migawek nie odzyskają ustawień, których nigdy nie zapisano, dlatego sekcja **Initial Game Setup** pojawia się tylko wtedy, gdy istnieje wiarygodna migawka.
 

@@ -104,7 +104,7 @@ Game Mode conserva una instantánea de la configuración usada para crear cada c
 3. Revisa la aventura guardada, el reparto, el modelo, el prompt (las instrucciones enviadas a la IA), los parámetros de generación, y los ajustes visuales, de storyboard (secuencia de viñetas) y de herramientas de mundo.
 4. Haz clic en **Copy setup** (Copiar configuración) para copiar el texto, o en **Download setup** (Descargar configuración) para guardar un archivo de texto.
 
-> **Advertencia:** El texto incluye tus preferencias largas de jugador y las instrucciones personalizadas del GM. Léelo antes de publicarlo. Las credenciales, las URL de servidor, las API keys (claves de API) y los ID de base de datos local nunca se incluyen.
+> **Advertencia:** El texto incluye tus preferencias largas de jugador y las instrucciones personalizadas del GM. Un archivo descargado también contiene las directrices de clasificación y los límites de contenido de la partida. Léelo antes de publicarlo. Las credenciales, las URL de servidor, las API keys (claves de API) y los ID de base de datos local nunca se incluyen.
 
 Las tarjetas de personaje, las personas, los lorebooks, los modelos y las cuentas se nombran, pero no se empaquetan, así que otro jugador necesita sus propios equivalentes. Las campañas creadas antes de que existieran las instantáneas no pueden recuperar ajustes que nunca se guardaron, así que **Initial Game Setup** aparece solo cuando existe una instantánea fiable.
 

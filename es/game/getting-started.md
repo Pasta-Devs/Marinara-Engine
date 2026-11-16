@@ -37,7 +37,7 @@ Si no funcionó, consulta [La generación del mundo falla con un error de JSON o
 | Paso | Qué defines |
 | --- | --- |
 | **Connection** | **Game Name** (Nombre de la partida), el **Model** que dirige al GM y un **Scene effects model** opcional. Por ahora, la tarjeta **Game Mode** solo muestra **VN** (consulta [VN u Overworld](#vn-or-overworld)). |
-| **World** | Género, ambientación, tono, dificultad, clasificación de contenido e idioma. **Combat Preference** (Preferencia de combate) es **Turn-Based** o **Tactical**. Todas las partidas nuevas usan clases **MRPG** (Marinara RPG). Consulta [Clases MRPG](mrpg-classes.md). Cuando hay un conjunto de reglas instalado, aparece una opción **Rules** (Reglas). Consulta [Elegir las reglas](#choose-rules). |
+| **World** | Género, ambientación, tono, dificultad, clasificación de contenido, estilo de historia, violencia, límites de contenido e idioma. **Combat Preference** (Preferencia de combate) es **Turn-Based** o **Tactical**. Todas las partidas nuevas usan clases **MRPG** (Marinara RPG). Consulta [Clases MRPG](mrpg-classes.md). Cuando hay un conjunto de reglas instalado, aparece una opción **Rules** (Reglas). Consulta [Elegir las reglas](#choose-rules). |
 | **Party** | Tu persona (el personaje que interpretas), **Game Master Mode**, los miembros del grupo y **GM intro message** (Mensaje de introducción del GM). Consulta [El mensaje de introducción del GM](#the-gm-intro-message). El árbol MRPG inicial de cada miembro procede de la sección **Game Mode** de su tarjeta (consulta [Elegir los árboles de un personaje](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | Lo que quieres de la aventura. |
 | **Lorebooks** | Los lorebooks (libros de trasfondo) que el GM trata como canon. Un lorebook es un conjunto de datos de trasfondo del mundo. Consulta [Lorebooks](../lorebooks/overview.md). |
@@ -57,7 +57,10 @@ Con el agente **Hierarchical Maps** descargado (ahora llamado World Maps; consul
 | Genre | Fantasy | Se permiten varios, además de los tuyos propios. Un kit de ambientación elegido primero fija el suyo. |
 | Tone | Heroic | Se permiten varios. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** o **Brutal**. Los ajustes más altos hacen las peleas más difíciles: más enemigos y más fuertes en una partida MRPG (consulta [Batallas en una partida MRPG](combat.md#battles-in-an-mrpg-game)), y enemigos que golpean más fuerte en una partida Legacy (consulta [Escalado de dificultad](combat.md#difficulty-scaling)). |
-| Content Rating | SFW | **SFW** o **NSFW**. NSFW solo permite contenido para adultos, no lo obliga. |
+| Content Rating (sexual content) (Clasificación del contenido: contenido sexual) | SFW | **SFW** o **NSFW**. Solo abarca el contenido sexual. NSFW lo permite, no lo obliga. |
+| Story style (Estilo de historia) | Standard (Estándar) | **Gentle** (Suave) ofrece un GM que genera menos estrés. Consulta [Estilo de historia, violencia y límites de contenido](#story-style-violence-and-content-boundaries). |
+| Violence (Violencia) | Serious (Seria; SFW) o Graphic (Gráfica; NSFW) | **Mild** (Leve), **Serious** o **Graphic**. Se configura aparte de la clasificación del contenido. |
+| Content boundaries (Límites de contenido) | Ninguno | Temas que el GM mantiene fuera de la historia. |
 | Language | English | Todo el texto dentro del juego se escribe en este idioma. |
 | Game Master Mode | Standalone GM | **Character GM** usa una de tus tarjetas de personaje como GM. |
 | Scene effects model | Built-in model | Solo una vez que lo descargas. Hasta entonces, el predeterminado es **Skip - use inline tags from GM**. |
@@ -68,6 +71,43 @@ Con el agente **Hierarchical Maps** descargado (ahora llamado World Maps; consul
 | Quick Time Events | On | Desactívalo para jugar con lector de pantalla o sin límite de tiempo. |
 | Start Muted | Off | Empieza la partida con todo el audio silenciado. |
 | Game Presentation | Standard | Consulta más abajo. |
+
+### Estilo de historia, violencia y límites de contenido
+
+El paso **World** tiene cuatro ajustes que deciden qué puede contener la historia y qué tan intensa resulta. Están juntos bajo **Content Rating (sexual content)** (Clasificación del contenido: contenido sexual). Puedes cambiarlos todos excepto la clasificación del contenido después de empezar la partida. Consulta [Cambiarlos durante una partida](#change-them-during-a-game).
+
+| Ajuste | Qué decide |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**: romance y afecto, y las escenas de sexo hacen un fundido a negro. **NSFW**: las escenas de sexo pueden escribirse de forma explícita. No decide nada más. |
+| **Story style** (Estilo de historia) | **Standard** (Estándar): los errores y la mala suerte tienen consecuencias reales. **Gentle**: desafíos reales, pero los contratiempos no escalan hasta el castigo o el trauma. |
+| **Violence** (Violencia) | **Mild**, **Serious** o **Graphic**: cómo se muestra la violencia. Empieza en **Serious** para SFW y **Graphic** para NSFW, que es lo que siempre significó cada clasificación. |
+| **Content boundaries** (Límites de contenido) | Temas que nunca quieres en la historia, uno por línea, como `harm to animals`. |
+
+#### El estilo de historia Gentle
+
+Elige **Gentle** si quieres disfrutar de la historia y sus personajes sin que el GM castigue cada error. Con **Gentle**:
+
+- Los contratiempos cuestan tiempo, prestigio, recursos o un desvío. El GM no responde con lesiones, humillación, la pérdida de alguien que te importa ni traumas hacia los que no hayas dirigido la historia.
+- El GM pide una prueba de habilidad solo cuando importan la habilidad o la elección de tu propio personaje. Nunca hace tiradas contra algo que tu personaje no puede controlar, como una discapacidad, una condición, su cuerpo o su trasfondo. Consulta [Pruebas de habilidad en una partida Gentle](dice-and-skill-checks.md#skill-checks-in-a-gentle-game).
+- El mundo se planifica con calidez: los arcos nacen tanto de las esperanzas y las relaciones como de las heridas, y los giros te sorprenden en lugar de traicionarte.
+
+**Gentle** solo reemplaza las instrucciones integradas del GM. Si escribiste tu propio **GM Prompt** (Prompt del GM), el GM conserva tu texto. El combate, el daño y el ajuste de dificultad funcionan igual en ambos estilos.
+
+#### Límites de contenido
+
+Escribe un tema por línea, hasta 40 temas y 2.000 caracteres en total. Se omite todo lo que supere cualquiera de los dos límites. El GM trata cada tema como un límite estricto, por encima de la clasificación, el tono, la personalidad de cualquier personaje y la trama. No los menciona, no los usa como amenaza, giro o trasfondo, ni hace alusiones a ellos. Si tú mencionas uno, el GM lo trata brevemente y sigue adelante. Los límites funcionan en ambos estilos de historia y en ambas clasificaciones, y tus propias directrices de clasificación no pueden eliminarlos.
+
+> **Nota:** La historia la escribe un modelo de IA, así que Marinara no puede garantizar que un tema de la lista nunca aparezca. Si se cuela alguno, haz un swipe o edita la respuesta.
+
+#### Editar las directrices de clasificación
+
+Debajo de los botones de clasificación, despliega **Edit rating guidelines** (Editar directrices de clasificación) para ver el texto que recibe el GM para la clasificación, la violencia y el estilo de historia elegidos. Edítalo para definir tus propias reglas de contenido para esta partida, o haz clic en **Reset to default** (Restablecer al predeterminado) para volver al texto integrado. Mientras lo dejes sin cambios, sigue la clasificación, la violencia y el estilo que elijas.
+
+#### Cambiarlos durante una partida
+
+Abre **Chat Settings → Prompt Preset** (Ajustes del chat → Preset de prompt). En una partida, esta sección también tiene **Story style**, **Violence**, **Content boundaries** y **Rating guidelines** (Directrices de clasificación). Los cambios se aplican a partir del siguiente turno. La clasificación del contenido queda fija una vez creada la partida.
+
+Un preset de prompt también puede incluir un estilo de historia, un nivel de violencia y límites, para que puedas reutilizarlos en cada partida. Consulta [Ajustes de historia de la partida](../prompts/presets.md#game-story-settings).
 
 <a id="choose-rules"></a>
 
@@ -189,7 +229,15 @@ Si una llamada casi funcionó, Marinara ofrece una ventana **Repair JSON** (Repa
 
 ### El GM narra con alegría aunque hayas elegido un tono oscuro
 
-Algunos modelos se mantienen animados. Añade una instrucción clara en el campo de preferencias del asistente, como "mantén la narración sombría, no suavices los fracasos". O cambia a un modelo cuya voz predeterminada encaje con el tono.
+Comprueba que el **Story style** de la partida sea **Standard**: **Gentle** mantiene leves los contratiempos a propósito (consulta [El estilo de historia Gentle](#the-gentle-story-style)). Algunos modelos se mantienen animados. Añade una instrucción clara en el campo de preferencias del asistente, como "mantén la narración sombría, no suavices los fracasos". O cambia a un modelo cuya voz predeterminada encaje con el tono.
+
+### El modelo rechaza un turno
+
+Un aviso dice **The model declined this request** (El modelo rechazó esta solicitud) cuando el modelo se niega a escribir el turno. Algunos modelos rechazan ciertas formulaciones en las directrices de clasificación de una partida, un preset o una tarjeta de personaje. Prueba lo siguiente en este orden:
+
+1. Vuelve a intentar el turno. Algunos rechazos solo ocurren una vez.
+2. Si editaste las directrices de clasificación, abre **Chat Settings → Prompt Preset** y restablece **Rating guidelines** al texto integrado.
+3. Prueba otro modelo para esta partida.
 
 ## Dónde vive cada tema
 

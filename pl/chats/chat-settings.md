@@ -25,7 +25,7 @@ To, które sekcje widać, zależy od trybu czatu. Sekcję **Impersonate** opisuj
 - **Chat Name** (nazwa czatu): nazwa na liście czatów. Kliknij ją, aby ją zmienić. Nigdy nie trafia do modelu.
 - **Chat Branches** (gałęzie czatu): przełączanie, zmiana nazw, eksport i import gałęzi. Zobacz [Gałęzie czatu](branches.md).
 - **Connection** (połączenie): model, który odpowiada w tym czacie. Opis niżej.
-- **Prompt Preset** (preset promptu): zapisana struktura promptu dla tego czatu.
+- **Prompt Preset** (preset promptu): zapisana struktura promptu dla tego czatu. W grze zawiera też styl historii, przemoc, granice treści i wytyczne kategorii treści. Zobacz [Zmiana ustawień podczas gry](../game/getting-started.md#change-them-during-a-game).
 - **Advanced Parameters** (parametry zaawansowane): nadpisuje w tym czacie ustawienia generowania, takie jak temperatura. Zobacz [Parametry generowania](../prompts/generation-parameters.md).
 - **Persona**: postać, w którą się wcielasz. Zobacz [Wybór persony w czacie](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (postacie): postacie w czacie. (Conversation, Roleplay.)

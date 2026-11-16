@@ -25,7 +25,7 @@ Les sections visibles dépendent du mode du chat. La section **Impersonate** est
 - **Chat Name** (nom du chat) : le nom affiché dans ta liste de chats. Clique dessus pour le renommer. Il n'est jamais envoyé au modèle.
 - **Chat Branches** (branches du chat) : change de branche, renomme, exporte et importe des branches. Voir [Branches de chat](branches.md).
 - **Connection** (connexion) : le modèle qui répond dans ce chat. Voir plus bas.
-- **Prompt Preset** (preset de prompt) : la structure enregistrée du prompt (le texte que Marinara envoie à l'IA) de ce chat.
+- **Prompt Preset** (preset de prompt) : la structure enregistrée du prompt (le texte que Marinara envoie à l'IA) de ce chat. Dans une partie, cette section contient aussi le style de l'histoire, la violence, les limites de contenu et les règles de classification. Voir [Les modifier pendant une partie](../game/getting-started.md#change-them-during-a-game).
 - **Advanced Parameters** (paramètres avancés) : remplace pour ce chat des réglages de génération comme la température. Voir [Paramètres de génération](../prompts/generation-parameters.md).
 - **Persona** : le personnage que tu incarnes. Voir [Choisir ton persona dans un chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (personnages) : les personnages du chat. (Conversation, Roleplay.)

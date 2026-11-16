@@ -65,6 +65,7 @@ CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
 | モデルがパラメーターを必須だと言う | そのパラメーターのスイッチをオンにします。 |
 | **This model's chat template needs user and assistant messages to take turns** | llama.cppで動かすMistral系のモデルなど、一部のローカルモデルでは、メッセージが交互に並んでいる必要があります。Marinaraは連続したメッセージをまとめて、1回だけ再試行します。それでも続く場合は、**Chat Settings → Advanced Parameters**で**Post-Processing Messages**(メッセージの後処理)を**Single User Message**(1つのユーザーメッセージ)に設定するか、制約の緩いチャットテンプレートでモデルを動かしてください。 |
 | **The AI returned an empty response. Try sending your message again.** | もう一度送ってください。繰り返し起きる場合は、別のモデルかアカウントを試します。 |
+| **The model declined this request** | モデルがこの返信の生成を拒否しました。Game Modeでは、[モデルがターンの生成を拒否する](game/getting-started.md#the-model-declines-a-turn)を参照してください。それ以外では、再試行してから、別のモデル、プリセット、キャラクターカードを試してください。 |
 | **A generation is already in progress for this chat** | 返信がまだストリーミング中です。待つか、**Stop**(停止)をクリックしてから、もう一度試します。 |
 | **No connections are marked for the random pool** | ランダム振り分けがオンなのに、プールにアカウントが1つもありません。アカウントを追加するか、ランダム振り分けをオフにしてください。 |
 | どのメッセージもネットワークエラーで失敗し、コンピューターがプロキシ経由でしかインターネットに出られない | Marinaraにプロキシを設定してください。[外向きのHTTPプロキシ](CONFIGURATION.md#outbound-http-proxy)を参照してください。 |

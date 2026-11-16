@@ -65,6 +65,10 @@ Utilise **Convert** quand une scène est devenue une histoire que tu veux garder
 
 Le clonage garde la scène d'origine ouverte. La conversion, non.
 
+## La classification du contenu d'une scène
+
+Quand Marinara prépare une scène, il lui attribue la classification **SFW** ou **NSFW** selon son sujet, et les règles de contenu de la scène suivent cette classification. Une scène lancée depuis un chat Game Mode suit plutôt les réglages de cette partie : sa classification du contenu, ses règles de classification, son niveau de violence, son style d'histoire et ses limites de contenu. Voir [Style de l'histoire, violence et limites de contenu](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
 ## Scènes et chats connectés
 
 Une scène est autonome. Elle ne reprend pas le contexte d'une Conversation connectée, même quand le chat parent le fait, et elle ignore les courtes consignes d'orientation qu'une conversation connectée peut envoyer à un Roleplay lié. Pour un lien permanent, dans les deux sens, entre une conversation et un roleplay, utilise un chat connecté. Voir [Connecter une Conversation à un Roleplay ou à une partie](../chats/connected-chats.md).

@@ -24,8 +24,8 @@
     },
     {
       "path": "TROUBLESHOOTING.md",
-      "sha256": "72792c830a48fca29939ce1b28d20b694e1dfd5da693756edda19aef6ce58709",
-      "bytes": 95330
+      "sha256": "a8f4de5c3f6b6a5280f496158d925d784d54815af4ca3b083f047937a521c42c",
+      "bytes": 95892
     },
     {
       "path": "UPGRADING.md",
@@ -164,8 +164,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "aba321df8b3e166941ef1dcd9ae9c83d1db8ae9fcd2ba6b9b1fc5a5c51d5a3b4",
-      "bytes": 39031
+      "sha256": "7fd61b72a2f91fd86f107d64f61803bf225a078e5915a3eabb8e6b62e68883ef",
+      "bytes": 39409
     },
     {
       "path": "chats/connected-chats.md",
@@ -489,8 +489,8 @@
     },
     {
       "path": "game/dice-and-skill-checks.md",
-      "sha256": "08aa43e6889cca9a60fb6c90e137af826cff80eedb651ef3c26d4f7ae05c6360",
-      "bytes": 33782
+      "sha256": "33f484ff2f17577a5a2545dd4c14c31fc496e0df938f440818ae074eee234c63",
+      "bytes": 35886
     },
     {
       "path": "game/fighting-on-a-ruleset.md",
@@ -504,8 +504,8 @@
     },
     {
       "path": "game/getting-started.md",
-      "sha256": "06419d685c19ecee24840d4057a3d014f77c1d97aa197cd7fe7bbb4f5091e557",
-      "bytes": 67901
+      "sha256": "6beeb049a2405bb09c448c5007bac1e7cabcb8adcb73ca114c291d6d8b1678f7",
+      "bytes": 79101
     },
     {
       "path": "game/hud-widgets.md",
@@ -539,8 +539,8 @@
     },
     {
       "path": "game/sessions-and-saves.md",
-      "sha256": "27696ed43b143096d11c858329005b67618eebcb616b769b914f38c5b18eeca1",
-      "bytes": 26650
+      "sha256": "e7a40a85863118e1823e84494093a4fce7cafb7bb5eaf9e4a0b44002e2ae0cc1",
+      "bytes": 26874
     },
     {
       "path": "game/storyboard.md",
@@ -709,8 +709,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "177c6b0a33e0d5c2536d430d26edb3bc77d80cad85ce389e01e592bf2e8f4338",
-      "bytes": 27165
+      "sha256": "443589fe9353428489554d829a0c790461d0a7e5b26df57ccb379c66853f0931",
+      "bytes": 30332
     },
     {
       "path": "prompts/prompt-overrides.md",
@@ -749,8 +749,8 @@
     },
     {
       "path": "roleplay/scenes.md",
-      "sha256": "2e52e9f18eb7276158be684074399b10b86aa62a4615d67bd3c56f9dea8ee05f",
-      "bytes": 12609
+      "sha256": "147fc7886c1114c8c2c3fd56b526595741d7d32f1fa70084322f1297a4a6fcf4",
+      "bytes": 13612
     },
     {
       "path": "settings/settings-overview.md",
