@@ -598,7 +598,9 @@ export async function resolveIllustratorCharacterReferences(args: {
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();
-  const uniqueChatMatch = (matches: CharacterReferenceSource[]): CharacterReferenceSource | undefined => {
+  const selectUniqueMatchPreferringCast = (
+    matches: CharacterReferenceSource[],
+  ): CharacterReferenceSource | undefined => {
     if (matches.length <= 1) return matches[0];
     const castMatches = matches.filter((source) => chatIds.has(source.id));
     return castMatches.length === 1 ? castMatches[0] : undefined;
@@ -617,8 +619,10 @@ export async function resolveIllustratorCharacterReferences(args: {
     // Chat aliases are useful for nicknames; outside the chat, require a unique full name.
     const match =
       chatMatches.length > 0
-        ? uniqueChatMatch(chatMatches)
-        : uniqueChatMatch(globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName));
+        ? selectUniqueMatchPreferringCast(chatMatches)
+        : selectUniqueMatchPreferringCast(
+            globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName),
+          );
     if (match) selected.set(match.id, match);
   }
 
@@ -628,7 +632,8 @@ export async function resolveIllustratorCharacterReferences(args: {
       source.promptAliases.some(
         (alias) =>
           textContainsAlias(normalizedPromptText, alias) &&
-          uniqueChatMatch(chatSources.filter((candidate) => candidate.promptAliases.includes(alias)))?.id === source.id,
+          selectUniqueMatchPreferringCast(chatSources.filter((candidate) => candidate.promptAliases.includes(alias)))
+            ?.id === source.id,
       )
     ) {
       selected.set(source.id, source);
