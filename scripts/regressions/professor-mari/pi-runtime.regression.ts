@@ -342,7 +342,7 @@ try {
       statusTexts(events).some((text) => /Tool round limit reached/u.test(text)),
       atLimit,
     );
-    assert.ok(!statusTexts(events).some((text) => /unsupported completion claim/u.test(text)));
+    assert.ok(!statusTexts(events).some((text) => /withheld the completion claim/u.test(text)));
   }
 
   // #7879 investigation proof: real Pi tool execution against the real store,
@@ -837,20 +837,38 @@ try {
       assert.ok(!history.includes(notice), `${runtime}: the notice is not`);
 
       // Narration beside a real command is still repaired as a step claim.
+      const blockedText = "I've created entry A. Now let me check entry B.";
       const midRun = await start(
         `mid-run claim ${runtime}`,
         [
-          answer(runtime, "I've created entry A. Now let me check entry B.", [
-            { id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } },
-          ]),
+          answer(runtime, blockedText, [{ id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } }]),
           answer(runtime, "Entry A is not there yet."),
         ],
         runtime,
       );
       await midRun.done;
       assert.equal(requests.length, 2, `${runtime}: the step claim is repaired`);
-      assert.match(lastUserText(1), /You claimed a step was completed/u);
-      assert.equal((await lastAssistant(midRun.chat.id))?.content, "Entry A is not there yet.");
+      assert.equal(lastUserText(0), "Do the thing.");
+      assert.match(lastUserText(1), /^\[Guardrail\] You claimed a step was completed/u);
+      const blocked = { type: "blocked_draft", content: blockedText };
+      assert.deepEqual(
+        midRun.events.filter((event) => event.type === "blocked_draft"),
+        [{ type: "blocked_draft", data: blockedText }],
+      );
+      const savedMidRun = await lastAssistant(midRun.chat.id);
+      assert.equal(savedMidRun?.content, "Entry A is not there yet.");
+      const savedTrace = savedMidRun?.extra.mariWorkspaceTimeline as Array<{ type: string }>;
+      assert.deepEqual(
+        savedTrace.filter((item) => item.type === "blocked_draft"),
+        [blocked],
+      );
+      assert.ok(
+        !midRun.events
+          .filter((event) => event.type === "token")
+          .map((event) => event.data)
+          .join("")
+          .includes(blockedText),
+      );
 
       // A shell command or a failed change was tried: a false closing claim is repaired, with no flag.
       for (const call of [
@@ -872,7 +890,7 @@ try {
         );
         await tried.done;
         assert.equal(requests.length, 3, `${runtime} ${call.name}: the claim is repaired`);
-        assert.match(lastUserText(2), /no mutating command succeeded/u);
+        assert.match(lastUserText(2), /^\[Guardrail\].*no mutating command succeeded/u);
         const saved = await lastAssistant(tried.chat.id);
         assert.equal(saved?.content, "Nothing changed yet.");
         assert.equal(saved?.extra.mariNothingChanged, undefined);
@@ -1526,7 +1544,7 @@ try {
     await cut.done;
     assert.equal(requests.length, 3, "two recoveries, then the finished answer");
     assert.equal(existsSync(join(workspaceDir, "cut.txt")), false, "a cut-off call never runs");
-    assert.match(lastPrompt(1), /^\[Engine note, not from the user\]/u);
+    assert.match(lastPrompt(1), /^\[Guardrail\]/u);
     assert.match(lastPrompt(1), /`app_data` with action `character\.onboarding\.update`/u);
     assert.match(lastPrompt(1), /about 8192 tokens/u, "the connection's output limit is quoted");
     assert.match(lastPrompt(2), /cut off again/u);
@@ -1581,7 +1599,7 @@ try {
     assert.match(lastPrompt(2), /was a dry run/u, "control: the uncut claim draws the dry-run repair");
     const dryCut = await start("pi dry-run cut claim", dryRunThenClaim("length"));
     await dryCut.done;
-    assert.match(lastPrompt(2), /^\[Engine note, not from the user\]/u);
+    assert.match(lastPrompt(2), /^\[Guardrail\]/u);
     assert.doesNotMatch(lastPrompt(2), /dry run/u, "a cut claim is not sent the dry-run repair");
 
     // A failed stream is not a limit cut: its words still face the claim audit, and it keeps the old stop. The change

@@ -5,7 +5,7 @@ import { stripProfessorMariSpeakerPrefix } from "./professor-mari-presentation";
 export type WorkTimelineItem<Tool> =
   | {
       id: string;
-      type: "text" | "thinking" | "status";
+      type: "text" | "thinking" | "status" | "blocked_draft";
       content: string;
       startedAt?: number;
       updatedAt?: number;
@@ -17,6 +17,7 @@ export type WorkTimelineItem<Tool> =
 
 export type WorkTimelineBlock<Tool> =
   | { kind: "text"; id: string; content: string }
+  | { kind: "blocked_draft"; id: string; content: string }
   /** `seconds` is how long she thought, when the stream timed it; at least 1 so a quick thought never reads 0s. */
   | { kind: "thinking"; id: string; content: string; seconds: number | null }
   | { kind: "steps"; id: string; steps: Extract<WorkTimelineItem<Tool>, { type: "tool" }>[] };
@@ -42,6 +43,10 @@ export function buildWorkTimelineBlocks<Tool>(items: readonly WorkTimelineItem<T
       continue;
     }
     if (!item.content.trim()) continue;
+    if (item.type === "blocked_draft") {
+      blocks.push({ kind: item.type, id: item.id, content: item.content });
+      continue;
+    }
     const { startedAt, updatedAt } = item;
     const seconds =
       startedAt && updatedAt && updatedAt >= startedAt

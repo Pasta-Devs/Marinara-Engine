@@ -38,7 +38,9 @@ import {
   chunkText,
   dedupeWorkspaceCommandCalls,
   describeHeldCommands,
+  emitBlockedDraft,
   emitRoundText,
+  formatMariGuardrail,
   formatCommandResultForPrompt,
   isChangeAttemptCommand,
   isLengthFinishReason,
@@ -333,7 +335,7 @@ export function outputLimitRepairPrompt(cut: CutReply, attempt: number, maxOutpu
   const target = maxOutputTokens ? Math.round(maxOutputTokens * CUT_TARGET_CHARS_PER_TOKEN) : null;
   const quiet =
     "While you work, say nothing about the limit. In your final answer you may mention it in one short, light sentence.";
-  const lines = ["[Engine note, not from the user]"];
+  const lines: string[] = [];
   if (attempt > 1) lines.push("It was cut off again. Make it much smaller: one field or one item per call.");
   if (cut.kind === "thinking") {
     lines.push(
@@ -777,7 +779,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     emptyRepairs = 0;
-    // A repaired turn's words are never shown, yet they stay in pi's history: tell her, so she restates them.
+    // A repaired turn's words stay in pi's history, outside the chat answer.
     const withheld = (prompt: string) => withWithheldNotice(prompt, current.text);
     // A turn cut at the output limit ran nothing, so no claim audit spends a repair on its half-written words: it is
     // redone smaller, and its words are not kept. Once that budget is spent the run stops with a note. A failed stream
@@ -858,10 +860,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
       // A silent hold still needs words on the saved message: they carry the deferral flag and the held changes.
       // Held calls were not applied, so words that say they were are replaced.
-      const words =
-        current.text.trim() && !workspaceTextClaimsMutationCompletion(current.text)
-          ? current.text.trim()
-          : HELD_WITHOUT_WORDS;
+      const claimsCompletion = workspaceTextClaimsMutationCompletion(current.text);
+      if (claimsCompletion) emitBlockedDraft(trace, current.text, onEvent);
+      const words = claimsCompletion ? HELD_WITHOUT_WORDS : current.text.trim() || HELD_WITHOUT_WORDS;
       state.assistantText = words;
       state.nothingChanged = false;
       emitRoundText(trace, words, onEvent);
@@ -878,6 +879,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
     });
+    if (decision.kind === "repair" || decision.kind === "stop") {
+      emitBlockedDraft(trace, current.text, onEvent);
+    }
     if (decision.kind === "repair") return { ...decision, prompt: withheld(decision.prompt) };
     if (decision.kind === "stop") {
       addNote(decision.content, "retry", "warning");
@@ -899,6 +903,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       !appliedAny &&
       workspaceTextClaimsHeldChange(current.text)
     ) {
+      emitBlockedDraft(trace, current.text, onEvent);
       if (!heldClaimRepaired) {
         heldClaimRepaired = true;
         return {
@@ -982,8 +987,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       ...toChatMessages({ messages: finished.messages } as never, true).filter((message) => message.role !== "system"),
       {
         role: "user",
-        content:
+        content: formatMariGuardrail(
           "You reached the tool round limit. Do not call more tools. Summarize what you learned or what remains blocked.",
+        ),
         contextKind: "history",
       },
     ];
@@ -1002,8 +1008,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     }).issue;
     const nothingChanged = closingAnswerGetsNotice(reviewState, text, issue);
     if (issue && !nothingChanged) {
+      emitBlockedDraft(trace, text, onEvent);
       addNote(
-        "Professor Mari reached the tool round limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.",
+        "Professor Mari reached the tool round limit without verification, so I withheld the completion claim from the answer. Ask her to continue from the saved trace.",
         "retry",
         "warning",
       );
@@ -1323,7 +1330,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         const steerWaiting = finished.calls.length === 0 && (await input.steers?.waiting()) === true;
         const decision = finishRound(finished, event.toolResults, steerWaiting);
         if (decision !== "done") {
-          steerSession(decision.prompt);
+          steerSession(formatMariGuardrail(decision.prompt));
           return;
         }
         // pi reads steering after this listener, and it goes through even on a turn whose tools said terminate. A stop
