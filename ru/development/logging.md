@@ -111,9 +111,18 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 <a id="checks"></a>
 
+## Консоль в приложении
+
+Откройте **Settings → Advanced → Open Console** (настройки → дополнительно → открыть консоль), чтобы увидеть последние строки журнала сервера в приложении, если терминал недоступен (NAS, VPS, Docker, Termux).
+
+- `lib/log-buffer.ts` хранит в памяти последние 1500 строк, всего до 4 млн символов. Каждое сообщение и каждый блок полей обрезаются до 16 тысяч символов. На диск ничего не пишется, а перезапуск очищает буфер.
+- `logger.ts` копирует каждую сериализованную строку через `hooks.streamWrite` библиотеки Pino. В буфер попадает то же, что в терминал или файл журнала, при том же `LOG_LEVEL`. Строки, которые проходят мимо Pino, например `injected env` от dotenv или необработанный вывод дочернего процесса, в буфер не попадают.
+- `GET /api/admin/logs?afterId=` возвращает строки после `afterId`, а также `latestId`, `truncated` (строки были отброшены до чтения) и `logLevel` сервера. Маршрут защищен `requirePrivilegedAccess` и использует `no-store`. Он работает с `logLevel: "silent"`, поэтому запросы самой консоли не появляются в журнале.
+- Здесь действуют те же правила журналирования. Удаленный администратор видит в приложении все записи уровня warn и error, поэтому оставьте промпты и тела запросов и ответов провайдеров на уровне debug.
+
 ## Проверки
 
-Страницу покрывают регрессии `logging-request-trail`, `logging-failure-lines` и `logging-startup-timeline`:
+Страницу покрывают регрессии `logging-request-trail`, `logging-failure-lines` и `logging-startup-timeline`, а консоль в приложении – `server-console-logs`:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-
