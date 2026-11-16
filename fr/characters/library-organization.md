@@ -43,6 +43,10 @@ Choisis un ordre dans le menu déroulant de tri, à côté du champ de recherche
 | **Z-A** | Les noms de Z à A. |
 | **Newest** (plus récents) | Les créations les plus récentes d'abord. |
 | **Oldest** (plus anciens) | Les créations les plus anciennes d'abord. |
+| **Most tokens** (le plus de tokens) | Les cartes les plus volumineuses d'abord, selon l'estimation affichée sur chaque ligne. Les dossiers sont triés selon le total de leurs cartes. |
+| **Fewest tokens** (le moins de tokens) | Les cartes les moins volumineuses d'abord. |
+
+Le tri par taille t'aide à repérer les cartes à alléger ou à étoffer. Le nombre estime la taille du texte propre à la carte sans passer par le tokenizer de ton modèle. Les personas, les lorebooks et les presets de prompt proposent les deux mêmes tris.
 | **Favorites** (favoris) | Les favoris d'abord, puis le reste. |
 
 Pour définir un ordre manuel, fais glisser une ligne vers le haut ou vers le bas, ou appuie sur <kbd>Alt</kbd>+<kbd>Up</kbd> ou <kbd>Alt</kbd>+<kbd>Down</kbd> sur une ligne qui a le focus. Dans les deux cas, le tri passe sur **Manual order**.

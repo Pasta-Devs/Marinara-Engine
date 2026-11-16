@@ -34,7 +34,7 @@ Le panneau **Personas** est ta bibliothèque de personas. Clique sur une ligne p
 | **Import** (importer) | Ouvre la fenêtre **Import Persona** (importer un persona). |
 | **Select** (sélectionner) | Active le mode sélection, pour supprimer et exporter en bloc. |
 | Champ de recherche | Texte indicatif **Search personas/tags** (rechercher des personas/tags). Il cherche dans le nom, la description, le commentaire et les tags. Pour les recherches par tag, voir [Recherche](library-organization.md#search). |
-| Menu déroulant de tri | **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** ou **Tokens** (taille estimée du prompt). |
+| Menu déroulant de tri | **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens** (le plus de tokens) ou **Fewest tokens** (le moins de tokens) (taille estimée, également affichée sur chaque ligne). |
 | **New Folder** (nouveau dossier) | Crée un dossier. |
 | **Tags** | Déploie la liste des tags pour filtrer. |
 

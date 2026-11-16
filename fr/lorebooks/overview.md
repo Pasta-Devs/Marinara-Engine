@@ -67,9 +67,30 @@ L'onglet propose aussi ces interrupteurs.
 
 Le panneau **Semantic search (embeddings)** (recherche sémantique), sous les interrupteurs, est traité dans [Recherche sémantique pour les lorebooks](semantic-search.md).
 
+## Ajouter une image à un lorebook
+
+L'image s'affiche dans le panneau **Lorebooks**, dans la bibliothèque de lorebooks et dans les sélecteurs de lorebooks.
+
+1. Ouvre le lorebook et reste sur l'onglet **Overview** (vue d'ensemble). **Image** est la première section.
+2. Clique sur **Upload image** (téléverser une image) et choisis un fichier, ou clique sur **Generate with AI** (générer avec l'IA) pour créer une couverture avec ta connexion de génération d'images. **Generate with AI** est grisé tant que tu n'as pas configuré de connexion.
+3. Fais glisser le carré sur l'image pour choisir la partie visible et tire sur ses coins pour le redimensionner. L'aperçu rond affiche le résultat.
+4. Clique sur **Save** (enregistrer).
+
+Une nouvelle image s'affiche sans recadrage. Pour la retirer, clique sur **Remove** (retirer).
+
+<a id="the-lorebook-library"></a>
+
+## La bibliothèque de lorebooks
+
+La bibliothèque de lorebooks affiche en pleine page tes lorebooks avec leurs images, leurs descriptions et leur nombre d'entrées. Ouvre-la avec **Open Library** (ouvrir la bibliothèque) en haut du panneau **Lorebooks**.
+
+Clique sur un lorebook pour l'agrandir. **Edit Lorebook** (modifier le lorebook) ouvre l'éditeur, et la flèche de retour te ramène à la bibliothèque. **Active** (actif) active ou désactive le lorebook pour tous les chats, comme son interrupteur **Enabled**.
+
 ## Le panneau Lorebooks
 
-En haut du panneau, trois boutons-icônes affichent leur nom quand tu passes le pointeur dessus.
+En haut du panneau, **Download** (télécharger) ouvre le Card Browser sur les lorebooks à télécharger (voir [Importer et exporter des lorebooks](import-export.md#download-a-lorebook-from-chub)), et **Open Library** ouvre la [bibliothèque de lorebooks](#the-lorebook-library).
+
+En dessous, trois boutons à icône affichent leur nom quand tu passes le pointeur dessus.
 
 - **New** ouvre la fenêtre **Create Lorebook**.
 - **Import** (importer) ouvre la fenêtre **Import Lorebook** (importer un lorebook). Voir [Importer et exporter des lorebooks](import-export.md).
@@ -78,7 +99,7 @@ En haut du panneau, trois boutons-icônes affichent leur nom quand tu passes le 
 Sous les boutons :
 
 - **Search lorebooks** (chercher des lorebooks) filtre par nom, description, nom du personnage ou du persona lié, et tags.
-- **Sort order** (ordre de tri) propose **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** et **Token Budget**. Avec **Manual order**, fais glisser les lorebooks à leur place, ou utilise <kbd>Alt</kbd>+<kbd>Up</kbd> et <kbd>Alt</kbd>+<kbd>Down</kbd>.
+- **Sort order** (ordre de tri) propose **Manual order** (ordre manuel), **A-Z**, **Z-A**, **Newest**, **Oldest** , **Most tokens** (le plus de tokens) et **Fewest tokens** (le moins de tokens). Le tri par taille utilise la taille estimée de toutes les entrées d'un lorebook, y compris celles qui sont désactivées. Chaque ligne affiche cette estimation. Avec **Manual order**, fais glisser les lorebooks à leur place, ou utilise <kbd>Alt</kbd>+<kbd>Up</kbd> et <kbd>Alt</kbd>+<kbd>Down</kbd>.
 - **New Folder** (nouveau dossier) crée un dossier de bibliothèque. Fais glisser un lorebook dessus. Sur téléphone, maintiens le lorebook appuyé, puis fais-le glisser. Ces dossiers n'ont rien à voir avec les dossiers d'entrées à l'intérieur d'un lorebook.
 
 Chaque ligne comporte les boutons **Copy** (copier, duplique le lorebook) et **Delete** (supprimer). Ils apparaissent quand tu passes le pointeur sur la ligne, et restent toujours visibles sur mobile. Un lorebook désactivé affiche un badge **OFF**. Clique sur l'image pour la téléverser ou la remplacer.

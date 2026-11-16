@@ -35,12 +35,26 @@ L'éditeur regroupe les emplacements sous **Chat**, **Story** (histoire), **Pict
 
 Pour remplir les emplacements :
 
-- Choisis des éléments dans la liste de chaque emplacement. **Agents**, **Tools** et **Lorebooks** acceptent plusieurs choix. Utilise les cases à cocher de **Tools** pour activer ou désactiver chaque outil. Pour un emplacement qui n'accepte qu'un élément, choisis **None** (aucun) pour le vider.
-- Sur ordinateur, dans les listes d'agents et de lorebooks, maintiens <kbd>Ctrl</kbd> (<kbd>Command</kbd> sur macOS) pour choisir plusieurs éléments. Sur téléphone, utilise les contrôles de sélection. **Clear selection** (effacer la sélection) vide une liste.
+- Appuie sur le champ d'un emplacement pour ouvrir une fenêtre de sélection avec une recherche et les dossiers de ta bibliothèque, comme dans les sélecteurs de presets et de lorebooks. Pour un emplacement qui n'accepte qu'un élément, choisis **None** (aucun) pour le vider.
+- **Agents** et **Lorebooks** acceptent plusieurs choix. Coche-les dans la fenêtre ou utilise **Add all** (tout ajouter) sur un dossier. Chaque élément choisi apparaît sous le champ avec un bouton pour le retirer. **Clear selection** (effacer la sélection) vide l'emplacement. **Tools** est une liste de cases à cocher. Coche chaque outil à activer.
 - Sur ordinateur, tu peux ouvrir une barre latérale de bibliothèque pendant que l'éditeur reste ouvert et faire glisser un élément vers son champ.
 - **Parameters**, **Memory & summary** et **Translation** indiquent seulement si le profil les contient. Modifie-les dans Chat Settings, puis enregistre-les dans le profil.
 
-Dans l'assistant de nouveau chat, l'étape **Use a Profile** (utiliser un profil) propose aussi **New profile…** (nouveau profil) en haut de la liste et **Edit** à côté d'un profil enregistré. Après l'enregistrement, l'assistant sélectionne ce profil.
+Dans l'assistant de nouveau chat, l'étape **Use a Profile** (utiliser un profil) propose **New** (nouveau) à côté du champ de profil et **Edit** à côté d'un profil enregistré. Après l'enregistrement, l'assistant sélectionne ce profil.
+
+<a id="the-profiles-tab"></a>
+
+## L'onglet Profiles
+
+Pour gérer les profils en dehors d'un chat, ouvre le panneau **Presets** et choisis l'onglet **Profiles** (profils). Il liste tous les profils Conversation et Roleplay, avec le profil **Default** de chaque mode en premier. Les boutons au-dessus de la liste (**All** (tous), **Conversation**, **Roleplay**) filtrent par mode et **Search profiles** (chercher des profils) filtre par nom. Une étoile marque le profil par défaut de chaque mode pour les nouveaux chats.
+
+- Clique sur un profil pour l'ouvrir dans l'éditeur de profils au centre de l'écran. **Back** (retour) enregistre tes modifications et **Cancel** (annuler) les abandonne. Les profils **Default** ne peuvent être ni modifiés ni ouverts.
+- **Create settings profile** (créer un profil de réglages) ouvre un profil vide. Choisis son mode avec **Conversation** ou **Roleplay**. Un profil enregistré conserve son mode.
+- Passe le pointeur sur une ligne pour définir le profil par défaut, le dupliquer, l'exporter ou le supprimer. Sur téléphone, ces boutons restent visibles au bord droit de la ligne.
+- **Select profiles** (sélectionner des profils) permet d'en exporter ou d'en supprimer plusieurs à la fois. **Select all profiles** (sélectionner tous les profils) ignore les profils **Default**, qui ne peuvent pas être supprimés. Chaque profil est exporté dans son propre fichier.
+- **Import settings profile (.json)** (importer un profil de réglages (.json)) charge un fichier `.marinara-settings-profile.json`.
+
+**Edit** dans Chat Settings ouvre toujours l'éditeur dans une fenêtre par-dessus le chat.
 
 ## Enregistrer les réglages du chat dans un profil
 
