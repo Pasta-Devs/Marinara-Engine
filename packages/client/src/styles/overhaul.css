@@ -4429,6 +4429,19 @@ input.ov-edhead__title:focus {
   height: 100%;
   object-fit: cover;
 }
+/* Lorebook picture: square like its crop, so the saved crop shows as it will in the Library. */
+.ov-povw__thumb--crop {
+  position: relative;
+  width: 1.875rem;
+}
+.ov-povw__thumb--crop img {
+  pointer-events: none;
+}
+.ov-bk__crop {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 0.25rem;
+}
 .ov-preset__state {
   white-space: nowrap;
 }

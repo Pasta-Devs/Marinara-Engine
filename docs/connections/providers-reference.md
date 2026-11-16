@@ -145,7 +145,7 @@ See [Image Generation Providers and Setup](../media/image-providers.md) and [Sce
 
 ## Decision
 
-On the **Decision** tab, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
+On the **Decision** tab, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. The tab also lists **NanoGPT**, **OpenRouter**, and **Google Gemini**, which have decision models of their own (see [Through NanoGPT](decision-models.md#through-nanogpt) and [Through OpenRouter or Google Gemini](decision-models.md#through-openrouter-or-google-gemini)). Other chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
 
 ## Audio
 

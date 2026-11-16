@@ -379,6 +379,29 @@ try {
     assert.match(String(parsed.customHeaders["X-Key"]), /^enc:v1:/u);
     assert.equal(({} as Record<string, unknown>).polluted, undefined);
   }
+  // A decision model's saved custom headers are sent decrypted; an older plain value still works.
+  {
+    const { resolveDecisionConnection } =
+      await import("../../../packages/server/src/services/decision/decision-connection.js");
+    const { sealConnectionHeaderSecrets: seal } = await import("../../../packages/server/src/utils/stored-secrets.js");
+    const row = {
+      id: "decision-row",
+      provider: "decision",
+      baseUrl: "",
+      model: "",
+      apiKey: "typesafe-key",
+      decisionSource: "typesafe",
+    };
+    const sealedParams = seal(JSON.stringify({ customHeaders: { "X-Access": HEADER_VALUE } })) as string;
+    assert.match(sealedParams, /enc:v1:/u);
+    const resolved = await resolveDecisionConnection({ ...row, defaultParameters: sealedParams }, async () => null);
+    assert.equal(resolved.connection?.headers?.["X-Access"], HEADER_VALUE, "decision requests send the plain header");
+    const legacy = await resolveDecisionConnection(
+      { ...row, defaultParameters: JSON.stringify({ customHeaders: { "X-Access": "plain-old" } }) },
+      async () => null,
+    );
+    assert.equal(legacy.connection?.headers?.["X-Access"], "plain-old");
+  }
 } finally {
   await app.close();
   await db._fileStore?.close();

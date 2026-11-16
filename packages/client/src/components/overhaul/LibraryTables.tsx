@@ -20,6 +20,7 @@ import {
   CheckSquare,
   Copy,
   Download,
+  Globe,
   ExternalLink,
   FileText,
   LayoutGrid,
@@ -69,7 +70,9 @@ import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
-import { cn } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { sortItemsByTokens } from "../../lib/panel-sort";
+import type { AvatarCrop } from "@marinara-engine/shared";
 import {
   getImportEntries,
   getNextRegexOrderBase,
@@ -129,14 +132,15 @@ export function swatch(id: string) {
   return placeholderArt(id, 35, 160, [55, 55, 45, 30]);
 }
 
-export function Thumb({ id, src }: { id: string; src?: string | null }) {
+/** `crop`: a saved square crop (lorebook pictures), shown as it is everywhere else. */
+export function Thumb({ id, src, crop }: { id: string; src?: string | null; crop?: AvatarCrop | null }) {
   return (
     <span
-      className="ov-thumb"
+      className={cn("ov-thumb", crop && "relative")}
       style={src ? undefined : { background: `var(--mari-card-art-placeholder, ${swatch(id)})` }}
       aria-hidden="true"
     >
-      {src ? <img src={src} alt="" loading="lazy" /> : null}
+      {src ? <img src={src} alt="" loading="lazy" style={getAvatarCropStyle(crop)} /> : null}
     </span>
   );
 }
@@ -549,7 +553,7 @@ function SortSelect<K extends string>({
   );
 }
 
-type SortKey = "recent" | "name-asc" | "name-desc";
+type SortKey = "recent" | "name-asc" | "name-desc" | "tokens-desc" | "tokens-asc";
 const SORTS: { id: SortKey; label: string }[] = [
   { id: "recent", label: "Recent" },
   { id: "name-asc", label: "A to Z" },
@@ -570,9 +574,22 @@ function onOffAction(set: (enabled: boolean) => void): KitAction {
 }
 
 type OrderSortKey = SortKey | "custom";
-const ORDER_SORTS: { id: OrderSortKey; label: string }[] = [...SORTS, { id: "custom", label: "My order" }];
+/** Lorebooks and presets also sort by size (their estimated tokens), as in the classic panels. */
+const SIZE_ORDER_SORTS: { id: OrderSortKey; label: string }[] = [
+  ...SORTS,
+  { id: "tokens-desc", label: "Most tokens" },
+  { id: "tokens-asc", label: "Fewest tokens" },
+  { id: "custom", label: "My order" },
+];
 
-function sortRows<T extends { name: string; updatedAt?: string }>(rows: T[], sort: SortKey) {
+function sortRows<T extends { name: string; updatedAt?: string; tokenEstimate?: number }>(rows: T[], sort: SortKey) {
+  if (sort === "tokens-desc" || sort === "tokens-asc")
+    return sortItemsByTokens(
+      rows,
+      sort,
+      (row) => row.tokenEstimate,
+      (row) => row.name,
+    );
   const list = [...rows];
   if (sort === "name-asc") return list.sort((a, b) => a.name.localeCompare(b.name));
   if (sort === "name-desc") return list.sort((a, b) => b.name.localeCompare(a.name));
@@ -596,6 +613,7 @@ function GalleryTile({
   name,
   sub,
   src,
+  crop,
   onOpen,
   extra,
 }: {
@@ -603,6 +621,7 @@ function GalleryTile({
   name: string;
   sub: string;
   src?: string | null;
+  crop?: AvatarCrop | null;
   onOpen: () => void;
   extra?: GalleryExtra;
 }) {
@@ -617,7 +636,16 @@ function GalleryTile({
         aria-label={name}
         data-drag-surface
       >
-        {src ? <img src={src} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" /> : null}
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="h-full w-full object-cover"
+            style={getAvatarCropStyle(crop)}
+          />
+        ) : null}
         {extra?.selecting ? (
           <span className="ov-card__check">
             <KitCheck checked={extra.selected} label={name} />
@@ -653,6 +681,8 @@ export function LorebooksLanding() {
   const setEnabled = useSetLorebooksEnabled();
   const openModal = useUIStore((s) => s.openModal);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
+  const openLorebookBrowser = useUIStore((s) => s.openLorebookBrowser);
+  const mobile = useOverhaulMobile();
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState("all");
   const [gallery, setGallery] = useState(false);
@@ -768,6 +798,16 @@ export function LorebooksLanding() {
       title={localize("Lorebooks")}
       actions={
         <>
+          <button
+            type="button"
+            className={cn("ov-btn", mobile && "ov-btn--icon")}
+            onClick={openLorebookBrowser}
+            aria-label={localizeUi("ui.overhaul.text.browseOnline")}
+            title={localizeUi("ui.panels.resourceLibraryLauncher.downloadLorebooks")}
+          >
+            <Globe size={14} aria-hidden="true" />
+            {mobile ? null : localizeUi("ui.overhaul.text.browseOnline")}
+          </button>
           <button type="button" className="ov-btn" onClick={() => openModal("import-lorebook")}>
             <Download size={14} aria-hidden="true" />
             {localize("Import")}
@@ -794,7 +834,7 @@ export function LorebooksLanding() {
       chip={chip}
       onChip={setChip}
       view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={ORDER_SORTS} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SIZE_ORDER_SORTS} />}
       kit={kit}
       rows={rows}
       onOpen={(book) => openLorebookDetail(book.id)}
@@ -812,7 +852,7 @@ export function LorebooksLanding() {
           className: "ov-table__name",
           render: (book) => (
             <span className="ov-table__title">
-              <Thumb id={book.id} src={book.imagePath} />
+              <Thumb id={book.id} src={book.imagePath} crop={book.imageCrop} />
               <span>{book.name}</span>
             </span>
           ),
@@ -841,6 +881,7 @@ export function LorebooksLanding() {
             name={book.name}
             sub={`${localize(LOREBOOK_CATEGORY_LABEL[book.category] ?? book.category)} · ${book.entryCount ?? 0} ${localize("entries")}`}
             src={book.imagePath}
+            crop={book.imageCrop}
             onOpen={() => openLorebookDetail(book.id)}
           />
         ),
@@ -1002,7 +1043,7 @@ export function PresetsLanding() {
       chip={chip}
       onChip={setChip}
       view={<ViewSwitch gallery={gallery} onChange={setGallery} />}
-      toolsEnd={<SortSelect value={sort} onChange={setSort} options={ORDER_SORTS} />}
+      toolsEnd={<SortSelect value={sort} onChange={setSort} options={SIZE_ORDER_SORTS} />}
       kit={kit}
       rows={rows}
       onOpen={(preset) => openPresetDetail(preset.id)}

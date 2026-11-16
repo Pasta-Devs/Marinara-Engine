@@ -2,9 +2,11 @@ import { currentRoomGeneration, roomConversationCommandAllowed } from "../multip
 import {
   BUILT_IN_AGENTS,
   CONVERSATION_COMMAND_AGENT_IDS,
-  CONVERSATION_COMMAND_KEYS,
+  getTurnGameEngine,
+  readConversationCommandToggles as readStoredConversationCommandToggles,
   type ChatMode,
   type ConversationCommandKey,
+  type ConversationCommandToggles,
   type WrapFormat,
 } from "@marinara-engine/shared";
 
@@ -14,7 +16,12 @@ import { wrapContent } from "../prompt/format-engine.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
 import { getActiveTurnGame } from "../turn-games/turn-game-runner.service.js";
 import { describeHapticDeviceType, getChatHapticIntifaceUrl } from "./haptic-runtime.js";
-import { listCapabilityConversationCommandInstructions } from "../capability-packages/capability-command-registry.service.js";
+import {
+  listCapabilityConversationCommandInstructions,
+  listCapabilityTurnGameCommands,
+  turnGameTypeForCommand,
+  type CapabilityTurnGameCommand,
+} from "../capability-packages/capability-command-registry.service.js";
 
 type ChatRowForCommands = {
   id: string;
@@ -35,25 +42,21 @@ type ConversationCommandsCharactersStore = {
   getById(id: string): Promise<CharacterRowForCommands | null>;
 };
 
-export function readConversationCommandToggles(
-  metadata: Record<string, unknown>,
-): Partial<Record<ConversationCommandKey, boolean>> {
-  const raw = metadata.conversationCommandToggles;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const source = raw as Record<string, unknown>;
-  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
-  for (const key of CONVERSATION_COMMAND_KEYS) {
-    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
-  }
-  return toggles;
+export function readConversationCommandToggles(metadata: Record<string, unknown>): ConversationCommandToggles {
+  return readStoredConversationCommandToggles(metadata.conversationCommandToggles);
 }
 
-export function isConversationCommandEnabled(metadata: Record<string, unknown>, key: ConversationCommandKey): boolean {
+/** `key` is a built-in command, or a package command's type such as `wordle` (see listCapabilityTurnGameCommands). */
+export function isConversationCommandEnabled(metadata: Record<string, unknown>, key: string): boolean {
   return roomConversationCommandAllowed(key) && readConversationCommandToggles(metadata)[key] !== false;
 }
 
-function getConversationCommandKey(command: CharacterCommand): ConversationCommandKey | null {
+function getConversationCommandKey(command: CharacterCommand): string | null {
   switch (command.type) {
+    // A package turn game's toggle is keyed by its command type (`uno`, `wordle`). Other package commands have no
+    // toggle, so one whose type matches a built-in key (`music`) is not gated by that key's switch or agent.
+    case "capability":
+      return getTurnGameEngine(turnGameTypeForCommand(command.commandType)) ? command.commandType : null;
     case "schedule_update":
       return "schedule_update";
     case "cross_post":
@@ -96,8 +99,10 @@ function getConversationCommandKey(command: CharacterCommand): ConversationComma
   }
 }
 
-function isConversationCommandAvailable(key: ConversationCommandKey): boolean {
-  const packageAgentId = CONVERSATION_COMMAND_AGENT_IDS[key];
+function isConversationCommandAvailable(key: string): boolean {
+  const packageAgentId = Object.hasOwn(CONVERSATION_COMMAND_AGENT_IDS, key)
+    ? CONVERSATION_COMMAND_AGENT_IDS[key as ConversationCommandKey]
+    : undefined;
   return !packageAgentId || BUILT_IN_AGENTS.some((agent) => agent.id === packageAgentId);
 }
 
@@ -112,6 +117,28 @@ export function filterEnabledConversationCommands(
     if (key === "video" && readConversationCommandToggles(metadata).video !== true) return false;
     return key === null || (isConversationCommandAvailable(key) && isConversationCommandEnabled(metadata, key));
   });
+}
+
+/** The prompt line for a package's turn game, worded like the built-in games' lines. */
+function describePackageTurnGameCommand(game: CapabilityTurnGameCommand, personaName: string): string[] {
+  const tag = `[${game.tag}]`;
+  const label = game.gameLabel;
+  if (game.maxPlayers <= 1) {
+    return [
+      `- ${tag} - start a game of ${label} for ${personaName}. Include this ONLY when ${personaName} wants to play ${label} and you are happy for them to play right now. ${label} seats only ${personaName}: you do not take a seat, but you can watch and react in character. The system sets up and runs the game, so you do NOT describe the board or narrate moves.`,
+      `   If now is a bad moment, say so in character and do NOT include ${tag}. Saying yes IS including ${tag}.`,
+    ];
+  }
+  if (game.maxPlayers === 2) {
+    return [
+      `- ${tag} - start a one-on-one game of ${label} against ${personaName}. Include this ONLY when ${personaName} proposes playing ${label} and YOU are willing to play right now. ${label} seats exactly two players: ${personaName} and you. Whichever character includes ${tag} takes the opponent's seat. The system sets up and runs the game, so you do NOT describe the board or narrate moves.`,
+      `   If you'd rather not play, say so in character and do NOT include ${tag}. Agreeing to play IS including ${tag}.`,
+    ];
+  }
+  return [
+    `- ${tag} - start a game of ${label} at the table. Include this ONLY when ${personaName} proposes playing ${label} and you are willing to play right now. The system seats ${personaName} plus the characters who are around and runs the game, so you do NOT narrate the setup or anyone's moves.`,
+    `   If you are busy, tired, or simply don't feel like it, just say so in character and do NOT include ${tag}. Agreeing to play IS including ${tag}.`,
+  ];
 }
 
 function parseStoredAgentSettingsValue(value: unknown): Record<string, unknown> {
@@ -338,13 +365,19 @@ export async function buildConversationCommandsReminder(args: {
     chatMode === "conversation" &&
     isConversationCommandEnabled(chatMeta, "rock_paper_scissors") &&
     characterIds.length >= 1;
+  // Turn games from other packages (Blackjack, Wordle): the same rules, with a line built from the game itself.
+  const packageTurnGames =
+    chatMode === "conversation" && characterIds.length >= 1
+      ? listCapabilityTurnGameCommands().filter((game) => isConversationCommandEnabled(chatMeta, game.commandType))
+      : [];
   const noActiveTurnGame =
     (unoAdvertisable ||
       chessAdvertisable ||
       pokerAdvertisable ||
       eightballAdvertisable ||
       ticTacToeAdvertisable ||
-      rpsAdvertisable) &&
+      rpsAdvertisable ||
+      packageTurnGames.length > 0) &&
     !(await getActiveTurnGame(args.db, args.chatId));
   if (unoAdvertisable && noActiveTurnGame) {
     addCommandLines(
@@ -387,6 +420,10 @@ export async function buildConversationCommandsReminder(args: {
       `   If you'd rather not play, say so in character and do NOT include [rock_paper_scissors]. Agreeing to play IS including [rock_paper_scissors].`,
       `   Example: ${personaName} says "rock paper scissors, best of three?" and you're in → "Bring it on. [rock_paper_scissors]"`,
     );
+  }
+
+  if (noActiveTurnGame) {
+    for (const game of packageTurnGames) addCommandLines(...describePackageTurnGameCommand(game, personaName));
   }
 
   if (conversationSpotifyCommandsAvailable) {

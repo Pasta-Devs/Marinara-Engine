@@ -1,13 +1,23 @@
-import { type ConversationCommandKey, CONVERSATION_COMMAND_KEYS } from "@marinara-engine/shared";
+import { CONVERSATION_COMMAND_AGENT_IDS, type ConversationCommandKey } from "@marinara-engine/shared";
+import type { PackageTurnGameCommand } from "../../../hooks/use-capability-packages";
 
-export const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
-  id: ConversationCommandKey;
+export { readConversationCommandToggles } from "@marinara-engine/shared";
+
+export interface ConversationCommandToggleOption {
+  /** The toggle key: a built-in command, or a package turn game's command type. */
+  id: string;
   label: string;
   description: string;
   /** Catalog keys for the label and description; entries without them still show their English text. */
   labelKey?: string;
   descriptionKey?: string;
-}> = [
+  /** Values the description key is filled in with. */
+  descriptionValues?: Record<string, string>;
+}
+
+export const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<
+  ConversationCommandToggleOption & { id: ConversationCommandKey }
+> = [
   {
     id: "schedule_update",
     label: "Schedule Updates",
@@ -102,12 +112,33 @@ export const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
   },
 ];
 
-export function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const source = value as Record<string, unknown>;
-  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
-  for (const key of CONVERSATION_COMMAND_KEYS) {
-    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
-  }
-  return toggles;
+/**
+ * The Commands toggles a chat offers: the built-in commands whose package is installed, then each installed
+ * package turn game a character can start by tag (Blackjack, Wordle). The server lists only games without a
+ * built-in toggle, so none appears twice.
+ */
+export function buildConversationCommandToggleOptions(
+  installedAgentIds: ReadonlySet<string>,
+  packageTurnGames: readonly PackageTurnGameCommand[],
+  builtInOptions: ReadonlyArray<
+    ConversationCommandToggleOption & { id: ConversationCommandKey }
+  > = CONVERSATION_COMMAND_TOGGLE_OPTIONS,
+): ConversationCommandToggleOption[] {
+  return [
+    ...builtInOptions.filter((command) => {
+      const agentId = CONVERSATION_COMMAND_AGENT_IDS[command.id];
+      return !agentId || installedAgentIds.has(agentId);
+    }),
+    ...packageTurnGames.map((game) => ({
+      id: game.commandType,
+      label: game.label,
+      description: game.description ?? `Let characters start a game of ${game.label} when you agree to play.`,
+      ...(game.description
+        ? {}
+        : {
+            descriptionKey: "ui.chat.conversationcommands.packageGameDescription",
+            descriptionValues: { game: game.label },
+          }),
+    })),
+  ];
 }

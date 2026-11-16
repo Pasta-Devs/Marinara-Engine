@@ -31,6 +31,7 @@ export const capabilityPackageKeys = {
   pendingUpdates: () => [...capabilityPackageKeys.all, "pending-updates"] as const,
   agents: () => [...capabilityPackageKeys.all, "agents"] as const,
   rulesets: () => [...capabilityPackageKeys.all, "rulesets"] as const,
+  turnGameCommands: () => [...capabilityPackageKeys.all, "turn-game-commands"] as const,
   rulesetCatalog: (rulesetId: string, catalogId: string, version: number | undefined) =>
     [...capabilityPackageKeys.rulesets(), "catalog", rulesetId, catalogId, version ?? "latest"] as const,
   releaseNotes: (id: string) => [...capabilityPackageKeys.all, "release-notes", id] as const,
@@ -41,6 +42,23 @@ export function useInstalledRulesets(enabled = true) {
   return useQuery({
     queryKey: capabilityPackageKeys.rulesets(),
     queryFn: () => api.get<InstalledRuleset[]>("/capability-packages/rulesets"),
+    enabled,
+  });
+}
+
+/** A package turn game a character can start by tag, with its own Commands toggle (Capability API 1.827). */
+export interface PackageTurnGameCommand {
+  commandType: string;
+  label: string;
+  /** The package's toggle description, or null for the Engine's. */
+  description: string | null;
+}
+
+/** Package turn games that get a Commands toggle. Keyed under `all`, so installing or removing a package refreshes it. */
+export function usePackageTurnGameCommands(enabled = true) {
+  return useQuery({
+    queryKey: capabilityPackageKeys.turnGameCommands(),
+    queryFn: async () => (await api.get<{ commands?: PackageTurnGameCommand[] }>("/turn-games/catalog")).commands ?? [],
     enabled,
   });
 }

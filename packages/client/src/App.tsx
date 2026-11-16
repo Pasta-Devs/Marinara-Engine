@@ -28,6 +28,7 @@ import { useThemeSafetyStore } from "./lib/theme-safety";
 import { applyAccessibilityCss } from "./lib/accessibility-css";
 import { removeRootVar, setRootVar } from "./lib/root-vars";
 import { useThemeChatHooks } from "./hooks/use-chat-theme";
+import { ServerConsoleHost } from "./components/layout/ServerConsoleHost";
 import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
@@ -1469,6 +1470,7 @@ export function App() {
       {/* The theme notices belong to the window, not each split side: one in the narrow second side
           covered its last messages and the composer (audit SV25). */}
       {SPLIT_PANE ? null : <ThemeSafetyHost />}
+      <ServerConsoleHost />
       <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       {SPLIT_PANE ? null : <ChibiProfessorMariEasterEgg />}

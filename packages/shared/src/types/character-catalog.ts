@@ -35,6 +35,8 @@ export type CharacterCatalogPage = {
   total: number;
   /** Folders that hold a matching favourite, before the folder filter. */
   favoriteFolderIds: string[];
+  /** Under a size sort: each folder's total estimated tokens over matching cards, before the folder filter. */
+  folderTokenTotals?: Record<string, number>;
 };
 
 /** List-only rows; full card text remains available through the default catalog view. */

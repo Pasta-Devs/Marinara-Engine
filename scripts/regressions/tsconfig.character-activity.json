@@ -9,8 +9,8 @@
     "typeRoots": ["../../node_modules/@types", "../../packages/server/node_modules/@types"]
   },
   "include": [
-    "character-activity-agent.regression.ts",
-    "shutdown-deadline.regression.ts",
-    "termux-postmortem.regression.ts"
+    "agents/character-activity-agent.regression.ts",
+    "server/shutdown-deadline.regression.ts",
+    "server/termux-postmortem.regression.ts"
   ]
 }

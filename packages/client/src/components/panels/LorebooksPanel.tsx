@@ -15,9 +15,25 @@ import {
   type TouchEvent,
 } from "react";
 import { toast } from "sonner";
-import { Copy, BookOpen, UserRound, Tag, ChevronDown, ChevronRight, ChevronUp, X, Trash2, Camera } from "lucide-react";
+import {
+  Bot,
+  Copy,
+  BookOpen,
+  Library,
+  UserRound,
+  Tag,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  X,
+  Trash2,
+  Camera,
+  Hash,
+} from "lucide-react";
 import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
-import { sortPanelFolders } from "../../lib/panel-sort";
+import { sortFoldersByTokens, sortItemsByTokens, sortPanelFolders } from "../../lib/panel-sort";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { isTokenSort } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
 import {
   fetchAllLorebookPages,
@@ -31,7 +47,7 @@ import {
 } from "../../hooks/use-lorebooks";
 import type { Lorebook, LorebookCategory } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import { cn } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { getChatCharacterIds } from "../../lib/chat-macros";
@@ -166,6 +182,8 @@ export function LorebooksPanel() {
   const moveLorebookItem = useMoveLibraryItem("lorebooks");
   const openModal = useUIStore((s) => s.openModal);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
+  const openLorebookBrowser = useUIStore((s) => s.openLorebookBrowser);
+  const openLorebookLibrary = useUIStore((s) => s.openLorebookLibrary);
 
   const getCharacterNames = useCallback((lb: LorebookListItem) => {
     if (Array.isArray(lb.characterNames) && lb.characterNames.length > 0) return lb.characterNames;
@@ -290,8 +308,14 @@ export function LorebooksPanel() {
         return list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return list.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-      case "tokens":
-        return list.sort((a, b) => (b.tokenBudget ?? 0) - (a.tokenBudget ?? 0));
+      case "tokens-desc":
+      case "tokens-asc":
+        return sortItemsByTokens(
+          list,
+          sort,
+          (lorebook) => lorebook.tokenEstimate,
+          (lorebook) => lorebook.name,
+        );
       default:
         return list;
     }
@@ -299,14 +323,11 @@ export function LorebooksPanel() {
   const sorted = useMemo(() => orderLibraryItems(sortedBySort), [orderLibraryItems, sortedBySort]);
 
   const sortedFolders = useMemo(() => {
-    const folders = sortPanelFolders(lorebookFolders, sort === "tokens" ? "name-asc" : sort);
-    if (sort !== "tokens") return folders;
-    const tokens = new Map(sorted.map((lorebook) => [lorebook.id, lorebook.tokenBudget ?? 0]));
-    const totals = new Map(
-      folders.map((folder) => [folder.id, folder.itemIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
-    );
-    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
-  }, [lorebookFolders, sort, sorted]);
+    if (!isTokenSort(sort)) return sortPanelFolders(lorebookFolders, sort);
+    // The server totals every matching book, so folders whose books are not loaded yet still rank right.
+    const totals = lorebookPages.data?.pages[0]?.folderTokenTotals ?? {};
+    return sortFoldersByTokens(lorebookFolders, sort, (folder) => totals[folder.id] ?? 0);
+  }, [lorebookFolders, sort, lorebookPages.data]);
 
   const folderFilterActive = searchQuery.trim().length > 0 || activeCategory !== "all" || activeTag !== null;
 
@@ -658,6 +679,21 @@ export function LorebooksPanel() {
 
       <LibraryToolbar
         tone="lorebooks"
+        library={{
+          download: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.download"),
+            title: localizeUi("ui.panels.resourceLibraryLauncher.downloadLorebooks"),
+            icon: Bot,
+            onClick: openLorebookBrowser,
+          },
+          openLibrary: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.openLibrary"),
+            title: localizeUi("ui.panels.lorebookspanel.openLorebooksLibrary"),
+            icon: Library,
+            onClick: openLorebookLibrary,
+          },
+          dataComponent: "LorebookLibraryActions",
+        }}
         create={{
           label: localizeUi("ui.panels.lorebookspanel.createLorebook"),
           title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
@@ -688,7 +724,7 @@ export function LorebooksPanel() {
             folderDrag.setActive(value === "custom");
             if (value !== "custom") setSort(value as LorebookPanelSort);
           },
-          extraOptions: [{ value: "tokens", label: localizeUi("ui.lorebooks.lorebookeditor.tokenBudget") }],
+          tokenSort: true,
         }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
@@ -1117,7 +1153,13 @@ function LorebookRow({
   const { t: localizeUi } = useUiTranslation();
   const gradient = CATEGORY_COLORS[lorebook.category] ?? CATEGORY_COLORS.uncategorized;
   const imageContent = lorebook.imagePath ? (
-    <img src={lorebook.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
+    <img
+      src={lorebook.imagePath}
+      alt=""
+      className="h-full w-full object-cover"
+      style={getAvatarCropStyle(lorebook.imageCrop)}
+      draggable={false}
+    />
   ) : (
     <BookOpen size="1rem" />
   );
@@ -1221,6 +1263,13 @@ function LorebookRow({
           ) : (
             lorebook.description || "No description"
           )}
+        </div>
+        <div
+          className="mari-chrome-text-muted flex items-center gap-1 text-[0.625rem]"
+          title={localizeUi("ui.panels.lorebookspanel.tokenEstimateHint")}
+        >
+          <Hash size="0.5625rem" />
+          {formatEstimatedTokens(lorebook.tokenEstimate ?? 0, localizeUi)}
         </div>
       </div>
       {!selectionMode && (

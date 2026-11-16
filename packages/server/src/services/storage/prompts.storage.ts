@@ -5,6 +5,7 @@ import { and, eq, desc, asc } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { promptPresets, promptGroups, promptSections, choiceBlocks } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { estimateEnabledStaticPresetTokens } from "@marinara-engine/shared";
 import type {
   CreatePromptPresetInput,
   UpdatePromptPresetInput,
@@ -74,6 +75,31 @@ export function createPromptsStorage(db: DB) {
 
     async list() {
       return db.select().from(promptPresets).orderBy(desc(promptPresets.updatedAt));
+    },
+
+    /** The preset list with each preset's size: enabled static sections only, read in one query for all presets. */
+    async listWithTokenEstimates() {
+      const [presets, sections] = await Promise.all([
+        db.select().from(promptPresets).orderBy(desc(promptPresets.updatedAt)),
+        db
+          .select({
+            presetId: promptSections.presetId,
+            content: promptSections.content,
+            enabled: promptSections.enabled,
+            isMarker: promptSections.isMarker,
+          })
+          .from(promptSections),
+      ]);
+      const sectionsByPreset = new Map<string, Array<(typeof sections)[number]>>();
+      for (const section of sections) {
+        const list = sectionsByPreset.get(section.presetId) ?? [];
+        list.push(section);
+        sectionsByPreset.set(section.presetId, list);
+      }
+      return presets.map((preset) => ({
+        ...preset,
+        tokenEstimate: estimateEnabledStaticPresetTokens(sectionsByPreset.get(preset.id) ?? []),
+      }));
     },
 
     async getById(id: string) {

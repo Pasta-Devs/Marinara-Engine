@@ -62,7 +62,17 @@ import {
   isRequestTimeoutError,
   requestTimeoutSignal,
 } from "../../lib/api-client";
-import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
+import {
+  SERVER_CONSOLE_WINDOW_ID,
+  isPhoneWindowLayout,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
+import {
+  ANDROID_BRIDGE_READY_EVENT,
+  getAndroidBridgeToken,
+  getMarinaraAndroidBridge,
+  isMarinaraAndroidShell,
+} from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { extractImportantThemeCss, normalizeThemeCss, sanitizeAppCss, themeSetsVariable } from "../../lib/theme-css";
 import { cssContrast, fixContrast } from "../../lib/color-contrast";
@@ -354,32 +364,6 @@ type _EveryTabIsRendered =
 const _everyTabIsRendered: _EveryTabIsRendered = true;
 void _everyTabIsRendered;
 
-type MarinaraAndroidBridge = {
-  openLauncher?: (token?: string) => void;
-  openConsole?: {
-    (token: string): void;
-    (): void;
-  };
-  isStatusBarVisible?: {
-    (token: string): boolean;
-    (): boolean;
-  };
-  setStatusBarVisible?: {
-    (token: string, visible: boolean): void;
-    (visible: boolean): void;
-  };
-};
-
-function getMarinaraAndroidBridge(): MarinaraAndroidBridge | null {
-  if (typeof window === "undefined") return null;
-  const nativeWindow = window as Window & { MarinaraAndroid?: MarinaraAndroidBridge };
-  return nativeWindow.MarinaraAndroid ?? null;
-}
-
-function isMarinaraAndroidShell(): boolean {
-  return typeof navigator !== "undefined" && /\bMarinaraEngine\/Android\b/u.test(navigator.userAgent);
-}
-
 function readAndroidStatusBarVisibility(): boolean | null {
   const bridge = getMarinaraAndroidBridge();
   if (typeof bridge?.isStatusBarVisible !== "function") return null;
@@ -462,28 +446,6 @@ function AndroidStatusBarSetting() {
       )}
     </>
   );
-}
-
-function isStandaloneIosInstall(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const nav = navigator as Navigator & { standalone?: boolean };
-  const isIos = /\b(iPad|iPhone|iPod)\b/u.test(nav.userAgent);
-  const isStandalone = nav.standalone === true || window.matchMedia?.("(display-mode: standalone)")?.matches === true;
-  return isIos && isStandalone;
-}
-
-function getNativeConsoleShortcutHelp(): string {
-  const bridge = getMarinaraAndroidBridge();
-  if (typeof bridge?.openConsole === "function") {
-    return "Opens Termux from the Android APK so you can view Marinara server logs while Debug mode is enabled.";
-  }
-  if (isMarinaraAndroidShell()) {
-    return "This Android APK build cannot expose the Termux console shortcut yet. Update Marinara, or open Termux manually.";
-  }
-  if (isStandaloneIosInstall()) {
-    return "iPhone installations do not expose a native console shortcut yet. Use the host server logs or Safari Web Inspector.";
-  }
-  return "Available in packaged Android/iPhone installations only. Browser and desktop users should use the server terminal or browser developer tools.";
 }
 
 const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
@@ -7153,7 +7115,11 @@ const THEME_REFERENCE: Array<[string, string, string]> = [
   ["--mari-home-widget-*", "theming.ref.homeWidgets", "Home widget borders, fonts, sizes and colors"],
   ["--mari-text-outline / --mari-dialogue-color", "theming.ref.chatText", "Message outline and dialogue color"],
   ["--mari-composer-placeholder", "theming.ref.placeholder", "Message box placeholder, as a quoted string"],
-  ['[data-mari-part="message"]', "theming.ref.message", "One message row (full width): avatar, header, bubble, actions inside"],
+  [
+    '[data-mari-part="message"]',
+    "theming.ref.message",
+    "One message row (full width): avatar, header, bubble, actions inside",
+  ],
   [
     '[data-mari-part="bubble"]',
     "theming.ref.bubble",
@@ -8170,22 +8136,13 @@ function AdvancedSettings() {
       toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.storageOptimization.error")));
     },
   });
-  const nativeConsoleBridge = getMarinaraAndroidBridge();
-  const canOpenNativeConsole = typeof nativeConsoleBridge?.openConsole === "function";
-  const nativeConsoleHelp = getNativeConsoleShortcutHelp();
+  const consoleHelp = localizeUi("serverConsole.settingsHelp");
 
-  const handleOpenNativeConsole = useCallback(() => {
-    const bridge = getMarinaraAndroidBridge();
-    if (typeof bridge?.openConsole !== "function") {
-      toast.info(getNativeConsoleShortcutHelp());
-      return;
-    }
-
-    const token = getAndroidBridgeToken();
-    if (token) bridge.openConsole(token);
-    else bridge.openConsole();
-    toast.info(localizeUi("ui.panels.advancedsettings.openingTermuxConsole"));
-  }, [localizeUi]);
+  const handleOpenConsole = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    // On a phone the Settings panel covers the console's sheet, so it steps aside first.
+    if (isPhoneWindowLayout()) useUIStore.getState().closeRightPanel();
+    useFloatingWindowStore.getState().openWindow(SERVER_CONSOLE_WINDOW_ID, event.currentTarget);
+  }, []);
 
   const handleExternalExtensionsToggle = useCallback(
     async (enabled: boolean) => {
@@ -9124,18 +9081,18 @@ function AdvancedSettings() {
             help={localizeUi("settings.controls.tapTimings.help")}
           />
           <div className="ov-help-row flex items-center gap-2">
-            <div className="min-w-0 flex-1" title={nativeConsoleHelp}>
+            <div className="min-w-0 flex-1" title={consoleHelp}>
               <button
                 type="button"
-                onClick={handleOpenNativeConsole}
-                disabled={!canOpenNativeConsole}
+                data-window-opener={SERVER_CONSOLE_WINDOW_ID}
+                onClick={handleOpenConsole}
                 className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
               >
                 <Terminal size="0.8125rem" className="shrink-0" />
                 <span>{localizeUi("ui.panels.advancedsettings.openConsole")}</span>
               </button>
             </div>
-            <HelpTooltip side="bottom" text={nativeConsoleHelp} />
+            <HelpTooltip side="bottom" text={consoleHelp} />
           </div>
         </div>
       </SettingsSection>

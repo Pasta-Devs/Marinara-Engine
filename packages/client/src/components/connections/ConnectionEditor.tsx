@@ -1178,6 +1178,11 @@ export function ConnectionEditor({
             localDefaultParameters.customParameters,
           ),
         });
+      } else if (localProvider === "decision") {
+        await saveConnectionDefaults.mutateAsync({
+          id: connectionDetailId,
+          params: decisionDefaultsToSave(localDefaultParameters.customHeaders),
+        });
       } else if (isVideoProvider) {
         const nextVideoDefaults = localVideoDefaults
           ? sanitizeVideoGenerationProfile({ ...localVideoDefaults, service: selectedVideoDefaultsService })
@@ -1510,12 +1515,14 @@ export function ConnectionEditor({
           )
         : isAudioProvider || isGenerativeAudioProvider
           ? null
-          : languageDefaultsToSave(
-              localDefaultParametersEnabled,
-              localDefaultParameters,
-              localImageCaptioningEnabled,
-              localImageCaptioningConnectionId,
-            );
+          : localProvider === "decision"
+            ? decisionDefaultsToSave(localDefaultParameters.customHeaders)
+            : languageDefaultsToSave(
+                localDefaultParametersEnabled,
+                localDefaultParameters,
+                localImageCaptioningEnabled,
+                localImageCaptioningConnectionId,
+              );
     const imageService = isImageProvider ? localImageGenerationSource || localImageService || null : null;
     const videoProvider = isVideoProvider ? selectedVideoProvider || null : null;
     const videoService = isVideoProvider
@@ -2508,6 +2515,19 @@ export function ConnectionEditor({
               default: defaultDecisionTimeoutMs(localDecisionSource) / 1000,
             })}
           </p>
+          {/* Sent with each decision request, such as NanoGPT's x-billing-mode: paygo (#9310). */}
+          <CustomParametersInput
+            headers
+            value={localDefaultParameters.customHeaders ?? {}}
+            onChange={(next) => {
+              const headers = next as Record<string, string>;
+              setLocalDefaultParameters((current) => ({
+                ...current,
+                customHeaders: Object.keys(headers).length > 0 ? headers : undefined,
+              }));
+              markDirty();
+            }}
+          />
         </section>
       )}
     </>
@@ -5670,6 +5690,11 @@ function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
 }
 
 // Captioning is stored in the default parameters, so a captioning choice is saved even with the defaults switch off.
+/** A decision Model's saved settings: only its Custom Request Headers, or nothing. */
+function decisionDefaultsToSave(headers: Record<string, string> | undefined): Record<string, unknown> | null {
+  return headers && Object.keys(headers).length > 0 ? { customHeaders: headers } : null;
+}
+
 function languageDefaultsToSave(
   enabled: boolean,
   params: Parameters<typeof buildLanguageDefaultParameters>[0],

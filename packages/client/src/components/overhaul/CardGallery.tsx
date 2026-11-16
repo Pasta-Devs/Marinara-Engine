@@ -58,6 +58,7 @@ import {
 } from "./LibraryKit";
 import { TagFilter, countItemTags, matchesPickedTags } from "./TagFilter";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
+import { sortItemsByTokens } from "../../lib/panel-sort";
 
 export type GalleryCard = {
   id: string;
@@ -66,6 +67,8 @@ export type GalleryCard = {
   avatarStyle?: CSSProperties;
   tags: string[];
   tokens: string;
+  /** Estimated tokens, for the size sorts. */
+  tokenEstimate?: number;
   favorite: boolean;
   createdAt: string;
   updatedAt: string;
@@ -73,7 +76,7 @@ export type GalleryCard = {
 
 // "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16).
 type QuickFilter = "favorites" | null;
-type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "custom";
+type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "tokens-desc" | "tokens-asc" | "custom";
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
@@ -161,6 +164,14 @@ export function CardGallery({
         return list.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return list.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+      case "tokens-desc":
+      case "tokens-asc":
+        return sortItemsByTokens(
+          list,
+          sort,
+          (card) => card.tokenEstimate,
+          (card) => card.name,
+        );
       default:
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -416,6 +427,8 @@ export function CardGallery({
           <option value="recent">{localize("Recent")}</option>
           <option value="newest">{localize("Newest")}</option>
           <option value="oldest">{localize("Oldest")}</option>
+          <option value="tokens-desc">{localize("Most tokens")}</option>
+          <option value="tokens-asc">{localize("Fewest tokens")}</option>
           <option value="custom">{localize("My order")}</option>
         </select>
         {/* A narrow split side shows this copy (beside the sort) and hides the header one, so the

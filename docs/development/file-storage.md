@@ -56,7 +56,7 @@ Only one server process writes a storage directory at a time. At startup the sto
 
 The proof first needs the same machine: a matching host id, Termux's app-private home, or, when one side has no host id, storage only this machine can reach. On Linux and Android that is a local filesystem. On Windows it is a `Fixed` drive (not a network, removable or UNC path), and the lease must come from a native Windows writer with this computer's name. A lease on the same machine is reclaimed when it belongs to an earlier boot (on Windows, boot times up to 5 minutes apart count as the same boot), when its liveness socket no longer answers (Docker and Termux), or when its PID has exited or (except on the Windows drive proof) now belongs to a newer process. Shared or network storage stays locked, and the error names the lease to remove by hand once every process is stopped.
 
-`scripts/regressions/storage-writer-lock.regression.ts` covers the proofs.
+`scripts/regressions/server/storage-writer-lock.regression.ts` covers the proofs.
 
 ## Transactions
 

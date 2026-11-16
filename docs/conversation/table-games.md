@@ -112,7 +112,7 @@ Ending a game early deletes its state and records no winner.
 
 Open **Chat Settings → Agents → Commands**, or use the **Automation** step when you create the chat. The master **Commands** switch gates all character-run actions, including table games, selfies and calls. With it off, characters start nothing on their own.
 
-Each installed game has its own switch, on unless you turn it off: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** and **Rock-Paper-Scissors**. See [Choose which Commands a character can use](getting-started.md#choose-which-commands-a-character-can-use).
+Each installed game has its own switch, on unless you turn it off: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** and **Rock-Paper-Scissors**. Other game packages, such as Blackjack or Wordle, get a switch named after the game. See [Choose which Commands a character can use](getting-started.md#choose-which-commands-a-character-can-use).
 
 These switches control only what characters do. A game's slash command and the "let's play" phrase work even when its switch is off.
 

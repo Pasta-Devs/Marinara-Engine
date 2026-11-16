@@ -45,6 +45,8 @@ export type ConnectionModelOption = {
   pricing?: ModelCatalogPricing;
   deprecated?: true;
   retiresAt?: string;
+  /** A decision model (NanoGPT lists them with the `decisions` output): it answers yes/no questions, never chat. */
+  decision?: true;
   /** Came from the provider's own list rather than Marinara's built-in one. */
   isRemote: boolean;
 };
@@ -77,6 +79,11 @@ export function connectionFieldsForModelPick(
  * that leaves out its context window takes the built-in model's, so picking it still sets the context. With
  * `listKnown` off, the built-in models only fill those gaps and are not listed themselves.
  */
+/** Whether a catalog entry is a decision model, which only the Decision job can use (#9310). */
+export function isDecisionCatalogModel(model: { outputModalities?: readonly string[] }): boolean {
+  return !!model.outputModalities?.some((output) => output.toLowerCase() === "decisions");
+}
+
 export function mergeConnectionModelOptions(
   remoteModels: readonly RemoteConnectionModel[],
   knownModels: readonly KnownModel[],
@@ -100,6 +107,7 @@ export function mergeConnectionModelOptions(
       pricing: model.pricing,
       deprecated: model.deprecated,
       retiresAt: model.retiresAt,
+      ...(isDecisionCatalogModel(model) ? { decision: true as const } : {}),
       isRemote: true,
     });
   }

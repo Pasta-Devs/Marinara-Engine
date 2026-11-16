@@ -22,7 +22,14 @@ export type ProfessorMariNavigationTarget =
   | {
       kind: "surface";
       surface:
-        "card-downloads" | "character-library" | "persona-library" | "agent-catalog" | "game-assets" | "schedules";
+        | "card-downloads"
+        | "lorebook-downloads"
+        | "character-library"
+        | "persona-library"
+        | "lorebook-library"
+        | "agent-catalog"
+        | "game-assets"
+        | "schedules";
     }
   | {
       kind: "window";

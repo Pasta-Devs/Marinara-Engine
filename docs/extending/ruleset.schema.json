@@ -12866,6 +12866,14 @@
                     "minLength": 1,
                     "maxLength": 80
                   },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
+                  },
                   "$comment": {}
                 },
                 "required": [
@@ -13090,6 +13098,14 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
                   },
                   "startFrom": {
                     "type": "object",
@@ -24747,6 +24763,22 @@
           },
           "additionalProperties": false
         },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "except": {
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false
+        },
         "totals": {
           "minItems": 1,
           "maxItems": 8,
@@ -26409,6 +26441,14 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 80
+              },
+              "display": {
+                "type": "string",
+                "enum": [
+                  "counter",
+                  "bar",
+                  "dots"
+                ]
               },
               "$comment": {}
             },

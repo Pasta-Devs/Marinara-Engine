@@ -119,6 +119,12 @@ Marinara can pick a style profile from three places. The most specific choice wi
 
 The **Local image defaults** section appears only for AUTOMATIC1111 / SD Web UI, ComfyUI and NovelAI. For every other service the choice falls through to the global **Default style**. To set a per-model profile, open the image model, expand **Local image defaults** and pick a profile in the style profile list. Leave it on **Use global default** to follow the global choice. When Marinara can guess a good profile from the model's name, it shows a "Use ..." button that applies it in one click.
 
+## Images Professor Mari makes
+
+Professor Mari writes her image prompts herself, so her `mari images` command sends them to your image model exactly as she wrote them. No style profile, per-image tags or connection prompt prefix is added. Ask her to use your style and she adds `--style`, which applies the profile chosen above (the image model's own, then the global **Default style**), or `--style <name>` for a particular profile. She can list your profiles and read one in full before she picks.
+
+Every image she makes records her original prompt, the profile used (if any) and the exact prompt sent, so she can show you what a style changed.
+
 ## Related guides
 
 - [Image Generation Providers and Setup](image-providers.md)

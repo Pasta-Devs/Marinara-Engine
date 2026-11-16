@@ -1402,6 +1402,11 @@ const livePoolSchema = z
      *  "1 3rd-level slot", "2 3rd-level slots". The pool's label when left out. */
     unit: label.optional(),
     units: label.optional(),
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
+     *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
+     *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
+     *  track has its own boxes and ignores it. */
+    display: z.enum(["counter", "bar", "dots"]).optional(),
   })
   .strict();
 
@@ -1446,6 +1451,11 @@ const liveTrackSchema = z
      *  rating of the character's own). A wound track's is always its number of levels. */
     max: z.union([z.number().int(), rulesetValueRefSchema]),
     default: z.number().int().optional(),
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
+     *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
+     *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
+     *  track has its own boxes and ignores it. */
+    display: z.enum(["counter", "bar", "dots"]).optional(),
     /** Where a plain track starts instead of `default`, read off the sheet (Capability API 1.158). */
     startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     levels: z.array(liveTrackLevelSchema).min(1).max(RULESET_TRACK_LEVELS_MAX).optional(),
@@ -2535,6 +2545,16 @@ export const rulesetSheetSchema = z
     builder: sheetBuilderSchema.optional(),
     /** Permanent changes the Game Master may make (Capability API 1.142). */
     advancement: advancementSchema.optional(),
+    /** A practice meter on every skill (Capability API 1.829): progress 0 to 99 toward the next rank,
+     *  kept with the message, moved by `op="practice"` and started over when the skill's rank changes.
+     *  For systems that learn by use (a LitRPG sheet, RuneQuest's ticks). */
+    progress: z
+      .object({
+        /** Skill sections that keep no practice: what is bought or taught rather than learned by use. */
+        except: z.array(sheetId).max(20).optional(),
+      })
+      .strict()
+      .optional(),
     /** Number fields held to a combined most wherever the sheet is edited (Capability API 1.672):
      *  the full form lowers each one's most by what the others hold, the Game Master's advancement
      *  refuses a value past it, and a sheet already over it says so. 5e's class levels, 20 in all. */
@@ -17977,6 +17997,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         ? 'This ruleset\'s per-die target cannot move, so "harder" cannot change a roll'
         : null;
   sheet.abilities.forEach((ability, index) => checkSection(ability.section, ["sheet", "abilities", index]));
+  sheet.progress?.except?.forEach((section, index) => {
+    if (!sections.has(section)) issue(["sheet", "progress", "except", index], `Unknown section "${section}"`);
+  });
   for (const key of ["skills", "saves"] as const) {
     sheet[key].forEach((entry, index) => {
       checkSection(entry.section, ["sheet", key, index]);

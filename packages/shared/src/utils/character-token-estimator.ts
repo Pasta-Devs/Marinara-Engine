@@ -81,3 +81,23 @@ export function estimateCharacterCardTokens(data: CharacterTokenData): number {
 
   return estimateTextTokens(textParts.join("\n"));
 }
+
+type PersonaTokenFields = Partial<
+  Record<"description" | "personality" | "scenario" | "backstory" | "appearance" | "mes_example", unknown>
+>;
+
+/** Estimate the prompt-bearing text of a persona: the one estimate the panel, library and server sorts share. */
+export function estimatePersonaTokens(persona: PersonaTokenFields): number {
+  return estimateTextTokens(
+    [
+      persona.description,
+      persona.personality,
+      persona.scenario,
+      persona.backstory,
+      persona.appearance,
+      persona.mes_example,
+    ]
+      .map((value) => (typeof value === "string" ? value : ""))
+      .join(""),
+  );
+}

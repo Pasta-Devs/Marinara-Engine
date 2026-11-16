@@ -173,7 +173,10 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     Boolean(characterDetailId) ||
     (characterLibraryOpen && cardLibraryKind === "characters");
   const panelContextActive: Record<RightPanelButtonPanel, boolean> = {
-    lorebooks: (rightPanelOpen && rightPanel === "lorebooks") || Boolean(lorebookDetailId),
+    lorebooks:
+      (rightPanelOpen && rightPanel === "lorebooks") ||
+      Boolean(lorebookDetailId) ||
+      (characterLibraryOpen && cardLibraryKind === "lorebooks"),
     presets:
       (rightPanelOpen && rightPanel === "presets") ||
       Boolean(presetDetailId) ||

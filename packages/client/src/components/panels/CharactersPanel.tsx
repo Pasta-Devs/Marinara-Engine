@@ -51,10 +51,10 @@ import {
 import { getCharacterTitle } from "../../lib/character-display";
 import { parseCardLibrarySearchQuery } from "../../lib/card-library-search";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
-import { sortPanelFolders } from "../../lib/panel-sort";
+import { sortFoldersByTokens, sortPanelFolders } from "../../lib/panel-sort";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { compareTokenEstimates, isTokenSort, normalizeAvatarCrop } from "@marinara-engine/shared";
 import type { CharacterCatalogSummaryEntry } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
@@ -465,6 +465,19 @@ export function CharactersPanel() {
           }
           return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
         });
+      case "tokens-desc":
+      case "tokens-asc":
+        // Matching tags first, like the server's catalog pages, then size, then name.
+        return list.sort((a, b) => {
+          if (hasIncludedTags) {
+            const countDiff = (matchCounts!.get(b.id) ?? 0) - (matchCounts!.get(a.id) ?? 0);
+            if (countDiff !== 0) return countDiff;
+          }
+          return (
+            compareTokenEstimates(sort, a.tokenEstimate, b.tokenEstimate) ||
+            (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "")
+          );
+        });
       default:
         if (hasIncludedTags) {
           return list.sort((a, b) => {
@@ -499,6 +512,11 @@ export function CharactersPanel() {
   }, [groups]);
 
   const sortedGroups = useMemo(() => {
+    if (isTokenSort(sort)) {
+      // The server totals every matching member, so folders whose cards are not loaded yet still rank right.
+      const totals = firstPage?.folderTokenTotals ?? {};
+      return sortFoldersByTokens(parsedGroups, sort, (folder) => totals[folder.id] ?? 0);
+    }
     const folders = sortPanelFolders(parsedGroups, sort === "favorites" ? "name-asc" : sort);
     if (sort !== "favorites") return folders;
     const favoriteFolders = new Set(firstPage?.favoriteFolderIds);
@@ -876,6 +894,7 @@ export function CharactersPanel() {
             if (value !== "custom") setCharacterLibrarySort(value as CharacterLibrarySort);
           },
           extraOptions: [{ value: "favorites", label: localizeUi("ui.panels.characterspanel.favorites") }],
+          tokenSort: true,
         }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),

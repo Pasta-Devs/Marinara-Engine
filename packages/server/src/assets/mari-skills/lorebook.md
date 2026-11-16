@@ -19,7 +19,7 @@ Actions: reads `lorebook.list|get|entries|getEntry|search|testScan|folder.list|l
 
 ## Workflow
 
-1. Resolve the book: `lorebook.list` (limit 50, max 1000, no offset) and `lorebook.search` return book rows only — `search` never looks at entry content. `lorebook.get` adds `entryCount`, with booleans as `"true"`/`"false"` strings. `get` refuses an unknown id (`No lorebook has the id "<id>". …`); only `getEntry` answers one with `ok: false` and `output: null`, no error, so check for it.
+1. Resolve the book: `lorebook.list` (pages `{items, total, offset, nextOffset}`, limit 50, max 100; follow `nextOffset`) and `lorebook.search` return book rows only — `search` never looks at entry content. `lorebook.get` adds `entryCount`, with booleans as `"true"`/`"false"` strings. `get` refuses an unknown id (`No lorebook has the id "<id>". …`); only `getEntry` answers one with `ok: false` and `output: null`, no error, so check for it.
 2. Read first. `lorebook.entries` pages `{items, total, offset, nextOffset}` by `order` (limit 100, max 2000); follow `nextOffset`. Rows are previews — 200 chars (tag 100), keys 50 × 100, `keysTruncated: true` when cut — so `getEntry` before rewriting content or keys, and read every page before deleting or reordering.
 3. Plan the entries first — premise, places, people, factions, rules — and save them with the book in one `create`; `data.entries` goes in with it, defaulting to `order` 100, 200, 300 in list order. Never create an empty book to fill later.
    When the output limit is small (your workspace rules say so, or a reply was cut at it), create the book with its first one or two entries, then send one `lorebook.addEntry` per reply with an explicit `order` that continues the 100-step sequence.

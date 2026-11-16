@@ -44,10 +44,9 @@ try {
     });
     assert.equal(created.ok, true, `preset.create succeeds: ${JSON.stringify(created.validation ?? created.error)}`);
     await drainKeep(mari);
-    const presetList = (await mari.executeAction({ action: "preset.list" })).output as Array<{
-      id: string;
-      name: string;
-    }>;
+    const presetList = (
+      (await mari.executeAction({ action: "preset.list" })).output as { items: Array<{ id: string; name: string }> }
+    ).items;
     const presetId = presetList.find((preset) => preset.name === "Granular Preset")?.id;
     assert.ok(presetId, "the created preset is listed");
     const createdPreset = (await mari.executeAction({ action: "preset.get", presetId })).output as {
@@ -448,8 +447,8 @@ try {
     });
     await drainKeep(mari);
     const otherPresetId = (
-      (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>
-    ).find((preset) => preset.name === "Other Preset")?.id;
+      (await mari.executeAction({ action: "preset.list" })).output as { items: Array<{ id: string; name: string }> }
+    ).items.find((preset) => preset.name === "Other Preset")?.id;
     assert.ok(otherPresetId);
     assert.equal(
       (
@@ -729,8 +728,8 @@ try {
     assert.equal(bareMarkerPreset.ok, true, `preset.create succeeds: ${String(bareMarkerPreset.error ?? "")}`);
     await drainKeep(mari);
     const bareMarkerPresetId = (
-      (await mari.executeAction({ action: "preset.list" })).output as Array<{ id: string; name: string }>
-    ).find((preset) => preset.name === "Bare Marker Preset")?.id as string;
+      (await mari.executeAction({ action: "preset.list" })).output as { items: Array<{ id: string; name: string }> }
+    ).items.find((preset) => preset.name === "Bare Marker Preset")?.id as string;
     const createdSections = (await mari.executeAction({ action: "preset.sections", presetId: bareMarkerPresetId }))
       .output as Array<{ id: string; name: string }>;
     const createdField = async (name: string) =>

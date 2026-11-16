@@ -4,12 +4,14 @@ import {
   DECISION_SOURCE_BASE_URLS,
   IMAGE_GENERATION_SOURCES,
   IMAGE_SOURCE_VENDOR,
+  NATIVE_DECISION_SOURCES,
   VIDEO_GENERATION_SOURCES,
   isChatProvider,
   isLocalAuthProvider,
   speaksOpenAIChat,
   type APIProvider,
   type ConnectionTestErrorCode,
+  type DecisionSource,
 } from "@marinara-engine/shared";
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { JOB } from "../../../lib/connection-jobs";
@@ -129,11 +131,19 @@ export const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
 };
 /** A speech model id, for the voice step's list (any id can still be typed). */
 export const isSpeechModel = (row: { id: string }) => /tts|speech|voice/i.test(row.id);
+/** A picker row the provider lists as a decision model. */
+export const isDecisionModel = (row: { decision?: true }) => !!row.decision;
+/**
+ * Chat services with decision models of their own, asked at their own decision API with the account's key, and
+ * the decision source their Models use. Other chat services answer decisions through a chat model's
+ * log-probabilities. OpenAI can join in the shared table (#9310).
+ */
+export const NATIVE_DECISION_SOURCE: Partial<Record<ServiceId, DecisionSource>> = NATIVE_DECISION_SOURCES;
 /** Speech a chat service's own key buys, as the audio source that speaks to its address. */
 export const SPEECH_SOURCE: Partial<Record<APIProvider, string>> = { openai: "openai", xai: "xai", nanogpt: "openai" };
 /** Jobs a chat service's Connection also does with its key: decision (chat with log-probabilities) and voice. */
 export const jobKindsOf = (service: ServiceId): Kind[] => [
-  ...(speaksOpenAIChat(service) ? (["decision"] as const) : []),
+  ...(speaksOpenAIChat(service) || NATIVE_DECISION_SOURCE[service] ? (["decision"] as const) : []),
   ...(SPEECH_SOURCE[service as APIProvider] ? (["voice"] as const) : []),
 ];
 export const kindsOf = (service: ServiceId): Kind[] => {

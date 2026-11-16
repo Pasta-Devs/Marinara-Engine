@@ -1391,7 +1391,7 @@
 
 /* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
    !important on purpose: theme and accent-mode rules kept outranking this and the
-   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
+   bubbles came back each time. scripts/regressions/ui/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent !important;
   border-color: transparent !important;
@@ -1464,8 +1464,9 @@
 /* Accent Pulse animates --primary, and --destructive defaults to it. Delete buttons hold the
    steady accent instead, like the editor shells in 4c.
    ponytail: a theme that sets its own --destructive shows the steady accent while Accent Pulse
-   runs; a dedicated --marinara-danger-* theme hook is the upgrade path. */
-[data-marinara-accent-animation] .mari-chrome-control--danger {
+   runs; a dedicated --marinara-danger-* theme hook is the upgrade path. The server console's error lines hold it too. */
+[data-marinara-accent-animation] .mari-chrome-control--danger,
+[data-marinara-accent-animation] .mari-server-console {
   --destructive: var(--marinara-app-accent-static);
 }
 
@@ -2177,6 +2178,13 @@
   --mari-avatar-placeholder-start: #34d399;
   --mari-avatar-placeholder-end: #14b8a6;
   --mari-avatar-placeholder-text: #ecfdf5;
+}
+
+/* Same amber as the Lorebooks panel gradient (.mari-panel-gradient--lorebooks). */
+.mari-avatar-placeholder--lorebook {
+  --mari-avatar-placeholder-start: #f59e0b;
+  --mari-avatar-placeholder-end: #f97316;
+  --mari-avatar-placeholder-text: #fff7ed;
 }
 
 .mari-topbar-button {
@@ -3918,6 +3926,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 @layer base {
   * {
     @apply border-[var(--border)];
+  }
+  /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
+     sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
+     only drew a stray border around the whole sheet. */
+  [tabindex="-1"]:focus {
+    outline: none;
   }
 }
 

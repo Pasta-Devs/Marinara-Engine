@@ -40,7 +40,7 @@ The classic **Personas** panel shows the same folders and order as a list. Click
 | **Import** | Opens the **Import Persona** window. |
 | **Select** | Turns on selection mode for bulk delete and export. |
 | Search box | Placeholder **Search personas/tags**. It matches name, description, comment and tags. For tag searches, see [Search](library-organization.md#search). |
-| Sort dropdown | **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest** or **Tokens** (estimated prompt size). |
+| Sort dropdown | **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens** or **Fewest tokens** (estimated size, also shown on each row). |
 | **New Folder** | Creates a folder. |
 | **Tags** | Expands the tag list for filtering. |
 

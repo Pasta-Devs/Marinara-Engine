@@ -1,70 +1,71 @@
 // ──────────────────────────────────────────────
-// UI overhaul: the lorebook's picture, set from Book settings (beside Enabled). Lorebooks always had
-// one (shown in the Library list and gallery) but the new layout had no way to set it. Same control
-// as the Preset page's Picture: a small thumbnail and an Upload / Replace link.
+// UI overhaul: the lorebook's picture, set from Book settings (beside Enabled). Same control as the
+// Preset page's Picture: a small thumbnail and text links. The editor owns the picture itself
+// (upload, Generate with AI, crop, remove), so the classic Image section and this field stay in step.
 // ──────────────────────────────────────────────
-import { useRef } from "react";
-import { BookOpen, Upload } from "lucide-react";
-import { toast } from "sonner";
+import { BookOpen, Crop, Sparkles, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useUploadLorebookImage } from "../../hooks/use-lorebooks";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 
-export function LorebookPictureField({ id, src }: { id: string; src: string | null }) {
+export function LorebookPictureField({
+  src,
+  crop,
+  busy,
+  generationAvailable,
+  cropOpen,
+  onUpload,
+  onGenerate,
+  onToggleCrop,
+}: {
+  src: string | null;
+  crop: AvatarCrop | null;
+  busy: boolean;
+  generationAvailable: boolean;
+  cropOpen: boolean;
+  onUpload: () => void;
+  onGenerate: () => void;
+  onToggleCrop: () => void;
+}) {
   const { t } = useTranslation();
-  const localize = useLocalizedUiText();
-  const upload = useUploadLorebookImage();
-  const inputRef = useRef<HTMLInputElement>(null);
   const label = t(src ? "ui.panels.lorebookrow.replaceLorebookPicture" : "ui.panels.lorebookrow.uploadLorebookPicture");
-
-  const choose = () => {
-    if (!inputRef.current) return;
-    inputRef.current.value = "";
-    inputRef.current.click();
-  };
-  const pick = (file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error(localize("Pick an image file."));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = typeof reader.result === "string" ? reader.result : "";
-      if (!image) return;
-      upload.mutate(
-        { id, image },
-        { onError: (error) => toast.error(error instanceof Error ? error.message : String(error)) },
-      );
-    };
-    reader.readAsDataURL(file);
-  };
 
   return (
     <div className="ov-bk__field">
       <span>{t("ui.presets.overviewtab.picture")}</span>
       <div className="ov-povw__pic">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(event) => pick(event.target.files?.[0])}
-        />
         <button
           type="button"
-          className="mari-panel-gradient-surface mari-panel-gradient--lorebooks ov-povw__thumb"
-          onClick={choose}
-          disabled={upload.isPending}
-          title={label}
-          aria-label={label}
+          className="mari-panel-gradient-surface mari-panel-gradient--lorebooks ov-povw__thumb ov-povw__thumb--crop"
+          onClick={src ? onToggleCrop : onUpload}
+          disabled={busy}
+          title={src ? t("ui.noodle.noodlehome.adjustCrop") : label}
+          aria-label={src ? t("ui.noodle.noodlehome.adjustCrop") : label}
         >
-          {src ? <img src={src} alt="" draggable={false} /> : <BookOpen size={14} />}
+          {src ? <img src={src} alt="" draggable={false} style={getAvatarCropStyle(crop)} /> : <BookOpen size={14} />}
         </button>
-        <button type="button" className="ov-ed__link" onClick={choose} disabled={upload.isPending}>
+        <button type="button" className="ov-ed__link" onClick={onUpload} disabled={busy} title={label}>
           <Upload size={12} aria-hidden="true" />
           {src ? t("connections.accounts.editor.replace") : t("ui.characters.characterclipcard.upload")}
         </button>
+        {generationAvailable ? (
+          <button type="button" className="ov-ed__link" onClick={onGenerate} disabled={busy}>
+            <Sparkles size={12} aria-hidden="true" />
+            {t("editor.avatar.generate")}
+          </button>
+        ) : null}
+        {src ? (
+          <button
+            type="button"
+            className={cn("ov-ed__link", cropOpen && "is-on")}
+            onClick={onToggleCrop}
+            aria-expanded={cropOpen}
+            disabled={busy}
+          >
+            <Crop size={12} aria-hidden="true" />
+            {t("ui.noodle.noodlehome.adjustCrop")}
+          </button>
+        ) : null}
       </div>
     </div>
   );

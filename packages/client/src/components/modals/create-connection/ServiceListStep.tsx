@@ -18,6 +18,7 @@ import {
   ServiceTile,
   mediaBackendOf,
   MUTED_BADGE_CLASS,
+  NATIVE_DECISION_SOURCE,
   type ChipKind,
   type ServiceId,
 } from "./shared";
@@ -31,13 +32,20 @@ const GOOD_NEWS = new Set<ServiceId>([
   "grok_subscription",
 ]);
 
-/** The model types a tile offers, in chip and filter order (Text = chat). */
-const TYPES = ["text", "image", "video", "voice"] as const;
+/**
+ * The model types a tile offers, in chip and filter order (Text = chat). Decision lists services with decision
+ * models of their own (NanoGPT) and decision servers, not every chat service whose models could answer one.
+ */
+const TYPES = ["text", "image", "video", "voice", "decision"] as const;
 type ModelType = (typeof TYPES)[number];
 export const typesOf = (key: ServiceId): ModelType[] => {
   const kinds = kindsOf(key);
   return TYPES.filter((type) =>
-    type === "text" ? kinds.includes("chat") || key === "local_model" : kinds.includes(type as never),
+    type === "text"
+      ? kinds.includes("chat") || key === "local_model"
+      : type === "decision"
+        ? !!NATIVE_DECISION_SOURCE[key] || mediaBackendOf(key)?.job === "decision"
+        : kinds.includes(type as never),
   );
 };
 
@@ -170,7 +178,9 @@ export function ServiceListStep({
     (tile) =>
       type === "all" ||
       (compact && needle) ||
-      (type === "decision" ? tile.decisionOnly || tile.id === DECISION_BUILTIN : tile.types.includes(type)),
+      (type === "decision"
+        ? tile.decisionOnly || tile.id === DECISION_BUILTIN || tile.types.includes("decision")
+        : tile.types.includes(type)),
   );
 
   if (compact) {
@@ -193,8 +203,8 @@ export function ServiceListStep({
           </label>
           {!needle && (
             <div className="ov-seg ov-add-list__tabs" role="tablist" aria-label={t("connections.add.kindFilter")}>
-              {/* The compact menu has no "All", so decision-only services get their own tab. */}
-              {([...TYPES, "decision"] as const).map((option) => (
+              {/* The compact menu has no "All"; Decision lists decision servers and native decision models. */}
+              {TYPES.map((option) => (
                 <button
                   key={option}
                   type="button"

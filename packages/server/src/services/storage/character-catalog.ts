@@ -1,6 +1,8 @@
 import {
   cardHasInteractiveOnboarding,
+  compareTokenEstimates,
   estimateCharacterCardTokens,
+  isTokenSort,
   matchesAllCardSearchTags,
   normalizeNameAliases,
   normalizeTextForMatch,
@@ -157,6 +159,13 @@ function sortEntries(entries: CachedCharacterCatalogEntry[], sort: string) {
     if (sort === "favorites") {
       return Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
     }
+    if (isTokenSort(sort)) {
+      return (
+        compareTokenEstimates(sort, a.tokenEstimate, b.tokenEstimate) ||
+        a.name.localeCompare(b.name) ||
+        a.id.localeCompare(b.id)
+      );
+    }
     if (sort === "name-desc") return b.name.localeCompare(a.name) || a.id.localeCompare(b.id);
     if (sort === "name-asc") return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
     if (sort === "oldest") return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
@@ -227,6 +236,12 @@ export function createCharacterCatalog(db: DB) {
       const favoriteFolderIds = new Set<string>();
       for (const item of entries)
         if (item.favorite) for (const id of folderOf.get(item.id) ?? []) favoriteFolderIds.add(id);
+      // Size sort orders folders by their matching members' total, also when those members are not loaded.
+      const folderTokenTotals: Record<string, number> = {};
+      if (isTokenSort(options.sort))
+        for (const item of entries)
+          for (const id of folderOf.get(item.id) ?? [])
+            folderTokenTotals[id] = (folderTokenTotals[id] ?? 0) + item.tokenEstimate;
       if (options.folder === "none") entries = entries.filter((item) => !folderOf.has(item.id));
       else if (options.folder === "any") entries = entries.filter((item) => folderOf.has(item.id));
       else if (options.folder) entries = entries.filter((item) => folderOf.get(item.id)?.includes(options.folder!));
@@ -250,6 +265,7 @@ export function createCharacterCatalog(db: DB) {
         catalogGeneration: catalog.generation,
         total: entries.length,
         favoriteFolderIds: [...favoriteFolderIds],
+        folderTokenTotals,
       };
     },
     /** Every tag in the library, for filter chips that must not depend on loaded pages. */

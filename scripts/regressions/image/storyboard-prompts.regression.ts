@@ -523,6 +523,10 @@ const cases: RegressionCase[] = [
         new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
+      const chatAgentsSource = readFileSync(
+        new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
+        "utf8",
+      );
       const settingsOrderSource = readFileSync(
         new URL("../../../packages/client/src/lib/agent-settings-order.ts", import.meta.url),
         "utf8",
@@ -564,11 +568,11 @@ const cases: RegressionCase[] = [
       )?.[1];
       assert.equal(Number(storyboardOrderOffset), 0.5, "Storyboard settings should sort directly after Illustrator");
 
-      const roleplayMenuLinksStart = drawerSource.indexOf("const roleplayAgentMenuLinks = useMemo(() => {");
-      const roleplayMenuLinksEnd = drawerSource.indexOf("\n  }, [", roleplayMenuLinksStart);
+      const roleplayMenuLinksStart = chatAgentsSource.indexOf("const roleplayAgentMenuLinks = useMemo(() => {");
+      const roleplayMenuLinksEnd = chatAgentsSource.indexOf("\n  }, [", roleplayMenuLinksStart);
       assert.notEqual(roleplayMenuLinksStart, -1, "Roleplay agent quick links should be defined");
       assert.notEqual(roleplayMenuLinksEnd, -1, "Roleplay agent quick links should have a bounded source block");
-      const roleplayMenuLinksSource = drawerSource.slice(roleplayMenuLinksStart, roleplayMenuLinksEnd);
+      const roleplayMenuLinksSource = chatAgentsSource.slice(roleplayMenuLinksStart, roleplayMenuLinksEnd);
       assert.match(
         roleplayMenuLinksSource,
         /addLink\(ltmPackage\.id, metadata\.enableAgents === true && activeAgentIds\.includes\(ltmPackage\.id\), ltmAgent\.name\)/u,
@@ -595,7 +599,7 @@ const cases: RegressionCase[] = [
       );
       const standaloneAgentRendererStart = drawerSource.indexOf("const renderStandaloneRoleplayAgentSettingsCard =");
       const standaloneAgentRendererEnd = drawerSource.indexOf(
-        "const updateAgentPromptTemplateSelection =",
+        "const renderAgentPromptTemplateSelect =",
         standaloneAgentRendererStart,
       );
       assert.notEqual(standaloneAgentRendererStart, -1, "Standalone Roleplay agent settings should be rendered");
@@ -659,6 +663,7 @@ const cases: RegressionCase[] = [
       assert.equal(listPromptOverrideKeys().includes("game.storyboardAnimationDirector"), false);
       assert.doesNotMatch(settingsSource, /game\.storyboardIllustrationDirector|game\.storyboardAnimationDirector/u);
       assert.doesNotMatch(drawerSource, /gameStoryboard/u);
+      assert.doesNotMatch(chatAgentsSource, /gameStoryboard/u);
       assert.match(drawerSource, /lazy\(\(\) =>\s*import\("\.\/StoryboardChatSettingsPanel"\)/u);
       assert.match(
         roleplayMenuLinksSource,
@@ -1610,6 +1615,13 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       assert.doesNotMatch(chatSettingsSource, /gameStoryboard/u);
+      assert.doesNotMatch(
+        readFileSync(
+          new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
+          "utf8",
+        ),
+        /gameStoryboard/u,
+      );
       assert.match(storyboardSettingsSource, /settings\.usePromptTemplate/u);
       assert.match(storyboardSettingsSource, /update\(\{ usePromptTemplate: checked \}\)/u);
       assert.match(storyboardSettingsSource, /settings\.includeCharacterAppearance/u);

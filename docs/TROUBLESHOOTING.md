@@ -5,7 +5,7 @@ Find your symptom, then follow the fix. Most problems clear after you restart Ma
 ## First things to try
 
 1. Hard refresh the page: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on Windows or Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac.
-2. Look at the server console (the terminal window that runs Marinara) for red error lines. They usually name the real problem.
+2. Look at the server console (the terminal window that runs Marinara) for red error lines. They usually name the real problem. If the server runs somewhere else (a NAS, a VPS, Docker), open **Settings → Advanced → Open Console** to read the same lines in the app.
 3. To ask for help, turn on **Debug mode** first. See [Get more help](#get-more-help).
 
 ## My character does not reply

@@ -10,6 +10,7 @@ import {
   resignTurnGame,
   startTurnGame,
 } from "../services/turn-games/turn-game-runner.service.js";
+import { listCapabilityTurnGameCommands } from "../services/capability-packages/capability-command-registry.service.js";
 
 const startSchema = z.object({
   gameType: z.string().min(1),
@@ -35,8 +36,16 @@ function generationInProgress(app: FastifyInstance, chatId: string): boolean {
 }
 
 export async function turnGamesRoutes(app: FastifyInstance) {
-  // Catalog of available games (for the client picker).
-  app.get("/catalog", async () => ({ games: listTurnGames() }));
+  // Catalog of available games (for the client picker), and the package games characters can start by tag, each
+  // with its own Commands toggle (Capability API 1.827).
+  app.get("/catalog", async () => ({
+    games: listTurnGames(),
+    commands: listCapabilityTurnGameCommands().map(({ commandType, label, description }) => ({
+      commandType,
+      label,
+      description,
+    })),
+  }));
 
   // Current board view for a chat, always from the chat's human seat. The viewer is
   // inferred server-side so a client can't request another seat's perspective and

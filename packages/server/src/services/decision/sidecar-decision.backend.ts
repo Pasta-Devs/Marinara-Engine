@@ -178,7 +178,7 @@ async function askOnce(
   let response: Response;
   try {
     response = connection
-      ? await postDecisionRequest(connection.endpoint, connection.apiKey, body, combined)
+      ? await postDecisionRequest(connection.endpoint, connection.apiKey, body, combined, connection.headers)
       : await fetch(`${slot.baseUrl}/v1/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

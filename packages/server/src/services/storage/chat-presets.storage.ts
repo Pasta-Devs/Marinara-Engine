@@ -30,6 +30,7 @@ import {
 } from "@marinara-engine/shared";
 
 import { createAppSettingsStorage } from "./app-settings.storage.js";
+import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 
 const CHAT_MODES: ChatMode[] = ["conversation", "roleplay"];
 const EXCLUDED_METADATA_SET = new Set([
@@ -321,6 +322,7 @@ export function createChatPresetsStorage(db: DB) {
         if (!existing || existing.isDefault === "true") return false;
 
         await tx.delete(chatPresets).where(eq(chatPresets.id, id));
+        await createLibraryFoldersStorage(tx).removeItemReferences("profiles", [id]);
         if (existing.isActive === "true") {
           const fallbackRows = (await tx
             .select()

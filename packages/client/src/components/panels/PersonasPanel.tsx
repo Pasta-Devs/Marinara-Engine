@@ -20,7 +20,8 @@ import {
   useDuplicatePersona,
 } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
-import { sortPanelFolders } from "../../lib/panel-sort";
+import { sortFoldersByTokens, sortItemsByTokens, sortPanelFolders, type LibrarySort } from "../../lib/panel-sort";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
 import {
   Trash2,
   User,
@@ -34,6 +35,7 @@ import {
   UserMinus,
   Tag,
   Bot,
+  Hash,
 } from "lucide-react";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
@@ -56,13 +58,13 @@ import {
 } from "../../lib/card-library-search";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
-import { estimateTextTokens, type Persona } from "@marinara-engine/shared";
+import { estimatePersonaTokens, isTokenSort, type Persona } from "@marinara-engine/shared";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string; createdAt: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
 
-type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
+type SortOption = LibrarySort;
 
 function getNextUnnamedFolderName(folders: Array<{ name: string }>) {
   const names = new Set(folders.map((folder) => folder.name.toLowerCase()));
@@ -79,11 +81,6 @@ function parseDroppedPersonaIds(payload: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-function estimateTokens(p: Persona): number {
-  const text = [p.description, p.personality, p.scenario, p.backstory, p.appearance].join("");
-  return estimateTextTokens(text);
 }
 
 function getPersonaPreviewMetadata(p: Persona): string | null {
@@ -460,8 +457,9 @@ export function PersonasPanel() {
         return arr.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return arr.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-      case "tokens":
-        return arr.sort((a, b) => estimateTokens(b) - estimateTokens(a));
+      case "tokens-desc":
+      case "tokens-asc":
+        return sortItemsByTokens(arr, sort, estimatePersonaTokens, (persona) => persona.name);
       default:
         return arr;
     }
@@ -469,13 +467,11 @@ export function PersonasPanel() {
   const list = useMemo(() => orderLibraryItems(listBySort), [orderLibraryItems, listBySort]);
 
   const sortedGroups = useMemo(() => {
-    const folders = sortPanelFolders(parsedGroups, sort === "tokens" ? "name-asc" : sort);
-    if (sort !== "tokens") return folders;
-    const tokens = new Map(list.map((persona) => [persona.id, estimateTokens(persona)]));
-    const totals = new Map(
-      folders.map((folder) => [folder.id, folder.memberIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
+    if (!isTokenSort(sort)) return sortPanelFolders(parsedGroups, sort);
+    const tokens = new Map(list.map((persona) => [persona.id, estimatePersonaTokens(persona)]));
+    return sortFoldersByTokens(parsedGroups, sort, (folder) =>
+      folder.memberIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0),
     );
-    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
   }, [parsedGroups, sort, list]);
 
   const visibleRootPersonas = useMemo(
@@ -621,7 +617,7 @@ export function PersonasPanel() {
             folderDrag.setActive(value === "custom");
             if (value !== "custom") setSort(value as SortOption);
           },
-          extraOptions: [{ value: "tokens", label: localizeUi("ui.panels.personaspanel.tokens") }],
+          tokenSort: true,
         }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
@@ -977,6 +973,13 @@ export function PersonasPanel() {
                                 {personaMetadata}
                               </div>
                             )}
+                            <div
+                              className="mari-chrome-text-muted flex items-center gap-1 text-[0.5625rem]"
+                              title={localizeUi("ui.panels.personaspanel.tokenEstimateHint")}
+                            >
+                              <Hash size="0.5rem" />
+                              {formatEstimatedTokens(estimatePersonaTokens(p), localizeUi)}
+                            </div>
                             <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
                               {p.description || "No description"}
                             </div>
@@ -1201,6 +1204,13 @@ export function PersonasPanel() {
                 {personaMetadata && (
                   <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{personaMetadata}</div>
                 )}
+                <div
+                  className="mari-chrome-text-muted flex items-center gap-1 text-[0.625rem]"
+                  title={localizeUi("ui.panels.personaspanel.tokenEstimateHint")}
+                >
+                  <Hash size="0.5625rem" />
+                  {formatEstimatedTokens(estimatePersonaTokens(persona), localizeUi)}
+                </div>
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {persona.description || "No description"}
                 </div>

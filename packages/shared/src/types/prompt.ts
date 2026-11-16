@@ -98,6 +98,8 @@ export interface PromptPreset {
   tags?: string;
   /** Reserved identifier for Engine-owned presets. Empty for user presets. */
   systemKey: string;
+  /** Estimated tokens of the enabled static sections (markers excluded). Populated by the preset list route. */
+  tokenEstimate?: number;
   createdAt: string;
   updatedAt: string;
 }
