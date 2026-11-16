@@ -24,8 +24,10 @@ export function cleanableGalleryImages<T extends CleanableGalleryImage>(images: 
 }
 
 async function readAsDataUrl(url: string): Promise<string> {
-  const response = await fetch(url, { credentials: "same-origin" });
-  if (!response.ok) throw new Error(`Could not load ${url}`);
+  // Gallery pictures are served under the API; read them through the client so auth and errors match the upload.
+  const path = url.startsWith("/api/") ? url.slice("/api".length) : url;
+  const response = await api.raw(path);
+  if (!response.ok) throw new Error("The picture could not be loaded");
   const blob = await response.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,7 +39,9 @@ async function readAsDataUrl(url: string): Promise<string> {
 
 /**
  * Clean up the stickers and emoji among `images` and swap each picture in place through `replacePath`
- * (the gallery's `/…/gallery/:imageId/replace` route for that image). Returns how many were cleaned.
+ * (the gallery's `/…/gallery/:imageId/replace` route for that image). A picture that can't be read, or
+ * whose backdrop doesn't key out cleanly (a photo or gradient, not a cut-out), is left as it is and counted
+ * as not cleaned. Returns how many were cleaned.
  */
 export async function cleanUpGalleryImages(
   images: CleanableGalleryImage[],
@@ -46,25 +50,30 @@ export async function cleanUpGalleryImages(
   const { localizeUi } = options;
   const targets = cleanableGalleryImages(images);
   if (targets.length === 0) return 0;
-  const cleaned = await Promise.all(
-    targets.map(async (image) => cleanUpSavedGalleryPiece(await readAsDataUrl(image.url))),
-  );
-  const stickers = targets.flatMap((image, index) => (image.customKind === "sticker" ? [index] : []));
-  const fitted: string[] = [];
-  // Stickers picked together stand on one baseline; each emoji fills its own square.
-  const stickerImages = await fitGallerySheetSet(
-    stickers.map((index) => cleaned[index]!),
-    "sticker",
-  );
-  stickers.forEach((index, order) => (fitted[index] = stickerImages[order]!));
-  await Promise.all(
-    targets.map(async (image, index) => {
-      if (image.customKind === "emoji") fitted[index] = await fitGallerySheetCell(cleaned[index]!, "emoji");
+  const read = await Promise.allSettled(
+    targets.map(async (image) => {
+      const cleaned = await cleanUpSavedGalleryPiece(await readAsDataUrl(image.url));
+      if (!cleaned) throw new Error("The backdrop did not key out cleanly");
+      return { image, cleaned };
     }),
   );
+  const ready = read.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+  // Stickers picked together stand on one baseline; each emoji fills its own square.
+  const stickers = ready.filter((entry) => entry.image.customKind === "sticker");
+  const stickerImages = await fitGallerySheetSet(
+    stickers.map((entry) => entry.cleaned),
+    "sticker",
+  );
+  const fitted = new Map<CleanableGalleryImage, string>();
+  stickers.forEach((entry, index) => fitted.set(entry.image, stickerImages[index]!));
+  await Promise.all(
+    ready
+      .filter((entry) => entry.image.customKind === "emoji")
+      .map(async (entry) => fitted.set(entry.image, await fitGallerySheetCell(entry.cleaned, "emoji"))),
+  );
   const results = await Promise.allSettled(
-    targets.map(async (image, index) => {
-      const dataUrl = fitted[index]!;
+    ready.map(async ({ image }) => {
+      const dataUrl = fitted.get(image)!;
       const { width, height } = await readImageDimensions(dataUrl);
       const stem = (image.filePath.split(/[\\/]/).pop() ?? "image").replace(/\.[^.]+$/, "");
       const form = new FormData();
@@ -74,15 +83,10 @@ export async function cleanUpGalleryImages(
       await api.upload(options.replacePath(image.id), form);
     }),
   );
-  const failed = results.filter((result) => result.status === "rejected").length;
+  const completed = results.filter((result) => result.status === "fulfilled").length;
+  const failed = targets.length - completed;
   if (failed > 0)
-    toast.error(
-      localizeUi("ui.gallery.batch.cleanUpPartial", {
-        completed: targets.length - failed,
-        count: targets.length,
-        failed,
-      }),
-    );
+    toast.error(localizeUi("ui.gallery.batch.cleanUpPartial", { completed, count: targets.length, failed }));
   else toast.success(localizeUi("ui.gallery.batch.cleanedUp", { count: targets.length }));
-  return targets.length - failed;
+  return completed;
 }
