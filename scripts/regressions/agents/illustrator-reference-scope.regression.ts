@@ -47,4 +47,34 @@ assert.equal(
   "Elena Vale's Appearance: global appearance",
   "partial captions retain resolved library appearances as well as active-chat cards",
 );
+const scopedLookups: Array<[string, string]> = [];
+const roleplayReference = await resolveIllustratorCharacterReferences({
+  charactersStore,
+  chatScope: {
+    chatId: "roleplay",
+    characterIds: ["chat", "disabled", "missing"],
+    async getById(id: string, chatId: string) {
+      scopedLookups.push([id, chatId]);
+      return id === "disabled"
+        ? { id, data: { name: "Captain Rowan", extensions: { appearance: "chat-specific blue coat" } } }
+        : null;
+    },
+  },
+  chatCharacters: [cards[0]!],
+  persona: { id: "persona", name: "Elena Vale", appearance: "chosen persona appearance" },
+  requestedNames: ["Elena Vale", "Rowan", "Rain"],
+  promptText: "Doctor Ash watches.",
+  includeReferenceImages: false,
+});
+assert.deepEqual(roleplayReference.characterIds, ["chat", "disabled"]);
+assert.equal(roleplayReference.personaId, "persona");
+assert.deepEqual(roleplayReference.appearanceSources, [
+  { name: "Captain Rowan", appearance: "chat-specific blue coat" },
+  { name: "Elena Vale", appearance: "chosen persona appearance" },
+]);
+assert.deepEqual(scopedLookups, [
+  ["chat", "roleplay"],
+  ["disabled", "roleplay"],
+  ["missing", "roleplay"],
+]);
 console.info("Illustrator reference scope regression passed");

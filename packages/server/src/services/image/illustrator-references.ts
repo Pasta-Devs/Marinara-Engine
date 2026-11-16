@@ -535,6 +535,11 @@ export async function readRecordedReferenceImages(args: {
 
 export async function resolveIllustratorCharacterReferences(args: {
   charactersStore: { list: () => Promise<CharacterRowLike[]> };
+  chatScope?: {
+    chatId: string;
+    characterIds: readonly string[];
+    getById: (id: string, chatId: string) => Promise<CharacterRowLike | null>;
+  };
   chatCharacters: IllustratorChatCharacterReference[];
   persona?: IllustratorPersonaReference | null;
   requestedNames: string[];
@@ -547,9 +552,17 @@ export async function resolveIllustratorCharacterReferences(args: {
   personaGallery?: PersonaGalleryReferenceStore;
 }): Promise<IllustratorReferenceResolution> {
   const maxReferences = Math.max(1, Math.min(args.maxReferences ?? MAX_ILLUSTRATOR_REFERENCE_IMAGES, 12));
-  const allRows = await args.charactersStore.list().catch(() => []);
+  const { charactersStore, chatScope } = args;
+  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
+  const allRows = chatScope
+    ? await Promise.all(
+        [...new Set([...chatIds, ...chatScope.characterIds])].map((id) =>
+          chatScope.getById(id, chatScope.chatId).catch(() => null),
+        ),
+      )
+    : await charactersStore.list().catch(() => []);
   const allSources = allRows
-    .map((row, index) => characterRowToSource(row, index + args.chatCharacters.length))
+    .map((row, index) => (row ? characterRowToSource(row, index + args.chatCharacters.length) : null))
     .filter((source): source is CharacterReferenceSource => Boolean(source));
   const allSourcesById = new Map(allSources.map((source) => [source.id, source]));
 
@@ -580,9 +593,8 @@ export async function resolveIllustratorCharacterReferences(args: {
   }
 
   const sources = [...sourcesById.values()];
-  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
-  const chatSources = sources.filter((source) => chatIds.has(source.id));
-  const globalSources = sources.filter((source) => !chatIds.has(source.id));
+  const chatSources = chatScope ? sources : sources.filter((source) => chatIds.has(source.id));
+  const globalSources = chatScope ? [] : sources.filter((source) => !chatIds.has(source.id));
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();

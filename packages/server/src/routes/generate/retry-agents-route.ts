@@ -4087,6 +4087,14 @@ async function applyRetryResultEffects(args: {
             let referenceImages: string[] | undefined;
             const referenceResolution = await resolveIllustratorCharacterReferences({
               charactersStore: chars,
+              chatScope:
+                usesChatIllustratorSettings && chat.mode === "roleplay"
+                  ? {
+                      chatId,
+                      characterIds: parseJsonField<string[]>(chat.characterIds, []),
+                      getById: chars.getById,
+                    }
+                  : undefined,
               characterGallery: createCharacterGalleryStorage(app.db),
               personaGallery: createPersonaGalleryStorage(app.db),
               // The same cast its clips use: the chat's characters, a character used as the user, and the persona.
