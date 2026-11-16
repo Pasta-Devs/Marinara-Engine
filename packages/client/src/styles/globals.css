@@ -1687,6 +1687,13 @@
   --mari-panel-gradient-text: #fff7fb;
 }
 
+/* Chats in the phone menu (TopBar overflowItems): brown, the maintainer's pick, apart from Lorebooks' amber. */
+.mari-panel-gradient--chats {
+  --mari-panel-gradient-start: #a0714f;
+  --mari-panel-gradient-end: #7c4f32;
+  --mari-panel-gradient-text: #fdf6ee;
+}
+
 .mari-panel-gradient--lorebooks {
   --mari-panel-gradient-start: #f59e0b;
   --mari-panel-gradient-end: #f97316;

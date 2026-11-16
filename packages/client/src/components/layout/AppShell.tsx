@@ -465,6 +465,9 @@ export function AppShell({
     window.addEventListener("resize", updateVisualViewportGeometry);
     window.addEventListener("orientationchange", refreshAfterOrientationChange);
     window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
+    // Entering or leaving the browser's fullscreen (a Home package's, HomeBrowserHub) changes the viewport by the
+    // browser's own bars, which is no software keyboard either.
+    document.addEventListener("fullscreenchange", refreshAfterOrientationChange);
     document.addEventListener("focusin", refreshAfterFocusChange);
     document.addEventListener("focusout", refreshAfterFocusChange);
     document.addEventListener("focusin", noteKeyboardDismissal);
@@ -482,6 +485,7 @@ export function AppShell({
       window.removeEventListener("resize", updateVisualViewportGeometry);
       window.removeEventListener("orientationchange", refreshAfterOrientationChange);
       window.screen.orientation?.removeEventListener("change", refreshAfterOrientationChange);
+      document.removeEventListener("fullscreenchange", refreshAfterOrientationChange);
       document.removeEventListener("focusin", refreshAfterFocusChange);
       document.removeEventListener("focusout", refreshAfterFocusChange);
       root.style.removeProperty("--mari-visual-viewport-height");
