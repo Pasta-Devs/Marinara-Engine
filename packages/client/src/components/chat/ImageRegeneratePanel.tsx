@@ -27,6 +27,8 @@ export interface ImageRegenerator {
   ) => Promise<ImagePromptDraft>;
   /** The connection picker's empty choice, when it isn't the chat's image provider. */
   defaultConnectionLabel?: string;
+  /** The success toast, when the old picture is kept somewhere other than the chat gallery. */
+  regeneratedMessage?: string;
 }
 
 interface ImageRegeneratePanelProps {
@@ -264,7 +266,7 @@ export function ImageRegeneratePanel({
         ...(messageId ? { messageId } : {}),
         debugMode,
       });
-      toast.success(t("ui.chat.imageregeneratepanel.regenerated"));
+      toast.success(regenerator?.regeneratedMessage ?? t("ui.chat.imageregeneratepanel.regenerated"));
       onRegenerated(regenerated);
     } catch (cause) {
       const label = t(

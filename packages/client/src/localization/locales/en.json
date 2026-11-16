@@ -11510,6 +11510,7 @@
   "ui.chat.mariediteasyviewer.vectorizedHint": "Has an embedding and can be found by vector retrieval.",
   "ui.chat.mariediteasyviewer.viewAsPrompt": "View as prompt",
   "ui.chat.mariediteasyviewer.viewAsPromptHint": "Preview how this appears in the assembled prompt.",
+  "ui.chat.mariimagelightbox.regenerated": "Image regenerated. Mari keeps the old one in her image list.",
   "ui.chat.mariimagelightbox.sameConnection": "Same image provider as before",
   "ui.chat.mariimagelightbox.styleProfile": "Style: {{name}}",
   "ui.chat.maripromptpreviewmodal.close": "Close",

@@ -131,6 +131,8 @@ function MariImageLightbox({
   const regenerator = useMemo<ImageRegenerator>(
     () => ({
       defaultConnectionLabel: t("ui.chat.mariimagelightbox.sameConnection"),
+      // Her pictures have no chat gallery: the old one stays in her image list.
+      regeneratedMessage: t("ui.chat.mariimagelightbox.regenerated"),
       regenerate: async ({ imageId, prompt, negativePrompt, connectionId, messageId: replyId, debugMode }) => {
         const result = await api.post<MariImageRecord & { replacedMessages: MariReplacedMessage[] }>(
           `${assetPath(imageId)}/regenerate`,
