@@ -362,7 +362,7 @@ export function ProfessorMariAttachmentPreviews({
       ))}
       {isReading ? (
         <span className="mari-composer-chip">
-          <Spinner size="lg" aria-hidden="true" />
+          <Spinner size="sm" aria-hidden="true" />
           <span className="mari-composer-chip__text">{localizeUi("ui.chat.chatinput.readingFile")}</span>
         </span>
       ) : null}
