@@ -18,6 +18,7 @@ import {
   shutdownDeadlinesFor,
 } from "./lib/shutdown-signals.js";
 import { setRuntimeStopBudgetMs } from "./lib/shutdown-steps.js";
+import { setRestartHandler } from "./lib/server-restart.js";
 import { isSharpLoaderRejection } from "./services/image/sharp-runtime.js";
 import { flushDB } from "./db/connection.js";
 import {
@@ -116,7 +117,7 @@ async function main() {
     process.exit(1);
   });
 
-  const shutdown = async (signal: NodeJS.Signals) => {
+  const shutdown = async (signal: NodeJS.Signals | "restart", exitCode = 0) => {
     if (isShuttingDown) {
       logger.warn("Received %s while shutdown is already in progress", signal);
       return;
@@ -124,13 +125,17 @@ async function main() {
 
     isShuttingDown = true;
     logger.info("Received %s; shutting down Marinara Engine", signal);
+    // #5506 diagnostics: name an in-app restart so the next startup reports it instead of an external kill.
+    if (signal === "restart") noteSessionExitKind("restart");
     // #5838: bound the whole close - sever connections at 4 s, force-exit at
     // 8 s - so a supervisor's stop window (earlyoom ~10 s, Docker 10 s) never
     // expires on a connection-wait and escalates to a write-dropping SIGKILL.
     // A Windows console close gets a tighter budget (see shutdownDeadlinesFor);
     // every other signal keeps the defaults above.
-    armShutdownDeadline(app, signal, shutdownDeadlinesFor(signal));
-    setRuntimeStopBudgetMs(runtimeStopBudgetFor(signal));
+    // A restart stops like a supervisor's SIGTERM, then exits with the code that brings the server back.
+    const stopSignal = signal === "restart" ? "SIGTERM" : signal;
+    armShutdownDeadline(app, signal, { ...shutdownDeadlinesFor(stopSignal), exitCode });
+    setRuntimeStopBudgetMs(runtimeStopBudgetFor(stopSignal));
 
     // Opt-in (SHUTDOWN_EARLY_FLUSH): start writing pending saves now, while
     // app.close() may still be waiting on open connections; the store close
@@ -147,7 +152,7 @@ async function main() {
       stopModelCatalogRefresh();
       await app.close();
       logger.info("Shutdown complete");
-      process.exit(0);
+      process.exit(exitCode);
     } catch (err) {
       logger.error(err, "Shutdown failed");
       process.exit(1);
@@ -158,6 +163,7 @@ async function main() {
   // SHUTDOWN_WINDOWS_CONSOLE_SIGNALS adds Ctrl+Break and the console close on
   // Windows, SHUTDOWN_FORCE_EXIT_ON_REPEAT lets a deliberate second Ctrl+C
   // force the exit.
+  setRestartHandler((exitCode) => void shutdown("restart", exitCode));
   installShutdownSignalHandlers(
     createShutdownSignalController({
       onShutdown: (signal) => {

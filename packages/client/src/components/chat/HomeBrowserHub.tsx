@@ -82,6 +82,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { MarinaraWordmark } from "../ui/MarinaraWordmark";
 import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
@@ -385,21 +386,6 @@ type HomeBrowserHubProps = {
   pageActive: boolean;
   onOpenCredits: () => void;
 };
-
-function MarinaraWordmark({ className }: { className?: string }) {
-  const { t } = useTranslation();
-  const brandName = t("app.documentTitle");
-  return (
-    <span
-      className={cn(
-        "mari-logo-gradient-text mari-logo-gradient-text--active inline-flex items-baseline font-black tracking-[-0.035em]",
-        className,
-      )}
-    >
-      {brandName}
-    </span>
-  );
-}
 
 function readHomeWidgetOrder(): HomeWidgetId[] {
   if (typeof window === "undefined") return [...DEFAULT_HOME_WIDGET_ORDER];

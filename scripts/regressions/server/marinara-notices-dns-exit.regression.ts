@@ -16,6 +16,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import { adminRoutes } from "../../../packages/server/src/routes/admin.routes.js";
+import { setRestartHandler } from "../../../packages/server/src/lib/server-restart.js";
 import { hostsFileAddresses, noticesRoutes } from "../../../packages/server/src/routes/notices.routes.js";
 import { APP_VERSION } from "../../../packages/shared/src/constants/defaults.js";
 
@@ -46,6 +47,8 @@ if (process.argv[2] === "child") {
   const stallLog = process.env.STALL_LOG!;
   const log = (event: string) => appendFileSync(stallLog, `${Date.now()} ${event}\n`);
   const app = Fastify();
+  // What index.ts does for a restart: close the app, then exit with the restart code.
+  setRestartHandler((code) => void app.close().then(() => process.exit(code)));
   await app.register(adminRoutes, { prefix: "/api/admin" });
   if (process.env.NOTICES_MODE === "control") {
     // The call notices.routes.ts made before #8948.
@@ -68,7 +71,7 @@ if (process.argv[2] === "child") {
     remoteAddress: "127.0.0.1",
     headers: { host: "127.0.0.1:7860" },
   });
-  // admin.routes.ts closes the app and calls process.exit(75) 750 ms later.
+  // 750 ms later the restart handler closes the app and calls process.exit(75).
   log(`restart-${res.statusCode}`);
 } else if (process.platform === "win32") {
   console.info("Notices DNS exit regression skipped: the stalled resolver needs a POSIX FIFO.");

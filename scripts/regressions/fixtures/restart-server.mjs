@@ -10,6 +10,11 @@ const { buildApp } = await import(
 diagnostics.phase("build");
 console.info(`[restart-fixture] Building the app after ${Date.now() - started}ms`);
 const app = await buildApp();
+// index.ts normally installs the restart handler; the fixture mimics it.
+const { setRestartHandler } = await import(compiled ? "../../../packages/server/dist/lib/server-restart.js" : "../../../packages/server/src/lib/server-restart.ts");
+setRestartHandler((exitCode) => {
+  void app.close().finally(() => process.exit(exitCode));
+});
 diagnostics.phase("listen");
 console.info(`[restart-fixture] Opening the listener after ${Date.now() - started}ms`);
 app.get("/__restart-pid", async () => ({ pid: process.pid, parent: process.ppid }));

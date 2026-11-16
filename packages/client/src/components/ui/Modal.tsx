@@ -51,6 +51,10 @@ interface ModalProps {
   /** Actions pinned under the scrolling content; main action first, stacked full-width on phones. */
   footer?: ReactNode;
   closeButtonClassName?: string;
+  /** Hide the header bar; `title` still names the dialog. For sheets that cannot be closed. */
+  hideHeader?: boolean;
+  /** Show the backdrop at full strength at once, for a modal that replaces another one without a bright gap. */
+  instantBackdrop?: boolean;
   /** Solid panel surface and no backdrop blur (Connections windows); other modals keep the translucent chrome. */
   opaque?: boolean;
   /** Let drag hit-testing reach content behind the modal while keeping the panel interactive. */
@@ -81,6 +85,8 @@ export function Modal({
   pullToClose = true,
   footer,
   closeButtonClassName,
+  hideHeader = false,
+  instantBackdrop = false,
   opaque = false,
   dragThrough = false,
   modeless = false,
@@ -289,9 +295,11 @@ export function Modal({
     };
   }, [open, mounted, pullToClose, closeDisabled, mobileFullscreen, modeless, dragThrough]);
 
-  if (!mounted) return null;
+  // Render in the same commit as `open`: a modal that replaces another must not leave a frame with neither.
+  if (!mounted && !open) return null;
 
   const isEntering = animating === "enter";
+  const backdropShown = isEntering || (instantBackdrop && animating !== "exit");
   // Below `sm` a plain dialog is a bottom sheet; full-screen, modeless and drag-through ones keep their shape.
   const sheet = !mobileFullscreen && !modeless && !dragThrough;
   const phoneSheet = sheet && window.matchMedia("(max-width: 639px)").matches;
@@ -305,7 +313,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
+      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -317,7 +325,7 @@ export function Modal({
               "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
             } as CSSProperties)
           : {}),
-        opacity: isEntering ? 1 : 0,
+        opacity: backdropShown ? 1 : 0,
         transition: "opacity 150ms ease-out",
       }}
       onTransitionEnd={handleAnimationEnd}
@@ -329,7 +337,7 @@ export function Modal({
           data-backdrop-dismiss-surface="true"
           className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
           style={{
-            opacity: isEntering ? 1 : 0,
+            opacity: backdropShown ? 1 : 0,
             transition: "opacity 150ms ease-out",
           }}
         />
@@ -346,6 +354,8 @@ export function Modal({
         } ${sheet ? PHONE_BOTTOM_SHEET_CLASS : ""} ${panelClassName ?? ""}`}
         style={{
           ...panelStyle,
+          // The shell's unlayered message-in keyframe would override this inline slide on phones.
+          animation: phoneSheet ? "none" : undefined,
           opacity: isEntering ? 1 : 0,
           // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
           transform: isEntering ? undefined : phoneSheet ? "translateY(100%)" : "scale(0.97) translateY(6px)",
@@ -356,26 +366,28 @@ export function Modal({
       >
         {pullClose && <div aria-hidden="true" className={`${SHEET_GRABBER_CLASS} sm:hidden`} />}
         {/* Header */}
-        <div
-          className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER} ${sheet && !titleSlot ? "max-sm:relative max-sm:min-h-13 max-sm:justify-center max-sm:px-12" : ""}`}
-        >
-          {titleSlot ?? (
-            <h2
-              className={`${NEUTRAL_PANEL_TITLE} ${sheet ? "max-sm:justify-center max-sm:text-center max-sm:text-[17px]" : ""}`}
-            >
-              {localizedTitle}
-            </h2>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={closeDisabled}
-            aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
-            className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : "max-sm:after:absolute max-sm:after:-inset-1 max-sm:after:content-['']"} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
+        {!hideHeader && (
+          <div
+            className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER} ${sheet && !titleSlot ? "max-sm:relative max-sm:min-h-13 max-sm:justify-center max-sm:px-12" : ""}`}
           >
-            <X size="1rem" />
-          </button>
-        </div>
+            {titleSlot ?? (
+              <h2
+                className={`${NEUTRAL_PANEL_TITLE} ${sheet ? "max-sm:justify-center max-sm:text-center max-sm:text-[17px]" : ""}`}
+              >
+                {localizedTitle}
+              </h2>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={closeDisabled}
+              aria-label={localizeUi("ui.ui.modal.value1Value2", { value1: localize("Close"), value2: localizedTitle })}
+              className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40 ${sheet ? SHEET_CLOSE_BUTTON_CLASS : "max-sm:after:absolute max-sm:after:-inset-1 max-sm:after:content-['']"} ${sheet && !titleSlot ? "max-sm:absolute max-sm:right-3 max-sm:top-1/2 max-sm:-translate-y-1/2" : "max-sm:relative"} ${closeButtonClassName ?? ""}`}
+            >
+              <X size="1rem" />
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <div
