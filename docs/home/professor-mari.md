@@ -9,7 +9,7 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 
 Her window opens. You can also reach her from any screen: type in Search and pick **Ask Prof. Mari**, press <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac), or pull down from the top bar on a phone. Her header reads **Ready to help** when she is idle and **Working on it...** while she works.
 
-Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. Your first message unlocks the **Hello World** achievement.
+Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. On a touch screen, <kbd>Enter</kbd> always adds a new line and the Send button sends. Your first message unlocks the **Hello World** achievement.
 
 All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
 
@@ -128,7 +128,7 @@ A link is sent once, with the message you add it in. After that she sees a one-l
 
 ### Commands with /
 
-Type `/` at the start of a line to list her commands. Keep typing to filter, then press <kbd>Enter</kbd>. The list also shows your Skills and Memories. Picking one links it, like `@`.
+Type `/` at the start of a line or after a space to list her commands, so one message can use several. Keep typing to filter, then press <kbd>Enter</kbd>. The list also shows your Skills and Memories. Picking one links it, like `@`.
 
 | Command | What it does |
 | --- | --- |
