@@ -7,6 +7,7 @@ import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { logDebugOverride } from "../lib/logger.js";
 import { createConnectionsStorage } from "./storage/connections.storage.js";
 import { createChatsStorage } from "./storage/chats.storage.js";
+import { createAppSettingsStorage } from "./storage/app-settings.storage.js";
 import { parseExtra } from "./generation/prompt-attachments.js";
 import { createLLMProvider } from "./llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "./llm/connection-fallback-provider.js";
@@ -18,6 +19,7 @@ import {
   buildGameTranslationSource,
   resolveTranslationSystemPrompt,
   isStoredSecretPlaceholder,
+  TRANSLATOR_DEFAULTS_SETTINGS_KEY,
   type TranslationConfig,
 } from "@marinara-engine/shared";
 import { decryptStoredSecret, readChatMetadataSecret } from "../utils/stored-secrets.js";
@@ -262,9 +264,8 @@ async function translateWithDeepLX(input: z.infer<typeof translateSchema>) {
 }
 
 /**
- * The DeepL key for a request. Browsers send the chat id and the server reads the chat's saved key (stored
- * encrypted); an older client that still sends its own key in the body keeps working. A mask, or an encrypted
- * value, is never a key itself, so those fall back to the chat's saved key too.
+ * Resolve the saved chat key, or translator defaults for requests without a chat id, on the server. Older clients
+ * can still send a plaintext key. A mask or encrypted value selects the saved key instead of being sent to DeepL.
  */
 export async function resolveDeeplApiKey(
   db: DB,
@@ -272,7 +273,10 @@ export async function resolveDeeplApiKey(
 ): Promise<string | undefined> {
   const sent = input.deeplApiKey?.trim();
   if (sent && !isStoredSecretPlaceholder(sent)) return sent;
-  if (!input.chatId) return undefined;
+  if (!input.chatId) {
+    const defaults = await createAppSettingsStorage(db).get(TRANSLATOR_DEFAULTS_SETTINGS_KEY);
+    return readChatMetadataSecret(parseExtra(defaults), "translationDeeplApiKey") || undefined;
+  }
   const chat = await createChatsStorage(db).getById(input.chatId);
   if (!chat) return undefined;
   return readChatMetadataSecret(parseExtra(chat.metadata), "translationDeeplApiKey") || undefined;
