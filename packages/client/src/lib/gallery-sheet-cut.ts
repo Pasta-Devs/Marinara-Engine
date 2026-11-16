@@ -122,3 +122,76 @@ export async function fitGallerySheetCell(
   );
   return canvas.toDataURL("image/png");
 }
+
+/**
+ * Make a cell's flat backdrop see-through: flood-fill from the edges through every pixel close to the
+ * backdrop colour (read from the corners), so the same colour inside the drawing is left alone (a
+ * green sticker on a green screen keeps its green). `clean` is false when the edges still hold much
+ * that isn't see-through, i.e. the backdrop wasn't flat and needs the server's remover.
+ */
+export async function keyOutGallerySheetBackground(dataUrl: string): Promise<{ dataUrl: string; clean: boolean }> {
+  const image = await loadImage(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const { canvas, ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const frame = ctx.getImageData(0, 0, width, height);
+  const pixels = frame.data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
+    (offset) => pixels[offset + 3]! > 24,
+  );
+  if (corners.length < 2) return { dataUrl, clean: true }; // already see-through
+  const background = [0, 1, 2].map((channel) => {
+    const values = corners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+    return values[Math.floor(values.length / 2)]!;
+  });
+  const near = (offset: number) =>
+    pixels[offset + 3]! > 24 &&
+    Math.abs(pixels[offset]! - background[0]!) +
+      Math.abs(pixels[offset + 1]! - background[1]!) +
+      Math.abs(pixels[offset + 2]! - background[2]!) <
+      90;
+  const seen = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    const index = y * width + x;
+    if (seen[index]) return;
+    seen[index] = 1;
+    if (near(index * 4)) stack.push(index);
+  };
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length) {
+    const index = stack.pop()!;
+    pixels[index * 4 + 3] = 0;
+    const x = index % width;
+    const y = (index - x) / width;
+    if (x > 0) push(x - 1, y);
+    if (x < width - 1) push(x + 1, y);
+    if (y > 0) push(x, y - 1);
+    if (y < height - 1) push(x, y + 1);
+  }
+  ctx.putImageData(frame, 0, 0);
+  let edge = 0;
+  let opaqueEdge = 0;
+  for (let x = 0; x < width; x++) {
+    for (const y of [0, height - 1]) {
+      edge++;
+      if (pixels[at(x, y) + 3]! > 24) opaqueEdge++;
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    for (const x of [0, width - 1]) {
+      edge++;
+      if (pixels[at(x, y) + 3]! > 24) opaqueEdge++;
+    }
+  }
+  return { dataUrl: canvas.toDataURL("image/png"), clean: opaqueEdge / edge < 0.1 };
+}

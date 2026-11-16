@@ -9,7 +9,12 @@ import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
-import { fitGallerySheetCell, sliceGallerySheet, type GallerySheetKind } from "../../lib/gallery-sheet-cut";
+import {
+  fitGallerySheetCell,
+  keyOutGallerySheetBackground,
+  sliceGallerySheet,
+  type GallerySheetKind,
+} from "../../lib/gallery-sheet-cut";
 import { slugifyCustomName } from "../../lib/custom-emoji";
 import { SpriteFrameEditor } from "./SpriteFrameEditor";
 
@@ -63,25 +68,33 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
   const { t: localizeUi } = useUiTranslation();
   const [cells, setCells] = useState<SheetCell[]>([]);
   const [busy, setBusy] = useState(false);
-  const [removeBackground, setRemoveBackgroundState] = useState(true);
   const [cropIndex, setCropIndex] = useState<number | null>(null);
   const sourceRef = useRef<CutSource | null>(null);
   const runRef = useRef(0);
 
   const runCut = useCallback(
-    async (source: CutSource, clean: boolean) => {
+    async (source: CutSource) => {
       const run = ++runRef.current;
       sourceRef.current = source;
       setBusy(true);
       setCropIndex(null);
       try {
         const sliced = await sliceGallerySheet(source.sheet, source.grid.cols, source.grid.rows, source.names.length);
-        let sources = sliced;
-        if (clean) {
+        // Stickers and emoji are always cut out. The flat green screen is keyed out from the edges first;
+        // only a cell whose backdrop wasn't flat goes to the server's remover (which keys colour everywhere,
+        // so it would also eat a sticker's own green), and the edge key then tidies what that left.
+        const keyed = await Promise.all(sliced.map((cell) => keyOutGallerySheetBackground(cell)));
+        const sources = keyed.map((cell) => cell.dataUrl);
+        const messy = keyed.flatMap((cell, index) => (cell.clean ? [] : [index]));
+        if (messy.length > 0) {
           try {
-            sources = await removeBackgrounds(sliced);
+            const removed = await removeBackgrounds(messy.map((index) => sliced[index]!));
+            const tidied = await Promise.all(removed.map((cell) => keyOutGallerySheetBackground(cell)));
+            messy.forEach((index, i) => {
+              sources[index] = tidied[i]!.dataUrl;
+            });
           } catch {
-            toast.error(localizeUi("ui.ui.gallerysheetcells.backgroundRemovalFailed"));
+            // The remover is unavailable: keep what the edge key managed.
           }
         }
         const images = await Promise.all(sources.map((cell) => fitGallerySheetCell(cell, kind)));
@@ -89,7 +102,7 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
         setCells((previous) =>
           images.map((image, index) => ({
             id: `${run}-${index}`,
-            // A re-cut (background switch) keeps names and picks made so far.
+            // A re-cut keeps names and picks made so far.
             name: previous[index]?.name ?? source.names[index] ?? "",
             source: sources[index]!,
             image,
@@ -108,9 +121,9 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
   const cut = useCallback(
     (sheet: string, grid: { cols: number; rows: number }, names: string[]) => {
       setCells([]);
-      return runCut({ sheet, grid, names }, removeBackground);
+      return runCut({ sheet, grid, names });
     },
-    [removeBackground, runCut],
+    [runCut],
   );
 
   const reset = useCallback(() => {
@@ -121,19 +134,11 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
     setCropIndex(null);
   }, []);
 
-  const setRemoveBackground = useCallback(
-    (next: boolean) => {
-      setRemoveBackgroundState(next);
-      if (sourceRef.current) void runCut(sourceRef.current, next);
-    },
-    [runCut],
-  );
-
   const recut = useCallback(() => {
     if (!sourceRef.current) return;
     setCells([]);
-    void runCut(sourceRef.current, removeBackground);
-  }, [removeBackground, runCut]);
+    void runCut(sourceRef.current);
+  }, [runCut]);
 
   const update = useCallback((index: number, patch: Partial<SheetCell>) => {
     setCells((previous) => previous.map((cell, i) => (i === index ? { ...cell, ...patch } : cell)));
@@ -158,8 +163,6 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
   return {
     cells,
     busy,
-    removeBackground,
-    setRemoveBackground,
     cropIndex,
     setCropIndex,
     cut,
@@ -203,16 +206,6 @@ export function GallerySheetCells({
             { selected: selectedCount, total: cells.length },
           )}
         </h3>
-        <label className="flex min-h-9 items-center gap-2 text-xs text-[var(--foreground)] max-sm:min-h-11 max-sm:text-[13px]">
-          <input
-            type="checkbox"
-            checked={state.removeBackground}
-            onChange={(event) => state.setRemoveBackground(event.target.checked)}
-            disabled={disabled || busy}
-            className="accent-[var(--primary)]"
-          />
-          {localizeUi("ui.ui.gallerysheetcells.removeBackground")}
-        </label>
         <button
           type="button"
           onClick={state.recut}
