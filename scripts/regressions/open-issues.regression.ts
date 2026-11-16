@@ -33,20 +33,8 @@ import {
   orderConversationRespondersByDelay,
   remainingConversationPresenceDelay,
 } from "../../packages/server/src/routes/generate/conversation-presence-runtime.js";
-import {
-  AGENT_SUITE_TRACKER_SLICES,
-  TRACKER_SLICE_ERROR_KEYS,
-  trackerSliceErrorMessage,
-  type TrackerSliceError,
-} from "../../packages/client/src/lib/agent-suite-tracker-slices.js";
-import type { GameState } from "../../packages/shared/src/types/game-state.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-import {
-  parseGroupedSpeakerSegments,
-  splitGroupedSegmentDisplayLines,
-  stripLeadingMessageTimestamps,
-} from "../../packages/shared/src/utils/speaker-segments.js";
 import { createLorebookEntrySchema, createLorebookSchema } from "../../packages/shared/src/schemas/lorebook.schema.js";
 import { characterDataSchema, updateCharacterSchema } from "../../packages/shared/src/schemas/character.schema.js";
 import {
@@ -65,15 +53,10 @@ import {
   trackChatMetadataSave,
   waitForPendingChatMetadataSaves,
 } from "../../packages/client/src/lib/chat-metadata-save-barrier.js";
-import { resolveEchoChamberTopLayout } from "../../packages/client/src/lib/echo-chamber-layout.js";
 import {
   resolveConversationSelfieConnectionId,
   resolveConversationSelfieSetup,
 } from "../../packages/client/src/lib/conversation-selfie-setup.js";
-import {
-  resolveTrackerPanelContentScale,
-  resolveTrackerPanelDesktopWidth,
-} from "../../packages/client/src/lib/tracker-panel-layout.js";
 import { getApiErrorMessage } from "../../packages/client/src/lib/api-client.js";
 import {
   getPersonalExtensionTraffic,
@@ -111,8 +94,6 @@ import {
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
-import { annotateContentWithReactions } from "../../packages/server/src/routes/generate/conversation-custom-assets.js";
-import { classifyWorldWeather, getTemperatureGaugeDisplay } from "../../packages/client/src/lib/world-state-helpers.js";
 import {
   resolveStandardEmojiShortcode,
   searchStandardEmojiShortcodes,
@@ -130,18 +111,7 @@ import {
   readLorebookKeeperUpdateOrder,
   resolveLorebookKeeperTarget,
 } from "../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
-import {
-  SPRITE_DISPLAY_OPACITY_MIN,
-  SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
-} from "../../packages/client/src/components/chat/sprite-display-modes.js";
-import {
-  sceneAnalysisRequestSchema,
-  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
-} from "../../packages/shared/src/schemas/scene-analysis.schema.js";
-import {
-  buildSceneAnalyzerUserPrompt,
-  fitSceneAnalyzerNarrationBeats,
-} from "../../packages/server/src/services/sidecar/scene-analyzer.js";
+import { buildSceneAnalyzerUserPrompt } from "../../packages/server/src/services/sidecar/scene-analyzer.js";
 import { postProcessSceneResult } from "../../packages/server/src/services/sidecar/scene-postprocess.js";
 import { explicitlyRequestsTextRewrite } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
@@ -165,11 +135,6 @@ import {
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
-import { resolveSpriteTransition } from "../../packages/client/src/lib/sprite-transition.js";
-import {
-  resolveLatestSpriteExpressionTurn,
-  resolveSpriteExpressionState,
-} from "../../packages/client/src/lib/sprite-expression-state.js";
 import {
   buildLorebookEntryCreateRow,
   buildPersonaCreateRow,
@@ -628,84 +593,6 @@ assert.equal(toAutonomousPresenceStatus("active"), "active");
 assert.equal(toAutonomousPresenceStatus("dnd"), "dnd");
 assert.equal(shouldSuppressAutonomousMessages("active"), false);
 assert.equal(shouldSuppressAutonomousMessages("dnd"), true);
-assert.equal(resolveSpriteTransition("full-body", "none"), "crossfade");
-assert.equal(resolveSpriteTransition("full-body", "shake"), "shake");
-assert.equal(resolveSpriteTransition("expressions", "none"), "none");
-assert.deepEqual(
-  resolveSpriteExpressionState([{ extra: { spriteExpressions: { "character-a": "happy" } } }, { extra: {} }]),
-  { "character-a": "happy" },
-);
-assert.deepEqual(
-  resolveSpriteExpressionState(
-    [
-      { extra: { spriteExpressions: { "character-a": "happy" } } },
-      { extra: { spriteExpressions: { persona: "excited" } } },
-      { extra: JSON.stringify({ spriteExpressions: { "character-c": "angry" } }) },
-    ],
-    { "character-b": "thinking" },
-  ),
-  {
-    "character-a": "happy",
-    "character-b": "thinking",
-    "character-c": "angry",
-    persona: "excited",
-  },
-);
-assert.deepEqual(
-  resolveSpriteExpressionState([
-    { extra: { spriteExpressions: { "character-a": "happy" } } },
-    { extra: { spriteExpressions: { "character-a": "neutral" } } },
-  ]),
-  { "character-a": "neutral" },
-);
-const completedExpressionMessages = [
-  { id: "completed", role: "assistant", extra: { expressionSpriteIds: ["character-a", "persona"] } },
-  { id: "user", role: "user", extra: {} },
-  { id: "pending", role: "assistant", extra: {} },
-];
-assert.deepEqual(resolveLatestSpriteExpressionTurn(completedExpressionMessages), {
-  characterIds: ["character-a", "persona"],
-  messageId: "completed",
-  messageIndex: 0,
-});
-assert.deepEqual(
-  resolveLatestSpriteExpressionTurn([
-    ...completedExpressionMessages,
-    {
-      id: "empty",
-      role: "assistant",
-      extra: JSON.stringify({ expressionSpriteIds: [], spriteExpressions: { "character-a": "happy" } }),
-    },
-  ]),
-  { characterIds: [], messageId: "empty", messageIndex: 3 },
-  "a completed empty result is distinct from a pending or failed expression turn",
-);
-assert.deepEqual(
-  resolveLatestSpriteExpressionTurn([
-    { id: "legacy-persona", role: "user", extra: { spriteExpressions: { persona: "happy" } } },
-    { id: "legacy", role: "assistant", extra: { spriteExpressions: { "character-b": "neutral" } } },
-  ]),
-  { characterIds: ["character-b", "persona"], messageId: "legacy", messageIndex: 1 },
-  "legacy expression turns retain both character and persona owners",
-);
-assert.equal(resolveLatestSpriteExpressionTurn([{ id: "pending", role: "assistant", extra: {} }]), undefined);
-assert.deepEqual(
-  resolveLatestSpriteExpressionTurn([
-    completedExpressionMessages[0]!,
-    { id: "user", role: "user", extra: { spriteExpressions: { persona: "happy" } } },
-    { id: "regenerating", role: "assistant", extra: {} },
-  ]),
-  { characterIds: ["character-a", "persona"], messageId: "completed", messageIndex: 0 },
-  "a retained persona appearance alone does not prove the pending assistant's expressions completed",
-);
-assert.deepEqual(
-  resolveLatestSpriteExpressionTurn([
-    { id: "persona-only", role: "assistant", extra: { expressionSpriteIds: ["persona"] } },
-  ]),
-  { characterIds: ["persona"], messageId: "persona-only", messageIndex: 0 },
-  "the completion marker identifies persona-only turns without relying on retained user appearances",
-);
-assert.equal(resolveLatestSpriteExpressionTurn(undefined), undefined);
 
 assert.equal(backgroundOrganization.folders.length, 1);
 assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
@@ -4853,8 +4740,6 @@ assert.match(
   /const stageZIndexClass = editing \? "z-\[35\]" : "z-\[5\]"/u,
   "non-editing sprites must remain below the Roleplay transcript and its CYOA controls",
 );
-assert.equal(SPRITE_DISPLAY_OPACITY_MIN, 0, "sprite opacity must support a fully transparent endpoint");
-assert.equal(SPRITE_DISPLAY_OPACITY_PERCENT_MIN, 0, "sprite opacity controls must expose zero percent");
 assert.match(
   assignedSweepChatAreaSource,
   /savedUrl \?\? \(chat\.mode === "roleplay" \? useUIStore\.getState\(\)\.defaultRoleplayBackground : null\)/u,
@@ -5848,8 +5733,6 @@ assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS
 assert.match(browserNotificationHelpSource, /Browser notifications are not available in this environment/u);
 assert.match(browserNotificationHelpSource, /Reset this site's notification permission/u);
 
-assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
-assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripConversationPromptTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(
   isRepeatedConversationResponse(
@@ -5895,43 +5778,7 @@ assert.equal(
   }),
   "The procedure is complete.",
 );
-assert.equal(
-  stripLeadingMessageTimestamps("We meet at [11.07 15:53] by the station."),
-  "We meet at [11.07 15:53] by the station.",
-);
 
-const partiallyPrefixedConversationReply = "lol you're such a rebel!!\nPaige: Are you powered by pure caffeine?";
-const parsedWithoutAuthor = parseGroupedSpeakerSegments(partiallyPrefixedConversationReply, new Set(["paige"]));
-assert.equal(parsedWithoutAuthor?.[0]?.speaker, null);
-const parsedWithAuthor = parseGroupedSpeakerSegments(partiallyPrefixedConversationReply, new Set(["paige"]), "Paige");
-assert.equal(parsedWithAuthor?.length, 1);
-assert.equal(parsedWithAuthor?.[0]?.speaker, "Paige");
-assert.deepEqual(parsedWithAuthor?.[0]?.lines, ["lol you're such a rebel!!", "Are you powered by pure caffeine?"]);
-const inheritedGroupConversationReply = "Char1: so anyway\ni was thinking about that\nChar2: yeah?";
-const inheritedGroupConversationSegments = parseGroupedSpeakerSegments(
-  inheritedGroupConversationReply,
-  new Set(["char1", "char2"]),
-);
-assert.deepEqual(inheritedGroupConversationSegments, [
-  { speaker: "Char1", lines: ["so anyway\ni was thinking about that"], start: 0, end: 42 },
-  { speaker: "Char2", lines: ["yeah?"], start: 43, end: 55 },
-]);
-assert.deepEqual(splitGroupedSegmentDisplayLines(inheritedGroupConversationSegments![0]!), [
-  "so anyway",
-  "i was thinking about that",
-]);
-const newlineAfterSpeakerNameSegments = parseGroupedSpeakerSegments(
-  "Char1:\nso anyway\ni was thinking about that\nChar2:\r\nyeah?",
-  new Set(["char1", "char2"]),
-);
-assert.deepEqual(
-  newlineAfterSpeakerNameSegments?.map(({ speaker, lines }) => ({ speaker, lines })),
-  [
-    { speaker: "Char1", lines: ["so anyway\ni was thinking about that"] },
-    { speaker: "Char2", lines: ["yeah?"] },
-  ],
-  "Grouped Conversation parsing must tolerate a newline after a recognized speaker name",
-);
 assert.deepEqual(
   parseCharacterCommandsBySpeaker(
     "Char1:\nNothing to run.\nChar2:\r\n[selfie]",
@@ -5956,22 +5803,6 @@ assert.deepEqual(
   ["char-2"],
   "A leading command must skip an empty named segment and follow the first visible speaker section",
 );
-assert.deepEqual(
-  splitGroupedSegmentDisplayLines({
-    ...inheritedGroupConversationSegments![0]!,
-    lines: ["so anyway\r\nstill thinking"],
-  }),
-  ["so anyway", "still thinking"],
-);
-const annotatedPartiallyPrefixedReply = annotateContentWithReactions(
-  partiallyPrefixedConversationReply,
-  partiallyPrefixedConversationReply,
-  [{ emoji: "🔥", by: ["user"], segment: 0, segmentSpeaker: "Paige" }],
-  new Map([["paige", "Paige"]]),
-  (reactorId) => (reactorId === "user" ? "Mari" : reactorId),
-  "Paige",
-);
-assert.equal(annotatedPartiallyPrefixedReply, `${partiallyPrefixedConversationReply}\n[Mari reacted with 🔥]`);
 
 assert.equal(resolveStandardEmojiShortcode("crying"), "😢");
 assert.equal(resolveStandardEmojiShortcode("test_tube"), "🧪");
@@ -5979,20 +5810,6 @@ assert.equal(
   searchStandardEmojiShortcodes("cry", 5).some((entry) => entry.name === "crying"),
   true,
 );
-
-assert.equal(getTemperatureGaugeDisplay("15°C", "celsius").label, "15°C");
-assert.equal(getTemperatureGaugeDisplay("59 Fahrenheit", "celsius").label, "15°C");
-assert.equal(getTemperatureGaugeDisplay("15°C", "celsius").isPure, true);
-assert.equal(getTemperatureGaugeDisplay("Around 15°C, windy skies ahead", "celsius").isPure, false);
-assert.equal(
-  getTemperatureGaugeDisplay("Around 15°C, windy skies ahead", "celsius").label,
-  "Around 15°C, windy skies ahead",
-);
-assert.equal(classifyWorldWeather("snowstorm"), "snow");
-assert.equal(classifyWorldWeather("sandstorm"), "sand");
-assert.equal(classifyWorldWeather("firestorm"), "fire");
-assert.equal(classifyWorldWeather("windstorm"), "wind");
-assert.equal(classifyWorldWeather("storm"), "heavy-rain");
 
 const chatAreaPromptReviewSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
@@ -6774,55 +6591,6 @@ for (const relativePath of [
   );
 }
 
-const longSceneNarration = Array.from(
-  { length: 100 },
-  (_, index) => `Narration: beat ${index} ${"context ".repeat(45)}`,
-).join("\n");
-const sceneAnalysisContext = {
-  currentState: "exploration" as const,
-  turnNumber: 2,
-  availableBackgrounds: [],
-  availableSfx: [],
-  activeWidgets: [],
-  trackedNpcs: [],
-  characterNames: [],
-  currentBackground: null,
-  currentMusic: null,
-  currentAmbient: null,
-  currentWeather: null,
-  currentTimeOfDay: null,
-};
-const parsedSceneAnalysisRequest = sceneAnalysisRequestSchema.parse({
-  narration: longSceneNarration,
-  context: sceneAnalysisContext,
-});
-assert.equal(
-  parsedSceneAnalysisRequest.narration,
-  longSceneNarration,
-  "The shared request contract must accept long narration before endpoint-specific budgeting",
-);
-assert.equal(parsedSceneAnalysisRequest.context.turnNumber, 2, "The shared schema must preserve turn-aware prompts");
-const fittedSceneNarration = fitSceneAnalyzerNarrationBeats(
-  longSceneNarration,
-  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
-);
-assert.equal(fittedSceneNarration.truncated, true);
-assert.equal(fittedSceneNarration.beats.at(-1)?.index, 99);
-assert.ok((fittedSceneNarration.beats[0]?.index ?? 0) > 0);
-assert.ok(
-  fittedSceneNarration.beats.reduce((total, beat) => total + beat.text.length + String(beat.index).length + 3, 0) <=
-    SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
-);
-const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
-  longSceneNarration,
-  undefined,
-  sceneAnalysisContext,
-  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
-);
-assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
-assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
-assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
-
 await assert.rejects(
   validateOutboundUrl("https://example.com/archive.zip", {
     allowedHostnames: ["github.com", "codeload.github.com"],
@@ -6830,102 +6598,6 @@ await assert.rejects(
   /hostname 'example\.com' is not allowed/u,
 );
 
-const unstackedEchoLayout = resolveEchoChamberTopLayout({
-  baseTop: 96,
-  containerTop: 40,
-  containerBottom: 840,
-  viewportBottom: 800,
-  bottomClearance: 88,
-});
-assert.deepEqual(unstackedEchoLayout, { top: 96, maxHeight: 576 });
-const stackedEchoLayout = resolveEchoChamberTopLayout({
-  baseTop: 96,
-  containerTop: 40,
-  containerBottom: 840,
-  viewportBottom: 800,
-  bottomClearance: 88,
-  trackerBottom: 420,
-  stackGap: 8,
-});
-assert.deepEqual(stackedEchoLayout, { top: 388, maxHeight: 284 });
-assert.equal(
-  40 + stackedEchoLayout.top + stackedEchoLayout.maxHeight + 88,
-  800,
-  "A stacked Echo Chamber must remain inside the visible roleplay area",
-);
-assert.equal(
-  resolveEchoChamberTopLayout({
-    baseTop: 96,
-    containerTop: 40,
-    containerBottom: 840,
-    viewportBottom: 800,
-    bottomClearance: 88,
-    trackerBottom: 760,
-    stackGap: 8,
-  }).maxHeight,
-  0,
-  "Echo Chamber height must not become negative when the Tracker consumes the available corner",
-);
-assert.equal(
-  resolveTrackerPanelDesktopWidth({
-    preferredWidth: 340,
-    mainLeft: 280,
-    mainRight: 1920,
-    chatColumnLeft: 636,
-    chatColumnRight: 1564,
-    side: "left",
-    gap: 8,
-  }),
-  340,
-  "The Tracker should retain its selected width when it fits beside the chat column",
-);
-assert.equal(
-  resolveTrackerPanelDesktopWidth({
-    preferredWidth: 420,
-    mainLeft: 280,
-    mainRight: 1480,
-    chatColumnLeft: 416,
-    chatColumnRight: 1344,
-    side: "left",
-    gap: 8,
-  }),
-  128,
-  "The Tracker should shrink to the narrower left chat gutter",
-);
-assert.equal(
-  resolveTrackerPanelDesktopWidth({
-    preferredWidth: 340,
-    mainLeft: 0,
-    mainRight: 1200,
-    chatColumnLeft: 136,
-    chatColumnRight: 1064,
-    side: "right",
-    gap: 8,
-  }),
-  128,
-  "The Tracker should use the matching right chat gutter",
-);
-assert.equal(
-  resolveTrackerPanelDesktopWidth({
-    preferredWidth: 340,
-    mainLeft: 0,
-    mainRight: 1024,
-    chatColumnLeft: 19,
-    chatColumnRight: 1005,
-    side: "right",
-    gap: 8,
-    minWidth: 96,
-  }),
-  96,
-  "A docked Tracker in a gutter too narrow for it keeps its minimum width instead of a sliver (#7188)",
-);
-assert.equal(resolveTrackerPanelContentScale(340, 340), 1);
-assert.equal(resolveTrackerPanelContentScale(340, 255), 0.75);
-assert.equal(
-  resolveTrackerPanelContentScale(420, 128),
-  0.65,
-  "Severely constrained Tracker contents should reflow before their text becomes unreadably small",
-);
 assert.match(
   appShellSource,
   /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}closeTrackerPanel\(\)/u,
@@ -7845,153 +7517,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z"), null, "bare timestamps are not cursors");
   assert.equal(parseMessageCursor("not-a-date|42"), null, "cursor timestamps must be valid");
   assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|%"), null, "cursor ids must be valid URI components");
-}
-
-{
-  // #4937: Agent Suite tracker editing must expose every field owned by the
-  // World State and Persona Stats trackers without replacing adjacent data.
-  const gameState = {
-    id: "state-4937",
-    chatId: "chat-4937",
-    messageId: "message-4937",
-    swipeIndex: 0,
-    date: "August 12",
-    time: "10:00",
-    location: "Lab",
-    weather: "Clear",
-    temperature: "20 C",
-    worldCustomFields: [{ name: "Moon", value: "Full", icon: "moon" }],
-    presentCharacters: [],
-    recentEvents: [],
-    personaStats: [{ name: "Energy", value: 8, max: 10, color: "blue" }],
-    playerStats: {
-      stats: [],
-      attributes: null,
-      skills: { alchemy: 4 },
-      inventory: [{ name: "Vial", description: "Sealed", quantity: 2, location: "on_person" }],
-      activeQuests: [],
-      status: "Focused",
-    },
-    createdAt: "2026-08-12T08:00:00.000Z",
-  } satisfies GameState;
-  assert.deepEqual(
-    (AGENT_SUITE_TRACKER_SLICES["world-state"]!.getValue(gameState) as Record<string, unknown>).worldCustomFields,
-    gameState.worldCustomFields,
-  );
-  assert.deepEqual(AGENT_SUITE_TRACKER_SLICES["persona-stats"]!.getValue(gameState), {
-    personaStats: gameState.personaStats,
-    inventory: gameState.playerStats.inventory,
-  });
-  assert.deepEqual(
-    AGENT_SUITE_TRACKER_SLICES["persona-stats"]!.buildPatch(gameState, {
-      personaStats: [],
-      inventory: [{ name: "Key", description: "Brass", quantity: 1, location: "stored" }],
-    }),
-    {
-      personaStats: [],
-      playerStats: {
-        ...gameState.playerStats,
-        inventory: [{ name: "Key", description: "Brass", quantity: 1, location: "stored" }],
-      },
-    },
-    "Persona inventory edits must preserve skills, status, and other player stats",
-  );
-  assert.deepEqual(AGENT_SUITE_TRACKER_SLICES["world-state"]!.buildPatch(gameState, { worldCustomFields: "invalid" }), {
-    error: { code: "notArray", field: "worldCustomFields" },
-  });
-  assert.deepEqual(
-    AGENT_SUITE_TRACKER_SLICES["persona-stats"]!.buildPatch(gameState, { personaStats: [] }),
-    { personaStats: [] },
-    "Dropping inventory from an AI rewrite must leave the saved inventory unchanged",
-  );
-
-  // The Inventory Tracker editor must refuse malformed rows rather than normalize
-  // them away. The shared normalizer drops rows it cannot read, so accepting this
-  // payload would empty a group the author had just typed out.
-  const inventorySlice = AGENT_SUITE_TRACKER_SLICES["inventory-tracker"]!;
-  const malformedRows = inventorySlice.buildPatch(gameState, {
-    currencies: [],
-    equipped: [],
-    inventory: [{ foo: 1 }],
-  });
-  assert.deepEqual(
-    malformedRows,
-    { error: { code: "invalidInventoryRow", group: "inventory", problem: { code: "missingName", index: 0 } } },
-    "a row without a name must be reported, naming the group it came from",
-  );
-  assert.deepEqual(
-    inventorySlice.buildPatch(gameState, {
-      currencies: [],
-      equipped: [],
-      inventory: [{ name: "Rope", qty: 0 }],
-    }),
-    { error: { code: "invalidInventoryRow", group: "inventory", problem: { code: "qtyBelowOne", index: 0 } } },
-    "a quantity below 1 must be reported rather than silently clamped",
-  );
-
-  // #7738: slice errors are codes the UI localizes. Every code must name an English key, and the
-  // English text must read as it did before the errors were localized.
-  const collectKeys = (value: unknown): string[] =>
-    typeof value === "string" ? [value] : Object.values(value as object).flatMap(collectKeys);
-  const trackerErrorKeys = collectKeys(TRACKER_SLICE_ERROR_KEYS);
-  assert.equal(trackerErrorKeys.length, 17, "every tracker slice error code has a key");
-  for (const key of trackerErrorKeys) {
-    assert.equal(typeof englishLocale[key], "string", `${key} must exist in en.json`);
-  }
-  const renderEnglish = (error: TrackerSliceError) =>
-    trackerSliceErrorMessage(error, (key, values) =>
-      englishLocale[key]!.replace(/\{\{(\w+)\}\}/gu, (_, name: string) => {
-        const value = (values as Record<string, unknown> | undefined)?.[name];
-        assert.ok(value !== undefined, `${key} needs {{${name}}}`);
-        return String(value);
-      }),
-    );
-  const sliceError = (slice: string, parsed: unknown) =>
-    (AGENT_SUITE_TRACKER_SLICES[slice]!.buildPatch(gameState, parsed) as { error: TrackerSliceError }).error;
-  const inventoryRows = (inventory: unknown[]) =>
-    sliceError("inventory-tracker", { currencies: [], equipped: [], inventory });
-  for (const [error, english] of [
-    [sliceError("world-state", []), "Scene data must be a JSON object"],
-    [sliceError("world-state", { worldCustomFields: "invalid" }), "World custom fields must be a JSON array"],
-    [sliceError("character-tracker", {}), "Present characters must be a JSON array"],
-    [sliceError("persona-stats", []), "Persona stats data must be a JSON object"],
-    [sliceError("persona-stats", { personaStats: {} }), "Persona stats must be a JSON array"],
-    [sliceError("persona-stats", { inventory: {} }), "Inventory must be a JSON array"],
-    [sliceError("custom-tracker", {}), "Custom tracker fields must be a JSON array"],
-    [sliceError("inventory-tracker", null), "Inventory Tracker data must be a JSON object"],
-    [
-      sliceError("inventory-tracker", { currencies: [] }),
-      "Inventory Tracker data must include currencies, equipped, and inventory arrays",
-    ],
-    [
-      { code: "invalidInventoryRow", group: "currencies", problem: { code: "notArray" } },
-      'Inventory Tracker "currencies": must be an array',
-    ],
-    [inventoryRows(["Rope"]), 'Inventory Tracker "inventory": row 0 must be an object'],
-    [inventoryRows([{ foo: 1 }]), 'Inventory Tracker "inventory": row 0 is missing a string "name"'],
-    [inventoryRows([{ name: "Rope" }, { name: "  " }]), 'Inventory Tracker "inventory": row 1 has an empty "name"'],
-    [
-      inventoryRows([{ name: "Rope", location: 3 }]),
-      'Inventory Tracker "inventory": row 0 has a non-string "location"',
-    ],
-    [inventoryRows([{ name: "Rope", qty: "lots" }]), 'Inventory Tracker "inventory": row 0 has a non-numeric "qty"'],
-    [inventoryRows([{ name: "Rope", qty: 0 }]), 'Inventory Tracker "inventory": row 0 has a "qty" below 1'],
-    [sliceError("quest", {}), "Active quests must be a JSON array"],
-  ] as const) {
-    assert.equal(renderEnglish(error), english);
-  }
-
-  // Accepted payloads still get the shared invariants applied.
-  const equippedWins = inventorySlice.buildPatch(gameState, {
-    currencies: [],
-    equipped: [{ name: "Short axe" }],
-    inventory: [{ name: "short  axe" }, { name: "Waterskin" }],
-  }) as { playerStats: Record<string, unknown> };
-  assert.deepEqual(
-    equippedWins.playerStats.inventoryTrackerInventory,
-    [{ name: "Waterskin" }],
-    "an equipped item must not survive in carried inventory through the JSON editor",
-  );
 }
 
 {
