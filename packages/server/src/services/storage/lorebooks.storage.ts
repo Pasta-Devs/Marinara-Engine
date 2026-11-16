@@ -14,6 +14,9 @@ import {
 import { newId, now } from "../../utils/id-generator.js";
 import {
   DEFAULT_LOREBOOK_WRITER_ORDER,
+  compareTokenEstimates,
+  estimateTextTokens,
+  isTokenSort,
   LIMITS,
   createLorebookEntrySchema,
   type LorebookEntryImage,
@@ -306,8 +309,6 @@ function lorebookOrder(sort: string | undefined) {
       return [desc(lorebooks.createdAt), asc(lorebooks.id)];
     case "oldest":
       return [asc(lorebooks.createdAt), asc(lorebooks.id)];
-    case "tokens":
-      return [desc(lorebooks.tokenBudget), asc(lorebooks.id)];
     case "name-asc":
     default:
       return [asc(lorebooks.name), asc(lorebooks.id)];
@@ -323,10 +324,36 @@ function parseCharacterName(row: { data: string }) {
   }
 }
 
+type LorebookEntryTotals = Map<string, { count: number; tokens: number }>;
+const entryTotalsCache = new WeakMap<DB, { generation: number; totals: LorebookEntryTotals }>();
+
+/**
+ * Every book's entry count and estimated tokens (all entries, enabled or not), cached until the entries table
+ * is written again so paging a big library does not re-read every entry's text.
+ */
+async function getLorebookEntryTotals(db: DB): Promise<LorebookEntryTotals> {
+  const generation = db._fileStore?.getTableWriteGeneration("lorebook_entries");
+  const cached = entryTotalsCache.get(db);
+  if (generation !== undefined && cached?.generation === generation) return cached.totals;
+  const entryRows = await db
+    .select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content })
+    .from(lorebookEntries);
+  const totals: LorebookEntryTotals = new Map();
+  for (const entry of entryRows) {
+    const total = totals.get(entry.lorebookId) ?? { count: 0, tokens: 0 };
+    total.count += 1;
+    total.tokens += estimateTextTokens(entry.content ?? "");
+    totals.set(entry.lorebookId, total);
+  }
+  // A write that landed while reading leaves the stored generation behind, so the next call recomputes.
+  if (generation !== undefined) entryTotalsCache.set(db, { generation, totals });
+  return totals;
+}
+
 async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { includeLinkedNames?: boolean } = {}) {
   if (rows.length === 0) return [];
   const bookIds = rows.map((row) => row.id);
-  const [characterRows, personaRows, entryRows] = await Promise.all([
+  const [characterRows, personaRows, entryTotals] = await Promise.all([
     db
       .select()
       .from(lorebookCharacterLinks)
@@ -337,15 +364,8 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
       .from(lorebookPersonaLinks)
       .where(inArray(lorebookPersonaLinks.lorebookId, bookIds))
       .orderBy(asc(lorebookPersonaLinks.lorebookId), asc(lorebookPersonaLinks.personaId)),
-    db
-      .select({ lorebookId: lorebookEntries.lorebookId })
-      .from(lorebookEntries)
-      .where(inArray(lorebookEntries.lorebookId, bookIds)),
+    getLorebookEntryTotals(db),
   ]);
-  const entryCountByBook = new Map<string, number>();
-  for (const entry of entryRows) {
-    entryCountByBook.set(entry.lorebookId, (entryCountByBook.get(entry.lorebookId) ?? 0) + 1);
-  }
   const characterIdsByBook = new Map<string, string[]>();
   for (const link of characterRows) {
     const ids = characterIdsByBook.get(link.lorebookId) ?? [];
@@ -385,7 +405,8 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
       ...(row as Record<string, unknown>),
       characterIds,
       personaIds,
-      entryCount: entryCountByBook.get(row.id) ?? 0,
+      entryCount: entryTotals.get(row.id)?.count ?? 0,
+      tokenEstimate: entryTotals.get(row.id)?.tokens ?? 0,
     };
     if (options.includeLinkedNames) {
       hydratedRow.characterNames = characterIds.map((id) => characterNameById.get(id) ?? id);
@@ -506,6 +527,25 @@ export function createLorebooksStorage(db: DB) {
       }
 
       const whereClause = clauses.length > 0 ? and(...clauses) : undefined;
+      if (isTokenSort(options.sort)) {
+        // Size is not a column, so rank every matching book by its estimate, then page the ranked list.
+        const sort = options.sort;
+        const matching = await (whereClause
+          ? db.select().from(lorebooks).where(whereClause)
+          : db.select().from(lorebooks));
+        const totals = await getLorebookEntryTotals(db);
+        const ranked = matching.sort(
+          (a, b) =>
+            compareTokenEstimates(sort, totals.get(a.id)?.tokens, totals.get(b.id)?.tokens) ||
+            a.name.localeCompare(b.name) ||
+            a.id.localeCompare(b.id),
+        );
+        const pageRows = ranked.slice(options.offset, options.offset + options.limit + 1);
+        return {
+          ...toPaginatedList(pageRows, options.limit, options.offset),
+          items: await hydrateLorebookRows(db, pageRows.slice(0, options.limit), { includeLinkedNames: true }),
+        };
+      }
       const rows = await (whereClause
         ? db
             .select()

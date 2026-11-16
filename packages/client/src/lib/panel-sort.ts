@@ -1,4 +1,4 @@
-import { compareTokenEstimates, type TokenSort } from "@marinara-engine/shared";
+import { compareTokenEstimates, isTokenSort, type TokenSort } from "@marinara-engine/shared";
 
 export const BASIC_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest"] as const;
 
@@ -6,6 +6,13 @@ export type BasicPanelSort = (typeof BASIC_PANEL_SORT_OPTIONS)[number];
 
 export function normalizeBasicPanelSort(value: unknown): BasicPanelSort {
   return BASIC_PANEL_SORT_OPTIONS.includes(value as BasicPanelSort) ? (value as BasicPanelSort) : "name-asc";
+}
+
+/** The sorts a card library offers: the basic ones plus the size pair. */
+export type LibrarySort = BasicPanelSort | TokenSort;
+
+export function normalizeLibrarySort(value: unknown): LibrarySort {
+  return isTokenSort(value) ? value : normalizeBasicPanelSort(value);
 }
 
 function normalizeTimestamp(value: string | null | undefined) {

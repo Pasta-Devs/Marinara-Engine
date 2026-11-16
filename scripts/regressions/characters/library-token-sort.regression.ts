@@ -4,6 +4,8 @@ import {
   isTokenSort,
   TOKEN_SORT_OPTIONS,
 } from "../../../packages/shared/src/utils/token-sort.js";
+import { estimatePersonaTokens } from "../../../packages/shared/src/utils/character-token-estimator.js";
+import { normalizeLorebookPanelSort } from "../../../packages/client/src/stores/ui.store.js";
 import { sortFoldersByTokens, sortItemsByTokens } from "../../../packages/client/src/lib/panel-sort.js";
 
 process.env.NODE_ENV = "test";
@@ -55,12 +57,22 @@ assert.deepEqual(
   ["big", "small", "empty"],
 );
 
+// The old Token Budget lorebook sort lands on the size sort that replaced it.
+assert.equal(normalizeLorebookPanelSort("tokens"), "tokens-desc");
+assert.equal(normalizeLorebookPanelSort("tokens-asc"), "tokens-asc");
+assert.equal(normalizeLorebookPanelSort("bogus"), "name-asc");
+
+// One persona estimate counts the six text fields and ignores non-strings.
+assert.equal(estimatePersonaTokens({ description: "abcd".repeat(4), mes_example: "abcd".repeat(4) }), 8);
+assert.equal(estimatePersonaTokens({ description: 5, personality: null }), 0);
+
 // ── Character catalog pages ──
-const [{ buildApp }, { getDB }, { characters, characterGroups }] = await Promise.all([
+const [{ buildApp }, { getDB }, schema] = await Promise.all([
   import("../../../packages/server/src/app.js"),
   import("../../../packages/server/src/db/connection.js"),
   import("../../../packages/server/src/db/schema/index.js"),
 ]);
+const { characters, characterGroups, personas, lorebooks, lorebookEntries, promptPresets, promptSections } = schema;
 const app = await buildApp();
 try {
   await app.ready();
@@ -120,6 +132,103 @@ try {
     "folder-big": byId.get("size-6")!,
   });
   assert.equal((await get("view=summary&sort=name-asc")).folderTokenTotals?.["folder-big"], undefined);
+
+  // ── Persona pages ──
+  const personaSizes = [3, 1, 2];
+  await db.insert(personas).values(
+    personaSizes.map((size) => ({
+      id: `psize-${size}`,
+      data: JSON.stringify({ name: `Persona ${size}`, description: "word ".repeat(size * 100) }),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })),
+  );
+  const personaPage = async (query: string) => {
+    const response = await app.inject({ method: "GET", url: `/api/characters/personas/list?${query}` });
+    assert.equal(response.statusCode, 200, response.body);
+    return response.json() as { items: Array<{ id: string }>; hasMore: boolean };
+  };
+  const personaIds = (page: { items: Array<{ id: string }> }) => page.items.map((item) => item.id);
+  assert.deepEqual(personaIds(await personaPage("sort=tokens-desc&limit=10&offset=0")), [
+    "psize-3",
+    "psize-2",
+    "psize-1",
+  ]);
+  const personaFirst = await personaPage("sort=tokens-asc&limit=2&offset=0");
+  const personaSecond = await personaPage("sort=tokens-asc&limit=2&offset=2");
+  assert.deepEqual([...personaIds(personaFirst), ...personaIds(personaSecond)], ["psize-1", "psize-2", "psize-3"]);
+  assert.equal(personaFirst.hasMore, true);
+
+  // ── Lorebooks: size is the sum of every entry, enabled or not ──
+  const bookSizes: Array<[string, number[], string]> = [
+    ["book-mid", [100], "true"],
+    ["book-big", [100, 300], "false"],
+    ["book-small", [10], "true"],
+  ];
+  for (const [id, entrySizes] of bookSizes.map(([bookId, sizes]) => [bookId, sizes] as const)) {
+    await db.insert(lorebooks).values({ id, name: id, createdAt: timestamp, updatedAt: timestamp });
+    for (const [index, size] of entrySizes.entries()) {
+      const disabled = id === "book-big" && index === 1;
+      await db.insert(lorebookEntries).values({
+        id: `${id}-entry-${index}`,
+        lorebookId: id,
+        name: `Entry ${index}`,
+        content: "word ".repeat(size),
+        enabled: disabled ? "false" : "true",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+  }
+  const bookPage = async (query: string) => {
+    const response = await app.inject({ method: "GET", url: `/api/lorebooks?${query}` });
+    assert.equal(response.statusCode, 200, response.body);
+    return response.json() as { items: Array<{ id: string; tokenEstimate: number; entryCount: number }> };
+  };
+  const everyBook = (await bookPage("sort=tokens-desc&limit=10&offset=0")).items;
+  assert.deepEqual(
+    everyBook.map((book) => book.id),
+    ["book-big", "book-mid", "book-small"],
+  );
+  const bookTokens = new Map(everyBook.map((book) => [book.id, book.tokenEstimate]));
+  assert.ok(bookTokens.get("book-big")! > bookTokens.get("book-mid")!, "the disabled entry still counts");
+  assert.ok(bookTokens.get("book-mid")! > bookTokens.get("book-small")!);
+  assert.equal(everyBook.find((book) => book.id === "book-big")?.entryCount, 2);
+  const smallestFirst = await bookPage("sort=tokens-asc&limit=2&offset=0");
+  assert.deepEqual(
+    smallestFirst.items.map((book) => book.id),
+    ["book-small", "book-mid"],
+  );
+  assert.deepEqual(
+    (await bookPage("sort=tokens-asc&limit=2&offset=2")).items.map((book) => book.id),
+    ["book-big"],
+  );
+
+  // ── Presets: enabled static sections only ──
+  await db
+    .insert(promptPresets)
+    .values({ id: "preset-sized", name: "Sized", createdAt: timestamp, updatedAt: timestamp });
+  const sectionRows = [
+    { id: "ps-text", content: "abcdefghijkl", enabled: "true", isMarker: "false" },
+    { id: "ps-off", content: "abcdefghijkl".repeat(10), enabled: "false", isMarker: "false" },
+    { id: "ps-marker", content: "abcdefghijkl".repeat(10), enabled: "true", isMarker: "true" },
+  ];
+  for (const row of sectionRows) {
+    await db.insert(promptSections).values({
+      ...row,
+      presetId: "preset-sized",
+      identifier: row.id,
+      name: row.id,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
+  const presetList = await app.inject({ method: "GET", url: "/api/prompts" });
+  assert.equal(presetList.statusCode, 200, presetList.body);
+  const sized = (presetList.json() as Array<{ id: string; tokenEstimate?: number }>).find(
+    (preset) => preset.id === "preset-sized",
+  );
+  assert.equal(sized?.tokenEstimate, 3, "an enabled text section counts; a disabled one and a marker do not");
 } finally {
   await app.close();
 }

@@ -5,7 +5,7 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import {
-  estimateTextTokens,
+  estimatePersonaTokens,
   normalizeAvatarCrop,
   normalizeNameAliases,
   type AvatarCrop,
@@ -189,21 +189,6 @@ export function useCharacterLibrarySource({
 
 // ── Personas ──
 
-function estimatePersonaTokens(persona: Persona) {
-  return estimateTextTokens(
-    [
-      persona.description,
-      persona.personality,
-      persona.scenario,
-      persona.backstory,
-      persona.appearance,
-      persona.mes_example,
-    ]
-      .map(getText)
-      .join(""),
-  );
-}
-
 function toPersonaLibraryCard(persona: Persona): LibraryCard {
   return {
     id: persona.id,
@@ -274,6 +259,7 @@ function toLorebookLibraryCard(lorebook: LorebookListItem): LibraryCard {
     updatedAt: lorebook.updatedAt,
     tags: lorebook.tags.filter((tag) => tag.trim().length > 0),
     entryCount: lorebook.entryCount ?? 0,
+    tokenEstimate: lorebook.tokenEstimate,
     favorite: false,
     active: lorebook.enabled,
     creatorNotes: "",
