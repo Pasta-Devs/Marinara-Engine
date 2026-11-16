@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { Chat } from "@marinara-engine/shared";
-import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
-import { useLorebooks } from "../../hooks/use-lorebooks";
-import { readChatMetadata } from "../../lib/chat-wizard-defaults";
-import { AgentSettingsToggle } from "../../components/chat/AgentSettingsControls";
-import { LorebookPickerField } from "../../components/ui/LibraryPickers";
+import { useChat, useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { useLorebooks } from "../../../hooks/use-lorebooks";
+import { readChatMetadata } from "../../../lib/chat-wizard-defaults";
+import { AgentSettingsToggle } from "../../../components/chat/AgentSettingsControls";
+import { LorebookPickerField } from "../../../components/ui/LibraryPickers";
 
 export function AgentLorebookAttachment({ chatId, agentType }: { chatId: string; agentType: string }) {
   const { t } = useTranslation();

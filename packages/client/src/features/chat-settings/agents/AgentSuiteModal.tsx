@@ -3,7 +3,7 @@
 // active chat have stored (memory, tracker state, custom
 // outputs), manually or via AI-assisted selection rewrites.
 // ──────────────────────────────────────────────
-import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { isConnectionFlagTrue } from "../../../lib/connection-filters";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,7 +21,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AgentOutputSpoiler } from "../../components/agents/AgentOutputSpoiler";
+import { AgentOutputSpoiler } from "../../../components/agents/AgentOutputSpoiler";
 import { estimateTextTokens, type Chat, type GameState } from "@marinara-engine/shared";
 import {
   useAgentMemory,
@@ -31,34 +31,34 @@ import {
   useUpdateAgentRunData,
   agentKeys,
   type AgentRunRow,
-} from "../../hooks/use-agents";
-import { useCharacters } from "../../hooks/use-characters";
-import { useConnections } from "../../hooks/use-connections";
-import { useEntriesAcrossLorebooks, useLorebooks } from "../../hooks/use-lorebooks";
-import { api } from "../../lib/api-client";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+} from "../../../hooks/use-agents";
+import { useCharacters } from "../../../hooks/use-characters";
+import { useConnections } from "../../../hooks/use-connections";
+import { useEntriesAcrossLorebooks, useLorebooks } from "../../../hooks/use-lorebooks";
+import { api } from "../../../lib/api-client";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
 import {
   deriveActiveLorebookViews,
   getChatActiveLorebookIds,
   getChatExcludedLorebookIds,
-} from "../../lib/chat-lorebooks";
-import { getChatCharacterIds } from "../../lib/chat-macros";
-import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
+} from "../../../lib/chat-lorebooks";
+import { getChatCharacterIds } from "../../../lib/chat-macros";
+import { filterLanguageGenerationConnections } from "../../../lib/connection-filters";
 import {
   AGENT_SUITE_TRACKER_SLICES,
   trackerSliceErrorMessage,
   trackerSlicePatchError,
-} from "../../lib/agent-suite-tracker-slices";
-import { cn } from "../../lib/utils";
-import { useAgentStore } from "../../stores/agent.store";
-import { useChatStore } from "../../stores/chat.store";
-import { parseStateDraft } from "../../lib/state-editor/state-editor-json";
-import { StateJsonField } from "../../components/ui/state-editor/StateJsonField";
-import { useUIStore } from "../../stores/ui.store";
-import { useGameStateStore } from "../../stores/game-state.store";
-import { Modal } from "../../components/ui/Modal";
+} from "../../../lib/agent-suite-tracker-slices";
+import { cn } from "../../../lib/utils";
+import { useAgentStore } from "../../../stores/agent.store";
+import { useChatStore } from "../../../stores/chat.store";
+import { parseStateDraft } from "../../../lib/state-editor/state-editor-json";
+import { StateJsonField } from "../../../components/ui/state-editor/StateJsonField";
+import { useUIStore } from "../../../stores/ui.store";
+import { useGameStateStore } from "../../../stores/game-state.store";
+import { Modal } from "../../../components/ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { ConnectionSelect } from "../../components/connections/ConnectionSelect";
+import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 
 export interface AgentSuiteAgent {
   id: string;
