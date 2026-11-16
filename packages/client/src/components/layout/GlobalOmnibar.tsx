@@ -2045,7 +2045,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.12, ease: "easeOut" }}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-      onKeyDown={companion ? closeCompanionOnEscape : trapFocus}
+      onKeyDown={(event) => {
+        // React bubbles keys from overlays portaled out of her window (the image lightbox and its model picker,
+        // #9387) up to here. They belong to that overlay: Escape there must not close her, nor Tab pull focus back.
+        if (!event.currentTarget.contains(event.target as Node)) return;
+        if (companion) closeCompanionOnEscape(event);
+        else trapFocus(event);
+      }}
     >
       {/* Slice 73: the height transition is the desktop dialog's. On a phone the panel is the full screen, and
           animating it let every keyboard close leave her composer up to ~200 px above the bottom for 300 ms. */}

@@ -87,7 +87,14 @@ import {
 } from "../services/image/spatial-location-reference.js";
 import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
-import { MARI_PREVIEW_CHAT_ID, findMariPreviewFile } from "../services/mari-db/mari-images.service.js";
+import {
+  MARI_PREVIEW_CHAT_ID,
+  findMariPreviewFile,
+  getMariImagesService,
+  getMariPreviewAsset,
+  isMariPreviewAssetRegenerable,
+  swapMariPreviewAssetInMessage,
+} from "../services/mari-db/mari-images.service.js";
 import {
   compactVideoPromptText,
   excerptIllustrationPromptForVideo,
@@ -259,6 +266,15 @@ const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
   .omit({ messageId: true })
   .required({ negativePrompt: true, characterPrompts: true })
   .extend({ guidance: z.string().trim().max(4_000).optional() });
+
+// #9387: Professor Mari's preview assets. Her images have no character captions; chatId names her chat.
+const regenerateMariImageSchema = regenerateGalleryImageSchema
+  .omit({ characterPrompts: true })
+  .extend({ chatId: z.string().trim().min(1).max(200).optional() });
+
+const reviseMariImagePromptSchema = rewriteGalleryImagePromptSchema.extend({
+  chatId: z.string().trim().min(1).max(200),
+});
 
 const rewrittenGalleryBasePromptSchema = regenerateGalleryImageSchema
   .pick({ prompt: true, negativePrompt: true })
@@ -2145,6 +2161,225 @@ export async function galleryRoutes(app: FastifyInstance) {
   });
 
   // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
+  // Revise an image prompt draft with the chat's Prompt Model. Roleplay images and Professor Mari's share it; hers go
+  // out without character captions, so `captions: false` keeps the rewrite from adding any.
+  const reviseImagePromptDraft = async (
+    reply: FastifyReply,
+    chat: NonNullable<Awaited<ReturnType<typeof chats.getById>>>,
+    input: z.infer<typeof rewriteGalleryImagePromptSchema>,
+    recordedConnectionId: string | null | undefined,
+    options: { captions: boolean } = { captions: true },
+  ) => {
+    const chatId = chat.id;
+    const metadata = parseChatMetadata(chat.metadata);
+    const connections = createConnectionsStorage(app.db);
+    const imageConnection = await resolveRegenerationImageConnection(
+      app,
+      connections,
+      chat.mode,
+      metadata,
+      input.connectionId,
+      recordedConnectionId,
+    );
+    if (input.connectionId && !imageConnection) {
+      return reply.status(400).send({ error: "That image connection no longer exists." });
+    }
+
+    const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
+    const captionLimit = options.captions && imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
+    const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
+    if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
+    const hasDraftCaptions = input.characterPrompts.length > 0;
+    const userPrompt = JSON.stringify({
+      prompt: input.prompt,
+      negativePrompt: input.negativePrompt,
+      // Without native captions, generation appends them to the prompt, so the model revises them too.
+      ...(captionLimit > 0 || hasDraftCaptions
+        ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
+        : {}),
+      guidance: input.guidance ?? "",
+    });
+    if (userPrompt.length > 24_000) {
+      return reply
+        .status(400)
+        .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
+    }
+
+    let runtime;
+    let visibleMaxTokens;
+    try {
+      const illustrator = await createAgentsStorage(app.db).getByType("illustrator");
+      visibleMaxTokens = normalizeAgentMaxTokens(parseJsonRecord(illustrator?.settings).maxTokens);
+      const promptConnectionId =
+        readTrimmedString(metadata.illustratorPromptConnectionId) ??
+        readTrimmedString(illustrator?.connectionId) ??
+        resolveAgentsDefaultConnectionId({
+          useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
+          localSidecarAvailable: sidecarModelService.getConfiguredModelRef() !== null,
+          rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
+        }) ??
+        chat.connectionId;
+      runtime = await resolveIllustratorPromptRuntime({
+        chatMetadata: metadata,
+        defaultConnection: null,
+        defaultConnectionId: promptConnectionId,
+        connections,
+        resolveBaseUrl,
+      });
+    } catch {
+      logger.warn("[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
+      return reply
+        .status(400)
+        .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
+    }
+
+    const systemPrompt = appendImagePromptInstructions(
+      [
+        "Revise this existing image-generation draft according to the guidance field.",
+        "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
+        "If guidance is empty, offer alternate wording that faithfully describes the same image.",
+        ...(captionLimit > 0
+          ? [
+              "This image connection supports native NovelAI character prompts. Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
+              ...(hasDraftCaptions
+                ? [
+                    'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                    "Return one entry for each input character with the same id. Add entries only for new characters requested in the guidance. For each new character, include a short name and assign the next unused id starting at the number of input characters. Update the main prompt's character counts and shared actions as needed.",
+                    `Return at most ${captionLimit} captions in total.`,
+                    "Omit position to keep an existing character's placement or leave a new character's placement automatic. If the guidance requests placement, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
+                  ]
+                : [
+                    'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
+                    "When a separate caption helps fulfill the guidance, move character-specific details from the draft into one caption per visible subject, including solo subjects. Use a short descriptive name if the draft gives no name. Keep counts, shared actions, composition and setting in the main prompt.",
+                    `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters.`,
+                    ...NOVELAI_CHARACTER_PROMPT_RULES,
+                    'Omit "position" unless the layout is clear and you can give both x and y as numbers.',
+                  ]),
+            ]
+          : hasDraftCaptions
+            ? [
+                'This image model has no native character prompts. Each character caption is appended to the main prompt as "name: prompt", so apply changes to the main, negative and character prompts where relevant, and keep them consistent.',
+                'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
+                "Return one entry for each input character with the same id. Do not add or remove characters; describe any new character in the main prompt.",
+              ]
+            : [
+                "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
+                'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
+              ]),
+        "Use an empty string for any negative prompt that should be blank.",
+        "Image prompt instructions apply to the strings inside this JSON format.",
+      ].join("\n"),
+      imageConnection?.imagePromptInstructions,
+    );
+    logDebugOverride(
+      input.debugMode || isDebugAgentsEnabled(),
+      "[debug/gallery/regenerate/prompt] system:\n%s\nuser:\n%s",
+      systemPrompt,
+      userPrompt,
+    );
+    const rejectRewrite = (error: string) => {
+      logger.warn("[gallery/regenerate/prompt] Rewrite failed for chat %s: %s", chatId, error);
+      return reply.status(502).send({ error });
+    };
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+    let result;
+    try {
+      result = await runtime.provider.chatComplete(messages, {
+        model: runtime.model,
+        ...(runtime.suppressModelParameters ? {} : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.55)),
+        suppressModelParameters: runtime.suppressModelParameters,
+        preserveContext: true,
+        enableCaching: runtime.enableCaching,
+        anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
+        signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
+      });
+    } catch {
+      return rejectRewrite("The Prompt Model request failed. Try again or check its connection.");
+    }
+    if (result.finishReason === "length") {
+      return rejectRewrite(
+        "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
+      );
+    }
+    const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
+    const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
+    // Repair syntax only when the model supplied an object with a closing brace.
+    const json = fenced.match(/\{[\s\S]*\}/)?.[0];
+    const parsed = json ? tryParseJsonRecord(json) : null;
+    if (!parsed) return rejectRewrite("The Prompt Model did not return a valid JSON object. Try revising again.");
+
+    const invalidFields = "The Prompt Model returned missing or invalid prompt fields. Try revising again.";
+    if (captionLimit === 0 && !hasDraftCaptions) {
+      const base = rewrittenGalleryBasePromptSchema.safeParse(parsed);
+      if (!base.success) return rejectRewrite(invalidFields);
+      return { ...base.data, characterPrompts: [] };
+    }
+    if (captionLimit === 0) {
+      // Revised in place: names and positions stay, so the captions still work if the user switches back to NovelAI.
+      const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+      if (!revision.success) return rejectRewrite(invalidFields);
+      const byId = new Map(revision.data.characterPrompts.map((character) => [character.id, character]));
+      if (
+        byId.size !== input.characterPrompts.length ||
+        revision.data.characterPrompts.length !== byId.size ||
+        input.characterPrompts.some((_, id) => !byId.has(id))
+      ) {
+        return rejectRewrite(
+          "The Prompt Model returned missing, duplicate, or extra character IDs. Try revising again.",
+        );
+      }
+      return {
+        prompt: revision.data.prompt,
+        negativePrompt: revision.data.negativePrompt,
+        characterPrompts: input.characterPrompts.map((original, id) => {
+          const { prompt, negativePrompt } = byId.get(id)!;
+          return { ...original, prompt, negativePrompt };
+        }),
+      };
+    }
+    if (Array.isArray(parsed.characterPrompts) && parsed.characterPrompts.length > captionLimit) {
+      return rejectRewrite(
+        `The Prompt Model returned ${parsed.characterPrompts.length} character prompts, but this NovelAI model accepts up to ${captionLimit}. Ask for fewer characters or select another image model.`,
+      );
+    }
+    if (!hasDraftCaptions) {
+      const extracted = extractedGalleryImagePromptSchema.safeParse(parsed);
+      if (!extracted.success) return rejectRewrite(invalidFields);
+      return extracted.data;
+    }
+    const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
+    if (!revision.success) return rejectRewrite(invalidFields);
+    const revised = revision.data;
+    const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
+    if (
+      byId.size < input.characterPrompts.length ||
+      byId.size !== revised.characterPrompts.length ||
+      revised.characterPrompts.some((_, id) => !byId.has(id))
+    ) {
+      return rejectRewrite(
+        "The Prompt Model returned missing, duplicate, or out-of-sequence character IDs. Try revising again.",
+      );
+    }
+    return {
+      prompt: revised.prompt,
+      negativePrompt: revised.negativePrompt,
+      characterPrompts: Array.from({ length: byId.size }, (_, id) => {
+        const original = input.characterPrompts[id];
+        const { name, prompt, negativePrompt, position } = byId.get(id)!;
+        return {
+          name: original?.name ?? name ?? `Character ${id + 1}`,
+          prompt,
+          negativePrompt,
+          position: position ?? original?.position,
+        };
+      }),
+    };
+  };
+
+  // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
   app.post<{ Params: { chatId: string; imageId: string } }>(
     "/:chatId/images/:imageId/regenerate/prompt",
     async (req, reply) => {
@@ -2156,217 +2391,81 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
       const original = await storage.getById(imageId, chatId);
       if (!original) return reply.status(404).send({ error: "Image not found" });
-
-      const metadata = parseChatMetadata(chat.metadata);
-      const connections = createConnectionsStorage(app.db);
-      const imageConnection = await resolveRegenerationImageConnection(
-        app,
-        connections,
-        chat.mode,
-        metadata,
-        input.connectionId,
+      return reviseImagePromptDraft(
+        reply,
+        chat,
+        input,
         parseChatImageGenerationRecord(original.generation)?.connectionId,
       );
-      if (input.connectionId && !imageConnection) {
-        return reply.status(400).send({ error: "That image connection no longer exists." });
-      }
-
-      const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
-      const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
-      const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
-      if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
-      const hasDraftCaptions = input.characterPrompts.length > 0;
-      const userPrompt = JSON.stringify({
-        prompt: input.prompt,
-        negativePrompt: input.negativePrompt,
-        // Without native captions, generation appends them to the prompt, so the model revises them too.
-        ...(captionLimit > 0 || hasDraftCaptions
-          ? { characterPrompts: input.characterPrompts.map((character, id) => ({ ...character, id })) }
-          : {}),
-        guidance: input.guidance ?? "",
-      });
-      if (userPrompt.length > 24_000) {
-        return reply
-          .status(400)
-          .send({ error: "This prompt draft is too long for AI rewriting. Shorten the draft and try again." });
-      }
-
-      let runtime;
-      let visibleMaxTokens;
-      try {
-        const illustrator = await createAgentsStorage(app.db).getByType("illustrator");
-        visibleMaxTokens = normalizeAgentMaxTokens(parseJsonRecord(illustrator?.settings).maxTokens);
-        const promptConnectionId =
-          readTrimmedString(metadata.illustratorPromptConnectionId) ??
-          readTrimmedString(illustrator?.connectionId) ??
-          resolveAgentsDefaultConnectionId({
-            useLocalSidecarAsAgentsDefault: sidecarModelService.getConfig().useAsAgentsDefault,
-            localSidecarAvailable: sidecarModelService.getConfiguredModelRef() !== null,
-            rowDefaultConnectionId: (await connections.getDefaultForAgents())?.id ?? null,
-          }) ??
-          chat.connectionId;
-        runtime = await resolveIllustratorPromptRuntime({
-          chatMetadata: metadata,
-          defaultConnection: null,
-          defaultConnectionId: promptConnectionId,
-          connections,
-          resolveBaseUrl,
-        });
-      } catch {
-        logger.warn("[gallery/regenerate/prompt] Prompt Model unavailable for chat %s", chatId);
-        return reply
-          .status(400)
-          .send({ error: "The Prompt Model is unavailable. Check the Illustrator and Agents model settings." });
-      }
-
-      const systemPrompt = appendImagePromptInstructions(
-        [
-          "Revise this existing image-generation draft according to the guidance field.",
-          "Preserve the draft's subject, details, style and prompt syntax except where the guidance requests changes.",
-          "If guidance is empty, offer alternate wording that faithfully describes the same image.",
-          ...(captionLimit > 0
-            ? [
-                "This image connection supports native NovelAI character prompts. Apply changes to the main, negative and character prompts where relevant. Keep the main scene and individual character captions separate.",
-                ...(hasDraftCaptions
-                  ? [
-                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-                      "Return one entry for each input character with the same id. Add entries only for new characters requested in the guidance. For each new character, include a short name and assign the next unused id starting at the number of input characters. Update the main prompt's character counts and shared actions as needed.",
-                      `Return at most ${captionLimit} captions in total.`,
-                      "Omit position to keep an existing character's placement or leave a new character's placement automatic. If the guidance requests placement, include position as an object with numeric x and y between 0 and 1, where x runs left to right and y runs top to bottom.",
-                    ]
-                  : [
-                      'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"name":"…","prompt":"…","negativePrompt":"…"}]}.',
-                      "When a separate caption helps fulfill the guidance, move character-specific details from the draft into one caption per visible subject, including solo subjects. Use a short descriptive name if the draft gives no name. Keep counts, shared actions, composition and setting in the main prompt.",
-                      `Return at most ${captionLimit} captions. Use an empty array when no separate caption is needed. Preserve the draft's characters.`,
-                      ...NOVELAI_CHARACTER_PROMPT_RULES,
-                      'Omit "position" unless the layout is clear and you can give both x and y as numbers.',
-                    ]),
-              ]
-            : hasDraftCaptions
-              ? [
-                  'This image model has no native character prompts. Each character caption is appended to the main prompt as "name: prompt", so apply changes to the main, negative and character prompts where relevant, and keep them consistent.',
-                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…","characterPrompts":[{"id":0,"prompt":"…","negativePrompt":"…"}]}.',
-                  "Return one entry for each input character with the same id. Do not add or remove characters; describe any new character in the main prompt.",
-                ]
-              : [
-                  "Apply changes to the main and negative prompts where relevant. Keep character descriptions in the main prompt.",
-                  'Return only JSON in the format {"prompt":"…","negativePrompt":"…"}.',
-                ]),
-          "Use an empty string for any negative prompt that should be blank.",
-          "Image prompt instructions apply to the strings inside this JSON format.",
-        ].join("\n"),
-        imageConnection?.imagePromptInstructions,
-      );
-      logDebugOverride(
-        input.debugMode || isDebugAgentsEnabled(),
-        "[debug/gallery/regenerate/prompt] system:\n%s\nuser:\n%s",
-        systemPrompt,
-        userPrompt,
-      );
-      const rejectRewrite = (error: string) => {
-        logger.warn("[gallery/regenerate/prompt] Rewrite failed for chat %s: %s", chatId, error);
-        return reply.status(502).send({ error });
-      };
-      const messages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ];
-      let result;
-      try {
-        result = await runtime.provider.chatComplete(messages, {
-          model: runtime.model,
-          ...(runtime.suppressModelParameters
-            ? {}
-            : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.55)),
-          suppressModelParameters: runtime.suppressModelParameters,
-          preserveContext: true,
-          enableCaching: runtime.enableCaching,
-          anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
-          signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
-        });
-      } catch {
-        return rejectRewrite("The Prompt Model request failed. Try again or check its connection.");
-      }
-      if (result.finishReason === "length") {
-        return rejectRewrite(
-          "The Prompt Model reached its output limit. Increase the limit or shorten the draft and try again.",
-        );
-      }
-      const raw = (result.content ?? "").replace(/^\s*<think>[\s\S]*?<\/think>/i, "").trim();
-      const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)?.[1] ?? raw;
-      // Repair syntax only when the model supplied an object with a closing brace.
-      const json = fenced.match(/\{[\s\S]*\}/)?.[0];
-      const parsed = json ? tryParseJsonRecord(json) : null;
-      if (!parsed) return rejectRewrite("The Prompt Model did not return a valid JSON object. Try revising again.");
-
-      const invalidFields = "The Prompt Model returned missing or invalid prompt fields. Try revising again.";
-      if (captionLimit === 0 && !hasDraftCaptions) {
-        const base = rewrittenGalleryBasePromptSchema.safeParse(parsed);
-        if (!base.success) return rejectRewrite(invalidFields);
-        return { ...base.data, characterPrompts: [] };
-      }
-      if (captionLimit === 0) {
-        // Revised in place: names and positions stay, so the captions still work if the user switches back to NovelAI.
-        const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
-        if (!revision.success) return rejectRewrite(invalidFields);
-        const byId = new Map(revision.data.characterPrompts.map((character) => [character.id, character]));
-        if (
-          byId.size !== input.characterPrompts.length ||
-          revision.data.characterPrompts.length !== byId.size ||
-          input.characterPrompts.some((_, id) => !byId.has(id))
-        ) {
-          return rejectRewrite(
-            "The Prompt Model returned missing, duplicate, or extra character IDs. Try revising again.",
-          );
-        }
-        return {
-          prompt: revision.data.prompt,
-          negativePrompt: revision.data.negativePrompt,
-          characterPrompts: input.characterPrompts.map((original, id) => {
-            const { prompt, negativePrompt } = byId.get(id)!;
-            return { ...original, prompt, negativePrompt };
-          }),
-        };
-      }
-      if (Array.isArray(parsed.characterPrompts) && parsed.characterPrompts.length > captionLimit) {
-        return rejectRewrite(
-          `The Prompt Model returned ${parsed.characterPrompts.length} character prompts, but this NovelAI model accepts up to ${captionLimit}. Ask for fewer characters or select another image model.`,
-        );
-      }
-      if (!hasDraftCaptions) {
-        const extracted = extractedGalleryImagePromptSchema.safeParse(parsed);
-        if (!extracted.success) return rejectRewrite(invalidFields);
-        return extracted.data;
-      }
-      const revision = rewrittenGalleryImagePromptSchema.safeParse(parsed);
-      if (!revision.success) return rejectRewrite(invalidFields);
-      const revised = revision.data;
-      const byId = new Map(revised.characterPrompts.map((character) => [character.id, character]));
-      if (
-        byId.size < input.characterPrompts.length ||
-        byId.size !== revised.characterPrompts.length ||
-        revised.characterPrompts.some((_, id) => !byId.has(id))
-      ) {
-        return rejectRewrite(
-          "The Prompt Model returned missing, duplicate, or out-of-sequence character IDs. Try revising again.",
-        );
-      }
-      return {
-        prompt: revised.prompt,
-        negativePrompt: revised.negativePrompt,
-        characterPrompts: Array.from({ length: byId.size }, (_, id) => {
-          const original = input.characterPrompts[id];
-          const { name, prompt, negativePrompt, position } = byId.get(id)!;
-          return {
-            name: original?.name ?? name ?? `Character ${id + 1}`,
-            prompt,
-            negativePrompt,
-            position: position ?? original?.position,
-          };
-        }),
-      };
     },
   );
+
+  // Professor Mari's generated images are preview assets (a manifest entry, no gallery row). Her chat's lightbox reads
+  // the saved request here, revises it with the chat's Prompt Model and regenerates it as a new asset.
+  const getMariChat = async (chatId: string) => {
+    const chat = await chats.getById(chatId);
+    return chat && parseChatMetadata(chat.metadata).internalAssistant === "professor-mari" ? chat : null;
+  };
+
+  app.get<{ Params: { assetId: string } }>("/mari-images/assets/:assetId", async (req, reply) => {
+    const asset = await getMariPreviewAsset(req.params.assetId);
+    if (!asset) return reply.status(404).send({ error: "Image not found" });
+    return { asset, regenerable: isMariPreviewAssetRegenerable(asset) };
+  });
+
+  app.post<{ Params: { assetId: string } }>("/mari-images/assets/:assetId/regenerate/prompt", async (req, reply) => {
+    const { chatId, ...draft } = reviseMariImagePromptSchema.parse(req.body);
+    const chat = await getMariChat(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    const asset = await getMariPreviewAsset(req.params.assetId);
+    if (!asset) return reply.status(404).send({ error: "Image not found" });
+    return reviseImagePromptDraft(reply, chat, draft, asset.connectionId, { captions: false });
+  });
+
+  // The new asset replaces the old one in the reply it was opened from (#9387); the old file stays in the manifest.
+  app.post<{ Params: { assetId: string } }>("/mari-images/assets/:assetId/regenerate", async (req, reply) => {
+    const { assetId } = req.params;
+    const input = regenerateMariImageSchema.parse(req.body);
+    if (input.messageId && !input.chatId) return reply.status(400).send({ error: "messageId needs chatId" });
+    const chat = input.chatId ? await getMariChat(input.chatId) : null;
+    if (input.chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    logDebugOverride(
+      input.debugMode || isDebugAgentsEnabled(),
+      "[debug/gallery/mari-images/regenerate] final prompt:\n%s",
+      input.prompt,
+    );
+
+    let result;
+    try {
+      result = await getMariImagesService(app.db).regeneratePreviewAsset(assetId, {
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt,
+        connectionId: input.connectionId,
+      });
+    } catch (err) {
+      logger.warn(err, "[gallery/mari-images/regenerate] Regenerating Mari image %s failed", assetId);
+      return reply.status(502).send({ error: err instanceof Error ? err.message : "Image regeneration failed" });
+    }
+    if (!result) return reply.status(404).send({ error: "Image not found" });
+
+    const swapped =
+      chat && input.messageId
+        ? await swapMariPreviewAssetInMessage(app.db, chat.id, input.messageId, result.previous, result.asset)
+        : null;
+    logger.info(
+      "[gallery/mari-images/regenerate] Regenerated Mari image %s as %s (message swapped: %s)",
+      assetId,
+      result.asset.id,
+      !!swapped,
+    );
+    return {
+      asset: result.asset,
+      regenerable: isMariPreviewAssetRegenerable(result.asset),
+      replacedMessageIds: swapped ? [input.messageId] : [],
+      // What the swap wrote, so her window patches its own transcript with exactly the stored text.
+      replacedMessages: swapped && input.messageId ? [{ id: input.messageId, ...swapped }] : [],
+    };
+  });
 
   // Regenerate an existing image from its final request, optionally edited (#7767). The new image
   // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the

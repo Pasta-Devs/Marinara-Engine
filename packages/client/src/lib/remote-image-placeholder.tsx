@@ -1,5 +1,5 @@
 // React side of click-to-load for images from other websites (see remote-image-policy.ts).
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { heldRemoteImageHref, loadRemoteImage, useRemoteImagePolicy } from "./remote-image-policy";
 import { remoteImageHost } from "./remote-images";
@@ -43,11 +43,37 @@ export function RemoteImageGate({ src, children }: { src: string; children: Reac
   return href ? <RemoteImagePlaceholder href={href} /> : children;
 }
 
+/**
+ * Opens a Markdown image full size. A surface that provides it (Professor Mari's replies, #9387) makes its message
+ * images buttons; everywhere else they stay plain images.
+ */
+export const MessageImageOpenContext = createContext<
+  ((image: { src: string; alt: string; trigger: HTMLElement }) => void) | null
+>(null);
+
 /** A Markdown image in message content. */
 export function MessageImage({ src, alt, className }: { src: string; alt: string; className: string }) {
+  const { t } = useTranslation();
+  const open = useContext(MessageImageOpenContext);
+  const image = (
+    <img src={src} alt={alt} className={className} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+  );
   return (
     <RemoteImageGate src={src}>
-      <img src={src} alt={alt} className={className} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+      {open ? (
+        // Same title and label as a roleplay message's image attachment (ChatMessage.tsx).
+        <button
+          type="button"
+          onClick={(event) => open({ src, alt, trigger: event.currentTarget })}
+          className="inline-block max-w-full cursor-zoom-in rounded-lg align-bottom focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+          title={t("ui.noodle.noodlepostcard.openImage")}
+          aria-label={t("ui.chat.chatmessage.openValue1", { value1: alt || t("ui.ui.spritegenerationmodal.image") })}
+        >
+          {image}
+        </button>
+      ) : (
+        image
+      )}
     </RemoteImageGate>
   );
 }
