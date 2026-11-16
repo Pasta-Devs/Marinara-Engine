@@ -3018,7 +3018,7 @@ export function resolveWorkspaceMutationVerification(
       unverifiedMutationSeen &&
       result.success &&
       result.name !== "package_service" &&
-      isReadOnlyWorkspaceCommand(commandCallForResult(result))
+      isStateReadCommand(commandCallForResult(result))
     ) {
       unverifiedMutationSeen = false;
     }
@@ -3108,7 +3108,31 @@ function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
   const call = commandCallForResult(result);
   // A package action list shows what a package offers, never what any store holds.
   if (call.name === "docs_search" || call.name === "docs_read" || call.name === "package_service") return false;
-  return isReadOnlyWorkspaceCommand(call);
+  return isStateReadCommand(call);
+}
+
+/**
+ * #9348: a lone `mari <area> get|list|look|view|search …` shell command reads the store as surely as `app_data`'s
+ * get, so the claim audit counts it as a state read. Only for the audit: execution still treats every bash command as
+ * a possible change. Anything compounded (pipes, `;`, `&&`, redirects, substitutions) or carrying `--apply` stays out,
+ * and so does an area that reads somewhere else (`mari wiki search` reads Fandom, not the store).
+ */
+const MARI_STORE_READ =
+  /^mari\s+(?:characters?|personas?|lorebooks?|chats?|presets?|themes?|images?|media|db)\s+(?:get|list|look|view|search)(?:\s|$)/u;
+
+export function bashIsLoneMariRead(command: string): boolean {
+  const normalized = command.trim();
+  // `--help` succeeds without reading anything, so it cannot pay a write's debt either.
+  if (!normalized || /[;&|<>`\n\r]|\$\(/u.test(normalized) || /\s(?:--apply|--help|-h)(?:\s|=|$)/u.test(normalized)) {
+    return false;
+  }
+  return MARI_STORE_READ.test(normalized);
+}
+
+function isStateReadCommand(call: WorkspaceCommandCall): boolean {
+  if (isReadOnlyWorkspaceCommand(call)) return true;
+  const command = call.arguments.command;
+  return call.name === "bash" && typeof command === "string" && bashIsLoneMariRead(command);
 }
 
 function scopeHasSuccessfulStateRead(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
