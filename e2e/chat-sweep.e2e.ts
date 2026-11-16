@@ -3,6 +3,7 @@ import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { test, expect, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture";
+import { chooseOption } from "./select-field";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -1243,8 +1244,8 @@ test("Notification position is selectable, moves errors, and survives reload", a
     .first()
     .click();
   await expect(selector).toBeFocused();
-  await expect(selector).toHaveValue("top");
-  await selector.selectOption("bottom");
+  await expect(selector).toHaveAttribute("data-value", "top");
+  await chooseOption(page, selector, "Bottom");
   const error = async () => {
     await prepareViteFixtureDependencies(page, "/src/App.tsx");
     await page.evaluate(async () => {
@@ -1257,10 +1258,10 @@ test("Notification position is selectable, moves errors, and survives reload", a
     "Notification position fixture",
   );
   await page.reload();
-  await expect(selector).toHaveValue("bottom");
+  await expect(selector).toHaveAttribute("data-value", "bottom");
   await error();
   await expect(page.locator('[data-sonner-toaster][data-y-position="bottom"] [data-sonner-toast]')).toBeVisible();
-  await selector.selectOption("top");
+  await chooseOption(page, selector, "Top");
   await expect(page.locator('[data-sonner-toaster][data-y-position="top"] [data-sonner-toast]')).toBeVisible();
 });
 

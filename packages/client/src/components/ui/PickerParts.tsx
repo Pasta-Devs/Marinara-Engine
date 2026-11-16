@@ -11,7 +11,8 @@ import { cn } from "../../lib/utils";
 /** Items in no folder get their own "Ungrouped" folder only from this many; fewer sit loose under the folders. */
 export const UNGROUPED_FOLDER_MIN = 8;
 
-const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-12";
+// Phone rows are 52 px, the S.O.U.P. list-row height.
+const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-13";
 // The keyboard ring: the search keeps focus, so the highlighted row is marked, not focused.
 const ACTIVE_RING =
   "data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]";
@@ -64,7 +65,8 @@ export function usePickerKeyboard({
   query,
 }: {
   listRef: RefObject<HTMLElement | null>;
-  searchRef: RefObject<HTMLInputElement | null>;
+  /** The element holding focus: the search box, or the list itself when there is none. */
+  searchRef: RefObject<HTMLElement | null>;
   listId: string;
   query: string;
 }) {
@@ -199,7 +201,7 @@ export function usePickerKeyboard({
     if (!box || !wrapper) return false;
     return down ? box.bottom - wrapper.bottom > 2 : wrapper.top - box.top > 2;
   };
-  return (event: KeyboardEvent<HTMLInputElement>) => {
+  return (event: KeyboardEvent<HTMLElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const all = rows();
     const count = all.length;

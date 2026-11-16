@@ -30,6 +30,7 @@ import {
 } from "../../stores/ui.store";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
+import { Select } from "../ui/Select";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -878,22 +879,18 @@ function ImageStyleProfilesEditor({
     <div className="rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
       <div className="space-y-3">
         <div className="grid gap-2">
-          <label className="min-w-0">
+          <div className="min-w-0">
             <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
             </span>
-            <select
+            <Select
               value={settings.defaultProfileId}
-              onChange={(event) => setDefaultProfileId(event.target.value)}
+              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+              onChange={setDefaultProfileId}
+              label={localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
               className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            >
-              {settings.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="min-w-0">
             <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
@@ -2359,21 +2356,24 @@ function GeneralSettings() {
         icon={<Bell size="0.875rem" />}
         {...getSettingsSectionAnchorProps("notifications")}
       >
-        <label
+        {/* A div, not a label: a label would open the list on a tap on the help text. */}
+        <div
           id={getSettingsControlAnchorId("notification-position")}
           className="mb-3 flex scroll-mt-3 flex-col gap-1.5 text-xs"
         >
           <span>{localizeUi("settings.notifications.position.label")}</span>
-          <select
+          <Select
             value={notificationPosition}
-            onChange={(event) => setNotificationPosition(event.target.value === "bottom" ? "bottom" : "top")}
+            options={[
+              { value: "top", label: localizeUi("settings.notifications.position.top") },
+              { value: "bottom", label: localizeUi("settings.notifications.position.bottom") },
+            ]}
+            onChange={setNotificationPosition}
+            label={localizeUi("settings.notifications.position.label")}
             className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
-          >
-            <option value="top">{localizeUi("settings.notifications.position.top")}</option>
-            <option value="bottom">{localizeUi("settings.notifications.position.bottom")}</option>
-          </select>
+          />
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
-        </label>
+        </div>
         <ConversationSoundSetting />
       </SettingsSection>
 
