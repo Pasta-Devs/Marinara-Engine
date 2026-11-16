@@ -27,11 +27,19 @@ To use the user's house style instead:
 - `mari images styles <id|name>` shows one profile in full, including negative tags and its **per-image tags** for each kind.
 - `--style` (or `--style default`) applies the default profile (or the image model's own, if it has one). `--style <id|name>` applies that profile.
 
-A style adds the profile's positive tags, its per-image tags for `--kind`, its style text and the connection's prompt prefix. For kind `avatar`, `portrait` or `sprite` it may also distil your prose into short tags. Every result has a `style` block: the profile and why it was chosen, your `requestedPrompt`, the final `prompt`, what was `added`, removed or `movedToNegative`. Check it before you show the image, and tell the user when a style changed the prompt.
+A style adds the profile's positive tags, its per-image tags for `--kind`, its style text and the connection's prompt prefix. Every result has a `style` block: the profile and why it was chosen, your `requestedPrompt`, the final `prompt`, what was `added`, `removedDuplicates`, `movedToNegative`, and `dropped`: the tags you wrote that didn't reach the image model. Check it before you show the image, and tell the user when a style changed or dropped part of the prompt.
 
 ## The kind
 
-`--kind` is `illustration` (default), `avatar`, `portrait`, `selfie`, `background` or `sprite`. Without a style it only picks the default size. With a style it also picks the per-image tags, and `avatar`, `portrait` and `sprite` add character framing such as "portrait, upper body". For scenery, world cards, covers and lorebook images use `illustration` or `background`, even when the image will become an avatar.
+Use `illustration` (the default) for every image, character avatars included, and set the shape with `--width` and `--height` (for example 1024 by 1024 for an avatar). It keeps your prompt intact.
+
+`--kind` can also be `avatar`, `portrait`, `selfie`, `background` or `sprite`. Without a style the kind only picks the default size. With a style it also picks the profile's per-image tags, and the kinds treat your prompt differently:
+
+- `avatar` **rewrites your prompt** down to the visual tags the compiler recognises. Character names, series tags, `1girl`, ages and specific traits are usually dropped. That hurts most on NovelAI and other Danbooru-style models, which recognise a character by name and series. The result's `dropped` list and `note` show what went.
+- `portrait` and `sprite` add character framing such as "portrait, upper body" and may compact your prompt into tags.
+- `illustration`, `background` and `selfie` keep your wording.
+
+Only use `avatar`, `portrait` or `sprite` when the user wants that profile's framing, and check `dropped` before you show the image.
 
 ## When something looks wrong
 
