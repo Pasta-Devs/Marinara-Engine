@@ -706,7 +706,9 @@ function distillTaggedPromptSource(value: string): string {
       }
     }
   }
-  if (fragments.length === 0) {
+  // A "no X" clause leaves an "avoid X" fragment behind, which must not stand in for the subject: fall back to the
+  // source's own wording whenever no positive fragment survived.
+  if (!fragments.some((fragment) => !hasAvoidInstructionPrefix(fragment))) {
     fragments.push(...fallbackTaggedSourceFragments(value));
   }
   return fragments.join(", ");

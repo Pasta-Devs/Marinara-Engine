@@ -2053,6 +2053,39 @@ const cases: RegressionCase[] = [
       assert.equal(compiled.profile.id, "off");
     },
   },
+  {
+    // #9329: the "no characters" clause used to leave only an "avoid" fragment, so the avatar prompt lost its subject.
+    name: "a no-clause does not wipe the subject of a distilled avatar prompt",
+    run() {
+      const styleProfiles = normalizeImageStyleProfileSettings({
+        defaultProfileId: "house",
+        profiles: [
+          {
+            id: "house",
+            name: "House",
+            baseStyle: "custom",
+            promptMode: "hybrid",
+            styleText: "",
+            positiveTags: "house style",
+            negativeTags: "",
+            subjectTags: { avatar: "portrait, upper body" },
+            rules: { dedupeStrength: "normal", preferTagsOverNarrative: false, preserveUserPhrases: true },
+            builtIn: false,
+          },
+        ],
+      });
+      const compiled = compileImagePrompt({
+        kind: "avatar",
+        prompt: "a castle above a lake at dusk, no characters",
+        styleProfiles,
+        styleProfileId: "house",
+      });
+
+      assert.match(compiled.prompt, /a castle above a lake at dusk/);
+      assert.doesNotMatch(compiled.prompt, /no characters|avoid/);
+      assert.match(compiled.negativePrompt, /characters/);
+    },
+  },
 ];
 
 await runNamedCases(cases);
