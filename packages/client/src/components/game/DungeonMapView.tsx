@@ -43,6 +43,15 @@ import {
   paintFoundTrap,
   paintSiteLink,
 } from "../../lib/building-paint";
+import {
+  dungeonPaintsSet,
+  paintDungeonFloor,
+  paintDungeonPool,
+  paintPoolRim,
+  paintDungeonProp,
+  paintDungeonWall,
+  paintDungeonWay,
+} from "../../lib/dungeon-paint";
 
 const T = OVERWORLD_TILE;
 type Point = { x: number; y: number };
@@ -108,13 +117,23 @@ export function DungeonMapView({
         kept.hand ?? null,
         kept.links ?? null,
         kept.site?.level ?? null,
+        kept.floor ?? null,
+        kept.down ?? null,
       ])
     : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for every field the cells read
   const cells = useMemo(() => (kept ? dungeonFromGameDungeonMap(kept) : null), [layoutKey]);
-  // A planned building's ways to its other levels, drawn into the base with the layout.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for the links and the level
-  const links = useMemo(() => ({ list: kept?.links ?? [], level: kept?.site?.level ?? 0 }), [layoutKey]);
+  // A planned building's ways to its other levels, and a carved place's ways out, up and down.
+  const links = useMemo(
+    () => ({
+      list: kept?.links ?? [],
+      level: kept?.site?.level ?? 0,
+      down: kept?.down,
+      floor: kept?.floor ?? 1,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the layout key stands for the links and the ways
+    [layoutKey],
+  );
   const set = kept ? DUNGEON_SETS.find((each) => each.id === kept.set) : undefined;
   const pack = useDungeonPack(kept?.pack ?? kept?.set, dungeonLooks);
   // A pack of the set's own: "dungeon" names no family the library chooses for, so only `own` draws.
@@ -143,7 +162,8 @@ export function DungeonMapView({
     ctx.imageSmoothingEnabled = true;
     // A building gone bad with no pack of its own: drawn as a building, walls, hall, rooms and furniture.
     const building = buildingStyleOf(cells.set);
-    if (building && !drawTile.image) {
+    const coded = !drawTile.image && (building !== null || dungeonPaintsSet(cells.set));
+    if (coded) {
       const at = (x: number, y: number) =>
         x < 0 || y < 0 || x >= cells.width || y >= cells.height ? "rock" : cells.ground[y * cells.width + x];
       const inRoom = (x: number, y: number) =>
@@ -161,18 +181,34 @@ export function DungeonMapView({
           if (ground === "rock") continue;
           if (ground === "wall") {
             const below = at(x, y + 1);
-            paintBuildingWall(ctx, building, x * T, y * T, below === "floor" || below === "liquid", noise);
-          } else if (ground === "liquid") paintBuildingWater(ctx, x * T, y * T, noise);
-          else
+            const face = below === "floor" || below === "liquid";
+            if (building) paintBuildingWall(ctx, building, x * T, y * T, face, noise);
+            else paintDungeonWall(ctx, cells.set, x * T, y * T, face, noise);
+          } else if (ground === "liquid") {
+            if (building) paintBuildingWater(ctx, x * T, y * T, noise);
+            else paintDungeonPool(ctx, cells.set, x * T, y * T, noise);
+            const dry = (dx: number, dy: number) => at(x + dx, y + dy) !== "liquid";
+            paintPoolRim(ctx, x * T, y * T, { n: dry(0, -1), s: dry(0, 1), w: dry(-1, 0), e: dry(1, 0) });
+          } else if (building)
             paintBuildingFloor(ctx, building, x * T, y * T, isHall(x, y), noise, {
               up: isHall(x, y - 1),
               down: isHall(x, y + 1),
             });
+          // A planned crypt's hall is set apart from its rooms; a carved place's ground is all one.
+          else paintDungeonFloor(ctx, cells.set, x * T, y * T, noise, Boolean(cells.roomNames) && isHall(x, y));
         }
+      const wayOut = dungeonWayOutId(DUNGEON_SETS.find((each) => each.id === cells.set));
+      const way = wayOut === "ladder" ? "ladder" : wayOut === "ladder_hatch" ? "hatch" : "stairs";
       for (let y = 0; y < cells.height; y++)
         for (let x = 0; x < cells.width; x++) {
           const prop = cells.props[y * cells.width + x]!;
-          if (prop >= 0) paintBuildingProp(ctx, building, prop, x * T, y * T);
+          if (prop < 0) continue;
+          if (building) paintBuildingProp(ctx, building, prop, x * T, y * T);
+          else if (prop === DUNGEON_EXIT_PROP) {
+            // The way: out on the first floor, up on the floors below it, and down where the floor goes on.
+            const isDown = links.down?.x === x && links.down?.y === y;
+            paintDungeonWay(ctx, way, isDown ? "down" : links.floor > 1 ? "up" : "out", x * T, y * T);
+          } else paintDungeonProp(ctx, cells.set, prop, x * T, y * T);
         }
       for (const link of links.list) paintSiteLink(ctx, link.kind, link.level > links.level, link.x * T, link.y * T);
       return canvas;

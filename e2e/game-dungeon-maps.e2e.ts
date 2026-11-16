@@ -107,19 +107,22 @@ test("the Game Master opens a crypt, the party walks it, and leaves by the way o
     expect(kept.set).toBe("dungeon_crypt");
     // The map the Engine made is the one the seed makes (nothing random on the way).
     const cells = dungeonFromGameDungeonMap(kept);
-    await expect(page.getByText(/The Old Crypt · area 1/u)).toBeVisible();
+    // A crypt is laid out to a plan (building plans): its levels and rooms by name, the way in in its hall.
+    await expect(page.getByRole("status").filter({ hasText: /The Old Crypt · .+ · in the hall/u })).toBeVisible();
     const leave = page.getByRole("button", { name: "Leave by the stairs", exact: true });
     await expect(leave).toBeVisible();
 
-    // A click on a cell in the last room walks there.
-    const room = kept.rooms.at(-1);
+    // A click on a cell in the last room the party can reach (a locked one waits for its key) walks there.
     let goal: { x: number; y: number } | null = null;
-    for (let y = room.y; y < room.y + room.h && !goal; y++)
-      for (let x = room.x; x < room.x + room.w; x++)
-        if (dungeonWalkable(cells, x, y) && dungeonPath(cells, kept.at, { x, y })) {
-          goal = { x, y };
-          break;
-        }
+    for (const room of [...kept.rooms].reverse()) {
+      for (let y = room.y; y < room.y + room.h && !goal; y++)
+        for (let x = room.x; x < room.x + room.w; x++)
+          if (dungeonWalkable(cells, x, y) && dungeonPath(cells, kept.at, { x, y })) {
+            goal = { x, y };
+            break;
+          }
+      if (goal) break;
+    }
     expect(goal).not.toBeNull();
     const click = async (cell: { x: number; y: number }) => {
       // The view follows the party once its walk is drawn, so the next cell is read off where it stands.
@@ -168,7 +171,7 @@ test("the Game Master opens a crypt, the party walks it, and leaves by the way o
     // The next turn tells the walk.
     await page.getByPlaceholder("What do you do?", { exact: true }).fill("We look around.");
     await page.getByRole("button", { name: "Send game turn", exact: true }).click();
-    await expect.poll(() => model.prompts.some((body) => body.includes("The party walked from area 1"))).toBe(true);
+    await expect.poll(() => model.prompts.some((body) => body.includes("The party walked from"))).toBe(true);
     await expect.poll(async () => (await metadataOf(request, chatId)).gameDungeonWalk).toBeNull();
 
     // Back to the way out, and out.
