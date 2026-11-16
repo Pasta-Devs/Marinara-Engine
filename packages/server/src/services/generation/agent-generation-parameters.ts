@@ -155,6 +155,14 @@ function definedOnly<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
+function resolveAgentReasoning(
+  source: ConnectionParameterSource,
+  resolved: ResolvedGenerationParameters,
+): AgentGenerationParameters["reasoning"] {
+  if (!choseReasoning(source, resolved, true)) return undefined;
+  return definedOnly({ reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking });
+}
+
 /**
  * What a connection contributes to the agent calls made through it. Values behind a switched-off Send switch are left
  * out here, so an agent on the chat's connection, which sends with the chat's switches, still never sends them.
@@ -163,9 +171,6 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
   const resolved = resolveConnectionGenerationParameters(source);
   const sent = <T>(key: keyof GenerationParameterSendMap, value: T) =>
     connectionSends(resolved, key) ? value : undefined;
-  const reasoning = choseReasoning(source, resolved, true)
-    ? { reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking }
-    : undefined;
   return {
     customParameters: resolved.customParameters,
     temperature: resolved.temperature,
@@ -179,7 +184,7 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
       verbosity: sent("verbosity", resolved.verbosity ?? undefined),
       serviceTier: resolved.serviceTier ?? undefined,
       omitTemperature: resolved.isClaudeNoSampling ? true : undefined,
-      reasoning: reasoning ? definedOnly(reasoning) : undefined,
+      reasoning: resolveAgentReasoning(source, resolved),
       thinkingHeadroom: PROVIDERS_WITHOUT_THINKING_HEADROOM.has(source.provider.toLowerCase()) ? undefined : true,
     }),
   };
@@ -211,9 +216,7 @@ export function resolveIllustratorChatReasoning(
   return {
     generation: {
       ...generation,
-      reasoning: choseReasoning(reasoningSource, resolved, true)
-        ? { reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking }
-        : undefined,
+      reasoning: resolveAgentReasoning(reasoningSource, resolved),
     },
     enabledParameters: reasoningEffort === undefined ? enabledParameters : { ...enabledParameters, reasoningEffort },
   };

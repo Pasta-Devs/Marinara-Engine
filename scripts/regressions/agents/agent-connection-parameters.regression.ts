@@ -327,6 +327,9 @@ try {
         await provider.chatComplete(messages, { model, reasoningEffort: "none" });
         assert.equal(requests.at(-1)?.body.reasoning_effort, "low");
 
+        await provider.chatComplete(messages, { model });
+        assert.equal(Object.hasOwn(requests.at(-1)!.body, "reasoning_effort"), false);
+
         await provider.chatComplete(messages, {
           model,
           reasoningEffort: "low",

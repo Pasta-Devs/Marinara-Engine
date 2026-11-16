@@ -173,7 +173,10 @@ export function isMistralGlm53Model(model: string): boolean {
   return /^zai-glm-5-3(?:$|-)/u.test(capabilityModelId(model));
 }
 
-/** NanoGPT's MiniMax M3.1 Flash supports Low through Max, with reasoning always enabled. */
+/**
+ * NanoGPT lists low, medium, high, xhigh and max for MiniMax M3.1 Flash.
+ * https://nano-gpt.com/models/text/minimax/minimax-m3.1-flash
+ */
 export function isNanoGptMiniMaxM31FlashModel(model: string): boolean {
   return /^minimax\/minimax-m3\.1-flash(?::|$)/u.test(capabilityModelId(model));
 }
