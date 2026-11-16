@@ -2950,14 +2950,18 @@ const MARI_LIST_PAGE_BUDGET = MARI_READ_OUTPUT_BUDGET - 2_000;
 // Only a single row too large for a page on its own has its long strings cut.
 const MARI_LIST_ROW_STRING_CLIP = 2_000;
 
+// Strings inside arrays (tags) are clipped too, so no one field keeps the row over the budget.
+function clipListValue(value: unknown): unknown {
+  if (typeof value === "string" && value.length > MARI_LIST_ROW_STRING_CLIP) {
+    return truncateStr(value, MARI_LIST_ROW_STRING_CLIP);
+  }
+  if (Array.isArray(value)) return value.map(clipListValue);
+  return value;
+}
+
 function clipListRow(row: Row): Row {
   const clipped: Row = {};
-  for (const [key, value] of Object.entries(row)) {
-    clipped[key] =
-      typeof value === "string" && value.length > MARI_LIST_ROW_STRING_CLIP
-        ? truncateStr(value, MARI_LIST_ROW_STRING_CLIP)
-        : value;
-  }
+  for (const [key, value] of Object.entries(row)) clipped[key] = clipListValue(value);
   return clipped;
 }
 

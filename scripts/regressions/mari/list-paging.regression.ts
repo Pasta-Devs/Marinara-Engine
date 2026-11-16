@@ -109,6 +109,14 @@ try {
   assert.equal(huge.page.items[0]!.name, "Huge");
   assert.ok(huge.page.items[0]!.summary!.length <= 2_000);
   assert.ok(huge.notes.some((note) => note.includes("matching .get action")));
+  // A huge string inside an array (a tag) is cut as well, so the row cannot stay over the budget.
+  await call({ action: "character.create", data: { name: "Huge tag", tags: ["z".repeat(40_000)] } });
+  const hugeTag = (await page({ action: "character.list", limit: 1 })).page.items[0] as {
+    name: string;
+    tags: string[];
+  };
+  assert.equal(hugeTag.name, "Huge tag");
+  assert.ok(hugeTag.tags[0]!.length <= 2_000, "the tag was clipped");
 
   // The other big lists page the same way.
   for (let index = 0; index < 3; index += 1) {
