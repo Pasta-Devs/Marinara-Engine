@@ -6107,6 +6107,7 @@
   "mari.topbarStatus.finished": "Done",
   "mari.topbarStatus.open": "Open Professor Mari: {{status}}",
   "mari.topbarStatus.working": "Working",
+  "mari.workCard.blockedDraft": "Blocked draft",
   "mari.workCard.couldNotFind": "Couldn't find",
   "mari.workCard.couldNotRead": "Couldn't read",
   "mari.workCard.done": "Done",

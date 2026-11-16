@@ -32,6 +32,7 @@ import {
   WorkspaceTimelineItem,
   appendThinkingTimeline,
   asRecord,
+  appendBlockedDraftTimeline,
   appendStatusTimeline,
   WorkspaceToolCall,
   getToolCallId,
@@ -263,6 +264,10 @@ export function useMariWorkspaceRun({
           if (event.type === "thinking" && typeof event.data === "string") {
             setWorkspaceTimeline((current) => appendThinkingTimeline(current, event.data as string));
             useChatStore.getState().appendThinkingBuffer(event.data, chat.id);
+          } else if (event.type === "blocked_draft" && typeof event.data === "string") {
+            clearDraft();
+            const content = event.data;
+            setWorkspaceTimeline((current) => appendBlockedDraftTimeline(current, content));
           } else if (event.type === "status") {
             const data = asRecord(event.data);
             const content =

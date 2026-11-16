@@ -45,7 +45,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 export function isWorkspaceTraceItem(value: unknown): value is MariWorkspaceTraceItem {
   const record = asRecord(value);
   if (!record || typeof record.type !== "string") return false;
-  if (["text", "thinking", "status"].includes(record.type)) return typeof record.content === "string";
+  if (["text", "thinking", "status", "blocked_draft"].includes(record.type)) return typeof record.content === "string";
   if (record.type !== "tool") return false;
   const tool = asRecord(record.tool);
   return (

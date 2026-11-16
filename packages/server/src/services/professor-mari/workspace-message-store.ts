@@ -76,7 +76,7 @@ export type AssistantRunRecord = {
   heldCalls: WorkspaceCommandCall[];
   runError: { message: string } | null;
   runStartedAt: number;
-  /** Send now reached her after steps but before any words: the text is a placeholder, shown muted. */
+  /** Send now reached her before any words. False clears a placeholder after a failed delivery. */
   checkpointFiller?: boolean;
   /** #8711: a claim check flagged these words in a run that tried no change; the client says nothing was changed. */
   nothingChanged?: boolean;
@@ -110,7 +110,7 @@ export function buildAssistantMessageExtra(run: AssistantRunRecord): Record<stri
     extraUpdate.mariWorkspaceActionResults = mergeMariActionResults(run.actionResults);
   }
   if (run.runError) extraUpdate.mariRunError = run.runError;
-  if (run.checkpointFiller) extraUpdate.mariCheckpointFiller = true;
+  if (run.checkpointFiller !== undefined) extraUpdate.mariCheckpointFiller = run.checkpointFiller;
   if (run.nothingChanged) extraUpdate.mariNothingChanged = true;
   extraUpdate.mariRunStartedAt = run.runStartedAt;
   extraUpdate.mariRunFinishedAt = Date.now();
