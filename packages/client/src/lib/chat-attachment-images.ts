@@ -151,7 +151,7 @@ function assertSafeImageDimensions({ width, height }: ImageDimensions): void {
   }
 }
 
-function readBlobAsDataUrl(blob: Blob): Promise<string> {
+export function readBlobAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);

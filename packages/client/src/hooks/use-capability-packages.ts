@@ -16,6 +16,8 @@ import {
   type RulesetCatalogPayload,
 } from "@marinara-engine/shared";
 import { api, ApiError } from "../lib/api-client";
+import { agentKeys } from "./use-agents";
+import { chatKeys } from "./use-chats";
 import { i18n } from "../localization/i18n";
 import {
   beginCapabilityClientImport,
@@ -648,8 +650,8 @@ function useInvalidateCapabilityState() {
   return async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.all }),
-      queryClient.invalidateQueries({ queryKey: ["agents"] }),
-      queryClient.invalidateQueries({ queryKey: ["chats"] }),
+      queryClient.invalidateQueries({ queryKey: agentKeys.all }),
+      queryClient.invalidateQueries({ queryKey: chatKeys.all }),
     ]);
   };
 }
