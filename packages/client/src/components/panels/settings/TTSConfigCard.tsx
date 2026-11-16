@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // TTS Configuration Card (Connections Panel)
 // ──────────────────────────────────────────────
+import { saveBlobToDevice } from "../../../lib/file-download";
 import { useCallback, useState, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -277,14 +278,10 @@ function safeTTSFileStem(value: string): string {
 }
 
 function downloadTTSClip(entry: CachedTTSAudioExportEntry, index: number): void {
-  const url = URL.createObjectURL(entry.blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${String(index + 1).padStart(3, "0")}-${safeTTSFileStem(entry.key)}.${extensionForTTSBlob(entry.blob)}`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  void saveBlobToDevice(
+    entry.blob,
+    `${String(index + 1).padStart(3, "0")}-${safeTTSFileStem(entry.key)}.${extensionForTTSBlob(entry.blob)}`,
+  );
 }
 
 const ELEVENLABS_DEFAULT_MALE_VOICE_NAMES = new Set([
