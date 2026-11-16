@@ -114,7 +114,7 @@ import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
 import { LorebookScanTest, type LorebookScanPreviewMatch } from "./LorebookScanTest";
-import { ExpandableTextarea, estimateTokens } from "./LorebookFormFields";
+import { ExpandableTextarea } from "./LorebookFormFields";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { LorebookTextImportDialog } from "./LorebookTextImportDialog";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
