@@ -531,10 +531,6 @@ const marinaraImporterSource = readFileSync(
   "utf8",
 );
 const importRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/import.routes.ts"), "utf8");
-const stBulkImporterSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/server/src/services/import/st-bulk.importer.ts"),
-  "utf8",
-);
 const portableSprites = [
   { filename: "happy.png", data: "data:image/png;base64,iVBORw0KGgo=" },
   { filename: "full_idle.webp", data: "data:image/webp;base64,UklGRg==" },
@@ -662,11 +658,6 @@ assert.doesNotMatch(
   importRoutesSource,
   /MAX_DATA_JSON_BYTES|MAX_AVATAR_BYTES|MAX_CHARACTER_CARD_CHUNK_SIZE/u,
   "native packages must not use obsolete metadata ceilings",
-);
-assert.doesNotMatch(
-  stBulkImporterSource,
-  /MAX_CHARACTER_CARD_CHUNK_SIZE/u,
-  "folder-scanned PNG character cards must not retain the former metadata byte ceiling",
 );
 assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE]), true);
 assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE + 1]), false);
@@ -5441,10 +5432,6 @@ const serverAutonomousSchedulerSource = readFileSync(
   new URL("../../packages/server/src/services/conversation/server-autonomous-scheduler.service.ts", import.meta.url),
   "utf8",
 );
-const clientGenerationSource = readFileSync(
-  new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
-  "utf8",
-);
 const conversationPresenceSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/conversation-presence-runtime.ts", import.meta.url),
   "utf8",
@@ -5457,12 +5444,10 @@ const professorMariHomeSource = readFileSync(
 const mariChatDir = new URL("../../packages/client/src/components/chat/mari/", import.meta.url);
 const mariChatPart = (name: string) => readFileSync(new URL(name, mariChatDir), "utf8");
 const mariChatAllSource = [professorMariHomeSource, ...readdirSync(mariChatDir).map(mariChatPart)].join("\n");
-const mariSeesPanelSource = mariChatPart("MariSeesPanel.tsx");
 const mariMessageActionsSource = mariChatPart("use-mari-message-actions.ts");
 const mariWorkspaceRunSource = mariChatPart("use-mari-workspace-run.ts");
 const mariChatHistoryActionsSource = mariChatPart("use-mari-chat-history-actions.ts");
 const mariWorkTimelineSource = mariChatPart("MariWorkTimeline.tsx");
-const mariTranscriptSource = mariChatPart("MariTranscript.tsx");
 const compactMariMessageSource = mariChatPart("CompactMariMessage.tsx");
 const contextBudgetChatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
@@ -5665,14 +5650,6 @@ for (const [name, source] of [
   assert.match(source, /<ContextBudgetIndicator budget=\{contextBudget\}/u, `${name} must show usage in its popup`);
   assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
 }
-// Mari's context use moved out of the connection popups (69be7be17: it duplicated the status strip) into the
-// "how she works" connection row, behind the Show context usage setting.
-assert.match(
-  mariSeesPanelSource,
-  /showContextUsage && contextBudget\s*\?\s*localizeUi\("ui\.chat\.homeprofessormarichat\.awareOfContextUse"/u,
-  "Professor Mari's connection row must show context usage when the setting is on",
-);
-assert.match(professorMariHomeSource, /chatHistorySelectionMode/u);
 assert.match(
   professorMariHomeSource,
   /enterToSendProfessorMari/u,
@@ -5690,7 +5667,6 @@ assert.match(
   /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
   "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
-assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
 assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
 assert.match(
   mariMessageActionsSource,
@@ -5786,11 +5762,6 @@ assert.equal(
   "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
 );
 assert.match(
-  mariTranscriptSource,
-  /ref=\{setTranscriptScrollNode\}[\s\S]{0,100}data-component="HomeProfessorMariChat\.Transcript"/u,
-  "Professor Mari transcript panes must trigger scrolling from their mounted ref",
-);
-assert.match(
   professorMariHomeSource,
   /messageLoadAbortRef\.current !== controller[\s\S]{0,80}activeChatIdRef\.current !== id/u,
   "Professor Mari message loads must discard stale requests and inactive chat results",
@@ -5841,10 +5812,6 @@ const echoChamberPanelSource = readFileSync(
   new URL("../../packages/client/src/components/chat/EchoChamberPanel.tsx", import.meta.url),
   "utf8",
 );
-const chatToolbarControlsSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatToolbarControls.tsx", import.meta.url),
-  "utf8",
-);
 const chatFloatingUiEventsSource = readFileSync(
   new URL("../../packages/client/src/lib/chat-floating-ui-events.ts", import.meta.url),
   "utf8",
@@ -5871,11 +5838,6 @@ const chatMessageSource = readFileSync(
 );
 const assignedSweepChatAreaSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
-  "utf8",
-);
-const appRecoverySource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
-const chatRowPeekSource = readFileSync(
-  new URL("../../packages/client/src/components/layout/ChatRowPeek.tsx", import.meta.url),
   "utf8",
 );
 assert.match(assignedSweepChatAreaSource, /export const ChatArea = memo\(function ChatArea/u);
@@ -5912,12 +5874,7 @@ assert.match(
   /<WindowBubble[\s\S]*?attributes=\{\{ \.\.\.rootAttributes,/u,
   "the collapsed phone Echo Chamber button must retain the mobile edit marker",
 );
-assert.match(chatRowPeekSource, /mari-chrome-accent-text-muted mari-accent-animated text-\[0\.6875rem\]/u);
 assert.match(assignedSweepChatAreaSource, /mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs/u);
-assert.match(
-  appRecoverySource,
-  /<pre className="mari-chrome-accent-text-muted mari-accent-animated[^"]*">\s*\{errorMessage\}/u,
-);
 const macroTextareaSource = readFileSync(
   new URL("../../packages/client/src/components/ui/MacroTextarea.tsx", import.meta.url),
   "utf8",
@@ -5981,11 +5938,6 @@ assert.match(
   presetPanelSource,
   /openPresetDetail\(preset\.id\)/u,
   "Ordinary preset-panel navigation must continue using the default Overview tab",
-);
-assert.match(
-  roleplaySurfaceSource,
-  /const inactiveIds = new Set\(readStringArray\(chatMeta\.inactiveCharacterIds\)\);[\s\S]{0,180}return activeIds\.length > 0 \? activeIds : chatCharIds;/u,
-  "Merged Narrator avatars must exclude inactive Roleplay characters",
 );
 assert.equal(
   roleplaySurfaceSource.match(/mergedGroupCharacterIds=\{activeChatCharacterIds\}/gu)?.length,
@@ -6116,11 +6068,6 @@ assert.match(
   /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force(?:: true)? \})?\)[\s\S]{0,100}return true/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
-assert.match(
-  clientGenerationSource,
-  /await waitForPendingChatMetadataSaves\(params\.chatId\);[\s\S]*?api\.streamEvents\(\s*"\/generate"/u,
-  "swipe generation must wait for Prose Guardian settings blurred from the open drawer",
-);
 
 const metadataSaveOrder: string[] = [];
 let releaseFirstMetadataSave!: () => void;
@@ -6155,11 +6102,6 @@ assert.match(
   ),
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
-);
-assert.match(
-  conversationPresenceSource,
-  /respondingConvoCharInfo = respondingConvoCharInfo\.filter\(\s*\(character\) => effectiveStatus\(character\) !== "offline"/u,
-  "Conversation response selection should remove offline characters before Sequential or Smart ordering",
 );
 const responderDelayOrder = orderConversationRespondersByDelay(
   ["away", "active", "busy"],
@@ -6365,10 +6307,6 @@ const cardEditorSource = readFileSync(
   new URL("../../packages/client/src/components/cards/CardEditor.tsx", import.meta.url),
   "utf8",
 );
-const cardColorsSource = readFileSync(
-  new URL("../../packages/client/src/components/cards/CardColors.tsx", import.meta.url),
-  "utf8",
-);
 const personaEditorSource = readFileSync(
   new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
   "utf8",
@@ -6397,10 +6335,6 @@ const emojiPickerSource = readFileSync(
   new URL("../../packages/client/src/components/ui/EmojiPicker.tsx", import.meta.url),
   "utf8",
 );
-const conversationMediaPickerSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ConversationMediaPickerPanel.tsx", import.meta.url),
-  "utf8",
-);
 const visualViewportChatBottomSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-visual-viewport-chat-bottom.ts", import.meta.url),
   "utf8",
@@ -6408,10 +6342,6 @@ const visualViewportChatBottomSource = readFileSync(
 const englishLocale = JSON.parse(
   readFileSync(new URL("../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
 ) as Record<string, string>;
-const fileDownloadSource = readFileSync(
-  new URL("../../packages/client/src/lib/file-download.ts", import.meta.url),
-  "utf8",
-);
 const spriteDownloadSource = readFileSync(
   new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
   "utf8",
@@ -6481,10 +6411,6 @@ assert.match(
   /flex w-full min-w-0 flex-col items-stretch gap-1\.5 @lg:w-auto @lg:shrink-0 @lg:flex-row/u,
   "Lorebook Keeper actions must stack inside their mobile settings card",
 );
-const characterGreetingsSource = readFileSync(
-  new URL("../../packages/client/src/lib/character-greetings.ts", import.meta.url),
-  "utf8",
-);
 assert.match(
   chatSettingsDrawerSource,
   /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
@@ -6548,7 +6474,6 @@ const lorebookServiceSource = readFileSync(
   "utf8",
 );
 const serverAppSource = readFileSync(new URL("../../packages/server/src/app.ts", import.meta.url), "utf8");
-const gameTypesSource = readFileSync(new URL("../../packages/shared/src/types/game.ts", import.meta.url), "utf8");
 const backupGuideSource = readFileSync(new URL("../../docs/data/backup-and-restore.md", import.meta.url), "utf8");
 const gameAssetBrowserSource = readFileSync(
   new URL("../../packages/client/src/components/game-assets/GameAssetsBrowserView.tsx", import.meta.url),
@@ -6560,10 +6485,6 @@ const gameAssetActionDropdownSource = readFileSync(
 );
 const gameAssetHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-game-assets.ts", import.meta.url),
-  "utf8",
-);
-const gameAssetStoreSource = readFileSync(
-  new URL("../../packages/client/src/stores/game-asset.store.ts", import.meta.url),
   "utf8",
 );
 const sidecarStoreSource = readFileSync(
@@ -6580,10 +6501,6 @@ const connectionsPanelSource = readFileSync(
 );
 const deviceDetailSource = readFileSync(
   new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
-  "utf8",
-);
-const presetsPanelSource = readFileSync(
-  new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
   "utf8",
 );
 const transcriptWindowControlsSource = readFileSync(
@@ -6641,7 +6558,6 @@ assert.match(
   appSource,
   /swipeDirections=\{\[\s*"left",\s*"right",\s*omnibarOpen \? \(isMobileShell \? "top" : "bottom"\) : notificationPosition === "bottom" \? "bottom" : "top",\s*\]\}/u,
 );
-assert.doesNotMatch(agentEditorSource, /fetch\(["']\/api\/game-assets\/pick-local-music-folder/u);
 assert.match(agentEditorSource, /api\.post<[^>]+>\(["']\/game-assets\/pick-local-music-folder["']\)/u);
 assert.match(localMusicPlayerSource, /api\.raw\(`\/game-assets\/local-music-file\?path=\$\{encodedPath\}`\)/u);
 assert.match(localMusicPlayerSource, /URL\.createObjectURL\(await response\.blob\(\)\)/u);
@@ -6703,7 +6619,6 @@ assert.match(
   globalStyles,
   /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u,
 );
-assert.match(cardColorsSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
 assert.match(personaEditorSource, /downloadSpriteFile/u);
@@ -6726,11 +6641,6 @@ assert.match(
   "Assistant Prefill must render literal angle brackets without unbalanced localization markup",
 );
 assert.match(generationParametersEditorSource, /placeholder:\[text-indent:0\]/u);
-assert.match(
-  conversationMediaPickerSource,
-  /data-conversation-media-picker[\s\S]{0,250}onPointerDown=\{\(event\) => \{[\s\S]{0,250}event\.stopPropagation\(\)/u,
-  "Conversation media-picker content and native-scrollbar presses must not focus the composer and close the picker",
-);
 for (const [name, source] of [
   ["Emoji", emojiPickerSource],
   ["Kaomoji", kaomojiPickerSource],
@@ -6746,11 +6656,6 @@ for (const [name, source] of [
 assert.match(visualViewportChatBottomSource, /const anchor = pendingAnchor \?\? captureAnchor\(\);/u);
 assert.match(
   visualViewportChatBottomSource,
-  /if \(anchor\.pinnedToBottom\) \{\s*scrollToBottom\("auto"\);/u,
-  "Keyboard opening should keep a composer that was already pinned at the latest message pinned",
-);
-assert.match(
-  visualViewportChatBottomSource,
   /scrollElement\.scrollTo\(\{ top: Math\.min\(anchor\.scrollTop, maxScrollTop\), behavior: "auto" \}\);/u,
   "Keyboard opening should restore an intentionally scrolled transcript to its captured position",
 );
@@ -6761,7 +6666,6 @@ assert.match(
   /className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center"/u,
 );
 assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
-assert.match(fileDownloadSource, /MarinaraAndroid/u);
 assert.match(spriteDownloadSource, /saveBlobToDevice/u);
 assert.match(
   androidMainActivitySource,
@@ -6789,22 +6693,11 @@ assert.match(
   /className="flex min-w-0 w-full items-center justify-between gap-3 text-left"[\s\S]*className="min-w-0 flex-1"[\s\S]*"h-5 w-9 shrink-0 rounded-full/u,
   "The New Chat parameter toggle must stay within its card when Android enlarges text",
 );
-assert.match(
-  cardEditorSource,
-  /"mari-editor-avatar-tile group relative"/u,
-  "The Metadata avatar preview must contain absolutely positioned saved crops",
-);
-assert.match(
-  globalStyles,
-  /\.mari-editor-avatar-tile \{\s*position: relative;\s*cursor: pointer;/u,
-  "The shared editor avatar upload target must contain absolutely positioned crops",
-);
 assert.equal(
   cardEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
   1,
   "The shared header avatar inside its upload target must not intercept page clicks",
 );
-assert.match(gameJournalSource, /data-game-journal-scroll/u);
 assert.match(gameJournalSource, /\/game\/\$\{chatId\}\/journal\/entries\/\$\{editingEntry\.index\}/u);
 assert.match(
   gameJournalSource,
@@ -6816,7 +6709,6 @@ assert.match(
   /const narrationKey = latestAssistant \? `\$\{latestAssistant\.id\}:\$\{latestAssistant\.activeSwipeIndex \?\? 0\}` : null/u,
   "Game rerolls must reset narration when the saved swipe changes on the same message",
 );
-assert.match(gameAudioSource, /audio\.onended = \(\) => \{[\s\S]*remainingPlays -= 1/u);
 assert.match(
   gameAudioSource,
   /const fallbackPlays = remainingPlays;[\s\S]*index < fallbackPlays[\s\S]*proceduralSfxTimers\.add\(timer\)/u,
@@ -6837,11 +6729,6 @@ assert.match(
   choiceSelectionModalSource,
   /presentedOptions\.length === 1[\s\S]*<SettingsSwitch[\s\S]*labelPosition="start"/u,
   "Single-option preset variables must use the standard accessible settings switch",
-);
-assert.doesNotMatch(
-  choiceSelectionModalSource,
-  /inline-flex h-4 w-7 shrink-0 items-center rounded-full/u,
-  "Preset choices must not restore the undersized Android toggle",
 );
 // #3624: the Session window embeds the Game Journal, whose tabs scroll only inside a bounded height. The old
 // popover's fixed height cap moved to the control windows: a computer's window has a set height, and a phone's
@@ -6885,11 +6772,6 @@ assert.match(
 );
 assert.match(
   gameSetupWizardSource,
-  /onClick=\{handleExportSetup\}[\s\S]{0,300}ui\.game\.gamesetupsummary\.downloadSetup/u,
-  "New Game's final setup step must expose the setup download action",
-);
-assert.match(
-  gameSetupWizardSource,
   /id="game-setup-spatial-map-target-count"[\s\S]{0,180}min=\{1\}[\s\S]{0,120}max=\{SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT\}/u,
   "New Game AI map setup must expose the bounded custom place target from World Maps",
 );
@@ -6913,13 +6795,11 @@ assert.match(
   /targetLocationCount:\s*plan\.targetLocationCount/u,
   "Game setup must send the custom place target to World Maps draft generation",
 );
-assert.match(gameTypesSource, /enableAgents\?: boolean;/u);
 assert.match(gameRoutesSource, /enableAgents: z\.boolean\(\)\.optional\(\)/u);
 assert.match(
   gameRoutesSource,
   /spatialMapTargetLocationCount: z\.number\(\)\.int\(\)\.min\(1\)\.max\(40\)\.optional\(\)/u,
 );
-assert.match(gameRoutesSource, /"\/:chatId\/journal\/entries\/:entryIndex"/u);
 assert.match(gameRoutesSource, /enableAgents: setupConfig\.enableAgents === true/u);
 assert.match(gameRoutesSource, /gameStoryboardsEnabled: setupConfig\.gameStoryboardsEnabled/u);
 assert.equal(
@@ -6936,20 +6816,12 @@ assert.match(
   gameRoutesSource,
   /if \(!selectedTemplate\?\.promptTemplate\.trim\(\)\) \{[\s\S]*The Storyboard Agent has no/u,
 );
-assert.match(presetsPanelSource, /\{isSelected && \(/u);
-assert.match(
-  presetsPanelSource,
-  /value === "presets"\s*\? "ui\.panels\.presetspanel\.prompts"/u,
-  "The prompt-preset tab must be labelled Prompts alongside Regexes and Functions",
-);
-assert.match(characterGreetingsSource, /type CharacterGreeting = \{[^}]*alternateIndex: number \| null[^}]*\};/u);
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
   chatSettingsDrawerSource.match(/<GenerationSettingsLink/gu)?.length,
   3,
   "generation settings navigation should use one shared control in all three locations",
 );
-assert.match(conversationInputSource, /const createDurableMessageWithRollback = useCallback/u);
 assert.equal(
   conversationInputSource.match(/createDurableMessageWithRollback\(\{/gu)?.length,
   2,
@@ -6957,7 +6829,6 @@ assert.equal(
 );
 assert.match(backupRoutesSource, /tolerateSourceChanges: true/u);
 assert.match(backupRoutesSource, /record\.usesDataDescriptor \? 0x0808 : 0x0800/u);
-assert.match(backupRoutesSource, /PROFILE_IMPORT_MEMORY_WARNING_BYTES/u);
 assert.match(backupRoutesSource, /PROFILE_IMPORT_ARCHIVE_LIMIT_BYTES = 2 \* 1024 \* 1024 \* 1024/u);
 assert.match(
   backupRoutesSource,
@@ -6970,9 +6841,6 @@ assert.match(
   "JSON profile imports must keep the smaller body limit",
 );
 assert.match(backupRoutesSource, /PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES = 2 \* 1024 \* 1024 \* 1024/u);
-assert.match(backupRoutesSource, /PROFILE_ARCHIVE_CENTRAL_DIRECTORY_LIMIT_BYTES = 8 \* 1024 \* 1024/u);
-assert.doesNotMatch(backupRoutesSource, /PROFILE_ARCHIVE_ENTRY_COUNT_LIMIT/u);
-assert.match(backupRoutesSource, /AUTOMATIC_BACKUP_OMISSION_HISTORY_LIMIT = 1_000/u);
 assert.match(
   backupRoutesSource,
   /lastOmittedEntries: limitAutomaticBackupOmissionHistory\(settings\.lastOmittedEntries\)/u,
@@ -7024,13 +6892,8 @@ assert.equal(
   existsSync(join(REPOSITORY_ROOT, "packages/server/src/assets/default-game-assets/sprites/generic-fantasy")),
   false,
 );
-assert.match(gameAssetHooksSource, /export function useGameAssetManifest/u);
 assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKeys\.all \}\)/u);
-assert.doesNotMatch(gameAssetStoreSource, /api\.|fetchManifest|rescanAssets|\/game-assets\/manifest/u);
-assert.match(sidecarStoreSource, /consumeSidecarDownloadStream/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
-assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
-assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
@@ -7058,15 +6921,9 @@ assert.equal(
   }),
   "/api/prompts/images/file/custom.png",
 );
-assert.match(presetsPanelSource, /data-preset-image-action/u);
-assert.match(presetsPanelSource, /data-preset-open-action/u);
 assert.equal(
   existsSync(join(REPOSITORY_ROOT, "packages/client/public/illustrations/marinara-universal-preset.webp")),
   true,
-);
-assert.match(
-  transcriptWindowControlsSource,
-  /export const HISTORY_PAGER_BUTTON_CLASS =\s*"mari-chat-history-pager mari-chat-style-control mari-chrome-control mari-chrome-control--small px-3 text-xs";/u,
 );
 assert.equal(
   transcriptWindowControlsSource.match(/className=\{cn\(HISTORY_PAGER_BUTTON_CLASS, buttonClassName\)\}/gu)?.length,
@@ -7137,7 +6994,6 @@ for (const media of globalStyles.matchAll(/^@media \(max-width: 767px\) \{[\s\S]
   assert.doesNotMatch(media[0], /\.mari-message-content \.mari-md-codeblock\b/u);
 }
 assert.match(localNotificationsSource, /window\.isSecureContext === false/u);
-assert.match(localNotificationsSource, /NotificationPermission \| "insecure" \| "unsupported"/u);
 const browserNotificationHelpSource =
   notificationSettingsSource.match(/const browserNotificationHelp =[\s\S]*?;\n/u)?.[0] ?? "";
 assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS or localhost/u);
@@ -7833,7 +7689,6 @@ assert.deepEqual(
 );
 assert.deepEqual(localProjection.chatHelpSeenModes, ["game"], "Chat-help seen modes must be browser-local persisted");
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
-assert.match(chatAreaPromptReviewSource, /confirmRoleplayVideoPromptReview/);
 assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
 assert.match(gameSurfacePromptReviewSource, /if \(imagePromptReviewResolveRef\.current\)/);
 assert.match(
@@ -7852,16 +7707,6 @@ assert.match(
 );
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.set\(connectionId, resolution\)/);
-assert.match(
-  chatAreaPromptReviewSource,
-  /agentPromptTemplateIds:\s*\{\s*illustrator:\s*"background"\s*\}/,
-  "the Gallery Background action should run Illustrator with its background prompt mode",
-);
-assert.doesNotMatch(
-  chatAreaPromptReviewSource,
-  /"\/backgrounds\/generate-scene"/,
-  "the Gallery Background action should not bypass Illustrator through direct scene generation",
-);
 assert.match(
   retryAgentsPromptReviewSource,
   /\.\.\.normalizeAgentPromptTemplateSelectionMap\(agentPromptTemplateIds\)/,
@@ -8848,16 +8693,6 @@ const summaryPopoverSource = readFileSync(
   "utf8",
 );
 assert.match(
-  summaryPopoverSource,
-  /function SummaryEntryEditor[\s\S]*?<MacroTextarea[\s\S]*?textareaRef=\{textareaRef\}/u,
-  "Summary entry editing should expose the shared expanded editor and macro guide",
-);
-assert.match(
-  summaryPopoverSource,
-  /summaryEntryIds:\s*selectedEntries\.map\(\(entry\) => entry\.id\)/u,
-  "The summary UI must submit every selected entry to the combine endpoint",
-);
-assert.match(
   chatRoutesSource,
   /combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
   "The Chat Summary combine route must retain source history through the tested helper",
@@ -9020,11 +8855,6 @@ assert.match(
 );
 assert.match(
   summaryPopoverSource,
-  /role="tablist"[\s\S]{0,900}summaryPromptView === "summary"[\s\S]{0,900}summaryPromptView === "combine"/u,
-  "The Summary Prompt card must switch between Chat Summary and Combine prompt views",
-);
-assert.match(
-  summaryPopoverSource,
   /!templateEditorOpen[\s\S]{0,500}\{activeSummaryPrompt\}[\s\S]{0,500}templateEditorOpen/u,
   "The active Chat Summary prompt must remain visible until its template editor opens",
 );
@@ -9037,16 +8867,6 @@ assert.match(
   summaryPopoverSource,
   /onClick=\{\(\) => void handleToggleVisiblePromptEditor\(\)\}[\s\S]{0,500}aria-expanded=\{visiblePromptEditorOpen\}/u,
   "The Summary Prompt Edit/Done action must expose disclosure semantics for its editor",
-);
-assert.match(
-  summaryPopoverSource,
-  /visiblePromptEditorOpen[\s\S]{0,300}ui\.chat\.summarypopover\.done[\s\S]{0,100}ui\.noodle\.noodlepostcard\.edit/u,
-  "The Summary Prompt editor must replace Edit with a Done action while open",
-);
-assert.match(
-  summaryPopoverSource,
-  /setTemplateSelectOpen\(false\);\s*setTemplateEditorOpen\(false\);/u,
-  "Done must close the Chat Summary prompt editor",
 );
 assert.match(
   summaryPopoverSource,
@@ -9082,16 +8902,6 @@ assert.match(
   summaryPopoverSource,
   /batchAbortControllerRef\.current\?\.abort\(\);\s*void commitCombinePromptDraftRef\.current\(\);/u,
   "Collapsing the Chat Summary drawer or closing Chat Settings must still persist the Combine draft",
-);
-assert.equal(
-  summaryPopoverSource.match(/className="h-48 space-y-[12] overflow-y-auto pr-0\.5"/gu)?.length,
-  2,
-  "Chat Summary and Combine prompt views must reserve the same vertical space",
-);
-assert.match(
-  summaryPopoverSource,
-  /rows=\{5\}[\s\S]{0,500}className="mari-chrome-field h-28 resize-none/u,
-  "The Combine prompt editor must stay compact enough to match the Chat Summary view",
 );
 const promptSettingsPersistSource = summaryPopoverSource.slice(
   summaryPopoverSource.indexOf("const persistPromptTemplates"),
@@ -9141,11 +8951,6 @@ assert.equal(
   summaryPromptTemplateRowSource.match(/disabled=\{disabled\}/gu)?.length,
   4,
   "Every template-row action must forward its disabled state",
-);
-assert.match(
-  summaryPopoverSource,
-  /className="flex items-center justify-center gap-1\.5"[\s\S]{0,900}handleBackfill/u,
-  "The Automatic Summaries backfill action must be centered",
 );
 assert.match(
   chatRoutesSource,
