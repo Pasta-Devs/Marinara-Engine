@@ -35,7 +35,6 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
   const [step, setStep] = useState<RestartStep>("stopping");
   const [now, setNow] = useState(() => Date.now());
   const startedAt = useRef(now);
-  const lastProbeOk = useRef(false);
   const stepStartedAt = useRef<Record<RestartStep, number | null>>({ stopping: now, starting: null, back: null });
 
   useEffect(() => {
@@ -43,16 +42,13 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       const reload = window.setTimeout(() => reloadBrowser("server-restart"), 800);
       return () => window.clearTimeout(reload);
     }
-    // Opened at the click: probe only once the restart answered with the bootId it replaces.
+    // Opened at the click: probe only once the restart request answered.
     if (beforeBootId === undefined) return;
     let cancelled = false;
     const poll = async () => {
       while (!cancelled) {
-        const probe = await probeServerHealth();
+        const next = nextRestartStep(step, await probeServerHealth());
         if (cancelled) return;
-        const next = nextRestartStep(step, beforeBootId, probe, lastProbeOk.current);
-        lastProbeOk.current = probe.ok;
-        setNow(Date.now());
         if (next !== step) {
           stepStartedAt.current[next] ??= Date.now();
           // A fast restart can go straight from stopping to back.
@@ -68,6 +64,12 @@ export function ServerRestartModal({ open, beforeBootId }: { open: boolean; befo
       cancelled = true;
     };
   }, [beforeBootId, step]);
+
+  // The clock runs from the click, also while the restart request is still pending.
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+  }, []);
 
   const slow = step !== "back" && now - startedAt.current > SLOW_AFTER_MS;
   const phase = step === "back" ? "back" : slow ? "slow" : "restarting";

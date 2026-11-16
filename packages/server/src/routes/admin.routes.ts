@@ -24,7 +24,7 @@ import {
 } from "../middleware/rate-limit.js";
 import { bootId, logger } from "../lib/logger.js";
 import { getRequestTimeoutSettings, saveRequestTimeoutSettings } from "../config/runtime-config.js";
-import { restartExitCode, restartServer } from "../lib/server-restart.js";
+import { isRestartPending, restartExitCode, scheduleRestart } from "../lib/server-restart.js";
 import { getServerLogSnapshot } from "../lib/log-buffer.js";
 import { collectRuntimeDiagnostics } from "../lib/runtime-diagnostics.js";
 import {
@@ -73,8 +73,6 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  let restartScheduled = false;
-
   app.get("/request-timeouts", () => getRequestTimeoutSettings());
   app.put("/request-timeouts", { config: { rateLimit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
@@ -113,7 +111,7 @@ export async function adminRoutes(app: FastifyInstance) {
       if (req.body?.confirm !== true) {
         return reply.status(400).send({ error: "Must send { confirm: true } to restart the server" });
       }
-      if (restartScheduled) {
+      if (isRestartPending()) {
         return reply.status(409).send({ error: "Server restart is already scheduled", code: "restart-scheduled" });
       }
       const exitCode = restartExitCode();
@@ -124,12 +122,9 @@ export async function adminRoutes(app: FastifyInstance) {
             "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
         });
       }
-      restartScheduled = true;
       logger.info("Server restart requested from Advanced Settings");
-      // Let the 202 reach the browser before the server starts closing.
-      setTimeout(() => restartServer(exitCode), 750);
+      scheduleRestart(exitCode);
 
-      // The restart sheet waits for a different bootId on /api/health.
       return reply.status(202).send({ status: "restarting", bootId });
     },
   );

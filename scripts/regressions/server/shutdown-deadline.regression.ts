@@ -141,7 +141,7 @@ assert.match(
 // use both deadline stages without leaving an orphan or losing the restart.
 const adminRoutes = readSource("packages/server/src/routes/admin.routes.ts");
 // The route hands its exit code to index.ts's shutdown, which arms the deadline checked above.
-assert.match(adminRoutes, /restartServer\(exitCode\)/u);
+assert.match(adminRoutes, /scheduleRestart\(exitCode\)/u);
 assert.doesNotMatch(adminRoutes, /\bspawn\(/u);
 const helper = readSource("packages/server/src/lib/shutdown-deadline.ts");
 assert.match(helper, /SHUTDOWN_CONNECTION_DEADLINE_MS = 4_000;/u);

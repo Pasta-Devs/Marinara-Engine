@@ -1,6 +1,7 @@
 import { isDockerRuntime } from "../config/runtime-config.js";
 
 let stopForRestart: ((exitCode: number) => void) | null = null;
+let pending = false;
 
 /** index.ts hands in its shutdown, so an in-app restart stops the server the same way a signal does. */
 export function setRestartHandler(handler: (exitCode: number) => void): void {
@@ -16,6 +17,13 @@ export function restartExitCode(): number | null {
   return isDockerRuntime() ? 0 : null;
 }
 
-export function restartServer(exitCode: number): void {
-  stopForRestart?.(exitCode);
+/** True from the restart request until the process exits; /api/health then answers 503. */
+export function isRestartPending(): boolean {
+  return pending;
+}
+
+export function scheduleRestart(exitCode: number): void {
+  pending = true;
+  // Let the 202 reach the browser before the server starts closing.
+  setTimeout(() => stopForRestart?.(exitCode), 750);
 }

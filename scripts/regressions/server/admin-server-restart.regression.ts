@@ -3,7 +3,10 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const adminRoutes = readFileSync(new URL("../../../packages/server/src/routes/admin.routes.ts", import.meta.url), "utf8");
+const adminRoutes = readFileSync(
+  new URL("../../../packages/server/src/routes/admin.routes.ts", import.meta.url),
+  "utf8",
+);
 const appFactory = readFileSync(new URL("../../../packages/server/src/app.ts", import.meta.url), "utf8");
 const settingsPanel = readFileSync(
   new URL("../../../packages/client/src/components/panels/SettingsPanel.tsx", import.meta.url),
@@ -79,20 +82,20 @@ try {
     await completedResponse.json();
     await closing;
 
-    // A supervised restart answers with this process's bootId, then hands exit code 75 to the shutdown.
+    // A supervised restart answers 202, turns health to 503 so the sheet sees the old server go, then exits 75.
     const { setRestartHandler } = await import("../../../packages/server/src/lib/server-restart.js");
     const restartApp = await buildApp();
     const exited = new Promise<number>((resolve) => setRestartHandler(resolve));
     process.env.MARINARA_RESTART_SUPERVISOR = String(process.ppid);
     const health = (await restartApp.inject({ method: "GET", url: "/api/health" })).json() as {
-      bootId?: string;
       canRestart?: boolean;
     };
-    assert.match(health.bootId ?? "", /^[0-9a-f]{8}$/u, "health names this process");
     assert.equal(health.canRestart, true);
     const restart = await restartApp.inject({ method: "POST", url: "/api/admin/restart", payload: { confirm: true } });
     assert.equal(restart.statusCode, 202);
-    assert.deepEqual(restart.json(), { status: "restarting", bootId: health.bootId });
+    assert.match((restart.json() as { bootId: string }).bootId, /^[0-9a-f]{8}$/u);
+    const pendingHealth = await restartApp.inject({ method: "GET", url: "/api/health" });
+    assert.equal(pendingHealth.statusCode, 503, "the old server must not look like the new one");
     assert.equal(await exited, 75, "the launcher starts a replacement on exit code 75");
     await restartApp.close();
   } finally {

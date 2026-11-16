@@ -4,16 +4,15 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { api, ApiError, getPrivilegedActionErrorMessage, requestTimeoutSignal } from "../lib/api-client";
 import { dismissAppUpdatePrompt } from "../lib/app-update-prompt";
-import type { RestartProbe } from "../lib/server-restart";
 import { useUIStore } from "../stores/ui.store";
 
 /** One /api/health probe for the restart sheet; a frozen server counts as down after 5 s. */
-export async function probeServerHealth(): Promise<RestartProbe> {
+export async function probeServerHealth(): Promise<boolean> {
   try {
-    const health = await api.get<{ bootId?: string }>("/health", { signal: requestTimeoutSignal(5_000) });
-    return { ok: true, bootId: health?.bootId ?? null };
+    await api.get("/health", { signal: requestTimeoutSignal(5_000) });
+    return true;
   } catch {
-    return { ok: false };
+    return false;
   }
 }
 
@@ -56,12 +55,13 @@ export function useRestartServer() {
       // The logo comes from the server that is about to stop.
       const logo = new Image();
       logo.src = "/logo.png";
-      await logo.decode().catch(() => {});
+      // A stalled logo request must not hold back the restart.
+      await Promise.race([logo.decode().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 1_500))]);
       const { bootId } = await api.post<{ status: "restarting"; bootId: string }>("/admin/restart", { confirm: true });
       return bootId;
     },
     // Open at the click, with its backdrop at full strength: the dialog before it closes in the same frame,
-    // so the app never shows undimmed. The sheet waits for the bootId before it probes.
+    // so the app never shows undimmed. The sheet waits for the 202 before it probes.
     onMutate: () => openRestartSheet(),
     onSuccess: (beforeBootId) => {
       openRestartSheet(beforeBootId);
