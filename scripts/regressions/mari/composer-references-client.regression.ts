@@ -272,6 +272,12 @@ const commandToken = activeToken(commandDraft, commandDraft.length)!;
 assert.deepEqual(removeCommandToken(commandDraft, commandToken), { value: "look at this\n", caret: 13 });
 const midDraft = "/hist and more";
 assert.deepEqual(removeCommandToken(midDraft, activeToken(midDraft, 5)!), { value: " and more", caret: 0 });
+// mid-sentence: one of the two spaces around the token goes with it
+const sentenceDraft = "look /hist and more";
+assert.deepEqual(removeCommandToken(sentenceDraft, activeToken(sentenceDraft, 10)!), {
+  value: "look and more",
+  caret: 5,
+});
 
 // chats, agents and docs: groups after memory and before entries; a doc row carries its path
 const more = buildReferenceItems({
