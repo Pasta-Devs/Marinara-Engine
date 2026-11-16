@@ -26,6 +26,7 @@ import { ConnectionSelect } from "../../../components/connections/ConnectionSele
 import {
   spriteKeys,
   useCharacter,
+  useCharacterSheetImageUrl,
   useCharacterSprites,
   usePersona,
   useSpriteCapabilities,
@@ -69,13 +70,14 @@ function cardRecord(value: unknown): Record<string, unknown> {
 function spriteGeneratorSeed(
   character: unknown,
   persona: Persona | undefined,
-): { avatarUrl: string | null; appearance: string } | null {
+): { avatarUrl: string | null; appearance: string; characterSheetImageId: string | null } | null {
   if (persona) {
     const { imageAppearanceEnabled, imageAppearance } = persona;
     const look = persona.appearance || persona.description;
     return {
       avatarUrl: persona.avatarPath,
       appearance: readImageAppearanceOverride({ imageAppearanceEnabled, imageAppearance }, look) ?? "",
+      characterSheetImageId: persona.characterSheetImageId ?? null,
     };
   }
   if (!character) return null;
@@ -86,6 +88,8 @@ function spriteGeneratorSeed(
   return {
     avatarUrl: typeof row.avatarPath === "string" && row.avatarPath ? row.avatarPath : null,
     appearance: readImageAppearanceOverride(extensions, typeof look === "string" ? look : null) ?? "",
+    characterSheetImageId:
+      typeof extensions.characterSheetImageId === "string" ? extensions.characterSheetImageId : null,
   };
 }
 
@@ -110,6 +114,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
     [spriteList],
   );
   const seed = useMemo(() => spriteGeneratorSeed(character.data, persona.data), [character.data, persona.data]);
+  const characterSheetUrl = useCharacterSheetImageUrl(owner.ownerType, owner.ownerId, seed?.characterSheetImageId);
   const imageConnections = useMemo(
     () => ((connectionList ?? []) as ConnectionRow[]).filter((row) => row.provider === "image_generation"),
     [connectionList],
@@ -244,6 +249,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             existingExpressionSprites={portraitSprites}
             defaultAppearance={seed.appearance}
             defaultAvatarUrl={seed.avatarUrl}
+            characterSheetUrl={characterSheetUrl}
             // The six main faces, chosen at first, and the 23 extra feelings that fall back to them, each with open
             // eyes and a closed mouth for its blink and talk pictures to change.
             expressionChoices={TALKING_HEAD_FACES}

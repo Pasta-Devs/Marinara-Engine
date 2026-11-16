@@ -50,6 +50,7 @@ import {
   useCharacterSprites,
   useImportSpriteFolder,
   useCharacterGalleryImages,
+  useCharacterSheetImageUrl,
   useCharacterGalleryClips,
   useUploadCharacterGalleryImage,
   useBakeCharacterGalleryImages,
@@ -1888,6 +1889,11 @@ export function CharacterEditor() {
                         (formData.extensions.appearance as string) ?? formData.description,
                       )}
                       defaultAvatarUrl={avatarPreview}
+                      characterSheetImageId={
+                        typeof formData.extensions.characterSheetImageId === "string"
+                          ? formData.extensions.characterSheetImageId
+                          : null
+                      }
                     />
                   }
                   gallery={
@@ -5768,14 +5774,17 @@ function SpritesTab({
   characterName,
   defaultAppearance,
   defaultAvatarUrl,
+  characterSheetImageId,
 }: {
   characterId: string;
   characterName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
+  characterSheetImageId?: string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
+  const characterSheetUrl = useCharacterSheetImageUrl("character", characterId, characterSheetImageId);
 
   const { data: sprites, isLoading } = useCharacterSprites(characterId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
@@ -6723,6 +6732,7 @@ function SpritesTab({
           existingExpressionSprites={portraitExpressionSprites}
           defaultAppearance={defaultAppearance}
           defaultAvatarUrl={defaultAvatarUrl}
+          characterSheetUrl={characterSheetUrl}
           onSpritesGenerated={() => {
             queryClient.invalidateQueries({ queryKey: spriteKeys.list(characterId) });
           }}

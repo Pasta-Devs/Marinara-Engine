@@ -62,21 +62,29 @@ const PLAIN = { floor: "#4a443d", wall: "#837767", liquid: "#245a78", prop: "#c9
 const centreOf = (cell: Point): Point => ({ x: cell.x * T + T / 2, y: cell.y * T + T / 2 });
 
 /** The set's own tile pack: the Experience's dungeon look by that id (1.357), else the player's library's
- *  pack by the set's name. */
+ *  pack by the set's name, else the Engine's own art for the set (the fork's built-ins). */
 function useDungeonPack(set: string | undefined, looks?: readonly TilePack[]): TilePack | null | "loading" {
   const { data: library, isPending } = useTilePackLibrary();
   const look = set ? looks?.find((pack) => pack.id === set) : undefined;
-  const entry = set && !look ? library?.packs.find((pack) => pack.id === set) : undefined;
+  // A pack saved to the library is filed as `local/<its id>`: a pack made for a set carries the set's id.
+  const entry = set && !look ? library?.packs.find((pack) => pack.id === set || pack.id === `local/${set}`) : undefined;
+  const builtIn = Boolean(set && !look && !entry && library?.builtInDungeons?.includes(set));
   const { data, isPending: packPending } = useQuery({
-    queryKey: ["game", "tile-packs", "dungeon", set, entry?.version ?? null],
+    queryKey: ["game", "tile-packs", "dungeon", set, entry?.id ?? null, entry?.version ?? null, builtIn],
     queryFn: async () =>
-      (await api.get<{ pack: TilePack }>(`/game-tile-packs/pack?id=${encodeURIComponent(set!)}`)).pack,
-    enabled: Boolean(entry),
+      (
+        await api.get<{ pack: TilePack }>(
+          entry
+            ? `/game-tile-packs/pack?id=${encodeURIComponent(entry.id)}`
+            : `/game-tile-packs/builtin/dungeon/${encodeURIComponent(set!)}`,
+        )
+      ).pack,
+    enabled: Boolean(entry) || builtIn,
     staleTime: Infinity,
   });
   if (look) return look;
-  if (isPending || (entry && packPending)) return "loading";
-  return entry ? (data ?? null) : null;
+  if (isPending || ((entry || builtIn) && packPending)) return "loading";
+  return entry || builtIn ? (data ?? null) : null;
 }
 
 export function DungeonMapView({
@@ -217,12 +225,52 @@ export function DungeonMapView({
       ctx.fillStyle = colour;
       ctx.fillRect(x, y, T, T);
     };
+    // One chosen cell of a pattern tile, drawn at (x, y): the pattern is read by position, so the canvas is
+    // shifted to put that cell's position under (x, y).
+    const drawPatternCell = (
+      target: CanvasRenderingContext2D,
+      id: string,
+      col: number,
+      row: number,
+      x: number,
+      y: number,
+      pick: number,
+    ) => {
+      target.save();
+      target.translate((x - col) * T, (y - row) * T);
+      const drew = drawTile(target, id, col * T, row * T, pick);
+      target.restore();
+      return drew;
+    };
     const liquidEdges = drawTile.hasEdges("dn_liquid");
     for (let y = 0; y < cells.height; y++)
       for (let x = 0; x < cells.width; x++) {
         const ground = cells.ground[y * cells.width + x];
         if (ground === "rock") continue;
         const pick = cellNoise(x, y)(5);
+        // A wall shows its face where a floor lies below it and its top elsewhere, when the pack has them.
+        // The face is a pattern two cells tall: its lower row, so a wall one cell thick still stands on the
+        // floor. The top is a 4x4 autotile keyed by which sides meet a wall (N 1, E 2, S 4, W 8), so its rim
+        // runs round the wall's outline instead of boxing every cell.
+        if (ground === "wall") {
+          const at = (dx: number, dy: number) => {
+            const [nx, ny] = [x + dx, y + dy];
+            return nx >= 0 && ny >= 0 && nx < cells.width && ny < cells.height
+              ? cells.ground[ny * cells.width + nx]
+              : "rock";
+          };
+          const below = at(0, 1);
+          if (below === "floor" || below === "liquid") {
+            if (drawPatternCell(ctx, "dn_wall_face", x % 6, 1, x, y, pick)) continue;
+          } else {
+            const mask =
+              (at(0, -1) === "wall" ? 1 : 0) |
+              (at(1, 0) === "wall" ? 2 : 0) |
+              (below === "wall" ? 4 : 0) |
+              (at(-1, 0) === "wall" ? 8 : 0);
+            if (drawPatternCell(ctx, "dn_wall_top", mask % 4, Math.floor(mask / 4), x, y, pick)) continue;
+          }
+        }
         // With the liquid's edge pieces, a pool is under-painted as floor and drawn by the pieces.
         const id = ground === "wall" ? "dn_wall" : ground === "liquid" && !liquidEdges ? "dn_liquid" : "dn_floor";
         const colour =
@@ -238,6 +286,18 @@ export function DungeonMapView({
           if (piece >= 0) drawTile.edge(ctx, "dn_liquid", piece, x * T, y * T, cellNoise(x, y)(71));
         }
     }
+    // A doorway through a wall's face (walls with their faces either side, floor in front and behind) gets
+    // the pack's door, an arch two cells tall standing in the wall.
+    const groundAt = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < cells.width && y < cells.height ? cells.ground[y * cells.width + x] : "rock";
+    const open = (ground: string | undefined) => ground === "floor" || ground === "liquid";
+    for (let y = 1; y < cells.height; y++)
+      for (let x = 0; x < cells.width; x++) {
+        if (groundAt(x, y) !== "floor" || !open(groundAt(x, y + 1)) || !open(groundAt(x, y - 1))) continue;
+        if (groundAt(x - 1, y) !== "wall" || groundAt(x + 1, y) !== "wall") continue;
+        if (!open(groundAt(x - 1, y + 1)) || !open(groundAt(x + 1, y + 1))) continue;
+        drawTile(ctx, "dn_door_wall", x * T, y * T, 0);
+      }
     for (let y = 0; y < cells.height; y++)
       for (let x = 0; x < cells.width; x++) {
         const prop = cells.props[y * cells.width + x]!;

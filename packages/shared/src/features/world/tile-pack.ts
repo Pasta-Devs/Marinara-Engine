@@ -52,6 +52,11 @@ function dungeonTileIds() {
     "dn_floor",
     "dn_wall",
     "dn_liquid",
+    // A wall's face where a floor lies below it, its top elsewhere and a door standing in a doorway (image
+    // packs, 2026-11-16): a pack without them draws every wall cell as dn_wall.
+    "dn_wall_face",
+    "dn_wall_top",
+    "dn_door_wall",
     ...WORLD_MAP_EDGE_TERRAINS.map((terrain) => `edge_${terrain}` as const),
     "dn_prop0",
     "dn_prop1",
@@ -127,6 +132,8 @@ export const WORLD_PATTERN_TILE_IDS: readonly WorldTileId[] = Object.freeze([
   "dn_floor",
   "dn_wall",
   "dn_liquid",
+  "dn_wall_face",
+  "dn_wall_top",
 ]);
 /** Tiles only an image pack draws (whole buildings as sprites); a drawn pack's roofs and fronts stand in. */
 export const WORLD_IMAGE_ONLY_TILE_IDS: readonly WorldTileId[] = Object.freeze([

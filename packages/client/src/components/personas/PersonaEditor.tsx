@@ -48,6 +48,7 @@ import {
   useRenamePersonaVersion,
   useResetPersonaVersions,
   usePersonaGalleryImages,
+  useCharacterSheetImageUrl,
   usePersonaGalleryClips,
   useUploadPersonaGalleryImage,
   useUploadPersonaGalleryClip,
@@ -2465,6 +2466,7 @@ export function PersonaEditor() {
                     personaName={formData.name}
                     defaultAppearance={formData.appearance || formData.description}
                     defaultAvatarUrl={avatarPreview}
+                    characterSheetImageId={formData.characterSheetImageId}
                   />
                 }
                 gallery={
@@ -2547,14 +2549,17 @@ function PersonaSpritesTab({
   personaName,
   defaultAppearance,
   defaultAvatarUrl,
+  characterSheetImageId,
 }: {
   personaId: string;
   personaName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
+  characterSheetImageId?: string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
   type SpriteCategory = "expressions" | "full-body" | "clips";
+  const characterSheetUrl = useCharacterSheetImageUrl("persona", personaId, characterSheetImageId);
 
   const { data: sprites, isLoading } = useCharacterSprites(personaId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
@@ -3405,6 +3410,7 @@ function PersonaSpritesTab({
           existingExpressionSprites={portraitExpressionSprites}
           defaultAppearance={defaultAppearance}
           defaultAvatarUrl={defaultAvatarUrl}
+          characterSheetUrl={characterSheetUrl}
           onSpritesGenerated={() => {
             queryClient.invalidateQueries({ queryKey: spriteKeys.list(personaId) });
           }}

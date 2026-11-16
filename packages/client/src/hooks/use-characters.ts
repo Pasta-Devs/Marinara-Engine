@@ -1766,3 +1766,18 @@ export function useBulkEditCharacterTags() {
     },
   });
 }
+
+/** The picture of a character's or persona's saved character sheet, from its gallery; null when it has none. */
+export function useCharacterSheetImageUrl(
+  ownerType: "character" | "persona",
+  ownerId: string | null,
+  characterSheetImageId: string | null | undefined,
+): string | null {
+  const sheetId = characterSheetImageId || null;
+  const characterImages = useCharacterGalleryImages(ownerType === "character" && sheetId ? ownerId : null);
+  const personaImages = usePersonaGalleryImages(ownerType === "persona" && sheetId ? ownerId : null);
+  if (!sheetId) return null;
+  const images: Array<{ id: string; url: string }> | undefined =
+    ownerType === "character" ? characterImages.data : personaImages.data;
+  return images?.find((image) => image.id === sheetId)?.url ?? null;
+}
