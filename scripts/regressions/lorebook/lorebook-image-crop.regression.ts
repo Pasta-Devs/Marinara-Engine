@@ -106,7 +106,7 @@ try {
     { connectionId: "none", purpose: "banner", appearance: "x" },
     400,
   );
-  assert.match(badPurpose.error, /avatar, character-sheet or cover/);
+  assert.match(badPurpose.error, /avatar, character-sheet, cover, background, sticker-sheet or emoji-sheet/);
   // "cover" passes the purpose check and fails later, on the missing connection.
   const coverNoConnection = await request(
     "POST",
