@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, IdCard, ImagePlus, Loader2, Wand2 } from "lucide-react";
+import { Camera, IdCard, ImagePlus, Loader2, Wand2, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
@@ -9,6 +9,7 @@ import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { FullImageView } from "./AvatarCropWidget";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -82,6 +83,7 @@ export function AvatarGenerationModal({
   const [useNeutralFullBodyReference, setUseNeutralFullBodyReference] = useState(false);
   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [showFullView, setShowFullView] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewItems, setReviewItems] = useState<ImagePromptReviewItem[]>([]);
@@ -113,6 +115,7 @@ export function AvatarGenerationModal({
     setUseNeutralFullBodyReference(false);
     setGeneratedAvatar(null);
     setGeneratedPrompt("");
+    setShowFullView(false);
     setReviewItems([]);
     setReviewSubmitting(false);
   }, [defaultAppearance, defaultAvatarUrl, open]);
@@ -232,6 +235,20 @@ export function AvatarGenerationModal({
       setSaving(false);
     }
   };
+
+  // The preview shows the fresh result, or the current picture until one exists; either can be opened large.
+  const previewSrc = generatedAvatar ?? defaultAvatarUrl ?? null;
+  const previewAlt = localizeUi(
+    generatedAvatar
+      ? isCover
+        ? "ui.ui.avatargenerationmodal.generatedCover"
+        : isCharacterSheet
+          ? "ui.ui.avatargenerationmodal.generatedCharacterSheet"
+          : "ui.ui.avatargenerationmodal.generatedAvatar"
+      : isCover
+        ? "ui.ui.avatargenerationmodal.currentCover"
+        : "ui.ui.avatargenerationmodal.currentAvatar",
+  );
 
   return (
     <>
@@ -387,28 +404,36 @@ export function AvatarGenerationModal({
                   isCharacterSheet ? "aspect-video" : "aspect-square",
                 )}
               >
-                {generatedAvatar ? (
-                  <img
-                    src={generatedAvatar}
-                    alt={localizeUi(
-                      isCover
-                        ? "ui.ui.avatargenerationmodal.generatedCover"
-                        : isCharacterSheet
-                          ? "ui.ui.avatargenerationmodal.generatedCharacterSheet"
-                          : "ui.ui.avatargenerationmodal.generatedAvatar",
-                    )}
-                    className={cn("h-full w-full", isCharacterSheet ? "object-contain" : "object-cover")}
-                  />
-                ) : defaultAvatarUrl ? (
-                  <img
-                    src={defaultAvatarUrl}
-                    alt={localizeUi(
-                      isCover
-                        ? "ui.ui.avatargenerationmodal.currentCover"
-                        : "ui.ui.avatargenerationmodal.currentAvatar",
-                    )}
-                    className="h-full w-full object-cover opacity-80"
-                  />
+                {previewSrc ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.currentTarget.focus();
+                      setShowFullView(true);
+                    }}
+                    aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                    aria-haspopup="dialog"
+                    title={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                    className="group/preview block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  >
+                    <img
+                      src={previewSrc}
+                      alt={previewAlt}
+                      className={cn(
+                        "h-full w-full",
+                        generatedAvatar && isCharacterSheet ? "object-contain" : "object-cover",
+                        !generatedAvatar && "opacity-80",
+                      )}
+                    />
+                    {/* Always visible (touch has no hover), sits on the image so it reads the same in every theme. */}
+                    <span
+                      aria-hidden="true"
+                      data-avatar-generation-zoom=""
+                      className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-black/55 text-white shadow-sm ring-1 ring-white/15 transition-colors group-focus-visible/preview:bg-black/75 max-sm:h-9 max-sm:w-9 [@media(hover:hover)]:group-hover/preview:bg-black/75"
+                    >
+                      <ZoomIn size="0.875rem" />
+                    </span>
+                  </button>
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--muted-foreground)]">
                     <ImagePlus size="1.75rem" />
@@ -440,6 +465,10 @@ export function AvatarGenerationModal({
           </div>
         </div>
       </Modal>
+
+      {open && showFullView && previewSrc && (
+        <FullImageView src={previewSrc} alt={previewAlt} onClose={() => setShowFullView(false)} />
+      )}
 
       <ImagePromptReviewModal
         open={reviewItems.length > 0}

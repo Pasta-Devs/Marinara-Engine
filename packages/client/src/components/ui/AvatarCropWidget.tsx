@@ -13,9 +13,9 @@
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Crop, X } from "lucide-react";
+import { Crop, X, ZoomIn, ZoomOut } from "lucide-react";
 import type { AvatarCrop, SourceRectAvatarCrop } from "@marinara-engine/shared";
-import { getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
+import { cn, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
@@ -395,11 +395,84 @@ export function AvatarCropWidget({
   );
 }
 
+const FULL_VIEW_MAX_SCALE = 6;
+// A tap or click moves less than this (px) between down and up; anything longer is a pan.
+const FULL_VIEW_TAP_SLOP = 6;
+
+type FullViewTransform = { scale: number; x: number; y: number };
+
+/**
+ * The picture opened large, fitted to the screen. It zooms toward the pointer with a click or tap (again to fit),
+ * the wheel, a pinch, or the + and - buttons, and pans by dragging while zoomed. The backdrop, the close button,
+ * Escape and the system back gesture close it.
+ */
 export function FullImageView({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   const { t: localizeUi } = useUiTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [view, setView] = useState<FullViewTransform>({ scale: 1, x: 0, y: 0 });
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const gestureRef = useRef<{
+    start: FullViewTransform;
+    startX: number;
+    startY: number;
+    startDistance: number;
+    moved: boolean;
+  } | null>(null);
   useDialogFocusScope(true, containerRef);
   useBackDismiss(true, onClose);
+
+  /** Keeps the zoomed picture covering its side of the screen: no panning past an edge, centred when it fits. */
+  const clampView = (next: FullViewTransform): FullViewTransform => {
+    const image = imageRef.current;
+    const scale = clamp(next.scale, 1, FULL_VIEW_MAX_SCALE);
+    if (!image || scale === 1) return { scale, x: 0, y: 0 };
+    const maxX = Math.max(0, (image.offsetWidth * scale - window.innerWidth) / 2);
+    const maxY = Math.max(0, (image.offsetHeight * scale - window.innerHeight) / 2);
+    return { scale, x: clamp(next.x, -maxX, maxX), y: clamp(next.y, -maxY, maxY) };
+  };
+
+  /** Zooms to `scale` keeping the screen point (clientX, clientY) over the same spot of the picture. */
+  const zoomAt = (from: FullViewTransform, scale: number, clientX: number, clientY: number) => {
+    const image = imageRef.current;
+    if (!image) return from;
+    const nextScale = clamp(scale, 1, FULL_VIEW_MAX_SCALE);
+    // The untransformed picture is centred in the screen; transforms run from its centre.
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const localX = (clientX - centerX - from.x) / from.scale;
+    const localY = (clientY - centerY - from.y) / from.scale;
+    return clampView({
+      scale: nextScale,
+      x: clientX - centerX - nextScale * localX,
+      y: clientY - centerY - nextScale * localY,
+    });
+  };
+
+  /** One click or tap: in to the picture's own pixels (at least 2x), or back to fit. */
+  const toggleZoom = (clientX: number, clientY: number) => {
+    const current = viewRef.current;
+    if (current.scale > 1) {
+      setView({ scale: 1, x: 0, y: 0 });
+      return;
+    }
+    const image = imageRef.current;
+    const natural = image && image.offsetWidth > 0 ? image.naturalWidth / image.offsetWidth : 2;
+    setView(zoomAt(current, clamp(Math.max(2, natural), 2, 4), clientX, clientY));
+  };
+
+  const zoomBy = (factor: number) => {
+    setView((current) => zoomAt(current, current.scale * factor, window.innerWidth / 2, window.innerHeight / 2));
+  };
+
+  const pointerDistance = () => {
+    const [a, b] = [...pointersRef.current.values()];
+    return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+  };
+
+  const zoomed = view.scale > 1;
 
   return createPortal(
     <div
@@ -408,23 +481,139 @@ export function FullImageView({ src, alt, onClose }: { src: string; alt: string;
       aria-modal="true"
       aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
       tabIndex={-1}
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
+      className="fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden bg-black/80"
       onClick={onClose}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.stopPropagation();
           onClose();
+        } else if (event.key === "+" || event.key === "=") {
+          zoomBy(1.5);
+        } else if (event.key === "-") {
+          zoomBy(1 / 1.5);
+        } else if (event.key === "0") {
+          setView({ scale: 1, x: 0, y: 0 });
         }
       }}
+      onWheel={(event) => {
+        if (event.deltaY === 0) return;
+        const factor = Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.05 : 0.002));
+        setView((current) => zoomAt(current, current.scale * factor, event.clientX, event.clientY));
+      }}
     >
-      <img src={src} alt={alt} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
-      <button
-        type="button"
-        aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-        className="absolute right-[max(0.75rem,var(--mari-safe-area-inset-right))] top-3 rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-      >
-        <X size="1rem" />
-      </button>
+      <img
+        ref={imageRef}
+        src={src}
+        alt={alt}
+        draggable={false}
+        className={cn(
+          "max-h-[85vh] max-w-[90vw] select-none rounded-lg object-contain shadow-2xl",
+          zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in",
+          !gestureRef.current && "transition-transform duration-150 ease-out motion-reduce:transition-none",
+        )}
+        style={{
+          transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
+          // The picture takes every touch gesture (pinch, pan, tap), so the page never scrolls or zooms behind it.
+          touchAction: "none",
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+          pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          gestureRef.current = {
+            start: viewRef.current,
+            startX: event.clientX,
+            startY: event.clientY,
+            startDistance: pointerDistance(),
+            moved: pointersRef.current.size > 1 || (gestureRef.current?.moved ?? false),
+          };
+        }}
+        onPointerMove={(event) => {
+          const gesture = gestureRef.current;
+          if (!gesture || !pointersRef.current.has(event.pointerId)) return;
+          pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          if (pointersRef.current.size >= 2) {
+            const distance = pointerDistance();
+            if (gesture.startDistance <= 0) return;
+            const [a, b] = [...pointersRef.current.values()];
+            gesture.moved = true;
+            setView(
+              zoomAt(
+                gesture.start,
+                (gesture.start.scale * distance) / gesture.startDistance,
+                (a!.x + b!.x) / 2,
+                (a!.y + b!.y) / 2,
+              ),
+            );
+            return;
+          }
+          const dx = event.clientX - gesture.startX;
+          const dy = event.clientY - gesture.startY;
+          if (!gesture.moved && Math.hypot(dx, dy) < FULL_VIEW_TAP_SLOP) return;
+          gesture.moved = true;
+          if (gesture.start.scale > 1) {
+            setView(clampView({ ...gesture.start, x: gesture.start.x + dx, y: gesture.start.y + dy }));
+          }
+        }}
+        onPointerUp={(event) => {
+          const gesture = gestureRef.current;
+          pointersRef.current.delete(event.pointerId);
+          if (pointersRef.current.size > 0) {
+            // A pinch lifted one finger: the other carries on as a pan from here.
+            const [rest] = [...pointersRef.current.values()];
+            gestureRef.current = {
+              start: viewRef.current,
+              startX: rest!.x,
+              startY: rest!.y,
+              startDistance: 0,
+              moved: true,
+            };
+            return;
+          }
+          gestureRef.current = null;
+          if (gesture && !gesture.moved) toggleZoom(event.clientX, event.clientY);
+        }}
+        onPointerCancel={(event) => {
+          pointersRef.current.delete(event.pointerId);
+          if (pointersRef.current.size === 0) gestureRef.current = null;
+        }}
+      />
+      <div className="absolute right-[max(0.75rem,var(--mari-safe-area-inset-right))] top-3 flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={localizeUi("ui.game.mapzoomcontrols.zoomOut")}
+          title={localizeUi("ui.game.mapzoomcontrols.zoomOut")}
+          disabled={!zoomed}
+          className="rounded-lg bg-black/60 p-2 text-white transition-colors disabled:opacity-40 max-sm:p-3 [@media(hover:hover)]:hover:bg-black/80"
+          onClick={(event) => {
+            event.stopPropagation();
+            zoomBy(1 / 1.5);
+          }}
+        >
+          <ZoomOut size="1rem" />
+        </button>
+        <button
+          type="button"
+          aria-label={localizeUi("ui.game.mapzoomcontrols.zoomIn")}
+          title={localizeUi("ui.game.mapzoomcontrols.zoomIn")}
+          disabled={view.scale >= FULL_VIEW_MAX_SCALE}
+          className="rounded-lg bg-black/60 p-2 text-white transition-colors disabled:opacity-40 max-sm:p-3 [@media(hover:hover)]:hover:bg-black/80"
+          onClick={(event) => {
+            event.stopPropagation();
+            zoomBy(1.5);
+          }}
+        >
+          <ZoomIn size="1rem" />
+        </button>
+        <button
+          type="button"
+          aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
+          title={localizeUi("ui.chat.chatimagelightbox.closeImage")}
+          className="rounded-lg bg-black/60 p-2 text-white transition-colors max-sm:p-3 [@media(hover:hover)]:hover:bg-black/80"
+        >
+          <X size="1rem" />
+        </button>
+      </div>
     </div>,
     document.body,
   );
