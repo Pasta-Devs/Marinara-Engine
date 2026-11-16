@@ -95,7 +95,7 @@ Choose **Gentle** if you want to enjoy the story and its characters without the 
 
 #### Content boundaries
 
-Write one subject per line, up to 40. The GM treats each one as a hard limit, above the rating, the tone, any character's personality and the plot. It does not bring them up, use them as a threat, twist or backstory, or hint at them. If you bring one up yourself, the GM keeps it brief and moves on. Boundaries work in both story styles and at both ratings, and your own rating guidelines cannot remove them.
+Write one subject per line, up to 40 subjects and 2,000 characters in all. Anything past either limit is left out. The GM treats each one as a hard limit, above the rating, the tone, any character's personality and the plot. It does not bring them up, use them as a threat, twist or backstory, or hint at them. If you bring one up yourself, the GM keeps it brief and moves on. Boundaries work in both story styles and at both ratings, and your own rating guidelines cannot remove them.
 
 > **Note:** The story is written by an AI model, so Marinara cannot guarantee that a listed subject never appears. If one slips in, swipe or edit the reply.
 
