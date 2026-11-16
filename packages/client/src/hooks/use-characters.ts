@@ -601,6 +601,8 @@ export interface CharacterGalleryImage {
   customName: string | null;
   createdAt: string;
   url: string;
+  /** Clean up kept the picture this image had before, so "Undo clean up" can put it back. */
+  hasCleanUpOriginal?: boolean;
 }
 
 export interface CharacterGalleryClip {

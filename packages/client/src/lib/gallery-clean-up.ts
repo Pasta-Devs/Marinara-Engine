@@ -21,6 +21,7 @@ export type CleanableGalleryImage = {
   url: string;
   filePath: string;
   customKind?: string | null;
+  hasCleanUpOriginal?: boolean;
 };
 
 /** Stickers and emoji in a selection: the only pictures the clean-up applies to. */
@@ -105,4 +106,29 @@ export async function cleanUpGalleryImages(
     toast.success(localizeUi("ui.gallery.batch.cleanedUpSome", { completed: saved, count: targets.length }));
   else toast.success(localizeUi("ui.gallery.batch.cleanedUp", { count: targets.length }));
   return saved;
+}
+
+/** Selected pictures that Clean up changed before, whose earlier picture can be put back. */
+export function restorableGalleryImages<T extends CleanableGalleryImage>(images: T[]): T[] {
+  return images.filter((image) => image.hasCleanUpOriginal);
+}
+
+/**
+ * "Undo clean up": put back the picture each image had before it was first cleaned up, through
+ * `restorePath` (the gallery's `/…/gallery/:imageId/restore-original` route). Returns how many were put back.
+ */
+export async function restoreGalleryImages(
+  images: CleanableGalleryImage[],
+  options: { restorePath: (imageId: string) => string; localizeUi: TFunction },
+): Promise<number> {
+  const { localizeUi } = options;
+  const targets = restorableGalleryImages(images);
+  if (targets.length === 0) return 0;
+  const results = await Promise.allSettled(targets.map((image) => api.post(options.restorePath(image.id))));
+  const completed = results.filter((result) => result.status === "fulfilled").length;
+  const failed = targets.length - completed;
+  if (failed > 0)
+    toast.error(localizeUi("ui.gallery.batch.undoCleanUpPartial", { completed, count: targets.length, failed }));
+  else toast.success(localizeUi("ui.gallery.batch.cleanUpUndone", { count: targets.length }));
+  return completed;
 }
