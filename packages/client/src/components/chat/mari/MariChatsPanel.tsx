@@ -1,4 +1,4 @@
-import { Plus, Loader2, Check, Square, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, Check, Square, EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import { readMariThread } from "../../../lib/mari-arrival";
@@ -8,6 +8,7 @@ import { MariPanelSortMode } from "../../../stores/ui.store";
 import { ResultTypeIcon } from "../../command-center/ResultTypeIcon";
 import { MariSidePanelHeader, MariSideSearch, MariPanelSortSelect } from "../MariPanelControls";
 import { ProfessorMariChatSummary, isProfessorMariChatActive } from "./mari-chat-helpers";
+import { Spinner } from "../../ui/Spinner";
 
 /** The Chats side panel: her past conversations, with search, sort, rename, delete and bulk delete. */
 type MariChatsPanelProps = {
@@ -133,7 +134,7 @@ export function MariChatsPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {chatHistoryLoading ? (
           <div className="flex h-full items-center justify-center text-xs text-[var(--muted-foreground)]">
-            <Loader2 size="0.875rem" className="mr-2 animate-spin" />
+            <Spinner size="sm" className="mr-2" />
             {localizeUi("ui.chat.homeprofessormarichat.loadingChats")}
           </div>
         ) : (

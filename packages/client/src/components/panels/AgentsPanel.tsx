@@ -156,6 +156,7 @@ import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-event
 import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
+import { Checkbox } from "../ui/Checkbox";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -2013,8 +2014,7 @@ export function AgentsPanel() {
                                     : "bg-[var(--secondary)]/35 ring-[var(--border)]",
                                 )}
                               >
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={checked}
                                   disabled={importAgent.isPending}
                                   onChange={() => toggleApprovedImportCapability(candidate.type, capability)}
@@ -2279,11 +2279,11 @@ function renderAgentCard({
       {!selectionMode && inChat && chatSettingsChatId && (
         <button
           type="button"
-          onClick={(event) => {
+          onClick={async (event) => {
             event.stopPropagation();
             const ui = useUIStore.getState();
             // A detail page (agent, character, ...) replaces the chat view, so leave it first.
-            if (!confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor"))) return;
+            if (!(await confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor")))) return;
             ui.closeAllDetails();
             // On phones the panel covers the chat, so close it to show the drawer.
             if (window.matchMedia("(max-width: 767px)").matches) ui.closeRightPanel();

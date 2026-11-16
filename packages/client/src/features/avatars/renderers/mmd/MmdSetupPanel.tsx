@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Info, Loader2, Trash2 } from "lucide-react";
+import { Info, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { MmdAvatarData } from "@marinara-engine/shared";
@@ -13,6 +13,7 @@ import {
   MODEL_BUTTON_CLASS,
   modelErrorMessage,
 } from "../../setup/ModelSetupControls";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 export function MmdSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanelProps) {
   const { t } = useTranslation();
@@ -73,7 +74,7 @@ export function MmdSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanel
           {data ? (
             <button type="button" disabled={busy} onClick={() => void confirmRemove()} className={MODEL_BUTTON_CLASS}>
               {remove.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
+                <Spinner size="sm" />
               ) : (
                 <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
               )}

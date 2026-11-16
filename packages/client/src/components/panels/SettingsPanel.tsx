@@ -130,7 +130,6 @@ import {
   Trash2,
   Check,
   ChevronDown,
-  Loader2,
   Search,
   Palette,
   Puzzle,
@@ -239,6 +238,8 @@ import {
   isHostDeviceBrowser,
 } from "../../lib/host-device";
 import { setTapTimingsEnabled, useTapTimingsEnabled } from "../layout/TapTimings";
+import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type CustomFontFace = {
   filename: string;
@@ -1815,8 +1816,7 @@ function QuickRepliesSetting() {
       <div className="flex min-h-9 items-stretch">
         <div className="flex min-w-0 items-center gap-1.5 py-2 pl-1.5 pr-2">
           <label className="flex min-w-0 cursor-pointer items-center gap-2.5">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={showQuickRepliesMenu}
               onChange={(event) => handleEnabledChange(event.target.checked)}
               className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
@@ -2156,7 +2156,7 @@ function DocsLanguageSetting() {
         >
           {setDocsLanguage.isPending ? (
             <>
-              <Loader2 size="0.8125rem" className="animate-spin" />
+              <Spinner size="sm" />
               {installProgress && installProgress.filesTotal > 0
                 ? localizeUi("settings.application.docsLanguage.downloading", {
                     done: installProgress.filesDone,
@@ -2192,7 +2192,7 @@ function DocsLanguageSetting() {
           >
             {fixDocsLanguage.isPending ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />
+                <Spinner size="sm" />
                 {localizeUi("settings.application.docsLanguage.fixing")}
               </>
             ) : (
@@ -2972,7 +2972,7 @@ function VideoGenerationSettings() {
     >
       {videoSettingsQuery.isLoading ? (
         <div className="flex items-center gap-2 rounded-lg bg-[var(--background)]/55 px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-          <Loader2 size="0.8125rem" className="animate-spin" />
+          <Spinner size="sm" />
           {localizeUi("ui.panels.videogenerationsettings.loadingVideoSettings")}
         </div>
       ) : videoSettingsQuery.isError ? (
@@ -3336,7 +3336,7 @@ function GameAssetsSettings() {
             disabled={assetUploading || assetFiles.length === 0}
             className={SETTINGS_BUTTON_CLASS}
           >
-            {assetUploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+            {assetUploading ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
             {localizeUi("ui.panels.gameassetssettings.uploadToServer")}
           </button>
           {assetFiles.length > 0 && (
@@ -3801,11 +3801,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   className={SETTINGS_BUTTON_CLASS}
                   title={localizeUi("settings.actions.resetAppearance")}
                 >
-                  {setActiveSyncedTheme.isPending ? (
-                    <Loader2 size="0.75rem" className="animate-spin" />
-                  ) : (
-                    <RotateCcw size="0.75rem" />
-                  )}
+                  {setActiveSyncedTheme.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                   {localizeUi("ui.panels.appearancesettings.resetAppearance")}
                 </button>
               </div>
@@ -4251,11 +4247,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     disabled={!googleFontName.trim() || googleFontMutation.isPending}
                     className={SETTINGS_BUTTON_CLASS}
                   >
-                    {googleFontMutation.isPending ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
-                    ) : (
-                      <Download size="0.75rem" />
-                    )}
+                    {googleFontMutation.isPending ? <Spinner size="sm" /> : <Download size="0.75rem" />}
                     {googleFontMutation.isPending
                       ? localizeUi("ui.panels.appearancesettings.downloading")
                       : localizeUi("ui.panels.appearancesettings.add")}
@@ -5356,7 +5348,7 @@ function GenerationsSettings() {
 
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-4 py-8 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
-          <Loader2 size="1rem" className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.panels.generationssettings.checkingInstalledAgents")}
         </div>
       ) : !illustratorInstalled ? (
@@ -5657,7 +5649,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
               disabled={isSavingTheme}
               className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
             >
-              {isSavingTheme ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+              {isSavingTheme ? <Spinner size="sm" /> : <Save size="0.75rem" />}
               {isSavingTheme
                 ? localizeUi("ui.noodle.stageprofileform.saving")
                 : localizeUi("ui.noodle.noodlehome.save")}
@@ -6584,7 +6576,7 @@ function ImportSettings() {
             disabled={profileImportBusy}
             className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
           >
-            {profileImportBusy ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Download size="0.8125rem" />}
+            {profileImportBusy ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
             {profileImportBusy
               ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
                 ? localizeUi("ui.panels.importsettings.scanningProfile")
@@ -6626,7 +6618,7 @@ function ImportSettings() {
                   ) : profileImportProgress.status === "error" ? (
                     <AlertTriangle size="0.875rem" className="shrink-0" />
                   ) : (
-                    <Loader2 size="0.875rem" className="shrink-0 animate-spin text-emerald-500" />
+                    <Spinner size="sm" className="shrink-0 text-emerald-500" />
                   )}
                   <span className="truncate font-medium">{profileImportProgress.label}</span>
                 </div>
@@ -6774,12 +6766,12 @@ function ImportButton({
         const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
         const preview = previews[0];
         if (preview) {
-          importEmbeddedLorebook = window.confirm(
-            localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
+          importEmbeddedLorebook = await showConfirmDialog({
+            message: localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
               name: preview.name ?? file.name,
               count: preview.embeddedLorebookEntries,
             }),
-          );
+          });
         }
       }
 
@@ -7506,11 +7498,7 @@ function AdvancedSettings() {
               disabled={restartServer.isPending || !canRestartServer}
               className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
             >
-              {restartServer.isPending ? (
-                <Loader2 size="0.8125rem" className="animate-spin" />
-              ) : (
-                <Power size="0.8125rem" />
-              )}
+              {restartServer.isPending ? <Spinner size="sm" /> : <Power size="0.8125rem" />}
               {restartServer.isPending
                 ? localizeUi("settings.serverRestart.restarting")
                 : localizeUi("settings.serverRestart.action")}
@@ -7571,7 +7559,7 @@ function AdvancedSettings() {
             >
               {updateCheck.isFetching ? (
                 <>
-                  <Loader2 size="0.8125rem" className="animate-spin" />
+                  <Spinner size="sm" />
                   {localizeUi("settings.notifications.customSound.status.loading")}
                 </>
               ) : (
@@ -7670,7 +7658,7 @@ function AdvancedSettings() {
                 >
                   {applyUpdate.isPending ? (
                     <>
-                      <Loader2 size="0.8125rem" className="animate-spin" />
+                      <Spinner size="sm" />
                       {updateCheck.data.channelSwitch
                         ? localizeUi("ui.panels.advancedsettings.switching")
                         : localizeUi("ui.panels.advancedsettings.updating")}
@@ -7751,7 +7739,7 @@ function AdvancedSettings() {
             >
               {refreshingSpa ? (
                 <>
-                  <Loader2 size="0.8125rem" className="animate-spin" />
+                  <Spinner size="sm" />
                   {localizeUi("ui.panels.advancedsettings.refreshing")}
                 </>
               ) : (
@@ -8002,7 +7990,7 @@ function AdvancedSettings() {
           >
             {creatingBackup ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />
+                <Spinner size="sm" />
                 {localizeUi("ui.panels.advancedsettings.creatingBackup")}
               </>
             ) : (
@@ -8020,7 +8008,7 @@ function AdvancedSettings() {
           >
             {exportingProfile ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />
+                <Spinner size="sm" />
                 {localizeUi("ui.panels.advancedsettings.exporting")}
               </>
             ) : (
@@ -8078,11 +8066,7 @@ function AdvancedSettings() {
             disabled={scanAvatarStorage.isPending || cleanAvatarStorage.isPending}
             className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
           >
-            {scanAvatarStorage.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <Search size="0.8125rem" />
-            )}
+            {scanAvatarStorage.isPending ? <Spinner size="sm" /> : <Search size="0.8125rem" />}
             {scanAvatarStorage.isPending
               ? localizeUi("settings.storageOptimization.scanning")
               : localizeUi("settings.storageOptimization.action.check")}
@@ -8105,11 +8089,7 @@ function AdvancedSettings() {
               disabled={cleanAvatarStorage.isPending || scanAvatarStorage.isPending}
               className={cn(SETTINGS_PRIMARY_FULL_BUTTON_CLASS, "mari-chrome-control--danger")}
             >
-              {cleanAvatarStorage.isPending ? (
-                <Loader2 size="0.8125rem" className="animate-spin" />
-              ) : (
-                <Trash2 size="0.8125rem" />
-              )}
+              {cleanAvatarStorage.isPending ? <Spinner size="sm" /> : <Trash2 size="0.8125rem" />}
               {cleanAvatarStorage.isPending
                 ? localizeUi("settings.storageOptimization.deleting")
                 : localizeUi("settings.storageOptimization.action.delete")}
@@ -8138,8 +8118,7 @@ function AdvancedSettings() {
                       : "bg-[var(--background)]/40 ring-[var(--border)] hover:bg-[var(--accent)]/70",
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={checked}
                     disabled={isClearing}
                     onChange={() => toggleScope(scope.id)}
@@ -8215,7 +8194,7 @@ function AdvancedSettings() {
                   disabled={isClearing}
                   className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
                 >
-                  {isClearing ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+                  {isClearing ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
                   {localizeUi("ui.panels.advancedsettings.confirmDelete")}
                 </button>
               </div>

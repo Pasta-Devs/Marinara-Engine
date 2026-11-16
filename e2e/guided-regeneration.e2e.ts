@@ -228,7 +228,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         .filter({ hasText: "Keep guidance after regenerating" })
         .first()
         .click();
-      const keepGuidance = page.getByRole("checkbox", { name: "Keep guidance after regenerating", exact: true });
+      const keepGuidance = page.getByRole("switch", { name: "Keep guidance after regenerating", exact: true });
       await expect(keepGuidance).toBeChecked();
       await page
         .locator("#settings-control-keep-guidance-after-regenerating")

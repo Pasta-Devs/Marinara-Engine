@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useConnections } from "../../hooks/use-connections";
 import { useCreateChat } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -12,6 +12,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { CreateConnectionModal } from "../modals/CreateConnectionModal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { Spinner } from "../ui/Spinner";
 
 type Mode = "conversation" | "roleplay" | "game";
 
@@ -181,7 +182,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   : "mari-chrome-accent-surface border",
               )}
             >
-              {createChat.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : MODE_ICON[mode]}
+              {createChat.isPending ? <Spinner size="sm" /> : MODE_ICON[mode]}
               {localizeUi("ui.chat.newchatconnectiongate.createChat")}
             </button>
           </div>

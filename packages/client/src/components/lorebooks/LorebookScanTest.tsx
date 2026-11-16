@@ -6,9 +6,10 @@
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { runLorebookTestScan, type LorebookTestScanResult } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
+import { Spinner } from "../ui/Spinner";
 
 export type LorebookScanPreviewMatch = "matched" | "constant";
 
@@ -119,7 +120,7 @@ export function LorebookScanTest({ lorebookId, text, activeChat, entryNameById, 
           disabled={running || (effectiveSource === "text" && !text.trim())}
           className="mari-editor-action mari-editor-action--compact ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-[0.625rem] disabled:opacity-40"
         >
-          {running ? <Loader2 size="0.6875rem" className="animate-spin" /> : <Play size="0.6875rem" />}
+          {running ? <Spinner size="sm" /> : <Play size="0.6875rem" />}
           {t("lorebook.editor.scanTest.run")}
         </button>
       </div>

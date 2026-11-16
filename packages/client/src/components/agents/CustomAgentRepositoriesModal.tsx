@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ExternalLink, GitFork, Loader2, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
+import { Check, ExternalLink, GitFork, Plus, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import {
   CUSTOM_AGENT_PERMISSIONS_EXPLICIT_SETTING,
   normalizeCustomAgentCapabilities,
@@ -23,6 +23,7 @@ import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useAgentImportPolicy } from "../../hooks/use-agents";
+import { Spinner } from "../ui/Spinner";
 
 const TRUST_WARNING =
   "This repo and its agents are not affiliated with or vetted by PastaDevs. Custom agents can run tools, send prompts to your configured connections, and change behavior on every sync. Only add repos from people or sources you trust.";
@@ -299,7 +300,7 @@ export function CustomAgentRepositoriesModal({ open, onClose }: { open: boolean;
               className="mari-chrome-control mari-chrome-control--primary h-11 shrink-0 px-4 text-sm"
               disabled={pending || !url.trim()}
             >
-              {previewMutation.isPending ? <Loader2 className="animate-spin" size="0.9rem" /> : <Plus size="0.9rem" />}
+              {previewMutation.isPending ? <Spinner size="md" /> : <Plus size="0.9rem" />}
               {localizeUi("settings.notifications.customSound.actions.preview")}
             </button>
           </form>
@@ -316,8 +317,7 @@ export function CustomAgentRepositoriesModal({ open, onClose }: { open: boolean;
           </div>
           {repositories.isLoading ? (
             <p className="mt-3 flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-              <Loader2 className="animate-spin" size="0.9rem" />{" "}
-              {localizeUi("ui.agents.customagentrepositoriesmodal.loadingSources")}
+              <Spinner size="md" /> {localizeUi("ui.agents.customagentrepositoriesmodal.loadingSources")}
             </p>
           ) : repositories.data?.repositories.length ? (
             <div className="mt-2 divide-y divide-[var(--border)] border-y border-[var(--border)]">
@@ -414,11 +414,7 @@ export function CustomAgentRepositoriesModal({ open, onClose }: { open: boolean;
                 disabled={pending || !agentImportsEnabled}
                 title={agentImportsEnabled ? undefined : localizeUi("settings.agentImports.enableFirst")}
               >
-                {addMutation.isPending || syncMutation.isPending ? (
-                  <Loader2 size="0.9rem" className="animate-spin" />
-                ) : (
-                  <Check size="0.9rem" />
-                )}
+                {addMutation.isPending || syncMutation.isPending ? <Spinner size="md" /> : <Check size="0.9rem" />}
                 {configuredRepository
                   ? changeCount > 0
                     ? localizeUi("ui.agents.customagentrepositoriesmodal.applyChanges")

@@ -1,5 +1,5 @@
 import { createContext, useContext, type MouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, Check, Loader2, MoreHorizontal } from "lucide-react";
+import { ArrowUpRight, Check, MoreHorizontal } from "lucide-react";
 import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../../lib/utils";
@@ -14,6 +14,7 @@ import {
   type OrganizerEntry,
   type OrganizerPage,
 } from "./organizer-model";
+import { Spinner } from "../../ui/Spinner";
 
 /** Everything a page needs from the Organizer shell, so pages stay plain renderers. */
 export interface OrganizerActions {
@@ -85,7 +86,7 @@ export function AgentAction({
   if (busyId === entry.manifest.id) {
     return (
       <span className={cn(light ? LIGHT_ACTION : SECONDARY_ACTION, sizing, "pointer-events-none")} role="status">
-        <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />
+        <Spinner size="sm" aria-hidden="true" />
         <span className="sr-only">{localizeUi("ui.agents.organizer.working")}</span>
       </span>
     );

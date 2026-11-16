@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Check, Loader2, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Check, Plus, Trash2 } from "lucide-react";
 import {
   type Chat,
   type ChatMode,
@@ -19,6 +19,7 @@ import { PickerFolderList } from "../ui/PickerFolderList";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 type LorebookOwnerType = "character" | "persona";
 
@@ -383,11 +384,7 @@ export function LorebookAssignmentSection({
               disabled={!selectedLorebook || specificSelectionInvalid || updateLorebook.isPending}
               className={SHEET_BUTTON_PRIMARY}
             >
-              {updateLorebook.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
-              ) : (
-                <Check size="0.75rem" />
-              )}
+              {updateLorebook.isPending ? <Spinner size="sm" /> : <Check size="0.75rem" />}
               {localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}
             </button>
             <button type="button" onClick={() => setDraft(null)} className={SHEET_BUTTON_QUIET}>

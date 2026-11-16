@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, IdCard, ImagePlus, Loader2, Wand2 } from "lucide-react";
+import { Camera, IdCard, ImagePlus, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
@@ -11,6 +11,8 @@ import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "./Spinner";
+import { Checkbox } from "./Checkbox";
 
 type AvatarGenerationModalProps = {
   open: boolean;
@@ -253,7 +255,7 @@ export function AvatarGenerationModal({
                 className={SHEET_BUTTON_PRIMARY}
               >
                 {saving ? (
-                  <Loader2 size="0.875rem" className="animate-spin" />
+                  <Spinner size="sm" />
                 ) : isCharacterSheet ? (
                   <IdCard size="0.875rem" />
                 ) : (
@@ -274,7 +276,7 @@ export function AvatarGenerationModal({
               disabled={!effectiveConnectionId || !appearance.trim() || generating || saving}
               className={generatedAvatar ? SHEET_BUTTON_SECONDARY : SHEET_BUTTON_PRIMARY}
             >
-              {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
+              {generating ? <Spinner size="sm" /> : <Wand2 size="0.875rem" />}
               {generatedAvatar
                 ? localizeUi("ui.agents.secretplotpanel.regenerate")
                 : localizeUi("ui.characters.characterclipcard.generate")}
@@ -332,8 +334,7 @@ export function AvatarGenerationModal({
 
               {isCharacterSheet && neutralFullBodyReferenceUrl && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useNeutralFullBodyReference}
                     onChange={(event) => setUseNeutralFullBodyReference(event.target.checked)}
                     disabled={generating || saving}
@@ -352,8 +353,7 @@ export function AvatarGenerationModal({
 
               {defaultAvatarUrl && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCurrentAvatarReference}
                     onChange={(event) => setUseCurrentAvatarReference(event.target.checked)}
                     className="accent-[var(--primary)]"

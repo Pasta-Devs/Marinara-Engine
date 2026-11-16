@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
-import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen, Scissors } from "lucide-react";
+import { Download, FileJson, Image, CheckCircle, XCircle, BookOpen, Scissors } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
@@ -20,6 +20,8 @@ import type { DescriptionSplitResult } from "@marinara-engine/shared";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 interface Props {
   open: boolean;
@@ -479,8 +481,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         </div>
 
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={splitDescription}
             onChange={(e) => setSplitDescription(e.target.checked)}
             className="h-4 w-4 shrink-0 accent-[var(--primary)]"
@@ -554,7 +555,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         {/* Status */}
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+            <Spinner size="sm" className="text-[var(--primary)]" />
             {localizeUi("ui.modals.importcharactermodal.importingFiles")}
           </div>
         )}

@@ -72,7 +72,7 @@ for (const theme of ["dark", "light"] as const) {
       const settings = await openChatSettings(page);
       const characters = settings.locator('[data-chat-settings-section="roleplay-characters"]');
       await expect(settings.locator('[data-chat-settings-section="roleplay-card-theming"]')).toHaveCount(0);
-      const coloring = characters.getByRole("checkbox", { name: "Color Character Names in Text" });
+      const coloring = characters.getByRole("switch", { name: "Color Character Names in Text" });
       await expect(coloring).not.toBeChecked();
       // #8796: folders add from inside the character picker, so the toggle sits below "Add Character".
       const add = characters.getByRole("button", { name: "Add Character", exact: true });
@@ -82,7 +82,7 @@ for (const theme of ["dark", "light"] as const) {
           const addButton = Array.from(section.querySelectorAll("button")).find((button) =>
             button.textContent?.includes("Add Character"),
           );
-          const toggle = section.querySelector('input[type="checkbox"]');
+          const toggle = section.querySelector('[role="switch"]');
           return Boolean(
             addButton && toggle && addButton.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
           );

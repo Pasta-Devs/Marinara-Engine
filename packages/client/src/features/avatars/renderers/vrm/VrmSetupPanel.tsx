@@ -4,7 +4,7 @@
 // One-click Tripo models were withdrawn (maintainer decision, 2026-10-19); one made earlier, like any model
 // without expressions, is shown as body only, with no faces to pick.
 import { useState } from "react";
-import { BookOpen, Copy, ExternalLink, Info, Loader2, Trash2 } from "lucide-react";
+import { BookOpen, Copy, ExternalLink, Info, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { type AvatarOwnerRef, type VrmAvatarData, type VrmModelMeta } from "@marinara-engine/shared";
@@ -22,6 +22,7 @@ import {
   modelErrorMessage as errorMessage,
 } from "../../setup/ModelSetupControls";
 import { vrmModelPrompt } from "./vrm-model-prompt";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 /** Plain words for the values VRM 1.0 and 0.x files use in their terms; anything else shows as written. */
 const TERM_KEYS: ReadonlyMap<string, string> = new Map([
@@ -283,7 +284,7 @@ export function VrmSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanel
           />
           <button type="button" disabled={busy} onClick={() => void confirmRemove()} className={BUTTON_CLASS}>
             {removeModel.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
+              <Spinner size="sm" />
             ) : (
               <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
             )}

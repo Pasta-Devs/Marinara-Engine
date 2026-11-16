@@ -1,6 +1,8 @@
-import { Loader2, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/Spinner";
+import { Switch } from "@/components/ui/Switch";
 
 export interface CommandCenterToggleProps {
   checked: boolean;
@@ -42,7 +44,7 @@ export function CommandCenterToggle({
       )}
     >
       {loading ? (
-        <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+        <Spinner size="md" className="shrink-0" aria-hidden="true" />
       ) : Icon ? (
         <Icon className="size-4 shrink-0" aria-hidden="true" />
       ) : null}
@@ -52,28 +54,7 @@ export function CommandCenterToggle({
           {stateLabel}
         </span>
       ) : null}
-      <input
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        disabled={unavailable}
-        onChange={(event) => onCheckedChange(event.target.checked)}
-        className="peer sr-only"
-      />
-      <span
-        className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[var(--background)]",
-          checked ? "border-[var(--primary)] bg-[var(--primary)]" : "border-[var(--border)] bg-[var(--muted)]",
-        )}
-        aria-hidden="true"
-      >
-        <span
-          className={cn(
-            "absolute left-0.5 top-0.5 size-3.5 rounded-full bg-[var(--background)] shadow-sm transition-transform",
-            checked && "translate-x-4",
-          )}
-        />
-      </span>
+      <Switch checked={checked} disabled={unavailable} onCheckedChange={onCheckedChange} />
     </label>
   );
 }

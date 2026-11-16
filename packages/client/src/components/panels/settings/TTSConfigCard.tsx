@@ -7,7 +7,6 @@ import { createPortal } from "react-dom";
 import {
   Volume2,
   Check,
-  Loader2,
   RefreshCw,
   Play,
   Square,
@@ -60,6 +59,8 @@ import { SettingsCheckbox } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
 import { useUIStore } from "../../../stores/ui.store";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
 
 // ── Sub-components ───────────────────────────────
 
@@ -934,8 +935,7 @@ function NpcDefaultVoicePool({
               key={option.id}
               className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg bg-black/10 px-2 py-1.5 text-xs transition-colors hover:bg-black/20"
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.includes(option.id)}
                 onChange={(e) => onToggle(option.id, e.target.checked)}
                 className="h-3 w-3 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
@@ -2100,7 +2100,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
           title={localizeUi("ui.panels.ttsconfigcard.exportCachedTtsClips")}
         >
-          {exportingTtsCache ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+          {exportingTtsCache ? <Spinner size="sm" /> : <Download size="0.75rem" />}
         </button>
       </div>
 
@@ -2120,7 +2120,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           title={previewTitle}
         >
           {ttsState === "loading" ? (
-            <Loader2 size="0.75rem" className="animate-spin" />
+            <Spinner size="sm" />
           ) : ttsState === "playing" || ttsState === "blocked" ? (
             <Square size="0.75rem" />
           ) : (
@@ -2138,7 +2138,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
         {/* Auto-save status */}
         {saveStatus === "saving" && (
           <span className="flex items-center gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            <Loader2 size="0.625rem" className="animate-spin" />
+            <Spinner size="sm" />
             {localizeUi("chat.settings.inlineEditor.saving")}
           </span>
         )}

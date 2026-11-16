@@ -50,8 +50,8 @@ type OmnibarResultActionInput = {
   setQuery: (query: string) => void;
   setActiveResultId: (id: string | null) => void;
   setMariOpenChatId: Dispatch<SetStateAction<string | null>>;
-  confirmLeaveEditor: () => boolean;
-  navigate: (target: ProfessorMariNavigationTarget) => boolean;
+  confirmLeaveEditor: () => Promise<boolean>;
+  navigate: (target: ProfessorMariNavigationTarget) => Promise<boolean>;
   recordUse: (id: string) => void;
   openProfessorMari: () => void;
   onClose: () => void;
@@ -192,7 +192,7 @@ export function createOmnibarResultActions({
   // Typed dispatch for the results that do something other than open an entity.
   // Results without an `action` fall through to the generic entity-open path in
   // `choose` below.
-  const runResultAction = (result: OmnibarResult, action: OmnibarAction) => {
+  const runResultAction = async (result: OmnibarResult, action: OmnibarAction) => {
     switch (action.kind) {
       case "open-mari-chat":
         setMariOpenChatId(action.chatId);
@@ -215,7 +215,7 @@ export function createOmnibarResultActions({
       case "goto-message":
         // The request is keyed by chat id and survives the switch, so a hit in
         // another chat opens that chat and the jump is picked up on arrival.
-        if (action.chatId !== activeChatId && !navigate({ kind: "chat", chatId: action.chatId })) return;
+        if (action.chatId !== activeChatId && !(await navigate({ kind: "chat", chatId: action.chatId }))) return;
         useChatStore.getState().requestGotoMessage(action.chatId, action.messageNumber);
         onClose();
         return;
@@ -229,7 +229,7 @@ export function createOmnibarResultActions({
         // chat mounts, then navigate there — the same handoff the "goto-message"
         // action above uses to land on a chat that is not open yet.
         if (action.chatId && action.chatId !== activeChatId) {
-          if (!navigate({ kind: "chat", chatId: action.chatId })) return;
+          if (!(await navigate({ kind: "chat", chatId: action.chatId }))) return;
           requestChatResourceAssignmentFor(action.chatId, {
             version: 1,
             kind: action.resource,
@@ -282,7 +282,7 @@ export function createOmnibarResultActions({
         onClose();
         return;
       case "start-chat":
-        if (!confirmLeaveEditor()) return;
+        if (!(await confirmLeaveEditor())) return;
         recordUse(result.id);
         // Closing unmounts this dialog (and the mutation hook inside
         // `startNewChatMode`), so wait for it to settle first — otherwise the
@@ -294,7 +294,7 @@ export function createOmnibarResultActions({
           .finally(() => onClose());
         return;
       case "open-lorebook-entry":
-        if (!confirmLeaveEditor()) return;
+        if (!(await confirmLeaveEditor())) return;
         ui().openLorebookDetail(action.lorebookId, { initialTab: "entries", entryId: action.entryId });
         recordUse(result.id);
         onClose();

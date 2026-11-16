@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { LayoutDashboard, Loader2 } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 import type { Chat, HudWidget } from "@marinara-engine/shared";
 import { useUpdateGameWidgets } from "../../../hooks/use-game";
@@ -11,6 +11,7 @@ import {
 } from "../../../components/game/GameWidgetSetupEditor";
 import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { Spinner } from "../../../components/ui/Spinner";
 
 interface GameWidgetsSectionProps {
   chat: Chat;
@@ -78,7 +79,7 @@ export function GameWidgetsSection({ chat, metadata }: GameWidgetsSectionProps) 
             onClick={() => void saveGameWidgets()}
             disabled={!gameWidgetsChanged || updateGameWidgets.isPending}
           >
-            {updateGameWidgets.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+            {updateGameWidgets.isPending && <Spinner size="sm" />}
             <span>
               {updateGameWidgets.isPending
                 ? localizeUi("ui.noodle.stageprofileform.saving")

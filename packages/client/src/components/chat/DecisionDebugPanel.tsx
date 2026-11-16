@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FlaskConical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readableJson, type DecisionDebugPreview } from "@marinara-engine/shared";
 import { useDecisionDebug } from "../../hooks/use-decision-debug";
 import { reasonKeys } from "./AdvancedMemoryInspector";
+import { Spinner } from "../ui/Spinner";
 
 export function DecisionDebugPanel({
   chatId,
@@ -78,7 +79,7 @@ export function DecisionDebugPanel({
           <p className="text-[var(--muted-foreground)]">{t("decisionDebug.cost")}</p>
           {test.isPending && (
             <p role="status" className="flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin" />
+              <Spinner size="sm" />
               {t(test.variables === "run" ? "decisionDebug.running" : "decisionDebug.preparing")}
             </p>
           )}

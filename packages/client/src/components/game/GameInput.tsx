@@ -2,18 +2,7 @@
 // Game: Input Bar (send message, roll dice, attach files, emoji)
 // ──────────────────────────────────────────────
 import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
-import {
-  Send,
-  Dices,
-  Paperclip,
-  Smile,
-  Users,
-  MessageCircle,
-  MessageSquare,
-  Languages,
-  Loader2,
-  Play,
-} from "lucide-react";
+import { Send, Dices, Paperclip, Smile, Users, MessageCircle, MessageSquare, Languages, Play } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { SpeechToTextButton } from "../ui/SpeechToTextButton";
@@ -30,6 +19,7 @@ import { getChatInputShellClass } from "../chat/chat-input-styles";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { PendingSpatialTransitionDraft } from "../../stores/chat.store";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string;
@@ -731,7 +721,7 @@ export function GameInput({
             title={t("game.input.startNewSession")}
             aria-label={t("game.input.startNewSession")}
           >
-            {startNewSessionPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {startNewSessionPending ? <Spinner size="sm" /> : <Play size={14} />}
             <span className="hidden sm:inline">{t("game.input.startNewSession")}</span>
           </button>
         )}
@@ -823,7 +813,7 @@ export function GameInput({
             )}
             title={t("chat.input.translateDraft")}
           >
-            {isTranslatingDraft ? <Loader2 size={18} className="animate-spin" /> : <Languages size={18} />}
+            {isTranslatingDraft ? <Spinner size="lg" /> : <Languages size={18} />}
           </button>
         )}
 

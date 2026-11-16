@@ -3,7 +3,7 @@
 // variables, for searching and bulk-editing them as one JSON map.
 // ──────────────────────────────────────────────
 import { useCallback, useMemo, useRef } from "react";
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
 } from "../../lib/state-editor/chat-variables-editor-source";
 import type { StateEditorChange } from "../../lib/state-editor/state-editor.types";
 import { chatKeys } from "../../hooks/use-chats";
+import { Spinner } from "../ui/Spinner";
 
 interface ChatVariablesEditorModalProps {
   open: boolean;
@@ -133,7 +134,7 @@ export function ChatVariablesEditorModal({ open, onClose, chatId }: ChatVariable
     >
       {variablesQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center gap-2 py-16 text-sm text-[var(--muted-foreground)]">
-          <Loader2 size="1rem" className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.stateEditor.chatVariables.loading")}
         </div>
       ) : variablesQuery.isError || !variables ? (

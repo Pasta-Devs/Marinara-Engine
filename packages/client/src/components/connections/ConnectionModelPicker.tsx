@@ -15,7 +15,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Check, Loader2, Plus, RefreshCw, Star } from "lucide-react";
+import { Check, Plus, RefreshCw, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -56,6 +56,7 @@ import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
 import { ApiError } from "../../lib/api-client";
+import { Spinner } from "../ui/Spinner";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -675,7 +676,7 @@ export function ConnectionModelPicker({
 
   const status = modelList.isLoading ? (
     <ListStatus className="flex items-center justify-center gap-2 py-2">
-      <Loader2 size="0.75rem" className="animate-spin" aria-hidden />
+      <Spinner size="sm" aria-hidden="true" />
       {t("connections.modelPicker.loading")}
     </ListStatus>
   ) : !modelList.isError &&

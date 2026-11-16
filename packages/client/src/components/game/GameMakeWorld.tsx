@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { parseWorldKit, type WorldKit, type WorldKitInput } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
@@ -20,6 +20,7 @@ import {
   type WorldDraft,
   type WorldWriteRequest,
 } from "./GameSetupWorldChooser";
+import { Spinner } from "../ui/Spinner";
 
 export function GameMakeWorld({
   chatId,
@@ -131,7 +132,7 @@ export function GameMakeWorld({
           disabled={saving || !config?.ok}
           className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity disabled:opacity-50"
         >
-          {saving ? <Loader2 size={13} className="motion-safe:animate-spin" /> : <Check size={13} />}
+          {saving ? <Spinner size="sm" /> : <Check size={13} />}
           {localizeUi("ui.game.makeworld.save")}
         </button>
       </div>

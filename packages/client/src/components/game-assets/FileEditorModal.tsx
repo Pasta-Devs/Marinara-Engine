@@ -10,6 +10,7 @@ import { handleTextareaTab } from "../../lib/textarea-editing";
 import { toast } from "sonner";
 import { renderMarkdownBlocks, applyInlineMarkdown } from "../../lib/markdown";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 const MAX_TEXT_LENGTH = 10_000_000; // ~10 MB char limit
 
@@ -78,9 +79,11 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
     }
   }, [saveFile, node.path, content, onClose, localizeUi]);
 
-  const handleRequestClose = useCallback(() => {
+  const handleRequestClose = useCallback(async () => {
     if (isDirty) {
-      const discard = window.confirm(localizeUi("ui.gameAssets.fileeditormodal.youHaveUnsavedChangesDiscardThem"));
+      const discard = await showConfirmDialog({
+        message: localizeUi("ui.gameAssets.fileeditormodal.youHaveUnsavedChangesDiscardThem"),
+      });
       if (!discard) return;
     }
     onClose();

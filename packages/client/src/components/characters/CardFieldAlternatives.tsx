@@ -18,6 +18,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CardFieldWand } from "./CardFieldWand";
+import { Checkbox } from "../ui/Checkbox";
 
 type ChatChoice = { id: string; name: string };
 type Props = {
@@ -255,8 +256,7 @@ function AlternativeField({
                   key={chat.id}
                   className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-[var(--secondary)]"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     className="h-4 w-4 shrink-0 accent-[var(--primary)]"
                     checked={alternative.chatIds.includes(chat.id)}
                     onChange={(event) => selectChat(chat.id, event.target.checked)}

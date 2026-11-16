@@ -255,8 +255,9 @@ export function MariEditEasyViewer({
             }
           : null;
         const openAtField = editorKind
-          ? (path: string) => {
-              if (!openEditorAtField(editorKind, change.id, path, localizeUi("commandCenter.dirtyEditor"))) return;
+          ? async (path: string) => {
+              if (!(await openEditorAtField(editorKind, change.id, path, localizeUi("commandCenter.dirtyEditor"))))
+                return;
               useUIStore.getState().setOmnibarOpen(false);
             }
           : null;

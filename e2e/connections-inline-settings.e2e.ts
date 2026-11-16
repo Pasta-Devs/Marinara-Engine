@@ -92,7 +92,7 @@ test("Job settings open in a window and retain inherited Main without changing f
     await expect(region).toBeVisible();
     if (key === "agents") {
       await expect(region.getByRole("button", { name: /reset/i })).toBeVisible();
-      const toggle = region.getByRole("checkbox");
+      const toggle = region.getByRole("switch");
       const before = await toggle.isChecked();
       await toggle.focus();
       await page.keyboard.press("Space");

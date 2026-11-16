@@ -67,6 +67,7 @@ import {
   useUpdateChatPreset,
 } from "../../hooks/use-chat-presets";
 import { useUIStore } from "../../stores/ui.store";
+import { Checkbox } from "../ui/Checkbox";
 
 type SlotKey = "conn" | "preset" | "agent" | "tool" | "persona" | "bg" | "lore" | "img" | "params" | "mem" | "lang";
 type Item = { id: string; name: string; image?: string | null };
@@ -660,8 +661,7 @@ function ChatProfileBuilderBody({
                   key={item.id}
                   className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--ring)]"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={ids.includes(item.id)}
                     onChange={(event) => {
                       const checked = event.target.checked;
@@ -729,8 +729,7 @@ function ChatProfileBuilderBody({
     >
       <div className={bodyClass}>
         <label className="flex min-h-11 items-center gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2">
-          <input
-            type="checkbox"
+          <Checkbox
             autoFocus
             className={checkClass}
             checked={makeDefault}
@@ -757,8 +756,7 @@ function ChatProfileBuilderBody({
                 key={chat.id}
                 className="flex min-h-10 items-center gap-3 rounded-lg px-3 py-1.5 hover:bg-[var(--accent)]"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   className={checkClass}
                   checked={checkedChats.has(chat.id)}
                   onChange={(event) =>

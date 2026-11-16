@@ -1,9 +1,10 @@
 import type { GameTurnStoryboard, GameTurnStoryboardKeyframe } from "@marinara-engine/shared";
-import { ChevronLeft, ChevronRight, Loader2, PanelsTopLeft, TriangleAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, PanelsTopLeft, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { isGameTurnStoryboardRendering } from "../../hooks/use-game-storyboards";
+import { Spinner } from "../ui/Spinner";
 
 const EMPTY_STORYBOARD_FRAMES: GameTurnStoryboardKeyframe[] = [];
 
@@ -119,7 +120,7 @@ export function RoleplayStoryboardMessageMedia({
         </button>
       ) : (
         <div className="flex min-h-20 items-center justify-center gap-2 px-4 py-5 text-xs text-white/55">
-          {rendering ? <Loader2 size={14} className="animate-spin" /> : null}
+          {rendering ? <Spinner size="sm" /> : null}
           <span className="line-clamp-2 text-center">
             {rendering
               ? localizeUi("ui.game.gamesurfacecomponent.creatingStoryboard")

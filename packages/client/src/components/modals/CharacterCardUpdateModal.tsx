@@ -8,7 +8,7 @@
 // the user's explicit approval — this modal shows the old → new diff and
 // asks the user to approve, edit, regenerate, or reject each batch.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, UserCog, Check, X, AlertCircle, RefreshCw } from "lucide-react";
+import { UserCog, Check, X, AlertCircle, RefreshCw } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { useAgentStore } from "../../stores/agent.store";
@@ -16,6 +16,8 @@ import { useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
 import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "@marinara-engine/shared";
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
   if (field === "backstory" || field === "appearance" || field === "aboutMe") {
@@ -177,9 +179,12 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
       return;
     }
     if (overrideStale && staleUpdates.length > 0) {
-      const ok = window.confirm(
-        localizeUi("ui.modals.charactercardupdatemodal.someProposedCardEditsNoLongerMatchTheCurrent"),
-      );
+      const ok = await showConfirmDialog({
+        message: localizeUi("ui.modals.charactercardupdatemodal.someProposedCardEditsNoLongerMatchTheCurrent"),
+        title: localizeUi("ui.game.tacticalcombatui.confirm"),
+        confirmLabel: localizeUi("ui.game.tacticalcombatui.confirm"),
+        cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+      });
       if (!ok) return;
     }
     // Apply each edit as a targeted substring replace inside the field's current
@@ -269,11 +274,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
             }
             className={SHEET_BUTTON_PRIMARY}
           >
-            {busyAction === "approve" || updateCharacter.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <Check size="0.75rem" />
-            )}
+            {busyAction === "approve" || updateCharacter.isPending ? <Spinner size="sm" /> : <Check size="0.75rem" />}
             {localizeUi("ui.modals.charactercardupdatemodal.approve")}{" "}
             {applicableUpdates.length > 0
               ? localizeUi("ui.modals.charactercardupdatemodal.value1", { value1: applicableUpdates.length })
@@ -287,7 +288,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
               className={SHEET_BUTTON_SECONDARY}
             >
               {busyAction === "approve" || updateCharacter.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
+                <Spinner size="sm" />
               ) : (
                 <AlertCircle size="0.75rem" />
               )}
@@ -302,11 +303,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
             className={SHEET_BUTTON_SECONDARY}
             title={localizeUi("ui.modals.agentwriteapprovalmodal.regenerateThisProposal")}
           >
-            {busyAction === "regenerate" ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <RefreshCw size="0.75rem" />
-            )}
+            {busyAction === "regenerate" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
             {localizeUi("ui.agents.secretplotpanel.regenerate")}
           </button>
           <button
@@ -346,7 +343,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
 
         {isFetchingCharacter && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-2.5 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size="0.75rem" className="shrink-0 animate-spin" />
+            <Spinner size="sm" className="shrink-0" />
             {localizeUi(
               "ui.modals.charactercardupdatemodal.refreshingTheCurrentCharacterCardBeforeCheckingStaleProposals",
             )}

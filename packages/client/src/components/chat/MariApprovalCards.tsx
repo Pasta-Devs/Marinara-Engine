@@ -7,7 +7,6 @@ import {
   Clock,
   Crosshair,
   FileText,
-  Loader2,
   Minus,
   PackagePlus,
   Pencil,
@@ -33,6 +32,7 @@ import { TranscriptRow } from "./MariTranscriptRow";
 import { Field } from "./MariChangeReceipt";
 import { mariEditorKindForAction, mariPatchFieldId } from "../../lib/mari-editor-fields";
 import { openEditorAtField } from "../../hooks/use-mari-editor-fields";
+import { Spinner } from "../ui/Spinner";
 
 /**
  * Professor Mari's approval gates and the summaries they are built from.
@@ -248,7 +248,7 @@ function DatabaseWorkspaceApprovalCard({
                 disabled={busy || disabled}
                 className="mari-btn mari-btn--solid"
               >
-                {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
+                {busy ? <Spinner size="sm" aria-hidden="true" /> : null}
                 {localizeUi("ui.chat.mariappliededit.apply")}
               </button>
             )}
@@ -324,7 +324,7 @@ export function DeleteReviewCard({
             {localizeUi("ui.chat.marideleteprompt.restore", { count })}
           </button>
           <button type="button" onClick={onDelete} disabled={busy || disabled} className="mari-btn mari-btn--danger">
-            {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
+            {busy ? <Spinner size="sm" aria-hidden="true" /> : null}
             {busy
               ? localizeUi("ui.chat.marideleteprompt.deleting")
               : names.length === 1
@@ -385,11 +385,11 @@ export function MariHeldChangeCard({
   const labels = fields.map(({ key }) => fieldLabel(key));
   const only = held?.length === 1 ? held[0] : null;
   const editorKind = only?.id ? mariEditorKindForAction(only.action) : null;
-  const openAtField = (path: string) => {
+  const openAtField = async (path: string) => {
     if (
       !editorKind ||
       !only?.id ||
-      !openEditorAtField(editorKind, only.id, path, localizeUi("commandCenter.dirtyEditor"))
+      !(await openEditorAtField(editorKind, only.id, path, localizeUi("commandCenter.dirtyEditor")))
     )
       return;
     useUIStore.getState().setOmnibarOpen(false);
@@ -574,7 +574,7 @@ function DependencyWorkspaceApprovalCard({
             disabled={busy || disabled}
             className="mari-btn mari-btn--solid"
           >
-            {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
+            {busy ? <Spinner size="sm" aria-hidden="true" /> : null}
             {busy
               ? localizeUi("ui.chat.dependencyworkspaceapprovalcard.installing")
               : localizeUi("ui.agents.agentcatalogview.install")}
@@ -653,7 +653,7 @@ function SensitiveFileWorkspaceApprovalCard({
             disabled={busy || disabled}
             className="mari-btn mari-btn--solid"
           >
-            {busy ? <Loader2 size="0.8rem" className="animate-spin" aria-hidden="true" /> : null}
+            {busy ? <Spinner size="sm" aria-hidden="true" /> : null}
             {busy
               ? localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.applying")
               : localizeUi("ui.chat.sensitivefileworkspaceapprovalcard.applyChange")}

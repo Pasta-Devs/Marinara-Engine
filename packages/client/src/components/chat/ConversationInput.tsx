@@ -11,7 +11,6 @@ import {
   Keyboard,
   AtSign,
   Languages,
-  Loader2,
   FileText,
   RefreshCw,
   Sparkles,
@@ -83,6 +82,7 @@ import {
   isInstalledCapabilityReady,
 } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string;
@@ -1954,7 +1954,7 @@ export function ConversationInput({
             )}
           >
             {isTranslatingDraft ? (
-              <Loader2 size="1rem" className="shrink-0 animate-spin" />
+              <Spinner size="md" className="shrink-0" />
             ) : (
               <Languages size="1rem" className="shrink-0" />
             )}
@@ -2193,7 +2193,7 @@ export function ConversationInput({
           ))}
           {isReadingAttachments && (
             <div className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs text-foreground/60 ring-1 ring-foreground/10">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatinput.readingFile")}
             </div>
           )}
@@ -2360,7 +2360,7 @@ export function ConversationInput({
               )}
               title={t("chat.input.translateDraft")}
             >
-              {isTranslatingDraft ? <Loader2 size="1rem" className="animate-spin" /> : <Languages size="1rem" />}
+              {isTranslatingDraft ? <Spinner size="md" /> : <Languages size="1rem" />}
             </button>
           )}
 
