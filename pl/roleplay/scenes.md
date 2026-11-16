@@ -65,6 +65,10 @@ Użyj **Convert**, kiedy scena rozrosła się w historię, którą chcesz zachow
 
 Klonowanie zostawia pierwotną scenę otwartą. Przekształcenie – nie.
 
+## Kategoria treści sceny
+
+Gdy Marinara planuje scenę, przypisuje jej kategorię **SFW** albo **NSFW** na podstawie jej tematu, a zasady dotyczące treści sceny wynikają z tej kategorii. Scena rozpoczęta z czatu w trybie Game Mode kieruje się zamiast tego ustawieniami gry: kategorią treści, wytycznymi kategorii treści, poziomem przemocy, stylem historii i granicami treści. Zobacz [Styl historii, przemoc i granice treści](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
 ## Sceny i połączone czaty
 
 Scena jest samodzielna. Nie pobiera kontekstu z połączonego czatu Conversation, nawet jeśli czat nadrzędny to robi, i ignoruje krótkie wskazówki, które połączony czat Conversation może wysyłać do powiązanego czatu Roleplay. Jeśli zależy ci na stałym, dwustronnym połączeniu między czatem Conversation a roleplayem, użyj połączonego czatu. Zobacz [Łączenie czatu Conversation z czatem Roleplay lub Game](../chats/connected-chats.md).

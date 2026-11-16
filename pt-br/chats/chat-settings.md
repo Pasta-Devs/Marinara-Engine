@@ -25,7 +25,7 @@ As seções que você vê dependem do modo do chat. A seção **Impersonate** é
 - **Chat Name** (nome do chat): o nome que aparece na lista de chats. Clique nele para renomear. Ele nunca é enviado ao modelo.
 - **Chat Branches** (ramificações do chat): troque, renomeie, exporte e importe ramificações. Veja [Ramificações de chat](branches.md).
 - **Connection** (conexão): qual modelo responde neste chat. Veja abaixo.
-- **Prompt Preset** (preset de prompt): a estrutura de prompt salva para este chat.
+- **Prompt Preset** (preset de prompt): a estrutura de prompt salva para este chat. Em um jogo, também guarda o estilo da história, a violência, os limites de conteúdo e as diretrizes da classificação. Veja [Mudar durante um jogo](../game/getting-started.md#change-them-during-a-game).
 - **Advanced Parameters** (parâmetros avançados): substitui configurações de geração, como a temperatura, neste chat. Veja [Parâmetros de geração](../prompts/generation-parameters.md).
 - **Persona**: quem você interpreta. Veja [Escolhendo a persona de um chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (personagens): os personagens do chat. (Conversation, Roleplay.)

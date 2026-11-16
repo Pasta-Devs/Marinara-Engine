@@ -25,7 +25,7 @@ Welche Abschnitte du siehst, hängt vom Chat-Modus ab. Den Abschnitt **Impersona
 - **Chat Name** (Chatname): Der Name in deiner Chatliste. Klick darauf, um ihn umzubenennen. Er wird nie an das Modell gesendet.
 - **Chat Branches** (Chat-Verzweigungen): Verzweigungen wechseln, umbenennen, exportieren und importieren. Siehe [Chat-Verzweigungen](branches.md).
 - **Connection** (Verbindung): Welches Modell in diesem Chat antwortet. Siehe unten.
-- **Prompt Preset**: Der gespeicherte Prompt-Aufbau für diesen Chat.
+- **Prompt Preset**: Der gespeicherte Prompt-Aufbau für diesen Chat. In einem Spiel enthält dieser Abschnitt auch den Erzählstil, die Gewalt, die inhaltlichen Grenzen und die Richtlinien zur Altersfreigabe. Siehe [Während eines Spiels ändern](../game/getting-started.md#change-them-during-a-game).
 - **Advanced Parameters** (erweiterte Parameter): Überschreibt für diesen Chat Generierungseinstellungen wie die Temperature. Siehe [Generierungsparameter](../prompts/generation-parameters.md).
 - **Persona**: Wen du spielst. Siehe [Die Persona für einen Chat auswählen](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters** (Charaktere): Die Charaktere im Chat. (Conversation, Roleplay.)

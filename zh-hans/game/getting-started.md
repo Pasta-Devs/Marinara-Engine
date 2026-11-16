@@ -37,7 +37,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 | 步骤 | 设置内容 |
 | --- | --- |
 | **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **VN**(见 [VN 还是 Overworld](#vn-or-overworld))。 |
-| **World**(世界) | 类型、背景、基调、难度、内容分级和语言。**Combat Preference**(战斗偏好) 为 **Turn-Based**(回合制) 或 **Tactical**(网格战斗)。所有新游戏都采用 **MRPG**(Marinara RPG) 职业（见 [MRPG 职业](mrpg-classes.md)）。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
+| **World**(世界) | 类型、背景、基调、难度、内容分级、故事风格、暴力程度、内容边界和语言。**Combat Preference**(战斗偏好) 为 **Turn-Based**(回合制) 或 **Tactical**(网格战斗)。所有新游戏都采用 **MRPG**(Marinara RPG) 职业（见 [MRPG 职业](mrpg-classes.md)）。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
 | **Party**(队伍) | 你的用户角色（你扮演的角色）、**Game Master Mode**、队伍成员和 **GM intro message**(GM 开场消息)（见 [GM 开场消息](#the-gm-intro-message)）。每位成员的 MRPG 起始树来自其卡片的 **Game Mode** 区块（见[选择角色的树](mrpg-classes.md#choose-a-characters-trees)）。 |
 | **Goals**(目标) | 你想从这场冒险里得到什么。 |
 | **Lorebooks**(世界书) | GM 会当作正典的世界书。世界书就是一组世界背景设定。见[世界书](../lorebooks/overview.md)。 |
@@ -57,7 +57,10 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 | Genre | Fantasy | 可多选，也能自己加。先选的设定包会设定它自己的类型。 |
 | Tone | Heroic | 可多选。 |
 | Difficulty | Normal | **Casual**、**Normal**、**Hard** 或 **Brutal**。设置越高，战斗越难：MRPG 游戏会出现更多、更强的敌人（见 [MRPG 游戏中的战斗](combat.md#battles-in-an-mrpg-game)），Legacy 游戏中的敌人则会打得更重（见[难度缩放](combat.md#difficulty-scaling)）。 |
-| Content Rating | SFW | **SFW** 或 **NSFW**。NSFW 只是允许成人内容，不会强制出现。 |
+| Content Rating (sexual content)(内容分级（性内容）) | SFW | **SFW** 或 **NSFW**。只涉及性内容。NSFW 只是允许，不会强制出现。 |
+| Story style(故事风格) | Standard(标准) | **Gentle**(温和) 会让 GM 带来的压力更小。见[故事风格、暴力程度和内容边界](#story-style-violence-and-content-boundaries)。 |
+| Violence(暴力程度) | Serious(严重)（SFW）或 Graphic(血腥)（NSFW） | **Mild**(轻微)、**Serious** 或 **Graphic**。与内容分级分开设置。 |
+| Content boundaries(内容边界) | 无 | GM 会从故事中排除的主题。 |
 | Language | English | 游戏内所有文字都用这个语言书写。 |
 | Game Master Mode | Standalone GM | **Character GM** 用你的某张角色卡当 GM。 |
 | Scene effects model | Built-in model | 下载之后才是。在那之前，默认是 **Skip - use inline tags from GM**。 |
@@ -68,6 +71,43 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 | Quick Time Events | On | 使用屏幕阅读器或不想限时游玩时关闭。 |
 | Start Muted | Off | 开局时所有音频静音。 |
 | Game Presentation | Standard | 见下文。 |
+
+### 故事风格、暴力程度和内容边界
+
+**World** 步骤有四项设置，决定故事可以包含什么内容，以及这些内容带来的冲击有多大。它们集中在 **Content Rating (sexual content)** 下方。游戏开始后，除了内容分级，其余都可以修改。见[在游戏中修改这些设置](#change-them-during-a-game)。
+
+| 设置 | 决定什么 |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**：允许恋爱和亲昵互动，性场景会淡出跳过。**NSFW**：性场景可以露骨描写。这项设置不决定其他内容。 |
+| **Story style** | **Standard**：失误和坏运气会带来切实的后果。**Gentle**：挑战仍然存在，但挫折不会升级为惩罚或创伤。 |
+| **Violence** | **Mild**、**Serious** 或 **Graphic**：决定如何呈现暴力。SFW 的初始值为 **Serious**，NSFW 为 **Graphic**，与这两种分级原本的含义一致。 |
+| **Content boundaries** | 绝不希望在故事中出现的主题，每行一项，例如 `harm to animals`。 |
+
+#### 温和故事风格
+
+如果想享受故事和角色，又不想让 GM 惩罚每一次小失误，就选 **Gentle**。在 **Gentle** 下：
+
+- 挫折会让你花费时间、丢点面子、消耗资源或绕些弯路。GM 不会用受伤、羞辱、失去在乎的人，或你没有主动让故事走向的创伤来回应这些挫折。
+- GM 只会在角色自身的技能或选择能影响结果时要求技能检定。它不会针对角色无法控制的事掷骰，例如残障、健康状况、身体或出身。见[温和游戏中的技能检定](dice-and-skill-checks.md#skill-checks-in-a-gentle-game)。
+- 世界的规划带着温情：剧情线既源于创伤，也源于希望和关系；转折会带来惊喜，而不是背叛感。
+
+**Gentle** 只替换内置 GM 指令。如果你自己写了 **GM Prompt**，GM 会保留你的文字。战斗、伤害和难度设置在两种风格下的运作方式相同。
+
+#### 内容边界
+
+每行写一个主题，最多 40 个主题，总计 2,000 个字符。超出任一上限的内容都会被忽略。GM 会把每一项都视为硬性限制，优先于分级、基调、任何角色的性格和剧情。它不会提起这些主题，也不会用它们作为威胁、转折或背景故事，甚至不会暗示。如果你主动提起，GM 也只会简短带过，然后转向其他内容。内容边界适用于两种故事风格和两种分级，自定义分级指南也不能取消这些限制。
+
+> **注意：** 故事由 AI 模型编写，因此 Marinara 无法保证列出的主题绝不出现。如果出现了，可以切换备选回复或编辑回复。
+
+#### 编辑分级指南
+
+在分级按钮下方展开 **Edit rating guidelines**(编辑分级指南)，可以查看根据所选分级、暴力程度和故事风格发送给 GM 的文字。编辑它即可为这局游戏制定自己的内容规则，点击 **Reset to default**(重置为默认值) 则恢复内置文字。只要没有改动，它就会跟随所选的分级、暴力程度和风格变化。
+
+#### 在游戏中修改这些设置
+
+打开 **Chat Settings → Prompt Preset**(聊天设置 → 提示词预设)。在游戏中，这个区域还提供 **Story style**、**Violence**、**Content boundaries** 和 **Rating guidelines**(分级指南)。修改从下一回合开始生效。内容分级本身在游戏创建后就固定了。
+
+提示词预设也可以携带故事风格、暴力程度和内容边界，方便在每局游戏中复用。见[游戏故事设置](../prompts/presets.md#game-story-settings)。
 
 <a id="choose-rules"></a>
 
@@ -189,7 +229,15 @@ Claude 和 Grok 订阅账号不支持原生工具调用。相关控件会说明�
 
 ### 明明选了黑暗基调，GM 却讲得很欢快
 
-有些模型总是保持乐观。在向导的偏好栏里写一条明确的指令，比如“叙述保持阴郁，失败不要美化”。或者换一个默认口吻贴合这个基调的模型。
+检查游戏的 **Story style** 是否设为 **Standard**：**Gentle** 会刻意减轻挫折的冲击（见[温和故事风格](#the-gentle-story-style)）。有些模型总是保持乐观。在向导的偏好栏里写一条明确的指令，比如“叙述保持阴郁，失败不要美化”。或者换一个默认口吻贴合这个基调的模型。
+
+### 模型拒绝生成回合
+
+模型拒绝编写这一回合时，会弹出 **The model declined this request** 提示。有些模型会因游戏分级指南、预设或角色卡中的某些措辞而拒绝生成。按顺序试试：
+
+1. 重试这一回合。有些拒绝只是偶发。
+2. 如果编辑过分级指南，打开 **Chat Settings → Prompt Preset**，将 **Rating guidelines** 重置为内置文字。
+3. 为这局游戏换一个模型。
 
 ## 各个专题在哪
 

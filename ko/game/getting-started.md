@@ -37,7 +37,7 @@ Game Mode(게임 모드)는 Marinara Engine을 AI 게임 마스터가 진행하�
 | 단계 | 설정하는 항목 |
 |---|---|
 | **Connection** | **Game Name**(게임 이름), GM을 구동할 **Model**, 선택 사항인 **Scene effects model**입니다. **Game Mode** 카드에는 지금은 **VN**만 표시됩니다([VN 또는 Overworld](#vn-or-overworld) 참고). |
-| **World** | 장르, 배경, 분위기, 난이도, 콘텐츠 등급, 언어입니다. **Combat Preference**(전투 방식 설정)는 **Turn-Based** 또는 **Tactical**(전술)입니다. 새 게임은 모두 **MRPG**(Marinara RPG) 클래스로 플레이합니다([MRPG 클래스](mrpg-classes.md) 참고). 규칙 집합이 설치되어 있으면 **Rules**(규칙) 선택지가 나타납니다([규칙 선택](#choose-rules) 참고). |
+| **World** | 장르, 배경, 분위기, 난이도, 콘텐츠 등급, 스토리 스타일, 폭력 묘사, 콘텐츠 제한 사항, 언어입니다. **Combat Preference**(전투 방식 설정)는 **Turn-Based** 또는 **Tactical**(전술)입니다. 새 게임은 모두 **MRPG**(Marinara RPG) 클래스로 플레이합니다([MRPG 클래스](mrpg-classes.md) 참고). 규칙 집합이 설치되어 있으면 **Rules**(규칙) 선택지가 나타납니다([규칙 선택](#choose-rules) 참고). |
 | **Party** | 내 페르소나(직접 연기할 캐릭터), **Game Master Mode**, 파티원, **GM intro message**(GM 도입 메시지)입니다([GM 도입 메시지](#the-gm-intro-message) 참고). 파티원마다 시작할 MRPG 트리는 카드의 **Game Mode** 섹션에서 가져옵니다([캐릭터의 트리 고르기](mrpg-classes.md#choose-a-characters-trees) 참고). |
 | **Goals** | 이 모험에서 바라는 것입니다. |
 | **Lorebooks** | GM이 정해진 사실로 다루는 로어북입니다. 로어북은 세계의 배경 사실을 모아 둔 것입니다. [로어북](../lorebooks/overview.md)을 참고하세요. |
@@ -57,7 +57,10 @@ Game Mode(게임 모드)는 Marinara Engine을 AI 게임 마스터가 진행하�
 | Genre | Fantasy | 여러 개 고를 수 있으며 직접 입력한 항목도 추가할 수 있습니다. 세계관 키트를 먼저 고르면 키트가 자체 장르를 설정합니다. |
 | Tone | Heroic | 여러 개 고를 수 있습니다. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard**, **Brutal** 중에서 고릅니다. 높을수록 전투가 어려워집니다. MRPG 게임에서는 적의 수가 늘고 더 강한 적이 나옵니다([MRPG 게임의 전투](combat.md#battles-in-an-mrpg-game) 참고). Legacy 게임에서는 적의 공격이 더 세게 들어갑니다([난이도 보정](combat.md#difficulty-scaling) 참고). |
-| Content Rating | SFW | **SFW** 또는 **NSFW**입니다. NSFW는 성인용 콘텐츠를 허용할 뿐 강제하지 않습니다. |
+| Content Rating (sexual content)(콘텐츠 등급, 성적 콘텐츠) | SFW | **SFW**(일반용) 또는 **NSFW**(성인용)입니다. 성적 콘텐츠에만 적용됩니다. NSFW는 이를 허용할 뿐 강제하지 않습니다. |
+| Story style(스토리 스타일) | Standard(표준) | **Gentle**(온화함)은 부담이 적은 GM 스타일입니다. [스토리 스타일, 폭력 묘사, 콘텐츠 제한 사항](#story-style-violence-and-content-boundaries)을 참고하세요. |
+| Violence(폭력 묘사) | Serious(심각함, SFW) 또는 Graphic(적나라함, NSFW) | **Mild**(가벼움), **Serious**, **Graphic** 중에서 고릅니다. 콘텐츠 등급과 별도로 설정합니다. |
+| Content boundaries(콘텐츠 제한 사항) | 없음 | GM이 이야기에서 제외하는 주제입니다. |
 | Language | English | 게임 속 모든 글이 이 언어로 작성됩니다. |
 | Game Master Mode | Standalone GM | **Character GM**(캐릭터 GM)은 내 캐릭터 카드 하나를 GM으로 씁니다. |
 | Scene effects model | Built-in model | 내장 모델을 다운로드한 뒤에만 해당합니다. 그 전까지 기본값은 **Skip - use inline tags from GM**입니다. |
@@ -68,6 +71,43 @@ Game Mode(게임 모드)는 Marinara Engine을 AI 게임 마스터가 진행하�
 | Quick Time Events | On | 스크린 리더로 플레이하거나 시간 제한 없이 플레이하려면 끄세요. |
 | Start Muted | Off | 모든 소리를 끈 상태로 게임을 시작합니다. |
 | Game Presentation | Standard | 아래를 참고하세요. |
+
+### 스토리 스타일, 폭력 묘사, 콘텐츠 제한 사항
+
+**World** 단계에는 이야기에 무엇이 들어갈 수 있는지와 그 강도를 정하는 설정 네 가지가 있습니다. **Content Rating (sexual content)** 아래에 함께 모여 있습니다. 콘텐츠 등급을 제외한 나머지는 게임을 시작한 뒤에도 바꿀 수 있습니다. [게임 도중 변경하기](#change-them-during-a-game)를 참고하세요.
+
+| 설정 | 결정하는 내용 |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**: 로맨스와 애정 표현은 허용되며 성행위 장면은 암전 처리됩니다. **NSFW**: 성행위 장면을 노골적으로 묘사할 수 있습니다. 그 외의 내용은 결정하지 않습니다. |
+| **Story style** | **Standard**: 실수와 불운에 실질적인 결과가 따릅니다. **Gentle**: 실질적인 도전은 있지만 좌절이 처벌이나 트라우마로 번지지 않습니다. |
+| **Violence** | **Mild**, **Serious**, **Graphic**: 폭력을 묘사하는 방식입니다. SFW는 **Serious**, NSFW는 **Graphic**으로 시작하며, 이는 각 등급이 원래 뜻하던 수준입니다. |
+| **Content boundaries** | `harm to animals`처럼 이야기에서 절대 다루지 않았으면 하는 주제를 한 줄에 하나씩 적습니다. |
+
+#### Gentle 스토리 스타일
+
+GM이 작은 실수마다 벌을 주는 일 없이 이야기와 캐릭터를 즐기고 싶다면 **Gentle**을 고르세요. **Gentle**에서는 다음과 같이 진행됩니다.
+
+- 좌절을 겪으면 시간, 체면, 자원을 잃거나 돌아가야 합니다. GM은 그 대가로 부상, 굴욕, 소중한 사람의 상실이나 직접 이끌어 가지 않은 트라우마를 주지 않습니다.
+- GM은 캐릭터 자신의 실력이나 선택이 중요할 때만 스킬 판정을 요구합니다. 장애, 질환, 신체, 배경처럼 캐릭터가 통제할 수 없는 것은 주사위로 판정하지 않습니다. [Gentle 게임의 스킬 판정](dice-and-skill-checks.md#skill-checks-in-a-gentle-game)을 참고하세요.
+- 세계는 따뜻한 시선으로 설계됩니다. 이야기의 흐름은 상처뿐 아니라 희망과 관계에서도 자라나며, 반전은 배신감 대신 놀라움을 줍니다.
+
+**Gentle**은 내장 GM 지침만 바꿉니다. 직접 **GM Prompt**를 작성했다면 GM은 그 텍스트를 유지합니다. 전투, 피해, 난이도 설정은 두 스타일에서 똑같이 작동합니다.
+
+#### 콘텐츠 제한 사항
+
+한 줄에 주제 하나씩, 최대 40개 주제와 총 2,000자까지 적으세요. 어느 한도든 넘는 부분은 제외됩니다. GM은 각 항목을 등급, 분위기, 모든 캐릭터의 성격, 줄거리보다 우선하는 엄격한 제한으로 다룹니다. 해당 주제를 꺼내거나 위협, 반전, 과거사로 사용하거나 암시하지 않습니다. 직접 그 주제를 꺼내면 GM은 짧게 다루고 넘어갑니다. 제한 사항은 두 스토리 스타일과 두 등급 모두에 적용되며, 직접 작성한 등급 지침으로도 없앨 수 없습니다.
+
+> **참고:** 이야기는 AI 모델이 작성하므로 Marinara는 목록에 있는 주제가 절대 등장하지 않는다고 보장할 수 없습니다. 그런 주제가 등장하면 답변을 스와이프하거나 편집하세요.
+
+#### 등급 지침 편집하기
+
+등급 버튼 아래에서 **Edit rating guidelines**(등급 지침 편집)를 펼치면 선택한 등급, 폭력 묘사, 스토리 스타일에 따라 GM이 받는 텍스트를 볼 수 있습니다. 편집해서 이 게임의 콘텐츠 규칙을 직접 정하거나, **Reset to default**(기본값으로 초기화)를 클릭해 내장 텍스트로 돌아가세요. 텍스트를 바꾸지 않는 동안에는 선택한 등급, 폭력 묘사, 스타일을 따릅니다.
+
+#### 게임 도중 변경하기
+
+**Chat Settings → Prompt Preset**(채팅 설정 → 프롬프트 프리셋)을 여세요. 게임에서는 이 섹션에 **Story style**, **Violence**, **Content boundaries**, **Rating guidelines**(등급 지침)도 있습니다. 변경 사항은 다음 턴부터 적용됩니다. 콘텐츠 등급 자체는 게임을 만든 뒤에는 바꿀 수 없습니다.
+
+프롬프트 프리셋에 스토리 스타일, 폭력 묘사 수준, 제한 사항을 담아 게임마다 재사용할 수도 있습니다. [게임 스토리 설정](../prompts/presets.md#game-story-settings)을 참고하세요.
 
 <a id="choose-rules"></a>
 
@@ -189,7 +229,15 @@ Claude와 Grok 구독 계정은 네이티브 도구 호출을 지원하지 않�
 
 ### 어두운 톤을 골랐는데 GM이 밝게 서술합니다
 
-계속 밝은 어조를 유지하는 모델이 있습니다. 마법사의 선호 사항 입력란에 "서술을 음울하게 유지하고 실패를 미화하지 마세요"처럼 분명한 지시를 넣으세요. 아니면 기본 어조가 원하는 톤에 맞는 모델로 바꾸세요.
+게임의 **Story style**이 **Standard**인지 확인하세요. **Gentle**은 의도적으로 좌절의 강도를 낮춥니다([Gentle 스토리 스타일](#the-gentle-story-style) 참고). 계속 밝은 어조를 유지하는 모델이 있습니다. 마법사의 선호 사항 입력란에 "서술을 음울하게 유지하고 실패를 미화하지 마세요"처럼 분명한 지시를 넣으세요. 아니면 기본 어조가 원하는 톤에 맞는 모델로 바꾸세요.
+
+### 모델의 턴 작성 거부
+
+모델이 턴 작성을 거부하면 **The model declined this request**라는 토스트 알림이 표시됩니다. 일부 모델은 게임의 등급 지침, 프리셋, 캐릭터 카드에 있는 특정 표현 때문에 거부합니다. 다음 순서대로 시도하세요.
+
+1. 턴을 다시 시도하세요. 한 번만 거부하는 경우도 있습니다.
+2. 등급 지침을 편집했다면 **Chat Settings → Prompt Preset**을 열고 **Rating guidelines**를 내장 텍스트로 초기화하세요.
+3. 이 게임에 다른 모델을 사용해 보세요.
 
 ## 각 주제가 있는 곳
 

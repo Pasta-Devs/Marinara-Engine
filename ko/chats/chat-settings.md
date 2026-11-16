@@ -25,7 +25,7 @@
 - **Chat Name**(채팅 제목): 채팅 목록에 표시되는 이름입니다. 클릭하면 이름을 바꿀 수 있습니다. 모델에는 절대 전송되지 않습니다.
 - **Chat Branches**(채팅 분기): 분기를 전환하고, 이름을 바꾸고, 내보내고, 가져옵니다. [채팅 분기](branches.md)를 참고하세요.
 - **Connection**(연결): 이 채팅에서 어떤 모델이 답할지 정합니다. 아래를 참고하세요.
-- **Prompt Preset**(프롬프트 프리셋): 이 채팅에 쓰는 저장된 프롬프트 구조입니다.
+- **Prompt Preset**(프롬프트 프리셋): 이 채팅에 쓰는 저장된 프롬프트 구조입니다. 게임에서는 스토리 스타일, 폭력 묘사, 콘텐츠 제한 사항, 등급 지침도 들어 있습니다. [게임 도중 변경하기](../game/getting-started.md#change-them-during-a-game)를 참고하세요.
 - **Advanced Parameters**(고급 매개변수): temperature 같은 생성 설정을 이 채팅에서만 다르게 지정합니다. [생성 파라미터](../prompts/generation-parameters.md)를 참고하세요.
 - **Persona**(페르소나): 내가 연기할 인물입니다. [채팅에서 페르소나 선택하기](../characters/choosing-your-persona.md)를 참고하세요. Conversation과 Roleplay에 있습니다.
 - **Characters**(캐릭터): 채팅에 있는 캐릭터입니다. Conversation과 Roleplay에 있습니다.

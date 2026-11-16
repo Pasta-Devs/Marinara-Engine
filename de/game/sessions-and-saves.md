@@ -104,7 +104,7 @@ Game Mode legt für jede neue Kampagne eine Momentaufnahme des Setups ab, mit de
 3. Sieh dir die gespeicherten Angaben an: Abenteuer, Besetzung, Modell, Prompt, Generierungsparameter sowie Optik-, Storyboard- und Weltwerkzeug-Einstellungen.
 4. Klick auf **Copy setup** (Setup kopieren), um den Text zu kopieren, oder auf **Download setup** (Setup herunterladen), um eine Textdatei zu speichern.
 
-> **Warnung:** Der Text enthält deine langen Spielerpräferenzen und eigenen GM-Anweisungen. Lies ihn, bevor du ihn postest. Zugangsdaten, Server-URLs, API-Keys und lokale Datenbank-IDs sind nie enthalten.
+> **Warnung:** Der Text enthält deine langen Spielerpräferenzen und eigenen GM-Anweisungen. Eine heruntergeladene Datei enthält außerdem die Richtlinien zur Altersfreigabe und die inhaltlichen Grenzen des Spiels. Lies ihn, bevor du ihn postest. Zugangsdaten, Server-URLs, API-Keys und lokale Datenbank-IDs sind nie enthalten.
 
 Charakterkarten, Personas, Lorebooks, Modelle und Konten werden genannt, aber nicht mitgeliefert. Wer damit spielen will, braucht also eigene Entsprechungen. Kampagnen aus der Zeit vor den Momentaufnahmen können Einstellungen, die nie gespeichert wurden, nicht wiederherstellen. **Initial Game Setup** erscheint deshalb nur, wenn eine verlässliche Momentaufnahme vorliegt.
 

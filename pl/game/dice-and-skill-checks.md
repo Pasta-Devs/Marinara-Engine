@@ -101,6 +101,15 @@ Jeśli suma osiągnie DC albo je przebije, test się udaje. Dwa wyniki rzutu uni
 
 Baner pokazuje **CRITICAL SUCCESS**, **SUCCESS** (sukces), **FAILURE** (porażka) albo **CRITICAL FAILURE**.
 
+### Testy umiejętności w łagodnej grze
+
+W grze ze stylem historii **Gentle** (Łagodny) GM prosi o mniej testów, a sam rzut działa tak samo. Zobacz [Łagodny styl historii](getting-started.md#the-gentle-story-style).
+
+- GM prosi o test tylko wtedy, gdy umiejętności lub wybory twojej postaci mogą zmienić wynik.
+- Nigdy nie wykonuje rzutu dotyczącego czegoś, na co postać nie ma wpływu lub co jest częścią tego, kim jest, na przykład niepełnosprawności, przewlekłej choroby, jej ciała lub pochodzenia. Historia pokazuje to jako część postaci, wraz ze sposobami, na jakie już sobie z tym radzi.
+- Życzliwość, zaufanie i rozwój relacji między postaciami wynikają z tego, co robią razem, a nie z rzutu.
+- Niezdany test oznacza niepowodzenie próby, a nie porażkę postaci: próba się nie udaje, trwa dłużej, coś kosztuje albo przyciąga uwagę. **CRITICAL FAILURE** oznacza większą komplikację, a nie katastrofę.
+
 ### Ułatwienie i utrudnienie
 
 GM może wywołać test z ułatwieniem (rzut dwiema kośćmi d20, liczy się wyższy wynik) albo z utrudnieniem (liczy się niższy). Baner pokazuje ten wariant obok DC i zaznacza, której kości użyto. Jeśli GM poprosi o oba naraz, Marinara zostawia ten test bez zmian zamiast zgadywać, więc nie dostajesz dla niego banera.

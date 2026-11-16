@@ -65,6 +65,10 @@ Nutze **Convert**, wenn aus einer Szene eine Geschichte geworden ist, die du als
 
 Beim Klonen bleibt die ursprüngliche Szene offen. Beim Umwandeln nicht.
 
+## Die Altersfreigabe einer Szene
+
+Wenn Marinara eine Szene plant, stuft es sie anhand ihres Inhalts als **SFW** oder **NSFW** ein. Die Inhaltsregeln der Szene folgen dieser Altersfreigabe. Eine Szene, die aus einem Game-Mode-Chat gestartet wird, richtet sich stattdessen nach dem Spiel: nach dessen Altersfreigabe, Richtlinien zur Altersfreigabe, Gewaltstufe, Erzählstil und inhaltlichen Grenzen. Siehe [Erzählstil, Gewalt und inhaltliche Grenzen](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
 ## Szenen und verknüpfte Chats
 
 Eine Szene steht für sich. Sie zieht keinen Kontext aus einer verknüpften Conversation, auch dann nicht, wenn der übergeordnete Chat das tut, und sie ignoriert die kurzen Steuerungshinweise, die eine verknüpfte Conversation an ein verknüpftes Roleplay schicken kann. Für eine dauerhafte Verbindung in beide Richtungen zwischen einer Conversation und einem Roleplay nimm einen verknüpften Chat. Siehe [Eine Conversation mit einem Roleplay oder Game verknüpfen](../chats/connected-chats.md).

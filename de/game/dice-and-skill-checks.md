@@ -101,6 +101,15 @@ Erreicht oder übertrifft die Summe die DC, gelingt die Probe. Zwei Würfe setze
 
 Das Banner zeigt **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** oder **CRITICAL FAILURE**.
 
+### Fertigkeitsproben in einem Gentle-Spiel
+
+In einem Spiel mit dem Erzählstil **Gentle** (Behutsam) verlangt der GM weniger Proben. Der Wurf selbst funktioniert genauso. Siehe [Der Erzählstil Gentle](getting-started.md#the-gentle-story-style).
+
+- Der GM verlangt nur dann eine Probe, wenn die Fähigkeiten oder Entscheidungen deines Charakters den Ausgang beeinflussen können.
+- Er würfelt nie gegen etwas, das dein Charakter nicht beeinflussen kann oder das zu ihm gehört, etwa eine Behinderung, eine chronische Erkrankung, seinen Körper oder seine Herkunft. Die Geschichte zeigt es als Teil des Charakters, zusammen mit den Wegen, die er bereits gefunden hat, damit umzugehen.
+- Freundlichkeit, Vertrauen und die Entwicklung von Beziehungen zwischen Charakteren entstehen aus gemeinsamen Erlebnissen, nicht aus einem Wurf.
+- Eine misslungene Probe beeinträchtigt den Versuch, nicht den Charakter: Der Versuch scheitert, dauert länger, kostet etwas oder erregt Aufmerksamkeit. Ein **CRITICAL FAILURE** ist eine größere Komplikation, keine Katastrophe.
+
 ### Vorteil und Nachteil
 
 Der GM kann eine Probe mit Vorteil (zwei d20 werfen, den höheren behalten) oder mit Nachteil (den niedrigeren behalten) ansetzen. Das Banner zeigt den Modus neben der DC und markiert den verwendeten Würfel. Fordert der GM beides zugleich an, lässt Marinara diese Probe unverändert, statt zu raten, und du bekommst dafür kein Banner.

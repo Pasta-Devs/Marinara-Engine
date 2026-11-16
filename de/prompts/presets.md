@@ -71,6 +71,17 @@ Zwei schreibgeschützte Karten zeigen die Anzahl der **Sections** und **Groups**
 - **Roleplay Mode** lässt sich hier nicht bearbeiten. Roleplay nutzt den Prompt, der aus deinen **Sections** zusammengesetzt wird.
 - **Game Mode** ist ein Textfeld für den Game-Prompt dieses Presets. Lass es leer, um den eingebauten Prompt zu nutzen.
 
+#### Erzähleinstellungen für Game Mode
+
+Ein Preset kann einen Erzählstil, eine Gewaltstufe und inhaltliche Grenzen in Game Mode übernehmen, damit du sie nicht für jedes Spiel neu festlegen musst. Siehe [Erzählstil, Gewalt und inhaltliche Grenzen](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
+1. Schalte auf dem Tab **Prompts** unter **Game story settings** (Erzähleinstellungen für Game Mode) die Option **Bring story settings to games that use this preset** (Erzähleinstellungen für Spiele mit diesem Preset übernehmen) ein.
+2. Wähle einen **Story style** (Erzählstil) und eine Stufe für **Violence** (Gewalt). **Follow rating** (Altersfreigabe folgen) belässt die Gewalt in jedem Spiel beim Standard seiner Altersfreigabe.
+3. Optional: Trag **Content boundaries** (Inhaltliche Grenzen) ein, eine pro Zeile.
+4. Klick auf **Save**.
+
+Wenn du das Preset im Einrichtungsassistenten oder unter **Chat Settings → Prompt Preset** (Chat-Einstellungen → Prompt-Preset) für ein Spiel wählst, übernimmt das Spiel dessen Erzählstil und Gewaltstufe. Die Grenzen des Presets werden zu den bereits vorhandenen Grenzen des Spiels hinzugefügt, sodass keine eigenen Grenzen des Spiels entfernt werden. Spätere Änderungen am Preset ändern keine Spiele, die es bereits ausgewählt haben. Die Einstellung bleibt beim Duplizieren, Exportieren und Importieren des Presets erhalten.
+
 Das integrierte **Marinara's Universal Preset** liefert Prompt-Text, aber keine Generierungsparameter. Seine älteren gespeicherten Einstellungen für Sampling, Reasoning, Formatierung und Tokens werden ignoriert; stattdessen gelten deine Kontoeinstellungen, Chat-Überschreibungen und die Standardwerte der App. Erstelle eine bearbeitbare Kopie, um es anzupassen.
 
 ## Abschnitte und Marker
@@ -170,7 +181,7 @@ Unter dem Dropdown-Menü zeigt ein Abzeichen, woher der Prompt stammt.
 
 Das Textfeld zeigt den Prompt, der gerade gilt. Bearbeite ihn, um eine chatlokale Kopie anzulegen. Stimmt dein Text exakt mit dem Preset oder dem Standard überein, wertet Marinara ihn nicht als Anpassung. Solange eine eigene Bearbeitung existiert, erscheint ein Symbol zum Zurücksetzen (Tooltip **Reset to default prompt**).
 
-Game-Chats haben zwei zusätzliche Bedienelemente. **GM prompt style** (GM-Prompt-Stil) ersetzt nur den Game-Prompt, und eine chatlokale Bearbeitung hat weiterhin Vorrang. **Extra instructions** (zusätzliche Anweisungen) ergänzt den Game-Prompt um Text, bis zu 2.000 Zeichen, etwa „Write in the style of Terry Pratchett.“
+Game-Chats haben weitere Bedienelemente. **Story style**, **Violence**, **Content boundaries** und **Rating guidelines** (Richtlinien zur Altersfreigabe) legen fest, was in der Geschichte des Spiels vorkommen darf. Siehe [Während eines Spiels ändern](../game/getting-started.md#change-them-during-a-game). Zwei weitere gestalten den Prompt. **GM prompt style** (GM-Prompt-Stil) ersetzt nur den Game-Prompt, und eine chatlokale Bearbeitung hat weiterhin Vorrang. **Extra instructions** (zusätzliche Anweisungen) ergänzt den Game-Prompt um Text, bis zu 2.000 Zeichen, etwa „Write in the style of Terry Pratchett.“
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

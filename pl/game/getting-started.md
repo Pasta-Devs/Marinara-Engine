@@ -37,7 +37,7 @@ Jeśli coś nie zadziałało, zajrzyj do sekcji [Generowanie świata kończy si�
 | Krok | Co ustawiasz |
 | --- | --- |
 | **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **VN** (zobacz [VN czy Overworld](#vn-or-overworld)). |
-| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści i język. **Combat Preference** (preferowany rodzaj walki) to **Turn-Based** albo **Tactical**. Każda nowa gra korzysta z klas **MRPG** (Marinara RPG) (zobacz [Klasy MRPG](mrpg-classes.md)). Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
+| **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści, styl historii, przemoc, granice treści i język. **Combat Preference** (preferowany rodzaj walki) to **Turn-Based** albo **Tactical**. Każda nowa gra korzysta z klas **MRPG** (Marinara RPG) (zobacz [Klasy MRPG](mrpg-classes.md)). Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
 | **Party** (drużyna) | Twoja persona (postać, w którą się wcielasz), **Game Master Mode**, członkowie drużyny i **GM intro message** (wiadomość otwierająca GM; zobacz [Wiadomość otwierająca GM](#the-gm-intro-message)). Początkowe drzewko MRPG każdego członka wynika z sekcji **Game Mode** na jego karcie (zobacz [Wybieranie drzewek postaci](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** (cele) | Czego oczekujesz od przygody. |
 | **Lorebooks** (lorebooki) | Lorebooki, które postać GM traktuje jako kanon. Lorebook to zbiór faktów o świecie w tle. Zobacz [Lorebooki](../lorebooks/overview.md). |
@@ -57,7 +57,10 @@ Gdy agent **Hierarchical Maps** jest pobrany (teraz nazywa się World Maps, zoba
 | Genre | Fantasy | Można wybrać kilka, a także dopisać własne. Zestaw settingu wybrany wcześniej ustawia własny gatunek. |
 | Tone | Heroic | Można wybrać kilka. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** albo **Brutal**. Wyższe ustawienia utrudniają walki: w grze MRPG dodają liczniejszych i silniejszych przeciwników (zobacz [Walki w grze MRPG](combat.md#battles-in-an-mrpg-game)), a w grze Legacy zwiększają obrażenia zadawane przez wrogów (zobacz [Skalowanie trudności](combat.md#difficulty-scaling)). |
-| Content Rating | SFW | **SFW** albo **NSFW**. NSFW tylko dopuszcza treści dla dorosłych, nie wymusza ich. |
+| Content Rating (sexual content) (Kategoria treści (treści seksualne)) | SFW | **SFW** albo **NSFW**. Dotyczy wyłącznie treści seksualnych. NSFW dopuszcza je, ale ich nie wymusza. |
+| Story style (Styl historii) | Standard (Standardowy) | **Gentle** (Łagodny) oznacza mniej stresującą grę prowadzoną przez GM. Zobacz [Styl historii, przemoc i granice treści](#story-style-violence-and-content-boundaries). |
+| Violence (Przemoc) | Serious (Poważna, SFW) albo Graphic (Dosłowna, NSFW) | **Mild** (Łagodna), **Serious** albo **Graphic**. Ustawiana niezależnie od kategorii treści. |
+| Content boundaries (Granice treści) | Brak | Tematy, które GM pomija w historii. |
 | Language | English | W tym języku powstaje cały tekst w grze. |
 | Game Master Mode | Standalone GM | **Character GM** (GM z karty postaci) używa jednej z twoich kart postaci jako postaci GM. |
 | Scene effects model | Built-in model | Dopiero po jego pobraniu. Do tego czasu wartość domyślna to **Skip - use inline tags from GM**. |
@@ -68,6 +71,43 @@ Gdy agent **Hierarchical Maps** jest pobrany (teraz nazywa się World Maps, zoba
 | Quick Time Events | On | Wyłącz do gry z czytnikiem ekranu albo bez limitów czasu. |
 | Start Muted | Off | Gra zaczyna się z wyciszonym całym dźwiękiem. |
 | Game Presentation | Standard | Zobacz niżej. |
+
+### Styl historii, przemoc i granice treści
+
+Krok **World** zawiera cztery ustawienia, które określają, co może się pojawić w historii i jak mocno będzie oddziaływać. Znajdują się razem pod **Content Rating (sexual content)**. Po rozpoczęciu gry możesz zmienić je wszystkie poza kategorią treści. Zobacz [Zmiana ustawień podczas gry](#change-them-during-a-game).
+
+| Ustawienie | O czym decyduje |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**: romans i czułość, a sceny seksu kończą się przed pokazaniem szczegółów. **NSFW**: sceny seksu mogą być opisywane dosłownie. Nie decyduje o niczym innym. |
+| **Story style** | **Standard**: błędy i pech mają rzeczywiste konsekwencje. **Gentle**: prawdziwe wyzwania, ale niepowodzenia nie prowadzą do karania ani traumy. |
+| **Violence** | **Mild**, **Serious** albo **Graphic**: sposób pokazywania przemocy. Początkowo ustawiona na **Serious** dla SFW i **Graphic** dla NSFW, zgodnie z dotychczasowym znaczeniem tych kategorii. |
+| **Content boundaries** | Tematy, których nigdy nie chcesz w historii, po jednym w wierszu, na przykład `harm to animals`. |
+
+#### Łagodny styl historii
+
+Wybierz **Gentle**, jeśli chcesz cieszyć się historią i jej postaciami, a GM nie ma karać za każde potknięcie. W stylu **Gentle**:
+
+- Niepowodzenia kosztują czas, reputację, zasoby albo wymagają obrania okrężnej drogi. GM nie odpowiada na nie obrażeniami, upokorzeniem, utratą kogoś bliskiego ani traumą, ku której nie kierujesz historii.
+- GM prosi o test umiejętności tylko wtedy, gdy znaczenie mają umiejętności lub wybory twojej postaci. Nigdy nie wykonuje rzutu dotyczącego czegoś, na co postać nie ma wpływu, na przykład niepełnosprawności, choroby, jej ciała lub pochodzenia. Zobacz [Testy umiejętności w łagodnej grze](dice-and-skill-checks.md#skill-checks-in-a-gentle-game).
+- Świat jest planowany z ciepłem: wątki wyrastają z nadziei i relacji w równym stopniu co z ran, a zwroty akcji zaskakują, zamiast zdradzać twoje zaufanie.
+
+**Gentle** zastępuje tylko wbudowane instrukcje GM. Jeśli masz własny **GM Prompt**, GM zachowuje twój tekst. Walka, obrażenia i ustawienie poziomu trudności działają tak samo w obu stylach.
+
+#### Granice treści
+
+Wpisz jeden temat w wierszu, maksymalnie 40 tematów i łącznie 2 000 znaków. Wszystko ponad którykolwiek z limitów jest pomijane. GM traktuje każdy temat jako nieprzekraczalną granicę, ważniejszą od kategorii treści, tonu, osobowości dowolnej postaci i fabuły. Nie porusza tych tematów, nie używa ich jako groźby, zwrotu akcji ani historii postaci i nie nawiązuje do nich pośrednio. Jeśli samodzielnie poruszysz taki temat, GM ogranicza go do krótkiej wzmianki i przechodzi dalej. Granice działają w obu stylach historii i przy obu kategoriach treści, a twoje własne wytyczne kategorii treści nie mogą ich znieść.
+
+> **Uwaga:** Historię pisze model AI, więc Marinara nie może zagwarantować, że wymieniony temat nigdy się nie pojawi. Jeśli się pojawi, użyj swipe'a albo edytuj odpowiedź.
+
+#### Edycja wytycznych kategorii treści
+
+Pod przyciskami kategorii treści rozwiń **Edit rating guidelines** (Edytuj wytyczne kategorii treści), aby zobaczyć tekst przekazywany GM dla wybranej kategorii treści, przemocy i stylu historii. Edytuj go, aby ustalić własne zasady dotyczące treści w tej grze, albo kliknij **Reset to default** (Przywróć domyślne), aby wrócić do wbudowanego tekstu. Dopóki pozostawiasz go bez zmian, dostosowuje się do wybranej kategorii treści, przemocy i stylu.
+
+#### Zmiana ustawień podczas gry
+
+Otwórz **Chat Settings → Prompt Preset** (ustawienia czatu, preset promptu). W grze ta sekcja zawiera też **Story style**, **Violence**, **Content boundaries** i **Rating guidelines** (Wytyczne kategorii treści). Zmiany obowiązują od następnej tury. Sama kategoria treści jest ustalona na stałe przy tworzeniu gry.
+
+Preset promptu może też zawierać styl historii, poziom przemocy i granice, aby można było używać ich w każdej grze. Zobacz [Ustawienia historii gry](../prompts/presets.md#game-story-settings).
 
 <a id="choose-rules"></a>
 
@@ -189,7 +229,15 @@ Jeśli zapytanie prawie się udało, Marinara proponuje okno dialogowe **Repair 
 
 ### Postać GM opowiada pogodnie mimo wybranego mrocznego tonu
 
-Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferencji w kreatorze, na przykład "utrzymuj ponury ton narracji, nie łagodź porażek". Albo przełącz się na model, którego domyślny głos pasuje do tonu.
+Sprawdź, czy ustawienie **Story style** gry ma wartość **Standard**: **Gentle** celowo łagodzi niepowodzenia (zobacz [Łagodny styl historii](#the-gentle-story-style)). Część modeli pozostaje radosna. Dopisz wyraźną instrukcję w polu preferencji w kreatorze, na przykład "utrzymuj ponury ton narracji, nie łagodź porażek". Albo przełącz się na model, którego domyślny głos pasuje do tonu.
+
+### Model odmawia napisania tury
+
+Powiadomienie **The model declined this request** informuje, że model odmówił napisania tury. Niektóre modele odmawiają z powodu konkretnych sformułowań w wytycznych kategorii treści gry, presecie lub karcie postaci. Spróbuj kolejno:
+
+1. Ponów turę. Niektóre odmowy zdarzają się tylko raz.
+2. Jeśli wytyczne kategorii treści zostały zmienione, otwórz **Chat Settings → Prompt Preset** i przywróć w **Rating guidelines** wbudowany tekst.
+3. Wypróbuj w tej grze inny model.
 
 ## Gdzie szukać poszczególnych tematów
 

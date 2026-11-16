@@ -104,7 +104,7 @@ Game Mode conserve un instantané de la configuration utilisée pour créer chaq
 3. Passe en revue les réglages enregistrés : aventure, distribution des personnages, modèle, prompt (le texte que Marinara envoie à l'IA), paramètres de génération, visuel, storyboard et outils de monde.
 4. Clique sur **Copy setup** (copier la configuration) pour copier le texte, ou sur **Download setup** (télécharger la configuration) pour enregistrer un fichier texte.
 
-> **Avertissement :** le texte reprend tes longues préférences de joueur et tes instructions personnalisées pour le GM. Relis-le avant de le publier. Les identifiants de connexion, les URL de serveur, les clés API et les identifiants de base de données locale n'y figurent jamais.
+> **Avertissement :** le texte reprend tes longues préférences de joueur et tes instructions personnalisées pour le GM. Un fichier téléchargé contient aussi les règles de classification et les limites de contenu de la partie. Relis-le avant de le publier. Les identifiants de connexion, les URL de serveur, les clés API et les identifiants de base de données locale n'y figurent jamais.
 
 Les fiches de personnage, les personas, les lorebooks, les modèles et les comptes sont nommés, mais pas inclus : un autre joueur a donc besoin de ses propres équivalents. Les campagnes créées avant l'arrivée des instantanés ne peuvent pas récupérer des réglages qui n'ont jamais été enregistrés : **Initial Game Setup** n'apparaît donc que lorsqu'un instantané fiable existe.
 

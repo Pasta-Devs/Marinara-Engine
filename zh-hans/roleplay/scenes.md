@@ -65,6 +65,10 @@ Marinara 会新建一段独立的 Roleplay，包含到这条消息为止（含�
 
 Clone 会保留原场景，Convert 不会。
 
+## 场景的内容分级
+
+Marinara 规划场景时，会根据场景内容将其分为 **SFW** 或 **NSFW**，场景的内容规则也遵循这个分级。从 Game Mode(游戏模式) 聊天发起的场景则沿用游戏的内容分级、分级指南、暴力程度、故事风格和内容边界。见[故事风格、暴力程度和内容边界](../game/getting-started.md#story-style-violence-and-content-boundaries)。
+
 ## 场景与已连接聊天
 
 场景是自成一体的。即便父级聊天连接了 Conversation，场景也不会从那边取上下文，而且它会忽略已连接的聊天可以发给关联 Roleplay 的简短引导提示。想在聊天和角色扮演之间保持持续的双向联动，就用已连接聊天。见[把 Conversation 聊天连接到 Roleplay 或 Game](../chats/connected-chats.md)。
