@@ -10,6 +10,8 @@ import { showGenerationFallbackHeader, showGenerationFallbackToast } from "./gen
 
 const BASE = "/api";
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+/** Fired on the window after a request that changed something on the server succeeds. */
+export const SERVER_SAVED_EVENT = "marinara:server-saved";
 export const ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
 
 function getAdminSecretHeader(): Record<string, string> {
@@ -281,6 +283,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } else if (ltmRefresh && ["deferred", "failed", "timeout", "unavailable"].includes(ltmRefresh)) {
     toast.warning(i18n.t(`agents.longTermMemory.embeddingRefresh.${ltmRefresh}`));
   }
+
+  if (
+    UNSAFE_METHODS.has((init?.method ?? "GET").toUpperCase()) &&
+    !path.startsWith("/csrf") &&
+    typeof window !== "undefined"
+  )
+    window.dispatchEvent(new Event(SERVER_SAVED_EVENT));
 
   // 204 No Content
   if (res.status === 204) return undefined as T;

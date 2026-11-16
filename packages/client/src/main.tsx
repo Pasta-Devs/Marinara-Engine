@@ -2,6 +2,7 @@
 import { SPLIT_PANE } from "./lib/split-view-env";
 // Split view: only the side you clicked last plays sound. Installed before anything can start a sound.
 import "./lib/split-sound-gate";
+import { followSavedSettings } from "./lib/follow-saved-settings";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -120,6 +121,9 @@ async function renderApplication() {
   if (activeLanguage !== requestedLanguage) {
     useUIStore.getState().setLanguage(activeLanguage);
   }
+
+  // Settings changed in another window of the Engine (split view's other side, another tab) apply here too.
+  followSavedSettings();
 
   // Split view's second side: open the page it was made for before the first paint.
   if (SPLIT_PANE) {
