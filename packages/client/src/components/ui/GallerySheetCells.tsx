@@ -161,7 +161,7 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
 
   const recut = useCallback(() => {
     if (!sourceRef.current) return;
-    setCells([]);
+    // Cells stay until the new cut lands, so names and keep/skip picks carry over by position.
     void runCut(sourceRef.current);
   }, [runCut]);
 
