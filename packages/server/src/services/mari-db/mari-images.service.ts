@@ -428,8 +428,13 @@ function promptTagKey(tag: string) {
     .replace(/:-?\d*\.?\d+\)?$/, "")
     .replace(/[()[\]{}]/g, "")
     .replace(/[_\s]+/g, " ")
+    .trim()
+    .replace(/[.!?;:]+$/, "")
     .trim();
 }
+
+// The phrases the image prompt compiler reads as "move this to the negative".
+const NEGATION_PREFIX = /^(?:avoid|no|without|exclude|do not include|don't include)\s+/;
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -456,7 +461,7 @@ function droppedPromptTags(requested: string, final: string, movedToNegative: st
     if (!key || seen.has(key)) continue;
     seen.add(key);
     if (appearsIn(finalText, key)) continue;
-    const negated = key.replace(/^(?:no|avoid|without)\s+/, "");
+    const negated = key.replace(NEGATION_PREFIX, "");
     if (negated !== key && appearsIn(movedText, negated)) continue;
     dropped.push(tag);
   }

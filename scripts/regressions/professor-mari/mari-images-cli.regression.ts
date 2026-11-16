@@ -192,6 +192,16 @@ try {
   const kept = (await images("preview", "--style", "--prompt", character)) as { style: Style };
   assert.deepEqual(kept.style.dropped, [], "illustration keeps every tag, weighted ones included");
   assert.equal(kept.style.note, undefined);
+  // A closing period, and the compiler's other "move to the negative" phrasings, are not drops either.
+  for (const prompt of [
+    "red hair, smug.",
+    "red hair, exclude text",
+    "red hair, do not include watermark",
+    "red hair, don't include logo",
+  ]) {
+    const result = (await images("preview", "--style", "--prompt", prompt)) as { style: Style };
+    assert.deepEqual(result.style.dropped, [], `${prompt}: ${JSON.stringify(result.style)}`);
+  }
 
   // 4. A chosen profile, by id or name; an unknown one, or both flags, is refused.
   sent.length = 0;
