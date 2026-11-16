@@ -280,8 +280,8 @@ function cleanGallerySheetOutlines(
 }
 
 /**
- * The outline passes for a sticker or emoji that was saved before: one still on its backdrop is keyed out
- * like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks and tint
+ * The outline passes for a sticker or emoji that was saved before: one still on the sheets' green screen is
+ * keyed out like a fresh sheet (any other backdrop is left alone); one already see-through gets the outline clean-up (specks, green flecks and tint
  * along its edge) against the green screen the sheets are drawn on. Only the edge band is touched, so
  * the art inside keeps its own colours. Returns null when a backdrop doesn't key out cleanly.
  */
@@ -294,13 +294,35 @@ export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string 
   const frame = ctx.getImageData(0, 0, width, height);
   const pixels = frame.data;
   const at = (x: number, y: number) => (y * width + x) * 4;
-  const opaqueCorners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
+  const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
     (offset) => pixels[offset + 3]! > 24,
-  ).length;
-  if (opaqueCorners >= 2) {
-    // A backdrop that doesn't key out cleanly (a photo or gradient) is not a cut-out: leave it alone.
+  );
+  if (corners.length >= 2) {
+    // Only a piece still on the sheets' green screen is keyed. Any other backdrop (white, a photo, a
+    // gradient) may share colours with the drawing, and keying it would punch holes in the art: leave it.
+    const backdrop = [0, 1, 2].map((channel) => {
+      const values = corners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+      return values[Math.floor(values.length / 2)]!;
+    });
+    if (backdrop[1]! - Math.max(backdrop[0]!, backdrop[2]!) <= 80) return null;
     const keyed = await keyOutGallerySheetBackground(dataUrl);
-    return keyed.clean ? keyed.dataUrl : null;
+    if (!keyed.clean) return null;
+    // The key must keep the drawing: compare what was drawn (not near the backdrop) with what stays opaque.
+    const near = (data: Uint8ClampedArray, offset: number) =>
+      Math.abs(data[offset]! - backdrop[0]!) +
+        Math.abs(data[offset + 1]! - backdrop[1]!) +
+        Math.abs(data[offset + 2]! - backdrop[2]!) <
+      90;
+    let drawn = 0;
+    for (let offset = 0; offset < pixels.length; offset += 4)
+      if (pixels[offset + 3]! > 24 && !near(pixels, offset)) drawn++;
+    const after = await loadImage(keyed.dataUrl);
+    const check = canvas2d(width, height);
+    check.ctx.drawImage(after, 0, 0);
+    const kept = check.ctx.getImageData(0, 0, width, height).data;
+    let opaque = 0;
+    for (let offset = 3; offset < kept.length; offset += 4) if (kept[offset]! > 24) opaque++;
+    return drawn > 0 && opaque >= drawn * 0.8 ? keyed.dataUrl : null;
   }
   cleanGallerySheetOutlines(pixels, width, height, [0, 255, 0]);
   ctx.putImageData(frame, 0, 0);
