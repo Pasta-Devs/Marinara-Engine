@@ -375,13 +375,22 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
     changed = true;
   }
 
-  // Loose specks: a few opaque pixels on their own, away from the drawing.
+  // Loose specks: a few pixels on their own that are left-over backdrop, mostly green-screen green or
+  // barely there. A small detached part of the drawing (the dot of a "!", a sparkle) has its own colour
+  // and stays.
   const opaque = new Uint8Array(total);
   for (let i = 0; i < total; i++) if (pixels[i * 4 + 3]! > 24) opaque[i] = 1;
   const islands = labelMask(opaque, width, height);
   const speck = Math.max(4, total * 0.0004);
+  const residue = new Uint32Array(islands.regions.length + 1);
+  for (let i = 0; i < total; i++) {
+    if (!opaque[i]) continue;
+    const offset = i * 4;
+    if (pixels[offset + 3]! < 128 || isKeyGreen(pixels, offset)) residue[islands.labels[i]!]!++;
+  }
   const loose = new Uint8Array(islands.regions.length + 1);
-  for (const region of islands.regions) loose[region.id] = region.area <= speck ? 1 : 0;
+  for (const region of islands.regions)
+    loose[region.id] = region.area <= speck && residue[region.id]! >= region.area * 0.5 ? 1 : 0;
   for (let i = 0; i < total; i++) {
     if (opaque[i] && loose[islands.labels[i]!]) {
       pixels[i * 4 + 3] = 0;
@@ -392,7 +401,7 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
 }
 
 /**
- * The outline pass, then (on a green screen) the green-bit pass. Each can uncover a little more edge for
+ * The green-bit pass (on a green screen), then the outline pass. Each can uncover a little more edge for
  * the other, so they repeat until nothing changes: running Clean up again on the result finds nothing
  * left to do and gives back the same picture.
  */
@@ -400,8 +409,8 @@ function cleanEdgesUntilSettled(pixels: Uint8ClampedArray, width: number, height
   const greenScreen = background[1]! - Math.max(background[0]!, background[2]!) > 80;
   for (let round = 0; round < 4; round++) {
     const before = new Uint8ClampedArray(pixels);
-    cleanGallerySheetOutlines(pixels, width, height, background);
     if (greenScreen) removeGreenBits(pixels, width, height);
+    cleanGallerySheetOutlines(pixels, width, height, background);
     if (pixels.every((value, index) => value === before[index])) break;
   }
 }
