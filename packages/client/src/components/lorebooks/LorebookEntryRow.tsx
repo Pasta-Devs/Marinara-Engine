@@ -64,13 +64,7 @@ import type {
   LorebookMatchingSource,
   SelectiveLogic,
 } from "@marinara-engine/shared";
-import {
-  ExpandableTextarea,
-  FieldGroup,
-  KeysEditor,
-  NumberField,
-  ToggleButton,
-} from "./LorebookFormFields";
+import { ExpandableTextarea, FieldGroup, KeysEditor, NumberField, ToggleButton } from "./LorebookFormFields";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MariFieldReview } from "../characters/MariFieldReview";
 
