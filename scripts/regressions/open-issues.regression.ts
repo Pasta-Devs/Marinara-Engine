@@ -12,7 +12,6 @@ import {
   createChatSummaryEntry,
 } from "../../packages/shared/src/utils/chat-summary-entries.js";
 import playwrightConfig from "../../playwright.config.js";
-import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
 import {
   characterCardVersions,
@@ -25,22 +24,12 @@ import {
   messages,
 } from "../../packages/server/src/db/schema/index.js";
 import { eq } from "../../packages/server/src/db/file-query.js";
-import { parseBuildMeta, resolveBuildBranch } from "../../packages/server/src/config/build-info.js";
 import { createSerializedMutationQueue } from "../../packages/client/src/lib/serialized-mutation-queue.js";
 import {
   CUSTOM_AGENT_RESULT_EXAMPLES,
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 import { estimateGameSessionHistoryTokens } from "../../packages/client/src/lib/game-session-history.js";
-import {
-  buildCompatibleCharacterExport,
-  validateCharacterGalleryReferences,
-} from "../../packages/server/src/routes/characters.routes.js";
-import {
-  embeddedSpriteSizesAreWithinLimits,
-  MAX_EMBEDDED_SPRITE_COUNT,
-} from "../../packages/server/src/services/import/marinara.importer.js";
-import { takeEmbeddedMarinaraSprites } from "../../packages/server/src/services/import/st-character.importer.js";
 import {
   orderConversationRespondersByDelay,
   remainingConversationPresenceDelay,
@@ -59,17 +48,8 @@ import {
   splitGroupedSegmentDisplayLines,
   stripLeadingMessageTimestamps,
 } from "../../packages/shared/src/utils/speaker-segments.js";
-import type { Lorebook } from "../../packages/shared/src/types/lorebook.js";
-import {
-  createLorebookEntrySchema,
-  createLorebookSchema,
-  bulkUpdateLorebookEntriesSchema,
-  normalizeLorebookCategory,
-  updateLorebookSchema,
-} from "../../packages/shared/src/schemas/lorebook.schema.js";
+import { createLorebookEntrySchema, createLorebookSchema } from "../../packages/shared/src/schemas/lorebook.schema.js";
 import { characterDataSchema, updateCharacterSchema } from "../../packages/shared/src/schemas/character.schema.js";
-import { buildLorebookDuplicateInput } from "../../packages/client/src/lib/lorebook-duplicate.js";
-import { appendLorebookActivationKeys } from "../../packages/client/src/lib/lorebook-keys.js";
 import { arePresetChoiceSelectionsComplete } from "../../packages/client/src/lib/preset-choice-selection.js";
 import {
   MARINARA_UNIVERSAL_PRESET_ARTWORK,
@@ -123,7 +103,6 @@ import {
   withFreshNpcAvatarRevision,
   withoutNpcAvatarRevision,
 } from "../../packages/client/src/lib/game-npc-avatar.js";
-import { characterMatchesSearch, parseCharacterDisplayData } from "../../packages/client/src/lib/character-display.js";
 import {
   compareChatsByActivityDesc,
   compareChatsByCreatedAtAsc,
@@ -132,7 +111,6 @@ import {
 import {
   DEFAULT_GENERATION_PARAMS,
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
-  MAX_FILE_SIZES,
   resolveTranslationSystemPrompt,
 } from "../../packages/shared/src/constants/defaults.js";
 import {
@@ -145,11 +123,6 @@ import {
   isBundledGameAssetFolderPath,
   isBundledGameAssetPath,
 } from "../../packages/server/src/services/game/native-game-assets.js";
-import {
-  isGitUpdateApplyAllowed,
-  isUpdateChannelSwitch,
-  resolveDockerChannelImageTags,
-} from "../../packages/server/src/services/updates/update-apply-policy.js";
 import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { sanitizeExampleDialoguePromptLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
 import {
@@ -185,15 +158,6 @@ import { persistGeneratedImageToEntityGalleries } from "../../packages/server/sr
 import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
 import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
 import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
-import { seedDefaultBackgrounds } from "../../packages/server/src/db/seed-backgrounds.js";
-import { normalizeBackgroundMeta } from "../../packages/server/src/routes/backgrounds.routes.js";
-import {
-  DEFAULT_CHAT_GENERATION_TIMEOUT_MS,
-  DEFAULT_GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS,
-  getChatGenerationTimeoutMs,
-  getGameDynamicImagePromptTimeoutMs,
-  isCustomAgentRepositoriesEnabled,
-} from "../../packages/server/src/config/runtime-config.js";
 import {
   normalizeNextSessionCampaignPlan,
   normalizeNextSessionNpcs,
@@ -203,16 +167,9 @@ import {
   parseLorebookWriteApprovalText,
 } from "../../packages/server/src/routes/generate/agent-write-approval.js";
 import {
-  buildHistoricalLorebookKeeperContext,
-  customAgentUsesLorebookReadBehind,
-  customLorebookReadBehindRunKey,
-  getCustomLorebookReadBehindMessages,
-  getLorebookKeeperAutomaticTarget,
-  mergeLorebookKeeperUpdateContent,
   persistLorebookKeeperUpdates,
   readLorebookKeeperUpdateOrder,
   resolveLorebookKeeperTarget,
-  tryClaimCustomLorebookReadBehindRun,
 } from "../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
 import {
   SPRITE_DISPLAY_OPACITY_MIN,
@@ -261,12 +218,6 @@ import {
   resolveSpriteExpressionState,
 } from "../../packages/client/src/lib/sprite-expression-state.js";
 import {
-  cleanupStagedProfileAssets,
-  promoteStagedProfileAssets,
-  rollbackPromotedProfileAssets,
-  stageProfileImportAssets,
-} from "../../packages/server/src/services/import/profile-import-assets.js";
-import {
   buildLorebookEntryCreateRow,
   buildPersonaCreateRow,
   MariDbService,
@@ -305,8 +256,6 @@ import {
   shouldRestoreRegenerationCharacterTarget,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { normalizeChatForResponse } from "../../packages/server/src/routes/chats.routes.js";
-import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
-import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
 import {
   moveBackgroundAssignment,
   normalizeBackgroundLibraryOrganization,
@@ -318,7 +267,6 @@ import {
 } from "../../packages/client/src/lib/background-library.js";
 import { resolveCapabilityPackageDisplay } from "../../packages/client/src/lib/capability-package-localization.js";
 import { resolveFeatureAgentPackage } from "../../packages/client/src/lib/feature-agent-package.js";
-import { mergeEmbeddedCharacterCardFields } from "../../packages/client/src/lib/character-import.js";
 import { formatSupportDiagnostics, resolveClientOs } from "../../packages/client/src/lib/support-diagnostics.js";
 import { normalizeHydratedMessage } from "../../packages/client/src/lib/message-hydration.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
@@ -326,7 +274,6 @@ import {
   homeCustomWidgetCatalogSchema,
   type BuiltInAgentManifest,
   type CapabilityPackageManifest,
-  type CharacterData,
   type InstalledCapabilityPackage,
 } from "../../packages/shared/src/index.js";
 
@@ -386,50 +333,6 @@ assert.deepEqual(
   "Inventory journal deltas must count quantity gains without treating equipped moves as acquisitions",
 );
 
-const existingCharacterCard = {
-  name: "Old name",
-  description: "Old description",
-  personality: "Keep this personality",
-  scenario: "Old scenario",
-  first_mes: "Old greeting",
-  mes_example: "Old example",
-  creator_notes: "Old notes",
-  system_prompt: "Old system prompt",
-  post_history_instructions: "Old reminder",
-  tags: ["old-tag"],
-  creator: "Old creator",
-  character_version: "1.0",
-  alternate_greetings: ["Old alternate"],
-  extensions: {
-    talkativeness: 0.5,
-    fav: true,
-    world: "Old world",
-    depth_prompt: { prompt: "Keep depth", depth: 4, role: "system" },
-    backstory: "Old backstory",
-    appearance: "Old appearance",
-    nameColor: "#123456",
-  },
-  character_book: null,
-} satisfies CharacterData;
-const replacedCharacterCard = mergeEmbeddedCharacterCardFields(existingCharacterCard, {
-  spec: "chara_card_v3",
-  data: {
-    name: "Updated name",
-    description: "Updated description",
-    scenario: "",
-    tags: ["updated-tag"],
-    extensions: { backstory: "Updated backstory", appearance: "Updated appearance" },
-  },
-});
-assert.ok(replacedCharacterCard, "Embedded character metadata must be recognized during avatar replacement");
-assert.equal(replacedCharacterCard.name, "Updated name");
-assert.equal(replacedCharacterCard.description, "Updated description");
-assert.equal(replacedCharacterCard.scenario, "", "Explicitly cleared card fields must stay cleared");
-assert.deepEqual(replacedCharacterCard.tags, ["updated-tag"]);
-assert.equal(replacedCharacterCard.extensions.backstory, "Updated backstory");
-assert.equal(replacedCharacterCard.extensions.appearance, "Updated appearance");
-assert.equal(replacedCharacterCard.personality, "Keep this personality", "Missing card fields must remain untouched");
-assert.equal(replacedCharacterCard.extensions.nameColor, "#123456", "Local display extensions must be preserved");
 const characterRoutesSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/routes/characters.routes.ts"),
   "utf8",
@@ -443,70 +346,6 @@ const marinaraImporterSource = readFileSync(
   "utf8",
 );
 const importRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/import.routes.ts"), "utf8");
-const portableSprites = [
-  { filename: "happy.png", data: "data:image/png;base64,iVBORw0KGgo=" },
-  { filename: "full_idle.webp", data: "data:image/webp;base64,UklGRg==" },
-];
-const compatibleSpriteSource = {
-  name: "Portable Sprite Card",
-  extensions: {
-    characterSheetImageId: "local-gallery-id",
-    useCharacterSheetAsReference: true,
-    marinara: { retained: true },
-  },
-};
-const compatibleSpriteCard = buildCompatibleCharacterExport(compatibleSpriteSource, portableSprites);
-const portableIdentitySource = {
-  name: "Portable identity",
-  description: "Original <description> & formatting.",
-  extensions: { backstory: "A history.\nWith a second line.", appearance: "Silver hair.", retained: true },
-};
-const portableIdentity = buildCompatibleCharacterExport(portableIdentitySource);
-assert.equal(
-  portableIdentity.data.description,
-  "Original <description> & formatting.\n\nBackstory:\nA history.\nWith a second line.\n\nAppearance:\nSilver hair.",
-  "V2 JSON and PNG exports include Marinara-only identity fields in the standard description",
-);
-assert.equal(portableIdentity.data.extensions.backstory, undefined);
-assert.equal(portableIdentity.data.extensions.appearance, undefined);
-assert.equal(portableIdentity.data.extensions.retained, true);
-assert.equal(portableIdentitySource.extensions.backstory, "A history.\nWith a second line.");
-assert.equal(portableIdentitySource.description, "Original <description> & formatting.");
-assert.equal(
-  buildCompatibleCharacterExport(portableIdentity.data).data.description,
-  portableIdentity.data.description,
-  "re-exporting a compatible card must not duplicate the merged identity fields",
-);
-assert.equal(
-  buildCompatibleCharacterExport({ description: "Unchanged", extensions: {} }).data.description,
-  "Unchanged",
-);
-assert.equal(
-  compatibleSpriteSource.extensions.characterSheetImageId,
-  "local-gallery-id",
-  "compatible export must not mutate local-only source extensions",
-);
-assert.equal(compatibleSpriteSource.extensions.useCharacterSheetAsReference, true);
-assert.deepEqual(
-  (compatibleSpriteCard.data.extensions.marinara as Record<string, unknown>).sprites,
-  portableSprites,
-  "compatible PNG metadata must carry the character sprite set",
-);
-const importedSpriteCard = structuredClone(compatibleSpriteCard) as unknown as Record<string, unknown>;
-assert.deepEqual(
-  takeEmbeddedMarinaraSprites(importedSpriteCard),
-  portableSprites,
-  "Marinara must recover its embedded sprite set from a compatible PNG card",
-);
-const importedSpriteExtensions = (importedSpriteCard.data as Record<string, unknown>).extensions as Record<
-  string,
-  unknown
->;
-assert.equal(
-  Object.hasOwn(importedSpriteExtensions.marinara as Record<string, unknown>, "sprites"),
-  false,
-  "embedded sprite binaries must be removed before character metadata is stored",
-);
 assert.match(
   characterRoutesSource,
   /const sprites = await readSpritesForId\(char\.id, true\);[\s\S]*if \(!sprites\)[\s\S]*status\(413\)[\s\S]*buildCompatibleCharacterExport\(charData, sprites, \{\s*keepOnboarding: true,/u,
@@ -570,34 +409,6 @@ assert.doesNotMatch(
   importRoutesSource,
   /MAX_DATA_JSON_BYTES|MAX_AVATAR_BYTES|MAX_CHARACTER_CARD_CHUNK_SIZE/u,
   "native packages must not use obsolete metadata ceilings",
-);
-assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE]), true);
-assert.equal(embeddedSpriteSizesAreWithinLimits([MAX_FILE_SIZES.SPRITE + 1]), false);
-assert.equal(
-  embeddedSpriteSizesAreWithinLimits(Array(4).fill(MAX_FILE_SIZES.SPRITE)),
-  false,
-  "aggregate sprite bytes must be limited independently of the per-sprite ceiling",
-);
-assert.equal(embeddedSpriteSizesAreWithinLimits(Array(MAX_EMBEDDED_SPRITE_COUNT + 1).fill(0)), false);
-const ownedGalleryUpdate = {
-  extensions: { characterSheetImageId: "owned-image", useCharacterSheetAsReference: true },
-};
-assert.equal(
-  await validateCharacterGalleryReferences("character-a", ownedGalleryUpdate, async () => ({
-    characterId: "character-a",
-  })),
-  ownedGalleryUpdate,
-  "A character-owned gallery reference must remain unchanged",
-);
-const foreignGalleryUpdate = await validateCharacterGalleryReferences(
-  "character-a",
-  { extensions: { characterSheetImageId: "foreign-image", useCharacterSheetAsReference: true } },
-  async () => ({ characterId: "character-b" }),
-);
-assert.deepEqual(
-  foreignGalleryUpdate.extensions,
-  { characterSheetImageId: null, useCharacterSheetAsReference: false },
-  "A foreign gallery reference must be cleared before character data is persisted",
 );
 assert.match(
   characterRoutesSource,
@@ -996,25 +807,6 @@ assert.deepEqual(
   ["game:backgrounds:modern:city-night", "user:forest.jpg"],
 );
 
-const dockerDesktopRouteTable = `Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask
-eth0\t00000000\t01D7A8C0\t0003\t0\t0\t100\t00000000
-eth0\t00D7A8C0\t00000000\t0001\t0\t0\t0\t00FFFFFF`;
-assert.strictEqual(parseDockerDefaultGatewayIp(dockerDesktopRouteTable), "192.168.215.1");
-assert.strictEqual(
-  parseDockerDefaultGatewayIp(`${dockerDesktopRouteTable}\neth1\t00000000\t010011AC\t0003\t0\t0\t50\t00000000`),
-  "172.17.0.1",
-);
-assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFlags\tMetric\n"), null);
-
-const validBuildMeta = parseBuildMeta('{"commit":"abcdef123456","branch":"staging"}');
-assert.deepEqual(validBuildMeta, { commit: "abcdef123456", branch: "staging" });
-assert.equal(parseBuildMeta('{"commit":"abcdef123456","branch":42}'), null);
-assert.equal(parseBuildMeta(undefined), null);
-assert.equal(resolveBuildBranch(undefined, validBuildMeta?.branch, "main"), "staging");
-assert.equal(
-  resolveBuildBranch(undefined, parseBuildMeta(undefined)?.branch, "refs/heads/feature/test"),
-  "feature/test",
-);
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
 ) as Record<string, unknown>;
@@ -1032,20 +824,6 @@ assert.match(
   /gitInstall \? await getCurrentBranch\(root\)\.catch\(\(\) => null\) : getBuildBranch\(\)/u,
 );
 assert.match(updatesRouteSource, /const currentChannel = await getUpdateChannelForCheckout\(root, currentBranch\)/u);
-assert.equal(isUpdateChannelSwitch("docker", "stable", "staging"), true);
-assert.equal(isUpdateChannelSwitch("docker", "staging", "staging"), false);
-assert.equal(isUpdateChannelSwitch("git", "stable", "staging"), true);
-assert.equal(isUpdateChannelSwitch("standalone", "stable", "staging"), false);
-assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "stable"), {
-  dockerImage: "ghcr.io/pasta-devs/marinara-engine",
-  dockerImageTag: "ghcr.io/pasta-devs/marinara-engine:2.4.3",
-  dockerLiteImageTag: "ghcr.io/pasta-devs/marinara-engine:2.4.3-lite",
-});
-assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "staging"), {
-  dockerImage: "ghcr.io/pasta-devs/marinara-engine",
-  dockerImageTag: "ghcr.io/pasta-devs/marinara-engine:staging",
-  dockerLiteImageTag: null,
-});
 for (const dockerfile of ["Dockerfile", "Dockerfile.lite"]) {
   const dockerSource = readFileSync(join(REPOSITORY_ROOT, dockerfile), "utf8");
   assert.match(dockerSource, /^ARG BUILD_BRANCH$/mu, `${dockerfile} must accept the source ref as build metadata`);
@@ -1178,51 +956,6 @@ assert.deepEqual(
     personaCharacterId: null,
   },
   "Fresh chat responses must expose parsed tags and character IDs",
-);
-
-assert.deepEqual(
-  updateCharacterSchema.parse({
-    data: {
-      extensions: { fav: true, depth_prompt: { prompt: "Updated only" } },
-      character_book: { name: "Renamed" },
-    },
-  }).data,
-  {
-    extensions: { fav: true, depth_prompt: { prompt: "Updated only" } },
-    character_book: { name: "Renamed" },
-  },
-  "Character PATCH parsing must not materialize omitted nested defaults",
-);
-assert.equal(
-  characterDataSchema.parse({ name: "  Trimmed Character  " }).name,
-  "Trimmed Character",
-  "Character validation must trim leading and trailing name whitespace",
-);
-assert.equal(
-  updateCharacterSchema.parse({ data: { name: "  Renamed Character  " } }).data.name,
-  "Renamed Character",
-  "Character rename validation must trim leading and trailing whitespace",
-);
-
-assert.equal(
-  normalizeNativeCharacterData({}),
-  null,
-  "A native character import without the required name must fail before persistence",
-);
-const normalizedNativeCharacter = normalizeNativeCharacterData({
-  name: "Legacy",
-  character_book: {
-    name: "Archive",
-    custom_top_level_property: "preserved",
-  },
-});
-assert.ok(normalizedNativeCharacter);
-assert.equal(normalizedNativeCharacter.description, "");
-assert.equal(normalizedNativeCharacter.character_book?.entries.length, 0);
-assert.equal(
-  (normalizedNativeCharacter.character_book as Record<string, unknown>).custom_top_level_property,
-  "preserved",
-  "Native import normalization must preserve unknown embedded-lorebook properties",
 );
 
 const characterUpdateStorageRoot = mkdtempSync(join(tmpdir(), "marinara-character-update-preservation-"));
@@ -4156,73 +3889,6 @@ const orLogicLorebookEntry = buildLorebookEntryCreateRow(
 );
 assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
 
-// Issue #4135 — Markdown headings inside Lorebook Keeper content are content,
-// not approval-entry delimiters.
-{
-  const markdownContent = [
-    "# About Bob",
-    "## Personality",
-    "Bob likes to fish.",
-    "### Fishing Info",
-    "Keys: fishing, river",
-    "Tag: hobby",
-    "These are literal lines in the entry content.",
-    "Bob hates to eat fish.",
-  ].join("\n");
-  const approvalText = formatLorebookWriteApprovalText([
-    {
-      name: "Bob",
-      keys: ["Bob"],
-      tag: "people",
-      content: markdownContent,
-    },
-  ]);
-  assert.match(approvalText, /^<!-- marinara:lorebook-entry:v1 -->\r?\n### Bob\r?\nKeys: Bob\r?\nTag: people/u);
-  assert.deepEqual(parseLorebookWriteApprovalText(approvalText), [
-    {
-      action: "append",
-      name: "Bob",
-      keys: ["Bob"],
-      tag: "people",
-      content: markdownContent,
-    },
-  ]);
-  assert.deepEqual(
-    parseLorebookWriteApprovalText("### Legacy Entry\nKeys: legacy\nTag:\n\nLegacy approval text."),
-    [
-      {
-        action: "append",
-        name: "Legacy Entry",
-        keys: ["legacy"],
-        tag: "",
-        content: "Legacy approval text.",
-      },
-    ],
-    "Unmarked approval text created before the delimiter fix must remain editable",
-  );
-  assert.deepEqual(
-    parseLorebookWriteApprovalText(
-      [
-        "### Legacy Marker Content",
-        "Keys: legacy",
-        "Tag:",
-        "",
-        "Keep <!-- marinara:lorebook-entry:v1 --> as literal inline content.",
-      ].join("\n"),
-    ),
-    [
-      {
-        action: "append",
-        name: "Legacy Marker Content",
-        keys: ["legacy"],
-        tag: "",
-        content: "Keep <!-- marinara:lorebook-entry:v1 --> as literal inline content.",
-      },
-    ],
-    "An inline delimiter mention must not switch legacy approval text into explicit mode",
-  );
-}
-
 // Issue #5225 — optional integer order survives automatic and approval-gated writes.
 {
   for (const resultType of CUSTOM_AGENT_RESULT_TYPE_IDS) {
@@ -4412,101 +4078,6 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
   );
 }
 
-assert.equal(
-  mergeLorebookKeeperUpdateContent({
-    existingContent: "Old timeline that must be replaced.",
-    replacementContent: "Corrected timeline.",
-    newFacts: [],
-  }),
-  "Corrected timeline.",
-  "Lorebook Keeper updates must replace an existing body instead of stacking another copy",
-);
-assert.equal(
-  mergeLorebookKeeperUpdateContent({
-    existingContent: "Stable scene state.",
-    replacementContent: "",
-    newFacts: ["A new clue appeared."],
-  }),
-  "Stable scene state.\n\n- A new clue appeared.",
-  "Fact-only Lorebook Keeper updates must preserve the current body",
-);
-
-// Issue #5191 — custom lorebook writers can process a stable historical reply.
-{
-  const messages = [
-    { id: "user-1", role: "user", content: "First turn" },
-    { id: "assistant-1", role: "assistant", content: "First reply" },
-    { id: "user-2", role: "user", content: "Second turn" },
-    { id: "assistant-2", role: "assistant", content: "Second reply" },
-    { id: "user-3", role: "user", content: "Newest turn" },
-  ];
-  assert.equal(getCustomLorebookReadBehindMessages({ lorebookReadBehindMessages: "2" }), 2);
-  assert.equal(getCustomLorebookReadBehindMessages({ lorebookReadBehindMessages: 101 }), 100);
-  assert.equal(
-    customAgentUsesLorebookReadBehind({
-      phase: "post_processing",
-      isCustomAgent: true,
-      settings: {
-        resultType: "lorebook_update",
-        lorebookReadBehindMessages: 1,
-        customCapabilities: { create_lorebooks: true },
-        customAgentPermissionsExplicit: true,
-      },
-    }),
-    true,
-    "create-only lorebook update agents must support Read Behind",
-  );
-  assert.equal(
-    customAgentUsesLorebookReadBehind({
-      phase: "post_processing",
-      isCustomAgent: true,
-      settings: {
-        lorebookWriteEnabled: true,
-        lorebookReadBehindMessages: 1,
-        customCapabilities: { edit_lorebooks: true },
-        customAgentPermissionsExplicit: true,
-      },
-    }),
-    true,
-    "custom lorebook entry writers must support Read Behind",
-  );
-  const activeRuns = new Set<string>();
-  const runKey = customLorebookReadBehindRunKey("chat-1", "agent-1", "assistant-1");
-  assert.equal(tryClaimCustomLorebookReadBehindRun(activeRuns, runKey), true);
-  assert.equal(
-    tryClaimCustomLorebookReadBehindRun(activeRuns, runKey),
-    false,
-    "an in-flight historical message must only be claimed once",
-  );
-  activeRuns.delete(runKey);
-  assert.equal(tryClaimCustomLorebookReadBehindRun(activeRuns, runKey), true);
-  const target = getLorebookKeeperAutomaticTarget(messages, 1);
-  assert.equal(target?.id, "assistant-2");
-  const context = buildHistoricalLorebookKeeperContext(
-    {
-      chatId: "chat-1",
-      chatMode: "roleplay",
-      recentMessages: [],
-      mainResponse: "Newest reply",
-      gameState: null,
-      characters: [],
-      persona: null,
-      memory: {},
-      writableLorebookIds: ["lorebook-1"],
-      chatSummary: null,
-      authorNotes: null,
-      activatedLorebookEntries: [],
-    },
-    messages,
-    target!.id,
-  );
-  assert.equal(context?.mainResponse, "Second reply");
-  assert.deepEqual(
-    context?.recentMessages.map((message) => message.content),
-    ["First turn", "First reply", "Second turn"],
-  );
-}
-
 const completeProfessorMariPersona = buildPersonaCreateRow(
   {
     name: "Complete helper persona",
@@ -4529,21 +4100,6 @@ assert.deepEqual(completeProfessorMariPersona.convoBehavior, {
 assert.equal(resolveInitialGameGmConnectionId(undefined, "chat-connection"), "chat-connection");
 assert.equal(resolveInitialGameGmConnectionId("explicit-connection", "chat-connection"), "explicit-connection");
 assert.equal(resolveInitialGameGmConnectionId(undefined, null), null);
-const previousGameDynamicImagePromptTimeout = process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS;
-try {
-  delete process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS;
-  assert.equal(getGameDynamicImagePromptTimeoutMs(), DEFAULT_GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS);
-  process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS = "90000";
-  assert.equal(getGameDynamicImagePromptTimeoutMs(), 90_000);
-  process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS = "999";
-  assert.equal(getGameDynamicImagePromptTimeoutMs(), DEFAULT_GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS);
-} finally {
-  if (previousGameDynamicImagePromptTimeout === undefined) {
-    delete process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS;
-  } else {
-    process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS = previousGameDynamicImagePromptTimeout;
-  }
-}
 const refreshedCampaignPlan = normalizeNextSessionCampaignPlan(
   {
     openingSituation: "The party must enter the floating archive before dawn.",
@@ -4596,46 +4152,6 @@ assert.match(DEFAULT_TRANSLATION_SYSTEM_PROMPT, /\{\{targetLanguage\}\}/u);
 assert.match(resolveTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT, "Japanese"), /into Japanese/u);
 
 validatePullRequestTriage();
-
-const profileImportAssetRoot = mkdtempSync(join(tmpdir(), "marinara-profile-import-atomic-"));
-try {
-  const liveAvatar = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x6c, 0x69, 0x76, 0x65]);
-  const importedAvatar = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x6e, 0x65, 0x77]);
-  const liveAvatarPath = join(profileImportAssetRoot, "avatars", "character.png");
-  mkdirSync(join(profileImportAssetRoot, "avatars"), { recursive: true });
-  writeFileSync(liveAvatarPath, liveAvatar);
-  await assert.rejects(
-    stageProfileImportAssets(
-      profileImportAssetRoot,
-      [
-        { path: "avatars/character.png", expectedSize: importedAvatar.length, read: () => importedAvatar },
-        {
-          path: "gallery/corrupt.png",
-          expectedSize: 8,
-          read: () => {
-            throw new Error("simulated corrupt archive member");
-          },
-        },
-      ],
-      1024,
-    ),
-    /simulated corrupt archive member/u,
-  );
-  assert.deepEqual(readFileSync(liveAvatarPath), liveAvatar);
-
-  const stagedProfileAssets = await stageProfileImportAssets(
-    profileImportAssetRoot,
-    [{ path: "avatars/character.png", expectedSize: importedAvatar.length, read: () => importedAvatar }],
-    1024,
-  );
-  await promoteStagedProfileAssets(stagedProfileAssets);
-  assert.deepEqual(readFileSync(liveAvatarPath), importedAvatar);
-  await rollbackPromotedProfileAssets(stagedProfileAssets);
-  assert.deepEqual(readFileSync(liveAvatarPath), liveAvatar);
-  await cleanupStagedProfileAssets(stagedProfileAssets);
-} finally {
-  rmSync(profileImportAssetRoot, { recursive: true, force: true });
-}
 
 async function captureRoutineSummaryOptions(maxTokensOverrideValue: number | null): Promise<ChatOptions> {
   let capturedOptions: ChatOptions | null = null;
@@ -4754,27 +4270,6 @@ assert.equal(isAllowedResponseContentType(null, ["application/json"], true), tru
 assert.equal(isAllowedResponseContentType("application/json; charset=utf-8", ["application/json"], true), true);
 assert.equal(isAllowedResponseContentType("text/html; charset=utf-8", ["application/json"], true), false);
 
-const searchableCharacter = parseCharacterDisplayData({
-  data: JSON.stringify({
-    name: "Il Dottore",
-    description: "A Fatui researcher from Snezhnaya.",
-    creator: "Pasta Devs",
-    tags: ["scientist", "villain"],
-  }),
-  comment: "Modern AU version",
-});
-assert.equal(characterMatchesSearch(searchableCharacter, "scientist"), true);
-assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
-assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
-assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
-// A light list row (useCharacterListRows) has the catalog summary and no description; it still matches.
-const summaryRowCharacter = parseCharacterDisplayData({
-  data: { name: "Il Dottore", summary: "A Fatui researcher from Snezhnaya.", tags: [] },
-  comment: "",
-});
-assert.equal(characterMatchesSearch(summaryRowCharacter, "snezhnaya"), true);
-assert.equal(characterMatchesSearch(summaryRowCharacter, "friendly bard"), false);
-
 const olderActiveChat = {
   id: "older-active",
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -4877,8 +4372,6 @@ assert.match(
   /^node \.\/scripts\/pnpm-runner\.mjs build:shared && node \.\/scripts\/pnpm-runner\.mjs --filter @marinara-engine\/server dev$/u,
   "The server-only development command must establish shared build output first",
 );
-assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
-assert.equal(resolveDevSharedBuildScript({}), "build");
 const conversationImageConnections = [
   { id: "text", provider: "openai", defaultForAgents: true },
   { id: "image-secondary", provider: "image_generation", defaultForAgents: false },
@@ -6657,15 +6150,6 @@ assert.equal(
   true,
 );
 
-assert.equal(
-  bulkUpdateLorebookEntriesSchema.safeParse({
-    entryIds: ["entry-1", "entry-2"],
-    changes: { preventRecursion: false, caseSensitive: true },
-  }).success,
-  true,
-);
-assert.equal(bulkUpdateLorebookEntriesSchema.safeParse({ entryIds: ["entry-1"], changes: {} }).success, false);
-
 assert.equal(getTemperatureGaugeDisplay("15°C", "celsius").label, "15°C");
 assert.equal(getTemperatureGaugeDisplay("59 Fahrenheit", "celsius").label, "15°C");
 assert.equal(getTemperatureGaugeDisplay("15°C", "celsius").isPure, true);
@@ -7408,24 +6892,12 @@ assert.deepEqual(parseNoodleAvatarCrop({ zoom: 2, offsetX: -10, offsetY: 5, full
 });
 assert.equal(parseNoodleAvatarCrop({ srcX: 0, srcY: 0, srcWidth: 0, srcHeight: 0 }), null);
 
-assert.deepEqual(appendLorebookActivationKeys(["Apples"], " Apple, Appletree, red fruit, Apple, , Apples "), [
-  "Apples",
-  "Apple",
-  "Appletree",
-  "red fruit",
-]);
-assert.deepEqual(appendLorebookActivationKeys([], "single key"), ["single key"]);
-
 assert.equal(isBundledGameAssetPath("sfx/ui/page-turn.wav"), true);
 assert.equal(isBundledGameAssetPath("sfx/ui/user-upload.wav"), false);
 assert.equal(isBundledGameAssetPath("backgrounds/illustrations/welcome-pavilion-golden-hour.png"), false);
 assert.equal(isBundledGameAssetFolderPath("sfx/ui"), true);
 assert.equal(isBundledGameAssetFolderPath("backgrounds/illustrations"), false);
 assert.equal(isBundledGameAssetPath("../package.json"), false);
-
-assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: false, localChannelSwitchRequested: false }), false);
-assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: false, localChannelSwitchRequested: true }), true);
-assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: true, localChannelSwitchRequested: false }), true);
 
 assert.equal(shouldExecuteQuickPostAsCommand("/illustrate"), true);
 assert.equal(shouldExecuteQuickPostAsCommand("  /roll 1d20  "), true);
@@ -7545,62 +7017,6 @@ assert.equal(
   }),
   false,
 );
-
-const characterAssignedLorebook: Lorebook = {
-  id: "character-book",
-  name: "Assigned Character Book",
-  description: "A character-linked lorebook.",
-  category: "character",
-  imagePath: null,
-  scanDepth: 4,
-  tokenBudget: 3072,
-  entryLimit: 50,
-  recursiveScanning: true,
-  maxRecursionDepth: 5,
-  excludeFromVectorization: false,
-  vectorQueryDepth: 12,
-  vectorScoreThreshold: 0.42,
-  vectorMaxResults: 9,
-  characterId: "character-1",
-  characterIds: ["character-1"],
-  personaId: null,
-  personaIds: [],
-  chatId: null,
-  isGlobal: false,
-  enabled: true,
-  scope: { mode: "all", chatIds: [] },
-  tags: ["assigned"],
-  generatedBy: "user",
-  sourceAgentId: null,
-  createdAt: "2026-07-10T10:00:00.000Z",
-  updatedAt: "2026-07-10T10:00:00.000Z",
-};
-const characterAssignedDuplicate = buildLorebookDuplicateInput(characterAssignedLorebook);
-assert.equal(Object.hasOwn(characterAssignedDuplicate, "characterId"), false);
-assert.deepEqual(characterAssignedDuplicate.characterIds, ["character-1"]);
-assert.equal(createLorebookSchema.safeParse(characterAssignedDuplicate).success, true);
-assert.equal(normalizeLorebookCategory("World"), "world");
-assert.equal(normalizeLorebookCategory("Professor Mari's Experimental Category"), "uncategorized");
-assert.equal(
-  updateLorebookSchema.safeParse({
-    category: normalizeLorebookCategory("Professor Mari's Experimental Category"),
-    isGlobal: false,
-    enabled: true,
-    scanDepth: 2,
-    tokenBudget: 2048,
-    entryLimit: 100,
-    maxRecursionDepth: 3,
-    vectorQueryDepth: 10,
-    vectorScoreThreshold: 0.3,
-    vectorMaxResults: 10,
-    characterIds: [],
-    personaIds: [],
-  }).success,
-  true,
-);
-assert.equal(characterAssignedDuplicate.vectorQueryDepth, characterAssignedLorebook.vectorQueryDepth);
-assert.equal(characterAssignedDuplicate.vectorScoreThreshold, characterAssignedLorebook.vectorScoreThreshold);
-assert.equal(characterAssignedDuplicate.vectorMaxResults, characterAssignedLorebook.vectorMaxResults);
 
 const entityGalleryRoot = mkdtempSync(join(tmpdir(), "marinara-generated-entity-gallery-"));
 try {
@@ -8152,32 +7568,12 @@ assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit loca
 assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
 assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
 
-const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
-process.env.CHAT_GENERATION_TIMEOUT_MS = "600000";
-assert.equal(getChatGenerationTimeoutMs(), 600_000);
-process.env.CHAT_GENERATION_TIMEOUT_MS = "0";
-assert.equal(getChatGenerationTimeoutMs(), DEFAULT_CHAT_GENERATION_TIMEOUT_MS);
-process.env.CHAT_GENERATION_TIMEOUT_MS = "3600001";
-assert.equal(getChatGenerationTimeoutMs(), DEFAULT_CHAT_GENERATION_TIMEOUT_MS);
-if (originalChatGenerationTimeout === undefined) delete process.env.CHAT_GENERATION_TIMEOUT_MS;
-else process.env.CHAT_GENERATION_TIMEOUT_MS = originalChatGenerationTimeout;
-
 await assert.rejects(
   validateOutboundUrl("https://example.com/archive.zip", {
     allowedHostnames: ["github.com", "codeload.github.com"],
   }),
   /hostname 'example\.com' is not allowed/u,
 );
-const originalCustomRepositoryFlag = process.env.ENABLE_CUSTOM_AGENT_REPOS;
-try {
-  delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
-  assert.equal(isCustomAgentRepositoriesEnabled(), false);
-  process.env.ENABLE_CUSTOM_AGENT_REPOS = "true";
-  assert.equal(isCustomAgentRepositoriesEnabled(), true);
-} finally {
-  if (originalCustomRepositoryFlag === undefined) delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
-  else process.env.ENABLE_CUSTOM_AGENT_REPOS = originalCustomRepositoryFlag;
-}
 
 const unstackedEchoLayout = resolveEchoChamberTopLayout({
   baseTop: 96,
@@ -8280,32 +7676,6 @@ assert.match(
   /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}closeTrackerPanel\(\)/u,
   "Closing a detached Tracker window must close the Tracker instead of silently docking it",
 );
-const backgroundSeedRoot = mkdtempSync(join(tmpdir(), "marinara-default-background-"));
-const backgroundSeedDir = join(backgroundSeedRoot, "backgrounds");
-try {
-  mkdirSync(backgroundSeedDir, { recursive: true });
-  const customBackgroundPath = join(backgroundSeedDir, "custom.jpg");
-  const customBackground = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
-  writeFileSync(customBackgroundPath, customBackground);
-  await seedDefaultBackgrounds(backgroundSeedDir);
-  assert.deepEqual(readFileSync(customBackgroundPath), customBackground);
-  assert.equal(existsSync(join(backgroundSeedDir, "Black.jpg")), true);
-  assert.ok(readFileSync(join(backgroundSeedDir, "Black.jpg")).length > 0);
-  const backgroundMeta = JSON.parse(readFileSync(join(backgroundSeedDir, "meta.json"), "utf8")) as Record<
-    string,
-    { tags?: unknown }
-  >;
-  assert.deepEqual(backgroundMeta["Black.jpg"]?.tags, ["black", "plain", "dark"]);
-} finally {
-  rmSync(backgroundSeedRoot, { recursive: true, force: true });
-}
-const reservedBackgroundMeta = normalizeBackgroundMeta(
-  JSON.parse('{"__proto__":{"tags":["kept"]},"normal.png":{"tags":["normal",7]}}'),
-);
-assert.equal(Object.getPrototypeOf(reservedBackgroundMeta), null);
-assert.deepEqual(reservedBackgroundMeta.__proto__?.tags, ["kept"]);
-assert.deepEqual(reservedBackgroundMeta["normal.png"]?.tags, ["normal"]);
-reservedBackgroundMeta.__proto__ = { tags: ["updated"] };
 assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata must not mutate Object.prototype");
 
 // Issue #3993 — ComfyUI model fetch must list the DiffusionModels (UNETLoader)

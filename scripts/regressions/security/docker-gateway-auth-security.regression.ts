@@ -7,7 +7,10 @@
 // compatibility switch keeps its documented meaning.
 import assert from "node:assert/strict";
 import type { FastifyRequest } from "fastify";
-import { isTrustedInterfaceRequest } from "../../../packages/server/src/middleware/ip-allowlist.js";
+import {
+  isTrustedInterfaceRequest,
+  parseDockerDefaultGatewayIp,
+} from "../../../packages/server/src/middleware/ip-allowlist.js";
 
 const ENV_KEYS = [
   "BASIC_AUTH_PASS",
@@ -106,3 +109,13 @@ try {
     else process.env[key] = value;
   }
 }
+
+const dockerDesktopRouteTable = `Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask
+eth0\t00000000\t01D7A8C0\t0003\t0\t0\t100\t00000000
+eth0\t00D7A8C0\t00000000\t0001\t0\t0\t0\t00FFFFFF`;
+assert.strictEqual(parseDockerDefaultGatewayIp(dockerDesktopRouteTable), "192.168.215.1");
+assert.strictEqual(
+  parseDockerDefaultGatewayIp(`${dockerDesktopRouteTable}\neth1\t00000000\t010011AC\t0003\t0\t0\t50\t00000000`),
+  "172.17.0.1",
+);
+assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFlags\tMetric\n"), null);
