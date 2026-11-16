@@ -15,8 +15,17 @@ const safetyCopy = join(backups, "marinara-before-import.zip");
 // The free-space check reads statfs; the first import runs on a "full disk".
 const originalStatfs = fs.statfs;
 let freeBytes = 0;
+// Windows refuses to move a file another program holds open; one case makes moving the old copy fail.
+const originalRename = fs.rename;
+let copyBusy = false;
 Object.assign(fs, {
   statfs: async (path: string) => ({ ...(await originalStatfs(path)), bsize: 1, bavail: freeBytes }),
+  rename: async (from: string, to: string) => {
+    if (copyBusy && String(to).endsWith("marinara-before-import.zip.previous")) {
+      throw Object.assign(new Error("resource busy"), { code: "EBUSY" });
+    }
+    return originalRename(from, to);
+  },
 });
 syncBuiltinESMExports();
 
@@ -101,6 +110,25 @@ try {
   assert.deepEqual(await undoOffer(), offered, "a failed import keeps the previous undo");
   assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
 
+  // So does one whose old copy can't be moved aside after its record was.
+  copyBusy = true;
+  assert.notEqual((await importProfile(exported.body)).statusCode, 200);
+  copyBusy = false;
+  assert.deepEqual(await undoOffer(), offered, "an import that can't move the old copy keeps the previous undo");
+  assert.deepEqual((await fs.readdir(backups)).sort(), ["marinara-before-import.json", "marinara-before-import.zip"]);
+
+  // The old copy stays on disk until the import finishes, so the space check counts it too. Room for
+  // the new copy alone, but not for both, refuses the import.
+  const { AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES } =
+    await import("../../../packages/server/src/services/backup/automatic-backup-retention.js");
+  const oldCopyBytes = (await fs.stat(safetyCopy)).size;
+  freeBytes = AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES + Math.floor(oldCopyBytes * 1.5);
+  const tooTight = await importProfile(exported.body);
+  assert.match(tooTight.json().message, /Not enough free space for a safety copy/u);
+  assert.equal(await descriptionOf(ada), "old", "the refused import changed nothing");
+  assert.deepEqual(await undoOffer(), offered, "an import refused for both copies keeps the previous undo");
+  freeBytes = 1024 ** 4;
+
   // A second import replaces the copy (and its record): undo now goes back to just before this one.
   // other.txt is in that copy but not in the file, so the import doesn't write it.
   await setDescription(ada, "newer");
@@ -127,7 +155,7 @@ try {
   assert.equal((await undo()).statusCode, 404);
   await assert.rejects(fs.stat(safetyCopy));
 } finally {
-  Object.assign(fs, { statfs: originalStatfs });
+  Object.assign(fs, { statfs: originalStatfs, rename: originalRename });
   syncBuiltinESMExports();
   await app.close();
   await closeDB();

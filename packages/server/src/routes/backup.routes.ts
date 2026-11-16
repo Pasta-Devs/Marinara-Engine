@@ -3615,20 +3615,22 @@ async function renameIfPresent(from: string, to: string) {
   });
 }
 
+/** Move back whichever of the previous import's copy and record this import set aside. */
+async function putBackPreviousPreImport() {
+  const copyPath = getPreImportBackupPath();
+  const recordPath = getPreImportWritesPath();
+  await renameIfPresent(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, copyPath);
+  await renameIfPresent(`${recordPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, recordPath);
+}
+
 /**
  * A failed import puts the previous import's copy and record back, so its Undo still works. With no
  * previous import, its own copy goes: without a record there is nothing it could undo.
  */
 async function restorePreviousPreImport() {
   const copyPath = getPreImportBackupPath();
-  const recordPath = getPreImportWritesPath();
-  await rm(recordPath, { force: true });
-  if (!existsSync(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`)) {
-    await rm(copyPath, { force: true });
-    return;
-  }
-  await rename(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, copyPath);
-  await renameIfPresent(`${recordPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, recordPath);
+  if (!existsSync(`${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`)) await rm(copyPath, { force: true });
+  await putBackPreviousPreImport();
 }
 
 /** A finished import no longer needs the previous import's copy and record. */
@@ -3690,19 +3692,23 @@ async function writePreImportBackup(app: FastifyInstance) {
     await mkdir(backupsRoot, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
     await hardenPrivateBackupTree(backupsRoot);
     await rm(pendingPath, { force: true });
+    await dropPreviousPreImport();
+    // The previous copy stays on disk until this import finishes, so count it as well.
+    const previousCopyBytes = await stat(finalPath).then(
+      (fileStat) => fileStat.size,
+      () => 0,
+    );
     await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
-      assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
+      assertBackupFits(backupsRoot, archiveBytes + previousCopyBytes, "a safety copy"),
     );
     // Set the previous import's copy and record aside rather than replacing them, so this import can
     // put them back if it fails. The record moves first: a crash never pairs it with this new copy.
-    await rm(`${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
-    await rm(`${finalPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`, { force: true });
-    await renameIfPresent(getPreImportWritesPath(), `${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
-    await renameIfPresent(finalPath, `${finalPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
     try {
+      await renameIfPresent(getPreImportWritesPath(), `${getPreImportWritesPath()}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
+      await renameIfPresent(finalPath, `${finalPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`);
       await rename(pendingPath, finalPath);
     } catch (error) {
-      await restorePreviousPreImport();
+      await putBackPreviousPreImport();
       throw error;
     }
   } finally {
