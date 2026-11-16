@@ -176,7 +176,9 @@ function randomIdTag(): string {
  */
 export function rulesetBuilderFreeId(name: string, taken: Iterable<string>, tag = randomIdTag()): string {
   const used = new Set([...taken].map((id) => id.replace(/^local\//, "")));
-  const stem = `${rulesetBuilderId(name).slice(0, 44)}-${tag}`;
+  // 38 + "-" + tag + a "-n" for n < 100 stays inside the 48 characters rulesetBuilderId keeps, so the id
+  // checked here is the id the writer stores.
+  const stem = `${idText(name, "-", 38) || "my-ruleset"}-${tag}`;
   let id = stem;
   for (let n = 2; used.has(id); n++) id = `${stem}-${n}`;
   return id;

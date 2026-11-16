@@ -361,8 +361,17 @@ assert.equal(rulesetBuilderFreeId("Fresh", ["5e-2014"], "zz00"), "fresh-zz00");
     assert.match(id, /^my-ruleset-[a-z0-9]{4}$/);
     parsed(rulesetFromBuilderDraft({ ...rulesetBuilderStarter("d20"), id }, 1));
   }
-  const long = rulesetBuilderFreeId("x".repeat(80), []);
-  parsed(rulesetFromBuilderDraft({ ...rulesetBuilderStarter("d20"), id: long }, 1));
+}
+
+// The id checked against the taken ones is the id the writer stores, for a long name too, and with a "-n".
+for (const name of ["x".repeat(80), `${"a".repeat(37)} ${"b".repeat(40)}`]) {
+  const first = rulesetBuilderFreeId(name, [], "ab12");
+  const second = rulesetBuilderFreeId(name, [`local/${first}`], "ab12");
+  assert.equal(second, `${first}-2`);
+  for (const id of [first, second]) {
+    assert.ok(id.length <= 48, id);
+    assert.equal(parsed(rulesetFromBuilderDraft({ ...rulesetBuilderStarter("d20"), id }, 1)).id, id);
+  }
 }
 
 console.log("Ruleset builder regressions passed.");
