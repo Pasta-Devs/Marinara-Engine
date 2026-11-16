@@ -3,6 +3,7 @@
 // Speech and Speech to Text. A row in the list once set up, and a detail page with the same anatomy as a
 // Connection's: hero with state, labelled actions, one facts card, then the engine's own controls.
 // ──────────────────────────────────────────────
+import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BrainCircuit,
@@ -344,7 +345,47 @@ function LocalModelDetail() {
     restartRuntime,
     updateConfig,
     fetchStatus,
-  } = useSidecarStore();
+  } = useSidecarStore(
+    useShallow(
+      ({
+        status,
+        config,
+        inferenceReady,
+        modelDownloaded,
+        modelDisplayName,
+        modelSize,
+        startupError,
+        failedRuntimeVariant,
+        curatedModels,
+        downloadProgress,
+        setShowDownloadModal,
+        startDownload,
+        loadModel,
+        unloadModel,
+        restartRuntime,
+        updateConfig,
+        fetchStatus,
+      }) => ({
+        status,
+        config,
+        inferenceReady,
+        modelDownloaded,
+        modelDisplayName,
+        modelSize,
+        startupError,
+        failedRuntimeVariant,
+        curatedModels,
+        downloadProgress,
+        setShowDownloadModal,
+        startDownload,
+        loadModel,
+        unloadModel,
+        restartRuntime,
+        updateConfig,
+        fetchStatus,
+      }),
+    ),
+  );
   const isDownloaded = modelDownloaded;
   const [assigningTrackers, setAssigningTrackers] = useState(false);
   const [changingModelLoadState, setChangingModelLoadState] = useState(false);
@@ -646,7 +687,37 @@ export function LocalWhisper() {
     startSpeechDownload,
     deleteSpeechModel,
     fetchSpeechStatus,
-  } = useSidecarStore();
+  } = useSidecarStore(
+    useShallow(
+      ({
+        speechStatus,
+        speechAvailable,
+        speechModelDownloaded,
+        speechModelDisplayName,
+        speechModelSize,
+        speechModels,
+        speechRuntime,
+        speechDownloadProgress,
+        speechError,
+        startSpeechDownload,
+        deleteSpeechModel,
+        fetchSpeechStatus,
+      }) => ({
+        speechStatus,
+        speechAvailable,
+        speechModelDownloaded,
+        speechModelDisplayName,
+        speechModelSize,
+        speechModels,
+        speechRuntime,
+        speechDownloadProgress,
+        speechError,
+        startSpeechDownload,
+        deleteSpeechModel,
+        fetchSpeechStatus,
+      }),
+    ),
+  );
   const [speechModelChoice, setSpeechModelChoice] = useState<SidecarSpeechModelId>("whisper_tiny");
   const [deletingSpeechModel, setDeletingSpeechModel] = useState(false);
 
