@@ -2455,6 +2455,15 @@ export function HomeProfessorMariChat({
     setMessages,
     setSending,
   });
+  // #9387: the server already swapped the picture in her saved reply; show it here without reloading the thread,
+  // which would drop a turn that is still streaming.
+  const handleImageReplaced = useCallback((messageId: string, previousUrl: string, nextUrl: string) => {
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId ? { ...item, content: item.content.split(previousUrl).join(nextUrl) } : item,
+      ),
+    );
+  }, []);
   const handleSubmit = async (
     overrideText?: string,
     overrideRecovery?: Pick<
@@ -3535,6 +3544,7 @@ export function HomeProfessorMariChat({
           onRegenerate={canManageMessage ? handleRegenerateMessage : undefined}
           canRegenerate={canManageMessage && !isBusy && message.id === messages[messages.length - 1]?.id}
           onRemoveAttachment={canManageMessage && !isBusy ? handleRemoveAttachment : undefined}
+          onImageReplaced={handleImageReplaced}
           onOpenActionResult={openActionResult}
           onOpenResource={openReferencedResource}
           characterSubject={messageCharacter}
