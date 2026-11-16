@@ -6587,7 +6587,9 @@ function ImportSettings() {
     queryFn: () => api.get("/backup/import-profile/undo"),
     retry: false,
   });
-  const undoSavedAt = undoProfileImportQuery.data?.available ? undoProfileImportQuery.data.savedAt : undefined;
+  // A copy can exist without the record Undo needs; it can still be deleted to free its space.
+  const safetyCopySavedAt = undoProfileImportQuery.data?.savedAt;
+  const undoSavedAt = undoProfileImportQuery.data?.available ? safetyCopySavedAt : undefined;
   const handleUndoProfileImport = async () => {
     if (!undoSavedAt) return;
     const confirmed = await showConfirmDialog({
@@ -6638,11 +6640,11 @@ function ImportSettings() {
     }
   };
   const handleDeleteSafetyCopy = async () => {
-    if (!undoSavedAt) return;
+    if (!safetyCopySavedAt) return;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
       message: localizeUi("ui.panels.importsettings.deleteSafetyCopyConfirm", {
-        savedAt: new Date(undoSavedAt).toLocaleString(),
+        savedAt: new Date(safetyCopySavedAt).toLocaleString(),
       }),
       confirmLabel: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
       cancelLabel: localizeUi("ui.panels.importsettings.cancel"),
@@ -6700,23 +6702,25 @@ function ImportSettings() {
             tabIndex={-1}
             aria-hidden="true"
           />
-          {undoSavedAt && (
+          {safetyCopySavedAt && (
             <div className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => void handleUndoProfileImport()}
-                disabled={profileImportBusy}
-                className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
-              >
-                {profileUndoRunning ? (
-                  <Loader2 size="0.8125rem" className="animate-spin" />
-                ) : (
-                  <RotateCcw size="0.8125rem" />
-                )}
-                {profileUndoRunning
-                  ? localizeUi("ui.panels.importsettings.undoingLastImport")
-                  : localizeUi("ui.panels.importsettings.undoLastImport")}
-              </button>
+              {undoSavedAt && (
+                <button
+                  type="button"
+                  onClick={() => void handleUndoProfileImport()}
+                  disabled={profileImportBusy}
+                  className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
+                >
+                  {profileUndoRunning ? (
+                    <Loader2 size="0.8125rem" className="animate-spin" />
+                  ) : (
+                    <RotateCcw size="0.8125rem" />
+                  )}
+                  {profileUndoRunning
+                    ? localizeUi("ui.panels.importsettings.undoingLastImport")
+                    : localizeUi("ui.panels.importsettings.undoLastImport")}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => void handleDeleteSafetyCopy()}
@@ -6728,7 +6732,7 @@ function ImportSettings() {
               </button>
               <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.importsettings.undoLastImportSavedAt", {
-                  savedAt: new Date(undoSavedAt).toLocaleString(),
+                  savedAt: new Date(safetyCopySavedAt).toLocaleString(),
                 })}
               </span>
             </div>

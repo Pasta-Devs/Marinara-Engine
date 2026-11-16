@@ -16331,7 +16331,7 @@
   "ui.panels.importsettings.customTools": "custom tools",
   "ui.panels.importsettings.deleteSafetyCopy": "Delete Safety Copy",
   "ui.panels.importsettings.deleteSafetyCopyComplete": "Safety copy deleted.",
-  "ui.panels.importsettings.deleteSafetyCopyConfirm": "Delete the safety copy saved {{savedAt}}? This frees its space, and the last import can no longer be undone. Your data stays as it is.",
+  "ui.panels.importsettings.deleteSafetyCopyConfirm": "Delete the safety copy saved {{savedAt}}? This frees its space. Undo Last Import won't be available until your next import. Your data stays as it is.",
   "ui.panels.importsettings.deleteSafetyCopyFailedValue": "Could not delete the safety copy: {{value}}",
   "ui.panels.importsettings.eta": "ETA",
   "ui.panels.importsettings.found": "Found",

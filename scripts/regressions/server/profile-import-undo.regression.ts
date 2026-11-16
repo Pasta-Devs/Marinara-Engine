@@ -160,6 +160,18 @@ try {
   assert.deepEqual(await undoOffer(), { available: false }, "an undo whose record stays isn't offered again");
   await fs.rm(join(backups, "marinara-before-import.json"));
 
+  // A copy left without its record (a failed record save, a stop mid-import) can't be undone from,
+  // but it is still reported so it can be deleted.
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  await fs.rm(join(backups, "marinara-before-import.json"));
+  const lone = await undoOffer();
+  assert.equal(lone.available, false, "a copy without its record can't be undone from");
+  assert.ok(!Number.isNaN(Date.parse(lone.savedAt)), "a copy without its record is still reported");
+  assert.equal((await undo()).statusCode, 404);
+  const deletedLone = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
+  assert.equal(deletedLone.statusCode, 200, deletedLone.body);
+  assert.deepEqual(await fs.readdir(backups), [], "the lone copy is removed");
+
   // Delete Safety Copy frees the space without undoing anything.
   assert.equal((await importProfile(exported.body)).statusCode, 200);
   const deleted = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });

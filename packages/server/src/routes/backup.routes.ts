@@ -4937,13 +4937,14 @@ export async function backupRoutes(app: FastifyInstance) {
     (req, reply) => handleProfileImport(req, reply, false),
   );
 
-  // The safety copy the last Import Profile saved, for the Undo button.
+  // The safety copy the last Import Profile saved, for the Undo and Delete Safety Copy buttons. Undo
+  // needs the record too; a copy left without one (a failed record save, a stop mid-import) can
+  // still be deleted to free its space.
   app.get("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Undo profile import" })) return;
     const safetyCopy = await stat(getPreImportBackupPath()).catch(() => null);
-    return safetyCopy?.isFile() && existsSync(getPreImportWritesPath())
-      ? { available: true, savedAt: safetyCopy.mtime.toISOString() }
-      : { available: false };
+    if (!safetyCopy?.isFile()) return { available: false };
+    return { available: existsSync(getPreImportWritesPath()), savedAt: safetyCopy.mtime.toISOString() };
   });
   app.post("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, (req, reply) =>
     handleProfileImport(req, reply, true),
