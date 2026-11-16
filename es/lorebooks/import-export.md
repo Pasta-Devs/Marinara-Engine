@@ -25,6 +25,20 @@ Si no funcionó: lee el error junto al archivo. Un archivo que no es un lorebook
 
 Un lorebook importado funciona con palabras clave de inmediato. Si usas la búsqueda semántica, vuelve a construir sus vectores. Consulta [Búsqueda semántica para lorebooks](semantic-search.md).
 
+<a id="download-a-lorebook-from-chub"></a>
+
+## Descargar un lorebook de Chub
+
+Puedes importar lorebooks compartidos en [Chub](https://chub.ai/lorebooks) sin guardar antes un archivo.
+
+1. Abre el panel **Lorebooks**.
+2. Haz clic en **Download** (Descargar) en la parte superior. Se abre el Card Browser con el título **Browse lorebooks online** (Explorar lorebooks en línea).
+3. Busca, ordena o filtra por etiquetas y haz clic en un lorebook. Su página muestra la descripción y las primeras 30 entradas. Haz clic en una entrada para leerla.
+4. En **Imported tags** (Etiquetas importadas), elige **All tags** (Todas las etiquetas), **No tags** (Sin etiquetas) o **Existing only** (Solo existentes, las que ya usan tus lorebooks).
+5. Haz clic en **Import** (Importar). El lorebook, todas sus entradas, su imagen y las etiquetas elegidas aparecen en el panel **Lorebooks**.
+
+Chub no puede filtrar los lorebooks para adultos, por lo que siempre se muestran. Si las etiquetas de un lorebook mencionan NSFW, aparece una insignia **NSFW** y su imagen queda difuminada mientras la casilla **NSFW** esté desmarcada. Márcala para ver esas imágenes. Los lorebooks sin esa etiqueta se muestran sin difuminar, sea cual sea su contenido.
+
 ## Exportar un lorebook
 
 1. En el panel **Lorebooks**, haz clic en un lorebook para abrirlo.

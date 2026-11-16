@@ -111,9 +111,18 @@ El interruptor de depuración de la interfaz sigue funcionando mediante `logDebu
 
 <a id="checks"></a>
 
+## Consola en la aplicación
+
+**Settings → Advanced → Open Console** (Configuración → Avanzado → Abrir consola) muestra las líneas recientes del servidor en la aplicación. Sirve para instalaciones cuyo terminal queda fuera de alcance (un NAS, un VPS, Docker o Termux).
+
+- `lib/log-buffer.ts` conserva las últimas 1.500 líneas en memoria, con un máximo aproximado de 4 millones de caracteres. Cada mensaje y cada bloque de campos se recortan a 16.000 caracteres. No se escribe nada en disco y el búfer se vacía al reiniciar.
+- `logger.ts` copia cada línea serializada al búfer mediante `hooks.streamWrite` de Pino. Así, el búfer contiene lo mismo que recibió el terminal o el archivo de registro, con el mismo `LOG_LEVEL`. Quedan fuera las líneas que no pasan por Pino, como `injected env` de dotenv o la salida sin procesar de un proceso hijo.
+- `GET /api/admin/logs?afterId=` devuelve las líneas posteriores a `afterId`, además de `latestId`, `truncated` (se descartaron líneas antes de esta lectura) y el `logLevel` del servidor. La ruta está protegida por `requirePrivilegedAccess` y usa `no-store`. Funciona con `logLevel: "silent"` para que las consultas de la propia consola nunca aparezcan en el búfer.
+- Las reglas de esta página también se aplican aquí. Un administrador remoto puede leer en la aplicación todo lo que registres en warn o error. Mantén los prompts y los cuerpos de las solicitudes y respuestas del proveedor en debug.
+
 ## Comprobaciones
 
-Las regresiones `logging-request-trail`, `logging-failure-lines` y `logging-startup-timeline` cubren esta página:
+Las regresiones `logging-request-trail`, `logging-failure-lines` y `logging-startup-timeline` cubren esta página y `server-console-logs` cubre la consola en la aplicación:
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

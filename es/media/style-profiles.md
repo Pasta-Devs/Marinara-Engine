@@ -119,6 +119,12 @@ Marinara puede tomar un perfil de estilo de tres lugares. Gana la elección más
 
 La sección **Local image defaults** aparece solo para AUTOMATIC1111 / SD Web UI, ComfyUI y NovelAI. Para cualquier otro servicio, la elección pasa al **Default style** global. Para definir un perfil por modelo, abre el modelo de imagen, despliega **Local image defaults** y elige un perfil en la lista de perfiles de estilo. Déjalo en **Use global default** (Usar el predeterminado global) para seguir la elección global. Cuando Marinara puede adivinar un buen perfil a partir del nombre del modelo, muestra un botón "Use ..." que lo aplica con un solo clic.
 
+## Imágenes que crea Professor Mari
+
+Professor Mari escribe sus propios prompts de imagen. Su comando `mari images` los envía a tu modelo de imagen tal como los escribió. No agrega ningún perfil de estilo, etiquetas por tipo de imagen ni prefijo de prompt de la conexión. Pídele que use tu estilo y agregará `--style`, que aplica el perfil elegido arriba (primero el propio del modelo de imagen y luego el **Default style** global), o `--style <name>` para un perfil concreto. Puede enumerar tus perfiles y leer uno completo antes de elegir.
+
+Cada imagen que crea registra su prompt original, el perfil aplicado (si lo hay) y el prompt exacto que se envió. Así puede mostrarte qué cambió con el estilo.
+
 ## Guías relacionadas
 
 - [Proveedores de generación de imágenes y configuración](image-providers.md)

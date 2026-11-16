@@ -6,7 +6,7 @@ Esta integración permite que tus personajes de IA controlen dispositivos reales
 
 La integración es una pequeña pieza de software que se instala dentro de Home Assistant y lo conecta con tu servidor de Marinara. En la primera configuración crea lo siguiente por ti. Nunca copias direcciones de herramientas ni configuras herramientas a mano.
 
-- Herramientas de hogar inteligente en la pestaña **Functions** del panel de Presets. Consulta [Herramientas personalizadas](../extending/custom-tools.md).
+- Herramientas de hogar inteligente en la pestaña **Tools** (Herramientas) del panel de Presets. Consulta [Herramientas personalizadas](../extending/custom-tools.md).
 - Un agente llamado **Home Assistant**, un ayudante de IA que se ejecuta junto a tu chat. Consulta [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md).
 - Entidades de Home Assistant (dispositivos, sensores y controles) para que puedas observar y controlar Marinara desde Home Assistant.
 
@@ -53,7 +53,7 @@ Consulta [Acceso remoto](../REMOTE_ACCESS.md) para saber qué opción elegir.
 
 Si no funcionó: Home Assistant muestra un error cuando no puede llegar a Marinara. Consulta [Solución de problemas](#troubleshooting).
 
-Si todo sale bien, la integración registra un webhook privado en Home Assistant, crea las herramientas en la pestaña **Functions** de Marinara apuntando a ese webhook, crea el agente **Home Assistant** con la lista de cada herramienta activada y crea las entidades descritas más abajo.
+Si todo sale bien, la integración registra un webhook privado en Home Assistant, crea las herramientas en la pestaña **Tools** de Marinara apuntando a ese webhook, crea el agente **Home Assistant** con la lista de cada herramienta activada y crea las entidades descritas más abajo.
 
 ## Añadir el agente a un chat
 
@@ -92,7 +92,7 @@ Las herramientas están agrupadas en ocho categorías. Para elegir cuáles puede
 
 > **Advertencia:** **Generic Service Calls (Advanced)** permite que la IA llame a cualquier servicio de Home Assistant. **Locks** le permite bloquear y desbloquear puertas. Ambas están desactivadas de forma predeterminada. Actívalas solo si las quieres.
 
-Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Tools** del panel de Presets.
 
 ## Entidades en Home Assistant
 
@@ -111,7 +111,7 @@ La integración consulta a Marinara en busca de nuevos chats y agentes cada 30 s
 
 ### Sincronizar después de cambiar la configuración
 
-Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Tools** del panel de Presets.
 
 ## Controlar Marinara desde automatizaciones
 
@@ -158,13 +158,13 @@ Asegúrate de que Marinara esté en ejecución y de que el **Host** y el **Port*
 
 Probablemente la llamada al webhook está bloqueada. Añade `WEBHOOK_LOCAL_URLS_ENABLED=true` a `.env` y guarda. Sin ello, las llamadas a herramientas pueden fallar con un mensaje sobre que `http` no está permitido o sobre que se rechaza una dirección privada. Si Marinara y Home Assistant están en la misma máquina, la integración usa la dirección interna automáticamente. Si Marinara está en un dispositivo diferente, asegúrate de que la dirección local de Home Assistant sea accesible desde él.
 
-### Las herramientas no aparecen en Functions
+### Las herramientas no aparecen en Tools
 
-Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Tools** del panel de Presets.
 
 ### El agente Home Assistant no está en mi chat
 
-Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Functions** del panel de Presets.
+Pulsa **Marinara Sync HA Tools** o reinicia Home Assistant, y luego comprueba la pestaña **Tools** del panel de Presets.
 
 ### Encontrar la dirección del webhook a mano
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Desinstalar
 
-Borra la integración en **Settings → Devices & Services → Marinara Engine** en Home Assistant. Esto elimina las entidades. Las herramientas de la sección **Functions** de Marinara y el agente **Home Assistant** se quedan. Elimínalos a mano en Marinara si ya no los quieres.
+Borra la integración en **Settings → Devices & Services → Marinara Engine** en Home Assistant. Esto elimina las entidades. Las herramientas de la pestaña **Tools** de Marinara y el agente **Home Assistant** se quedan. Elimínalos a mano en Marinara si ya no los quieres.
 
 ## Guías relacionadas
 

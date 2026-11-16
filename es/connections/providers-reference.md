@@ -145,7 +145,7 @@ Consulta [Proveedores y configuración de generación de imágenes](../media/ima
 
 ## Decisión
 
-En **Decisions**, las fichas son **TypeSafe** (dirección predeterminada `https://api.typesafe.ai`), **Own decision server** (Servidor de decisiones propio) y **Built-in model (decisions)** (Modelo integrado: decisiones). Los servicios de chat que usan el formato de chat de OpenAI también pueden hacer decisiones, pero solo con un modelo que devuelva log-probabilidades (puntuaciones para cada respuesta posible). Un modelo de decisión responde preguntas de sí o no sobre tu chat. Consulta [Modelos de decisión](decision-models.md).
+En **Decisions**, las fichas son **TypeSafe** (dirección predeterminada `https://api.typesafe.ai`), **Own decision server** (Servidor de decisiones propio) y **Built-in model (decisions)** (Modelo integrado: decisiones). El filtro de tipo **Decision** (Decisión) en **Add** (Añadir) enumera estas fichas y también **NanoGPT**, **OpenRouter** y **Google Gemini**, que tienen sus propios modelos de decisión. Consulta [Mediante NanoGPT](decision-models.md#through-nanogpt) y [Mediante OpenRouter o Google Gemini](decision-models.md#through-openrouter-or-google-gemini). Otros servicios de chat que usan el formato de chat de OpenAI también pueden hacer decisiones, pero solo con un modelo que devuelva log-probabilidades (puntuaciones para cada respuesta posible). Un modelo de decisión responde preguntas de sí o no sobre tu chat. Consulta [Modelos de decisión](decision-models.md).
 
 ## Audio
 
