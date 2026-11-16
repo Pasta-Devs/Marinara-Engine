@@ -239,6 +239,7 @@ import {
 } from "../../lib/host-device";
 import { setTapTimingsEnabled, useTapTimingsEnabled } from "../layout/TapTimings";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type CustomFontFace = {
   filename: string;
@@ -1815,8 +1816,7 @@ function QuickRepliesSetting() {
       <div className="flex min-h-9 items-stretch">
         <div className="flex min-w-0 items-center gap-1.5 py-2 pl-1.5 pr-2">
           <label className="flex min-w-0 cursor-pointer items-center gap-2.5">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={showQuickRepliesMenu}
               onChange={(event) => handleEnabledChange(event.target.checked)}
               className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
@@ -8118,8 +8118,7 @@ function AdvancedSettings() {
                       : "bg-[var(--background)]/40 ring-[var(--border)] hover:bg-[var(--accent)]/70",
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={checked}
                     disabled={isClearing}
                     onChange={() => toggleScope(scope.id)}

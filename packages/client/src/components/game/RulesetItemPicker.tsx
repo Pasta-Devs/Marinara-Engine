@@ -30,6 +30,7 @@ import {
 import { Modal } from "../ui/Modal";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 const inputClass =
   "w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--foreground)]";
@@ -608,8 +609,7 @@ export function RulesetItemPicker({
                   key={each.item}
                   className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.has(each.item)}
                     onChange={() => toggle(each.item)}
                     aria-label={rt(each.name)}

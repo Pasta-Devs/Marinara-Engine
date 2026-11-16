@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { COMBAT_POSTURES, type CombatController, type CombatOrders, type CombatTactics } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface Member {
   id: string;
@@ -131,8 +132,7 @@ export function CombatAiControls({
                 </select>
                 {(["conserve", "heal", "spare"] as const).map((flag) => (
                   <label key={flag} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={!!member.orders?.[flag]}
                       disabled={locked}
                       onChange={(event) => ordered(member, { [flag]: event.target.checked })}

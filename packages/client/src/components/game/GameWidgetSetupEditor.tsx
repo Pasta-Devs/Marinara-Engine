@@ -17,6 +17,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ColorPicker } from "../ui/ColorPicker";
 import { AgentSettingsActionButton } from "../chat/AgentSettingsControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 export const MAX_GAME_SETUP_WIDGETS = 4;
 const GAME_WIDGET_EXPORT_KIND = "marinara-game-hud-widgets";
@@ -853,8 +854,7 @@ function WidgetConfigFields({
         />
       </label>
       <label className="flex items-center gap-2 self-end rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)]">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={widget.config.running === true}
           disabled={disabled}
           onChange={(event) => onConfigChange({ running: event.target.checked })}

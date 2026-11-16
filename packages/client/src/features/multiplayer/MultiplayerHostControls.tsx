@@ -10,6 +10,7 @@ import { copyToClipboard } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 export type MultiplayerGameStart = Extract<MultiplayerHostAction, { type: "startGame" }>;
 
@@ -278,8 +279,7 @@ export function MultiplayerHostControls({
           })}
         </p>
         <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={automaticReplies}
             disabled={!canConfigure || action.isPending}
             onChange={(event) => setAutomaticReplies(event.target.checked)}

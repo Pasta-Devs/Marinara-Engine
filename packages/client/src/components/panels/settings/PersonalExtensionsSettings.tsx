@@ -76,6 +76,7 @@ import {
   SettingsSection,
 } from "./SettingControls";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type EditorDraft = PersonalExtensionImportDraft;
 
@@ -830,8 +831,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
                     isFullPageCapability ? "border-[var(--destructive)]/40" : "border-[var(--border)]",
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={checked}
                     disabled={!isExternal}
                     onChange={(event) =>

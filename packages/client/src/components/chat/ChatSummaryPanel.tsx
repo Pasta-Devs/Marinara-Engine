@@ -97,6 +97,7 @@ import {
   type ChatSummaryBatchEntryRange,
 } from "../../lib/chat-summary-batch";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface ChatSummaryPanelProps {
   chatId: string;
@@ -2844,8 +2845,7 @@ function SummarySettingsToggle({ label, checked, onChange }: SummarySettingsTogg
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1.5 py-1.5 text-[0.6875rem] text-[var(--popover-foreground)] transition-colors hover:bg-[var(--accent)]/50">
       <span className="min-w-0 truncate">{label}</span>
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="h-3.5 w-3.5 shrink-0 accent-[var(--muted-foreground)]"
@@ -2985,8 +2985,7 @@ function SummaryEntryRow({
           </div>
         </div>
         <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-md focus-within:ring-2 focus-within:ring-[var(--ring)] sm:min-h-0 sm:min-w-0">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={selected}
             onChange={(event) => onToggleSelected((event.nativeEvent as MouseEvent).shiftKey === true)}
             disabled={editing || mutationPending || !reorderable}

@@ -76,6 +76,7 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 // ════════════════════════════════════════════════
 // Types
@@ -2964,8 +2965,7 @@ export function BotBrowserView() {
                       }
                       onClick={nsfwGreyedOut ? (e: React.MouseEvent) => e.preventDefault() : handleNsfwClick}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={nsfwGreyedOut ? true : nsfw}
                         disabled={nsfwGreyedOut || !effectiveNsfwAvailable}
                         onChange={(e) => {
@@ -3040,8 +3040,7 @@ export function BotBrowserView() {
                       </span>
                       {provider.features.map((f) => (
                         <label key={f.key} className="flex cursor-pointer items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={!!features[f.key]}
                             onChange={() => toggleFeature(f.key)}
                             className="accent-[var(--primary)]"
@@ -3053,8 +3052,7 @@ export function BotBrowserView() {
                       ))}
                       {provider.extraToggles.map((t) => (
                         <label key={t.key} className="flex cursor-pointer items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={!!extraToggles[t.key]}
                             onChange={() => toggleExtra(t.key)}
                             className="accent-[var(--primary)]"
@@ -3318,8 +3316,7 @@ export function BotBrowserView() {
                   </button>
                 </div>
                 <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={splitDescription}
                     onChange={(e) => setSplitDescription(e.target.checked)}
                     className="h-4 w-4 shrink-0 accent-[var(--primary)]"

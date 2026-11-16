@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { CharacterScheduleEditorModal } from "./CharacterScheduleEditorModal";
 import { getAvatarCropStyle } from "../../lib/utils";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type ManagerCharacter = {
   id: string;
@@ -537,8 +538,7 @@ function CharacterScheduleGroup({
             </button>
             {character.schedule && (
               <label className="flex shrink-0 items-center gap-1 text-[0.65rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px] text-[var(--muted-foreground)]">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={character.autoRenew}
                   onChange={(event) => onAutoRenew(character, event.target.checked)}
                 />

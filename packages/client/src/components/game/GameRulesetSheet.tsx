@@ -72,6 +72,7 @@ import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
 
@@ -1488,11 +1489,7 @@ export function GameRulesetSheet({
                         return (
                           <div key={key} className="space-y-1 text-[0.6875rem]">
                             <label className="flex items-center gap-1.5">
-                              <input
-                                type="checkbox"
-                                checked={chosen.on}
-                                onChange={(event) => set({ on: event.target.checked })}
-                              />
+                              <Checkbox checked={chosen.on} onChange={(event) => set({ on: event.target.checked })} />
                               <span>
                                 {localizeUi("game.ruleset.sheet.restRecover", {
                                   name: text(offer.name),

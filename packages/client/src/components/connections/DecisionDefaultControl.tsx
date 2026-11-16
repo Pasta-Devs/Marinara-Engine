@@ -21,6 +21,7 @@ import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { openAddConnection } from "../../lib/add-connection";
 import { useUIStore } from "../../stores/ui.store";
 import { ConnectionSelect } from "./ConnectionSelect";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
 function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
@@ -211,8 +212,7 @@ export function DecisionDefaultControl({
           model already picks who speaks. */}
       {selected && (
         <label className="flex items-start gap-2 text-xs">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={smartOrderOn}
             disabled={smartOrder.isPending}
             onChange={(event) => {
@@ -347,8 +347,7 @@ function LocalSlotControls({
           so this is opt-in and says what it costs. */}
       {thinks && (
         <label className="flex items-start gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={preGeneration}
             onChange={(event) => onPreGeneration(event.target.checked)}
             className="mt-0.5 accent-[var(--primary)]"

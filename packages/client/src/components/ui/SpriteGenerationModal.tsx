@@ -22,6 +22,7 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 // ── Types ──
 
@@ -2189,8 +2190,7 @@ export function SpriteGenerationModal({
 
             {spriteType === "expressions" && !talkingHeadFaces && (
               <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={animatedPortraits}
                   onChange={(e) => setAnimatedPortraits(e.target.checked)}
                   className="mt-0.5 accent-[var(--primary)]"
@@ -2237,8 +2237,7 @@ export function SpriteGenerationModal({
               </label>
               {hasCurrentAvatarReference && (
                 <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCurrentAvatarReference}
                     onChange={(e) => {
                       const enabled = e.target.checked;
@@ -2323,8 +2322,7 @@ export function SpriteGenerationModal({
             </div>
 
             <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={nativeTransparentPng}
                 onChange={(e) => {
                   const enabled = e.target.checked;
@@ -2459,8 +2457,7 @@ export function SpriteGenerationModal({
               <>
                 {existingPortraitExpressions.length > 0 && (
                   <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={matchExistingExpressions}
                       onChange={(e) => setMatchExistingExpressions(e.target.checked)}
                       className="mt-0.5 accent-[var(--primary)]"
@@ -2851,8 +2848,7 @@ export function SpriteGenerationModal({
                 <div className="mb-3 rounded-lg bg-[var(--secondary)]/60 p-2.5">
                   <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={noBackground}
                         onChange={(e) => {
                           const enabled = e.target.checked;

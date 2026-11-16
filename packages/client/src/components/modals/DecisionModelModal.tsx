@@ -27,6 +27,7 @@ import {
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore } from "../../stores/ui.store";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -548,8 +549,7 @@ export function DecisionModelModal() {
                 {/* Off by default, because a model that only answers gates does not
                     need to hold GPU memory from boot. */}
                 <label className="mt-2 flex items-start gap-2 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] max-sm:min-h-11 max-sm:items-center max-sm:text-[13px]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={data?.settings.startPolicy === "with_marinara"}
                     disabled={busy}
                     onChange={(event) =>

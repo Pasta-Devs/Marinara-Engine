@@ -32,6 +32,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { WordsField, useWritingSeconds } from "./GameSetupWorldKitChooser";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** What the wizard holds while a world is being made. */
 export interface WorldDraft {
@@ -353,8 +354,7 @@ export function GameSetupWorldChooser({
         </div>
       ) : (
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={Boolean(draft)}
             onChange={(event) => onChange(event.target.checked ? newWorldDraft() : null)}
             className="mt-1 size-4 accent-[var(--primary)]"
@@ -438,8 +438,7 @@ export function GameSetupWorldChooser({
               <legend className={FIELD_LABEL}>{t("game.world.setup.lore")}</legend>
               {lorebooks.map((book) => (
                 <label key={book.id} className="flex items-center gap-2 text-[var(--foreground)]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={draft.lorebookIds.includes(book.id)}
                     onChange={(event) =>
                       edit((next) => {

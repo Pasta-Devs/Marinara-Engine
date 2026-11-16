@@ -44,6 +44,7 @@ import {
   type RPGStatPool,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 export interface GameCharacterSheetGameCard {
   shortDescription: string;
@@ -838,8 +839,7 @@ export function GameCharacterSheet({
                       className="mb-0 text-[var(--muted-foreground)]"
                     />
                     <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={draft.rpgStatsEnabled}
                         onChange={(e) => setDraft((prev) => ({ ...prev, rpgStatsEnabled: e.target.checked }))}
                         className="h-4 w-4 rounded accent-[var(--foreground)]"

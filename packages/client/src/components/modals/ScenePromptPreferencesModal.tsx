@@ -10,6 +10,7 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { PresetPickerField } from "../ui/LibraryPickers";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface ScenePromptPreferencesModalProps {
   open: boolean;
@@ -188,8 +189,7 @@ export function ScenePromptPreferencesModal({
                 {localizeUi("scene.setup.characters")}
               </legend>
               <label className="flex min-h-11 items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={participantCharacterIds === undefined}
                   disabled={!sourceChat || originCharacterIds.length === 0}
                   onChange={(event) =>
@@ -210,8 +210,7 @@ export function ScenePromptPreferencesModal({
                     .filter((character) => originCharacterIds.includes(character.id))
                     .map((character) => (
                       <label key={character.id} className="flex min-h-11 items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={participantCharacterIds.includes(character.id)}
                           onChange={(event) =>
                             setParticipantCharacterIds(

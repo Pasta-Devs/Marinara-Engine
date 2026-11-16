@@ -156,6 +156,7 @@ import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-event
 import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -2013,8 +2014,7 @@ export function AgentsPanel() {
                                     : "bg-[var(--secondary)]/35 ring-[var(--border)]",
                                 )}
                               >
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={checked}
                                   disabled={importAgent.isPending}
                                   onChange={() => toggleApprovedImportCapability(candidate.type, capability)}

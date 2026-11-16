@@ -169,6 +169,7 @@ import {
 } from "../../lib/game-setup-suggestions";
 import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** The "Surprise me!" chip, told apart from the localized ideas by this value, never by its text. */
 const SURPRISE_SUGGESTION = "__surprise__";
@@ -2383,8 +2384,7 @@ export function GameSetupWizard({
                         </p>
                       )}
                       <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={gmBossControl}
                           onChange={(e) => setGmBossControl(e.target.checked)}
                           className="mt-1 size-4 accent-[var(--primary)]"
@@ -2398,8 +2398,7 @@ export function GameSetupWizard({
                       </label>
                       {gmBossControl && (
                         <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={gmNamedControl}
                             onChange={(e) => setGmNamedControl(e.target.checked)}
                             className="mt-1 size-4 accent-[var(--primary)]"
@@ -2413,8 +2412,7 @@ export function GameSetupWizard({
                         </label>
                       )}
                       <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={companionsOnTheirOwn}
                           onChange={(e) => setCompanionsOnTheirOwn(e.target.checked)}
                           className="mt-1 size-4 accent-[var(--primary)]"
@@ -2427,8 +2425,7 @@ export function GameSetupWizard({
                         </span>
                       </label>
                       <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={cruelOpponents}
                           onChange={(e) => setCruelOpponents(e.target.checked)}
                           className="mt-1 size-4 accent-[var(--primary)]"
@@ -2442,8 +2439,7 @@ export function GameSetupWizard({
                       </label>
                       {classicClasses && (
                         <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--foreground)]">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={permadeath}
                             onChange={(e) => setPermadeath(e.target.checked)}
                             className="mt-1 size-4 accent-[var(--primary)]"
@@ -2608,8 +2604,7 @@ export function GameSetupWizard({
                     {/* Language */}
                     <div>
                       <label className="mb-2 flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={autoTranslate}
                           onChange={(event) => setAutoTranslate(event.target.checked)}
                         />
@@ -3549,8 +3544,7 @@ export function GameSetupWizard({
                                 .sort((a, b) => Number(b.constant) - Number(a.constant) || a.order - b.order)
                                 .map((entry) => (
                                   <label key={entry.id} className="flex min-h-11 items-start gap-2 py-2 text-xs">
-                                    <input
-                                      type="checkbox"
+                                    <Checkbox
                                       checked={selectedEntryIds.includes(entry.id)}
                                       disabled={
                                         isLoading ||

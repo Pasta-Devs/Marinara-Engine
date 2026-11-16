@@ -12,6 +12,7 @@ import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type AvatarGenerationModalProps = {
   open: boolean;
@@ -333,8 +334,7 @@ export function AvatarGenerationModal({
 
               {isCharacterSheet && neutralFullBodyReferenceUrl && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useNeutralFullBodyReference}
                     onChange={(event) => setUseNeutralFullBodyReference(event.target.checked)}
                     disabled={generating || saving}
@@ -353,8 +353,7 @@ export function AvatarGenerationModal({
 
               {defaultAvatarUrl && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCurrentAvatarReference}
                     onChange={(event) => setUseCurrentAvatarReference(event.target.checked)}
                     className="accent-[var(--primary)]"

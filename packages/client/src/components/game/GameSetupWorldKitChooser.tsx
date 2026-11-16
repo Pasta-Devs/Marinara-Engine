@@ -37,6 +37,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useWorldLibrary } from "../../hooks/use-world-library";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 export interface WorldKitWriteRequest {
   connectionId?: string;
@@ -658,8 +659,7 @@ export function GameSetupWorldKitChooser({
                 <p className="text-[var(--muted-foreground)]">{t("game.worldKit.setup.changeHelp")}</p>
                 {WORLD_CHANGE_KINDS.map((kind) => (
                   <div key={kind} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id={`world-kit-change-${kind}`}
                       checked={kit.change.kinds[kind].on}
                       onChange={(event) => edit((draft) => (draft.change.kinds[kind].on = event.target.checked))}
@@ -1139,8 +1139,7 @@ export function GameSetupWorldKitChooser({
                           ))}
                         </select>
                         <label className="flex shrink-0 items-center gap-1 text-[var(--muted-foreground)]">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={thing.service === true}
                             onChange={(event) =>
                               edit((draft) => {

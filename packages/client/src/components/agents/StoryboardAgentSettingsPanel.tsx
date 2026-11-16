@@ -11,6 +11,7 @@ import {
 } from "@marinara-engine/shared";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface StoryboardAgentSettingsPanelProps {
   settings: StoryboardAgentSettings;
@@ -189,8 +190,7 @@ function ToggleRow({
           {description}
         </span>
       </span>
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)]"

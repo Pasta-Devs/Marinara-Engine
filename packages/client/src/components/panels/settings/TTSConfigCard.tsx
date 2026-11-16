@@ -60,6 +60,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
 import { useUIStore } from "../../../stores/ui.store";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 // ── Sub-components ───────────────────────────────
 
@@ -934,8 +935,7 @@ function NpcDefaultVoicePool({
               key={option.id}
               className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg bg-black/10 px-2 py-1.5 text-xs transition-colors hover:bg-black/20"
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.includes(option.id)}
                 onChange={(e) => onToggle(option.id, e.target.checked)}
                 className="h-3 w-3 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"

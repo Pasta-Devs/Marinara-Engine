@@ -34,6 +34,7 @@ import {
 import { Modal } from "../ui/Modal";
 import { useRulesetText, type RulesetText } from "../../lib/ruleset-text";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** The header as the picker needs it: where the entries live is the hook's business, not this one's. */
 export type RulesetCatalogHeaderView = Omit<RulesetCatalogHeader, "entries" | "asset">;
@@ -255,8 +256,7 @@ export function RulesetCatalogPicker({
                   key={entry.id}
                   className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.has(entry.id)}
                     onChange={() => toggle(entry.id)}
                     aria-label={rt(entry.label)}

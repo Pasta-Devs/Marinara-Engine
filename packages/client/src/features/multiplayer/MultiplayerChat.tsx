@@ -42,6 +42,7 @@ import {
 import { MultiplayerBlankSheets } from "./MultiplayerBlankSheets";
 import { MultiplayerParticipantControls } from "./MultiplayerParticipantControls";
 import { useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 const ChatSetupWizard = lazy(() =>
   import("../../components/chat/ChatSetupWizard").then((module) => ({ default: module.ChatSetupWizard })),
@@ -654,12 +655,7 @@ function MultiplayerHostReview({
         </label>
         <MultiplayerPersonaFields value={persona} onChange={setPersona} game={chat.mode === "game"} />
         <label className="flex items-start gap-2 text-xs leading-relaxed">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={consent}
-            onChange={(event) => setConsent(event.target.checked)}
-          />
+          <Checkbox className="mt-0.5" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
           {t("multiplayer.host.consent")}
         </label>
         <div className="flex flex-wrap gap-2">

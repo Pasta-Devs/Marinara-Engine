@@ -21,6 +21,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface Props {
   open: boolean;
@@ -480,8 +481,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         </div>
 
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={splitDescription}
             onChange={(e) => setSplitDescription(e.target.checked)}
             className="h-4 w-4 shrink-0 accent-[var(--primary)]"

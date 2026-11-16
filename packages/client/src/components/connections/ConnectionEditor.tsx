@@ -152,6 +152,7 @@ import {
   type VideoResolution,
 } from "@marinara-engine/shared";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -1860,8 +1861,7 @@ export function ConnectionEditor({
     <>
       <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
         <label className="flex cursor-pointer items-start gap-2.5">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={localShowUsageWidget}
             onChange={(e) => {
               setLocalShowUsageWidget(e.target.checked);
@@ -1878,8 +1878,7 @@ export function ConnectionEditor({
         {showsPlanUsageWindows && localShowUsageWidget && (
           <div className="mt-2 ml-[1.625rem] flex flex-wrap gap-x-5 gap-y-1.5">
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={localShowUsageFiveHour}
                 onChange={(e) => {
                   setLocalShowUsageFiveHour(e.target.checked);
@@ -1890,8 +1889,7 @@ export function ConnectionEditor({
               {localizeUi("ui.connections.connectioneditor.planFiveHourWindow")}
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={localShowUsageWeekly}
                 onChange={(e) => {
                   setLocalShowUsageWeekly(e.target.checked);
@@ -3060,8 +3058,7 @@ export function ConnectionEditor({
                       placeholder={localizeUi("ui.connections.connectioneditor.leaveEmptyToKeepExistingKey")}
                     />
                     <label className="mt-1.5 flex w-fit cursor-pointer items-center gap-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={clearStoredManagementTokenOnSave}
                         onChange={(e) => {
                           setClearStoredManagementTokenOnSave(e.target.checked);

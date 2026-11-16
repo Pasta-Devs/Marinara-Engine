@@ -12,6 +12,7 @@ import { Modal } from "./Modal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type VideoGenerationConnectionOption = {
   id: string;
@@ -161,8 +162,7 @@ export function CallClipGenerationModal({
               {localizeUi("ui.ui.callclipgenerationmodal.recommendedForFirstAndFinalFrameMatching")}
             </span>
           </span>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={includeAvatarReference}
             onChange={(event) => setIncludeAvatarReference(event.target.checked)}
             className="h-4 w-4 accent-[var(--primary)]"
@@ -193,8 +193,7 @@ export function CallClipGenerationModal({
                     disableClearingLastKind && "cursor-not-allowed opacity-70",
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected}
                     disabled={disableClearingLastKind}
                     onChange={() => toggleKind(kind)}
@@ -217,8 +216,7 @@ export function CallClipGenerationModal({
                 {localizeUi("ui.ui.callclipgenerationmodal.addANamedActionClipTheCharacterCanLater")}
               </span>
             </span>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={customClipEnabled}
               onChange={(event) => setCustomClipEnabled(event.target.checked)}
               className="mt-0.5 h-4 w-4 accent-[var(--primary)]"

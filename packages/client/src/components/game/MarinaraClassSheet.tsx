@@ -48,6 +48,7 @@ import { cn } from "../../lib/utils";
 import { MarinaraItemFacts } from "./MarinaraItemFacts";
 import { chatKeys, useChat } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 const blockKey = (block: string) => block.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 
@@ -619,8 +620,7 @@ function SkillsTab({ progression, busy, save }: { progression: MarinaraCardProgr
             return (
               <li key={skill.id} className={cn("border-b last:border-b-0", LINE)}>
                 <label className="flex cursor-pointer items-start gap-2.5 py-1.5">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
                     checked={carried}
                     disabled={busy || progression.fallen}

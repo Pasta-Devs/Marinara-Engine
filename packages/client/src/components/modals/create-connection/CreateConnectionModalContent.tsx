@@ -76,6 +76,7 @@ import {
   type TestResult,
 } from "./shared";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type ChatMode = "conversation" | "roleplay" | "game";
 
@@ -1165,8 +1166,7 @@ export function CreateConnectionModalContent({
           >
             {chatTarget && (
               <label className={optionClass}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={useInChat}
                   onChange={(event) => setUseInChat(event.target.checked)}
                   className={checkClass}
@@ -1181,8 +1181,7 @@ export function CreateConnectionModalContent({
               </p>
             ) : offerMain ? (
               <label className={optionClass}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={makeMainOn}
                   onChange={(event) => setMakeMain(event.target.checked)}
                   className={checkClass}

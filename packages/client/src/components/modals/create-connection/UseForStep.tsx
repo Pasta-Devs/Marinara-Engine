@@ -34,6 +34,7 @@ import {
   type Target,
 } from "./shared";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 type UseKind = Exclude<ConnectionPickerKind, "all">;
 /** The job each model type serves, in row order. */
@@ -291,8 +292,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
                 data-add-connection-use={use.job}
                 className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] px-3 py-2 hover:bg-[var(--marinara-chat-chrome-highlight-bg)]"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={isTicked(use)}
                   onChange={() => toggle(use)}
                   disabled={busy}

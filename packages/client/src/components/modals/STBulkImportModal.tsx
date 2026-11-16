@@ -27,6 +27,7 @@ import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 interface Props {
   open: boolean;
@@ -1080,8 +1081,7 @@ function SelectableImportCategory<T extends ScanItemBase>({
                   checked && "bg-[var(--primary)]/6",
                 )}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   onChange={(e) => onToggleItem(item.id, e.target.checked)}
                   className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"

@@ -24,6 +24,7 @@ import { localizeStringNode, useLocalizedUiText } from "../../../localization/us
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { Spinner } from "@/components/ui/Spinner";
 import { Switch } from "../../ui/Switch";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -546,8 +547,7 @@ export function SettingsCheckbox({
   const localizedLabel = localizeStringNode(label, localize);
   const localizedDescription = localizeStringNode(description, localize);
   const input = (
-    <input
-      type="checkbox"
+    <Checkbox
       checked={checked}
       disabled={disabled}
       onChange={(e) => onChange(e.target.checked)}

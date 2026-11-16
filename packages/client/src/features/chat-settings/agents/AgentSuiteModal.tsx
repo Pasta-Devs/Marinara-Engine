@@ -59,6 +59,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { Spinner } from "@/components/ui/Spinner";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 export interface AgentSuiteAgent {
   id: string;
@@ -856,8 +857,7 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                     key={source.key}
                     className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-[0.625rem] max-sm:text-[13px] transition-colors hover:bg-[var(--accent)]/40"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={contextSelection.has(source.key)}
                       onChange={() => toggleContextSource(source.key)}
                       className="h-3 w-3 shrink-0 accent-[var(--primary)]"
