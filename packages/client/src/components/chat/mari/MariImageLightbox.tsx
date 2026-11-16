@@ -42,14 +42,13 @@ const MARI_IMAGE_PATH = /^\/api\/gallery\/file\/mari-images\/mari-([^/.]+)\.[A-Z
 
 /** The preview asset id a picture URL names, or null for any other picture. */
 export function mariImageAssetId(src: string): string | null {
-  let pathname: string;
   try {
-    pathname = new URL(src, "http://mari.local").pathname;
+    const match = MARI_IMAGE_PATH.exec(new URL(src, "http://mari.local").pathname);
+    return match ? decodeURIComponent(match[1]!) : null;
   } catch {
+    // An unparsable url or a malformed escape: a plain picture.
     return null;
   }
-  const match = MARI_IMAGE_PATH.exec(pathname);
-  return match ? decodeURIComponent(match[1]!) : null;
 }
 
 /** The record as the lightbox's `ChatImage`, with a generation record so it never looks for a gallery row. */

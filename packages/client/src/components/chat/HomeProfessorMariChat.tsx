@@ -2457,11 +2457,17 @@ export function HomeProfessorMariChat({
   });
   // #9387: the server already swapped the picture in her saved reply; show it here without reloading the thread,
   // which would drop a turn that is still streaming.
+  // A reply with steps renders its words from the work timeline in its extra, so swap there too, as the server did.
   const handleImageReplaced = useCallback((messageId: string, previousUrl: string, nextUrl: string) => {
+    const swap = (value: string) => value.split(previousUrl).join(nextUrl);
+    // A load that started before the swap would bring the old picture back.
+    messageLoadAbortRef.current?.abort();
     setMessages((current) =>
-      current.map((item) =>
-        item.id === messageId ? { ...item, content: item.content.split(previousUrl).join(nextUrl) } : item,
-      ),
+      current.map((item) => {
+        if (item.id !== messageId) return item;
+        const extra = toMessageExtra(item);
+        return { ...item, content: swap(item.content), extra: extra ? JSON.parse(swap(JSON.stringify(extra))) : extra };
+      }),
     );
   }, []);
   const handleSubmit = async (

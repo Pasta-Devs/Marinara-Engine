@@ -184,6 +184,7 @@ try {
   assert.equal((await chats.getMessage(rpMessage.id))!.content, `![copy](${original.url})`);
   // Without a message the lightbox still gets the new picture.
   assert.equal((await refuse({ prompt: "a quiet library at dawn" })).statusCode, 200);
+  assert.equal(sent.at(-1)?.negative_prompt, "text, blurry", "a request without a negative prompt keeps the saved one");
 
   // 5. Revise with guidance answers only for her chat and her assets (the model call itself is the RP route's code).
   const revise = (payload: Record<string, unknown>, assetId = original.id) =>

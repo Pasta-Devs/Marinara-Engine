@@ -1302,7 +1302,8 @@ export class MariImagesService {
     if (!previous) return null;
     const flags = new Map<string, string | boolean>([
       ["prompt", input.prompt],
-      ["negative", input.negativePrompt ?? ""],
+      // Left out keeps the saved one; an empty string clears it.
+      ["negative", input.negativePrompt ?? previous.negativePrompt ?? ""],
       ["connection", input.connectionId?.trim() || previous.connectionId],
       ["kind", previous.kind],
       // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
