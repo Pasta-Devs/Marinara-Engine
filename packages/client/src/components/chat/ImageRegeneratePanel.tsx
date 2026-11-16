@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import { RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
@@ -15,6 +15,7 @@ import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;
@@ -376,7 +377,7 @@ export function ImageRegeneratePanel({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {phase && (
             <p role="status" className="mr-auto flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-              <Loader2 size="1rem" className="animate-spin" aria-hidden />
+              <Spinner size="md" aria-hidden="true" />
               {t(
                 phase === "revising"
                   ? "ui.chat.imageregeneratepanel.revising"

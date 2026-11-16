@@ -5,7 +5,6 @@
 // lists and pools, or from a localization key, and the entries themselves are read from the ruleset
 // this sheet is being edited against.
 import { useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
@@ -34,6 +33,7 @@ import {
 } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
 import { useRulesetText, type RulesetText } from "../../lib/ruleset-text";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** The header as the picker needs it: where the entries live is the hook's business, not this one's. */
 export type RulesetCatalogHeaderView = Omit<RulesetCatalogHeader, "entries" | "asset">;
@@ -223,7 +223,7 @@ export function RulesetCatalogPicker({
 
         {query.isPending ? (
           <p className="flex items-center gap-2 py-6 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+            <Spinner size="sm" aria-hidden="true" />
             {t("game.ruleset.catalog.loading")}
           </p>
         ) : failure ? (

@@ -1,6 +1,7 @@
-import { Loader2, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/Spinner";
 
 export type CommandCenterActionTone = "neutral" | "primary" | "destructive";
 
@@ -56,7 +57,7 @@ export function CommandCenterActionValue({
       )}
     >
       {loading ? (
-        <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+        <Spinner size="md" className="shrink-0" aria-hidden="true" />
       ) : (
         <Icon className="size-4 shrink-0" aria-hidden="true" />
       )}

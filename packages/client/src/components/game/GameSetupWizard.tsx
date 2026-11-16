@@ -31,7 +31,6 @@ import {
   Wand2,
   ArrowRight,
   ArrowLeft,
-  Loader2,
   Search,
   Plus,
   X,
@@ -169,6 +168,7 @@ import {
   setupSuggestionKeys,
 } from "../../lib/game-setup-suggestions";
 import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** The "Surprise me!" chip, told apart from the localized ideas by this value, never by its text. */
 const SURPRISE_SUGGESTION = "__surprise__";
@@ -2856,7 +2856,7 @@ export function GameSetupWizard({
 
                         {installedAgentsLoading ? (
                           <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] px-4 py-4 text-xs text-[var(--muted-foreground)]">
-                            <Loader2 size={13} className="animate-spin" />
+                            <Spinner size="sm" />
                             {localizeUi("ui.game.gamesetupwizard.loadingInstalledAgents")}
                           </div>
                         ) : (
@@ -3956,7 +3956,7 @@ export function GameSetupWizard({
                           <Suspense
                             fallback={
                               <div className="flex h-full items-center justify-center gap-2 text-xs text-[var(--muted-foreground)]">
-                                <Loader2 size={14} className="animate-spin" />
+                                <Spinner size="sm" />
                                 {localizeUi("ui.game.gamesetupwizard.loadingAssets")}
                               </div>
                             }
@@ -4252,7 +4252,7 @@ export function GameSetupWizard({
                     >
                       {isLoading ? (
                         <>
-                          <Loader2 size={14} className="animate-spin" />
+                          <Spinner size="sm" />
                           {isDraftingMap
                             ? localizeUi("ui.game.gamesetupwizard.draftingMap")
                             : isLinkingSharedWorld

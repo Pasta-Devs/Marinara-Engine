@@ -4,7 +4,7 @@
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
 import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Loader2, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -64,6 +64,7 @@ import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
 import { mediaSources } from "../../lib/media-source";
+import { Spinner } from "@/components/ui/Spinner";
 
 function JobIcon({ job }: { job: JobKey }) {
   const Icon = JOB[job].icon;
@@ -640,7 +641,7 @@ function AgentsSettings() {
         disabled={resetting || toReset.length === 0}
         className={cn(SMALL_ACTION, "w-fit")}
       >
-        {resetting ? <Loader2 size="0.75rem" className="animate-spin" /> : t("connections.defaults.resetAgents")}
+        {resetting ? <Spinner size="sm" /> : t("connections.defaults.resetAgents")}
       </button>
     </div>
   );

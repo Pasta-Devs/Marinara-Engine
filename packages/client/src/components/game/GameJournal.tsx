@@ -16,7 +16,6 @@ import {
   PenLine,
   BookOpen,
   Trash2,
-  Loader2,
   Wand2,
   Check,
   Globe2,
@@ -40,6 +39,7 @@ import { GameRulesetUpdate } from "./GameRulesetUpdate";
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MarinaraLegacyUpgrade } from "./MarinaraLegacyUpgrade";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface JournalEntry {
   timestamp: string;
@@ -565,7 +565,7 @@ export function GameJournal({
                 disabled={entrySaving || !editingEntry.title.trim()}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity disabled:opacity-50"
               >
-                {entrySaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                {entrySaving ? <Spinner size="sm" /> : <Check size={13} />}
                 {entrySaving
                   ? localizeUi("ui.game.gamejournal.savingEntry")
                   : localizeUi("ui.game.gamejournal.saveEntry")}
@@ -629,11 +629,7 @@ function TimelineView({
                 aria-label={localizeUi("ui.game.gamejournal.deleteEntry")}
                 className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--destructive)]/70 transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:opacity-40"
               >
-                {deletingEntryIndex === allEntries.indexOf(entry) ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Trash2 size={12} />
-                )}
+                {deletingEntryIndex === allEntries.indexOf(entry) ? <Spinner size="sm" /> : <Trash2 size={12} />}
               </button>
             </div>
           </div>
@@ -770,11 +766,7 @@ function NpcsView({
                       )}
                       title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
                     >
-                      {portraitGenerating ? (
-                        <Loader2 size="0.6rem" className="animate-spin" />
-                      ) : (
-                        <Wand2 size="0.6rem" />
-                      )}
+                      {portraitGenerating ? <Spinner size="sm" /> : <Wand2 size="0.6rem" />}
                     </button>
                   )}
                 </div>
@@ -832,7 +824,7 @@ function WorldView({ chatId, turnKey }: { chatId: string; turnKey: string | null
   if (shown === undefined) {
     return (
       <div className="flex justify-center py-6 text-white/40">
-        <Loader2 size={14} className="animate-spin" />
+        <Spinner size="sm" />
       </div>
     );
   }
@@ -1105,11 +1097,7 @@ function LibraryView({
                 aria-label={localizeUi("ui.game.gamejournal.deleteEntry")}
                 className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--destructive)]/70 transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] disabled:opacity-40"
               >
-                {deletingEntryIndex === allEntries.indexOf(entry) ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Trash2 size={12} />
-                )}
+                {deletingEntryIndex === allEntries.indexOf(entry) ? <Spinner size="sm" /> : <Trash2 size={12} />}
               </button>
             </div>
           </div>

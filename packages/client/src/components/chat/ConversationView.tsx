@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { Loader2, ChevronUp, Puzzle } from "lucide-react";
+import { ChevronUp, Puzzle } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { ConversationGamesPicker } from "./ConversationGamesPicker";
@@ -67,6 +67,7 @@ import {
   useChatKeyboardOpen,
   useKeepLatestChatMessageVisible,
 } from "../../hooks/use-visual-viewport-chat-bottom";
+import { Spinner } from "@/components/ui/Spinner";
 
 const ConversationAutonomousEffects = lazy(async () => {
   const module = await import("./ConversationAutonomousEffects");
@@ -1306,7 +1307,7 @@ export function ConversationView({
         {hasNextPage && (
           <div className="mari-chat-load-more flex justify-center py-3">
             <button onClick={handleLoadMore} disabled={isFetchingNextPage} className={HISTORY_PAGER_BUTTON_CLASS}>
-              {isFetchingNextPage ? <Loader2 size="0.75rem" className="animate-spin" /> : <ChevronUp size="0.75rem" />}
+              {isFetchingNextPage ? <Spinner size="sm" /> : <ChevronUp size="0.75rem" />}
               {localizeUi("ui.chat.chatroleplaysurface.loadMore")}
             </button>
           </div>
@@ -1320,7 +1321,7 @@ export function ConversationView({
 
         {isLoading && (
           <div className="flex flex-col items-center gap-3 py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--muted-foreground)]/20 border-t-[var(--muted-foreground)]/60" />
+            <Spinner size="lg" className="h-8 w-8 text-[var(--muted-foreground)]/60" />
           </div>
         )}
 

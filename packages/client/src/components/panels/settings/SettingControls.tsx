@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Bell, BellRing, Loader2, Play, Trash2, Upload, Volume2 } from "lucide-react";
+import { Bell, BellRing, Play, Trash2, Upload, Volume2 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useUIStore } from "../../../stores/ui.store";
@@ -22,6 +22,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -457,7 +458,7 @@ function CustomNotificationSoundSetting() {
             disabled={isBusy}
             className={SETTINGS_BUTTON_CLASS}
           >
-            {uploadSound.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+            {uploadSound.isPending ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
             {status?.configured
               ? t("settings.notifications.customSound.actions.replace")
               : t("settings.notifications.customSound.actions.choose")}
@@ -469,7 +470,7 @@ function CustomNotificationSoundSetting() {
               disabled={isBusy}
               className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger")}
             >
-              {removeSound.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+              {removeSound.isPending ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
               {t("settings.notifications.customSound.actions.remove")}
             </button>
           )}

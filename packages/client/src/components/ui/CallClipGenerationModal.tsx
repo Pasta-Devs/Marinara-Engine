@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Wand2 } from "lucide-react";
+import { Wand2 } from "lucide-react";
 import {
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   type ConversationCallCharacterVideoClipKind,
@@ -11,6 +11,7 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styl
 import { Modal } from "./Modal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 type VideoGenerationConnectionOption = {
   id: string;
@@ -120,7 +121,7 @@ export function CallClipGenerationModal({
             disabled={!canGenerate}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
+            {generating ? <Spinner size="sm" /> : <Wand2 size="0.875rem" />}
             {localizeUi("ui.ui.callclipgenerationmodal.generateCallClips")}
           </button>
           <button type="button" onClick={onClose} disabled={generating} className={SHEET_BUTTON_QUIET}>

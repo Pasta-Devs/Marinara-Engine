@@ -81,7 +81,6 @@ import {
   FolderOpen,
   Film,
   History,
-  Loader2,
   Copy,
   UserPlus,
   Wand2,
@@ -190,6 +189,7 @@ import {
   pickPersonaEditorFields,
   reconcileVersionedPersonaEditorSave,
 } from "./persona-editor-transitions";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ── Tabs ──
 const TABS = [
@@ -745,11 +745,7 @@ function PersonaGalleryTab({
                           className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25 disabled:opacity-50"
                           title={localizeUi("ui.personas.personagallerytab.setAsAvatar")}
                         >
-                          {galleryAvatarPending ? (
-                            <Loader2 size="0.75rem" className="animate-spin" />
-                          ) : (
-                            <User size="0.75rem" />
-                          )}
+                          {galleryAvatarPending ? <Spinner size="sm" /> : <User size="0.75rem" />}
                         </button>
                       ) : null}
                       {selectingImages ? (
@@ -837,7 +833,7 @@ function PersonaGalleryTab({
                 className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
                 title={localizeUi("ui.personas.personagallerytab.setAsAvatar")}
               >
-                {galleryAvatarPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <User size="0.875rem" />}
+                {galleryAvatarPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
               </button>
               <ImageDownloadButton
                 url={lightbox.url}
@@ -1127,7 +1123,7 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
             disabled={uploadClip.isPending}
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {uploadClip.isPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Upload size="0.85rem" />}
+            {uploadClip.isPending ? <Spinner size="sm" /> : <Upload size="0.85rem" />}
             {localizeUi("ui.personas.personacallclipsgallery.uploadExtra")}
           </button>
           <button
@@ -1137,7 +1133,7 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generateCallClips.isPending || generateCustomCallClip.isPending ? (
-              <Loader2 size="0.85rem" className="animate-spin" />
+              <Spinner size="sm" />
             ) : (
               <Wand2 size="0.85rem" />
             )}
@@ -1220,7 +1216,7 @@ function PersonaClipCard({
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
             {clip.status === "generating" ? (
-              <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
+              <Spinner size="lg" className="text-[var(--primary)]" />
             ) : clip.status === "error" ? (
               <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
             ) : (
@@ -1269,7 +1265,7 @@ function PersonaClipCard({
                   value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
                 })}
               >
-                {deleting ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+                {deleting ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
               </button>
             ) : null}
           </div>
@@ -2736,7 +2732,7 @@ function PersonaSpritesTab({
                     : localizeUi("ui.personas.personaspritestab.cleanBackgroundsOnTheCurrentlyVisibleSavedSprites")
                 }
               >
-                {cleaningSprites ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Eraser size="0.8125rem" />}
+                {cleaningSprites ? <Spinner size="sm" /> : <Eraser size="0.8125rem" />}
                 {cleaningSprites
                   ? localizeUi("ui.personas.personaspritestab.cleaning")
                   : localizeUi("ui.personas.personaspritestab.cleanBackgrounds")}
@@ -2820,14 +2816,14 @@ function PersonaSpritesTab({
 
           {folderProgress && (
             <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-              <Loader2 size="0.75rem" className="animate-spin text-[var(--primary)]" />
+              <Spinner size="sm" className="text-[var(--primary)]" />
               {localizeUi("ui.noodle.noodleprofilesurface.uploading_de27240")} {folderProgress.done}/
               {folderProgress.total} {localizeUi("ui.personas.personaspritestab.sprites")}
             </div>
           )}
           {cleaningSprites && (
             <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
-              <Loader2 size="0.75rem" className="animate-spin text-[var(--primary)]" />
+              <Spinner size="sm" className="text-[var(--primary)]" />
               {localizeUi("ui.personas.personaspritestab.applyingAutomaticMatteCleanupToSavedSprites")}
             </div>
           )}
@@ -2840,7 +2836,7 @@ function PersonaSpritesTab({
                 disabled={restoringCleanup}
                 className="flex items-center gap-1.5 rounded-md bg-[var(--card)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
               >
-                {restoringCleanup ? <Loader2 size="0.75rem" className="animate-spin" /> : <RotateCcw size="0.75rem" />}
+                {restoringCleanup ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                 {localizeUi("ui.personas.personaspritestab.undoCleanup")}
               </button>
             </div>
@@ -3060,7 +3056,7 @@ function PersonaSpritesTab({
                   disabled={!!deletingSprites}
                   className={SHEET_BUTTON_DESTRUCTIVE}
                 >
-                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {deletingSprites === "single" && <Spinner size="sm" />}
                   {localizeUi("ui.personas.personaspritestab.deleteSprite")}
                 </button>
                 {categorySprites.length > 1 ? (
@@ -3070,11 +3066,7 @@ function PersonaSpritesTab({
                     disabled={!!deletingSprites}
                     className={SHEET_BUTTON_SECONDARY + " text-[var(--destructive)]"}
                   >
-                    {deletingSprites === "all" ? (
-                      <Loader2 size="0.875rem" className="animate-spin" />
-                    ) : (
-                      <Trash2 size="0.875rem" />
-                    )}
+                    {deletingSprites === "all" ? <Spinner size="sm" /> : <Trash2 size="0.875rem" />}
                     {localizeUi("ui.personas.personaspritestab.deleteAll")}{" "}
                     {category === "full-body"
                       ? localizeUi("ui.personas.personaspritestab.fullBody")
@@ -4031,11 +4023,7 @@ function PersonaVersionHistoryPanel({
                 : "ui.cardversionhistory.resetVersioning",
             )}
           >
-            {resetVersions.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <RotateCcw size="0.75rem" />
-            )}
+            {resetVersions.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
             {localizeUi("ui.cardversionhistory.reset")}
           </button>
           <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
@@ -4090,7 +4078,7 @@ function PersonaVersionHistoryPanel({
                     title={localizeUi("ui.cardversionhistory.renameThisSavedVersion")}
                   >
                     {renameVersion.isPending && renameVersion.variables?.versionId === version.id ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
+                      <Spinner size="sm" />
                     ) : (
                       <Pencil size="0.75rem" />
                     )}
@@ -4102,11 +4090,7 @@ function PersonaVersionHistoryPanel({
                     className="mari-editor-action mari-editor-action--compact inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
                   >
-                    {restoreVersion.isPending ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
-                    ) : (
-                      <RotateCcw size="0.75rem" />
-                    )}
+                    {restoreVersion.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                   </button>
                   <button
                     type="button"
@@ -4116,7 +4100,7 @@ function PersonaVersionHistoryPanel({
                     title={localizeUi("ui.personas.personaversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
+                      <Spinner size="sm" />
                     ) : (
                       <Trash2 size="0.75rem" />
                     )}
@@ -4147,11 +4131,7 @@ function PersonaVersionHistoryPanel({
               disabled={restoreVersion.isPending}
               className={SHEET_BUTTON_PRIMARY}
             >
-              {restoreVersion.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
-              ) : (
-                <RotateCcw size="0.75rem" />
-              )}
+              {restoreVersion.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
               {localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
             </button>
           ) : undefined

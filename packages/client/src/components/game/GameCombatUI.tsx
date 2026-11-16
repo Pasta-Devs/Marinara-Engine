@@ -82,6 +82,7 @@ import {
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TokenPicture } from "./TokenPicture";
+import { Spinner } from "@/components/ui/Spinner";
 
 // `combatant.sprite` is populated either from a real avatar URL (player party,
 // from the character sheet's `avatarUrl`) or from the encounter LLM, which is
@@ -2055,7 +2056,7 @@ export function GameCombatUI({
                 "absolute inset-x-2 top-2 z-10 flex items-center gap-2 rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-xs text-white/70 backdrop-blur-md",
               )}
             >
-              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              <Spinner size="sm" className="text-white" />
               {selectedAction === "custom"
                 ? localizeUi("ui.game.gamecombatui.theGameMasterIsAdjudicatingYourManeuver")
                 : localizeUi("ui.game.gamecombatui.resolvingActions")}
@@ -3029,7 +3030,7 @@ export function GameCombatUI({
           <div className="flex flex-col gap-2 px-4 py-3">
             {phase === "resolving" && !directed?.paused && (
               <div className="flex items-center gap-2 text-sm text-white/60">
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <Spinner size="sm" className="text-white" />
                 {selectedAction === "custom"
                   ? localizeUi("ui.game.gamecombatui.theGameMasterIsAdjudicatingYourManeuver")
                   : localizeUi("ui.game.gamecombatui.resolvingActions")}

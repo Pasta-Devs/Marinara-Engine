@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useLayoutEffect, type ComponentProps } from 
 import { preloadedLazy } from "../../lib/preloaded-lazy";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, Download, Layers, ListChecks, Loader2, Trash2, X } from "lucide-react";
+import { ChevronUp, ChevronDown, Download, Layers, ListChecks, Trash2, X } from "lucide-react";
 import type { PeekPromptData } from "./chat-area.types";
 import type { LocalSpriteVisualSettings } from "./local-sprite-visual-settings";
 import type { AvatarLayoutControls } from "./AvatarLayoutSettings";
@@ -23,6 +23,7 @@ import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
+import { Spinner } from "@/components/ui/Spinner";
 
 // Renders straight away once its code is in. A plain lazy component suspends on its first render even
 // when its code already loaded, so the loading pane showed for a moment on every first open.
@@ -329,7 +330,7 @@ function ChatSettingsLoadingFallback({
       id={CHAT_SETTINGS_WINDOW_ID}
       presentation={phoneLayout ? "sheet" : "window"}
       title={localizeUi("chat.toolbar.settings")}
-      titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
+      titleIcon={<Spinner size="sm" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
       {...getChatSettingsWindowProps(anchor)}
       onRequestClose={() => onClose({ force: true })}

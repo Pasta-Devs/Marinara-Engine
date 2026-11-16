@@ -2552,6 +2552,30 @@
   box-shadow: 0 0 0 1px var(--marinara-chat-option-field-ring);
 }
 
+/* Shared Spinner: a comet arc (ring with a fading tail) in the current text colour. */
+.marinara-spinner {
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    color-mix(in srgb, currentColor 12%, transparent) 120deg,
+    currentColor 340deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--s) / 9 - 0.5px),
+    #000 calc(100% - var(--s) / 9)
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--s) / 9 - 0.5px), #000 calc(100% - var(--s) / 9));
+  animation: spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marinara-spinner {
+    animation-duration: 2.5s;
+  }
+}
+
 .mari-chat-option-switch {
   background: var(--marinara-chat-option-switch-off);
 }

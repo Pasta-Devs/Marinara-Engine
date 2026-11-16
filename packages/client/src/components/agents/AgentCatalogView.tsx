@@ -6,7 +6,6 @@ import {
   GitFork,
   Home,
   Info,
-  Loader2,
   MoreHorizontal,
   PackageCheck,
   RefreshCw,
@@ -65,6 +64,7 @@ import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { Spinner } from "@/components/ui/Spinner";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -579,8 +579,7 @@ export function AgentCatalogView() {
   if (catalog.isLoading) {
     content = (
       <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
-        <Loader2 className="animate-spin" size="1rem" />{" "}
-        {localizeUi("ui.agents.agentcatalogview.loadingTheOfficialCatalog")}
+        <Spinner size="md" /> {localizeUi("ui.agents.agentcatalogview.loadingTheOfficialCatalog")}
       </div>
     );
   } else if (catalog.isError) {
@@ -695,7 +694,7 @@ export function AgentCatalogView() {
             onClick={(event) => openMenu(null, event)}
           >
             {bulkActionPending ? (
-              <Loader2 size="0.95rem" className="animate-spin" aria-hidden="true" />
+              <Spinner size="md" aria-hidden="true" />
             ) : (
               <MoreHorizontal size="0.95rem" aria-hidden="true" />
             )}

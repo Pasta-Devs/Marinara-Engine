@@ -7,7 +7,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ChevronDown, Loader2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import {
   parseLorebookBulkKeyText,
   type LorebookBulkEditInput,
@@ -17,6 +17,7 @@ import {
 } from "@marinara-engine/shared";
 import { useBulkEditLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface Props {
   lorebookId: string;
@@ -107,7 +108,7 @@ export function LorebookBulkEditPanel({ lorebookId, selectedIds, folders, busy =
       >
         <SlidersHorizontal size="0.8125rem" className="mari-chrome-accent-icon mari-accent-animated shrink-0" />
         <span className="flex-1">{t("lorebook.editor.bulk.title", { count })}</span>
-        {bulkEdit.isPending && <Loader2 size="0.75rem" className="animate-spin text-[var(--muted-foreground)]" />}
+        {bulkEdit.isPending && <Spinner size="sm" className="text-[var(--muted-foreground)]" />}
         <ChevronDown
           size="0.8125rem"
           className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}

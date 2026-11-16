@@ -8,8 +8,9 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { useUIStore } from "../../stores/ui.store";
-import { Loader2, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 const DEFAULT_PARAMS = {
   temperature: 0.9,
@@ -81,7 +82,7 @@ export function CreatePresetModal({ open, onClose, defaultName = "" }: Props) {
             disabled={!name.trim() || createPreset.isPending}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {createPreset.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <FileText size="0.75rem" />}
+            {createPreset.isPending ? <Spinner size="sm" /> : <FileText size="0.75rem" />}
             {localizeUi("ui.modals.createpresetmodal.createPreset")}
           </button>
           <button

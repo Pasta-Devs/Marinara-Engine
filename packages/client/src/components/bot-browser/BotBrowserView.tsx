@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Hash,
   Download,
-  Loader2,
   ChevronDown,
   X,
   CheckCircle,
@@ -76,6 +75,7 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ════════════════════════════════════════════════
 // Types
@@ -3131,7 +3131,7 @@ export function BotBrowserView() {
               {/* ═══ Results ═══ */}
               {loading ? (
                 <div className="flex flex-1 items-center justify-center py-12">
-                  <Loader2 size="1.5rem" className="animate-spin text-[var(--muted-foreground)]" />
+                  <Spinner size="lg" className="text-[var(--muted-foreground)]" />
                 </div>
               ) : error ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
@@ -3221,7 +3221,7 @@ export function BotBrowserView() {
                 onClick={() => void finishImport(true)}
                 className={SHEET_BUTTON_PRIMARY}
               >
-                {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
+                {importing ? <Spinner size="sm" /> : <BookOpen size="0.75rem" />}
                 {localizeUi("ui.modals.importcharactermodal.importLorebook")}
               </button>
               <button
@@ -3336,7 +3336,7 @@ export function BotBrowserView() {
               </>
             ) : !pendingImport.prepared ? (
               <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
-                <Loader2 size="1rem" className="animate-spin text-[var(--marinara-chat-chrome-accent)]" />
+                <Spinner size="md" className="text-[var(--marinara-chat-chrome-accent)]" />
                 {localizeUi("ui.botBrowser.importDialog.preparingCard")}
               </div>
             ) : (
@@ -3591,7 +3591,7 @@ function LoginModal({
                     disabled={loginLoading || !pygTokenInput.trim()}
                     className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
                   >
-                    {loginLoading ? <Loader2 size="0.75rem" className="animate-spin" /> : <KeyRound size="0.75rem" />}{" "}
+                    {loginLoading ? <Spinner size="sm" /> : <KeyRound size="0.75rem" />}{" "}
                     {localizeUi("ui.botBrowser.loginmodal.saveConnect")}
                   </button>
                 ) : (
@@ -3834,7 +3834,7 @@ function DetailView({
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size="1.5rem" className="animate-spin text-[var(--muted-foreground)]" />
+          <Spinner size="lg" className="text-[var(--muted-foreground)]" />
         </div>
       ) : (
         <div className="flex gap-5 max-md:flex-col">
@@ -3920,7 +3920,7 @@ function DetailView({
                 disabled={importing}
                 className="mari-panel-gradient-button mari-panel-gradient--browser px-4 py-2.5 text-xs"
               >
-                {importing ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
+                {importing ? <Spinner size="sm" /> : <Download size="0.875rem" />}
                 {/* Keep translated text inside a stable element while the loading icon changes. */}
                 <span>
                   {importing
@@ -3934,7 +3934,7 @@ function DetailView({
                   disabled={downloading}
                   className="mari-chrome-control px-4 py-2 text-xs"
                 >
-                  {downloading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+                  {downloading ? <Spinner size="sm" /> : <Download size="0.75rem" />}
                   <span>
                     {downloading
                       ? localizeUi("ui.botBrowser.detailview.buildingPng")

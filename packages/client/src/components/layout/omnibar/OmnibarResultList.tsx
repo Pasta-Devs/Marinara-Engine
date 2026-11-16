@@ -1,14 +1,4 @@
-import {
-  Loader2,
-  Lightbulb,
-  Sparkles,
-  Compass,
-  Clock3,
-  SlidersHorizontal,
-  LayoutGrid,
-  ArrowRight,
-  Search,
-} from "lucide-react";
+import { Lightbulb, Sparkles, Compass, Clock3, SlidersHorizontal, LayoutGrid, ArrowRight, Search } from "lucide-react";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { type RankedOmnibarResult, resultMetadata } from "./omnibar-result-view";
@@ -24,6 +14,7 @@ import { type OmnibarRowVisualContext, resolveOmnibarRowVisual } from "../../../
 import { readChoiceOptionId } from "../../../lib/omnibar-choice-rows";
 import type { CommandCenterPresentation, CommandCenterResultGroupId } from "../../../lib/command-center";
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
+import { Spinner } from "@/components/ui/Spinner";
 
 type OmnibarResultListProps = {
   /** Kept in place but invisible while the suggestions' lists are still arriving (no rows popping in). */
@@ -99,7 +90,7 @@ export function OmnibarResultList({
       >
         {query.trim() && loading && results.length === 0 ? (
           <div className="flex min-h-24 items-center justify-center text-sm text-[var(--muted-foreground)]">
-            <Loader2 className="mr-2 animate-spin" size={16} />
+            <Spinner size="md" className="mr-2" />
             {t("omnibar.loading", "Loading results")}
           </div>
         ) : null}

@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Download, HardDrive, Link2, Loader2, Scale, Trash2, Zap } from "lucide-react";
+import { Check, Download, HardDrive, Link2, Scale, Trash2, Zap } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   useDecisionSidecar,
@@ -26,6 +26,7 @@ import {
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore } from "../../stores/ui.store";
+import { Spinner } from "@/components/ui/Spinner";
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -346,7 +347,7 @@ export function DecisionModelModal() {
             disabled={busy || !selected?.preflight.installable}
             className="mari-chrome-control px-3"
           >
-            {install.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+            {install.isPending ? <Spinner size="sm" /> : <Download size="0.75rem" />}
             {localizeUi("ui.modals.decisionmodelmodal.download")}
           </button>
         )}
@@ -413,7 +414,7 @@ export function DecisionModelModal() {
                   )}
                 </div>
               </div>
-              {busy ? <Loader2 size="0.875rem" className="animate-spin" /> : enabled ? <Check size="0.875rem" /> : null}
+              {busy ? <Spinner size="sm" /> : enabled ? <Check size="0.875rem" /> : null}
             </button>
 
             {/* The model choice and Install only appear after the toggle is confirmed,
@@ -436,7 +437,7 @@ export function DecisionModelModal() {
                       className="mari-chrome-accent-surface flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
                     >
                       {install.isPending || installRepo.isPending ? (
-                        <Loader2 size="0.875rem" className="animate-spin" />
+                        <Spinner size="sm" />
                       ) : (
                         <Download size="0.875rem" />
                       )}
@@ -453,11 +454,7 @@ export function DecisionModelModal() {
                   disabled={!selected || busy || !selected.preflight.installable || selected.id === installedId}
                   className="mari-chrome-accent-surface mt-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {install.isPending ? (
-                    <Loader2 size="0.875rem" className="animate-spin" />
-                  ) : (
-                    <Download size="0.875rem" />
-                  )}
+                  {install.isPending ? <Spinner size="sm" /> : <Download size="0.875rem" />}
                   {localizeUi(
                     install.isPending
                       ? "ui.modals.decisionmodelmodal.installing"

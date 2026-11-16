@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
@@ -34,6 +33,7 @@ import {
   type ServiceId,
   type Target,
 } from "./shared";
+import { Spinner } from "@/components/ui/Spinner";
 
 type UseKind = Exclude<ConnectionPickerKind, "all">;
 /** The job each model type serves, in row order. */
@@ -275,7 +275,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         )}
         {loading ? (
           <p role="status" className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-            <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+            <Spinner size="sm" aria-hidden="true" />
             {t("connections.add.readingCatalog")}
           </p>
         ) : uses.length === 0 && !catalog.isError ? (
@@ -338,7 +338,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
           disabled={busy || loading}
           onClick={() => void done()}
         >
-          {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {busy && <Spinner size="sm" aria-hidden="true" />}
           {t("connections.add.done")}
         </button>
       </div>

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { Loader2, Palette, User } from "lucide-react";
+import { Palette, User } from "lucide-react";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { withCssPaintAlpha } from "../../lib/css-colors";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
 import { ColorPicker } from "../ui/ColorPicker";
+import { Spinner } from "@/components/ui/Spinner";
 
 export type CardColorKey = "nameColor" | "dialogueColor" | "boxColor";
 
@@ -130,7 +131,7 @@ export function CardColors({
         onClick={handleExtract}
         className="mari-editor-action mari-editor-action--accent mari-editor-action--primary flex w-full rounded-xl px-4 py-2.5 text-xs"
       >
-        {extracting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Palette size="0.875rem" />}
+        {extracting ? <Spinner size="sm" /> : <Palette size="0.875rem" />}
         {extracting ? localizeUi(v.extracting) : avatarUrl ? localizeUi(v.extract) : localizeUi(v.upload)}
       </button>
 

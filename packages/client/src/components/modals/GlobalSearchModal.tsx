@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Loader2, Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { GlobalChatSearchResult } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
@@ -10,6 +10,7 @@ import { useGlobalChatSearch, type GlobalChatSearchFilters } from "../../hooks/u
 import { useDebouncedValue } from "../../hooks/use-debounced-value";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { localDateInputToIso, splitSnippet } from "../../lib/chat-insights-display";
+import { Spinner } from "@/components/ui/Spinner";
 
 const FIELD_CLASS =
   "h-9 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/25";
@@ -274,7 +275,7 @@ export function GlobalSearchModal({
           role="status"
           aria-live="polite"
         >
-          {waiting && query.trim() ? <Loader2 size="0.75rem" className="animate-spin" /> : null}
+          {waiting && query.trim() ? <Spinner size="sm" /> : null}
           {status}
           {lastPage?.partial && !waiting ? <span>{t("chatInsights.search.partial")}</span> : null}
         </p>
@@ -303,7 +304,7 @@ export function GlobalSearchModal({
             disabled={search.isFetchingNextPage}
             className="mari-chrome-control mari-chrome-control--small mx-auto px-4 text-xs disabled:opacity-50"
           >
-            {search.isFetchingNextPage ? <Loader2 size="0.75rem" className="animate-spin" /> : null}
+            {search.isFetchingNextPage ? <Spinner size="sm" /> : null}
             {t("chatInsights.search.loadMore")}
           </button>
         )}

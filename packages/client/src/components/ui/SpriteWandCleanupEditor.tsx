@@ -15,7 +15,6 @@ import {
   Crosshair,
   Eraser,
   Hand,
-  Loader2,
   Minus,
   Pipette,
   Plus,
@@ -42,6 +41,7 @@ import {
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface SpriteWandCleanupEditorProps {
   imageUrl: string;
@@ -908,7 +908,7 @@ export function SpriteWandCleanupEditor({
             disabled={loading || applying || !hasChanges}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {applying ? <Loader2 size="0.875rem" className="animate-spin" /> : <Eraser size="0.875rem" />}
+            {applying ? <Spinner size="sm" /> : <Eraser size="0.875rem" />}
             {localizeUi("ui.ui.spritewandcleanupeditor.applyCleanup")}
           </button>
           <button type="button" onClick={onClose} disabled={applying} className={SHEET_BUTTON_QUIET}>
@@ -1227,7 +1227,7 @@ export function SpriteWandCleanupEditor({
           >
             {loading && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--background)]/60">
-                <Loader2 size="1.5rem" className="animate-spin text-[var(--primary)]" />
+                <Spinner size="lg" className="text-[var(--primary)]" />
               </div>
             )}
             <div

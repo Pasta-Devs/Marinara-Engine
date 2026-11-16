@@ -1,6 +1,6 @@
 // Shared model import and expression controls; renderer libraries stay in their lazy modules.
 import { useId, useRef, type ReactNode } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   AVATAR_EXPRESSION_SLOTS,
@@ -8,6 +8,7 @@ import {
   type AvatarExpressionMap,
   type AvatarExpressionSlot,
 } from "@marinara-engine/shared";
+import { Spinner } from "@/components/ui/Spinner";
 
 const SOURCE_KEYS: Readonly<Record<AvatarExpressionBindingSource, string>> = {
   preset: "avatars.vrm.source.preset",
@@ -72,7 +73,7 @@ export function ModelFileButton({
         }}
       />
       <button type="button" disabled={disabled} onClick={() => input.current?.click()} className={MODEL_BUTTON_CLASS}>
-        {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+        {busy ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
         {label}
       </button>
     </>

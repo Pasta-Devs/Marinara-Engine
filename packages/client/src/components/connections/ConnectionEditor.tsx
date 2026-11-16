@@ -45,7 +45,6 @@ import {
   MessageSquare,
   Check,
   X,
-  Loader2,
   AlertCircle,
   ChevronDown,
   ChevronRight,
@@ -152,6 +151,7 @@ import {
   type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;
@@ -1953,7 +1953,7 @@ export function ConnectionEditor({
         disabled={audioTestPending || !connectionDetailId || !localAudioMusic}
         className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)]/10 px-4 py-2.5 text-xs font-medium text-[var(--marinara-app-accent-static)] ring-1 ring-[var(--marinara-app-accent-static)]/20 transition-all hover:bg-[var(--marinara-app-accent-static)]/20 active:scale-[0.98] disabled:opacity-50"
       >
-        {audioTestPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Music size="0.8125rem" />}
+        {audioTestPending ? <Spinner size="sm" /> : <Music size="0.8125rem" />}
         {t(
           audioTestPending
             ? "connections.audioGeneration.testMusicGenerating"
@@ -1992,11 +1992,7 @@ export function ConnectionEditor({
             disabled={testConnection.isPending}
             className="mari-chrome-control px-3"
           >
-            {testConnection.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <Wifi size="0.8125rem" />
-            )}
+            {testConnection.isPending ? <Spinner size="sm" /> : <Wifi size="0.8125rem" />}
             {localizeUi("ui.connections.connectioneditor.testConnection")}
           </button>
         )}
@@ -2006,11 +2002,7 @@ export function ConnectionEditor({
             disabled={testMessage.isPending || !canSendTestMessage}
             className="mari-chrome-control px-3"
           >
-            {testMessage.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <MessageSquare size="0.8125rem" />
-            )}
+            {testMessage.isPending ? <Spinner size="sm" /> : <MessageSquare size="0.8125rem" />}
             {localizeUi("ui.connections.connectioneditor.sendTestMessage")}
           </button>
         )}
@@ -2021,11 +2013,7 @@ export function ConnectionEditor({
             className="mari-chrome-control px-3"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestImageGeneration") : undefined}
           >
-            {testImageGeneration.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <ImageIcon size="0.8125rem" />
-            )}
+            {testImageGeneration.isPending ? <Spinner size="sm" /> : <ImageIcon size="0.8125rem" />}
             {localizeUi("ui.connections.connectioneditor.testImage")}
           </button>
         )}
@@ -2036,11 +2024,7 @@ export function ConnectionEditor({
             className="mari-chrome-control px-3"
             title={dirty ? localizeUi("ui.connections.connectioneditor.saveFirstToTestVideoGeneration") : undefined}
           >
-            {testVideoGeneration.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <Film size="0.8125rem" />
-            )}
+            {testVideoGeneration.isPending ? <Spinner size="sm" /> : <Film size="0.8125rem" />}
             {localizeUi("ui.connections.connectioneditor.testVideo")}
           </button>
         )}
@@ -2051,11 +2035,7 @@ export function ConnectionEditor({
             className="mari-chrome-control px-3"
             title={localizeUi("ui.connections.connectioneditor.verifyWhichModelTheSdkActuallyBillsAgainstCatches")}
           >
-            {diagnoseClaudeSubscription.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              <AlertCircle size="0.8125rem" />
-            )}
+            {diagnoseClaudeSubscription.isPending ? <Spinner size="sm" /> : <AlertCircle size="0.8125rem" />}
             {localizeUi("ui.connections.connectioneditor.diagnoseModelRouting")}
           </button>
         )}
@@ -2551,11 +2531,7 @@ export function ConnectionEditor({
               disabled={testEmbedding.isPending || !canTestEmbedding}
               className="mari-chrome-control px-3"
             >
-              {testEmbedding.isPending ? (
-                <Loader2 size="0.8125rem" className="animate-spin" />
-              ) : (
-                <Search size="0.8125rem" />
-              )}
+              {testEmbedding.isPending ? <Spinner size="sm" /> : <Search size="0.8125rem" />}
               {t("connections.embeddingTest.button")}
             </button>
             {embeddingTestResult && (

@@ -7,7 +7,6 @@
 // it. Themes style `.mari-agent-activity-icon`.
 // ──────────────────────────────────────────────
 import type { ReactNode } from "react";
-import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import {
@@ -16,6 +15,7 @@ import {
   selectUnseenAgentFailureCount,
   useAgentStore,
 } from "../../stores/agent.store";
+import { Spinner } from "@/components/ui/Spinner";
 
 function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }) {
   const { t } = useTranslation();
@@ -35,7 +35,7 @@ function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }
       )}
     >
       {icon}
-      {running && <Loader2 aria-hidden="true" className="absolute inset-0 h-full w-full motion-safe:animate-spin" />}
+      {running && <Spinner size="lg" className="absolute inset-0 h-full w-full" aria-hidden="true" />}
       {(failed > 0 || alerting) && (
         // The theme's accent held steady: a failure never pulses with Accent Pulse.
         <span

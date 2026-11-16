@@ -9,7 +9,6 @@ import {
   ChevronDown,
   HardDriveDownload,
   Link,
-  Loader2,
   Power,
   PowerOff,
   RefreshCw,
@@ -49,6 +48,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { closeIfClean, DEVICE_VOICE, DictationSettings, useJobModels, VoiceJobSettings } from "./ConnectionDefaults";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { Modal } from "../ui/Modal";
+import { Spinner } from "@/components/ui/Spinner";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
@@ -485,13 +485,7 @@ function LocalModelDetail() {
       <div className="flex flex-wrap gap-1.5">
         {isDownloaded && (
           <button type="button" onClick={() => void handleModelLoadToggle()} disabled={busy} className={SMALL_ACTION}>
-            {busy ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : inferenceReady ? (
-              <PowerOff size="0.75rem" />
-            ) : (
-              <Power size="0.75rem" />
-            )}
+            {busy ? <Spinner size="sm" /> : inferenceReady ? <PowerOff size="0.75rem" /> : <Power size="0.75rem" />}
             {busy
               ? localizeUi("connections.device.pleaseWait")
               : inferenceReady
@@ -710,7 +704,7 @@ export function LocalWhisper() {
             title={localizeUi("connections.device.whisper.delete")}
             aria-label={localizeUi("connections.device.whisper.delete")}
           >
-            {deletingSpeechModel ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+            {deletingSpeechModel ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
           </button>
         )}
       </div>

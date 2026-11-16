@@ -1,7 +1,7 @@
 // Mesh avatar setup on the 2D Avatars agent page (lane: 2D): import a `.mavatar` and choose the look the
 // avatar shows for each feeling. The runtime itself is not loaded here; the stage loads it to draw.
 import { useRef, useState, type ChangeEvent } from "react";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AVATAR_EMOTIONS, type AvatarEmotion } from "@marinara-engine/shared";
@@ -11,6 +11,7 @@ import { SETTINGS_BUTTON_CLASS, SettingsSection } from "../../../../components/p
 import type { AvatarKindSetupPanelProps } from "../../contract";
 import { AVATAR_EMOTION_LABEL_KEYS, AVATAR_SETUP_SELECT_CLASS, errorMessage } from "../pngtuber/PngtuberSetupPanel";
 import { MESH_AVATAR_EMOTION_TAGS, MESH_AVATAR_EXTRA_EXPRESSIONS } from "./mesh-avatar-face";
+import { Spinner } from "@/components/ui/Spinner";
 
 const EXTRA_LOOK_KEYS: Readonly<Record<(typeof MESH_AVATAR_EXTRA_EXPRESSIONS)[number], string>> = {
   smile: "avatars.meshAvatar.lookSmile",
@@ -126,7 +127,7 @@ export function MeshAvatarSetupPanel({ owner, config, onChanged }: AvatarKindSet
           onClick={() => fileInput.current?.click()}
         >
           {importFile.isPending ? (
-            <Loader2 size="0.75rem" className="animate-spin" aria-hidden="true" />
+            <Spinner size="sm" aria-hidden="true" />
           ) : (
             <Upload size="0.75rem" aria-hidden="true" />
           )}

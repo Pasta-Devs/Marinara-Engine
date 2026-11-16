@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { History, Loader2 } from "lucide-react";
+import { History } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { useChatPersonaAttributions, useReassignMessagePersonas } from "../../../hooks/use-chats";
 import { PickerDropdown } from "../PickerDropdown";
+import { Spinner } from "@/components/ui/Spinner";
 
 interface PersonaHistoryReassignDropdownProps {
   chatId: string;
@@ -90,7 +91,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         >
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-[var(--muted-foreground)]">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatsettingsdrawer.loadingAttributions")}
             </div>
           ) : (
@@ -148,7 +149,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
                 disabled={reassignMutation.isPending || !targetName || targetCount === 0}
                 className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-1.5 font-medium text-[var(--primary-foreground)] disabled:opacity-50"
               >
-                {reassignMutation.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+                {reassignMutation.isPending && <Spinner size="sm" />}
                 {localizeUi("ui.chat.chatsettingsdrawer.updateCountMessages", { count: targetCount })}
               </button>
             </div>

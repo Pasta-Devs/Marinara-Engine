@@ -23,7 +23,6 @@ import {
   ChevronRight,
   Feather,
   Image,
-  Loader2,
   MapIcon,
   Music2,
   Paintbrush,
@@ -85,6 +84,7 @@ import {
   getAgentSettingsMenuId,
   type UseChatAgentsOptions,
 } from "./use-chat-agents";
+import { Spinner } from "@/components/ui/Spinner";
 
 function getMusicProviderLabel(provider: MusicProvider): string {
   return provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";
@@ -558,7 +558,7 @@ export function RoleplayAgentsSection({
                 </p>
               </div>
               {stoppingGeneration ? (
-                <Loader2 size="0.8125rem" className="shrink-0 animate-spin text-[var(--muted-foreground)]" />
+                <Spinner size="sm" className="shrink-0 text-[var(--muted-foreground)]" />
               ) : (
                 <X size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
               )}

@@ -7,13 +7,14 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import { useAgentStore } from "@/stores/agent.store";
 import { useUIStore } from "@/stores/ui.store";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { MusicSourceButton, MusicSourceGlyph } from "@/components/music/MusicSourceButton";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 // The YouTube IFrame API attaches itself to window; it has no bundled types.
 type YTPlayer = {
@@ -450,7 +451,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           )}
         >
           {loading ? (
-            <Loader2 size="0.875rem" className={cn("animate-spin", MUSIC_NEUTRAL_MUTED_CLASS)} />
+            <Spinner size="sm" className={MUSIC_NEUTRAL_MUTED_CLASS} />
           ) : nowPlaying?.thumbnail ? (
             <img src={nowPlaying.thumbnail} alt="" className="h-full w-full object-cover" />
           ) : (

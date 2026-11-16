@@ -1,7 +1,8 @@
 import { useId, type KeyboardEvent } from "react";
-import { Loader2, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/Spinner";
 
 export interface CommandCenterChoiceOption<T extends string> {
   value: T;
@@ -113,7 +114,7 @@ export function CommandCenterSegmentedChoice<T extends string>({
             )}
           >
             {loading && selected ? (
-              <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
+              <Spinner size="sm" className="shrink-0" aria-hidden="true" />
             ) : OptionIcon ? (
               <OptionIcon className="size-3.5 shrink-0" aria-hidden="true" />
             ) : null}

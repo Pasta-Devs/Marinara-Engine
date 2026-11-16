@@ -13,7 +13,6 @@ import {
   MessageCircle,
   X,
   Users,
-  Loader2,
   Bot,
   UserRound,
   Sparkles,
@@ -140,6 +139,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
 import { CharacterSelect, changedId } from "../characters/CharacterSelect";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ─── Step definitions ─────────────────────────
 
@@ -683,7 +683,7 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             role="status"
             className={cn(NEUTRAL_PANEL_SHELL, "flex items-center gap-2 p-4 text-sm text-[var(--foreground)]")}
           >
-            <Loader2 size="1rem" className="motion-safe:animate-spin" aria-hidden="true" />
+            <Spinner size="md" aria-hidden="true" />
             {t("chat.wizard.closing")}
           </div>
         </div>
@@ -702,7 +702,7 @@ function WizardLoading({ onClose }: { onClose: () => void }) {
           role="status"
           className={cn(NEUTRAL_PANEL_SHELL, "flex items-center gap-2 p-4 text-sm text-[var(--foreground)]")}
         >
-          <Loader2 size="1rem" className="motion-safe:animate-spin" aria-hidden="true" />
+          <Spinner size="md" aria-hidden="true" />
           {t("navigation.common.loading")}
         </div>
       </div>
@@ -1572,8 +1572,8 @@ function ConversationQuickSetup({
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Loader2
-              size="0.875rem"
+            <Spinner
+              size="sm"
               className={generateSchedule ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
             />
             <div>
@@ -1724,7 +1724,7 @@ function ConversationQuickSetup({
   const busyContent =
     scheduleState === "generating" ? (
       <div className="flex items-center justify-center gap-2 py-1">
-        <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+        <Spinner size="sm" className="text-[var(--primary)]" />
         <span className="text-xs text-[var(--muted-foreground)]">
           {localizeUi("ui.chat.conversationquicksetup.generatingSchedule")}
           {chatCharIds.length > 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}...
@@ -2966,7 +2966,7 @@ function RoleplaySetupWizard({
 
         {agentsLoading && (
           <div className="flex min-h-40 items-center justify-center gap-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size="0.875rem" className="animate-spin" />
+            <Spinner size="sm" />
             {localizeUi("ui.chat.roleplaysetupwizard.loadingAgents")}
           </div>
         )}
@@ -3377,7 +3377,7 @@ function RoleplaySetupWizard({
             onSkip={onDismiss}
             onPrimary={handleShortcutApply}
             primaryLabel={shortcutApplying ? "Applying..." : "Apply & Start"}
-            primaryIcon={shortcutApplying ? <Loader2 size="0.75rem" className="animate-spin" /> : undefined}
+            primaryIcon={shortcutApplying ? <Spinner size="sm" /> : undefined}
             primaryDisabled={shortcutApplying || !shortcutPresetId}
           >
             {shortcutContent}

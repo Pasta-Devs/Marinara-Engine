@@ -1,5 +1,6 @@
-import { Loader2, Wand2 } from "lucide-react";
+import { Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function CardFieldWand({
   label,
@@ -23,7 +24,7 @@ export function CardFieldWand({
       title={t("ui.cardFields.generateTooltip", { field: label })}
       className="mari-editor-action inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {loading ? <Loader2 size="1rem" className="animate-spin" aria-hidden /> : <Wand2 size="1rem" aria-hidden />}
+      {loading ? <Spinner size="md" aria-hidden="true" /> : <Wand2 size="1rem" aria-hidden />}
     </button>
   );
 }

@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from "react";
 import { SPOTIFY_SOURCE_OPTIONS } from "../../lib/spotify-source-options";
 import { LorebookListField } from "../ui/LibraryPickers";
-import { Check, FolderOpen, Loader2, Upload } from "lucide-react";
+import { Check, FolderOpen, Upload } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
@@ -42,6 +42,7 @@ import {
 import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "@/components/ui/Spinner";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
 export type MusicProvider = "spotify" | "youtube" | "custom";
@@ -913,7 +914,7 @@ function KnowledgeSourceFields({
           >
             {uploadSource.isPending ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />
+                <Spinner size="sm" />
                 {localizeUi("ui.noodle.noodleprofilesurface.uploading")}
               </>
             ) : (

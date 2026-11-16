@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Eye, Loader2, Settings2 } from "lucide-react";
+import { AlertTriangle, Eye, Settings2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
 import { AgentSettingsActionButton } from "../../components/chat/AgentSettingsControls";
+import { Spinner } from "@/components/ui/Spinner";
 
 type Damage = "pristine" | "damaged" | "cracked" | "broken";
 type WoundSeverity = "minor" | "serious" | "critical";
@@ -91,7 +92,7 @@ export default function BeholderChatSettingsPanel({
 
         {stateQuery.isLoading ? (
           <div className="flex items-center gap-1.5 py-1 text-[0.59375rem] text-[var(--muted-foreground)]">
-            <Loader2 size="0.6875rem" className="animate-spin" />
+            <Spinner size="sm" />
             {localizeUi("ui.chat.beholder.loadingState")}
           </div>
         ) : stateQuery.isError ? (

@@ -9,7 +9,6 @@ import {
   Shield,
   X,
   Flag,
-  Loader2,
   AlertTriangle,
   Trophy,
   Skull,
@@ -31,6 +30,7 @@ import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lore
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { LorebookPickerField } from "../ui/LibraryPickers";
+import { Spinner } from "@/components/ui/Spinner";
 
 // ──────────────────────────────────────────────
 // Sub-components
@@ -716,7 +716,7 @@ function CombatEndScreen() {
 
       {summaryStatus === "generating" && (
         <div className="mt-4 flex items-center gap-2 text-sm text-foreground/50">
-          <Loader2 size="1rem" className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.chat.combatendscreen.generatingCombatSummary")}
         </div>
       )}
@@ -915,7 +915,7 @@ function EncounterModalInner() {
               {/* Loading state */}
               {isLoading && !initialized && (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <Loader2 size="2rem" className="animate-spin text-red-400" />
+                  <Spinner size="lg" className="text-red-400 h-[2rem] w-[2rem]" />
                   <p className="text-sm text-foreground/50">
                     {localizeUi("ui.chat.encountermodalinner.initializingCombatEncounter")}
                   </p>
@@ -991,7 +991,7 @@ function EncounterModalInner() {
                   {/* Processing indicator */}
                   {isProcessing && (
                     <div className="flex items-center justify-center gap-2 py-2 text-xs text-foreground/40">
-                      <Loader2 size="0.875rem" className="animate-spin" />
+                      <Spinner size="sm" />
                       {localizeUi("ui.chat.encountermodalinner.processingAction")}
                     </div>
                   )}

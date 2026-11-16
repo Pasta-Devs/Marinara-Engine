@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Loader2,
   Paperclip,
   RotateCcw,
   Save,
@@ -59,6 +58,7 @@ import { useGameStateStore } from "../../../stores/game-state.store";
 import { Modal } from "../../../components/ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
+import { Spinner } from "@/components/ui/Spinner";
 
 export interface AgentSuiteAgent {
   id: string;
@@ -434,7 +434,7 @@ function DataBlock({
               disabled={disabled || rewrite.isPending || !instruction.trim() || !rewriteConnectionId}
               className="inline-flex min-h-7 items-center gap-1 rounded-md bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {rewrite.isPending ? <Loader2 size="0.6875rem" className="animate-spin" /> : <Wand2 size="0.6875rem" />}
+              {rewrite.isPending ? <Spinner size="sm" /> : <Wand2 size="0.6875rem" />}
               {rewrite.isPending ? localizeUi("ui.chat.datablock.rewriting") : localizeUi("ui.chat.datablock.rewrite")}
             </button>
           </div>
@@ -470,7 +470,7 @@ function DataBlock({
           disabled={disabled || !isDirty || busy || jsonError !== null}
           className="inline-flex min-h-7 items-center gap-1 rounded-md bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? <Loader2 size="0.625rem" className="animate-spin" /> : <Save size="0.625rem" />}
+          {saving ? <Spinner size="sm" /> : <Save size="0.625rem" />}
           {saving ? localizeUi("ui.noodle.stageprofileform.saving") : localizeUi("ui.noodle.noodlehome.save")}
         </button>
       </div>

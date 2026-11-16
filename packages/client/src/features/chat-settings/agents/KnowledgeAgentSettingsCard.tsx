@@ -8,8 +8,9 @@ import { AgentSettingsCard, AgentSettingsToggle } from "../../../components/chat
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
 import { cn } from "../../../lib/utils";
 import { LorebookListField } from "../../../components/ui/LibraryPickers";
-import { Check, Loader2, Upload } from "lucide-react";
+import { Check, Upload } from "lucide-react";
 import { showAlertDialog } from "../../../lib/app-dialogs";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function KnowledgeAgentSettingsCard({
   attachment,
@@ -229,7 +230,7 @@ export function KnowledgeAgentSettingsCard({
           >
             {uploadSource.isPending ? (
               <>
-                <Loader2 size="0.8125rem" className="animate-spin" />
+                <Spinner size="sm" />
                 {localizeUi("ui.noodle.noodleprofilesurface.uploading")}
               </>
             ) : (

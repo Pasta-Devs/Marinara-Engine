@@ -2,7 +2,7 @@
 // CYOA Choices — interactive choice buttons after assistant messages
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Dices, Loader2, Pencil, Sparkles, X } from "lucide-react";
+import { Check, Dices, Pencil, Sparkles, X } from "lucide-react";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { useAgentStore } from "../../stores/agent.store";
 import { useGenerate } from "../../hooks/use-generate";
@@ -16,6 +16,7 @@ import {
   buildCyoaChoiceSubmissionPayload,
   resolveCyoaChoiceAction,
 } from "./cyoa-choice-submission";
+import { Spinner } from "@/components/ui/Spinner";
 
 type CyoaChoice = {
   label: string;
@@ -345,7 +346,7 @@ export function CyoaChoices({ messages }: Props) {
           className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--muted)]/20 px-2 py-1 text-[0.5625rem] text-[var(--foreground)]/60 transition-all hover:border-[var(--border)] hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-black/35 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80"
           title={localizeUi("ui.chat.cyoachoices.reRollCyoaChoicesUsingTheLatestChatContext")}
         >
-          {isRerolling ? <Loader2 size="0.625rem" className="animate-spin" /> : <Dices size="0.625rem" />}
+          {isRerolling ? <Spinner size="sm" /> : <Dices size="0.625rem" />}
           <span>
             {isRerolling ? localizeUi("ui.chat.cyoachoices.rolling") : localizeUi("ui.chat.cyoachoices.reRoll")}
           </span>
@@ -395,11 +396,7 @@ export function CyoaChoices({ messages }: Props) {
               disabled={updateMessageExtra.isPending || normalizeChoices(draftChoices).length === 0}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-[0.625rem] text-emerald-200 transition-colors hover:bg-emerald-500/15 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {updateMessageExtra.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
-              ) : (
-                <Check size="0.75rem" />
-              )}
+              {updateMessageExtra.isPending ? <Spinner size="sm" /> : <Check size="0.75rem" />}
               <span>
                 {updateMessageExtra.isPending
                   ? localizeUi("ui.noodle.noodlehome.saving")

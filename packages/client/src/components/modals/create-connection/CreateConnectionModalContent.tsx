@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -75,6 +75,7 @@ import {
   type Target,
   type TestResult,
 } from "./shared";
+import { Spinner } from "@/components/ui/Spinner";
 
 type ChatMode = "conversation" | "roleplay" | "game";
 
@@ -940,7 +941,7 @@ export function CreateConnectionModalContent({
           disabled={connectDisabled}
           className={checkFailed ? SECONDARY_CLASS : PRIMARY_CLASS}
         >
-          {busy && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {busy && <Spinner size="sm" aria-hidden="true" />}
           {t(
             checkFailed
               ? "connections.add.continueAnyway"
@@ -967,7 +968,7 @@ export function CreateConnectionModalContent({
           disabled={jobTesting || !mediaRow || (jobPicker && !mediaRow.model?.trim())}
           className={PRIMARY_CLASS}
         >
-          {jobTesting && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {jobTesting && <Spinner size="sm" aria-hidden="true" />}
           {t(setupKind === "decision" ? "connections.add.testDecision" : "connections.add.testVoice")}
         </button>
       ) : onStartChat && firstPick ? (
@@ -978,7 +979,7 @@ export function CreateConnectionModalContent({
           className={PRIMARY_CLASS}
           data-add-connection-start
         >
-          {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {finishing && <Spinner size="sm" aria-hidden="true" />}
           {t("connections.add.startChatting")}
         </button>
       ) : (
@@ -991,7 +992,7 @@ export function CreateConnectionModalContent({
           disabled={finishing || pickSaving || (target?.fresh && picks.length === 0)}
           className={PRIMARY_CLASS}
         >
-          {finishing && <Loader2 size="0.75rem" className="animate-spin" aria-hidden />}
+          {finishing && <Spinner size="sm" aria-hidden="true" />}
           {t("connections.add.done")}
         </button>
       );
