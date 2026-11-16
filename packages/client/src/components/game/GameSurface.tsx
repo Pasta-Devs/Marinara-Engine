@@ -7945,7 +7945,9 @@ function GameSurfaceComponent({
             } satisfies GameNpc);
 
       try {
-        const avatar = await readBlobAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file).catch(() => {
+          throw new Error("Failed to read the selected image.");
+        });
         const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}`, {
           name: targetNpc.name,
           avatar,
@@ -7984,7 +7986,9 @@ function GameSurfaceComponent({
           await handleNpcPortraitUpload(memberName, file);
           return;
         }
-        const avatar = await readBlobAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file).catch(() => {
+          throw new Error("Failed to read the selected image.");
+        });
         if (character) {
           await uploadCharacterAvatar.mutateAsync({ id: memberId, avatar });
         } else {
