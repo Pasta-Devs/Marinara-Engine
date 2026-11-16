@@ -161,16 +161,18 @@ try {
   await fs.rm(join(backups, "marinara-before-import.json"));
 
   // A copy left without its record (a failed record save, a stop mid-import) can't be undone from,
-  // but it is still reported so it can be deleted.
+  // but it is still reported so it can be deleted. A stop between the set-aside renames also leaves
+  // the previous pair at full size; deleting removes that too.
   assert.equal((await importProfile(exported.body)).statusCode, 200);
-  await fs.rm(join(backups, "marinara-before-import.json"));
+  await fs.rename(join(backups, "marinara-before-import.json"), join(backups, "marinara-before-import.json.previous"));
+  await fs.copyFile(safetyCopy, `${safetyCopy}.previous`);
   const lone = await undoOffer();
   assert.equal(lone.available, false, "a copy without its record can't be undone from");
   assert.ok(!Number.isNaN(Date.parse(lone.savedAt)), "a copy without its record is still reported");
   assert.equal((await undo()).statusCode, 404);
   const deletedLone = await app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
   assert.equal(deletedLone.statusCode, 200, deletedLone.body);
-  assert.deepEqual(await fs.readdir(backups), [], "the lone copy is removed");
+  assert.deepEqual(await fs.readdir(backups), [], "the lone copy and the set-aside pair are removed");
 
   // Delete Safety Copy frees the space without undoing anything.
   assert.equal((await importProfile(exported.body)).statusCode, 200);

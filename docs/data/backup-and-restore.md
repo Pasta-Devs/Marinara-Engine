@@ -108,7 +108,7 @@ Branch chats the import replaced stay unlinked from the chat they branched from.
 
 Profiles from much older versions only add items, so Marinara saves no safety copy for them and there is nothing to undo.
 
-The safety copy takes as much space as a full backup. To free that space without undoing the import, click **Delete Safety Copy** under **Undo Last Import**, then confirm. Your data stays as it is, but you can no longer undo that import. If an import was interrupted, **Delete Safety Copy** can appear on its own; the copy can't be used for Undo then, but you can still delete it.
+The safety copy takes as much space as a full backup. To free that space without undoing the import, click **Delete Safety Copy** in **Profile & Marinara**, then confirm. Your data stays as it is, but you can no longer undo that import. If an import was interrupted, **Delete Safety Copy** can appear on its own; the copy can't be used for Undo then, but you can still delete it.
 
 ## Enter your keys again
 

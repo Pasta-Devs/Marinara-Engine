@@ -3634,12 +3634,20 @@ async function restorePreviousPreImport() {
 }
 
 /**
- * Remove the safety copy and its record. The record goes first: without it the copy can't be undone
- * from, even if the copy itself can't be removed. Both are tried before the first error is thrown.
+ * Remove the safety copy and its record, and any previous pair a stop mid-import left set aside. The
+ * record goes first: without it the copy can't be undone from, even if the copy itself can't be
+ * removed. All are tried before the first error is thrown.
  */
 async function removePreImportBackup() {
+  const recordPath = getPreImportWritesPath();
+  const copyPath = getPreImportBackupPath();
   let firstError: unknown;
-  for (const path of [getPreImportWritesPath(), getPreImportBackupPath()]) {
+  for (const path of [
+    recordPath,
+    copyPath,
+    `${recordPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`,
+    `${copyPath}${PRE_IMPORT_PREVIOUS_SUFFIX}`,
+  ]) {
     await rm(path, { force: true }).catch((error: unknown) => {
       firstError ??= error;
     });
@@ -4952,7 +4960,8 @@ export async function backupRoutes(app: FastifyInstance) {
   // Frees the space the safety copy takes without undoing anything; Android can't reach the folder.
   app.delete("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Delete profile import safety copy" })) return;
-    await removePreImportBackup();
+    // The lock keeps it from removing files while an import is writing or setting aside a copy.
+    await withAutomaticBackupLifecycleLock(() => removePreImportBackup());
     return { success: true };
   });
 }
