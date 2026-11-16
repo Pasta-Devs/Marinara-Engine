@@ -57,7 +57,7 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 | Genre | Fantasy | Several allowed, plus your own. A setting kit picked first sets its own. |
 | Tone | Heroic | Several allowed. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** or **Brutal**. Higher settings make fights harder: more and tougher foes in an MRPG game (see [Battles in an MRPG game](combat.md#battles-in-an-mrpg-game)), harder-hitting enemies in a Legacy game (see [Difficulty scaling](combat.md#difficulty-scaling)). |
-| Content Rating | SFW | **SFW** or **NSFW**. Covers sexual content only. NSFW permits it, it does not force it. |
+| Content Rating (sexual content) | SFW | **SFW** or **NSFW**. Covers sexual content only. NSFW permits it, it does not force it. |
 | Story style | Standard | **Gentle** is a lower-stress GM. See [Story style, violence and content boundaries](#story-style-violence-and-content-boundaries). |
 | Violence | Serious (SFW) or Graphic (NSFW) | **Mild**, **Serious** or **Graphic**. Set apart from the content rating. |
 | Content boundaries | None | Subjects the GM keeps out of the story. |
@@ -95,7 +95,7 @@ Choose **Gentle** if you want to enjoy the story and its characters without the 
 
 #### Content boundaries
 
-Write one subject per line, up to 40. The GM treats each one as a hard limit, above the rating, the tone, any character's personality and the plot. It does not bring them up, use them as a threat, twist or backstory, or hint at them. If you bring one up yourself, the GM keeps it brief and moves on. Boundaries work in both story styles and at both ratings, and your own rating guidelines cannot remove them.
+Write one subject per line, up to 40 subjects and 2,000 characters in all. Anything past either limit is left out. The GM treats each one as a hard limit, above the rating, the tone, any character's personality and the plot. It does not bring them up, use them as a threat, twist or backstory, or hint at them. If you bring one up yourself, the GM keeps it brief and moves on. Boundaries work in both story styles and at both ratings, and your own rating guidelines cannot remove them.
 
 > **Note:** The story is written by an AI model, so Marinara cannot guarantee that a listed subject never appears. If one slips in, swipe or edit the reply.
 
