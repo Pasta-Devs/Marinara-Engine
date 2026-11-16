@@ -7,6 +7,7 @@ import {
   READ_BACK_MISMATCH_SENTINEL,
   READ_BACK_VERIFIED_SENTINEL,
   STAGED_SENSITIVE_CHANGE_PREFIX,
+  bashIsLoneMariRead,
   workspaceTextClaimsHeldChange,
   workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
@@ -336,6 +337,77 @@ const mutationOutput = (sentinel: string) =>
   assert.equal(decide("auto", described, true), true, "an earlier ask binds the run");
   assert.equal(decide("manual", silent), false);
   assert.equal(decide("manual", frame("Looking now.", [{ name: "read", arguments: { path: "a.md" } }], false)), false);
+}
+
+// #9348: a lone mari CLI read counts as a state read for the audit; anything compounded or applying does not.
+{
+  assert.equal(bashIsLoneMariRead("mari images get wW8"), true);
+  assert.equal(bashIsLoneMariRead("mari db list characters --limit 5"), true);
+  assert.equal(bashIsLoneMariRead("mari images look a b --detail low"), true);
+  assert.equal(bashIsLoneMariRead("mari images generate --prompt x"), false);
+  assert.equal(bashIsLoneMariRead("mari images get wW8 | head"), false);
+  assert.equal(bashIsLoneMariRead("mari images get wW8; rm -rf x"), false);
+  assert.equal(bashIsLoneMariRead("mari images get $(cat id)"), false);
+  assert.equal(bashIsLoneMariRead("mari db get x > out.json"), false);
+  assert.equal(bashIsLoneMariRead("mari images list --apply"), false);
+  assert.equal(bashIsLoneMariRead("mari characters get c1 --help"), false);
+  assert.equal(bashIsLoneMariRead("mari characters get -h"), false);
+  // Dottore on #9350: an area that reads somewhere else is no store read.
+  assert.equal(bashIsLoneMariRead('mari wiki search "raven"'), false);
+  assert.equal(bashIsLoneMariRead("mari wiki get-page Raven"), false);
+  assert.equal(bashIsLoneMariRead("mari presets list"), true);
+  // runCli takes the images group as image, images or media.
+  assert.equal(bashIsLoneMariRead("mari image look wW8"), true);
+  assert.equal(bashIsLoneMariRead("mari media get wW8"), true);
+  assert.equal(bashIsLoneMariRead("mari characters list --has-avatar"), true);
+  assert.equal(bashIsLoneMariRead("echo mari images get x"), false);
+
+  const state = newRoundReviewState();
+  const write = appData(mutationOutput(""), true);
+  const get: WorkspaceCommandResult = {
+    id: "g1",
+    name: "bash",
+    input: { command: "mari characters get c1" },
+    output: "Command: mari characters get c1\n{}",
+    success: true,
+  };
+  const decision = reviewRoundClaim(state, {
+    action: frame("I updated the card."),
+    commandResultsForContinuity: [write, get],
+    truncated: false,
+  });
+  assert.equal(decision.kind, "continue", "the CLI read pays the write's verification debt");
+
+  // The recorded #9348 shape: a generated picture (a CLI change, so it carries debt), then a look at it.
+  const generate: WorkspaceCommandResult = {
+    id: "g2",
+    name: "bash",
+    input: { command: 'mari images generate --kind illustration --prompt "raven"' },
+    output: "Command: mari images generate\nExit code: 0 (direct mari runtime)",
+    success: true,
+  };
+  const look: WorkspaceCommandResult = {
+    id: "g3",
+    name: "bash",
+    input: { command: "mari images look wW8 --detail low" },
+    output: "Command: mari images look\n{}",
+    success: true,
+  };
+  for (const [results, expected] of [
+    [[generate, look], "continue"],
+    [[generate], "repair"],
+  ] as const) {
+    const s2 = newRoundReviewState();
+    s2.changeTried = true;
+    assert.equal(
+      reviewRoundClaim(s2, {
+        action: frame("I generated the new Raven."),
+        commandResultsForContinuity: [...results],
+        truncated: false,
+      }).kind,
+      expected,
+    );
+  }
 }
 
 console.log("Professor Mari round-review regression passed.");

@@ -128,6 +128,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const mariEdgeGlow = useMariEdgeGlow();
   const { contributions } = usePersonalExtensionContributions();
   const sidebarOpen = useUIStore(selectSidebarShown);
+  const homeBrowserFullscreen = useUIStore((s) => s.homeBrowserFullscreen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
@@ -287,7 +288,16 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
 
   const clearTopbarHover = useCallback(() => setHoveredTopbarKey(null), []);
 
+  const chatsActive = sidebarOpen && (!mobileTopbarNavigation || !rightPanelOpen);
   const overflowItems: TopbarOverflowItem[] = [
+    {
+      key: "chats",
+      icon: <MessageSquareText size={16} />,
+      iconClassName: "mari-panel-gradient--chats text-[var(--mari-panel-gradient-start)]",
+      label: localize("Chats"),
+      active: chatsActive,
+      onSelect: handleSidebarClick,
+    },
     {
       key: "characters",
       icon: <Users size={16} />,
@@ -388,7 +398,6 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     };
   }, [clearTopbarHover]);
 
-  const chatsActive = sidebarOpen && (!mobileTopbarNavigation || !rightPanelOpen);
   const chatsButton = (
     <button
       key="chats"
@@ -398,6 +407,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
       data-topbar-hover-key="chats"
       className={cn(
         TOPBAR_BUTTON_CLASS,
+        // On a phone, Chats is the first row of the menu instead (overflowItems), beside the other panels.
+        PHONE_OVERFLOW_HIDDEN_CLASS,
         chatsActive
           ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !mobileTopbarNavigation && "mari-topbar-chat-gradient-icon")
           : cn(
@@ -466,6 +477,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
       className={cn(
         "mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--marinara-topbar-surface)] px-3 backdrop-blur-sm",
         mobileTopbarNavigation ? "touch-none" : "select-none",
+        // A Home package in fullscreen takes the whole screen (HomeBrowserHub).
+        homeBrowserFullscreen && "hidden",
       )}
     >
       {/* Subtle bottom border only */}
