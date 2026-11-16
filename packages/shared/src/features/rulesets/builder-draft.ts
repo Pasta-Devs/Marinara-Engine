@@ -162,10 +162,21 @@ export function rulesetBuilderId(name: string): string {
   return idText(name, "-", 48) || "my-ruleset";
 }
 
-/** A ruleset id from a name that none of `taken` uses, so a new ruleset never becomes a version of another. */
-export function rulesetBuilderFreeId(name: string, taken: Iterable<string>): string {
+/** Four random base-36 characters for a new ruleset's id. */
+function randomIdTag(): string {
+  const draw = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(draw);
+  return (draw[0]! % 36 ** 4).toString(36).padStart(4, "0");
+}
+
+/**
+ * A ruleset id from a name that none of `taken` uses, so a new ruleset never becomes a version of another.
+ * The random tag keeps it off a removed ruleset's id too: removing a ruleset leaves its sheets on cards and
+ * its chats pinned, so reusing the id would hand the new ruleset those old sheets and chats.
+ */
+export function rulesetBuilderFreeId(name: string, taken: Iterable<string>, tag = randomIdTag()): string {
   const used = new Set([...taken].map((id) => id.replace(/^local\//, "")));
-  const stem = rulesetBuilderId(name).slice(0, 44);
+  const stem = `${rulesetBuilderId(name).slice(0, 44)}-${tag}`;
   let id = stem;
   for (let n = 2; used.has(id); n++) id = `${stem}-${n}`;
   return id;

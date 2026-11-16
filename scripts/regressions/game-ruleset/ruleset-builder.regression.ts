@@ -349,7 +349,20 @@ for (const preset of presets) {
 }
 
 // A new ruleset never takes an installed ruleset's id.
-assert.equal(rulesetBuilderFreeId("My Rules", ["local/my-rules", "my-rules-2"]), "my-rules-3");
-assert.equal(rulesetBuilderFreeId("Fresh", ["5e-2014"]), "fresh");
+assert.equal(rulesetBuilderFreeId("My Rules", ["local/my-rules-ab12", "my-rules-ab12-2"], "ab12"), "my-rules-ab12-3");
+assert.equal(rulesetBuilderFreeId("Fresh", ["5e-2014"], "zz00"), "fresh-zz00");
+
+// Nor a removed one's: two rulesets built under the same name, with nothing installed in between, get different
+// ids, so the second never picks up the first one's sheets on cards or its pinned chats.
+{
+  const ids = new Set(Array.from({ length: 20 }, () => rulesetBuilderFreeId("My Ruleset", [])));
+  assert.ok(ids.size > 1, "repeated names get different ids");
+  for (const id of ids) {
+    assert.match(id, /^my-ruleset-[a-z0-9]{4}$/);
+    parsed(rulesetFromBuilderDraft({ ...rulesetBuilderStarter("d20"), id }, 1));
+  }
+  const long = rulesetBuilderFreeId("x".repeat(80), []);
+  parsed(rulesetFromBuilderDraft({ ...rulesetBuilderStarter("d20"), id: long }, 1));
+}
 
 console.log("Ruleset builder regressions passed.");
