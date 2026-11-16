@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
+  speaksOpenAIChat,
   type ConnectionAccountListItem,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
@@ -21,11 +22,12 @@ import { useDecisionOptions, useSelectDecisionModel } from "../../../hooks/use-d
 import { useJobModels } from "../../connections/ConnectionDefaults";
 import type { ConnectionRowData } from "../../connections/ConnectionRow";
 import { catalogMatchesKind, JOB, jobLabelKey, matchesKind, type JobKey } from "../../../lib/connection-jobs";
-import type { RemoteConnectionModel } from "../../../lib/connection-model-selection";
+import { isDecisionCatalogModel, type RemoteConnectionModel } from "../../../lib/connection-model-selection";
 import { mediaRowFor } from "../../../lib/media-source";
 import {
   errorText,
   kindsOf,
+  NATIVE_DECISION_SOURCE,
   mediaBackendOf,
   PRIMARY_CLASS,
   SECONDARY_CLASS,
@@ -64,6 +66,17 @@ export function usesOf(
     if (own) {
       const name = models.find((model) => model.id === own.model)?.name;
       return [{ kind, job, model: own.model!, rowId: own.id, ...(name ? { name } : {}) }];
+    }
+    // A service with decision models of its own offers one: in the plan first, Jev Latest first among those.
+    if (kind === "decision" && NATIVE_DECISION_SOURCE[provider as ServiceId]) {
+      const decisions = models.filter(isDecisionCatalogModel);
+      const best =
+        decisions.find((model) => model.subscriptionIncluded && model.id === "typesafe/jev-latest") ??
+        decisions.find((model) => model.subscriptionIncluded) ??
+        decisions[0];
+      if (best) return [{ kind, job, model: best.id, name: best.name }];
+      // Gemini has no log-probabilities to fall back on: without a decision model of its own it offers none.
+      if (!speaksOpenAIChat(provider)) return [];
     }
     const logprobs = kind === "decision" ? models.filter((model) => model.capabilities?.logprobs) : [];
     const asText = kind === "chat" || (kind === "decision" && !logprobs.length && wanted === "decision");
@@ -166,7 +179,11 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
           apiKey: "",
           baseUrl: account.baseUrl ?? "",
           accountId: account.id,
-          decisionSource: "openai_compatible",
+          decisionSource: (catalog.data?.models ?? []).some(
+            (model) => model.id === use.model && isDecisionCatalogModel(model),
+          )
+            ? (NATIVE_DECISION_SOURCE[account.provider as ServiceId] ?? "openai_compatible")
+            : "openai_compatible",
           model: use.model,
         })) as { id?: string });
       if (!created.id) return undefined;

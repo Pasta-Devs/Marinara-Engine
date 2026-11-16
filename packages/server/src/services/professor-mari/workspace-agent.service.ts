@@ -790,7 +790,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      'Read or change live app data through structured actions, without shell commands. lorebook.entries returns one page of entry previews as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset. lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
+      'Read or change live app data through structured actions, without shell commands. character.list, persona.list, lorebook.list, preset.list, chat.list and lorebook.entries return one page as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset (the same offset again returns the same page). lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
     parameters: {
       type: "object",
       properties: {
@@ -814,6 +814,9 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         entryId: { type: "string" },
         agentId: { type: "string" },
         presetId: { type: "string" },
+        sectionId: { type: "string" },
+        choiceBlockId: { type: "string" },
+        messageId: { type: "string" },
         widgetId: { type: "string" },
         extensionId: { type: "string" },
         query: { type: "string" },
@@ -830,7 +833,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "integer",
           minimum: 0,
           description:
-            "Start item offset for chat.messages and lorebook.entries, or character offset when paging through a field= read.",
+            "Start item offset for paged reads (character.list, persona.list, lorebook.list, preset.list, chat.list, instruction.list, skill.list, chat.messages, lorebook.entries): pass the previous page's nextOffset. Or the character offset when paging through a field= read.",
         },
         name: { type: "string" },
         version: { type: "string" },
@@ -842,6 +845,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           description:
             "Optional Browser Extension data permissions. Request only what the extension needs. Server Extensions cannot request these capabilities.",
         },
+        content: { type: "string", description: "The fixed reply text for chat.updateMessage." },
         css: { type: "string" },
         js: { type: "string" },
         serverJs: { type: "string" },
@@ -861,6 +865,11 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "object",
           description:
             "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
+        },
+        onboarding: {
+          type: "object",
+          description:
+            "The interactive onboarding block for character.onboarding.update. Put its fields (enabled, description, personality, backstory, appearance, scenario, variables, cardVariables) here directly, never inside another object. Each key you send replaces that whole field; omitted keys stay. Read skill builtin-onboarding with skill.get before writing one.",
         },
       },
       required: ["action"],
@@ -982,7 +991,7 @@ const MARI_SEASON_FLAVORS = new Map<string, string>([
   ],
 ]);
 
-const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
+export const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
 Use Professor Mari's existing character voice as your source of truth:
@@ -1020,7 +1029,7 @@ Command families:
 - \`package_service\`: actions that installed Agent packages offer you. Call it with no arguments to see which packages offer which actions and inputs; never guess an action name. Running one (\`package\`, \`action\`, \`input\`) acts inside that package and may spend its AI budget, so run it only for a change the user asked for. The package validates the input; on an error, fix the input or tell the user.
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
-- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
+- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
 - \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
 - \`mari characters\`: list, get, search, create, update, delete. Use it for a CLI-only operation (deleting a card) or when the user asks for the CLI; in a task, read with \`app_data\` \`character.get\`, which keeps the card's attached \`lorebooks\`.
 - \`mari personas\`: list, get, search, create, update, delete. Prefer this helper for persona edits.

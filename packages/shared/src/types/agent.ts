@@ -767,6 +767,15 @@ export function normalizeCustomAgentCapabilities(
   return capabilities;
 }
 
+export const DEFAULT_LOREBOOK_WRITER_ORDER = 100;
+
+export type LorebookWriterOrder = number | "growing";
+
+export function parseLorebookWriterOrder(value: unknown): LorebookWriterOrder | undefined {
+  if (value === "growing") return value;
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : undefined;
+}
+
 export function customAgentHasCapability(
   settings: Record<string, unknown> | null | undefined,
   capability: CustomAgentCapability,

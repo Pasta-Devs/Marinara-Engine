@@ -22,11 +22,24 @@ export function useChatPresets(mode?: ChatMode | null) {
   });
 }
 
+/** Saved secrets come back masked; naming the source chat lets the server keep that chat's values. */
+function fromChatQuery(fromChatId: string | null | undefined) {
+  return fromChatId ? `?fromChatId=${encodeURIComponent(fromChatId)}` : "";
+}
+
 export function useCreateChatPreset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; mode: ChatMode; settings: ChatPresetSettings }) =>
-      api.post<ChatPreset>("/chat-presets", data),
+    // fromChatId: the chat the settings were copied from, whose saved DeepL key and webhook (sent as masks) to keep.
+    mutationFn: ({
+      fromChatId,
+      ...data
+    }: {
+      name: string;
+      mode: ChatMode;
+      settings: ChatPresetSettings;
+      fromChatId?: string | null;
+    }) => api.post<ChatPreset>(`/chat-presets${fromChatQuery(fromChatId)}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatPresetKeys.all }),
   });
 }
@@ -43,8 +56,15 @@ export function useUpdateChatPreset() {
 export function useSaveChatPresetSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, settings }: { id: string; settings: ChatPresetSettings }) =>
-      api.put<ChatPreset>(`/chat-presets/${id}/settings`, settings),
+    mutationFn: ({
+      id,
+      settings,
+      fromChatId,
+    }: {
+      id: string;
+      settings: ChatPresetSettings;
+      fromChatId?: string | null;
+    }) => api.put<ChatPreset>(`/chat-presets/${id}/settings${fromChatQuery(fromChatId)}`, settings),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatPresetKeys.all }),
   });
 }

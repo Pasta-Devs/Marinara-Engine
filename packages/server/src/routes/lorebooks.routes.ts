@@ -546,7 +546,11 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const filepath = assertInsideDir(LOREBOOK_IMAGES_DIR, join(LOREBOOK_IMAGES_DIR, filename));
     await writeFile(filepath, buffer);
 
-    const updated = await storage.update(req.params.id, { imagePath: `/api/lorebooks/images/file/${filename}` });
+    // A new picture starts uncropped.
+    const updated = await storage.update(req.params.id, {
+      imagePath: `/api/lorebooks/images/file/${filename}`,
+      imageCrop: null,
+    });
     if (!updated) return reply.status(404).send({ error: "Lorebook not found" });
     return updated;
   });

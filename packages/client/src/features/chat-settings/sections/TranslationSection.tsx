@@ -1,6 +1,6 @@
 import { Languages, RotateCcw, Save } from "lucide-react";
 import { useRef, useState } from "react";
-import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, estimateTextTokens } from "@marinara-engine/shared";
+import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, estimateTextTokens, isStoredSecretMask } from "@marinara-engine/shared";
 import { formatEstimatedTokens } from "../../../lib/character-token-count";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { DraftTextarea } from "../../../components/ui/DraftTextarea";
@@ -27,6 +27,7 @@ interface TranslationSectionProps {
 
 export function TranslationSection({ chatId, metadata, onMetadataChange }: TranslationSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const deeplKeySaved = isStoredSecretMask(metadata.translationDeeplApiKey);
   const { data: hasSavedDefaults } = useTranslatorDefaults();
   const saveDefaults = useSaveTranslatorDefaults();
   // Queue the whole prompt mutation below; nesting its API queue would deadlock.
@@ -187,13 +188,28 @@ export function TranslationSection({ chatId, metadata, onMetadataChange }: Trans
             <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.chatSettings.translationsection.deeplApiKey")}
             </label>
+            {/* A saved key comes back as a mask: the server keeps it, so the field starts empty and can replace it. */}
             <input
               type="password"
-              value={(metadata.translationDeeplApiKey as string | undefined) ?? ""}
+              value={deeplKeySaved ? "" : ((metadata.translationDeeplApiKey as string | undefined) ?? "")}
               onChange={(e) => onMetadataChange({ translationDeeplApiKey: e.target.value })}
-              placeholder={localizeUi("ui.chatSettings.translationsection.xxxxxxxxXxxxXxxxXxxxXxxxxxxxxxxxFx")}
+              placeholder={localizeUi(
+                deeplKeySaved
+                  ? "ui.chatSettings.translationsection.deeplApiKeySaved"
+                  : "ui.chatSettings.translationsection.xxxxxxxxXxxxXxxxXxxxXxxxxxxxxxxxFx",
+              )}
+              autoComplete="off"
               className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
             />
+            {deeplKeySaved && (
+              <button
+                type="button"
+                onClick={() => onMetadataChange({ translationDeeplApiKey: "" })}
+                className="mt-1 text-[0.625rem] text-[var(--muted-foreground)] underline-offset-2 hover:text-[var(--foreground)] hover:underline"
+              >
+                {localizeUi("ui.chatSettings.translationsection.forgetDeeplApiKey")}
+              </button>
+            )}
           </div>
         )}
 

@@ -105,6 +105,8 @@ import {
   UTILITY_SIDECAR_CONNECTION_ID,
   MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   MIN_AGENT_MAX_TOKENS,
+  DEFAULT_LOREBOOK_WRITER_ORDER,
+  parseLorebookWriterOrder,
   getDefaultBuiltInAgentSettings,
   getDefaultAgentPrompt,
   isAgentConfigDeleted,
@@ -826,6 +828,13 @@ export function AgentEditor() {
   const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
   const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
   const [localLorebookReadBehindMessages, setLocalLorebookReadBehindMessages] = useState(0);
+  const [localLorebookOrderMode, setLocalLorebookOrderMode] = useState<"fixed" | "growing" | "legacy">("fixed");
+  const [localFixedLorebookOrder, setLocalFixedLorebookOrder] = useState(String(DEFAULT_LOREBOOK_WRITER_ORDER));
+  const newLorebookEntryOrder = parseLorebookWriterOrder(
+    localLorebookOrderMode === "fixed" && localFixedLorebookOrder !== ""
+      ? Number(localFixedLorebookOrder)
+      : localLorebookOrderMode,
+  );
   const [localLorebookBackfillEnabled, setLocalLorebookBackfillEnabled] = useState(false);
   const [localLorebookBackfillChunkSize, setLocalLorebookBackfillChunkSize] = useState(
     DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE,
@@ -1027,6 +1036,9 @@ export function AgentEditor() {
       );
       setLocalWritableLorebookId(writableLorebookId);
       setLocalLorebookReadBehindMessages(normalizeLorebookReadBehindMessages(settings.lorebookReadBehindMessages));
+      const writerOrder = parseLorebookWriterOrder(settings.newLorebookEntryOrder);
+      setLocalLorebookOrderMode(writerOrder === "growing" ? "growing" : writerOrder === undefined ? "legacy" : "fixed");
+      setLocalFixedLorebookOrder(String(typeof writerOrder === "number" ? writerOrder : DEFAULT_LOREBOOK_WRITER_ORDER));
       setLocalLorebookBackfillEnabled(settings.lorebookBackfillEnabled === true);
       setLocalLorebookBackfillChunkSize(normalizeLorebookBackfillChunkSize(settings.lorebookBackfillChunkSize));
       setLocalMusicProvider(normalizeMusicProvider(settings));
@@ -1159,6 +1171,8 @@ export function AgentEditor() {
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
       setLocalLorebookReadBehindMessages(0);
+      setLocalLorebookOrderMode("fixed");
+      setLocalFixedLorebookOrder(String(DEFAULT_LOREBOOK_WRITER_ORDER));
       setLocalLorebookBackfillEnabled(false);
       setLocalLorebookBackfillChunkSize(DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE);
       setLocalMusicProvider(normalizeMusicProvider(defaultSettings));
@@ -1227,6 +1241,8 @@ export function AgentEditor() {
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
       setLocalLorebookReadBehindMessages(0);
+      setLocalLorebookOrderMode("fixed");
+      setLocalFixedLorebookOrder(String(DEFAULT_LOREBOOK_WRITER_ORDER));
       setLocalLorebookBackfillEnabled(false);
       setLocalLorebookBackfillChunkSize(DEFAULT_LOREBOOK_BACKFILL_CHUNK_SIZE);
       setLocalMusicProvider("spotify");
@@ -1496,6 +1512,13 @@ export function AgentEditor() {
     if (lorebookWriterEnabled && !writableLorebookId) {
       return "Select a target lorebook before enabling lorebook writing for this agent.";
     }
+    if (
+      (lorebookWriterEnabled || lorebookReadBehindEnabled) &&
+      localLorebookOrderMode === "fixed" &&
+      newLorebookEntryOrder === undefined
+    ) {
+      return localizeUi("ui.agents.agenteditor.invalidFixedLorebookOrder");
+    }
     const effectiveEnabledTools = Array.from(
       new Set(
         lorebookWriterEnabled
@@ -1591,6 +1614,7 @@ export function AgentEditor() {
               writableLorebookIds: [writableLorebookId],
             }
           : {}),
+        ...(lorebookWriterEnabled || lorebookReadBehindEnabled ? { newLorebookEntryOrder } : {}),
         ...(lorebookReadBehindEnabled ? { lorebookReadBehindMessages: localLorebookReadBehindMessages } : {}),
         ...(lorebookReadBehindEnabled
           ? {
@@ -1682,6 +1706,8 @@ export function AgentEditor() {
     localLorebookWriteEnabled,
     localWritableLorebookId,
     localLorebookReadBehindMessages,
+    localLorebookOrderMode,
+    newLorebookEntryOrder,
     localLorebookBackfillEnabled,
     localLorebookBackfillChunkSize,
     localMusicProvider,
@@ -1861,6 +1887,14 @@ export function AgentEditor() {
     const savedAuthor = localAuthor.trim() || (builtIn ? DEFAULT_AGENT_AUTHOR : "Unknown");
     const savedPromptTemplates = normalizeAgentPromptTemplateOptions(localPromptTemplates);
     const exportingMusicAgent = agentType === "spotify";
+    if (
+      (lorebookWriterEnabled || lorebookReadBehindEnabled) &&
+      localLorebookOrderMode === "fixed" &&
+      newLorebookEntryOrder === undefined
+    ) {
+      toast.error(localizeUi("ui.agents.agenteditor.invalidFixedLorebookOrder"));
+      return;
+    }
     const settings = sanitizeAgentSettingsForTransfer({
       author: savedAuthor,
       promptTemplates: savedPromptTemplates,
@@ -1905,6 +1939,7 @@ export function AgentEditor() {
             writableLorebookIds: [writableLorebookId],
           }
         : {}),
+      ...(lorebookWriterEnabled || lorebookReadBehindEnabled ? { newLorebookEntryOrder } : {}),
       ...(lorebookReadBehindEnabled ? { lorebookReadBehindMessages: localLorebookReadBehindMessages } : {}),
       ...(lorebookReadBehindEnabled
         ? {
@@ -1996,6 +2031,7 @@ export function AgentEditor() {
   // without a saved config has no record for her to change.
   const mariContentRef = useRef<HTMLDivElement>(null);
   const descriptionLabelId = useId();
+  const growingOrderDescriptionId = useId();
   const agentRecordId = dbConfig?.id ?? null;
   const scrollToMariField = useCallback(
     (field: HTMLElement) => field.scrollIntoView({ block: "center", behavior: "smooth" }),
@@ -2878,6 +2914,61 @@ export function AgentEditor() {
                     </p>
                   )}
                 </div>
+
+                {(canConfigureLorebookTarget || canConfigureLorebookReadBehind) && (
+                  <>
+                    <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <span className="font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.agents.agenteditor.newLorebookEntryOrder")}
+                      </span>
+                      <select
+                        value={localLorebookOrderMode}
+                        aria-describedby={localLorebookOrderMode === "growing" ? growingOrderDescriptionId : undefined}
+                        onChange={(event) => {
+                          const mode = event.target.value;
+                          if (mode !== "fixed" && mode !== "growing" && mode !== "legacy") return;
+                          setLocalLorebookOrderMode(mode);
+                          markDirty();
+                        }}
+                        className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                      >
+                        <option value="fixed">{localizeUi("ui.agents.agenteditor.lorebookOrderFixed")}</option>
+                        <option value="growing">{localizeUi("ui.agents.agenteditor.lorebookOrderGrowing")}</option>
+                        <option value="legacy">
+                          {localResultType === "lorebook_update"
+                            ? localizeUi("ui.agents.agenteditor.lorebookOrderAgentSupplied")
+                            : localizeUi("ui.agents.agenteditor.lorebookOrderDefault")}
+                        </option>
+                      </select>
+                    </label>
+                    {localLorebookOrderMode === "growing" && (
+                      <p
+                        id={growingOrderDescriptionId}
+                        className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]"
+                      >
+                        {localizeUi("ui.agents.agenteditor.lorebookOrderGrowingDescription")}
+                      </p>
+                    )}
+                    {localLorebookOrderMode === "fixed" && (
+                      <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                        <span className="font-medium text-[var(--foreground)]">
+                          {localizeUi("ui.agents.agenteditor.fixedLorebookOrder")}
+                        </span>
+                        <input
+                          type="number"
+                          step={1}
+                          value={localFixedLorebookOrder}
+                          onChange={(event) => {
+                            setLocalFixedLorebookOrder(event.target.value);
+                            setLocalLorebookOrderMode("fixed");
+                            markDirty();
+                          }}
+                          className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
 
                 <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
                   <span className="font-medium text-[var(--foreground)]">

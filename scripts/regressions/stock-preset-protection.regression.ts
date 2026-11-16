@@ -53,6 +53,26 @@ try {
   assert.equal(editableCopy?.systemKey, "", "editable copies do not inherit the reserved stock identity");
 
   assert.ok(restored && editableCopy, "both the restored stock preset and editable copy exist");
+  await storage.update(editableCopy.id, { name: restored.name });
+  await storage.setDefault(editableCopy.id);
+  const protectedCopy = await storage.setSystemKey(editableCopy.id, restored.systemKey);
+  assert.ok(protectedCopy);
+  const copySections = await storage.listSections(editableCopy.id);
+  await seedDefaultPreset(db);
+  assert.deepEqual(
+    (await storage.list()).filter(isStockMarinaraUniversalPreset).map((preset) => preset.id),
+    [restored.id],
+    "startup keeps the verified stock row even when a protected copy is newer and chosen as the default",
+  );
+  assert.deepEqual(
+    await storage.getById(editableCopy.id),
+    { ...protectedCopy, systemKey: "" },
+    "startup removes only the extra protection flag",
+  );
+  assert.deepEqual(await storage.listSections(editableCopy.id), copySections, "the copy keeps its sections and IDs");
+  await seedDefaultPreset(db);
+  assert.equal((await storage.getById(editableCopy.id))?.systemKey, "", "subsequent startups leave the copy editable");
+
   const matchingUserPreset = await storage.create(
     {
       name: "Marinara's Universal Preset",

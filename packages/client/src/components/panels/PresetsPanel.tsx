@@ -34,7 +34,7 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
+import { useUIStore } from "../../stores/ui.store";
 import { api, ApiError } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
@@ -60,10 +60,24 @@ import {
   Camera,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { sortBasicPanelItems, sortPanelFolders } from "../../lib/panel-sort";
+import {
+  sortBasicPanelItems,
+  sortFoldersByTokens,
+  sortItemsByTokens,
+  sortPanelFolders,
+  type LibrarySort,
+} from "../../lib/panel-sort";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { isTokenSort } from "@marinara-engine/shared";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
-import { getFolderImportEntries, isPatternSafe, isStockMarinaraUniversalPreset } from "@marinara-engine/shared";
+import {
+  getFolderImportEntries,
+  isBuiltInRegexScript,
+  isPatternSafe,
+  isStockMarinaraUniversalPreset,
+} from "@marinara-engine/shared";
+import { BuiltInPresetBadge } from "./BuiltInPresetBadge";
 import {
   createCustomToolFolderPackageFiles,
   importCustomToolEntries,
@@ -106,6 +120,7 @@ type PresetRow = {
   author?: string;
   systemKey?: string;
   sectionOrder?: string | string[];
+  tokenEstimate?: number;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -347,17 +362,26 @@ export function PresetsPanel() {
         (p.author ?? "").toLowerCase().includes(q),
     );
   }, [presets, search]);
+  const sortPresetRows = useCallback(
+    (items: readonly PresetRow[]) =>
+      isTokenSort(sort)
+        ? sortItemsByTokens(
+            items,
+            sort,
+            (preset) => preset.tokenEstimate,
+            (preset) => preset.name,
+          )
+        : sortBasicPanelItems(
+            items,
+            sort,
+            (preset) => preset.name,
+            (preset) => preset.createdAt || preset.updatedAt,
+          ),
+    [sort],
+  );
   const sortedPresets = useMemo(
-    () =>
-      orderLibraryItems(
-        sortBasicPanelItems(
-          filteredPresets,
-          sort,
-          (preset) => preset.name,
-          (preset) => preset.createdAt || preset.updatedAt,
-        ),
-      ),
-    [filteredPresets, sort, orderLibraryItems],
+    () => orderLibraryItems(sortPresetRows(filteredPresets)),
+    [filteredPresets, sortPresetRows, orderLibraryItems],
   );
   const presetSearchActive = search.trim().length > 0;
 
@@ -374,6 +398,11 @@ export function PresetsPanel() {
   const rootPresets = useMemo(
     () => sortedPresets.filter((preset) => !folderedPresetIds.has(preset.id)),
     [sortedPresets, folderedPresetIds],
+  );
+  const builtInPresets = rootPresets.filter(isStockMarinaraUniversalPreset);
+  const otherRootPresets = rootPresets.filter((preset) => !isStockMarinaraUniversalPreset(preset));
+  const hasVisiblePresetFolder = presetFolders.some(
+    (folder) => !presetSearchActive || folder.itemIds.some((id) => presetById.has(id)),
   );
 
   // Presets shows GLOBAL regex scripts only. Character-scoped scripts (non-empty
@@ -923,6 +952,11 @@ export function PresetsPanel() {
       const wrapFormat = (preset.wrapFormat ?? "xml") as string;
       const isDefault = String(preset.isDefault) === "true";
       const isStock = isStockMarinaraUniversalPreset(preset);
+      const defaultBadge = isDefault && (
+        <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
+          {localizeUi("ui.panels.presetspanel.default")}
+        </span>
+      );
       const artwork = resolvePresetArtwork(preset);
       const pictureLabel = artwork
         ? localizeUi("ui.panels.presetspanel.replacePresetPicture")
@@ -1040,25 +1074,43 @@ export function PresetsPanel() {
             )}
             <div
               data-preset-open-action={preset.id}
-              className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-36 [@media(pointer:coarse)]:pr-36")}
+              className={cn(
+                "min-w-0 flex-1",
+                !selectionMode &&
+                  (isStock && !activeChat
+                    ? "max-md:pr-24 [@media(pointer:coarse)]:pr-24"
+                    : "max-md:pr-36 [@media(pointer:coarse)]:pr-36"),
+              )}
             >
               <div className="flex min-w-0 items-center gap-1.5">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5" title={preset.name}>
+                <span
+                  className={cn("min-w-0 flex-1 text-sm font-medium leading-5", isStock ? "break-words" : "truncate")}
+                  title={preset.name}
+                >
                   {preset.name}
                 </span>
-                {isDefault && (
-                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
-                    {localizeUi("ui.panels.presetspanel.default")}
-                  </span>
-                )}
+                {!isStock && defaultBadge}
               </div>
-              <div className="flex min-w-0 items-center gap-2 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
+              <div
+                className={cn(
+                  "flex min-w-0 items-center gap-x-2 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]",
+                  isStock && "flex-wrap gap-y-0.5",
+                )}
+              >
+                {isStock && <BuiltInPresetBadge />}
+                {isStock && defaultBadge}
                 <span className="flex shrink-0 items-center gap-0.5">
                   {wrapFormat === "xml" ? <Code2 size="0.5625rem" /> : <Hash size="0.5625rem" />}
                   {wrapFormat.toUpperCase()}
                 </span>
                 <span className="shrink-0">
                   {sectionCount} {localizeUi("ui.presets.sectionstab.sections")}
+                </span>
+                <span
+                  className="mari-chrome-text-muted flex shrink-0 items-center gap-1"
+                  title={localizeUi("ui.panels.presetspanel.tokenEstimateHint")}
+                >
+                  {formatEstimatedTokens(preset.tokenEstimate ?? 0, localizeUi)}
                 </span>
                 {preset.author && (
                   <span
@@ -1168,6 +1220,7 @@ export function PresetsPanel() {
       );
     },
     [
+      activeChat,
       activePresetId,
       canAssignToActiveChat,
       deletePreset,
@@ -1227,8 +1280,9 @@ export function PresetsPanel() {
           onChange: (value) => {
             manualOrder.setActive(value === "custom");
             folderDrag.setActive(value === "custom");
-            if (value !== "custom") setSort(value as ResourcePanelSort);
+            if (value !== "custom") setSort(value as LibrarySort);
           },
+          tokenSort: true,
         }}
         folder={{
           label: localizeUi("ui.panels.backgroundpicker.newFolder"),
@@ -1255,161 +1309,174 @@ export function PresetsPanel() {
             {localizeUi("ui.panels.presetspanel.selectAllPresets")}
           </label>
         )}
+        {builtInPresets.length > 0 && (
+          <div className="stagger-children flex flex-col gap-1 rounded-xl transition-colors">
+            {builtInPresets.map(renderPresetRow)}
+            {(otherRootPresets.length > 0 || hasVisiblePresetFolder) && (
+              <hr className="mx-2 my-1 border-[var(--border)]" />
+            )}
+          </div>
+        )}
         <div className="flex flex-col gap-0.5">
-          {folderDrag.orderItems(sortPanelFolders(presetFolders, sort)).map((folder) => {
-            const isEditing = editingFolderId === folder.id;
-            const folderItems = orderLibraryItems(
-              sortBasicPanelItems(
-                folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),
-                sort,
-                (preset) => preset.name,
-                (preset) => preset.createdAt || preset.updatedAt,
-              ),
-            );
-            if (presetSearchActive && folderItems.length === 0) return null;
-            const isExpanded = (presetSearchActive && folderItems.length > 0) || expandedFolderId === folder.id;
-            return (
-              <div
-                key={folder.id}
-                {...folderDrag.bind(folder.id)}
-                data-preset-folder-id={folder.id}
-                onDragOver={(event) => {
-                  if (draggedPresetId) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const payload = event.dataTransfer.getData("application/x-marinara-preset-ids");
-                  handlePresetDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
-                }}
-                className="flex flex-col rounded-lg transition-colors"
-              >
+          {folderDrag
+            .orderItems(
+              isTokenSort(sort)
+                ? sortFoldersByTokens(presetFolders, sort, (folder) =>
+                    folder.itemIds.reduce((total, id) => total + (presetById.get(id)?.tokenEstimate ?? 0), 0),
+                  )
+                : sortPanelFolders(presetFolders, sort),
+            )
+            .map((folder) => {
+              const isEditing = editingFolderId === folder.id;
+              const folderItems = orderLibraryItems(
+                sortPresetRows(
+                  folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),
+                ),
+              );
+              if (presetSearchActive && folderItems.length === 0) return null;
+              const isExpanded = (presetSearchActive && folderItems.length > 0) || expandedFolderId === folder.id;
+              return (
                 <div
-                  data-drag-surface
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isExpanded}
-                  aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", {
-                    value1: isExpanded
-                      ? localizeUi("ui.panels.ttsconfigcard.collapse")
-                      : localizeUi("ui.panels.ttsconfigcard.expand"),
-                    value2: folder.name,
-                  })}
-                  title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
-                  className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40 max-md:pr-12 [@media(pointer:coarse)]:pr-12"
-                  onClick={(event) =>
-                    handleFolderRenameGesture(folder.id, event, {
-                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
-                      onRename: () => {
-                        setEditingFolderId(folder.id);
-                        setEditFolderName(folder.name);
-                      },
-                    })
-                  }
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget) return;
-                    handleFolderRenameKeyDown(event, {
-                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
-                      onRename: () => {
-                        setEditingFolderId(folder.id);
-                        setEditFolderName(folder.name);
-                      },
-                    });
+                  key={folder.id}
+                  {...folderDrag.bind(folder.id)}
+                  data-preset-folder-id={folder.id}
+                  onDragOver={(event) => {
+                    if (draggedPresetId) {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                    }
                   }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const payload = event.dataTransfer.getData("application/x-marinara-preset-ids");
+                    handlePresetDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
+                  }}
+                  className="flex flex-col rounded-lg transition-colors"
                 >
-                  <ChevronRight
-                    size="0.75rem"
-                    className={cn(
-                      "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
-                      isExpanded && "rotate-90",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    {isEditing ? (
-                      <input
-                        autoFocus
-                        value={editFolderName}
-                        onChange={(event) => setEditFolderName(event.target.value)}
-                        onKeyDown={(event) =>
-                          handleFolderRenameInputKeyDown(event, () => {
-                            setEditingFolderId(null);
-                            setEditFolderName("");
-                          })
-                        }
-                        onClick={(event) => event.stopPropagation()}
-                        onBlur={() => handleRenameFolder(folder.id)}
-                        className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--marinara-chat-chrome-input-border-focus)]"
-                      />
-                    ) : (
-                      <>
-                        <div className="mari-chrome-text truncate text-xs font-medium">{folder.name}</div>
-                      </>
-                    )}
-                  </div>
-                  {folderItems.length > 0 && (
-                    <span
-                      data-folder-item-count="inline"
-                      className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
-                    >
-                      {folderItems.length}
-                    </span>
-                  )}
                   <div
-                    data-folder-actions
-                    className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
+                    data-drag-surface
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", {
+                      value1: isExpanded
+                        ? localizeUi("ui.panels.ttsconfigcard.collapse")
+                        : localizeUi("ui.panels.ttsconfigcard.expand"),
+                      value2: folder.name,
+                    })}
+                    title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
+                    className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40 max-md:pr-12 [@media(pointer:coarse)]:pr-12"
+                    onClick={(event) =>
+                      handleFolderRenameGesture(folder.id, event, {
+                        onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                        onRename: () => {
+                          setEditingFolderId(folder.id);
+                          setEditFolderName(folder.name);
+                        },
+                      })
+                    }
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      handleFolderRenameKeyDown(event, {
+                        onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                        onRename: () => {
+                          setEditingFolderId(folder.id);
+                          setEditFolderName(folder.name);
+                        },
+                      });
+                    }}
                   >
+                    <ChevronRight
+                      size="0.75rem"
+                      className={cn(
+                        "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
+                        isExpanded && "rotate-90",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editFolderName}
+                          onChange={(event) => setEditFolderName(event.target.value)}
+                          onKeyDown={(event) =>
+                            handleFolderRenameInputKeyDown(event, () => {
+                              setEditingFolderId(null);
+                              setEditFolderName("");
+                            })
+                          }
+                          onClick={(event) => event.stopPropagation()}
+                          onBlur={() => handleRenameFolder(folder.id)}
+                          className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--marinara-chat-chrome-input-border-focus)]"
+                        />
+                      ) : (
+                        <>
+                          <div className="mari-chrome-text truncate text-xs font-medium">{folder.name}</div>
+                        </>
+                      )}
+                    </div>
                     {folderItems.length > 0 && (
                       <span
-                        data-folder-item-count="actions"
-                        className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
+                        data-folder-item-count="inline"
+                        className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)] max-md:hidden [@media(pointer:coarse)]:hidden"
                       >
                         {folderItems.length}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void confirmNonEmptyFolderDelete(folder.itemIds.length, {
-                          title: "Delete Folder",
-                          message: `Delete "${folder.name}"? Its ${folder.itemIds.length} preset${
-                            folder.itemIds.length === 1 ? "" : "s"
-                          } will move out of the folder.`,
-                          confirmLabel: "Delete",
-                          tone: "destructive",
-                        }).then((ok) => {
-                          if (!ok) return;
-                          deletePresetFolder.mutate(folder.id);
-                          if (expandedFolderId === folder.id) setExpandedFolderId(null);
-                        });
-                      }}
-                      className="mari-chrome-control mari-chrome-control--small p-1"
-                      title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
-                      aria-label={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                    <div
+                      data-folder-actions
+                      className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto"
                     >
-                      <Trash2 size="0.6875rem" />
-                    </button>
+                      {folderItems.length > 0 && (
+                        <span
+                          data-folder-item-count="actions"
+                          className="hidden px-1 text-[0.5625rem] text-[var(--muted-foreground)] max-md:inline [@media(pointer:coarse)]:inline"
+                        >
+                          {folderItems.length}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void confirmNonEmptyFolderDelete(folder.itemIds.length, {
+                            title: "Delete Folder",
+                            message: `Delete "${folder.name}"? Its ${folder.itemIds.length} preset${
+                              folder.itemIds.length === 1 ? "" : "s"
+                            } will move out of the folder.`,
+                            confirmLabel: "Delete",
+                            tone: "destructive",
+                          }).then((ok) => {
+                            if (!ok) return;
+                            deletePresetFolder.mutate(folder.id);
+                            if (expandedFolderId === folder.id) setExpandedFolderId(null);
+                          });
+                        }}
+                        className="mari-chrome-control mari-chrome-control--small p-1"
+                        title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                        aria-label={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                      >
+                        <Trash2 size="0.6875rem" />
+                      </button>
+                    </div>
                   </div>
+                  <SmoothFolderContent
+                    open={isExpanded}
+                    className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                    innerClassName="flex flex-col gap-0.5"
+                  >
+                    {folderItems.length === 0 ? (
+                      <p className="mari-chrome-text-muted py-2 text-[0.625rem] italic">
+                        {localizeUi("ui.panels.presetspanel.dropPresetsHere")}
+                      </p>
+                    ) : (
+                      folderItems.map((preset) => renderPresetRow(preset))
+                    )}
+                  </SmoothFolderContent>
                 </div>
-                <SmoothFolderContent
-                  open={isExpanded}
-                  className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
-                  innerClassName="flex flex-col gap-0.5"
-                >
-                  {folderItems.length === 0 ? (
-                    <p className="mari-chrome-text-muted py-2 text-[0.625rem] italic">
-                      {localizeUi("ui.panels.presetspanel.dropPresetsHere")}
-                    </p>
-                  ) : (
-                    folderItems.map((preset) => renderPresetRow(preset))
-                  )}
-                </SmoothFolderContent>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         {/* Loading */}
@@ -1455,7 +1522,7 @@ export function PresetsPanel() {
         )}
 
         <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-          {rootPresets.map((preset) => renderPresetRow(preset))}
+          {otherRootPresets.map(renderPresetRow)}
         </div>
 
         {activeChat && !selectionMode && (
@@ -1826,8 +1893,9 @@ function RegexSection({
           disabled={busy}
           onClick={() => (selectionMode ? toggleSelection(script.id) : openRegexDetail(script.id))}
         >
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="min-w-0 break-words text-xs font-medium">{script.name}</span>
+            {isBuiltInRegexScript(script.id) && <BuiltInPresetBadge />}
             {paused && enabled && (
               <span
                 title={localizeUi("regex.library.pausedByFolder")}

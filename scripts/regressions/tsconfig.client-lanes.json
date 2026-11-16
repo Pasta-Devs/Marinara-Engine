@@ -21,9 +21,9 @@
     "game-narration-html-cache.regression.ts",
     "game-session-log-memo.regression.ts",
     "tts/tts-safari-play-guard.regression.ts",
-    "client-runtime-diagnostics.regression.ts",
+    "ui/client-runtime-diagnostics.regression.ts",
     "characters/character-form-rebase.regression.ts",
-    "mari-editor-fields.regression.ts",
+    "mari/mari-editor-fields.regression.ts",
     "game-ruleset/ruleset-catalog-picker.regression.ts",
     "game-ruleset/ruleset-catalog-refresh.regression.ts",
     "game-ruleset/ruleset-combat-bridge-client.regression.ts",
@@ -35,11 +35,11 @@
     "game-inventory-refusal-client.regression.ts",
     "game-audio-experience-music.regression.ts",
     "package-audio-player.regression.ts",
-    "onboarding-preview-highlight.regression.ts",
+    "ui/onboarding-preview-highlight.regression.ts",
     "state-editor.regression.ts",
     "preset-section-tokens.regression.ts",
     "tts/local-music-playback-errors.regression.ts",
     "marinara-host-namespace.regression.ts",
-    "narrator-avatar-borders.regression.ts"
+    "roleplay/narrator-avatar-borders.regression.ts"
   ]
 }

@@ -8,7 +8,7 @@ import type { DB } from "./connection.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { importMarinara } from "../services/import/marinara.importer.js";
-import { choiceBlocks, promptGroups, promptSections } from "./schema/index.js";
+import { choiceBlocks, promptGroups, promptPresets, promptSections } from "./schema/index.js";
 import {
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_GAME_SYSTEM_PROMPT,
@@ -21,7 +21,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
-import { eq } from "./file-query.js";
+import { eq, inArray } from "./file-query.js";
 import { migrateLegacyDefaultConversationPromptLead } from "./default-conversation-prompt-migration.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -365,7 +365,27 @@ export async function seedDefaultPreset(db: DB) {
   const appliedHash = await appSettings.get(MARINARA_PRESET_SEED_HASH_KEY);
   const appliedSnapshotHash = await appSettings.get(MARINARA_PRESET_SNAPSHOT_KEY);
   const bundledSnapshotHash = computeBundledPresetSnapshotHash(bundled.envelope);
-  let existingMarinaraPreset = existing.find(isStockMarinaraUniversalPreset);
+  const stockPresets = existing.filter(isStockMarinaraUniversalPreset);
+  let existingMarinaraPreset = stockPresets[0];
+
+  if (stockPresets.length > 1) {
+    // Older profile imports could preserve the reserved key on multiple rows.
+    // Keep a verified seed when possible and release the others in place.
+    const candidates = stockPresets
+      .slice()
+      .sort((a, b) => Number(b.isDefault === "true") - Number(a.isDefault === "true"));
+    for (const candidate of candidates) {
+      const snapshotHash = await computePresetSnapshotHash(storage, candidate.id);
+      if (snapshotHash && snapshotHash === (appliedSnapshotHash ?? bundledSnapshotHash)) {
+        existingMarinaraPreset = candidate;
+        break;
+      }
+    }
+    const extraIds = stockPresets
+      .filter((preset) => preset.id !== existingMarinaraPreset?.id)
+      .map((preset) => preset.id);
+    await db.update(promptPresets).set({ systemKey: "" }).where(inArray(promptPresets.id, extraIds));
+  }
 
   // One-time migration for presets seeded before the reserved system key
   // existed. Match immutable seed evidence rather than editable name/author

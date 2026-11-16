@@ -26,7 +26,8 @@ import {
 export const lorebookKeys = {
   all: ["lorebooks"] as const,
   list: () => [...lorebookKeys.all, "list"] as const,
-  byCategory: (cat: string) => [...lorebookKeys.all, "category", cat] as const,
+  categories: () => [...lorebookKeys.all, "category"] as const,
+  byCategory: (cat: string) => [...lorebookKeys.categories(), cat] as const,
   page: (category: string, search: string, sort: string, activeKey: string) =>
     [...lorebookKeys.list(), "page", category, search, sort, activeKey] as const,
   detail: (id: string) => [...lorebookKeys.all, "detail", id] as const,
@@ -58,6 +59,7 @@ export function useLorebooks(category?: string, options: { includeHidden?: boole
 }
 
 export function useLorebookPages(options: {
+  enabled?: boolean;
   category?: string;
   search?: string;
   sort?: string;
@@ -99,12 +101,16 @@ export function useLorebookPages(options: {
         if (options.active.personaId) params.set("personaId", options.active.personaId);
         if (options.active.chatId) params.set("chatId", options.active.chatId);
       }
-      return api.get<PaginatedList<LorebookListItem>>(`/lorebooks?${params.toString()}`);
+      return api.get<LorebookPage>(`/lorebooks?${params.toString()}`);
     },
     getNextPageParam: getNextPageOffset,
     staleTime: 5 * 60_000,
+    enabled: options.enabled ?? true,
   });
 }
+
+/** A lorebook list page; under a size sort it also carries each folder's total over matching books. */
+export type LorebookPage = PaginatedList<LorebookListItem> & { folderTokenTotals?: Record<string, number> };
 
 export function flattenLorebookPages(data: { pages?: Array<PaginatedList<LorebookListItem>> } | undefined) {
   return flattenPaginatedItems(data?.pages);
@@ -199,7 +205,7 @@ export function useUpdateLorebook() {
       // pre-save snapshot for one frame and remounts conditional sections.
       qc.setQueryData(lorebookKeys.detail(variables.id), data);
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
-      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.categories() });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
     },
   });
@@ -212,11 +218,12 @@ export function useSetLorebooksEnabled() {
     mutationFn: (input: { ids: string[]; enabled: boolean }) =>
       api.post<SetLorebooksEnabledResult>("/lorebooks/bulk-enabled", input),
     onSuccess: (result) => {
+      // Refetch the lists even when nothing changed: a caller showing a stale state learns the real one.
+      qc.invalidateQueries({ queryKey: lorebookKeys.list() });
+      qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      qc.invalidateQueries({ queryKey: lorebookKeys.categories() });
       if (result.changedIds.length === 0) return;
       for (const id of result.changedIds) qc.invalidateQueries({ queryKey: lorebookKeys.detail(id) });
-      qc.invalidateQueries({ queryKey: lorebookKeys.list() });
-      qc.invalidateQueries({ queryKey: [...lorebookKeys.all, "category"] });
-      qc.invalidateQueries({ queryKey: lorebookKeys.active() });
     },
   });
 }

@@ -1418,6 +1418,7 @@ try {
     const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
     const { TRANSLATOR_DEFAULTS_SETTINGS_KEY, normalizeTranslatorSettings } =
       await import("../../packages/shared/src/utils/translator-defaults.js");
+    const { readChatMetadataSecret } = await import("../../packages/server/src/utils/stored-secrets.js");
     const appSettings = createAppSettingsStorage(db);
     const translatorChats = createChatsStorage(db);
     const createTranslatorChat = (mode: "conversation" | "roleplay" | "game") =>
@@ -1451,8 +1452,13 @@ try {
     for (const mode of ["conversation", "roleplay", "game"] as const) {
       const created = (await createTranslatorChat(mode))!;
       const metadata = JSON.parse(created.metadata);
+      // The inherited DeepL key is stored encrypted and reads back as the saved key.
+      assert.match(metadata.translationDeeplApiKey, /^enc:v1:/u, `${mode} stores the inherited DeepL key encrypted`);
       assert.deepEqual(
-        normalizeTranslatorSettings(metadata),
+        {
+          ...normalizeTranslatorSettings(metadata),
+          translationDeeplApiKey: readChatMetadataSecret(metadata, "translationDeeplApiKey"),
+        },
         defaults,
         `${mode} inherits persisted translator defaults`,
       );
@@ -6490,7 +6496,7 @@ for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "ag
 }
 assert.match(
   chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<Section\s+id=["']conversation-agents["']/u,
+  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<ConversationAgentsSection\b/u,
   "Conversation Agents visibility must consume the conversation agent-settings surface",
 );
 assert.match(
@@ -10381,7 +10387,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   // messages-per-page and "Load More" vanished on a mis-evaluated
   // hasNextPage. Read-only newest-N windows must go through the peek hook,
   // which keys by limit.
-  const drawerSource = drawerAndAgentsStateSource;
+  const drawerSource = chatSettingsDrawerSource;
   assert.doesNotMatch(
     drawerSource,
     /useChatMessages\(/u,
@@ -10682,8 +10688,9 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.match(stopGenerationActionSource, /bg-\[var\(--secondary\)\][\s\S]*hover:bg-\[var\(--accent\)\]/u);
   assert.match(stopGenerationActionSource, /text-\[var\(--muted-foreground\)\]/u);
   assert.doesNotMatch(stopGenerationActionSource, /red-/u);
+  // Conversation's card is in agents/, so count across the drawer and its folders.
   assert.equal(
-    (settingsDrawerSource.match(/<LongTermMemoryCapabilitySettings\s[\s\S]*?packageId=\{ltmPackage\.id\}/gu) ?? [])
+    (chatSettingsDrawerSource.match(/<LongTermMemoryCapabilitySettings\s[\s\S]*?packageId=\{ltmPackage\.id\}/gu) ?? [])
       .length,
     3,
     "Long-Term Memory must use the same un-nested Agent Settings surface in every chat mode",

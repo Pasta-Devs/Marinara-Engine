@@ -6625,15 +6625,10 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
             });
             expect.soft(offset, `${layout} swipes align with the message row`).toBeLessThan(1);
           }
-          // With two or more swipes a Roleplay counter is a button that opens the swipe list (#9176); Conversation
-          // layouts keep the field you type a number into, inside the same `.mari-swipe-input` box. `input` is
-          // whichever shows the number.
-          const NUMBER = ".mari-swipe-input input, button.mari-swipe-input";
+          // Both layouts show the field you type a number into; Roleplay adds a list button after the arrows.
+          const NUMBER = ".mari-swipe-input input";
           const input = control.locator(NUMBER);
-          const counter = () =>
-            input.evaluate((element) =>
-              element instanceof HTMLInputElement ? element.value : (element.textContent ?? "").trim(),
-            );
+          const counter = () => input.inputValue();
           await expect.poll(counter).toBe("1");
           // Compare the settled theme color, not WebKit's retained Oklab
           // serialization from the color transition between test themes.
@@ -6642,7 +6637,6 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
           });
           const metrics = await control.evaluate((element, number) => {
             const button = element.querySelector("button")!;
-            // The bordered box is `.mari-swipe-input` in both kinds; the number's font is on the field or button.
             const box = element.querySelector(".mari-swipe-input")!;
             const field = element.querySelector(number)!;
             const icon = button.querySelector("svg")!;
@@ -6655,16 +6649,14 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
               buttonWidth: button.getBoundingClientRect().width,
               buttonHeight: button.getBoundingClientRect().height,
               iconWidth: icon.getBoundingClientRect().width,
-              inputWidth: box.getBoundingClientRect().width,
+              // The field, not the capsule: only Roleplay adds the list button to the capsule.
+              inputWidth: field.getBoundingClientRect().width,
               inputHeight: box.getBoundingClientRect().height,
               inputFontSize: getComputedStyle(field).fontSize,
               inputRadius: getComputedStyle(box).borderRadius,
             };
           }, NUMBER);
           if (layout === "roleplay") roleplayMetrics = metrics;
-          // Known failure on phones: #9176 kept Conversation's typed counter on purpose, and a phone field gets a
-          // 17px font (so iOS does not zoom) while Roleplay's counter button stays at 10.6px. Left failing so the
-          // difference is decided, not hidden.
           else expect.soft(metrics, `${layout} ${theme} ${width}px matches Roleplay`).toEqual(roleplayMetrics);
           const actionColor = await readCssVariableColor(page, "--marinara-chat-message-action-text");
           await expect.soft(control).toHaveCSS("color", actionColor, { timeout: 500 });
@@ -6695,9 +6687,12 @@ test("Conversation swipe controls match Roleplay sizing and chat-chrome colors",
           // Greetings), Conversation types its number.
           const jumpTo = async (index: number) => {
             if (layout === "roleplay") {
-              await input.click();
+              await control.getByRole("button", { name: /^Greeting \d+ of / }).click();
               const list = page.getByRole("listbox", { name: "Greetings", exact: true });
-              await list.getByRole("option").nth(index).click();
+              // The first click opens the row to read it, the second uses it.
+              const option = list.getByRole("option").nth(index);
+              await option.click();
+              await option.click();
               await expect(list).toBeHidden();
             } else {
               const field = control.getByRole("textbox");

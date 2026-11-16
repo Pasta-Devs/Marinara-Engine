@@ -35,6 +35,7 @@ import {
   Star,
   Trash2,
   Unlock,
+  Volume2,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -89,13 +90,13 @@ const PADDED_TARGET_IDS = new Set<ChatHelpTargetId>([
 
 const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
   conversation: [
-    { icon: Headphones, labelKey: "ui.chat.chatmessage.voiceControls" },
     { icon: Copy, labelKey: "chat.help.actions.copy" },
     { icon: Bookmark, labelKey: "chat.help.actions.bookmark" },
     { icon: Reply, labelKey: "chat.help.actions.reply" },
     { icon: SmilePlus, labelKey: "chat.help.actions.react" },
     { icon: Languages, labelKey: "chat.help.actions.translate" },
     { icon: Pencil, labelKey: "chat.help.actions.edit" },
+    { icon: Volume2, labelKey: "ui.chat.chatmessage.speak" },
     { icon: RefreshCw, labelKey: "chat.help.actions.regenerate" },
     { icon: ChevronsLeftRight, labelKey: "chat.help.actions.swipes" },
     { icon: EyeOff, labelKey: "chat.help.actions.aiVisibility" },
@@ -111,6 +112,7 @@ const ACTIONS_BY_MODE: Record<ChatMode, HelpActionDefinition[]> = {
     { icon: Languages, labelKey: "chat.help.actions.translate" },
     { icon: Pencil, labelKey: "chat.help.actions.edit" },
     { icon: Shield, labelKey: "chat.help.actions.rewrite" },
+    { icon: Volume2, labelKey: "ui.chat.chatmessage.speak" },
     { icon: RefreshCw, labelKey: "chat.help.actions.regenerateOrRestart" },
     { icon: ChevronsLeftRight, labelKey: "chat.help.actions.swipes" },
     { icon: Flag, labelKey: "chat.help.actions.conversationStart" },

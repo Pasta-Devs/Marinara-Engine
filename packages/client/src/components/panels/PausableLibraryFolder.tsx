@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Panel: pausable library folder (Regexes and Functions tabs)
+// Panel: library folder with optional pause controls
 // ──────────────────────────────────────────────
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,8 +45,8 @@ export function useLibraryMoveMenu(
 }
 
 /**
- * One library folder with a collapse chevron, item count, pause switch, rename and delete.
- * Shared by the Regexes and Functions tabs; `children` are the folder's rows.
+ * One library folder with collapse, rename and delete controls.
+ * Regex and tool folders also show a pause switch.
  */
 export function PausableLibraryFolder({
   folder,
@@ -71,8 +71,8 @@ export function PausableLibraryFolder({
   dataAttribute: string;
   itemCount: number;
   itemCountLabel: string;
-  switchLabel: string;
-  switchHint: string;
+  switchLabel?: string;
+  switchHint?: string;
   deleteConfirmMessage: string;
   editingFolder: EditingLibraryFolder;
   setEditingFolder: Dispatch<SetStateAction<EditingLibraryFolder>>;
@@ -130,14 +130,16 @@ export function PausableLibraryFolder({
             </span>
           </button>
         )}
-        <SettingsSwitch
-          ariaLabel={switchLabel}
-          title={switchHint}
-          checked={!folder.paused}
-          disabled={busy || updateFolder.isPending}
-          onChange={(checked) => updateFolder.mutate({ id: folder.id, paused: !checked }, { onError })}
-          className="min-h-9 p-0 hover:bg-transparent"
-        />
+        {switchLabel && (
+          <SettingsSwitch
+            ariaLabel={switchLabel}
+            title={switchHint}
+            checked={!folder.paused}
+            disabled={busy || updateFolder.isPending}
+            onChange={(checked) => updateFolder.mutate({ id: folder.id, paused: !checked }, { onError })}
+            className="min-h-9 p-0 hover:bg-transparent"
+          />
+        )}
         {!selectionMode && (
           <>
             <button

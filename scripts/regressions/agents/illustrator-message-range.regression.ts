@@ -20,12 +20,14 @@ const { getDB, closeDB } = await import("../../../packages/server/src/db/connect
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
 const { createGalleryStorage } = await import("../../../packages/server/src/services/storage/gallery.storage.js");
 const { createCharacterGalleryStorage } =
   await import("../../../packages/server/src/services/storage/character-gallery.storage.js");
-const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createAppSettingsStorage } =
+  await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { characterDataSchema, replaceBuiltInAgentDefinitions } = await import("../../../packages/shared/dist/index.js");
 replaceBuiltInAgentDefinitions([
   {
@@ -120,7 +122,10 @@ try {
     connectionId: textConnection.id,
     settings: { imageConnectionId: imageConnection.id, contextSize: 1, enabledTools: [] },
   });
-  const character = await createCharactersStorage(db).create(characterDataSchema.parse({ name: "Aster" }));
+  const characters = createCharactersStorage(db);
+  const character = await characters.create(
+    characterDataSchema.parse({ name: "Aster", extensions: { appearance: "LIBRARY_ASTER_APPEARANCE" } }),
+  );
   const chat = await chats.create({
     name: "Historical range",
     mode: "roleplay",
@@ -297,6 +302,63 @@ try {
       "only a background-only request skips the active-agent gate",
     );
   }
+  const persona = await characters.createPersona("Aster", "", undefined, { appearance: "SELECTED_ASTER_APPEARANCE" });
+  assert.ok(persona);
+  for (const appearance of ["FIRST_UNUSED_ASTER_APPEARANCE", "SECOND_UNUSED_ASTER_APPEARANCE"]) {
+    await characters.createPersona("Aster", "", undefined, { appearance });
+  }
+  const personaChat = await chats.create({
+    name: "Same-name personas",
+    mode: "roleplay",
+    characterIds: [],
+    personaId: persona.id,
+    connectionId: textConnection.id,
+    promptPresetId: null,
+  });
+  assert.ok(personaChat);
+  await chats.patchMetadata(personaChat.id, {
+    enableAgents: true,
+    activeAgentIds: ["illustrator"],
+    illustratorIncludeCharacterAppearance: true,
+  });
+  await chats.createMessage({ chatId: personaChat.id, role: "user", content: "Aster enters the old garden." });
+  const personaReview = await retry({
+    chatId: personaChat.id,
+    illustratorMessageRange: undefined,
+    reviewImagePromptsBeforeSend: true,
+  });
+  const personaPrompt = parseEvents(personaReview.body).find((event) => event.type === "image_prompt_review");
+  assert.ok(personaPrompt, personaReview.body);
+  assert.match(personaPrompt.data.item.prompt, /SELECTED_ASTER_APPEARANCE/);
+  assert.doesNotMatch(personaPrompt.data.item.prompt, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
+  assert.doesNotMatch(textRequests.at(-1)!, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
+
+  const customAgent = await createAgentsStorage(db).create({
+    type: "custom-image-fixture",
+    name: "Custom image fixture",
+    phase: "post_processing",
+    connectionId: textConnection.id,
+    promptTemplate: "Write a scene image prompt.",
+    settings: {
+      imageConnectionId: imageConnection.id,
+      customCapabilities: { trigger_image_generation: true },
+      includeCharacterAppearance: true,
+      resultType: "image_prompt",
+    },
+  });
+  await chats.patchMetadata(personaChat.id, { activeAgentIds: ["illustrator", customAgent.type] });
+  const customRetry = await retry({
+    chatId: personaChat.id,
+    agentTypes: ["custom-image-fixture"],
+    illustratorRetryTargets: undefined,
+    illustratorMessageRange: undefined,
+    forceImageGeneration: true,
+  });
+  const customPrompt = parseEvents(customRetry.body).find((event) => event.type === "illustration");
+  assert.ok(customPrompt, customRetry.body);
+  assert.match(customPrompt.data.prompt, /SELECTED_ASTER_APPEARANCE/);
+  assert.doesNotMatch(customPrompt.data.prompt, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
+
   replaceBuiltInAgentDefinitions([]);
   const beforeUninstalled = textRequests.length + imageRequests;
   const uninstalled = await retry({ illustratorMessageRange: undefined });

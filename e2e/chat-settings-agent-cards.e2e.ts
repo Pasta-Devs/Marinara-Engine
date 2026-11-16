@@ -4,6 +4,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page, type Rou
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatSettings } from "./chat-settings-tools.js";
+import { chooseConnection } from "./connection-picker.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -450,6 +451,174 @@ test("Conversation's Commands card turns single commands and all commands off", 
       .click();
     await expect.poll(async () => (await readMetadata(request, chatId)).characterCommands).toBe(false);
     await expect(card.getByText("Memories", { exact: true })).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+async function createConversationChat(request: APIRequestContext) {
+  const response = await request.post("/api/chats", {
+    data: { name: "Agent cards conversation", mode: "conversation", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { id: string }).id;
+}
+
+/** Saves a connection that no test calls, for the model pickers to list. */
+async function createConnection(request: APIRequestContext, data: Record<string, unknown>) {
+  const response = await request.post("/api/connections", {
+    data: {
+      name: `Agent cards ${data.provider} ${Date.now()}`,
+      apiKey: "fixture",
+      baseUrl: "http://127.0.0.1:9",
+      ...data,
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return ((await response.json()) as { id: string }).id;
+}
+
+test("Conversation's Illustrator card turns selfies on and saves their models and resolution", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createConversationChat(request);
+  const imageId = await createConnection(request, {
+    provider: "image_generation",
+    imageGenerationSource: "openai",
+    imageService: "openai",
+    model: "gpt-image-1",
+  });
+  const textId = await createConnection(request, { provider: "custom", model: "prompt-writer" });
+  try {
+    await openApp(page, chatId, { mode: "conversation" });
+    const { card } = await openAgentCard(page, chatId, "illustrator", "conversation");
+    const selfieModel = card
+      .locator("label")
+      .filter({ hasText: /^Selfie model/u })
+      .locator('[aria-haspopup="dialog"]');
+    await expect(selfieModel).toHaveCount(0);
+
+    await card.getByText("Generated Selfies", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).conversationCommandToggles)
+      .toMatchObject({ selfie: true });
+
+    await chooseConnection(page, selfieModel, imageId);
+    await expect.poll(async () => (await readMetadata(request, chatId)).imageGenConnectionId).toBe(imageId);
+
+    const promptModel = card.locator('div:has(> span:text-is("Prompt Model")) > [aria-haspopup="dialog"]');
+    await chooseConnection(page, promptModel, textId);
+    await expect.poll(async () => (await readMetadata(request, chatId)).illustratorPromptConnectionId).toBe(textId);
+
+    // The resolution buttons show once a selfie model is picked.
+    await card.getByRole("button", { name: "768x1024", exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).selfieResolution).toBe("768x1024");
+
+    await card.getByText("Generated Selfies", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).conversationCommandToggles)
+      .toMatchObject({ selfie: false });
+    await expect(selfieModel).toHaveCount(0);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/connections/${imageId}`);
+    await request.delete(`/api/connections/${textId}`);
+  }
+});
+
+test("Conversation's Illustrator card saves video messages, their first frame and the reference scopes", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createConversationChat(request);
+  const videoId = await createConnection(request, {
+    provider: "video_generation",
+    videoGenerationSource: "openrouter",
+    videoService: "openrouter",
+    model: "fixture/video",
+  });
+  try {
+    await openApp(page, chatId, { mode: "conversation" });
+    const { card } = await openAgentCard(page, chatId, "illustrator", "conversation");
+
+    await card.getByText("Generated Videos", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).conversationCommandToggles)
+      .toMatchObject({ video: true });
+
+    await chooseConnection(
+      page,
+      card
+        .locator("label")
+        .filter({ hasText: /^Video model/u })
+        .locator('[aria-haspopup="dialog"]'),
+      videoId,
+    );
+    await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoConnectionId).toBe(videoId);
+
+    await card
+      .locator("label")
+      .filter({ hasText: /^First frame/u })
+      .locator("select")
+      .selectOption("avatar");
+    await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoFirstFrame).toBe("avatar");
+
+    // Each scope saves one switch for pictures and one for videos.
+    const scope = (label: string) =>
+      card
+        .locator("label")
+        .filter({ hasText: new RegExp(`^${label}`, "u") })
+        .locator("select");
+    await scope("Send Avatar References").selectOption("images");
+    await expect
+      .poll(async () => {
+        const metadata = await readMetadata(request, chatId);
+        return [metadata.selfieUseAvatarReferences, metadata.selfieVideoUseAvatarReferences];
+      })
+      .toEqual([true, false]);
+    await scope("Attach Card Appearance").selectOption("videos");
+    await expect
+      .poll(async () => {
+        const metadata = await readMetadata(request, chatId);
+        return [metadata.selfieIncludeCharacterAppearance, metadata.selfieVideoIncludeCharacterAppearance];
+      })
+      .toEqual([false, true]);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+    await request.delete(`/api/connections/${videoId}`);
+  }
+});
+
+test("Conversation's schedule preferences in Agents save as the global preference and show as active", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createConversationChat(request);
+  try {
+    await openApp(page, chatId, { mode: "conversation" });
+    const settings = await openChatSettings(page);
+    const agents = settings.locator('[data-drawer="conversation-agents"]');
+    const toggle = agents.locator(":scope > .mari-drawer__header [data-drawer-toggle]");
+    await toggle.scrollIntoViewIfNeeded();
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+    const preferences = agents
+      .locator("label")
+      .filter({ hasText: /^Schedule Generation Preferences/iu })
+      .locator("textarea");
+    await preferences.fill("Everyone sleeps before midnight.");
+    await expect(agents.getByText('"Everyone sleeps before midnight."', { exact: true })).toBeVisible();
+    // It's an app-wide setting, kept in the UI store rather than the chat.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const module = (await import("/src/stores/ui.store.ts" as string)) as {
+            useUIStore: { getState(): { scheduleGenerationPreferences: string } };
+          };
+          return module.useUIStore.getState().scheduleGenerationPreferences;
+        }),
+      )
+      .toBe("Everyone sleeps before midnight.");
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }

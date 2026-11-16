@@ -2,13 +2,13 @@
 // Seed: Default Regex Scripts
 // Ships built-in regex scripts for common text cleaning tasks.
 // ──────────────────────────────────────────────
+import { CLEAN_HTML_ID, COLLAPSE_NEWLINES_ID } from "@marinara-engine/shared";
 import type { DB } from "./connection.js";
 import { regexScripts } from "./schema/index.js";
 import { now } from "../utils/id-generator.js";
 import { eq } from "./file-query.js";
 
-export const CLEAN_HTML_ID = "default-clean-html";
-const COLLAPSE_NEWLINES_ID = "default-collapse-newlines";
+export { CLEAN_HTML_ID };
 
 export const LEGACY_CLEAN_HTML_FIND_REGEX = String.raw`[ \t]?<(?!--)(?!\/?(?:font|lie|filter)\b)(?:"[^"]*"|'[^']*'|[^'">])*>`;
 

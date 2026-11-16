@@ -847,7 +847,8 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.generateSceneBackgrounds"\)\}/u);
-      assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\)/u);
+      // Roleplay's Illustrator card, which holds the backgrounds switch, shows the image style its backgrounds share.
+      assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\{/u);
       assert.match(executorSource, /<illustrator_background_generation enabled="true">/u);
       assert.match(executorSource, /"shouldGenerate" to true/u);
       assert.match(executorSource, /"generateBackground"/u);

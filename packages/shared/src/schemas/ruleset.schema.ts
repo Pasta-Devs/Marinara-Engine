@@ -2545,6 +2545,16 @@ export const rulesetSheetSchema = z
     builder: sheetBuilderSchema.optional(),
     /** Permanent changes the Game Master may make (Capability API 1.142). */
     advancement: advancementSchema.optional(),
+    /** A practice meter on every skill (Capability API 1.829): progress 0 to 99 toward the next rank,
+     *  kept with the message, moved by `op="practice"` and started over when the skill's rank changes.
+     *  For systems that learn by use (a LitRPG sheet, RuneQuest's ticks). */
+    progress: z
+      .object({
+        /** Skill sections that keep no practice: what is bought or taught rather than learned by use. */
+        except: z.array(sheetId).max(20).optional(),
+      })
+      .strict()
+      .optional(),
     /** Number fields held to a combined most wherever the sheet is edited (Capability API 1.672):
      *  the full form lowers each one's most by what the others hold, the Game Master's advancement
      *  refuses a value past it, and a sheet already over it says so. 5e's class levels, 20 in all. */
@@ -17987,6 +17997,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         ? 'This ruleset\'s per-die target cannot move, so "harder" cannot change a roll'
         : null;
   sheet.abilities.forEach((ability, index) => checkSection(ability.section, ["sheet", "abilities", index]));
+  sheet.progress?.except?.forEach((section, index) => {
+    if (!sections.has(section)) issue(["sheet", "progress", "except", index], `Unknown section "${section}"`);
+  });
   for (const key of ["skills", "saves"] as const) {
     sheet[key].forEach((entry, index) => {
       checkSection(entry.section, ["sheet", key, index]);
