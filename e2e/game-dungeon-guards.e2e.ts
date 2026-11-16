@@ -60,16 +60,18 @@ test("a crypt's holders stand guard on its map", async ({ page, request }, testI
 
 /** Floors (owner 2026-11-13: separate maps per floor): from the way down the party goes to the next floor,
  *  and from that floor's way in back up. */
-test("a crypt's way down leads to its next floor and back", async ({ page, request }, testInfo) => {
+// A crypt is a planned building now (its levels are joined by its own stairs), so floors are a sewer's.
+test("a sewer's way down leads to its next floor and back", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
-  const created = await request.post("/api/chats", { data: { name: "Crypt", mode: "game", characterIds: [] } });
+  const created = await request.post("/api/chats", { data: { name: "Sewer", mode: "game", characterIds: [] } });
   const chatId = ((await created.json()) as { id: string }).id;
-  let map = gameDungeonSiteMap({ setId: "dungeon_crypt", name: "Grey Barrow", siteSeed: 9, id: "floor-1" });
-  for (let seed = 10; !map.down; seed++)
-    map = gameDungeonSiteMap({ setId: "dungeon_crypt", name: "Grey Barrow", siteSeed: seed, id: "floor-1" });
+  let map = gameDungeonSiteMap({ setId: "dungeon_sewer", name: "Grey Drains", siteSeed: 9, id: "floor-1" });
+  for (let seed = 10; !map.down && seed < 200; seed++)
+    map = gameDungeonSiteMap({ setId: "dungeon_sewer", name: "Grey Drains", siteSeed: seed, id: "floor-1" });
+  expect(map.down, "some sewer has a way down").toBeTruthy();
   const meta = await request.patch(`/api/chats/${chatId}/metadata`, {
     data: {
-      gameId: `crypt-${chatId}`,
+      gameId: `sewer-${chatId}`,
       gameSessionStatus: "active",
       gameIntroPresented: true,
       gameStyle: "overworld",

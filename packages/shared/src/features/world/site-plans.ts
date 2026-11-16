@@ -579,45 +579,28 @@ export interface SiteLevelMap {
   traps: SiteLevelTrap[];
 }
 
-/** How a building's floors are laid out round their ways through: a hall down the middle (spine), a hall
- *  with an arm to a front door (tee), a crossing of two halls (cross), a ring of passages round a court
- *  (court), or one great room the others open from (hall: a great hall, a nave, an undercroft). Chosen
- *  once per building, so every level shares its ways and its stairs line up. */
-type SiteScheme = "spine" | "tee" | "cross" | "court" | "hall";
-const SITE_SCHEMES: Record<SiteTemplateId, ReadonlyArray<readonly [SiteScheme, number]>> = {
-  manor: [
-    ["spine", 3],
-    ["tee", 3],
-    ["hall", 2],
-    ["court", 2],
-  ],
-  keep: [
-    ["court", 4],
-    ["cross", 3],
-    ["hall", 3],
-  ],
-  temple: [
-    ["hall", 6],
-    ["court", 3],
-    ["tee", 1],
-  ],
-  crypt: [
-    ["cross", 4],
-    ["hall", 4],
-    ["spine", 2],
-  ],
-};
-/** The rooms that are the great room of a level laid out round one. */
+/** The rooms that are a level's great room: the biggest space on it. */
 const SITE_HALL_ROOMS = new Set(["Great hall", "Nave", "Undercroft", "Burial hall"]);
-/** The rooms the way in opens into: on a level whose way in is an arm off the main way, the arm is this
- *  room. */
+/** The rooms the way in opens into. */
 const SITE_ENTRY_ROOMS = new Set(["Entrance hall", "Gatehouse", "Narthex", "Vestibule"]);
-/** The open court of a building laid out round one, when its plan names no open room for it. */
+/** The open court of a building that has one, when its plan names no open room for it. */
 const SITE_COURT_NAMES: Record<SiteTemplateId, string> = {
   manor: "Courtyard",
   keep: "Inner ward",
   temple: "Cloister garth",
   crypt: "Open court",
+};
+/** How each kind of building is cut up: how often a cut leaves a passage and how often one two wide, how
+ *  many rooms beyond the plan's, how often its ground floor keeps an open court, and how often a floor
+ *  loses a corner (an L or a U, not a box). */
+const SITE_STYLES: Record<
+  SiteTemplateId,
+  { passage: number; wide: number; extra: readonly [number, number]; court: number; corner: number }
+> = {
+  manor: { passage: 0.5, wide: 0.5, extra: [1, 3], court: 0.25, corner: 0.5 },
+  keep: { passage: 0.4, wide: 0.3, extra: [1, 3], court: 0.45, corner: 0.35 },
+  temple: { passage: 0.35, wide: 0.3, extra: [0, 2], court: 0.4, corner: 0.4 },
+  crypt: { passage: 0.7, wide: 0.1, extra: [2, 5], court: 0, corner: 0.5 },
 };
 
 type SiteSide = "N" | "S" | "E" | "W";
@@ -627,85 +610,45 @@ interface SiteRect {
   w: number;
   h: number;
 }
-/** Room space beside a way: its rooms open onto the way on `door`'s side. */
-interface SiteRegion extends SiteRect {
-  door: SiteSide;
-}
 
-/** Where the ways run and each link stands: the same on every level, from the plan alone, so stairs line
- *  up. Links stand on `linkRow`, the first row of the main hall (or of the court's near passage). */
+/** Where each link stands: the same on every level, from the plan alone, so stairs line up. Links stand
+ *  on `linkRow`, spread along it; no level is ever cut through them. */
 function siteFrame(plan: SitePlan) {
-  const random = marinaraRandom(`site-scheme:${plan.template}:${plan.seed}:${plan.wealth}`);
-  const choices = SITE_SCHEMES[plan.template];
-  let roll = random() * choices.reduce((sum, [, weight]) => sum + weight, 0);
-  let scheme: SiteScheme = choices[0]![0];
-  for (const [each, weight] of choices) {
-    if ((roll -= weight) < 0) {
-      scheme = each;
-      break;
-    }
-  }
-  if (scheme === "court" && (plan.height < 21 || plan.width < 30)) scheme = "tee";
-  const mirror = random() < 0.5;
+  const random = marinaraRandom(`site-frame:${plan.template}:${plan.seed}:${plan.wealth}`);
   const fx = 2;
   const fy = 2;
   const [left, right, top, bottom] = [fx, fx + plan.width - 1, fy, fy + plan.height - 1];
   const cx = fx + Math.floor(plan.width / 2);
-  const spineH = plan.wealth >= 2 ? 2 : 1;
-  const hallH = plan.wealth >= 2 && plan.height >= 21 ? 5 : 3;
-  // The court: rooms all round it, a passage on each side.
-  const band = plan.height >= 25 ? 5 : 4;
-  const side = Math.max(4, Math.min(7, Math.floor((plan.width - 2) * 0.2)));
-  const court = { yA: top + band + 2, yB: bottom - band - 2, xA: left + side + 2, xB: right - side - 2 };
-  const linkRow =
-    scheme === "court" ? court.yA : top + Math.floor((plan.height - (scheme === "hall" ? hallH : spineH)) / 2);
-  // One cell per link, none shared: a ladder to an inset level stands in the middle (inside the inset),
-  // the others spread along the link row, away from the middle and from the far end.
+  const linkRow = top + 4 + Math.floor(random() * Math.max(1, plan.height - 8));
   const free = plan.links.filter((link) => !plan.levels[link.upper]!.inset && !plan.levels[link.lower]!.inset);
-  const step = (plan.width - 14) / Math.max(1, free.length + 1);
   const slots: number[] = [];
-  for (let k = 0; slots.length < free.length && k < 40; k++) {
-    const x = fx + 5 + Math.round(step * (k + 0.5));
-    if (Math.abs(x - cx) >= 2 && !slots.includes(x) && x < right - 2) slots.push(x);
-    if (k >= free.length + 4) {
-      // Too many for the even steps: any free cell of the row.
-      for (let x2 = fx + 3; slots.length < free.length && x2 < right - 2; x2++)
-        if (Math.abs(x2 - cx) >= 2 && !slots.includes(x2)) slots.push(x2);
-    }
+  for (let tries = 0; slots.length < free.length && tries < 200; tries++) {
+    const x = left + 3 + Math.floor(random() * (plan.width - 6));
+    if (Math.abs(x - cx) >= 2 && !slots.some((each) => Math.abs(each - x) < 2)) slots.push(x);
   }
+  for (let x = left + 2; slots.length < free.length && x < right - 1; x++)
+    if (Math.abs(x - cx) >= 2 && !slots.includes(x)) slots.push(x);
   let ladders = 0;
   const linkX = plan.links.map((link) =>
     free.includes(link) ? slots[free.indexOf(link)]! : cx + (ladders++ % 2 ? -1 : 0),
   );
-  return {
-    scheme,
-    mirror,
-    fx,
-    fy,
-    left,
-    right,
-    top,
-    bottom,
-    cx,
-    spineH,
-    hallH,
-    court,
-    linkRow,
-    linkX,
-    mapW: plan.width + 4,
-    mapH: plan.height + 4,
-  };
+  return { fx, fy, left, right, top, bottom, cx, linkRow, linkX, mapW: plan.width + 4, mapH: plan.height + 4 };
 }
 
-/** A level of a site as a map: the footprint's walls, the ways through it as the building's scheme lays
- *  them, the level's rooms beside the ways in order (public near the way in, private at the far end), a
- *  door from each onto its way and now and then into the room beside it, its links, locks and furniture;
- *  with traps only when the game's rules can find them. */
+/**
+ * A level of a site as a map, made anew from its seed: the footprint cut again and again at random into
+ * rooms, a cut now and then leaving a passage; a corner left off now and then; the spaces joined as a
+ * tree from the way in (rooms hang off passages first), with a few more doors for loops; the plan's rooms
+ * placed by how far they are from the way in (public near, private far, the heart deep, locked rooms at
+ * dead ends, the great room the biggest space, an open court inside the ground floor); then links, locks,
+ * furniture, and traps only when the game's rules can find them.
+ */
 export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: boolean } = {}): SiteLevelMap {
   const level = plan.levels[index]!;
   const random = marinaraRandom(`site-level:${plan.template}:${plan.seed}:${level.id}`);
   const frame = siteFrame(plan);
-  const { fx, mapW, mapH, cx, linkRow } = frame;
+  const { fx, mapW, mapH, linkRow } = frame;
+  const style = SITE_STYLES[plan.template];
   // An inset level (an attic, a tower top) is a narrower box round the middle.
   const inset = level.inset ? Math.max(4, Math.floor(plan.width * 0.22)) : 0;
   const left = fx + inset;
@@ -715,306 +658,358 @@ export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: b
   const ground: DungeonGround[] = Array.from({ length: mapW * mapH }, () => "rock" as DungeonGround);
   const props: number[] = ground.map(() => -1);
   const cell = (x: number, y: number) => y * mapW + x;
-  // Solid inside the footprint; the ways and rooms are cut out of it.
+  const inside = (r: SiteRect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) ground[cell(x, y)] = "wall";
-  const carve = (rect: SiteRect) => {
-    for (let y = rect.y; y < rect.y + rect.h; y++)
-      for (let x = rect.x; x < rect.x + rect.w; x++) ground[cell(x, y)] = "floor";
+  const carve = (r: SiteRect, to: DungeonGround = "floor") => {
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) ground[cell(x, y)] = to;
   };
-  const rect = (x0: number, y0: number, x1: number, y1: number): SiteRect => ({
-    x: x0,
-    y: y0,
-    w: x1 - x0 + 1,
-    h: y1 - y0 + 1,
-  });
-
-  // ── The ways ──
-  let planned = [...level.rooms];
-  const claim = (pick: (room: SitePlanRoom) => boolean) => {
-    const room = planned.find(pick);
-    if (room) planned = planned.filter((each) => each !== room);
-    return room;
-  };
-  const hallRoom =
-    !level.inset && frame.scheme === "hall" ? claim((room) => SITE_HALL_ROOMS.has(room.name)) : undefined;
-  const scheme: SiteScheme = level.inset
-    ? "spine"
-    : frame.scheme === "hall"
-      ? hallRoom
-        ? "hall"
-        : "spine"
-      : frame.scheme === "tee" && !entry
-        ? "spine"
-        : frame.scheme;
-  const ways: SiteRect[] = [];
-  const regions: SiteRegion[] = [];
-  /** The great room, the court and a temple's sanctuary: rooms that are not cut into columns. */
-  const special: Array<{ room: SitePlanRoom; rect: SiteRect }> = [];
-  let entrance = { x: -1, y: -1 };
-  /** The way in from the front door up to the way at row `from`: the entrance hall (a gatehouse, a
-   *  narthex), three or five wide, where the level has one, else a passage. Its half-width, past the
-   *  middle column. */
-  const arm = (from: number, end: number) => {
-    entrance = { x: cx, y: bottom };
-    const room = claim((each) => SITE_ENTRY_ROOMS.has(each.name));
-    if (!room) {
-      ways.push(rect(cx, from + 1, cx, bottom - 1));
-      return 0;
-    }
-    const half = plan.wealth >= 3 && end - cx >= 10 ? 2 : 1;
-    special.push({ room, rect: rect(cx - half, from + 2, cx + half, bottom - 1) });
-    ground[cell(cx, from + 1)] = "floor";
-    return half;
-  };
-  if (scheme === "court") {
-    const { yA, yB, xA, xB } = frame.court;
-    ways.push(rect(left + 1, yA, right - 1, yA), rect(left + 1, yB, right - 1, yB));
-    ways.push(rect(xA, yA, xA, yB), rect(xB, yA, xB, yB));
-    // A great hall (a nave) is the whole range across the court from the way in, open onto its passage.
-    const range = !level.inset ? claim((room) => SITE_HALL_ROOMS.has(room.name)) : undefined;
-    if (range) {
-      special.push({ room: range, rect: rect(left + 1, top + 1, right - 1, yA - 2) });
-      for (const x of [left + 2, cx, right - 2]) ground[cell(x, yA - 1)] = "floor";
-    } else regions.push({ ...rect(left + 1, top + 1, right - 1, yA - 2), door: "S" });
-    regions.push({ ...rect(left + 1, yA + 2, xA - 2, yB - 2), door: "E" });
-    regions.push({ ...rect(xB + 2, yA + 2, right - 1, yB - 2), door: "W" });
-    const inner = rect(xA + 2, yA + 2, xB - 2, yB - 2);
-    if (level.depth === 0) {
-      // The court on the ground; above it is sky and below it earth, so other levels have none.
-      const room = claim((each) => each.use === "open") ?? {
-        name: SITE_COURT_NAMES[plan.template],
-        use: "open" as const,
-        size: 3 as const,
-        zone: "public" as const,
-        furniture: [],
-      };
-      special.push({ room, rect: inner });
-      const cy = inner.y + Math.floor(inner.h / 2);
-      for (const [x, y] of [
-        [cx, yA + 1],
-        [cx, yB - 1],
-        [xA + 1, cy],
-        [xB - 1, cy],
-      ] as const)
-        ground[cell(x, y)] = "floor";
-    }
-    if (entry) {
-      const half = arm(yB, right - 1);
-      regions.push({ ...rect(left + 1, yB + 2, cx - half - 2, bottom - 1), door: "N" });
-      regions.push({ ...rect(cx + half + 2, yB + 2, right - 1, bottom - 1), door: "N" });
-    } else regions.push({ ...rect(left + 1, yB + 2, right - 1, bottom - 1), door: "N" });
-  } else {
-    const hallH = scheme === "hall" ? frame.hallH : level.inset ? 1 : frame.spineH;
-    const [r0, r1] = [linkRow, linkRow + hallH - 1];
-    // A temple's sanctuary closes the nave's far end, the whole height of the building.
-    const apse =
-      scheme === "hall" && plan.template === "temple"
-        ? claim((room) => !!room.heart && room.use === "holders")
-        : undefined;
-    const apseW = apse ? (plan.width >= 40 ? 7 : 6) : 0;
-    const end = right - 1 - (apse ? apseW + 1 : 0);
-    const hall = rect(left + 1, r0, end, r1);
-    ways.push(hall);
-    if (hallRoom) special.push({ room: hallRoom, rect: hall });
-    if (apse) {
-      special.push({ room: apse, rect: rect(end + 2, top + 1, right - 1, bottom - 1) });
-      for (let y = r0; y <= r1; y++) ground[cell(end + 1, y)] = "floor";
-    }
-    const arms = (scheme === "tee" && entry) || scheme === "cross";
-    if (scheme === "cross") {
-      ways.push(rect(cx, top + 1, cx, r0 - 1));
-      regions.push({ ...rect(left + 1, top + 1, cx - 2, r0 - 2), door: "S" });
-      regions.push({ ...rect(cx + 2, top + 1, end, r0 - 2), door: "S" });
-    } else regions.push({ ...rect(left + 1, top + 1, end, r0 - 2), door: "S" });
-    if (arms) {
-      const half = entry ? arm(r1, end) : (ways.push(rect(cx, r1 + 1, cx, bottom - 1)), 0);
-      regions.push({ ...rect(left + 1, r1 + 2, cx - half - 2, bottom - 1), door: "N" });
-      regions.push({ ...rect(cx + half + 2, r1 + 2, end, bottom - 1), door: "N" });
-    } else regions.push({ ...rect(left + 1, r1 + 2, end, bottom - 1), door: "N" });
-    if (entry && entrance.x < 0) entrance = { x: left, y: r0 + Math.floor((hallH - 1) / 2) };
-  }
-  for (const way of ways) carve(way);
-
-  // ── The rooms ──
-  // Along a region (u, from its first cell along the way) and away from its way (v, 0 against the way).
-  const along = (region: SiteRegion) => (region.door === "N" || region.door === "S" ? region.w : region.h);
-  const deep = (region: SiteRegion) => (region.door === "N" || region.door === "S" ? region.h : region.w);
-  const place = (region: SiteRegion, u: number, v: number, lu: number, lv: number): SiteRect => {
-    switch (region.door) {
-      case "N":
-        return { x: region.x + u, y: region.y + v, w: lu, h: lv };
-      case "S":
-        return { x: region.x + u, y: region.y + region.h - v - lv, w: lu, h: lv };
-      case "W":
-        return { x: region.x + v, y: region.y + u, w: lv, h: lu };
-      case "E":
-        return { x: region.x + region.w - v - lv, y: region.y + u, w: lv, h: lu };
-    }
-  };
-  const usable = regions.filter((region) => along(region) >= 2 && deep(region) >= 2);
-  // The rooms in order (public near the way in, private at the far end), shared out over the regions
-  // nearest the way in first, each its share by its length.
-  const order = { public: 0, service: 1, guest: 2, private: 3, deep: 4 } as const;
-  planned = planned
-    .map((room, n) => ({ room, n }))
-    .sort((a, b) => order[a.room.zone] - order[b.room.zone] || a.n - b.n)
-    .map((each) => each.room);
-  const start = entrance.x >= 0 ? entrance : { x: frame.linkX[0] ?? cx, y: linkRow };
-  const near = (region: SiteRect) =>
-    Math.abs(region.x + region.w / 2 - start.x) + Math.abs(region.y + region.h / 2 - start.y);
-  usable.sort((a, b) => near(a) - near(b));
-  const held = usable.map(() => [] as SitePlanRoom[]);
-  const capacity = (region: SiteRegion) => Math.max(1, Math.floor(along(region) / 3));
-  const fits = (n: number, room: SitePlanRoom) =>
-    (held[n]!.length + 1) * 4 - 1 <= along(usable[n]!) &&
-    held[n]!.reduce((sum, each) => sum + each.size, 0) + room.size <= capacity(usable[n]!);
-  const total = planned.reduce((sum, room) => sum + room.size, 0);
-  const room0 = usable.reduce((sum, region) => sum + capacity(region), 0);
-  let at = 0;
-  for (const room of planned) {
-    const share = (n: number) => Math.ceil((total * capacity(usable[n]!)) / Math.max(1, room0));
-    while (at < usable.length - 1 && held[at]!.reduce((sum, each) => sum + each.size, 0) + room.size > share(at)) at++;
-    let n = fits(at, room) ? at : usable.findIndex((_, k) => fits(k, room));
-    if (n < 0 && room.heart) {
-      // The heart always fits: a room made for it is never dropped.
-      n = held.reduce((best, rooms, k) => (rooms.length > held[best]!.length ? k : best), 0);
-      held[n]!.splice(-1, 1);
-    }
-    if (n >= 0) held[n]!.push(room);
-  }
-  // Rooms never stretch past a sensible width: what is left of a region is spare rooms (box rooms, empty
-  // stores), left to squatters; a region with no room of the plan's is one or more of them.
-  const widest = (room: SitePlanRoom) => 4 + room.size * 3;
-  let spares = 0;
-  for (const [n, region] of usable.entries()) {
-    const rooms = held[n]!;
-    const spare = () => along(region) + 1 - rooms.reduce((sum, each) => sum + widest(each) + 1, 0);
-    let added = 0;
-    while ((spare() >= 5 || !rooms.length) && added < 4) {
-      rooms.push({
-        name: `${SPARE_ROOM_NAMES[plan.template]}${spares ? ` ${spares + 1}` : ""}`,
-        use: "squat",
-        size: 1,
-        zone: "service",
-        furniture: [],
-      });
-      added++;
-      spares++;
-    }
-  }
-  const rooms: DungeonRoom[] = [];
-  const info: SiteLevelMap["rooms"] = [];
-  /** Each room's door, the side it opens on (none for a great room or a court) and whether it is locked. */
-  const doors: Array<{ x: number; y: number; room: number; locked: boolean } | null> = [];
-  const opens: Array<SiteSide | null> = [];
-  const roomOf = new Map<SitePlanRoom, number>();
-  const add = (room: SitePlanRoom, area: SiteRect, door: { x: number; y: number } | null, side: SiteSide | null) => {
-    const n = rooms.length;
-    roomOf.set(room, n);
-    rooms.push(area);
-    carve(area);
-    info.push({ name: room.name, use: room.use, ...(room.heart ? { heart: true as const } : {}) });
-    if (door) ground[cell(door.x, door.y)] = "floor";
-    doors.push(door ? { ...door, room: n, locked: !!room.locked } : null);
-    opens.push(side);
-    return n;
-  };
-  for (const { room, rect: area } of special) add(room, area, null, null);
-  for (const [n, region] of usable.entries()) {
-    const L = along(region);
-    const D = deep(region);
-    // Columns: a small room in a deep region stands behind the room before it, through that room (a
-    // dressing room behind a bedroom, a vault behind the wine cellar), so not every room is a strip.
-    const columns: Array<{ front: SitePlanRoom; back?: SitePlanRoom }> = [];
-    for (const room of held[n]!) {
-      const before = columns.at(-1);
-      if (room.size === 1 && D >= 7 && before && !before.back && !before.front.locked && before.front.size > 1)
-        before.back = room;
-      else columns.push({ front: room });
-    }
-    // A deep room now and then has a closet or a store behind it, so a row of rooms is not all strips.
-    for (const column of columns)
-      if (!column.back && D >= 8 && !column.front.locked && column.front.use !== "squat" && random() < 0.45)
-        column.back = {
-          name: `${SPARE_ROOM_NAMES[plan.template]}${spares++ ? ` ${spares}` : ""}`,
-          use: "squat",
-          size: 1,
-          zone: "service",
-          furniture: [],
-        };
-    const walls = columns.length - 1;
-    const weight = columns.reduce((sum, column) => sum + column.front.size, 0);
-    // Widths by size, at least 3 each (2 in a short region), the last taking what is left; trimmed from
-    // the widest to fit.
-    const least = Math.min(3, Math.floor((L - walls) / columns.length));
-    const widths = columns.map((column) => Math.max(least, Math.floor(((L - walls) * column.front.size) / weight)));
-    while (widths.reduce((sum, w) => sum + w, 0) > L - walls) {
-      const most = widths.indexOf(Math.max(...widths));
-      if (widths[most]! <= least) break;
-      widths[most]!--;
-    }
-    widths[widths.length - 1] = L - walls - widths.slice(0, -1).reduce((sum, w) => sum + w, 0);
-    let u = 0;
-    for (const [k, column] of columns.entries()) {
-      const w = widths[k]!;
-      if (w < 2) break;
-      const backD = column.back ? Math.floor((D - 1) / 2) : 0;
-      const frontD = D - (backD ? backD + 1 : 0);
-      const door = place(region, u + Math.floor(random() * w), -1, 1, 1);
-      add(column.front, place(region, u, 0, w, frontD), { x: door.x, y: door.y }, region.door);
-      // A ruined room: its wall to the way breached.
-      if (column.front.ruined && !column.front.locked)
-        for (let j = 0; j < w; j++)
-          if (random() < 0.4) {
-            const breach = place(region, u + j, -1, 1, 1);
-            ground[cell(breach.x, breach.y)] = "floor";
-          }
-      if (column.back) {
-        const inner = place(region, u + Math.floor(random() * w), frontD, 1, 1);
-        add(column.back, place(region, u, frontD + 1, w, backD), { x: inner.x, y: inner.y }, region.door);
-      }
-      u += w + 1;
-    }
-  }
-  // Doors between rooms side by side, now and then, so not every room is a dead end; never into a
-  // locked one, a great room or a court.
-  for (let a = 0; a < rooms.length; a++)
-    for (let c = 0; c < rooms.length; c++) {
-      const [one, two] = [rooms[a]!, rooms[c]!];
-      if (!doors[a] || !doors[c] || doors[a]!.locked || doors[c]!.locked) continue;
-      if (one.x + one.w + 1 === two.x) {
-        const [y0, y1] = [Math.max(one.y, two.y), Math.min(one.y + one.h, two.y + two.h) - 1];
-        if (y1 < y0 || random() >= 0.3) continue;
-        ground[cell(one.x + one.w, y0 + Math.floor(random() * (y1 - y0 + 1)))] = "floor";
-      } else if (one.y + one.h + 1 === two.y) {
-        const [x0, x1] = [Math.max(one.x, two.x), Math.min(one.x + one.w, two.x + two.w) - 1];
-        if (x1 < x0 || random() >= 0.3) continue;
-        ground[cell(x0 + Math.floor(random() * (x1 - x0 + 1)), one.y + one.h)] = "floor";
-      }
-    }
-  // A great room's pillars, in two rows down a hall five wide (aisles along its walls); never on a link.
+  // Links first: no cut runs through them.
   const links: SiteLevelLink[] = [];
   for (const link of plan.links) {
     if (link.upper !== index && link.lower !== index) continue;
     const x = Math.min(right - 1, Math.max(left + 1, frame.linkX[plan.links.indexOf(link)]!));
     links.push({ x, y: linkRow, level: link.upper === index ? link.lower : link.upper, kind: link.kind });
   }
-  if (scheme === "hall" && frame.hallH >= 5) {
-    const hall = ways[0]!;
-    for (const y of [hall.y + 1, hall.y + 3])
-      for (let x = hall.x + 2; x < hall.x + hall.w - 2; x += 3)
-        if (!links.some((link) => link.x === x && link.y === y)) ground[cell(x, y)] = "wall";
+
+  // ── Cutting ──
+  let planned = [...level.rooms];
+  const MIN = 3;
+  const leaves: SiteRect[] = [{ x: left + 1, y: top + 1, w: right - left - 1, h: bottom - top - 1 }];
+  const passages: SiteRect[] = [];
+  const [least, most] = style.extra;
+  const target = planned.length + least + Math.floor(random() * (most - least + 1)) + (level.inset ? 0 : 1);
+  const clear = (vertical: boolean, at: number, r: SiteRect) =>
+    !links.some((link) =>
+      vertical
+        ? link.x === at && link.y >= r.y && link.y < r.y + r.h
+        : link.y === at && link.x >= r.x && link.x < r.x + r.w,
+    );
+  for (let tries = 0; leaves.length < target && tries < 400; tries++) {
+    // Big spaces and long thin ones are cut first, so no room is left a strip.
+    const weights = leaves.map((r) =>
+      r.w >= 2 * MIN + 1 || r.h >= 2 * MIN + 1
+        ? Math.pow(r.w * r.h, 1.3) * (Math.max(r.w / r.h, r.h / r.w) > 2.2 ? 6 : 1)
+        : 0,
+    );
+    const total = weights.reduce((sum, each) => sum + each, 0);
+    if (!total) break;
+    let roll = random() * total;
+    let pick = 0;
+    while (pick < weights.length - 1 && (roll -= weights[pick]!) >= 0) pick++;
+    const r = leaves[pick]!;
+    const canV = r.w >= 2 * MIN + 1;
+    const canH = r.h >= 2 * MIN + 1;
+    const ratio = r.w / r.h;
+    const vertical =
+      canV && (!canH || ratio > 2 || (ratio >= 0.5 && random() < (ratio > 1.25 ? 0.85 : ratio < 0.8 ? 0.15 : 0.5)));
+    const len = vertical ? r.w : r.h;
+    const line = vertical ? r.h : r.w;
+    const passage = line >= 8 && len >= 2 * MIN + 3 && random() < style.passage * Math.min(1, (r.w * r.h) / 110);
+    const pw = passage ? (len >= 2 * MIN + 5 && random() < style.wide ? 2 : 1) : 0;
+    const hi = len - MIN - (pw ? pw + 2 : 1);
+    if (hi < MIN) continue;
+    const start = vertical ? r.x : r.y;
+    let a = -1;
+    for (let k = 0; k < 8 && a < 0; k++) {
+      // Toward the middle more often than the edges, so fewer slivers.
+      const at = MIN + Math.floor(((random() + random()) / 2) * (hi - MIN + 1));
+      const walls = pw ? [start + at, start + at + pw + 1] : [start + at];
+      if (walls.every((wall) => clear(vertical, wall, r))) a = at;
+    }
+    if (a < 0) continue;
+    const gap = pw ? pw + 2 : 1;
+    const [first, second] = vertical
+      ? [
+          { x: r.x, y: r.y, w: a, h: r.h },
+          { x: r.x + a + gap, y: r.y, w: r.w - a - gap, h: r.h },
+        ]
+      : [
+          { x: r.x, y: r.y, w: r.w, h: a },
+          { x: r.x, y: r.y + a + gap, w: r.w, h: r.h - a - gap },
+        ];
+    leaves.splice(pick, 1, first, second);
+    if (pw)
+      passages.push(vertical ? { x: r.x + a + 1, y: r.y, w: pw, h: r.h } : { x: r.x, y: r.y + a + 1, w: r.w, h: pw });
   }
-  // The way in, on the level the party comes in on: a door in the outer wall.
+  for (const r of [...leaves, ...passages]) carve(r);
+
+  // ── The spaces as a graph: two are neighbours across one wall ──
+  const nodes: SiteRect[] = [...passages, ...leaves];
+  const isPassage = (n: number) => n < passages.length;
+  type Edge = { a: number; b: number; cells: Array<{ x: number; y: number }> };
+  const edges: Edge[] = [];
+  for (let a = 0; a < nodes.length; a++)
+    for (let b = 0; b < nodes.length; b++) {
+      const [one, two] = [nodes[a]!, nodes[b]!];
+      const cells: Array<{ x: number; y: number }> = [];
+      if (one.x + one.w + 1 === two.x)
+        for (let y = Math.max(one.y, two.y); y < Math.min(one.y + one.h, two.y + two.h); y++)
+          cells.push({ x: one.x + one.w, y });
+      else if (one.y + one.h + 1 === two.y)
+        for (let x = Math.max(one.x, two.x); x < Math.min(one.x + one.w, two.x + two.w); x++)
+          cells.push({ x, y: one.y + one.h });
+      if (cells.length) edges.push({ a, b, cells });
+    }
+  const removed = new Set<number>();
+  const connected = () => {
+    const live = nodes.map((_, n) => n).filter((n) => !removed.has(n));
+    const seen = new Set([live[0]!]);
+    const queue = [live[0]!];
+    for (let head = 0; head < queue.length; head++)
+      for (const edge of edges) {
+        const other = edge.a === queue[head] ? edge.b : edge.b === queue[head] ? edge.a : -1;
+        if (other >= 0 && !removed.has(other) && !seen.has(other)) {
+          seen.add(other);
+          queue.push(other);
+        }
+      }
+    return seen.size === live.length;
+  };
+  // A corner left off: the building an L or a U, not a box.
+  const touches = (r: SiteRect) => ({
+    w: r.x === left + 1,
+    e: r.x + r.w === right,
+    n: r.y === top + 1,
+    s: r.y + r.h === bottom,
+  });
+  if (!level.inset)
+    for (let k = 0; k < 2 && random() < style.corner; k++) {
+      const spare = leaves.length - removed.size - planned.length - 1;
+      if (spare < 1) break;
+      const corners = nodes
+        .map((r, n) => ({ r, n }))
+        .filter(({ r, n }) => {
+          const t = touches(r);
+          return (
+            !isPassage(n) && !removed.has(n) && (t.w || t.e) && (t.n || t.s) && !links.some((l) => inside(r, l.x, l.y))
+          );
+        });
+      const corner = corners[Math.floor(random() * corners.length)];
+      if (!corner) break;
+      removed.add(corner.n);
+      if (!connected()) removed.delete(corner.n);
+      else carve(corner.r, "wall");
+    }
+  const live = (n: number) => !removed.has(n);
+
+  // ── The way in, and the tree of doors from it ──
+  let entrance = { x: -1, y: -1 };
+  let start = -1;
+  const hallWanted = entry && planned.some((room) => SITE_ENTRY_ROOMS.has(room.name));
   if (entry) {
-    ground[cell(entrance.x, entrance.y)] = "floor";
-    props[cell(entrance.x, entrance.y)] = DUNGEON_EXIT_PROP;
+    const sides: Array<{ n: number; x: number; y: number; weight: number }> = [];
+    for (const [n, r] of nodes.entries()) {
+      if (!live(n)) continue;
+      const t = touches(r);
+      // In by a passage, or straight into the entrance hall where the level has one.
+      const bonus = isPassage(n) === !hallWanted ? 3 : 1;
+      const pickAlong = (from: number, to: number) => from + Math.floor(random() * (to - from));
+      if (t.s) sides.push({ n, x: pickAlong(r.x, r.x + r.w), y: bottom, weight: 3 * bonus });
+      if (t.w) sides.push({ n, x: left, y: pickAlong(r.y, r.y + r.h), weight: bonus });
+      if (t.e) sides.push({ n, x: right, y: pickAlong(r.y, r.y + r.h), weight: bonus });
+      if (t.n) sides.push({ n, x: pickAlong(r.x, r.x + r.w), y: top, weight: 0.5 * bonus });
+    }
+    let roll = random() * sides.reduce((sum, side) => sum + side.weight, 0);
+    const side = sides.find((each) => (roll -= each.weight) < 0) ?? sides[0]!;
+    entrance = { x: side.x, y: side.y };
+    start = side.n;
   } else {
-    // Without a way in, the party arrives at the first link (the way it came by is set by the caller).
     const first = links[0];
-    if (first) entrance = { x: first.x, y: first.y };
+    start = first ? nodes.findIndex((r, n) => live(n) && inside(r, first.x, first.y)) : -1;
+    if (start < 0) start = nodes.findIndex((_, n) => live(n));
+    entrance = first ? { x: first.x, y: first.y } : { x: nodes[start]!.x, y: nodes[start]!.y };
   }
-  // Solid with nothing open beside it is not wall but the land round the building (or a court's sky).
+  const inTree = new Set([start]);
+  const tree: Edge[] = [];
+  const parent = new Map<number, Edge>();
+  while (true) {
+    const frontier = edges.filter((edge) => live(edge.a) && live(edge.b) && inTree.has(edge.a) !== inTree.has(edge.b));
+    if (!frontier.length) break;
+    const weight = (edge: Edge) => (isPassage(edge.a) || isPassage(edge.b) ? 4 : 1);
+    let roll = random() * frontier.reduce((sum, edge) => sum + weight(edge), 0);
+    const edge = frontier.find((each) => (roll -= weight(each)) < 0) ?? frontier[0]!;
+    const child = inTree.has(edge.a) ? edge.b : edge.a;
+    inTree.add(child);
+    tree.push(edge);
+    parent.set(child, edge);
+  }
+  const degree = nodes.map((_, n) => tree.filter((edge) => edge.a === n || edge.b === n).length);
+  const depth = nodes.map(() => -1);
+  depth[start] = 0;
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const edge of tree) {
+      if (depth[edge.a]! >= 0 && depth[edge.b]! < 0) [depth[edge.b], changed] = [depth[edge.a]! + 1, true];
+      else if (depth[edge.b]! >= 0 && depth[edge.a]! < 0) [depth[edge.a], changed] = [depth[edge.b]! + 1, true];
+    }
+  }
+
+  // ── The plan's rooms on the spaces ──
+  const owner = new Map<number, SitePlanRoom>();
+  const free = () =>
+    nodes
+      .map((r, n) => ({ r, n }))
+      .filter(({ n }) => live(n) && !isPassage(n) && !owner.has(n))
+      .sort((p, q) => depth[p.n]! - depth[q.n]! || q.r.w * q.r.h - p.r.w * p.r.h);
+  const claim = (pick: (room: SitePlanRoom) => boolean) => {
+    const room = planned.find(pick);
+    if (room) planned = planned.filter((each) => each !== room);
+    return room;
+  };
+  const area = (n: number) => nodes[n]!.w * nodes[n]!.h;
+  const hasLink = (n: number) => links.some((link) => inside(nodes[n]!, link.x, link.y));
+  // The great room: the biggest space.
+  const great = claim((room) => SITE_HALL_ROOMS.has(room.name));
+  if (great) {
+    const best = free().reduce<{ r: SiteRect; n: number } | undefined>(
+      (most, each) => (!most || area(each.n) > area(most.n) ? each : most),
+      undefined,
+    );
+    if (best) owner.set(best.n, great);
+  }
+  // An open court: a space inside the ground floor, walled on every side.
+  let court = -1;
+  if (level.depth === 0 && !level.inset && random() < style.court) {
+    const open = free().filter(({ r, n }) => {
+      const t = touches(r);
+      return !t.n && !t.s && !t.e && !t.w && r.w >= 5 && r.h >= 5 && n !== start && !hasLink(n);
+    });
+    const chosen = open[Math.floor(random() * open.length)];
+    if (chosen) {
+      court = chosen.n;
+      owner.set(
+        court,
+        claim((room) => room.use === "open") ?? {
+          name: SITE_COURT_NAMES[plan.template],
+          use: "open",
+          size: 3,
+          zone: "public",
+          furniture: [],
+        },
+      );
+    }
+  }
+  // The way in opens into the entrance hall.
+  const hallIn = entry ? claim((room) => SITE_ENTRY_ROOMS.has(room.name)) : undefined;
+  if (hallIn) {
+    const first = !isPassage(start) && !owner.has(start) ? { n: start } : free()[0];
+    if (first) owner.set(first.n, hallIn);
+  }
+  // The heart deep in, in a big space.
+  const heart = claim((room) => !!room.heart);
+  if (heart) {
+    const best = free().reduce<{ r: SiteRect; n: number } | undefined>(
+      (most, each) =>
+        !most || depth[each.n]! * 6 + area(each.n) / 4 > depth[most.n]! * 6 + area(most.n) / 4 ? each : most,
+      undefined,
+    );
+    if (best) owner.set(best.n, heart);
+  }
+  // The rest by zone, near to far, each in whichever of the next few spaces suits its size; a locked
+  // room only at a dead end with no stairs in it.
+  const order = { public: 0, service: 1, guest: 2, private: 3, deep: 4 } as const;
+  const want = { 1: 12, 2: 28, 3: 55 } as const;
+  for (const room of [...planned].sort((p, q) => order[p.zone] - order[q.zone])) {
+    let spaces = free();
+    if (room.locked) {
+      const ends = spaces.filter(({ n }) => degree[n] === 1 && !hasLink(n) && n !== start);
+      if (ends.length) spaces = ends.slice(0, 3);
+      else spaces = spaces.slice(0, 3);
+    } else spaces = spaces.slice(0, 3);
+    const fit = (n: number) => Math.abs(Math.log(area(n) / want[room.size]));
+    const best = spaces.reduce<{ r: SiteRect; n: number } | undefined>(
+      (most, each) => (!most || fit(each.n) < fit(most.n) ? each : most),
+      undefined,
+    );
+    if (!best) break;
+    const fits = !room.locked || (degree[best.n] === 1 && !hasLink(best.n) && best.n !== start);
+    owner.set(best.n, fits ? room : { ...room, locked: undefined });
+  }
+  let spares = 0;
+  for (const { n } of free())
+    owner.set(n, {
+      name: `${SPARE_ROOM_NAMES[plan.template]}${spares++ ? ` ${spares}` : ""}`,
+      use: "squat",
+      size: 1,
+      zone: "service",
+      furniture: [],
+    });
+
+  // ── Doors ──
+  const doorOf = new Map<number, { x: number; y: number }>();
+  const lockedNode = (n: number) => !!owner.get(n)?.locked;
+  const openEdge = (edge: Edge, main: boolean) => {
+    const both = isPassage(edge.a) && isPassage(edge.b);
+    if (both) {
+      for (const each of edge.cells) ground[cell(each.x, each.y)] = "floor";
+      return edge.cells[0]!;
+    }
+    const at = edge.cells[Math.floor(random() * edge.cells.length)]!;
+    ground[cell(at.x, at.y)] = "floor";
+    // A doorway with an open court is three wide where it can be.
+    if (edge.a === court || edge.b === court)
+      for (const each of edge.cells)
+        if (Math.abs(each.x - at.x) + Math.abs(each.y - at.y) <= 1) ground[cell(each.x, each.y)] = "floor";
+    if (main) {
+      const child = depth[edge.a]! > depth[edge.b]! ? edge.a : edge.b;
+      doorOf.set(child, at);
+    }
+    return at;
+  };
+  for (const edge of tree) openEdge(edge, true);
+  for (const edge of edges) {
+    if (tree.includes(edge) || !live(edge.a) || !live(edge.b) || edge.a > edge.b) continue;
+    if (lockedNode(edge.a) || lockedNode(edge.b)) continue;
+    const passages2 = Number(isPassage(edge.a)) + Number(isPassage(edge.b));
+    const chance = edge.a === court || edge.b === court ? 0.7 : passages2 === 2 ? 0.6 : passages2 === 1 ? 0.2 : 0.25;
+    if (random() < chance) openEdge(edge, false);
+  }
+  if (entry) ground[cell(entrance.x, entrance.y)] = "floor";
+
+  const rooms: DungeonRoom[] = [];
+  const info: SiteLevelMap["rooms"] = [];
+  const doors: Array<{ x: number; y: number; room: number; locked: boolean } | null> = [];
+  const opens: Array<SiteSide | null> = [];
+  const roomOf = new Map<SitePlanRoom, number>();
+  const ways: SiteRect[] = passages.filter((_, n) => live(n));
+  for (const [n, room] of [...owner.entries()].sort((p, q) => depth[p[0]]! - depth[q[0]]! || p[0] - q[0])) {
+    const r = nodes[n]!;
+    const door = n === start && entry ? entrance : (doorOf.get(n) ?? null);
+    const side: SiteSide | null = !door
+      ? null
+      : door.y < r.y
+        ? "N"
+        : door.y >= r.y + r.h
+          ? "S"
+          : door.x < r.x
+            ? "W"
+            : "E";
+    const k = rooms.length;
+    roomOf.set(room, k);
+    rooms.push({ ...r });
+    info.push({ name: room.name, use: room.use, ...(room.heart ? { heart: true as const } : {}) });
+    doors.push(door && n !== court ? { ...door, room: k, locked: !!room.locked && n !== start } : null);
+    opens.push(side);
+    // A great room's pillars: two rows of them down a big one, clear of its doors and links.
+    if (SITE_HALL_ROOMS.has(room.name) && r.w >= 7 && r.h >= 7) {
+      const doorway = (x: number, y: number) =>
+        [
+          [x - 1, y],
+          [x + 1, y],
+          [x, y - 1],
+          [x, y + 1],
+        ].some(([dx, dy]) => ground[cell(dx!, dy!)] === "floor" && !inside(r, dx!, dy!));
+      const vertical = r.h > r.w;
+      for (const off of [2, (vertical ? r.w : r.h) - 3])
+        for (let along = 2; along < (vertical ? r.h : r.w) - 2; along += 3) {
+          const [x, y] = vertical ? [r.x + off, r.y + along] : [r.x + along, r.y + off];
+          if (links.some((link) => link.x === x && link.y === y) || doorway(x, y)) continue;
+          ground[cell(x, y)] = "wall";
+        }
+    }
+  }
+  if (entry) props[cell(entrance.x, entrance.y)] = DUNGEON_EXIT_PROP;
+  // Solid with nothing open beside it is not wall but the land round the building.
   const solid = ground.map((g, i) => {
     if (g !== "wall") return false;
     const [x, y] = [i % mapW, Math.floor(i / mapW)];
@@ -1026,14 +1021,15 @@ export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: b
       }
     return true;
   });
-  for (const [i, inside] of solid.entries()) if (inside) ground[i] = "rock";
+  for (const [i, inside2] of solid.entries()) if (inside2) ground[i] = "rock";
   // Flooded: water across the rooms' middles, never cutting a room off from its door.
   if (level.flooded)
     for (const area of rooms) {
       if (area.w < 3 || area.h < 3) continue;
       for (let y = area.y + 1; y < area.y + area.h - 1; y++)
         for (let x = area.x + 1; x < area.x + area.w - 1; x++)
-          if (ground[cell(x, y)] === "floor" && random() < 0.7) ground[cell(x, y)] = "liquid";
+          if (ground[cell(x, y)] === "floor" && !links.some((link) => link.x === x && link.y === y) && random() < 0.7)
+            ground[cell(x, y)] = "liquid";
     }
   const map: DungeonMap = {
     set: plan.set,
@@ -1128,7 +1124,7 @@ export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: b
     const want = 1 + Math.floor(random() * (2 + plan.wealth));
     for (let tries = 0; tries < 60 && traps.length < want; tries++) {
       const target = random() < 0.4 ? -1 : Math.floor(random() * rooms.length);
-      const area = target < 0 ? ways[Math.floor(random() * ways.length)]! : rooms[target]!;
+      const area = target < 0 && ways.length ? ways[Math.floor(random() * ways.length)]! : rooms[Math.max(0, target)]!;
       if (target >= 0 && (info[target]!.use === "quiet" || info[target]!.use === "open")) continue;
       const x = area.x + Math.floor(random() * area.w);
       const y = area.y + Math.floor(random() * area.h);
@@ -1138,20 +1134,6 @@ export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: b
       if (traps.some((trap) => trap.x === x && trap.y === y)) continue;
       traps.push({ x, y, dc: 10 + plan.wealth * 2 + Math.floor(random() * 4) - level.depth });
     }
-  }
-  // A building faces either way: the whole of it turned left for right, the same on every level.
-  if (frame.mirror) {
-    const flip = (x: number) => mapW - 1 - x;
-    for (let y = 0; y < mapH; y++) {
-      const row = y * mapW;
-      for (let x = 0; x < mapW / 2 - 0.5; x++) {
-        const [a, b] = [row + x, row + flip(x)];
-        [ground[a], ground[b]] = [ground[b]!, ground[a]!];
-        [props[a], props[b]] = [props[b]!, props[a]!];
-      }
-    }
-    for (const area of rooms) area.x = mapW - area.x - area.w;
-    for (const each of [entrance, ...links, ...locks, ...traps]) each.x = flip(each.x);
   }
   map.entrance = entrance;
   return { map, rooms: info, links, locks, traps };
