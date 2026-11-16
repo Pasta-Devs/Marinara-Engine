@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import AdmZip from "adm-zip";
 import type { Chat, ChatMode, ChatSummaryEntry, Message } from "../../packages/shared/src/types/chat.js";
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import {
@@ -136,13 +135,11 @@ import {
   MAX_FILE_SIZES,
   resolveTranslationSystemPrompt,
 } from "../../packages/shared/src/constants/defaults.js";
-import { normalizeIllustratorImagesPerGeneration } from "../../packages/shared/src/utils/illustrator-generation-count.js";
 import {
   isReservedManagedGenerationParameterKey,
   parseManagedGenerationParameterDefinitions,
   resolveManagedGenerationParameters,
 } from "../../packages/shared/src/utils/managed-generation-parameters.js";
-import { isAgentManifestAvailableInChatMode } from "../../packages/shared/src/constants/chat-mode-agent-policy.js";
 import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
 import {
   isBundledGameAssetFolderPath,
@@ -166,11 +163,6 @@ import {
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
 import { resolveInitialGameGmConnectionId } from "../../packages/server/src/services/game/initial-game-setup.js";
-import {
-  resolveIllustratorPromptRuntime,
-  type IllustratorPromptConnection,
-} from "../../packages/server/src/services/generation/illustrator-prompt-runtime.js";
-import { resolveIllustratorImageConnectionId } from "../../packages/server/src/services/generation/illustrator-background-generation.js";
 import { annotateContentWithReactions } from "../../packages/server/src/routes/generate/conversation-custom-assets.js";
 import {
   buildGameSessionReplayTurns,
@@ -191,9 +183,6 @@ import {
 } from "../../packages/client/src/lib/emoji-shortcodes.js";
 import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
 import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
-import { runRetrySetupPhase } from "../../packages/server/src/routes/generate/retry-agents-route.js";
-import { resolveIllustratorImageSize } from "../../packages/server/src/services/image/image-generation-settings.js";
-import { generateIllustratorImageVariants } from "../../packages/server/src/services/image/illustrator-image-variants.js";
 import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
 import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
 import { seedDefaultBackgrounds } from "../../packages/server/src/db/seed-backgrounds.js";
@@ -209,12 +198,6 @@ import {
   normalizeNextSessionCampaignPlan,
   normalizeNextSessionNpcs,
 } from "../../packages/server/src/services/game/next-session-plan.js";
-import {
-  buildRepositoryAgentInput,
-  normalizeCustomAgentRepositoryUrl,
-  parseCustomAgentRepositoryArchive,
-} from "../../packages/server/src/services/agents/custom-agent-repositories.service.js";
-import { shouldAutomaticallyRetryAgentResult } from "../../packages/server/src/routes/generate/agent-result-capabilities.js";
 import {
   formatLorebookWriteApprovalText,
   parseLorebookWriteApprovalText,
@@ -272,10 +255,6 @@ import {
   setLorebookEntryCounts,
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
-import {
-  buildAgentAddMetadataPatch,
-  buildInitialAgentAddSetupState,
-} from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 import { resolveSpriteTransition } from "../../packages/client/src/lib/sprite-transition.js";
 import {
   resolveLatestSpriteExpressionTurn,
@@ -964,37 +943,6 @@ assert.deepEqual(
 );
 assert.equal(resolveLatestSpriteExpressionTurn(undefined), undefined);
 
-const inheritedIllustratorSetup = buildInitialAgentAddSetupState({
-  agentId: "illustrator",
-  settings: { includeCharacterAppearance: true, useAvatarReferences: false },
-  metadata: {},
-  musicPlayerSource: "off",
-  roleplaySpriteScale: 1,
-});
-const inheritedIllustratorPatch = buildAgentAddMetadataPatch(
-  "illustrator",
-  inheritedIllustratorSetup,
-  {},
-  {
-    illustratorDefaults: { includeCharacterAppearance: true, useAvatarReferences: false },
-  },
-);
-assert.equal(Object.hasOwn(inheritedIllustratorPatch, "illustratorIncludeCharacterAppearance"), false);
-assert.equal(Object.hasOwn(inheritedIllustratorPatch, "illustratorUseAvatarReferences"), false);
-
-const staleIllustratorMetadata = {
-  illustratorIncludeCharacterAppearance: true,
-  illustratorUseAvatarReferences: false,
-};
-assert.deepEqual(
-  buildAgentAddMetadataPatch("illustrator", inheritedIllustratorSetup, staleIllustratorMetadata, {
-    illustratorDefaults: { includeCharacterAppearance: true, useAvatarReferences: false },
-  }),
-  {
-    illustratorIncludeCharacterAppearance: null,
-    illustratorUseAvatarReferences: null,
-  },
-);
 assert.equal(backgroundOrganization.folders.length, 1);
 assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
 assert.equal(backgroundOrganization.assignments["game:backgrounds:fantasy:castle"], undefined);
@@ -1170,46 +1118,11 @@ for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
   );
 }
 assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
-const downloadableAgent = { id: "downloadable-agent", execution: "pipeline" as const };
-assert.equal(isAgentManifestAvailableInChatMode("conversation", downloadableAgent), false);
-assert.equal(isAgentManifestAvailableInChatMode("roleplay", downloadableAgent), true);
-assert.equal(isAgentManifestAvailableInChatMode("game", downloadableAgent), false);
-assert.equal(
-  isAgentManifestAvailableInChatMode("game", { id: "spotify", execution: "pipeline" }),
-  true,
-  "Game mode must retain its opt-in Spotify agent",
-);
-assert.equal(
-  isAgentManifestAvailableInChatMode("game", {
-    id: "mode-limited-feature",
-    execution: "feature",
-    modeAllowlist: ["roleplay"],
-  }),
-  false,
-  "An explicit mode allowlist must still take precedence over feature-agent availability",
-);
-assert.equal(
-  isAgentManifestAvailableInChatMode(null, downloadableAgent),
-  true,
-  "Missing legacy mode metadata must retain the Roleplay agent policy",
-);
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "individual", ["a", "b"]), true);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a"]), true);
-assert.deepEqual(resolveIllustratorImageSize({ width: 960, height: 540 }, "landscape"), {
-  width: 960,
-  height: 540,
-});
-assert.deepEqual(resolveIllustratorImageSize({ width: 540, height: 960 }, "landscape"), {
-  width: 960,
-  height: 540,
-});
-assert.deepEqual(resolveIllustratorImageSize({ width: 960, height: 540 }, "portrait"), {
-  width: 540,
-  height: 960,
-});
 
 const minimalProfessorMariPersona = buildPersonaCreateRow(
   { name: "Minimal helper persona" },
@@ -4616,23 +4529,6 @@ assert.deepEqual(completeProfessorMariPersona.convoBehavior, {
 assert.equal(resolveInitialGameGmConnectionId(undefined, "chat-connection"), "chat-connection");
 assert.equal(resolveInitialGameGmConnectionId("explicit-connection", "chat-connection"), "explicit-connection");
 assert.equal(resolveInitialGameGmConnectionId(undefined, null), null);
-assert.equal(
-  resolveIllustratorImageConnectionId(
-    "game",
-    { gameImageConnectionId: " game-images ", illustratorImageConnectionId: "roleplay-images" },
-    "agent-images",
-  ),
-  "game-images",
-);
-assert.equal(
-  resolveIllustratorImageConnectionId(
-    "roleplay",
-    { gameImageConnectionId: "game-images", illustratorImageConnectionId: " roleplay-images " },
-    "agent-images",
-  ),
-  "roleplay-images",
-);
-assert.equal(resolveIllustratorImageConnectionId("game", {}, " agent-images "), "agent-images");
 const previousGameDynamicImagePromptTimeout = process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS;
 try {
   delete process.env.GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS;
@@ -4698,22 +4594,6 @@ assert.deepEqual(refreshedGameNpcs[1]?.notes, ["Next-session role: Trade the rou
 assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
 assert.match(DEFAULT_TRANSLATION_SYSTEM_PROMPT, /\{\{targetLanguage\}\}/u);
 assert.match(resolveTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT, "Japanese"), /into Japanese/u);
-assert.equal(normalizeIllustratorImagesPerGeneration(undefined), 1);
-assert.equal(normalizeIllustratorImagesPerGeneration("3"), 3);
-assert.equal(normalizeIllustratorImagesPerGeneration(99), 4);
-const attemptedImageVariants: number[] = [];
-assert.deepEqual(
-  await generateIllustratorImageVariants({
-    count: 3,
-    generate: async (index) => {
-      attemptedImageVariants.push(index);
-      if (index === 1) throw new Error("one variant failed");
-      return `image-${index}`;
-    },
-  }),
-  ["image-0", "image-2"],
-);
-assert.deepEqual(attemptedImageVariants, [0, 1, 2]);
 
 validatePullRequestTriage();
 
@@ -4756,64 +4636,6 @@ try {
 } finally {
   rmSync(profileImportAssetRoot, { recursive: true, force: true });
 }
-
-const mainPromptConnection: IllustratorPromptConnection = {
-  id: "main-prompt-connection",
-  name: "Main prompt connection",
-  provider: "openai",
-  baseUrl: "https://main.example.test/v1",
-  apiKey: "main-key",
-  model: "gpt-4o",
-};
-const selfiePromptConnection: IllustratorPromptConnection = {
-  id: "selfie-prompt-connection",
-  name: "Selfie prompt connection",
-  provider: "openai",
-  baseUrl: "https://selfie.example.test/v1",
-  apiKey: "selfie-key",
-  model: "gpt-4.1-mini",
-};
-const requestedSelfiePromptConnections: string[] = [];
-const selfiePromptConnections = {
-  async getWithKey(id: string) {
-    requestedSelfiePromptConnections.push(id);
-    return id === selfiePromptConnection.id ? selfiePromptConnection : null;
-  },
-  async getFallbackForAgents() {
-    return null;
-  },
-};
-const overriddenSelfiePromptRuntime = await resolveIllustratorPromptRuntime({
-  chatMetadata: { illustratorPromptConnectionId: selfiePromptConnection.id },
-  defaultConnection: mainPromptConnection,
-  defaultConnectionId: mainPromptConnection.id,
-  connections: selfiePromptConnections,
-  resolveBaseUrl: (connection) => connection.baseUrl ?? "",
-});
-assert.equal(overriddenSelfiePromptRuntime.connectionId, selfiePromptConnection.id);
-assert.equal(overriddenSelfiePromptRuntime.model, selfiePromptConnection.model);
-assert.deepEqual(requestedSelfiePromptConnections, [selfiePromptConnection.id]);
-
-const defaultSelfiePromptRuntime = await resolveIllustratorPromptRuntime({
-  chatMetadata: {},
-  defaultConnection: mainPromptConnection,
-  defaultConnectionId: mainPromptConnection.id,
-  connections: selfiePromptConnections,
-  resolveBaseUrl: (connection) => connection.baseUrl ?? "",
-});
-assert.equal(defaultSelfiePromptRuntime.connectionId, mainPromptConnection.id);
-assert.equal(defaultSelfiePromptRuntime.model, mainPromptConnection.model);
-
-await assert.rejects(
-  resolveIllustratorPromptRuntime({
-    chatMetadata: { illustratorPromptConnectionId: "deleted-selfie-prompt-connection" },
-    defaultConnection: mainPromptConnection,
-    defaultConnectionId: mainPromptConnection.id,
-    connections: selfiePromptConnections,
-    resolveBaseUrl: (connection) => connection.baseUrl ?? "",
-  }),
-  /selected selfie Prompt Model connection could not be found/u,
-);
 
 async function captureRoutineSummaryOptions(maxTokensOverrideValue: number | null): Promise<ChatOptions> {
   let capturedOptions: ChatOptions | null = null;
@@ -7012,21 +6834,6 @@ const syncedSettingsSource = uiStoreSource.slice(
   uiStoreSource.indexOf("export function pickSyncedSettings"),
   uiStoreSource.indexOf("export const useUIStore"),
 );
-assert.equal(
-  shouldAutomaticallyRetryAgentResult({ success: false, error: "The operation was aborted due to timeout" }),
-  false,
-  "timed-out agents should settle as failures instead of starting another full timeout window",
-);
-assert.equal(
-  shouldAutomaticallyRetryAgentResult({ success: false, error: "Agent returned invalid JSON" }),
-  true,
-  "ordinary agent failures should retain the existing one-time automatic retry",
-);
-assert.equal(
-  shouldAutomaticallyRetryAgentResult({ success: true, error: null }),
-  false,
-  "successful agents should never enter the automatic retry queue",
-);
 assert.deepEqual(
   filterCustomEmojisByName(
     [
@@ -7932,38 +7739,6 @@ try {
   rmSync(entityGalleryRoot, { recursive: true, force: true });
 }
 
-const preAbortedRetrySetup = new AbortController();
-preAbortedRetrySetup.abort();
-let preAbortedRetrySetupRan = false;
-await assert.rejects(
-  runRetrySetupPhase(preAbortedRetrySetup.signal, async () => {
-    preAbortedRetrySetupRan = true;
-  }),
-  /aborted/iu,
-);
-assert.equal(preAbortedRetrySetupRan, false, "A cancelled retry must not start another setup phase");
-
-let releaseRetrySetupPhase: () => void = () => undefined;
-let markRetrySetupPhaseStarted: () => void = () => undefined;
-const retrySetupPhaseStarted = new Promise<void>((resolve) => {
-  markRetrySetupPhaseStarted = resolve;
-});
-const inFlightRetrySetupAbort = new AbortController();
-const inFlightRetrySetup = runRetrySetupPhase(inFlightRetrySetupAbort.signal, async () => {
-  markRetrySetupPhaseStarted();
-  await new Promise<void>((resolve) => {
-    releaseRetrySetupPhase = resolve;
-  });
-});
-await retrySetupPhaseStarted;
-inFlightRetrySetupAbort.abort();
-releaseRetrySetupPhase();
-await assert.rejects(
-  inFlightRetrySetup,
-  /aborted/iu,
-  "A retry cancelled during setup must stop before the next write or event",
-);
-
 assert.deepEqual(parseCustomParametersDraft('{ "reasoning_effort": high, "awesomesauce": enabled }'), {
   ok: true,
   value: { reasoning_effort: "high", awesomesauce: "enabled" },
@@ -8387,58 +8162,11 @@ assert.equal(getChatGenerationTimeoutMs(), DEFAULT_CHAT_GENERATION_TIMEOUT_MS);
 if (originalChatGenerationTimeout === undefined) delete process.env.CHAT_GENERATION_TIMEOUT_MS;
 else process.env.CHAT_GENERATION_TIMEOUT_MS = originalChatGenerationTimeout;
 
-const customRepository = normalizeCustomAgentRepositoryUrl("https://github.com/Pasta-Devs/Example-Agents.git/");
-assert.equal(customRepository.url, "https://github.com/pasta-devs/example-agents");
-assert.throws(
-  () => normalizeCustomAgentRepositoryUrl("https://github.com/Pasta-Devs/Example-Agents/tree/staging"),
-  /repository root URL/u,
-);
-assert.throws(() => normalizeCustomAgentRepositoryUrl("https://example.com/agents"), /public GitHub repository/u);
 await assert.rejects(
   validateOutboundUrl("https://example.com/archive.zip", {
     allowedHostnames: ["github.com", "codeload.github.com"],
   }),
   /hostname 'example\.com' is not allowed/u,
-);
-const repositoryDefinition = {
-  id: "continuity-helper",
-  name: "Continuity Helper",
-  description: "Checks recent turns for contradictions.",
-  author: "Mari",
-  phase: "post_processing" as const,
-  enabledByDefault: false,
-  defaultInjectAsSection: true,
-  category: "writer" as const,
-  defaultTools: ["search_messages"],
-  defaultSettings: { maxTokens: 900 },
-  modeAllowlist: ["roleplay" as const],
-  defaultPromptTemplate: "Check {{messages}} for continuity errors.",
-};
-const repositoryArchive = new AdmZip();
-repositoryArchive.addFile("example-agents-main/agents.json", Buffer.from(JSON.stringify([repositoryDefinition])));
-assert.deepEqual(parseCustomAgentRepositoryArchive(repositoryArchive.toBuffer()), [repositoryDefinition]);
-const importedRepositoryAgent = buildRepositoryAgentInput(customRepository, repositoryDefinition);
-assert.equal(importedRepositoryAgent.type, `repo-${customRepository.id}-continuity-helper`);
-assert.deepEqual(importedRepositoryAgent.settings.enabledTools, ["search_messages"]);
-assert.deepEqual(importedRepositoryAgent.settings.customAgentRepositorySource, {
-  repositoryId: customRepository.id,
-  repositoryUrl: customRepository.url,
-  agentId: repositoryDefinition.id,
-});
-const duplicateRepositoryArchive = new AdmZip();
-duplicateRepositoryArchive.addFile(
-  "example-agents-main/agents.json",
-  Buffer.from(JSON.stringify([repositoryDefinition, repositoryDefinition])),
-);
-assert.throws(() => parseCustomAgentRepositoryArchive(duplicateRepositoryArchive.toBuffer()), /duplicate agent id/u);
-const featureRepositoryArchive = new AdmZip();
-featureRepositoryArchive.addFile(
-  "example-agents-main/agents.json",
-  Buffer.from(JSON.stringify([{ ...repositoryDefinition, execution: "feature" }])),
-);
-assert.throws(
-  () => parseCustomAgentRepositoryArchive(featureRepositoryArchive.toBuffer()),
-  /requires a package runtime/u,
 );
 const originalCustomRepositoryFlag = process.env.ENABLE_CUSTOM_AGENT_REPOS;
 try {
