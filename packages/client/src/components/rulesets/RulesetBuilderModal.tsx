@@ -994,8 +994,9 @@ export function RulesetBuilderModal({
         <div className="flex justify-end gap-2">
           <button
             type="button"
+            disabled={saving}
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+            className="rounded-lg px-3 py-1.5 text-xs ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
           >
             {localizeUi("rulesetBuilder.cancel")}
           </button>
