@@ -19,7 +19,10 @@ try {
   const mariDb = new MariDbService(db);
   const call = (args: Record<string, unknown>) =>
     mariDb.executeAction(args as never) as Promise<{ ok: boolean; mode: string; error?: string; output?: unknown }>;
-  const count = async (action: string) => ((await call({ action })).output as unknown[]).length;
+  const count = async (action: string) => {
+    const output = (await call({ action })).output as unknown[] | { items: unknown[] };
+    return (Array.isArray(output) ? output : output.items).length;
+  };
 
   // An unreadable apply on a create is refused and writes nothing.
   for (const apply of [0, "dry-run"]) {
@@ -39,9 +42,9 @@ try {
   // A 12b sent tags as JSON text: the card stored the string and every character screen crashed on tags.map.
   const tagged = await call({ action: "character.create", data: { name: "Elara", tags: '["chef", "mentor"]' } });
   assert.equal(tagged.ok, true, tagged.error);
-  const elaraId = ((await call({ action: "character.list" })).output as { id: string; name: string }[]).find(
-    (row) => row.name === "Elara",
-  )?.id;
+  const elaraId = (
+    (await call({ action: "character.list" })).output as { items: { id: string; name: string }[] }
+  ).items.find((row) => row.name === "Elara")?.id;
   const tagsOf = async () =>
     ((await call({ action: "character.get", characterId: elaraId })).output as { data: { tags: unknown } }).data.tags;
   assert.deepEqual(await tagsOf(), ["chef", "mentor"]);
@@ -49,9 +52,9 @@ try {
   assert.deepEqual(await tagsOf(), ["baker", "rival"]);
   // Split on commas, the same text kept its brackets: ["[culinary", "lore]"].
   await call({ action: "lorebook.create", data: { name: "Tagged", tags: '["culinary", "lore"]' } });
-  const bookId = ((await call({ action: "lorebook.list" })).output as { id: string; name: string }[]).find(
-    (row) => row.name === "Tagged",
-  )?.id;
+  const bookId = (
+    (await call({ action: "lorebook.list" })).output as { items: { id: string; name: string }[] }
+  ).items.find((row) => row.name === "Tagged")?.id;
   const book = (await call({ action: "lorebook.get", lorebookId: bookId })).output as { tags?: unknown };
   assert.deepEqual(book.tags, ["culinary", "lore"]);
   // A list of objects sent as JSON text meets the same guard as the list itself.
@@ -67,7 +70,7 @@ try {
   const ten = await call({ action: "character.list", limit: "ten" });
   assert.equal(ten.ok, false);
   assert.match(ten.error ?? "", /"limit" must be a number \(got "ten"\)/);
-  assert.equal(((await call({ action: "character.list", limit: "1" })).output as unknown[]).length, 1);
+  assert.equal(((await call({ action: "character.list", limit: "1" })).output as { items: unknown[] }).items.length, 1);
 
   // Through the tool, a lowered limit is named before the result.
   const commands = new WorkspaceCommands({ db } as never, () => ({
@@ -88,7 +91,7 @@ try {
   const big = await run("app_data", { action: "character.list", limit: 5000 });
   assert.equal(big.success, true);
   // The note goes under the "Command: " header, which stays on line 1: bash's staged-change check reads it there.
-  assert.match(big.output, /^Command: [^\n]*\n"limit" 5000 is above this read's maximum, so 1000 was used/);
+  assert.match(big.output, /^Command: [^\n]*\n"limit" 5000 is above this read's maximum, so 100 was used/);
   const zero = await run("app_data", { action: "character.list", limit: 0 });
   assert.match(zero.output, /^Command: [^\n]*\n"limit" 0 is below 1, so the default 50 was used\./);
   const plain = await run("app_data", { action: "character.list", limit: 10 });
@@ -99,7 +102,7 @@ try {
     notes?: string[];
   };
   assert.deepEqual(direct.notes, [
-    `"limit" 5000 is above this read's maximum, so 1000 was used: this may not be everything.`,
+    `"limit" 5000 is above this read's maximum, so 100 was used: this may not be everything.`,
   ]);
   assert.equal(
     ((await mariDb.executeAction({ action: "character.list", limit: 10 } as never)) as { notes?: string[] }).notes,
@@ -110,10 +113,9 @@ try {
   await run("app_data", { action: "skill.get", id: "builtin-presets" });
   const preset = await run("app_data", { action: "preset.create", data: { name: "Placement" }, apply: true });
   assert.equal(preset.success, true, preset.output);
-  const presetId = (await mariDb.executeAction({ action: "preset.list" } as never)).output as {
-    id: string;
-    name: string;
-  }[];
+  const presetId = (
+    (await mariDb.executeAction({ action: "preset.list" } as never)).output as { items: { id: string; name: string }[] }
+  ).items;
   const placementId = presetId.find((row) => row.name === "Placement")?.id;
   assert.ok(placementId, "the preset was created");
   await run("app_data", {

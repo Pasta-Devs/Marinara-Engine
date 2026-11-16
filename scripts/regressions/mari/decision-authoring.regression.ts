@@ -95,7 +95,10 @@ try {
   const assertOk = (result: { ok: boolean; error?: string }) => assert.equal(result.ok, true, JSON.stringify(result));
   const findId = async (action: string, name: string) => {
     const result = await mari.executeAction({ action });
-    const id = (result.output as Array<{ id: string; name: string }>).find((row) => row.name === name)?.id;
+    // agent.list is still a bare array; the paged lists (#9323) wrap their rows in items.
+    const output = result.output as
+      Array<{ id: string; name: string }> | { items: Array<{ id: string; name: string }> };
+    const id = (Array.isArray(output) ? output : output.items).find((row) => row.name === name)?.id;
     assert.ok(id, `${action}: ${name}`);
     return id;
   };
@@ -137,7 +140,7 @@ try {
   assertOk(preview);
   assert.equal(preview.mode, "dry-run", "preparing a reviewable plan does not require permission to persist it");
   assert.equal(
-    ((await mari.executeAction({ action: "character.list" })).output as Array<{ name: string }>).some(
+    ((await mari.executeAction({ action: "character.list" })).output as { items: Array<{ name: string }> }).items.some(
       (row) => row.name === "Decision preview",
     ),
     false,

@@ -21,14 +21,16 @@ try {
   const settings = createAppSettingsStorage(db);
   const mariDb = new MariDbService(db);
   await mariDb.executeAction({ action: "character.create", data: { name: "Aldric", description: "Died in 1746." } });
-  const aldric = ((await mariDb.executeAction({ action: "character.list" })) as { output: Array<{ id: string }> })
-    .output[0]!.id;
+  const aldric = (
+    (await mariDb.executeAction({ action: "character.list" })) as { output: { items: Array<{ id: string }> } }
+  ).output.items[0]!.id;
   const book = (await mariDb.executeAction({ action: "lorebook.create", data: { name: "Aldric's Chronicles" } })) as {
     ok: boolean;
   };
   assert.equal(book.ok, true);
-  const lorebookId = ((await mariDb.executeAction({ action: "lorebook.list" })) as { output: Array<{ id: string }> })
-    .output[0]!.id;
+  const lorebookId = (
+    (await mariDb.executeAction({ action: "lorebook.list" })) as { output: { items: Array<{ id: string }> } }
+  ).output.items[0]!.id;
 
   // One chat per call site: the gate runs once per turn, and nothing here starts a new turn (#8391 re-arms it).
   let n = 0;
@@ -76,8 +78,9 @@ try {
   assert.equal(untouched.output.data.description, "Died in 1746.", "the gate's probe is a dry run");
   // An edit with "apply" left out would only preview, so the gate says that too (T15, round 2)...
   await mariDb.executeAction({ action: "preset.create", data: { name: "Gated" } });
-  const presetId = ((await mariDb.executeAction({ action: "preset.list" })) as { output: Array<{ id: string }> })
-    .output[0]!.id;
+  const presetId = (
+    (await mariDb.executeAction({ action: "preset.list" })) as { output: { items: Array<{ id: string }> } }
+  ).output.items[0]!.id;
   const gatedEdit = await run({ action: "preset.update", presetId, patch: { name: "Renamed" } });
   assert.match(gatedEdit.output, /read skill `builtin-presets` first/);
   assert.match(gatedEdit.output, /would also not have saved:\nNothing was saved: preset\.update/);

@@ -790,7 +790,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      'Read or change live app data through structured actions, without shell commands. lorebook.entries returns one page of entry previews as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset. lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
+      'Read or change live app data through structured actions, without shell commands. character.list, persona.list, lorebook.list, preset.list, chat.list and lorebook.entries return one page as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset (the same offset again returns the same page). lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
     parameters: {
       type: "object",
       properties: {
@@ -833,7 +833,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "integer",
           minimum: 0,
           description:
-            "Start item offset for chat.messages and lorebook.entries, or character offset when paging through a field= read.",
+            "Start item offset for paged reads (character.list, persona.list, lorebook.list, preset.list, chat.list, instruction.list, skill.list, chat.messages, lorebook.entries): pass the previous page's nextOffset. Or the character offset when paging through a field= read.",
         },
         name: { type: "string" },
         version: { type: "string" },
