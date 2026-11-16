@@ -1805,6 +1805,17 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   // ── Character Gallery ──
 
+  // Every character's pictures labeled "background", in one request, for the background library.
+  app.get("/gallery/backgrounds", async () => {
+    const images = await characterGallery.listByCustomKind("background");
+    return images.map((img) => ({
+      id: img.id,
+      characterId: img.characterId,
+      customName: img.customName ?? null,
+      url: `/api/characters/${img.characterId}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
+    }));
+  });
+
   app.get<{ Params: { id: string } }>("/:id/gallery", async (req, reply) => {
     const char = await storage.getById(req.params.id);
     if (!char) return reply.status(404).send({ error: "Character not found" });

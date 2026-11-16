@@ -40,6 +40,14 @@ export function createCharacterGalleryStorage(db: DB) {
         .orderBy(desc(characterImages.createdAt));
     },
 
+    async listByCustomKind(customKind: GalleryTagKind) {
+      return db
+        .select()
+        .from(characterImages)
+        .where(eq(characterImages.customKind, customKind))
+        .orderBy(desc(characterImages.createdAt));
+    },
+
     async listLegacyCandidates(input: LegacyCharacterImageCandidateInput) {
       return db
         .select()
