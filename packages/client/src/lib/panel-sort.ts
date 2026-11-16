@@ -1,3 +1,5 @@
+import { compareTokenEstimates, type TokenSort } from "@marinara-engine/shared";
+
 export const BASIC_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest"] as const;
 
 export type BasicPanelSort = (typeof BASIC_PANEL_SORT_OPTIONS)[number];
@@ -55,4 +57,25 @@ export function sortPanelFolders<T extends { name: string; createdAt?: string; s
     (folder) => folder.name,
     (folder) => folder.createdAt,
   );
+}
+
+/** Size sort for items: by token estimate in the sort's direction, then by name. */
+export function sortItemsByTokens<T>(
+  items: readonly T[],
+  sort: TokenSort,
+  getTokens: (item: T) => number | null | undefined,
+  getName: (item: T) => string | null | undefined,
+) {
+  return [...items].sort(
+    (a, b) => compareTokenEstimates(sort, getTokens(a), getTokens(b)) || compareNames(getName(a), getName(b)),
+  );
+}
+
+/** Size sort for folders: by their members' total tokens in the sort's direction, then by name. */
+export function sortFoldersByTokens<T extends { id: string; name: string }>(
+  folders: readonly T[],
+  sort: TokenSort,
+  getTotal: (folder: T) => number,
+) {
+  return sortItemsByTokens(folders, sort, getTotal, (folder) => folder.name);
 }

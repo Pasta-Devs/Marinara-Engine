@@ -70,7 +70,15 @@ export type ChatModeShortcut = "conversation" | "roleplay" | "game";
 
 /** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
 export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
-export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
+export const CHARACTER_LIBRARY_SORT_OPTIONS = [
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "favorites",
+  "tokens-desc",
+  "tokens-asc",
+] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas" | "lorebooks";
 export type BotBrowserKind = "cards" | "lorebooks";

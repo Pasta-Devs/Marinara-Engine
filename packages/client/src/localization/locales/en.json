@@ -16356,6 +16356,8 @@
   "ui.panels.importsettings.profileImportSkippedAssets_other": "{{count}} asset files could not be imported and were skipped.",
   "ui.panels.importsettings.profileImportSkippedLabel": "Skipped",
   "ui.panels.importsettings.scanningProfile": "Scanning Profile...",
+  "ui.panels.librarysort.fewestTokens": "Fewest tokens",
+  "ui.panels.librarysort.mostTokens": "Most tokens",
   "ui.panels.lorebookrow.deselectLorebook": "Deselect lorebook",
   "ui.panels.lorebookrow.dragLorebook": "Drag lorebook",
   "ui.panels.lorebookrow.off": "OFF",
