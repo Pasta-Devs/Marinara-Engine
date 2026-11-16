@@ -141,7 +141,8 @@ export function useGallerySheetCells(kind: GallerySheetKind) {
 
   const applyCrop = useCallback(
     async (index: number, cropped: string) => {
-      const image = await fitGallerySheetCell(cropped, kind, { trim: false });
+      // Trim again inside the hand-cut frame, so a crop that only drops a neighbour's edge keeps the size.
+      const image = await fitGallerySheetCell(cropped, kind);
       update(index, { image, selected: true });
       setCropIndex(null);
     },
@@ -174,10 +175,9 @@ export type GallerySheetCellsState = ReturnType<typeof useGallerySheetCells>;
 
 // A light/dark check pattern so see-through stickers read as cut out in every theme.
 const CHECKER_STYLE = {
-  backgroundImage:
-    "linear-gradient(45deg, rgb(128 128 128 / 0.18) 25%, transparent 25%), linear-gradient(-45deg, rgb(128 128 128 / 0.18) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgb(128 128 128 / 0.18) 75%), linear-gradient(-45deg, transparent 75%, rgb(128 128 128 / 0.18) 75%)",
+  // One conic gradient: four linear ones cost noticeably more to paint in Safari.
+  backgroundImage: "repeating-conic-gradient(rgb(128 128 128 / 0.18) 0% 25%, transparent 0% 50%)",
   backgroundSize: "12px 12px",
-  backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0",
 } as const;
 
 export function GallerySheetCells({
@@ -244,8 +244,8 @@ export function GallerySheetCells({
             <li
               key={cell.id}
               className={cn(
-                "min-w-0 space-y-1.5 rounded-lg bg-[var(--secondary)]/60 p-1.5 ring-1 transition-shadow",
-                cell.selected ? "ring-[var(--primary)]" : "ring-[var(--border)]/60 opacity-60",
+                "min-w-0 space-y-1.5 rounded-lg bg-[var(--secondary)]/60 p-1.5 ring-1",
+                cell.selected ? "ring-[var(--primary)]" : "ring-[var(--border)]/60 [&_img]:opacity-40",
               )}
             >
               <div className="relative">
