@@ -240,7 +240,7 @@ test("Illustrator manual-only interval saves and survives reopening and chat set
     const drawer = page.locator(".mari-chat-settings-drawer");
     const agents = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents/ });
     if ((await agents.getAttribute("aria-expanded")) !== "true") await agents.click();
-    const enable = drawer.getByRole("checkbox", { name: /^Enable Agents/ });
+    const enable = drawer.getByRole("switch", { name: /^Enable Agents/ });
     if (!(await enable.isChecked())) await enable.check();
     await drawer.getByRole("button", { name: /Misc Agents/ }).click();
     // Scoped to Agents: other sections, like the gallery, can show "Illustrator" too.

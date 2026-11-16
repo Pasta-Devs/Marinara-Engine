@@ -175,7 +175,7 @@ test("Roleplay wizard reuses automatic memory settings without downloaded agents
     const agentsToggle = wizard.getByRole("switch", { name: /^Enable Agents/ });
     await expect(agentsToggle).toHaveAttribute("aria-checked", "false");
     const memory = wizard.locator('[data-component="AdvancedMemorySettings"]');
-    const toggle = memory.getByRole("checkbox", { name: /Automatic context and memory handling/ });
+    const toggle = memory.getByRole("switch", { name: /Automatic context and memory handling/ });
     await expect(toggle).not.toBeChecked();
     await expect(memory.getByText(/^Advanced Memory Recall lets you enjoy/)).toBeVisible();
     await expect(memory.getByLabel("Maximum allowed context before compression (tokens)")).toHaveCount(0);

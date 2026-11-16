@@ -450,8 +450,8 @@ for (const theme of ["dark", "light"] as const) {
       await sfxPath.fill("audio/generations");
       await editor.getByText("Sound-effect generation", { exact: true }).click();
       await editor.getByText("Music generation", { exact: true }).click();
-      await expect(editor.getByRole("checkbox", { name: /^Sound-effect generation/u })).toBeChecked();
-      await expect(editor.getByRole("checkbox", { name: /^Music generation/u })).toBeChecked();
+      await expect(editor.getByRole("switch", { name: /^Sound-effect generation/u })).toBeChecked();
+      await expect(editor.getByRole("switch", { name: /^Music generation/u })).toBeChecked();
       const save = editor.getByRole("button", { name: "Save", exact: true });
       await save.click();
       await expect.poll(stored).toMatchObject({
@@ -473,8 +473,8 @@ for (const theme of ["dark", "light"] as const) {
       );
       await expect(editor.getByLabel("Music endpoint path", { exact: true })).toHaveValue("chat/completions");
       await expect(editor.getByLabel("Sound-effect endpoint path", { exact: true })).toHaveValue("audio/generations");
-      await expect(editor.getByRole("checkbox", { name: /^Sound-effect generation/u })).toBeChecked();
-      await expect(editor.getByRole("checkbox", { name: /^Music generation/u })).toBeChecked();
+      await expect(editor.getByRole("switch", { name: /^Sound-effect generation/u })).toBeChecked();
+      await expect(editor.getByRole("switch", { name: /^Music generation/u })).toBeChecked();
 
       await editor.getByLabel("Music endpoint path", { exact: true }).fill("https://other.example.test/generate");
       await editor.getByRole("button", { name: "Save", exact: true }).click();

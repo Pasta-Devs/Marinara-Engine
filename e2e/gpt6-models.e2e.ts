@@ -37,7 +37,7 @@ for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
       await expect(choice).toContainText("1.1m context");
       await expect(choice).toContainText("128k max output");
       await choice.click();
-      const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this model", exact: true });
+      const defaults = page.getByRole("switch", { name: "Use custom defaults for this model", exact: true });
       await defaults.scrollIntoViewIfNeeded();
       await defaults.press("Space");
       await expect(defaults).toBeChecked();

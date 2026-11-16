@@ -5273,7 +5273,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expandedSheet.click();
     await sheetPreview.click({ position: { x: 2, y: 2 } });
     await expect(sheetPreview).toBeHidden();
-    await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
+    await expect(editor.getByRole("switch", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
       .locator('[data-editor-subsection="character-sheet"]')
@@ -5325,7 +5325,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await openImagesSubsection(personaEditor, "Character Sheet");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
-    await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
+    await expect(personaEditor.getByRole("switch", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
       .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
@@ -7911,8 +7911,8 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
       .getByRole("button", { name: "Roleplay", exact: true })
       .click();
     const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
-    const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
-    const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
+    const showToggle = showControl.getByRole("switch", { name: "Show Thinking In Messages" });
+    const keepToggle = keepControl.getByRole("switch", { name: "Don't Collapse Thinking" });
     await showControl.scrollIntoViewIfNeeded();
     await expect(showToggle).not.toBeChecked();
     await expect(keepToggle).toBeDisabled();
@@ -10367,7 +10367,7 @@ test("chat Help can be hidden permanently from the overlay or App Behavior", asy
     await clickTopbarPanel(page, "settings");
     const settingRow = page.locator("#settings-control-hide-chat-help-button");
     await expect(settingRow).toBeVisible();
-    const settingToggle = settingRow.locator('input[type="checkbox"]');
+    const settingToggle = settingRow.locator('[role="switch"]');
     await expect(settingToggle).toBeChecked();
     const rowBox = await settingRow.boundingBox();
     const confirmBox = await page.locator("#settings-control-confirm-before-delete").boundingBox();
@@ -13983,7 +13983,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     await minPInput.fill("0,35");
     await minPInput.blur();
-    const minPSendToggle = drawer.getByRole("checkbox", { name: "Send Min P parameter" });
+    const minPSendToggle = drawer.getByRole("switch", { name: "Send Min P parameter" });
     const minPSendToggleId = await minPSendToggle.getAttribute("id");
     expect(minPSendToggleId).toBeTruthy();
     await drawer.locator(`label[for="${minPSendToggleId}"]`).click();
@@ -15542,7 +15542,7 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
   const musicPlayer = page.locator('[data-component^="SpotifyMiniPlayer."]');
   await expect(musicPlayer).toHaveCount(0);
   let musicPlayerRow = await openMusicPlayerSetting();
-  const musicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
+  const musicPlayerToggle = musicPlayerRow.locator('[role="switch"]');
   await expect(musicPlayerToggle).toHaveCount(1);
   await expect(musicPlayerToggle).toBeDisabled();
   await expect(musicPlayerToggle).not.toBeChecked();
@@ -15564,7 +15564,7 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
   await expect(installedToast).toHaveCount(0);
 
   musicPlayerRow = await openMusicPlayerSetting();
-  const installedMusicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
+  const installedMusicPlayerToggle = musicPlayerRow.locator('[role="switch"]');
   await expect(installedMusicPlayerToggle).toBeEnabled();
   await expect(installedMusicPlayerToggle).toBeChecked();
   await musicPlayerRow.getByText("Music Player", { exact: true }).click();
@@ -17004,7 +17004,7 @@ test("Conversation Chat Settings exposes and persists Long-Term Memory activatio
     const drawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(drawer);
     const agentsSection = drawer.locator('[data-chat-settings-section="conversation-agents"]');
-    const toggle = agentsSection.getByRole("checkbox", { name: /^Long-Term Memory/ });
+    const toggle = agentsSection.getByRole("switch", { name: /^Long-Term Memory/ });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();
     const calls = drawer.locator("marinara-capability-conversation-calls");
@@ -17028,7 +17028,7 @@ test("Conversation Chat Settings exposes and persists Long-Term Memory activatio
     const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(reloadedDrawer);
     const reloadedAgentsSection = reloadedDrawer.locator('[data-chat-settings-section="conversation-agents"]');
-    const reloadedToggle = reloadedAgentsSection.getByRole("checkbox", { name: /^Long-Term Memory/ });
+    const reloadedToggle = reloadedAgentsSection.getByRole("switch", { name: /^Long-Term Memory/ });
     await expect(reloadedToggle).toBeChecked();
     const reloadedToggleId = await reloadedToggle.getAttribute("id");
     expect(reloadedToggleId).toBeTruthy();
@@ -17307,7 +17307,7 @@ test("chat settings survive a stale autonomous-unread echo", async ({ page, requ
     if ((await agentsSection.getAttribute("aria-expanded")) !== "true") await agentsSection.click();
 
     const directorCard = drawer.locator(`#chat-settings-agent-menu-${chat.id}-director`);
-    const secretPlotToggle = directorCard.getByRole("checkbox", { name: "Secret Plot" });
+    const secretPlotToggle = directorCard.getByRole("switch", { name: "Secret Plot" });
     const intervalInput = directorCard.locator("label").filter({ hasText: "Run Interval" }).locator("input");
 
     await expect(secretPlotToggle).not.toBeChecked();
@@ -17655,8 +17655,8 @@ test("Illustrator and Storyboard keep separate visual settings cards while agent
     const gameStoryboardCard = drawer.locator('[data-chat-agent-entry="storyboard"]');
     const featureToggles = gameIllustratorCard.locator('[data-agent-settings-feature-toggles="illustrator"]');
     const storyboardFeatureToggles = gameStoryboardCard.locator('[data-agent-settings-feature-toggles="storyboard"]');
-    const sceneVideosToggle = featureToggles.getByRole("checkbox", { name: /Enable Scene Videos/ });
-    const storyboardsToggle = storyboardFeatureToggles.getByRole("checkbox", { name: /Enable Storyboards/ });
+    const sceneVideosToggle = featureToggles.getByRole("switch", { name: /Enable Scene Videos/ });
+    const storyboardsToggle = storyboardFeatureToggles.getByRole("switch", { name: /Enable Storyboards/ });
     await expect(gameIllustratorCard).toBeVisible();
     await expect(gameStoryboardCard).toBeVisible();
     await expect(sceneVideosToggle).not.toBeChecked();
@@ -17666,7 +17666,7 @@ test("Illustrator and Storyboard keep separate visual settings cards while agent
     await expect(storyboardsSubsection).toBeVisible();
     await expect(storyboardsSubsection.getByRole("heading", { name: "Storyboards" })).toBeVisible();
     await expect(
-      storyboardsSubsection.getByRole("checkbox", { name: /Automatic Storyboard Illustrations/ }),
+      storyboardsSubsection.getByRole("switch", { name: /Automatic Storyboard Illustrations/ }),
     ).toBeChecked();
     const automaticAnimationsToggle = storyboardsSubsection.getByRole("checkbox", {
       name: /Automatic Storyboard Animations/,
@@ -19243,7 +19243,7 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     await page.goto("/");
     await clickTopbarPanel(page, "lorebooks");
     await page.getByText(lorebookName, { exact: true }).click();
-    await page.getByRole("checkbox", { name: "Enable lorebook vectors" }).evaluate((element) => {
+    await page.getByRole("switch", { name: "Enable lorebook vectors" }).evaluate((element) => {
       (element as HTMLInputElement).click();
     });
 
@@ -19331,10 +19331,10 @@ test("Lorebook Save keeps Overview stable while the updated detail cache settles
     await page.getByText(name, { exact: true }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
 
-    await page.getByRole("checkbox", { name: "Disable global lorebook" }).evaluate((element) => {
+    await page.getByRole("switch", { name: "Disable global lorebook" }).evaluate((element) => {
       (element as HTMLInputElement).click();
     });
-    const disabledGlobalSwitch = page.getByRole("checkbox", { name: "Enable global lorebook" });
+    const disabledGlobalSwitch = page.getByRole("switch", { name: "Enable global lorebook" });
     await expect(disabledGlobalSwitch).not.toBeChecked();
 
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -20815,7 +20815,7 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   await page.keyboard.press("Escape");
 
   await clickTopbarPanel(page, "settings");
-  const achievementsToggle = page.getByRole("checkbox", { name: "Achievements", exact: true });
+  const achievementsToggle = page.getByRole("switch", { name: "Achievements", exact: true });
   await expect(achievementsToggle).toBeChecked();
   const achievementsToggleId = await achievementsToggle.getAttribute("id");
   expect(achievementsToggleId).toBeTruthy();
@@ -22020,7 +22020,7 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   const drawer = page.locator(".mari-chat-settings-drawer");
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
   await drawer.getByText("Memory Recall", { exact: true }).click();
-  const memoryRecallSwitch = drawer.getByRole("checkbox", { name: "Enable Memory Recall" });
+  const memoryRecallSwitch = drawer.getByRole("switch", { name: "Enable Memory Recall" });
   const memoryRecallTrack = memoryRecallSwitch.locator("xpath=following-sibling::*[@data-settings-switch-track][1]");
   await expect(memoryRecallSwitch).toBeChecked();
   await memoryRecallTrack.click();

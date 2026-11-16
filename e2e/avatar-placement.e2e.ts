@@ -323,7 +323,7 @@ for (const mode of ["roleplay", "game"] as const) {
           await ownerPicker.getByTitle(profileOnly, { exact: true }).click();
           await expect(ownerPicker).toHaveCount(0);
           await expect(setup.getByLabel("Character or persona")).toContainText(profileOnly);
-          const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
+          const showInChats = setup.getByRole("switch", { name: /Show this avatar in chats/u });
           await expect(showInChats).not.toBeChecked();
           await expect(showInChats).toBeDisabled();
           await setup.screenshot({ path: info.outputPath("profile-only-setup-off.png"), animations: "disabled" });
