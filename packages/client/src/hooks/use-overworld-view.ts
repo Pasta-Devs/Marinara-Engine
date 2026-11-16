@@ -117,6 +117,8 @@ export function useOverworldClock(
 export interface TilePackLibrary {
   packs: Array<{ id: string; name: string; family: string; version: number; tilePackVersion?: 1 | 2 }>;
   builtIn: string[];
+  /** The dungeon sets the Engine ships art for. */
+  builtInDungeons?: string[];
   selection: Record<string, string>;
 }
 
