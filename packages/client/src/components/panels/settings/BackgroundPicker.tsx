@@ -1494,11 +1494,7 @@ export function BackgroundPicker({
                   title={localizeUi("ui.panels.backgroundpicker.newFolder")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.newFolder")}
                 >
-                  {createFolder.isPending ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <FolderPlus size="0.75rem" />
-                  )}
+                  {createFolder.isPending ? <Spinner size="sm" /> : <FolderPlus size="0.75rem" />}
                   {localizeUi("ui.panels.backgroundpicker.newFolder")}
                 </button>
                 {activeFolder && (
