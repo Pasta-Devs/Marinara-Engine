@@ -251,8 +251,8 @@ type CapabilityChatOptions = Pick<
  * Merge a package's language-model request with the connection's saved parameters (#7131). A value the connection
  * saved and sends wins; anything it leaves unset keeps the package's own request, as before. A switched-off Reasoning
  * Effort or Max Tokens is not sent at all, as on chat and agent calls; Temperature and Verbosity start switched off,
- * so there the package's own value stays. Max tokens stays the package's, plus thinking room when the connection
- * raised the reasoning level.
+ * so there the package's own value stays. Max tokens is the package's, plus thinking room when the connection raised
+ * the reasoning level, or the connection's own switched-on Max Tokens when that is larger (see below).
  */
 export function resolveCapabilityChatOptions(
   source: ConnectionParameterSource,
@@ -306,6 +306,20 @@ export function resolveCapabilityChatOptions(
         }),
       );
     }
+  }
+  // The maintainer's (2026-11-16): a package call gets the connection's switched-on Max Tokens whenever that is larger
+  // than what the package asked for, capped as any call is at the model's output limit. A story package's chapters,
+  // arcs and summaries hit their own smaller limit while the connection allowed 65536. It only raises a limit the
+  // package named: a new connection saves 4096 with the switch on, which would cut a package's longer request short,
+  // and a call that names none keeps the provider's own (Dottore, #9328).
+  if (saved("maxTokens") && sends("maxTokens") && resolved.maxTokens > 0) {
+    const connectionMax = clampGenerationMaxOutputTokens({
+      provider: source.provider,
+      model: source.model,
+      maxTokens: resolved.maxTokens,
+      maxTokensOverride: source.maxTokensOverride,
+    });
+    if (typeof merged.maxTokens === "number" && connectionMax > merged.maxTokens) merged.maxTokens = connectionMax;
   }
   return definedOnly(merged);
 }
