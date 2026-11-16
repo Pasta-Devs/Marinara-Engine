@@ -1,4 +1,4 @@
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useDownloadUILanguage, useUILanguages } from "../../../hooks/use-ui-languages";
@@ -8,6 +8,7 @@ import { useUIStore } from "../../../stores/ui.store";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { LanguagePicker } from "../../ui/LanguagePicker";
 import { SETTINGS_BUTTON_CLASS } from "./SettingControls";
+import { Spinner } from "../../ui/Spinner";
 
 export function UILanguageSetting({ anchorId }: { anchorId: string }) {
   const { t } = useTranslation();
@@ -52,7 +53,7 @@ export function UILanguageSetting({ anchorId }: { anchorId: string }) {
           className={SETTINGS_BUTTON_CLASS}
         >
           {download.isPending ? (
-            <Loader2 size="0.75rem" className="animate-spin" />
+            <Spinner size="sm" />
           ) : status.data?.installed.includes(language) ? (
             <RefreshCw size="0.75rem" />
           ) : (

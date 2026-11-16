@@ -783,7 +783,7 @@ test.describe("Pop-out drawers on desktop", () => {
         await expect(popped.getByRole("textbox", { name: "Temperature", exact: true })).toHaveValue("1.37");
         await expect(popped.getByRole("textbox", { name: "Max Output Tokens", exact: true })).toHaveValue("4096");
         for (const label of ["Temperature", "Top P", "Frequency", "Presence"]) {
-          await expect(popped.getByRole("checkbox", { name: `Send ${label} parameter`, exact: true })).toBeChecked();
+          await expect(popped.getByRole("switch", { name: `Send ${label} parameter`, exact: true })).toBeChecked();
         }
         const input = popped.getByRole("textbox", { name: "Top P", exact: true });
         await expect(input).toBeEnabled();

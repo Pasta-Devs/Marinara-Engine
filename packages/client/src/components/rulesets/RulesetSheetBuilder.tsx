@@ -81,6 +81,8 @@ import { useRulesetText } from "../../lib/ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput } from "./RulesetTypedInput";
 import { RollCellButton, rollRulesetCell } from "./RulesetRollCellButton";
+import { Checkbox } from "../ui/Checkbox";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 /** A bonus with its sign, as a sheet prints one. */
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
@@ -1110,12 +1112,7 @@ export function RulesetSheetBuilder({
             return (
               <li key={ref}>
                 <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={!on && marked.length >= most}
-                    onChange={() => toggle(ref)}
-                  />
+                  <Checkbox checked={on} disabled={!on && marked.length >= most} onChange={() => toggle(ref)} />
                   {String((name && row[name]) || ref)}
                 </label>
               </li>
@@ -2025,7 +2022,7 @@ export function RulesetSheetBuilder({
         <p className="text-xs text-[var(--muted-foreground)]">{t("ui.rulesets.builder.gearHint")}</p>
         {current.strict && (
           <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-            <input type="checkbox" checked={freeEdit} onChange={(event) => setFreeEdit(event.target.checked)} />
+            <Checkbox checked={freeEdit} onChange={(event) => setFreeEdit(event.target.checked)} />
             {t("ui.rulesets.builder.freeEditGear")}
           </label>
         )}
@@ -2151,9 +2148,9 @@ export function RulesetSheetBuilder({
       {ready && !rulesetSheetBuildIsBlank(definition, rawBuild) && (
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             // Everything typed and picked goes, so it is asked first.
-            if (!window.confirm(t("ui.rulesets.builder.startOverConfirm"))) return;
+            if (!(await showConfirmDialog({ message: t("ui.rulesets.builder.startOverConfirm") }))) return;
             setMoreWanted(new Set());
             onApply(defaultRulesetSheetBuild(definition), {});
           }}

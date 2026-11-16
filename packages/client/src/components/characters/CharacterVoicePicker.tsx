@@ -5,7 +5,7 @@
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Play, RefreshCw, Settings2, Square, Volume2 } from "lucide-react";
+import { Play, RefreshCw, Settings2, Square, Volume2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { setCharacterVoiceAssignment } from "@marinara-engine/shared";
 import { useTTSConfig, useTTSVoices, useUpdateTTSVoiceAssignment, useUpdateTTSVoiceMode } from "../../hooks/use-tts";
@@ -14,6 +14,7 @@ import { ttsService } from "../../lib/tts-service";
 import { cn } from "../../lib/utils";
 import { openAddConnection } from "../../lib/add-connection";
 import { buildTTSVoiceOptions, CustomizableVoiceInput, VoiceSelect } from "../panels/settings/TTSConfigCard";
+import { Spinner } from "../ui/Spinner";
 
 const SAVE_DELAY_MS = 600;
 const ICON_ACTION_CLS =
@@ -170,11 +171,7 @@ export function CharacterVoicePicker({
               disabled={updateVoiceMode.isPending}
               className={ACTION_CLS}
             >
-              {updateVoiceMode.isPending ? (
-                <Loader2 size="0.8rem" className="animate-spin" />
-              ) : (
-                <Volume2 size="0.8rem" />
-              )}
+              {updateVoiceMode.isPending ? <Spinner size="sm" /> : <Volume2 size="0.8rem" />}
               {t("ui.characters.voice.usePerCharacter")}
             </button>
           )}
@@ -233,7 +230,7 @@ export function CharacterVoicePicker({
           title={previewBlocked ? t("ui.characters.voice.pickVoiceFirst") : undefined}
         >
           {previewBusy && playback.state === "loading" ? (
-            <Loader2 size="0.8rem" className="animate-spin" />
+            <Spinner size="sm" />
           ) : previewBusy ? (
             <Square size="0.8rem" />
           ) : (

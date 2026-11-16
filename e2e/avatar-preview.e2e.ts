@@ -61,7 +61,7 @@ test("sheet uploads persist on refresh without saving unrelated card drafts", as
     await open();
     await expect(section.getByAltText(`${name} character sheet`, { exact: true })).toBeVisible();
     expect((await saved()).extensions.characterSheetImageId).toBe(firstId);
-    const reference = section.getByRole("checkbox", { name: "Use character sheet" });
+    const reference = section.getByRole("switch", { name: "Use character sheet" });
     await expect(reference).toBeEnabled();
     await reference.locator("..").click();
     await expect.poll(async () => (await saved()).extensions.useCharacterSheetAsReference).toBe(true);

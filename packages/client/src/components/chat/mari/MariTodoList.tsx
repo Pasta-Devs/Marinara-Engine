@@ -1,6 +1,7 @@
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Check, Circle, Loader2 } from "lucide-react";
+import { Check, Circle } from "lucide-react";
 import type { MariTodoItem, MariTodoStatus } from "@marinara-engine/shared";
+import { Spinner } from "../../ui/Spinner";
 
 /**
  * The list she keeps for herself on a longer job, pinned under her newest message. It takes no input: one hairline
@@ -40,7 +41,7 @@ export function MariTodoList({
                 <Check />
               ) : todo.status === "in_progress" ? (
                 running && !stale ? (
-                  <Loader2 className="animate-spin motion-reduce:animate-none" />
+                  <Spinner size="sm" />
                 ) : (
                   <Circle className="fill-current" />
                 )

@@ -117,8 +117,8 @@ test("Memory Recall switches modes in both directions and preserves the choice a
 }) => {
   const fixture = await createFixture(request);
   const section = page.locator('[data-chat-settings-section="roleplay-memory-recall"]');
-  const normal = section.getByRole("checkbox", { name: /^Enable Memory Recall/ });
-  const advanced = section.getByRole("checkbox", { name: /^Advanced Memory Recall/ });
+  const normal = section.getByRole("switch", { name: /^Enable Memory Recall/ });
+  const advanced = section.getByRole("switch", { name: /^Advanced Memory Recall/ });
   const readMetadata = async () => {
     const response = await request.get(`/api/chats/${fixture.chat.id}`);
     expect(response.ok()).toBeTruthy();
@@ -230,7 +230,7 @@ for (const state of ["running", "status unavailable"] as const) {
       const section = page.locator('[data-chat-settings-section="roleplay-memory-recall"]');
       await section.getByRole("button", { name: "Memory Recall", exact: true }).click();
       const settings = section.locator('[data-component="AdvancedMemorySettings"]');
-      const toggle = settings.getByRole("checkbox", { name: /^Advanced Memory Recall/ });
+      const toggle = settings.getByRole("switch", { name: /^Advanced Memory Recall/ });
       if (state === "running")
         await expect(settings.getByRole("button", { name: "Pause processing", exact: true })).toBeEnabled();
       else await expect(settings.getByRole("alert")).toContainText("Synthetic status failure");
@@ -238,7 +238,7 @@ for (const state of ["running", "status unavailable"] as const) {
       await settings.getByText("Advanced Memory Recall", { exact: true }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`memory-recovery-${state}-enabled.png`), animations: "disabled" });
       await expect(toggle).toBeEnabled();
-      await expect(section.getByRole("checkbox", { name: /^Enable Memory Recall/ })).not.toBeChecked();
+      await expect(section.getByRole("switch", { name: /^Enable Memory Recall/ })).not.toBeChecked();
       await settings.getByText("Advanced Memory Recall", { exact: true }).click();
       await expect(toggle).not.toBeChecked();
       await expect
@@ -796,7 +796,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(memoryHeader).toHaveAttribute("aria-expanded", "false");
     await expect(settings).toHaveCount(0);
     await memoryHeader.click();
-    const advancedToggle = settings.getByRole("checkbox", { name: /^Advanced Memory Recall/ });
+    const advancedToggle = settings.getByRole("switch", { name: /^Advanced Memory Recall/ });
     await expect(advancedToggle).not.toBeChecked();
     await settings.getByText("Advanced Memory Recall", { exact: true }).click();
     await expect(advancedToggle).toBeChecked();
@@ -1070,7 +1070,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect.poll(() => status.records[0]?.content).toBe("Correction: the notebook is green.");
     status.records[0]!.embeddingStatus = "stale";
     await inspector.getByText("Include in recall", { exact: true }).click();
-    await expect(inspector.getByRole("checkbox", { name: "Include in recall", exact: true })).not.toBeChecked();
+    await expect(inspector.getByRole("switch", { name: "Include in recall", exact: true })).not.toBeChecked();
     await expect.poll(() => status.records[0]?.enabled).toBe(false);
     const saveButton = inspector.getByRole("button", { name: "Save correction", exact: true });
     const sourceButton = inspector.getByRole("button", { name: "Inspect source messages", exact: true });
@@ -1101,7 +1101,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     status.job = { ...status.job, status: "running", blocking: false, stage: "summarizing" };
     await inspector.getByRole("button", { name: "Reindex", exact: true }).click();
     await expect(inspector.getByRole("button", { name: "Reindex", exact: true })).toBeDisabled();
-    const recallToggle = inspector.getByRole("checkbox", { name: "Include in recall", exact: true });
+    const recallToggle = inspector.getByRole("switch", { name: "Include in recall", exact: true });
     await expect(recallToggle).toBeEnabled();
     watchRecordRefetches = true;
     await inspector.getByText("Include in recall", { exact: true }).click();
@@ -1214,7 +1214,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(confirmation).toHaveCount(0);
     await expect(settings.getByLabel("Maximum allowed context before compression (tokens)")).toHaveCount(0);
     await expect(inspector).toHaveCount(0);
-    await expect(drawer.getByRole("checkbox", { name: /^Enable Memory Recall/ })).not.toBeChecked();
+    await expect(drawer.getByRole("switch", { name: /^Enable Memory Recall/ })).not.toBeChecked();
     await drawer.getByRole("button", { name: "Access memories for this chat", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Memories for This Chat", exact: true })).toBeVisible();
   } finally {
@@ -1753,7 +1753,7 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await openChat(page, fixture.chat.id);
     let settings = await openMemory();
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
-    const toggle = settings.getByRole("checkbox", { name: /^Use Decision model/ });
+    const toggle = settings.getByRole("switch", { name: /^Use Decision model/ });
     await expect(toggle).not.toBeChecked();
     // The Memory Decision picker stays a native select: it also lists local Decision models, which the
     // ConnectionSelect #8456 expected here does not offer.
@@ -1771,7 +1771,7 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await page.reload();
     await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
     settings = await openMemory();
-    await expect(settings.getByRole("checkbox", { name: /^Use Decision model/ })).toBeChecked();
+    await expect(settings.getByRole("switch", { name: /^Use Decision model/ })).toBeChecked();
     await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveValue(
       connection.id,
     );
@@ -1824,7 +1824,7 @@ test("Advanced Memory offers automatic message visibility only in individual gro
     }
     await openChat(page, fixture.chat.id);
     let settings = await openMemory();
-    const toggle = settings.getByRole("checkbox", { name: toggleName });
+    const toggle = settings.getByRole("switch", { name: toggleName });
     await expect(toggle).not.toBeChecked();
     await settings.getByText("Decide who sees new messages", { exact: true }).click();
     await expect.poll(async () => (await status()).settings.autoMessageVisibility).toBe(true);
@@ -1838,12 +1838,12 @@ test("Advanced Memory offers automatic message visibility only in individual gro
     await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
     settings = await openMemory();
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
-    await expect(settings.getByRole("checkbox", { name: toggleName })).toHaveCount(0);
+    await expect(settings.getByRole("switch", { name: toggleName })).toHaveCount(0);
 
     await openChat(page, solo.id, false);
     settings = await openMemory();
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
-    await expect(settings.getByRole("checkbox", { name: toggleName })).toHaveCount(0);
+    await expect(settings.getByRole("switch", { name: toggleName })).toHaveCount(0);
   } finally {
     await request.delete(`/api/chats/${solo.id}?force=true`);
     await fixture.cleanup();
@@ -1975,7 +1975,7 @@ test("Character recollections switch saves for its chat and recollections are ed
     };
     await openSettings();
     const settings = section.locator('[data-component="AdvancedMemorySettings"]');
-    const toggle = settings.getByRole("checkbox", { name: /^Character recollections/ });
+    const toggle = settings.getByRole("switch", { name: /^Character recollections/ });
     await expect(toggle).not.toBeChecked();
     await expect(
       settings.getByText(

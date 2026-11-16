@@ -13,7 +13,6 @@ import {
   Braces,
   ChevronRight,
   ListTree,
-  Loader2,
   Lock,
   RotateCcw,
   Search,
@@ -41,6 +40,7 @@ import type {
   StateEditorPath,
   StateEditorSection,
 } from "../../../lib/state-editor/state-editor.types";
+import { Spinner } from "../Spinner";
 
 interface StateEditorProps {
   sections: StateEditorSection[];
@@ -566,7 +566,7 @@ export function StateEditor({
                 disabled={saving || changes.length === 0}
                 className={PRIMARY_BUTTON}
               >
-                {saving ? <Loader2 size="0.875rem" className="animate-spin" /> : null}
+                {saving ? <Spinner size="sm" /> : null}
                 {localizeUi("ui.stateEditor.review.save")}
               </button>
             </>

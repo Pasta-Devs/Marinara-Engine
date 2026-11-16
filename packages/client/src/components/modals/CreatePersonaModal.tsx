@@ -6,8 +6,9 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useCreatePersona } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
-import { Loader2, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -60,7 +61,7 @@ export function CreatePersonaModal({ open, onClose, defaultName = "" }: Props) {
             disabled={!name.trim() || createPersona.isPending}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {createPersona.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <User size="0.75rem" />}
+            {createPersona.isPending ? <Spinner size="sm" /> : <User size="0.75rem" />}
             {localizeUi("ui.modals.createpersonamodal.createPersona")}
           </button>
           <button

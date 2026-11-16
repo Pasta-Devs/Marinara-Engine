@@ -4,6 +4,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { useMultiplayerStatus } from "../../hooks/use-multiplayer";
+import { Checkbox } from "../ui/Checkbox";
 
 export type ChatLaunchMode = ChatMode;
 
@@ -60,7 +61,7 @@ export function ChatModeSelectorModal({
     >
       {sharingAvailable && showPlayTogether && !sharedOnly && (
         <label className="mb-3 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={playTogether} onChange={(event) => setPlayTogether(event.target.checked)} />
+          <Checkbox checked={playTogether} onChange={(event) => setPlayTogether(event.target.checked)} />
           {localizeUi("multiplayer.playTogether")}
         </label>
       )}

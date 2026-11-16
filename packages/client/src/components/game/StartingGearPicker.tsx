@@ -33,6 +33,7 @@ import { Modal } from "../ui/Modal";
 import { rulesetItemStatsLine } from "./RulesetItemPicker";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import type { InventoryBag } from "./GameInventory";
+import { Checkbox } from "../ui/Checkbox";
 
 const inputClass =
   "w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--foreground)]";
@@ -299,7 +300,7 @@ export function StartingGearPicker({
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("game.ruleset.startingGear.intro")}</p>
         {step && (
           <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-            <input type="checkbox" checked={freeEdit} onChange={(event) => setFreeEdit(event.target.checked)} />
+            <Checkbox checked={freeEdit} onChange={(event) => setFreeEdit(event.target.checked)} />
             {t("ui.rulesets.builder.freeEditGear")}
           </label>
         )}
@@ -441,8 +442,7 @@ export function StartingGearPicker({
               )}
               {replacedLabel && (
                 <label className="flex items-start gap-2 text-[0.6875rem] text-[var(--foreground)]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={again}
                     onChange={(event) => setAgain(event.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"

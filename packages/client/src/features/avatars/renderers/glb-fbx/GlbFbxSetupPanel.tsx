@@ -2,7 +2,7 @@
 // bones its rig matched, and check or change which blend shape shows each face and mouth shape. A model whose
 // rig can't be matched is refused at import, and the reason stays on the page.
 import { useState } from "react";
-import { AlertTriangle, Info, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AVATAR_HUMANOID_BONES, type GlbFbxAvatarData } from "@marinara-engine/shared";
@@ -16,6 +16,7 @@ import {
   MODEL_BUTTON_CLASS,
   modelErrorMessage,
 } from "../../setup/ModelSetupControls";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 export function GlbFbxSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanelProps) {
   const { t } = useTranslation();
@@ -91,7 +92,7 @@ export function GlbFbxSetupPanel({ owner, config, onChanged }: AvatarKindSetupPa
           {data ? (
             <button type="button" disabled={busy} onClick={() => void confirmRemove()} className={MODEL_BUTTON_CLASS}>
               {remove.isPending ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
+                <Spinner size="sm" />
               ) : (
                 <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
               )}

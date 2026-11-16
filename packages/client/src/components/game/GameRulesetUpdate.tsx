@@ -7,7 +7,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Loader2 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { rulesetRefSchema } from "@marinara-engine/shared";
@@ -15,6 +15,7 @@ import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useInstalledRulesets } from "../../hooks/use-capability-packages";
 import { chatKeys } from "../../hooks/use-chats";
+import { Spinner } from "../ui/Spinner";
 
 export function GameRulesetUpdate({
   chatId,
@@ -91,7 +92,7 @@ export function GameRulesetUpdate({
               : "inline-flex shrink-0 items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 font-medium text-white/85 transition-colors hover:bg-white/15 disabled:opacity-50"
           }
         >
-          {moving && <Loader2 size={12} className="animate-spin" />}
+          {moving && <Spinner size="sm" />}
           {localizeUi("ui.game.rulesetUpdate.update")}
         </button>
       )}

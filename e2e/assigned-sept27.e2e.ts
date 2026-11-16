@@ -204,7 +204,7 @@ test("gallery auto-save setting defaults on and persists off across reload", asy
         useUIStore.getState().openRightPanel("settings");
       });
     await openSettings();
-    const toggle = page.getByRole("checkbox", {
+    const toggle = page.getByRole("switch", {
       name: "Automatically save generated images to character galleries",
       exact: true,
     });

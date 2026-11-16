@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, Palette, RotateCcw, Save, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Palette, RotateCcw, Save, TriangleAlert } from "lucide-react";
 import type { Persona, PresentCharacter, TrackerCardColorConfig } from "@marinara-engine/shared";
 import {
   useCharacters,
@@ -29,6 +29,7 @@ import {
 import { TrackerCardColorControls, type TrackerCardColorEntityLabel } from "../../ui/TrackerCardColorControls";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../../ui/Spinner";
 
 type TrackerCardColorSaveState = "idle" | "saving" | "saved" | "error";
 
@@ -404,7 +405,7 @@ export function TrackerCardColorSettings() {
             )}
           >
             {saveState === "saving" ? (
-              <Loader2 size="0.625rem" className="animate-spin" />
+              <Spinner size="sm" />
             ) : saveState === "error" ? (
               <TriangleAlert size="0.625rem" />
             ) : hasUnsavedChanges ? (
@@ -479,7 +480,7 @@ export function TrackerCardColorSettings() {
                 disabled={!hasUnsavedChanges || saveState === "saving"}
                 className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
               >
-                {saveState === "saving" ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                {saveState === "saving" ? <Spinner size="sm" /> : <Save size="0.75rem" />}
                 <span>{localizeUi("ui.noodle.noodlehome.save")}</span>
               </button>
             </div>

@@ -182,7 +182,7 @@ test("Continuity and HTML share one Hold Message Until Rewrite switch", async ({
     await openApp(page, chatId);
     const { card: continuity } = await openAgentCard(page, chatId, "continuity");
     const { card: html } = await openAgentCard(page, chatId, "html");
-    const hold = (card: typeof continuity) => card.getByRole("checkbox", { name: /^Hold Message Until Rewrite/u });
+    const hold = (card: typeof continuity) => card.getByRole("switch", { name: /^Hold Message Until Rewrite/u });
     await expect(hold(continuity)).not.toBeChecked();
     await expect(hold(html)).not.toBeChecked();
 
@@ -454,7 +454,7 @@ test("Conversation's Commands card turns single commands and all commands off", 
 
     // The card's title is also "Commands", so reach the switch through its checkbox's label.
     await card
-      .getByRole("checkbox", { name: /^Commands/u })
+      .getByRole("switch", { name: /^Commands/u })
       .locator("xpath=ancestor::label[1]")
       .click();
     await expect.poll(async () => (await readMetadata(request, chatId)).characterCommands).toBe(false);
@@ -704,7 +704,7 @@ test("Prose Guardian's card saves its writing instructions on blur and its own H
 
     await card.getByText("Hold Message Until Rewrite", { exact: true }).click();
     await expect.poll(async () => (await readMetadata(request, chatId)).proseGuardianHoldForRewrite).toBe(true);
-    await expect(card.getByRole("checkbox", { name: /^Hold Message Until Rewrite/u })).toBeChecked();
+    await expect(card.getByRole("switch", { name: /^Hold Message Until Rewrite/u })).toBeChecked();
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
@@ -716,7 +716,7 @@ test("Knowledge Retrieval and Knowledge Router each save their own source settin
     await openApp(page, chatId);
     const { card: retrieval } = await openAgentCard(page, chatId, "knowledge-retrieval");
     const { card: router } = await openAgentCard(page, chatId, "knowledge-router");
-    const useActive = (card: Locator) => card.getByRole("checkbox", { name: /^Use chat-active lorebooks/u });
+    const useActive = (card: Locator) => card.getByRole("switch", { name: /^Use chat-active lorebooks/u });
     const initial = await useActive(retrieval).isChecked();
     await expect(useActive(router)).toBeChecked({ checked: initial });
     const sources = async () =>
@@ -814,7 +814,7 @@ test("Game's Review Agent Outputs switch saves", async ({ page, request }) => {
   try {
     await openApp(page, chatId, { mode: "game" });
     const { agents } = await openAgentsSection(page, "game");
-    const review = agents.getByRole("checkbox", { name: /^Review Agent Outputs/u });
+    const review = agents.getByRole("switch", { name: /^Review Agent Outputs/u });
     await expect(review).not.toBeChecked();
     await agents.getByText("Review Agent Outputs", { exact: true }).click();
     await expect.poll(async () => (await readMetadata(request, chatId)).agentWriteApprovalRequired).toBe(true);
@@ -890,7 +890,7 @@ test("Game's Music DJ and Lorebook Keeper cards turn on and save the music playe
     await openApp(page, chatId, { mode: "game", uiState: { musicPlayerSource: "youtube" } });
     const { agents } = await openAgentsSection(page, "game");
     // "Music DJ" is also the card's title, so reach the switch through its checkbox's label.
-    const musicDj = agents.getByRole("checkbox", { name: /^Music DJ/u });
+    const musicDj = agents.getByRole("switch", { name: /^Music DJ/u });
     await expect(musicDj).not.toBeChecked();
     await musicDj.locator("xpath=ancestor::label[1]").click();
     await expect

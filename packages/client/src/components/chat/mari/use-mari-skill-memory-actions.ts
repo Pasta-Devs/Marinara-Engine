@@ -11,6 +11,7 @@ import { api } from "../../../lib/api-client";
 import { ProfessorMariWorkspaceDestination } from "../../../lib/professor-mari-workspace-navigation";
 import { MemoryDraftState, SkillDraftState } from "../MariPanelControls";
 import { WorkspaceSkillMutationResponse, NEW_SKILL_CONTENT } from "./mari-chat-helpers";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
 
 /** The Skills and Memories panels' actions: create, upload, save, toggle and delete (#4851 for memories). */
 type MariSkillMemoryActionsInput = {
@@ -162,7 +163,12 @@ export function useMariSkillMemoryActions({
     async (id: string) => {
       const skill = skills.find((entry) => entry.id === id);
       if (!skill || skill.origin === "builtin") return;
-      if (!window.confirm(localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: skill.name }))) return;
+      if (
+        !(await showConfirmDialog({
+          message: localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: skill.name }),
+        }))
+      )
+        return;
       setSkillsSaving(true);
       try {
         await api.delete(`/professor-mari/workspace/skills/${id}`);
@@ -308,7 +314,12 @@ export function useMariSkillMemoryActions({
     async (id: string) => {
       const memory = memories.find((entry) => entry.id === id);
       if (!memory) return;
-      if (!window.confirm(localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: memory.name }))) return;
+      if (
+        !(await showConfirmDialog({
+          message: localizeUi("ui.chat.homeprofessormarichat.deleteValue1", { value1: memory.name }),
+        }))
+      )
+        return;
       setMemoriesSaving(true);
       try {
         await api.delete(`/professor-mari/workspace/instructions/${id}`);

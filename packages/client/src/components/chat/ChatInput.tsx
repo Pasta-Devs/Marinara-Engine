@@ -11,7 +11,6 @@ import {
   Users,
   UserCheck,
   Languages,
-  Loader2,
   FileText,
   Sparkles,
   WandSparkles,
@@ -77,6 +76,7 @@ import { resolveChatContextBudget } from "../../lib/professor-mari-context-budge
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { PendingSpatialTransitionDraft } from "../../stores/chat.store";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string; // MIME type
@@ -2026,7 +2026,7 @@ export const ChatInput = memo(function ChatInput({
           ))}
           {isReadingAttachments && (
             <div className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs text-foreground/60 ring-1 ring-foreground/10">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatinput.readingFile")}
             </div>
           )}
@@ -2189,7 +2189,7 @@ export const ChatInput = memo(function ChatInput({
             )}
             title={t("chat.input.translateDraft")}
           >
-            {isTranslatingDraft ? <Loader2 size="0.9375rem" className="animate-spin" /> : <Languages size="1rem" />}
+            {isTranslatingDraft ? <Spinner size="md" /> : <Languages size="1rem" />}
           </button>
         )}
 
@@ -2241,7 +2241,7 @@ export const ChatInput = memo(function ChatInput({
           {isStreaming ? (
             <StopCircle size="1rem" />
           ) : isInputBusy ? (
-            <Loader2 size="1rem" className="animate-spin" />
+            <Spinner size="md" />
           ) : (
             <Send size="0.9375rem" className={cn(hasInput && "translate-x-[1px]")} />
           )}

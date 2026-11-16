@@ -7,9 +7,10 @@ import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
-import { Loader2, BookOpen, AlertCircle } from "lucide-react";
+import { BookOpen, AlertCircle } from "lucide-react";
 import type { LorebookCategory, LorebookScope } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },
@@ -77,11 +78,7 @@ export function CreateLorebookModal({
             disabled={!form.name.trim() || createLorebook.isPending}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {createLorebook.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <BookOpen size="0.75rem" />
-            )}
+            {createLorebook.isPending ? <Spinner size="sm" /> : <BookOpen size="0.75rem" />}
             {localizeUi("ui.modals.createlorebookmodal.createLorebook")}
           </button>
           <button type="button" onClick={onClose} className={SHEET_BUTTON_QUIET}>

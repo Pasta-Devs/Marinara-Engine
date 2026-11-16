@@ -3082,8 +3082,8 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
   assert.match(
     notificationSettingsSource,
-    /export function SettingsSwitch[\s\S]*?<input[\s\S]{0,180}type="checkbox"[\s\S]{0,100}checked=\{checked\}/u,
-    "The shared settings switch must expose a native checkbox",
+    /export function SettingsSwitch[\s\S]*?<Switch[\s\S]{0,100}checked=\{checked\}/u,
+    "The shared settings switch must render the shared Switch",
   );
   assert.match(
     chatSettingsSource,

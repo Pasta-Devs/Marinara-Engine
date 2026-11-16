@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { UnifiedLineDiff } from "./MariUnifiedDiff";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
@@ -17,6 +17,7 @@ import {
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
 } from "../ui/neutral-surface-styles";
+import { Spinner } from "../ui/Spinner";
 
 export type MariPromptRenderSide = { messages: Array<{ role: string; content: string }> } | null;
 
@@ -124,7 +125,7 @@ export function MariPromptPreviewModal({
           </p>
           {loading ? (
             <p className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <Loader2 size="0.85rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.maripromptpreviewmodal.loading")}
             </p>
           ) : error ? (

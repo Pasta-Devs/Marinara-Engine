@@ -73,7 +73,7 @@ async function open(page: Page, book: Lorebook, theme: "dark" | "light") {
   return {
     keyword,
     text,
-    scope: page.getByRole("checkbox", { name: /^Include other lorebooks(?:\s|$)/ }),
+    scope: page.getByRole("switch", { name: /^Include other lorebooks(?:\s|$)/ }),
     region: page.getByRole("region", { name: regionName, exact: true }),
     toggle: () => page.getByText("Include other lorebooks", { exact: true }).click(),
   };

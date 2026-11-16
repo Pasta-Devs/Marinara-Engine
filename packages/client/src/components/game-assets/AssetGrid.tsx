@@ -10,6 +10,7 @@ import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "../ui/Checkbox";
 
 const ASSET_GRID_PAGE_SIZE = 240;
 
@@ -162,8 +163,7 @@ export function AssetGrid({
                     onClick={(e) => e.stopPropagation()}
                     className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--background)] shadow-sm transition-colors hover:border-[var(--foreground)]/30"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isSelected}
                       onChange={() => onToggleSelect(node)}
                       className="h-3.5 w-3.5 accent-[var(--primary)]"
@@ -269,8 +269,7 @@ export function AssetGrid({
             {/* Checkbox — files only */}
             <div onClick={(e) => e.stopPropagation()} className="flex items-center">
               {isFile && (
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={isSelected}
                   onChange={() => onToggleSelect(node)}
                   className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"

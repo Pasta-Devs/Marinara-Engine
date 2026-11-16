@@ -5,9 +5,10 @@ import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { FileText, Loader2, Trash2, X } from "lucide-react";
+import { FileText, Trash2, X } from "lucide-react";
 import { useMariWorkspaceContext, useRemoveMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -57,7 +58,7 @@ export function MariContextViewer({ open, onClose, workspaceChatId }: Props) {
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--muted-foreground)]">
-              <Loader2 size="1rem" className="animate-spin" />
+              <Spinner size="md" />
               {localizeUi("navigation.common.loading")}
             </div>
           ) : (items ?? []).length === 0 ? (

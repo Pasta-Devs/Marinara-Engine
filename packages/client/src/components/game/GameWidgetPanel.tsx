@@ -22,6 +22,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
 import { GameWidgetSetupEditor } from "./GameWidgetSetupEditor";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "../ui/Checkbox";
 
 // ── Public API ──
 
@@ -743,8 +744,7 @@ function WidgetEditorModal({
               />
             </label>
             <label className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.running}
                 onChange={(event) => setDraft((current) => ({ ...current, running: event.target.checked }))}
                 className="h-4 w-4 rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"

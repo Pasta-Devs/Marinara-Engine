@@ -200,6 +200,7 @@ import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/fl
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
 import { useStableCallback } from "../../hooks/use-stable-callback";
+import { Spinner } from "../ui/Spinner";
 
 export type { CharacterMap };
 
@@ -541,9 +542,7 @@ function ChatOpeningState({
       className="mari-app-background-paint flex flex-1 items-center justify-center overflow-hidden p-6"
     >
       <div className="flex flex-col items-center gap-3 text-center">
-        {!hasOpenError && (
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--primary)]" />
-        )}
+        {!hasOpenError && <Spinner size="lg" className="h-7 w-7 text-[var(--primary)]" />}
         <div className="space-y-1">
           <p className="text-sm font-medium text-[var(--foreground)]">
             {hasOpenError

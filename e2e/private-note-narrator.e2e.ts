@@ -71,7 +71,7 @@ test("a message's private note can be shown to one chosen Roleplay character", a
     await expect.poll(async () => (await savedExtra()).privateNote).toBe(NOTE);
     expect(await promptFor(request, chat.id, narrator.id)).not.toContain(NOTE);
 
-    const share = menu.getByRole("checkbox", { name: /^Show the note to the narrator character/ });
+    const share = menu.getByRole("switch", { name: /^Show the note to the narrator character/ });
     // The switch's native input is visually hidden; people toggle it through its label.
     const shareLabel = menu.getByText("Show the note to the narrator character", { exact: true });
     await shareLabel.click();

@@ -1,8 +1,9 @@
 // Live address and key status for the account forms: the icon inside the field and the line under it.
-import { AlertCircle, Check, Loader2, XCircle } from "lucide-react";
+import { AlertCircle, Check, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AccessCheck } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
+import { Spinner } from "../ui/Spinner";
 
 export type FieldCheckState = "idle" | "checking" | "ok" | "warn" | "bad" | "busy";
 export type FieldCheck = { state: FieldCheckState; text: string };
@@ -70,7 +71,7 @@ export function CheckIcon({ state, inline = false }: { state: FieldCheckState; i
         !inline && "absolute right-3 top-1/2 -translate-y-1/2",
       )}
     >
-      {state === "checking" && <Loader2 size="1rem" className="animate-spin text-[var(--muted-foreground)]" />}
+      {state === "checking" && <Spinner size="md" className="text-[var(--muted-foreground)]" />}
       {state === "ok" && (
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
           <Check size="0.75rem" strokeWidth={3} />

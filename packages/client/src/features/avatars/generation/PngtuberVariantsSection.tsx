@@ -4,7 +4,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Check, Loader2, RotateCcw, Sparkles, X } from "lucide-react";
+import { Check, RotateCcw, Sparkles, X } from "lucide-react";
 import {
   AVATAR_PNGTUBER_VARIANTS,
   normalizeSpriteExpressionKey,
@@ -35,6 +35,7 @@ import {
   type VariantJobItem,
   type VariantPair,
 } from "./use-avatar-generation";
+import { Spinner } from "../../../components/ui/Spinner";
 
 const VARIANT_KEYS: Record<AvatarPngtuberVariant, string> = {
   "eyes-closed": "avatars.generation.eyesClosed",
@@ -71,7 +72,7 @@ function PictureSlot({
         )}
       >
         {picture}
-        {busy && <Loader2 size="1.25rem" className="absolute animate-spin text-[var(--foreground)]" aria-hidden />}
+        {busy && <Spinner size="lg" className="absolute text-[var(--foreground)]" aria-hidden="true" />}
       </div>
       {children}
     </div>
@@ -205,11 +206,7 @@ export function PngtuberVariantsSection({
           disabled={busy || !empty.length || !imageConnectionId}
           className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? (
-            <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
-          ) : (
-            <Sparkles size="0.875rem" aria-hidden />
-          )}
+          {busy ? <Spinner size="sm" aria-hidden="true" /> : <Sparkles size="0.875rem" aria-hidden />}
           {t("avatars.generation.makePictures", { count: empty.length })}
         </button>
         {job.running && (
@@ -397,7 +394,7 @@ export function PngtuberVariantsSection({
             disabled={!kept.length || save.isPending || job.running}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {save.isPending && <Loader2 size="0.875rem" className="animate-spin" aria-hidden />}
+            {save.isPending && <Spinner size="sm" aria-hidden="true" />}
             {t("avatars.generation.saveKept", { count: kept.length })}
           </button>
           <span className="text-[0.625rem] text-[var(--muted-foreground)]">{t("avatars.generation.unsavedHint")}</span>

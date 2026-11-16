@@ -1,5 +1,6 @@
-import { Download, Loader2, Wand2 } from "lucide-react";
+import { Download, Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Spinner } from "./Spinner";
 
 interface AvatarReplaceActionsProps {
   hasAvatar: boolean;
@@ -46,7 +47,7 @@ export function AvatarReplaceActions({
           aria-busy={uploading}
           className="mari-chrome-control mari-chrome-control--small flex min-h-10 items-center justify-center gap-1.5 text-xs disabled:cursor-wait disabled:opacity-60"
         >
-          {uploading ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
+          {uploading ? <Spinner size="sm" /> : <Download size="0.875rem" />}
           <span>
             {uploading
               ? isCover

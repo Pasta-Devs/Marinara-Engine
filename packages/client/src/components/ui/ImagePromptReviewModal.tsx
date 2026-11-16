@@ -1,8 +1,9 @@
-import { Loader2, Send, X } from "lucide-react";
+import { Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "./Spinner";
 
 export type ImagePromptReviewKind = "background" | "illustration" | "portrait" | "sprite" | "avatar" | "video";
 
@@ -113,7 +114,7 @@ export function ImagePromptReviewModal({
             disabled={isSubmitting || hasEmptyPrompt}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {isSubmitting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Send size="0.875rem" />}
+            {isSubmitting ? <Spinner size="sm" /> : <Send size="0.875rem" />}
             {localizeUi("ui.characters.characterclipcard.generate")}
           </button>
           <button type="button" onClick={onCancel} disabled={isSubmitting} className={SHEET_BUTTON_QUIET}>

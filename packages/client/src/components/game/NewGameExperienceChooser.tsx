@@ -6,9 +6,10 @@ import { MAX_EXPERIENCE_SEED } from "../../lib/game-experience-setup";
 import { readExperienceFileReview } from "../../lib/experience-file-review";
 import { useImportExperienceFile } from "../../hooks/use-capability-packages";
 import { ExperienceFileImportModal } from "./ExperienceFileImportModal";
-import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { cn } from "../../lib/utils";
+import { Switch } from "../ui/Switch";
 const SECONDARY_BUTTON =
   "flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:opacity-50";
 export function NewGameExperienceChooser({
@@ -124,16 +125,12 @@ export function NewGameExperienceChooser({
               return (
                 // Same row+switch the host uses for its own on/off options ("customize parameters").
                 <div key={exp.id}>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isActive}
-                    disabled={launching}
-                    onClick={() => {
-                      setOpen(true);
-                      onSelect(isActive ? null : exp.id);
-                    }}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-transparent"
+                  <label
+                    aria-disabled={launching || undefined}
+                    className={cn(
+                      "flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--primary)]/40",
+                      launching && "cursor-wait opacity-50 hover:bg-transparent",
+                    )}
                   >
                     <div className="min-w-0">
                       <span className="block text-xs font-medium text-[var(--foreground)]">{exp.manifest.name}</span>
@@ -141,20 +138,15 @@ export function NewGameExperienceChooser({
                         {exp.manifest.description}
                       </span>
                     </div>
-                    <div
-                      className={cn(
-                        "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        isActive ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "h-4 w-4 rounded-full bg-white transition-transform",
-                          isActive && "translate-x-3.5",
-                        )}
-                      />
-                    </div>
-                  </button>
+                    <Switch
+                      checked={isActive}
+                      disabled={launching}
+                      onCheckedChange={() => {
+                        setOpen(true);
+                        onSelect(isActive ? null : exp.id);
+                      }}
+                    />
+                  </label>
                   {isActive && exp.manifest.contributions?.gameSurface?.setup?.seed && (
                     <div className="mt-2 flex flex-wrap items-end gap-2 px-1">
                       <label className="min-w-0 flex-1 text-xs text-[var(--foreground)]">

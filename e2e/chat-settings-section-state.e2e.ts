@@ -358,8 +358,8 @@ test("Chat Settings removes a played-as character persona", async ({ page, reque
 // Roleplay shows the linked conversation and has Allow character DMs, and Game can start the link from its side.
 test("Chat Settings links and unlinks chats from every mode", async ({ page, request }) => {
   const modeSwitches = async (section: Locator) => ({
-    crossChat: await section.getByRole("checkbox", { name: /^Cross-Chat Awareness/u }).count(),
-    dms: await section.getByRole("checkbox", { name: /^Allow character DMs/u }).count(),
+    crossChat: await section.getByRole("switch", { name: /^Cross-Chat Awareness/u }).count(),
+    dms: await section.getByRole("switch", { name: /^Allow character DMs/u }).count(),
   });
   const stamp = `Link ${Date.now()}`;
   const characterId = await createCharacter(request, "Link Keeper");

@@ -6,7 +6,7 @@
 // (AVATAR_KIND_AGENT) import, remove and map faces, and on the 2D page AVATAR_GENERATION_PANEL makes one
 // from a sprite. Not in Sprite Cards.
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,7 @@ import { buildPngtuberLayersFromSprites } from "../renderers/pngtuber/pngtuber-l
 import { pickAvatarKind, withSpriteAvatar } from "../stage/avatar-stage-logic";
 import { avatarAgentKinds } from "./avatar-setup-logic";
 import { AvatarSetupPreview } from "./AvatarSetupPreview";
+import { Spinner } from "../../../components/ui/Spinner";
 
 const KIND_LABEL_KEYS: Record<AvatarKind, { name: string; help: string }> = {
   pngtuber: { name: "avatars.setup.kind.pngtuber", help: "avatars.setup.kind.pngtuberHelp" },
@@ -203,13 +204,7 @@ function OwnerAvatarSetup({
   };
 
   if (configLoading) {
-    return (
-      <Loader2
-        size="1rem"
-        className="animate-spin text-[var(--muted-foreground)]"
-        aria-label={t("avatars.setup.loading")}
-      />
-    );
+    return <Spinner size="md" className="text-[var(--muted-foreground)]" label={t("avatars.setup.loading")} />;
   }
 
   const busy = update.isPending;
@@ -297,7 +292,7 @@ function OwnerAvatarSetup({
             >
               {t("avatars.setup.kind.makeActive")}
             </button>
-            {busy ? <Loader2 size="1rem" className="animate-spin text-[var(--muted-foreground)]" /> : null}
+            {busy ? <Spinner size="md" className="text-[var(--muted-foreground)]" /> : null}
           </div>
         ) : null}
 
@@ -329,7 +324,7 @@ function OwnerAvatarSetup({
           </section>
         ) : null}
 
-        <Suspense fallback={<Loader2 size="1rem" className="animate-spin text-[var(--muted-foreground)]" />}>
+        <Suspense fallback={<Spinner size="md" className="text-[var(--muted-foreground)]" />}>
           <KindPanel owner={owner} config={config} onChanged={onChanged} />
           {agentId === AVATAR_2D_AGENT_ID ? (
             <GenerationPanel owner={owner} config={config} onChanged={onChanged} />

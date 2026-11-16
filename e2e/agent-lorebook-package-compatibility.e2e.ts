@@ -125,7 +125,7 @@ for (const mode of ["roleplay", "game"] as const) {
       await expect(hint).toHaveCount(0);
       await expect(attachment).toBeVisible();
       await expect(
-        attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" }),
+        attachment.getByRole("switch", { name: "Attach lorebook for the specific agent" }),
       ).not.toBeChecked();
       await attachment.scrollIntoViewIfNeeded();
       const bounds = await attachment.boundingBox();

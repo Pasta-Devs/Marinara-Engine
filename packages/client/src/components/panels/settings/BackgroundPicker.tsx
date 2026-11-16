@@ -53,6 +53,7 @@ import { useChatStore } from "../../../stores/chat.store";
 import { useGameAssetStore } from "../../../stores/game-asset.store";
 import { gameAssetFileUrl } from "../../../lib/game-asset-urls";
 import { useTouchFolderDrag } from "../../../hooks/use-touch-folder-drag";
+import { Spinner } from "../../ui/Spinner";
 import { ImageUploadDropzone } from "../../ui/ImageUploadDropzone";
 import { Modal } from "../../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -1386,7 +1387,7 @@ export function BackgroundPicker({
               pendingLabel={localizeUi("ui.panels.backgroundpicker.importing")}
               dragLabel={localizeUi("ui.panels.backgroundpicker.dropBackgroundsToImport")}
               onFilesSelected={(files) => void handleUpload(files)}
-              icon={uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+              icon={uploading ? <Spinner size="sm" /> : <Download size="0.75rem" />}
               labelClassName="max-md:sr-only"
               // h-10/md:h-9 and the mobile w-10 match the search field and sort select beside it.
               className={cn(SETTINGS_BUTTON_CLASS, "h-10 max-md:w-10 md:h-9 max-sm:h-11 max-sm:w-11")}
@@ -1493,11 +1494,7 @@ export function BackgroundPicker({
                   title={localizeUi("ui.panels.backgroundpicker.newFolder")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.newFolder")}
                 >
-                  {createFolder.isPending ? (
-                    <Loader2 size="0.75rem" className="animate-spin" />
-                  ) : (
-                    <FolderPlus size="0.75rem" />
-                  )}
+                  {createFolder.isPending ? <Spinner size="sm" /> : <FolderPlus size="0.75rem" />}
                   {localizeUi("ui.panels.backgroundpicker.newFolder")}
                 </button>
                 {activeFolder && (

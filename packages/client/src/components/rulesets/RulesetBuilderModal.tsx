@@ -35,6 +35,7 @@ import { useImportRuleset } from "../../hooks/use-capability-packages";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 import { cn } from "../../lib/utils";
+import { Checkbox } from "../ui/Checkbox";
 
 const PRESETS: RulesetBuilderDicePreset[] = ["d20", "2d6-bands", "pool", "highest", "percentile", "duality", "no-dice"];
 /** A preset's localization key segment: keys take no dashes and start with a letter. */
@@ -760,11 +761,7 @@ export function RulesetBuilderModal({
             )}
           </SortableRows>
           <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
-            <input
-              type="checkbox"
-              checked={draft.practice === true}
-              onChange={(event) => set({ practice: event.target.checked })}
-            />
+            <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
             {localizeUi("rulesetBuilder.practice")}
           </label>
           <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
@@ -777,8 +774,7 @@ export function RulesetBuilderModal({
               </span>
               {skillGroups.map((group) => (
                 <label key={group} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={(draft.practiceExcept ?? []).some((entry) => entry.toLowerCase() === group.toLowerCase())}
                     onChange={(event) =>
                       set({

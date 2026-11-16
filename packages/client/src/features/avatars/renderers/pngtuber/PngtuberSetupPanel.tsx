@@ -2,7 +2,7 @@
 // feeling (the six, and under "More feelings" the 23 extra ones), tune the hop and blink, and import a
 // PNGTuber Plus `.save`.
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
-import { ChevronRight, Loader2, Trash2, Upload, Wand2 } from "lucide-react";
+import { ChevronRight, Trash2, Upload, Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -27,6 +27,7 @@ import {
 import type { AvatarKindSetupPanelProps } from "../../contract";
 import { resolveAvatarImage } from "../../stage/avatar-stage-logic";
 import { AVATAR_FEELING_LABEL_KEYS, buildPngtuberLayersFromSprites, pngtuberFaceChoices } from "./pngtuber-layers";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 /** Labels of the six feelings, shared with the mesh avatar panel. */
 export const AVATAR_EMOTION_LABEL_KEYS: Readonly<Record<AvatarEmotion, string>> = {
@@ -371,7 +372,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
           onClick={() => fileInput.current?.click()}
         >
           {importFile.isPending ? (
-            <Loader2 size="0.75rem" className="animate-spin" aria-hidden="true" />
+            <Spinner size="sm" aria-hidden="true" />
           ) : (
             <Upload size="0.75rem" aria-hidden="true" />
           )}

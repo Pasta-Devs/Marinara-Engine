@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ChatStats } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { useChatStats } from "../../hooks/use-chat-insights";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { formatPlayDuration } from "../../lib/chat-insights-display";
+import { Spinner } from "../ui/Spinner";
 
 const DAY_CHART_LIMIT = 60;
 
@@ -216,7 +216,7 @@ export function ChatStatsModal({ open, onClose, chatId }: { open: boolean; onClo
     >
       {stats.isLoading ? (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-[var(--muted-foreground)]">
-          <Loader2 size="0.875rem" className="animate-spin" />
+          <Spinner size="sm" />
           {t("chatInsights.loading")}
         </div>
       ) : stats.isError || !stats.data ? (

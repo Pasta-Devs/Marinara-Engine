@@ -83,7 +83,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(page.getByText("A quiet reference fixture.", { exact: true })).toBeVisible();
       let attachment = await open();
       await expect(attachment).toBeVisible();
-      const checkbox = () => attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
+      const checkbox = () => attachment.getByRole("switch", { name: "Attach lorebook for the specific agent" });
       await expect(checkbox()).not.toBeChecked();
       await expect(attachment.locator("[data-lorebook-picker-trigger]")).toHaveCount(0);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Search, X } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import { estimateTextTokens, type Chat, type Character, type Message } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
@@ -14,6 +14,7 @@ import { useChats } from "../../hooks/use-chats";
 import { useCharacters } from "../../hooks/use-characters";
 import { useAddMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
+import { Spinner } from "../ui/Spinner";
 
 // Server cap (MAX_CONTEXT_ITEM_CONTENT_LENGTH). Warn + block before the request when a selection
 // exceeds it, instead of surfacing a 400.
@@ -308,7 +309,7 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {loadingMessages ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--muted-foreground)]">
-                <Loader2 size="1rem" className="animate-spin" />
+                <Spinner size="md" />
                 {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLoading")}
               </div>
             ) : total === 0 ? (
@@ -407,7 +408,7 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
                     (selectedRows.length === 0 || overCap || addContext.isPending) && "cursor-not-allowed opacity-50",
                   )}
                 >
-                  {addContext.isPending && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {addContext.isPending && <Spinner size="sm" />}
                   {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryAttach")}
                 </button>
               </div>

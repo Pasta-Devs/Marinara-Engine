@@ -25,7 +25,7 @@ test("lorebook character context is opt-in and survives save, reload and duplica
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await clickTopbarPanel(page, "lorebooks");
     await page.getByText(book.name, { exact: true }).click();
-    const option = page.getByRole("checkbox", { name: /^Include character context/ });
+    const option = page.getByRole("switch", { name: /^Include character context/ });
     await expect(option).not.toBeChecked();
     await page.getByText("Include character context", { exact: true }).click();
     await expect(option).toBeChecked();

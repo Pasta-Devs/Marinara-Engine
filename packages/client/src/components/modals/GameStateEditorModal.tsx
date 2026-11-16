@@ -3,7 +3,7 @@
 // game state (what the tracker agents read back as <current_game_state>).
 // ──────────────────────────────────────────────
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AlertTriangle, History, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, History, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import type { StateEditorChange } from "../../lib/state-editor/state-editor.type
 import { chatKeys } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
+import { Spinner } from "../ui/Spinner";
 
 interface GameStateEditorModalProps {
   open: boolean;
@@ -252,7 +253,7 @@ export function GameStateEditorModal({ open, onClose, chatId, initialSectionId }
     >
       {gameStateQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center gap-2 py-16 text-sm text-[var(--muted-foreground)]">
-          <Loader2 size="1rem" className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.stateEditor.gameState.loading")}
         </div>
       ) : gameStateQuery.isError ? (

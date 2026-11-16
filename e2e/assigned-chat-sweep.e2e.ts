@@ -253,7 +253,7 @@ test("Roleplay omits Reply from message actions and keeps the restored DM contro
     const connected = page.locator('[data-chat-settings-section="roleplay-connected-chats"]');
     const header = connected.locator('[role="button"][aria-expanded]').first();
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
-    const toggle = connected.getByRole("checkbox", { name: /^Allow character DMs/ });
+    const toggle = connected.getByRole("switch", { name: /^Allow character DMs/ });
     const label = connected.locator(`label[for="${await toggle.getAttribute("id")}"]`).first();
     await expect(toggle).not.toBeChecked();
     await label.click();

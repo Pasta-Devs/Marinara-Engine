@@ -20,6 +20,7 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { chatKeys, useChat } from "../../hooks/use-chats";
+import { Checkbox } from "../ui/Checkbox";
 
 type GearOffer = { stackId: string; holder: string; from: string; to: string; slot: "weapon" | "armor" };
 
@@ -186,8 +187,7 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
                 </label>
                 {gearOf(card.name).map((offer) => (
                   <label key={offer.stackId} className="flex items-center gap-2 text-white/70">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={!declined[offer.stackId]}
                       disabled={busy}
                       onChange={(event) =>

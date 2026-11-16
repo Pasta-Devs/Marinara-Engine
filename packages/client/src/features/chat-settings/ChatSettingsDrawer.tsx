@@ -24,7 +24,6 @@ import {
   Settings2,
   Info,
   Activity,
-  Loader2,
   GitBranch,
   ScrollText,
   PenLine,
@@ -195,6 +194,7 @@ import {
   normalizeAgentMaxTokens,
   useChatAgents,
 } from "./agents/use-chat-agents";
+import { Spinner } from "../../components/ui/Spinner";
 
 const QuickPresetSectionsEditor = lazy(() =>
   import("../../components/presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),
@@ -2927,7 +2927,7 @@ function ChatToolLoading() {
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="flex items-center gap-2 py-3 text-xs text-[var(--muted-foreground)]">
-      <Loader2 size="0.75rem" className="animate-spin" />
+      <Spinner size="sm" />
       {localizeUi("chat.settings.toolLoading")}
     </div>
   );
