@@ -42,6 +42,7 @@ import {
   resolvePromptAttachmentInputs,
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
+  type ImageCaptionFallbackOptions,
   type ImageCaptioningRuntime,
 } from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
@@ -123,7 +124,7 @@ import type {
   ProfessorMariQuickEditApplyResponse,
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
-import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
+import { MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
 import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
@@ -192,11 +193,14 @@ export type WorkspaceCommandResult = {
   input: Record<string, unknown>;
   output: string;
   success: boolean;
+  /** #9342: pictures from `mari images look` (data URLs) for her next request; `output` only names them. */
+  images?: string[];
 };
 
 export type WorkspaceCommandExecution = {
   output: string;
   actionResult?: MariWorkspaceActionResult;
+  images?: string[];
 };
 
 const ACTION_RESULT_TABLES = {
@@ -1029,7 +1033,7 @@ Command families:
 - \`package_service\`: actions that installed Agent packages offer you. Call it with no arguments to see which packages offer which actions and inputs; never guess an action name. Running one (\`package\`, \`action\`, \`input\`) acts inside that package and may spend its AI budget, so run it only for a change the user asked for. The package validates the input; on an error, fix the input or tell the user.
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
-- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
+- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, looking at images yourself (\`mari images look <ref>\`), and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
 - \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
 - \`mari characters\`: list, get, search, create, update, delete. Use it for a CLI-only operation (deleting a card) or when the user asks for the CLI; in a task, read with \`app_data\` \`character.get\`, which keeps the card's attached \`lorebooks\`.
 - \`mari personas\`: list, get, search, create, update, delete. Prefer this helper for persona edits.
@@ -2184,6 +2188,50 @@ function roleForMessage(row: { role: string }): "system" | "user" | "assistant" 
 
 function escapeWorkspaceXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// #9342 (D2): a model that can't read images gets them described by the Image reading model, and Mari is told so,
+// so she never claims she saw a picture herself. Without that model the picture is replaced by a plain note.
+const MARI_IMAGE_CAPTION_OPTIONS = {
+  captionNote: (model: string) =>
+    `[This picture was described by the image reading model ${model}. You did not see it yourself: say so if you describe it, and don't claim details the description doesn't give.]`,
+  unavailableNote:
+    "[Picture not shown: your model can't read images and no working Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and to check that setting; don't guess what it shows.]",
+} satisfies ImageCaptionFallbackOptions;
+
+/** #9342: the most pictures a run carries; older looks fall back to their text stub so requests stay a sane size. */
+export const MARI_RUN_IMAGE_LIMIT = 8;
+
+/**
+ * Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} looked-at pictures across the run's messages and strips older ones in
+ * place. Only messages marked `fromImageLook` count or get trimmed: the user's own attachments always stay.
+ */
+export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIMIT): void {
+  let kept = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (!message.fromImageLook || !message.images?.length) continue;
+    const room = Math.max(0, limit - kept);
+    if (message.images.length > room) {
+      const { images, ...rest } = message;
+      messages[index] = room > 0 ? { ...rest, images: images.slice(-room) } : rest;
+    }
+    kept += Math.min(message.images.length, room);
+  }
+}
+
+/**
+ * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
+ * shows them and the rest of the run keeps them (up to the cap); the stored chat and later turns keep only the text.
+ */
+export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
+  const images = results.flatMap((result) => result.images ?? []);
+  return {
+    role: "user",
+    content: formatCommandResultForPrompt(results),
+    contextKind: "history",
+    ...(images.length > 0 ? { images, fromImageLook: true } : {}),
+  };
 }
 
 // echoInput:false (pi runtime): the native tool call already carries the arguments, so the <input> block is a duplicate.
@@ -4266,6 +4314,7 @@ export class ProfessorMariWorkspaceService {
             ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
+        { ...MARI_IMAGE_CAPTION_OPTIONS, readsImages: modelReadsImages(connection) },
       );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4747,11 +4796,8 @@ export class ProfessorMariWorkspaceService {
           runHeldCalls = [];
           messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
-            messages.push({
-              role: "user",
-              content: formatCommandResultForPrompt(commandResults),
-              contextKind: "history",
-            });
+            messages.push(commandResultMessage(commandResults));
+            capRunImages(messages);
           }
           messages.push({
             role: "user",
@@ -4924,7 +4970,9 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
-        messages.push({ role: "user", content: formatCommandResultForPrompt(commandResults), contextKind: "history" });
+        messages.push(commandResultMessage(commandResults));
+
+        capRunImages(messages);
 
         if (round < MAX_COMMAND_ROUNDS - 1) {
           const steerText = await deliverSteers();
