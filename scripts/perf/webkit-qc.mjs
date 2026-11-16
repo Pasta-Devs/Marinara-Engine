@@ -78,6 +78,11 @@ function shimSource(device) {
 })();`;
 }
 
+const SHIM_TAGS = {
+  phone: '<script src="/__webkit-qc/shim.js?device=phone"></script>',
+  tablet: '<script src="/__webkit-qc/shim.js?device=tablet"></script>',
+};
+
 // ── Proxy: forwards everything to the app and adds the shim to HTML pages ──
 export function startProxy(appUrl, port = PROXY_PORT) {
   const target = new URL(appUrl);
@@ -131,7 +136,8 @@ export function startProxy(appUrl, port = PROXY_PORT) {
         up.on("data", (chunk) => chunks.push(chunk));
         up.on("end", () => {
           if (res.writableEnded) return;
-          const tag = `<script src="/__webkit-qc/shim.js?device=${device}"></script>`;
+          // Fixed strings only: nothing from the request reaches the page.
+          const tag = SHIM_TAGS[device] ?? "";
           const html = Buffer.concat(chunks)
             .toString("utf8")
             .replace(/<head[^>]*>/i, (head) => head + tag);
