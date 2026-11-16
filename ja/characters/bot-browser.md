@@ -11,6 +11,8 @@
 
 Card Browserはコンテンツ領域全体に表示され、タイトルは**Browse character cards online**です。閉じるときは、左上の戻る矢印をクリックします。
 
+**Lorebooks**(ロアブック)パネルの**Download**を使うと、同じブラウザーでダウンロードできるロアブックを表示します。[Chubからロアブックをダウンロードする](../lorebooks/import-export.md#download-a-lorebook-from-chub)を参照してください。
+
 いったん閉じてから開き直しても、直前の検索、絞り込み、選択していたキャラクターはそのまま残ります。アプリを再読み込みするとリセットされます。
 
 ## 配信元を選ぶ

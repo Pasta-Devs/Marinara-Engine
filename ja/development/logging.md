@@ -111,9 +111,18 @@ UIのデバッグ切り替えは`logDebugOverride`経由で引き続き機能し
 
 <a id="checks"></a>
 
+## アプリ内コンソール
+
+NAS、VPS、Docker、Termuxなど、ターミナルにアクセスできない環境では、Settings → Advanced → **Open Console**(コンソールを開く)からサーバーの最近のログをアプリ内で確認できます。
+
+- `lib/log-buffer.ts`は直近1,500行をメモリーに保持します。全体で約400万文字までで、メッセージやフィールドの各ブロックは16,000文字で切り詰められます。ディスクには書き込まれず、再起動すると空になります。
+- `logger.ts`はPinoの`hooks.streamWrite`を通じてシリアライズ済みの行をすべてコピーします。バッファーには、同じ`LOG_LEVEL`でターミナルやログファイルに出た行が入ります。dotenvの`injected env`行や子プロセスの生出力など、Pinoを経由しない行は入りません。
+- `GET /api/admin/logs?afterId=`は`afterId`より後の行に加え、`latestId`、`truncated`(読み取り前に破棄された行があるかどうか)、サーバーの`logLevel`を返します。`requirePrivilegedAccess`で保護され、`no-store`が適用されます。ルートが`logLevel: "silent"`で実行されるため、コンソール自身のポーリングは記録されません。
+- このページのルールはコンソールにも適用されます。warnやerrorのログはリモートの管理者がアプリで読むため、プロンプトとプロバイダーへのリクエストとその応答の本文はdebugに留めてください。
+
 ## 検証
 
-このページの内容は`logging-request-trail`、`logging-failure-lines`、`logging-startup-timeline`の回帰テストで確認します。
+このページの内容は`logging-request-trail`、`logging-failure-lines`、`logging-startup-timeline`の回帰テストで確認し、アプリ内コンソールは`server-console-logs`で確認します。
 
 ```sh
 node scripts/run-regressions.mjs --filter logging-

@@ -38,10 +38,10 @@
 
 ## Presetsパネル
 
-パネルには**Presets**(プリセット)、**Regexes**(正規表現)、**Functions**(関数)の3つのタブがあります。どのタブにも同じボタンの列、検索欄、**New Folder**(新規フォルダー)があります。**Presets**では**Create preset**で作成、**Import preset**で`.json`ファイルを読み込み、**Select presets**で複数をまとめてエクスポートまたは削除できます。**Regexes**には[正規表現スクリプト](../extending/regex-scripts.md#manage-your-scripts)、**Functions**には[カスタムツール](../extending/custom-tools.md)があります。
+パネルには**Prompts**(プロンプト)、**Regexes**(正規表現)、**Tools**(ツール)、**Profiles**(プロファイル)の4つのタブがあります。どのタブにも上部に同じボタンの列と検索欄があります。**Prompts**タブでは、**Create preset**で作成し、**Import preset**で`.json`ファイルを読み込み、**Select presets**で複数をまとめてエクスポートまたは削除できます。**Select all presets**(すべてのプリセットを選択)を使うと、検索結果に表示されたすべてのプリセットにチェックが入ります。**Regexes**タブには[正規表現スクリプト](../extending/regex-scripts.md#manage-your-scripts)、**Tools**タブには[カスタムツール](../extending/custom-tools.md)、**Profiles**タブには[設定プロファイル](../chats/settings-profiles.md#the-profiles-tab)があります。
 
 - **Search presets**(プリセットを検索)は一覧を絞り込みます。
-- 並べ替えメニューには、**Manual order**(手動の順番)、**A-Z**、**Z-A**、**Newest**、**Oldest**があります。**Manual order**では、行をドラッグするか、行にフォーカスを合わせて<kbd>Alt</kbd>+<kbd>Up</kbd>または<kbd>Alt</kbd>+<kbd>Down</kbd>を押します。タッチスクリーンでは、行を長押しして持ち上げます。
+- 並べ替えメニューには、**Manual order**(手動の順番)、**A-Z**、**Z-A**、**Newest**、**Oldest**、**Most tokens**(トークン数が多い順)、**Fewest tokens**(トークン数が少ない順)があります。サイズは、有効なセクションのうち、プリセットが毎回送る指示文そのものから推定します。キャラクター、ロアブック、チャット履歴などのマーカーセクションはチャットごとに内容が入るため、計算に含まれません。推定サイズは各行に表示されます。**Manual order**では、行をドラッグするか、行にフォーカスを合わせて<kbd>Alt</kbd>+<kbd>Up</kbd>または<kbd>Alt</kbd>+<kbd>Down</kbd>を押します。タッチスクリーンでは、行を長押しして持ち上げます。
 - **New Folder**(新しいフォルダー)でプリセットをまとめられます。プリセットをフォルダーにドラッグして入れ、フォルダーの名前はダブルクリックまたはダブルタップで変更します。
 
 各行には、名前、囲み形式、セクション数、作成者が表示されます。スターを付けたデフォルトのプリセットには**DEFAULT**バッジが付きます。行をクリックすると開きます。
