@@ -139,11 +139,11 @@ export interface MarinaraHostV1 {
   readonly components: {
     readonly Modal: typeof import("../components/ui/Modal").Modal;
     /** Capability API 1.830. The shared switch. */
-  readonly Switch: typeof import("../components/ui/Switch").Switch;
+    readonly Switch: typeof import("../components/ui/Switch").Switch;
     /** Capability API 1.830. The shared checkbox. */
-  readonly Checkbox: typeof import("../components/ui/Checkbox").Checkbox;
+    readonly Checkbox: typeof import("../components/ui/Checkbox").Checkbox;
     /** Capability API 1.830. The shared loading ring; pass `label` to announce it. */
-  readonly Spinner: typeof import("../components/ui/Spinner").Spinner;
+    readonly Spinner: typeof import("../components/ui/Spinner").Spinner;
     /** Capability API 1.830. The same confirm dialog as `services.dialogs.showConfirmDialog`, kept here so a package finds it next to the components. */
     readonly showConfirmDialog: typeof import("./app-dialogs").showConfirmDialog;
   };
