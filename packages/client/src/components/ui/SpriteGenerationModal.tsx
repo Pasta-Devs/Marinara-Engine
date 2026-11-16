@@ -21,6 +21,7 @@ import {
   supportsOpenAIImageCustomSize,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 // ── Types ──
 
@@ -37,6 +38,8 @@ interface SpriteGenerationModalProps {
   defaultAppearance?: string;
   /** Pre-filled avatar (base64 data URL) for reference */
   defaultAvatarUrl?: string | null;
+  /** The saved character sheet's picture, offered as a reference beside the avatar */
+  characterSheetUrl?: string | null;
   /** Callback after sprites are saved, with the label each was saved as and the face it was drawn as */
   onSpritesGenerated?: (saved: Array<{ label: string; drawnAs?: string }>) => void;
   /** Expressions offered instead of the full list, in order; grids larger than the list are hidden. The
@@ -595,6 +598,7 @@ export function SpriteGenerationModal({
   existingExpressionSprites = [],
   defaultAppearance,
   defaultAvatarUrl,
+  characterSheetUrl,
   onSpritesGenerated,
   expressionChoices,
   expressionGroups,
@@ -612,6 +616,9 @@ export function SpriteGenerationModal({
   const [appearance, setAppearance] = useState(defaultAppearance ?? "");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [useCurrentAvatarReference, setUseCurrentAvatarReference] = useState(false);
+  const [useCharacterSheetReference, setUseCharacterSheetReference] = useState(false);
+  /** The sheet read into a data URL, since the server reads only avatar and sprite links itself. */
+  const [characterSheetData, setCharacterSheetData] = useState<{ url: string; dataUrl: string } | null>(null);
   const [preset, setPreset] = useState<PresetKey>(DEFAULT_SPRITE_PRESET);
   const [selectedExpressions, setSelectedExpressions] = useState<string[]>(() =>
     presetExpressions(DEFAULT_SPRITE_PRESET, expressionChoices),
@@ -772,14 +779,51 @@ export function SpriteGenerationModal({
   const canAdjustSlices = !animatedExpressionMode && cells.some((cell) => !!cell.sourceSheetDataUrl);
   const activeFrameCell = activeFrameIndex === null ? null : (cells[activeFrameIndex] ?? null);
   const hasCurrentAvatarReference = !!defaultAvatarUrl;
-  const maxUploadedReferenceImages = useCurrentAvatarReference && hasCurrentAvatarReference ? 3 : 4;
+  const hasCharacterSheetReference = !!characterSheetUrl;
+  const avatarReferenceOn = useCurrentAvatarReference && hasCurrentAvatarReference;
+  const characterSheetReferenceOn = useCharacterSheetReference && hasCharacterSheetReference;
+  const characterSheetDataUrl =
+    characterSheetData && characterSheetData.url === characterSheetUrl ? characterSheetData.dataUrl : null;
+  const characterSheetLoading = characterSheetReferenceOn && !characterSheetDataUrl;
+  const maxUploadedReferenceImages = 4 - Number(avatarReferenceOn) - Number(characterSheetReferenceOn);
   const effectiveReferenceImages = useMemo(
     () =>
-      [useCurrentAvatarReference && defaultAvatarUrl ? defaultAvatarUrl : null, ...referenceImages]
+      [
+        avatarReferenceOn ? defaultAvatarUrl : null,
+        characterSheetReferenceOn ? characterSheetDataUrl : null,
+        ...referenceImages,
+      ]
         .filter((img): img is string => !!img)
         .slice(0, 4),
-    [defaultAvatarUrl, referenceImages, useCurrentAvatarReference],
+    [avatarReferenceOn, characterSheetDataUrl, characterSheetReferenceOn, defaultAvatarUrl, referenceImages],
   );
+
+  // Read the character sheet once it is chosen, so the image model receives the picture itself.
+  useEffect(() => {
+    if (!characterSheetReferenceOn || !characterSheetUrl || characterSheetDataUrl) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(characterSheetUrl, { credentials: "same-origin" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error ?? new Error("read failed"));
+          reader.readAsDataURL(blob);
+        });
+        if (!cancelled) setCharacterSheetData({ url: characterSheetUrl, dataUrl });
+      } catch {
+        if (cancelled) return;
+        setUseCharacterSheetReference(false);
+        toast.error(localizeUi("ui.ui.spritegenerationmodal.characterSheetReferenceFailed"));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [characterSheetDataUrl, characterSheetReferenceOn, characterSheetUrl, localizeUi]);
 
   // Auto-select first image connection
   const defaultImageConnectionId = imageConnections.find(isDefaultGenerationConnection)?.id ?? null;
@@ -887,6 +931,7 @@ export function SpriteGenerationModal({
     setAppearance(defaultAppearance ?? "");
     setReferenceImages([]);
     setUseCurrentAvatarReference(!!defaultAvatarUrl);
+    setUseCharacterSheetReference(!!characterSheetUrl);
     setStep(0);
     setGeneratedSheet(null);
     setGeneratedSheets([]);
@@ -906,6 +951,7 @@ export function SpriteGenerationModal({
     setError(null);
   }, [
     abortActiveGeneration,
+    characterSheetUrl,
     defaultAppearance,
     defaultAvatarUrl,
     entityId,
@@ -922,6 +968,7 @@ export function SpriteGenerationModal({
     setAppearance(defaultAppearance ?? "");
     setReferenceImages([]);
     setUseCurrentAvatarReference(!!defaultAvatarUrl);
+    setUseCharacterSheetReference(!!characterSheetUrl);
     setStep(0);
     setGeneratedSheet(null);
     setGeneratedSheets([]);
@@ -937,7 +984,22 @@ export function SpriteGenerationModal({
     setNativeTransparentPng(true);
     setNoBackground(true);
     setError(null);
-  }, [abortActiveGeneration, defaultAppearance, defaultAvatarUrl, entityId]);
+  }, [abortActiveGeneration, characterSheetUrl, defaultAppearance, defaultAvatarUrl, entityId]);
+
+  // A sheet that loads after the dialog opened, or one newly saved, starts chosen.
+  const previousCharacterSheetUrlRef = useRef(characterSheetUrl);
+  useEffect(() => {
+    if (previousCharacterSheetUrlRef.current === characterSheetUrl) return;
+    previousCharacterSheetUrlRef.current = characterSheetUrl;
+    setUseCharacterSheetReference(!!characterSheetUrl);
+  }, [characterSheetUrl]);
+
+  // Chosen avatar and sheet pictures take upload slots, so drop uploads past what is left.
+  useEffect(() => {
+    setReferenceImages((prev) =>
+      prev.length > maxUploadedReferenceImages ? prev.slice(0, maxUploadedReferenceImages) : prev,
+    );
+  }, [maxUploadedReferenceImages]);
 
   useEffect(() => {
     if (activeFrameIndex !== null && activeFrameIndex >= cells.length) {
@@ -2064,7 +2126,8 @@ export function SpriteGenerationModal({
                   generationUnavailable ||
                   !effectiveConnectionId ||
                   cappedSelectedExpressions.length === 0 ||
-                  !appearance.trim()
+                  !appearance.trim() ||
+                  characterSheetLoading
                 }
                 title={generationUnavailable ? generationUnavailableReason : undefined}
                 className={SHEET_BUTTON_PRIMARY}
@@ -2239,13 +2302,7 @@ export function SpriteGenerationModal({
                   <input
                     type="checkbox"
                     checked={useCurrentAvatarReference}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setUseCurrentAvatarReference(enabled);
-                      if (enabled) {
-                        setReferenceImages((prev) => prev.slice(0, 3));
-                      }
-                    }}
+                    onChange={(e) => setUseCurrentAvatarReference(e.target.checked)}
                     className="accent-[var(--primary)]"
                   />
                   <img
@@ -2258,7 +2315,28 @@ export function SpriteGenerationModal({
                   </span>
                 </label>
               )}
-              <div className="flex items-start gap-3">
+              {hasCharacterSheetReference && (
+                <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
+                  <input
+                    type="checkbox"
+                    checked={useCharacterSheetReference}
+                    onChange={(e) => setUseCharacterSheetReference(e.target.checked)}
+                    className="accent-[var(--primary)]"
+                  />
+                  <img
+                    src={characterSheetUrl ?? ""}
+                    alt={localizeUi("ui.ui.spritegenerationmodal.characterSheetReference")}
+                    className="h-12 w-12 rounded-lg bg-[var(--background)] object-contain ring-1 ring-[var(--border)]"
+                  />
+                  <span className="flex-1">
+                    {localizeUi("ui.ui.spritegenerationmodal.useCharacterSheetAsAReferenceImage")}
+                  </span>
+                  {characterSheetLoading && (
+                    <Loader2 size={14} className="shrink-0 animate-spin text-[var(--muted-foreground)]" />
+                  )}
+                </label>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                 <div className="flex flex-wrap gap-2">
                   {useCurrentAvatarReference && defaultAvatarUrl && (
                     <div className="relative">
@@ -2269,6 +2347,18 @@ export function SpriteGenerationModal({
                       />
                       <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[0.5625rem] max-sm:text-[13px] text-white">
                         {localizeUi("editor.avatar.label")}
+                      </span>
+                    </div>
+                  )}
+                  {characterSheetReferenceOn && characterSheetUrl && (
+                    <div className="relative">
+                      <img
+                        src={characterSheetUrl}
+                        alt={localizeUi("ui.ui.spritegenerationmodal.characterSheetReference")}
+                        className="h-20 w-20 rounded-lg bg-[var(--background)] object-contain ring-2 ring-[var(--primary)]/40"
+                      />
+                      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[0.5625rem] max-sm:text-[13px] text-white">
+                        {localizeUi("ui.ui.spritegenerationmodal.characterSheetLabel")}
                       </span>
                     </div>
                   )}
