@@ -112,6 +112,8 @@ try {
     profile?: { id: string };
     requestedPrompt: string;
     added?: Record<string, string>;
+    dropped?: string[];
+    note?: string;
   };
   type Generated = { asset: Record<string, unknown> & { url: string; filename: string }; style: Style; show: string };
 
@@ -178,6 +180,18 @@ try {
     ((await images("generate", "--style", "default", "--prompt", scenery)) as Generated).style.profile?.id,
     "house",
   );
+
+  // 3b. #9338: kind avatar distils a character prompt and the style block names what it dropped; illustration keeps
+  // every tag and reports nothing dropped.
+  const character =
+    "priscilla barielle, re:zero kara hajimeru isekai seikatsu, 1girl, in her 20s, orange hair, red eyes, braided bangs, smug, 0.2::uncensored::, no text";
+  const avatar = (await images("preview", "--style", "--kind", "avatar", "--prompt", character)) as { style: Style };
+  assert.ok(avatar.style.dropped?.includes("priscilla barielle"), `avatar drops the name: ${avatar.style.dropped}`);
+  assert.ok(!avatar.style.dropped?.includes("no text"), "a no-clause moved to the negative is not dropped");
+  assert.match(avatar.style.note ?? "", /Kind avatar rewrote your prompt.*--kind illustration/);
+  const kept = (await images("preview", "--style", "--prompt", character)) as { style: Style };
+  assert.deepEqual(kept.style.dropped, [], "illustration keeps every tag, weighted ones included");
+  assert.equal(kept.style.note, undefined);
 
   // 4. A chosen profile, by id or name; an unknown one, or both flags, is refused.
   sent.length = 0;
