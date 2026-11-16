@@ -25,7 +25,7 @@ Which sections you see depends on the chat mode. The **Impersonate** section is 
 - **Chat Name**: The name in your chat list. Click it to rename. It is never sent to the model.
 - **Chat Branches**: Switch, rename, export and import branches. See [Chat Branches](branches.md).
 - **Connection**: Which model answers in this chat. See below.
-- **Prompt Preset**: The saved prompt structure for this chat.
+- **Prompt Preset**: The saved prompt structure for this chat. In a game, it also holds the story style, violence, content boundaries and rating guidelines. See [Change them during a game](../game/getting-started.md#change-them-during-a-game).
 - **Advanced Parameters**: Overrides generation settings such as temperature for this chat. See [Generation Parameters](../prompts/generation-parameters.md).
 - **Persona**: Who you play. See [Choosing Your Persona in a Chat](../characters/choosing-your-persona.md). (Conversation, Roleplay.)
 - **Characters**: The characters in the chat. (Conversation, Roleplay.)
