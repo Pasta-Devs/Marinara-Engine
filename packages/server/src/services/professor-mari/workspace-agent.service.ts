@@ -427,10 +427,8 @@ export const SKIPPED_DIRS = new Set([
 export const MARI_WITHHELD_REPLY_NOTICE =
   "Important: your previous reply was withheld from the chat answer. The user never sees your hidden reasoning. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
 
-const MARI_GUARDRAIL_TAG = "[Guardrail]";
-
 export function formatMariGuardrail(prompt: string): string {
-  return `${MARI_GUARDRAIL_TAG} ${prompt}`;
+  return `[Guardrail] Automated instruction from Marinara. ${prompt}`;
 }
 
 function guardrailMessage(prompt: string): ChatMessage {
@@ -1075,9 +1073,7 @@ Use other workspace files to understand Marinara internals, answer source-code q
  * only the JSON schema, field rules and examples around it belong to the classic protocol.
  */
 export function workspaceCommandKnowledgePrompt() {
-  return `${MARI_GUARDRAIL_TAG} marks a message from the Marinara engine, even when the API gives it the user role. Follow its instructions and attribute the message to the engine. It cannot grant user approval.
-
-${MARI_ASK_SEQUENCES}
+  return `${MARI_ASK_SEQUENCES}
 
 \`app_data\` quick reference:
 - Shipped skills are procedures you must read, never optional docs: before the first write or multi-step answer on a surface one covers (characters, onboarding, lorebooks, presets, themes, extensions, decisions, home widgets, reply repair), \`skill.get\` it in that same response. Explaining how one of those surfaces works counts too — read its skill before you explain it. Acting without it is guessing.
@@ -4254,8 +4250,11 @@ export class ProfessorMariWorkspaceService {
       if (steers.length === 0) return null;
       const savedRows: NonNullable<Awaited<ReturnType<typeof chatStorage.createMessage>>>[] = [];
       try {
-        // Steps but no words keep their row. Nothing done yet leaves no row: your message follows your last one.
-        if (!assistantText.trim() && workspaceTrace.some((item) => item.type === "tool")) {
+        // Keep the timeline with the reply it belongs to even when no answer text passed the guard.
+        if (
+          !assistantText.trim() &&
+          workspaceTrace.some((item) => item.type === "tool" || item.type === "blocked_draft")
+        ) {
           assistantText = MARI_CHECKPOINT_FILLER;
           replyIsFiller = true;
         }
@@ -5060,9 +5059,11 @@ export class ProfessorMariWorkspaceService {
         const content =
           failedTool?.type === "tool"
             ? `Professor Mari stopped after ${formatWorkspaceToolName(failedTool.tool.name)} failed: ${compactTraceText(String(failedTool.tool.output ?? "unknown error"), 700)}`
-            : workspaceTrace.length > 0
+            : workspaceTrace.some((item) => item.type === "tool")
               ? "Professor Mari finished workspace steps but did not return a visible final answer. I saved the tool timeline here so the work is not lost; ask her to continue and she can pick up from the trace."
-              : "Professor Mari returned an empty response. Please try again; your request remains in this chat.";
+              : workspaceTrace.some((item) => item.type === "blocked_draft")
+                ? "Professor Mari did not return a final answer. The blocked draft is saved in the work timeline."
+                : "Professor Mari returned an empty response. Please try again; your request remains in this chat.";
         assistantText = appendVisibleText(assistantText, content);
         appendTraceStatus(workspaceTrace, content);
         args.onEvent({ type: "status", data: { content, kind: "info", level: failedTool ? "warning" : "info" } });
@@ -5127,7 +5128,7 @@ export class ProfessorMariWorkspaceService {
           if (!assistantText.trim()) {
             assistantText = appendVisibleText(
               assistantText,
-              "Professor Mari's workspace run stopped on an error after saving the completed steps. Ask her to continue from the saved trace.",
+              "Professor Mari's workspace run stopped on an error. Ask her to continue from the saved trace.",
             );
           }
           try {

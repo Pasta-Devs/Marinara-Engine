@@ -37,7 +37,7 @@ assert.equal(key(false, { ctrl: true, shift: true }), "queue");
 assert.equal(key(false, { shift: true }), "none");
 
 type Call = { name: string; args: Record<string, unknown> };
-type Step = { say: string; calls?: Call[]; ask?: boolean; onCall?: () => Promise<void> };
+type Step = { say: string; calls?: Call[]; ask?: boolean; chips?: boolean; onCall?: () => Promise<void> };
 
 try {
   const store = await import("../../../packages/server/src/services/professor-mari/workspace-pending-store.js");
@@ -146,7 +146,13 @@ try {
         const ask = step.ask ? { ask: [{ question: step.say, options: [{ label: "A" }, { label: "B" }] }] } : {};
         const commands = calls.map((call) => ({ name: call.name, arguments: call.args }));
         return {
-          content: JSON.stringify({ say: step.say, commands, stop: calls.length === 0, ...ask }),
+          content: JSON.stringify({
+            say: step.say,
+            commands,
+            stop: calls.length === 0,
+            suggestions: step.chips ? [{ label: "Continue", prompt: "Continue" }] : undefined,
+            ...ask,
+          }),
           toolCalls: [],
           finishReason: "stop",
           usage,
@@ -401,6 +407,31 @@ try {
     assert.deepEqual(shape(wordless.rows).slice(1), ["assistant: Still working", "user: Hurry up", "assistant: Done."]);
     assert.equal(wordless.rows[1]!.extra.mariCheckpointFiller, true);
     assert.equal(wordless.rows[3]!.extra.mariCheckpointFiller, undefined, `${runtime}: the mark does not stick`);
+
+    // Classic can reject a claim next to a held write before any step runs. A wordless repair
+    // still needs a checkpoint row if Send now arrives before the next assistant reply.
+    if (runtime === "classic") {
+      mode = "manual";
+      const blocked = "Done! I updated the file.";
+      const afterDraft = await scenario("blocked draft checkpoint", [
+        { say: blocked, calls: [{ name: "write", args: { path: "held.txt", content: "x", reason: "Update file" } }] },
+        { say: "", chips: true, onCall: steer("Now the farewell") },
+        { say: "Here is a farewell draft." },
+      ]);
+      mode = "auto";
+      assert.deepEqual(shape(afterDraft.rows).slice(1), [
+        "assistant: Still working",
+        "user: Now the farewell",
+        "assistant: Here is a farewell draft.",
+      ]);
+      const beforeSteer = afterDraft.rows[1]!.extra.mariWorkspaceTimeline as Array<{ type: string; content?: string }>;
+      assert.ok(beforeSteer.some((item) => item.type === "blocked_draft" && item.content === blocked));
+      assert.ok(!beforeSteer.some((item) => item.type === "tool"));
+      assert.equal(afterDraft.rows[3]!.extra.mariWorkspaceTimeline instanceof Array, true);
+      const afterSteer = afterDraft.rows[3]!.extra.mariWorkspaceTimeline as Array<{ type: string }>;
+      assert.ok(!afterSteer.some((item) => item.type === "blocked_draft"));
+      assert.equal(requests[2]?.filter((msg) => msg.role === "user").at(-1)?.content, "Now the farewell");
+    }
 
     // #8711: the notice flag rides the reply a claim check flagged, a checkpoint reply too, and never the next one.
     const flaggedFirst = await scenario("flagged checkpoint", [

@@ -849,7 +849,10 @@ try {
       await midRun.done;
       assert.equal(requests.length, 2, `${runtime}: the step claim is repaired`);
       assert.equal(lastUserText(0), "Do the thing.");
-      assert.match(lastUserText(1), /^\[Guardrail\] You claimed a step was completed/u);
+      assert.match(
+        lastUserText(1),
+        /^\[Guardrail\] Automated instruction from Marinara\. You claimed a step was completed/u,
+      );
       const blocked = { type: "blocked_draft", content: blockedText };
       assert.deepEqual(
         midRun.events.filter((event) => event.type === "blocked_draft"),
@@ -913,6 +916,23 @@ try {
       if (runtime === "classic") {
         assert.equal(requests.length, 2, "classic: a claim beside a held change is repaired");
         assert.match(lastUserText(1), /no mutating command succeeded/u);
+        const draftOnly = await start(
+          "classic blocked draft with no final answer",
+          [
+            answer(runtime, "Done! I updated the file.", [heldWrite]),
+            reply(JSON.stringify({ say: "", stop: true, suggestions: [{ label: "Continue", prompt: "Continue" }] })),
+          ],
+          runtime,
+        );
+        await draftOnly.done;
+        const savedDraftOnly = await lastAssistant(draftOnly.chat.id);
+        assert.match(savedDraftOnly?.content ?? "", /blocked draft is saved/u);
+        assert.doesNotMatch(savedDraftOnly?.content ?? "", /finished workspace steps/u);
+        const draftTrace = savedDraftOnly?.extra.mariWorkspaceTimeline as Array<{ type: string; content?: string }>;
+        assert.ok(
+          draftTrace.some((item) => item.type === "blocked_draft" && item.content === "Done! I updated the file."),
+        );
+        assert.ok(!draftTrace.some((item) => item.type === "tool"));
       } else {
         assert.equal(requests.length, 1);
         assert.match((await lastAssistant(held.chat.id))?.content ?? "", /^I have changes ready\./u);

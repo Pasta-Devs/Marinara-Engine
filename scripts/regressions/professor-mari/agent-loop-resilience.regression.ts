@@ -287,14 +287,20 @@ try {
     const seen = await run("classic", [frame(plan, [], false), frame(plan)]);
     classicRequests.push(...seen);
     assert.equal(seen.length, 2);
-    assert.match(lastUser(seen[1]), /^\[Guardrail\] Continue the same workspace task\./u);
+    assert.match(
+      lastUser(seen[1]),
+      /^\[Guardrail\] Automated instruction from Marinara\. Continue the same workspace task\./u,
+    );
     assert.ok(lastUser(seen[1]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "classic: a withheld say carries the notice");
   }
   // ...and a silent frame had nothing to withhold.
   {
     const seen = await run("classic", [frame("", [], false), frame("All set.")]);
     classicRequests.push(...seen);
-    assert.match(lastUser(seen[1]), /^\[Guardrail\] Continue the same workspace task\./u);
+    assert.match(
+      lastUser(seen[1]),
+      /^\[Guardrail\] Automated instruction from Marinara\. Continue the same workspace task\./u,
+    );
     assert.ok(!lastUser(seen[1]).includes(MARI_WITHHELD_REPLY_NOTICE), "classic: a silent frame gets no notice");
   }
   // Classic: the claim audit discards the frame's words too.
@@ -342,7 +348,7 @@ try {
       reply("The edit failed; no change was made."),
     ]);
     assert.equal(seen.length, 3);
-    assert.match(lastUser(seen[2]), /^\[Guardrail\] Nothing is held/u);
+    assert.match(lastUser(seen[2]), /^\[Guardrail\] Automated instruction from Marinara\. Nothing is held/u);
     assert.ok(lastUser(seen[2]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "pi: the held-claim steer carries the notice");
   }
   // pi: words written before a call the output limit cut (often the plan) are withheld too.
