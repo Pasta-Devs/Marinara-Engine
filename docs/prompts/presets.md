@@ -69,6 +69,17 @@ Two read-only cards show the **Sections** and **Groups** counts.
 - **Roleplay Mode** is not editable here. Roleplay uses the prompt assembled from your **Sections**.
 - **Game Mode** is a text box for this preset's Game prompt. Leave it empty to use the built-in prompt.
 
+#### Game story settings
+
+A preset can carry a story style, violence level and content boundaries into Game Mode, so you do not have to set them for every game. See [Story style, violence and content boundaries](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
+1. On the **Prompts** tab, under **Game story settings**, turn on **Bring story settings to games that use this preset**.
+2. Pick a **Story style** and a **Violence** level. **Follow rating** keeps each game's violence at its rating's default.
+3. Optional: write **Content boundaries**, one per line.
+4. Click **Save**.
+
+When you pick the preset for a game, in the setup wizard or in **Chat Settings → Prompt Preset**, the game takes the preset's story style and violence. The preset's boundaries are added to the ones the game already has, so none of the game's own boundaries are removed. Later edits to the preset do not change games that already picked it. The setting is kept when you duplicate, export or import the preset.
+
 The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
 
 ## Sections and markers
@@ -164,7 +175,7 @@ Below the dropdown, a badge shows where the prompt comes from.
 
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
-Game chats add two controls. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
+Game chats add more controls. **Story style**, **Violence**, **Content boundaries** and **Rating guidelines** set what the game's story may contain. See [Change them during a game](../game/getting-started.md#change-them-during-a-game). Two more shape the prompt. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
 
 ## Decision blocks and prompt caching
 
