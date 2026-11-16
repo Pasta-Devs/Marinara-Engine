@@ -100,7 +100,7 @@ Game Mode keeps a snapshot of the setup used to create each new campaign. Play f
 3. Review the saved adventure, cast, model, prompt, generation parameters, visual, storyboard and world-tool settings.
 4. Click **Copy setup** to copy the text, or **Download setup** to save a text file.
 
-> **Warning:** The text includes your long player preferences and custom GM instructions. Read it before you post it. Credentials, server URLs, API keys and local database IDs are never included.
+> **Warning:** The text includes your long player preferences and custom GM instructions. A downloaded file also holds the game's rating guidelines and content boundaries. Read it before you post it. Credentials, server URLs, API keys and local database IDs are never included.
 
 Character cards, personas, lorebooks, models and accounts are named but not bundled, so another player needs their own equivalents. Campaigns created before snapshots existed cannot recover settings that were never stored, so **Initial Game Setup** shows only when a trustworthy snapshot exists.
 

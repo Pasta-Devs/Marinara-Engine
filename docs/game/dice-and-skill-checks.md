@@ -91,6 +91,15 @@ If the total reaches or beats the DC, the check succeeds. Two rolls override the
 
 The banner shows **CRITICAL SUCCESS**, **SUCCESS**, **FAILURE** or **CRITICAL FAILURE**.
 
+### Skill checks in a Gentle game
+
+In a game with the **Gentle** story style, the GM calls for fewer checks, and the roll itself works the same. See [The Gentle story style](getting-started.md#the-gentle-story-style).
+
+- The GM asks for a check only when your character's own skill or choice can change the outcome.
+- It never rolls against something your character cannot control or that is part of who they are, such as a disability, a chronic condition, their body or their background. The story shows it as part of them, with the ways they already adapt.
+- Kindness, trust and growth between characters come from what they do together, not from a roll.
+- A failed check sets back the attempt, not the character: it fails, takes longer, costs something or draws attention. A **CRITICAL FAILURE** is a bigger complication, not a catastrophe.
+
 ### Advantage and disadvantage
 
 The GM can call a check with advantage (roll two d20s, keep the higher) or disadvantage (keep the lower). The banner shows the mode next to the DC and marks the die used. If the GM asks for both at once, Marinara leaves that check alone instead of guessing, so you get no banner for it.

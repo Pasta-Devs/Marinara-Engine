@@ -58,8 +58,9 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 | Tone | Heroic | Several allowed. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** or **Brutal**. Higher settings make fights harder: more and tougher foes in an MRPG game (see [Battles in an MRPG game](combat.md#battles-in-an-mrpg-game)), harder-hitting enemies in a Legacy game (see [Difficulty scaling](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) | SFW | **SFW** or **NSFW**. It decides sexual content only. NSFW permits explicit scenes, it does not force them. |
-| Story style | Standard | **Standard** or **Gentle**. See [Content and story style](#content-and-story-style). |
-| Violence | Serious (Graphic with NSFW) | **Mild**, **Serious** or **Graphic**. |
+| Story style | Standard | **Gentle** is a lower-stress GM. See [Story style, violence and content boundaries](#story-style-violence-and-content-boundaries). |
+| Violence | Serious (SFW) or Graphic (NSFW) | **Mild**, **Serious** or **Graphic**. Set apart from the content rating. |
+| Content boundaries | None | Subjects the GM keeps out of the story. |
 | Language | English | All in-game text is written in this language. |
 | Game Master Mode | Standalone GM | **Character GM** uses one of your character cards as the GM. |
 | Scene effects model | Built-in model | Only once you download it. Until then the default is **Skip - use inline tags from GM**. |
@@ -71,17 +72,42 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 | Start Muted | Off | Begins the game with all audio muted. |
 | Game Presentation | Standard | See below. |
 
-### Content and story style
+### Story style, violence and content boundaries
 
-The **World** step has these settings for what the story may contain. In a running game they are all in **Chat Settings → Prompt Preset**.
+The **World** step has four settings that decide what the story may contain and how hard it hits. They sit together under **Content Rating (sexual content)**. You can change all of them except the content rating after the game starts. See [Change them during a game](#change-them-during-a-game).
 
-- **Content Rating (sexual content)**: **SFW** keeps romance and affection and fades sex scenes to black. **NSFW** lets them be written explicitly. It says nothing about violence or tone.
-- **Edit rating guidelines**, under the rating, shows the text the Game Master gets as the game's content rules. Change it to suit your game; **Reset to default** brings back the default for the rating. Unchanged text follows the default, so later improvements reach your game. In a running game it is **Rating guidelines**.
-- **Story style**: **Standard** keeps stakes sharp, so mistakes and bad luck land with real consequences. **Gentle** is for lower-stress stories: setbacks without punishment or trauma, fewer rolls for things your character can't control, and room for comfort and recovery.
-- **Violence**: **Mild**, **Serious** or **Graphic**, set apart from the content rating. Unless you pick one, it is **Serious** for SFW and **Graphic** for NSFW.
-- **Content boundaries**: subjects the Game Master keeps out of the story, one per line, such as `harm to animals`. They are hard limits in any style or rating, and your own rating guidelines can't remove them. Because the story is written by AI, it can't guarantee that a listed subject never appears.
+| Setting | What it decides |
+| --- | --- |
+| **Content Rating (sexual content)** | **SFW**: romance and affection, and sex scenes fade to black. **NSFW**: sex scenes can be written explicitly. It decides nothing else. |
+| **Story style** | **Standard**: mistakes and bad luck land with real consequences. **Gentle**: real challenges, but setbacks do not escalate to punishment or trauma. |
+| **Violence** | **Mild**, **Serious** or **Graphic**: how violence is shown. It starts at **Serious** for SFW and **Graphic** for NSFW, which is what each rating always meant. |
+| **Content boundaries** | Subjects you never want in the story, one per line, such as `harm to animals`. |
 
-A prompt preset can carry these too: in the preset's **Prompts** tab, **Game story settings** with **Bring story settings to games that use this preset**. Its violence can also be **Follow rating**. Picking that preset for a game sets its style and violence and adds its boundaries to the game's own. A scene started from a game follows the game's rating, guidelines, violence, style and boundaries.
+#### The Gentle story style
+
+Choose **Gentle** if you want to enjoy the story and its characters without the GM punishing every slip. With **Gentle**:
+
+- Setbacks cost time, face, resources or a detour. The GM does not answer them with injury, humiliation, the loss of someone you care about, or trauma you did not steer toward.
+- The GM calls for a skill check only when your character's own skill or choice matters. It never rolls against something your character cannot control, such as a disability, a condition, their body or their background. See [Skill checks in a Gentle game](dice-and-skill-checks.md#skill-checks-in-a-gentle-game).
+- The world is planned with warmth: arcs grow from hopes and relationships as much as from wounds, and twists surprise you instead of betraying you.
+
+**Gentle** replaces the built-in GM instructions only. If you wrote your own **GM Prompt**, the GM keeps your text. Combat, damage and the difficulty setting work the same in both styles.
+
+#### Content boundaries
+
+Write one subject per line, up to 40 subjects and 2,000 characters in all. Anything past either limit is left out. The GM treats each one as a hard limit, above the rating, the tone, any character's personality and the plot. It does not bring them up, use them as a threat, twist or backstory, or hint at them. If you bring one up yourself, the GM keeps it brief and moves on. Boundaries work in both story styles and at both ratings, and your own rating guidelines cannot remove them.
+
+> **Note:** The story is written by an AI model, so Marinara cannot guarantee that a listed subject never appears. If one slips in, swipe or edit the reply.
+
+#### Edit the rating guidelines
+
+Under the rating buttons, expand **Edit rating guidelines** to see the text the GM receives for the chosen rating, violence and story style. Edit it to set your own content rules for this game, or click **Reset to default** to go back to the built-in text. While you leave it unchanged, it follows the rating, violence and style you pick.
+
+#### Change them during a game
+
+Open **Chat Settings → Prompt Preset**. For a game, this section also has **Story style**, **Violence**, **Content boundaries** and **Rating guidelines**. Changes apply from the next turn. The content rating itself is fixed once the game is created.
+
+A prompt preset can also carry a story style, violence level and boundaries, so you can reuse them in every game. See [Game story settings](../prompts/presets.md#game-story-settings).
 
 ### Choose rules
 
@@ -191,7 +217,15 @@ If a call almost worked, Marinara offers a **Repair JSON** window with the model
 
 ### The GM narrates cheerfully although you chose a dark tone
 
-Some models stay upbeat. Add a clear instruction in the wizard's preferences field, such as "keep narration grim, do not soften failures". Or switch to a model whose default voice fits the tone.
+Check that the game's **Story style** is **Standard**: **Gentle** keeps setbacks light on purpose (see [The Gentle story style](#the-gentle-story-style)). Some models stay upbeat. Add a clear instruction in the wizard's preferences field, such as "keep narration grim, do not soften failures". Or switch to a model whose default voice fits the tone.
+
+### The model declines a turn
+
+A toast says **The model declined this request** when the model refused to write the turn. Some models refuse on certain wording in a game's rating guidelines, a preset or a character card. Try these in order:
+
+1. Retry the turn. Some refusals happen once.
+2. If you edited the rating guidelines, open **Chat Settings → Prompt Preset** and reset **Rating guidelines** to the built-in text.
+3. Try another model for this game.
 
 ## Where each topic lives
 
