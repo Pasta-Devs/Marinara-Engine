@@ -13,6 +13,7 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
+import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
@@ -615,10 +616,18 @@ export const MARI_PREVIEW_CHAT_ID = PREVIEW_CHAT_ID;
 export async function findMariPreviewFile(
   filename: string,
 ): Promise<{ absolutePath: string; filename: string } | null> {
+  let listed: boolean;
   try {
-    if (!(await readManifest()).some((asset) => asset.filename === filename)) return null;
+    listed = (await readManifest()).some((asset) => asset.filename === filename);
+  } catch (error) {
+    logger.debug({ err: error, filename }, "[mari-images] Preview manifest unreadable; not serving %s", filename);
+    return null;
+  }
+  if (!listed) return null;
+  try {
     return { absolutePath: realPathInAppFolder(PREVIEW_DIR, join(PREVIEW_DIR, filename)), filename };
-  } catch {
+  } catch (error) {
+    logger.debug({ err: error, filename }, "[mari-images] Preview file refused; not serving %s", filename);
     return null;
   }
 }

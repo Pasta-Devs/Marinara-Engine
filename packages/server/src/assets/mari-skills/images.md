@@ -35,5 +35,5 @@ A style adds the profile's positive tags, its per-image tags for `--kind`, its s
 
 ## When something looks wrong
 
-- The image doesn't load: check `asset.url` starts with `/api/gallery/file/mari-images/`. Only the newest 200 preview assets are kept.
+- The image doesn't load: check `asset.url` starts with `/api/gallery/file/mari-images/`. The manifest lists only the newest 200 preview assets; an older one's file stays on disk, but its URL no longer loads.
 - Unexpected tags or framing: read `mari images get <asset-id>`. `requestedPrompt` is what you asked for, `prompt` what the model got, `styleProfileId` the profile used.

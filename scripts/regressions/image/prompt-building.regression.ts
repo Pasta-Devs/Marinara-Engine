@@ -2084,6 +2084,16 @@ const cases: RegressionCase[] = [
       assert.match(compiled.prompt, /a castle above a lake at dusk/);
       assert.doesNotMatch(compiled.prompt, /no characters|avoid/);
       assert.match(compiled.negativePrompt, /characters/);
+
+      // Card label lines the distiller drops stay dropped when the fallback rescues a "no" clause's neighbours.
+      // (Portrait and sprite keep label lines with or without a "no" clause; that older path is not this fallback.)
+      const card = compileImagePrompt({
+        kind: "avatar",
+        prompt: "Name: Kael\nOccupation: blacksmith\nTraits: stubborn, loyal\nno characters",
+        styleProfiles,
+        styleProfileId: "house",
+      });
+      assert.doesNotMatch(card.prompt, /Kael|blacksmith|stubborn|Name:|Occupation:/, card.prompt);
     },
   },
 ];
