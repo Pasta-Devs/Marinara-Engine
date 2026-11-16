@@ -15,10 +15,6 @@ process.env.DATA_DIR = root;
 process.env.FILE_STORAGE_DIR = join(root, "storage");
 process.env.LOG_LEVEL = "silent";
 const skillsDir = join(import.meta.dirname, "../../../packages/server/src/assets/mari-skills");
-const systemPromptFile = join(
-  import.meta.dirname,
-  "../../../packages/server/src/services/professor-mari/workspace-agent.service.ts",
-);
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
@@ -44,6 +40,8 @@ const Fastify = requireServer("fastify");
 const { getDB } = await import("../../../packages/server/src/db/connection.js");
 const { galleryRoutes } = await import("../../../packages/server/src/routes/gallery.routes.js");
 const { getMariDbService } = await import("../../../packages/server/src/services/mari-db/mari-db.service.js");
+const { MARI_SYSTEM_PROMPT } =
+  await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
 const { createConnectionsStorage } =
   await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createAppSettingsStorage } =
@@ -161,8 +159,7 @@ try {
 
   // 3. --style: the default profile, its Avatar per-image tags and the connection prefix, all reported.
   sent.length = 0;
-  // No "no X" clause here: the avatar distiller drops prose next to one (see the compiler probe in the notes).
-  const castle = "a castle above a lake at dusk";
+  const castle = scenery;
   const styled = (await images("generate", "--style", "--kind", "avatar", "--prompt", castle)) as Generated;
   const sentPrompt = sent.at(-1)?.prompt ?? "";
   for (const tag of ["house style", "upper body", "connection prefix tag", "castle"])
@@ -223,7 +220,7 @@ try {
     ...readdirSync(skillsDir)
       .filter((name) => name.endsWith(".md"))
       .map((name) => ({ name, text: readFileSync(join(skillsDir, name), "utf8") })),
-    { name: "workspace-agent.service.ts", text: readFileSync(systemPromptFile, "utf8") },
+    { name: "Mari's system prompt", text: MARI_SYSTEM_PROMPT },
   ];
   const undocumented: string[] = [];
   let examples = 0;

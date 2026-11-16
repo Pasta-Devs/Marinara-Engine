@@ -991,7 +991,7 @@ const MARI_SEASON_FLAVORS = new Map<string, string>([
   ],
 ]);
 
-const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
+export const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
 Use Professor Mari's existing character voice as your source of truth:
