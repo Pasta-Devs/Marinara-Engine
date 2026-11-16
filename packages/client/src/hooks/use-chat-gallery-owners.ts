@@ -138,7 +138,7 @@ export function useChatOwnerBackgrounds(
  * so the background library asks for them when someone opens "All characters".
  */
 export function useAllCharacterBackgrounds(enabled: boolean): { backgrounds: OwnerBackground[]; loading: boolean } {
-  const { data: characters } = useCharacterListRows({ includeBuiltIn: true, enabled });
+  const { data: characters, isLoading: charactersLoading } = useCharacterListRows({ includeBuiltIn: true, enabled });
   const { data: images, isLoading } = useQuery({
     queryKey: characterKeys.galleryBackgrounds(),
     queryFn: () => api.get<Array<GalleryBackgroundImage & { characterId: string }>>("/characters/gallery/backgrounds"),
@@ -153,7 +153,7 @@ export function useAllCharacterBackgrounds(enabled: boolean): { backgrounds: Own
       return owner ? [ownerBackground(owner, image)] : [];
     });
   }, [characters, images]);
-  return { backgrounds, loading: enabled && (isLoading || !characters) };
+  return { backgrounds, loading: enabled && (isLoading || charactersLoading) };
 }
 
 /** The chat's characters' and persona's gallery backgrounds that name places, as pinned places. */

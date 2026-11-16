@@ -104,7 +104,7 @@ type BackgroundPickerProps = {
   onDefaultChange: (url: string) => void;
   /**
    * Pictures labeled "background" in the galleries of the chat's characters and persona.
-   * Leave it out where there is no chat: the library's Characters source then shows everyone.
+   * Leave it out where there is no chat: the library's Characters source then shows every character.
    */
   ownerBackgrounds?: OwnerBackground[];
   /** Replaces the preview, recent picks and Browse button with a custom opener (the library window stays). */
@@ -1351,12 +1351,14 @@ export function BackgroundPicker({
             <div className="relative shrink-0">
               <select
                 value={manualOrderActive || folderDrag.active ? "custom" : sort}
+                // Character backgrounds are grouped by owner, so the library sort does not apply.
+                disabled={sourceFilter === "characters"}
                 onChange={(event) => {
                   manualOrder.setActive(event.target.value === "custom");
                   folderDrag.setActive(event.target.value === "custom");
                   if (event.target.value !== "custom") setSort(event.target.value as BackgroundLibrarySort);
                 }}
-                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:!text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9"
+                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:!text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9 disabled:opacity-50"
                 title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
                 aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
               >
