@@ -45,3 +45,89 @@ export function scrubSecretText(text: string): string {
   for (const [pattern, replacement] of SECRET_TEXT_PATTERNS) out = out.replace(pattern, replacement);
   return out;
 }
+
+// Inline media (images, PDFs, audio sent as base64) can run to several MB per value, and debug mode prints every
+// prompt that carries one, so a single Mari round could bury the console. The log copy keeps what identifies the
+// file: its type, its size and the two ends of the encoded text. LOG_INLINE_MEDIA=full prints it whole again.
+
+/** Encoded text shorter than this stays as it is: a short value costs nothing and may be the point of the line. */
+const INLINE_MEDIA_MIN_LENGTH = 64;
+/** Characters kept from each end of the encoded text, enough to tell two files apart. */
+const INLINE_MEDIA_EDGE_LENGTH = 16;
+// The media type may be left out (`data:;base64,...`); RFC 2397 then means text/plain.
+// MIME-style base64 is wrapped at 64 or 76 columns. A line break, raw or JSON-escaped as `\n`, continues the payload
+// only after a run of 60 to 76 characters (a wrapped line, not the end of a compact payload), and only into a run
+// that ends its own line (or the text, or a JSON string). A word after the payload, on its line or the next, stays
+// outside the match.
+const DATA_URL_PATTERN =
+  /data:([\w.+-]+\/[\w.+-]+)?((?:;[\w.+-]+=[^;,"\s]*)*);base64,([A-Za-z0-9+/_-]+(?:(?<=(?:,|\n|\\n)[A-Za-z0-9+/_-]{60,76})(?:\r?\n|(?:\\r)?\\n)[A-Za-z0-9+/_-]+(?==*(?:\r?\n|\\r|\\n|$|["'\],;)}])))*=*)/gu;
+const BASE64_TEXT = /^[A-Za-z0-9+/_-]+=*$/u;
+const LINE_BREAKS = /\r|\n|\\r|\\n/gu;
+const WHITESPACE = /\s+/gu;
+const MEDIA_TYPE_FIELDS = ["media_type", "mime_type", "mimeType"] as const;
+
+function mediaTypeOf(record: Record<string, unknown>) {
+  for (const field of MEDIA_TYPE_FIELDS) {
+    const value = record[field];
+    if (typeof value === "string") return value;
+  }
+  return undefined;
+}
+
+function formatEncodedSize(encodedLength: number) {
+  const bytes = Math.floor((encodedLength * 3) / 4);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** The marker that stands in for one base64 payload, e.g. `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`. */
+export function inlineMediaMarker(mediaType: string, base64: string) {
+  const head = base64.slice(0, INLINE_MEDIA_EDGE_LENGTH);
+  const tail = base64.slice(-INLINE_MEDIA_EDGE_LENGTH);
+  // ASCII "...", not "…": a Windows console that does not read UTF-8 prints "…" as "ÔÇª".
+  return `[${mediaType} base64, ~${formatEncodedSize(base64.length)}: ${head}...${tail}]`;
+}
+
+/** Whether the log keeps inline media whole (`LOG_INLINE_MEDIA=full`). Read per line, so a .env reload applies. */
+// Read from process.env directly: config/runtime-config.ts leads back to the logger, which imports this file.
+export function isFullInlineMediaLogging() {
+  return process.env.LOG_INLINE_MEDIA?.trim().toLowerCase() === "full";
+}
+
+/** Replaces each `data:<type>;base64,<payload>` in free text with its marker. */
+export function shortenInlineMediaText(text: string): string {
+  if (!text.includes(";base64,") || isFullInlineMediaLogging()) return text;
+  return text.replace(DATA_URL_PATTERN, (match, mediaType: string | undefined, _params: string, payload: string) => {
+    const base64 = payload.replace(LINE_BREAKS, "");
+    return base64.length < INLINE_MEDIA_MIN_LENGTH ? match : inlineMediaMarker(mediaType || "text/plain", base64);
+  });
+}
+
+function shortenInlineMediaValue(value: unknown): unknown {
+  if (typeof value === "string") return shortenInlineMediaText(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  // Anthropic (`source: { media_type, data }`) and Google (`inline_data: { mime_type, data }`) carry the payload bare.
+  const record = value as Record<string, unknown>;
+  const data = record.data;
+  if (typeof data !== "string" || data.length < INLINE_MEDIA_MIN_LENGTH) return value;
+  const mediaType = mediaTypeOf(record);
+  if (!mediaType) return value;
+  // Wrapped base64 is tested and sized without its line breaks.
+  const base64 = data.replace(WHITESPACE, "");
+  if (!BASE64_TEXT.test(base64)) return value;
+  return { ...record, data: inlineMediaMarker(mediaType, base64) };
+}
+
+type JsonReplacer = (this: unknown, key: string, value: unknown) => unknown;
+
+/**
+ * A JSON.stringify replacer that shortens inline media, after the caller's own replacer if there is one. It returns
+ * new values and never edits the one being printed, so the payload that is sent stays whole.
+ */
+export function inlineMediaLogReplacer(replacer?: JsonReplacer): JsonReplacer | undefined {
+  if (isFullInlineMediaLogging()) return replacer;
+  return function (this: unknown, key: string, value: unknown) {
+    return shortenInlineMediaValue(replacer ? replacer.call(this, key, value) : value);
+  };
+}
