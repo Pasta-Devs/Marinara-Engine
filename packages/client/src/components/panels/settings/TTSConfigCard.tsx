@@ -277,8 +277,8 @@ function safeTTSFileStem(value: string): string {
   );
 }
 
-function downloadTTSClip(entry: CachedTTSAudioExportEntry, index: number): void {
-  void saveBlobToDevice(
+function downloadTTSClip(entry: CachedTTSAudioExportEntry, index: number): Promise<void> {
+  return saveBlobToDevice(
     entry.blob,
     `${String(index + 1).padStart(3, "0")}-${safeTTSFileStem(entry.key)}.${extensionForTTSBlob(entry.blob)}`,
   );
@@ -1288,7 +1288,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
         return;
       }
 
-      entries.forEach((entry, index) => downloadTTSClip(entry, index));
+      await Promise.all(entries.map((entry, index) => downloadTTSClip(entry, index)));
       setTtsCacheSummary({
         count: entries.length,
         bytes: entries.reduce((total, entry) => total + Math.max(0, entry.size || entry.blob.size), 0),
