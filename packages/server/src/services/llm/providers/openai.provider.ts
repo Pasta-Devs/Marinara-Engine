@@ -27,6 +27,7 @@ import {
   isGeminiStrictRequestModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
+  isNanoGptMiniMaxM31FlashModel,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
   isOpenAIGpt6AlwaysReasoningModel,
@@ -1572,10 +1573,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       return;
     }
 
-    if (
-      this.providerKind === "nanogpt" &&
-      /^minimax\/minimax-m3\.1-flash(?::|$)/u.test(capabilityModelId(options.model))
-    ) {
+    if (this.providerKind === "nanogpt" && isNanoGptMiniMaxM31FlashModel(options.model)) {
       // NanoGPT's M3.1 Flash always reasons and defaults to max when effort is omitted.
       const effort = options.reasoningEffort;
       if (effort) body.reasoning_effort = effort === "none" ? "low" : effort;

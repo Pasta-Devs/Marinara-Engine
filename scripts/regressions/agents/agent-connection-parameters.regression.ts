@@ -658,8 +658,10 @@ try {
       "none",
       "a JSON tool agent still asks for none when nothing is saved",
     );
-    for (const body of [...unset.laneBodies, unset.illustratorBody]) {
-      assert.equal("reasoning_effort" in body, false, "lanes and the prompt writer leave reasoning alone when unset");
+    assert.equal(unset.illustratorBody.reasoning_effort, "none", "manual Illustrator uses the JSON agent default");
+    assert.equal(unset.illustratorBody.max_tokens, 1000);
+    for (const body of unset.laneBodies) {
+      assert.equal("reasoning_effort" in body, false, "Beholder lanes leave reasoning alone when unset");
       assert.equal(body.max_tokens, 1000, "and add no thinking room");
     }
 
@@ -708,6 +710,27 @@ try {
     const fallbackBody = requests.at(-1)!.body;
     assert.deepEqual(fallbackBody.messages, smallBody.messages, "fallback thinking room never truncates the prompt");
     assert.equal(fallbackBody.max_tokens, smallBody.max_tokens, "thinking room respects the smaller fallback");
+
+    const glmFallback = {
+      ...fallbackConnection,
+      provider: "nanogpt",
+      model: "zai-org/glm-5.3-flash",
+      defaultParameters: { reasoningEffort: "low" },
+    };
+    await writeManualIllustratorPromptPlan({
+      illustratorAgent: {
+        ...fallbackAgent,
+        provider: new ConnectionFallbackProvider(
+          primary,
+          new OpenAIProvider(`${base}/v1`, "fixture-key", SMALL_CONTEXT, null, null, "nanogpt"),
+          glmFallback,
+          "agents",
+        ),
+      },
+      context,
+    });
+    assert.equal(requests.at(-1)?.body.model, glmFallback.model);
+    assert.equal(requests.at(-1)?.body.reasoning_effort, "low", "GLM uses the fallback connection's saved level");
 
     for (const [primaryContext, fallbackContext, expected] of [
       [200_000, SMALL_CONTEXT, SMALL_CONTEXT],
