@@ -141,7 +141,8 @@ import {
 } from "../../hooks/use-characters";
 import { useQueryClient } from "@tanstack/react-query";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
-import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
+import { AvatarGenerationModal, type GalleryCreateResult } from "../ui/AvatarGenerationModal";
+import { galleryCreateSeeds, saveGalleryCreation } from "../../lib/gallery-create-save";
 import { AvatarCropWidget } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
@@ -1383,7 +1384,11 @@ export function PersonaEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
-  const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? personaId : null);
+  const [galleryCreateOpen, setGalleryCreateOpen] = useState(false);
+  const tagGalleryCreation = useTagPersonaGalleryImage(personaId ?? "");
+  const { data: characterSheetSprites } = useCharacterSprites(
+    characterSheetGeneratorOpen || galleryCreateOpen ? personaId : null,
+  );
   const loadedPersonaIdRef = useRef<string | null>(null);
   /** Authoritative avatar path last reconciled into the editor. */
   const authoritativeAvatarPathRef = useRef<string | null>(null);
@@ -1586,6 +1591,18 @@ export function PersonaEditor() {
       toast.success(localizeUi("ui.characters.charactersheet.created"));
     },
     [formData?.name, localizeUi, updateField, uploadCharacterSheet],
+  );
+
+  const handleGalleryCreation = useCallback(
+    (result: GalleryCreateResult) =>
+      saveGalleryCreation(result, {
+        fileStem: formData?.name || "persona",
+        upload: (files) => uploadCharacterSheet.mutateAsync(files),
+        tag: (args) => tagGalleryCreation.mutateAsync(args),
+        saveCharacterSheet: handleGeneratedCharacterSheet,
+        localizeUi,
+      }),
+    [formData?.name, handleGeneratedCharacterSheet, localizeUi, tagGalleryCreation, uploadCharacterSheet],
   );
 
   /** Resolves true when the save landed and no later draft change is still unsaved. */
@@ -2310,6 +2327,26 @@ export function PersonaEditor() {
         onClose={() => setCharacterSheetGeneratorOpen(false)}
         onUseAvatar={handleGeneratedCharacterSheet}
       />
+      <AvatarGenerationModal
+        open={galleryCreateOpen}
+        title={localizeUi("ui.characters.charactersheet.createWithAi")}
+        entityName={formData.name || localizeUi("ui.characters.charactersheet.characterFallback")}
+        galleryCreate={{
+          seeds: galleryCreateSeeds(
+            personaImageAppearanceGeneratorSeed(
+              formData,
+              formData.appearance || formData.description || formData.personality,
+            ),
+            formData.scenario || formData.description || formData.personality,
+            formData.name,
+          ),
+          onSave: handleGalleryCreation,
+        }}
+        defaultAvatarUrl={avatarPreview}
+        neutralFullBodyReferenceUrl={characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url}
+        onClose={() => setGalleryCreateOpen(false)}
+        onUseAvatar={handleGeneratedCharacterSheet}
+      />
 
       <CardEditor
         variant="persona"
@@ -2434,7 +2471,7 @@ export function PersonaEditor() {
                   <PersonaGalleryTab
                     personaId={personaId}
                     personaName={formData.name}
-                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    onCreateCharacterSheet={() => setGalleryCreateOpen(true)}
                     editorBusy={mutationBusy}
                     galleryAvatarPending={mutationKind === "gallery-avatar"}
                     onSetAvatar={handleSetGalleryAvatar}

@@ -93,13 +93,14 @@ import { CharacterCombatIconSection } from "./GameModeIconSection";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
+import { galleryCreateSeeds, saveGalleryCreation } from "../../lib/gallery-create-save";
 import { rebaseForm } from "../../lib/form-rebase";
 import { formFieldValue, withFormFieldValue } from "../../lib/mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "./MariFieldReview";
 import { mergeEmbeddedCharacterCardFields } from "../../lib/character-import";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
-import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
+import { AvatarGenerationModal, type GalleryCreateResult } from "../ui/AvatarGenerationModal";
 import { AvatarCropWidget, FullImageView } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
@@ -597,7 +598,11 @@ export function CharacterEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
-  const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
+  const [galleryCreateOpen, setGalleryCreateOpen] = useState(false);
+  const tagGalleryCreation = useTagCharacterGalleryImage(characterId ?? "");
+  const { data: characterSheetSprites } = useCharacterSprites(
+    characterSheetGeneratorOpen || galleryCreateOpen ? characterId : null,
+  );
   const [newTag, setNewTag] = useState("");
   const overhaulActive = useOverhaulLook();
   const [overhaulAddedSections, setOverhaulAddedSections] = useState<string[]>(initialOverhaulSections);
@@ -934,6 +939,18 @@ export function CharacterEditor() {
       toast.success(localizeUi("ui.characters.charactersheet.created"));
     },
     [formData?.name, localizeUi, updateCharacterSheet, uploadCharacterSheet],
+  );
+
+  const handleGalleryCreation = useCallback(
+    (result: GalleryCreateResult) =>
+      saveGalleryCreation(result, {
+        fileStem: formData?.name || "character",
+        upload: (files) => uploadCharacterSheet.mutateAsync(files),
+        tag: (args) => tagGalleryCreation.mutateAsync(args),
+        saveCharacterSheet: handleGeneratedCharacterSheet,
+        localizeUi,
+      }),
+    [formData?.name, handleGeneratedCharacterSheet, localizeUi, tagGalleryCreation, uploadCharacterSheet],
   );
 
   const beginAvatarUpload = useCallback(() => {
@@ -1690,6 +1707,28 @@ export function CharacterEditor() {
           onClose={() => setCharacterSheetGeneratorOpen(false)}
           onUseAvatar={handleGeneratedCharacterSheet}
         />
+        <AvatarGenerationModal
+          open={galleryCreateOpen}
+          title={localizeUi("ui.characters.charactersheet.createWithAi")}
+          entityName={formData.name || localizeUi("ui.characters.charactersheet.characterFallback")}
+          galleryCreate={{
+            seeds: galleryCreateSeeds(
+              imageAppearanceGeneratorSeed(
+                formData.extensions,
+                (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
+              ),
+              formData.scenario || formData.description || formData.personality,
+              formData.name,
+            ),
+            onSave: handleGalleryCreation,
+          }}
+          defaultAvatarUrl={avatarPreview}
+          neutralFullBodyReferenceUrl={
+            characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url
+          }
+          onClose={() => setGalleryCreateOpen(false)}
+          onUseAvatar={handleGeneratedCharacterSheet}
+        />
 
         <CardEditor
           variant="character"
@@ -1855,7 +1894,7 @@ export function CharacterEditor() {
                     <CharacterGalleryTab
                       characterId={characterId}
                       characterName={formData.name}
-                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                      onCreateCharacterSheet={() => setGalleryCreateOpen(true)}
                     />
                   }
                 />

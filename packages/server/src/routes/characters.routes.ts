@@ -30,6 +30,8 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
   resolveOpenAIGifAnimation,
+  gallerySheetGrid,
+  parseGallerySheetNames,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -56,8 +58,11 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { createNoodleStorage } from "../services/storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import {
+  CHARACTERS_EMOJI_SHEET,
+  CHARACTERS_GALLERY_BACKGROUND,
   CHARACTERS_LOREBOOK_COVER,
   CHARACTERS_REFERENCE_SHEET,
+  CHARACTERS_STICKER_SHEET,
   loadPrompt,
 } from "../services/prompt-overrides/index.js";
 import { generateImage, ImageAnimationUnsupportedError } from "../services/image/image-generation.js";
@@ -486,7 +491,9 @@ type AvatarGenerationBody = {
   connectionId?: string;
   name?: string;
   appearance?: string;
-  purpose?: "avatar" | "character-sheet" | "cover";
+  purpose?: AvatarGenerationPurpose;
+  /** Sticker and emoji sheets: the names drawn, one cell each, in grid order. */
+  stickers?: string[];
   referenceImages?: string[];
   width?: number;
   height?: number;
@@ -496,6 +503,78 @@ type AvatarGenerationBody = {
   /** One looping GIF drawn from the prompt alone; refused with 400 code "animation-unsupported" (see generateImage). */
   animation?: ImageAnimation;
 };
+
+type AvatarGenerationPurpose = "avatar" | "character-sheet" | "cover" | "background" | "sticker-sheet" | "emoji-sheet";
+
+const AVATAR_GENERATION_PURPOSES: readonly AvatarGenerationPurpose[] = [
+  "avatar",
+  "character-sheet",
+  "cover",
+  "background",
+  "sticker-sheet",
+  "emoji-sheet",
+];
+
+/** Names a sticker or emoji sheet draws when the request sends none. */
+const DEFAULT_GALLERY_SHEET_NAMES = [
+  "happy",
+  "laughing",
+  "sad",
+  "angry",
+  "surprised",
+  "love",
+  "thinking",
+  "sleepy",
+  "thumbs up",
+];
+
+function avatarGenerationPurposeInfo(purpose: AvatarGenerationBody["purpose"]) {
+  switch (purpose) {
+    case "character-sheet":
+      return {
+        kind: "illustration",
+        label: "Character sheet",
+        hardNegative: CHARACTER_SHEET_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "cover":
+      return { kind: "illustration", label: "Lorebook cover", hardNegative: COVER_HARD_NEGATIVE_PROMPT } as const;
+    case "background":
+      return {
+        kind: "background",
+        label: "Background",
+        hardNegative: GALLERY_BACKGROUND_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "sticker-sheet":
+      return {
+        kind: "illustration",
+        label: "Sticker sheet",
+        hardNegative: STICKER_SHEET_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "emoji-sheet":
+      return { kind: "illustration", label: "Emoji sheet", hardNegative: STICKER_SHEET_HARD_NEGATIVE_PROMPT } as const;
+    default:
+      return { kind: "avatar", label: "Avatar", hardNegative: AVATAR_GENERATION_HARD_NEGATIVE_PROMPT } as const;
+  }
+}
+
+/** Canvas used when the client sends no size: sheets and backgrounds wide, covers and stickers square. */
+function avatarGenerationDefaultSize(
+  purpose: AvatarGenerationBody["purpose"],
+  settings: Awaited<ReturnType<typeof loadImageGenerationUserSettings>>,
+) {
+  switch (purpose) {
+    case "character-sheet":
+      return settings.characterSheet;
+    case "background":
+      return settings.background;
+    case "cover":
+    case "sticker-sheet":
+    case "emoji-sheet":
+      return { width: settings.portrait.width, height: settings.portrait.width };
+    default:
+      return settings.portrait;
+  }
+}
 
 const AVATAR_GENERATION_MAX_DIMENSION = 4096;
 const AVATAR_GENERATION_MAX_PIXELS = 16_000_000;
@@ -523,7 +602,7 @@ function validateAvatarGenerationDimensions(width: unknown, height: unknown) {
 }
 
 const avatarGenerationPromptId = (name: string, purpose: AvatarGenerationBody["purpose"] = "avatar") =>
-  `${purpose === "character-sheet" || purpose === "cover" ? purpose : "avatar"}:${
+  `${purpose && AVATAR_GENERATION_PURPOSES.includes(purpose) ? purpose : "avatar"}:${
     name
       .trim()
       .toLowerCase()
@@ -537,6 +616,10 @@ const AVATAR_GENERATION_HARD_NEGATIVE_PROMPT =
 const COVER_HARD_NEGATIVE_PROMPT = "text, captions, logos, watermarks, borders, UI, lettering, title text";
 const CHARACTER_SHEET_HARD_NEGATIVE_PROMPT =
   "text, captions, logos, watermarks, decorative borders, unrelated characters, extra limbs, inconsistent faces, cropped-off body parts";
+const GALLERY_BACKGROUND_HARD_NEGATIVE_PROMPT =
+  "people, characters, figures, faces, portraits, text, captions, logos, watermarks, borders, UI, panels, collage";
+const STICKER_SHEET_HARD_NEGATIVE_PROMPT =
+  "text, captions, speech bubbles, lettering, logos, watermarks, grid lines, frames, overlapping stickers, cropped stickers, busy background, unrelated characters, inconsistent faces";
 
 async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
@@ -551,6 +634,19 @@ async function buildAvatarGenerationPrompt(
   if (body.purpose === "character-sheet") {
     return loadPrompt(promptOverridesStorage, CHARACTERS_REFERENCE_SHEET, { name, appearance });
   }
+  if (body.purpose === "background") {
+    return loadPrompt(promptOverridesStorage, CHARACTERS_GALLERY_BACKGROUND, { name, appearance });
+  }
+  if (body.purpose === "sticker-sheet" || body.purpose === "emoji-sheet") {
+    const parsed = parseGallerySheetNames(body.stickers);
+    const stickers = parsed.length ? parsed : DEFAULT_GALLERY_SHEET_NAMES;
+    const { cols, rows } = gallerySheetGrid(stickers.length);
+    return loadPrompt(
+      promptOverridesStorage,
+      body.purpose === "emoji-sheet" ? CHARACTERS_EMOJI_SHEET : CHARACTERS_STICKER_SHEET,
+      { name, appearance, count: stickers.length, cols, rows, expressions: stickers.join(", ") },
+    );
+  }
   return buildAvatarPortraitLeadPrompt({
     name,
     profileSubjectTags: profile.subjectTags.avatar ?? "",
@@ -559,13 +655,8 @@ async function buildAvatarGenerationPrompt(
 }
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
-  if (
-    body.purpose !== undefined &&
-    body.purpose !== "avatar" &&
-    body.purpose !== "character-sheet" &&
-    body.purpose !== "cover"
-  ) {
-    return { error: "purpose must be avatar, character-sheet or cover" as const };
+  if (body.purpose !== undefined && !AVATAR_GENERATION_PURPOSES.includes(body.purpose)) {
+    return { error: `purpose must be one of ${AVATAR_GENERATION_PURPOSES.join(", ")}` as const };
   }
   if (!body.connectionId) {
     return { error: "connectionId is required" as const };
@@ -1434,17 +1525,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in resolved) return reply.status(400).send({ error: resolved.error });
 
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const isCharacterSheet = body.purpose === "character-sheet";
     const isCover = body.purpose === "cover";
-    // A cover is square, so both sides use the portrait width.
+    const purposeInfo = avatarGenerationPurposeInfo(body.purpose);
+    const defaultSize = avatarGenerationDefaultSize(body.purpose, imageSettings);
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ??
-        (isCharacterSheet
-          ? imageSettings.characterSheet.height
-          : isCover
-            ? imageSettings.portrait.width
-            : imageSettings.portrait.height),
+      body.width ?? defaultSize.width,
+      body.height ?? defaultSize.height,
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1454,17 +1540,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
     const compiled = compileImagePrompt({
-      kind: isCharacterSheet || isCover ? "illustration" : "avatar",
+      kind: purposeInfo.kind,
       prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-      userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
+      userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
       imageDefaults,
-      hardNegative: isCover
-        ? COVER_HARD_NEGATIVE_PROMPT
-        : isCharacterSheet
-          ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
-          : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+      hardNegative: purposeInfo.hardNegative,
     });
     const previewSize = resolveImagePromptReviewSize({
       connection: resolved.conn,
@@ -1478,10 +1560,8 @@ export async function charactersRoutes(app: FastifyInstance) {
       items: [
         {
           id: avatarGenerationPromptId(body.name ?? (isCover ? "lorebook" : "character"), body.purpose),
-          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
-          title: `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"}: ${
-            body.name?.trim() || (isCover ? "Lorebook" : "Character")
-          }`,
+          kind: purposeInfo.kind,
+          title: `${purposeInfo.label}: ${body.name?.trim() || (isCover ? "Lorebook" : "Character")}`,
           prompt: compiled.prompt,
           negativePrompt: compiled.negativePrompt,
           width: previewSize.width,
@@ -1498,17 +1578,12 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const conn = resolved.conn;
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const isCharacterSheet = body.purpose === "character-sheet";
     const isCover = body.purpose === "cover";
-    // A cover is square, so both sides use the portrait width.
+    const purposeInfo = avatarGenerationPurposeInfo(body.purpose);
+    const defaultSize = avatarGenerationDefaultSize(body.purpose, imageSettings);
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ??
-        (isCharacterSheet
-          ? imageSettings.characterSheet.height
-          : isCover
-            ? imageSettings.portrait.width
-            : imageSettings.portrait.height),
+      body.width ?? defaultSize.width,
+      body.height ?? defaultSize.height,
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1556,31 +1631,27 @@ export async function charactersRoutes(app: FastifyInstance) {
           negativePrompt: promptOverride.negativePrompt || "",
         }
       : compileImagePrompt({
-          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
+          kind: purposeInfo.kind,
           prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-          userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
+          userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,
           imageDefaults,
-          hardNegative: isCover
-            ? COVER_HARD_NEGATIVE_PROMPT
-            : isCharacterSheet
-              ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
-              : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+          hardNegative: purposeInfo.hardNegative,
         });
 
     const debugOverrideEnabled = body.debugMode === true || isDebugAgentsEnabled();
     logDebugOverride(
       debugOverrideEnabled,
       "[debug/characters/%s-generation] prompt:\n%s",
-      isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
+      body.purpose ?? "avatar",
       compiled.prompt,
     );
     if (compiled.negativePrompt) {
       logDebugOverride(
         debugOverrideEnabled,
         "[debug/characters/%s-generation] negative prompt:\n%s",
-        isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
+        body.purpose ?? "avatar",
         compiled.negativePrompt,
       );
     }
@@ -1612,16 +1683,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (err instanceof ImageAnimationUnsupportedError) {
         return reply.status(400).send({ error: err.message, code: err.code });
       }
-      logger.error(
-        err,
-        "%s generation failed",
-        isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar",
-      );
+      logger.error(err, "%s generation failed", purposeInfo.label);
       return reply.status(500).send({
-        error:
-          err instanceof Error
-            ? err.message
-            : `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"} generation failed`,
+        error: err instanceof Error ? err.message : `${purposeInfo.label} generation failed`,
       });
     }
   });
