@@ -286,7 +286,7 @@ function isKeyGreen(pixels: Uint8ClampedArray, offset: number): boolean {
  * art around them), and tiny loose specks off the drawing are dropped. Big green areas and anything deep
  * inside the drawing are the art's own green and stay. Returns whether anything changed.
  */
-function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: number): boolean {
+function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: number, background: number[]): boolean {
   const total = width * height;
   const reach = Math.max(8, Math.round(Math.max(width, height) * 0.15));
   const distance = new Uint16Array(total).fill(65535);
@@ -375,9 +375,9 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
     changed = true;
   }
 
-  // Loose specks: a few pixels on their own that are left-over backdrop, mostly green-screen green or
-  // barely there. A small detached part of the drawing (the dot of a "!", a sparkle) has its own colour
-  // and stays.
+  // Loose specks: a few pixels on their own in the backdrop's own colour, left behind by the key. (Green
+  // specks of other shades were already handled as green bits above.) A small detached part of the drawing
+  // (the dot of a "!", a sparkle, a soft glow) has its own colour and stays.
   const opaque = new Uint8Array(total);
   for (let i = 0; i < total; i++) if (pixels[i * 4 + 3]! > 24) opaque[i] = 1;
   const islands = labelMask(opaque, width, height);
@@ -386,7 +386,11 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
   for (let i = 0; i < total; i++) {
     if (!opaque[i]) continue;
     const offset = i * 4;
-    if (pixels[offset + 3]! < 128 || isKeyGreen(pixels, offset)) residue[islands.labels[i]!]!++;
+    const fromBackdrop =
+      Math.abs(pixels[offset]! - background[0]!) +
+      Math.abs(pixels[offset + 1]! - background[1]!) +
+      Math.abs(pixels[offset + 2]! - background[2]!);
+    if (fromBackdrop < 90) residue[islands.labels[i]!]!++;
   }
   const loose = new Uint8Array(islands.regions.length + 1);
   for (const region of islands.regions)
@@ -409,7 +413,7 @@ function cleanEdgesUntilSettled(pixels: Uint8ClampedArray, width: number, height
   const greenScreen = background[1]! - Math.max(background[0]!, background[2]!) > 80;
   for (let round = 0; round < 4; round++) {
     const before = new Uint8ClampedArray(pixels);
-    if (greenScreen) removeGreenBits(pixels, width, height);
+    if (greenScreen) removeGreenBits(pixels, width, height, background);
     cleanGallerySheetOutlines(pixels, width, height, background);
     if (pixels.every((value, index) => value === before[index])) break;
   }
