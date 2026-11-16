@@ -1893,7 +1893,7 @@ export function shownMariAppearancePack(state: UIState, playHours: number | null
 
 /**
  * Returns the subset of UI state that is synced to the server so it persists
- * across devices and browsers. Excludes device-local sizing preferences,
+ * across devices and browsers. Excludes device-local sizing and Send on Enter preferences,
  * legacy migration flags, auto-computed fields (userStatus), and items tracked
  * via their own server resources (custom themes).
  */
@@ -2062,10 +2062,6 @@ export function pickSyncedSettings(state: UIState) {
     textStrokeColor: state.textStrokeColor,
     visualTheme: state.visualTheme,
     convoGradient: state.convoGradient,
-    enterToSendRP: state.enterToSendRP,
-    enterToSendConvo: state.enterToSendConvo,
-    enterToSendGame: state.enterToSendGame,
-    enterToSendProfessorMari: state.enterToSendProfessorMari,
     weatherEffects: state.weatherEffects,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,

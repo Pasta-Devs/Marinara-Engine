@@ -352,8 +352,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     sectionId: "omnibar",
     labelKey: "omnibar.settings.sendOnEnter.label",
     label: "Enter sends to Professor Mari",
-    description:
-      "When off, Enter adds a new line and Ctrl/Command+Enter sends. On a touch screen, Enter always adds a new line.",
+    description: "When off, Enter adds a new line and Ctrl/Command+Enter sends. Saved on this device only.",
     descriptionKey: "omnibar.settings.sendOnEnter.description",
     aliases: ["mari", "send on enter", "enter to send", "enter key"],
     kind: "Toggle",

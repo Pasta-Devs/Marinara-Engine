@@ -15,7 +15,7 @@ If it did not work: with no model set for the chat, the reply fails at once with
 
 ### Send on Enter
 
-Find it in **Settings → General → Input & Editing**. There is one toggle per chat mode.
+Find it in **Settings → General → Input & Editing**. There is one toggle per chat mode, saved on the device you set it on, so a phone and a computer can differ.
 
 | Chat mode | Default | When off |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Find it in **Settings → General → Input & Editing**. There is one toggle per
 | Conversations | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 | Game | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 
-Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Search and Professor Mari settings**. On a touch screen, <kbd>Enter</kbd> in her chat always adds a new line.
+Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Search and Professor Mari settings**.
 
 ## Attach images and files
 
