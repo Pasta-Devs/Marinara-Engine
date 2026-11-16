@@ -181,6 +181,9 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     if (overrideStale && staleUpdates.length > 0) {
       const ok = await showConfirmDialog({
         message: localizeUi("ui.modals.charactercardupdatemodal.someProposedCardEditsNoLongerMatchTheCurrent"),
+        title: localizeUi("ui.game.tacticalcombatui.confirm"),
+        confirmLabel: localizeUi("ui.game.tacticalcombatui.confirm"),
+        cancelLabel: localizeUi("chat.delete.dialog.cancel"),
       });
       if (!ok) return;
     }
