@@ -95,6 +95,15 @@ export function createPersonaGalleryStorage(db: DB) {
       await db.delete(personaImages).where(eq(personaImages.id, id));
     },
 
+    /** Point an image at a new file (a cleaned-up copy), keeping its id, tag, prompt and place in the gallery. */
+    async replaceFile(id: string, patch: { filePath: string; width: number | null; height: number | null }) {
+      await db
+        .update(personaImages)
+        .set({ filePath: patch.filePath, width: patch.width, height: patch.height })
+        .where(eq(personaImages.id, id));
+      return this.getById(id);
+    },
+
     async setTag(
       id: string,
       patch: { customKind: GalleryTagKind | null; customName: string | null; width?: number; height?: number },

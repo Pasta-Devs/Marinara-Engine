@@ -27,68 +27,71 @@ function canvas2d(width: number, height: number) {
   return { canvas, ctx };
 }
 
+type Bounds = { left: number; top: number; right: number; bottom: number };
+
 /**
- * Trim a cell to what was drawn on it, then centre it on a square with a small margin and scale it
- * down to the kind's size. A pixel counts as drawn when it is not see-through and does not match the
+ * What was drawn on a cell: the box around every pixel that is not see-through and does not match the
  * cell's background, read from its four corners (so a flat white or green backdrop is skipped too).
  */
-export async function fitGallerySheetCell(
-  dataUrl: string,
-  kind: GallerySheetKind,
-  options: { trim?: boolean } = {},
-): Promise<string> {
-  const image = await loadImage(dataUrl);
+function drawnBounds(image: HTMLImageElement): Bounds {
   const width = image.naturalWidth;
   const height = image.naturalHeight;
-  let bounds = { left: 0, top: 0, right: width, bottom: height };
-
-  if (options.trim !== false) {
-    const { ctx } = canvas2d(width, height);
-    ctx.drawImage(image, 0, 0);
-    const pixels = ctx.getImageData(0, 0, width, height).data;
-    const at = (x: number, y: number) => (y * width + x) * 4;
-    const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)];
-    const opaqueCorners = corners.filter((offset) => pixels[offset + 3]! > 24);
-    const background =
-      opaqueCorners.length >= 2
-        ? [0, 1, 2].map((channel) => {
-            const values = opaqueCorners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
-            return values[Math.floor(values.length / 2)]!;
-          })
-        : null;
-    let left = width;
-    let top = height;
-    let right = -1;
-    let bottom = -1;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const offset = at(x, y);
-        if (pixels[offset + 3]! <= 24) continue;
-        if (background) {
-          const distance =
-            Math.abs(pixels[offset]! - background[0]!) +
-            Math.abs(pixels[offset + 1]! - background[1]!) +
-            Math.abs(pixels[offset + 2]! - background[2]!);
-          if (distance < 48) continue;
-        }
-        if (x < left) left = x;
-        if (x > right) right = x;
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
+  const { ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)];
+  const opaqueCorners = corners.filter((offset) => pixels[offset + 3]! > 24);
+  const background =
+    opaqueCorners.length >= 2
+      ? [0, 1, 2].map((channel) => {
+          const values = opaqueCorners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+          return values[Math.floor(values.length / 2)]!;
+        })
+      : null;
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = at(x, y);
+      if (pixels[offset + 3]! <= 24) continue;
+      if (background) {
+        const distance =
+          Math.abs(pixels[offset]! - background[0]!) +
+          Math.abs(pixels[offset + 1]! - background[1]!) +
+          Math.abs(pixels[offset + 2]! - background[2]!);
+        if (distance < 48) continue;
       }
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
     }
-    if (right >= left && bottom >= top) bounds = { left, top, right: right + 1, bottom: bottom + 1 };
   }
+  if (right < left || bottom < top) return { left: 0, top: 0, right: width, bottom: height };
+  return { left, top, right: right + 1, bottom: bottom + 1 };
+}
 
+/** Draw the trimmed art on a square `side` source pixels wide, scaled down to the kind's size. */
+function drawOnSquare(
+  image: HTMLImageElement,
+  bounds: Bounds,
+  side: number,
+  kind: GallerySheetKind,
+  place: "centre" | "baseline",
+): string {
   const contentWidth = bounds.right - bounds.left;
   const contentHeight = bounds.bottom - bounds.top;
-  const side = Math.ceil(Math.max(contentWidth, contentHeight) * 1.08);
   const outSide = Math.min(GALLERY_SHEET_MAX_SIDE[kind], side);
   const scale = outSide / side;
   const { canvas, ctx } = canvas2d(outSide, outSide);
   ctx.imageSmoothingQuality = "high";
   const drawWidth = contentWidth * scale;
   const drawHeight = contentHeight * scale;
+  // The baseline sits as far above the bottom as the margin around the set's biggest piece.
+  const top = place === "baseline" ? outSide * (1 - 0.04 / 1.08) - drawHeight : (outSide - drawHeight) / 2;
   ctx.drawImage(
     image,
     bounds.left,
@@ -96,11 +99,49 @@ export async function fitGallerySheetCell(
     contentWidth,
     contentHeight,
     (outSide - drawWidth) / 2,
-    (outSide - drawHeight) / 2,
+    top,
     drawWidth,
     drawHeight,
   );
   return canvas.toDataURL("image/png");
+}
+
+/**
+ * Trim a cell to what was drawn on it, then centre it on a square with a small margin and scale it
+ * down to the kind's size.
+ */
+export async function fitGallerySheetCell(
+  dataUrl: string,
+  kind: GallerySheetKind,
+  options: { trim?: boolean } = {},
+): Promise<string> {
+  const image = await loadImage(dataUrl);
+  const bounds =
+    options.trim === false
+      ? { left: 0, top: 0, right: image.naturalWidth, bottom: image.naturalHeight }
+      : drawnBounds(image);
+  const side = Math.ceil(Math.max(bounds.right - bounds.left, bounds.bottom - bounds.top) * 1.08);
+  return drawOnSquare(image, bounds, side, kind, "centre");
+}
+
+/**
+ * Fit every piece of one sheet. Emoji each fill their own square. Stickers share one scale and stand on
+ * one baseline, centred side to side: a short sticker stays short, and a set lines up in a row and in
+ * chat instead of each floating at whatever height its own shape gives it.
+ */
+export async function fitGallerySheetSet(dataUrls: string[], kind: GallerySheetKind): Promise<string[]> {
+  if (kind !== "sticker") return Promise.all(dataUrls.map((dataUrl) => fitGallerySheetCell(dataUrl, kind)));
+  const images = await Promise.all(dataUrls.map(loadImage));
+  const bounds = images.map(drawnBounds);
+  const sizes = bounds.map((b) => Math.max(b.right - b.left, b.bottom - b.top));
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 1;
+  // One oversized piece (two stickers cut as one) shouldn't shrink the whole set: the shared square fits
+  // the set up to a third over its typical size, and anything bigger is scaled down on its own to fit.
+  const shared = Math.max(1, Math.min(Math.max(...sizes), median * 1.35));
+  return images.map((image, index) =>
+    drawOnSquare(image, bounds[index]!, Math.ceil(Math.max(shared, sizes[index]!) * 1.08), kind, "baseline"),
+  );
 }
 
 /**
@@ -176,24 +217,32 @@ function cleanGallerySheetOutlines(
     const offset = index * 4;
     const x = index % width;
     const y = (index - x) / width;
-    // The neighbourhood's median, from opaque pixels that aren't spill themselves.
-    for (const channel of sample) channel.length = 0;
+    // The neighbourhood's median, from opaque pixels that aren't spill themselves. The middle of a green
+    // bit has too few clean neighbours close by, so it looks further out (else it would only be despilled,
+    // which leaves a dark dot on a white outline).
     let opaque = 0;
-    for (let dy = -radius; dy <= radius; dy++) {
-      const yy = y + dy;
-      if (yy < 0 || yy >= height) continue;
-      for (let dx = -radius; dx <= radius; dx++) {
-        const xx = x + dx;
-        if (xx < 0 || xx >= width || (dx === 0 && dy === 0)) continue;
-        const o = (yy * width + xx) * 4;
-        if (source[o + 3]! < 200) continue;
-        opaque++;
-        if (keySaturated && source[o + keyChannel]! - Math.max(source[o + others[0]!]!, source[o + others[1]!]!) > 40)
-          continue;
-        for (let channel = 0; channel < 4; channel++) sample[channel]!.push(source[o + channel]!);
+    let count = 0;
+    const isSmallBit = smallBit[greenBits.labels[index]!] === 1;
+    for (const reach of isSmallBit ? [radius, radius * 2, radius * 4] : [radius]) {
+      for (const channel of sample) channel.length = 0;
+      opaque = 0;
+      for (let dy = -reach; dy <= reach; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= height) continue;
+        for (let dx = -reach; dx <= reach; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= width || (dx === 0 && dy === 0)) continue;
+          const o = (yy * width + xx) * 4;
+          if (source[o + 3]! < 200) continue;
+          opaque++;
+          if (keySaturated && source[o + keyChannel]! - Math.max(source[o + others[0]!]!, source[o + others[1]!]!) > 40)
+            continue;
+          for (let channel = 0; channel < 4; channel++) sample[channel]!.push(source[o + channel]!);
+        }
       }
+      count = sample[0]!.length;
+      if (count >= 5) break;
     }
-    const count = sample[0]!.length;
     const median = count >= 5 ? sample.map((values) => values.sort((a, b) => a - b)[values.length >> 1]!) : null;
     const green = spill(offset);
     if (median) {
@@ -215,7 +264,7 @@ function cleanGallerySheetOutlines(
       const onOutline = median[0]! > 200 && median[1]! > 200 && median[2]! > 200;
       // A speck on the flat white outline, a green fleck, or a see-through pinhole.
       // A fleck is green among mostly not-green neighbours, so the edge of a sticker's own green fill stays.
-      const fleck = (green > 40 && count >= opaque * 0.75) || smallBit[greenBits.labels[index]!] === 1;
+      const fleck = (green > 40 && count >= opaque * 0.75) || isSmallBit;
       if (fleck || pinhole || (onOutline && differs && alike >= count * 0.5)) {
         pixels[offset] = median[0]!;
         pixels[offset + 1] = median[1]!;
@@ -225,9 +274,37 @@ function cleanGallerySheetOutlines(
       }
     }
     // Whatever stays: take the green tint off the soft edge and off small green bits.
-    if (green > 0 && (d <= 3 || smallBit[greenBits.labels[index]!] === 1))
+    if (green > 0 && (d <= 3 || isSmallBit))
       pixels[offset + keyChannel] = Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!);
   }
+}
+
+/**
+ * The outline passes for a sticker or emoji that was saved before: one still on its backdrop is keyed out
+ * like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks and tint
+ * along its edge) against the green screen the sheets are drawn on. Only the edge band is touched, so
+ * the art inside keeps its own colours. Returns null when a backdrop doesn't key out cleanly.
+ */
+export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string | null> {
+  const image = await loadImage(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const { canvas, ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const frame = ctx.getImageData(0, 0, width, height);
+  const pixels = frame.data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const opaqueCorners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
+    (offset) => pixels[offset + 3]! > 24,
+  ).length;
+  if (opaqueCorners >= 2) {
+    // A backdrop that doesn't key out cleanly (a photo or gradient) is not a cut-out: leave it alone.
+    const keyed = await keyOutGallerySheetBackground(dataUrl);
+    return keyed.clean ? keyed.dataUrl : null;
+  }
+  cleanGallerySheetOutlines(pixels, width, height, [0, 255, 0]);
+  ctx.putImageData(frame, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 /**

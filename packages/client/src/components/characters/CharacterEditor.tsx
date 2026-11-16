@@ -80,6 +80,7 @@ import {
   type CharacterGalleryClip,
   type CharacterGalleryImage,
   type SpriteInfo,
+  characterKeys,
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
 import { CharacterGreetingWand } from "./CharacterGreetingWand";
@@ -108,6 +109,7 @@ import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
 import { CharacterRegexSection } from "./CharacterRegexSection";
 import { CharacterVoicePicker } from "./CharacterVoicePicker";
 import { NameAliasesSection } from "../ui/NameAliasesSection";
@@ -4703,6 +4705,13 @@ function CharacterGalleryTab({
                 <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                   {localizeUi("ui.gallery.batch.selected", { count: selectedImages.length })}
                 </span>
+              ) : null}
+              {selectingImages ? (
+                <GalleryCleanUpButton
+                  images={selectedImages}
+                  replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
+                  queryKey={characterKeys.gallery(characterId)}
+                />
               ) : null}
             </div>
             <button
