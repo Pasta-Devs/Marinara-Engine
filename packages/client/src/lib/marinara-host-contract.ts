@@ -136,7 +136,14 @@ export interface MarinaraHostV1 {
   readonly modules: { readonly [K in MarinaraHostModuleSpecifier]: Readonly<Record<string, unknown>> };
   /** The one QueryClient the Engine renders with. */
   readonly queryClient: QueryClient;
-  readonly components: { readonly Modal: typeof import("../components/ui/Modal").Modal };
+  readonly components: {
+    readonly Modal: typeof import("../components/ui/Modal").Modal;
+    readonly Switch: typeof import("../components/ui/Switch").Switch;
+    readonly Checkbox: typeof import("../components/ui/Checkbox").Checkbox;
+    readonly Spinner: typeof import("../components/ui/Spinner").Spinner;
+    /** The same confirm dialog as `services.dialogs.showConfirmDialog`, kept here so a package finds it next to the components. */
+    readonly showConfirmDialog: typeof import("./app-dialogs").showConfirmDialog;
+  };
   readonly data: { readonly emojiCatalog: typeof import("./emoji-catalog.generated") };
   /** The module namespace of lib/api-client.ts (api, ApiError, getApiErrorMessage, ...). */
   readonly api: typeof import("./api-client");

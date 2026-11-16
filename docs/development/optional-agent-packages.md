@@ -97,20 +97,22 @@ update, for example), each package shows its existing load error and the rest of
 TypeScript type is `MarinaraHostV1` in `packages/client/src/lib/marinara-host-contract.ts`, together with the lists on
 this page. Package builds declare matching structural types instead of importing Engine source.
 
-| Member                    | Value                                                                                                                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version`                 | `1`. It changes only when the shape breaks.                                                                                                                                              |
-| `capabilityApi`           | The Engine's `supportedCapabilityApi`, for example `{ major: 1, minor: 341 }`.                                                                                                           |
-| `stores`                  | The live zustand stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` and `backfill`. `chat` includes the pending spatial transition slice.            |
-| `services.tts`            | The `lib/tts-service.ts` module (`ttsService`, `playWhenAvailable`, ...).                                                                                                                |
-| `services.audio`          | From capability API 1.381, the `lib/audio-service.ts` module: independent music/SFX players, the shared asset manifest and default music selection. See [Package audio](#package-audio). |
-| `services.dialogs`        | The `lib/app-dialogs.ts` module (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                        |
-| `services.imageDownloads` | From capability API 1.385, the gallery's existing `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` and `savePreparedImageToDevice` helpers.                           |
-| `modules`                 | Library modules, keyed by bare specifier (below).                                                                                                                                        |
-| `queryClient`             | The one React Query `QueryClient` the Engine renders with.                                                                                                                               |
-| `components.Modal`        | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
-| `data.emojiCatalog`       | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
-| `api`                     | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
+| Member                                                           | Value                                                                                                                                                                                    |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`                                                        | `1`. It changes only when the shape breaks.                                                                                                                                              |
+| `capabilityApi`                                                  | The Engine's `supportedCapabilityApi`, for example `{ major: 1, minor: 341 }`.                                                                                                           |
+| `stores`                                                         | The live zustand stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` and `backfill`. `chat` includes the pending spatial transition slice.            |
+| `services.tts`                                                   | The `lib/tts-service.ts` module (`ttsService`, `playWhenAvailable`, ...).                                                                                                                |
+| `services.audio`                                                 | From capability API 1.381, the `lib/audio-service.ts` module: independent music/SFX players, the shared asset manifest and default music selection. See [Package audio](#package-audio). |
+| `services.dialogs`                                               | The `lib/app-dialogs.ts` module (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                        |
+| `services.imageDownloads`                                        | From capability API 1.385, the gallery's existing `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` and `savePreparedImageToDevice` helpers.                           |
+| `modules`                                                        | Library modules, keyed by bare specifier (below).                                                                                                                                        |
+| `queryClient`                                                    | The one React Query `QueryClient` the Engine renders with.                                                                                                                               |
+| `components.Modal`                                               | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
+| `components.Switch`, `components.Checkbox`, `components.Spinner` | The Engine's shared switch, checkbox and loading ring, so a package matches the host look.                                                                                               |
+| `components.showConfirmDialog`                                   | The Engine's confirm dialog, the same function as `services.dialogs.showConfirmDialog`.                                                                                                  |
+| `data.emojiCatalog`                                              | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
+| `api`                                                            | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
 
 A package reads a member only after checking it, for example
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
@@ -1911,11 +1913,11 @@ it is missing. No permission is needed.
 
 `api.runtime.embeddingsFor(connectionId)` resolves embeddings from a source the package's own setting names, instead of the agent connection that `resolveEmbeddings()` follows. Unlike `resolveEmbeddings()`, it never falls back to the app-wide **Embeddings** default.
 
-| `connectionId` | Resolves |
-| --- | --- |
-| `null` | The built-in local MiniLM embedder. |
-| A connection id | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
-| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw. |
+| `connectionId`                                                                    | Resolves                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `null`                                                                            | The built-in local MiniLM embedder.                                                                                                                      |
+| A connection id                                                                   | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
+| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw.                                                                                                         |
 
 The returned host is the same shape as `resolveEmbeddings()`: `spaceId`, `label` and `embed(texts, signal?, inputType?)`, with the same limits (128 texts, 200,000 combined characters) and the 1.68 input type. `embed` resolves `null` when the call fails. Each source has its own `spaceId`, so re-embed stored vectors when the setting changes.
 
