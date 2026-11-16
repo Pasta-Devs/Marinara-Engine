@@ -3211,6 +3211,13 @@ html[data-mari-pull-landing] .mari-arrival-content * {
   min-width: 0;
 }
 
+/* #9394: both are grid items. Left at min-width: auto, a one-step phase's single nowrap line (a whole image
+   prompt) widened the run's column, and her answer shares that column, so it stopped wrapping too. */
+.mari-run,
+.mari-phase {
+  min-width: 0;
+}
+
 /* M5a: one-line disclosures (a run phase, her "Why"): a quiet label with a chevron that turns when open. */
 .mari-disclosure {
   display: flex;
