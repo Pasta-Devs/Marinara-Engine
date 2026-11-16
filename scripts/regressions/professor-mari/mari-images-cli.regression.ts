@@ -198,10 +198,20 @@ try {
     "red hair, exclude text",
     "red hair, do not include watermark",
     "red hair, don't include logo",
+    "1girl; solo; red hair",
   ]) {
     const result = (await images("preview", "--style", "--prompt", prompt)) as { style: Style };
     assert.deepEqual(result.style.dropped, [], `${prompt}: ${JSON.stringify(result.style)}`);
   }
+  // A natural-language profile moves every item of "avoid hat, glasses" to the negative, not just the first.
+  const avoidList = (await images(
+    "preview",
+    "--style",
+    "realistic",
+    "--prompt",
+    "a woman reading in a garden. avoid hat, glasses",
+  )) as { style: Style; negativePrompt?: string };
+  assert.deepEqual(avoidList.style.dropped, [], JSON.stringify(avoidList.style));
 
   // 4. A chosen profile, by id or name; an unknown one, or both flags, is refused.
   sent.length = 0;

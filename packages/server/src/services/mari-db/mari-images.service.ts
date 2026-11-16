@@ -435,6 +435,8 @@ function promptTagKey(tag: string) {
 
 // The phrases the image prompt compiler reads as "move this to the negative".
 const NEGATION_PREFIX = /^(?:avoid|no|without|exclude|do not include|don't include)\s+/;
+// Commas, semicolons, line breaks and sentence ends, as the compiler splits a prompt into fragments.
+const PROMPT_TAG_SEPARATOR = /[,;\n]+|(?<=[.!?])\s+/;
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -442,27 +444,23 @@ function escapeRegExp(value: string) {
 
 /**
  * The tags Mari wrote that the style left out of the final prompt (#9338). A tag counts as kept when it appears in the
- * final prompt as a whole phrase; a "no X" clause the compiler moved to the negative is not dropped.
+ * final prompt as a whole phrase; a tag the compiler moved to the negative ("no X", or "glasses" from "avoid hat,
+ * glasses") is not dropped. Commas, semicolons and line breaks separate tags, as in the compiler.
  */
 function droppedPromptTags(requested: string, final: string, movedToNegative: string[]): string[] {
-  const finalText = final
-    .split(/[,\n]+/)
-    .map(promptTagKey)
-    .filter(Boolean)
-    .join(", ");
-  const movedText = movedToNegative.map(promptTagKey).join(", ");
+  const finalText = final.split(PROMPT_TAG_SEPARATOR).map(promptTagKey).filter(Boolean).join(", ");
+  const movedText = movedToNegative.map((fragment) => promptTagKey(fragment).replace(NEGATION_PREFIX, "")).join(", ");
   const appearsIn = (text: string, key: string) =>
     new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegExp(key)}(?:$|[^\\p{L}\\p{N}])`, "u").test(text);
   const seen = new Set<string>();
   const dropped: string[] = [];
-  for (const raw of requested.split(/[,\n]+/)) {
+  for (const raw of requested.split(PROMPT_TAG_SEPARATOR)) {
     const tag = raw.trim();
     const key = promptTagKey(tag);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     if (appearsIn(finalText, key)) continue;
-    const negated = key.replace(NEGATION_PREFIX, "");
-    if (negated !== key && appearsIn(movedText, negated)) continue;
+    if (appearsIn(movedText, key.replace(NEGATION_PREFIX, ""))) continue;
     dropped.push(tag);
   }
   return dropped;
