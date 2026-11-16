@@ -9,7 +9,7 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 
 Her window opens. You can also reach her from any screen: type in Search and pick **Ask Prof. Mari**, press <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac), or pull down from the top bar on a phone. Her header reads **Ready to help** when she is idle and **Working on it...** while she works.
 
-Type your message in plain language and press <kbd>Enter</kbd>, or tap the Send button on a touch screen, where <kbd>Enter</kbd> always adds a new line. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. Your first message unlocks the **Hello World** achievement.
+Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the Send button sends. The toggle is saved per device, so you can turn it off on your phone and keep it on at your computer. Your first message unlocks the **Hello World** achievement.
 
 All her settings are under **Settings → General → Search and Professor Mari settings → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
 

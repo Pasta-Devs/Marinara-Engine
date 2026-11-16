@@ -2716,16 +2716,11 @@ assert.equal(
   false,
   "Home URL bar visibility must be saved per installation",
 );
-assert.equal(
-  pickSyncedSettings(projectionState).enterToSendGame,
-  false,
-  "Game's Send on Enter preference must be server-synced",
-);
-assert.equal(
-  pickSyncedSettings(projectionState).enterToSendProfessorMari,
-  false,
-  "Professor Mari's Send on Enter preference must be server-synced",
-);
+// #9389: Send on Enter depends on the device's keyboard (a phone wants Enter for new lines, a PC wants it to
+// send), so the four toggles are saved per device: kept in browser storage, never synced.
+for (const key of ["enterToSendRP", "enterToSendConvo", "enterToSendGame", "enterToSendProfessorMari"] as const) {
+  assert.ok(!(key in pickSyncedSettings(projectionState)), `${key} must stay off the cross-device settings blob`);
+}
 assert.deepEqual(
   pickSyncedSettings(projectionState).chatHelpSeenModes,
   ["game"],
@@ -2741,6 +2736,12 @@ assert.deepEqual(
   "Every server-synced setting must also be browser-local persisted",
 );
 assert.deepEqual(localProjection.chatHelpSeenModes, ["game"], "Chat-help seen modes must be browser-local persisted");
+assert.equal(localProjection.enterToSendGame, false, "Game's Send on Enter must be browser-local persisted");
+assert.equal(
+  localProjection.enterToSendProfessorMari,
+  false,
+  "Professor Mari's Send on Enter must be browser-local persisted",
+);
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
 assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
 assert.match(gameSurfacePromptReviewSource, /if \(imagePromptReviewResolveRef\.current\)/);

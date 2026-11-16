@@ -52,7 +52,9 @@ try {
 
   const synced = pickSyncedSettings(useUIStore.getState());
   const persistedKeys = Object.keys(pickPersistedUIState(useUIStore.getState()));
-  const omnibarOrMariKeys = persistedKeys.filter((key) => /omnibar|mari/iu.test(key));
+  // Send on Enter is the one device-local exception (#9389): it follows the device's keyboard, not the user.
+  const deviceLocalKeys = new Set(["enterToSendProfessorMari"]);
+  const omnibarOrMariKeys = persistedKeys.filter((key) => /omnibar|mari/iu.test(key) && !deviceLocalKeys.has(key));
   for (const key of omnibarOrMariKeys) {
     assert.ok(key in synced, `${key} is a saved Omnibar or Professor Mari setting and must sync to the server`);
   }
@@ -78,6 +80,11 @@ try {
     !("mariCompanionWidthRem" in omitLocalOnlySettings({})),
     "older server settings do not reset the local companion width",
   );
+  // #9389: an older server blob still carries the Send on Enter toggles; they must not override this device's.
+  const olderBlob = omitLocalOnlySettings({ enterToSendProfessorMari: false, enterToSendRP: true, sidebarOpen: true });
+  assert.ok(!("enterToSendProfessorMari" in olderBlob), "a synced Mari Enter toggle no longer overrides this device");
+  assert.ok(!("enterToSendRP" in olderBlob), "a synced Roleplay Enter toggle no longer overrides this device");
+  assert.equal(olderBlob.sidebarOpen, true, "the rest of the blob still applies");
 
   // Let the debounced browser-storage write land before the fake storage is removed.
   await new Promise((resolve) => setTimeout(resolve, 1100));
