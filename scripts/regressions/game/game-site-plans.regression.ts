@@ -199,12 +199,20 @@ assert.ok(!gameDungeonOnWayOut(cellar), "no way out from the cellar");
   assert.ok(!again.locks?.some((each) => each.room === lock.room), "an opened lock stays open");
 }
 {
+  // A trap the party walks onto with no other trap on the way to it.
+  const firstOnWay = (map: ReturnType<typeof gameDungeonPlannedMap>) =>
+    map.traps?.find((trap) => {
+      const way = dungeonPath(dungeonFromGameDungeonMap(map), map.at, trap);
+      return way?.every(
+        (step) => (step.x === trap.x && step.y === trap.y) || !map.traps!.some((t) => t.x === step.x && t.y === step.y),
+      );
+    });
   const trapped = [0, 1, 2, 3, 4, 5]
     .map((level) => gameDungeonPlannedMap({ plan: vlad, name: "Manor", id: `t${level}`, level, traps: true }))
-    .find((map) => map.traps?.some((trap) => dungeonPath(dungeonFromGameDungeonMap(map), map.at, trap)));
+    .find((map) => firstOnWay(map));
   assert.ok(trapped, "some level has a trap the party can walk onto");
   const cells = dungeonFromGameDungeonMap(trapped);
-  const trap = trapped.traps!.find((each) => dungeonPath(cells, trapped.at, each))!;
+  const trap = firstOnWay(trapped)!;
   const path = dungeonPath(cells, trapped.at, trap)!;
   const walked = siteWalk(trapped, path);
   assert.deepEqual(walked.map.at, { x: trap.x, y: trap.y }, "the walk stops on the trap");

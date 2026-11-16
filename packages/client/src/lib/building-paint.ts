@@ -403,3 +403,31 @@ export function paintFoundTrap(ctx: Ctx, x: number, y: number) {
     px(ctx, "#d84030", x + 11 - i, y + 4 + i, 1, 1);
   }
 }
+
+/** An open court (a courtyard, an inner ward, a cloister garth): grass with a flagged path across it,
+ *  open to the sky. */
+export function paintBuildingCourt(ctx: Ctx, x: number, y: number, path: boolean, noise: Noise) {
+  if (path) {
+    px(ctx, "#6f6a5e", x, y, T, T);
+    for (let row = 0; row < 2; row++) {
+      const offset = row % 2 ? 4 : 0;
+      px(ctx, "#57524a", x, y + row * 8 + 7, T, 1);
+      px(ctx, "#57524a", x + ((offset + 8) % T), y + row * 8, 1, 7);
+    }
+    if (noise(31) < 0.4) px(ctx, "#5f6b3c", x + Math.floor(noise(32) * 13), y + Math.floor(noise(33) * 13), 2, 1);
+    return;
+  }
+  px(ctx, "#4d6a32", x, y, T, T);
+  for (let k = 0; k < 7; k++) {
+    const shade = noise(40 + k);
+    px(
+      ctx,
+      shade < 0.5 ? "#5c7a3a" : "#41592b",
+      x + Math.floor(noise(50 + k) * 15),
+      y + Math.floor(noise(60 + k) * 14),
+      1,
+      2,
+    );
+  }
+  if (noise(70) < 0.15) px(ctx, "#c9c07a", x + 4 + Math.floor(noise(71) * 8), y + 4 + Math.floor(noise(72) * 8), 1, 1);
+}

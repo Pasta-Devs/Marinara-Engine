@@ -36,6 +36,7 @@ import { useGameStateStore } from "../../stores/game-state.store";
 import { OVERWORLD_TILE, cellNoise, paintGuard, paintParty } from "../../lib/overworld-paint";
 import {
   buildingStyleOf,
+  paintBuildingCourt,
   paintBuildingFloor,
   paintBuildingProp,
   paintBuildingWall,
@@ -174,6 +175,8 @@ export function DungeonMapView({
     if (coded) {
       const at = (x: number, y: number) =>
         x < 0 || y < 0 || x >= cells.width || y >= cells.height ? "rock" : cells.ground[y * cells.width + x];
+      // Open courts: a planned building's rooms open to the sky.
+      const courts = cells.rooms.filter((_, n) => kept?.roomInfo?.[n]?.use === "open");
       const inRoom = (x: number, y: number) =>
         cells.rooms.some((room) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h);
       // The hall: floor outside every room, but for a doorway (walls either side), laid as the room's floor.
@@ -198,10 +201,20 @@ export function DungeonMapView({
             const dry = (dx: number, dy: number) => at(x + dx, y + dy) !== "liquid";
             paintPoolRim(ctx, x * T, y * T, { n: dry(0, -1), s: dry(0, 1), w: dry(-1, 0), e: dry(1, 0) });
           } else if (building)
-            paintBuildingFloor(ctx, building, x * T, y * T, isHall(x, y), noise, {
-              up: isHall(x, y - 1),
-              down: isHall(x, y + 1),
-            });
+            if (
+              courts.some((court) => x >= court.x && x < court.x + court.w && y >= court.y && y < court.y + court.h)
+            ) {
+              // A path across the court from each opening in its walls.
+              const court = courts.find(
+                (each) => x >= each.x && x < each.x + each.w && y >= each.y && y < each.y + each.h,
+              )!;
+              const mid = { x: court.x + Math.floor(court.w / 2), y: court.y + Math.floor(court.h / 2) };
+              paintBuildingCourt(ctx, x * T, y * T, x === mid.x || y === mid.y, noise);
+            } else
+              paintBuildingFloor(ctx, building, x * T, y * T, isHall(x, y), noise, {
+                up: isHall(x, y - 1),
+                down: isHall(x, y + 1),
+              });
           // A planned crypt's hall is set apart from its rooms; a carved place's ground is all one.
           else paintDungeonFloor(ctx, cells.set, x * T, y * T, noise, Boolean(cells.roomNames) && isHall(x, y));
         }
@@ -322,7 +335,7 @@ export function DungeonMapView({
       ctx.strokeRect(x * T + 3, y * T + 3, T - 6, T - 6);
     }
     return canvas;
-  }, [cells, drawTile, links, resolution]);
+  }, [cells, drawTile, links, resolution, kept?.roomInfo]);
   const mapSize = cells ? { width: cells.width * T, height: cells.height * T } : { width: 0, height: 0 };
 
   // ── The party, and the view ──
