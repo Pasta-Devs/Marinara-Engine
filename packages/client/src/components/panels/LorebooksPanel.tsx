@@ -339,11 +339,10 @@ export function LorebooksPanel() {
 
   const sortedFolders = useMemo(() => {
     if (!isTokenSort(sort)) return sortPanelFolders(lorebookFolders, sort);
-    const tokens = new Map(sorted.map((lorebook) => [lorebook.id, lorebook.tokenEstimate ?? 0]));
-    return sortFoldersByTokens(lorebookFolders, sort, (folder) =>
-      folder.itemIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0),
-    );
-  }, [lorebookFolders, sort, sorted]);
+    // The server totals every matching book, so folders whose books are not loaded yet still rank right.
+    const totals = lorebookPages.data?.pages[0]?.folderTokenTotals ?? {};
+    return sortFoldersByTokens(lorebookFolders, sort, (folder) => totals[folder.id] ?? 0);
+  }, [lorebookFolders, sort, lorebookPages.data]);
 
   const folderFilterActive = searchQuery.trim().length > 0 || activeCategory !== "all" || activeTag !== null;
 

@@ -350,7 +350,11 @@ async function getLorebookEntryTotals(db: DB): Promise<LorebookEntryTotals> {
   return totals;
 }
 
-async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { includeLinkedNames?: boolean } = {}) {
+async function hydrateLorebookRows(
+  db: DB,
+  rows: LorebookRow[],
+  options: { includeLinkedNames?: boolean; entryTotals?: LorebookEntryTotals } = {},
+) {
   if (rows.length === 0) return [];
   const bookIds = rows.map((row) => row.id);
   const [characterRows, personaRows, entryTotals] = await Promise.all([
@@ -364,7 +368,7 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
       .from(lorebookPersonaLinks)
       .where(inArray(lorebookPersonaLinks.lorebookId, bookIds))
       .orderBy(asc(lorebookPersonaLinks.lorebookId), asc(lorebookPersonaLinks.personaId)),
-    getLorebookEntryTotals(db),
+    options.entryTotals ?? getLorebookEntryTotals(db),
   ]);
   const characterIdsByBook = new Map<string, string[]>();
   for (const link of characterRows) {
@@ -541,9 +545,23 @@ export function createLorebooksStorage(db: DB) {
             a.id.localeCompare(b.id),
         );
         const pageRows = ranked.slice(options.offset, options.offset + options.limit + 1);
+        // Each folder's total over its matching books, so folders rank by size before all their books are loaded.
+        const matchingIds = new Set(ranked.map((row) => row.id));
+        const folderTokenTotals: Record<string, number> = {};
+        for (const folder of await createLibraryFoldersStorage(db).list("lorebooks")) {
+          folderTokenTotals[folder.id] = folder.itemIds.reduce(
+            (total, id) => total + (matchingIds.has(id) ? (totals.get(id)?.tokens ?? 0) : 0),
+            0,
+          );
+        }
         return {
           ...toPaginatedList(pageRows, options.limit, options.offset),
-          items: await hydrateLorebookRows(db, pageRows.slice(0, options.limit), { includeLinkedNames: true }),
+          // Hydrate with the snapshot the ranking used, so a row's count always matches its place in the order.
+          items: await hydrateLorebookRows(db, pageRows.slice(0, options.limit), {
+            includeLinkedNames: true,
+            entryTotals: totals,
+          }),
+          folderTokenTotals,
         };
       }
       const rows = await (whereClause

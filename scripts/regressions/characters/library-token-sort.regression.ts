@@ -203,6 +203,22 @@ try {
     (await bookPage("sort=tokens-asc&limit=2&offset=2")).items.map((book) => book.id),
     ["book-big"],
   );
+  // A folder ranks by all its matching books, also the ones on a page not loaded yet.
+  await db.insert(schema.libraryFolders).values({
+    id: "lore-folder",
+    scope: "lorebooks",
+    name: "Lore folder",
+    itemIds: JSON.stringify(["book-big", "book-small", "missing-book"]),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const firstSmallPage = (await bookPage("sort=tokens-asc&limit=1&offset=0")) as unknown as {
+    folderTokenTotals?: Record<string, number>;
+  };
+  assert.equal(
+    firstSmallPage.folderTokenTotals?.["lore-folder"],
+    bookTokens.get("book-big")! + bookTokens.get("book-small")!,
+  );
 
   // ── Presets: enabled static sections only ──
   await db
