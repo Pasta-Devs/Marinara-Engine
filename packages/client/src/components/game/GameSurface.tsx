@@ -12129,6 +12129,9 @@ function GameSurfaceComponent({
     if (!latestAssistantMsg?.id) return;
     const confirmed = await showConfirmDialog({
       message: localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
+      title: localizeUi("ui.game.tacticalcombatui.confirm"),
+      confirmLabel: localizeUi("ui.game.tacticalcombatui.confirm"),
+      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
     });
     if (!confirmed) return;
 
