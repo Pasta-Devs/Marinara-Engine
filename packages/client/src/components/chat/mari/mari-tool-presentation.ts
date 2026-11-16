@@ -274,7 +274,22 @@ export function timelineItemsFromTrace(trace: MariWorkspaceTraceItem[], message:
   if (!items.some((item) => item.type === "text") && message.content.trim()) {
     items.push({ id: `${message.id}-text-fallback`, type: "text", content: message.content });
   }
-  return items;
+  return markReplayedNarration(items);
+}
+
+/**
+ * #9394: the saved trace has no narration mark, only the order. A round's words are stored right after its steps,
+ * which is exactly when the live run marks them (slice 72), so a text that follows a step is that round's caption.
+ * Her last words stay unmarked: they end the run, so they are her answer. Without this a reloaded run showed each
+ * round's words under the next step ("Let me see what image models…" under the image it generated).
+ */
+export function markReplayedNarration(items: WorkspaceTimelineItem[]): WorkspaceTimelineItem[] {
+  const answer = items.findLastIndex((item) => item.type === "text");
+  return items.map((item, index) => {
+    if (item.type !== "text" || index === answer) return item;
+    const previous = items.slice(0, index).findLast((before) => before.type !== "status");
+    return previous?.type === "tool" ? { ...item, narration: true } : item;
+  });
 }
 
 export function appendTextTimeline(current: WorkspaceTimelineItem[], delta: string): WorkspaceTimelineItem[] {
