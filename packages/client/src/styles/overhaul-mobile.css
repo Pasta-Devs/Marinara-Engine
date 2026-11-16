@@ -1985,6 +1985,21 @@
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__switch small {
   white-space: normal;
 }
+/* The picture crop (360px wide) fits a 390px phone once its card padding and stage gutter are trimmed;
+   the handles keep half their gutter, so they still show at the picture's edge. */
+:root[data-overhaul="mobile"] .ov-bk__crop > div:not(#ovm-x) {
+  padding: 0.25rem;
+}
+:root[data-overhaul="mobile"] .ov-bk__crop .select-none:not(#ovm-x) {
+  padding: 0.5rem !important;
+}
+:root[data-overhaul="mobile"] .ov-bk__crop .mari-avatar-crop__head:not(#ovm-x),
+:root[data-overhaul="mobile"] .ov-bk__crop > div > p {
+  padding-inline: 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-bk__crop .mari-avatar-crop__head:not(#ovm-x) {
+  padding-top: 0.5rem;
+}
 
 /* ── Preset on phones: a page of rows, each opening a page ───────── */
 .ovm-preset {

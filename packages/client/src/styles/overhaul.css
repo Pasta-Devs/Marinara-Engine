@@ -4437,6 +4437,30 @@ input.ov-edhead__title:focus {
 .ov-povw__thumb--crop img {
   pointer-events: none;
 }
+/* Narrow column (beside Enabled): the links stack beside the thumbnail instead of wrapping mid-label. */
+.ov-povw__pic--stack {
+  align-items: flex-start;
+}
+.ov-povw__pic--stack .ov-povw__thumb--crop {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+.ov-povw__links {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+.ov-povw__links .ov-ed__link:not(#ovm-x) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.ov-povw__links .ov-ed__link.is-on {
+  text-decoration: underline;
+}
 .ov-bk__crop {
   display: flex;
   justify-content: flex-start;

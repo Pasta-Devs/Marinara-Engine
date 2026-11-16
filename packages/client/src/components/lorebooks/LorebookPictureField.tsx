@@ -33,7 +33,7 @@ export function LorebookPictureField({
   return (
     <div className="ov-bk__field">
       <span>{t("ui.presets.overviewtab.picture")}</span>
-      <div className="ov-povw__pic">
+      <div className="ov-povw__pic ov-povw__pic--stack">
         <button
           type="button"
           className="mari-panel-gradient-surface mari-panel-gradient--lorebooks ov-povw__thumb ov-povw__thumb--crop"
@@ -44,28 +44,30 @@ export function LorebookPictureField({
         >
           {src ? <img src={src} alt="" draggable={false} style={getAvatarCropStyle(crop)} /> : <BookOpen size={14} />}
         </button>
-        <button type="button" className="ov-ed__link" onClick={onUpload} disabled={busy} title={label}>
-          <Upload size={12} aria-hidden="true" />
-          {src ? t("connections.accounts.editor.replace") : t("ui.characters.characterclipcard.upload")}
-        </button>
-        {generationAvailable ? (
-          <button type="button" className="ov-ed__link" onClick={onGenerate} disabled={busy}>
-            <Sparkles size={12} aria-hidden="true" />
-            {t("editor.avatar.generate")}
+        <span className="ov-povw__links">
+          <button type="button" className="ov-ed__link" onClick={onUpload} disabled={busy} title={label}>
+            <Upload size={12} aria-hidden="true" />
+            <span>{src ? t("connections.accounts.editor.replace") : t("ui.characters.characterclipcard.upload")}</span>
           </button>
-        ) : null}
-        {src ? (
-          <button
-            type="button"
-            className={cn("ov-ed__link", cropOpen && "is-on")}
-            onClick={onToggleCrop}
-            aria-expanded={cropOpen}
-            disabled={busy}
-          >
-            <Crop size={12} aria-hidden="true" />
-            {t("ui.noodle.noodlehome.adjustCrop")}
-          </button>
-        ) : null}
+          {generationAvailable ? (
+            <button type="button" className="ov-ed__link" onClick={onGenerate} disabled={busy}>
+              <Sparkles size={12} aria-hidden="true" />
+              <span>{t("editor.avatar.generate")}</span>
+            </button>
+          ) : null}
+          {src ? (
+            <button
+              type="button"
+              className={cn("ov-ed__link", cropOpen && "is-on")}
+              onClick={onToggleCrop}
+              aria-expanded={cropOpen}
+              disabled={busy}
+            >
+              <Crop size={12} aria-hidden="true" />
+              <span>{t("ui.noodle.noodlehome.adjustCrop")}</span>
+            </button>
+          ) : null}
+        </span>
       </div>
     </div>
   );
