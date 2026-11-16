@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { generateVideo } from "../../../packages/server/src/services/video/video-generation.js";
+import {
+  generateVideo,
+  buildSwarmUiVideoGenerationBody,
+  parseSwarmUiVideoReference,
+} from "../../../packages/server/src/services/video/video-generation.js";
 
 const mp4 = Buffer.from("00000018667479706d703432000000006d70343269736f6d", "hex");
 const received: Array<{ url: string; cookie?: string }> = [];
@@ -61,4 +65,62 @@ try {
     ),
   );
 }
+
+const swarmUiVideoBody = buildSwarmUiVideoGenerationBody(
+  {
+    prompt: "a blue fox waves",
+    durationSeconds: 5,
+    aspectRatio: "9:16",
+    resolution: "720p",
+    model: "wan-video.safetensors",
+    referenceImage: { base64: "data:image/png;base64,cG5n", mimeType: "image/png" },
+    comfyWorkflow: JSON.stringify({
+      "1": {
+        class_type: "VideoNode",
+        inputs: {
+          prompt: "%prompt%",
+          width: "%width%",
+          height: "%height%",
+          frames: "%length%",
+          fps: "%fps%",
+          image: "%reference_image%",
+        },
+      },
+    }),
+    fps: 16,
+  },
+  "video-session",
+  42,
+);
+assert.equal(swarmUiVideoBody.session_id, "video-session");
+assert.equal(swarmUiVideoBody.width, 720);
+assert.equal(swarmUiVideoBody.height, 1280);
+assert.deepEqual(JSON.parse(String(swarmUiVideoBody.comfyworkflowraw)), {
+  "1": {
+    class_type: "VideoNode",
+    inputs: {
+      prompt: "a blue fox waves",
+      width: 720,
+      height: 1280,
+      frames: 80,
+      fps: 16,
+      image: "cG5n",
+    },
+  },
+});
+assert.equal(parseSwarmUiVideoReference({ images: ["View/local/raw/output.mp4"] }), "View/local/raw/output.mp4");
+assert.throws(
+  () =>
+    buildSwarmUiVideoGenerationBody(
+      {
+        prompt: "video",
+        durationSeconds: 5,
+        aspectRatio: "16:9",
+        comfyWorkflow: '{"image":"%reference_image_name%"}',
+      },
+      "video-session",
+    ),
+  /must use %reference_image%/u,
+);
+
 console.info("SwarmUI video origin regression passed.");
