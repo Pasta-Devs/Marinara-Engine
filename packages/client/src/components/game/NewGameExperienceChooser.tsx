@@ -8,6 +8,7 @@ import { useImportExperienceFile } from "../../hooks/use-capability-packages";
 import { ExperienceFileImportModal } from "./ExperienceFileImportModal";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { cn } from "../../lib/utils";
 import { Switch } from "../ui/Switch";
 const SECONDARY_BUTTON =
   "flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:opacity-50";
@@ -124,7 +125,13 @@ export function NewGameExperienceChooser({
               return (
                 // Same row+switch the host uses for its own on/off options ("customize parameters").
                 <div key={exp.id}>
-                  <label className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40 disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-transparent">
+                  <label
+                    aria-disabled={launching || undefined}
+                    className={cn(
+                      "flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-[var(--accent)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--primary)]/40",
+                      launching && "cursor-wait opacity-50 hover:bg-transparent",
+                    )}
+                  >
                     <div className="min-w-0">
                       <span className="block text-xs font-medium text-[var(--foreground)]">{exp.manifest.name}</span>
                       <span className="line-clamp-2 block text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
