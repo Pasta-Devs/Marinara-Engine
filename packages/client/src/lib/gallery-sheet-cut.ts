@@ -283,9 +283,9 @@ function cleanGallerySheetOutlines(
  * The outline passes for a sticker or emoji that was saved before: one still on its backdrop is keyed out
  * like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks and tint
  * along its edge) against the green screen the sheets are drawn on. Only the edge band is touched, so
- * the art inside keeps its own colours.
+ * the art inside keeps its own colours. Returns null when a backdrop doesn't key out cleanly.
  */
-export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string> {
+export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string | null> {
   const image = await loadImage(dataUrl);
   const width = image.naturalWidth;
   const height = image.naturalHeight;
@@ -297,7 +297,11 @@ export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string>
   const opaqueCorners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
     (offset) => pixels[offset + 3]! > 24,
   ).length;
-  if (opaqueCorners >= 2) return (await keyOutGallerySheetBackground(dataUrl)).dataUrl;
+  if (opaqueCorners >= 2) {
+    // A backdrop that doesn't key out cleanly (a photo or gradient) is not a cut-out: leave it alone.
+    const keyed = await keyOutGallerySheetBackground(dataUrl);
+    return keyed.clean ? keyed.dataUrl : null;
+  }
   cleanGallerySheetOutlines(pixels, width, height, [0, 255, 0]);
   ctx.putImageData(frame, 0, 0);
   return canvas.toDataURL("image/png");
