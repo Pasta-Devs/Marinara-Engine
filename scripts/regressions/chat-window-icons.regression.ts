@@ -73,6 +73,7 @@ for (const path of [
   // Imports ChatSettingsSection as Section, so the sections/ loop below would miss its icon.
   "packages/client/src/features/chat-settings/sections/ConversationNotesSection.tsx",
   "packages/client/src/features/chat-settings/agents/ConversationAgentsSection.tsx",
+  "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
 ]) {
   collect(path, "Section");
   collect(path, "Drawer");

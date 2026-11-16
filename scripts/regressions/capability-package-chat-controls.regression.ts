@@ -7,6 +7,8 @@ import { readFileSync } from "node:fs";
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 const drawer = read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
+const roleplayAgents = read("packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx");
+const agentRenderers = read("packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx");
 const connectedChats = read("packages/client/src/features/chat-settings/sections/ConnectedChatsSection.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
 const characterEditor = read("packages/client/src/components/characters/CharacterEditor.tsx");
@@ -21,7 +23,7 @@ assert.match(drawer, /noodleInstalled=\{isCapabilityPackageAvailable\(installedC
 assert.match(drawer, /slurp2Installed=\{isCapabilityPackageAvailable\(installedCapabilities, "slurp2"\)\}/u);
 assert.match(connectedChats, /\{noodleInstalled && \(\s*<SettingsSwitch[\s\S]*?noodleTimelineContextEnabled: checked/u);
 assert.match(connectedChats, /\{slurp2Installed && \(\s*<SettingsSwitch[\s\S]*?slurp2ActivityContextEnabled: checked/u);
-for (const source of [drawer, connectedChats]) {
+for (const source of [drawer, roleplayAgents, agentRenderers, connectedChats]) {
   assert.doesNotMatch(source, /renderNoodleTimelineContextToggle/u, "no render site may bypass the install gate");
 }
 for (const gate of [/\{noodleInstalled && \(/gu, /\{slurp2Installed && \(/gu]) {

@@ -22,6 +22,10 @@ const trackerHeader = readSource("packages/client/src/features/tracker-panel/com
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
 const chatSettingsDrawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
+const roleplayAgentsSection = readSource("packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx");
+const agentSettingsRenderers = readSource(
+  "packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx",
+);
 const chatAgents = readSource("packages/client/src/features/chat-settings/agents/use-chat-agents.ts");
 const roleplayAgentMenuIcon = readSource(
   "packages/client/src/features/chat-settings/agents/roleplay-agent-menu-icon.tsx",
@@ -279,11 +283,13 @@ assert.match(
   // #7034: the right action cluster is gone (Chat Settings is in the topbar, the rest are bubbles); Calls stays.
   "the Conversation call launcher must sit beside the character or group identity in the header",
 );
-assert.doesNotMatch(
-  chatSettingsDrawer,
-  /SettingsSwitchTrack/u,
-  "Chat Settings must use the shared SettingsSwitch instead of rebuilding toggle tracks",
-);
+for (const source of [chatSettingsDrawer, roleplayAgentsSection, agentSettingsRenderers]) {
+  assert.doesNotMatch(
+    source,
+    /SettingsSwitchTrack/u,
+    "Chat Settings must use the shared SettingsSwitch instead of rebuilding toggle tracks",
+  );
+}
 assert.match(
   discordMirrorSection,
   /discordMirror[\s\S]*mari-chrome-field/u,
@@ -295,7 +301,7 @@ assert.match(
   "Game Extra Instructions must use the shared expandable macro field",
 );
 assert.match(
-  chatSettingsDrawer,
+  roleplayAgentsSection,
   /campaignArtStyle[\s\S]*<MacroTextarea[\s\S]*sceneImageInstructions[\s\S]*<MacroTextarea/u,
   "Game Illustrator prompt fields must use shared expandable macro fields",
 );

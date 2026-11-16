@@ -120,7 +120,10 @@ const cases: RegressionCase[] = [
       assert.match(retryRouteSource, /getTrackerAgentTypes\(\)/u);
 
       const chatSettingsSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const trackerControlsComment = chatSettingsSource.indexOf(

@@ -6462,6 +6462,9 @@ const chatSettingsDrawerSource = [
 const drawerAndAgentsStateSource = ["ChatSettingsDrawer.tsx", "agents/use-chat-agents.ts"]
   .map((name) => readFileSync(join(chatSettingsDir, name), "utf8"))
   .join("\n");
+// Roleplay and Game's Agents section, and the agent-card renderers it shares with Conversation.
+const roleplayAgentsSectionSource = readFileSync(join(chatSettingsDir, "agents/RoleplayAgentsSection.tsx"), "utf8");
+const agentSettingsRenderersSource = readFileSync(join(chatSettingsDir, "agents/agent-settings-renderers.tsx"), "utf8");
 assert.match(
   agentEditorSource,
   /lorebookReadBehindMessages:\s*localLorebookReadBehindMessages/u,
@@ -6501,8 +6504,13 @@ assert.match(
 );
 assert.match(
   chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']generation["']\s*&&\s*\(\s*<Section\s+id=\{`\$\{chatMode\}-agents`\}/u,
+  /agentSettingsSurface\s*===\s*["']generation["']\s*&&\s*\(\s*<RoleplayAgentsSection\b/u,
   "Roleplay and Game Agents visibility must consume the generation agent-settings surface",
+);
+assert.match(
+  roleplayAgentsSectionSource,
+  /return \(\s*<Section\s+id=\{`\$\{chatMode\}-agents`\}/u,
+  "the Roleplay and Game Agents component renders the mode's Agents section",
 );
 assert.doesNotMatch(
   chatSettingsDrawerSource,
@@ -9595,7 +9603,12 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
 // focused UI/cache ordering fixes from being lost in future refactors.
 {
-  const chatSettingsSource = drawerAndAgentsStateSource;
+  // The Maps hosts are the Agents cards, so count across the drawer, its Agents state and the Roleplay/Game cards.
+  const chatSettingsSource = [
+    drawerAndAgentsStateSource,
+    roleplayAgentsSectionSource,
+    agentSettingsRenderersSource,
+  ].join("\n");
   const memoryRecallSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings/sections/MemoryRecallSection.tsx"),
     "utf8",
@@ -10209,7 +10222,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "The World Maps settings summary must not repeat installation guidance",
   );
   const standaloneRoleplayAgentSettings = sourceBetween(
-    chatSettingsSource,
+    agentSettingsRenderersSource,
     "const renderStandaloneRoleplayAgentSettingsCard =",
     "const renderAgentPromptTemplateSelect =",
     "Standalone Roleplay agent settings renderer",
@@ -10220,7 +10233,7 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "Standalone Roleplay World Maps settings must use the concise feature summary",
   );
   const roleplayActiveAgentCards = sourceBetween(
-    chatSettingsSource,
+    roleplayAgentsSectionSource,
     "{/* Active agents in this category */}",
     "{inactiveInCat.length > 0 ? (",
     "Roleplay active-agent settings cards",
@@ -10674,17 +10687,20 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     "utf8",
   );
   assert.match(generationStatusHookSource, /\/generate\/status\/\$\{encodeURIComponent\(chatId \?\? ""\)\}/u);
-  assert.match(settingsDrawerSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
+  assert.match(roleplayAgentsSectionSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
   assert.match(settingsDrawerSource, /await abortGenerationForChat\(chat\.id, controller\)/u);
-  const stopGenerationActionStart = settingsDrawerSource.indexOf(
+  const stopGenerationActionStart = roleplayAgentsSectionSource.indexOf(
     "{isRoleplayMode && (activeGeneration || stoppingGeneration) && (",
   );
-  const agentSuiteActionStart = settingsDrawerSource.indexOf(
+  const agentSuiteActionStart = roleplayAgentsSectionSource.indexOf(
     "onClick={() => setShowAgentSuiteModal(true)}",
     stopGenerationActionStart,
   );
   assert.ok(stopGenerationActionStart >= 0 && agentSuiteActionStart > stopGenerationActionStart);
-  const stopGenerationActionSource = settingsDrawerSource.slice(stopGenerationActionStart, agentSuiteActionStart);
+  const stopGenerationActionSource = roleplayAgentsSectionSource.slice(
+    stopGenerationActionStart,
+    agentSuiteActionStart,
+  );
   assert.match(stopGenerationActionSource, /bg-\[var\(--secondary\)\][\s\S]*hover:bg-\[var\(--accent\)\]/u);
   assert.match(stopGenerationActionSource, /text-\[var\(--muted-foreground\)\]/u);
   assert.doesNotMatch(stopGenerationActionSource, /red-/u);
