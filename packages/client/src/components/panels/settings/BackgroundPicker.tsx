@@ -1700,7 +1700,7 @@ export function BackgroundPicker({
                 </div>
               )}
 
-              {showAllCharacters && allCharactersError && characterGroups.length === 0 && (
+              {showAllCharacters && allCharactersError && (
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
                   <p className="mari-chrome-text-muted text-[0.625rem] max-sm:text-[13px]">
                     {localizeUi("ui.panels.backgroundpicker.characterBackgroundsFailed")}

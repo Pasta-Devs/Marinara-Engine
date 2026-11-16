@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { galleryBackgroundPins, type AvatarCrop, type LocationBackgroundPin } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
-import { characterKeys, characterListQuery, useCharacterListRows, usePersonas } from "./use-characters";
+import { characterKeys, useCharacterListRows, usePersonas } from "./use-characters";
 import { getChatCharacterIds } from "../lib/chat-macros";
 import type { GalleryAssignTarget } from "./use-gallery";
 
@@ -143,8 +143,7 @@ export function useAllCharacterBackgrounds(enabled: boolean): {
   error: boolean;
   refetch: () => void;
 } {
-  // Drains every catalog page: one page would drop pictures of characters past the first 100.
-  const { data: characters, isLoading: charactersLoading } = useQuery({ ...characterListQuery(true), enabled });
+  const { data: characters, isLoading: charactersLoading } = useCharacterListRows({ includeBuiltIn: true, enabled });
   const {
     data: images,
     isLoading,

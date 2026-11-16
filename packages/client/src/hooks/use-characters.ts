@@ -108,7 +108,7 @@ type UseCharactersOptions =
       includeBuiltIn?: boolean;
     };
 
-export function characterListQuery(includeBuiltIn: boolean) {
+function characterListQuery(includeBuiltIn: boolean) {
   return {
     queryKey: includeBuiltIn ? characterKeys.listWithBuiltIns() : characterKeys.list(),
     // #9114: the route answers one page at a time (a single response of the whole library passed V8's string
@@ -244,12 +244,19 @@ export function useCharacterListRows(options: { enabled?: boolean; includeBuiltI
   const includeBuiltIn = options.includeBuiltIn === true;
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "rows", includeBuiltIn] as const,
-    queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ view: "summary" });
-      if (includeBuiltIn) params.set("includeBuiltIn", "true");
-      const page = await api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
-      return page.items.map(catalogEntryToCharacterRow);
-    },
+    // Drains every catalog page: one page holds at most LIBRARY_PAGE_SIZE characters.
+    queryFn: async ({ signal }) =>
+      (
+        await collectAllPaginatedItems<CharacterCatalogSummaryEntry>((offset) => {
+          const params = new URLSearchParams({
+            view: "summary",
+            limit: String(LIBRARY_PAGE_SIZE),
+            offset: String(offset),
+          });
+          if (includeBuiltIn) params.set("includeBuiltIn", "true");
+          return api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
+        })
+      ).map(catalogEntryToCharacterRow),
     enabled: options.enabled ?? true,
     staleTime: 5 * 60_000,
   });
