@@ -48,6 +48,9 @@ assert.equal(activeToken("hi /ne there", 6)?.end, 6);
 assert.deepEqual(atEnd("Ask @Alice /skills"), { trigger: "/", query: "skills", start: 11, end: 18, quoted: false });
 assert.equal(atEnd("Ask @Fel Lock")?.query, "Fel Lock");
 assert.equal(atEnd('@"Alice /x')?.query, "Alice /x");
+// the caret before a word-initial slash is not inside a command token
+assert.equal(activeToken("look /history", 5), null);
+assert.equal(activeToken("/history", 0), null);
 assert.equal(atEnd("/usr/bin"), null);
 assert.equal(atEnd("see /usr/bin"), null);
 assert.equal(atEnd("and/or"), null);

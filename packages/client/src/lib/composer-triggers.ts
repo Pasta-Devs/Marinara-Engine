@@ -77,7 +77,7 @@ export function activeToken(text: string, caret: number): ActiveComposerToken | 
   // `/` at the start of a word (line start or after whitespace), so one message can run several commands. It is
   // checked before the bare `@` below, whose name may hold spaces: `Ask @Alice /skills` lists commands. The query
   // holds no further slash, which keeps `and/or`, `1/2`, URLs and paths like `/usr/bin` out.
-  if (text[wordStart] === "/" && !text.slice(wordStart + 1, caret).includes("/")) {
+  if (caret > wordStart && text[wordStart] === "/" && !text.slice(wordStart + 1, caret).includes("/")) {
     let end = caret;
     while (end < text.length && !isWhitespace(text[end])) end++;
     return { trigger: "/", query: text.slice(wordStart + 1, caret), start: wordStart, end, quoted: false };

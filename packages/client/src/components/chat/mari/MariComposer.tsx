@@ -409,7 +409,7 @@ export function MariComposer({
   // On a touch-only device Enter adds a line and the Send button sends, like Discord or Claude on a phone. The
   // Enter-to-send setting syncs across devices, so turning it off on the phone would turn it off on desktop too.
   const touchOnly = useMatchMedia("(hover: none) and (pointer: coarse)");
-  const enterSends = enterToSend && !touchOnly;
+  const enterSendsOnThisDevice = enterToSend && !touchOnly;
   // The menus open upward from the composer. A tall draft leaves little room above it, and the header sits on a
   // higher layer, so the menus cap their height to the room between the composer and the top of her pane.
   const composerBoxRef = useRef<HTMLDivElement>(null);
@@ -648,7 +648,7 @@ export function MariComposer({
                 canDrillIn: referenceUi?.canDrillIn,
                 canDrillOut: referenceUi?.canDrillOut,
                 canLinkCompletion: referenceUi?.canLinkCompletion,
-                enterToSend: enterSends,
+                enterToSend: enterSendsOnThisDevice,
               });
               if (action === "none") return;
               event.preventDefault();

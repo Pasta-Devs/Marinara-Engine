@@ -7462,7 +7462,7 @@
   "settings.controls.scrollableAvatars.label": "Scrollable Avatars",
   "settings.controls.selfies.help": "Default selfie size for Roleplay and Conversation, unless a chat sets its own.",
   "settings.controls.selfies.label": "Selfies",
-  "settings.controls.sendOnEnter.help": "Choose where Enter sends your message. When off, Enter adds a new line and Ctrl/Command+Enter sends. On a touch screen, Enter always adds a new line.",
+  "settings.controls.sendOnEnter.help": "Choose where Enter sends your message. When off, Enter adds a new line and Ctrl/Command+Enter sends.",
   "settings.controls.sendOnEnter.label": "Send on Enter",
   "settings.controls.showCharactersInPersonaPickers.description": "Allow character cards to appear as user identities in chat.",
   "settings.controls.showCharactersInPersonaPickers.label": "Show characters in Persona pickers",
