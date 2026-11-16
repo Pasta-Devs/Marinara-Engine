@@ -2,6 +2,7 @@
 // Chat Summary — view / edit / generate chat summaries
 // Shown as the Chat Summary drawer in Chat Settings (Roleplay).
 // ──────────────────────────────────────────────
+import { useShallow } from "zustand/react/shallow";
 import {
   useState,
   useEffect,
@@ -439,7 +440,16 @@ export function ChatSummaryPanel({
   const [summaryDropIndex, setSummaryDropIndex] = useState<number | null>(null);
 
   const { startBackfill, stopBackfill } = useRollingSummaryBackfill();
-  const backfillState = useRollingBackfillStore();
+  const backfillState = useRollingBackfillStore(
+    useShallow(({ chatId, completedBatches, currentRangeEnd, currentRangeStart, status, totalBatches }) => ({
+      chatId,
+      completedBatches,
+      currentRangeEnd,
+      currentRangeStart,
+      status,
+      totalBatches,
+    })),
+  );
 
   // Per-chat preference, default off — no global fallback, so one chat never
   // inherits another's setting.

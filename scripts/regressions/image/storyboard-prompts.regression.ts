@@ -523,6 +523,20 @@ const cases: RegressionCase[] = [
         new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
+      const roleplayAgentsSource = readFileSync(
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      );
+      const agentRenderersSource = readFileSync(
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      );
       const chatAgentsSource = readFileSync(
         new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
         "utf8",
@@ -579,32 +593,34 @@ const cases: RegressionCase[] = [
         "Active Long-Term Memory should have a Roleplay agent menu link",
       );
 
-      const activeAgentOrderStart = drawerSource.indexOf("const activeInCat = catAgents");
-      const activeAgentMenuStart = drawerSource.indexOf("activeInCat.map((agent) => {");
-      const activeAgentMenuEnd = drawerSource.indexOf("{/* Available agents to add */}", activeAgentMenuStart);
+      const activeAgentOrderStart = roleplayAgentsSource.indexOf("const activeInCat = catAgents");
+      const activeAgentMenuStart = roleplayAgentsSource.indexOf("activeInCat.map((agent) => {");
+      const activeAgentMenuEnd = roleplayAgentsSource.indexOf("{/* Available agents to add */}", activeAgentMenuStart);
       assert.notEqual(activeAgentOrderStart, -1, "Active Roleplay agents should have an explicit order");
       assert.notEqual(activeAgentMenuStart, -1, "Active Roleplay agent menu items should be rendered");
       assert.notEqual(activeAgentMenuEnd, -1, "Active Roleplay agent menu source should be bounded");
-      const activeAgentOrderSource = drawerSource.slice(activeAgentOrderStart, activeAgentMenuStart);
+      const activeAgentOrderSource = roleplayAgentsSource.slice(activeAgentOrderStart, activeAgentMenuStart);
       assert.match(
         activeAgentOrderSource,
         /\.sort\([\s\S]*getRoleplayAgentSettingsOrder\(a\.id\)\s*-\s*getRoleplayAgentSettingsOrder\(b\.id\)/u,
         "Active Roleplay agent settings should use the same order as their quick links",
       );
-      const activeAgentMenuSource = drawerSource.slice(activeAgentMenuStart, activeAgentMenuEnd);
+      const activeAgentMenuSource = roleplayAgentsSource.slice(activeAgentMenuStart, activeAgentMenuEnd);
       assert.match(
-        drawerSource,
+        agentRenderersSource,
         /const renderStandaloneRoleplayAgentSettingsCard[\s\S]*?<AgentSettingsCard[\s\S]*?id=\{getAgentSettingsMenuId\(chat\.id, agent\.id\)\}/u,
         "Standalone Roleplay agents such as Long-Term Memory must expose the menu link target",
       );
-      const standaloneAgentRendererStart = drawerSource.indexOf("const renderStandaloneRoleplayAgentSettingsCard =");
-      const standaloneAgentRendererEnd = drawerSource.indexOf(
+      const standaloneAgentRendererStart = agentRenderersSource.indexOf(
+        "const renderStandaloneRoleplayAgentSettingsCard =",
+      );
+      const standaloneAgentRendererEnd = agentRenderersSource.indexOf(
         "const renderAgentPromptTemplateSelect =",
         standaloneAgentRendererStart,
       );
       assert.notEqual(standaloneAgentRendererStart, -1, "Standalone Roleplay agent settings should be rendered");
       assert.notEqual(standaloneAgentRendererEnd, -1, "Standalone Roleplay agent settings should be bounded");
-      const standaloneAgentRendererSource = drawerSource.slice(
+      const standaloneAgentRendererSource = agentRenderersSource.slice(
         standaloneAgentRendererStart,
         standaloneAgentRendererEnd,
       );
@@ -662,9 +678,10 @@ const cases: RegressionCase[] = [
       assert.equal(listPromptOverrideKeys().includes("game.storyboardIllustrationDirector"), false);
       assert.equal(listPromptOverrideKeys().includes("game.storyboardAnimationDirector"), false);
       assert.doesNotMatch(settingsSource, /game\.storyboardIllustrationDirector|game\.storyboardAnimationDirector/u);
-      assert.doesNotMatch(drawerSource, /gameStoryboard/u);
-      assert.doesNotMatch(chatAgentsSource, /gameStoryboard/u);
-      assert.match(drawerSource, /lazy\(\(\) =>\s*import\("\.\/StoryboardChatSettingsPanel"\)/u);
+      for (const source of [drawerSource, roleplayAgentsSource, agentRenderersSource, chatAgentsSource]) {
+        assert.doesNotMatch(source, /gameStoryboard/u);
+      }
+      assert.match(agentRenderersSource, /lazy\(\(\) =>\s*import\("\.\.\/StoryboardChatSettingsPanel"\)/u);
       assert.match(
         roleplayMenuLinksSource,
         /addLink\(STORYBOARD_AGENT_ID, activeAgentIds\.includes\(STORYBOARD_AGENT_ID\), storyboardAgent\.name\)/u,
@@ -735,7 +752,7 @@ const cases: RegressionCase[] = [
         storyboardChatSettingsSource,
         /gameStoryboard(?:Prompt|Image|Video)ConnectionId|gameStoryboard(?:IncludeCharacterAppearance|UseAvatarReferences)/u,
       );
-      assert.match(drawerSource, /<StoryboardChatSettingsPanel[\s\S]*?<\/Suspense>\s*<\/AgentSettingsCard>/u);
+      assert.match(roleplayAgentsSource, /<StoryboardChatSettingsPanel[\s\S]*?<\/Suspense>\s*<\/AgentSettingsCard>/u);
       assert.doesNotMatch(setupSource, /setEnableStoryboard|setStoryboardKeyframeCount/u);
       assert.match(setupSource, /setGamePresentation/u);
       assert.match(
@@ -1614,14 +1631,18 @@ const cases: RegressionCase[] = [
         new URL("../../../packages/server/src/routes/game.routes.ts", import.meta.url),
         "utf8",
       );
+      for (const path of [
+        "agents/RoleplayAgentsSection.tsx",
+        "agents/agent-settings-renderers.tsx",
+        "agents/use-chat-agents.ts",
+      ]) {
+        assert.doesNotMatch(
+          readFileSync(new URL(`../../../packages/client/src/features/chat-settings/${path}`, import.meta.url), "utf8"),
+          /gameStoryboard/u,
+          `${path} leaves Game Storyboard settings to the Storyboard panel`,
+        );
+      }
       assert.doesNotMatch(chatSettingsSource, /gameStoryboard/u);
-      assert.doesNotMatch(
-        readFileSync(
-          new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
-          "utf8",
-        ),
-        /gameStoryboard/u,
-      );
       assert.match(storyboardSettingsSource, /settings\.usePromptTemplate/u);
       assert.match(storyboardSettingsSource, /update\(\{ usePromptTemplate: checked \}\)/u);
       assert.match(storyboardSettingsSource, /settings\.includeCharacterAppearance/u);

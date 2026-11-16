@@ -535,6 +535,11 @@ export async function readRecordedReferenceImages(args: {
 
 export async function resolveIllustratorCharacterReferences(args: {
   charactersStore: { list: () => Promise<CharacterRowLike[]> };
+  chatScope?: {
+    chatId: string;
+    characterIds: readonly string[];
+    getById: (id: string, chatId: string) => Promise<CharacterRowLike | null>;
+  };
   chatCharacters: IllustratorChatCharacterReference[];
   persona?: IllustratorPersonaReference | null;
   requestedNames: string[];
@@ -547,9 +552,17 @@ export async function resolveIllustratorCharacterReferences(args: {
   personaGallery?: PersonaGalleryReferenceStore;
 }): Promise<IllustratorReferenceResolution> {
   const maxReferences = Math.max(1, Math.min(args.maxReferences ?? MAX_ILLUSTRATOR_REFERENCE_IMAGES, 12));
-  const allRows = await args.charactersStore.list().catch(() => []);
+  const { charactersStore, chatScope } = args;
+  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
+  const allRows = chatScope
+    ? await Promise.all(
+        [...new Set([...chatIds, ...chatScope.characterIds])].map((id) =>
+          chatScope.getById(id, chatScope.chatId).catch(() => null),
+        ),
+      )
+    : await charactersStore.list().catch(() => []);
   const allSources = allRows
-    .map((row, index) => characterRowToSource(row, index + args.chatCharacters.length))
+    .map((row, index) => (row ? characterRowToSource(row, index + args.chatCharacters.length) : null))
     .filter((source): source is CharacterReferenceSource => Boolean(source));
   const allSourcesById = new Map(allSources.map((source) => [source.id, source]));
 
@@ -580,12 +593,18 @@ export async function resolveIllustratorCharacterReferences(args: {
   }
 
   const sources = [...sourcesById.values()];
-  const chatIds = new Set(args.chatCharacters.map((character) => character.id));
-  const chatSources = sources.filter((source) => chatIds.has(source.id));
-  const globalSources = sources.filter((source) => !chatIds.has(source.id));
+  const chatSources = chatScope ? sources : sources.filter((source) => chatIds.has(source.id));
+  const globalSources = chatScope ? [] : sources.filter((source) => !chatIds.has(source.id));
   const normalizedPromptText = normalizeReferenceName(args.promptText);
   const requestedNames = args.requestedNames.map((name) => normalizeReferenceName(name)).filter(Boolean);
   const selected = new Map<string, CharacterReferenceSource>();
+  const selectUniqueMatchPreferringCast = (
+    matches: CharacterReferenceSource[],
+  ): CharacterReferenceSource | undefined => {
+    if (matches.length <= 1) return matches[0];
+    const castMatches = matches.filter((source) => chatIds.has(source.id));
+    return castMatches.length === 1 ? castMatches[0] : undefined;
+  };
 
   for (const requestedName of requestedNames) {
     const exactChatMatches = chatSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
@@ -598,11 +617,13 @@ export async function resolveIllustratorCharacterReferences(args: {
               source.aliases.some((alias) => textContainsAlias(alias, requestedName)),
           );
     // Chat aliases are useful for nicknames; outside the chat, require a unique full name.
-    const matches =
+    const match =
       chatMatches.length > 0
-        ? chatMatches
-        : globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName);
-    if (matches.length === 1) selected.set(matches[0]!.id, matches[0]!);
+        ? selectUniqueMatchPreferringCast(chatMatches)
+        : selectUniqueMatchPreferringCast(
+            globalSources.filter((source) => normalizeReferenceName(source.name) === requestedName),
+          );
+    if (match) selected.set(match.id, match);
   }
 
   for (const source of chatSources) {
@@ -611,7 +632,8 @@ export async function resolveIllustratorCharacterReferences(args: {
       source.promptAliases.some(
         (alias) =>
           textContainsAlias(normalizedPromptText, alias) &&
-          chatSources.filter((candidate) => candidate.promptAliases.includes(alias)).length === 1,
+          selectUniqueMatchPreferringCast(chatSources.filter((candidate) => candidate.promptAliases.includes(alias)))
+            ?.id === source.id,
       )
     ) {
       selected.set(source.id, source);

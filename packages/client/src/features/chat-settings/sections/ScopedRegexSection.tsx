@@ -12,7 +12,6 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface ScopedRegexSectionProps {
   sectionId: string;
-  order: number;
   chat: Chat;
   chatCharIds: string[];
   scopedRegexMode: ScopedRegexMode;
@@ -22,7 +21,6 @@ interface ScopedRegexSectionProps {
 
 export function ScopedRegexSection({
   sectionId,
-  order,
   chat,
   chatCharIds,
   scopedRegexMode,
@@ -67,7 +65,6 @@ export function ScopedRegexSection({
   return (
     <ChatSettingsSection
       id={sectionId}
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.scopedRegexScripts")}
       icon={<Regex size="0.875rem" />}
       count={scopedRegexCount}

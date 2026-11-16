@@ -18,7 +18,6 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import type { CharacterDisplayInfo } from "../../../lib/character-display";
 
 interface PersonaSectionProps {
-  order: number;
   /** The drawer's own, so the Characters picker still shows busy while a persona save is in flight. */
   updateChat: ReturnType<typeof useUpdateChat>;
   chat: Chat;
@@ -40,7 +39,6 @@ interface PersonaSectionProps {
 }
 
 export function PersonaSection({
-  order,
   updateChat,
   chat,
   chatMode,
@@ -66,7 +64,6 @@ export function PersonaSection({
   return (
     <ChatSettingsSection
       id={`${chatMode}-persona`}
-      style={{ order }}
       label={localizeUi("ui.characters.cardlibrarydetailcard.persona")}
       icon={<VenetianMask size="0.875rem" />}
       help={localizeUi("ui.chat.chatsettingsdrawer.yourPersonaDefinesWhoYouAreInThisChat")}

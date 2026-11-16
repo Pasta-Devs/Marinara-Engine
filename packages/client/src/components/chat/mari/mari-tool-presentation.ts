@@ -419,6 +419,22 @@ function firstCommandValue(tokens: string[], start = 0) {
   return null;
 }
 
+/** Flags of `mari images look` that take a value (without `--target`, the only path that reads a bare ref). */
+const LOOK_VALUE_FLAGS = new Set(["--detail", "--source", "--asset", "--id"]);
+
+/** `mari images look` refs: the first bare value, skipping the values of {@link LOOK_VALUE_FLAGS}. */
+function firstLookRef(tokens: string[]) {
+  for (let index = 3; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    if (token.startsWith("-")) {
+      if (LOOK_VALUE_FLAGS.has(token)) index += 1;
+      continue;
+    }
+    return token;
+  }
+  return null;
+}
+
 function looksLikeHelpToken(token: string | null | undefined) {
   return !token || token === "help" || token === "--help" || token === "-h";
 }
@@ -587,7 +603,9 @@ function extractMariImagesCommand(command: string) {
   const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
   return {
     action,
-    target: tokenFlagValue(tokens, "--target") ?? firstCommandValue(tokens, 3),
+    target:
+      tokenFlagValue(tokens, "--target") ??
+      (action === "look" || action === "view" ? firstLookRef(tokens) : firstCommandValue(tokens, 3)),
     asset: tokenFlagValue(tokens, "--asset") ?? tokenFlagValue(tokens, "--id"),
     prompt: tokenFlagValue(tokens, "--prompt"),
     source: tokenFlagValue(tokens, "--source"),
@@ -603,6 +621,9 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
       return info.edit ? "Finding edit-capable image connections" : "Checking image connections";
     case "capabilities":
       return info.edit ? "Checking image edit capabilities" : "Checking image capabilities";
+    case "styles":
+    case "style":
+      return info.target ? "Reading image style profile" : "Listing image style profiles";
     case "preview":
       return "Preparing image preview";
     case "generate":
@@ -621,6 +642,9 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
       return `Listing ${humanizeIdentifier(info.target)}`;
     case "get":
       return "Reading image asset";
+    case "look":
+    case "view":
+      return "Looking at image";
     case "help":
       return "Opening image command help";
     default:
@@ -629,6 +653,8 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
 }
 
 function mariImagesDetail(info: NonNullable<ReturnType<typeof extractMariImagesCommand>>) {
+  // `look` names what she looks at as its first value: an asset id, app URL or file, not a target kind.
+  if ((info.action === "look" || info.action === "view") && info.target) return compactCommand(info.target, 70);
   if (info.target && !["list", "get"].includes(info.action)) return humanizeIdentifier(info.target);
   if (info.asset) return compactCommand(info.asset, 70);
   if (info.source) return compactCommand(info.source, 70);

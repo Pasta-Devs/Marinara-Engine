@@ -1,4 +1,5 @@
 import { LorebookEntryImages } from "./LorebookEntryImages";
+import { estimateTextTokens } from "@marinara-engine/shared";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 // ──────────────────────────────────────────────
 // Lorebook Entry Row
@@ -63,14 +64,7 @@ import type {
   LorebookMatchingSource,
   SelectiveLogic,
 } from "@marinara-engine/shared";
-import {
-  ExpandableTextarea,
-  FieldGroup,
-  KeysEditor,
-  NumberField,
-  ToggleButton,
-  estimateTokens,
-} from "./LorebookFormFields";
+import { ExpandableTextarea, FieldGroup, KeysEditor, NumberField, ToggleButton } from "./LorebookFormFields";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MariFieldReview } from "../characters/MariFieldReview";
 
@@ -1094,11 +1088,11 @@ export function LorebookEntryRow({
               !compact && "lg:inline-flex",
             )}
             title={localizeUi("ui.lorebooks.lorebookentryrow.value1TokensEstimated", {
-              value1: estimateTokens(entry.content).toLocaleString(),
+              value1: estimateTextTokens(entry.content).toLocaleString(),
             })}
           >
             <Hash size="0.5625rem" />
-            {estimateTokens(entry.content).toLocaleString()}
+            {estimateTextTokens(entry.content).toLocaleString()}
           </span>
         </div>
 
@@ -1944,7 +1938,7 @@ function ExpandedDrawer({
           }
         />
         <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
-          <Hash size="0.5625rem" />~{estimateTokens(form.content ?? "").toLocaleString()}{" "}
+          <Hash size="0.5625rem" />~{estimateTextTokens(form.content ?? "").toLocaleString()}{" "}
           {localizeUi("ui.lorebooks.expandeddrawer.tokens")}
         </p>
       </FieldGroup>

@@ -100,6 +100,8 @@ export interface Lorebook {
   sourceAgentId: string | null;
   /** Number of entries in this lorebook. Populated by list/hydrate responses; may be absent on partial rows. */
   entryCount?: number;
+  /** Estimated tokens across all of this lorebook's entries, enabled or not. Populated by list/hydrate responses. */
+  tokenEstimate?: number;
   createdAt: string;
   updatedAt: string;
 }

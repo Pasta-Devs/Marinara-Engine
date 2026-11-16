@@ -31,7 +31,6 @@ import { ChatProfileBuilder } from "../../../components/chat/ChatProfileBuilder"
 import { ProfilePickerField } from "../../../components/chat/ProfilePickerField";
 
 interface SettingsProfilesSectionProps {
-  order: number;
   chat: Chat;
   chatMode: ChatMode;
   isRoleplayMode: boolean;
@@ -42,7 +41,6 @@ interface SettingsProfilesSectionProps {
 }
 
 export function SettingsProfilesSection({
-  order,
   chat,
   chatMode,
   isRoleplayMode,
@@ -242,11 +240,7 @@ export function SettingsProfilesSection({
   };
 
   return (
-    <div
-      data-chat-settings-profiles
-      style={{ order }}
-      className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
-    >
+    <div data-chat-settings-profiles className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3">
       <input
         ref={presetFileInputRef}
         type="file"

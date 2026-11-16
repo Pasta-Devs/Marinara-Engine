@@ -21,6 +21,8 @@ const AGENTS = [
   { id: "haptic", name: "Haptic", category: "misc", phase: "post_processing" },
   { id: "illustrator", name: "Illustrator", category: "misc", phase: "post_processing" },
   { id: "prose-guardian", name: "Prose Guardian", category: "writer", phase: "post_processing" },
+  { id: "knowledge-retrieval", name: "Knowledge Retrieval", category: "writer", phase: "pre_generation" },
+  { id: "knowledge-router", name: "Knowledge Router", category: "writer", phase: "pre_generation" },
 ];
 
 /** A saved agent config, as `/api/agents` returns it, with the prompt templates beyond Default. */
@@ -127,18 +129,24 @@ async function openApp(page: Page, chatId: string, options: OpenAppOptions = {})
   await expect(page.locator(`[data-chat-mode="${mode}"]`)).toBeVisible();
 }
 
-/** Opens Chat Settings' Agents section and returns the named agent's card, expanded. */
-async function openAgentCard(
-  page: Page,
-  chatId: string,
-  agentId: string,
-  mode: "conversation" | "roleplay" = "roleplay",
-) {
+/** Opens Chat Settings with its Agents section expanded. */
+async function openAgentsSection(page: Page, mode: "conversation" | "roleplay" | "game" = "roleplay") {
   const settings = await openChatSettings(page);
   const agents = settings.locator(`[data-drawer="${mode}-agents"]`);
   const toggle = agents.locator(":scope > .mari-drawer__header [data-drawer-toggle]");
   await toggle.scrollIntoViewIfNeeded();
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  return { settings, agents };
+}
+
+/** Opens Chat Settings' Agents section and returns the named agent's card, expanded. */
+async function openAgentCard(
+  page: Page,
+  chatId: string,
+  agentId: string,
+  mode: "conversation" | "roleplay" | "game" = "roleplay",
+) {
+  const { settings, agents } = await openAgentsSection(page, mode);
   const card = agents.locator(`#chat-settings-agent-menu-${chatId}-${agentId}`.replace(/[^a-zA-Z0-9_#-]/g, "-"));
   await card.scrollIntoViewIfNeeded();
   const cardToggle = card.locator("[aria-expanded]").first();
@@ -659,6 +667,253 @@ test("Chat Settings stays open when Prose Guardian's unsaved text fails to save 
     await settings.locator('[data-window-control="close"]').click();
     await expect(settings).toHaveCount(0);
     expect((await readMetadata(request, chatId)).proseGuardianBannedWords).toBe("ozone, velvet");
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+/** Collects the bodies of this chat's metadata saves, for keys a later save can't change on the server. */
+function recordMetadataSaves(page: Page, chatId: string) {
+  const saves: Record<string, unknown>[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "PATCH" && request.url().endsWith(`/api/chats/${chatId}/metadata`)) {
+      saves.push(request.postDataJSON() as Record<string, unknown>);
+    }
+  });
+  return saves;
+}
+
+test("Prose Guardian's card saves its writing instructions on blur and its own Hold switch", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["prose-guardian"], { proseGuardianHoldForRewrite: false });
+  try {
+    await openApp(page, chatId);
+    const { card } = await openAgentCard(page, chatId, "prose-guardian");
+    // Each field saves when it loses focus; closing Chat Settings would also save them, so stay open.
+    for (const [label, key, text] of [
+      ["Remove From Writing", "proseGuardianAvoidInstructions", "Purple prose and ozone."],
+      ["Prefer In Writing", "proseGuardianStyleInstructions", "Short, plain sentences."],
+    ] as const) {
+      const field = card.getByRole("textbox", { name: label, exact: true });
+      await field.fill(text);
+      await field.blur();
+      await expect.poll(async () => (await readMetadata(request, chatId))[key]).toBe(text);
+    }
+
+    await card.getByText("Hold Message Until Rewrite", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).proseGuardianHoldForRewrite).toBe(true);
+    await expect(card.getByRole("checkbox", { name: /^Hold Message Until Rewrite/u })).toBeChecked();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Knowledge Retrieval and Knowledge Router each save their own source settings", async ({ page, request }) => {
+  const chatId = await createRoleplayChat(request, ["knowledge-retrieval", "knowledge-router"]);
+  try {
+    await openApp(page, chatId);
+    const { card: retrieval } = await openAgentCard(page, chatId, "knowledge-retrieval");
+    const { card: router } = await openAgentCard(page, chatId, "knowledge-router");
+    const useActive = (card: Locator) => card.getByRole("checkbox", { name: /^Use chat-active lorebooks/u });
+    const initial = await useActive(retrieval).isChecked();
+    await expect(useActive(router)).toBeChecked({ checked: initial });
+    const sources = async () =>
+      ((await readMetadata(request, chatId)).knowledgeAgentSources ?? {}) as Record<
+        string,
+        { useChatActiveLorebooks?: boolean }
+      >;
+
+    await retrieval.getByText("Use chat-active lorebooks", { exact: true }).click();
+    await expect.poll(async () => (await sources())["knowledge-retrieval"]?.useChatActiveLorebooks).toBe(!initial);
+    expect(await sources()).not.toHaveProperty("knowledge-router");
+    await expect(useActive(router)).toBeChecked({ checked: initial });
+
+    await router.getByText("Use chat-active lorebooks", { exact: true }).click();
+    await expect.poll(async () => (await sources())["knowledge-router"]?.useChatActiveLorebooks).toBe(!initial);
+    expect((await sources())["knowledge-retrieval"]?.useChatActiveLorebooks).toBe(!initial);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Roleplay's Illustrator card saves what it makes, the first frame, both reference scopes and backgrounds", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["illustrator"], {
+    illustratorIncludeCharacterAppearance: false,
+    illustratorVideoIncludeCharacterAppearance: false,
+    illustratorUseAvatarReferences: false,
+    illustratorVideoUseAvatarReferences: false,
+    illustratorAutoBackgroundsEnabled: false,
+  });
+  try {
+    await openApp(page, chatId);
+    const { card } = await openAgentCard(page, chatId, "illustrator");
+    const select = (label: string) =>
+      card
+        .locator("label")
+        .filter({ hasText: new RegExp(`^${label}`, "u") })
+        .locator("select");
+
+    await select("Illustrator makes").selectOption("clips_only");
+    await expect.poll(async () => (await readMetadata(request, chatId)).illustratorVideoMode).toBe("clips_only");
+
+    await select("First frame").selectOption("picture");
+    await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoFirstFrame).toBe("picture");
+
+    // Each scope saves one switch for pictures and one for videos.
+    await select("Attach Card Appearance").selectOption("images");
+    await expect
+      .poll(async () => {
+        const metadata = await readMetadata(request, chatId);
+        return [metadata.illustratorIncludeCharacterAppearance, metadata.illustratorVideoIncludeCharacterAppearance];
+      })
+      .toEqual([true, false]);
+    await select("Send Avatar References").selectOption("videos");
+    await expect
+      .poll(async () => {
+        const metadata = await readMetadata(request, chatId);
+        return [metadata.illustratorUseAvatarReferences, metadata.illustratorVideoUseAvatarReferences];
+      })
+      .toEqual([false, true]);
+
+    await card.getByText("Generate Scene Backgrounds", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).illustratorAutoBackgroundsEnabled).toBe(true);
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Roleplay's Review Agent Outputs switch in Trackers Control saves, and Agent Suite opens", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, []);
+  try {
+    await openApp(page, chatId);
+    const { agents } = await openAgentsSection(page);
+    const control = agents.locator("[data-trackers-control]");
+    await control.getByRole("button", { name: "Expand Trackers Control", exact: true }).click();
+    await control.getByText("Review Agent Outputs", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).agentWriteApprovalRequired).toBe(true);
+    await control.getByText("Review Agent Outputs", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).agentWriteApprovalRequired).toBe(false);
+
+    await agents.getByRole("button", { name: /^Agent Suite/u }).click();
+    await expect(page.getByRole("dialog", { name: "Agent Suite", exact: true })).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Game's Review Agent Outputs switch saves", async ({ page, request }) => {
+  const chatId = await createGameChat(request);
+  try {
+    await openApp(page, chatId, { mode: "game" });
+    const { agents } = await openAgentsSection(page, "game");
+    const review = agents.getByRole("checkbox", { name: /^Review Agent Outputs/u });
+    await expect(review).not.toBeChecked();
+    await agents.getByText("Review Agent Outputs", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).agentWriteApprovalRequired).toBe(true);
+    await expect(review).toBeChecked();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Game's agent list turns a catalog agent on and off for the game", async ({ page, request }) => {
+  const chatId = await createGameChat(request, { enableAgents: true, activeAgentIds: ["html"] });
+  const saves = recordMetadataSaves(page, chatId);
+  try {
+    await openApp(page, chatId, { mode: "game" });
+    const { agents } = await openAgentsSection(page, "game");
+    const entry = agents.locator('[data-chat-agent-entry="echo-chamber"]');
+    const toggle = entry.getByRole("checkbox", { name: /^Echo Chamber/u });
+    await expect(toggle).not.toBeChecked();
+
+    await entry.getByText("Echo Chamber", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).activeAgentIds)
+      .toEqual(["html", "echo-chamber"]);
+    // Turning one on also turns agents on for the game; the seeded value already is, so check what was sent.
+    expect(
+      saves.find((save) => Array.isArray(save.activeAgentIds) && save.activeAgentIds.includes("echo-chamber")),
+    ).toMatchObject({ enableAgents: true, activeAgentIds: ["html", "echo-chamber"] });
+    await expect(toggle).toBeChecked();
+
+    await entry.getByText("Echo Chamber", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).activeAgentIds).toEqual(["html"]);
+    await expect(toggle).not.toBeChecked();
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Game's Illustrator card turns on, keeps the campaign style with the setup, and saves scene instructions", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createGameChat(request, {
+    gameSetupConfig: { useCampaignArtStyle: false, artStylePrompt: "Ink wash", genre: "mystery" },
+  });
+  try {
+    await openApp(page, chatId, { mode: "game" });
+    const { card } = await openAgentCard(page, chatId, "illustrator", "game");
+    // The image settings only show once the game may request images.
+    await expect(card.getByText("Use Campaign Art Style", { exact: true })).toHaveCount(0);
+    await card.getByText("Game Illustrator", { exact: true }).click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).enableSpriteGeneration).toBe(true);
+
+    await card.getByText("Use Campaign Art Style", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).gameSetupConfig)
+      .toEqual({ useCampaignArtStyle: true, artStylePrompt: "Ink wash", genre: "mystery" });
+
+    const instructions = card.getByRole("textbox", { name: "Scene image instructions", exact: true });
+    await instructions.fill("Dottore's mask covers his eyes.");
+    await instructions.blur();
+    await expect
+      .poll(async () => (await readMetadata(request, chatId)).gameImagePromptInstructions)
+      .toBe("Dottore's mask covers his eyes.");
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Game's Music DJ and Lorebook Keeper cards turn on and save the music player", async ({ page, request }) => {
+  const chatId = await createGameChat(request);
+  await page.route("**/api/spotify/playlists**", (route) => route.fulfill({ json: { playlists: SPOTIFY_PLAYLISTS } }));
+  try {
+    await openApp(page, chatId, { mode: "game", uiState: { musicPlayerSource: "youtube" } });
+    const { agents } = await openAgentsSection(page, "game");
+    // "Music DJ" is also the card's title, so reach the switch through its checkbox's label.
+    const musicDj = agents.getByRole("checkbox", { name: /^Music DJ/u });
+    await expect(musicDj).not.toBeChecked();
+    await musicDj.locator("xpath=ancestor::label[1]").click();
+    await expect
+      .poll(async () => {
+        const metadata = await readMetadata(request, chatId);
+        return [metadata.gameUseMusicDj, metadata.gameUseSpotifyMusic, metadata.enableAgents, metadata.activeAgentIds];
+      })
+      .toEqual([true, false, true, ["spotify"]]);
+    await expect(musicDj).toBeChecked();
+
+    // The player is an app-wide choice the buttons show; with Music DJ on, the game also records whether it uses
+    // Spotify.
+    const spotify = agents.getByRole("button", { name: "Spotify", exact: true });
+    await expect(spotify).toHaveAttribute("aria-pressed", "false");
+    await spotify.click();
+    await expect(spotify).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(async () => (await readMetadata(request, chatId)).gameUseSpotifyMusic).toBe(true);
+
+    const keeper = agents.getByText("Game Session Keeper", { exact: true });
+    await keeper.click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).gameLorebookKeeperEnabled).toBe(true);
+    await keeper.click();
+    await expect.poll(async () => (await readMetadata(request, chatId)).gameLorebookKeeperEnabled).toBe(false);
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
   }

@@ -128,7 +128,7 @@ const readSource = (path: string) => readFileSync(join(repositoryRoot, path), "u
 const indexTs = readSource("packages/server/src/index.ts");
 assert.match(
   indexTs,
-  /isShuttingDown = true;[^]*?armShutdownDeadline\(app, signal(?:, shutdownDeadlinesFor\(signal\))?\);[^]*?await app\.close\(\);/u,
+  /isShuttingDown = true;[^]*?armShutdownDeadline\(app, signal, \{ \.\.\.shutdownDeadlinesFor\(stopSignal\), exitCode \}\);[^]*?await app\.close\(\);/u,
   "signal shutdown arms the deadline before awaiting close",
 );
 const updatesRoutes = readSource("packages/server/src/routes/updates.routes.ts");
@@ -140,7 +140,8 @@ assert.match(
 // The owning launcher now relaunches only after exit, so admin restart can
 // use both deadline stages without leaving an orphan or losing the restart.
 const adminRoutes = readSource("packages/server/src/routes/admin.routes.ts");
-assert.match(adminRoutes, /armShutdownDeadline\(app, "restart", \{ exitCode \}\);[^]*?await app\.close\(\);/u);
+// The route hands its exit code to index.ts's shutdown, which arms the deadline checked above.
+assert.match(adminRoutes, /scheduleRestart\(exitCode\)/u);
 assert.doesNotMatch(adminRoutes, /\bspawn\(/u);
 const helper = readSource("packages/server/src/lib/shutdown-deadline.ts");
 assert.match(helper, /SHUTDOWN_CONNECTION_DEADLINE_MS = 4_000;/u);

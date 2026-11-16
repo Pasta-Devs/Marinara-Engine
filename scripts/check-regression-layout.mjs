@@ -38,7 +38,7 @@ export const REGRESSION_AREAS = {
   "professor-mari": "Professor Mari's workspace agent: its queue, skills, sandbox, file access and round reviews",
   prompt: "prompt assembly, macros, presets, context fit and regex scripts",
   roleplay: "Roleplay mode and its trackers",
-  security: "app-wide access checks: authentication, remote access, request and file-access bounds",
+  security: "app-wide access checks: authentication, remote access, request and file-access bounds, and security fixes in dependencies",
   server:
     "the server process and shared storage: start-up and shutdown, storage, backups, logging, the local utility sidecar and platforms (Android, Termux, Docker)",
   tooling: "repository scripts, CI workflows, Dottore Review and release tooling",

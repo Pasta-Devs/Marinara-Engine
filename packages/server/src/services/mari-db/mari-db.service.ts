@@ -2938,6 +2938,68 @@ function summarizeChatRow(row: Row): Row {
   };
 }
 
+// #9323: list reads page instead of returning a bare array. A bare array went past the
+// read bounding (arrays pass straight through) and the 32k command-output cap cut it mid-row,
+// while `offset` was ignored, so asking for the next page returned the first one again.
+// A page stops at `limit` rows or once it nears the read budget, whichever comes first, so it
+// never reaches that cap; nextOffset points at the first row not shown (null at the end).
+const MARI_LIST_PAGE_DEFAULT = 50;
+const MARI_LIST_PAGE_MAX = 100;
+// Room under the read budget for the envelope keys and the deeper indent of nested rows.
+const MARI_LIST_PAGE_BUDGET = MARI_READ_OUTPUT_BUDGET - 2_000;
+// Only a single row too large for a page on its own has its long strings cut.
+const MARI_LIST_ROW_STRING_CLIP = 2_000;
+
+// Strings inside arrays (tags) are clipped too, so no one field keeps the row over the budget.
+function clipListValue(value: unknown): unknown {
+  if (typeof value === "string" && value.length > MARI_LIST_ROW_STRING_CLIP) {
+    return truncateStr(value, MARI_LIST_ROW_STRING_CLIP);
+  }
+  if (Array.isArray(value)) return value.map(clipListValue);
+  return value;
+}
+
+function clipListRow(row: Row): Row {
+  const clipped: Row = {};
+  for (const [key, value] of Object.entries(row)) clipped[key] = clipListValue(value);
+  return clipped;
+}
+
+function pageListRows(
+  rows: Row[],
+  offsetArg: unknown,
+  limitArg: unknown,
+  fallback = MARI_LIST_PAGE_DEFAULT,
+): { items: Row[]; total: number; offset: number; nextOffset: number | null } {
+  const offset = normalizeOffset(offsetArg);
+  const limit = normalizeLimit(limitArg, fallback, MARI_LIST_PAGE_MAX);
+  const total = rows.length;
+  const items: Row[] = [];
+  let size = 0;
+  for (const row of rows.slice(offset, offset + limit)) {
+    const cost = prettyLength({ items: [row] });
+    if (items.length === 0 && cost > MARI_LIST_PAGE_BUDGET) {
+      items.push(clipListRow(row));
+      noteArgument(
+        `Row ${offset} was too large for a list page, so its long text was cut; read it in full with the matching .get action.`,
+      );
+      break;
+    }
+    if (items.length > 0 && size + cost > MARI_LIST_PAGE_BUDGET) break;
+    items.push(row);
+    size += cost;
+  }
+  // items.length (not limit), so a page cut short by the budget still points at the next unseen
+  // row, a short final page reports null, and an offset past the end returns { items: [], null }.
+  const nextOffset = offset + items.length < total ? offset + items.length : null;
+  if (nextOffset !== null && items.length < limit) {
+    noteArgument(
+      `This page stopped after ${items.length} rows to stay under the output limit; call again with offset: ${nextOffset} for the rest.`,
+    );
+  }
+  return { items, total, offset, nextOffset };
+}
+
 const CHARACTER_DATA_HINT_KEYS = new Set([
   "name",
   "summary",
@@ -3347,7 +3409,6 @@ export class MariDbService {
         };
       }
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
         const rows = (await this.rawRows("characters")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -3355,7 +3416,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizeCharacterRow)
           .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, firstNumber(args, ["offset"]), firstNumber(args, ["limit"])),
+        };
       }
       case "get": {
         const id = requiredString(args, ["id", "characterId"], "character id");
@@ -3657,7 +3723,6 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
@@ -3665,7 +3730,11 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizePersonaRow),
+          output: pageListRows(
+            rows.map(summarizePersonaRow),
+            firstNumber(args, ["offset"]),
+            firstNumber(args, ["limit"]),
+          ),
         };
       }
       case "active": {
@@ -4526,7 +4595,6 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const globalOnly = firstBoolean(args, ["global", "isGlobal"]) === true;
         const rows = (await this.rawRows("lorebooks"))
           .filter((row) => !globalOnly || row.isGlobal === "true")
@@ -4535,7 +4603,11 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizeLorebookRow),
+          output: pageListRows(
+            rows.map(summarizeLorebookRow),
+            firstNumber(args, ["offset"]),
+            firstNumber(args, ["limit"]),
+          ),
         };
       }
       case "get": {
@@ -5800,7 +5872,6 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
         const rows = (await this.rawRows("prompt_presets")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -5808,7 +5879,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizePromptPresetRow)
           .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, firstNumber(args, ["offset"]), firstNumber(args, ["limit"])),
+        };
       }
       case "get": {
         const id = requiredString(args, ["id", "presetId", "promptPresetId"], "prompt preset id");
@@ -7363,7 +7439,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const search = flagString(flags, "search")?.toLowerCase();
         const rows = (await this.rawRows("characters")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -7371,7 +7446,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizeCharacterRow)
           .filter((s) => !search || JSON.stringify(s).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, flagString(flags, "offset"), flagString(flags, "limit")),
+        };
       }
       case "get": {
         const id = parsed.positionals[0];
@@ -7501,7 +7581,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
@@ -7509,7 +7588,7 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizePersonaRow),
+          output: pageListRows(rows.map(summarizePersonaRow), flagString(flags, "offset"), flagString(flags, "limit")),
         };
       }
       case "active": {
@@ -7662,7 +7741,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const globalOnly = hasFlag(flags, "global");
         const characterId = flagString(flags, "character");
         const rows = (await this.rawRows("lorebooks"))
@@ -7673,7 +7751,7 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizeLorebookRow),
+          output: pageListRows(rows.map(summarizeLorebookRow), flagString(flags, "offset"), flagString(flags, "limit")),
         };
       }
       case "get": {
@@ -8108,7 +8186,11 @@ export class MariDbService {
     };
     switch (sub) {
       case "list":
-        return run("list", { limit: flagString(flags, "limit"), search: flagString(flags, "search") });
+        return run("list", {
+          limit: flagString(flags, "limit"),
+          offset: flagString(flags, "offset"),
+          search: flagString(flags, "search"),
+        });
       case "get":
         return run("get", { id: need(0, "Usage: mari presets get <preset-id>") });
       case "sections":
@@ -8239,7 +8321,7 @@ export class MariDbService {
   private presetsHelpText() {
     return [
       "Usage: mari presets <command>",
-      "Reads:    list [--search <q>] [--limit <n>] | get <preset-id> | sections <preset-id> [--section-id <id>] | get-section <section-id> | groups <preset-id> | get-group <group-id> | choice-blocks <preset-id> | get-choice-block <id>",
+      "Reads:    list [--search <q>] [--limit <n>] [--offset <n>] | get <preset-id> | sections <preset-id> [--section-id <id>] | get-section <section-id> | groups <preset-id> | get-group <group-id> | choice-blocks <preset-id> | get-choice-block <id>",
       "Sections: add-section <preset-id> --name <n> [--content <t>] [--role <system|user|assistant>] [--group-id <id>] [--skip-wrap] | update-section <section-id> [--content <t>] [--name <n>] [--enable|--disable] [--injection-order <n>] [--skip-wrap|--no-skip-wrap] | delete-section <section-id>",
       "Groups:   add-group <preset-id> --name <n> [--parent-group-id <id>] | update-group <group-id> [--name <n>] [--enable|--disable] [--order <n>] | delete-group <group-id>",
       "Choices:  add-choice-block <preset-id> --variable-name <n> --question <t> --options <a,b,c> [--multi-select] | update-choice-block <id> [--question <t>] [--options <a,b,c>] | delete-choice-block <id>",
@@ -8261,7 +8343,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 20, 500);
         const characterId = flagString(flags, "character");
         const rows = (await this.rawRows("chats"))
           .filter((row) => {
@@ -8270,9 +8351,13 @@ export class MariDbService {
             return Array.isArray(ids) && ids.includes(characterId);
           })
           .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")))
-          .slice(0, limit)
           .map(summarizeChatRow);
-        return { ok: true, mode: "read", command: context.command, output: rows };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(rows, flagString(flags, "offset"), flagString(flags, "limit"), 20),
+        };
       }
       case "get": {
         const id = parsed.positionals[0];
@@ -8373,6 +8458,7 @@ export class MariDbService {
 
     if (sub === "list") {
       addFlag("limit", firstNumber(args, ["limit"]));
+      addFlag("offset", firstNumber(args, ["offset"]));
       addFlag("character", firstString(args, ["characterId", "character_id"]));
     } else if (sub === "get") {
       positionals.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
@@ -11012,7 +11098,7 @@ export class MariDbService {
   private charactersHelpText() {
     return [
       "Usage: mari characters <command>",
-      "Read:  list [--limit <n>] [--search <text>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
       "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
@@ -11026,7 +11112,7 @@ export class MariDbService {
   private personasHelpText() {
     return [
       "Usage: mari personas <command>",
-      "Read:  list [--limit <n>]",
+      "Read:  list [--limit <n>] [--offset <n>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
       "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
@@ -11039,7 +11125,7 @@ export class MariDbService {
   private lorebooksHelpText() {
     return [
       "Usage: mari lorebooks <command>",
-      "Read:  list [--limit <n>] [--global] [--character <id>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--global] [--character <id>]",
       "Read:  get <id>",
       "Read:  entries <lorebook-id> [--limit <n>] [--offset <n>] [--entry-id <entry-id>]",
       "Read:  get-entry <entry-id>",
@@ -11059,7 +11145,7 @@ export class MariDbService {
   private chatsHelpText() {
     return [
       "Usage: mari chats <command>",
-      "Read:  list [--limit <n>] [--character <id>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--character <id>]",
       "Read:  get <id>",
       "Read:  messages <chat-id> [--last <n> | --after-post <n>] [--limit <n>] [--offset <n>] [--tail]",
       "       --last counts back from the newest post; --after-post uses the 1-indexed #post shown in chat.",

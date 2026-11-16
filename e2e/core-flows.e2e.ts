@@ -1,4 +1,4 @@
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { clickTopbarChats, clickTopbarPanel } from "./topbar-navigation.js";
 import { openConnectionsPanelModel, openDefaultsTile, ttsConfigCard, openJobSettings } from "./connections-panel.js";
 import {
   expect,
@@ -12767,7 +12767,8 @@ test(
           .filter((center): center is number => center !== null),
       );
       const spacings = iconCenters.slice(1).map((center, index) => center - iconCenters[index]!);
-      expect(iconCenters.length).toBeGreaterThan(2);
+      // Home and More: Chats moved into the More menu on a phone.
+      expect(iconCenters.length).toBeGreaterThan(1);
       expect(spacings.every((spacing) => spacing >= 36)).toBe(true);
     }
 
@@ -12781,9 +12782,7 @@ test(
       '[data-tour="panel-agents"]',
       '[data-tour="panel-settings"]',
     ]) {
-      const panel = selector.match(/panel-([a-z]+)/)?.[1];
-      if (panel) await clickTopbarPanel(page, panel);
-      else await page.locator(selector).click();
+      await clickTopbarPanel(page, selector.match(/panel-([a-z]+)/)?.[1] ?? "chats");
       await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
       if (selector === '[data-tour="panel-characters"]') {
         await expect(page.locator('[data-component="RightPanelHeaderIcon"]')).toHaveClass(
@@ -12806,7 +12805,7 @@ test("every sidebar explains itself with a help tip next to its title", async ({
   await serveEmptyModelLists(page);
   await page.goto("/");
   await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
-  await page.locator('[data-tour="sidebar-toggle"]').click();
+  await clickTopbarChats(page);
   await expectSidebarHelp(
     page,
     page.locator('[data-component="ChatSidebar"] .mari-sidebar-header'),
@@ -16381,7 +16380,7 @@ test("Conversation setup commands follow the installed agent library", async ({ 
   const openAutomationStep = async () => {
     const newConversationButton = page.getByLabel("New Conversation", { exact: true });
     if (!(await newConversationButton.isVisible())) {
-      await page.locator('[data-tour="sidebar-toggle"]').click();
+      await clickTopbarChats(page);
     }
     await expect(newConversationButton).toBeVisible();
     const conversationModeButton = page.locator('[data-tour="chat-mode-conversation"]');
@@ -16728,7 +16727,9 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
     await page.getByRole("button", { name: "Chat Settings" }).click();
     const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(reloadedDrawer);
-    await expect(reloadedDrawer.getByText(agentName, { exact: true }).first()).toBeVisible();
+    await expect(
+      reloadedDrawer.locator('[data-drawer="conversation-agents"]').getByText(agentName, { exact: true }).first(),
+    ).toBeVisible();
     const customAgentSection = reloadedDrawer.getByRole("button", { name: "Collapse Custom Agents" });
     await expect(customAgentSection).toHaveAttribute("aria-expanded", "true");
     await customAgentSection.click();
@@ -18081,7 +18082,7 @@ test("Roleplay setup agent category headers never cover agent rows while scrolli
 
   try {
     await page.goto("/");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await page.locator('[data-tour="chat-mode-roleplay"]').click();
     await page.getByLabel("New Roleplay", { exact: true }).click();
     const connectionGate = page.getByRole("heading", { name: "Set Up Roleplay", exact: true });
@@ -21755,7 +21756,7 @@ test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, as
   try {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-marinara-accent-animation");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
 
@@ -21810,7 +21811,7 @@ test("with no connection, new-chat opens Add connection directly for every mode"
   for (const mode of modes) {
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     const sidebarToggle = page.locator('[data-tour="sidebar-toggle"]');
-    if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await sidebarToggle.click();
+    if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await clickTopbarChats(page);
     await expect(sidebarToggle).toHaveAttribute("aria-pressed", "true");
     await expect(sidebar).toBeVisible();
     await expect(sidebar).toBeInViewport();
@@ -21855,7 +21856,7 @@ test("renamed Roleplay branches keep their chat name in the Chats sidebar and se
     expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
 
     await page.goto("/");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
     await sidebar.locator('[data-tour="chat-mode-roleplay"]').click();
@@ -23950,24 +23951,35 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
 
   const topbar = page.locator('[data-component="TopBar"]');
   const homeButton = topbar.getByTitle("Home");
-  const chatsButton = topbar.locator('[data-tour="sidebar-toggle"]');
+  const moreButton = topbar.getByRole("button", { name: "More", exact: true });
   const homeBounds = await homeButton.boundingBox();
-  const chatsBounds = await chatsButton.boundingBox();
   expect(homeBounds).not.toBeNull();
-  expect(chatsBounds).not.toBeNull();
+  // On a phone Chats leaves the bar for the first row of the More menu, above the other sidebars.
+  await expect(topbar.locator('[data-tour="sidebar-toggle"]')).toBeHidden();
   const visibleActions = topbar.locator("[data-topbar-hover-key]:visible");
-  await expect(visibleActions).toHaveCount(2);
+  await expect(visibleActions).toHaveCount(1);
   expect(
     await visibleActions.evaluateAll((elements) =>
       elements.map((element) => (element as HTMLElement).dataset.topbarHoverKey),
     ),
-  ).toEqual(["home", "chats"]);
-  await expect(topbar.getByRole("button", { name: "More", exact: true })).toBeVisible();
+  ).toEqual(["home"]);
+  await expect(moreButton).toBeVisible();
   const homeIconBounds = await homeButton.locator("svg").boundingBox();
-  const chatsIconBounds = await chatsButton.locator("svg").boundingBox();
+  const moreIconBounds = await moreButton.locator("svg").boundingBox();
   expect(homeIconBounds).not.toBeNull();
-  expect(chatsIconBounds).not.toBeNull();
-  expect(homeIconBounds!.width).toBeGreaterThan(chatsIconBounds!.width);
+  expect(moreIconBounds).not.toBeNull();
+  expect(homeIconBounds!.width).toBeGreaterThan(moreIconBounds!.width);
+  const chatsRow = page.locator('[data-component="TopbarMoreMenu"] [role="menuitem"]').first();
+  await moreButton.click();
+  await expect(chatsRow).toHaveAttribute("data-topbar-panel", "chats");
+  await expect(chatsRow).toHaveText("Chats");
+  await expect(chatsRow).not.toHaveAttribute("aria-current", "true");
+  // A brown dialogue-box icon, apart from Lorebooks' amber.
+  const chatsTile = chatsRow.locator(".mari-panel-gradient--chats");
+  await expect(chatsTile.locator("svg")).toHaveClass(/lucide-message-square-text/u);
+  await expect(chatsTile).toHaveCSS("color", "rgb(160, 113, 79)");
+  await page.keyboard.press("Escape");
+  await expect(chatsRow).toHaveCount(0);
 
   const musicDjWidget = page.locator('[data-component="SpotifyMiniPlayer.Mobile"]');
   await expect(musicDjWidget).toBeVisible();
@@ -24014,35 +24026,15 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
     )
     .toBeGreaterThan(initialMusicDjPosition.x + 32);
 
-  await chatsButton.click();
+  await clickTopbarChats(page);
+  await expect(chatsRow).toHaveCount(0);
   await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
   await expect(page.locator('[data-component="ChatSidebar"]')).toBeVisible();
   await expect(homeButton).toHaveAttribute("aria-pressed", "false");
-  await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(() =>
-      chatsButton.evaluate((button) => {
-        const icon = button.querySelector("svg");
-        if (!icon) return false;
-        const styles = getComputedStyle(icon);
-        return (
-          styles.stroke === styles.color &&
-          !button.classList.contains("mari-topbar-chat-gradient-icon") &&
-          !button.classList.contains("mari-topbar-chat-gradient-hover")
-        );
-      }),
-    )
-    .toBe(true);
-  await chatsButton.dblclick();
-  await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(() =>
-      chatsButton.evaluate((button) => {
-        const icon = button.querySelector("svg");
-        return icon ? getComputedStyle(icon).stroke === getComputedStyle(icon).color : false;
-      }),
-    )
-    .toBe(true);
+  await moreButton.click();
+  await expect(chatsRow).toHaveAttribute("data-active", "true");
+  await expect(chatsRow).toHaveAttribute("aria-current", "true");
+  await page.keyboard.press("Escape");
   const mobileChatSidebar = page.locator('[data-component="ChatSidebarPanel"]');
   await expect.poll(async () => (await mobileChatSidebar.boundingBox())?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(1);
   await mobileChatSidebar.evaluate((element) => element.setAttribute("data-e2e-mobile-shell", "preserved"));
@@ -24052,14 +24044,15 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   await expect(swappedRightPanel).toBeVisible();
   await expect(swappedRightPanel).toHaveAttribute("data-e2e-mobile-shell", "preserved");
   await expect(homeButton).toHaveAttribute("aria-pressed", "false");
-  await topbar.getByRole("button", { name: "More", exact: true }).click();
+  await moreButton.click();
   await expect(page.locator('[role="menuitem"][data-topbar-panel="characters"]')).toHaveAttribute(
     "aria-current",
     "true",
   );
+  await expect(chatsRow).not.toHaveAttribute("aria-current", "true");
   await page.keyboard.press("Escape");
 
-  await chatsButton.click();
+  await clickTopbarChats(page);
   await expect(mobileChatSidebar).toBeVisible();
   await expect(mobileChatSidebar).toHaveAttribute("data-e2e-mobile-shell", "preserved");
   const openMobileSidebarX = (await mobileChatSidebar.boundingBox())?.x ?? 0;
@@ -24851,9 +24844,9 @@ test("Roleplay displays a selected background when its file route is GET-only", 
     await expectBackgroundToFitRoleplaySurface();
     await clickTopbarPanel(page, "settings");
     await expectBackgroundToFitRoleplaySurface();
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await expectBackgroundToFitRoleplaySurface();
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await expectBackgroundToFitRoleplaySurface();
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");

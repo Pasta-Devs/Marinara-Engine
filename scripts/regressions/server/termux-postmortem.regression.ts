@@ -204,9 +204,9 @@ assert.match(
   "updates route: stamp, then deadline, then close",
 );
 assert.match(
-  flatten(readSource("packages/server/src/routes/admin.routes.ts")),
-  /noteSessionExitKind\("restart"\); await app\.close\(\);/u,
-  "admin route: stamp directly before close (no stage-2 deadline - it spawns the relaunch child after close)",
+  flatten(readSource("packages/server/src/index.ts")),
+  /noteSessionExitKind\("restart"\);.*?armShutdownDeadline\(app, signal,.*?await app\.close\(\);/u,
+  "settings restart: stamp, then deadline, then close",
 );
 
 const appSource = flatten(readSource("packages/server/src/app.ts"));

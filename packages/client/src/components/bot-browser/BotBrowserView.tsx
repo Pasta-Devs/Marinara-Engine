@@ -3,6 +3,7 @@
 // Multi-provider: ChubAI, JannyAI, Pygmalion, Wyvern, DataCat, PlotLight (CharacterTavern is listed as unavailable)
 // With a login modal for Pygmalion NSFW, PNG download for all providers
 // ──────────────────────────────────────────────
+import { saveBlobToDevice } from "../../lib/file-download";
 import { useState, useCallback, useEffect, useId, useLayoutEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -3799,15 +3800,7 @@ function DetailView({
 
       const blob = await buildCharacterCardPng(card.avatarUrl, charData);
 
-      // Trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(card.name || "character").replace(/[^a-zA-Z0-9_-]/g, "_")}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await saveBlobToDevice(blob, `${(card.name || "character").replace(/[^a-zA-Z0-9_-]/g, "_")}.png`);
       toast.success(localizeUi("ui.botBrowser.detailview.downloadedValue1AsPngCharacterCard", { value1: card.name }));
     } catch (err) {
       if (err instanceof PygmalionSessionExpiredError) onPygmalionSessionExpired?.();

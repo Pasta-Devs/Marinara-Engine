@@ -36,13 +36,15 @@ interface LibraryToolbarProps {
   search: { value: string; placeholder: string; onChange: (value: string) => void };
   /**
    * The sort menu next to the search field. It always offers Manual order, A–Z, Z–A, Newest and Oldest;
-   * `extraOptions` adds panel-specific ones after them (Characters' Favorites).
+   * `extraOptions` adds panel-specific ones after them (Characters' Favorites), and `tokenSort` the size pair
+   * (Most tokens, Fewest tokens) after those.
    */
   sort?: {
     value: string;
     label: string;
     onChange: (value: string) => void;
     extraOptions?: { value: string; label: string }[];
+    tokenSort?: boolean;
   };
   folder?: {
     label: string;
@@ -222,6 +224,12 @@ export function LibraryToolbar({
                   {option.label}
                 </option>
               ))}
+              {sort.tokenSort && (
+                <>
+                  <option value="tokens-desc">{localizeUi("ui.panels.librarysort.mostTokens")}</option>
+                  <option value="tokens-asc">{localizeUi("ui.panels.librarysort.fewestTokens")}</option>
+                </>
+              )}
             </select>
             <ArrowUpDown
               size="0.625rem"

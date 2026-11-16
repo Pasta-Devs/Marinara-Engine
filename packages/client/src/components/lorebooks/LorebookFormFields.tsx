@@ -13,7 +13,6 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { estimateTextTokens } from "@marinara-engine/shared";
 
 export function FieldGroup({
   label,
@@ -202,8 +201,4 @@ export function ExpandableTextarea({
       className="mari-editor-field w-full resize-y p-2.5 text-sm"
     />
   );
-}
-
-export function estimateTokens(text: string): number {
-  return estimateTextTokens(text);
 }

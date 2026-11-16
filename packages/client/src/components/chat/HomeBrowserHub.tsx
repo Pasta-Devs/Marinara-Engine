@@ -82,6 +82,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { MarinaraWordmark } from "../ui/MarinaraWordmark";
 import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
@@ -385,21 +386,6 @@ type HomeBrowserHubProps = {
   pageActive: boolean;
   onOpenCredits: () => void;
 };
-
-function MarinaraWordmark({ className }: { className?: string }) {
-  const { t } = useTranslation();
-  const brandName = t("app.documentTitle");
-  return (
-    <span
-      className={cn(
-        "mari-logo-gradient-text mari-logo-gradient-text--active inline-flex items-baseline font-black tracking-[-0.035em]",
-        className,
-      )}
-    >
-      {brandName}
-    </span>
-  );
-}
 
 function readHomeWidgetOrder(): HomeWidgetId[] {
   if (typeof window === "undefined") return [...DEFAULT_HOME_WIDGET_ORDER];
@@ -1107,13 +1093,65 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   useLayoutEffect(() => {
     setFullscreenPackageId((current) => (current === activeBrowserPackageId ? current : null));
   }, [activeBrowserPackageId]);
+  // A package's fullscreen takes the whole screen (the maintainer's, 2026-11-16): the top bar hides
+  // (homeBrowserFullscreen) and the page goes into the browser's own fullscreen where it has one. iPhone Safari offers
+  // that only for video, so there the top bar alone hides. Leaving the browser's fullscreen (Escape, Back) leaves the
+  // package's too; the browser's is left only when this entered it.
+  const setHomeBrowserFullscreen = useUIStore((state) => state.setHomeBrowserFullscreen);
+  const enteredDocumentFullscreen = useRef(false);
   const setBrowserFullscreen = useCallback(
     (active: boolean) => {
       // A retained callback cannot change the presentation of a different active package.
       if (typeof active !== "boolean" || activeBrowserPackageIdRef.current !== activeTab) return;
       setFullscreenPackageId(active ? activeTab : null);
+      // Asked for here, inside the package's own click: a browser allows fullscreen only from a user gesture.
+      const root = document.documentElement;
+      if (active && !document.fullscreenElement && typeof root.requestFullscreen === "function") {
+        enteredDocumentFullscreen.current = true;
+        root
+          .requestFullscreen({ navigationUI: "hide" })
+          // The package may have left its fullscreen while the browser was still granting this one.
+          .then(() => {
+            if (!enteredDocumentFullscreen.current && document.fullscreenElement) void document.exitFullscreen();
+          })
+          .catch(() => {
+            enteredDocumentFullscreen.current = false;
+          });
+      }
     },
     [activeTab],
+  );
+  useLayoutEffect(() => {
+    setHomeBrowserFullscreen(browserFullscreen);
+    return () => setHomeBrowserFullscreen(false);
+  }, [browserFullscreen, setHomeBrowserFullscreen]);
+  useEffect(() => {
+    // However the package's fullscreen ends (its button, another tab, a host error), the browser's ends with it.
+    const leaveDocumentFullscreen = () => {
+      if (!enteredDocumentFullscreen.current) return;
+      enteredDocumentFullscreen.current = false;
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    };
+    if (!browserFullscreen) {
+      leaveDocumentFullscreen();
+      return;
+    }
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement || !enteredDocumentFullscreen.current) return;
+      enteredDocumentFullscreen.current = false;
+      setFullscreenPackageId(null);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, [browserFullscreen]);
+  // Home unmounting (the desktop shell does so under every editor) ends the browser's fullscreen too.
+  useEffect(
+    () => () => {
+      if (!enteredDocumentFullscreen.current) return;
+      enteredDocumentFullscreen.current = false;
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    },
+    [],
   );
   const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [faqOpen, setFaqOpen] = useState(false);

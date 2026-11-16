@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { Swords } from "lucide-react";
 import type { GameCombatStyle } from "@marinara-engine/shared";
 import { ChatSettingsSection } from "../ChatSettingsSection";
@@ -6,7 +5,6 @@ import { getCombatStyle, isBuiltInCombatStyle, listCombatStyles } from "../../..
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface CombatStyleSectionProps {
-  style?: CSSProperties;
   combatStyle: GameCombatStyle;
   /** Whether this game's own ruleset resolves its battles. The choice below is kept either way: a
    *  game that changes ruleset, or turns the director off, is back on whichever presentation is
@@ -24,7 +22,6 @@ interface CombatStyleSectionProps {
 }
 
 export function CombatStyleSection({
-  style,
   combatStyle,
   rulesetResolvesFights,
   rulesetHasPositions,
@@ -38,7 +35,6 @@ export function CombatStyleSection({
   return (
     <ChatSettingsSection
       id="combat-style"
-      style={style}
       label={localizeUi("ui.chatSettings.combatstylesection.combatStyle")}
       icon={<Swords size="0.875rem" />}
       help={localizeUi("ui.chatSettings.combatstylesection.chooseHowBattlesPlayOutWhenTheGameMaster")}

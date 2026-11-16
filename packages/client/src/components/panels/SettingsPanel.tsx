@@ -219,6 +219,7 @@ import {
 } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
 import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use-agents";
+import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
@@ -6909,13 +6910,8 @@ function AdvancedSettings() {
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
-  const restartServer = useMutation({
-    mutationFn: () => api.post<{ status: "restarting" }>("/admin/restart", { confirm: true }),
-    onSuccess: () => toast.success(localizeUi("settings.serverRestart.success")),
-    onError: (error) => {
-      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.serverRestart.error")));
-    },
-  });
+  const restartServer = useRestartServer();
+  const canRestartServer = useCanRestartServer();
   const { data: extensionPolicy, isLoading: extensionPolicyLoading } = usePersonalExtensionPolicy();
   const setExternalExtensionsEnabled = useSetExternalExtensionsEnabled();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
@@ -7507,7 +7503,7 @@ function AdvancedSettings() {
             <button
               type="button"
               onClick={() => void handleRestartServer()}
-              disabled={restartServer.isPending}
+              disabled={restartServer.isPending || !canRestartServer}
               className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
             >
               {restartServer.isPending ? (
@@ -7520,7 +7516,9 @@ function AdvancedSettings() {
                 : localizeUi("settings.serverRestart.action")}
             </button>
             <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("settings.serverRestart.description")}
+              {localizeUi(
+                canRestartServer ? "settings.serverRestart.description" : "settings.serverRestart.unavailable",
+              )}
             </p>
           </SearchableSettingTarget>
         </div>

@@ -18,10 +18,6 @@ import { chatKeys, useBackfillConversationSummaries, useUpdateChatSummaries } fr
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 
-function estimateTokens(text: string): number {
-  return estimateTextTokens(text);
-}
-
 function fmtTokens(n: number): string {
   return n.toLocaleString();
 }
@@ -217,7 +213,7 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
       const e = entry.kind === "week" ? drafts.weekSummaries[entry.key] : drafts.daySummaries[entry.key];
       if (e) text += entryTokenText(e);
     }
-    return estimateTokens(text);
+    return estimateTextTokens(text);
   }, [entries, drafts]);
 
   const allExpanded = entries.length > 0 && expanded.size === entries.length;
@@ -412,7 +408,7 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
             const current = entry.kind === "week" ? drafts.weekSummaries[entry.key]! : drafts.daySummaries[entry.key]!;
             const id = `${entry.kind}:${entry.key}`;
             const isOpen = expanded.has(id);
-            const entryTokens = estimateTokens(entryTokenText(current));
+            const entryTokens = estimateTextTokens(entryTokenText(current));
 
             return (
               <div key={id} className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/20">

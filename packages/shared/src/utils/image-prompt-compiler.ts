@@ -654,6 +654,8 @@ function splitNegativePromptItems(value: string): string[] {
   return splitPromptListItems(value);
 }
 
+const LABELED_PROMPT_LINE = /^([A-Za-z][A-Za-z ]{1,32}):\s*(.+)$/;
+
 function distillTaggedPromptSource(value: string): string {
   const fragments: string[] = [];
   for (const raw of value.split(/\n+|(?<=[.!?])\s+/g)) {
@@ -670,7 +672,7 @@ function distillTaggedPromptSource(value: string): string {
     }
     if (hasAvoidInstructionPrefix(sentence)) continue;
 
-    const labeled = sentence.match(/^([A-Za-z][A-Za-z ]{1,32}):\s*(.+)$/);
+    const labeled = sentence.match(LABELED_PROMPT_LINE);
     if (labeled?.[1] && labeled[2]) {
       fragments.push(...distillLabeledPromptValue(labeled[1], labeled[2]));
       continue;
@@ -706,8 +708,11 @@ function distillTaggedPromptSource(value: string): string {
       }
     }
   }
-  if (fragments.length === 0) {
-    fragments.push(...fallbackTaggedSourceFragments(value));
+  // A "no X" clause leaves an "avoid X" fragment behind, which must not stand in for the subject: fall back to the
+  // source's own wording whenever no positive fragment survived. Label lines were already weighed above, so a
+  // fallback that only rescues the subject next to a "no" clause leaves them out (`Name: Kael` stays dropped).
+  if (!fragments.some((fragment) => !hasAvoidInstructionPrefix(fragment))) {
+    fragments.push(...fallbackTaggedSourceFragments(value, { skipLabeledLines: fragments.length > 0 }));
   }
   return fragments.join(", ");
 }
@@ -777,9 +782,10 @@ function countPattern(value: string, pattern: RegExp): number {
   return value.match(pattern)?.length ?? 0;
 }
 
-function fallbackTaggedSourceFragments(value: string): string[] {
+function fallbackTaggedSourceFragments(value: string, options: { skipLabeledLines?: boolean } = {}): string[] {
   return value
     .split(/\n+|(?<=[.!?])\s+/g)
+    .filter((fragment) => !options.skipLabeledLines || !LABELED_PROMPT_LINE.test(fragment.trim()))
     .map((fragment) => cleanPromptFragment(fragment, "tagged"))
     .filter((fragment) => {
       if (!fragment || looksLikeNameOnly(fragment)) return false;

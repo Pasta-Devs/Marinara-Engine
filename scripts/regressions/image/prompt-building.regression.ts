@@ -71,8 +71,11 @@ const cases: RegressionCase[] = [
       );
       assert.equal(resolveGameSetupArtStylePrompt({ useCampaignArtStyle: true }), "");
 
-      const drawerSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
+      const roleplayAgentsSource = readFileSync(
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const gameSurfaceSource = readFileSync(
@@ -88,7 +91,7 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.useCampaignArtStyle"\)\}/);
+      assert.match(roleplayAgentsSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.useCampaignArtStyle"\)\}/);
       assert.match(
         readFileSync(
           new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),
@@ -2051,6 +2054,49 @@ const cases: RegressionCase[] = [
       assert.equal(compiled.prompt, "1girl, blue dress");
       assert.equal(compiled.negativePrompt, "");
       assert.equal(compiled.profile.id, "off");
+    },
+  },
+  {
+    // #9329: the "no characters" clause used to leave only an "avoid" fragment, so the avatar prompt lost its subject.
+    name: "a no-clause does not wipe the subject of a distilled avatar prompt",
+    run() {
+      const styleProfiles = normalizeImageStyleProfileSettings({
+        defaultProfileId: "house",
+        profiles: [
+          {
+            id: "house",
+            name: "House",
+            baseStyle: "custom",
+            promptMode: "hybrid",
+            styleText: "",
+            positiveTags: "house style",
+            negativeTags: "",
+            subjectTags: { avatar: "portrait, upper body" },
+            rules: { dedupeStrength: "normal", preferTagsOverNarrative: false, preserveUserPhrases: true },
+            builtIn: false,
+          },
+        ],
+      });
+      const compiled = compileImagePrompt({
+        kind: "avatar",
+        prompt: "a castle above a lake at dusk, no characters",
+        styleProfiles,
+        styleProfileId: "house",
+      });
+
+      assert.match(compiled.prompt, /a castle above a lake at dusk/);
+      assert.doesNotMatch(compiled.prompt, /no characters|avoid/);
+      assert.match(compiled.negativePrompt, /characters/);
+
+      // Card label lines the distiller drops stay dropped when the fallback rescues a "no" clause's neighbours.
+      // (Portrait and sprite keep label lines with or without a "no" clause; that older path is not this fallback.)
+      const card = compileImagePrompt({
+        kind: "avatar",
+        prompt: "Name: Kael\nOccupation: blacksmith\nTraits: stubborn, loyal\nno characters",
+        styleProfiles,
+        styleProfileId: "house",
+      });
+      assert.doesNotMatch(card.prompt, /Kael|blacksmith|stubborn|Name:|Occupation:/, card.prompt);
     },
   },
 ];

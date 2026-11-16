@@ -65,6 +65,10 @@ Use **Convert** when a scene has grown into a story you want to keep as a normal
 
 Clone keeps the original scene open. Convert does not.
 
+## A scene's content rating
+
+When Marinara plans a scene, it rates it **SFW** or **NSFW** from what the scene is about, and the scene's content rules follow that rating. A scene started from a Game Mode chat follows that game instead: its content rating, rating guidelines, violence level, story style and content boundaries. See [Story style, violence and content boundaries](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
 ## Scenes and connected chats
 
 A scene is self-contained. It does not pull in context from a connected Conversation, even when the parent chat does, and it ignores the short steering notes a connected conversation can send to a linked Roleplay. For an ongoing two-way link between a conversation and a roleplay, use a connected chat. See [Connecting a Conversation to a Roleplay or Game](../chats/connected-chats.md).

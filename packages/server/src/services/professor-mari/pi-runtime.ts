@@ -56,6 +56,7 @@ import {
   visibleTextAsksApplyPermission,
   workspaceTextClaimsHeldChange,
   workspaceTextClaimsMutationCompletion,
+  MARI_RUN_IMAGE_LIMIT,
   WORKSPACE_TOOL_DEFINITIONS,
   type PromptEventSink,
   type WorkspaceCommandCall,
@@ -381,6 +382,8 @@ function parseArguments(raw: string): Record<string, unknown> {
   return {};
 }
 
+const LOOKED_IMAGES_NOTE = "The pictures from your mari images look call, in the order it listed them.";
+
 function textOf(content: string | readonly { type: string; text?: string }[]): string {
   if (typeof content === "string") return content;
   return content.map((part) => (part.type === "text" ? (part.text ?? "") : "")).join("");
@@ -455,6 +458,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   const maxToolRounds = input.maxToolRounds ?? MAX_PI_TOOL_ROUNDS;
   // Replay metadata of each tool turn, by its first tool call id (the id is stable across the transcript).
   const metadataByCallId = new Map<string, Record<string, unknown>>();
+  // #9342: `mari images look` pictures by tool call. pi's model is text-only, so they stay out of pi's own messages and
+  // are attached here on every request of the run.
+  const imagesByCallId = new Map<string, string[]>();
 
   const addNote = (content: string, kind: "retry" | "info" | "output_limit", level: "info" | "warning") => {
     state.assistantText = appendVisibleText(state.assistantText, content);
@@ -490,8 +496,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const prompt = getCurrentSystemPrompt(context.messages);
     if (prompt) out.push({ role: "system", content: withToolFormat(prompt), contextKind: "prompt" });
     let lastResult: ChatMessage | null = null;
+    // Native tool messages can't carry pictures: they follow the turn's last tool message on a user message.
+    let pendingImages: string[] = [];
+    const flushImages = () => {
+      if (pendingImages.length === 0) return;
+      out.push({ role: "user", content: LOOKED_IMAGES_NOTE, contextKind: "history", images: pendingImages });
+      pendingImages = [];
+    };
     for (const message of context.messages as Message[]) {
-      if (message.role !== "toolResult") lastResult = null;
+      if (message.role !== "toolResult") {
+        lastResult = null;
+        flushImages();
+      }
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
@@ -529,9 +545,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         });
       } else if (message.role === "toolResult" && asText) {
         // Results come back as user messages; several results of one turn share one.
+        const images = imagesByCallId.get(message.toolCallId) ?? [];
         const previous = out[out.length - 1];
-        if (previous && previous === lastResult) previous.content += `\n\n${textOf(message.content)}`;
-        else out.push((lastResult = { role: "user", content: textOf(message.content), contextKind: "history" }));
+        if (previous && previous === lastResult) {
+          previous.content += `\n\n${textOf(message.content)}`;
+          if (images.length > 0) previous.images = [...(previous.images ?? []), ...images];
+        } else {
+          lastResult = { role: "user", content: textOf(message.content), contextKind: "history" };
+          if (images.length > 0) lastResult.images = [...images];
+          out.push(lastResult);
+        }
       } else if (message.role === "toolResult") {
         out.push({
           role: "tool",
@@ -539,8 +562,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           content: textOf(message.content),
           contextKind: "history",
         });
+        pendingImages.push(...(imagesByCallId.get(message.toolCallId) ?? []));
       }
     }
+    flushImages();
     return out;
   };
 
@@ -1135,6 +1160,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       text = "Held: this change waits for the user's Accept and was not applied. Do not repeat it.";
     } else {
       const result = await commands.executeWorkspaceCommand(call, signal, trace, onEvent, input.actionResults);
+      if (result.images?.length) {
+        imagesByCallId.set(toolCallId, result.images);
+        // #9342: the run carries at most MARI_RUN_IMAGE_LIMIT pictures; the oldest looks keep only their text.
+        let total = [...imagesByCallId.values()].reduce((sum, list) => sum + list.length, 0);
+        for (const [callId, list] of imagesByCallId) {
+          if (total <= MARI_RUN_IMAGE_LIMIT) break;
+          const drop = Math.min(list.length, total - MARI_RUN_IMAGE_LIMIT);
+          if (drop === list.length) imagesByCallId.delete(callId);
+          else imagesByCallId.set(callId, list.slice(drop));
+          total -= drop;
+        }
+      }
       input.commandResults.push(result);
       current.results.push(result);
       // The executor's refusals are shared with the JSON runtime and name its `say` field; say it in pi's words.

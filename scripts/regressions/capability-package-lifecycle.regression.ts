@@ -782,12 +782,12 @@ try {
     "Capability model calls must not discard an explicit reasoning disable request",
   );
 
-  const chatSettingsSource = readFileSync(
-    join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+  const roleplayAgentsSource = readFileSync(
+    join(repositoryRoot, "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx"),
     "utf8",
   );
   assert.match(
-    chatSettingsSource,
+    roleplayAgentsSource,
     /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,
     "Game chat settings must render the Long-Term Memory package controls",
   );

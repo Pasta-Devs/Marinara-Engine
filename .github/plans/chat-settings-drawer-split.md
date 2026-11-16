@@ -1,6 +1,6 @@
 # Chat Settings Drawer split
 
-Status: in progress, one step per pull request. Tracking issue: #9119. This file is the progress record: each pull request in the series updates the table below.
+Status: done. Every step has merged, one per pull request, and so has the follow-up on section order. Tracking issue: #9119. This file records how the split was done.
 
 ## Outcome
 
@@ -30,7 +30,7 @@ Measured on `staging` on 2026-11-12:
 - **State two or more sections use stays in the drawer.** It's passed down as props. Examples: `inlineResourceEditor` (both Persona sections, Characters and Lorebooks), `showCharPicker` and `showPersonaPicker` (Characters, Persona and Game party), and `pendingAddedCard`.
 - **Unsaved edits and effects live in the section's wrapper.** `components/ui/Drawer.tsx` renders a section's body only while it is expanded, and popping a section out remounts it. Drafts, save-before-close checks and `useEffect` calls therefore go in the component that wraps `ChatSettingsSection` (as `LorebooksSection.tsx` does) or stay in the drawer, never in the collapsible body. An effect in the body would stop running while the section is collapsed: the agent setup queue effect, for example, opens the add-agent window whenever the drawer is open. The drawer has 42 effects with no JSX of their own, so check each one a section's state feeds before moving it. A pull request that moves a draft adds a test that collapsing or popping out the section keeps it.
 - **Save-before-close checks go through one register function.** Today each check has its own ref slot and its own line in `requestClose` (`handleInlineCardFlushChange`, `handleAgentSuiteCloseGuardChange`). The first pull request that needs another check replaces them with one `registerCloseGuard(check)` that returns an unregister function; `requestClose` runs every registered check and stays open if one fails. Two sections sharing one slot would overwrite each other's check, and one's cleanup would clear the other's.
-- **Moved sections take an `order` prop** and put `style={{ order }}` on their root, as `sections/ChatVariablesSection.tsx` does, so the drawer passes `CHAT_SETTINGS_ORDER` values one way.
+- **The code order places the sections.** The drawer renders the sections in the order they show, with no CSS `order`, so keyboard and screen readers go through them as they appear. A new section goes in the drawer's JSX where it should show; `e2e/chat-settings-sections.e2e.ts` fails if one of the sections its chats show is moved by CSS `order`. (Until this follow-up, sections took an `order` prop from `CHAT_SETTINGS_ORDER`.)
 - **Source-text regressions are replaceable.** Many scripts in `scripts/regressions/` read the drawer's source and pattern-match it. When code moves, keep a check only if it guards real behaviour, such as a save or close guard, a lazy-loading boundary or a fixed user-facing bug. Otherwise replace it with a behavioural check or delete it, and say which in the pull request. A `doesNotMatch` check still passes after the code moves, because the file it searches no longer holds that code, so re-point or remove it.
 
 ## Steps
@@ -44,8 +44,8 @@ Measured on `staging` on 2026-11-12:
 | 5 | In this order: (a) Autonomous messaging and Automatic summarization, Conversation only, with the summaries window and rollover state they alone use; (b) Memory recall, whose two copies share `renderMemoryRecallControls` (only the non-Conversation copy has `forceOpen`; `memoryView` stays in the drawer, which also opens the window); (c) Characters, Persona and Game party as their own pull request, with the pieces all three use in `sections/cast-shared.tsx`. The drawer still draws the inline card editor, so its save-before-close check stays as it is and no `registerCloseGuard` is needed yet. The sections get `renderInlineCardEditor` itself, since Characters draws one editor per member row. Adding and removing members, the pending-card effects and the shared pickers' open state stay in the drawer | about 650 | `sections/` | Merged: (a) and (b) as #9226, (c) as #9237 |
 | 6 | Agents, part 1: the per-agent card bodies that need few drawer values, each a component in `agents/` that gets its values as props. Each card's wrapper (`AgentSettingsCard` with its menu id, order and remove) stays with the shell for step 7. Copies found on the way become one each: components for the hold-for-rewrite switch, Music DJ's Spotify settings, Illustrator's controls and Long-Term Memory's settings, and one drawer helper for the prompt picker. The Knowledge agents card and its settings file move too. Cards that read 20 to 40 drawer values (Illustrator's three bodies, Expression, Prose Guardian, Music DJ's provider part, custom agents, the avatar layout card) move with or after step 7, where that state sits beside them, since props for them now would be churn step 7 removes. Each card gets a test in `e2e/chat-settings-agent-cards.e2e.ts` before it moves | about 900 | `features/chat-settings/agents/` | Merged: #9271 |
 | 7a | Agents, part 2: the state only. Agents' state, effects and handlers (about 2,050 lines, with the Prose Guardian drafts) move into one hook, `agents/use-chat-agents.ts`, which the drawer calls once. The JSX stays in the drawer and reads the hook's result, so the pull request is a state move with no layout change | about 2,050 | `features/chat-settings/agents/`, with the failed-save-keeps-the-drawer-open test | Merged: #9285 |
-| 7b | Agents, part 3: Conversation's face of Agents becomes a component that takes the hook's result, with the heavy Conversation cards (Illustrator's Conversation body) | about 350 | `features/chat-settings/agents/` | In progress: this pull request |
-| 7c | Agents, part 4: the Roleplay and Game face becomes a component, with its render helpers and the heavy cards left after step 6 (Illustrator's Roleplay and Game bodies, Expression, Prose Guardian, Music DJ's provider part, custom agents, the avatar layout card). Prose Guardian's save-before-close check goes through `registerCloseGuard` here. If it's still too big to review, split it by category of cards | about 1,500 | `features/chat-settings/agents/` | Not started |
+| 7b | Agents, part 3: Conversation's face of Agents becomes a component that takes the hook's result, with the heavy Conversation cards (Illustrator's Conversation body) | about 350 | `features/chat-settings/agents/` | Merged: #9301 |
+| 7c | Agents, part 4: the Roleplay and Game face becomes a component, with its render helpers and the heavy cards left after step 6 (Illustrator's Roleplay and Game bodies, Expression, Prose Guardian, Music DJ's provider part, custom agents, the avatar layout card). If it's still too big to review, split it by category of cards | about 1,500 | `features/chat-settings/agents/` | Merged: #9349 |
 
 Line numbers refer to `staging` on 2026-11-12 and drift as the file changes. Recount each section's dependencies before its pull request.
 
@@ -67,11 +67,19 @@ How step 7b was built: Conversation's face of Agents (the Commands, Illustrator,
 - All 16 Agents render helpers. The eight the Conversation face calls (the lorebook attachment, Illustrator's prompt model, image style, images per generation and video run interval, the custom agent picker and card, and the Haptic card) are called by the Roleplay and Game face too, so they're passed in as props and move with 7c.
 - No state or effects moved: the section only reads the hook's result, so it has nothing to lose while collapsed.
 
-The seven-file rename and `registerCloseGuard` go with 7c. Before the move, new browser tests in `e2e/chat-settings-agent-cards.e2e.ts` covered the Conversation controls that had none: Illustrator's selfie, prompt and video models, the selfie resolution, video messages, the first frame, both reference scopes and the schedule preferences.
+The seven-file rename went with 7c. Before the move, new browser tests in `e2e/chat-settings-agent-cards.e2e.ts` covered the Conversation controls that had none: Illustrator's selfie, prompt and video models, the selfie resolution, video messages, the first frame, both reference scopes and the schedule preferences.
 
 Step 7 also moves the seven files that only Agents uses from the top of `features/chat-settings/` into `agents/`: `AgentSuiteModal`, `AgentPromptTemplateSelect`, `AgentLorebookAttachment`, `ExpressionSpriteSettings`, `RoleplayCommandsSettings`, `HapticConnectionPanel` and `roleplay-agent-menu-icon`. They are plain renames, so everything Agents uses ends up in one folder.
 
 Before step 7 starts, the stack of open steps should be merged down: each step waiting on another adds hand work whenever someone else changes the drawer.
+
+How step 7c was built: the 16 Agents render helpers moved to `agents/agent-settings-renderers.tsx`, and the Roleplay and Game face (about 1,520 lines of JSX: the Roleplay commands, the agent library and every agent's card) to `agents/RoleplayAgentsSection.tsx`. The drawer went from about 5,340 lines to about 2,990. What changed in how the pieces fit:
+
+- The helpers are plain functions, not components, so no input in them remounts on a render. `createAgentSettingsRenderers` takes the hook's result and 16 drawer values and returns them. The drawer calls it on each render and hands the result to both faces as one `renderers` prop, which replaced Conversation's eight render props.
+- The face takes `agents`, `renderers` and the 27 drawer values it reads, among them the drawer's own metadata save. Like Conversation's face, it only reads them and holds no state.
+- `registerCloseGuard` wasn't built. The rule above adds it when a pull request needs another save-before-close check, and 7c added none: Prose Guardian's drafts stayed in the hook the drawer calls, so `requestClose` still calls its flush directly, beside the Agent Suite and inline card checks.
+
+Before the move, new browser tests in `e2e/chat-settings-agent-cards.e2e.ts` covered the Roleplay and Game controls that had none: Prose Guardian's writing instructions and Hold switch, the two Knowledge cards, Roleplay Illustrator's video and reference settings and scene backgrounds, Review Agent Outputs in both modes, the Agent Suite button, the Game agent list's switches, Game Illustrator with the campaign art style, and Game Music DJ and Lorebook Keeper.
 
 ## What the drawer keeps after step 7
 
@@ -79,9 +87,9 @@ Before step 7 starts, the stack of open steps should be merged down: each step w
 - The order of the sections, and which ones show in each chat mode.
 - The values every section needs: the chat, its metadata, the save function and the mode.
 - The state that two or more sections share, and the few windows that more than one section opens.
-- Closing: run each registered save check, and stay open if one fails.
+- Closing: run the save-before-close checks, and stay open if one fails.
 
-After step 7, render the sections in their display order instead of relying on CSS `order`. Today the reading order for keyboard and screen readers differs from what's on screen: Advanced parameters is seventh on screen but near the end of the page's code.
+After step 7, the sections were put in the drawer's code in their display order, and CSS `order` was removed from them. Before, the reading order for keyboard and screen readers differed from what's on screen: Advanced parameters was seventh on screen but near the end of the page's code. The agent cards inside Agents still place themselves with CSS `order`.
 
 ## New Chat Settings code
 

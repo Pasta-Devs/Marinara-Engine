@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Preset, Group, Section & Choice hooks
 // ──────────────────────────────────────────────
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
 import { libraryFolderKeys } from "./use-library-folders";
@@ -20,6 +20,10 @@ export const presetKeys = {
   sectionChoice: (sectionId: string) => [...presetKeys.all, "section-choice", sectionId] as const,
   default: () => [...presetKeys.all, "default"] as const,
 };
+
+function invalidatePresetCaches(qc: QueryClient, ...queryKeys: ReadonlyArray<readonly unknown[]>) {
+  for (const queryKey of queryKeys) qc.invalidateQueries({ queryKey });
+}
 
 function mutationErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -83,9 +87,7 @@ export function useUpdatePreset() {
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
       api.patch<PromptPreset>(`/prompts/${id}`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.list() });
-      qc.invalidateQueries({ queryKey: presetKeys.detail(variables.id) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.id) });
+      invalidatePresetCaches(qc, presetKeys.list(), presetKeys.detail(variables.id), presetKeys.full(variables.id));
     },
     onError: (error) => {
       toast.error(mutationErrorMessage(error, "Failed to update preset."));
@@ -99,10 +101,13 @@ export function useUploadPresetImage() {
     mutationFn: ({ id, image }: { id: string; image: string }) =>
       api.post<PromptPreset>(`/prompts/${id}/image`, { image }),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.list() });
-      qc.invalidateQueries({ queryKey: presetKeys.detail(variables.id) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.id) });
-      qc.invalidateQueries({ queryKey: presetKeys.default() });
+      invalidatePresetCaches(
+        qc,
+        presetKeys.list(),
+        presetKeys.detail(variables.id),
+        presetKeys.full(variables.id),
+        presetKeys.default(),
+      );
     },
   });
 }
@@ -112,8 +117,7 @@ export function useDeletePreset() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/prompts/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: presetKeys.all });
-      qc.invalidateQueries({ queryKey: libraryFolderKeys.list("presets") });
+      invalidatePresetCaches(qc, presetKeys.all, libraryFolderKeys.list("presets"));
     },
   });
 }
@@ -133,8 +137,7 @@ export function useSetDefaultPreset() {
   return useMutation({
     mutationFn: (id: string) => api.post<PromptPreset>(`/prompts/${id}/set-default`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: presetKeys.list() });
-      qc.invalidateQueries({ queryKey: presetKeys.default() });
+      invalidatePresetCaches(qc, presetKeys.list(), presetKeys.default());
     },
   });
 }
@@ -149,8 +152,7 @@ export function useCreateGroup() {
     mutationFn: ({ presetId, ...data }: { presetId: string } & Record<string, unknown>) =>
       api.post<PromptGroup>(`/prompts/${presetId}/groups`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.groups(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.groups(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -161,8 +163,7 @@ export function useUpdateGroup() {
     mutationFn: ({ presetId, groupId, ...data }: { presetId: string; groupId: string } & Record<string, unknown>) =>
       api.patch<PromptGroup>(`/prompts/${presetId}/groups/${groupId}`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.groups(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.groups(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -173,9 +174,12 @@ export function useDeleteGroup() {
     mutationFn: ({ presetId, groupId }: { presetId: string; groupId: string }) =>
       api.delete(`/prompts/${presetId}/groups/${groupId}`),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.groups(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.sections(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(
+        qc,
+        presetKeys.groups(variables.presetId),
+        presetKeys.sections(variables.presetId),
+        presetKeys.full(variables.presetId),
+      );
     },
   });
 }
@@ -190,8 +194,7 @@ export function useCreateSection() {
     mutationFn: ({ presetId, ...data }: { presetId: string } & Record<string, unknown>) =>
       api.post<PromptSection>(`/prompts/${presetId}/sections`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.sections(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.sections(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -202,8 +205,7 @@ export function useUpdateSection() {
     mutationFn: ({ presetId, sectionId, ...data }: { presetId: string; sectionId: string } & Record<string, unknown>) =>
       api.patch<PromptSection>(`/prompts/${presetId}/sections/${sectionId}`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.sections(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.sections(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -214,8 +216,7 @@ export function useDeleteSection() {
     mutationFn: ({ presetId, sectionId }: { presetId: string; sectionId: string }) =>
       api.delete(`/prompts/${presetId}/sections/${sectionId}`),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.sections(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.sections(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -240,8 +241,7 @@ export function useReorderSections() {
       if (ctx?.prev) qc.setQueryData(presetKeys.full(presetId), ctx.prev);
     },
     onSettled: (_data, _err, { presetId }) => {
-      qc.invalidateQueries({ queryKey: presetKeys.sections(presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(presetId) });
+      invalidatePresetCaches(qc, presetKeys.sections(presetId), presetKeys.full(presetId));
     },
   });
 }
@@ -256,8 +256,7 @@ export function useCreateVariable() {
     mutationFn: ({ presetId, ...data }: { presetId: string } & Record<string, unknown>) =>
       api.post<ChoiceBlock>(`/prompts/${presetId}/variables`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.choiceBlocks(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.choiceBlocks(variables.presetId), presetKeys.full(variables.presetId));
     },
     onError: (error) => {
       toast.error(mutationErrorMessage(error, "Failed to create preset variable."));
@@ -275,8 +274,7 @@ export function useUpdateVariable() {
     }: { presetId: string; variableId: string } & Record<string, unknown>) =>
       api.patch<ChoiceBlock>(`/prompts/${presetId}/variables/${variableId}`, data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.choiceBlocks(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.choiceBlocks(variables.presetId), presetKeys.full(variables.presetId));
     },
     onError: (error) => {
       toast.error(mutationErrorMessage(error, "Failed to update preset variable."));
@@ -290,8 +288,7 @@ export function useDeleteVariable() {
     mutationFn: ({ presetId, variableId }: { presetId: string; variableId: string }) =>
       api.delete(`/prompts/${presetId}/variables/${variableId}`),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: presetKeys.choiceBlocks(variables.presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(variables.presetId) });
+      invalidatePresetCaches(qc, presetKeys.choiceBlocks(variables.presetId), presetKeys.full(variables.presetId));
     },
   });
 }
@@ -317,8 +314,7 @@ export function useReorderVariables() {
       if (ctx?.prev) qc.setQueryData(presetKeys.full(presetId), ctx.prev);
     },
     onSettled: (_data, _err, { presetId }) => {
-      qc.invalidateQueries({ queryKey: presetKeys.choiceBlocks(presetId) });
-      qc.invalidateQueries({ queryKey: presetKeys.full(presetId) });
+      invalidatePresetCaches(qc, presetKeys.choiceBlocks(presetId), presetKeys.full(presetId));
     },
   });
 }
