@@ -4312,11 +4312,49 @@ body {
 }
 
 .mari-home-feed-grid {
+  --home-feed-gap: clamp(0.65rem, 0.8vw, 0.95rem);
+  position: relative;
   display: grid;
-  gap: clamp(0.65rem, 0.8vw, 0.95rem);
+  gap: var(--home-feed-gap);
   grid-auto-flow: dense;
   grid-auto-rows: var(--home-grid-row-height, 13rem);
   align-items: stretch;
+}
+
+/* Packed (masonry) Home: the grid only supplies the columns. Each widget is positioned in its column(s)
+   (grid-column inline) and packHomeFeed sets its top right under the widget above, so short and tall
+   widgets never leave gaps. A widget is at least its standard size (row height x rows) and grows when
+   its text needs more room; its card fills that height. */
+.mari-home-feed-grid > :is(.mari-home-widget, .mari-home-empty-slot) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(
+    calc(
+      var(--home-grid-row-height, 13rem) * var(--home-widget-rows, 1) + var(--home-feed-gap) *
+        (var(--home-widget-rows, 1) - 1)
+    ),
+    auto
+  );
+}
+
+/* A card a theme lets end above its standard size leaves the rest of its box empty, and the next widget
+   is packed right under the card, so only the card itself takes the pointer. */
+.mari-home-feed-grid > .mari-home-widget {
+  pointer-events: none;
+}
+
+.mari-home-feed-grid > .mari-home-widget > * {
+  pointer-events: auto;
+}
+
+/* Spare drop spots only take room while a widget is being dragged. */
+html:not(.mari-home-widget-drag-active) .mari-home-feed-grid > .mari-home-empty-slot {
+  display: none;
 }
 
 .mari-home-widget,

@@ -469,6 +469,143 @@ function widgetOrderFromSlots(slots: readonly HomeWidgetSlot[]) {
   return slots.filter((slot): slot is HomeWidgetId => slot !== null);
 }
 
+type HomeWidgetPlacement = { column: number; row: number; columnSpan: number; rowSpan: number };
+
+function homeWidgetSpan(id: HomeWidgetId, columns: HomeGridColumns, largeWidgetIds: ReadonlySet<HomeWidgetId>) {
+  const large = id === "recent" || id === "character-library" || largeWidgetIds.has(id);
+  return { columnSpan: large && columns > 1 ? 2 : 1, rowSpan: large ? 2 : 1 };
+}
+
+/** Where each slot lands on the coarse grid (the grid you drag on), the way CSS dense auto-flow would place it.
+ *  Home then packs each column upward (packHomeFeed), so the coarse grid only decides columns and reading order. */
+function placeHomeWidgetSlots(
+  slots: readonly HomeWidgetSlot[],
+  columns: HomeGridColumns,
+  largeWidgetIds: ReadonlySet<HomeWidgetId>,
+): HomeWidgetPlacement[] {
+  const taken: boolean[][] = [];
+  const free = (row: number, column: number, rowSpan: number, columnSpan: number) => {
+    for (let r = row; r < row + rowSpan; r += 1)
+      for (let c = column; c < column + columnSpan; c += 1) if (taken[r]?.[c]) return false;
+    return true;
+  };
+  return slots.map((slot) => {
+    const { columnSpan, rowSpan } =
+      slot === null ? { columnSpan: 1, rowSpan: 1 } : homeWidgetSpan(slot, columns, largeWidgetIds);
+    for (let row = 0; ; row += 1) {
+      for (let column = 0; column + columnSpan <= columns; column += 1) {
+        if (!free(row, column, rowSpan, columnSpan)) continue;
+        for (let r = row; r < row + rowSpan; r += 1) {
+          taken[r] ??= [];
+          for (let c = column; c < column + columnSpan; c += 1) taken[r]![c] = true;
+        }
+        return { column, row, columnSpan, rowSpan };
+      }
+    }
+  });
+}
+
+/** Masonry packing: every widget keeps its column(s) and its order within them, but starts right under the
+ *  widget above it instead of waiting for the tallest widget of the row, so a taller theme font or a short
+ *  card never leaves a hole. Heights come from the widgets themselves (at least their standard size), read
+ *  when a ResizeObserver reports them. Cards whose bottoms end within a few pixels of each other are
+ *  stretched to one line, so the packed edges stay tidy instead of ragged. */
+const HOME_FEED_ALIGN_SLACK = 40;
+function packHomeFeed(feed: HTMLElement | null) {
+  if (!feed) return;
+  const columns = Math.max(1, Number(feed.dataset.homeGridColumns) || 1);
+  const rowGap = Number.parseFloat(getComputedStyle(feed).rowGap) || 0;
+  const items = Array.from(feed.children)
+    .filter((child): child is HTMLElement => child instanceof HTMLElement && child.dataset.homePlaceRow !== undefined)
+    .map((element) => ({
+      element,
+      row: Number(element.dataset.homePlaceRow),
+      column: Number(element.dataset.homePlaceColumn),
+      span: Math.max(1, Number(element.dataset.homePlaceSpan) || 1),
+      natural: 0,
+      fills: true,
+      height: 0,
+      top: 0,
+    }))
+    .sort((a, b) => a.row - b.row || a.column - b.column);
+  // Measure without the stretch from the last pack (only costs a layout when something was stretched).
+  for (const item of items) if (item.element.style.minHeight) item.element.style.minHeight = "";
+  for (const item of items) {
+    item.natural = homeWidgetVisibleHeight(item.element);
+    item.fills = item.natural >= item.element.offsetHeight - 1;
+    item.height = item.natural;
+  }
+  const place = () => {
+    const bottoms = new Array<number>(columns).fill(0);
+    for (const item of items) {
+      if (item.height === 0) continue;
+      const covered = bottoms.slice(item.column, item.column + item.span);
+      item.top = covered.length ? Math.max(...covered) : 0;
+      for (let c = item.column; c < Math.min(columns, item.column + item.span); c += 1)
+        bottoms[c] = item.top + item.height + rowGap;
+    }
+    return Math.max(0, ...bottoms);
+  };
+  let tallest = place();
+  for (let pass = 0; pass < 3; pass += 1) {
+    const shown = items
+      .filter((item) => item.height > 0 && item.fills)
+      .sort((a, b) => b.top + b.height - (a.top + a.height));
+    let changed = false;
+    let lineBottom = Number.POSITIVE_INFINITY;
+    for (const item of shown) {
+      const bottom = item.top + item.height;
+      if (lineBottom - bottom > HOME_FEED_ALIGN_SLACK) lineBottom = bottom;
+      else if (lineBottom > bottom) {
+        item.height = lineBottom - item.top;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+    tallest = place();
+  }
+  for (const item of items) {
+    if (item.height === 0) continue;
+    const top = `${item.top}px`;
+    if (item.element.style.top !== top) item.element.style.top = top;
+    if (item.height > item.natural + 0.5) item.element.style.minHeight = `${item.height}px`;
+  }
+  const height = `${tallest > 0 ? tallest - rowGap : 0}px`;
+  if (feed.style.height !== height) feed.style.height = height;
+}
+
+/** How far down a widget's card reaches. A theme can let a card end above its standard size (MARI to the Moon
+ *  keeps Recent chats short to show the room); the next widget then starts under the card, not the empty spot. */
+function homeWidgetVisibleHeight(widget: HTMLElement) {
+  if (!widget.dataset.homeWidgetId) return widget.offsetHeight;
+  let bottom = 0;
+  for (const child of Array.from(widget.children)) {
+    if (!(child instanceof HTMLElement) || child.hasAttribute("data-home-drag-handle")) continue;
+    bottom = Math.max(bottom, child.offsetTop + child.offsetHeight);
+  }
+  return bottom || widget.offsetHeight;
+}
+
+function homeFeedObservedElements(feed: HTMLElement) {
+  return Array.from(feed.children).flatMap((child) => [
+    child,
+    ...Array.from(child.children).filter((inner) => !inner.hasAttribute("data-home-drag-handle")),
+  ]);
+}
+
+function homePlacementProps(placement: HomeWidgetPlacement | undefined) {
+  if (!placement) return { style: { display: "none" } as CSSProperties };
+  return {
+    "data-home-place-row": placement.row,
+    "data-home-place-column": placement.column,
+    "data-home-place-span": placement.columnSpan,
+    style: {
+      gridColumn: `${placement.column + 1} / span ${placement.columnSpan}`,
+      "--home-widget-rows": placement.rowSpan,
+    } as CSSProperties,
+  };
+}
+
 function readHomeWidgetLayouts(visibleWidgets = readHomeWidgetVisibility()): HomeWidgetLayouts {
   const legacyOrder = readHomeWidgetOrder();
   let parsed: Partial<Record<HomeGridColumns, unknown>> = {};
@@ -509,7 +646,9 @@ function readHomeWidgetRects() {
 
 function animateHomeWidgetReflow(previousRects: Map<string | undefined, DOMRect> | null) {
   if (!previousRects) return;
-  const feed = document.querySelector('[data-component="HomeBrowserHub.Feed"]');
+  const feed = document.querySelector<HTMLElement>('[data-component="HomeBrowserHub.Feed"]');
+  // The new slots are rendered but not packed yet (the observers run later), so pack now to read the end state.
+  packHomeFeed(feed);
   for (const element of Array.from(feed?.querySelectorAll<HTMLElement>("[data-home-widget-id]") ?? [])) {
     const previous = previousRects.get(element.dataset.homeWidgetId);
     if (!previous) continue;
@@ -528,6 +667,7 @@ function animateHomeWidgetReflow(previousRects: Map<string | undefined, DOMRect>
 function HomeWidgetFrame({
   id,
   order,
+  placement,
   visible,
   size,
   dragging,
@@ -540,6 +680,7 @@ function HomeWidgetFrame({
 }: {
   id: HomeWidgetId;
   order: number;
+  placement: HomeWidgetPlacement | undefined;
   visible: boolean;
   size?: "compact" | "large";
   dragging: boolean;
@@ -551,15 +692,17 @@ function HomeWidgetFrame({
   children: ReactNode;
 }) {
   if (!visible) return null;
+  const { style: placementStyle, ...placementData } = homePlacementProps(placement);
   return (
     <div
+      {...placementData}
       data-home-widget-id={id}
       className={cn(
         "mari-home-widget group relative min-h-0",
         `mari-home-widget--${id}`,
         dragging && "mari-home-widget--dragging",
       )}
-      style={{ order }}
+      style={{ order, ...placementStyle }}
       data-home-widget-size={size}
       data-home-widget-kind={id.startsWith("agent:package:") ? "package" : undefined}
       // No grip icon (audit D14, kolache's no-grip rule): with a mouse, drag a widget by its header strip.
@@ -1212,6 +1355,42 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     activeTab !== "noodle",
   );
   const activeWidgetSlots = widgetLayouts[gridColumns];
+  const activeWidgetPlacements = useMemo(
+    () => placeHomeWidgetSlots(activeWidgetSlots, gridColumns, largeAgentWidgetIds),
+    [activeWidgetSlots, gridColumns, largeAgentWidgetIds],
+  );
+  // Packs the feed whenever a widget changes size (content, theme fonts, column width) or the slots move.
+  const feedPackCleanupRef = useRef<(() => void) | null>(null);
+  const feedGridRef = useCallback((feed: HTMLDivElement | null) => {
+    feedPackCleanupRef.current?.();
+    feedPackCleanupRef.current = null;
+    if (!feed) return;
+    if (typeof ResizeObserver === "undefined") {
+      packHomeFeed(feed);
+      return;
+    }
+    const resizeObserver = new ResizeObserver(() => packHomeFeed(feed));
+    const observeChildren = () => {
+      for (const element of homeFeedObservedElements(feed)) resizeObserver.observe(element);
+    };
+    observeChildren();
+    // New or moved widgets: observe newcomers (their first report packs) and repack moves of equal-sized widgets.
+    const mutationObserver = new MutationObserver((records) => {
+      const relevant = records.filter((record) => record.target === feed || record.target.parentNode === feed);
+      if (!relevant.length) return;
+      if (relevant.some((record) => record.type === "childList")) observeChildren();
+      packHomeFeed(feed);
+    });
+    mutationObserver.observe(feed, {
+      childList: true,
+      subtree: true,
+      attributeFilter: ["data-home-place-row", "data-home-place-column", "data-home-place-span"],
+    });
+    feedPackCleanupRef.current = () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
   const allWidgetIds = useMemo<HomeWidgetId[]>(
     () => [...HOME_WIDGET_IDS, ...customWidgetIds, ...agentWidgets.map((widget) => widget.id)],
     [agentWidgets, customWidgetIds],
@@ -1707,6 +1886,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     accent: agentWidgetsById.get(id)?.accent,
     surface: agentWidgetsById.get(id)?.surface,
     order: activeWidgetSlots.indexOf(id),
+    placement: activeWidgetPlacements[activeWidgetSlots.indexOf(id)],
     visible: availableWidgetIds.includes(id) && visibleWidgets.includes(id),
     dragging: draggedWidgetId === id,
     onPointerDragStart: beginPointerWidgetDrag,
@@ -2529,6 +2709,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 </section>
                 <div ref={feedShellRef} className="mari-home-feed-shell">
                   <div
+                    ref={feedGridRef}
                     className="mari-home-feed-grid"
                     data-component="HomeBrowserHub.Feed"
                     data-home-grid-columns={gridColumns}
@@ -3065,9 +3246,10 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       slot === null ? (
                         <div
                           key={`empty-${index}`}
+                          {...homePlacementProps(activeWidgetPlacements[index])}
                           data-home-empty-slot={index}
                           className="mari-home-empty-slot"
-                          style={{ order: index }}
+                          style={{ order: index, ...homePlacementProps(activeWidgetPlacements[index]).style }}
                           aria-hidden="true"
                         />
                       ) : null,
