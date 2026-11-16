@@ -1,0 +1,612 @@
+// ──────────────────────────────────────────────
+// Sticker and emoji sheets from the gallery's "Create with AI": cut a generated
+// grid into one picture per cell, trimmed to what was drawn and sized for its
+// kind (emoji 256px, sticker 512px), so each saves as its own gallery item.
+// ──────────────────────────────────────────────
+
+export type GallerySheetKind = "sticker" | "emoji";
+
+/** Longest side a saved emoji / sticker may have (the gallery label refuses bigger ones). */
+export const GALLERY_SHEET_MAX_SIDE: Record<GallerySheetKind, number> = { emoji: 256, sticker: 512 };
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image could not be loaded"));
+    image.src = src;
+  });
+}
+
+function canvas2d(width: number, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width));
+  canvas.height = Math.max(1, Math.round(height));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is unavailable");
+  return { canvas, ctx };
+}
+
+/**
+ * Trim a cell to what was drawn on it, then centre it on a square with a small margin and scale it
+ * down to the kind's size. A pixel counts as drawn when it is not see-through and does not match the
+ * cell's background, read from its four corners (so a flat white or green backdrop is skipped too).
+ */
+export async function fitGallerySheetCell(
+  dataUrl: string,
+  kind: GallerySheetKind,
+  options: { trim?: boolean } = {},
+): Promise<string> {
+  const image = await loadImage(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  let bounds = { left: 0, top: 0, right: width, bottom: height };
+
+  if (options.trim !== false) {
+    const { ctx } = canvas2d(width, height);
+    ctx.drawImage(image, 0, 0);
+    const pixels = ctx.getImageData(0, 0, width, height).data;
+    const at = (x: number, y: number) => (y * width + x) * 4;
+    const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)];
+    const opaqueCorners = corners.filter((offset) => pixels[offset + 3]! > 24);
+    const background =
+      opaqueCorners.length >= 2
+        ? [0, 1, 2].map((channel) => {
+            const values = opaqueCorners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+            return values[Math.floor(values.length / 2)]!;
+          })
+        : null;
+    let left = width;
+    let top = height;
+    let right = -1;
+    let bottom = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const offset = at(x, y);
+        if (pixels[offset + 3]! <= 24) continue;
+        if (background) {
+          const distance =
+            Math.abs(pixels[offset]! - background[0]!) +
+            Math.abs(pixels[offset + 1]! - background[1]!) +
+            Math.abs(pixels[offset + 2]! - background[2]!);
+          if (distance < 48) continue;
+        }
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+    if (right >= left && bottom >= top) bounds = { left, top, right: right + 1, bottom: bottom + 1 };
+  }
+
+  const contentWidth = bounds.right - bounds.left;
+  const contentHeight = bounds.bottom - bounds.top;
+  const side = Math.ceil(Math.max(contentWidth, contentHeight) * 1.08);
+  const outSide = Math.min(GALLERY_SHEET_MAX_SIDE[kind], side);
+  const scale = outSide / side;
+  const { canvas, ctx } = canvas2d(outSide, outSide);
+  ctx.imageSmoothingQuality = "high";
+  const drawWidth = contentWidth * scale;
+  const drawHeight = contentHeight * scale;
+  ctx.drawImage(
+    image,
+    bounds.left,
+    bounds.top,
+    contentWidth,
+    contentHeight,
+    (outSide - drawWidth) / 2,
+    (outSide - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * The outline pass after keying: within a thin band inside every cut edge (where a sticker's white outline
+ * sits), green-screen spill and stray specks are painted over with the colour around them, see-through
+ * pinholes are filled, and the soft edge loses its green tint. The art further in is left alone, so a green
+ * sticker keeps its own green.
+ */
+function cleanGallerySheetOutlines(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  background: number[],
+): void {
+  const total = width * height;
+  const band = Math.max(4, Math.round(Math.max(width, height) * 0.02));
+  // Distance (in steps) from the nearest see-through pixel, up to the band.
+  const distance = new Uint16Array(total).fill(65535);
+  let frontier: number[] = [];
+  for (let i = 0; i < total; i++) {
+    if (pixels[i * 4 + 3]! <= 24) {
+      distance[i] = 0;
+      frontier.push(i);
+    }
+  }
+  for (let step = 1; step <= band && frontier.length; step++) {
+    const next: number[] = [];
+    for (const index of frontier) {
+      const x = index % width;
+      for (const n of [
+        x > 0 ? index - 1 : -1,
+        x < width - 1 ? index + 1 : -1,
+        index >= width ? index - width : -1,
+        index < total - width ? index + width : -1,
+      ]) {
+        if (n >= 0 && distance[n] === 65535) {
+          distance[n] = step;
+          next.push(n);
+        }
+      }
+    }
+    frontier = next;
+  }
+
+  // Spill toward the key colour: how far its strongest channel stands above the other two.
+  const keyChannel = background.indexOf(Math.max(...background));
+  const others = [0, 1, 2].filter((channel) => channel !== keyChannel);
+  const keySaturated = background[keyChannel]! - Math.max(...others.map((channel) => background[channel]!)) > 80;
+  const spill = (offset: number) =>
+    keySaturated
+      ? pixels[offset + keyChannel]! - Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!)
+      : 0;
+
+  // Small green bits in the band (a tinted hair tip, a fleck on a dark outline) are spill, however dark;
+  // a big green area there is the sticker's own green and stays.
+  const greenish = new Uint8Array(total);
+  if (keySaturated) {
+    for (let i = 0; i < total; i++) {
+      const d = distance[i]!;
+      if (d > 0 && d <= band && spill(i * 4) > 50) greenish[i] = 1;
+    }
+  }
+  const greenBits = labelMask(greenish, width, height);
+  const smallBit = new Uint8Array(greenBits.regions.length + 1);
+  for (const region of greenBits.regions) smallBit[region.id] = region.area < total * 0.0005 ? 1 : 0;
+
+  const source = new Uint8ClampedArray(pixels);
+  const radius = 2;
+  const sample: number[][] = [[], [], [], []];
+  for (let index = 0; index < total; index++) {
+    const d = distance[index]!;
+    if (d === 0 || d > band) continue;
+    const offset = index * 4;
+    const x = index % width;
+    const y = (index - x) / width;
+    // The neighbourhood's median, from opaque pixels that aren't spill themselves.
+    for (const channel of sample) channel.length = 0;
+    let opaque = 0;
+    for (let dy = -radius; dy <= radius; dy++) {
+      const yy = y + dy;
+      if (yy < 0 || yy >= height) continue;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= width || (dx === 0 && dy === 0)) continue;
+        const o = (yy * width + xx) * 4;
+        if (source[o + 3]! < 200) continue;
+        opaque++;
+        if (keySaturated && source[o + keyChannel]! - Math.max(source[o + others[0]!]!, source[o + others[1]!]!) > 40)
+          continue;
+        for (let channel = 0; channel < 4; channel++) sample[channel]!.push(source[o + channel]!);
+      }
+    }
+    const count = sample[0]!.length;
+    const median = count >= 5 ? sample.map((values) => values.sort((a, b) => a - b)[values.length >> 1]!) : null;
+    const green = spill(offset);
+    if (median) {
+      let alike = 0;
+      for (let k = 0; k < count; k++) {
+        const diff =
+          Math.abs(sample[0]![k]! - median[0]!) +
+          Math.abs(sample[1]![k]! - median[1]!) +
+          Math.abs(sample[2]![k]! - median[2]!);
+        if (diff < 60) alike++;
+      }
+      const differs =
+        Math.abs(pixels[offset]! - median[0]!) +
+          Math.abs(pixels[offset + 1]! - median[1]!) +
+          Math.abs(pixels[offset + 2]! - median[2]!) >
+        90;
+      const pinhole = d > 1 && pixels[offset + 3]! < 200;
+      // Specks are only painted over on the white outline, never on the art, whose fine lines look alike.
+      const onOutline = median[0]! > 200 && median[1]! > 200 && median[2]! > 200;
+      // A speck on the flat white outline, a green fleck, or a see-through pinhole.
+      // A fleck is green among mostly not-green neighbours, so the edge of a sticker's own green fill stays.
+      const fleck = (green > 40 && count >= opaque * 0.75) || smallBit[greenBits.labels[index]!] === 1;
+      if (fleck || pinhole || (onOutline && differs && alike >= count * 0.5)) {
+        pixels[offset] = median[0]!;
+        pixels[offset + 1] = median[1]!;
+        pixels[offset + 2] = median[2]!;
+        if (pinhole) pixels[offset + 3] = Math.max(pixels[offset + 3]!, median[3]!);
+        continue;
+      }
+    }
+    // Whatever stays: take the green tint off the soft edge and off small green bits.
+    if (green > 0 && (d <= 3 || smallBit[greenBits.labels[index]!] === 1))
+      pixels[offset + keyChannel] = Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!);
+  }
+}
+
+/**
+ * Make a cell's flat backdrop see-through: flood-fill from the edges through every pixel close to the
+ * backdrop colour (read from the corners), so the same colour inside the drawing is left alone (a
+ * green sticker on a green screen keeps its green). `clean` is false when the edges still hold much
+ * that isn't see-through, i.e. the backdrop wasn't flat and needs the server's remover.
+ */
+export async function keyOutGallerySheetBackground(dataUrl: string): Promise<{ dataUrl: string; clean: boolean }> {
+  const image = await loadImage(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const { canvas, ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const frame = ctx.getImageData(0, 0, width, height);
+  const pixels = frame.data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
+    (offset) => pixels[offset + 3]! > 24,
+  );
+  if (corners.length < 2) return { dataUrl, clean: true }; // already see-through
+  const background = [0, 1, 2].map((channel) => {
+    const values = corners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+    return values[Math.floor(values.length / 2)]!;
+  });
+  const near = (offset: number) =>
+    pixels[offset + 3]! > 24 &&
+    Math.abs(pixels[offset]! - background[0]!) +
+      Math.abs(pixels[offset + 1]! - background[1]!) +
+      Math.abs(pixels[offset + 2]! - background[2]!) <
+      90;
+  const seen = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    const index = y * width + x;
+    if (seen[index]) return;
+    seen[index] = 1;
+    if (near(index * 4)) stack.push(index);
+  };
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length) {
+    const index = stack.pop()!;
+    pixels[index * 4 + 3] = 0;
+    const x = index % width;
+    const y = (index - x) / width;
+    if (x > 0) push(x - 1, y);
+    if (x < width - 1) push(x + 1, y);
+    if (y > 0) push(x, y - 1);
+    if (y < height - 1) push(x, y + 1);
+  }
+  // Pockets of backdrop the fill couldn't reach (between hair strands, inside a bent arm): anything still
+  // this close to the key colour is backdrop, since the prompt keeps that colour out of the stickers.
+  const pocket = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    const offset = i * 4;
+    if (
+      pixels[offset + 3]! > 24 &&
+      Math.abs(pixels[offset]! - background[0]!) +
+        Math.abs(pixels[offset + 1]! - background[1]!) +
+        Math.abs(pixels[offset + 2]! - background[2]!) <
+        160
+    )
+      pocket[i] = 1;
+  }
+  for (let i = 0; i < width * height; i++) if (pocket[i]) pixels[i * 4 + 3] = 0;
+  cleanGallerySheetOutlines(pixels, width, height, background);
+  ctx.putImageData(frame, 0, 0);
+  let edge = 0;
+  let opaqueEdge = 0;
+  for (let x = 0; x < width; x++) {
+    for (const y of [0, height - 1]) {
+      edge++;
+      if (pixels[at(x, y) + 3]! > 24) opaqueEdge++;
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    for (const x of [0, width - 1]) {
+      edge++;
+      if (pixels[at(x, y) + 3]! > 24) opaqueEdge++;
+    }
+  }
+  return { dataUrl: canvas.toDataURL("image/png"), clean: opaqueEdge / edge < 0.1 };
+}
+
+// ── Finding stickers by their outline (image models rarely keep to an even grid) ──
+
+/** A rectangle on the sheet, in sheet pixels. */
+export type GallerySheetBox = { x: number; y: number; width: number; height: number };
+
+export type GallerySheetPiece = { box: GallerySheetBox; dataUrl: string };
+
+/** Crop a box out of a (background-free) sheet, everything inside it. */
+export async function cropGallerySheetBox(sheetDataUrl: string, box: GallerySheetBox): Promise<string> {
+  const image = await loadImage(sheetDataUrl);
+  const x = Math.max(0, Math.round(box.x));
+  const y = Math.max(0, Math.round(box.y));
+  const width = Math.max(1, Math.min(image.naturalWidth - x, Math.round(box.width)));
+  const height = Math.max(1, Math.min(image.naturalHeight - y, Math.round(box.height)));
+  const { canvas, ctx } = canvas2d(width, height);
+  ctx.drawImage(image, x, y, width, height, 0, 0, width, height);
+  return canvas.toDataURL("image/png");
+}
+
+type MaskRegion = { id: number; area: number; minX: number; minY: number; maxX: number; maxY: number };
+
+/** Label the 4-connected areas of a mask; `labels` holds 1-based region ids, 0 for empty. */
+function labelMask(mask: Uint8Array, w: number, h: number): { labels: Int32Array; regions: MaskRegion[] } {
+  const labels = new Int32Array(w * h);
+  const regions: MaskRegion[] = [];
+  const stack: number[] = [];
+  for (let start = 0; start < w * h; start++) {
+    if (!mask[start] || labels[start]) continue;
+    const region = { id: regions.length + 1, area: 0, minX: w, minY: h, maxX: 0, maxY: 0 };
+    const visit = (index: number) => {
+      labels[index] = region.id;
+      stack.push(index);
+    };
+    visit(start);
+    while (stack.length) {
+      const index = stack.pop()!;
+      const x = index % w;
+      const y = (index - x) / w;
+      region.area++;
+      if (x < region.minX) region.minX = x;
+      if (x > region.maxX) region.maxX = x;
+      if (y < region.minY) region.minY = y;
+      if (y > region.maxY) region.maxY = y;
+      if (x > 0 && mask[index - 1] && !labels[index - 1]) visit(index - 1);
+      if (x < w - 1 && mask[index + 1] && !labels[index + 1]) visit(index + 1);
+      if (y > 0 && mask[index - w] && !labels[index - w]) visit(index - w);
+      if (y < h - 1 && mask[index + w] && !labels[index + w]) visit(index + w);
+    }
+    regions.push(region);
+  }
+  return { labels, regions };
+}
+
+/** Shrink a mask by `radius` (square), which breaks thin joins such as two outlines that touch. */
+function erodeMask(mask: Uint8Array, w: number, h: number, radius: number): Uint8Array {
+  // Separable: a pixel survives when its whole row span, then its whole column span, is solid.
+  const rows = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    let run = 0;
+    const line = new Int32Array(w);
+    for (let x = 0; x < w; x++) line[x] = run = mask[y * w + x] ? run + 1 : 0;
+    for (let x = 0; x < w; x++) {
+      const right = Math.min(w - 1, x + radius);
+      rows[y * w + x] = x - radius >= 0 && line[right]! >= right - (x - radius) + 1 ? 1 : 0;
+    }
+  }
+  const out = new Uint8Array(w * h);
+  for (let x = 0; x < w; x++) {
+    let run = 0;
+    const line = new Int32Array(h);
+    for (let y = 0; y < h; y++) line[y] = run = rows[y * w + x] ? run + 1 : 0;
+    for (let y = 0; y < h; y++) {
+      const bottom = Math.min(h - 1, y + radius);
+      out[y * w + x] = y - radius >= 0 && line[bottom]! >= bottom - (y - radius) + 1 ? 1 : 0;
+    }
+  }
+  return out;
+}
+
+/** The regions big enough to be a sticker rather than a speck, judged against the `expected`-th largest. */
+function bigRegions(regions: MaskRegion[], expected: number, total: number): MaskRegion[] {
+  if (regions.length === 0) return [];
+  const byArea = [...regions].sort((a, b) => b.area - a.area);
+  const typical = byArea[Math.min(byArea.length, Math.max(1, expected)) - 1]!.area;
+  // Against the biggest too, so a sheet with fewer stickers than asked doesn't promote its sparkles.
+  const floor = Math.max(typical * 0.25, byArea[0]!.area * 0.08, total * 0.002);
+  return regions.filter((region) => region.area >= floor);
+}
+
+/**
+ * Find each sticker on a sheet whose background is already see-through, and cut each out with only its own
+ * pixels, so a neighbour reaching into its box stays out. Stickers whose outlines touch are told apart by
+ * shrinking the drawing until they come loose; small loose bits (sparkles, "zzz", sweat drops) join the
+ * nearest sticker. Pieces come in reading order. Returns null when nothing usable is found.
+ */
+export async function detectGallerySheetPieces(
+  sheetDataUrl: string,
+  expected: number,
+): Promise<GallerySheetPiece[] | null> {
+  const image = await loadImage(sheetDataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const scale = Math.min(1, 256 / Math.max(width, height));
+  const sw = Math.max(1, Math.round(width * scale));
+  const sh = Math.max(1, Math.round(height * scale));
+  const total = sw * sh;
+  const small = canvas2d(sw, sh);
+  small.ctx.drawImage(image, 0, 0, sw, sh);
+  const alpha = small.ctx.getImageData(0, 0, sw, sh).data;
+  const solid = new Uint8Array(total);
+  for (let i = 0; i < total; i++) solid[i] = alpha[i * 4 + 3]! > 40 ? 1 : 0;
+
+  // Seeds: one solid core per sticker. Shrink step by step until the expected number come apart (up to about
+  // 2.5% of the sheet, beyond which real stickers would start splitting), keeping the step that found the most.
+  const maxRadius = Math.max(1, Math.round(Math.max(sw, sh) * 0.025));
+  let seeds: { labels: Int32Array; regions: MaskRegion[] } | null = null;
+  for (let radius = 0; radius <= maxRadius; radius++) {
+    const mask = radius === 0 ? solid : erodeMask(solid, sw, sh, radius);
+    const labelled = labelMask(mask, sw, sh);
+    const big = bigRegions(labelled.regions, expected, total);
+    if (!seeds || big.length > seeds.regions.length) seeds = { labels: labelled.labels, regions: big };
+    if (big.length >= expected) break;
+  }
+  if (!seeds || seeds.regions.length === 0) return null;
+
+  // Grow every seed back over the drawing (breadth first, so touching stickers split along the middle).
+  const owner = new Int32Array(total);
+  const seedIndex = new Map(seeds.regions.map((region, index) => [region.id, index + 1]));
+  let frontier: number[] = [];
+  for (let i = 0; i < total; i++) {
+    const id = seedIndex.get(seeds.labels[i]!);
+    if (id) {
+      owner[i] = id;
+      frontier.push(i);
+    }
+  }
+  const spread = (allow: (index: number) => boolean, steps = Infinity) => {
+    for (let step = 0; step < steps && frontier.length; step++) {
+      const next: number[] = [];
+      for (const index of frontier) {
+        const x = index % sw;
+        const neighbours = [
+          x > 0 ? index - 1 : -1,
+          x < sw - 1 ? index + 1 : -1,
+          index >= sw ? index - sw : -1,
+          index < total - sw ? index + sw : -1,
+        ];
+        for (const n of neighbours) {
+          if (n < 0 || owner[n] || !allow(n)) continue;
+          owner[n] = owner[index]!;
+          next.push(n);
+        }
+      }
+      frontier = next;
+    }
+  };
+  spread((index) => solid[index] === 1);
+
+  // Loose bits nobody reached join the nearest sticker when close enough; farther ones are dropped.
+  const loose = labelMask(
+    solid.map((value, index) => (value && !owner[index] ? 1 : 0)),
+    sw,
+    sh,
+  );
+  const reach = Math.max(sw, sh) * 0.06;
+  const boxes = seeds.regions.map(() => ({ minX: sw, minY: sh, maxX: -1, maxY: -1 }));
+  for (let i = 0; i < total; i++) {
+    const id = owner[i];
+    if (!id) continue;
+    const box = boxes[id - 1]!;
+    const x = i % sw;
+    const y = (i - x) / sw;
+    if (x < box.minX) box.minX = x;
+    if (x > box.maxX) box.maxX = x;
+    if (y < box.minY) box.minY = y;
+    if (y > box.maxY) box.maxY = y;
+  }
+  const looseOwner = new Map<number, number>();
+  for (const bit of loose.regions) {
+    let best = 0;
+    let bestDistance = reach;
+    boxes.forEach((box, index) => {
+      const dx = Math.max(box.minX - bit.maxX, bit.minX - box.maxX, 0);
+      const dy = Math.max(box.minY - bit.maxY, bit.minY - box.maxY, 0);
+      const distance = Math.hypot(dx, dy);
+      if (distance <= bestDistance) {
+        bestDistance = distance;
+        best = index + 1;
+      }
+    });
+    if (best) looseOwner.set(bit.id, best);
+  }
+  for (let i = 0; i < total; i++) {
+    const bit = loose.labels[i];
+    if (!bit) continue;
+    const id = looseOwner.get(bit);
+    if (!id) continue;
+    owner[i] = id;
+    const box = boxes[id - 1]!;
+    const x = i % sw;
+    const y = (i - x) / sw;
+    if (x < box.minX) box.minX = x;
+    if (x > box.maxX) box.maxX = x;
+    if (y < box.minY) box.minY = y;
+    if (y > box.maxY) box.maxY = y;
+  }
+  // Reach a little past every edge, so the soft outer pixels lost in the small copy come along at full size.
+  frontier = [];
+  for (let i = 0; i < total; i++) if (owner[i]) frontier.push(i);
+  spread(() => true, 2);
+
+  // Reading order: group into rows by vertical centre, then left to right.
+  const found = boxes
+    .map((box, index) => ({ ...box, id: index + 1 }))
+    .filter((box) => box.maxX >= box.minX && box.maxY >= box.minY);
+  if (found.length === 0) return null;
+  const centreY = (r: (typeof found)[number]) => (r.minY + r.maxY) / 2;
+  const medianHeight = found.map((r) => r.maxY - r.minY + 1).sort((a, b) => a - b)[Math.floor(found.length / 2)]!;
+  const rows: Array<typeof found> = [];
+  for (const region of [...found].sort((a, b) => centreY(a) - centreY(b))) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(centreY(region) - centreY(row[0]!)) < medianHeight * 0.5) row.push(region);
+    else rows.push([region]);
+  }
+  const ordered = rows.flatMap((row) => row.sort((a, b) => a.minX - b.minX));
+
+  // Cut each piece at full size, keeping only the pixels this piece owns.
+  const full = canvas2d(width, height);
+  full.ctx.drawImage(image, 0, 0);
+  const pixels = full.ctx.getImageData(0, 0, width, height).data;
+  const pad = 2;
+  return ordered.map((region) => {
+    const x0 = Math.max(0, Math.floor((region.minX - pad) / scale));
+    const y0 = Math.max(0, Math.floor((region.minY - pad) / scale));
+    const x1 = Math.min(width, Math.ceil((region.maxX + 1 + pad) / scale));
+    const y1 = Math.min(height, Math.ceil((region.maxY + 1 + pad) / scale));
+    const box = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+    const { canvas, ctx } = canvas2d(box.width, box.height);
+    const out = ctx.createImageData(box.width, box.height);
+    for (let y = y0; y < y1; y++) {
+      const sy = Math.min(sh - 1, Math.floor(y * scale));
+      for (let x = x0; x < x1; x++) {
+        const sx = Math.min(sw - 1, Math.floor(x * scale));
+        if (owner[sy * sw + sx] !== region.id) continue;
+        const from = (y * width + x) * 4;
+        const to = ((y - y0) * box.width + (x - x0)) * 4;
+        out.data[to] = pixels[from]!;
+        out.data[to + 1] = pixels[from + 1]!;
+        out.data[to + 2] = pixels[from + 2]!;
+        out.data[to + 3] = pixels[from + 3]!;
+      }
+    }
+    ctx.putImageData(out, 0, 0);
+    return { box, dataUrl: canvas.toDataURL("image/png") };
+  });
+}
+
+/** The even-grid boxes, for sheets where no outlines could be found. */
+export function gallerySheetGridBoxes(
+  width: number,
+  height: number,
+  cols: number,
+  rows: number,
+  count: number,
+): GallerySheetBox[] {
+  const cellWidth = width / cols;
+  const cellHeight = height / rows;
+  return Array.from({ length: Math.min(count, cols * rows) }, (_, index) => ({
+    x: (index % cols) * cellWidth,
+    y: Math.floor(index / cols) * cellHeight,
+    width: cellWidth,
+    height: cellHeight,
+  }));
+}
+
+/** True when a picture has nothing visible in it (a box placed on empty sheet). */
+export async function isBlankGallerySheetImage(dataUrl: string): Promise<boolean> {
+  const image = await loadImage(dataUrl);
+  const w = Math.max(1, Math.min(64, image.naturalWidth));
+  const h = Math.max(1, Math.min(64, image.naturalHeight));
+  const { ctx } = canvas2d(w, h);
+  ctx.drawImage(image, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data;
+  for (let i = 3; i < data.length; i += 4) if (data[i]! > 24) return false;
+  return true;
+}
+
+export async function readImageSize(dataUrl: string): Promise<{ width: number; height: number }> {
+  const image = await loadImage(dataUrl);
+  return { width: image.naturalWidth, height: image.naturalHeight };
+}
