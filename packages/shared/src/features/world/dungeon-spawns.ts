@@ -669,22 +669,23 @@ function plannedAreas(map: GameDungeonMap, site: DungeonSite, setting: MarinaraB
     switch (info.use) {
       case "post":
         return { area, key, role: "guard", level: level_, foes: holders() };
+      // Guards keep the posts and some of the rooms they live in, not every room (panel 2026-11-16).
       case "holders":
-        return random() < 0.75
+        return random() < 0.4
           ? { area, key, role: "guard", level: level_, foes: holders() }
           : { area, key, role: "empty", level: level_, foes: [] };
       case "squat":
-        return random() < 0.6
+        return random() < 0.35
           ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
           : { area, key, role: "empty", level: level_, foes: [] };
       case "quiet":
         return { area, key, role: "rest", level: level_, foes: [] };
       case "open":
-        return random() < 0.4
+        return random() < 0.3
           ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
           : { area, key, role: "empty", level: level_, foes: [] };
       default:
-        return random() < 0.3
+        return random() < 0.2
           ? { area, key, role: "lair", level: level_, foes: squatRoster(site, setting, level_, random) }
           : { area, key, role: "empty", level: level_, foes: [] };
     }

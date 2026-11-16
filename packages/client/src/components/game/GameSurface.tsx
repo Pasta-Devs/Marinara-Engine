@@ -14278,6 +14278,7 @@ function GameSurfaceComponent({
                         onLeft={() => undefined}
                         hour={typeof gameTimeMeta?.hour === "number" ? normalizeGameHour(gameTimeMeta.hour) : undefined}
                         dungeonLooks={mapPackQuery.data?.dungeons}
+                        onCaught={() => startCombatGeneration(true)}
                       />
                     </Suspense>
                   )}

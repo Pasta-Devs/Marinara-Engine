@@ -185,6 +185,25 @@ export function dungeonFoesHere(
   return foes.length ? { area, foes } : null;
 }
 
+/** The first step of a walk that enters a room where foes are now (guards at their posts, squatters
+ *  walked in on), leaving the room the walk set out from aside; with the room's name, for the news. */
+export function dungeonCatchOnPath(
+  here: DungeonSiteHere,
+  map: GameDungeonMap,
+  path: ReadonlyArray<{ x: number; y: number }>,
+  today: number,
+): { step: number; area: number; name: string } | null {
+  const from = dungeonAreaNumberAt(map, map.at);
+  for (const [step, at] of path.entries()) {
+    const number = dungeonAreaNumberAt(map, at);
+    if (!number || number === from) continue;
+    const area = here.areas.find((each) => each.area === number);
+    if (!area || !dungeonAreaFoesNow(area, here.site, here.setting, here.state, today).length) continue;
+    return { step, area: number, name: map.roomInfo?.[number - 1]?.name ?? map.name };
+  }
+  return null;
+}
+
 /** The fight setup's instruction for a fight in a held area: these foes and no others. */
 export function dungeonFightPromptText(here: DungeonSiteHere, foes: readonly MarinaraEncounterFoe[]): string {
   return `This fight is in ${here.map.name}, and the place decides who is fighting: ${dungeonRosterWords(foes, here.setting)}. The enemies are exactly these, each with its family id, tier and level as listed; add none, drop none, and write them as the story sees them.`;
@@ -253,7 +272,25 @@ export function dungeonGuardMarks(here: DungeonSiteHere, today: number): Dungeon
     const room = here.map.rooms[area.area - 1]!;
     // The room's middle, or the walkable cell nearest it; a cell clear of props (an urn, a lamp, the stairs)
     // first, so the figure never stands in one, and never the cell above it, where its head would be.
-    const middle = { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) };
+    // In a planned building a guard stands just inside the room's door nearest the way in, where it would
+    // stop whoever comes in (panel 2026-11-16); the chief keeps the middle of the heart.
+    const inRoom = (x: number, y: number) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
+    const doors: Array<{ x: number; y: number }> = [];
+    if (here.map.roomInfo && area.role !== "heart")
+      for (let y = room.y; y < room.y + room.h; y++)
+        for (let x = room.x; x < room.x + room.w; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const)
+            if (!inRoom(x + dx, y + dy) && dungeonWalkable(cells, x + dx, y + dy)) doors.push({ x, y });
+    const way = here.map.entrance;
+    const door = doors.sort(
+      (p, q) => Math.abs(p.x - way.x) + Math.abs(p.y - way.y) - (Math.abs(q.x - way.x) + Math.abs(q.y - way.y)),
+    )[0];
+    const middle = door ?? { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) };
     const clear = (x: number, y: number) =>
       cells.props[y * cells.width + x] === -1 && (y === 0 || cells.props[(y - 1) * cells.width + x] === -1);
     let at = middle;

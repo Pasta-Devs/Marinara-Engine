@@ -1247,7 +1247,12 @@ export function useDungeonWalk() {
         minutes: number;
         formatted: string;
         /** This walk's own news on a planned building: locks it opened, a trap it set off. */
-        step?: { unlocked: string[]; trap?: { area: number; dc: number } };
+        step?: {
+          unlocked: string[];
+          trap?: { area: number; dc: number };
+          /** Foes caught the party here: the walk stopped on its first step into their room. */
+          met?: { area: number; name: string };
+        };
       }>(`/game/${data.chatId}/map/walk`, { map: data.map, x: data.x, y: data.y }),
     // The party is where it walked at once, so the map never shows it back where it set out.
     onSuccess: (res, variables) => {
