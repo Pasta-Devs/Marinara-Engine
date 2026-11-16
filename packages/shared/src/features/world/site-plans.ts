@@ -370,6 +370,14 @@ export function siteTemplateForSet(setId: string): SiteTemplateId | null {
   return SITE_TEMPLATE_IDS.find((id) => TEMPLATES[id].set === setId) ?? null;
 }
 
+/** What a building's spare rooms (what is left of a band) are called, by its kind. */
+const SPARE_ROOM_NAMES: Record<SiteTemplateId, string> = {
+  manor: "Box room",
+  keep: "Empty cell",
+  temple: "Side chamber",
+  crypt: "Burial niche",
+};
+
 // ── The plan ──
 
 export interface SitePlanInput {
@@ -655,7 +663,7 @@ export function siteLevelMap(plan: SitePlan, index: number, options: { traps?: b
     const spare = (left: number) => left - band.rooms.reduce((sum, each) => sum + widest(each) + 1, 0);
     while (spare(span + 1) >= 5 && room < 4) {
       band.rooms.push({
-        name: `Spare room${room ? ` ${room + 1}` : ""}`,
+        name: `${SPARE_ROOM_NAMES[plan.template]}${room ? ` ${room + 1}` : ""}`,
         use: "squat",
         size: 1,
         zone: "service",
