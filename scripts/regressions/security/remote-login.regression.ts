@@ -18,7 +18,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 
 const ENV_KEYS = [
   "ADMIN_SECRET",
@@ -45,16 +45,16 @@ process.env.TRUSTED_HOSTS = "chat.example.com";
 process.env.ENCRYPTION_KEY = "ab".repeat(32);
 
 // Imported after the env is set: DATA_DIR is read once at import.
-const credential = await import("../../packages/server/src/config/login-credential.js");
+const credential = await import("../../../packages/server/src/config/login-credential.js");
 const { BASIC_AUTH_FAILURE_LIMIT, PAIRING_CODE_TTL_MS, basicAuthHook, loginRoutes } =
-  await import("../../packages/server/src/middleware/basic-auth.js");
-const { csrfProtectionHook } = await import("../../packages/server/src/middleware/csrf-protection.js");
-const { hostValidationHook } = await import("../../packages/server/src/middleware/host-validation.js");
-const { ipAllowlistHook } = await import("../../packages/server/src/middleware/ip-allowlist.js");
-const { rateLimitHook } = await import("../../packages/server/src/middleware/rate-limit.js");
-const { accessStatusRoutes } = await import("../../packages/server/src/routes/access-status.routes.js");
-const { logger } = await import("../../packages/server/src/lib/logger.js");
-const { DATA_DIR } = await import("../../packages/server/src/utils/data-dir.js");
+  await import("../../../packages/server/src/middleware/basic-auth.js");
+const { csrfProtectionHook } = await import("../../../packages/server/src/middleware/csrf-protection.js");
+const { hostValidationHook } = await import("../../../packages/server/src/middleware/host-validation.js");
+const { ipAllowlistHook } = await import("../../../packages/server/src/middleware/ip-allowlist.js");
+const { rateLimitHook } = await import("../../../packages/server/src/middleware/rate-limit.js");
+const { accessStatusRoutes } = await import("../../../packages/server/src/routes/access-status.routes.js");
+const { logger } = await import("../../../packages/server/src/lib/logger.js");
+const { DATA_DIR } = await import("../../../packages/server/src/utils/data-dir.js");
 
 const warnings: unknown[][] = [];
 const priorWarn = logger.warn;
@@ -718,7 +718,7 @@ try {
   writeFileSync(join(resetDir, ".remote-sessions.json"), "{}");
   const resetEnv: NodeJS.ProcessEnv = { ...process.env, MARINARA_ENV_FILE: envFile };
   delete resetEnv.DATA_DIR;
-  const reset = spawnSync(process.execPath, [fileURLToPath(new URL("../reset-login.mjs", import.meta.url))], {
+  const reset = spawnSync(process.execPath, [fileURLToPath(new URL("../../reset-login.mjs", import.meta.url))], {
     env: resetEnv,
     encoding: "utf8",
   });

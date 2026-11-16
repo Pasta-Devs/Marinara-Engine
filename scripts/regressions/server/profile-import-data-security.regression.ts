@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import AdmZip from "adm-zip";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import multipart from "../../packages/server/node_modules/@fastify/multipart/index.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import multipart from "../../../packages/server/node_modules/@fastify/multipart/index.js";
 import {
   formatProfileImportWarningDetails,
   formatProfileImportWarningSummary,
   type ProfileImportWarningCopy,
-} from "../../packages/client/src/lib/profile-import-warnings.js";
+} from "../../../packages/client/src/lib/profile-import-warnings.js";
 
 const warningCopy: ProfileImportWarningCopy = {
   missingAssetSummary: (count) => `${count} asset file${count === 1 ? "" : "s"} missing from the ZIP.`,
@@ -62,12 +62,12 @@ try {
   process.env.FILE_STORAGE_DIR = join(storageRoot, "storage");
 
   const [dbModule, schema, backupModule, cryptoModule, themesModule, connectionsModule] = await Promise.all([
-    import("../../packages/server/src/db/connection.js"),
-    import("../../packages/server/src/db/schema/index.js"),
-    import("../../packages/server/src/routes/backup.routes.js"),
-    import("../../packages/server/src/utils/crypto.js"),
-    import("../../packages/server/src/services/storage/themes.storage.js"),
-    import("../../packages/server/src/services/storage/connections.storage.js"),
+    import("../../../packages/server/src/db/connection.js"),
+    import("../../../packages/server/src/db/schema/index.js"),
+    import("../../../packages/server/src/routes/backup.routes.js"),
+    import("../../../packages/server/src/utils/crypto.js"),
+    import("../../../packages/server/src/services/storage/themes.storage.js"),
+    import("../../../packages/server/src/services/storage/connections.storage.js"),
   ]);
   const db = await dbModule.getDB();
   const app = Fastify();
@@ -434,7 +434,7 @@ try {
     const reviewAccountId = (await connections.getById("new-connection"))?.accountId;
     assert.ok(reviewAccountId, "an imported Model must land in a Connection under review");
     const { createConnectionAccountsStorage } =
-      await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+      await import("../../../packages/server/src/services/storage/connection-accounts.storage.js");
     await createConnectionAccountsStorage(db).update(reviewAccountId, {
       baseUrl: String(afterById.get("new-connection")!.baseUrl),
     });
@@ -530,7 +530,7 @@ try {
     assert.equal(importedLore.content, "Preserve this fact");
 
     const { writeSpriteCatalog, listSpriteCatalog } =
-      await import("../../packages/server/src/services/sprites/sprite-catalog.js");
+      await import("../../../packages/server/src/services/sprites/sprite-catalog.js");
     const ownerId = "profile-sprite-roundtrip";
     await writeSpriteCatalog(ownerId, {
       version: 1,

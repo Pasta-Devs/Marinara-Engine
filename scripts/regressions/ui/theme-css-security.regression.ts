@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { sanitizeAppCss } from "../../packages/client/src/lib/theme-css.js";
+import { sanitizeAppCss } from "../../../packages/client/src/lib/theme-css.js";
 
 const safeTheme = sanitizeAppCss(`
   :root { --background: oklch(0.16 0.02 300); --primary: oklch(0.82 0.09 340); }

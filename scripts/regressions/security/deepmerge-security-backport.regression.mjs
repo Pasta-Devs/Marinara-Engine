@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
-const clientRequire = createRequire(new URL("../../packages/client/package.json", import.meta.url));
+const clientRequire = createRequire(new URL("../../../packages/client/package.json", import.meta.url));
 const pwaRequire = createRequire(clientRequire.resolve("vite-plugin-pwa"));
 const workboxRequire = createRequire(pwaRequire.resolve("workbox-build"));
 const resolverRequire = createRequire(workboxRequire.resolve("@rollup/plugin-node-resolve"));
@@ -63,8 +63,8 @@ for (const file of ["index.js", "dist/cjs.js", "dist/umd.js"]) {
   );
 }
 
-const workspace = readFileSync(new URL("../../pnpm-workspace.yaml", import.meta.url), "utf8");
-const lock = readFileSync(new URL("../../pnpm-lock.yaml", import.meta.url), "utf8");
+const workspace = readFileSync(new URL("../../../pnpm-workspace.yaml", import.meta.url), "utf8");
+const lock = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
 const section = (text, key) => {
   const lines = text.split(/\r?\n/u);
   const start = lines.indexOf(`${key}:`);
@@ -84,7 +84,7 @@ assert.deepEqual(
   section(workspace, "patchedDependencies").filter((line) => line.includes("deepmerge@")),
   ["deepmerge@4.3.1: patches/deepmerge@4.3.1.patch"],
 );
-const patch = readFileSync(new URL("../../patches/deepmerge@4.3.1.patch", import.meta.url));
+const patch = readFileSync(new URL("../../../patches/deepmerge@4.3.1.patch", import.meta.url));
 const patchHash = createHash("sha256").update(patch).digest("hex");
 assert.equal(
   patchHash,

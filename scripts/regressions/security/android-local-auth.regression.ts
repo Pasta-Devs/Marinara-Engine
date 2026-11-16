@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import {
   androidLocalAuthHook,
   androidLocalAuthInjectHeaders,
@@ -12,8 +12,8 @@ import {
   androidLocalAuthTesting,
   androidLocalLoginRoute,
   isAndroidLocalAuthSatisfied,
-} from "../../packages/server/src/middleware/android-local-auth.js";
-import { csrfProtectionHook } from "../../packages/server/src/middleware/csrf-protection.js";
+} from "../../../packages/server/src/middleware/android-local-auth.js";
+import { csrfProtectionHook } from "../../../packages/server/src/middleware/csrf-protection.js";
 
 const originalSecret = process.env.MARINARA_ANDROID_SECRET;
 const originalCsrfTrustedOrigins = process.env.CSRF_TRUSTED_ORIGINS;
@@ -309,7 +309,7 @@ try {
   const manualInstall = await app.inject({ method: "GET", url: "/api/private" });
   assert.equal(manualInstall.statusCode, 200, "manual Termux installs must retain their existing behavior");
 
-  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
   const activitySource = readFileSync(
     resolve(repositoryRoot, "android/app/src/main/java/com/marinara/engine/MainActivity.java"),
     "utf8",

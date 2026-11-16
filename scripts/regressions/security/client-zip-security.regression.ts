@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readTextFilesFromZip } from "../../packages/client/src/lib/read-zip-text.js";
+import { readTextFilesFromZip } from "../../../packages/client/src/lib/read-zip-text.js";
 
 function crc32(bytes: Uint8Array) {
   let crc = 0xffffffff;

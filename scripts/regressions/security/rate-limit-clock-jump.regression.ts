@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import { rateLimitHook, resetRateLimitBucketsForTests } from "../../packages/server/src/middleware/rate-limit.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import { rateLimitHook, resetRateLimitBucketsForTests } from "../../../packages/server/src/middleware/rate-limit.js";
 
 // A wall clock set back two hours (NTP, a resumed VM) left every per-IP bucket counting down to a reset two hours
 // away, so all local clients got 429 with Retry-After near 6646 seconds. Windows now run on a monotonic clock.

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 
 const ENV_KEYS = [
   "ADMIN_SECRET",
@@ -32,13 +32,13 @@ process.env.DATA_DIR = ownDataDir;
 process.env.TRUSTED_HOSTS = "chat.example.com";
 process.env.ENCRYPTION_KEY = "ab".repeat(32);
 
-const credential = await import("../../packages/server/src/config/login-credential.js");
+const credential = await import("../../../packages/server/src/config/login-credential.js");
 const { BASIC_AUTH_FAILURE_LIMIT, basicAuthHook, loginRoutes } =
-  await import("../../packages/server/src/middleware/basic-auth.js");
-const { csrfProtectionHook } = await import("../../packages/server/src/middleware/csrf-protection.js");
-const { hostValidationHook } = await import("../../packages/server/src/middleware/host-validation.js");
-const { ipAllowlistHook } = await import("../../packages/server/src/middleware/ip-allowlist.js");
-const { logger } = await import("../../packages/server/src/lib/logger.js");
+  await import("../../../packages/server/src/middleware/basic-auth.js");
+const { csrfProtectionHook } = await import("../../../packages/server/src/middleware/csrf-protection.js");
+const { hostValidationHook } = await import("../../../packages/server/src/middleware/host-validation.js");
+const { ipAllowlistHook } = await import("../../../packages/server/src/middleware/ip-allowlist.js");
+const { logger } = await import("../../../packages/server/src/lib/logger.js");
 
 const BYPASS_NAMES =
   /ALLOW_UNAUTHENTICATED_|BYPASS_AUTH_|IP_ALLOWLIST|TRUSTED_PRIVATE_NETWORKS|REQUIRE_AUTH_FOR_|TRUSTED_AUTH_PROXY/;

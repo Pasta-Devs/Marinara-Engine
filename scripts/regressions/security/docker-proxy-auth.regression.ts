@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { isDockerProxyAuthRequired } from "../../packages/server/src/config/runtime-config.js";
-import { isBasicAuthSatisfied } from "../../packages/server/src/middleware/basic-auth.js";
+import { isDockerProxyAuthRequired } from "../../../packages/server/src/config/runtime-config.js";
+import { isBasicAuthSatisfied } from "../../../packages/server/src/middleware/basic-auth.js";
 import {
   ipAllowlistHook,
   isDockerRuntimeNetworkIp,
   isTrustedInterfaceRequest,
-} from "../../packages/server/src/middleware/ip-allowlist.js";
-import { requirePrivilegedAccess } from "../../packages/server/src/middleware/privileged-gate.js";
+} from "../../../packages/server/src/middleware/ip-allowlist.js";
+import { requirePrivilegedAccess } from "../../../packages/server/src/middleware/privileged-gate.js";
 
 const ENV_KEYS = [
   "ADMIN_SECRET",

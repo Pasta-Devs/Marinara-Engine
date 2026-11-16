@@ -70,7 +70,7 @@ try {
 
   // Exercise ONNX's actual installer, with only its NuGet HTTP transport and
   // temporary-directory root redirected to local fixtures.
-  const serverRequire = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+  const serverRequire = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
   const installerFile = serverRequire.resolve("onnxruntime-node/script/install-utils.js");
   const onnxTemp = join(workDir, "onnx-temp");
   const legacyOnnxDir = join(onnxTemp, "onnxruntime-node-pkgs_123456");
@@ -111,9 +111,9 @@ try {
   );
 
   const { sidecarRuntimeService } =
-    await import("../../packages/server/src/services/sidecar/sidecar-runtime.service.js");
+    await import("../../../packages/server/src/services/sidecar/sidecar-runtime.service.js");
   const { LLAMA_CPP_RUNTIME_MANIFEST } =
-    await import("../../packages/server/src/services/sidecar/runtime-integrity-manifest.js");
+    await import("../../../packages/server/src/services/sidecar/runtime-integrity-manifest.js");
   const service = sidecarRuntimeService as unknown as {
     selectBestAsset: () => Promise<unknown>;
     extractArchive: (file: string, target: string) => Promise<void>;

@@ -16,7 +16,7 @@ process.env.DATA_DIR = dataDir;
 process.env.NODE_ENV = "test";
 
 const { insideByAsciiCase, realPathInAppFolder, realPathInRealFolder } =
-  await import("../../packages/server/src/utils/app-folder.js");
+  await import("../../../packages/server/src/utils/app-folder.js");
 
 // A path through an outside file would make the real-path walk fail on that file (ENOTDIR) before the bounds check.
 const throughOutsideFile = join(sprites, "..", "..", "outside", "file.txt", "x");
