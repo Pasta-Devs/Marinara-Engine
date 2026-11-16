@@ -23,6 +23,7 @@ import { request as httpsRequest } from "node:https";
 import { connect } from "node:net";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DRIVER = `http://127.0.0.1:${process.env.WEBKIT_QC_DRIVER_PORT ?? 4444}`;
 const PROXY_PORT = Number(process.env.WEBKIT_QC_PROXY_PORT ?? 7899);
@@ -85,11 +86,19 @@ export function startProxy(appUrl, port = PROXY_PORT) {
     const url = new URL(req.url, "http://proxy");
     if (url.pathname === "/__webkit-qc/target") return res.end(appUrl);
     const cookieDevice = /(?:^|;\s*)webkit_qc=(phone|tablet|none)/.exec(req.headers.cookie ?? "")?.[1];
-    const device = url.searchParams.get("webkit_qc") ?? cookieDevice ?? "none";
+    const requested = url.searchParams.get("webkit_qc");
+    const device =
+      requested === "none" || Object.hasOwn(DEVICES, requested ?? "") ? requested : (cookieDevice ?? "none");
     if (url.pathname === "/__webkit-qc/shim.js") {
       res.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
       return res.end(shimSource(url.searchParams.get("device")));
     }
+    const fail = (error) => {
+      if (res.writableEnded) return;
+      if (res.headersSent) return res.destroy();
+      res.writeHead(502, { "content-type": "text/plain" });
+      res.end(`webkit-qc proxy: ${error.message}`);
+    };
     const wantsHtml = req.method === "GET" && /text\/html/.test(req.headers.accept ?? "");
     const headers = { ...req.headers, host: target.host };
     if (wantsHtml) {
@@ -108,9 +117,12 @@ export function startProxy(appUrl, port = PROXY_PORT) {
       },
       (up) => {
         const outHeaders = { ...up.headers };
-        if (url.searchParams.has("webkit_qc")) {
+        if (requested === device) {
           outHeaders["set-cookie"] = [...[].concat(up.headers["set-cookie"] ?? []), `webkit_qc=${device}; Path=/`];
         }
+        // A reset or cut-off answer from the app still gets a reply (or a closed socket), never a hung request.
+        up.on("error", fail);
+        up.on("aborted", () => fail(new Error("the app closed the response early")));
         if (!wantsHtml || !/text\/html/.test(up.headers["content-type"] ?? "") || device === "none") {
           res.writeHead(up.statusCode, outHeaders);
           return up.pipe(res);
@@ -118,6 +130,7 @@ export function startProxy(appUrl, port = PROXY_PORT) {
         const chunks = [];
         up.on("data", (chunk) => chunks.push(chunk));
         up.on("end", () => {
+          if (res.writableEnded) return;
           const tag = `<script src="/__webkit-qc/shim.js?device=${device}"></script>`;
           const html = Buffer.concat(chunks)
             .toString("utf8")
@@ -131,10 +144,7 @@ export function startProxy(appUrl, port = PROXY_PORT) {
         });
       },
     );
-    upstream.on("error", (error) => {
-      res.writeHead(502, { "content-type": "text/plain" });
-      res.end(`webkit-qc proxy: ${error.message}`);
-    });
+    upstream.on("error", fail);
     req.pipe(upstream);
   });
   // WebSockets / upgrades: pass the raw connection through.
@@ -412,7 +422,7 @@ async function main() {
   process.exitCode = 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;
