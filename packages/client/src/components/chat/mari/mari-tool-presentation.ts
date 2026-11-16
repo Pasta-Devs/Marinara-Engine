@@ -419,6 +419,19 @@ function firstCommandValue(tokens: string[], start = 0) {
   return null;
 }
 
+/** `mari images look` refs: the bare values, skipping every `--flag value` pair (all of look's flags take one). */
+function firstLookRef(tokens: string[]) {
+  for (let index = 3; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    if (token.startsWith("--")) {
+      if (!token.includes("=")) index += 1;
+      continue;
+    }
+    return token;
+  }
+  return null;
+}
+
 function looksLikeHelpToken(token: string | null | undefined) {
   return !token || token === "help" || token === "--help" || token === "-h";
 }
@@ -587,7 +600,9 @@ function extractMariImagesCommand(command: string) {
   const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
   return {
     action,
-    target: tokenFlagValue(tokens, "--target") ?? firstCommandValue(tokens, 3),
+    target:
+      tokenFlagValue(tokens, "--target") ??
+      (action === "look" || action === "view" ? firstLookRef(tokens) : firstCommandValue(tokens, 3)),
     asset: tokenFlagValue(tokens, "--asset") ?? tokenFlagValue(tokens, "--id"),
     prompt: tokenFlagValue(tokens, "--prompt"),
     source: tokenFlagValue(tokens, "--source"),

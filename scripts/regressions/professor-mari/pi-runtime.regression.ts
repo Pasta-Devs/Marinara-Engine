@@ -45,6 +45,7 @@ try {
     MAX_REPEATED_COMMAND_FAILURES,
     workspaceTextClaimsHeldChange,
     draftVisibleText,
+    capRunImages,
   } = await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { assertClosedToolSet, describeCutReply, outputLimitRepairPrompt, MAX_OUTPUT_LIMIT_REPAIRS } =
     await import("../../../packages/server/src/services/professor-mari/pi-runtime.js");
@@ -2075,6 +2076,26 @@ try {
     assert.equal((await lastAssistant(invalid.chat.id))?.extra.mariQuestions, undefined);
   }
 
+  // #9342: a run carries at most 8 pictures; the oldest looks lose theirs first and keep their text.
+  {
+    const run: ChatMessage[] = [
+      { role: "user", content: "a", images: ["a1", "a2", "a3", "a4"] },
+      { role: "assistant", content: "x" },
+      { role: "user", content: "b", images: ["b1", "b2", "b3"] },
+      { role: "user", content: "c", images: ["c1", "c2"] },
+    ];
+    capRunImages(run);
+    assert.deepEqual(
+      run.map((message) => message.images ?? null),
+      [["a2", "a3", "a4"], null, ["b1", "b2", "b3"], ["c1", "c2"]],
+    );
+    capRunImages(run, 2);
+    assert.deepEqual(
+      run.map((message) => message.images ?? null),
+      [null, null, null, ["c1", "c2"]],
+    );
+    assert.equal(run[0]!.content, "a", "the text stays");
+  }
   // #9342: `mari images look` pictures reach her next request in every runtime, stay for the rest of the run, and
   // never reach the saved chat (the next turn starts with text only).
   {

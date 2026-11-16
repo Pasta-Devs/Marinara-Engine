@@ -119,7 +119,7 @@ try {
 
   // 1. The URL a generated preview asset returns serves the image.
   const generated = (await images("generate", "--prompt", "a castle above a lake at dusk")) as {
-    asset: { url: string; filename: string };
+    asset: { id: string; url: string; filename: string };
   };
   const served = await app.inject(generated.asset.url);
   assert.equal(served.statusCode, 200, `preview asset URL ${generated.asset.url} loads`);
@@ -266,7 +266,7 @@ try {
     .png()
     .toBuffer();
   const wideUrl = `data:image/png;base64,${wide.toString("base64")}`;
-  const seen = await look("look", wideUrl, generated.asset.id as string);
+  const seen = await look("look", wideUrl, generated.asset.id);
   assert.equal(seen.images.length, 2);
   assert.match(seen.images[0]!, /^data:image\/jpeg;base64,/, "an opaque picture goes out as JPEG");
   const sentMeta = await sharp(Buffer.from(seen.images[0]!.split(",")[1]!, "base64")).metadata();
@@ -294,7 +294,7 @@ try {
   const alpha = await look("look", "/api/backgrounds/file/glass.png");
   assert.match(alpha.images[0]!, /^data:image\/png;base64,/, "a transparent picture stays PNG");
   assert.equal(alpha.output.looked[0]!.label, "background:glass.png");
-  const byTarget = await look("look", "--target", "asset", "--asset", generated.asset.id as string);
+  const byTarget = await look("look", "--target", "asset", "--asset", generated.asset.id);
   assert.equal(byTarget.images.length, 1, "--target asset --asset names one picture, not two");
   assert.match(await refused("look"), /Usage: mari images look/);
   assert.match(await refused("look", "a", "b", "c", "d", "e"), /at most 4 images/);

@@ -566,6 +566,8 @@ export type ImageCaptionFallbackOptions = {
   captionNote?: (captionModel: string) => string;
   /** #9342: without an Image reading default, the pictures are replaced by this line instead of the refusal ending the request. */
   unavailableNote?: string;
+  /** #9342: `false` (the on-device model, or a Model set to text only) sends captions or notes from the first request; a provider may drop images without refusing them. */
+  readsImages?: boolean | null;
 };
 
 /**
@@ -580,15 +582,13 @@ export function withImageCaptionFallback(
   options: ImageCaptionFallbackOptions = {},
 ): BaseLLMProvider {
   let captioning: Promise<ImageCaptioningRuntime> | null = null;
-  let imagesRejected = false;
+  let imagesRejected = options.readsImages === false;
   const captions = new Map<string, string>();
   const withCaptions = async (messages: ChatMessage[], signal: AbortSignal | undefined) => {
     captioning ??= resolveCaptioning();
     const runtime = await captioning;
-    if (!runtime.provider) {
-      if (!options.unavailableNote) return null;
-      const note = options.unavailableNote;
-      return messages.map((message) => {
+    const withNote = (note: string) =>
+      messages.map((message) => {
         if (!message.images?.length) return message;
         const { images, ...rest } = message;
         return {
@@ -599,17 +599,25 @@ export function withImageCaptionFallback(
           ),
         };
       });
-    }
+    if (!runtime.provider) return options.unavailableNote ? withNote(options.unavailableNote) : null;
     const note = options.captionNote?.(runtime.connection?.model || runtime.connection?.name || "unknown");
     const missing = [...new Set(messages.flatMap((message) => message.images ?? []))].filter(
       (url) => !captions.has(url),
     );
-    const made = await generateImageCaptionsForDataUrls(
-      missing.map((imageDataUrl, index) => ({ filename: `image-${captions.size + index + 1}`, imageDataUrl })),
-      runtime,
-      signal ?? new AbortController().signal,
-      debugMode,
-    );
+    let made: Awaited<ReturnType<typeof generateImageCaptionsForDataUrls>>;
+    try {
+      made = await generateImageCaptionsForDataUrls(
+        missing.map((imageDataUrl, index) => ({ filename: `image-${captions.size + index + 1}`, imageDataUrl })),
+        runtime,
+        signal ?? new AbortController().signal,
+        debugMode,
+      );
+    } catch (error) {
+      // #9342: with a note to fall back on, a failed caption call doesn't end the caller's request.
+      if (!options.unavailableNote || signal?.aborted) throw error;
+      logger.warn({ err: error }, "[image-captioning] Captioning failed; sending a note instead of the pictures");
+      return withNote(options.unavailableNote);
+    }
     for (const { input, caption } of made) {
       const block = formatImageCaptionBlock({ filename: input.filename, type: "image" }, caption ?? "");
       captions.set(

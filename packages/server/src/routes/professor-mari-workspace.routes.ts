@@ -818,7 +818,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       ...result,
       notes: [
         ...(result.notes ?? []),
-        `${images.length} picture(s) not shown: run mari images look on its own (no pipes or ;) so the pictures reach you.`,
+        `${images.length} picture(s) not shown: the shell CLI can't deliver pictures. Professor Mari sees them when she runs mari images look on its own (no pipes or ;); anyone else can ask her in chat to look.`,
       ],
     };
   });

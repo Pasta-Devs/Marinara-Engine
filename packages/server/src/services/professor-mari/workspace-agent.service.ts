@@ -124,7 +124,7 @@ import type {
   ProfessorMariQuickEditApplyResponse,
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
-import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
+import { MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
 import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
@@ -2196,13 +2196,31 @@ const MARI_IMAGE_CAPTION_OPTIONS = {
   captionNote: (model: string) =>
     `[This picture was described by the image reading model ${model}. You did not see it yourself: say so if you describe it, and don't claim details the description doesn't give.]`,
   unavailableNote:
-    "[Picture not shown: your model can't read images and no Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and how to set one; don't guess what it shows.]",
+    "[Picture not shown: your model can't read images and no working Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and to check that setting; don't guess what it shows.]",
 } satisfies ImageCaptionFallbackOptions;
 
 /**
  * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
  * shows them and the rest of the run keeps them; the stored chat and later turns keep only the text.
  */
+/** #9342: the most pictures a run carries; older looks fall back to their text stub so requests stay a sane size. */
+export const MARI_RUN_IMAGE_LIMIT = 8;
+
+/** Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} pictures across the run's messages and strips older ones in place. */
+export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIMIT): void {
+  let kept = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (!message.images?.length) continue;
+    const room = Math.max(0, limit - kept);
+    if (message.images.length > room) {
+      const { images, ...rest } = message;
+      messages[index] = room > 0 ? { ...rest, images: images.slice(-room) } : rest;
+    }
+    kept += Math.min(message.images.length, room);
+  }
+}
+
 export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
   const images = results.flatMap((result) => result.images ?? []);
   return {
@@ -4293,7 +4311,7 @@ export class ProfessorMariWorkspaceService {
             ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
-        MARI_IMAGE_CAPTION_OPTIONS,
+        { ...MARI_IMAGE_CAPTION_OPTIONS, readsImages: modelReadsImages(connection) },
       );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4776,6 +4794,7 @@ export class ProfessorMariWorkspaceService {
           messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
             messages.push(commandResultMessage(commandResults));
+            capRunImages(messages);
           }
           messages.push({
             role: "user",
@@ -4949,6 +4968,8 @@ export class ProfessorMariWorkspaceService {
         }
 
         messages.push(commandResultMessage(commandResults));
+
+        capRunImages(messages);
 
         if (round < MAX_COMMAND_ROUNDS - 1) {
           const steerText = await deliverSteers();

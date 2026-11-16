@@ -1879,7 +1879,9 @@ export class MariImagesService {
     // Resolve every ref first, so one bad ref fails the call before any image is processed.
     const sources = [];
     for (const ref of refs) sources.push({ ref, image: await this.resolveImageReference(ref, context) });
-    const sharp = await getSharp();
+    const sharp = await getSharp().catch(() => {
+      throw new Error("Looking at images needs image processing (sharp), which isn't available on this install.");
+    });
     const longSide = LOOK_LONG_SIDE[detail];
     const images: string[] = [];
     const looked = [];

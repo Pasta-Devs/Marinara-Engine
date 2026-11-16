@@ -175,4 +175,47 @@ assert.equal(blind.seen[1]![0]!.content, "Look\n\n[picture not shown]");
 await noted.chatComplete(messages, { model: "m" });
 assert.equal(blind.seen.length, 3, "later requests send the note at once");
 
+// A Model known not to read images (the on-device one drops them silently) gets captions on the first request.
+const silent = new ChatProvider();
+const upfront = withImageCaptionFallback(silent, async () => runtime, false, { readsImages: false });
+await upfront.chatComplete(messages, { model: "m" });
+assert.equal(silent.seen.length, 1, "no refusal round trip");
+assert.equal(silent.seen[0]![0]!.images, undefined);
+assert.match(silent.seen[0]![0]!.content, /a red square/);
+
+// A caption call that fails falls back to the note instead of ending the request.
+class FailingCaptioner extends BaseLLMProvider {
+  constructor() {
+    super("", "");
+  }
+  async *chat(): AsyncGenerator<string> {
+    throw new Error("captioner down");
+  }
+}
+const failing = new ChatProvider();
+const failed = withImageCaptionFallback(
+  failing,
+  async () => ({ ...runtime, provider: new FailingCaptioner() }),
+  false,
+  {
+    readsImages: false,
+    unavailableNote: "[picture not shown]",
+  },
+);
+assert.equal((await failed.chatComplete(messages, { model: "m" })).content, "ok");
+assert.equal(failing.seen[0]![0]!.content, "Look\n\n[picture not shown]");
+const strict = withImageCaptionFallback(
+  new ChatProvider(),
+  async () => ({ ...runtime, provider: new FailingCaptioner() }),
+  false,
+  {
+    readsImages: false,
+  },
+);
+await assert.rejects(
+  strict.chatComplete(messages, { model: "m" }),
+  /caption|captioner down/i,
+  "no note: the failure stands",
+);
+
 console.log("vision fallback regression passed");

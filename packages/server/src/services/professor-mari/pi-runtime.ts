@@ -56,6 +56,7 @@ import {
   visibleTextAsksApplyPermission,
   workspaceTextClaimsHeldChange,
   workspaceTextClaimsMutationCompletion,
+  MARI_RUN_IMAGE_LIMIT,
   WORKSPACE_TOOL_DEFINITIONS,
   type PromptEventSink,
   type WorkspaceCommandCall,
@@ -1159,7 +1160,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       text = "Held: this change waits for the user's Accept and was not applied. Do not repeat it.";
     } else {
       const result = await commands.executeWorkspaceCommand(call, signal, trace, onEvent, input.actionResults);
-      if (result.images?.length) imagesByCallId.set(toolCallId, result.images);
+      if (result.images?.length) {
+        imagesByCallId.set(toolCallId, result.images);
+        // #9342: the run carries at most MARI_RUN_IMAGE_LIMIT pictures; the oldest looks keep only their text.
+        let total = [...imagesByCallId.values()].reduce((sum, list) => sum + list.length, 0);
+        for (const [callId, list] of imagesByCallId) {
+          if (total <= MARI_RUN_IMAGE_LIMIT) break;
+          const drop = Math.min(list.length, total - MARI_RUN_IMAGE_LIMIT);
+          if (drop === list.length) imagesByCallId.delete(callId);
+          else imagesByCallId.set(callId, list.slice(drop));
+          total -= drop;
+        }
+      }
       input.commandResults.push(result);
       current.results.push(result);
       // The executor's refusals are shared with the JSON runtime and name its `say` field; say it in pi's words.
