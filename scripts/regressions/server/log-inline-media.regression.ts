@@ -34,6 +34,7 @@ const payloads = {
   anthropic: { messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } }] }] },
   google: { contents: [{ parts: [{ inline_data: { mime_type: "image/webp", data: base64 } }] }] },
   embedded: { role: "tool", content: "Saved as " + dataUrl + " for later" },
+  untyped: { url: "data:;base64," + base64 },
   small: { url: "data:image/png;base64,AAAA" },
 };
 const before = structuredClone(payloads);
@@ -41,6 +42,7 @@ for (const [name, payload] of Object.entries(payloads)) logger.debug("payload %s
 logger.debug("replacer:\\n%s", debugJson({ apiKey: "keep-out", url: dataUrl }, (key, value) => (key === "apiKey" ? "[r]" : value)));
 logger.debug("raw text %s", dataUrl);
 logger.debug("raw json %j", { url: dataUrl });
+logger.debug("raw untyped %s", "data:;base64," + base64);
 assert.deepEqual(payloads, before);
 console.log("PAYLOADS_UNCHANGED");
 `,
@@ -89,6 +91,8 @@ assert.ok(short.msg("replacer").includes(`"apiKey": "[r]"`), "the caller's repla
 assert.ok(short.msg("replacer").includes(`[image/png base64, ~147 KB: ${edges}`));
 assert.equal(short.msg("raw text"), `raw text [image/png base64, ~147 KB: ${edges}`);
 assert.ok(short.msg("raw json").includes(`[image/png base64, ~147 KB: ${edges}`));
+assert.ok(short.msg("payload untyped").includes(`"url": "[text/plain base64, ~147 KB: ${edges}"`));
+assert.equal(short.msg("raw untyped"), `raw untyped [text/plain base64, ~147 KB: ${edges}`);
 
 const full = run("full");
 assert.ok(full.msg("payload mari").includes(base64), "LOG_INLINE_MEDIA=full keeps the data URL whole");
