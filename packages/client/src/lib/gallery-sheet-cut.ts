@@ -27,68 +27,71 @@ function canvas2d(width: number, height: number) {
   return { canvas, ctx };
 }
 
+type Bounds = { left: number; top: number; right: number; bottom: number };
+
 /**
- * Trim a cell to what was drawn on it, then centre it on a square with a small margin and scale it
- * down to the kind's size. A pixel counts as drawn when it is not see-through and does not match the
+ * What was drawn on a cell: the box around every pixel that is not see-through and does not match the
  * cell's background, read from its four corners (so a flat white or green backdrop is skipped too).
  */
-export async function fitGallerySheetCell(
-  dataUrl: string,
-  kind: GallerySheetKind,
-  options: { trim?: boolean } = {},
-): Promise<string> {
-  const image = await loadImage(dataUrl);
+function drawnBounds(image: HTMLImageElement): Bounds {
   const width = image.naturalWidth;
   const height = image.naturalHeight;
-  let bounds = { left: 0, top: 0, right: width, bottom: height };
-
-  if (options.trim !== false) {
-    const { ctx } = canvas2d(width, height);
-    ctx.drawImage(image, 0, 0);
-    const pixels = ctx.getImageData(0, 0, width, height).data;
-    const at = (x: number, y: number) => (y * width + x) * 4;
-    const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)];
-    const opaqueCorners = corners.filter((offset) => pixels[offset + 3]! > 24);
-    const background =
-      opaqueCorners.length >= 2
-        ? [0, 1, 2].map((channel) => {
-            const values = opaqueCorners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
-            return values[Math.floor(values.length / 2)]!;
-          })
-        : null;
-    let left = width;
-    let top = height;
-    let right = -1;
-    let bottom = -1;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const offset = at(x, y);
-        if (pixels[offset + 3]! <= 24) continue;
-        if (background) {
-          const distance =
-            Math.abs(pixels[offset]! - background[0]!) +
-            Math.abs(pixels[offset + 1]! - background[1]!) +
-            Math.abs(pixels[offset + 2]! - background[2]!);
-          if (distance < 48) continue;
-        }
-        if (x < left) left = x;
-        if (x > right) right = x;
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
+  const { ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const corners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)];
+  const opaqueCorners = corners.filter((offset) => pixels[offset + 3]! > 24);
+  const background =
+    opaqueCorners.length >= 2
+      ? [0, 1, 2].map((channel) => {
+          const values = opaqueCorners.map((offset) => pixels[offset + channel]!).sort((a, b) => a - b);
+          return values[Math.floor(values.length / 2)]!;
+        })
+      : null;
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = at(x, y);
+      if (pixels[offset + 3]! <= 24) continue;
+      if (background) {
+        const distance =
+          Math.abs(pixels[offset]! - background[0]!) +
+          Math.abs(pixels[offset + 1]! - background[1]!) +
+          Math.abs(pixels[offset + 2]! - background[2]!);
+        if (distance < 48) continue;
       }
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
     }
-    if (right >= left && bottom >= top) bounds = { left, top, right: right + 1, bottom: bottom + 1 };
   }
+  if (right < left || bottom < top) return { left: 0, top: 0, right: width, bottom: height };
+  return { left, top, right: right + 1, bottom: bottom + 1 };
+}
 
+/** Draw the trimmed art on a square `side` source pixels wide, scaled down to the kind's size. */
+function drawOnSquare(
+  image: HTMLImageElement,
+  bounds: Bounds,
+  side: number,
+  kind: GallerySheetKind,
+  place: "centre" | "baseline",
+): string {
   const contentWidth = bounds.right - bounds.left;
   const contentHeight = bounds.bottom - bounds.top;
-  const side = Math.ceil(Math.max(contentWidth, contentHeight) * 1.08);
   const outSide = Math.min(GALLERY_SHEET_MAX_SIDE[kind], side);
   const scale = outSide / side;
   const { canvas, ctx } = canvas2d(outSide, outSide);
   ctx.imageSmoothingQuality = "high";
   const drawWidth = contentWidth * scale;
   const drawHeight = contentHeight * scale;
+  // The baseline sits as far above the bottom as the margin around the set's biggest piece.
+  const top = place === "baseline" ? outSide * (1 - 0.04 / 1.08) - drawHeight : (outSide - drawHeight) / 2;
   ctx.drawImage(
     image,
     bounds.left,
@@ -96,11 +99,49 @@ export async function fitGallerySheetCell(
     contentWidth,
     contentHeight,
     (outSide - drawWidth) / 2,
-    (outSide - drawHeight) / 2,
+    top,
     drawWidth,
     drawHeight,
   );
   return canvas.toDataURL("image/png");
+}
+
+/**
+ * Trim a cell to what was drawn on it, then centre it on a square with a small margin and scale it
+ * down to the kind's size.
+ */
+export async function fitGallerySheetCell(
+  dataUrl: string,
+  kind: GallerySheetKind,
+  options: { trim?: boolean } = {},
+): Promise<string> {
+  const image = await loadImage(dataUrl);
+  const bounds =
+    options.trim === false
+      ? { left: 0, top: 0, right: image.naturalWidth, bottom: image.naturalHeight }
+      : drawnBounds(image);
+  const side = Math.ceil(Math.max(bounds.right - bounds.left, bounds.bottom - bounds.top) * 1.08);
+  return drawOnSquare(image, bounds, side, kind, "centre");
+}
+
+/**
+ * Fit every piece of one sheet. Emoji each fill their own square. Stickers share one scale and stand on
+ * one baseline, centred side to side: a short sticker stays short, and a set lines up in a row and in
+ * chat instead of each floating at whatever height its own shape gives it.
+ */
+export async function fitGallerySheetSet(dataUrls: string[], kind: GallerySheetKind): Promise<string[]> {
+  if (kind !== "sticker") return Promise.all(dataUrls.map((dataUrl) => fitGallerySheetCell(dataUrl, kind)));
+  const images = await Promise.all(dataUrls.map(loadImage));
+  const bounds = images.map(drawnBounds);
+  const sizes = bounds.map((b) => Math.max(b.right - b.left, b.bottom - b.top));
+  const sorted = [...sizes].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 1;
+  // One oversized piece (two stickers cut as one) shouldn't shrink the whole set: the shared square fits
+  // the set up to a third over its typical size, and anything bigger is scaled down on its own to fit.
+  const shared = Math.max(1, Math.min(Math.max(...sizes), median * 1.35));
+  return images.map((image, index) =>
+    drawOnSquare(image, bounds[index]!, Math.ceil(Math.max(shared, sizes[index]!) * 1.08), kind, "baseline"),
+  );
 }
 
 /**

@@ -205,13 +205,7 @@ export function AppDialogRenderer() {
               placeholder={dialog.placeholder}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm text-[var(--foreground)] outline-none max-sm:text-base transition-colors focus:border-[var(--primary)]"
             />
-            <div className="flex flex-row-reverse items-center justify-start gap-2 max-sm:flex-col max-sm:items-stretch">
-              <button
-                type="submit"
-                className={`rounded-lg px-3 py-2 max-sm:py-3 text-sm font-medium transition-colors ${confirmToneClass}`}
-              >
-                {dialog.confirmLabel ?? "Confirm"}
-              </button>
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={dismissActiveDialog}
@@ -253,13 +247,6 @@ export function AppDialogRenderer() {
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${confirmToneClass} ${chatControlClass}`}
               >
                 {dialog.confirmLabel ?? "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={dismissActiveDialog}
-                className={`rounded-lg px-3 py-2 max-sm:py-3 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] ${chatControlClass}`}
-              >
-                {dialog.cancelLabel ?? "Cancel"}
               </button>
             </div>
           </div>
