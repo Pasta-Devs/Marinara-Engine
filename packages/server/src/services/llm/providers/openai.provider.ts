@@ -1574,6 +1574,16 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (
       this.providerKind === "nanogpt" &&
+      /^minimax\/minimax-m3\.1-flash(?::|$)/u.test(capabilityModelId(options.model))
+    ) {
+      // NanoGPT's M3.1 Flash always reasons and defaults to max when effort is omitted.
+      const effort = options.reasoningEffort;
+      if (effort) body.reasoning_effort = effort === "none" ? "low" : effort;
+      return;
+    }
+
+    if (
+      this.providerKind === "nanogpt" &&
       this.hasExplicitReasoningDisable(options.reasoningEffort) &&
       !isGlm53MandatoryReasoningModel(options.model)
     ) {

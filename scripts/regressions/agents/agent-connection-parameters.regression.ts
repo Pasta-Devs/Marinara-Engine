@@ -157,6 +157,7 @@ const { executeAgent, executeAgentBatch } =
 const { resolveAgentPipelineAgents } =
   await import("../../../packages/server/src/services/generation/agent-resolution.js");
 const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
+const { runNamedCases } = await import("../fixtures/named-cases.js");
 const { ConnectionFallbackProvider } =
   await import("../../../packages/server/src/services/llm/connection-fallback-provider.js");
 const { writeManualIllustratorPromptPlan } =
@@ -307,6 +308,34 @@ let db: Awaited<ReturnType<typeof getDB>> | null = null;
 try {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+  await runNamedCases([
+    {
+      name: "NanoGPT sends MiniMax M3.1 Flash reasoning effort and respects its Send switch",
+      async run() {
+        const provider = new OpenAIProvider(`${base}/v1`, "fixture-key", undefined, null, null, "nanogpt");
+        const model = "minimax/minimax-m3.1-flash";
+        const messages = [{ role: "user" as const, content: "Write an illustration prompt." }];
+        await provider.chatComplete(messages, { model, reasoningEffort: "low" });
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "low");
+
+        for await (const _chunk of provider.chat(messages, { model: `${model}:tensorix`, reasoningEffort: "xhigh" })) {
+          // Drain the response.
+        }
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "xhigh");
+
+        await provider.chatComplete(messages, { model, reasoningEffort: "none" });
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "low");
+
+        await provider.chatComplete(messages, {
+          model,
+          reasoningEffort: "low",
+          enabledParameters: { reasoningEffort: false },
+        });
+        assert.equal(Object.hasOwn(requests.at(-1)!.body, "reasoning_effort"), false);
+      },
+    },
+  ]);
 
   // ── OpenAI-compatible (custom endpoint): JSON and text agents send the tuned connection ─────────────────────────
   {
