@@ -6,7 +6,6 @@
 // sidecar runtime.
 // ──────────────────────────────────────────────
 
-import { useShallow } from "zustand/react/shallow";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -309,77 +308,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
     updateConfig,
     markPrompted,
     fetchStatus,
-  } = useSidecarStore(
-    useShallow(
-      ({
-        status,
-        config,
-        modelDownloaded,
-        modelDisplayName,
-        gpuMemory,
-        runtime,
-        inferenceReady,
-        logPath,
-        startupError,
-        failedRuntimeVariant,
-        runtimeDiagnostics,
-        platform,
-        arch,
-        curatedModels,
-        downloadProgress,
-        customModels,
-        customModelsLoading,
-        customModelsError,
-        startDownload,
-        startCustomDownload,
-        listHuggingFaceModels,
-        clearCustomModels,
-        cancelDownload,
-        restartRuntime,
-        installRuntime,
-        sendTestMessage,
-        testMessagePending,
-        testMessageResult,
-        reinstallRuntime,
-        updateConfig,
-        markPrompted,
-        fetchStatus,
-      }) => ({
-        status,
-        config,
-        modelDownloaded,
-        modelDisplayName,
-        gpuMemory,
-        runtime,
-        inferenceReady,
-        logPath,
-        startupError,
-        failedRuntimeVariant,
-        runtimeDiagnostics,
-        platform,
-        arch,
-        curatedModels,
-        downloadProgress,
-        customModels,
-        customModelsLoading,
-        customModelsError,
-        startDownload,
-        startCustomDownload,
-        listHuggingFaceModels,
-        clearCustomModels,
-        cancelDownload,
-        restartRuntime,
-        installRuntime,
-        sendTestMessage,
-        testMessagePending,
-        testMessageResult,
-        reinstallRuntime,
-        updateConfig,
-        markPrompted,
-        fetchStatus,
-      }),
-    ),
-  );
+  } = useSidecarStore();
 
   const isAppleSilicon = platform === "darwin" && arch === "arm64";
   const defaultCustomRepo = isAppleSilicon ? "mlx-community/gemma-4-e2b-it-4bit" : "unsloth/gemma-4-E2B-it-GGUF";
