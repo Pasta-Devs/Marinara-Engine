@@ -286,7 +286,13 @@ function isKeyGreen(pixels: Uint8ClampedArray, offset: number): boolean {
  * art around them), and tiny loose specks off the drawing are dropped. Big green areas and anything deep
  * inside the drawing are the art's own green and stay. Returns whether anything changed.
  */
-function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: number, background: number[]): boolean {
+function removeGreenBits(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  /** The backdrop the piece was keyed against; null when it is not known (a piece saved see-through). */
+  backdrop: number[] | null,
+): boolean {
   const total = width * height;
   const reach = Math.max(8, Math.round(Math.max(width, height) * 0.15));
   const distance = new Uint16Array(total).fill(65535);
@@ -375,6 +381,7 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
     changed = true;
   }
 
+  if (!backdrop) return changed;
   // Loose specks: a few pixels on their own in the backdrop's own colour, left behind by the key. (Green
   // specks of other shades were already handled as green bits above.) A small detached part of the drawing
   // (the dot of a "!", a sparkle, a soft glow) has its own colour and stays.
@@ -387,9 +394,9 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
     if (!opaque[i]) continue;
     const offset = i * 4;
     const fromBackdrop =
-      Math.abs(pixels[offset]! - background[0]!) +
-      Math.abs(pixels[offset + 1]! - background[1]!) +
-      Math.abs(pixels[offset + 2]! - background[2]!);
+      Math.abs(pixels[offset]! - backdrop[0]!) +
+      Math.abs(pixels[offset + 1]! - backdrop[1]!) +
+      Math.abs(pixels[offset + 2]! - backdrop[2]!);
     if (fromBackdrop < 90) residue[islands.labels[i]!]!++;
   }
   const loose = new Uint8Array(islands.regions.length + 1);
@@ -409,11 +416,18 @@ function removeGreenBits(pixels: Uint8ClampedArray, width: number, height: numbe
  * the other, so they repeat until nothing changes: running Clean up again on the result finds nothing
  * left to do and gives back the same picture.
  */
-function cleanEdgesUntilSettled(pixels: Uint8ClampedArray, width: number, height: number, background: number[]) {
+function cleanEdgesUntilSettled(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  background: number[],
+  /** Whether `background` was measured from the picture (else it is the usual green screen, assumed). */
+  measured = true,
+) {
   const greenScreen = background[1]! - Math.max(background[0]!, background[2]!) > 80;
   for (let round = 0; round < 4; round++) {
     const before = new Uint8ClampedArray(pixels);
-    if (greenScreen) removeGreenBits(pixels, width, height, background);
+    if (greenScreen) removeGreenBits(pixels, width, height, measured ? background : null);
     cleanGallerySheetOutlines(pixels, width, height, background);
     if (pixels.every((value, index) => value === before[index])) break;
   }
@@ -465,7 +479,7 @@ export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string 
     for (let offset = 3; offset < kept.length; offset += 4) if (kept[offset]! > 24) opaque++;
     return drawn > 0 && opaque >= drawn * 0.8 ? keyed.dataUrl : null;
   }
-  cleanEdgesUntilSettled(pixels, width, height, [0, 255, 0]);
+  cleanEdgesUntilSettled(pixels, width, height, [0, 255, 0], false);
   ctx.putImageData(frame, 0, 0);
   return canvas.toDataURL("image/png");
 }
