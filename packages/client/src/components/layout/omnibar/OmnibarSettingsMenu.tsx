@@ -818,7 +818,7 @@ export function OmnibarSettingsSheet({
             label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Professor Mari")}
             description={t(
               "omnibar.settings.sendOnEnter.description",
-              "When off, Enter adds a new line and Ctrl/Command+Enter sends.",
+              "When off, Enter adds a new line and Ctrl/Command+Enter sends. On a touch screen, Enter always adds a new line.",
             )}
             checked={enterToSendMari}
             onChange={setEnterToSendMari}

@@ -85,13 +85,14 @@ export function activeToken(text: string, caret: number): ActiveComposerToken | 
     return { trigger: "@", query: text.slice(i + 1, caret), start: i, end, quoted: false };
   }
 
-  // `/` only at the start of a line, with no further slash or whitespace in the query.
-  const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
-  const slash = /^([ \t]*)\/([^\s/]*)$/.exec(text.slice(lineStart, caret));
-  if (slash) {
+  // `/` at the start of a word (line start or after whitespace), so one message can run several commands. The
+  // query holds no further slash, which keeps `and/or`, `1/2`, URLs and paths like `/usr/bin` out.
+  if (text[wordStart] === "/") {
+    const query = text.slice(wordStart + 1, caret);
+    if (query.includes("/")) return null;
     let end = caret;
     while (end < text.length && !isWhitespace(text[end])) end++;
-    return { trigger: "/", query: slash[2]!, start: lineStart + slash[1]!.length, end, quoted: false };
+    return { trigger: "/", query, start: wordStart, end, quoted: false };
   }
   return null;
 }
