@@ -153,6 +153,18 @@ try {
   assert.equal(await descriptionOf(bea), "edited after import", "undo left items the import didn't write alone");
   assert.equal(await readSource("other.txt"), "edited after import", "undo left files the import didn't write alone");
 
+  // Two undos at once (a double-click, two tabs) both read the record first; only one may restore.
+  await setDescription(ada, "between undos");
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  const both = await Promise.all([undo(), undo()]);
+  assert.deepEqual(
+    both.map((response) => response.statusCode === 200).sort(),
+    [false, true],
+    "only one of two simultaneous undos runs",
+  );
+  assert.equal(await descriptionOf(ada), "between undos", "the undo that ran restored the rows once");
+  await setDescription(ada, "newer");
+
   // Undo works once: a second one would put the same rows back over anything edited since.
   assert.deepEqual(await undoOffer(), { available: false });
   assert.equal(await undoRecord(), null, "the undo cleared the record");

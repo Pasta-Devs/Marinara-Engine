@@ -4397,8 +4397,15 @@ export async function backupRoutes(app: FastifyInstance) {
               // The Undo record commits with the rows it lists: an undo clears it, an import replaces it.
               async (tx) => {
                 const undoSettings = createAppSettingsStorage(tx);
-                if (undo) return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
-                replacedCopy = parseUndoRecord(await undoSettings.get(PROFILE_IMPORT_UNDO_SETTING))?.copy;
+                const currentCopy = parseUndoRecord(await undoSettings.get(PROFILE_IMPORT_UNDO_SETTING))?.copy;
+                if (undo) {
+                  // A second undo, or an import that finished since this undo read the record, rolls this one back.
+                  if (currentCopy !== undoRecord?.copy) {
+                    throw new Error("Nothing was undone, because another import or undo finished first.");
+                  }
+                  return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
+                }
+                replacedCopy = currentCopy;
                 await undoSettings.set(PROFILE_IMPORT_UNDO_SETTING, JSON.stringify({ copy: safetyCopy, ...writes }));
               },
             );
