@@ -3118,7 +3118,7 @@ function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
  * and so does an area that reads somewhere else (`mari wiki search` reads Fandom, not the store).
  */
 const MARI_STORE_READ =
-  /^mari\s+(?:characters?|personas?|lorebooks?|chats?|presets?|themes?|images|db)\s+(?:get|list|look|view|search)(?:\s|$)/u;
+  /^mari\s+(?:characters?|personas?|lorebooks?|chats?|presets?|themes?|images?|media|db)\s+(?:get|list|look|view|search)(?:\s|$)/u;
 
 export function bashIsLoneMariRead(command: string): boolean {
   const normalized = command.trim();

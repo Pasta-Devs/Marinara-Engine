@@ -356,6 +356,9 @@ const mutationOutput = (sentinel: string) =>
   assert.equal(bashIsLoneMariRead('mari wiki search "raven"'), false);
   assert.equal(bashIsLoneMariRead("mari wiki get-page Raven"), false);
   assert.equal(bashIsLoneMariRead("mari presets list"), true);
+  // runCli takes the images group as image, images or media.
+  assert.equal(bashIsLoneMariRead("mari image look wW8"), true);
+  assert.equal(bashIsLoneMariRead("mari media get wW8"), true);
   assert.equal(bashIsLoneMariRead("mari characters list --has-avatar"), true);
   assert.equal(bashIsLoneMariRead("echo mari images get x"), false);
 
