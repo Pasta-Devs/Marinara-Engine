@@ -6,11 +6,13 @@
 // built-in family's id. Saving, importing, removing, and choosing which pack each family is drawn with
 // change what every game draws, so all sit behind `requirePrivilegedAccess`, as ruleset imports do.
 // ──────────────────────────────────────────────
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
+  DUNGEON_SETS,
   TILE_PACK_IMAGE_FILE_MAX_BYTES,
   TILE_PACK_MAX_BYTES,
   WORLD_ART_FAMILIES,
@@ -30,6 +32,16 @@ import {
 } from "../services/storage/game-tile-packs.storage.js";
 
 const BUILT_IN_DIR = fileURLToPath(new URL("../assets/overworld-tiles/", import.meta.url));
+const BUILT_IN_DUNGEON_DIR = fileURLToPath(new URL("../assets/dungeon-tiles/", import.meta.url));
+/** The dungeon sets the Engine ships art for: a known set with its pack's file beside it. */
+const builtInDungeonSets = (() => {
+  try {
+    const files = new Set(readdirSync(BUILT_IN_DUNGEON_DIR));
+    return DUNGEON_SETS.map((set) => set.id).filter((id) => files.has(`${id}.json`));
+  } catch {
+    return [];
+  }
+})();
 /** Which stored pack each family is drawn with, in app settings. */
 const SELECTION_KEY = "gameTilePackSelection";
 const LOCAL = "local/";
@@ -107,8 +119,28 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
       tilePackVersion: row.definition.startsWith('{"tilePackVersion":2') ? 2 : 1,
     })),
     builtIn: [...WORLD_ART_FAMILIES],
+    builtInDungeons: builtInDungeonSets,
     selection: await readSelection(),
   }));
+
+  // ── GET /api/game-tile-packs/builtin/dungeon/:set ── a dungeon set's own art, drawn when a map names no
+  // pack of its own and the library holds none by the set's id.
+  app.get<{ Params: { set: string } }>(
+    "/builtin/dungeon/:set",
+    { config: { rateLimit: GAME_TILE_PACKS_RATE_LIMIT } },
+    async (req, reply) => {
+      const set = req.params.set;
+      if (!builtInDungeonSets.includes(set)) {
+        return reply.status(404).send({ error: "No built-in tile pack for that dungeon set." });
+      }
+      const read = parseTilePack(await readFile(`${BUILT_IN_DUNGEON_DIR}${set}.json`, "utf8"));
+      if (!read.ok) {
+        logger.error("[game/tile-packs] The built-in %s dungeon pack does not read: %s", set, read.issues.join("; "));
+        return reply.status(500).send({ error: "The built-in tile pack does not read." });
+      }
+      return { pack: read.pack };
+    },
+  );
 
   // ── GET /api/game-tile-packs/builtin/:family ──
   app.get<{ Params: { family: string } }>(
