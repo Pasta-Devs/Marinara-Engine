@@ -28,6 +28,8 @@ writeFileSync(
 const { logger, debugJson } = await import(${JSON.stringify(pathToFileURL(join(repoRoot, "packages/server/src/lib/logger.ts")).href)});
 const base64 = ${JSON.stringify(base64)};
 const dataUrl = "data:image/png;base64," + base64;
+// MIME-style: wrapped at 76 columns with CRLF, ending in padding.
+const folded = (base64 + "==").match(/.{1,76}/g).join("\\r\\n");
 const payloads = {
   mari: [{ role: "user", content: "Look at this", images: [dataUrl] }],
   openai: { messages: [{ role: "user", content: [{ type: "text", text: "hi" }, { type: "image_url", image_url: { url: dataUrl } }] }] },
@@ -36,6 +38,10 @@ const payloads = {
   embedded: { role: "tool", content: "Saved as " + dataUrl + " for later" },
   untyped: { url: "data:;base64," + base64 },
   small: { url: "data:image/png;base64,AAAA" },
+  foldedText: { content: "Before\\r\\ndata:image/png;base64," + folded + "\\r\\nThanks for reading" },
+  foldedAnthropic: { source: { type: "base64", media_type: "image/png", data: folded } },
+  foldedGoogle: { inline_data: { mime_type: "image/png", data: folded } },
+  shortRunThenWord: { content: "data:image/png;base64," + base64 + "\\nNext" },
 };
 const before = structuredClone(payloads);
 for (const [name, payload] of Object.entries(payloads)) logger.debug("payload %s:\\n%s", name, debugJson(payload));
@@ -43,6 +49,8 @@ logger.debug("replacer:\\n%s", debugJson({ apiKey: "keep-out", url: dataUrl }, (
 logger.debug("raw text %s", dataUrl);
 logger.debug("raw json %j", { url: dataUrl });
 logger.debug("raw untyped %s", "data:;base64," + base64);
+logger.debug("raw folded %s", "data:image/png;base64," + folded + "\\r\\nThanks for reading");
+logger.debug("raw folded json %j", { url: "data:image/png;base64," + folded, note: "kept" });
 assert.deepEqual(payloads, before);
 // pino writes to a pipe asynchronously; without a flush a Linux pipe can cut the last long line at exit.
 await new Promise((done) => logger.flush(() => done(undefined)));
@@ -87,7 +95,15 @@ function run(inlineMedia?: string) {
 
 const edges = "iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]";
 const short = run();
-assert.ok(!short.output.includes("A".repeat(100)), "a base64 run reached the log");
+// Folded lines are 76 characters, so a shorter run is the tell.
+assert.ok(!short.output.includes("A".repeat(50)), "a base64 run reached the log");
+const foldedMarker = "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA…AAAElFTkSuQmCC==]";
+assert.ok(short.msg("payload foldedText").includes(`Before\r\n${foldedMarker}\r\nThanks for reading`));
+assert.ok(short.msg("payload foldedAnthropic").includes(`"data": "${foldedMarker}"`));
+assert.ok(short.msg("payload foldedGoogle").includes(`"data": "${foldedMarker}"`));
+assert.ok(short.msg("payload shortRunThenWord").includes(`${edges}\nNext`), "a word after a compact payload stays");
+assert.equal(short.msg("raw folded "), `raw folded ${foldedMarker}\r\nThanks for reading`);
+assert.ok(short.msg("raw folded json").includes(`"url":"${foldedMarker}","note":"kept"`));
 assert.ok(short.msg("payload mari").includes(`"[image/png base64, ~29 KB: ${edges}"`));
 assert.ok(short.msg("payload openai").includes(`"url": "[image/png base64, ~29 KB: ${edges}"`));
 assert.ok(short.msg("payload anthropic").includes(`"data": "[image/jpeg base64, ~29 KB: ${edges}"`));
