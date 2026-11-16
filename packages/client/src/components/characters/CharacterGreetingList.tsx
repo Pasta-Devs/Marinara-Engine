@@ -50,7 +50,7 @@ export function GreetingListFilter({
           className="h-9 w-full rounded-lg max-md:h-11 border border-[var(--border)] bg-[var(--secondary)] pl-9 pr-3 text-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
         />
       </div>
-      {tags.length > 0 && (
+      {(tags.length > 0 || picked.length > 0) && (
         <div
           role="group"
           aria-label={localizeUi("ui.chat.swipepicker.filterLabel")}

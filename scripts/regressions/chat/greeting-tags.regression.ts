@@ -107,3 +107,5 @@ assert.equal(setGreetingHeader("Plain one.", ["cosy"], ""), "[cosy] Plain one.")
 assert.equal(setGreetingHeader("Plain one.", [], "Morning"), "**Morning**\nPlain one.");
 assert.equal(setGreetingHeader("[x] **Old**\nBody", ["x"], ""), "[x] Body");
 assert.equal(setGreetingHeader("**$1 deal**\nBody", [], "$& off"), "**$& off**\nBody");
+assert.equal(splitGreetingHeader("(Old)\r\nBody").title, "Old");
+assert.equal(setGreetingHeader("(Old)\r\nBody", [], "New"), "(New)\r\nBody");

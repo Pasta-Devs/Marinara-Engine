@@ -3427,7 +3427,10 @@ function DialogueTab({
     const token = "{{" + name + "}}";
     const textarea = greetingFieldRefs.current[target];
     const alternateIndex = greetingKeysRef.current.indexOf(target);
-    const current = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
+    // Text boxes report positions with plain line breaks, so count in that form.
+    const current = (
+      target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "")
+    ).replace(/\r\n/g, "\n");
     // The list's text box can hold only the text under the title and tags, which is the end of the greeting.
     const offset = textarea ? current.length - textarea.value.length : 0;
     const start = offset + (textarea?.selectionStart ?? current.length);

@@ -12,7 +12,7 @@ export type GreetingEntry = { tags: string[]; title: string; preview: string };
 
 const GREETING_TAG_PREFIX = /^\s*((?:\[[^[\]\n]{1,24}\]\s*)+)/;
 // A leading `**Title**`, or a `(Title)` on its own line, names the greeting.
-const GREETING_TITLE_PREFIX = /^\s*(?:\*\*([^*\n]{1,80})\*\*|\(([^()\n]{1,80})\)[ \t]*(?:\n|$))/;
+const GREETING_TITLE_PREFIX = /^\s*(?:\*\*([^*\n]{1,80})\*\*|\(([^()\n]{1,80})\)[ \t]*(?:\r?\n|$))/;
 
 /** Splits a greeting into its leading `[tag]` groups, a title and the text after it. */
 export function parseGreeting(text: string, allowTags = true): GreetingEntry {
