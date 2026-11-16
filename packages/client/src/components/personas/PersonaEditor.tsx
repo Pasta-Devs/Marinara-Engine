@@ -59,6 +59,7 @@ import {
   useGeneratePersonaCallVideoClips,
   useGeneratePersonaCustomCallVideoClip,
   useTagPersonaGalleryImage,
+  characterKeys,
   type CharacterCallVideoGenerationInput,
   type CharacterGalleryClip,
   type PersonaGalleryImage,
@@ -116,6 +117,7 @@ import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
@@ -689,6 +691,13 @@ function PersonaGalleryTab({
                 <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                   {localizeUi("ui.gallery.batch.selected", { count: selectedImages.length })}
                 </span>
+              ) : null}
+              {selectingImages ? (
+                <GalleryCleanUpButton
+                  images={selectedImages}
+                  replacePath={(imageId) => `/characters/personas/${personaId}/gallery/${imageId}/replace`}
+                  queryKey={characterKeys.personaGallery(personaId)}
+                />
               ) : null}
             </div>
             <button

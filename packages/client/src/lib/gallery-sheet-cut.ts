@@ -217,24 +217,32 @@ function cleanGallerySheetOutlines(
     const offset = index * 4;
     const x = index % width;
     const y = (index - x) / width;
-    // The neighbourhood's median, from opaque pixels that aren't spill themselves.
-    for (const channel of sample) channel.length = 0;
+    // The neighbourhood's median, from opaque pixels that aren't spill themselves. The middle of a green
+    // bit has too few clean neighbours close by, so it looks further out (else it would only be despilled,
+    // which leaves a dark dot on a white outline).
     let opaque = 0;
-    for (let dy = -radius; dy <= radius; dy++) {
-      const yy = y + dy;
-      if (yy < 0 || yy >= height) continue;
-      for (let dx = -radius; dx <= radius; dx++) {
-        const xx = x + dx;
-        if (xx < 0 || xx >= width || (dx === 0 && dy === 0)) continue;
-        const o = (yy * width + xx) * 4;
-        if (source[o + 3]! < 200) continue;
-        opaque++;
-        if (keySaturated && source[o + keyChannel]! - Math.max(source[o + others[0]!]!, source[o + others[1]!]!) > 40)
-          continue;
-        for (let channel = 0; channel < 4; channel++) sample[channel]!.push(source[o + channel]!);
+    let count = 0;
+    const isSmallBit = smallBit[greenBits.labels[index]!] === 1;
+    for (const reach of isSmallBit ? [radius, radius * 2, radius * 4] : [radius]) {
+      for (const channel of sample) channel.length = 0;
+      opaque = 0;
+      for (let dy = -reach; dy <= reach; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= height) continue;
+        for (let dx = -reach; dx <= reach; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= width || (dx === 0 && dy === 0)) continue;
+          const o = (yy * width + xx) * 4;
+          if (source[o + 3]! < 200) continue;
+          opaque++;
+          if (keySaturated && source[o + keyChannel]! - Math.max(source[o + others[0]!]!, source[o + others[1]!]!) > 40)
+            continue;
+          for (let channel = 0; channel < 4; channel++) sample[channel]!.push(source[o + channel]!);
+        }
       }
+      count = sample[0]!.length;
+      if (count >= 5) break;
     }
-    const count = sample[0]!.length;
     const median = count >= 5 ? sample.map((values) => values.sort((a, b) => a - b)[values.length >> 1]!) : null;
     const green = spill(offset);
     if (median) {
@@ -256,7 +264,7 @@ function cleanGallerySheetOutlines(
       const onOutline = median[0]! > 200 && median[1]! > 200 && median[2]! > 200;
       // A speck on the flat white outline, a green fleck, or a see-through pinhole.
       // A fleck is green among mostly not-green neighbours, so the edge of a sticker's own green fill stays.
-      const fleck = (green > 40 && count >= opaque * 0.75) || smallBit[greenBits.labels[index]!] === 1;
+      const fleck = (green > 40 && count >= opaque * 0.75) || isSmallBit;
       if (fleck || pinhole || (onOutline && differs && alike >= count * 0.5)) {
         pixels[offset] = median[0]!;
         pixels[offset + 1] = median[1]!;
@@ -266,9 +274,33 @@ function cleanGallerySheetOutlines(
       }
     }
     // Whatever stays: take the green tint off the soft edge and off small green bits.
-    if (green > 0 && (d <= 3 || smallBit[greenBits.labels[index]!] === 1))
+    if (green > 0 && (d <= 3 || isSmallBit))
       pixels[offset + keyChannel] = Math.max(pixels[offset + others[0]!]!, pixels[offset + others[1]!]!);
   }
+}
+
+/**
+ * The outline passes for a sticker or emoji that was saved before: one still on its backdrop is keyed out
+ * like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks and tint
+ * along its edge) against the green screen the sheets are drawn on. Only the edge band is touched, so
+ * the art inside keeps its own colours.
+ */
+export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string> {
+  const image = await loadImage(dataUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  const { canvas, ctx } = canvas2d(width, height);
+  ctx.drawImage(image, 0, 0);
+  const frame = ctx.getImageData(0, 0, width, height);
+  const pixels = frame.data;
+  const at = (x: number, y: number) => (y * width + x) * 4;
+  const opaqueCorners = [at(0, 0), at(width - 1, 0), at(0, height - 1), at(width - 1, height - 1)].filter(
+    (offset) => pixels[offset + 3]! > 24,
+  ).length;
+  if (opaqueCorners >= 2) return (await keyOutGallerySheetBackground(dataUrl)).dataUrl;
+  cleanGallerySheetOutlines(pixels, width, height, [0, 255, 0]);
+  ctx.putImageData(frame, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 /**
