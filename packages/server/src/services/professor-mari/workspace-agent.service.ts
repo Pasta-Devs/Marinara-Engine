@@ -42,6 +42,7 @@ import {
   resolvePromptAttachmentInputs,
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
+  type ImageCaptionFallbackOptions,
   type ImageCaptioningRuntime,
 } from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
@@ -2189,6 +2190,29 @@ function escapeWorkspaceXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// #9342 (D2): a model that can't read images gets them described by the Image reading model, and Mari is told so,
+// so she never claims she saw a picture herself. Without that model the picture is replaced by a plain note.
+const MARI_IMAGE_CAPTION_OPTIONS = {
+  captionNote: (model: string) =>
+    `[This picture was described by the image reading model ${model}. You did not see it yourself: say so if you describe it, and don't claim details the description doesn't give.]`,
+  unavailableNote:
+    "[Picture not shown: your model can't read images and no Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and how to set one; don't guess what it shows.]",
+} satisfies ImageCaptionFallbackOptions;
+
+/**
+ * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
+ * shows them and the rest of the run keeps them; the stored chat and later turns keep only the text.
+ */
+export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
+  const images = results.flatMap((result) => result.images ?? []);
+  return {
+    role: "user",
+    content: formatCommandResultForPrompt(results),
+    contextKind: "history",
+    ...(images.length > 0 ? { images } : {}),
+  };
+}
+
 // echoInput:false (pi runtime): the native tool call already carries the arguments, so the <input> block is a duplicate.
 export function formatCommandResultForPrompt(
   results: WorkspaceCommandResult[],
@@ -4269,6 +4293,7 @@ export class ProfessorMariWorkspaceService {
             ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
+        MARI_IMAGE_CAPTION_OPTIONS,
       );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4750,11 +4775,7 @@ export class ProfessorMariWorkspaceService {
           runHeldCalls = [];
           messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
-            messages.push({
-              role: "user",
-              content: formatCommandResultForPrompt(commandResults),
-              contextKind: "history",
-            });
+            messages.push(commandResultMessage(commandResults));
           }
           messages.push({
             role: "user",
@@ -4927,7 +4948,7 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
-        messages.push({ role: "user", content: formatCommandResultForPrompt(commandResults), contextKind: "history" });
+        messages.push(commandResultMessage(commandResults));
 
         if (round < MAX_COMMAND_ROUNDS - 1) {
           const steerText = await deliverSteers();

@@ -2075,6 +2075,81 @@ try {
     assert.equal((await lastAssistant(invalid.chat.id))?.extra.mariQuestions, undefined);
   }
 
+  // #9342: `mari images look` pictures reach her next request in every runtime, stay for the rest of the run, and
+  // never reach the saved chat (the next turn starts with text only).
+  {
+    const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
+    const sharp = await getSharp();
+    writeFileSync(
+      join(workspaceDir, "pic.png"),
+      await sharp({ create: { width: 40, height: 20, channels: 3, background: "#3366aa" } })
+        .png()
+        .toBuffer(),
+    );
+    mode = "auto";
+    const lookCall = { id: "look-1", name: "bash", args: { command: "mari images look pic.png" } };
+    const readCall = { id: "read-1", name: "read", args: { path: "hello.txt" } };
+    const pictures = (message: ChatMessage | undefined) => message?.images ?? [];
+    const withPictures = (messages: ChatMessage[]) => messages.filter((message) => pictures(message).length > 0);
+
+    // pi, native tools: the picture follows the tool results on a user message, never between two tool messages.
+    provider = "custom";
+    const native = await start("look native", [
+      reply("", [lookCall, readCall]),
+      reply("", [{ ...readCall, id: "read-2" }]),
+      reply("A blue rectangle."),
+    ]);
+    await native.done;
+    assert.equal(requests.length, 3);
+    const nativeSecond = requests[1]!.messages;
+    const pictureAt = nativeSecond.findIndex((message) => pictures(message).length > 0);
+    assert.ok(pictureAt > 0, JSON.stringify(nativeSecond.map((message) => message.role)));
+    assert.deepEqual(
+      nativeSecond.slice(pictureAt - 2, pictureAt + 1).map((message) => message.role),
+      ["tool", "tool", "user"],
+      "both tool results first, then the pictures",
+    );
+    assert.equal(pictures(nativeSecond[pictureAt]).length, 1);
+    assert.match(pictures(nativeSecond[pictureAt])[0]!, /^data:image\/jpeg;base64,/);
+    assert.match(nativeSecond[pictureAt]!.content, /mari images look/);
+    const lookResult = toolMessages(nativeSecond).find((message) => message.tool_call_id === "look-1")!;
+    assert.match(lookResult.content, /"sent": "40x20"/);
+    assert.ok(!lookResult.content.includes("base64,"), "the tool result text never carries pixels");
+    assert.equal(withPictures(requests[2]!.messages).length, 1, "the picture stays for the rest of the run");
+    const nativeNext = await start("unused", [reply("Still blue.")], "pi", service, native.chat.id, "And now?");
+    await nativeNext.done;
+    assert.equal(withPictures(requests[0]!.messages).length, 0, "the next turn keeps text only");
+    assert.ok(!JSON.stringify(await chats.listMessages(native.chat.id)).includes("base64,"), "no pixels saved");
+
+    // pi, textual tools: the picture rides on the result's user message.
+    provider = "claude_subscription";
+    const call = (name: string, args: Record<string, unknown>) =>
+      `<tool_call>${JSON.stringify({ name, arguments: args })}</tool_call>`;
+    const textual = await start("look textual", [
+      reply(`Looking.\n${call("bash", lookCall.args)}`),
+      reply("A blue rectangle."),
+    ]);
+    await textual.done;
+    const textualPictures = withPictures(requests[1]!.messages);
+    assert.equal(textualPictures.length, 1);
+    assert.match(textualPictures[0]!.content, /workspace_command_result name="bash" success="true"/u);
+    provider = "custom";
+
+    // Classic: the picture rides on the command-result message.
+    const classic = await start(
+      "look classic",
+      [
+        reply(JSON.stringify({ say: "", commands: [{ name: "bash", arguments: lookCall.args }], stop: false })),
+        reply(JSON.stringify({ say: "A blue rectangle.", commands: [], stop: true })),
+      ],
+      "classic",
+    );
+    await classic.done;
+    const classicPictures = withPictures(requests[1]!.messages);
+    assert.equal(classicPictures.length, 1, JSON.stringify(requests[1]!.messages.map((message) => message.role)));
+    assert.match(classicPictures[0]!.content, /workspace_command_result name="bash"/u);
+  }
+
   console.log("Professor Mari pi runtime regression passed.");
 } finally {
   await closeDB();

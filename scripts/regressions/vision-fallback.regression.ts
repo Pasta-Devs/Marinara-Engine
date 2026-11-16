@@ -157,4 +157,22 @@ assert.equal(captioner.calls, 1, "each image is described once");
 const noVision = withImageCaptionFallback(new ChatProvider(), async () => ({ ...runtime, provider: null }));
 await assert.rejects(noVision.chatComplete(messages, { model: "m" }), /does not support image input/);
 
+// #9342 (Professor Mari): a caption says which model described the picture; without an Image reading model the
+// picture is replaced by a note and the request goes on, now and on every later request of the run.
+const labelled = new ChatProvider();
+const marked = withImageCaptionFallback(labelled, async () => runtime, false, {
+  captionNote: (model) => `[described by ${model}, not seen]`,
+});
+await marked.chatComplete(messages, { model: "m" });
+assert.match(labelled.seen[1]![0]!.content, /^Look\n\n\[described by vision-model, not seen\]\n<attached_image /);
+const blind = new ChatProvider();
+const noted = withImageCaptionFallback(blind, async () => ({ ...runtime, provider: null }), false, {
+  unavailableNote: "[picture not shown]",
+});
+assert.equal((await noted.chatComplete(messages, { model: "m" })).content, "ok");
+assert.equal(blind.seen[1]![0]!.images, undefined);
+assert.equal(blind.seen[1]![0]!.content, "Look\n\n[picture not shown]");
+await noted.chatComplete(messages, { model: "m" });
+assert.equal(blind.seen.length, 3, "later requests send the note at once");
+
 console.log("vision fallback regression passed");
