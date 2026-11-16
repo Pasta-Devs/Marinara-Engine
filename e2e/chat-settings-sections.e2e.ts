@@ -140,19 +140,16 @@ async function setActiveChat(page: Page, chatId: string) {
  * Top-level Chat Settings sections in on-screen order; drawers nested inside a section are left out. The settings
  * profiles bar isn't a drawer, so it has its own attribute.
  */
-async function visibleSections(page: Page) {
-  return chatSettingsWindow(page).evaluate((root) => {
+async function visibleSections(page: Page, order: "screen" | "code" = "screen") {
+  return chatSettingsWindow(page).evaluate((root, sortByScreen) => {
     const blocks = Array.from(
       root.querySelectorAll<HTMLElement>("[data-drawer], [data-chat-settings-profiles]"),
     ).filter((element) => !element.parentElement?.closest("[data-drawer]") && element.getClientRects().length > 0);
-    return blocks
-      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
-      .map((element) =>
-        element.hasAttribute("data-chat-settings-profiles")
-          ? "settings-profiles"
-          : element.getAttribute("data-drawer")!,
-      );
-  });
+    if (sortByScreen) blocks.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    return blocks.map((element) =>
+      element.hasAttribute("data-chat-settings-profiles") ? "settings-profiles" : element.getAttribute("data-drawer")!,
+    );
+  }, order === "screen");
 }
 
 test("Chat Settings shows every section for each chat mode, in order, and each one opens", async ({
@@ -203,6 +200,10 @@ test("Chat Settings shows every section for each chat mode, in order, and each o
       await expect
         .poll(() => visibleSections(page), { message: `${chat.mode} Chat Settings sections` })
         .toEqual(EXPECTED_SECTIONS[chat.mode]);
+      // Keyboard and screen readers follow the page's code order, so it must match what's on screen.
+      expect(await visibleSections(page, "code"), `${chat.mode} sections in reading order`).toEqual(
+        EXPECTED_SECTIONS[chat.mode],
+      );
 
       // A section's body only renders while it is open, so open each one and check it has content.
       for (const id of EXPECTED_SECTIONS[chat.mode].filter((section) => section !== "settings-profiles")) {
