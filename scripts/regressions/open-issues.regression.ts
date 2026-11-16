@@ -235,28 +235,6 @@ import {
   SPRITE_DISPLAY_OPACITY_MIN,
   SPRITE_DISPLAY_OPACITY_PERCENT_MIN,
 } from "../../packages/client/src/components/chat/sprite-display-modes.js";
-import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
-import {
-  buildSwarmUiGenerationBody,
-  buildOpenRouterImagesRequest,
-  detectNovelAiSubjectCount,
-  openRouterImagesUrl,
-  openRouterModalities,
-  resolveNovelAiDefaults,
-  resolveNovelAiRequestSize,
-  resolveNovelAiSize,
-  parseSwarmUiImageReference,
-  usesOpenRouterImagesApi,
-} from "../../packages/server/src/services/image/image-generation.js";
-import {
-  buildComfyUiLoraWorkflowReplacements,
-  COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
-  DEFAULT_COMFYUI_DEFAULTS,
-  DEFAULT_NOVELAI_DEFAULTS,
-  imageSourceToDefaultsService,
-  normalizeComfyUiLoraSettings,
-} from "../../packages/shared/src/constants/image-generation-defaults.js";
-import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
 import {
   sceneAnalysisRequestSchema,
   SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
@@ -294,11 +272,6 @@ import {
   setLorebookEntryCounts,
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { assemblePrompt } from "../../packages/server/src/services/prompt/assembler.js";
-import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
-import {
-  findMissingComfyReferenceSlots,
-  numberedComfyReferencePlaceholder,
-} from "../../packages/server/src/services/image/comfyui-reference-placeholders.js";
 import {
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
@@ -309,51 +282,11 @@ import {
   resolveSpriteExpressionState,
 } from "../../packages/client/src/lib/sprite-expression-state.js";
 import {
-  parseIllustratorPromptReviewOverride,
-  resolveIllustratorPromptSubmission,
-} from "../../packages/server/src/services/image/illustrator-prompt-review.js";
-import {
-  resolveImagePromptReviewSize,
-  resolveReviewedImagePromptSubmission,
-} from "../../packages/server/src/services/image/image-prompt-review.js";
-import {
   cleanupStagedProfileAssets,
   promoteStagedProfileAssets,
   rollbackPromotedProfileAssets,
   stageProfileImportAssets,
 } from "../../packages/server/src/services/import/profile-import-assets.js";
-import {
-  buildVeniceApiUrl,
-  buildVeniceImageRequest,
-  normalizeVeniceImageModels,
-  parseVeniceImageResponse,
-} from "../../packages/server/src/services/image/venice-image.js";
-import {
-  buildZaiImageRequest,
-  buildZaiImageUrl,
-  parseZaiImageUrl,
-  resolveZaiImageSize,
-} from "../../packages/server/src/services/image/zai-image.js";
-import {
-  buildAtlasCloudImageRequest,
-  buildAtlasCloudUrl,
-  buildAtlasCloudVideoRequest,
-  parseAtlasCloudPrediction,
-} from "../../packages/server/src/services/media/atlas-cloud.js";
-import {
-  ATLAS_CLOUD_IMAGE_MODELS,
-  ATLAS_CLOUD_VIDEO_MODELS,
-  IMAGE_GENERATION_SOURCES,
-  VIDEO_GENERATION_SOURCES,
-  ZAI_IMAGE_MODELS,
-  inferImageSource,
-  inferVideoSource,
-} from "../../packages/shared/src/constants/model-lists.js";
-import { resolveSceneVideoPrompt } from "../../packages/server/src/services/video/scene-video-prompt-review.js";
-import {
-  buildSwarmUiVideoGenerationBody,
-  parseSwarmUiVideoReference,
-} from "../../packages/server/src/services/video/video-generation.js";
 import {
   buildLorebookEntryCreateRow,
   buildPersonaCreateRow,
@@ -948,12 +881,6 @@ const backgroundOrganization = normalizeBackgroundLibraryOrganization({
   },
 });
 
-const comfyReferenceWorkflow = JSON.stringify({
-  first: "%reference_image_01%",
-  second: "%reference_image_02%",
-  thirdName: "%reference_image_name_03%",
-  outsideSupportedRange: "%reference_image_05%",
-});
 assert.equal(toAutonomousPresenceStatus("active"), "active");
 assert.equal(toAutonomousPresenceStatus("dnd"), "dnd");
 assert.equal(shouldSuppressAutonomousMessages("active"), false);
@@ -988,7 +915,6 @@ assert.deepEqual(
   ]),
   { "character-a": "neutral" },
 );
-assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image", 1), [1]);
 const completedExpressionMessages = [
   { id: "completed", role: "assistant", extra: { expressionSpriteIds: ["character-a", "persona"] } },
   { id: "user", role: "user", extra: {} },
@@ -1037,8 +963,6 @@ assert.deepEqual(
   "the completion marker identifies persona-only turns without relying on retained user appearances",
 );
 assert.equal(resolveLatestSpriteExpressionTurn(undefined), undefined);
-assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
-assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");
 
 const inheritedIllustratorSetup = buildInitialAgentAddSetupState({
   agentId: "illustrator",
@@ -4791,228 +4715,7 @@ assert.deepEqual(
 );
 assert.deepEqual(attemptedImageVariants, [0, 1, 2]);
 
-assert.equal(
-  buildVeniceApiUrl("https://api.venice.ai/api/v1", "models"),
-  "https://api.venice.ai/api/v1/models?type=image",
-);
-assert.deepEqual(buildVeniceImageRequest({ model: "venice-sd35", prompt: "canal", width: 1600, height: 900 }), {
-  model: "venice-sd35",
-  prompt: "canal",
-  format: "webp",
-  return_binary: false,
-  safe_mode: false,
-  variants: 1,
-  width: 1280,
-  height: 720,
-});
-assert.deepEqual(buildVeniceImageRequest({ model: "gpt-image-2", prompt: "canal", width: 1536, height: 1024 }), {
-  model: "gpt-image-2",
-  prompt: "canal",
-  format: "webp",
-  return_binary: false,
-  safe_mode: false,
-  variants: 1,
-  aspect_ratio: "3:2",
-  resolution: "2K",
-});
-const tinyVenicePng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString("base64");
-assert.equal(parseVeniceImageResponse({ images: [tinyVenicePng] }).mimeType, "image/png");
-assert.deepEqual(
-  normalizeVeniceImageModels({
-    data: [
-      { id: "chroma", type: "image", model_spec: { name: "Chroma" } },
-      { id: "llama", type: "text", model_spec: { name: "Llama" } },
-      { id: "untyped", model_spec: { name: "Untyped" } },
-    ],
-  }),
-  [{ id: "chroma", name: "Chroma" }],
-);
-assert.equal(buildZaiImageUrl("https://api.z.ai/api/paas/v4"), "https://api.z.ai/api/paas/v4/images/generations");
-assert.throws(() => buildZaiImageUrl("https://api.z.ai/api/coding/paas/v4"), /general API URL/u);
-assert.equal(resolveZaiImageSize("glm-image", 1600, 900), "1728x960");
-assert.equal(resolveZaiImageSize("cogview-4-250304", 900, 1600), "768x1344");
-assert.deepEqual(buildZaiImageRequest({ model: "glm-image", prompt: "canal", width: 1600, height: 900 }), {
-  model: "glm-image",
-  prompt: "canal",
-  size: "1728x960",
-});
-assert.equal(parseZaiImageUrl({ data: [{ url: "https://cdn.example/zai.png" }] }), "https://cdn.example/zai.png");
-assert.equal(inferImageSource("", "https://api.z.ai/api/paas/v4"), "zai");
-assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "zai"));
-assert.equal(inferImageSource("flux-model", "https://api.arliai.com/v1"), "arli");
-assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "arli"));
-assert.equal(imageSourceToDefaultsService("arli"), "automatic1111");
-assert.equal(inferImageSource("", "http://127.0.0.1:7801"), "swarmui");
-assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "swarmui"));
-assert.equal(imageSourceToDefaultsService("swarmui"), "comfyui");
-const swarmUiBody = buildSwarmUiGenerationBody(
-  {
-    prompt: "a blue fox",
-    negativePrompt: "blurry",
-    width: 832,
-    height: 1216,
-    model: "  sdxl/model.safetensors  ",
-    comfyWorkflow: JSON.stringify({
-      "1": {
-        class_type: "CLIPTextEncode",
-        inputs: { text: "%prompt%", seed: "%seed%", model: "%model%" },
-      },
-    }),
-    imageDefaults: {
-      version: 1,
-      service: "comfyui",
-      seed: 42,
-      comfyui: { ...DEFAULT_COMFYUI_DEFAULTS, loras: [] },
-    },
-  },
-  "session-123",
-);
-assert.equal(swarmUiBody.session_id, "session-123");
-assert.equal(swarmUiBody.model, "sdxl/model.safetensors");
-assert.deepEqual(JSON.parse(String(swarmUiBody.comfyworkflowraw)), {
-  "1": {
-    class_type: "CLIPTextEncode",
-    inputs: { text: "a blue fox", seed: 42, model: "sdxl/model.safetensors" },
-  },
-});
-assert.equal(parseSwarmUiImageReference({ images: ["View/local/raw/output.png"] }), "View/local/raw/output.png");
-assert.throws(() => parseSwarmUiImageReference({ error: "queue unavailable" }), /queue unavailable/u);
-assert.equal(inferVideoSource("", "http://127.0.0.1:7801"), "swarmui");
-assert.ok(VIDEO_GENERATION_SOURCES.some((source) => source.id === "swarmui"));
-const swarmUiVideoBody = buildSwarmUiVideoGenerationBody(
-  {
-    prompt: "a blue fox waves",
-    durationSeconds: 5,
-    aspectRatio: "9:16",
-    resolution: "720p",
-    model: "wan-video.safetensors",
-    referenceImage: { base64: "data:image/png;base64,cG5n", mimeType: "image/png" },
-    comfyWorkflow: JSON.stringify({
-      "1": {
-        class_type: "VideoNode",
-        inputs: {
-          prompt: "%prompt%",
-          width: "%width%",
-          height: "%height%",
-          frames: "%length%",
-          fps: "%fps%",
-          image: "%reference_image%",
-        },
-      },
-    }),
-    fps: 16,
-  },
-  "video-session",
-  42,
-);
-assert.equal(swarmUiVideoBody.session_id, "video-session");
-assert.equal(swarmUiVideoBody.width, 720);
-assert.equal(swarmUiVideoBody.height, 1280);
-assert.deepEqual(JSON.parse(String(swarmUiVideoBody.comfyworkflowraw)), {
-  "1": {
-    class_type: "VideoNode",
-    inputs: {
-      prompt: "a blue fox waves",
-      width: 720,
-      height: 1280,
-      frames: 80,
-      fps: 16,
-      image: "cG5n",
-    },
-  },
-});
-assert.equal(parseSwarmUiVideoReference({ images: ["View/local/raw/output.mp4"] }), "View/local/raw/output.mp4");
-assert.throws(
-  () =>
-    buildSwarmUiVideoGenerationBody(
-      {
-        prompt: "video",
-        durationSeconds: 5,
-        aspectRatio: "16:9",
-        comfyWorkflow: '{"image":"%reference_image_name%"}',
-      },
-      "video-session",
-    ),
-  /must use %reference_image%/u,
-);
-assert.deepEqual(
-  ZAI_IMAGE_MODELS.map((model) => model.id),
-  ["glm-image", "cogview-4-250304"],
-);
 validatePullRequestTriage();
-assert.equal(
-  buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
-  "https://api.atlascloud.ai/api/v1/model/generateImage",
-);
-assert.equal(
-  buildAtlasCloudUrl("https://api.atlascloud.ai/api/v1/model", "prediction/prediction-123"),
-  "https://api.atlascloud.ai/api/v1/model/prediction/prediction-123",
-);
-assert.deepEqual(
-  buildAtlasCloudImageRequest({
-    model: "google/nano-banana/text-to-image",
-    prompt: "marinara laboratory",
-    width: 1600,
-    height: 900,
-  }),
-  {
-    model: "google/nano-banana/text-to-image",
-    prompt: "marinara laboratory",
-    aspect_ratio: "16:9",
-  },
-);
-assert.deepEqual(
-  buildAtlasCloudImageRequest({
-    model: "black-forest-labs/flux-kontext-pro/image-to-image",
-    prompt: "add blue light",
-    width: 1024,
-    height: 768,
-    referenceImageDataUrl: "data:image/png;base64,atlas-reference",
-  }),
-  {
-    model: "black-forest-labs/flux-kontext-pro/image-to-image",
-    prompt: "add blue light",
-    size: "1024*768",
-    image: "data:image/png;base64,atlas-reference",
-  },
-);
-assert.deepEqual(
-  buildAtlasCloudVideoRequest({
-    model: "google/veo3.1/image-to-video",
-    prompt: "slow camera push",
-    durationSeconds: 8,
-    aspectRatio: "16:9",
-    resolution: "720p",
-    referenceImageDataUrl: "data:image/png;base64,atlas-reference",
-  }),
-  {
-    model: "google/veo3.1/image-to-video",
-    prompt: "slow camera push",
-    duration: 8,
-    aspect_ratio: "16:9",
-    resolution: "720p",
-    image: "data:image/png;base64,atlas-reference",
-  },
-);
-assert.deepEqual(parseAtlasCloudPrediction({ data: { id: "prediction-123", status: "processing" } }), {
-  id: "prediction-123",
-  status: "processing",
-  output: null,
-  error: null,
-});
-assert.deepEqual(
-  parseAtlasCloudPrediction({ data: { status: "completed", outputs: ["https://cdn.example/out.mp4"] } }),
-  {
-    id: null,
-    status: "completed",
-    output: "https://cdn.example/out.mp4",
-    error: null,
-  },
-);
-assert.equal(inferImageSource("", "https://api.atlascloud.ai/api/v1"), "atlas");
-assert.equal(inferVideoSource("", "https://api.atlascloud.ai/api/v1"), "atlas");
-assert.ok(ATLAS_CLOUD_IMAGE_MODELS.some((model) => model.id === "google/nano-banana/text-to-image"));
-assert.ok(ATLAS_CLOUD_VIDEO_MODELS.some((model) => model.id === "google/veo3.1/text-to-video"));
 
 const profileImportAssetRoot = mkdtempSync(join(tmpdir(), "marinara-profile-import-atomic-"));
 try {
@@ -7259,79 +6962,6 @@ assert.equal(findReplayableGameSessionChat(replaySessionChats, 1)?.id, "canonica
 assert.equal(findReplayableGameSessionChat(replaySessionChats, 2)?.id, "legacy-only-branch");
 assert.equal(findReplayableGameSessionChat(replaySessionChats, 3), null);
 
-assert.equal(
-  resolveSceneVideoPrompt({
-    generatedPrompt: "Generated Gallery animation prompt",
-    promptOverride: "  Reviewed Gallery animation prompt  ",
-    maxPromptLength: null,
-  }),
-  "Reviewed Gallery animation prompt",
-);
-assert.equal(
-  resolveSceneVideoPrompt({
-    generatedPrompt: "Generated Gallery animation prompt",
-    maxPromptLength: null,
-  }),
-  "Generated Gallery animation prompt",
-);
-assert.throws(
-  () =>
-    resolveSceneVideoPrompt({
-      generatedPrompt: "Generated prompt",
-      promptOverride: "Reviewed prompt exceeds provider limit",
-      maxPromptLength: 12,
-    }),
-  /at most 12 characters/u,
-);
-assert.deepEqual(
-  resolveIllustratorPromptSubmission({
-    generatedPrompt: "Generated compiled illustration prompt",
-    generatedNegativePrompt: "Generated negative prompt",
-    reviewOverride: {
-      prompt: "  Reviewed illustration prompt  ",
-      negativePrompt: "  Reviewed negative prompt  ",
-    },
-  }),
-  {
-    prompt: "Reviewed illustration prompt",
-    negativePrompt: "Reviewed negative prompt",
-  },
-);
-assert.deepEqual(
-  parseIllustratorPromptReviewOverride({
-    resultData: { shouldGenerate: true, prompt: "Agent prompt" },
-    prompt: " Reviewed provider prompt ",
-  }),
-  {
-    resultData: { shouldGenerate: true, prompt: "Agent prompt" },
-    prompt: "Reviewed provider prompt",
-  },
-);
-assert.equal(parseIllustratorPromptReviewOverride({ resultData: {}, prompt: "   " }), null);
-assert.deepEqual(
-  resolveReviewedImagePromptSubmission({
-    generatedPrompt: "Compiled selfie prompt",
-    generatedNegativePrompt: "Compiled selfie negative",
-    promptOverride: " Reviewed selfie prompt ",
-  }),
-  {
-    prompt: "Reviewed selfie prompt",
-    negativePrompt: "Compiled selfie negative",
-  },
-);
-assert.deepEqual(
-  resolveReviewedImagePromptSubmission({
-    generatedPrompt: "Compiled selfie prompt",
-    generatedNegativePrompt: "Compiled selfie negative",
-    promptOverride: "Reviewed selfie prompt",
-    negativePromptOverride: "",
-  }),
-  {
-    prompt: "Reviewed selfie prompt",
-    negativePrompt: "",
-  },
-);
-
 const chatAreaPromptReviewSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
   "utf8",
@@ -7396,98 +7026,6 @@ assert.equal(
   shouldAutomaticallyRetryAgentResult({ success: true, error: null }),
   false,
   "successful agents should never enter the automatic retry queue",
-);
-assert.deepEqual(openRouterModalities("krea/krea-2-large"), ["image"]);
-assert.deepEqual(openRouterModalities(" KREA/krea-2-medium-turbo "), ["image"]);
-assert.deepEqual(openRouterModalities("bytedance-seed/seedream-4.5"), ["image"]);
-assert.deepEqual(openRouterModalities(" BYTEDANCE-SEED/SEEDREAM-4.5-20251203 "), ["image"]);
-assert.deepEqual(openRouterModalities("google/gemini-3.1-flash-image-preview"), ["image", "text"]);
-assert.equal(usesOpenRouterImagesApi(" krea/krea-2-medium "), true);
-assert.equal(usesOpenRouterImagesApi("bytedance-seed/seedream-4.5"), true);
-assert.equal(usesOpenRouterImagesApi("BYTEDANCE-SEED/SEEDREAM-4.5-20251203"), true);
-assert.equal(usesOpenRouterImagesApi("google/gemini-3.1-flash-image-preview"), false);
-assert.equal(usesOpenRouterImagesApi("gpt-image-2"), true);
-assert.equal(usesOpenRouterImagesApi("openai/gpt-image-2"), true);
-assert.equal(usesOpenRouterImagesApi("google/gemini-2.5-flash-image"), false);
-assert.equal(usesOpenRouterImagesApi("google/gemini-3.1-flash-image-preview"), false);
-assert.equal(
-  openRouterImagesUrl("https://openrouter.ai/api/v1/chat/completions"),
-  "https://openrouter.ai/api/v1/images",
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({
-    prompt: "plate of spaghetti",
-    negativePrompt: "burnt pasta",
-    model: "krea/krea-2-large",
-    width: 512,
-    height: 512,
-  }),
-  {
-    model: "krea/krea-2-large",
-    prompt: "plate of spaghetti\n\nAvoid in the image: burnt pasta",
-    resolution: "1K",
-    aspect_ratio: "1:1",
-  },
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({
-    prompt: "portrait of a red fox",
-    model: "gpt-image-2",
-    width: 1024,
-    height: 1536,
-  }),
-  {
-    model: "openai/gpt-image-2",
-    prompt: "portrait of a red fox",
-    aspect_ratio: "2:3",
-  },
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({ prompt: "landscape", model: "openai/gpt-image-1", width: 1024, height: 576 }),
-  { model: "openai/gpt-image-1", prompt: "landscape", aspect_ratio: "3:2" },
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({
-    prompt: "portrait",
-    model: "google/gemini-2.5-flash-image",
-    width: 1024,
-    height: 1536,
-  }),
-  { model: "google/gemini-2.5-flash-image", prompt: "portrait", resolution: "1K", aspect_ratio: "9:16" },
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({
-    prompt: "two subjects",
-    model: "openai/gpt-image-1",
-    quality: "high",
-    transparentBackground: true,
-    referenceImages: ["data:image/png;base64,AAAA", "data:image/png;base64,BBBB"],
-  }),
-  {
-    model: "openai/gpt-image-1",
-    prompt: "two subjects",
-    quality: "high",
-    background: "transparent",
-    aspect_ratio: "1:1",
-    input_references: [
-      { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } },
-      { type: "image_url", image_url: { url: "data:image/png;base64,BBBB" } },
-    ],
-  },
-);
-assert.deepEqual(
-  buildOpenRouterImagesRequest({
-    prompt: "a dreamy night market",
-    model: "bytedance-seed/seedream-4.5",
-    width: 1280,
-    height: 720,
-  }),
-  {
-    model: "bytedance-seed/seedream-4.5",
-    prompt: "a dreamy night market",
-    resolution: "1K",
-    aspect_ratio: "16:9",
-  },
 );
 assert.deepEqual(
   filterCustomEmojisByName(
@@ -8426,95 +7964,6 @@ await assert.rejects(
   "A retry cancelled during setup must stop before the next write or event",
 );
 
-const nextEventLoopTurn = () => new Promise<void>((resolve) => setImmediate(resolve));
-const queuedImageEvents: string[] = [];
-let releaseFirstQueuedImage: () => void = () => undefined;
-const firstQueuedImageGate = new Promise<void>((resolve) => {
-  releaseFirstQueuedImage = resolve;
-});
-const firstQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-queued-connection",
-  queue: true,
-  task: async () => {
-    queuedImageEvents.push("first:start");
-    await firstQueuedImageGate;
-    queuedImageEvents.push("first:end");
-    return "first";
-  },
-});
-const secondQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-queued-connection",
-  queue: true,
-  task: async () => {
-    queuedImageEvents.push("second:start");
-    return "second";
-  },
-});
-await nextEventLoopTurn();
-assert.deepEqual(queuedImageEvents, ["first:start"]);
-releaseFirstQueuedImage();
-assert.deepEqual(await Promise.all([firstQueuedImage, secondQueuedImage]), ["first", "second"]);
-assert.deepEqual(queuedImageEvents, ["first:start", "first:end", "second:start"]);
-
-let activeUnqueuedImages = 0;
-let maxActiveUnqueuedImages = 0;
-let releaseUnqueuedImages: () => void = () => undefined;
-const unqueuedImageGate = new Promise<void>((resolve) => {
-  releaseUnqueuedImages = resolve;
-});
-const runUnqueuedImage = () =>
-  runImageGenerationRequest({
-    connectionKey: "regression-unqueued-connection",
-    queue: false,
-    task: async () => {
-      activeUnqueuedImages += 1;
-      maxActiveUnqueuedImages = Math.max(maxActiveUnqueuedImages, activeUnqueuedImages);
-      await unqueuedImageGate;
-      activeUnqueuedImages -= 1;
-    },
-  });
-const unqueuedImages = [runUnqueuedImage(), runUnqueuedImage()];
-await nextEventLoopTurn();
-assert.equal(maxActiveUnqueuedImages, 2);
-releaseUnqueuedImages();
-await Promise.all(unqueuedImages);
-
-const failedQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-failed-connection",
-  queue: true,
-  task: async () => {
-    throw new Error("expected queued image failure");
-  },
-});
-const recoveredQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-failed-connection",
-  queue: true,
-  task: async () => "recovered",
-});
-await assert.rejects(failedQueuedImage, /expected queued image failure/u);
-assert.equal(await recoveredQueuedImage, "recovered");
-
-let releaseBlockingQueuedImage: () => void = () => undefined;
-const blockingQueuedImageGate = new Promise<void>((resolve) => {
-  releaseBlockingQueuedImage = resolve;
-});
-const blockingQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-aborted-connection",
-  queue: true,
-  task: async () => blockingQueuedImageGate,
-});
-const queuedAbortController = new AbortController();
-const abortedQueuedImage = runImageGenerationRequest({
-  connectionKey: "regression-aborted-connection",
-  queue: true,
-  signal: queuedAbortController.signal,
-  task: async () => "should-not-run",
-});
-queuedAbortController.abort(new Error("expected queued abort"));
-await assert.rejects(abortedQueuedImage, /expected queued abort/u);
-releaseBlockingQueuedImage();
-await blockingQueuedImage;
-
 assert.deepEqual(parseCustomParametersDraft('{ "reasoning_effort": high, "awesomesauce": enabled }'), {
   ok: true,
   value: { reasoning_effort: "high", awesomesauce: "enabled" },
@@ -8546,131 +7995,6 @@ assert.equal(parseGenerationParameterDraft("0.85"), 0.85);
 assert.equal(parseGenerationParameterDraft("0,85"), 0.85);
 assert.equal(parseGenerationParameterDraft("0.85 trailing"), null);
 assert.equal(parseGenerationParameterDraft("0,8,5"), null);
-
-assert.equal(detectNovelAiSubjectCount("2girls, 1boy, outdoors | first | second | third"), 3);
-assert.equal(detectNovelAiSubjectCount("cinematic scene | first character | second character"), 2);
-assert.equal(detectNovelAiSubjectCount("empty landscape"), null);
-assert.deepEqual(
-  resolveNovelAiSize({ prompt: "1girl", width: 1216, height: 832 }, "1girl", {
-    ...DEFAULT_NOVELAI_DEFAULTS,
-    dynamicResolutionBySubjectCount: true,
-  }),
-  { width: 832, height: 1216 },
-);
-assert.deepEqual(
-  resolveNovelAiSize({ prompt: "2girls", width: 832, height: 1216 }, "2girls", {
-    ...DEFAULT_NOVELAI_DEFAULTS,
-    dynamicResolutionBySubjectCount: true,
-  }),
-  { width: 1024, height: 1024 },
-);
-assert.deepEqual(
-  resolveNovelAiSize({ prompt: "1girl, 1boy, 1other", width: 832, height: 1216 }, "1girl, 1boy, 1other", {
-    ...DEFAULT_NOVELAI_DEFAULTS,
-    dynamicResolutionBySubjectCount: true,
-  }),
-  { width: 1216, height: 832 },
-);
-assert.deepEqual(
-  resolveNovelAiSize({ prompt: "1girl", width: 1024, height: 1024 }, "1girl", {
-    ...DEFAULT_NOVELAI_DEFAULTS,
-    dynamicResolutionBySubjectCount: false,
-  }),
-  { width: 1024, height: 1024 },
-);
-const legacyNovelAiProfile = {
-  version: 1,
-  service: "novelai",
-  seed: -1,
-  novelai: { promptPrefix: "2girls" },
-} as unknown as ImageGenerationDefaultsProfile;
-assert.deepEqual(resolveNovelAiDefaults({ prompt: "1boy", imageDefaults: legacyNovelAiProfile }), {
-  ...DEFAULT_NOVELAI_DEFAULTS,
-  promptPrefix: "2girls",
-});
-assert.deepEqual(
-  resolveNovelAiSize({ prompt: "1boy", width: 1216, height: 832, imageDefaults: legacyNovelAiProfile }),
-  { width: 832, height: 1216 },
-);
-const nativeNovelAiConnection = {
-  baseUrl: "https://image.novelai.net",
-  model: "nai-diffusion-4-5-full",
-  imageService: "novelai",
-};
-const prefixedNovelAiProfile = {
-  version: 1,
-  service: "novelai",
-  seed: -1,
-  novelai: { ...DEFAULT_NOVELAI_DEFAULTS, promptPrefix: "2girls" },
-} satisfies ImageGenerationDefaultsProfile;
-assert.deepEqual(
-  resolveNovelAiRequestSize({
-    prompt: "1boy",
-    width: 1216,
-    height: 832,
-    model: nativeNovelAiConnection.model,
-    imageDefaults: prefixedNovelAiProfile,
-  }),
-  { width: 832, height: 1216 },
-);
-assert.deepEqual(
-  resolveImagePromptReviewSize({
-    connection: nativeNovelAiConnection,
-    prompt: "1boy",
-    width: 1216,
-    height: 832,
-    imageDefaults: prefixedNovelAiProfile,
-  }),
-  { width: 832, height: 1216 },
-);
-assert.deepEqual(
-  resolveImagePromptReviewSize({
-    connection: nativeNovelAiConnection,
-    prompt: "1girl, 1boy, 1other",
-    width: 832,
-    height: 1216,
-    imageDefaults: prefixedNovelAiProfile,
-  }),
-  { width: 1216, height: 832 },
-);
-assert.deepEqual(
-  resolveImagePromptReviewSize({
-    connection: nativeNovelAiConnection,
-    prompt: "1boy",
-    width: 1216,
-    height: 832,
-    imageDefaults: {
-      ...prefixedNovelAiProfile,
-      novelai: { ...prefixedNovelAiProfile.novelai!, dynamicResolutionBySubjectCount: false },
-    },
-  }),
-  { width: 1216, height: 832 },
-);
-assert.deepEqual(
-  resolveImagePromptReviewSize({
-    connection: { ...nativeNovelAiConnection, baseUrl: "https://novelai-proxy.example.com" },
-    prompt: "1boy",
-    width: 1216,
-    height: 832,
-    imageDefaults: prefixedNovelAiProfile,
-  }),
-  { width: 1216, height: 832 },
-);
-assert.deepEqual(
-  resolveImagePromptReviewSize({
-    connection: { baseUrl: "https://api.openai.com", model: "gpt-image-1", imageService: "openai" },
-    prompt: "1boy",
-    width: 1024,
-    height: 1024,
-    imageDefaults: null,
-  }),
-  { width: 1024, height: 1024 },
-);
-
-const comfyPlaceholderPng = Buffer.from(COMFYUI_PLACEHOLDER_REFERENCE_BASE64, "base64");
-assert.equal(comfyPlaceholderPng.toString("ascii", 1, 4), "PNG");
-assert.equal(comfyPlaceholderPng.readUInt32BE(16), 16);
-assert.equal(comfyPlaceholderPng.readUInt32BE(20), 16);
 
 const chatRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"), "utf8");
 assert.match(
@@ -9052,11 +8376,6 @@ const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
 assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
 assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
 assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
-
-assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
-for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "120.5", "Infinity", "9007199254740992"]) {
-  assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
-}
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
 process.env.CHAT_GENERATION_TIMEOUT_MS = "600000";
@@ -9527,47 +8846,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   assert.equal(explicitlyRequestsTextRewrite(" TRUE "), true);
   assert.equal(explicitlyRequestsTextRewrite("false"), false);
   assert.equal(explicitlyRequestsTextRewrite(undefined), false);
-}
-
-// Issues #4118 and #5072 — ComfyUI exposes up to five LoRAs consistently to
-// image and video API-format workflows without clipping slider LoRA strengths
-// to the legacy -2..2 range.
-{
-  const normalizedBounds = normalizeComfyUiLoraSettings([
-    { model: "upper-endpoint.safetensors", strength: 100 },
-    { model: "lower-endpoint.safetensors", strength: -100 },
-    { model: "above-range.safetensors", strength: 101 },
-    { model: "below-range.safetensors", strength: -101 },
-  ]);
-  assert.deepEqual(
-    normalizedBounds.map(({ strength }) => strength),
-    [100, -100, 100, -100],
-  );
-
-  const normalized = normalizeComfyUiLoraSettings([
-    { model: "style-a.safetensors", strength: 1.25 },
-    { model: "style-b.safetensors", strength: 99 },
-    { model: "style-c.safetensors", strength: -99 },
-    { model: "style-d.safetensors", strength: 0.5 },
-    { model: "style-e.safetensors", strength: 1 },
-    { model: "ignored.safetensors", strength: 1 },
-  ]);
-  assert.equal(normalized.length, 5);
-  assert.equal(normalized[0]?.strength, 1.25);
-  assert.equal(normalized[1]?.strength, 99);
-  assert.equal(normalized[2]?.strength, -99);
-  assert.deepEqual(buildComfyUiLoraWorkflowReplacements(normalized), {
-    "%LORA_1%": "style-a.safetensors",
-    "%LORA_1_strength%": 1.25,
-    "%LORA_2%": "style-b.safetensors",
-    "%LORA_2_strength%": 99,
-    "%LORA_3%": "style-c.safetensors",
-    "%LORA_3_strength%": -99,
-    "%LORA_4%": "style-d.safetensors",
-    "%LORA_4_strength%": 0.5,
-    "%LORA_5%": "style-e.safetensors",
-    "%LORA_5_strength%": 1,
-  });
 }
 
 // Issue #4120 — generated ElevenLabs game audio is opt-in; sound effects are
