@@ -31,6 +31,7 @@ export const OVERHAUL_SETTINGS_TABS: {
     blurb: "Theme, fonts, text colors, layout, effects, backgrounds and CSS themes",
     sections: [
       "app-style",
+      "theme-library",
       "text-scale",
       "accessibility",
       "text-colors",
@@ -38,7 +39,6 @@ export const OVERHAUL_SETTINGS_TABS: {
       "motion-backgrounds",
       "chat-backgrounds",
       "chat-widgets",
-      "theme-library",
     ],
   },
   {

@@ -3801,7 +3801,14 @@ function ThemeColorNotes({
   );
 }
 
-function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
+function AppearanceSettings({
+  group = "app",
+  afterTheme,
+}: {
+  group?: AppearanceGroup;
+  /** New layout: a section shown right after Theme (CSS themes sits there, beside the theme it restyles). */
+  afterTheme?: React.ReactNode;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
@@ -4439,6 +4446,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
               />
             </div>
           </SettingsSection>
+
+          {afterTheme}
 
           <SettingsSection
             title={localizeUi("ui.panels.appearancesettings.fontsTextSize")}
@@ -9502,8 +9511,13 @@ function AdvancedSettings() {
 export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly SettingsSectionId[] }) {
   // Each part renders once, in the order its first section appears in the tab, so the
   // sections (and the jump buttons read from them) follow the tab's own order.
+  // CSS themes listed straight after Theme renders inside the appearance part, right after Theme, instead of
+  // with the add-ons at the end of the page.
+  const cssThemesAfterTheme =
+    sectionIds.indexOf("theme-library") > 0 && sectionIds[sectionIds.indexOf("theme-library") - 1] === "app-style";
   const parts: string[] = [];
   for (const id of sectionIds) {
+    if (id === "theme-library" && cssThemesAfterTheme) continue;
     const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
     if (!meta) continue;
     const part = meta.tab === "appearance" ? `appearance:${appearanceGroupForSection(id)}` : meta.tab;
@@ -9515,7 +9529,12 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
       case "general":
         return <GeneralSettings />;
       case "appearance:app":
-        return <AppearanceSettings group="app" />;
+        return (
+          <AppearanceSettings
+            group="app"
+            afterTheme={cssThemesAfterTheme ? <ThemesSettings showIntro={false} /> : undefined}
+          />
+        );
       case "appearance:conversation":
         return <AppearanceSettings group="conversation" />;
       case "appearance:roleplay":
