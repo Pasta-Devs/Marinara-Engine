@@ -428,7 +428,7 @@ export const MARI_WITHHELD_REPLY_NOTICE =
   "Important: your previous reply was withheld from the chat answer. The user never sees your hidden reasoning. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
 
 export function formatMariGuardrail(prompt: string): string {
-  return `[Guardrail] Automated instruction from Marinara. ${prompt}`;
+  return `[Guardrail] Automated instruction from Marinara. User approval must come from the user. ${prompt}`;
 }
 
 function guardrailMessage(prompt: string): ChatMessage {
@@ -4032,7 +4032,7 @@ export class ProfessorMariWorkspaceService {
     // Send now starts a new reply inside the run: these follow it. `runStartedAt` and the first message name the run.
     let replyStartedAt = runStartedAt;
     let replyUserMessageId = userMessage.id;
-    let replyIsFiller = false;
+    let replyIsFiller: boolean | undefined;
     // #8711: this reply's words were kept although a claim check flagged them, in a run that tried no change.
     let replyNothingChanged = false;
     // Where this reply's results start in `commandResultsForContinuity`: each row keeps only its own.
@@ -4174,6 +4174,9 @@ export class ProfessorMariWorkspaceService {
         persistedAssistantMessage ?? (await createAssistantMessage(chatStorage, args.chatId, persistedText));
       if (!message) return null;
       persistedAssistantMessage = message;
+      if (replyIsFiller === false && message.content !== persistedText) {
+        await chatStorage.updateMessageContent(message.id, persistedText);
+      }
 
       await saveAssistantMessageExtra(chatStorage, message.id, {
         context: args.context,
@@ -4261,6 +4264,7 @@ export class ProfessorMariWorkspaceService {
         await persistAssistantMessage();
         const startedAt = Date.now();
         for (const steer of steers) {
+          controller.signal.throwIfAborted();
           const row = await chatStorage.createMessage({
             chatId: args.chatId,
             role: "user",
@@ -4278,6 +4282,12 @@ export class ProfessorMariWorkspaceService {
         }
         replyStartedAt = startedAt;
       } catch (err) {
+        if (replyIsFiller) {
+          // The fallback for the error or abort must replace any checkpoint we already wrote.
+          assistantText = "";
+          replyIsFiller = false;
+          assistantMessagePersisted = false;
+        }
         // Only the ones that never reached the thread go back; a saved one would then send twice.
         for (const steer of steers.slice(savedRows.length)) {
           await restorePending(args.chatId, steer).catch((restoreErr) => {
@@ -4296,7 +4306,7 @@ export class ProfessorMariWorkspaceService {
       this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: lastRow.id };
       assistantText = "";
       thinkingText = "";
-      replyIsFiller = false;
+      replyIsFiller = undefined;
       replyNothingChanged = false;
       workspaceTrace.length = 0;
       workspaceActionResults.length = 0;

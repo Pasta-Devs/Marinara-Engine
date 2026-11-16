@@ -851,7 +851,7 @@ try {
       assert.equal(lastUserText(0), "Do the thing.");
       assert.match(
         lastUserText(1),
-        /^\[Guardrail\] Automated instruction from Marinara\. You claimed a step was completed/u,
+        /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. You claimed a step was completed/u,
       );
       const blocked = { type: "blocked_draft", content: blockedText };
       assert.deepEqual(

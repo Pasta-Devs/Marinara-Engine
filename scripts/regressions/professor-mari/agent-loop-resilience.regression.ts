@@ -289,7 +289,7 @@ try {
     assert.equal(seen.length, 2);
     assert.match(
       lastUser(seen[1]),
-      /^\[Guardrail\] Automated instruction from Marinara\. Continue the same workspace task\./u,
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Continue the same workspace task\./u,
     );
     assert.ok(lastUser(seen[1]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "classic: a withheld say carries the notice");
   }
@@ -299,7 +299,7 @@ try {
     classicRequests.push(...seen);
     assert.match(
       lastUser(seen[1]),
-      /^\[Guardrail\] Automated instruction from Marinara\. Continue the same workspace task\./u,
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Continue the same workspace task\./u,
     );
     assert.ok(!lastUser(seen[1]).includes(MARI_WITHHELD_REPLY_NOTICE), "classic: a silent frame gets no notice");
   }
@@ -348,7 +348,10 @@ try {
       reply("The edit failed; no change was made."),
     ]);
     assert.equal(seen.length, 3);
-    assert.match(lastUser(seen[2]), /^\[Guardrail\] Automated instruction from Marinara\. Nothing is held/u);
+    assert.match(
+      lastUser(seen[2]),
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Nothing is held/u,
+    );
     assert.ok(lastUser(seen[2]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "pi: the held-claim steer carries the notice");
   }
   // pi: words written before a call the output limit cut (often the plan) are withheld too.
