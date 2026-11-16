@@ -1575,7 +1575,8 @@ export function ChatSettingsDrawer({
     toggleInlineResourceEditor,
     renderInlineCardEditor,
   };
-  // Memory recall renders in two places, so keyboard order stays as before in every mode.
+  // On purpose: Memory recall has two renders, one for Conversation and one for the other modes, so switching a
+  // chat between them mounts a fresh section.
   const memoryRecallSectionProps = {
     order: CHAT_SETTINGS_ORDER.memoryRecall,
     chat,
@@ -1852,14 +1853,6 @@ export function ChatSettingsDrawer({
           )}
         >
           {/* Settings profile bar — hidden in Game Mode. Scene chats keep it, but scene instructions stay chat-owned. */}
-          <div ref={setControlDockHost} data-chat-control-dock style={{ order: CHAT_SETTINGS_ORDER.search + 1 }} />
-          {metadata.multiplayer && (
-            <MultiplayerPlayersSection
-              chatId={chat.id}
-              forceOpen={initialSection === "multiplayer"}
-              gameStart={multiplayerGameStart}
-            />
-          )}
           {modeSettingsSurfaces.showSettingsProfiles && (
             <SettingsProfilesSection
               order={CHAT_SETTINGS_ORDER.settingsPresets}
@@ -1887,6 +1880,16 @@ export function ChatSettingsDrawer({
                 <ChatMessageSearch chatId={chat.id} />
               </div>
             </Section>
+          )}
+
+          <div ref={setControlDockHost} data-chat-control-dock style={{ order: CHAT_SETTINGS_ORDER.search + 1 }} />
+
+          {metadata.multiplayer && (
+            <MultiplayerPlayersSection
+              chatId={chat.id}
+              forceOpen={initialSection === "multiplayer"}
+              gameStart={multiplayerGameStart}
+            />
           )}
 
           <div style={{ order: CHAT_SETTINGS_ORDER.chatName }}>
@@ -2027,31 +2030,38 @@ export function ChatSettingsDrawer({
             </div>
           )}
 
-          {/* Combat Style — game mode only */}
-          {isGame && (
-            <CombatStyleSection
-              style={{ order: CHAT_SETTINGS_ORDER.combatStyle }}
-              combatStyle={effectiveCombatStyle}
-              rulesetResolvesFights={rulesetResolvesFights}
-              rulesetHasPositions={rulesetHasPositions}
-              allowedStyles={allowedCombatStyles}
-              onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
-              turnOrder={effectiveTurnOrder}
-              onTurnOrderChange={(gameTacticalTurnOrder) => updateMeta.mutate({ id: chat.id, gameTacticalTurnOrder })}
+          {/* Advanced Parameters */}
+          <div style={{ order: CHAT_SETTINGS_ORDER.advancedParameters }}>
+            <AdvancedParametersSection
+              forceOpen={initialSection === "advanced-parameters"}
+              metadata={metadata}
+              isConversation={isConversation}
+              connectionId={chat.connectionId ?? null}
+              connections={chatGenerationConnectionsList}
+              contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
+              advancedMemoryManagesHistory={advancedMemoryEnabled}
+              excludePastReasoning={metadata.excludePastReasoning as boolean | undefined}
+              imageCaptioningEnabled={metadata.imageCaptioningEnabled as boolean | undefined}
+              imageCaptioningConnectionId={
+                Object.prototype.hasOwnProperty.call(metadata, "imageCaptioningConnectionId")
+                  ? typeof metadata.imageCaptioningConnectionId === "string"
+                    ? metadata.imageCaptioningConnectionId
+                    : null
+                  : undefined
+              }
+              onChatParametersChange={(chatParameters) => updateMeta.mutate({ id: chat.id, chatParameters })}
+              onContextMessageLimitChange={(contextMessageLimit) =>
+                updateMeta.mutate({ id: chat.id, contextMessageLimit })
+              }
+              onExcludePastReasoningChange={(excludePastReasoning) =>
+                updateMeta.mutate({ id: chat.id, excludePastReasoning })
+              }
+              onPastReasoningLimitChange={(pastReasoningLimit) =>
+                updateMeta.mutate({ id: chat.id, pastReasoningLimit })
+              }
+              onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
             />
-          )}
-
-          {/* Scene System Prompt — shown only for scene-created chats */}
-          {metadata.sceneSystemPrompt && (
-            <SceneInstructionsSection
-              expanded={scenePromptExpanded}
-              storedValue={metadata.sceneSystemPrompt as string}
-              value={scenePromptDraft}
-              onCommit={(sceneSystemPrompt) => updateMeta.mutate({ id: chat.id, sceneSystemPrompt })}
-              onExpandedChange={setScenePromptExpanded}
-              onValueChange={setScenePromptDraft}
-            />
-          )}
+          </div>
 
           {/* Party (game mode) */}
           {isGame && <GamePartySection {...gamePartySectionProps} />}
@@ -2083,6 +2093,21 @@ export function ChatSettingsDrawer({
             style={{ order: CHAT_SETTINGS_ORDER.cardFieldAlternatives }}
           />
 
+          {/* Every existing and new multi-character chat gets this section. Missing mode metadata means Grouped. */}
+          <GroupChatSection
+            sectionId={`${chatMode}-group-chat`}
+            order={CHAT_SETTINGS_ORDER.groupChat}
+            visible={chatCharIds.length > 1 && modeSettingsSurfaces.showGroupChatControls}
+            chat={chat}
+            metadata={metadata}
+            isConversation={isConversation}
+            isRoleplayMode={isRoleplayMode}
+            groupChatMode={groupChatMode}
+            autoActiveCharactersMode={autoActiveCharactersMode}
+            activeManualTrackerTypes={activeManualTrackerTypes}
+            activeAgentIds={activeAgentIds}
+          />
+
           {/* Scoped Regex Scripts — only shown when a chat character has scoped scripts */}
           <ScopedRegexSection
             sectionId={`${chatMode}-scoped-regex`}
@@ -2101,50 +2126,6 @@ export function ChatSettingsDrawer({
             chatId={chat.id}
             variables={chatMacroVariables}
           />
-
-          {/* Every existing and new multi-character chat gets this section. Missing mode metadata means Grouped. */}
-          <GroupChatSection
-            sectionId={`${chatMode}-group-chat`}
-            order={CHAT_SETTINGS_ORDER.groupChat}
-            visible={chatCharIds.length > 1 && modeSettingsSurfaces.showGroupChatControls}
-            chat={chat}
-            metadata={metadata}
-            isConversation={isConversation}
-            isRoleplayMode={isRoleplayMode}
-            groupChatMode={groupChatMode}
-            autoActiveCharactersMode={autoActiveCharactersMode}
-            activeManualTrackerTypes={activeManualTrackerTypes}
-            activeAgentIds={activeAgentIds}
-          />
-
-          {/* Autonomous Messaging — conversation mode only */}
-          {isConversation && (
-            <AutonomousMessagingSection
-              chat={chat}
-              metadata={metadata}
-              chatCharIds={chatCharIds}
-              charNameMap={charNameMap}
-              open={open}
-              initialSection={initialSection}
-              isConversation={isConversation}
-              onOpenScheduleEditor={onOpenScheduleEditor}
-            />
-          )}
-
-          {/* Conversation feature packages expose commands and settings as soon as they are installed. */}
-          {modeSettingsSurfaces.agentSettingsSurface === "conversation" && (
-            <ConversationAgentsSection
-              order={CHAT_SETTINGS_ORDER.agents}
-              agents={chatAgents}
-              chat={chat}
-              metadata={metadata}
-              activeAgentIds={activeAgentIds}
-              textConnectionsList={textConnectionsList}
-              requestClose={requestClose}
-              rememberSettingsReturn={rememberSettingsReturn}
-              renderers={agentRenderers}
-            />
-          )}
 
           <ConnectedChatsSection
             order={CHAT_SETTINGS_ORDER.connectedChat}
@@ -2233,51 +2214,20 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {chatTools?.authorNotes && (
-            <Section
-              id={`${chatMode}-author-notes`}
-              style={{ order: CHAT_SETTINGS_ORDER.authorNotes }}
-              label={localizeUi("chat.settings.authorNotes")}
-              icon={<PenLine size="0.875rem" />}
-              help={localizeUi("chat.settings.authorNotesHelp")}
-              fill
-            >
-              {chatTools.authorNotes}
-            </Section>
+          {/* Conversation feature packages expose commands and settings as soon as they are installed. */}
+          {modeSettingsSurfaces.agentSettingsSurface === "conversation" && (
+            <ConversationAgentsSection
+              order={CHAT_SETTINGS_ORDER.agents}
+              agents={chatAgents}
+              chat={chat}
+              metadata={metadata}
+              activeAgentIds={activeAgentIds}
+              textConnectionsList={textConnectionsList}
+              requestClose={requestClose}
+              rememberSettingsReturn={rememberSettingsReturn}
+              renderers={agentRenderers}
+            />
           )}
-
-          {chatTools && (
-            <Section
-              id={`${chatMode}-gallery`}
-              style={{ order: CHAT_SETTINGS_ORDER.gallery }}
-              label={localizeUi("chat.settings.gallery")}
-              icon={<Images size="0.875rem" />}
-              help={localizeUi("chat.settings.galleryHelp")}
-              contentClassName="pt-2"
-            >
-              <Suspense fallback={<ChatToolLoading />}>
-                <ChatGalleryPanel chat={chat} />
-              </Suspense>
-            </Section>
-          )}
-
-          {/* Agent activity: its own section right below Agents, while agents or Advanced Memory run. */}
-          {chatTools &&
-            isRoleplayMode &&
-            (metadata.enableAgents === true || metadata.advancedMemory?.enabled === true) && (
-              <Section
-                id={`${chatMode}-agent-activity`}
-                style={{ order: CHAT_SETTINGS_ORDER.agentActivity }}
-                label={localizeUi("chat.settings.agentActivity")}
-                icon={withAgentActivityStatus(chat.id, <Activity size="0.875rem" />)}
-                help={localizeUi("chat.settings.agentActivityHelp")}
-              >
-                <AgentActivitySection
-                  chatId={chat.id}
-                  className="overflow-hidden rounded-lg border border-[var(--border)]"
-                />
-              </Section>
-            )}
 
           {/* Agents */}
           {modeSettingsSurfaces.agentSettingsSurface === "generation" && (
@@ -2315,6 +2265,37 @@ export function ChatSettingsDrawer({
             />
           )}
 
+          {/* Agent activity: its own section right below Agents, while agents or Advanced Memory run. */}
+          {chatTools &&
+            isRoleplayMode &&
+            (metadata.enableAgents === true || metadata.advancedMemory?.enabled === true) && (
+              <Section
+                id={`${chatMode}-agent-activity`}
+                style={{ order: CHAT_SETTINGS_ORDER.agentActivity }}
+                label={localizeUi("chat.settings.agentActivity")}
+                icon={withAgentActivityStatus(chat.id, <Activity size="0.875rem" />)}
+                help={localizeUi("chat.settings.agentActivityHelp")}
+              >
+                <AgentActivitySection
+                  chatId={chat.id}
+                  className="overflow-hidden rounded-lg border border-[var(--border)]"
+                />
+              </Section>
+            )}
+
+          {chatTools?.authorNotes && (
+            <Section
+              id={`${chatMode}-author-notes`}
+              style={{ order: CHAT_SETTINGS_ORDER.authorNotes }}
+              label={localizeUi("chat.settings.authorNotes")}
+              icon={<PenLine size="0.875rem" />}
+              help={localizeUi("chat.settings.authorNotesHelp")}
+              fill
+            >
+              {chatTools.authorNotes}
+            </Section>
+          )}
+
           {(isRoleplayMode || isGame) && (
             <Section
               id={`${chatMode}-background`}
@@ -2328,21 +2309,51 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
+          {chatTools && (
+            <Section
+              id={`${chatMode}-gallery`}
+              style={{ order: CHAT_SETTINGS_ORDER.gallery }}
+              label={localizeUi("chat.settings.gallery")}
+              icon={<Images size="0.875rem" />}
+              help={localizeUi("chat.settings.galleryHelp")}
+              contentClassName="pt-2"
+            >
+              <Suspense fallback={<ChatToolLoading />}>
+                <ChatGalleryPanel chat={chat} />
+              </Suspense>
+            </Section>
+          )}
+
+          {/* Combat Style — game mode only */}
+          {isGame && (
+            <CombatStyleSection
+              style={{ order: CHAT_SETTINGS_ORDER.combatStyle }}
+              combatStyle={effectiveCombatStyle}
+              rulesetResolvesFights={rulesetResolvesFights}
+              rulesetHasPositions={rulesetHasPositions}
+              allowedStyles={allowedCombatStyles}
+              onCombatStyleChange={(gameCombatStyle) => updateMeta.mutate({ id: chat.id, gameCombatStyle })}
+              turnOrder={effectiveTurnOrder}
+              onTurnOrderChange={(gameTacticalTurnOrder) => updateMeta.mutate({ id: chat.id, gameTacticalTurnOrder })}
+            />
+          )}
+
           {isGame && <GameWidgetsSection order={CHAT_SETTINGS_ORDER.widgets} chat={chat} metadata={metadata} />}
 
-          {/* Memory Recall — conversation mode: placed before Function Calling by section order */}
+          {!isConversation && !isGame && (
+            <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
+              <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
+            </div>
+          )}
+
+          {/* Memory Recall — Conversation */}
           {isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
             <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
-          {/* Automatic Summarization — conversation mode only. Opens a modal to edit per-day and per-week summaries. */}
-          {isConversation && (
-            <AutomaticSummarizationSection
-              chat={chat}
-              metadata={metadata}
-              setShowSummariesModal={setShowSummariesModal}
-              isGame={isGame}
-            />
+          {/* Memory Recall — Roleplay and Game */}
+          {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
+            <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
           <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
@@ -2404,11 +2415,6 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          {/* Memory Recall — roleplay/game modes: placed before Function Calling by section order */}
-          {!isConversation && import.meta.env.VITE_MARINARA_LITE !== "true" && (
-            <MemoryRecallSection {...memoryRecallSectionProps} />
-          )}
-
           <div style={{ order: CHAT_SETTINGS_ORDER.translation }}>
             <TranslationSection
               chatId={chat.id}
@@ -2417,43 +2423,40 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          {/* Advanced Parameters */}
-          <div style={{ order: CHAT_SETTINGS_ORDER.advancedParameters }}>
-            <AdvancedParametersSection
-              forceOpen={initialSection === "advanced-parameters"}
-              metadata={metadata}
-              isConversation={isConversation}
-              connectionId={chat.connectionId ?? null}
-              connections={chatGenerationConnectionsList}
-              contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
-              advancedMemoryManagesHistory={advancedMemoryEnabled}
-              excludePastReasoning={metadata.excludePastReasoning as boolean | undefined}
-              imageCaptioningEnabled={metadata.imageCaptioningEnabled as boolean | undefined}
-              imageCaptioningConnectionId={
-                Object.prototype.hasOwnProperty.call(metadata, "imageCaptioningConnectionId")
-                  ? typeof metadata.imageCaptioningConnectionId === "string"
-                    ? metadata.imageCaptioningConnectionId
-                    : null
-                  : undefined
-              }
-              onChatParametersChange={(chatParameters) => updateMeta.mutate({ id: chat.id, chatParameters })}
-              onContextMessageLimitChange={(contextMessageLimit) =>
-                updateMeta.mutate({ id: chat.id, contextMessageLimit })
-              }
-              onExcludePastReasoningChange={(excludePastReasoning) =>
-                updateMeta.mutate({ id: chat.id, excludePastReasoning })
-              }
-              onPastReasoningLimitChange={(pastReasoningLimit) =>
-                updateMeta.mutate({ id: chat.id, pastReasoningLimit })
-              }
-              onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
+          {/* Scene System Prompt — shown only for scene-created chats */}
+          {metadata.sceneSystemPrompt && (
+            <SceneInstructionsSection
+              expanded={scenePromptExpanded}
+              storedValue={metadata.sceneSystemPrompt as string}
+              value={scenePromptDraft}
+              onCommit={(sceneSystemPrompt) => updateMeta.mutate({ id: chat.id, sceneSystemPrompt })}
+              onExpandedChange={setScenePromptExpanded}
+              onValueChange={setScenePromptDraft}
             />
-          </div>
+          )}
 
-          {!isConversation && !isGame && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
-              <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
-            </div>
+          {/* Autonomous Messaging — conversation mode only */}
+          {isConversation && (
+            <AutonomousMessagingSection
+              chat={chat}
+              metadata={metadata}
+              chatCharIds={chatCharIds}
+              charNameMap={charNameMap}
+              open={open}
+              initialSection={initialSection}
+              isConversation={isConversation}
+              onOpenScheduleEditor={onOpenScheduleEditor}
+            />
+          )}
+
+          {/* Automatic Summarization — conversation mode only. Opens a modal to edit per-day and per-week summaries. */}
+          {isConversation && (
+            <AutomaticSummarizationSection
+              chat={chat}
+              metadata={metadata}
+              setShowSummariesModal={setShowSummariesModal}
+              isGame={isGame}
+            />
           )}
         </div>
       </FloatingWindow>
