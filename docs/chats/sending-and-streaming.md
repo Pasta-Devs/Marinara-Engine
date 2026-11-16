@@ -23,7 +23,7 @@ Find it in **Settings → General → Input & Editing**. There is one toggle per
 | Conversations | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 | Game | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 
-Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Search and Professor Mari settings**.
+Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Search and Professor Mari settings**. On a touch screen, <kbd>Enter</kbd> in her chat always adds a new line.
 
 ## Attach images and files
 

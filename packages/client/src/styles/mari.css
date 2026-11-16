@@ -5042,7 +5042,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   left: 0;
   display: flex;
   width: min(18rem, calc(100vw - 1.5rem));
-  max-height: min(28rem, calc(100dvh - 8rem));
+  /* --mari-menu-room: the space between the composer and the top of her pane (MariComposer), so a tall draft
+     never pushes the menu under the header. */
+  max-height: min(28rem, calc(100dvh - 8rem), var(--mari-menu-room, 100dvh));
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -5104,7 +5106,7 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   right: 0;
   left: 0;
   width: auto;
-  max-height: min(18rem, calc(100dvh - 12rem));
+  max-height: min(18rem, calc(100dvh - 12rem), var(--mari-menu-room, 100dvh));
 }
 
 .mari-reference-picker .mari-composer-menu__head {

@@ -228,7 +228,7 @@ export type WorkspaceTimelineItem =
   | { id: string; type: "text"; content: string; narration?: boolean }
   | { id: string; type: "thinking"; content: string; startedAt?: number; updatedAt?: number }
   | { id: string; type: "tool"; tool: WorkspaceToolCall }
-  | { id: string; type: "status"; content: string };
+  | { id: string; type: "status" | "blocked_draft"; content: string };
 
 function timelineId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -301,6 +301,10 @@ export function appendThinkingTimeline(current: WorkspaceTimelineItem[], delta: 
     return [...current.slice(0, -1), { ...last, content: `${last.content}${delta}`, updatedAt: now }];
   }
   return [...current, { id: timelineId("thinking"), type: "thinking", content: delta, startedAt: now, updatedAt: now }];
+}
+
+export function appendBlockedDraftTimeline(current: WorkspaceTimelineItem[], content: string): WorkspaceTimelineItem[] {
+  return [...current, { id: timelineId("blocked-draft"), type: "blocked_draft", content }];
 }
 
 export function appendStatusTimeline(current: WorkspaceTimelineItem[], content: string): WorkspaceTimelineItem[] {

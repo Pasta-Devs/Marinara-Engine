@@ -41,9 +41,21 @@ assert.deepEqual(atEnd("/he"), { trigger: "/", query: "he", start: 0, end: 3, qu
 assert.equal(atEnd("/")?.query, "");
 assert.equal(atEnd("hello\n/he")?.start, 6);
 assert.equal(atEnd("  /he")?.start, 2);
-assert.equal(atEnd("hello /he"), null);
+// Mid-line after whitespace too, so one message can run several commands.
+assert.deepEqual(atEnd("hello /he"), { trigger: "/", query: "he", start: 6, end: 9, quoted: false });
+assert.equal(activeToken("hi /ne there", 6)?.end, 6);
+// a command after an open bare reference wins over reading "Alice /skills" as one name
+assert.deepEqual(atEnd("Ask @Alice /skills"), { trigger: "/", query: "skills", start: 11, end: 18, quoted: false });
+assert.equal(atEnd("Ask @Fel Lock")?.query, "Fel Lock");
+assert.equal(atEnd('@"Alice /x')?.query, "Alice /x");
+// the caret before a word-initial slash is not inside a command token
+assert.equal(activeToken("look /history", 5), null);
+assert.equal(activeToken("/history", 0), null);
 assert.equal(atEnd("/usr/bin"), null);
+assert.equal(atEnd("see /usr/bin"), null);
 assert.equal(atEnd("and/or"), null);
+assert.equal(atEnd("1/2"), null);
+assert.equal(atEnd("https://x.y/a"), null);
 assert.equal(atEnd("/help me"), null);
 
 // formatReferenceToken
