@@ -234,6 +234,8 @@ export function useAssignGalleryImage(chatId: string) {
           // whole client into the e2e type check).
           target.type === "character" ? ["characters", "gallery", target.id] : ["persona-gallery", target.id],
       });
+      // characterKeys.galleryBackgrounds(): the background library's list of every character's backgrounds.
+      if (target.type === "character") qc.invalidateQueries({ queryKey: ["characters", "gallery-backgrounds"] });
     },
   });
 }
