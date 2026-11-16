@@ -748,7 +748,8 @@ const MARI_ASSET_EXTRA_KEYS = ["mariWorkspaceContinuity", "mariWorkspaceTimeline
 /**
  * After a lightbox regenerate, points one of Mari's replies at the new asset: her text shows the new picture, and the
  * tool results she reads on later turns name the new asset, so "assign that one" afterwards means the picture the user
- * sees. False when the message never showed the old asset.
+ * sees. Returns the new content and the rewritten extra keys, for her window to apply as they are (#9388: rebuilding
+ * the swap on the client missed the filename and bare id); null when the message never showed the old asset.
  */
 export async function swapMariPreviewAssetInMessage(
   db: DB,
@@ -756,11 +757,11 @@ export async function swapMariPreviewAssetInMessage(
   messageId: string,
   previous: Pick<MariImageAsset, "id" | "url" | "filename">,
   next: Pick<MariImageAsset, "id" | "url" | "filename">,
-): Promise<boolean> {
+): Promise<{ content: string; extra: Json } | null> {
   const chats = createChatsStorage(db);
   const message = await chats.getMessage(messageId);
-  if (!message || message.chatId !== chatId || message.role !== "assistant") return false;
-  if (!message.content.includes(previous.url)) return false;
+  if (!message || message.chatId !== chatId || message.role !== "assistant") return null;
+  if (!message.content.includes(previous.url)) return null;
   // The id is a fresh unique id and part of the url and filename, so plain replacement can't hit unrelated text.
   const swap = (text: string) =>
     text
@@ -770,7 +771,8 @@ export async function swapMariPreviewAssetInMessage(
       .join(next.filename)
       .split(previous.id)
       .join(next.id);
-  await chats.updateMessageContent(messageId, swap(message.content));
+  const content = swap(message.content);
+  await chats.updateMessageContent(messageId, content);
 
   let extra: Json = {};
   try {
@@ -787,7 +789,7 @@ export async function swapMariPreviewAssetInMessage(
     if (after !== before) partial[key] = JSON.parse(after) as unknown;
   }
   if (Object.keys(partial).length > 0) await chats.updateMessageExtra(messageId, partial);
-  return true;
+  return { content, extra: partial };
 }
 
 async function writeManifest(assets: MariImageAsset[]) {

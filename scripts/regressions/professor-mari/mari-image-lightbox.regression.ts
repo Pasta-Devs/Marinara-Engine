@@ -141,7 +141,12 @@ try {
     },
   });
   assert.equal(regenerated.statusCode, 200, regenerated.body);
-  const result = regenerated.json() as { asset: Asset; regenerable: boolean; replacedMessageIds: string[] };
+  const result = regenerated.json() as {
+    asset: Asset;
+    regenerable: boolean;
+    replacedMessageIds: string[];
+    replacedMessages: { id: string; content: string; extra: Record<string, unknown> }[];
+  };
   assert.equal(sent.at(-1)?.prompt, "a quiet library at night, candles", "the edited prompt is sent as written");
   assert.equal(sent.at(-1)?.negative_prompt, "text, blurry");
   assert.equal(sent.at(-1)?.width, 832, "the saved width is reused");
@@ -165,6 +170,18 @@ try {
   const extra = JSON.parse(swapped.extra as string) as { mariWorkspaceContinuity: unknown };
   const continuity = JSON.stringify(extra.mariWorkspaceContinuity);
   assert.ok(continuity.includes(result.asset.id) && !continuity.includes(original.id), continuity);
+  // Her window applies what the route returns as is, so it must be exactly what was stored, with no trace of the old
+  // url, filename or id (#9388: the client-side url-only swap kept the old filename and id).
+  const [returned] = result.replacedMessages;
+  assert.equal(returned?.id, reply.id);
+  assert.equal(returned?.content, swapped.content, "the returned content is the stored content");
+  assert.deepEqual(
+    returned?.extra.mariWorkspaceContinuity,
+    extra.mariWorkspaceContinuity,
+    "the returned extra is stored",
+  );
+  const returnedText = JSON.stringify(returned);
+  for (const old of [original.url, original.filename, original.id]) assert.ok(!returnedText.includes(old), old);
   assert.equal(
     (await chats.getMessage(rpMessage.id))!.content,
     `![copy](${original.url})`,

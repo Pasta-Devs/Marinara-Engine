@@ -33,6 +33,13 @@ export interface MariImageAsset {
   createdAt: string;
 }
 
+/** One of her replies a regenerate rewrote: its new content and the extra keys the server changed. */
+export interface MariReplacedMessage {
+  id: string;
+  content: string;
+  extra: Record<string, unknown>;
+}
+
 interface MariImageRecord {
   asset: MariImageAsset;
   regenerable: boolean;
@@ -105,7 +112,7 @@ function MariImageLightbox({
   alt: string;
   chatId: string;
   messageId: string;
-  onImageReplaced?: (messageId: string, previousUrl: string, nextUrl: string) => void;
+  onImageReplaced?: (message: MariReplacedMessage) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -125,9 +132,7 @@ function MariImageLightbox({
     () => ({
       defaultConnectionLabel: t("ui.chat.mariimagelightbox.sameConnection"),
       regenerate: async ({ imageId, prompt, negativePrompt, connectionId, messageId: replyId, debugMode }) => {
-        // The url her reply names now: the asset this regeneration starts from.
-        const previousUrl = qc.getQueryData<MariImageRecord>(["mari-image-asset", imageId])?.asset.url ?? src;
-        const result = await api.post<MariImageRecord & { replacedMessageIds: string[] }>(
+        const result = await api.post<MariImageRecord & { replacedMessages: MariReplacedMessage[] }>(
           `${assetPath(imageId)}/regenerate`,
           { prompt, negativePrompt, connectionId, debugMode, chatId, ...(replyId ? { messageId: replyId } : {}) },
         );
@@ -135,9 +140,9 @@ function MariImageLightbox({
           asset: result.asset,
           regenerable: result.regenerable,
         });
-        if (result.replacedMessageIds.length > 0) {
+        if (result.replacedMessages.length > 0) {
           // Her window keeps its transcript in its own state; the chat query serves any other view of it.
-          for (const id of result.replacedMessageIds) onImageReplaced?.(id, previousUrl, result.asset.url);
+          for (const message of result.replacedMessages) onImageReplaced?.(message);
           void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         }
         // The new prompt was sent as written, so no style profile shaped it.
@@ -147,7 +152,7 @@ function MariImageLightbox({
       revise: ({ imageId, ...draft }) =>
         api.post<ImagePromptDraft>(`${assetPath(imageId)}/regenerate/prompt`, { ...draft, chatId }),
     }),
-    [chatId, onImageReplaced, qc, src, t],
+    [chatId, onImageReplaced, qc, t],
   );
 
   if (assetId && record.isPending) return null;
@@ -177,7 +182,7 @@ export function MariImageOpener({
 }: {
   chatId: string;
   messageId: string;
-  onImageReplaced?: (messageId: string, previousUrl: string, nextUrl: string) => void;
+  onImageReplaced?: (message: MariReplacedMessage) => void;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState<{ src: string; alt: string } | null>(null);

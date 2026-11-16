@@ -25,7 +25,7 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { MariChangeReceipt, type MariReceiptControls } from "../MariChangeReceipt";
 
 import { TranscriptRow } from "../MariTranscriptRow";
-import { MariImageOpener } from "./MariImageLightbox";
+import { MariImageOpener, type MariReplacedMessage } from "./MariImageLightbox";
 import { cn, copyToClipboard } from "../../../lib/utils";
 import {
   mariReferenceFact,
@@ -493,7 +493,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   canRegenerate?: boolean;
   onRemoveAttachment?: (messageId: string, attachmentIndex: number) => void;
   /** The lightbox regenerated a picture in this reply and the server swapped it (#9387). */
-  onImageReplaced?: (messageId: string, previousUrl: string, nextUrl: string) => void;
+  onImageReplaced?: (message: MariReplacedMessage) => void;
   onOpenActionResult: (result: MariWorkspaceActionResult) => void;
   onOpenResource: (resource: MariReferencedResource) => void;
   characterSubject?: CharacterPreviewModel | null;

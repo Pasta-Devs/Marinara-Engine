@@ -2449,19 +2449,21 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!result) return reply.status(404).send({ error: "Image not found" });
 
     const swapped =
-      !!chat &&
-      !!input.messageId &&
-      (await swapMariPreviewAssetInMessage(app.db, chat.id, input.messageId, result.previous, result.asset));
+      chat && input.messageId
+        ? await swapMariPreviewAssetInMessage(app.db, chat.id, input.messageId, result.previous, result.asset)
+        : null;
     logger.info(
       "[gallery/mari-images/regenerate] Regenerated Mari image %s as %s (message swapped: %s)",
       assetId,
       result.asset.id,
-      swapped,
+      !!swapped,
     );
     return {
       asset: result.asset,
       regenerable: isMariPreviewAssetRegenerable(result.asset),
       replacedMessageIds: swapped ? [input.messageId] : [],
+      // What the swap wrote, so her window patches its own transcript with exactly the stored text.
+      replacedMessages: swapped && input.messageId ? [{ id: input.messageId, ...swapped }] : [],
     };
   });
 
