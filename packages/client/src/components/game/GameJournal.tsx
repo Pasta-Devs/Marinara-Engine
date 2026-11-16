@@ -39,7 +39,7 @@ import { GameRulesetUpdate } from "./GameRulesetUpdate";
 import type { GameNpc, WorldFile, WorldJournal } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MarinaraLegacyUpgrade } from "./MarinaraLegacyUpgrade";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface JournalEntry {
   timestamp: string;

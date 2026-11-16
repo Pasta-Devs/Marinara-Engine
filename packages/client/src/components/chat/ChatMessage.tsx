@@ -156,7 +156,7 @@ import { MessageMarkIndicators, MessageMarksAction, type MessageNoteSharing } fr
 import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
 import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
 import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;

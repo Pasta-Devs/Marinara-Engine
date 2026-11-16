@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { COMBAT_POSTURES, type CombatController, type CombatOrders, type CombatTactics } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 interface Member {
   id: string;

@@ -10,8 +10,8 @@ import { AgentArtwork } from "./AgentArtwork";
 import { AgentReleaseNoteList } from "./AgentReleaseNoteList";
 import { NotableChangeMarker } from "./NotableChangeMarker";
 import { taglineOf } from "./organizer/organizer-model";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 export type AgentUpdatePhase = "ask" | "running" | "done";
 export type AgentUpdateResult =

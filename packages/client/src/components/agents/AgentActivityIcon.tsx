@@ -15,7 +15,7 @@ import {
   selectUnseenAgentFailureCount,
   useAgentStore,
 } from "../../stores/agent.store";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }) {
   const { t } = useTranslation();

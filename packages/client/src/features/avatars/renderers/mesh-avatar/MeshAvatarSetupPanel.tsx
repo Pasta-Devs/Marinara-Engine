@@ -11,7 +11,7 @@ import { SETTINGS_BUTTON_CLASS, SettingsSection } from "../../../../components/p
 import type { AvatarKindSetupPanelProps } from "../../contract";
 import { AVATAR_EMOTION_LABEL_KEYS, AVATAR_SETUP_SELECT_CLASS, errorMessage } from "../pngtuber/PngtuberSetupPanel";
 import { MESH_AVATAR_EMOTION_TAGS, MESH_AVATAR_EXTRA_EXPRESSIONS } from "./mesh-avatar-face";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 const EXTRA_LOOK_KEYS: Readonly<Record<(typeof MESH_AVATAR_EXTRA_EXPRESSIONS)[number], string>> = {
   smile: "avatars.meshAvatar.lookSmile",

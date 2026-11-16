@@ -67,7 +67,7 @@ import {
   useChatKeyboardOpen,
   useKeepLatestChatMessageVisible,
 } from "../../hooks/use-visual-viewport-chat-bottom";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const ConversationAutonomousEffects = lazy(async () => {
   const module = await import("./ConversationAutonomousEffects");

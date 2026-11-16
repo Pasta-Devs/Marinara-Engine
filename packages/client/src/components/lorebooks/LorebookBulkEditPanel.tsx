@@ -17,7 +17,7 @@ import {
 } from "@marinara-engine/shared";
 import { useBulkEditLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   lorebookId: string;

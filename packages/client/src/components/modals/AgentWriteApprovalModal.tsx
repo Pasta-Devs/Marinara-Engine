@@ -15,7 +15,7 @@ import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { characterDataSchema } from "@marinara-engine/shared";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

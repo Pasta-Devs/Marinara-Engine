@@ -112,7 +112,7 @@ import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "..
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 import { GameStoryBoundariesFields } from "../game/GameStoryBoundariesFields";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // ── Tab definitions ──
 const TABS = [

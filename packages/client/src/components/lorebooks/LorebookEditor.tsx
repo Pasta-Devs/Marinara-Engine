@@ -129,7 +129,7 @@ import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not

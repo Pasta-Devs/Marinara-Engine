@@ -38,7 +38,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { MusicSourceButton } from "../music/MusicSourceButton";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type SpotifyRepeatState = "off" | "track" | "context";
 

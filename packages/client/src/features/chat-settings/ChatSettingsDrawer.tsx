@@ -194,7 +194,7 @@ import {
   normalizeAgentMaxTokens,
   useChatAgents,
 } from "./agents/use-chat-agents";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../components/ui/Spinner";
 
 const QuickPresetSectionsEditor = lazy(() =>
   import("../../components/presets/PresetEditor").then((module) => ({ default: module.QuickPresetSectionsEditor })),

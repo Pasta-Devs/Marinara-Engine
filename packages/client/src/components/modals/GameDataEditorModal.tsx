@@ -46,7 +46,7 @@ import type { StateEditorChange } from "../../lib/state-editor/state-editor.type
 import { chatKeys } from "../../hooks/use-chats";
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { stalePartySheet, useSavePartySheet } from "../../hooks/use-party-sheet";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface GameDataEditorModalProps {
   open: boolean;

@@ -82,7 +82,7 @@ import {
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TokenPicture } from "./TokenPicture";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // `combatant.sprite` is populated either from a real avatar URL (player party,
 // from the character sheet's `avatarUrl`) or from the encounter LLM, which is

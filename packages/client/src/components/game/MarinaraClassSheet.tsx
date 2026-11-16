@@ -48,7 +48,7 @@ import { cn } from "../../lib/utils";
 import { MarinaraItemFacts } from "./MarinaraItemFacts";
 import { chatKeys, useChat } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const blockKey = (block: string) => block.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 

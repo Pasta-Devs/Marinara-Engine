@@ -12,7 +12,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { translate } from "../../../localization/i18n";
 import { ToggleSetting } from "./SettingControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 const INPUT_CLS = "mari-chrome-field w-full px-3 py-2.5 text-sm placeholder:text-[var(--muted-foreground)]";
 /** An address, not copy: the usual root of a self-hosted server on the same machine. */

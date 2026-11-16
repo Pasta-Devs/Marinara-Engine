@@ -42,7 +42,7 @@ import {
 import { MultiplayerBlankSheets } from "./MultiplayerBlankSheets";
 import { MultiplayerParticipantControls } from "./MultiplayerParticipantControls";
 import { useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 const ChatSetupWizard = lazy(() =>
   import("../../components/chat/ChatSetupWizard").then((module) => ({ default: module.ChatSetupWizard })),

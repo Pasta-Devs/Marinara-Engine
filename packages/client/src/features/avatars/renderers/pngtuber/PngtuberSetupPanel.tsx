@@ -27,7 +27,7 @@ import {
 import type { AvatarKindSetupPanelProps } from "../../contract";
 import { resolveAvatarImage } from "../../stage/avatar-stage-logic";
 import { AVATAR_FEELING_LABEL_KEYS, buildPngtuberLayersFromSprites, pngtuberFaceChoices } from "./pngtuber-layers";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 /** Labels of the six feelings, shared with the mesh avatar panel. */
 export const AVATAR_EMOTION_LABEL_KEYS: Readonly<Record<AvatarEmotion, string>> = {

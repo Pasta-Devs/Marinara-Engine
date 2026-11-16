@@ -11,8 +11,8 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styl
 import { Modal } from "./Modal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "./Spinner";
+import { Checkbox } from "./Checkbox";
 
 type VideoGenerationConnectionOption = {
   id: string;

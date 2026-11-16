@@ -15,8 +15,8 @@ import { MacroTextarea } from "../ui/MacroTextarea";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 const STRATEGY_OPTIONS: Array<{ value: ConvoBehaviorInsertionStrategy; label: string }> = [
   { value: "constant_after", label: "Constant — after the card" },

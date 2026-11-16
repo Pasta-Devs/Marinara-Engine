@@ -59,8 +59,8 @@ import { SettingsCheckbox } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
 import { useUIStore } from "../../../stores/ui.store";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
 
 // ── Sub-components ───────────────────────────────
 

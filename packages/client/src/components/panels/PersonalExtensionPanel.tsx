@@ -6,7 +6,7 @@ import {
   dispatchPersonalExtensionContributionEvent,
   usePersonalExtensionContributions,
 } from "../../lib/personal-extension-contributions";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type InteractiveElement = Extract<PersonalExtensionUiElement, { id: string }>;
 

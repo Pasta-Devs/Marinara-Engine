@@ -10,7 +10,7 @@ import { api } from "../../lib/api-client";
 import { BookOpen, AlertCircle } from "lucide-react";
 import type { LorebookCategory, LorebookScope } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },

@@ -10,7 +10,7 @@ import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const ASSET_GRID_PAGE_SIZE = 240;
 

@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "./Spinner";
 
 export function PanelListSkeleton({
   rows = 3,

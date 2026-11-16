@@ -22,7 +22,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
 import { GameWidgetSetupEditor } from "./GameWidgetSetupEditor";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 // ── Public API ──
 

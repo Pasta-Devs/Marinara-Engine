@@ -22,7 +22,7 @@ import { resourceResultType, type ResultType } from "../../../lib/command-icons"
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ProfessorMariAttachment, isProfessorMariImageAttachment } from "./mari-chat-helpers";
 import { WorkspaceToolCall } from "./mari-tool-presentation";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 /** While Mari streams, each new word mounts in its own span and blurs in; words already shown keep their key. */
 function renderStreamingInline(text: string, keyPrefix: string): ReactNode[] {

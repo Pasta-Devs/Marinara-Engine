@@ -15,7 +15,7 @@ import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;

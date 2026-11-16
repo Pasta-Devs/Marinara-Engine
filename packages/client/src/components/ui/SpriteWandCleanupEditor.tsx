@@ -41,8 +41,8 @@ import {
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "./Spinner";
+import { Checkbox } from "./Checkbox";
 
 interface SpriteWandCleanupEditorProps {
   imageUrl: string;

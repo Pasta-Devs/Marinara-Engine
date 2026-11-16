@@ -22,9 +22,9 @@ import {
 import { cn } from "../../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { HelpTooltip } from "../../ui/HelpTooltip";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 import { Switch } from "../../ui/Switch";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../../ui/Checkbox";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";

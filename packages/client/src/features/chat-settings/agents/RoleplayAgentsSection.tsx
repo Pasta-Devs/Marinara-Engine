@@ -84,7 +84,7 @@ import {
   getAgentSettingsMenuId,
   type UseChatAgentsOptions,
 } from "./use-chat-agents";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 function getMusicProviderLabel(provider: MusicProvider): string {
   return provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";

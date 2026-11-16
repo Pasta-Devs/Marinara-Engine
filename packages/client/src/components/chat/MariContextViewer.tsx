@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { FileText, Trash2, X } from "lucide-react";
 import { useMariWorkspaceContext, useRemoveMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

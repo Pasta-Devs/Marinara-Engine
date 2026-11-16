@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Search, ImageOff, ExternalLink } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { rememberRecentMedia, useRecentMedia } from "../../hooks/use-recent-media";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "./Spinner";
 
 interface GifResult {
   id: string;

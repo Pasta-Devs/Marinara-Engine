@@ -17,7 +17,7 @@ import {
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
 } from "../ui/neutral-surface-styles";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type MariPromptRenderSide = { messages: Array<{ role: string; content: string }> } | null;
 

@@ -17,7 +17,7 @@ import { rulesetLayerChoices, type RulesetLayerChoice } from "../../lib/ruleset-
 import { rulesetRulesSummary } from "../../lib/ruleset-resolution";
 import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
 import { cn } from "../../lib/utils";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 function readRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {

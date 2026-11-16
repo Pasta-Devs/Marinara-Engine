@@ -72,7 +72,7 @@ import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
 

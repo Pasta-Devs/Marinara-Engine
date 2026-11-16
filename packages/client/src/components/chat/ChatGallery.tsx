@@ -54,7 +54,7 @@ import {
   getSceneVideoDownloadName,
 } from "./ChatImageLightbox";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface ChatGalleryProps {
   chatId: string;

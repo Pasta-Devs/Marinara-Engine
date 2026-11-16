@@ -8,7 +8,7 @@ import {
   type AvatarExpressionMap,
   type AvatarExpressionSlot,
 } from "@marinara-engine/shared";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 const SOURCE_KEYS: Readonly<Record<AvatarExpressionBindingSource, string>> = {
   preset: "avatars.vrm.source.preset",

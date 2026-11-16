@@ -9,7 +9,7 @@ import { normalizeHydratedMessage } from "../../lib/message-hydration";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { ChatBookmarksList, ChatTrashList } from "../../components/chat/ChatMessageMarksPanels";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../components/ui/Spinner";
 
 type SearchPanelView = "search" | "bookmarks" | "trash";
 const PANEL_VIEWS = [

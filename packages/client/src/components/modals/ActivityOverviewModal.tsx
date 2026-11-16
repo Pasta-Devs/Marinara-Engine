@@ -13,7 +13,7 @@ import {
   type HeatmapCell,
 } from "../../lib/chat-insights-display";
 import { SectionTitle, StatTile } from "./ChatStatsModal";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const LEVEL_CLASSES: Record<HeatmapCell["level"], string> = {
   0: "bg-[var(--foreground)]/8",

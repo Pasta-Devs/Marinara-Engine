@@ -17,7 +17,7 @@ import { ApiError } from "../../../lib/api-client";
 import { formatRelativeContact } from "../../../lib/relative-time";
 import type { AccessStatus } from "../../diagnostics/use-access-warning-banner";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_PRIMARY_BUTTON_CLASS } from "./SettingControls";
-import { showConfirmDialog } from "@/lib/app-dialogs";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
 
 /** Same as MIN_LOGIN_PASSWORD_LENGTH on the server, which checks it again. */
 const MIN_PASSWORD_LENGTH = 10;

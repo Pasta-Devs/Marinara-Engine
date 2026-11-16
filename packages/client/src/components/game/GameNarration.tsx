@@ -120,7 +120,7 @@ import {
   nameColorStyle,
   type SpeakerAvatarInfo,
 } from "./GameNarrationVisuals";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const GamePeekPromptButton = lazy(() => import("./GamePeekPromptButton"));
 

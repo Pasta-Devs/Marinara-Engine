@@ -20,7 +20,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { api } from "../../lib/api-client";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const PREVIEW_LIMIT = 200;
 

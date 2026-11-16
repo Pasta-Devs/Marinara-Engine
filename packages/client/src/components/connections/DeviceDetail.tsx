@@ -48,7 +48,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { closeIfClean, DEVICE_VOICE, DictationSettings, useJobModels, VoiceJobSettings } from "./ConnectionDefaults";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { Modal } from "../ui/Modal";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 

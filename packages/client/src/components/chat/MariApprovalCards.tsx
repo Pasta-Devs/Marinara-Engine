@@ -32,7 +32,7 @@ import { TranscriptRow } from "./MariTranscriptRow";
 import { Field } from "./MariChangeReceipt";
 import { mariEditorKindForAction, mariPatchFieldId } from "../../lib/mari-editor-fields";
 import { openEditorAtField } from "../../hooks/use-mari-editor-fields";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 /**
  * Professor Mari's approval gates and the summaries they are built from.

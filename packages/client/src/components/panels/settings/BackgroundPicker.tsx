@@ -56,7 +56,7 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
   SETTINGS_PRIMARY_FULL_BUTTON_CLASS,
 } from "./SettingControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 type BackgroundLibraryItem = {
   id: string;

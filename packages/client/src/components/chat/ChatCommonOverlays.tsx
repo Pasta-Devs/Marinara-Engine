@@ -23,7 +23,7 @@ import { ChatBranchGraphWindow } from "./ChatBranchGraphWindow";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // Renders straight away once its code is in. A plain lazy component suspends on its first render even
 // when its code already loaded, so the loading pane showed for a moment on every first open.

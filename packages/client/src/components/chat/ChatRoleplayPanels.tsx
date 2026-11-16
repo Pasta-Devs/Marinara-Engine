@@ -8,7 +8,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { NEUTRAL_PANEL_SUBTITLE } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MacroTextarea } from "../ui/MacroTextarea";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type LorebookEntryStatus = "normal" | "constant" | "selective";
 

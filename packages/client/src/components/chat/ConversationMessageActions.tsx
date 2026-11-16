@@ -25,7 +25,7 @@ import { MsgAction } from "./ConversationMessageShared";
 import { MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 import { ReactionAddButton } from "./ReactionAddButton";
 import { MessageMarksAction } from "./MessageMarks";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export interface ConversationMessageActionsProps {
   message: Pick<Message, "id" | "chatId" | "content"> & { extra?: unknown };

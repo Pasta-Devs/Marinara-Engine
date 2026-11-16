@@ -109,7 +109,7 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { ProfilesSection } from "./ProfilesSection";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type PresetRow = {
   id: string;

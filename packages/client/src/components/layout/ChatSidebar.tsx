@@ -101,7 +101,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
 const CharacterScheduleManagerModal = lazy(async () => ({

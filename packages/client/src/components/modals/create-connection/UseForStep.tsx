@@ -33,8 +33,8 @@ import {
   type ServiceId,
   type Target,
 } from "./shared";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
 
 type UseKind = Exclude<ConnectionPickerKind, "all">;
 /** The job each model type serves, in row order. */

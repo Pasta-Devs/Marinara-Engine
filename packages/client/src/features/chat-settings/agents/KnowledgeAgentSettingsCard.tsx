@@ -10,7 +10,7 @@ import { cn } from "../../../lib/utils";
 import { LorebookListField } from "../../../components/ui/LibraryPickers";
 import { Check, Upload } from "lucide-react";
 import { showAlertDialog } from "../../../lib/app-dialogs";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 export function KnowledgeAgentSettingsCard({
   attachment,

@@ -16,8 +16,8 @@ import { useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
 import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "@marinara-engine/shared";
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
-import { showConfirmDialog } from "@/lib/app-dialogs";
+import { Spinner } from "../ui/Spinner";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
   if (field === "backstory" || field === "appearance" || field === "aboutMe") {

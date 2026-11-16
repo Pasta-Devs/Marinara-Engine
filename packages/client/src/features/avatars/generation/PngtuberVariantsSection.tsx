@@ -35,7 +35,7 @@ import {
   type VariantJobItem,
   type VariantPair,
 } from "./use-avatar-generation";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 const VARIANT_KEYS: Record<AvatarPngtuberVariant, string> = {
   "eyes-closed": "avatars.generation.eyesClosed",

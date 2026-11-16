@@ -14,7 +14,7 @@ import { arePresetChoiceSelectionsComplete } from "../../lib/preset-choice-selec
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceOptionsField } from "./ChoiceOptionsField";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface ChoiceSelectionModalProps {
   open: boolean;

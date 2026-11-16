@@ -14,7 +14,7 @@ import { useChats } from "../../hooks/use-chats";
 import { useCharacters } from "../../hooks/use-characters";
 import { useAddMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
 import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // Server cap (MAX_CONTEXT_ITEM_CONTENT_LENGTH). Warn + block before the request when a selection
 // exceeds it, instead of surfacing a 400.

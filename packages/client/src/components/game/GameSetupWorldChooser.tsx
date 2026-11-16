@@ -32,7 +32,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { WordsField, useWritingSeconds } from "./GameSetupWorldKitChooser";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 /** What the wizard holds while a world is being made. */
 export interface WorldDraft {

@@ -96,8 +96,8 @@ import {
   type ChatSummaryBatchRangeError,
   type ChatSummaryBatchEntryRange,
 } from "../../lib/chat-summary-batch";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 interface ChatSummaryPanelProps {
   chatId: string;

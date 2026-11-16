@@ -4,7 +4,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { ChatModeIcon } from "./ChatModeIcon";
 import { useMultiplayerStatus } from "../../hooks/use-multiplayer";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 export type ChatLaunchMode = ChatMode;
 

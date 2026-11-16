@@ -10,7 +10,7 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";

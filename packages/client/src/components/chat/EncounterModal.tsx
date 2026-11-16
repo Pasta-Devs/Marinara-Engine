@@ -30,7 +30,7 @@ import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lore
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { LorebookPickerField } from "../ui/LibraryPickers";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
 // Sub-components

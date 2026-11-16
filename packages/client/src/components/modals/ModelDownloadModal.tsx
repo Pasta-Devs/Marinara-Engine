@@ -37,7 +37,7 @@ import { PRIMARY_CLASS as PRIMARY, SECONDARY_CLASS } from "./create-connection/s
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

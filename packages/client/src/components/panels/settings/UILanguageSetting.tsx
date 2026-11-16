@@ -8,7 +8,7 @@ import { useUIStore } from "../../../stores/ui.store";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { LanguagePicker } from "../../ui/LanguagePicker";
 import { SETTINGS_BUTTON_CLASS } from "./SettingControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 export function UILanguageSetting({ anchorId }: { anchorId: string }) {
   const { t } = useTranslation();

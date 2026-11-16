@@ -20,7 +20,7 @@ import {
   type WorldDraft,
   type WorldWriteRequest,
 } from "./GameSetupWorldChooser";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function GameMakeWorld({
   chatId,

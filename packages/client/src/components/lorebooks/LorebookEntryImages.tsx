@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useIsMutating } from "@tanstack/react-query";
 import { MAX_LOREBOOK_ENTRY_IMAGES, type LorebookEntryImage } from "@marinara-engine/shared";
 import { lorebookKeys, useUpdateLorebookEntry, useUploadLorebookEntryImage } from "../../hooks/use-lorebooks";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function LorebookEntryImages({
   lorebookId,

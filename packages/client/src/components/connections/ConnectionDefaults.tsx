@@ -64,7 +64,7 @@ import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
 import { mediaSources } from "../../lib/media-source";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 function JobIcon({ job }: { job: JobKey }) {
   const Icon = JOB[job].icon;

@@ -38,7 +38,7 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
 } from "../panels/settings/SettingControls";
 import { UiStylePartSelect } from "../panels/settings/UiStyleSettings";
-import { showConfirmDialog } from "@/lib/app-dialogs";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 type ColorKey = "background" | "color" | "borderColor";
 type NumberKey = "borderRadius" | "borderWidth" | "opacity" | "blur" | "fontSize";

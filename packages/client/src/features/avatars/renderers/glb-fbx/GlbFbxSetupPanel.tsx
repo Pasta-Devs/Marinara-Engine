@@ -16,7 +16,7 @@ import {
   MODEL_BUTTON_CLASS,
   modelErrorMessage,
 } from "../../setup/ModelSetupControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 export function GlbFbxSetupPanel({ owner, config, onChanged }: AvatarKindSetupPanelProps) {
   const { t } = useTranslation();

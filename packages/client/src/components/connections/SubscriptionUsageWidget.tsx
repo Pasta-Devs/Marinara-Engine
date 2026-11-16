@@ -18,7 +18,7 @@ import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { useSubscriptionUsage, type NanoGptQuotaWindow } from "../../hooks/use-connections";
 import { quotaPercentForDisplay, quotaTotalForDisplay } from "../../lib/nanogpt-quota";
 import { formatRelativeUntil } from "../../lib/relative-time";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 /**
  * The provider's display name, from the shared provider catalog rather than a

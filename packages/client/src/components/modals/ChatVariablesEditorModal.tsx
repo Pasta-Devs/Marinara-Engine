@@ -21,7 +21,7 @@ import {
 } from "../../lib/state-editor/chat-variables-editor-source";
 import type { StateEditorChange } from "../../lib/state-editor/state-editor.types";
 import { chatKeys } from "../../hooks/use-chats";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface ChatVariablesEditorModalProps {
   open: boolean;

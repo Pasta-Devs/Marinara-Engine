@@ -241,7 +241,7 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 import { ClassicCardSection } from "../overhaul/ClassicCardSection";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // ── Tabs ──
 const TABS = [

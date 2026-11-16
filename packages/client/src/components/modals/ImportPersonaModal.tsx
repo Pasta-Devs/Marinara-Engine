@@ -11,7 +11,7 @@ import { characterKeys } from "../../hooks/use-characters";
 import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { isOversizedMarinaraJson } from "../../lib/character-import";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

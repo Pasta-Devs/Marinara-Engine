@@ -75,8 +75,8 @@ import {
   type Target,
   type TestResult,
 } from "./shared";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
 
 type ChatMode = "conversation" | "roleplay" | "game";
 

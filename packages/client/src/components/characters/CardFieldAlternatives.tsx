@@ -18,7 +18,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CardFieldWand } from "./CardFieldWand";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type ChatChoice = { id: string; name: string };
 type Props = {

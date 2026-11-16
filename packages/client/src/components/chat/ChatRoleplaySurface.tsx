@@ -91,7 +91,7 @@ import {
   useGameChatStoryboards,
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 

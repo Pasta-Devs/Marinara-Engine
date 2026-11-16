@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const SPEND_CHOICE_KEY = "marinara.combat.chooseSpends";
 

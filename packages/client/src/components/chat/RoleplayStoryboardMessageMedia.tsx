@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { isGameTurnStoryboardRendering } from "../../hooks/use-game-storyboards";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const EMPTY_STORYBOARD_FRAMES: GameTurnStoryboardKeyframe[] = [];
 

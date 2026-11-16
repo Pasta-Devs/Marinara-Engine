@@ -10,7 +10,7 @@ import { copyToClipboard } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 export type MultiplayerGameStart = Extract<MultiplayerHostAction, { type: "startGame" }>;
 

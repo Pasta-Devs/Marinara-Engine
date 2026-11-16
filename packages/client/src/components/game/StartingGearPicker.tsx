@@ -33,7 +33,7 @@ import { Modal } from "../ui/Modal";
 import { rulesetItemStatsLine } from "./RulesetItemPicker";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import type { InventoryBag } from "./GameInventory";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const inputClass =
   "w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--foreground)]";

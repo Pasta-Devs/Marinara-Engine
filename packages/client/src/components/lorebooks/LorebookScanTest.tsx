@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Play } from "lucide-react";
 import { runLorebookTestScan, type LorebookTestScanResult } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type LorebookScanPreviewMatch = "matched" | "constant";
 

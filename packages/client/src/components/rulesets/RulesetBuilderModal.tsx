@@ -35,7 +35,7 @@ import { useImportRuleset } from "../../hooks/use-capability-packages";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 import { cn } from "../../lib/utils";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const PRESETS: RulesetBuilderDicePreset[] = ["d20", "2d6-bands", "pool", "highest", "percentile", "duality", "no-dice"];
 /** A preset's localization key segment: keys take no dashes and start with a letter. */

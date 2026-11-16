@@ -6,7 +6,7 @@ import { withCssPaintAlpha } from "../../lib/css-colors";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
 import { ColorPicker } from "../ui/ColorPicker";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type CardColorKey = "nameColor" | "dialogueColor" | "boxColor";
 

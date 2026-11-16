@@ -8,7 +8,7 @@ import { MariPanelSortMode } from "../../../stores/ui.store";
 import { ResultTypeIcon } from "../../command-center/ResultTypeIcon";
 import { MariSidePanelHeader, MariSideSearch, MariPanelSortSelect } from "../MariPanelControls";
 import { ProfessorMariChatSummary, isProfessorMariChatActive } from "./mari-chat-helpers";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 /** The Chats side panel: her past conversations, with search, sort, rename, delete and bulk delete. */
 type MariChatsPanelProps = {

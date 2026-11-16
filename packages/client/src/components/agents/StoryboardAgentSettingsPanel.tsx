@@ -11,7 +11,7 @@ import {
 } from "@marinara-engine/shared";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 interface StoryboardAgentSettingsPanelProps {
   settings: StoryboardAgentSettings;

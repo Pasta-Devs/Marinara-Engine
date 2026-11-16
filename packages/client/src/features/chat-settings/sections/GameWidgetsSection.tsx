@@ -11,7 +11,7 @@ import {
 } from "../../../components/game/GameWidgetSetupEditor";
 import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 interface GameWidgetsSectionProps {
   chat: Chat;

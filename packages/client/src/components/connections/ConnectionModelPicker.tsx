@@ -56,7 +56,7 @@ import { cn } from "../../lib/utils";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
 import { ApiError } from "../../lib/api-client";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {

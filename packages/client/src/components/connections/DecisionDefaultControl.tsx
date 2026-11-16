@@ -21,7 +21,7 @@ import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { openAddConnection } from "../../lib/add-connection";
 import { useUIStore } from "../../stores/ui.store";
 import { ConnectionSelect } from "./ConnectionSelect";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
 function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {

@@ -168,8 +168,8 @@ import {
   setupSuggestionKeys,
 } from "../../lib/game-setup-suggestions";
 import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 /** The "Surprise me!" chip, told apart from the localized ideas by this value, never by its text. */
 const SURPRISE_SUGGESTION = "__surprise__";

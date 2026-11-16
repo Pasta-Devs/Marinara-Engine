@@ -151,8 +151,8 @@ import {
   type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 /** Links where users can obtain API keys for each provider */
 const DEFAULT_CACHING_AT_DEPTH = 5;

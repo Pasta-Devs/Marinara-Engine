@@ -20,7 +20,7 @@ import {
 import { cn } from "../../lib/utils";
 import { SearchInput } from "./SearchInput";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const TOOLBAR_MENU_MARGIN = 8;
 const TOOLBAR_MENU_WIDTH = 176;

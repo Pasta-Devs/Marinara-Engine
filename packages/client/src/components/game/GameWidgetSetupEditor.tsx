@@ -17,7 +17,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ColorPicker } from "../ui/ColorPicker";
 import { AgentSettingsActionButton } from "../chat/AgentSettingsControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 export const MAX_GAME_SETUP_WIDGETS = 4;
 const GAME_WIDGET_EXPORT_KIND = "marinara-game-hud-widgets";

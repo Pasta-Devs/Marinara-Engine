@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { readableJson, type DecisionDebugPreview } from "@marinara-engine/shared";
 import { useDecisionDebug } from "../../hooks/use-decision-debug";
 import { reasonKeys } from "./AdvancedMemoryInspector";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function DecisionDebugPanel({
   chatId,

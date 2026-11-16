@@ -9,7 +9,7 @@ import { useCreateCharacter, useUploadAvatar } from "../../hooks/use-characters"
 import { useUIStore } from "../../stores/ui.store";
 import { Sparkles, User, Camera } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

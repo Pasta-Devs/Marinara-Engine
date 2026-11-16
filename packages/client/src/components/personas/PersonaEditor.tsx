@@ -189,7 +189,7 @@ import {
   pickPersonaEditorFields,
   reconcileVersionedPersonaEditorSave,
 } from "./persona-editor-transitions";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // ── Tabs ──
 const TABS = [

@@ -33,7 +33,7 @@ import { buildPngtuberLayersFromSprites } from "../renderers/pngtuber/pngtuber-l
 import { pickAvatarKind, withSpriteAvatar } from "../stage/avatar-stage-logic";
 import { avatarAgentKinds } from "./avatar-setup-logic";
 import { AvatarSetupPreview } from "./AvatarSetupPreview";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 const KIND_LABEL_KEYS: Record<AvatarKind, { name: string; help: string }> = {
   pngtuber: { name: "avatars.setup.kind.pngtuber", help: "avatars.setup.kind.pngtuberHelp" },

@@ -16,7 +16,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { gameKeys } from "../../hooks/use-game";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { GAME_CHECKPOINT_LOADED_EVENT } from "../../lib/game-checkpoint-events";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface GameCheckpointsModalProps {
   open: boolean;

@@ -11,7 +11,7 @@ import type {
   AtlasCloudModelOptionValue,
 } from "@marinara-engine/shared";
 import { useAtlasCloudVideoModelSchema } from "../../hooks/use-atlas-cloud-model-schema";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const LABEL_CLASS = "text-[0.625rem] font-medium text-[var(--muted-foreground)]";
 const INPUT_CLASS = "mari-chrome-field mt-1 w-full px-3 py-2 text-xs";

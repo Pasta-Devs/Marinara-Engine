@@ -75,8 +75,8 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 // ════════════════════════════════════════════════
 // Types

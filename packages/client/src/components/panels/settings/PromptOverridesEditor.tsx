@@ -20,7 +20,7 @@ import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, SettingsSwitch } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 const PREFERRED_PROMPT_KEY = "conversation.selfie";
 const ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY = "roleplay.galleryVideoDirector";

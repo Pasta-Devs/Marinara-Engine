@@ -14,7 +14,7 @@ import { type OmnibarRowVisualContext, resolveOmnibarRowVisual } from "../../../
 import { readChoiceOptionId } from "../../../lib/omnibar-choice-rows";
 import type { CommandCenterPresentation, CommandCenterResultGroupId } from "../../../lib/command-center";
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 type OmnibarResultListProps = {
   /** Kept in place but invisible while the suggestions' lists are still arriving (no rows popping in). */

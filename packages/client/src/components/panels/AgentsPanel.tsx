@@ -156,7 +156,7 @@ import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-event
 import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;

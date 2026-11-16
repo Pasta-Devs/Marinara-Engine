@@ -40,7 +40,7 @@ import type {
   StateEditorPath,
   StateEditorSection,
 } from "../../../lib/state-editor/state-editor.types";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../Spinner";
 
 interface StateEditorProps {
   sections: StateEditorSection[];

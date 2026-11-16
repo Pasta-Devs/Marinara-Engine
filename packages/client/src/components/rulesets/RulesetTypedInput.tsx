@@ -11,7 +11,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useRulesetText } from "../../lib/ruleset-text";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 export type Scalar = number | string | boolean;
 

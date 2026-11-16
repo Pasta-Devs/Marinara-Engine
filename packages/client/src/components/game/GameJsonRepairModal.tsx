@@ -7,7 +7,7 @@ import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type GameJsonRepairModalProps = {
   request: JsonRepairRequest | null;

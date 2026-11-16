@@ -5,7 +5,7 @@ import { Clapperboard } from "lucide-react";
 import type { ConversationSceneRequest } from "@marinara-engine/shared";
 import { chatKeys } from "../../hooks/use-chats";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function ConversationSceneInvitation({
   chatId,

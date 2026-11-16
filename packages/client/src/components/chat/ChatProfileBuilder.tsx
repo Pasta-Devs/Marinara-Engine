@@ -67,7 +67,7 @@ import {
   useUpdateChatPreset,
 } from "../../hooks/use-chat-presets";
 import { useUIStore } from "../../stores/ui.store";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type SlotKey = "conn" | "preset" | "agent" | "tool" | "persona" | "bg" | "lore" | "img" | "params" | "mem" | "lang";
 type Item = { id: string; name: string; image?: string | null };

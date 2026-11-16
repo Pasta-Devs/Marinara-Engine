@@ -1,6 +1,6 @@
 import { Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function CardFieldWand({
   label,

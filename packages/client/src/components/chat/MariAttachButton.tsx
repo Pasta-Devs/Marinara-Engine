@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
 import { MARI_COMMANDS, type MariCommandId } from "../../lib/mari-commands";
 import { MariRow } from "./mari-primitives";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 /** Attach already holds these two, so the Mari section leaves them out. */
 const ATTACH_SECTION_COMMANDS: readonly MariCommandId[] = ["attach", "context"];

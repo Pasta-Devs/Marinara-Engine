@@ -10,7 +10,7 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { PresetPickerField } from "../ui/LibraryPickers";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 interface ScenePromptPreferencesModalProps {
   open: boolean;

@@ -140,8 +140,8 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
 import { CharacterSelect, changedId } from "../characters/CharacterSelect";
-import { Spinner } from "@/components/ui/Spinner";
-import { Switch } from "@/components/ui/Switch";
+import { Spinner } from "../ui/Spinner";
+import { Switch } from "../ui/Switch";
 
 // ─── Step definitions ─────────────────────────
 

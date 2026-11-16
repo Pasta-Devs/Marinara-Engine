@@ -13,7 +13,7 @@ import {
   compareMariPanelItems,
   type SkillDraftState,
 } from "./MariPanelControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function ProfessorMariSkillsMenu({
   skills,

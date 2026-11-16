@@ -20,7 +20,7 @@ import {
 } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { chatKeys, useChat } from "../../hooks/use-chats";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 type GearOffer = { stackId: string; holder: string; from: string; to: string; slot: "weapon" | "armor" };
 

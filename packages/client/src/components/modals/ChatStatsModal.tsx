@@ -5,7 +5,7 @@ import { Modal } from "../ui/Modal";
 import { useChatStats } from "../../hooks/use-chat-insights";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { formatPlayDuration } from "../../lib/chat-insights-display";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const DAY_CHART_LIMIT = 60;
 

@@ -82,7 +82,7 @@ import {
   isInstalledCapabilityReady,
 } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string;

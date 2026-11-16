@@ -200,7 +200,7 @@ import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/fl
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
 import { useStableCallback } from "../../hooks/use-stable-callback";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type { CharacterMap };
 

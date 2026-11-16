@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { useChatPersonaAttributions, useReassignMessagePersonas } from "../../../hooks/use-chats";
 import { PickerDropdown } from "../PickerDropdown";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 interface PersonaHistoryReassignDropdownProps {
   chatId: string;

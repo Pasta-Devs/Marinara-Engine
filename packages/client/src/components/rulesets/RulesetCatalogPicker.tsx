@@ -33,8 +33,8 @@ import {
 } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
 import { useRulesetText, type RulesetText } from "../../lib/ruleset-text";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 /** The header as the picker needs it: where the entries live is the hook's business, not this one's. */
 export type RulesetCatalogHeaderView = Omit<RulesetCatalogHeader, "entries" | "asset">;

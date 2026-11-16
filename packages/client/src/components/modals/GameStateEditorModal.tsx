@@ -22,7 +22,7 @@ import type { StateEditorChange } from "../../lib/state-editor/state-editor.type
 import { chatKeys } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface GameStateEditorModalProps {
   open: boolean;

@@ -19,7 +19,7 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { cn } from "../../lib/utils";
 import { useAllCharacterCatalog, useBulkEditCharacterTags } from "../../hooks/use-characters";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

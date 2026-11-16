@@ -44,7 +44,7 @@ import {
   type RPGStatPool,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 export interface GameCharacterSheetGameCard {
   shortDescription: string;

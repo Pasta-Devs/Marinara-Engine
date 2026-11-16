@@ -51,7 +51,7 @@ import {
   type GameAssetSelectionStatus,
 } from "../../lib/game-asset-selection";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const PROTECTED_PATHS = new Set(["", "music", "sfx", "ambient", "sprites", "backgrounds"]);
 

@@ -43,7 +43,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { ConnectionUsageSection, SECTION_HEADING_CLASS } from "./ConnectionBalance";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type Draft = {
   name: string;

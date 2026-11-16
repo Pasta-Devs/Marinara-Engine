@@ -42,7 +42,7 @@ import {
 import { HAPTIC_SENSITIVITY_OPTIONS } from "./haptic-sensitivity-options";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
 export type MusicProvider = "spotify" | "youtube" | "custom";

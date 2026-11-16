@@ -64,7 +64,7 @@ import type { AgentUpdateResult } from "./AgentUpdateDialog";
 import { AgentPage } from "./organizer/AgentPage";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";

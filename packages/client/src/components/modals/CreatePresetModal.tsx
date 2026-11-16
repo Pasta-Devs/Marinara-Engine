@@ -10,7 +10,7 @@ import { api } from "../../lib/api-client";
 import { useUIStore } from "../../stores/ui.store";
 import { FileText } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const DEFAULT_PARAMS = {
   temperature: 0.9,

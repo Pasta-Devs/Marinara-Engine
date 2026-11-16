@@ -22,7 +22,7 @@ import {
   modelErrorMessage as errorMessage,
 } from "../../setup/ModelSetupControls";
 import { vrmModelPrompt } from "./vrm-model-prompt";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../../components/ui/Spinner";
 
 /** Plain words for the values VRM 1.0 and 0.x files use in their terms; anything else shows as written. */
 const TERM_KEYS: ReadonlyMap<string, string> = new Map([

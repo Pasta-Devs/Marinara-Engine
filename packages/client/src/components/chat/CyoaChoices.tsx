@@ -16,7 +16,7 @@ import {
   buildCyoaChoiceSubmissionPayload,
   resolveCyoaChoiceAction,
 } from "./cyoa-choice-submission";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type CyoaChoice = {
   label: string;

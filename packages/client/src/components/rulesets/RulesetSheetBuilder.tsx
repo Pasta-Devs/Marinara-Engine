@@ -81,8 +81,8 @@ import { useRulesetText } from "../../lib/ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput } from "./RulesetTypedInput";
 import { RollCellButton, rollRulesetCell } from "./RulesetRollCellButton";
-import { Checkbox } from "@/components/ui/Checkbox";
-import { showConfirmDialog } from "@/lib/app-dialogs";
+import { Checkbox } from "../ui/Checkbox";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 /** A bonus with its sign, as a sheet prints one. */
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));

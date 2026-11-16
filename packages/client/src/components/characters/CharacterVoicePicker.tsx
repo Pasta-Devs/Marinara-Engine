@@ -14,7 +14,7 @@ import { ttsService } from "../../lib/tts-service";
 import { cn } from "../../lib/utils";
 import { openAddConnection } from "../../lib/add-connection";
 import { buildTTSVoiceOptions, CustomizableVoiceInput, VoiceSelect } from "../panels/settings/TTSConfigCard";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const SAVE_DELAY_MS = 600;
 const ICON_ACTION_CLS =

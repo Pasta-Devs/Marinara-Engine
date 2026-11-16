@@ -16,7 +16,7 @@ import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useDeleteTrashedMessages, useMessageTrash, useRestoreTrashedMessages } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const ROW_CLASS =
   "block w-full px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]";

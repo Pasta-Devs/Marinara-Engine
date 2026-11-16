@@ -144,7 +144,7 @@ import { downloadZipFile } from "../../lib/download-zip";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 import { LorebookListField, LorebookPickerField } from "../ui/LibraryPickers";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // The 2D and 3D Avatars setup loads only on those agents' pages.
 const AvatarAgentSetup = lazy(() =>

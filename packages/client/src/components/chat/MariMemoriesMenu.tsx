@@ -13,7 +13,7 @@ import {
   compareMariPanelItems,
   type MemoryDraftState,
 } from "./MariPanelControls";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 // #4851: the Memories management panel, next to Skills. Mirrors ProfessorMariSkillsMenu;
 // adds a Persistent toggle (with a "keep it small" tooltip) and drops file diagnostics

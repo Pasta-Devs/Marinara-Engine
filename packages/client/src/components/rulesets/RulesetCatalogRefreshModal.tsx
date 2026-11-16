@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CatalogRefreshRow } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../ui/Checkbox";
 
 const labelClass = "text-[0.6875rem] font-medium text-[var(--muted-foreground)]";
 

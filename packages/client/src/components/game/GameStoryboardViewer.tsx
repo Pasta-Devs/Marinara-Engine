@@ -17,7 +17,7 @@ import { cn } from "../../lib/utils";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
 import { getStoryboardViewerWidthBounds } from "./game-storyboard-ui";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const STORYBOARD_VIEWER_CONTROL_BUTTON =
   "flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-white/10";

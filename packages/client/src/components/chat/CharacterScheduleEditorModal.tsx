@@ -31,7 +31,7 @@ import {
   isConnectionFlagTrue,
   type ConnectionProviderLike,
 } from "../../lib/connection-filters";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;

@@ -58,8 +58,8 @@ import { useGameStateStore } from "../../../stores/game-state.store";
 import { Modal } from "../../../components/ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
-import { Spinner } from "@/components/ui/Spinner";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Spinner } from "../../../components/ui/Spinner";
+import { Checkbox } from "../../../components/ui/Checkbox";
 
 export interface AgentSuiteAgent {
   id: string;

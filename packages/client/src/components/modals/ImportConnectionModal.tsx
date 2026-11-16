@@ -30,7 +30,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;

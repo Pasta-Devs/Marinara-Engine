@@ -14,7 +14,7 @@ import {
   type OrganizerEntry,
   type OrganizerPage,
 } from "./organizer-model";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../ui/Spinner";
 
 /** Everything a page needs from the Organizer shell, so pages stay plain renderers. */
 export interface OrganizerActions {

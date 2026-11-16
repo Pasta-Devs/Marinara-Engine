@@ -3,7 +3,7 @@ import { AlertCircle, Check, XCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AccessCheck } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export type FieldCheckState = "idle" | "checking" | "ok" | "warn" | "bad" | "busy";
 export type FieldCheck = { state: FieldCheckState; text: string };

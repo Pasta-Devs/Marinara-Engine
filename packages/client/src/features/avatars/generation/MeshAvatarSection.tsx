@@ -10,7 +10,7 @@ import { isFullBodySprite } from "../renderers/pngtuber/pngtuber-layers";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { SpritePicker } from "./SpritePicker";
 import { useMeshRigJob, useOneAtATime, useSaveMeshRig } from "./use-avatar-generation";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../../../components/ui/Spinner";
 
 export interface ConnectionOption {
   id: string;

@@ -22,7 +22,7 @@ import {
   SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
 } from "./SettingControls";
-import { showConfirmDialog } from "@/lib/app-dialogs";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
 
 const SELECT_CLASS =
   "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";

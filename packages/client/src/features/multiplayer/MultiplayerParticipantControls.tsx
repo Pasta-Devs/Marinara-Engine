@@ -14,7 +14,7 @@ import { parseCharacterDisplayData } from "../../lib/character-display";
 import { generateClientId } from "../../lib/utils";
 import { MultiplayerPersonaFields, MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 /** Explicit local library selection; never mounted inside the isolated guest frame. */
 export function MultiplayerParticipantControls({

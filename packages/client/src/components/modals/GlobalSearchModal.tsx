@@ -10,7 +10,7 @@ import { useGlobalChatSearch, type GlobalChatSearchFilters } from "../../hooks/u
 import { useDebouncedValue } from "../../hooks/use-debounced-value";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { localDateInputToIso, splitSnippet } from "../../lib/chat-insights-display";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 const FIELD_CLASS =
   "h-9 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/25";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Crop, RotateCcw, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "./Spinner";
 
 interface SpriteFrameAdjustments {
   top: number;

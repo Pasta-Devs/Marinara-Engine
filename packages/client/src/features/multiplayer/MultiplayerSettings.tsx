@@ -12,7 +12,7 @@ import {
 } from "../../components/panels/settings/SettingControls";
 import { ChatModeSelectorModal, type ChatLaunchMode } from "../../components/chat/ChatModeSelectorModal";
 import { MultiplayerPersonaFields, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
-import { Checkbox } from "@/components/ui/Checkbox";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 export function MultiplayerSettings() {
   const { t } = useTranslation();

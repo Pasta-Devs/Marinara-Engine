@@ -15,7 +15,7 @@ import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useInstalledRulesets } from "../../hooks/use-capability-packages";
 import { chatKeys } from "../../hooks/use-chats";
-import { Spinner } from "@/components/ui/Spinner";
+import { Spinner } from "../ui/Spinner";
 
 export function GameRulesetUpdate({
   chatId,
