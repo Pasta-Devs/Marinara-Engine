@@ -29,7 +29,7 @@ Click **⋯** on an account's row:
 | **Edit account** | Opens its settings, including **Name**, **Address**, **API key**, and **Use this account**. |
 | **Replace key** | Pastes a new key. If the old key is on other accounts, Marinara asks whether to update them too. |
 | **Test** | Checks the key and shows the result. |
-| **Add model** | Opens the account's model list. **Add image model** shows for services that also make images. |
+| **Add model** | Opens the account's model list. |
 | **Select models** | Lets you move or delete several models at once. |
 | **Duplicate** | Adds a copy of the account with copies of its models. |
 | **Turn off** / **Turn on** | Stops or resumes Marinara using the account. |
@@ -57,7 +57,7 @@ Click **⋯** on a model row:
 
 | Action | What it does |
 | --- | --- |
-| **Make default for…** | Gives the model a job, the same as picking it in the **Jobs** box. |
+| **Use for…** | Opens a list of jobs. Click one to give the model that job, the same as picking it in the **Jobs** box. A tick marks the jobs it already has. |
 | **Edit model** | Opens its settings. Clicking the model row does the same. |
 | **Move to account…** | Moves the model to another account. It then uses that account's key. |
 | **Folder** | Puts the model in a folder. |

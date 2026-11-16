@@ -47,6 +47,8 @@ export type PersonaInfo = {
   avatarCrop?: AvatarCrop | null;
   /** The card's Game Mode Icon choice; missing means the avatar. */
   combatIcon?: CombatIconChoice | null;
+  /** Other names the persona goes by, for inline name coloring. */
+  nameAliases?: string[];
   nameColor?: string;
   dialogueColor?: string;
   boxColor?: string;

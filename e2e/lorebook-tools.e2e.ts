@@ -37,7 +37,7 @@ test("lorebook tools lint, preview scans, and bulk-enable selected books", async
     await page.goto("/");
     await clickTopbarPanel(page, "lorebooks");
 
-    await page.getByRole("button", { name: "Select", exact: true }).click();
+    await page.getByRole("button", { name: "Select lorebooks", exact: true }).click();
     await page.getByRole("button", { name: "Select lorebook", exact: true }).first().click();
     await page.getByRole("button", { name: "Select lorebook", exact: true }).click();
     const search = page.getByPlaceholder("Search lorebooks", { exact: true });
@@ -72,7 +72,7 @@ test("lorebook tools lint, preview scans, and bulk-enable selected books", async
     await expect.poll(async () => (await (await request.get(`/api/lorebooks/${book.id}`)).json()).enabled).toBe(true);
 
     await search.fill("");
-    await page.getByRole("button", { name: "Select", exact: true }).click();
+    await page.getByRole("button", { name: "Exit lorebook selection", exact: true }).click();
     await page.getByText(book.name, { exact: true }).click();
     await page.getByRole("button", { name: "Check lorebook", exact: true }).click();
     await expect(page.getByText("Keyless sample entry", { exact: true })).toBeVisible();

@@ -6,6 +6,7 @@ import type { DB } from "../../db/connection.js";
 import { apiConnections, chats, connectionAccounts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
+import { maskConnectionHeaderSecrets, sealConnectionHeaderSecrets } from "../../utils/stored-secrets.js";
 import {
   MAX_PINNED_MODELS,
   connectionBilling,
@@ -416,7 +417,9 @@ export function hasOwnModelSettings(
   const model = typeof row.model === "string" ? row.model : "";
   const entry = catalog?.models.find((saved) => saved.id === model);
   const name = typeof row.name === "string" ? row.name.trim() : "";
-  if (name && name !== model && name !== entry?.name) return true;
+  // A Default model (a chat Model with no model id) always needs a name of its own, so its name is no setting.
+  const needsName = !model && isChatProvider(row.provider);
+  if (name && !needsName && name !== model && name !== entry?.name) return true;
   const set = (value: unknown) => value !== null && value !== undefined && value !== "";
   const on = (value: unknown) => value === true || value === "true";
   const params = typeof row.defaultParameters === "string" ? row.defaultParameters.trim() : row.defaultParameters;
@@ -443,6 +446,26 @@ function clearSidecarAsMain() {
   if (sidecarModelService.getConfig().useAsMainDefault) sidecarModelService.updateConfig({ useAsMainDefault: false });
 }
 
+/**
+ * What the Connection's own catalog says about a decision Model's model (#9310): whether it is a decision model
+ * (NanoGPT lists those with the `decisions` output) and its context, which caps the chat sent to it.
+ */
+function decisionCatalogFacts(
+  account: { provider: string; modelCatalogs?: unknown },
+  model: string | null | undefined,
+): { decisionModel?: true; context?: number } {
+  const id = model?.trim();
+  if (!id) return {};
+  const entry = readAccountCatalogs(account)[account.provider]?.models.find((candidate) => candidate.id === id);
+  if (!entry) return {};
+  const outputs = Array.isArray(entry.outputModalities) ? entry.outputModalities : [];
+  const context = typeof entry.context === "number" && Number.isFinite(entry.context) ? entry.context : undefined;
+  return {
+    ...(outputs.some((output) => String(output).toLowerCase() === "decisions") ? { decisionModel: true as const } : {}),
+    ...(context ? { context } : {}),
+  };
+}
+
 export function createConnectionsStorage(db: DB) {
   /** Decrypt for use, and keep the throttle and shared-account budget registries in sync with the row. */
   const withKey = async <
@@ -461,7 +484,15 @@ export function createConnectionsStorage(db: DB) {
     // A decision Model speaks the protocol of its Connection's vendor (resolveDecisionConnection).
     if (row.provider !== "decision" || !row.accountId) return keyed;
     const account = await getConnectionAccount(db, row.accountId);
-    return { ...keyed, account: account ? { provider: account.provider, baseUrl: account.baseUrl } : null };
+    if (!account) return { ...keyed, account: null };
+    return {
+      ...keyed,
+      account: {
+        provider: account.provider,
+        baseUrl: account.baseUrl,
+        ...decisionCatalogFacts(account, (row as { model?: string | null }).model),
+      },
+    };
   };
 
   return {
@@ -480,6 +511,7 @@ export function createConnectionsStorage(db: DB) {
         billing: connectionBilling(r),
         apiKeyEncrypted: r.apiKeyEncrypted ? "••••••••" : "",
         managementTokenEncrypted: r.managementTokenEncrypted ? "••••••••" : "",
+        defaultParameters: maskConnectionHeaderSecrets(r.defaultParameters),
       }));
     },
 
@@ -555,6 +587,11 @@ export function createConnectionsStorage(db: DB) {
 
     /** Get the connection marked as default for agents (with decrypted key). */
     async getDefaultForAgents() {
+      // The built-in model has no row to flag: while it is the agents default and has a model, it answers as one,
+      // exactly as `getDefault()` does for Main and as agent runs resolve it (#5539). A stale row flag loses.
+      if (sidecarModelService.getConfig().useAsAgentsDefault && sidecarModelService.getConfiguredModelRef() !== null) {
+        return createLocalSidecarGenerationConnection() as never;
+      }
       const rows = await db
         .select()
         .from(apiConnections)
@@ -1355,7 +1392,13 @@ export function createConnectionsStorage(db: DB) {
                   : {}),
               }
             : null;
-        return sweepDanglingConnectionReferences(tx, id, carrier?.id ?? null, keptPick);
+        return sweepDanglingConnectionReferences(
+          tx,
+          id,
+          carrier?.id ?? null,
+          keptPick,
+          (row?.name ?? "").trim() || (row?.model ?? "").trim() || null,
+        );
       });
       // Clear the throttle registry only after the delete commits.
       clearConnectionRateLimit(id);
@@ -1555,7 +1598,11 @@ export function createConnectionsStorage(db: DB) {
     async updateDefaultParameters(id: string, params: Record<string, unknown> | null) {
       await db
         .update(apiConnections)
-        .set({ defaultParameters: params ? JSON.stringify(params) : null, updatedAt: now() })
+        // Custom header values often carry credentials, so they are stored encrypted like the API key.
+        .set({
+          defaultParameters: params ? JSON.stringify(sealConnectionHeaderSecrets(params)) : null,
+          updatedAt: now(),
+        })
         .where(eq(apiConnections.id, id));
     },
   };

@@ -165,7 +165,7 @@ dropping or renaming one needs a capability API major (`MARINARA_HOST_STORE_FIEL
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui`        | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat`      | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent`     | `setYoutubePlay`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `agent`     | `setYoutubePlay`, `setPackageActivity`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `sidecar`   | `modelDownloaded`, `modelDisplayName`, `fetchStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `dialog`    | `dialog`, `openDialog`, `closeDialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `gallery`   | `pinImage`, `pinVideo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -328,6 +328,8 @@ agent packages with a client entrypoint:
   include `chatId`, `chatMode`, `mobileCompact`, the host's `toolbarButtonClass`,
   `onRerunTracker`, `trackerRetryBusy`, `lockMode`, and `onToggleLockMode`. The callbacks
   are optional: check that they exist before using them.
+- `chat-activity` (Capability API 1.820) mounts the package's `activity` view in the chat's Agent
+  activity panel. See [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` mounts the package's `tracker` view inside the existing Tracker Panel,
   with `chatId`, `chatMode`, and `detached`. Reuse that host surface rather than opening
   a second panel. Both slots also receive the ordinary capability identity and localization props.
@@ -1710,8 +1712,13 @@ The browser view gets `openCharacter(characterId, { tab })`. It opens the charac
 given tab when there is one, so a package can send the user to a card field it reads. Older Engines
 do not have it: check that `openCharacter` exists before you show the link.
 
+Since #9191 `tab` also takes a section inside a tab: `character-sheet`, `image-instructions`, `sprites` or
+`gallery`, all in the **Images** tab. `sprites` and `gallery` were tabs before, so old links keep working. The
+character's selfie instructions (`conversationImageInstructions`) moved from `convo` to `image-instructions`;
+an Engine from before #9191 does not know that id and opens the editor at the top.
+
 ```ts
-if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "convo" });
+if (typeof props.openCharacter === "function") props.openCharacter(characterId, { tab: "image-instructions" });
 ```
 
 ### Capability API 1.66: scenes from package threads
@@ -1899,6 +1906,75 @@ metadata are already readable inside the call. A package can use it to fix up th
 Errors and calls slower than a few seconds are logged and ignored; the branch is returned either way. Without
 the method nothing changes. It is a soft seam: older Engines never call it, so the package must still cope when
 it is missing. No permission is needed.
+
+### Capability API 1.818: embeddings from a connection the package chooses
+
+`api.runtime.embeddingsFor(connectionId)` resolves embeddings from a source the package's own setting names, instead of the agent connection that `resolveEmbeddings()` follows. Unlike `resolveEmbeddings()`, it never falls back to the app-wide **Embeddings** default.
+
+| `connectionId` | Resolves |
+| --- | --- |
+| `null` | The built-in local MiniLM embedder. |
+| A connection id | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
+| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw. |
+
+The returned host is the same shape as `resolveEmbeddings()`: `spaceId`, `label` and `embed(texts, signal?, inputType?)`, with the same limits (128 texts, 200,000 combined characters) and the 1.68 input type. `embed` resolves `null` when the call fails. Each source has its own `spaceId`, so re-embed stored vectors when the setting changes.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+It is a soft seam: older Engines leave the method out, so check that it exists before calling it, and fall back as the example does. Declare 1.818 only when the package cannot work without it. No permission is needed.
+
+### Capability API 1.820: showing a package in Agent activity
+
+The `chat-activity` slot puts a card of your own in a chat's Agent activity panel, the one the Agent activity icon
+opens, in the chat drawer and in the Tracker Panel. Declare it in `contributions.slots` and register an `activity`
+view; the Engine mounts one element for each active package that has a client entrypoint and that the chat runs
+(the package's id is among the chat's enabled agents). It goes after the agents' status and outputs, before the
+custom agents' saved outputs.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+The element gets `chatId` and `onOpenAgentSettings()`, which opens the package's own agent page, plus the ordinary
+capability identity and localization props. The Engine adds no wrapper chrome: draw your own card, and render nothing
+when you have nothing to show. Once your client code has loaded, an empty element takes no space. While any package
+card is mounted, the panel does not show "No agent activity yet", so draw your own idle line if you want one.
+
+Not a soft seam: an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares
+1.820.
+
+#### Showing that a package is busy or needs attention
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` lights the Agent
+activity icon for that chat (`packageId` is your manifest `id`), wherever the icon is (the chat drawer, its popped-out window and the Tracker Panel). While any
+package reports `busy: true` the icon spins like it does for the chat's own agents; `alert: true` shows its dot. A
+field you leave out keeps its value, and an entry with both false is removed. Signals are kept per chat, so switching
+chats shows only that chat's.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+The Engine never clears a signal on its own, not even when your `activity` element unmounts (the icon matters most
+while the panel is closed): you own clearing it, and a reload or `reset()` clears everything. Changing chats leaves it. A busy or alerting
+package also counts as activity, so the panel does not show "No agent activity yet"; pair the signal with an `activity`
+card so the panel has something to show. It is a soft seam: older Engines
+leave the method out, so check that it exists, as above. Declare 1.820 only when the package cannot work without it.
+No permission is needed.
 
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
@@ -2270,7 +2346,7 @@ Server packages can call `api.runtime.integrations` to use the current Engine's 
 - `llm.withFallback(...)` wraps a provider created by the same package host. It preserves Engine's admission, fallback notifications and provider selection behavior.
 - `images.generate(...)` and `videos.generate(...)` use the live Engine implementations, including cancellation, request logging, network checks and media queues. Forward the caller's `signal` and UI `debugMode` when present. From 1.816, an image request's `animation` asks for a looping GIF (see [Capability API 1.816](#capability-api-1816-animated-gif-images)).
 - `images.save`, `images.remove`, `images.stage` and `images.sweepStaged` reuse the gallery's safe writes and staged-file lifecycle. `videos.save` and `videos.remove` reuse the video storage path. `images.resolveNovelAiRequestSize` reuses the host's NovelAI size normalization. Video duration and public reference-upload normalization are also available through `videos.resolveDuration` and `videos.resolveReferenceUpload`.
-- `speech.transcribe(audio, { filename, mimeType, signal })` sends recorded audio to the speech-to-text server the user set in **Connections → Speech to Text** and resolves the transcript, or `null` while that server is off, so the package keeps its own transcription. It applies the host's URL policy (`STT_LOCAL_URLS_ENABLED`), size and time limits, and never exposes the saved key. `speech` is optional and needs no newer capability API: check `typeof api.runtime.integrations?.speech?.transcribe === "function"` and fall back on older Engines.
+- `speech.transcribe(audio, { filename, mimeType, signal })` sends recorded audio to the speech-to-text server the user set in the **Dictation** job settings in **Connections** and resolves the transcript, or `null` while that server is off, so the package keeps its own transcription. It applies the host's URL policy (`STT_LOCAL_URLS_ENABLED`), size and time limits, and never exposes the saved key. `speech` is optional and needs no newer capability API: check `typeof api.runtime.integrations?.speech?.transcribe === "function"` and fall back on older Engines.
 
 Shared request/result types are exported by `@marinara-engine/shared`. Keep package-specific prompt building and orchestration in the package; call these host entrypoints for provider I/O instead of copying Engine service implementations. Pure helpers and types may still be bundled.
 

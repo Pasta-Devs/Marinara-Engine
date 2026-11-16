@@ -1,62 +1,103 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { LIMITS, type Lorebook } from "@marinara-engine/shared";
+import { LIMITS, type Chat, type Lorebook } from "@marinara-engine/shared";
+import { chatKeys, useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { isLorebookScopeActiveForChat } from "../../../lib/lorebook-scope";
-import type { ActiveLorebookView } from "../../../lib/chat-lorebooks";
+import {
+  getChatActiveLorebookIds,
+  getChatExcludedLorebookIds,
+  type ActiveLorebookView,
+} from "../../../lib/chat-lorebooks";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { ChatSettingsSection } from "../ChatSettingsSection";
-import { PickerDropdown } from "../PickerDropdown";
+import { LibraryArt, LorebookPickerWindow } from "../../../components/ui/LibraryPickers";
 
 interface LorebooksSectionProps {
   /** Open on arrival (the reply checkup's "Lorebook token budget" link). */
   forceOpen?: boolean;
   chatId: string;
+  metadata: Record<string, unknown>;
+  /** The drawer's lists, used until the chat query has the latest copy. */
+  activeLorebookIds: string[];
+  excludedLorebookIds: string[];
   activeLorebooks: ActiveLorebookView[];
   lorebooks: Lorebook[];
-  lorebookSearch: string;
-  lorebookTokenBudget: number;
-  showLorebookPicker: boolean;
-  onLorebookSearchChange: (value: string) => void;
-  onLorebookTokenBudgetChange: (value: number) => void;
-  onShowLorebookPickerChange: (show: boolean) => void;
   onEditLorebook: (lorebookId: string) => void;
   editingLorebookId: string | null;
   inlineLorebookEditor: ReactNode;
-  onToggleLorebook: (lorebookId: string) => void;
-  onSetLorebookExcluded: (lorebookId: string, excluded: boolean) => void;
 }
 
 export function LorebooksSection({
   forceOpen,
   chatId,
+  metadata,
+  activeLorebookIds,
+  excludedLorebookIds,
   activeLorebooks,
   lorebooks,
-  lorebookSearch,
-  lorebookTokenBudget,
-  showLorebookPicker,
-  onLorebookSearchChange,
-  onLorebookTokenBudgetChange,
-  onShowLorebookPickerChange,
   onEditLorebook,
   editingLorebookId,
   inlineLorebookEditor,
-  onToggleLorebook,
-  onSetLorebookExcluded,
 }: LorebooksSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const updateMeta = useUpdateChatMetadata();
+  const lorebookTokenBudget =
+    typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
+      ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
+      : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
+  const readLatestActiveLorebookIds = useCallback(() => {
+    const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chatId));
+    return latestChat ? getChatActiveLorebookIds(latestChat) : [...activeLorebookIds];
+  }, [activeLorebookIds, chatId, qc]);
+  const readLatestExcludedLorebookIds = useCallback(() => {
+    const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chatId));
+    return latestChat ? getChatExcludedLorebookIds(latestChat) : [...excludedLorebookIds];
+  }, [chatId, excludedLorebookIds, qc]);
+  const toggleLorebook = (lbId: string) => {
+    const current = readLatestActiveLorebookIds();
+    const idx = current.indexOf(lbId);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(lbId);
+    updateMeta.mutate({ id: chatId, activeLorebookIds: current });
+  };
+  // "Add all" in the lorebook picker: one write with every id, so per-id toggles can't race.
+  const addLorebooks = (lbIds: string[]) => {
+    const current = readLatestActiveLorebookIds();
+    updateMeta.mutate({
+      id: chatId,
+      activeLorebookIds: [...current, ...lbIds.filter((id) => !current.includes(id))],
+    });
+  };
+  // Disable / re-enable an auto-activated (character/global/persona) lorebook for
+  // this chat. Unlike unpinning, this does not touch activeLorebookIds — it adds
+  // the book to excludedLorebookIds so the scope filter drops it before injection.
+  const setLorebookExcluded = (lbId: string, excluded: boolean) => {
+    const current = readLatestExcludedLorebookIds();
+    const has = current.includes(lbId);
+    if (excluded === has) return;
+    const next = excluded ? [...current, lbId] : current.filter((id) => id !== lbId);
+    updateMeta.mutate({ id: chatId, excludedLorebookIds: next });
+  };
   const [tokenBudgetDraft, setTokenBudgetDraft] = useState(String(lorebookTokenBudget));
-  const activeLorebookIdSet = new Set(activeLorebooks.map((lorebook) => lorebook.id));
-  const inactiveLorebooks = lorebooks
-    .filter((lorebook) => isLorebookScopeActiveForChat(lorebook.scope, chatId))
-    .filter((lorebook) => !activeLorebookIdSet.has(lorebook.id));
-  const visibleInactiveLorebooks = inactiveLorebooks.filter((lorebook) =>
-    lorebook.name.toLowerCase().includes(lorebookSearch.toLowerCase()),
+  // The picker lists every lorebook this chat may use; the ones pinned to the chat are checked,
+  // like the characters already in it are in the character picker.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const pickable = useMemo(
+    () => lorebooks.filter((lorebook) => isLorebookScopeActiveForChat(lorebook.scope, chatId)),
+    [lorebooks, chatId],
+  );
+  const pinnedIds = useMemo(
+    () => activeLorebooks.filter((lorebook) => lorebook.isPinned).map((lorebook) => lorebook.id),
+    [activeLorebooks],
   );
   const commitTokenBudget = () => {
     const next = Math.max(0, Math.floor(Number(tokenBudgetDraft) || 0));
-    onLorebookTokenBudgetChange(next);
+    updateMeta.mutate({ id: chatId, lorebookTokenBudget: next });
     setTokenBudgetDraft(String(next));
   };
 
@@ -119,9 +160,11 @@ export function LorebooksSection({
                       : "flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                   }
                 >
-                  <BookOpen
-                    size="0.875rem"
-                    className={lorebook.isExcluded ? "text-[var(--muted-foreground)]" : "text-[var(--primary)]"}
+                  <LibraryArt
+                    src={lorebook.imagePath ?? null}
+                    crop={lorebook.imageCrop}
+                    kind="lorebook"
+                    className={lorebook.isExcluded ? "h-6 w-6 rounded-md grayscale" : "h-6 w-6 rounded-md"}
                   />
                   <div className="min-w-0 flex-1">
                     <span
@@ -157,7 +200,7 @@ export function LorebooksSection({
                   </button>
                   {lorebook.isExcluded ? (
                     <button
-                      onClick={() => onSetLorebookExcluded(lorebook.id, false)}
+                      onClick={() => setLorebookExcluded(lorebook.id, false)}
                       className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
                       title={localizeUi("ui.chatSettings.lorebookssection.enableInThisChat")}
                     >
@@ -167,7 +210,7 @@ export function LorebooksSection({
                     <div className="flex shrink-0 items-center gap-1">
                       {lorebook.isPinned && (
                         <button
-                          onClick={() => onToggleLorebook(lorebook.id)}
+                          onClick={() => toggleLorebook(lorebook.id)}
                           className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                           title={localizeUi("ui.chatSettings.functioncallingsection.removeFromChat")}
                         >
@@ -176,7 +219,7 @@ export function LorebooksSection({
                       )}
                       {(!lorebook.isPinned || hasAutomaticReason) && (
                         <button
-                          onClick={() => onSetLorebookExcluded(lorebook.id, true)}
+                          onClick={() => setLorebookExcluded(lorebook.id, true)}
                           className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                           title={localizeUi("ui.chatSettings.lorebookssection.disableInThisChat")}
                         >
@@ -193,45 +236,25 @@ export function LorebooksSection({
         </div>
       )}
 
-      {!showLorebookPicker ? (
-        <button
-          onClick={() => {
-            onShowLorebookPickerChange(true);
-            onLorebookSearchChange("");
-          }}
-          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-        >
-          <Plus size="0.75rem" /> {localizeUi("ui.chatSettings.lorebookssection.addLorebook")}
-        </button>
-      ) : (
-        <PickerDropdown
-          search={lorebookSearch}
-          onSearchChange={onLorebookSearchChange}
-          onClose={() => onShowLorebookPickerChange(false)}
-          placeholder={localizeUi("ui.chatSettings.lorebookssection.searchLorebooks")}
-        >
-          {visibleInactiveLorebooks.map((lorebook) => (
-            <button
-              key={lorebook.id}
-              onClick={() => {
-                onToggleLorebook(lorebook.id);
-                onShowLorebookPickerChange(false);
-              }}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-            >
-              <BookOpen size="0.875rem" className="text-[var(--muted-foreground)]" />
-              <span className="flex-1 truncate text-xs">{lorebook.name}</span>
-              <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-            </button>
-          ))}
-          {visibleInactiveLorebooks.length === 0 && (
-            <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              {inactiveLorebooks.length === 0
-                ? localizeUi("ui.chatSettings.lorebookssection.allAvailableLorebooksAreAlreadyActiveHere")
-                : localizeUi("ui.lorebooks.linkedresourcepicker.noMatches")}
-            </p>
-          )}
-        </PickerDropdown>
+      <button
+        ref={addButtonRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={pickerOpen}
+        onClick={() => setPickerOpen((open) => !open)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+      >
+        <Plus size="0.75rem" /> {localizeUi("ui.chatSettings.lorebookssection.addLorebook")}
+      </button>
+      {pickerOpen && (
+        <LorebookPickerWindow
+          anchorRef={addButtonRef}
+          lorebooks={pickable}
+          selectedIds={pinnedIds}
+          onToggle={toggleLorebook}
+          onAdd={addLorebooks}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
     </ChatSettingsSection>
   );

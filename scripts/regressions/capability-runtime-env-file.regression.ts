@@ -4,7 +4,7 @@
 // open '/.env' (Pasta-Devs/Marinara-Agents#2036). The host must hand the copy its own .env path, as it does DATA_DIR.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -21,8 +21,12 @@ const configuredEnvFile = process.env.MARINARA_ENV_FILE;
 try {
   mkdirSync(snapshot, { recursive: true });
   writeFileSync(hostEnv, "MARINARA_RUNTIME_ENV_PROBE=host\n", { mode: 0o600 });
-  // The Engine links a copy's node_modules to its own packages/server/node_modules.
-  symlinkSync(join(root, "packages/server/node_modules"), join(snapshot, "node_modules"), "junction");
+  // Link the copy's dependencies as createVerifiedRuntimeSnapshot does: one link per Engine dependency. A single
+  // junction to packages/server/node_modules is not what the Engine makes, and on Windows it cannot follow pnpm's
+  // relative links inside that folder.
+  const { linkCapabilitySnapshotDependencies } =
+    await import("../../packages/server/src/services/capability-packages/capability-native-dependencies.service.js");
+  await linkCapabilitySnapshotDependencies(snapshot, join(root, "packages/server/node_modules"));
   await build({
     entryPoints: [join(root, "packages/server/src/config/runtime-config.ts")],
     bundle: true,

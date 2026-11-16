@@ -11,7 +11,6 @@ import {
   RIGHT_PANEL_WIDTH_MIN,
   RIGHT_PANEL_WIDTH_MAX,
   getDefaultAppAccentColor,
-  getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
   getDefaultChatTextColor,
   getTrackerPanelWidthForProfile,
@@ -56,7 +55,17 @@ import {
   isRequestTimeoutError,
   requestTimeoutSignal,
 } from "../../lib/api-client";
-import { ANDROID_BRIDGE_READY_EVENT, getAndroidBridgeToken } from "../../lib/android-bridge";
+import {
+  SERVER_CONSOLE_WINDOW_ID,
+  isPhoneWindowLayout,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
+import {
+  ANDROID_BRIDGE_READY_EVENT,
+  getAndroidBridgeToken,
+  getMarinaraAndroidBridge,
+  isMarinaraAndroidShell,
+} from "../../lib/android-bridge";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { normalizeThemeCss, sanitizeAppCss } from "../../lib/theme-css";
 import { getChatWidgetFontFamily } from "../../lib/font-family";
@@ -196,6 +205,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
@@ -209,6 +219,7 @@ import {
 } from "./settings/PersonalExtensionsSettings";
 import { usePersonalExtensionPolicy, useSetExternalExtensionsEnabled } from "../../hooks/use-personal-extensions";
 import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use-agents";
+import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
@@ -227,6 +238,7 @@ import {
   HostDeviceFileManagerError,
   isHostDeviceBrowser,
 } from "../../lib/host-device";
+import { setTapTimingsEnabled, useTapTimingsEnabled } from "../layout/TapTimings";
 
 type CustomFontFace = {
   filename: string;
@@ -296,32 +308,6 @@ type _EveryTabIsRendered =
     : ["TABS is missing a settings tab", Exclude<SettingsTabId, (typeof TABS)[number]["id"]>];
 const _everyTabIsRendered: _EveryTabIsRendered = true;
 void _everyTabIsRendered;
-
-type MarinaraAndroidBridge = {
-  openLauncher?: (token?: string) => void;
-  openConsole?: {
-    (token: string): void;
-    (): void;
-  };
-  isStatusBarVisible?: {
-    (token: string): boolean;
-    (): boolean;
-  };
-  setStatusBarVisible?: {
-    (token: string, visible: boolean): void;
-    (visible: boolean): void;
-  };
-};
-
-function getMarinaraAndroidBridge(): MarinaraAndroidBridge | null {
-  if (typeof window === "undefined") return null;
-  const nativeWindow = window as Window & { MarinaraAndroid?: MarinaraAndroidBridge };
-  return nativeWindow.MarinaraAndroid ?? null;
-}
-
-function isMarinaraAndroidShell(): boolean {
-  return typeof navigator !== "undefined" && /\bMarinaraEngine\/Android\b/u.test(navigator.userAgent);
-}
 
 function readAndroidStatusBarVisibility(): boolean | null {
   const bridge = getMarinaraAndroidBridge();
@@ -405,28 +391,6 @@ function AndroidStatusBarSetting() {
       )}
     </>
   );
-}
-
-function isStandaloneIosInstall(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const nav = navigator as Navigator & { standalone?: boolean };
-  const isIos = /\b(iPad|iPhone|iPod)\b/u.test(nav.userAgent);
-  const isStandalone = nav.standalone === true || window.matchMedia?.("(display-mode: standalone)")?.matches === true;
-  return isIos && isStandalone;
-}
-
-function getNativeConsoleShortcutHelp(): string {
-  const bridge = getMarinaraAndroidBridge();
-  if (typeof bridge?.openConsole === "function") {
-    return "Opens Termux from the Android APK so you can view Marinara server logs while Debug mode is enabled.";
-  }
-  if (isMarinaraAndroidShell()) {
-    return "This Android APK build cannot expose the Termux console shortcut yet. Update Marinara, or open Termux manually.";
-  }
-  if (isStandaloneIosInstall()) {
-    return "iPhone installations do not expose a native console shortcut yet. Use the host server logs or Safari Web Inspector.";
-  }
-  return "Available in packaged Android/iPhone installations only. Browser and desktop users should use the server terminal or browser developer tools.";
 }
 
 const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
@@ -3466,8 +3430,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
   const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
-  const setAppBackgroundColor = useUIStore((s) => s.setAppBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -3478,9 +3440,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setCustomCursorEnabled = useUIStore((s) => s.setCustomCursorEnabled);
   const reduceAmbientEffects = useUIStore((s) => s.reduceAmbientEffects);
   const setReduceAmbientEffects = useUIStore((s) => s.setReduceAmbientEffects);
-  const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
-  const displayedAppBackgroundColor =
-    appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
   const defaultAppAccentColor = getDefaultAppAccentColor();
   const displayedAppAccentColor =
     appAccentColor.trim().toLowerCase() === defaultAppAccentColor.toLowerCase() ? "" : appAccentColor;
@@ -3532,13 +3491,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
       );
     }
   };
-  const handleAppBackgroundColorChange = useCallback(
-    (color: string) => {
-      const normalized = color.trim();
-      setAppBackgroundColor(normalized.toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : normalized);
-    },
-    [defaultAppBackgroundColor, setAppBackgroundColor],
-  );
   const handleAppAccentColorChange = useCallback(
     (color: string) => {
       const normalized = color.trim();
@@ -3965,24 +3917,13 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 help={localizeUi("settings.controls.reduceAmbientEffects.help")}
               />
 
-              <SearchableSettingTarget controlId="app-background-color">
-                <ColorPicker
-                  value={displayedAppBackgroundColor}
-                  onChange={handleAppBackgroundColorChange}
-                  gradient
-                  compact
-                  label={localizeUi("settings.controls.backgroundColor.label")}
-                  helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
-                  emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
-                    value1: defaultAppBackgroundColor,
-                  })}
-                  emptyPreviewValue={defaultAppBackgroundColor}
-                  clearLabel="Reset to default"
-                />
+              <SearchableSettingTarget controlId="ui-element-styles">
+                <UiStyleSettings />
               </SearchableSettingTarget>
 
               <SearchableSettingTarget controlId="app-accent-color">
                 <ColorPicker
+                  opacity={false}
                   value={displayedAppAccentColor}
                   onChange={handleAppAccentColorChange}
                   gradient
@@ -6959,6 +6900,7 @@ function AdvancedSettings() {
   const includePrivateNotesInExports = useUIStore((s) => s.includePrivateNotesInExports);
   const setIncludePrivateNotesInExports = useUIStore((s) => s.setIncludePrivateNotesInExports);
   const debugMode = useUIStore((s) => s.debugMode);
+  const tapTimings = useTapTimingsEnabled();
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
@@ -6968,13 +6910,8 @@ function AdvancedSettings() {
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
   const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
-  const restartServer = useMutation({
-    mutationFn: () => api.post<{ status: "restarting" }>("/admin/restart", { confirm: true }),
-    onSuccess: () => toast.success(localizeUi("settings.serverRestart.success")),
-    onError: (error) => {
-      toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.serverRestart.error")));
-    },
-  });
+  const restartServer = useRestartServer();
+  const canRestartServer = useCanRestartServer();
   const { data: extensionPolicy, isLoading: extensionPolicyLoading } = usePersonalExtensionPolicy();
   const setExternalExtensionsEnabled = useSetExternalExtensionsEnabled();
   const { data: agentImportPolicy, isLoading: agentImportPolicyLoading } = useAgentImportPolicy();
@@ -7003,22 +6940,13 @@ function AdvancedSettings() {
       toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.storageOptimization.error")));
     },
   });
-  const nativeConsoleBridge = getMarinaraAndroidBridge();
-  const canOpenNativeConsole = typeof nativeConsoleBridge?.openConsole === "function";
-  const nativeConsoleHelp = getNativeConsoleShortcutHelp();
+  const consoleHelp = localizeUi("serverConsole.settingsHelp");
 
-  const handleOpenNativeConsole = useCallback(() => {
-    const bridge = getMarinaraAndroidBridge();
-    if (typeof bridge?.openConsole !== "function") {
-      toast.info(getNativeConsoleShortcutHelp());
-      return;
-    }
-
-    const token = getAndroidBridgeToken();
-    if (token) bridge.openConsole(token);
-    else bridge.openConsole();
-    toast.info(localizeUi("ui.panels.advancedsettings.openingTermuxConsole"));
-  }, [localizeUi]);
+  const handleOpenConsole = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    // On a phone the Settings panel covers the console's sheet, so it steps aside first.
+    if (isPhoneWindowLayout()) useUIStore.getState().closeRightPanel();
+    useFloatingWindowStore.getState().openWindow(SERVER_CONSOLE_WINDOW_ID, event.currentTarget);
+  }, []);
 
   const handleExternalExtensionsToggle = useCallback(
     async (enabled: boolean) => {
@@ -7575,7 +7503,7 @@ function AdvancedSettings() {
             <button
               type="button"
               onClick={() => void handleRestartServer()}
-              disabled={restartServer.isPending}
+              disabled={restartServer.isPending || !canRestartServer}
               className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
             >
               {restartServer.isPending ? (
@@ -7588,7 +7516,9 @@ function AdvancedSettings() {
                 : localizeUi("settings.serverRestart.action")}
             </button>
             <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("settings.serverRestart.description")}
+              {localizeUi(
+                canRestartServer ? "settings.serverRestart.description" : "settings.serverRestart.unavailable",
+              )}
             </p>
           </SearchableSettingTarget>
         </div>
@@ -7962,19 +7892,26 @@ function AdvancedSettings() {
             onChange={setDebugMode}
             help={localizeUi("settings.controls.debugMode.help")}
           />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tap-timings")}
+            label={localizeUi("settings.controls.tapTimings.label")}
+            checked={tapTimings}
+            onChange={setTapTimingsEnabled}
+            help={localizeUi("settings.controls.tapTimings.help")}
+          />
           <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1" title={nativeConsoleHelp}>
+            <div className="min-w-0 flex-1" title={consoleHelp}>
               <button
                 type="button"
-                onClick={handleOpenNativeConsole}
-                disabled={!canOpenNativeConsole}
+                data-window-opener={SERVER_CONSOLE_WINDOW_ID}
+                onClick={handleOpenConsole}
                 className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
               >
                 <Terminal size="0.8125rem" className="shrink-0" />
                 <span>{localizeUi("ui.panels.advancedsettings.openConsole")}</span>
               </button>
             </div>
-            <HelpTooltip side="bottom" text={nativeConsoleHelp} />
+            <HelpTooltip side="bottom" text={consoleHelp} />
           </div>
         </div>
       </SettingsSection>

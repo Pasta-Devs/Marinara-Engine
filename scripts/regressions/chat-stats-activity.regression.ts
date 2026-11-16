@@ -180,6 +180,8 @@ try {
   const { createFileNativeDB } = await import("../../packages/server/src/db/file-backed-store.js");
   const { chats, messages, characters, personas } = await import("../../packages/server/src/db/schema/index.js");
   const { eq } = await import("../../packages/server/src/db/file-query.js");
+  const { completePersonaRow, storedPersonaFromRow } =
+    await import("../../packages/server/src/services/personas/persona-card-storage.js");
   const { buildActivityOverview, computeStoredChatStats, createActivityOverviewCache } =
     await import("../../packages/server/src/services/chat-insights/chat-insights.service.js");
   const { chatInsightsRoutes } = await import("../../packages/server/src/routes/chat-insights.routes.js");
@@ -188,7 +190,13 @@ try {
   await db
     .insert(characters)
     .values({ id: "char-a", data: JSON.stringify({ name: "Ayla" }), createdAt: created, updatedAt: created });
-  await db.insert(personas).values({ id: "persona-1", name: "Alex", createdAt: created, updatedAt: created });
+  await db
+    .insert(personas)
+    .values(
+      storedPersonaFromRow(
+        completePersonaRow({ id: "persona-1", name: "Alex", createdAt: created, updatedAt: created }),
+      ),
+    );
   await db.insert(chats).values([
     {
       id: "chat-a",

@@ -210,12 +210,16 @@ function showAgentWarning(raw: unknown, chatId: string) {
   toast.warning(message, { duration: 20000 });
 }
 
+let agentBackgroundChoiceSeq = 0;
 function applyAgentBackgroundChoice(chosen: string | null | undefined) {
   const url = chatBackgroundMetadataToUrl(chosen);
   if (!url) return;
+  // A later choice wins even if its check answers first (a pinned place corrects the agent's pick).
+  const seq = ++agentBackgroundChoiceSeq;
 
   fetch(url, { method: "HEAD" })
     .then((res) => {
+      if (seq !== agentBackgroundChoiceSeq) return;
       if (res.ok) {
         useUIStore.getState().setChatBackground(url);
       } else {
@@ -527,7 +531,7 @@ async function buildPendingCardUpdates(
     try {
       characters = await qc.fetchQuery({
         queryKey: characterKeys.list(),
-        queryFn: () => api.get<Array<{ id: string; data?: unknown; name?: string }>>("/characters"),
+        queryFn: () => fetchAllCharacterPages<{ id: string; data?: unknown; name?: string }>(),
       });
     } catch {
       characters = undefined;
@@ -680,10 +684,12 @@ import {
   chatKeys,
   forgetRecentMessageContentEdit,
   forgetUnchangedMessageContentEdit,
+  getHiddenMessageIds,
+  getShownCachedMessages,
   preserveRecentMessageContentEdit,
   rememberRecentMessageContentEdit,
 } from "./use-chats";
-import { characterKeys } from "./use-characters";
+import { characterKeys, fetchAllCharacterPages } from "./use-characters";
 import { connectionKeys } from "./use-connections";
 import { lorebookKeys } from "./use-lorebooks";
 import { presetKeys } from "./use-presets";
@@ -706,7 +712,14 @@ function sortMessagesByCreatedAt(messages: Message[]): Message[] {
   });
 }
 
-export function upsertPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
+/** Saved copies, minus messages deleted since: a copy saved before its delete must not bring it back. */
+function withoutDeletedMessages(qc: QueryClient, chatId: string, messages: Message[]) {
+  const hidden = getHiddenMessageIds(qc, chatId);
+  return hidden.size ? messages.filter((message) => !hidden.has(message.id)) : messages;
+}
+
+export function upsertPersistedMessages(qc: QueryClient, chatId: string, saved: Message[]) {
+  const incoming = withoutDeletedMessages(qc, chatId, saved);
   if (incoming.length === 0) return;
 
   const sortedIncoming = sortMessagesByCreatedAt(
@@ -718,7 +731,8 @@ export function upsertPersistedMessages(qc: QueryClient, chatId: string, incomin
   );
 }
 
-function appendMissingPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
+function appendMissingPersistedMessages(qc: QueryClient, chatId: string, saved: Message[]) {
+  const incoming = withoutDeletedMessages(qc, chatId, saved);
   if (incoming.length === 0) return;
 
   const sortedIncoming = sortMessagesByCreatedAt(
@@ -1590,11 +1604,12 @@ export function useGenerate() {
         pendingSplitPartIds.includes(id) || [...splitPartIdsBefore.values()].some((ids) => ids.includes(id));
       // A reply held for a rewrite is shown by the live stream and joins the message list only after its
       // agent results, so while this stream is live they check the held reply (#7592). Any other reply
-      // the list does not show, such as one the user deleted, still turns its results away.
+      // the list does not show, such as one the user deleted, still turns its results away. Deletes are hidden
+      // on read while the cache keeps them, so the check reads the list as shown.
       const heldUnlistedReplies = new Map<string, Message>();
       const agentResultOwnsVisibleSwipe = (result: AgentResultEventPayload) =>
         agentResultMatchesVisibleSwipe(
-          getCachedMessages(qc, params.chatId),
+          getShownCachedMessages(qc, params.chatId),
           result,
           useChatStore.getState().abortControllers.get(params.chatId) === abortController
             ? heldUnlistedReplies
@@ -3492,14 +3507,13 @@ export function useGenerate() {
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
               );
             } else if (
-              isGameGeneration &&
-              !params.impersonate &&
-              assistantMessagesBeforeGeneration.cacheWasLoaded &&
+              expectedMessagesBeforeGeneration.cacheWasLoaded &&
               recoveryRefetchSucceeded &&
               !recoveredReply()
             ) {
-              // A game turn always ends in a Game Master message, so a run that settled without one failed: say so
-              // and offer Retry rather than leave the player with nothing, and hand an unsaved turn back to the input.
+              // The server finished without saving this run's reply (an assistant row, or the impersonated user turn),
+              // so the run failed: say so and offer Retry rather than leave the user with nothing, and report an
+              // unsaved turn so the input hands back what was typed.
               replyErrorSeen = true;
               setGenerateReplyError(showError(translate("generation.stoppedWithoutReply")), params.chatId, qc);
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
@@ -3696,10 +3710,14 @@ export function useGenerate() {
         }
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         let unpersistedPartialMessage: Message | null = null;
+        // The sent user turn is already in persistedMessages; only a saved reply means the server kept the text.
+        const replySaved = Array.from(persistedMessages.values()).some((m) => m.role === expectedPersistedRole);
         if (
           receivedContent &&
-          persistedMessages.size === 0 &&
+          !replySaved &&
           partialContent &&
+          // A user Stop keeps the text; an errored reply only when nothing was stored (staging behaviour). Game turns stay out.
+          (persistedMessages.size === 0 || (abortController.signal.aborted && !isGameGeneration)) &&
           // A failed game turn has its own retry; saving what streamed before the failure left a half-turn
           // (often the GM's lead-in to a tool call) in the story, and a second reply right after it.
           !(replyErrorSeen && isGameGeneration) &&
@@ -3724,13 +3742,31 @@ export function useGenerate() {
             }
           } else {
             try {
-              const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
-                role: partialRole,
-                characterId: partialCharacterId,
-                content: partialContent,
-                createdAt,
-                updatedAt: createdAt,
-              });
+              // Stop aborts the stream before the server's message_saved may arrive: reuse a reply it already stored.
+              // A normal send keeps running on the server after the stream closes, so let it write first (5 s cap).
+              await waitForServerGenerationToSettle(params.chatId, AbortSignal.timeout(5_000));
+              if (
+                !(await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values(), {
+                  fetchEvenIfInactive: true,
+                }))
+              ) {
+                await Promise.reject(new Error("history refetch failed")); // unknown history: use the cache-only fallback below
+              }
+              const stored = latestNewMessageByRole(
+                qc,
+                params.chatId,
+                expectedPersistedRole,
+                expectedMessagesBeforeGeneration,
+              );
+              const created =
+                stored ??
+                (await api.post<Message>(`/chats/${params.chatId}/messages`, {
+                  role: partialRole,
+                  characterId: partialCharacterId,
+                  content: partialContent,
+                  createdAt,
+                  updatedAt: createdAt,
+                }));
               unpersistedPartialMessage = created;
               persistedMessages.set(created.id, created);
             } catch (error) {
@@ -3990,7 +4026,7 @@ export function useGenerate() {
                 if (retryAgentEventGenerationId && retryAgentEventGenerationId !== result.generationId) break;
                 retryAgentEventGenerationId ??= result.generationId;
               }
-              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result);
+              const ownsVisibleSwipe = agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result);
               if (!ownsVisibleSwipe) {
                 console.debug(
                   `[Retry Agent] Skipped ${result.agentName} (${result.agentType}): reply ${result.messageId} swipe ${result.swipeIndex} is not on screen`,
@@ -4059,7 +4095,10 @@ export function useGenerate() {
                       for (const pending of pendingEntries) {
                         enqueuePendingCardUpdate(pending);
                       }
-                      if (isActiveChat() && agentResultMatchesVisibleSwipe(getCachedMessages(qc, chatId), result)) {
+                      if (
+                        isActiveChat() &&
+                        agentResultMatchesVisibleSwipe(getShownCachedMessages(qc, chatId), result)
+                      ) {
                         useUIStore.getState().openModal("character-card-update");
                       }
                     }

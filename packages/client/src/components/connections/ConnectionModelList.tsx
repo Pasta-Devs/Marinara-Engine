@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useOutsideReads } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import { BrandMark } from "./ProviderIcon";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { MODEL_TEXT_INSET } from "./connection-row-layout";
 
 /** A list longer than this starts folded: each upstream shows only its role (or starred) Models. */
@@ -21,6 +22,9 @@ const ROW_FOCUS =
  * foldable headings; inside each, Models sort by kind (chat, image, video, voice, decision) and keep their order
  * within a kind.
  */
+/** Long lists draw only the rows in view. */
+const VIRTUAL_MIN = 60;
+
 export function ConnectionModelList<T extends { model?: string | null; provider?: string | null }>({
   provider,
   rows,
@@ -177,11 +181,23 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
                 </button>
               </div>
             )}
-            {kept.map((row) => (
-              <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
-                {renderRow(row, upstream || null)}
-              </div>
-            ))}
+            {kept.length < VIRTUAL_MIN ? (
+              kept.map((row) => (
+                <div key={getKey(row)} className="mari-connection-model-slot min-w-0">
+                  {renderRow(row, upstream || null)}
+                </div>
+              ))
+            ) : (
+              <PanelVirtualList
+                listKey={`connection-model-list:${id}:${key}`}
+                count={kept.length}
+                getItemKey={(index) => String(getKey(kept[index]!))}
+                renderRow={(index) => (
+                  <div className="mari-connection-model-slot min-w-0">{renderRow(kept[index]!, upstream || null)}</div>
+                )}
+                estimateSize={44}
+              />
+            )}
             {showMore && (
               <div className="mari-connection-model-slot min-w-0">
                 <button

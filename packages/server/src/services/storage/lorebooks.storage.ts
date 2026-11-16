@@ -5,20 +5,24 @@ import { currentRoomGeneration } from "../multiplayer/generation-policy.js";
 import { eq, desc, and, like, inArray, asc, or } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
-  characters,
   lorebooks,
   lorebookCharacterLinks,
   lorebookEntries,
   lorebookFolders,
   lorebookPersonaLinks,
-  personas,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
+  DEFAULT_LOREBOOK_WRITER_ORDER,
+  compareTokenEstimates,
+  estimateTextTokens,
+  isTokenSort,
   LIMITS,
   createLorebookEntrySchema,
   type LorebookEntryImage,
+  type LorebookWriterOrder,
   normalizeLorebookCategory,
+  normalizeAvatarCrop,
   type CreateLorebookInput,
   type UpdateLorebookInput,
   type CreateLorebookEntryInput,
@@ -43,6 +47,7 @@ import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
+import { createCharactersStorage } from "./characters.storage.js";
 
 function normalizeLorebookEntryLimit(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -169,6 +174,7 @@ function parseLorebookRow(row: Record<string, unknown>) {
     hiddenFromLibrary: row.hiddenFromLibrary === "true",
     scope: parseLorebookScope(row.scope),
     imagePath: row.imagePath || null,
+    imageCrop: normalizeAvatarCrop(row.imageCrop),
     generatedBy: row.generatedBy || null,
     sourceAgentId: row.sourceAgentId || null,
     characterId: characterIds[0] ?? null,
@@ -178,6 +184,11 @@ function parseLorebookRow(row: Record<string, unknown>) {
     chatId: row.chatId || null,
     tags: JSON.parse((row.tags as string) || "[]"),
   };
+}
+
+function serializeImageCrop(value: unknown): string | null {
+  const crop = normalizeAvatarCrop(value);
+  return crop ? JSON.stringify(crop) : null;
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -298,15 +309,13 @@ function lorebookOrder(sort: string | undefined) {
       return [desc(lorebooks.createdAt), asc(lorebooks.id)];
     case "oldest":
       return [asc(lorebooks.createdAt), asc(lorebooks.id)];
-    case "tokens":
-      return [desc(lorebooks.tokenBudget), asc(lorebooks.id)];
     case "name-asc":
     default:
       return [asc(lorebooks.name), asc(lorebooks.id)];
   }
 }
 
-function parseCharacterName(row: typeof characters.$inferSelect) {
+function parseCharacterName(row: { data: string }) {
   try {
     const parsed = JSON.parse(row.data) as { name?: unknown };
     return typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : "Unknown";
@@ -315,10 +324,54 @@ function parseCharacterName(row: typeof characters.$inferSelect) {
   }
 }
 
-async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { includeLinkedNames?: boolean } = {}) {
+type LorebookEntryTotals = Map<string, { count: number; tokens: number }>;
+const entryTotalsCache = new WeakMap<DB, { generation: number; totals: LorebookEntryTotals }>();
+
+/**
+ * Every book's entry count and estimated tokens (all entries, enabled or not), cached until the entries table
+ * is written again so paging a big library does not re-read every entry's text.
+ */
+async function getLorebookEntryTotals(db: DB): Promise<LorebookEntryTotals> {
+  const generation = db._fileStore?.getTableWriteGeneration("lorebook_entries");
+  const cached = entryTotalsCache.get(db);
+  if (generation !== undefined && cached?.generation === generation) return cached.totals;
+  const totals = sumLorebookEntries(
+    await db.select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content }).from(lorebookEntries),
+  );
+  // A write that landed while reading leaves the stored generation behind, so the next call recomputes.
+  if (generation !== undefined) entryTotalsCache.set(db, { generation, totals });
+  return totals;
+}
+
+function sumLorebookEntries(entryRows: Array<{ lorebookId: string; content: string | null }>): LorebookEntryTotals {
+  const totals: LorebookEntryTotals = new Map();
+  for (const entry of entryRows) {
+    const total = totals.get(entry.lorebookId) ?? { count: 0, tokens: 0 };
+    total.count += 1;
+    total.tokens += estimateTextTokens(entry.content ?? "");
+    totals.set(entry.lorebookId, total);
+  }
+  return totals;
+}
+
+/** Entry totals for just these books; the whole-library pass is only for ranking by size. */
+async function getLorebookEntryTotalsFor(db: DB, bookIds: string[]): Promise<LorebookEntryTotals> {
+  return sumLorebookEntries(
+    await db
+      .select({ lorebookId: lorebookEntries.lorebookId, content: lorebookEntries.content })
+      .from(lorebookEntries)
+      .where(inArray(lorebookEntries.lorebookId, bookIds)),
+  );
+}
+
+async function hydrateLorebookRows(
+  db: DB,
+  rows: LorebookRow[],
+  options: { includeLinkedNames?: boolean; entryTotals?: LorebookEntryTotals } = {},
+) {
   if (rows.length === 0) return [];
   const bookIds = rows.map((row) => row.id);
-  const [characterRows, personaRows, entryRows] = await Promise.all([
+  const [characterRows, personaRows, entryTotals] = await Promise.all([
     db
       .select()
       .from(lorebookCharacterLinks)
@@ -329,15 +382,8 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
       .from(lorebookPersonaLinks)
       .where(inArray(lorebookPersonaLinks.lorebookId, bookIds))
       .orderBy(asc(lorebookPersonaLinks.lorebookId), asc(lorebookPersonaLinks.personaId)),
-    db
-      .select({ lorebookId: lorebookEntries.lorebookId })
-      .from(lorebookEntries)
-      .where(inArray(lorebookEntries.lorebookId, bookIds)),
+    options.entryTotals ?? getLorebookEntryTotalsFor(db, bookIds),
   ]);
-  const entryCountByBook = new Map<string, number>();
-  for (const entry of entryRows) {
-    entryCountByBook.set(entry.lorebookId, (entryCountByBook.get(entry.lorebookId) ?? 0) + 1);
-  }
   const characterIdsByBook = new Map<string, string[]>();
   for (const link of characterRows) {
     const ids = characterIdsByBook.get(link.lorebookId) ?? [];
@@ -355,14 +401,18 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
   if (options.includeLinkedNames) {
     const characterIds = Array.from(new Set(characterRows.map((link) => link.characterId)));
     const personaIds = Array.from(new Set(personaRows.map((link) => link.personaId)));
+    // Through the characters storage, not the tables: a package bundles this file, and its overlay answers that
+    // storage from the live Engine (Pasta-Devs/Marinara-Engine#9035).
+    const people = createCharactersStorage(db);
     const [linkedCharacters, linkedPersonas] = await Promise.all([
-      characterIds.length > 0 ? db.select().from(characters).where(inArray(characters.id, characterIds)) : [],
-      personaIds.length > 0 ? db.select().from(personas).where(inArray(personas.id, personaIds)) : [],
+      people.getByIds(characterIds),
+      Promise.all(personaIds.map((personaId) => people.getPersona(personaId))),
     ]);
     for (const character of linkedCharacters) {
       characterNameById.set(character.id, parseCharacterName(character));
     }
     for (const persona of linkedPersonas) {
+      if (!persona) continue;
       personaNameById.set(persona.id, persona.comment ? `${persona.name} - ${persona.comment}` : persona.name);
     }
   }
@@ -373,7 +423,8 @@ async function hydrateLorebookRows(db: DB, rows: LorebookRow[], options: { inclu
       ...(row as Record<string, unknown>),
       characterIds,
       personaIds,
-      entryCount: entryCountByBook.get(row.id) ?? 0,
+      entryCount: entryTotals.get(row.id)?.count ?? 0,
+      tokenEstimate: entryTotals.get(row.id)?.tokens ?? 0,
     };
     if (options.includeLinkedNames) {
       hydratedRow.characterNames = characterIds.map((id) => characterNameById.get(id) ?? id);
@@ -494,6 +545,39 @@ export function createLorebooksStorage(db: DB) {
       }
 
       const whereClause = clauses.length > 0 ? and(...clauses) : undefined;
+      if (isTokenSort(options.sort)) {
+        // Size is not a column, so rank every matching book by its estimate, then page the ranked list.
+        const sort = options.sort;
+        const matching = await (whereClause
+          ? db.select().from(lorebooks).where(whereClause)
+          : db.select().from(lorebooks));
+        const totals = await getLorebookEntryTotals(db);
+        const ranked = matching.sort(
+          (a, b) =>
+            compareTokenEstimates(sort, totals.get(a.id)?.tokens, totals.get(b.id)?.tokens) ||
+            a.name.localeCompare(b.name) ||
+            a.id.localeCompare(b.id),
+        );
+        const pageRows = ranked.slice(options.offset, options.offset + options.limit + 1);
+        // Each folder's total over its matching books, so folders rank by size before all their books are loaded.
+        const matchingIds = new Set(ranked.map((row) => row.id));
+        const folderTokenTotals: Record<string, number> = {};
+        for (const folder of await createLibraryFoldersStorage(db).list("lorebooks")) {
+          folderTokenTotals[folder.id] = folder.itemIds.reduce(
+            (total, id) => total + (matchingIds.has(id) ? (totals.get(id)?.tokens ?? 0) : 0),
+            0,
+          );
+        }
+        return {
+          ...toPaginatedList(pageRows, options.limit, options.offset),
+          // Hydrate with the snapshot the ranking used, so a row's count always matches its place in the order.
+          items: await hydrateLorebookRows(db, pageRows.slice(0, options.limit), {
+            includeLinkedNames: true,
+            entryTotals: totals,
+          }),
+          folderTokenTotals,
+        };
+      }
       const rows = await (whereClause
         ? db
             .select()
@@ -551,6 +635,7 @@ export function createLorebooksStorage(db: DB) {
           description: input.description ?? "",
           category: input.category ?? "uncategorized",
           imagePath: input.imagePath ?? null,
+          imageCrop: serializeImageCrop(input.imageCrop),
           scanDepth: input.scanDepth ?? 2,
           tokenBudget: input.tokenBudget ?? 2048,
           entryLimit: normalizeLorebookEntryLimit(input.entryLimit),
@@ -585,6 +670,9 @@ export function createLorebooksStorage(db: DB) {
       if (input.description !== undefined) updates.description = input.description;
       if (input.category !== undefined) updates.category = input.category;
       if (input.imagePath !== undefined) updates.imagePath = input.imagePath;
+      // Removing the picture drops its crop; a crop sent with it wins.
+      if (input.imageCrop !== undefined) updates.imageCrop = serializeImageCrop(input.imageCrop);
+      else if (input.imagePath === null) updates.imageCrop = null;
       if (input.scanDepth !== undefined) updates.scanDepth = input.scanDepth;
       if (input.tokenBudget !== undefined) updates.tokenBudget = input.tokenBudget;
       if (input.entryLimit !== undefined) updates.entryLimit = normalizeLorebookEntryLimit(input.entryLimit);
@@ -919,7 +1007,25 @@ export function createLorebooksStorage(db: DB) {
       return updated ? this.getEntry(id) : null;
     },
 
-    async createEntry(input: CreateLorebookEntryInput & EntryProvenanceInput) {
+    async createEntry(
+      input: CreateLorebookEntryInput & EntryProvenanceInput,
+      writerOrder?: LorebookWriterOrder,
+    ): Promise<ReturnType<typeof parseEntryRow> | null> {
+      if (writerOrder === "growing") {
+        // Serialize the read and insert with other Growing saves.
+        return db.transaction(async (tx) => {
+          const [last] = await tx
+            .select({ order: lorebookEntries.order })
+            .from(lorebookEntries)
+            .where(eq(lorebookEntries.lorebookId, input.lorebookId))
+            .orderBy(desc(lorebookEntries.order))
+            .limit(1);
+          // Older imports can contain fractional orders. New entries use whole numbers.
+          const order = Math.floor(Number(last?.order ?? 0)) + 1;
+          if (!Number.isSafeInteger(order)) throw new Error("No higher entry order is available in this lorebook.");
+          return createLorebooksStorage(tx).createEntry({ ...input, order });
+        });
+      }
       const images = createLorebookEntrySchema.shape.images.parse(input.images ?? []);
       const id = newId();
       const timestamp = now();
@@ -953,7 +1059,7 @@ export function createLorebooksStorage(db: DB) {
         position: input.position ?? 0,
         outletName: input.outletName ?? "",
         depth: input.depth ?? 0,
-        order: input.order ?? 100,
+        order: writerOrder ?? input.order ?? DEFAULT_LOREBOOK_WRITER_ORDER,
         role: input.role ?? "system",
         sticky: input.sticky ?? null,
         cooldown: input.cooldown ?? null,

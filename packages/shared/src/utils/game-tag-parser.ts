@@ -71,6 +71,20 @@ export interface PartyChangeTag {
   copyOf?: string;
   /** A condition of the game's ruleset the copy holds from the start. */
   condition?: string;
+  /** MRPG games (owner 2026-11-06): the level the Game Master has a late joiner come in at. */
+  level?: number;
+  /** MRPG games: their growths and stats off the norm, as written ("strength+30, speed+20"). */
+  growths?: string;
+  stats?: string;
+}
+
+export interface MrpgJoinTag {
+  characterName: string;
+  level?: number;
+  growths?: string;
+  stats?: string;
+  /** The sister tree the GM chose for them: a tree, or a temperament that opens one. */
+  sister?: string;
 }
 
 export interface ReadableTag {
@@ -121,6 +135,9 @@ export interface ParsedGmTags {
   inventoryUpdates: InventoryTag[];
   /** Characters joining or leaving the party */
   partyChanges: PartyChangeTag[];
+  /** MRPG games: a room player's newly joined character brought in at the Game Master's level
+   *  (owner 2026-11-06), as [mrpg_join: character="Name" level="N" sister="tree" growths="…" stats="…"]. */
+  mrpgJoins: MrpgJoinTag[];
   /** Note or book content for reading display */
   readables: ReadableTag[];
 }
@@ -349,7 +366,7 @@ function parsePartyCharacterName(body: string): string {
   const unquoted = quoted ? null : /(?:character|name)\s*=\s*([^,\]]+)/i.exec(body);
   const rawName = quoted?.[1] ?? unquoted?.[1] ?? body;
   return rawName
-    .replace(/\s+(?:change|copy_of|condition)\s*=.*$/i, "")
+    .replace(/\s+(?:change|copy_of|condition|level|growths|stats|sister)\s*=.*$/i, "")
     .trim()
     .replace(/^["']|["']$/g, "");
 }
@@ -364,7 +381,20 @@ function parsePartyChangeTagBody(body: string, fallbackChange?: "add" | "remove"
     (new RegExp(`${name}\\s*=\\s*"([^"]+)"`, "i").exec(body)?.[1] ?? "").trim() || undefined;
   const copyOf = change === "add" ? attribute("copy_of") : undefined;
   const condition = copyOf ? attribute("condition") : undefined;
-  return { characterName, change, ...(copyOf ? { copyOf } : {}), ...(condition ? { condition } : {}) };
+  // A joiner's MRPG terms: a quoted or bare level, and quoted growths and stats.
+  const levelText = change === "add" && !copyOf ? /\blevel\s*=\s*"?(\d{1,2})"?/i.exec(body)?.[1] : undefined;
+  const level = levelText ? Number(levelText) : undefined;
+  const growths = change === "add" && !copyOf ? attribute("growths") : undefined;
+  const stats = change === "add" && !copyOf ? attribute("stats") : undefined;
+  return {
+    characterName,
+    change,
+    ...(copyOf ? { copyOf } : {}),
+    ...(condition ? { condition } : {}),
+    ...(level ? { level } : {}),
+    ...(growths ? { growths } : {}),
+    ...(stats ? { stats } : {}),
+  };
 }
 
 /** Match a legacy flat-tag body with one forward scan, including malformed input. */
@@ -417,6 +447,7 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
   source = extractFlatTags(source, /\[element_attack:/gi).remaining;
   source = extractFlatTags(source, /\[party_change:/gi).remaining;
   source = extractFlatTags(source, /\[party_add:/gi).remaining;
+  source = extractFlatTags(source, /\[mrpg_join:/gi).remaining;
   source = source.replace(/\[party-turn\]/gi, "");
   source = source.replace(/\[party-chat\]/gi, "");
   source = extractFlatTags(source, /\[dice:/gi).remaining;
@@ -571,6 +602,7 @@ export function parseGmTags(content: string): ParsedGmTags {
     combatStatuses: [],
     inventoryUpdates: [],
     partyChanges: [],
+    mrpgJoins: [],
     readables: [],
   };
 
@@ -812,6 +844,27 @@ export function parseGmTags(content: string): ParsedGmTags {
   }
   text = partyAddTags.remaining;
 
+  // [mrpg_join: character="Name" level="N" growths="…" stats="…"] — a room player's new character
+  const mrpgJoinTags = extractFlatTags(text, /\[mrpg_join:/gi);
+  for (const { body } of mrpgJoinTags.matches) {
+    const characterName = parsePartyCharacterName(body);
+    if (!characterName) continue;
+    const attribute = (name: string) =>
+      (new RegExp(`${name}\\s*=\\s*"([^"]+)"`, "i").exec(body)?.[1] ?? "").trim() || undefined;
+    const levelText = /\blevel\s*=\s*"?(\d{1,2})"?/i.exec(body)?.[1];
+    const growths = attribute("growths");
+    const stats = attribute("stats");
+    const sister = (/\bsister\s*=\s*"?([A-Za-z]+)"?/i.exec(body)?.[1] ?? "").trim() || undefined;
+    result.mrpgJoins.push({
+      characterName,
+      ...(levelText ? { level: Number(levelText) } : {}),
+      ...(growths ? { growths } : {}),
+      ...(stats ? { stats } : {}),
+      ...(sister ? { sister } : {}),
+    });
+  }
+  text = mrpgJoinTags.remaining;
+
   // [Note: content] or [Book: content] — readable documents (balanced brackets)
   {
     const { contents: noteContents, remaining: afterNotes } = extractBalancedTags(text, "[Note:");
@@ -862,6 +915,7 @@ export function stripGmTags(content: string): string {
   text = extractFlatTags(text, /\[inventory:/gi).remaining;
   text = extractFlatTags(text, /\[party_change:/gi).remaining;
   text = extractFlatTags(text, /\[party_add:/gi).remaining;
+  text = extractFlatTags(text, /\[mrpg_join:/gi).remaining;
   text = text.replace(/\[party-turn\]/gi, "");
   text = text.replace(/\[party-chat\]/gi, "");
   text = extractFlatTags(text, /\[dice:/gi).remaining;

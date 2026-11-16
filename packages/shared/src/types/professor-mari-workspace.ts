@@ -1010,6 +1010,8 @@ export interface MariDbCommandResult {
   error?: string;
   /** #7999: arguments used differently than sent (a lowered limit), when no app_data call collected them. */
   notes?: string[];
+  /** #9342: `mari images look` pictures (data URLs) for Mari's next model request; never part of `output`. */
+  images?: string[];
 }
 
 export interface MariDbPendingApproval {

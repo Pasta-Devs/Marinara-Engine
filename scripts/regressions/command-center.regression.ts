@@ -20,6 +20,7 @@ import {
   isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
+  shortcutKeyTypesText,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
 import {
   createOmnibarContext,
@@ -263,11 +264,11 @@ assert.deepEqual(systemCommands.find((command) => command.id === "spotify-settin
   setupTarget: true,
 });
 assert.equal(systemCommands.find((command) => command.id === "spotify-settings")?.action.kind, "navigate");
-// Text to speech opens its set-up screen in the Add window (a modal), which works before TTS is set up too.
+// Text to speech opens the Voice job in its settings window.
 assert.deepEqual(systemCommands.find((command) => command.id === "tts-settings")?.action, {
   kind: "modal",
-  modal: "create-connection",
-  props: { service: "tts" },
+  modal: "job-settings",
+  props: { job: "voice" },
 });
 
 const presentationResults: CommandCenterPresentableResult[] = [
@@ -1275,6 +1276,12 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isAskMariShortcut(j({ ctrlKey: true, key: "о" }), false), true, "physical J on a non-Latin layout");
   assert.equal(isAskMariShortcut(key({ ctrlKey: true }), false), false, "Ctrl+K is not Ask Mari");
   assert.equal(isOmnibarShortcut(j({ ctrlKey: true }), false), false, "Ctrl+J is not the omnibar");
+  // #9129: beside a field being typed in, Ctrl+J belongs to the IME (SKK's on switch), not to Mari.
+  const field = { tagName: "TEXTAREA" };
+  const page = { tagName: "BODY", closest: () => null };
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [field, page] }), true);
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [page] }), false);
+  assert.equal(shortcutKeyTypesText({}), false);
 }
 
 {
@@ -3091,6 +3098,16 @@ assert.ok(!("mariDetailId" in mariSession));
       .map((value) => `${file}: ${value}`);
   });
   assert.deepEqual(offenders, [], "a numeric z-index at or above the omnibar layer would cover the omnibar");
+  // The one window meant to sit over the omnibar is the server console (FloatingWindow layer="top"): a tool the
+  // user opens to watch the app, Professor Mari included. Anything else that wants it is a new decision.
+  const topLayerUsers = files
+    .filter((file) => /\.tsx$/u.test(file) && /^\s+layer="top"$/mu.test(clientSource(file)))
+    .map((file) => file.replaceAll("\\", "/"));
+  assert.deepEqual(
+    topLayerUsers,
+    ["components/layout/ServerConsoleWindow.tsx"],
+    "only the server console sits above the omnibar",
+  );
 
   // Slice 15's "no pull under a modal" guard was dropped on purpose (L8): the pull and ⌘K now open
   // ON TOP of a dialog. The guard must not come back.

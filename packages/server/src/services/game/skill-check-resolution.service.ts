@@ -1,5 +1,6 @@
 import { gamePartyRoster, rulesetAdvancementTurnStart } from "./ruleset-sheet-turn.service.js";
 import { currentRoomGeneration, roomHostIdentity } from "../multiplayer/generation-policy.js";
+import { marinaraCardClassicByName } from "./marinara-card-classic.service.js";
 // ──────────────────────────────────────────────
 // Service: Skill Check Resolution (chat-scoped)
 //
@@ -79,6 +80,13 @@ import {
   type RulesetSheetItem,
   rulesetCheckStance,
   rulesetSheetDead,
+  readMarinaraCardProgression,
+  createMarinaraCardProgression,
+  gameCardTemperament,
+  partyTemperamentFallback,
+  type MarinaraCardClassic,
+  type MarinaraPartyTemperament,
+  type MarinaraStats,
 } from "@marinara-engine/shared";
 import { loadGameInventoryItemBook } from "./game-inventory.service.js";
 import type { DB } from "../../db/connection.js";
@@ -97,6 +105,8 @@ import {
   attributeModifier,
   getGoverningAttribute,
   mapSheetAttributesToRPG,
+  mrpgCheckModifier,
+  mrpgStatForSkill,
   readContextAttributeScore,
   resolveSkillCheck,
 } from "./skill-check.service.js";
@@ -152,8 +162,17 @@ export interface SkillCheckModifierContext {
    * Absent is `engine-legacy`: the arithmetic this service has always done.
    */
   ruleset?: SkillCheckRulesetContext;
+  /**
+   * In a game on MRPG classes, the character's MRPG stats (their active class's body), which a check
+   * then reads instead of any Legacy attributes (owner 2026-11-06). Absent for a card with no MRPG
+   * progression yet, which reads its sheet as before.
+   */
+  mrpgStats?: MarinaraStats;
   /** Shared Game legacy checks resolve the explicitly named room card, never another player. */
-  roomCharacters?: Map<string, Pick<SkillCheckModifierContext, "skills" | "attributes" | "sheetAttributes">>;
+  roomCharacters?: Map<
+    string,
+    Pick<SkillCheckModifierContext, "skills" | "attributes" | "sheetAttributes" | "mrpgStats">
+  >;
 }
 
 export interface SkillCheckRulesetContext {
@@ -229,6 +248,24 @@ export interface SkillCheckRequest {
   /** Independent setback dice and optional own-pool upgrades (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** `plot=` (1.822): throw the plot die with this check. */
+  plot?: boolean;
+  /** `shift=` (1.823): bands to move this check's outcome. */
+  shift?: number;
+  /** `hunger=` (1.824): special dice among this check's pool. */
+  hunger?: number;
+  /** `gear=` (1.826): gear dice added to a grouped pool. */
+  gear?: number;
+  /** `push="true"` (1.826), and the earlier roll it pushes once the resolver has found it. */
+  push?: boolean;
+  pushOf?: {
+    /** Where the earlier record sits in the previous reply, so one roll is pushed once per reply. */
+    at?: number;
+    rolls: readonly number[];
+    dc?: number;
+    threshold?: number;
+    groups?: readonly { label: string; dice: number }[];
+  };
   /** `spend=`: what the player said they were spending on this check, where the ruleset offers
    *  such a purchase. The Engine decides what it costs and what it buys. */
   spend?: { pool: string; amount: number };
@@ -527,6 +564,10 @@ export async function loadSkillCheckModifierContext(
     );
   }
 
+  const mrpgGame =
+    (meta.gameSetupConfig as { marinaraClasses?: unknown } | null | undefined)?.marinaraClasses === true &&
+    meta.gameRuleset == null;
+  const mrpgPreview = mrpgGame ? { gameId: chatId, classic: await marinaraCardClassicByName(db, chat) } : undefined;
   let roomCharacters: SkillCheckModifierContext["roomCharacters"];
   const room = currentRoomGeneration();
   if (room) {
@@ -542,21 +583,26 @@ export async function loadSkillCheckModifierContext(
       if (matches.length > 1) continue;
       const stats = matches[0]?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
       const isHost = key === normalizeCharacterLookupName(roomHostIdentity()?.name ?? "");
+      const mrpg = mrpgStatsOf(meta, matches[0], mrpgPreview);
       roomCharacters.set(key, {
         skills: isHost ? skills : null,
         attributes: isHost ? attributes : null,
         sheetAttributes: mapSheetAttributesToRPG(stats?.attributes),
+        ...(mrpg ? { mrpgStats: mrpg } : {}),
       });
     }
   }
-  if (attributes) return { skills, attributes, sheetAttributes: {}, ...(roomCharacters ? { roomCharacters } : {}) };
   const playerCard = await findPlayerCharacterCard(db, cards, chat?.personaId, meta, chatId);
+  const playerMrpg = mrpgStatsOf(meta, playerCard, mrpgPreview);
+  if (attributes && !playerMrpg)
+    return { skills, attributes, sheetAttributes: {}, ...(roomCharacters ? { roomCharacters } : {}) };
   const rpgStats = playerCard?.rpgStats as { attributes?: Array<{ name: string; value: number }> } | undefined;
 
   return {
     skills,
     attributes: null,
     sheetAttributes: mapSheetAttributesToRPG(rpgStats?.attributes),
+    ...(playerMrpg ? { mrpgStats: playerMrpg } : {}),
     ...(roomCharacters ? { roomCharacters } : {}),
   };
 }
@@ -1077,6 +1123,75 @@ export function rulesetRefusesUntrained(ruleset: SkillCheckRulesetContext, reque
   return rulesetUntrainedFor(ruleset, request) === "refuse";
 }
 
+/** A record with no dice in it: a save something made fail without a roll, or a check with no dice
+ *  (1.825). Only the Engine says either, so one a model wrote is decided again from the sheet. */
+function claimsNoDice(tag: SkillCheckTag): boolean {
+  const result = tag.resolvedResult;
+  return !!result && (!!result.automatic || (result.resolution === "sum" && result.rolls.length === 0));
+}
+
+/** The dice asks a tag carried beyond its numbers (1.822), under the same names on a request and on a
+ *  sparse ask's extras, so every path that copies a tag's freedoms copies these in one place. */
+export function diceAsk(tag: SkillCheckTag | SkillCheckRequest) {
+  return {
+    ...(tag.plot ? { plot: true } : {}),
+    ...(tag.shift != null ? { shift: tag.shift } : {}),
+    ...(tag.hunger != null ? { hunger: tag.hunger } : {}),
+    ...(tag.gear != null ? { gear: tag.gear } : {}),
+    ...(tag.push ? { push: true } : {}),
+  };
+}
+
+/** The card a `who=` names in this game, the player's own where it names nobody (1.826's push). */
+export function rulesetRollerOf(ruleset: SkillCheckRulesetContext): (who: string | undefined) => string {
+  return (who) => (who?.trim() ? rulesetNamedKey(ruleset, who) : (ruleset.playerKey ?? ""));
+}
+
+/** Whether a ruleset lets any of its checks be pushed (1.826): its own pool, or a check's override. */
+export function rulesetDeclaresPush(definition: RulesetDefinition | undefined): boolean {
+  const resolution = definition?.resolution;
+  if (!resolution || resolution.kind !== "dice-pool") return false;
+  return !!resolution.push || !!resolution.overrides?.some((override) => !!override.set?.push);
+}
+
+/** The earlier roll a `push="true"` check throws again (1.826): the last record of the same check by
+ *  the same character in the Game Master's previous reply, unless that one was already pushed. The
+ *  dice and the per-die target are read from the saved record, never from the tag that asks for the
+ *  push. The roller must match exactly: a record that names nobody is the player's. */
+export function rulesetPushableRoll(
+  definition: RulesetDefinition,
+  tag: Pick<SkillCheckTag, "skill" | "who" | "push">,
+  lastReply: string | undefined,
+  /** Which card a `who=` names, absent naming the player's own; without it names are compared as written. */
+  rollerOf?: (who: string | undefined) => string,
+  /** Records (by `at`) this reply has already pushed: a roll is pushed once, however often it is asked. */
+  used?: ReadonlySet<number>,
+): SkillCheckRequest["pushOf"] {
+  const resolution = definition.resolution;
+  if (!rulesetDeclaresPush(definition) || resolution.kind !== "dice-pool" || !tag.push || !lastReply) return undefined;
+  const same = (one?: string, other?: string) =>
+    (one ?? "").trim().toLowerCase() === (other ?? "").trim().toLowerCase();
+  let found: SkillCheckRequest["pushOf"];
+  for (const match of lastReply.matchAll(createSkillCheckTagRegex())) {
+    const earlier = parseSkillCheckTagBody(match[1] ?? "");
+    const rolled = earlier?.resolvedResult;
+    if (!earlier || !rolled || rolled.resolution !== "successes" || rolled.rolls.length === 0) continue;
+    const sameRoller = rollerOf ? rollerOf(earlier.who) === rollerOf(tag.who) : same(earlier.who, tag.who);
+    if (!same(earlier.skill, tag.skill) || !sameRoller) continue;
+    found =
+      rolled.pushed !== undefined
+        ? undefined
+        : {
+            at: match.index,
+            rolls: rolled.rolls,
+            dc: rolled.dc,
+            ...(earlier.threshold !== undefined ? { threshold: earlier.threshold } : {}),
+            ...(rolled.groups ? { groups: rolled.groups.map(({ label, dice }) => ({ label, dice })) } : {}),
+          };
+  }
+  return found?.at !== undefined && used?.has(found.at) ? undefined : found;
+}
+
 /** One of the ruleset's standing re-throws, by the id the Game Master named with `reroll=`, matched
  *  without case. Null for a name nothing answers to, and on a summed ruleset, which has none. */
 export function rulesetStandingReroll(
@@ -1346,13 +1461,16 @@ function resolveRulesetSkillCheck(
     ...(target?.purpose ? { purpose: target.purpose } : {}),
     // Said even on a summed check, where it is also inside `modifier`: "-2 because you are Wounded"
     // is not something a player can read out of one number.
-    ...(penalty !== 0 ? { penalty } : {}),
-    ...(adjust !== 0 ? { adjust } : {}),
+    // A push (1.826) throws the earlier roll's own dice again, so nothing moved its count.
+    ...(penalty !== 0 && !request.pushOf ? { penalty } : {}),
+    ...(adjust !== 0 && !request.pushOf ? { adjust } : {}),
     ...(purchase?.spent ? { spent: purchase.spent } : {}),
     ...(purchase?.used ? { used: purchase.used } : {}),
   };
-  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled.
-  const rollDie = (sides: number) => (sides === 20 && rollD20 ? rollD20() : rollDieSecurely(sides));
+  // The injected d20 (tests, the sighted pool) stands in only where a d20 is what is rolled, and never
+  // for the plot die (1.822): that one is thrown beside the check, so it is not one of the check's dice.
+  const rollDie = (sides: number, beside?: "plot") =>
+    sides === 20 && rollD20 && !beside ? rollD20() : rollDieSecurely(sides);
   // The effects' own dice are never the check's: the sighted pool spent its d20s for the check alone.
   const boost = rollRulesetCheckModifiers(effects.modifiers, rollDieSecurely, (ref) =>
     rulesetCheckValueFor(ruleset, ref, request.who),
@@ -1368,7 +1486,7 @@ function resolveRulesetSkillCheck(
     ]),
   ];
   const effected = {
-    ...(boost !== 0 ? { effects: boost } : {}),
+    ...(boost !== 0 && !request.pushOf ? { effects: boost } : {}),
     ...(from.length > 0 ? { from } : {}),
   };
 
@@ -1408,6 +1526,12 @@ function resolveRulesetSkillCheck(
         bonusDice: request.bonusDice,
         explode: request.explode,
         double: request.double,
+        hunger: request.hunger,
+        // Dice groups (1.826) need the ability's own dice apart from the rest of the pool.
+        ...(resolution.groups && rollerSheet
+          ? { ability: rulesetSymbolPoolRatings(definition, rollerSheet, target).ability, gear: request.gear }
+          : {}),
+        ...(request.pushOf ? { pushOf: request.pushOf } : {}),
         ...(sheetTarget !== undefined ? { sheetTarget } : {}),
         ...(stance ? { stance: stance.count } : {}),
         ...(bought ? { bought } : {}),
@@ -1432,6 +1556,7 @@ function resolveRulesetSkillCheck(
       complication: rolled.complication || undefined,
       exact: rolled.exact || undefined,
       exactLabel: rolled.exact && resolution.exact ? resolution.exact.label : undefined,
+      hungerLabel: rolled.hunger && resolution.hunger ? resolution.hunger.label : undefined,
       // Named only when it was the standing one that was thrown, and it actually threw something.
       reroll: standing && reroll === standing && rolled.rerolled > 0 ? standing.id : undefined,
       ...applied,
@@ -1554,16 +1679,29 @@ function resolveRulesetSkillCheck(
           : undefined,
       ...("faceFloor" in floors && floors.faceFloor !== undefined ? { faceFloor: floors.faceFloor } : {}),
       ...("totalFloor" in floors && floors.totalFloor !== undefined ? { totalFloor: floors.totalFloor } : {}),
+      plot: request.plot,
+      shift: request.shift,
     },
     rollDie,
   );
   const floored = floors.from.filter((name) => !effected.from?.includes(name));
+  const { plot, ...summedRoll } = rolled;
   return {
     skill: request.skill,
     dc: askedDc,
-    modifier: summed,
+    // The plot die's bonus (1.822) is added like any other number, so the record's dice and modifier
+    // still add up to its total; the die itself is said apart, not as one of the rolls.
+    modifier: summed + (plot?.bonus ?? 0),
     resolution: "sum",
-    ...rolled,
+    ...summedRoll,
+    ...(plot
+      ? {
+          plotFace: plot.face,
+          ...(plot.symbol ? { plotSymbol: plot.symbol } : {}),
+          ...(plot.bonus ? { plotBonus: plot.bonus } : {}),
+          plotLabel: plot.label,
+        }
+      : {}),
     ...applied,
     ...effected,
     ...(floored.length ? { from: [...(effected.from ?? []), ...floored] } : {}),
@@ -1831,10 +1969,50 @@ function isRulesetRollableSkillCheckTag(tag: SkillCheckTag, definition: RulesetD
   return notation.sides === sides && notation.count === count * sets;
 }
 
+/** Whether a complete record says or asks for something only a ruleset's own roll can give: which
+ * of two named dice led (1.821); a plot die asked for or shown (1.822); a band moved (1.823);
+ * special dice in a pool (1.824); dice groups or a push (1.826). In a game with no ruleset such a
+ * record is the model's claim, never the Engine's roll. A bare ask is not a claim: it carries no
+ * numbers to keep. */
+function claimsRulesetDice(tag: SkillCheckTag): boolean {
+  const result = tag.resolvedResult;
+  if (!result) return false;
+  return (
+    result.duality !== undefined ||
+    !!tag.plot ||
+    result.plotFace !== undefined ||
+    tag.shift !== undefined ||
+    result.shift !== undefined ||
+    tag.hunger !== undefined ||
+    result.hunger !== undefined ||
+    tag.gear !== undefined ||
+    !!tag.push ||
+    result.groups !== undefined ||
+    result.pushed !== undefined
+  );
+}
+
+/** What a claim keeps, beside its dice, wherever it is written back as an ask: the system it named,
+ *  so nothing later rolls another system's check as a d20. Every write-back in the tag pass uses it. */
+function claimedSystem(tag: SkillCheckTag): { declaredResolution?: string } {
+  return claimsRulesetDice(tag) && tag.declaredResolution ? { declaredResolution: tag.declaredResolution } : {};
+}
+
 /** Whether a complete tag's numbers are the ones this ruleset and this sheet would have produced.
  *  A GM that writes its own modifier has not rolled the character's check, however tidy the sum. */
 function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag): boolean {
-  const resolution = ruleset.definition.resolution;
+  // A check the ruleset rolls its own way (1.140) is audited under the resolution it actually rolls with,
+  // not the ruleset's own: an override that adds two named dice (1.821) or a plot die (1.822) changes what
+  // the record must carry, and the clauses below have to see it.
+  const overridden = rulesetDefinitionForCheck(
+    ruleset.definition,
+    rulesetCheckOverride(
+      ruleset.definition,
+      rulesetCheckTargetFor(ruleset, tag.skill, tag.who, tag.withAbility, tag.purpose),
+      (ref) => (rulesetCheckValueFor(ruleset, ref, tag.who) ?? 0) !== 0,
+    ),
+  );
+  const resolution = overridden.resolution;
   // A pool is never vouched for. Its numbers are auditable, but a handful of dice has so many
   // consistent outcomes that an audit constrains nothing: the model could pick eight favourable
   // faces and count them correctly. So a pool check is always the Engine's own roll.
@@ -1850,6 +2028,13 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   if (tag.apply?.length) return false;
   const result = tag.resolvedResult;
   if (!result || result.resolution !== "sum") return false;
+  // Nor a check with two named dice (1.821) or a plot die (1.822): only the Engine's own throw can
+  // say which die led or what the plot die showed, whatever the record claims.
+  if (resolution.duality || tag.plot || result.duality != null || result.plotFace != null) return false;
+  // Nor one whose critical is read off the dice's own total, or that asks to move a band (1.823).
+  if (resolution.naturalTotal || tag.shift) return false;
+  // Nor one that asks for special dice (1.824): those are a pool's, and a pool is the Engine's roll.
+  if (tag.hunger != null) return false;
   // A check the character's conditions or items change is always the Engine's own: the Game Master
   // cannot have counted what it is not shown, and a bonus in dice has no one right number.
   const changed = rulesetCheckEffectsFor(
@@ -1898,6 +2083,30 @@ function rulesetVouchesFor(ruleset: SkillCheckRulesetContext, tag: SkillCheckTag
   return result.success === (autoSuccess ? true : autoFailure ? false : result.total >= result.dc);
 }
 
+/** A card's MRPG stats, in a game on MRPG classes without a ruleset; undefined otherwise. A card with no
+ *  progression yet (no fight so far) gets the stats its first fight will give it: the same seed, tree
+ *  picks and temperament, so a check before any fight never falls back to a Legacy sheet's numbers
+ *  (owner 2026-11-06). */
+function mrpgStatsOf(
+  meta: Record<string, unknown>,
+  card: Record<string, unknown> | null | undefined,
+  preview?: { gameId: string; classic: ReadonlyMap<string, MarinaraCardClassic> },
+) {
+  const setup = (meta.gameSetupConfig ?? null) as { marinaraClasses?: unknown } | null;
+  if (setup?.marinaraClasses !== true || meta.gameRuleset != null || !card) return undefined;
+  const progression = readMarinaraCardProgression(card.marinara);
+  if (progression) return progression.fallen ? undefined : progression.stats;
+  const name = typeof card.name === "string" ? card.name.trim() : "";
+  if (!preview || !name) return undefined;
+  return createMarinaraCardProgression({
+    gameId: preview.gameId,
+    card: card as unknown as Parameters<typeof createMarinaraCardProgression>[0]["card"],
+    temperament: (gameCardTemperament(card)?.initial ??
+      partyTemperamentFallback(preview.gameId, name)) as MarinaraPartyTemperament,
+    classic: preview.classic.get(normalizeCharacterLookupName(name)),
+  }).stats;
+}
+
 /** Roll one check against an already-loaded chat context. */
 export function resolveSkillCheckWithContext(
   context: SkillCheckModifierContext,
@@ -1910,7 +2119,8 @@ export function resolveSkillCheckWithContext(
   if (namedRoomCheck) {
     const named = context.roomCharacters!.get(normalizeCharacterLookupName(request.who!));
     if (!named) throw new Error("The shared Game check has no unambiguous participant card.");
-    context = { ...context, ...named };
+    // The named card's own MRPG stats, never the host's.
+    context = { ...context, mrpgStats: undefined, ...named };
   }
   const skills = context.skills;
   const rawSkillMod = skills ? (skills[request.skill] ?? skills[request.skill.toLowerCase()]) : undefined;
@@ -1921,12 +2131,17 @@ export function resolveSkillCheckWithContext(
   if (request.dc === undefined) throw new SkillCheckDifficultyError(request.skill);
   const attr = getGoverningAttribute(request.skill);
   const attrScore = readContextAttributeScore(context, attr);
+  const attrMod = context.mrpgStats
+    ? mrpgCheckModifier(context.mrpgStats[mrpgStatForSkill(request.skill)])
+    : attrScore != null
+      ? attributeModifier(attrScore)
+      : 0;
 
   const result = resolveSkillCheck({
     skill: request.skill,
     dc: request.dc,
     skillModifier: skillMod,
-    attributeModifier: attrScore != null ? attributeModifier(attrScore) : 0,
+    attributeModifier: attrMod,
     advantage: request.advantage,
     disadvantage: request.disadvantage,
     preRolledD20: request.preRolledD20,
@@ -2027,6 +2242,19 @@ export interface SkillCheckTagResolutionOptions {
    * as it always was, which is what a re-read of a saved turn needs.
    */
   issuedD20s?: readonly number[];
+  /**
+   * The Game Master's previous reply as saved, supplied by generation only. A `push="true"` check
+   * (1.826) takes the dice it throws again from the record in it; with none, the check is rolled
+   * afresh and nothing is pushed.
+   */
+  lastReply?: () => string | undefined;
+  /**
+   * The records a branch arm wrote earlier in this same turn, as written, each with how many times it
+   * wrote it, supplied by generation only. Each is the Engine's own roll and is left exactly as it is.
+   */
+  engineRecords?: ReadonlyMap<string, number>;
+  /** The faces those records' dice showed, as the branch arm put them into `issuedD20s`. */
+  engineDice?: readonly number[];
 }
 
 export interface SkillCheckTagResolution {
@@ -2067,6 +2295,11 @@ export interface SkillCheckTagResolution {
    * and settled like an untrained one: the Game Master names a party member and asks again.
    */
   unknownRoller?: { count: number; written: string[] };
+  /**
+   * How many pushes (1.826) found no roll to push and were settled with `reason="not-pushable"`.
+   * Counted inside `left` and `sparse`, and settled: the earlier roll stands.
+   */
+  notPushable?: number;
   /**
    * The live sheet state after every purchase this pass paid for, when any did.
    *
@@ -2118,6 +2351,9 @@ export function checkRecordsAsHistoryNotes(content: string): string {
     }
     if (tag.reason === "untrained") {
       return `(Engine: ${who ? `${who}'s ` : ""}${tag.skill} check not rolled: untrained.)`;
+    }
+    if (tag.reason === "not-pushable") {
+      return `(Engine: ${who ? `${who}'s ` : ""}${tag.skill} check not pushed: the last reply has no roll of it that can still be pushed.)`;
     }
     if (tag.reason === "unknown-roller") {
       return `(Engine: ${tag.skill} check not rolled: ${who ? `"${who}" does not name` : "it named no"} one party member.)`;
@@ -2208,6 +2444,7 @@ export async function resolveSkillCheckTagsInContent(
       ...(tag.upgrades != null ? { upgrade: tag.upgrades } : {}),
       ...(tag.setback != null ? { setback: tag.setback } : {}),
       ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+      ...diceAsk(tag),
       ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),
       ...(tag.explode != null ? { explode: tag.explode } : {}),
       ...(tag.double != null ? { double: tag.double } : {}),
@@ -2239,6 +2476,7 @@ export async function resolveSkillCheckTagsInContent(
         ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
         ...(tag.setback != null ? { setback: tag.setback } : {}),
         ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+        ...diceAsk(tag),
         ...(tag.spend ? { spend: tag.spend } : {}),
         ...(tag.useEntry ? { useEntry: tag.useEntry } : {}),
         ...(tag.apply?.length ? { apply: tag.apply } : {}),
@@ -2247,6 +2485,20 @@ export async function resolveSkillCheckTagsInContent(
     );
   /** Pool checks the resolver could not roll, written back without the numbers they claimed. */
   const stripped: Array<{ start: number; end: number; replacement: string }> = [];
+  // Pushes (1.826) that found no roll to push, settled with the reason on the ask.
+  let notPushable = 0;
+  const notPushableAsk = (tag: SkillCheckTag) =>
+    serializeSparseSkillCheckTag(
+      {
+        skill: tag.skill,
+        dc: tag.dc,
+        advantage: tag.advantage,
+        disadvantage: tag.disadvantage,
+        declaredDice: tag.declaredDice,
+        ...claimedSystem(tag),
+      },
+      { ...(askExtras(tag) ?? {}), reason: "not-pushable" },
+    );
   let trusted = 0;
   let left = 0;
 
@@ -2267,6 +2519,13 @@ export async function resolveSkillCheckTagsInContent(
 
   /** What is left of the dice issued for this turn, spent one check at a time. */
   const issued = options.issuedD20s ? [...options.issuedD20s] : null;
+  // What a branch arm rolled this turn answers its own check and no other, wherever in the reply
+  // another tag sits, so its dice are spent before any tag is read. The arm names the faces it put in
+  // the list, and each is taken on its own: one already gone does not keep the rest.
+  if (issued) for (const face of options.engineDice ?? []) takeIssuedD20s(issued, [face]);
+  // Each of its records is passed over as many times as the arm wrote it, and no more: a copy the
+  // model wrote of the same text is read like any other written record.
+  const engineRecords = new Map(options.engineRecords ?? []);
   /** The outcome each tag's own `result=` claimed, by where the tag starts, for the correction below. */
   const claims = new Map<number, boolean>();
   let corrected = 0;
@@ -2292,6 +2551,14 @@ export async function resolveSkillCheckTagsInContent(
       let tag = parseSkillCheckTagBody(match[1] ?? "");
       // Not a check at all (no skill or DC) — leave whatever the model wrote.
       if (!tag) {
+        left += 1;
+        continue;
+      }
+      // A record a branch arm wrote this turn is the Engine's own roll: never rolled a second time.
+      const written = engineRecords.get(match[0]) ?? 0;
+      if (written > 0) {
+        engineRecords.set(match[0], written - 1);
+        trusted += 1;
         left += 1;
         continue;
       }
@@ -2342,10 +2609,36 @@ export async function resolveSkillCheckTagsInContent(
         deferred.push({ start: match.index, end: match.index + match[0].length, tag });
         continue;
       }
+      // This game pins no ruleset, so a record that says what only a ruleset's roll can is the model's
+      // claim: its numbers are dropped and the Engine rolls the check, or keeps only the ask where it
+      // cannot roll it either, so the text saved does not read back as a result.
+      if (claimsRulesetDice(tag)) {
+        tag = { ...tag, resolvedResult: undefined, shift: undefined };
+        if (!isEngineRollableSkillCheckTag(tag) || !isResolvableSkillCheckRequest(toRequest(tag))) {
+          stripped.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            // The ask keeps the dice and the system it named, so nothing rolls it as a d20 later.
+            replacement: serializeSparseSkillCheckTag(
+              {
+                skill: tag.skill,
+                dc: tag.dc,
+                advantage: tag.advantage,
+                disadvantage: tag.disadvantage,
+                declaredDice: tag.declaredDice,
+                declaredResolution: tag.declaredResolution,
+              },
+              askExtras(tag),
+            ),
+          });
+          left += 1;
+          continue;
+        }
+      }
       // Only a ruleset's own condition or item fails a save without a roll, and this game pins none,
       // so a record that says so is the model's claim: the ask survives, the claimed outcome does not.
       // (A ruleset game decides it again from the sheet, which never vouches for a record with no dice.)
-      if (tag.resolvedResult?.automatic) {
+      if (claimsNoDice(tag)) {
         stripped.push({
           start: match.index,
           end: match.index + match[0].length,
@@ -2414,8 +2707,16 @@ export async function resolveSkillCheckTagsInContent(
         // ruleset might have rolled goes back sparse through the catch below; a tag that names
         // another system outright is left exactly as written.
         for (const entry of deferred) {
-          if (entry.tag.declaredResolution != null && entry.tag.declaredResolution !== "sum") left += 1;
-          else pending.push({ start: entry.start, end: entry.end, request: toRequest(entry.tag), tag: entry.tag });
+          // One that claims what only a ruleset's roll can give is not left: it goes back as an ask.
+          if (
+            entry.tag.declaredResolution != null &&
+            entry.tag.declaredResolution !== "sum" &&
+            !claimsRulesetDice(entry.tag)
+          ) {
+            left += 1;
+          } else {
+            pending.push({ start: entry.start, end: entry.end, request: toRequest(entry.tag), tag: entry.tag });
+          }
         }
         keepWho = true;
         throw err;
@@ -2441,10 +2742,35 @@ export async function resolveSkillCheckTagsInContent(
         // member the narration gives it to, and the record says so.
         const inferredWho = ruleset && !tag.who ? inferRulesetCheckWho(ruleset, content, entry) : undefined;
         if (inferredWho) tag = { ...tag, who: inferredWho };
+        // A push (1.826) written with no difficulty is rolled against the one of the roll it pushes.
+        if (ruleset && tag.push && tag.dc === undefined && !tag.difficulty) {
+          const earlier = rulesetPushableRoll(ruleset.definition, tag, options.lastReply?.(), rulesetRollerOf(ruleset));
+          if (earlier?.dc !== undefined) tag = { ...tag, dc: earlier.dc };
+        }
+        // A: a push (1.826) that finds no roll to push is settled here, before anything could roll it
+        // afresh or leave it as an ask the client cannot send: a whole-party push among them, since no
+        // one record is the party's.
+        if (
+          ruleset &&
+          tag.push &&
+          !tag.resolvedResult &&
+          rulesetDeclaresPush(ruleset.definition) &&
+          (tag.reason === "not-pushable" ||
+            !rulesetPushableRoll(ruleset.definition, tag, options.lastReply?.(), rulesetRollerOf(ruleset)))
+        ) {
+          stripped.push({
+            start: entry.start,
+            end: entry.end,
+            replacement: notPushableAsk(tag),
+          });
+          notPushable += 1;
+          left += 1;
+          continue;
+        }
         const request = toRequest(tag, ruleset?.definition);
         // A record claiming a save failed without a roll carries no dice to vouch for and a label no
         // ruleset throws, so it is always the Engine's to decide again from the sheet.
-        const claimsNoRoll = !!tag.resolvedResult?.automatic;
+        const claimsNoRoll = claimsNoDice(tag);
         // The numbers must be the sheet's, and the dice somebody else's: the player's, or the Engine's.
         // A check with no one party member to roll it is refused below, whatever it carries: a flat die
         // is not the roll the story asked of a hero.
@@ -2466,13 +2792,13 @@ export async function resolveSkillCheckTagsInContent(
           (!issued || takeIssuedD20s(issued, tag.resolvedResult!.rolls));
         const owesRoll = ruleset
           ? claimsNoRoll || (!vouched && isRulesetRollableSkillCheckTag(tag, ruleset.definition))
-          : !tag.resolvedResult && isEngineRollableSkillCheckTag(tag);
+          : (!tag.resolvedResult || claimsRulesetDice(tag)) && isEngineRollableSkillCheckTag(tag);
         // A check the character cannot attempt untrained is refused below whatever it carries: no
         // numbers, dice or difficulty the Game Master wrote on it gets it past the sheet.
         const refused = !!ruleset && !group && rulesetRefusesUntrained(ruleset, request);
         if (noRoller || refused || (owesRoll && isResolvableSkillCheckRequest(request, ruleset?.definition))) {
           pending.push({ start: entry.start, end: entry.end, request, tag });
-        } else if ((owesRoll || claimsNoRoll) && tag.resolvedResult) {
+        } else if ((owesRoll || claimsNoRoll || claimsRulesetDice(tag)) && tag.resolvedResult) {
           // This ruleset's own kind of check, carrying numbers the sheet does not vouch for, that
           // cannot be rolled either (an out-of-bounds DC, say). The ask survives; the claimed
           // outcome does not, exactly as a roll that could not happen is saved.
@@ -2487,6 +2813,7 @@ export async function resolveSkillCheckTagsInContent(
                 disadvantage: tag.disadvantage,
                 // The "0dN" of a record that claims no roll labels no dice anybody would throw.
                 declaredDice: claimsNoRoll ? undefined : tag.declaredDice,
+                ...claimedSystem(tag),
               },
               askExtras(tag),
             ),
@@ -2501,7 +2828,14 @@ export async function resolveSkillCheckTagsInContent(
 
     if (pending.length === 0) {
       if (stripped.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
-      return { content: rewrite(() => ""), resolved: 0, trusted, left, sparse: stripped.length };
+      return {
+        content: rewrite(() => ""),
+        resolved: 0,
+        trusted,
+        left,
+        sparse: stripped.length,
+        ...(notPushable > 0 ? { notPushable } : {}),
+      };
     }
 
     const context = loadedContext ?? (await options.loadContext());
@@ -2531,6 +2865,10 @@ export async function resolveSkillCheckTagsInContent(
     let untrained = 0;
     // Checks that pick out no one party member to roll them, by the `who=` each wrote.
     const unknownRoller: string[] = [];
+    // Of the pending entries, pushes settled as not pushed while rolling (the rest were settled above).
+    let pushRefused = 0;
+    // The earlier records this reply's pushes have already thrown again (1.826).
+    const pushesUsed = new Set<number>();
     const rolled = rewrite((entry) => {
       // A pool check bound before the ruleset was loaded may have named its difficulty by a ladder
       // step; it is read now, with the ruleset in hand, so the pool serves it like any other check.
@@ -2543,6 +2881,27 @@ export async function resolveSkillCheckTagsInContent(
           request = { ...request, who: inferred };
           entry.tag = { ...entry.tag, who: inferred };
         }
+      }
+      // A push (1.826) is only ever the earlier roll thrown again. Where the ruleset lets a roll be
+      // pushed, or the push names no difficulty to roll a fresh check against, one that finds no roll
+      // to push is settled as not pushed: rolled afresh it would beat a push, and it would make a
+      // second push of the same roll a free new roll. A whole-party push finds none: no one record is
+      // the party's.
+      // A push a `[branch:]` arm already settled as not pushed stays settled (2).
+      const pushOf =
+        context.ruleset && entry.tag.push && entry.tag.reason !== "not-pushable"
+          ? rulesetPushableRoll(
+              context.ruleset.definition,
+              { ...entry.tag, who: request.who },
+              options.lastReply?.(),
+              rulesetRollerOf(context.ruleset),
+              pushesUsed,
+            )
+          : undefined;
+      if (entry.tag.push && !pushOf && (request.dc === undefined || rulesetDeclaresPush(context.ruleset?.definition))) {
+        notPushable += 1;
+        pushRefused += 1;
+        return notPushableAsk({ ...entry.tag, dc: entry.request.dc });
       }
       const groupRollers = context.ruleset ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
       if (groupRollers && request.dc !== undefined) {
@@ -2560,6 +2919,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "unknown-roller" },
         );
@@ -2573,6 +2933,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           { ...(askExtras(entry.tag) ?? {}), reason: "untrained" },
         );
@@ -2585,6 +2946,7 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
@@ -2612,11 +2974,37 @@ export async function resolveSkillCheckTagsInContent(
             advantage: request.advantage,
             disadvantage: request.disadvantage,
             declaredDice: entry.tag.declaredDice,
+            ...claimedSystem(entry.tag),
           },
           askExtras(entry.tag),
         );
       }
-      const result = resolveSkillCheckWithContext(context, request, options.rollD20, onSpend);
+      // A push repeats the earlier roll: nothing is spent, used, applied or added to it.
+      const result = resolveSkillCheckWithContext(
+        context,
+        pushOf
+          ? {
+              ...request,
+              pushOf,
+              spend: undefined,
+              useEntry: undefined,
+              apply: undefined,
+              bonusDice: undefined,
+              reroll: undefined,
+              gear: undefined,
+            }
+          : request,
+        options.rollD20,
+        onSpend,
+      );
+      // C: the roller declines a push its own check cannot make (an override with no push, an earlier
+      // roll this pool could not have made). That roll was a fresh one, so it is not kept.
+      if (pushOf && result.pushed === undefined && !result.automatic) {
+        notPushable += 1;
+        pushRefused += 1;
+        return notPushableAsk({ ...entry.tag, dc: entry.request.dc });
+      }
+      if (pushOf?.at !== undefined && result.pushed !== undefined) pushesUsed.add(pushOf.at);
       results.push(result);
       // The result carries what the roll applied (who, the other ability, the dice added), so a
       // saved turn says exactly that. None of it is set outside a ruleset game, byte for byte.
@@ -2626,6 +3014,13 @@ export async function resolveSkillCheckTagsInContent(
       logger.info(
         "[game/skill-check] %d re-rolled check(s) came out unlike the outcome the model wrote for chat %s; a correction line follows each",
         corrected,
+        options.chatId ?? "unknown",
+      );
+    }
+    if (notPushable > 0) {
+      logger.debug(
+        "[game/skill-check] %d push(es) found no roll in the previous reply to push for chat %s",
+        notPushable,
         options.chatId ?? "unknown",
       );
     }
@@ -2641,11 +3036,12 @@ export async function resolveSkillCheckTagsInContent(
     return {
       content: rolled,
       results,
-      resolved: pending.length - overflowed - unread - untrained - refusedRoller,
+      resolved: pending.length - overflowed - unread - untrained - refusedRoller - pushRefused,
       trusted,
-      left: left + overflowed + unread + untrained + refusedRoller,
-      sparse: overflowed + unread + untrained + refusedRoller + stripped.length,
+      left: left + overflowed + unread + untrained + refusedRoller + pushRefused,
+      sparse: overflowed + unread + untrained + refusedRoller + pushRefused + stripped.length,
       ...(untrained > 0 ? { untrained } : {}),
+      ...(notPushable > 0 ? { notPushable } : {}),
       ...(refusedRoller > 0 ? { unknownRoller: { count: refusedRoller, written: unknownRoller } } : {}),
       ...(corrected > 0 ? { corrected } : {}),
       ...(spentLive ? { live: spentLive } : {}),
@@ -2672,7 +3068,14 @@ export async function resolveSkillCheckTagsInContent(
     // function never got far enough to know better.
     if (pending.length === 0) {
       if (stripped.length === 0) return { content, resolved: 0, trusted, left, sparse: 0 };
-      return { content: rewrite(() => ""), resolved: 0, trusted, left, sparse: stripped.length };
+      return {
+        content: rewrite(() => ""),
+        resolved: 0,
+        trusted,
+        left,
+        sparse: stripped.length,
+        ...(notPushable > 0 ? { notPushable } : {}),
+      };
     }
     // Otherwise: pure string work over tags already parsed above, so the honest
     // path cannot fail its way back into saving the model's numbers.
@@ -2685,6 +3088,7 @@ export async function resolveSkillCheckTagsInContent(
           disadvantage: entry.request.disadvantage,
           preRolledD20: entry.request.preRolledD20,
           declaredDice: entry.tag.declaredDice,
+          ...claimedSystem(entry.tag),
         },
         askExtras(entry.tag),
       ),
@@ -2695,6 +3099,7 @@ export async function resolveSkillCheckTagsInContent(
       trusted,
       left: left + pending.length,
       sparse: pending.length + stripped.length,
+      ...(notPushable > 0 ? { notPushable } : {}),
     };
   }
 }
@@ -2767,6 +3172,7 @@ export function boundPoolCheckRequest(tag: SkillCheckTag): SkillCheckRequest | n
     ...(tag.upgrades != null ? { upgrades: tag.upgrades } : {}),
     ...(tag.setback != null ? { setback: tag.setback } : {}),
     ...(tag.upgradeOwn != null ? { upgradeOwn: tag.upgradeOwn } : {}),
+    ...diceAsk(tag),
     // The step a difficulty was named by still sets a pool's target, and the faces a check moved
     // are the same ask, so whichever path rolls it rolls what the tag asked for.
     ...(tag.difficulty ? { difficulty: tag.difficulty } : {}),

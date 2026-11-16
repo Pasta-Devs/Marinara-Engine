@@ -100,7 +100,7 @@
               "properties": {
                 "count": {
                   "type": "integer",
-                  "minimum": 1,
+                  "minimum": 0,
                   "maximum": 10
                 },
                 "sides": {
@@ -1029,6 +1029,179 @@
                 },
                 "$comment": {}
               },
+              "additionalProperties": false
+            },
+            "duality": {
+              "type": "object",
+              "properties": {
+                "dice": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "$comment": {}
+                      },
+                      "required": [
+                        "id",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 40,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "$comment": {}
+                      },
+                      "required": [
+                        "id",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ],
+                  "additionalItems": false,
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "tieIsCritical": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "dice"
+              ],
+              "additionalProperties": false
+            },
+            "plotDie": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "sides": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 20
+                },
+                "faces": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "face": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      },
+                      "symbol": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "complication",
+                              "opportunity"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "bonus": {
+                        "type": "integer",
+                        "minimum": -20,
+                        "maximum": 20
+                      },
+                      "$comment": {}
+                    },
+                    "required": [
+                      "face",
+                      "symbol"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "label",
+                "sides",
+                "faces"
+              ],
+              "additionalProperties": false
+            },
+            "naturalTotal": {
+              "type": "object",
+              "properties": {
+                "atLeast": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "atMost": {
+                  "type": "integer",
+                  "minimum": -1000,
+                  "maximum": 10000
+                },
+                "$comment": {}
+              },
+              "additionalProperties": false
+            },
+            "tierShift": {
+              "type": "object",
+              "properties": {
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "max"
+              ],
               "additionalProperties": false
             },
             "difficultyLadder": {
@@ -2630,6 +2803,104 @@
               "required": [
                 "successes"
               ],
+              "additionalProperties": false
+            },
+            "pairs": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 100
+                },
+                "successes": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 10
+                },
+                "$comment": {}
+              },
+              "required": [
+                "from",
+                "successes"
+              ],
+              "additionalProperties": false
+            },
+            "hunger": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
+              "required": [
+                "label",
+                "max"
+              ],
+              "additionalProperties": false
+            },
+            "groups": {
+              "minItems": 1,
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "from": {
+                    "type": "string",
+                    "enum": [
+                      "ability",
+                      "skill",
+                      "gear"
+                    ]
+                  },
+                  "banes": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "$comment": {}
+                },
+                "required": [
+                  "id",
+                  "label",
+                  "from"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "push": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "$comment": {}
+              },
               "additionalProperties": false
             },
             "reroll": {
@@ -12595,6 +12866,14 @@
                     "minLength": 1,
                     "maxLength": 80
                   },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
+                  },
                   "$comment": {}
                 },
                 "required": [
@@ -12819,6 +13098,14 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "display": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "bar",
+                      "dots"
+                    ]
                   },
                   "startFrom": {
                     "type": "object",
@@ -24476,6 +24763,22 @@
           },
           "additionalProperties": false
         },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "except": {
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              }
+            },
+            "$comment": {}
+          },
+          "additionalProperties": false
+        },
         "totals": {
           "minItems": 1,
           "maxItems": 8,
@@ -26138,6 +26441,14 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 80
+              },
+              "display": {
+                "type": "string",
+                "enum": [
+                  "counter",
+                  "bar",
+                  "dots"
+                ]
               },
               "$comment": {}
             },

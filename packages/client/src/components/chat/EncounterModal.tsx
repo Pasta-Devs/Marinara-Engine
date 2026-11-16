@@ -30,6 +30,7 @@ import { cn } from "../../lib/utils";
 import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lorebook } from "@marinara-engine/shared";
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { LorebookPickerField } from "../ui/LibraryPickers";
 
 // ──────────────────────────────────────────────
 // Sub-components
@@ -422,18 +423,13 @@ function EncounterConfig() {
             <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/70">
               {localizeUi("ui.chat.encounterconfig.attachASpellbookSoTheAiKnowsWhichSpells")}
             </p>
-            <select
+            <LorebookPickerField
               value={spellbookId ?? ""}
-              onChange={(e) => setSpellbookId(e.target.value || null)}
-              className="w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
-            >
-              <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-              {spellbooks.map((lb) => (
-                <option key={lb.id} value={lb.id}>
-                  {lb.name}
-                </option>
-              ))}
-            </select>
+              lorebooks={spellbooks}
+              ariaLabel={localizeUi("ui.chat.encounterconfig.spellbook")}
+              onChange={(id) => setSpellbookId(id || null)}
+              triggerClassName="w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+            />
           </div>
         </div>
 

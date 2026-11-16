@@ -370,7 +370,6 @@ export function MultiplayerPlayersSection({
       icon={<Joystick size={16} />}
       count={host.snapshot.players.length}
       forceOpen={forceOpen}
-      style={{ order: -1450 }}
     >
       <MultiplayerHostControls host={host} gameStart={gameStart} />
     </ChatSettingsSection>

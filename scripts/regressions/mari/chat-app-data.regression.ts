@@ -99,7 +99,7 @@ try {
 
     const dashList = await mari.executeAction({ action: "chat.list", characterId: dashCharacterId });
     assert.deepEqual(
-      (dashList.output as Array<{ id: string }>).map(({ id }) => id),
+      (dashList.output as { items: Array<{ id: string }> }).items.map(({ id }) => id),
       [dashId],
       "a character id starting with -- must still filter the list",
     );

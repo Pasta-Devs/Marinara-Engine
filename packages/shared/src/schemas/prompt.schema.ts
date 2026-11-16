@@ -3,6 +3,12 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 import { partialInput } from "../utils/zod-input.js";
+import {
+  GAME_CONTENT_BOUNDARIES_MAX_CHARS,
+  GAME_STORY_STYLES,
+  GAME_VIOLENCE_LEVELS,
+} from "../constants/game-story-style.js";
+import { STORED_SECRET_MASK, STORED_SECRET_PREFIX } from "../constants/stored-secrets.js";
 
 export const managedGenerationParameterValueSchema = z.object({
   enabled: z.boolean(),
@@ -41,8 +47,14 @@ export const customRequestHeadersSchema = z
     z.string(),
     z
       .string()
-      .max(2048)
-      .regex(/^[\t\x20-\x7e\x80-\xff]*$/),
+      // A saved value comes back as the mask and is stored encrypted (longer than the value it holds).
+      .max(4400)
+      .refine(
+        (value) =>
+          value === STORED_SECRET_MASK ||
+          (/^[\t\x20-\x7e\x80-\xff]*$/.test(value) && (value.length <= 2048 || value.startsWith(STORED_SECRET_PREFIX))),
+        { message: "Invalid header value." },
+      ),
   )
   .superRefine((headers, ctx) => {
     if (Object.keys(headers).length > 32)
@@ -201,12 +213,20 @@ export const updatePromptGroupSchema = partialInput(createPromptGroupSchema.omit
 
 // ── Presets ──
 
+/** Story style, violence and boundaries a preset carries into Game Mode; null carries none. */
+export const gamePresetStorySettingsSchema = z.object({
+  storyStyle: z.enum(GAME_STORY_STYLES),
+  violence: z.enum(GAME_VIOLENCE_LEVELS).nullable(),
+  contentBoundaries: z.string().max(GAME_CONTENT_BOUNDARIES_MAX_CHARS),
+});
+
 export const createPromptPresetSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().default(""),
   imagePath: z.string().nullable().default(null),
   conversationPrompt: z.string().default(""),
   gamePrompt: z.string().default(""),
+  gameStorySettings: gamePresetStorySettingsSchema.nullable().default(null),
   variableGroups: z.array(promptVariableGroupSchema).default([]),
   variableValues: z.record(z.string(), z.string()).prefault({}),
   parameters: generationParametersSchema.prefault({}),
@@ -222,6 +242,7 @@ export const updatePromptPresetSchema = z.object({
   imagePath: z.string().nullable().optional(),
   conversationPrompt: z.string().optional(),
   gamePrompt: z.string().optional(),
+  gameStorySettings: gamePresetStorySettingsSchema.nullable().optional(),
   sectionOrder: z.array(z.string()).optional(),
   groupOrder: z.array(z.string()).optional(),
   variableGroups: z.array(promptVariableGroupSchema).optional(),

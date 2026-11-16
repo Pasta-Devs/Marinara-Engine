@@ -5,6 +5,7 @@ import { and, eq, desc, asc } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { promptPresets, promptGroups, promptSections, choiceBlocks } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { estimateEnabledStaticPresetTokens } from "@marinara-engine/shared";
 import type {
   CreatePromptPresetInput,
   UpdatePromptPresetInput,
@@ -18,7 +19,9 @@ import type {
 import {
   DEFAULT_GENERATION_PARAMS,
   isStockMarinaraUniversalPreset,
+  parseGamePresetStorySettings,
   resolveScopedRegexMode,
+  serializeGamePresetStorySettings,
   withoutPresetTokenLimits,
 } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
@@ -73,6 +76,31 @@ export function createPromptsStorage(db: DB) {
       return db.select().from(promptPresets).orderBy(desc(promptPresets.updatedAt));
     },
 
+    /** The preset list with each preset's size: enabled static sections only, read in one query for all presets. */
+    async listWithTokenEstimates() {
+      const [presets, sections] = await Promise.all([
+        db.select().from(promptPresets).orderBy(desc(promptPresets.updatedAt)),
+        db
+          .select({
+            presetId: promptSections.presetId,
+            content: promptSections.content,
+            enabled: promptSections.enabled,
+            isMarker: promptSections.isMarker,
+          })
+          .from(promptSections),
+      ]);
+      const sectionsByPreset = new Map<string, Array<(typeof sections)[number]>>();
+      for (const section of sections) {
+        const list = sectionsByPreset.get(section.presetId) ?? [];
+        list.push(section);
+        sectionsByPreset.set(section.presetId, list);
+      }
+      return presets.map((preset) => ({
+        ...preset,
+        tokenEstimate: estimateEnabledStaticPresetTokens(sectionsByPreset.get(preset.id) ?? []),
+      }));
+    },
+
     async getById(id: string) {
       const rows = await db.select().from(promptPresets).where(eq(promptPresets.id, id));
       return rows[0] ?? null;
@@ -93,6 +121,7 @@ export function createPromptsStorage(db: DB) {
         imagePath: input.imagePath ?? null,
         conversationPrompt: input.conversationPrompt ?? "",
         gamePrompt: input.gamePrompt ?? "",
+        gameStorySettings: serializeGamePresetStorySettings(input.gameStorySettings),
         sectionOrder: JSON.stringify([]),
         groupOrder: JSON.stringify([]),
         variableGroups: JSON.stringify(input.variableGroups ?? []),
@@ -116,6 +145,8 @@ export function createPromptsStorage(db: DB) {
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.conversationPrompt !== undefined) updateFields.conversationPrompt = data.conversationPrompt;
       if (data.gamePrompt !== undefined) updateFields.gamePrompt = data.gamePrompt;
+      if (data.gameStorySettings !== undefined)
+        updateFields.gameStorySettings = serializeGamePresetStorySettings(data.gameStorySettings);
       if (data.sectionOrder !== undefined) updateFields.sectionOrder = JSON.stringify(data.sectionOrder);
       if (data.groupOrder !== undefined) updateFields.groupOrder = JSON.stringify(data.groupOrder);
       if (data.variableGroups !== undefined) updateFields.variableGroups = JSON.stringify(data.variableGroups);
@@ -174,6 +205,7 @@ export function createPromptsStorage(db: DB) {
         imagePath: preset.imagePath,
         conversationPrompt: preset.conversationPrompt,
         gamePrompt: preset.gamePrompt,
+        gameStorySettings: parseGamePresetStorySettings(preset.gameStorySettings),
         variableGroups: JSON.parse(preset.variableGroups as string),
         variableValues: JSON.parse(preset.variableValues as string),
         parameters: JSON.parse(preset.parameters as string),

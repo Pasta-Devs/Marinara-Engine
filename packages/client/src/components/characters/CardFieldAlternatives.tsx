@@ -1,8 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
+import type { TFunction } from "i18next";
+import {
+  assignCardFieldAlternative,
+  CARD_FIELD_ALTERNATIVE_LABEL_MAX,
+  type CardFieldAlternative,
+  type CardFieldDraft,
+  type CardFieldKey,
+} from "@marinara-engine/shared";
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -22,6 +29,18 @@ type Props = {
   alternatives: CardFieldAlternative[];
   onChange: (alternatives: CardFieldAlternative[]) => void;
 };
+
+/** An alternative's author-given name, or "{field} alternative {n}" counted among that field's alternatives. */
+export function cardFieldAlternativeName(
+  t: TFunction,
+  alternatives: CardFieldAlternative[],
+  alternative: CardFieldAlternative,
+  fieldLabel: string,
+) {
+  if (alternative.label) return alternative.label;
+  const index = alternatives.filter((entry) => entry.field === alternative.field).indexOf(alternative) + 1;
+  return t("ui.cardFields.alternativeTitle", { field: fieldLabel, index });
+}
 
 /** Alternatives remain part of the editor draft until the author saves the card. */
 export function CardFieldAlternatives(props: Props) {
@@ -98,36 +117,35 @@ function AlternativeField({
       mounted.current = false;
     };
   }, []);
-  const title = t("ui.cardFields.alternativeTitle", { field: props.label, index });
-  const changeValue = (value: string) =>
-    props.onChange(props.alternatives.map((entry) => (entry.id === alternative.id ? { ...entry, value } : entry)));
+  const defaultTitle = t("ui.cardFields.alternativeTitle", { field: props.label, index });
+  const title = alternative.label || defaultTitle;
+  // The saved name is trimmed, so the input keeps its own text while typing a space between words.
+  const [nameDraft, setNameDraft] = useState(alternative.label ?? "");
+  if (nameDraft.trim().slice(0, CARD_FIELD_ALTERNATIVE_LABEL_MAX).trim() !== (alternative.label ?? ""))
+    setNameDraft(alternative.label ?? "");
+  const update = (patch: Partial<CardFieldAlternative>) =>
+    props.onChange(props.alternatives.map((entry) => (entry.id === alternative.id ? { ...entry, ...patch } : entry)));
+  const changeValue = (value: string) => update({ value });
+  const changeName = (name: string) => {
+    setNameDraft(name);
+    update({ label: name.trim() || undefined });
+  };
   const generation = useCardFieldGeneration(
     props.kind,
     props.entityId,
     { ...props.card, [props.field]: alternative.value },
     (_, text) => changeValue(text),
   );
+  // A chat uses one alternative for a field. Selecting it here moves an existing assignment.
   const selectChat = (chatId: string, checked: boolean) =>
     props.onChange(
-      props.alternatives.map((entry) => {
-        if (entry.id === alternative.id)
-          return {
-            ...entry,
-            chatIds: checked
-              ? [...entry.chatIds.filter((id) => id !== chatId), chatId]
-              : entry.chatIds.filter((id) => id !== chatId),
-          };
-        // A chat uses one alternative for a field. Selecting it here moves an existing assignment.
-        return checked && entry.field === props.field
-          ? { ...entry, chatIds: entry.chatIds.filter((id) => id !== chatId) }
-          : entry;
-      }),
+      assignCardFieldAlternative(props.alternatives, props.field, chatId, checked ? alternative.id : null),
     );
   const remove = async () => {
     if (
       await showConfirmDialog({
         title: t("ui.cardFields.alternativeDeleteTitle"),
-        message: t("ui.cardFields.alternativeDeleteMessage", { field: props.label, index }),
+        message: t("ui.cardFields.alternativeDeleteMessage", { name: title, field: props.label, index }),
         confirmLabel: t("ui.cardFields.alternativeDelete"),
         tone: "destructive",
       })
@@ -150,8 +168,16 @@ function AlternativeField({
       className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold">
-          {title}
+        <h4 className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold">
+          <input
+            value={nameDraft}
+            onChange={(event) => changeName(event.target.value)}
+            placeholder={defaultTitle}
+            maxLength={CARD_FIELD_ALTERNATIVE_LABEL_MAX}
+            aria-label={t("ui.cardFields.alternativeName", { name: defaultTitle })}
+            title={t("ui.cardFields.alternativeNameHelp")}
+            className="min-h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 font-semibold outline-none placeholder:text-[var(--foreground)] hover:border-[var(--border)] focus:border-[var(--primary)]/40 focus:bg-[var(--secondary)]"
+          />
           <HelpTooltip
             text={t(
               props.field === "summary" ? "ui.cardFields.alternativeSummaryHelp" : "ui.cardFields.alternativeHelp",
@@ -169,7 +195,7 @@ function AlternativeField({
           <button
             type="button"
             onClick={() => void remove()}
-            aria-label={t("ui.cardFields.alternativeDeleteLabel", { field: props.label, index })}
+            aria-label={t("ui.cardFields.alternativeDeleteLabel", { name: title, field: props.label, index })}
             title={t("ui.cardFields.alternativeDeleteTitle")}
             className="mari-editor-action inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--destructive)]"
           >

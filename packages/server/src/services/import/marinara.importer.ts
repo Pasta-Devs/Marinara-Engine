@@ -7,7 +7,9 @@ import {
 // ──────────────────────────────────────────────
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
+import type { GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
+import { readGalleryTagPayload } from "../image/gallery-tag-payload.js";
 import { inArray } from "../../db/file-query.js";
 import { characters, chats, personas } from "../../db/schema/index.js";
 import {
@@ -31,6 +33,7 @@ import {
   lorebookFilterModeSchema,
   MAX_FILE_SIZES,
   parseLorebookDecisionActivation,
+  parseGamePresetStorySettings,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -258,6 +261,21 @@ export async function restoreSprites(sprites: unknown, id: string, catalog?: unk
 // [{ filename, data, prompt, provider, model, width, height }, ...]
 // in a native character or persona export. Writes each binary under the
 // owner's gallery folder and creates a matching metadata row.
+/** A gallery label from an export (emoji, sticker or background), checked like a label set in the app. */
+function restoredGalleryTag(entry: Record<string, unknown>): {
+  customKind?: GalleryTagKind;
+  customName?: string | null;
+} {
+  const tag = readGalleryTagPayload(
+    { customKind: entry.customKind ?? null, customName: entry.customName },
+    {
+      allowBackground: true,
+    },
+  );
+  if ("error" in tag || !tag.patch.customKind) return {};
+  return { customKind: tag.patch.customKind, customName: tag.patch.customName };
+}
+
 async function restoreOwnerGallery(
   gallery: unknown,
   ownerId: string,
@@ -269,6 +287,8 @@ async function restoreOwnerGallery(
     model: string;
     width?: number;
     height?: number;
+    customKind?: GalleryTagKind;
+    customName?: string | null;
   }) => Promise<{ id: string } | null>,
 ): Promise<string | null> {
   if (!Array.isArray(gallery) || gallery.length === 0) return null;
@@ -329,6 +349,7 @@ async function restoreOwnerGallery(
         model: typeof entry.model === "string" ? entry.model : "",
         width: typeof entry.width === "number" ? entry.width : undefined,
         height: typeof entry.height === "number" ? entry.height : undefined,
+        ...restoredGalleryTag(entry),
       });
       if (entry.isCharacterSheet === true && restored) characterSheetImageId = restored.id;
     } catch {
@@ -632,6 +653,7 @@ function parseNativePersonaInput(input: Record<string, unknown>) {
         break;
       case "tags":
       case "savedStatusOptions":
+      case "nameAliases":
         candidate[field] = normalizePersonaStringArray(candidate[field]);
         break;
       case "convoBehavior":
@@ -673,6 +695,7 @@ async function importPersona(data: unknown, db: DB) {
     ...(d.personaStats === undefined ? {} : { personaStats: d.personaStats }),
     ...(d.tags === undefined ? {} : { tags: d.tags }),
     ...(d.savedStatusOptions === undefined ? {} : { savedStatusOptions: d.savedStatusOptions }),
+    ...(d.nameAliases === undefined ? {} : { nameAliases: d.nameAliases }),
     ...(d.convoBehavior === undefined ? {} : { convoBehavior: d.convoBehavior }),
     ...(typeof d.versioningEnabled === "boolean" ? { versioningEnabled: d.versioningEnabled } : {}),
     // #7053: the export writes the public boolean contract for the image-appearance
@@ -960,6 +983,7 @@ async function importPreset(data: unknown, db: DB) {
       description: String(p.description ?? ""),
       conversationPrompt: String(p.conversationPrompt ?? p.conversation_prompt ?? ""),
       gamePrompt: String(p.gamePrompt ?? p.game_prompt ?? ""),
+      gameStorySettings: parseGamePresetStorySettings(p.gameStorySettings ?? p.game_story_settings),
       variableGroups: safeParseJson(p.variableGroups, []),
       variableValues: safeParseJson(p.variableValues, {}),
       parameters: {},

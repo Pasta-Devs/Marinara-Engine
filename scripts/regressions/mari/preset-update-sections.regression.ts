@@ -116,8 +116,8 @@ try {
     assert.equal(lorebook.ok, true, `lorebook.create succeeds: ${lorebook.error ?? ""}`);
     await drainKeep(mari);
     const lorebookId = (
-      (await mari.executeAction({ action: "lorebook.list" })).output as Array<{ id: string; name: string }>
-    ).find((book) => book.name === "Folder Book")?.id;
+      (await mari.executeAction({ action: "lorebook.list" })).output as { items: Array<{ id: string; name: string }> }
+    ).items.find((book) => book.name === "Folder Book")?.id;
     assert.ok(lorebookId, "the created lorebook is listed");
     const timestamp = new Date().toISOString();
     await db.insert(libraryFolders).values([

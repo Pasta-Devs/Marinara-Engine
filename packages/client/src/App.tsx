@@ -21,9 +21,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Translation } from "react-i18next";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
+import { TapTimings } from "./components/layout/TapTimings";
+import { ServerConsoleHost } from "./components/layout/ServerConsoleHost";
+import { UiStyleOverridesInjector } from "./components/layout/UiStyleOverridesInjector";
 import { PersonalExtensionInjector } from "./components/layout/PersonalExtensionInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { WhatsNewModal } from "./components/modals/WhatsNewModal";
+import { ServerRestartModal } from "./components/modals/ServerRestartModal";
+import { useRestartSheetFromOtherTabs } from "./hooks/use-server-restart";
 import { StorageMigrationNoticeModal } from "./components/modals/StorageMigrationNoticeModal";
 import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
@@ -39,8 +44,10 @@ import {
   getDefaultChatChromeTextColor,
   isMobileShellViewport,
   MOBILE_SHELL_MEDIA_QUERY,
+  normalizeAppBackgroundColor,
   useUIStore,
 } from "./stores/ui.store";
+import { normalizeUiStyleOverride } from "./lib/ui-style-overrides";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
 import { api, requestTimeoutSignal } from "./lib/api-client";
@@ -310,6 +317,9 @@ function normalizeCursorColorForSvg(color: string, fallback: string) {
 
 function resolveCssColor(color: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
+  // A plain hex accent needs no probe. Reading the probe's computed style forced a whole-page style pass
+  // while the app was starting (~100 ms on a slowed phone).
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color.trim())) return color.trim();
   if (!colorProbe) {
     colorProbe = document.createElement("span");
     colorProbe.setAttribute("aria-hidden", "true");
@@ -506,7 +516,14 @@ export function App() {
   const chatWidgetApplyShape = useUIStore((s) => s.chatWidgetApplyShape);
   const chatWidgetApplyColors = useUIStore((s) => s.chatWidgetApplyColors);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
-  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
+  // The Whole app part's background (draft first, as Save keeps it) also sets --background, the page backing and
+  // theme-color. A legacy Background Color the part could not hold still paints when the part has none.
+  const appBackgroundColor = useUIStore(
+    (s) =>
+      (s.uiStylePreview?.target === "app"
+        ? normalizeUiStyleOverride(s.uiStylePreview.override)?.background
+        : s.uiStyleOverrides.app?.background) ?? normalizeAppBackgroundColor(s.appBackgroundColor),
+  );
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
@@ -517,6 +534,8 @@ export function App() {
   const fightOnScreen = useCombatScreenStore((state) => state.round !== null || state.tacticalShowing);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
+  useRestartSheetFromOtherTabs();
+  const restartModal = useUIStore((s) => (s.modal?.type === "server-restart" ? s.modal : null));
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const settingsTab = useUIStore((s) => s.settingsTab);
@@ -894,6 +913,10 @@ export function App() {
       setAccentModeDataset();
     };
 
+    // Whether the steady accent is already on the page. Focus moves on every tap, and re-applying
+    // it then re-resolved the cursor color on a probe element, which made Safari (WebKit) restyle
+    // the whole page twice per tab switch.
+    let staticAccentApplied = false;
     const stopAccentAnimation = () => {
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);
@@ -901,6 +924,7 @@ export function App() {
       }
       delete root.dataset.marinaraAccentAnimation;
       applyStaticAccent();
+      staticAccentApplied = true;
     };
 
     const pauseAccentAnimation = () => {
@@ -923,13 +947,21 @@ export function App() {
           stopAccentAnimation();
           return;
         }
-
-        applyLiveAccent();
+        // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
+        const sidebarSliding = document.getAnimations?.()?.some(
+          (animation) =>
+            // Only the slot's own width slide; a theme animation on the slot must not freeze the accent.
+            animation instanceof CSSTransition &&
+            animation.transitionProperty === "width" &&
+            (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
+        );
+        if (!sidebarSliding) applyLiveAccent();
         queueAccentAnimationTick();
       }, ACCENT_RGB_TICK_MS);
     };
 
     const startAccentAnimation = () => {
+      staticAccentApplied = false;
       root.dataset.marinaraAccentAnimation =
         animatedAccentIsGradient && animatedGradientStops.length > 1 ? "gradient" : "solid";
       if (usesTimerDrivenAccentAnimation) {
@@ -947,7 +979,7 @@ export function App() {
         } else {
           startAccentAnimation();
         }
-      } else {
+      } else if (!staticAccentApplied || accentAnimationTimer !== null) {
         stopAccentAnimation();
       }
     };
@@ -970,6 +1002,7 @@ export function App() {
       setAccentModeDataset();
     } else {
       applyStaticAccent();
+      staticAccentApplied = true;
     }
     syncAccentAnimationState();
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -1240,6 +1273,9 @@ export function App() {
   return (
     <>
       <CustomThemeInjector />
+      <TapTimings />
+      <ServerConsoleHost />
+      <UiStyleOverridesInjector />
       <PersonalExtensionInjector />
       <ChibiProfessorMariEasterEgg />
       <Suspense fallback={null}>
@@ -1304,10 +1340,15 @@ export function App() {
         }
       />
       {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
-      {hasModalOpen && (
-        <Suspense fallback={null}>
-          <LazyModalRenderer />
-        </Suspense>
+      {/* Not in the lazy ModalRenderer: the server goes down right after this sheet opens. */}
+      {restartModal ? (
+        <ServerRestartModal open beforeBootId={restartModal.props?.beforeBootId as string | undefined} />
+      ) : (
+        hasModalOpen && (
+          <Suspense fallback={null}>
+            <LazyModalRenderer />
+          </Suspense>
+        )
       )}
       <AppDialogRenderer />
       <AppBannerHost />

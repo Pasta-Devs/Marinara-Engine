@@ -34,9 +34,9 @@ import { cleanTrackerCardColorConfig } from "../lib/tracker-card-colors";
 import { personaCacheKeys, syncCachedPersona } from "../lib/persona-cache";
 import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
-  PROFESSOR_MARI_ID,
   type CharacterData,
   type CharacterCatalogPage,
+  type CharacterCatalogSummaryEntry,
   type CharacterCatalogSummaryPage,
   type CharacterCardVersion,
   type Persona,
@@ -45,7 +45,8 @@ import {
   type PersonaUpdateInput,
   type TrackerCardColorConfig,
 } from "@marinara-engine/shared";
-import type { CustomKind, CustomTagPatch } from "../lib/custom-emoji";
+import type { CustomTagPatch } from "../lib/custom-emoji";
+import type { GalleryTagKind } from "@marinara-engine/shared";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -108,13 +109,9 @@ type UseCharactersOptions =
 function characterListQuery(includeBuiltIn: boolean) {
   return {
     queryKey: includeBuiltIn ? characterKeys.listWithBuiltIns() : characterKeys.list(),
-    queryFn: async () => {
-      const characters = await api.get<Array<{ id?: unknown }>>(
-        includeBuiltIn ? "/characters?includeBuiltIn=true" : "/characters",
-      );
-      if (includeBuiltIn) return characters;
-      return characters.filter((character) => character.id !== PROFESSOR_MARI_ID);
-    },
+    // #9114: the route answers one page at a time (a single response of the whole library passed V8's string
+    // ceiling on a large library), so the list is drained page by page. The callers see the same full array.
+    queryFn: () => fetchAllCharacterPages({ includeBuiltIn }),
     staleTime: 5 * 60_000,
   };
 }
@@ -211,6 +208,51 @@ export function useAllCharacterCatalog(enabled = true) {
   });
 }
 
+/** Shown by the catalog when a card has no summary, creator notes or description. */
+const CATALOG_EMPTY_SUMMARY = "No creator notes yet.";
+
+/** A summary catalog entry in the shape of a full character row, holding only what lists read. */
+function catalogEntryToCharacterRow(entry: CharacterCatalogSummaryEntry) {
+  const extensions: Record<string, unknown> = { fav: entry.favorite, nameAliases: entry.nameAliases };
+  if (entry.nameColor) extensions.nameColor = entry.nameColor;
+  if (entry.avatarCrop) extensions.avatarCrop = entry.avatarCrop;
+  return {
+    id: entry.id,
+    comment: entry.comment,
+    avatarPath: entry.avatarPath,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+    data: {
+      name: entry.name,
+      summary: entry.summary === CATALOG_EMPTY_SUMMARY ? "" : entry.summary,
+      tags: entry.tags,
+      creator: entry.creator,
+      character_version: entry.version,
+      extensions,
+    },
+  };
+}
+
+/**
+ * Every character as light rows (name, short summary, tags, picture), shaped like `useCharacters()` rows. For
+ * search, pickers and name lookups: `useCharacters()` downloads every card's whole text page by page (several MB
+ * for a large library, seconds on a tablet), and these surfaces never read it. Never use it to read card text.
+ */
+export function useCharacterListRows(options: { enabled?: boolean; includeBuiltIn?: boolean } = {}) {
+  const includeBuiltIn = options.includeBuiltIn === true;
+  return useQuery({
+    queryKey: [...characterKeys.list(), "catalog", "rows", includeBuiltIn] as const,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ view: "summary" });
+      if (includeBuiltIn) params.set("includeBuiltIn", "true");
+      const page = await api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
+      return page.items.map(catalogEntryToCharacterRow);
+    },
+    enabled: options.enabled ?? true,
+    staleTime: 5 * 60_000,
+  });
+}
+
 /** Every tag in the library, so filter chips do not depend on loaded pages. */
 export function useCharacterCatalogTags() {
   return useQuery({
@@ -224,7 +266,8 @@ export function flattenCharacterPages(data: { pages?: Array<PaginatedList<Record
   return flattenPaginatedItems(data?.pages);
 }
 
-export function fetchAllCharacterPages(
+/** Every character, page by page (#9114: the route answers one page at a time). */
+export function fetchAllCharacterPages<T = Record<string, unknown>>(
   options: {
     includeBuiltIn?: boolean;
     search?: string;
@@ -235,7 +278,10 @@ export function fetchAllCharacterPages(
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
 
-  return collectAllPaginatedItems<Record<string, unknown>>((offset) => {
+  // ponytail: the drain walks by offset, so a card deleted or restamped while it runs can shift the pages under it.
+  // A repeat cannot happen (the ids are deduplicated below); a card skipped by a shift is picked up by the next
+  // refetch. The ceiling is that one mid-load write, and the upgrade path is a keyset cursor on updatedAt + id.
+  return collectAllPaginatedItems<T>((offset) => {
     const params = new URLSearchParams({
       limit: String(LIBRARY_PAGE_SIZE),
       offset: String(offset),
@@ -243,7 +289,13 @@ export function fetchAllCharacterPages(
     if (includeBuiltIn) params.set("includeBuiltIn", "true");
     if (search) params.set("search", search);
     if (sort) params.set("sort", sort);
-    return api.get<PaginatedList<Record<string, unknown>>>(`/characters?${params.toString()}`);
+    return api.get<PaginatedList<T>>(`/characters?${params.toString()}`);
+  }).then((rows) => {
+    const seen = new Set<unknown>();
+    return rows.filter((row) => {
+      const id = (row as { id?: unknown }).id;
+      return seen.has(id) ? false : (seen.add(id), true);
+    });
   });
 }
 
@@ -543,7 +595,7 @@ export interface CharacterGalleryImage {
   model: string;
   width: number | null;
   height: number | null;
-  customKind: CustomKind | null;
+  customKind: GalleryTagKind | null;
   customName: string | null;
   createdAt: string;
   url: string;
@@ -1182,7 +1234,7 @@ export interface PersonaGalleryImage {
   model: string;
   width: number | null;
   height: number | null;
-  customKind: CustomKind | null;
+  customKind: GalleryTagKind | null;
   customName: string | null;
   createdAt: string;
   url: string;
@@ -1323,6 +1375,8 @@ export function useTagPersonaGalleryImage(personaId: string) {
 type PersonaSheetUpdateFields = {
   characterSheetImageId?: string | null;
   useCharacterSheetAsReference?: boolean;
+  /** Chat assignment edits are not authored revisions. */
+  skipVersionSnapshot?: boolean;
 };
 
 type PersonaTrackerPortrait = {

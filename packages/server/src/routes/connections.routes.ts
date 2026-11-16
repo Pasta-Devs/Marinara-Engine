@@ -1,5 +1,10 @@
 import { resolveDecisionConnection, type DecisionConnectionRow } from "../services/decision/decision-connection.js";
 import {
+  decryptCustomHeaders,
+  maskConnectionHeaderSecrets,
+  resolveConnectionHeaderPlaceholders,
+} from "../utils/stored-secrets.js";
+import {
   fetchProviderModels,
   resolveAudioConfig,
   TTS_CONNECTION_UNAVAILABLE,
@@ -53,6 +58,7 @@ import {
   hasPlanUsageWindows,
   isLocalAuthProvider,
   isChatProvider,
+  isGeminiArgonOrCarbonModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
@@ -571,7 +577,9 @@ export function localBackendDiscoveryHeaders(conn: {
   const root = parseDefaultParametersRoot(conn.defaultParameters);
   const rawProfile =
     conn.provider === "video_generation" ? root[VIDEO_DEFAULTS_STORAGE_KEY] : root[IMAGE_DEFAULTS_STORAGE_KEY];
-  const customHeaders = normalizeCustomRequestHeaders(isRecord(rawProfile) ? rawProfile.customHeaders : undefined);
+  const customHeaders = normalizeCustomRequestHeaders(
+    isRecord(rawProfile) ? decryptCustomHeaders(rawProfile.customHeaders as Record<string, string>) : undefined,
+  );
   return resolveLocalBackendHeaders(conn.apiKey || "", customHeaders);
 }
 
@@ -699,6 +707,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ...withoutSavedModels(conn),
           apiKeyEncrypted: conn.apiKeyEncrypted ? "••••••••" : "",
           managementTokenEncrypted: conn.managementTokenEncrypted ? "••••••••" : "",
+          ...("defaultParameters" in conn
+            ? {
+                defaultParameters: maskConnectionHeaderSecrets(
+                  (conn as { defaultParameters?: unknown }).defaultParameters,
+                ),
+              }
+            : {}),
         } as unknown as T)
       : conn;
 
@@ -835,6 +850,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
         params[VIDEO_DEFAULTS_STORAGE_KEY] = rawRecord[VIDEO_DEFAULTS_STORAGE_KEY];
       }
     }
+    // Custom headers sent back masked keep their saved values; the storage encrypts them on write.
+    if (params) params = resolveConnectionHeaderPlaceholders(params, conn.defaultParameters);
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       await storage.updateDefaultParameters(req.params.id, params);
       resetMemoryRecallVectorizerCache();
@@ -1932,6 +1949,33 @@ export async function connectionsRoutes(app: FastifyInstance) {
     return { ok: true as const, ...(discovered as Exclude<typeof discovered, FastifyReply>) };
   };
 
+  // The usual local model servers on this machine, for the This device card. Loopback only, fixed ports, one
+  // read-only GET each; off when local addresses are off, as such an account could not be added then.
+  app.get("/local-servers", async () => {
+    if (!isProviderLocalUrlsEnabled()) return { servers: [] };
+    const probes = [
+      { name: "Ollama", port: 11434 },
+      { name: "LM Studio", port: 1234 },
+      { name: "KoboldCpp", port: 5001 },
+      { name: "llama.cpp", port: 8080 },
+      { name: "vLLM", port: 8000 },
+    ];
+    const found = await Promise.all(
+      probes.map(async ({ name, port }) => {
+        const baseUrl = `http://127.0.0.1:${port}/v1`;
+        try {
+          const res = await fetch(`${baseUrl}/models`, { signal: AbortSignal.timeout(800), redirect: "error" });
+          if (!res.ok) return null;
+          const body = (await res.json()) as { data?: unknown };
+          return Array.isArray(body.data) ? { name, baseUrl, models: body.data.length } : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return { servers: found.filter((server) => server !== null) };
+  });
+
   // Live check while the user types an address or pastes a key, before anything is saved: does the
   // server answer, and does the key work. Edit sends `accountId` so the saved key is used when no new one is typed.
   const accounts = createConnectionAccountsStorage(app.db);
@@ -2357,7 +2401,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                       : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
-        customHeaders: defaults.customHeaders,
+        customHeaders: decryptCustomHeaders(defaults.customHeaders),
         atlasModelOptions: isAtlasVideo ? defaults.atlas.modelOptions[videoModel.trim()] : undefined,
         fps: isComfyUiVideo ? defaults.comfyui.fps : undefined,
       });
@@ -2534,11 +2578,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
       );
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, model);
-      // Reasoning models (GLM 5.3, Mistral reasoning models) spend one output budget on
-      // thinking and on text. At 200 tokens the whole budget is thinking and the test reports
-      // success with nothing to show, so give them room for a one-line answer.
+      // Reasoning models (GLM 5.3, Mistral reasoning models, Gemini 4 Argon and Carbon, which
+      // think at medium with no level saved) spend one output budget on thinking and on text.
+      // At 200 tokens the whole budget is thinking and the test reports success with nothing to
+      // show, so give them room for a one-line answer.
       const reasoningTest =
         isGlm53MandatoryReasoningModel(model) ||
+        isGeminiArgonOrCarbonModel(model) ||
         (conn.provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model)));
       const maxTokens = resolveStoredMaxTokens(conn.defaultParameters, reasoningTest ? 1024 : 200);
       let fullResponse = "";
@@ -2681,7 +2727,7 @@ function readOpenAICompatibleModelLimits(model: Record<string, unknown>): Pick<R
   };
 }
 
-function normalizeModelsResponse(provider: string, json: Record<string, unknown>): RemoteModel[] {
+export function normalizeModelsResponse(provider: string, json: Record<string, unknown>): RemoteModel[] {
   switch (provider) {
     case "google": {
       // Google returns { models: [{ name: "models/gemini-...", displayName: "..." }] }
@@ -2692,12 +2738,17 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
         inputTokenLimit?: number;
         outputTokenLimit?: number;
       }>;
+      // Gemini's own decision models (`createDecision`) are kept as decision models: output `decisions`, like
+      // NanoGPT's and OpenRouter's, so the Decision picker lists them and chat lists skip them.
+      const isDecision = (m: { supportedGenerationMethods?: string[] }) =>
+        !!m.supportedGenerationMethods?.includes("createDecision");
       return models
         .filter(
           // Keep chat-capable models. Some catalog entries only advertise the
           // streaming method, and a missing field should not hide a model.
           (m) =>
             !m.supportedGenerationMethods ||
+            isDecision(m) ||
             m.supportedGenerationMethods.includes("generateContent") ||
             m.supportedGenerationMethods.includes("streamGenerateContent"),
         )
@@ -2705,6 +2756,7 @@ function normalizeModelsResponse(provider: string, json: Record<string, unknown>
           id: (m.name ?? "").replace(/^models\//, ""),
           name: m.displayName ?? (m.name ?? "").replace(/^models\//, ""),
           ...readOpenAICompatibleModelLimits(m as Record<string, unknown>),
+          ...(isDecision(m) ? { outputModalities: ["decisions"] } : {}),
         }))
         .filter((m) => m.id);
     }

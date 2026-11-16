@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { findScrollParent } from "../../lib/panel-virtual-list";
 
 interface PanelLoadMoreBarProps {
   children: ReactNode;
@@ -20,8 +21,7 @@ export function useLoadMoreWhenNear(onLoadMore: () => void, disabled: boolean) {
   useEffect(() => {
     const node = sentinelRef.current;
     if (!node || disabled) return;
-    let root = node.parentElement;
-    while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement;
+    const root = findScrollParent(node);
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) onLoadMoreRef.current();

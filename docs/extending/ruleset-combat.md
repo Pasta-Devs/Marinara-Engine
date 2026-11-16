@@ -1406,7 +1406,7 @@ reaches the next cell), and a weapon `reach` or `range` column reading 0 on a ro
 has no such distance.
 
 **Whether a fight is on a board.** Two things have to agree: your block declares `distance`, and the
-player's game is set to the Tactical combat style. With the Classic style, or on a ruleset without
+player's game is set to the Tactical combat style. With the Turn-Based style, or on a ruleset without
 `distance`, the fight is theatre of the mind exactly as it was: anybody can be pointed at anybody,
 and nothing below is read at all.
 
@@ -1420,7 +1420,7 @@ first one you do that the client can draw (the first built-in one you list, on a
 registered style you list), and a game cannot be
 made, or switched in its settings, to a style you leave out. A fight already under way keeps the
 style it began on. The list holds whether or not the combat director is on, so it also narrows
-Marinara's own Classic and Tactical battles on your ruleset. A ruleset using `styles` needs
+Marinara's own Turn-Based and Tactical battles on your ruleset. A ruleset using `styles` needs
 Capability API 1.379.
 
 ```json

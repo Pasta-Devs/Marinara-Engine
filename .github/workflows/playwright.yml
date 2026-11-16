@@ -64,9 +64,11 @@ jobs:
 
   # The suite is CPU-bound on a 4-vCPU runner (one runner takes the same time with 4 or 8
   # workers), so wall time only drops by spreading the files over runners. The runner deals
-  # them slow-first, so the two files near their 5-minute budgets land in different shards.
+  # them slow-first, so the slowest files land in different shards. At four shards (280-510 s each,
+  # a slow runner about 1.6x slower) this lane finished last on most PRs; eight bring it near the
+  # required checks. Each shard adds about 55 s of setup, so more shards gain less.
   node-shards:
-    name: node-regressions ${{ matrix.shard }}/3
+    name: node-regressions ${{ matrix.shard }}/8
     needs: revision
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -77,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Checkout
@@ -104,7 +106,10 @@ jobs:
         env:
           # Node reuses compiled bytecode across the hundreds of child processes in one shard.
           NODE_COMPILE_CACHE: ${{ runner.temp }}/node-compile-cache
-        run: pnpm regression --shard ${{ matrix.shard }}/3
+          # Full runs (nightly, manual and PRs into main) give every file its own process, so a file that passes only
+          # because of what an earlier one in its shared process left behind still fails there.
+          REGRESSION_ISOLATED: ${{ needs.revision.outputs.full == 'true' && '1' || '' }}
+        run: pnpm regression --shard ${{ matrix.shard }}/8
 
   # One verdict keeps the check name the shards replaced.
   node:
@@ -139,7 +144,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: revision
-    # PR smoke tests run in the required pnpm-validate job instead.
+    # PR smoke tests run in the validate-smoke job of pull-request-checks.yml, which the
+    # required pnpm-validate check depends on.
     if: github.event_name == 'push' && needs.revision.outputs.full != 'true'
     permissions:
       contents: read
@@ -315,7 +321,8 @@ jobs:
           retention-days: 7
 
   # Full-matrix verdicts run only for nightly/manual/release-candidate checks.
-  # Development PRs run smoke tests inside their required pnpm-validate check.
+  # Development PRs run smoke tests in the validate-smoke job of pull-request-checks.yml,
+  # which the required pnpm-validate check depends on.
   desktop-chromium:
     name: desktop-chromium
     runs-on: ubuntu-latest

@@ -55,6 +55,7 @@ import { useChatToolsMenuStore } from "../../stores/chat-tools-menu.store";
 import {
   FLOATING_WINDOW_Z_BASE,
   PHONE_BUBBLE_Z_INDEX,
+  TOP_LAYER_WINDOW_Z_INDEX,
   isPhoneWindowLayout,
   takeFloatingWindowFocusRequest,
   takeFloatingWindowOpener,
@@ -82,6 +83,11 @@ export interface FloatingWindowProps {
   minHeight?: number;
   /** "sheet" is today's phone panel: no move, resize, pin or lock, and it closes on an outside press. */
   presentation?: "window" | "sheet";
+  /**
+   * "top": above every overlay, Professor Mari's included, and free to move over the whole viewport below the
+   * topbar. For a tool the user opens to watch the app (the server console), never for chat furniture.
+   */
+  layer?: "chat" | "top";
   /** False: the window takes focus only when the user opens it, never just because focus is free. */
   autoFocus?: boolean;
   /**
@@ -212,6 +218,18 @@ export function focusWindowOpener(id: FloatingWindowId) {
       (element) => element?.isConnected && element.getClientRects().length > 0 && !element.closest("[hidden], [inert]"),
     )
     ?.focus({ preventScroll: true });
+}
+
+/** The whole viewport below the topbar, minus the window margin: a `layer="top"` window may cover sidebars too. */
+export function readTopLayerWindowBounds(): WindowBounds {
+  if (typeof window === "undefined") return { left: 0, top: 0, right: 1024, bottom: 768 };
+  const topbar = document.querySelector<HTMLElement>('[data-component="TopBar"]');
+  return {
+    left: WINDOW_MARGIN_PX,
+    top: Math.max(0, topbar?.getBoundingClientRect().bottom ?? 0) + WINDOW_MARGIN_PX,
+    right: window.innerWidth - WINDOW_MARGIN_PX,
+    bottom: window.innerHeight - WINDOW_MARGIN_PX,
+  };
 }
 
 /**
@@ -377,16 +395,19 @@ function useLiveBounds(read: () => WindowBounds, active: boolean): WindowBounds 
   );
   const readRef = useRef(read);
   readRef.current = read;
-  useEffect(() => {
+  // Layout effect: bounds stop updating while inactive, so catch up before the window paints again.
+  useLayoutEffect(() => {
     if (!active) return;
     let frame = 0;
+    const apply = () => {
+      const next = readRef.current();
+      setBounds((current) => (sameBounds(current, next) ? current : next));
+    };
     const update = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const next = readRef.current();
-        setBounds((current) => (sameBounds(current, next) ? current : next));
-      });
+      frame = requestAnimationFrame(apply);
     };
+    apply();
     const viewport = window.visualViewport;
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
@@ -432,6 +453,7 @@ export function FloatingWindow({
   minWidth = DEFAULT_MIN_WIDTH,
   minHeight = DEFAULT_MIN_HEIGHT,
   presentation = "window",
+  layer = "chat",
   autoFocus = true,
   hidden = false,
   drawerHost,
@@ -459,9 +481,16 @@ export function FloatingWindow({
   const stackIndex = useFloatingWindowStore((state) => state.stack.indexOf(id));
   const saveLayout = useFloatingWindowStore((state) => state.saveLayout);
   const bringToFront = useFloatingWindowStore((state) => state.bringToFront);
+  const readBounds = () =>
+    window.innerWidth < 768
+      ? readPhoneBubbleBounds()
+      : layer === "top"
+        ? readTopLayerWindowBounds()
+        : readFloatingWindowBounds();
   const bounds = useLiveBounds(
-    () => (window.innerWidth < 768 ? readPhoneBubbleBounds() : readFloatingWindowBounds()),
-    !sheet,
+    readBounds,
+    // A hidden window kept mounted must not re-measure the page on every sidebar slide frame.
+    !sheet && !hidden,
   );
   const [liveGeometry, setLiveGeometry] = useState<WindowGeometry | null>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
@@ -571,8 +600,9 @@ export function FloatingWindow({
     if (!needsDesktopPlace) return;
     useFloatingWindowStore
       .getState()
-      .saveBubble(id, { ...findFreeBubble(bounds, { size: bubbleSize, except: id }), automatic: true });
-  }, [bounds, bubbleSize, id, needsDesktopPlace]);
+      .saveBubble(id, { ...findFreeBubble(readBounds(), { size: bubbleSize, except: id }), automatic: true });
+    // Read live, not `bounds`: those are still from before the window was shown in this same commit.
+  }, [bubbleSize, id, needsDesktopPlace]);
 
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -615,13 +645,7 @@ export function FloatingWindow({
     const rect = bubble.getBoundingClientRect();
     const initialGeometry = savedLayout
       ? savedLayout
-      : placeWindowBesideBubble(
-          layoutRef.current,
-          { x: rect.left, y: rect.top },
-          readFloatingWindowBounds(),
-          limits,
-          rect.height,
-        );
+      : placeWindowBesideBubble(layoutRef.current, { x: rect.left, y: rect.top }, readBounds(), limits, rect.height);
     saveLayout(id, { ...layoutRef.current, ...initialGeometry, minimized: false });
     useFloatingWindowStore.getState().openWindow(id, bubble);
   };
@@ -831,7 +855,7 @@ export function FloatingWindow({
         top: geometry.y,
         width: geometry.width,
         height: geometry.height,
-        zIndex: FLOATING_WINDOW_Z_BASE + 1 + Math.max(0, stackIndex),
+        zIndex: layer === "top" ? TOP_LAYER_WINDOW_Z_INDEX : FLOATING_WINDOW_Z_BASE + 1 + Math.max(0, stackIndex),
       };
 
   return (

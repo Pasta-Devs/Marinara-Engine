@@ -68,6 +68,11 @@ export interface ConnectionAccountListItem {
   showUsageFiveHour: boolean;
   showUsageWeekly: boolean;
   treatAsLocalEndpoint: boolean;
+  /**
+   * The server can answer with whatever model it has loaded (a local or self-hosted engine, or the Grok CLI), so a
+   * chat Model of this Connection may leave its model empty: the "Default" model. Its requests send no model id.
+   */
+  loadedModel: boolean;
   enabled: boolean;
   maxRequestsPerMinute: number | null;
   maxParallelJobs: number | null;
@@ -111,6 +116,12 @@ export const CHAT_RECENT_MODELS_KEY = "recentModels";
 export const CHAT_RECENT_MODELS_LIMIT = 2;
 /** Set when the user chose "Use default": the chat has no Model of its own and answers through Main, silently. */
 export const CHAT_FOLLOWS_MAIN_KEY = "followsMainModel";
+/**
+ * #9126: set (with the Model's name) when the reference sweep cleared a chat's Model because that Model was deleted.
+ * It tells a chat whose Model is gone from one that never had a Model, which are otherwise identical (no
+ * connectionId, no follows-Main choice). A clean "Use default" PATCH clears it.
+ */
+export const CHAT_MODEL_DELETED_KEY = "deletedModel";
 
 export type ChatModelOverride = ChatModelChoice & { model: string };
 
@@ -152,6 +163,17 @@ export function readChatRecentModels(chat: { metadata?: unknown }): ChatModelCho
 /** The chat follows the Main default by choice (decision 27), not because its Model was deleted. */
 export function readChatFollowsMain(chat: { connectionId?: string | null; metadata?: unknown }): boolean {
   return !chat.connectionId && chatMetadataRecord(chat.metadata)[CHAT_FOLLOWS_MAIN_KEY] === true;
+}
+
+/**
+ * #9126: the Model that was deleted out from under this chat, or null. Only a chat with no Model of its own can carry
+ * one: the marker is only read while `connectionId` is empty.
+ */
+export function readChatDeletedModel(chat: { connectionId?: string | null; metadata?: unknown }): string | null {
+  if (chat.connectionId) return null;
+  const stored = chatMetadataRecord(chat.metadata)[CHAT_MODEL_DELETED_KEY];
+  const name = typeof stored === "string" ? stored.trim() : "";
+  return name || null;
 }
 
 /**

@@ -34,14 +34,21 @@ In **App Style**, the **Color Scheme** dropdown has **Dark** (the default) and *
 
 **Visual Style** has two cards. **Default (Marinara)** is a retro Y2K look with glow effects. **SillyTavern** is a clean, minimal look. It changes the look only and has nothing to do with importing from SillyTavern.
 
-### Background Color and Accent Color
+### App background and Accent Color
 
-Both accept a plain color or a gradient, a smooth blend of two or more colors. Clear a field with **Reset to default** to return to the default.
+**Accent Color** accepts a plain color or a gradient, a smooth blend of two or more colors. Clear it with **Reset to default** to return to the default.
 
 | Setting | What it colors | Default |
 | --- | --- | --- |
-| **Background Color** | The main app shell. | `#050312` in Dark, `#faf8ff` in Light |
 | **Accent Color** | Buttons, active icons, focus rings, highlights, panel outlines and the controls around the chat. | **Marinara Gradient**, a pink, orange and cyan blend |
+
+To change the background of the main app shell, use **UI Editor** in **App Style**:
+
+1. Open the dropdown that shows **Choose what to change…** and select **Whole app**.
+2. Click **Background** and pick a color or a gradient.
+3. Click **Save**.
+
+Without a saved background, the app uses `#050312` in Dark and `#faf8ff` in Light. To return to it, open **Whole app** again and click **Reset to default**.
 
 A value such as `#050312` is a hex color code, a short way to write a color.
 

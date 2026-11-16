@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 import { checkReply } from "../../lib/reply-checkup";
 import { countBlockingReviews } from "../../lib/professor-mari-presentation";
 import { useAgentConfigs } from "../../hooks/use-agents";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterListRows, usePersonas } from "../../hooks/use-characters";
 import { chatKeys, useChats, useProfessorMariChats, useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { requestChatRetryWithConnection } from "../../lib/chat-floating-ui-events";
 import { useConnections } from "../../hooks/use-connections";
@@ -212,6 +212,17 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   );
   // Read before this dialog commits, so only another dialog (the wizard, a lightbox, a Modal) counts.
   const [overDialog] = useState(() => document.querySelector('[aria-modal="true"]') !== null);
+  // Published as an attribute for the sheet CSS: a `:has(:focus)` rule there restyled the whole app on every DOM insertion.
+  const [composerFocused, setComposerFocused] = useState(false);
+  // A focused composer that unmounts sends no blur, so let the next focus anywhere clear the flag.
+  useEffect(() => {
+    if (!composerFocused) return;
+    const clear = (event: FocusEvent) => {
+      if (!(event.target as Element).classList?.contains("mari-workspace-composer__input")) setComposerFocused(false);
+    };
+    document.addEventListener("focusin", clear);
+    return () => document.removeEventListener("focusin", clear);
+  }, [composerFocused]);
   useLayoutEffect(() => takePullHandoff()?.(dialogRef.current), []);
   // R33: how far the search field has to fall to land where Mari's composer sits.
   // Measured while the list is still up, because by the time it leaves the field
@@ -319,7 +330,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     readOmnibarFrecencyEntries(),
   );
   const chats = useChats();
-  const characters = useCharacters();
+  const characters = useCharacterListRows();
   const personas = usePersonas();
   const lorebooks = useLorebooks(undefined, { includeHidden: true });
   const presets = usePresets();
@@ -874,6 +885,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   );
   const idle = !query.trim() && presentation.groups.length === 0;
   const listVisible = pane !== "mari" && !idle;
+  // The suggestions shown before you type come from several lists that arrive at different times. They
+  // stay invisible (in place) until those have arrived, or for at most 0.6 s, so rows never pop in and
+  // push the list down while Search opens.
+  const idleSourcesSettled = [chats, characters, personas, lorebooks, mariChats, mariWorkspaceStatus].every(
+    (source) => source.isFetched || source.isError,
+  );
+  const [idleHoldExpired, setIdleHoldExpired] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIdleHoldExpired(true), 600);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const holdIdleList = !query.trim() && !queryScope && !idleSourcesSettled && !idleHoldExpired;
   // The filter bar only renders once there is a query, so availability always comes from the results.
   const tabAvailability = presentation.categoryAvailability;
   const availableFilters = COMMAND_CENTER_CATEGORY_FILTERS.filter(
@@ -2007,6 +2030,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       data-mode={pane === "mari" ? "work" : "find"}
       data-mari-companion={companionShape ?? undefined}
       data-mari-sheet-snap={companionShape === "sheet" ? sheetSnap : undefined}
+      data-mari-composer-focused={composerFocused ? "true" : undefined}
+      onFocus={(event) => setComposerFocused(event.target.classList.contains("mari-workspace-composer__input"))}
+      onBlur={() => setComposerFocused(false)}
       className={
         companion
           ? "pointer-events-none fixed inset-0 z-(--mari-layer-omnibar)"
@@ -2308,6 +2334,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         {pane !== "mari" && idle ? <OmnibarEmpty /> : null}
         {!listVisible ? null : (
           <OmnibarResultList
+            held={holdIdleList}
             listRef={listRef}
             query={query}
             loading={loading}

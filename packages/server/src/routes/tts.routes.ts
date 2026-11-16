@@ -29,6 +29,8 @@ import {
   type TTSSourceProfiles,
   type TTSModelsResponse,
   type TTSVoicesResponse,
+  TTS_SOURCE_DEFAULTS,
+  TTS_SOURCES,
 } from "@marinara-engine/shared";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { TTS_EMOTION_CUE_GUIDANCE } from "../services/tts-emotion-guidance.js";
@@ -49,6 +51,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 
 import { AudioGenerationConfigurationError, generateAudioAsset } from "../services/audio/generative-audio.service.js";
 
@@ -74,26 +77,6 @@ const ELEVENLABS_FALLBACK_MODELS = [
   "eleven_turbo_v2_5",
   "eleven_flash_v2",
 ];
-
-const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }> = {
-  openai: {
-    baseUrl: "https://api.openai.com/v1",
-    model: "tts-1",
-  },
-  elevenlabs: {
-    baseUrl: "https://api.elevenlabs.io",
-    model: "eleven_multilingual_v2",
-  },
-  pockettts: {
-    baseUrl: "http://localhost:8000",
-    model: "pocket-tts",
-  },
-  xai: {
-    baseUrl: "https://api.x.ai/v1",
-    model: "grok-tts",
-  },
-};
-const TTS_SOURCES: readonly TTSSource[] = ["openai", "elevenlabs", "pockettts", "xai"];
 
 const ELEVENLABS_NON_TTS_MODELS = new Set(["eleven_ttv_v3", "eleven_multilingual_ttv_v2"]);
 const NANOGPT_TTS_MODEL_ALIASES: Record<string, string> = {
@@ -1404,10 +1387,16 @@ export async function ttsRoutes(app: FastifyInstance) {
     logDebugOverride(input.debugMode, "[debug/tts/speaker-extractor] user prompt:\n%s", userPrompt);
 
     const storedOptions = resolveStoredChatOptions(connection.defaultParameters, connection.provider, connection.model);
-    const maxTokens = clampGenerationMaxOutputTokens({
+    const maxTokens = withAlwaysOnThinkingHeadroom({
       provider: connection.provider,
       model: connection.model,
-      maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+      maxTokens: clampGenerationMaxOutputTokens({
+        provider: connection.provider,
+        model: connection.model,
+        maxTokens: resolveStoredMaxTokens(connection.defaultParameters, 8192),
+        maxTokensOverride: connection.maxTokensOverride,
+      }),
+      reasoningEffort: storedOptions.reasoningEffort,
       maxTokensOverride: connection.maxTokensOverride,
     });
     const provider = createLLMProvider(

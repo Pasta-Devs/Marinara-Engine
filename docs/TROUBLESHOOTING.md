@@ -5,7 +5,7 @@ Find your symptom, then follow the fix. Most problems clear after you restart Ma
 ## First things to try
 
 1. Hard refresh the page: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on Windows or Linux, <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac.
-2. Look at the server console (the terminal window that runs Marinara) for red error lines. They usually name the real problem.
+2. Look at the server console (the terminal window that runs Marinara) for red error lines. They usually name the real problem. If the server runs somewhere else (a NAS, a VPS, Docker), open **Settings → Advanced → Open Console** to read the same lines in the app.
 3. To ask for help, turn on **Debug mode** first. See [Get more help](#get-more-help).
 
 ## My character does not reply
@@ -54,16 +54,17 @@ CSRF_TRUSTED_ORIGINS=http://203.0.113.10:7831,https://chat.example.com
 
 Generation errors show as a toast at the bottom of the screen. It names the reason and stays up long enough to copy.
 
-| Message or symptom | Fix |
-| --- | --- |
-| **No API connection configured for this chat** | The chat has no account. Add one in **Connections**, then pick it for the chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md). |
-| The model does not accept a parameter | Open **Chat Settings → Advanced Parameters** and turn off the switch next to the parameter the toast names. |
-| The model says a parameter is required | Turn that parameter's switch on. |
-| **This model's chat template needs user and assistant messages to take turns** | Some local models, such as Mistral-based models on llama.cpp, need alternating messages. Marinara merges back-to-back messages and retries once. If it persists, set **Post-Processing Messages** to **Single User Message** in **Chat Settings → Advanced Parameters**, or serve the model with a less strict chat template. |
-| **The AI returned an empty response. Try sending your message again.** | Send again. If it repeats, try another model or account. |
-| **A generation is already in progress for this chat** | A reply is still streaming. Wait, or click **Stop**, then try again. |
-| **No connections are marked for the random pool** | Random routing is on but no account is in the pool. Add one, or turn random routing off. |
-| Every message fails with a network error, and your computer reaches the internet only through a proxy | Tell Marinara about the proxy. See [Outbound HTTP proxy](CONFIGURATION.md#outbound-http-proxy). |
+| Message or symptom                                                                                    | Fix                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No API connection configured for this chat**                                                        | The chat has no account. Add one in **Connections**, then pick it for the chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).                                                                                                                                                                  |
+| The model does not accept a parameter                                                                 | Open **Chat Settings → Advanced Parameters** and turn off the switch next to the parameter the toast names.                                                                                                                                                                                                                   |
+| The model says a parameter is required                                                                | Turn that parameter's switch on.                                                                                                                                                                                                                                                                                              |
+| **This model's chat template needs user and assistant messages to take turns**                        | Some local models, such as Mistral-based models on llama.cpp, need alternating messages. Marinara merges back-to-back messages and retries once. If it persists, set **Post-Processing Messages** to **Single User Message** in **Chat Settings → Advanced Parameters**, or serve the model with a less strict chat template. |
+| **The AI returned an empty response. Try sending your message again.**                                | Send again. If it repeats, try another model or account.                                                                                                                                                                                                                                                                      |
+| **The model declined this request**                                                                   | The model refused to write this reply. In Game Mode, see [The model declines a turn](game/getting-started.md#the-model-declines-a-turn). Elsewhere, retry, then try another model, preset or character card.                                                                                                                  |
+| **A generation is already in progress for this chat**                                                 | A reply is still streaming. Wait, or click **Stop**, then try again.                                                                                                                                                                                                                                                          |
+| **No connections are marked for the random pool**                                                     | Random routing is on but no account is in the pool. Add one, or turn random routing off.                                                                                                                                                                                                                                      |
+| Every message fails with a network error, and your computer reaches the internet only through a proxy | Tell Marinara about the proxy. See [Outbound HTTP proxy](CONFIGURATION.md#outbound-http-proxy).                                                                                                                                                                                                                               |
 
 ## After an update
 
@@ -104,7 +105,7 @@ Marinara blocks obvious downgrades. The launcher skips an auto-update that would
 
 If you updated and then went back to an older version, restore the backup you made before the update. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version). Technical details follow.
 
-Your data is now at storage format 10. Formats 8, 9 and 10 add 3D avatar settings (MMD, then GLB and FBX) and connection account links that older builds cannot read safely. If your data reached format 8 or newer, restore a full backup made before that upgrade to use an older build. The command below only converts older chat-file layouts. Do not change the format number by hand. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version).
+Your data is now at storage format 11. Formats 8, 9 and 10 add 3D avatar settings (MMD, then GLB and FBX) and connection account links, and format 11 stores personas as character cards. Older builds cannot read these safely. Format 11 keeps the original persona files as `.pre-v11` copies in `storage/tables/personas/`. If your data reached format 8 or newer, restore a full backup made before that upgrade to use an older build. The command below only converts older chat-file layouts. Do not change the format number by hand. See [Downgrading to an older version](UPGRADING.md#downgrading-to-an-older-version).
 
 For data below format 8, convert the chat-file layout:
 
@@ -225,7 +226,7 @@ The **Built-in model** runs on your computer with no API key. Some error message
 1. Open **Chat Settings → Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In **Memories for This Chat**, look at each chunk's status.
 3. **Waiting for vector** means the memory is still being processed. Wait, then chat again.
-4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it under **Embeddings** in the **Defaults** section of **Connections**.
+4. **Embedding unavailable** means no embedding source works. Set up an embedding account, or let the built-in model load. To use one source for every chat, pick it on the **Embeddings** job in the **Jobs** box in **Connections**.
 
 A memory needs at least 5 new messages before it is created. Recall shows only memories that closely match your new message, so it can return nothing even when memories exist.
 
@@ -304,9 +305,9 @@ If the model returns broken JSON (structured text), Marinara opens the **Repair 
 
 ## Voice, calls and TTS
 
-- **Characters do not speak in a call.** Text to Speech is not set up. Open **Connections → Text to Speech**, turn it on, choose a source, enter your key, pick a voice and save. A character with no voice shows as text only.
-- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** in **Connections → Text to Speech**, or in the audio account the message names. See [Request timeout](media/tts-setup.md#request-timeout).
-- **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections → Speech to text**, find **Local speech model** under **On this device**, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
+- **Characters do not speak in a call.** The **Voice** job has no model. Open **Connections**, click the **Voice** row in the **Jobs** box, and pick a voice model. Then click its gear and pick a voice. A character with no voice shows as text only.
+- **Speech stops with "No audio after N s".** Your voice server is slower than Marinara waits, which is common for a local server on a laptop. `N` is your current timeout. Raise **Request timeout (seconds)** under **More** in **Voice settings** (the gear on the **Voice** row in the **Jobs** box), or in the **Edit model** window of the audio model the message names. See [Request timeout](media/tts-setup.md#request-timeout).
+- **The microphone does not work.** Install **Calls** from **Agents → Agent Organizer**. Then open **Connections**, find **Local speech model** in the **On this device** card, choose a Whisper model and click **Download Whisper**. Firefox needs this because it has no browser speech recognition. Uninstalling Calls deletes its Whisper models. You can also use your own server: see [Use your own speech-to-text server](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** The lite image cannot run the local speech model. Use a full install.
 
 ### Music DJ Spotify login fails on a remote or network install
@@ -489,15 +490,15 @@ After you disable a full page extension, reload Marinara if a toolbar item, over
 
 ## Multiplayer connection or turn problems
 
-| Symptom | Fix |
-| --- | --- |
-| Controls unavailable | Put `MULTIPLAYER_ENABLED=true` in the correct Marinara's `.env`, restart it, then turn on the setting separately. The Android native wrapper cannot join. |
-| Host unavailable | Use a separate reachable HTTPS room port, a valid certificate chain and hostname, and the matching invitation fingerprint. Do not turn off TLS checks, add `null` to trusted origins, expose the normal API or open a host-supplied client. |
-| Awaiting approval | The host must approve you in Players. You see no transcript before approval. Ask for a new invitation if it expired. |
-| Disconnected | Keep your own Marinara running. It reconnects to the same host while the session lives, and unsent drafts stay. After a restart, join again. To keep the same persona name, ask the host to remove your old seat first. |
-| Game waiting | Open Players. Disconnected players are not passed automatically. The host can **Pass**, **Kick** or **Pause**. |
-| Interrupted generation | Do not resubmit the round. The host should check the saved narration and state, then resume or stop the room. Multiplayer never replays an unclear request or applies its world effects twice. |
-| Restricted command or missing media | Rooms carry text only. See the [compatibility matrix](development/multiplayer.md#command-and-feature-compatibility). Do not install a peer-provided file or extension. |
+| Symptom                             | Fix                                                                                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controls unavailable                | Put `MULTIPLAYER_ENABLED=true` in the correct Marinara's `.env`, restart it, then turn on the setting separately. The Android native wrapper cannot join.                                                                                   |
+| Host unavailable                    | Use a separate reachable HTTPS room port, a valid certificate chain and hostname, and the matching invitation fingerprint. Do not turn off TLS checks, add `null` to trusted origins, expose the normal API or open a host-supplied client. |
+| Awaiting approval                   | The host must approve you in Players. You see no transcript before approval. Ask for a new invitation if it expired.                                                                                                                        |
+| Disconnected                        | Keep your own Marinara running. It reconnects to the same host while the session lives, and unsent drafts stay. After a restart, join again. To keep the same persona name, ask the host to remove your old seat first.                     |
+| Game waiting                        | Open Players. Disconnected players are not passed automatically. The host can **Pass**, **Kick** or **Pause**.                                                                                                                              |
+| Interrupted generation              | Do not resubmit the round. The host should check the saved narration and state, then resume or stop the room. Multiplayer never replays an unclear request or applies its world effects twice.                                              |
+| Restricted command or missing media | Rooms carry text only. See the [compatibility matrix](development/multiplayer.md#command-and-feature-compatibility). Do not install a peer-provided file or extension.                                                                      |
 
 When you report a connection error, include the mode, platform, visible error and whether approval worked. Do not post invitations, room passwords, session tokens, private transcripts or API keys.
 

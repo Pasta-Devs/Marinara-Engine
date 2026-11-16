@@ -390,7 +390,15 @@ export class WorkspaceCommands {
         actionResults.push(execution.actionResult);
         onEvent({ type: "metadata", data: { actionResult: execution.actionResult } });
       }
-      return { id: command.id, name: command.name, input, output: compacted, success: true };
+      const images = typeof execution !== "string" && execution.images?.length ? execution.images : undefined;
+      return {
+        id: command.id,
+        name: command.name,
+        input,
+        output: compacted,
+        success: true,
+        ...(images ? { images } : {}),
+      };
     } catch (err) {
       const output = err instanceof Error ? err.message : String(err);
       const endedAt = Date.now();
@@ -828,7 +836,10 @@ export class WorkspaceCommands {
       : null;
   }
 
-  private async commandBash(args: Record<string, unknown>, signal: AbortSignal): Promise<string> {
+  private async commandBash(
+    args: Record<string, unknown>,
+    signal: AbortSignal,
+  ): Promise<WorkspaceCommandExecution | string> {
     const command = stringArg(args, "command");
     if (!command.trim()) throw new Error("bash requires command");
     if (isPackageManagerMutationCommand(command)) {
@@ -1112,7 +1123,7 @@ export class WorkspaceCommands {
     ].join("\n");
   }
 
-  private async commandMariDirect(command: string, argv: string[]): Promise<string> {
+  private async commandMariDirect(command: string, argv: string[]): Promise<WorkspaceCommandExecution> {
     // This runs in the server process, outside the shell sandbox, and these flags read the file they name. Hold
     // them to the read tool's rule: inside the workspace, never .env, the encryption key or Git internals. The scan
     // matches how the mari CLI reads its flags: `--flag=value`, or `--flag value` unless the value starts with --.
@@ -1159,7 +1170,7 @@ export class WorkspaceCommands {
       ].join("\n"),
     );
     if (result.ok === false) throw new Error(output);
-    return output;
+    return result.images?.length ? { output, images: result.images } : { output };
   }
 
   private async commandPackageService(args: Record<string, unknown>, signal: AbortSignal): Promise<string> {

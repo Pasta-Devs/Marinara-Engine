@@ -69,7 +69,7 @@ function parseScript(row: RegexScriptRow) {
   })();
   return {
     ...row,
-    enabledBool: row.enabled === "true",
+    enabledBool: row.enabled === "true" && (!row.pausedByFolder || targetCharacterIds.length > 0),
     applyMode: getApplyMode(row),
     placements,
     trimStrings,

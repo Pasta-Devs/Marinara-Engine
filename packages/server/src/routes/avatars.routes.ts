@@ -3,13 +3,14 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import { z } from "zod";
 import { parseAgentSettingsRecord } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
 import {
   generateTrackerPortrait,
@@ -40,6 +41,30 @@ function isValidFilename(name: string): boolean {
   return !name.includes("..") && !name.includes("/") && !name.includes("\\");
 }
 
+const AVATAR_DATA_URL_SUBTYPE_RE = /^[\w.+-]+$/;
+// `.` matches none of JavaScript's four line terminators.
+const AVATAR_DATA_URL_BODY_BREAK_RE = /[\r\n\u2028\u2029]/;
+
+/**
+ * An avatar data URL's media subtype and encoded body. The header is sliced and only the subtype is matched, because
+ * `/^data:image\/([\w.+-]+);base64,(.+)$/` recursed once per character of a large upload in V8's regexp interpreter
+ * and exhausted the stack (#9060). Every answer is the one that pattern gave.
+ */
+function parseAvatarDataUrl(value: string): { subtype: string; encoded: string } | null {
+  if (!value.startsWith("data:image/")) return null;
+  const separator = value.indexOf(",", "data:image/".length);
+  if (separator < 0) return null;
+  const header = value.slice("data:image/".length, separator);
+  // The pattern was case-sensitive, so `;BASE64` was never a marker.
+  if (!header.endsWith(";base64")) return null;
+  const subtype = header.slice(0, -";base64".length);
+  if (!AVATAR_DATA_URL_SUBTYPE_RE.test(subtype)) return null;
+  const encoded = value.slice(separator + 1);
+  // `(.+)` matched no line break, and its `+` required a body.
+  if (!encoded || AVATAR_DATA_URL_BODY_BREAK_RE.test(encoded)) return null;
+  return { subtype, encoded };
+}
+
 export async function avatarsRoutes(app: FastifyInstance) {
   /** Serve an avatar image file. */
   app.get("/file/:filename", async (req, reply) => {
@@ -57,7 +82,16 @@ export async function avatarsRoutes(app: FastifyInstance) {
 
     const image = await validateImageAssetFile(filePath, filename);
     if (!image) return reply.status(404).send({ error: "Not found" });
-    return sendValidatedMediaFile(reply, image, {
+
+    // `?w=` asks for a downscaled copy (Library cards, list icons): a full card PNG is often several
+    // MB, and dozens of them at once held up every other request on a phone or tablet.
+    // Falls back to the original on any miss.
+    const requestedWidth = parseThumbnailWidth((req.query as { w?: string }).w);
+    const thumbPath = requestedWidth ? await resolveThumbPath(filePath, requestedWidth) : null;
+    const preview = thumbPath ? await validateImageAssetFile(thumbPath, basename(thumbPath)) : null;
+    if (preview) await image.handle.close().catch(() => undefined);
+
+    return sendValidatedMediaFile(reply, preview ?? image, {
       method: req.method,
       rangeHeader: req.headers.range,
       cacheControl: "public, max-age=31536000, immutable",
@@ -98,9 +132,10 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Missing name or avatar" });
     }
 
-    // Extract base64 data from data URL
-    const match = avatar.match(/^data:image\/([\w.+-]+);base64,(.+)$/);
-    if (!match) {
+    // Extract base64 data from data URL. The header is sliced rather than matched over the whole URL: V8's regexp
+    // interpreter recurses once per character, so a large upload ended in "Maximum call stack size exceeded" (#9060).
+    const dataUrl = parseAvatarDataUrl(avatar);
+    if (!dataUrl) {
       return reply.status(400).send({ error: "Invalid avatar format — expected base64 data URL" });
     }
 
@@ -112,8 +147,8 @@ export async function avatarsRoutes(app: FastifyInstance) {
     const npcDir = join(NPC_AVATAR_DIR, chatId);
     if (!existsSync(npcDir)) mkdirSync(npcDir, { recursive: true });
 
-    const hintedExt = `.${match[1]!.replace("+xml", "")}`;
-    const imageBuffer = Buffer.from(match[2]!, "base64");
+    const hintedExt = `.${dataUrl.subtype.replace("+xml", "")}`;
+    const imageBuffer = Buffer.from(dataUrl.encoded, "base64");
     const image = isAllowedImageBuffer(imageBuffer, hintedExt);
     if (!image) {
       return reply.status(400).send({ error: "Unsupported or invalid avatar image" });

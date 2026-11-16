@@ -27,6 +27,8 @@ export const capabilityPackageKindSchema = z.enum([
 export const capabilityPermissionSchema = z.enum([
   "achievements",
   "agent-runtime",
+  // Capability API 1.819: api.runtime.resources.updateCharacterExtensions.
+  "character-write",
   "chat-read",
   "chat-write",
   "conversation-actions",
@@ -144,6 +146,8 @@ const capabilityPackageManifestBaseSchema = z
               "roleplay-tracker",
               // Package-owned content inside the detached or docked Tracker Panel.
               "tracker-panel",
+              // Package-owned card in the chat's Agent activity panel.
+              "chat-activity",
             ]),
           )
           .optional(),
@@ -1575,7 +1579,54 @@ const capabilityPackageManifestBaseSchema = z
 // 1.817: the `long-term-memory:runtime` service's optional `chatBranched({ chatId, parentChatId })`, awaited once
 //        after a chat branch is fully copied and before the branch is returned (errors and a slow call are
 //        ignored). A soft seam: older Engines never call it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 817 } as const);
+// 1.818: the server runtime host's optional `embeddingsFor(connectionId)`: `null` is the built-in local MiniLM
+//        embedder, a connection id is that connection's own embedding source (as Connections > Test embedding
+//        resolves it, never the app-wide default), and an unknown id or a connection without embeddings resolves
+//        null. A soft seam: older Engines leave it out, so a package feature-detects it. No permission.
+// 1.819: characters on `api.runtime.resources`: `getCharacters(ids?)` (full rows: data, comment, avatarPath and
+//        timestamps), `listCharacterGroups()`, `listCharactersPage(options)` and `listCharacterSummaries(ids)` (the
+//        library's own search, sort and summary), and `updateCharacterExtensions(id, patch)`, which merges keys into
+//        `data.extensions` without a card version, queued behind the Engine's own saves. The write needs the new
+//        `character-write` permission. A soft seam: older Engines leave the members out, so a package checks for them.
+// 1.820: the `chat-activity` slot: a package with a client entrypoint that the chat runs can mount its `activity`
+//        view as a card in the chat's Agent activity panel (props `chatId`, `onOpenAgentSettings`). Not a soft seam:
+//        an Engine older than 1.820 refuses the manifest, so a package that declares `chat-activity` declares 1.820.
+//        Also `__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })`: the Agent
+//        activity icon spins while a package is busy and shows its dot on an alert. A soft seam: older Engines leave
+//        the method out, so a package checks for it.
+// 1.821: a summed check's two named dice (`resolution.duality`): Daggerheart's Hope and Fear, the higher one
+//        recorded as `duality=`, and a tie a critical success. Not a soft seam: an Engine that cannot read
+//        it refuses the whole ruleset file. No permission.
+// 1.822: a summed check's plot die (`resolution.plotDie`, asked for with `plot="true"`): one more die whose
+//        faces are blank or carry a complication or an opportunity, a face's `bonus` added to the total. Not a
+//        soft seam: an Engine that cannot read it refuses the whole ruleset file. No permission.
+// 1.823: a summed check's natural total as a critical (`resolution.naturalTotal`) and a band the Game Master
+//        moves (`resolution.tierShift`, asked for with `shift="+1"`). Not a soft seam: an Engine that cannot
+//        read them refuses the whole ruleset file. No permission.
+// 1.824: a pool's special dice (`resolution.hunger`, asked for with `hunger="N"`) and paired faces
+//        (`resolution.pairs`): Vampire V5's Hunger dice, messy criticals, bestial failures and paired 10s. Not a
+//        soft seam: an Engine that cannot read them refuses the whole ruleset file. No permission.
+// 1.825: a summed check with no dice (`resolution.dice.count: 0`): the sheet's own numbers against the
+//        difficulty, as Amber and Nobilis read them. Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+// 1.826: a pool told apart by groups (`resolution.groups`, with gear dice asked for by `gear="N"`) and a
+//        push of the last roll (`resolution.push`, asked for with `push="true"`): the Year Zero Engine's base,
+//        skill and gear dice. Not a soft seam: an Engine that cannot read them refuses the whole ruleset
+//        file. No permission.
+// 1.827: a turn game's conversation command gets a per-chat Commands toggle and a character prompt line. An
+//        Engine this new lists every registered command whose type names a registered turn-game engine, so a
+//        game needs no change for either. `registerConversationCommand` also takes `toggle: { label?,
+//        description? }` for the toggle's copy and `startConfig(context)` for the game a character's tag starts
+//        (its config, fewer of the proposed characters, or null to not start it), and a turn-game engine may set
+//        `silentBotMoves: true`. Soft seam: an older Engine ignores all three, so a package passes them without
+//        raising its declared capabilityApi. No permission.
+// 1.828: how a live pool or plain track is drawn (`display: "bar"` or `"dots"`): a fill bar or a row of
+//        dots beside its number on the sheet. Not a soft seam: an Engine that cannot read it refuses the
+//        whole ruleset file. No permission.
+// 1.829: a practice meter on skills (`sheet.progress`, `op="practice"`): 0 to 99 toward the next rank, started
+//        over when the rank changes. Not a soft seam: an Engine that cannot read it refuses the whole ruleset
+//        file. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 829 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
@@ -1797,6 +1848,17 @@ export const capabilityPackageManifestSchema = z
           code: z.ZodIssueCode.custom,
           path: ["permissions"],
           message: 'The "achievements" permission requires schemaVersion 2 and capabilityApi 1.36 or newer',
+        });
+      }
+    }
+    // Same reason as `tools`: `resources.updateCharacterExtensions` only exists on an Engine this new.
+    if (manifest.permissions.includes("character-write")) {
+      const api = manifest.schemaVersion === 2 ? manifest.capabilityApi : null;
+      if (!api || api.major < 1 || (api.major === 1 && api.minor < 819)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["permissions"],
+          message: 'The "character-write" permission requires schemaVersion 2 and capabilityApi 1.819 or newer',
         });
       }
     }

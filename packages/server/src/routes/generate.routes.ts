@@ -8,6 +8,9 @@ import {
   mergedReplyRoster,
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
+  marinaraGameWorldKit,
+  LOCATION_BACKGROUND_PIN_SHOWN_KEY,
+  type LocationBackgroundPin,
 } from "@marinara-engine/shared";
 import {
   GAME_STARTING_GEAR_TAKEN_KEY,
@@ -25,6 +28,7 @@ import {
   runWithRoomGeneration,
   type GenerationRoomContext,
 } from "../services/multiplayer/generation-policy.js";
+import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
 import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
 import { withLorebookImageCompatibility } from "../services/llm/lorebook-image-provider.js";
 import { fixedTextProvider } from "../services/llm/fixed-text-provider.js";
@@ -123,6 +127,7 @@ import { runToolRounds } from "./generate/tool-rounds.js";
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import type { input as SchemaInput } from "zod";
+import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { translateGeneratedMessage } from "../services/translation.service.js";
 import { randomInt, randomUUID } from "crypto";
 import { existsSync } from "fs";
@@ -167,6 +172,7 @@ import {
   normalizeTrackerFieldLocksForState,
   trackerFieldLocksAreEmpty,
   customAgentHasCapability,
+  parseLorebookWriterOrder,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -547,6 +553,16 @@ import {
   resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import {
+  matchLibraryBackgroundForPlace,
+  readBackgroundLibrary,
+} from "../services/generation/illustrator-background-reuse.js";
+import {
+  loadGalleryBackgroundPins,
+  locationBackgroundPinsApply,
+  pinnedBackgroundMetadataPatch,
+  pinnedSceneBackground,
+} from "../services/generation/location-background-pins.js";
+import {
   findCharAvatarFuzzy,
   loadCharacterLibraryAvatarLookup,
   npcAvatarSlug,
@@ -665,7 +681,6 @@ import {
   mergedChatSummaryReaders,
   shouldPreferLatestVisibleGameState,
   shouldRunCharacterActivityAgents,
-  shouldAbortOnPassiveGenerationDisconnect,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   shouldRestoreRegenerationCharacterTarget,
@@ -911,6 +926,7 @@ import { addInventoryEntry, addLocationEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import {
   buildGmFormatReminder,
+  buildRulesetRoleplayReminder,
   buildGmSceneState,
   insertStableGmInstructions,
   rulesetRestAskedFor,
@@ -987,6 +1003,7 @@ import {
   resolveStoredMaxTokens,
 } from "../services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
 import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "../services/generation/model-access-policy.js";
@@ -998,6 +1015,7 @@ import { resolveAgentPipelineAgents, resolveEffectiveAgentSettings } from "../se
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
 import {
   applyChatModelOverride,
+  readChatDeletedModel,
   readChatFollowsMain,
   readChatModelOverride,
   resolveChatConnectionOrFallback,
@@ -1547,7 +1565,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         : null;
 
     // ── Discord webhook URL (parsed once, used for mirroring below) ──
-    const discordWebhookUrl = typeof earlyMeta.discordWebhookUrl === "string" ? earlyMeta.discordWebhookUrl : "";
+    // Stored encrypted (plain from older versions); the server resolves it, the browser only sees a mask.
+    const discordWebhookUrl = readChatMetadataSecret(earlyMeta, "discordWebhookUrl");
     let pendingUserDiscordMsg = "";
     let currentTurnUserMessageId: string | null = null;
     let currentTurnUserMessage: Awaited<ReturnType<typeof chats.createMessage>> | null = null;
@@ -1764,6 +1783,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         },
         null,
         !connId && readChatFollowsMain(chat),
+        // #9126: a chat whose own Model was deleted says so; one that never had a Model stays silent.
+        readChatDeletedModel(chat),
       ).catch(releaseActiveGenerationAndRethrow);
       if (conn) connId = conn.id;
     }
@@ -1886,26 +1907,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     let clientDisconnected = false;
     const stopSseKeepalive = startSseKeepalive(reply);
 
+    // A closed stream is not a Stop: a backgrounded mobile app drops its socket mid-run. Every generation kind,
+    // impersonate included, keeps running and saves its reply for the client to recover; only POST /abort cancels.
     const onClose = () => {
       clientDisconnected = true;
       if (generationComplete) return;
-      if (!shouldAbortOnPassiveGenerationDisconnect({ impersonate: input.impersonate })) {
-        logger.info(
-          "[generate] Client disconnected; generation will continue for %s chat: %s",
-          requestChatMode,
-          input.chatId,
-        );
-        return;
-      }
-      logger.info("[abort] Client disconnected — aborting generation");
-      abortController.abort();
-      if (baseUrl) {
-        const backendRoot = baseUrl.replace(/\/v1\/?$/, "");
-        fetch(backendRoot + "/api/extra/abort", {
-          method: "POST",
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => {});
-      }
+      logger.info(
+        "[generate] Client disconnected; generation will continue for %s chat: %s",
+        requestChatMode,
+        input.chatId,
+      );
     };
     const detachCloseListener = onGenerationOutputClose(reply, onClose);
     if (requestChatMode === "conversation" && !input.impersonate) {
@@ -2759,6 +2770,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         for (const message of mappedMessages) {
           if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
         }
+      } else if (chatMode === "roleplay" && chatMeta.gameRuleset != null && !chatMeta.multiplayer) {
+        // A Roleplay chat that plays by a ruleset saves its checks the way a game does (never a room,
+        // where the ruleset does not run).
+        for (const message of mappedMessages) {
+          if (message.role !== "user") message.content = checkRecordsAsHistoryNotes(message.content);
+        }
       }
 
       // User-message regeneration removes the target turn from real chat history,
@@ -3284,6 +3301,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       let pendingAdvancedMemory: Promise<void> | null = null;
       const pendingRoleplayMedia: Promise<void>[] = [];
       let pendingIllustratorBackground: (() => Promise<void>) | null = null;
+      // Shows a pinned place's background when this turn arrives there (runs before the Illustrator tail).
+      let pendingLocationPin: (() => Promise<void>) | null = null;
+      // Backgrounds this turn's own Background agent showed: the Illustrator tail doesn't read them as
+      // the user changing the background by hand.
+      const backgroundsShownThisTurn = new Set<string>();
       const collectedCommands: Array<{
         command: CharacterCommand;
         characterId: string | null;
@@ -4943,6 +4965,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           primaryProvider: agentChatProvider,
           provider: runtimeProvider,
         } = providerRuntime;
+        // A Claude model that thinks natively is never asked to write its planning into a <think> block:
+        // Claude can refuse that as an attempt to extract its reasoning (#9092).
+        const claudeThinksNatively = isClaudeNoSampling || (enableThinking && /claude/i.test(conn?.model ?? ""));
         // A defined Game Master intro (1.339) is the game's first message exactly as set: streamed as written.
         const definedIntro = await gameIntroNow();
         const provider =
@@ -5290,6 +5315,68 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
         let canonicalGamePartyNames: string[] = [];
 
+        // ── Roleplay played by a ruleset ──
+        // A Roleplay chat pinned to a ruleset from its Chat Settings runs the sheet, check and clock
+        // passes a game runs (they key off the pin and the cards, not the mode), and its narrator is
+        // taught them in the prompt tail. Rooms keep their own command allowlist, so they are left out.
+        const roleplayRulesetTurn =
+          chatMode === "roleplay" && chatMeta.gameRuleset != null && !chatMeta.multiplayer && !input.impersonate;
+        let roleplayRulesetReminder = "";
+        if (roleplayRulesetTurn) {
+          const pinned = resolveGameRuleset(chatMeta, await loadRulesetRegistry());
+          turnGameRuleset = pinned;
+          if (pinned.status === "ok") {
+            try {
+              const definition = pinned.definition;
+              const sheetMeta = await rulesetAdvancementTurnStart(
+                app.db,
+                input.chatId,
+                chatMeta,
+                input.regenerateMessageId,
+              );
+              const sheetCards = Array.isArray(sheetMeta.gameCharacterCards) ? sheetMeta.gameCharacterCards : [];
+              const startSnapshot = await turnStartRulesetSnapshot();
+              const catalogs =
+                definition.resolution.kind === "dice-pool"
+                  ? (turnRulesetCatalogs ??= await loadTurnRulesetCatalogs(
+                      {
+                        definition,
+                        packageId: pinned.packageId,
+                        cards: sheetCommandCards(definition, sheetCards),
+                        playerName: personaName || null,
+                      },
+                      "",
+                      { force: true },
+                    ))
+                  : {};
+              const latestUserText =
+                input.userMessage ??
+                [...chatMessages].reverse().find((message: any) => message.role === "user")?.content ??
+                "";
+              const sheetBlocks = renderGameRulesetSheetBlocks(
+                definition,
+                sheetCards,
+                parseStoredRulesetLive(startSnapshot?.rulesetLive),
+                catalogs,
+                undefined,
+                sheetMeta.gamePartySheet,
+                personaName || null,
+              );
+              const clocks = definition.clocks ? parseStoredRulesetClocks(startSnapshot?.rulesetClocks) : undefined;
+              roleplayRulesetReminder = buildRulesetRoleplayReminder({
+                ruleset: definition,
+                sheetBlocks,
+                clocks,
+                playerAsksRest: rulesetRestAskedFor(definition, String(latestUserText).trimStart()),
+              });
+            } catch (err) {
+              logger.warn(err, "[generate/roleplay] Could not build the ruleset reminder for chat %s", input.chatId);
+            }
+          } else {
+            logger.warn("[generate/roleplay] Chat %s is pinned to a ruleset that is not available", input.chatId);
+          }
+        }
+
         // ── One-request dice: the roll_dice split (#6215) ──
         // Resolved here, above the GM format reminder, because the reminder has to describe the
         // tool exactly when the turn offers it. Both facts below are read twice: once by the
@@ -5605,7 +5692,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : normalizeGameInventoryStacks(chatMeta.gameInventory);
           // A game with no ruleset buys, pays and earns in its setting kit's money (worldgen W6b).
           const promptKitItems =
-            chatMeta.gameRuleset == null ? worldKitItems(gameWorldKitFromMetadata(chatMeta)) : undefined;
+            chatMeta.gameRuleset == null ? worldKitItems(marinaraGameWorldKit(chatMeta)) : undefined;
           // What each ruleset item the party holds is, for the Game Master: read when one is held, or
           // when the game has coins in use (its layers may hide them all), so an empty purse is said
           // too (never told one is empty, the Game Master narrates a buy the Engine then refuses).
@@ -5845,6 +5932,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : undefined;
           const gmReminderArgs: Parameters<typeof buildGmFormatReminder>[0] = {
             sceneState: buildGmSceneState(gmCtx),
+            // A Claude model that thinks natively is not asked for a written <think> plan (#9092).
+            ...(claudeThinksNatively ? { thinksNatively: true } : {}),
             ttsEmotionIndicatorsEnabled: gameTtsEmotionIndicatorsEnabled(await appSettings.get(TTS_SETTINGS_KEY)),
             hasSceneModel,
             hudWidgets: gmCtx.hudWidgets,
@@ -5859,6 +5948,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             characterSprites: gmCtx.characterSprites,
             language: gmCtx.language,
             rating: gmCtx.rating,
+            storyStyle: gmCtx.storyStyle,
+            contentBoundaries: gmCtx.contentBoundaries,
             enableQuickTimeEvents: gmCtx.enableQuickTimeEvents,
             gameSpecialInstructions: gmCtx.gameSpecialInstructions,
             canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
@@ -5926,6 +6017,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // A package that brought its own inventory takes the built-in one out of the prompt.
             // Dungeon, cave and station maps are the Overworld RPG's; Classic Game Mode never opens one.
             overworld: gameStyleFromMetadata(chatMeta) === "overworld",
+            mrpg:
+              (chatMeta.gameSetupConfig as { marinaraClasses?: unknown } | undefined)?.marinaraClasses === true &&
+              chatMeta.gameRuleset == null,
+            ...((chatMeta.gameSetupConfig as { marinaraClasses?: unknown } | undefined)?.marinaraClasses === true &&
+            chatMeta.gameRuleset == null &&
+            chatMeta.multiplayer
+              ? { mrpgRoom: roomMrpgRoster(chatMeta as Record<string, unknown>) }
+              : {}),
             experienceProvidedSystems: capabilityPromptContext.provides,
             // A package that declares GM verbs gets one COMMANDS line each. No package declares a
             // table today, so this renders nothing and the reminder is byte-identical.
@@ -7302,6 +7401,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                   ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                   : undefined,
+                writerOrder:
+                  resultAgent?.isCustomAgent === true
+                    ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                    : undefined,
                 lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                 worldName: agentContext.characters[0]?.world ?? chat.name,
                 existingEntries,
@@ -8550,17 +8653,23 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               model: selectorModel,
               maxContext: selectorConnection.maxContext,
             });
-            const selectorMaxTokens = clampGenerationMaxOutputTokens({
-              provider: selectorConnection.provider,
-              model: selectorModel,
-              maxTokens: resolveStoredMaxTokens(selectorConnection.defaultParameters, DEFAULT_AGENT_MAX_TOKENS),
-              maxTokensOverride: selectorConnection.maxTokensOverride,
-            });
             const selectorDefaults = resolveStoredChatOptions(
               selectorConnection.defaultParameters,
               selectorConnection.provider,
               selectorModel,
             );
+            const selectorMaxTokens = withAlwaysOnThinkingHeadroom({
+              provider: selectorConnection.provider,
+              model: selectorModel,
+              maxTokens: clampGenerationMaxOutputTokens({
+                provider: selectorConnection.provider,
+                model: selectorModel,
+                maxTokens: resolveStoredMaxTokens(selectorConnection.defaultParameters, DEFAULT_AGENT_MAX_TOKENS),
+                maxTokensOverride: selectorConnection.maxTokensOverride,
+              }),
+              reasoningEffort: selectorDefaults.reasoningEffort,
+              maxTokensOverride: selectorConnection.maxTokensOverride,
+            });
 
             const result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
               selectorProvider.chatComplete(selectionPrompt, {
@@ -9229,16 +9338,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             appendRoleplayPromptTail(
               preparedMessagesForGen,
               roleplayPersonalContext,
-              buildRoleplayCommandsReminder({
-                metadata: chatMeta,
-                privateAvailable: roleplayPrivateAvailable,
-                availableAgentIds: new Set(resolvedAgents.map((agent) => agent.type)),
-                format: wrapFormat,
-                characterNames: charInfo.map((character) => character.name),
-                characterId: roleplayCallerId,
-                interruptAvailable: Boolean(roleplayInterruptionTarget),
-                video: roleplayVideoOffer,
-              }),
+              [
+                buildRoleplayCommandsReminder({
+                  metadata: chatMeta,
+                  privateAvailable: roleplayPrivateAvailable,
+                  availableAgentIds: new Set(resolvedAgents.map((agent) => agent.type)),
+                  format: wrapFormat,
+                  characterNames: charInfo.map((character) => character.name),
+                  characterId: roleplayCallerId,
+                  interruptAvailable: Boolean(roleplayInterruptionTarget),
+                  video: roleplayVideoOffer,
+                }),
+                roleplayRulesetReminder,
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
               wrapFormat,
             );
           }
@@ -10185,7 +10299,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // Resolve this new segment before content_replace and persistence.
           // A continuation's already-saved segment is never rolled again.
-          if (chatMode === "game" && !input.impersonate) {
+          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate) {
             // The sighted pool is handed to BOTH readers and to nobody else. It is what tells
             // a record the model just wrote apart from one read back out of a saved message:
             // the two are the same bytes, so the distinction is carried out of band rather
@@ -10200,6 +10314,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   input.regenerateMessageId,
                 ),
               chatId: input.chatId,
+              // A pushed roll (1.826) starts from the record in the reply before this one.
+              lastReply: () => {
+                const last = chatMessages.filter((message: any) => message.role === "assistant").at(-1);
+                return typeof last?.content === "string" ? last.content : undefined;
+              },
+              // What a branch arm rolled above stands: the tag pass does not roll it again.
+              ...(gameChanceSession
+                ? { engineRecords: gameChanceSession.engineRecords, engineDice: gameChanceSession.engineDice }
+                : {}),
               // Keyed on the pin being PRESENT, not on it resolving. A pin the install cannot
               // honour must still fail closed (the context refuses to load and the checks are
               // saved sparse); treating it as unpinned would roll a ruleset game's checks with
@@ -10259,10 +10382,27 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             // A defined intro stays as set: its rolls are recorded, its text is not rewritten around them.
             if (
               definedIntro?.mode !== "defined" &&
-              shouldNarrateGameDiceOutcome(
-                chatMeta,
-                Boolean(rolled.resolved || rolled.untrained || rolled.unknownRoller || generalRolls.rolled),
-              )
+              // One-request dice (a game's default) settles a roll inside the draft; Roleplay has no such
+              // pass, so a ruleset chat always narrates what its dice did, unless its narration is off.
+              (roleplayRulesetTurn
+                ? chatMeta.gameDiceOutcomeNarration !== false &&
+                  Boolean(
+                    rolled.resolved ||
+                    rolled.untrained ||
+                    rolled.unknownRoller ||
+                    rolled.notPushable ||
+                    generalRolls.rolled,
+                  )
+                : shouldNarrateGameDiceOutcome(
+                    chatMeta,
+                    Boolean(
+                      rolled.resolved ||
+                      rolled.untrained ||
+                      rolled.unknownRoller ||
+                      rolled.notPushable ||
+                      generalRolls.rolled,
+                    ),
+                  ))
             ) {
               // The first draft predates these results. Rewrite it with the real
               // outcomes in context, including on providers without a tools API.
@@ -10299,7 +10439,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   draftTurn,
                   {
                     role: "user",
-                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: any planning goes inside one <think>...</think> block at the very start, never in the narration.`,
+                    content: `${resolvedSummary ? `The engine has now rolled the requested dice:\n${resolvedSummary}` : "The engine has now read the requested checks:\nNo dice were rolled."}${paidCheckCosts.length ? `\nReported check-purchase payments (other check-entry costs may also have been paid): ${JSON.stringify(paidCheckCosts)}` : ""}${generalRolls.unresolved.length ? `\nUnresolved requests:\n${generalRolls.unresolved.join("\n")}` : ""}${rolled.sparse - (rolled.untrained ?? 0) - (rolled.unknownRoller?.count ?? 0) - (rolled.notPushable ?? 0) > 0 ? "\nSome checks could not be rolled and remain unresolved." : ""}${rolled.notPushable ? "\nSome pushes were not made, because your previous reply has no roll of that check by that character to push (or it was already pushed): the earlier roll stands, so narrate it as it was." : ""}${rolled.untrained ? "\nSome checks were not rolled because the character has no training in them: narrate that they could not attempt them." : ""}${rolled.unknownRoller ? "\nSome checks were not rolled because they did not name one party member: leave their outcome open; ask again next turn with who= set to the party member's name." : ""}\n${addressMode === "gm" ? "Rewrite your entire last out-of-character answer using these real results, correcting any contradictory outcome before or after a check. Answer the player's question now." : "Rewrite your entire last narration using these real results, correcting any contradictory outcome before or after a check. Narrate the consequences now."} Do not repeat this player's action, invent numbers, request more rolls, or include dice/check tags: the engine keeps their records. For unresolved requests, leave the outcome open and explain what the player needs to clarify in supported notation. Re-emit every original movement or package command still justified by these outcomes; omit commands invalidated by them.${rewriteKeptCommandsNote(chatMeta.gameRuleset != null)} ${addressMode === "gm" ? "Return only the complete revised out-of-character answer in the game's language, starting directly with the answer" : roleplayRulesetTurn ? "Return only the complete revised reply, starting directly with it" : "Return only the complete revised GM narration in the game's language, starting directly with the scene"}: ${claudeThinksNatively ? "no planning, notes or analysis, only the reply itself" : "any planning goes inside one <think>...</think> block at the very start, never in the narration"}.`,
                   },
                 ],
                 { tools: undefined },
@@ -10399,7 +10539,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           let rulesetSheetTurn: GameRulesetSheetTurn | null = null;
           // Kept for the inventory tags below, which use items onto the same sheets.
           let turnSheetContext: GameRulesetSheetContext | null = null;
-          if (chatMode === "game" && !input.impersonate && chatMeta.gameRuleset != null) {
+          if ((chatMode === "game" || roleplayRulesetTurn) && !input.impersonate && chatMeta.gameRuleset != null) {
             // Purchases the checks above already paid for, folded onto the turn's starting state
             // one character at a time, so a member nobody spent for is untouched.
             const withSpends = (base: RulesetLiveStates | null) =>
@@ -10524,7 +10664,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // A game with no ruleset has its setting kit's market (worldgen W6b).
           const turnKitItems =
             chatMode === "game" && !input.impersonate && chatMeta.gameRuleset == null
-              ? worldKitItems(gameWorldKitFromMetadata(chatMeta))
+              ? worldKitItems(marinaraGameWorldKit(chatMeta))
               : undefined;
           const turnMarket =
             chatMode === "game" && !input.impersonate && turnGameRuleset?.status === "ok"
@@ -12432,6 +12572,50 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : allResponses
                 .map((response, index) => agentReplyText(response, responseMessageIds.get(index)))
                 .join("\n\n");
+        // Pinned places (Chat settings > Background) and gallery backgrounds with places: where this turn's
+        // story is (tracker text + World Maps place) checked against them.
+        let galleryPinsLoad: Promise<LocationBackgroundPin[]> | null = null;
+        const galleryPinsForChat = () =>
+          (galleryPinsLoad ??=
+            chatMode === "roleplay"
+              ? loadGalleryBackgroundPins({
+                  characters: charInfo.map((character) => ({ id: character.id, name: character.name })),
+                  persona: personaId ? { id: personaId, name: personaName } : null,
+                  characterGallery,
+                  personaGallery,
+                }).catch((err: unknown) => {
+                  logger.warn(err, "[location-backgrounds] Could not load gallery background pins");
+                  return [];
+                })
+              : Promise.resolve([]));
+        const pinsApplyToChat = async (metadata: Record<string, unknown>) =>
+          locationBackgroundPinsApply(chatMode, metadata, await galleryPinsForChat());
+        // The reply's character: "my bedroom" in John's reply is John's.
+        const replySpeakerName = () =>
+          (lastSavedMsg as { role?: string } | null)?.role === "user"
+            ? personaName
+            : (charInfo.find(
+                (character) => character.id === (lastSavedMsg as { characterId?: string } | null)?.characterId,
+              )?.name ?? null);
+        const pinnedSceneBackgroundForTurn = async (snapshotMessageId: string, snapshotSwipeIndex: number) => {
+          const snapshot = snapshotMessageId
+            ? await gameStateStore.getByChatAndMessage(input.chatId, snapshotMessageId, snapshotSwipeIndex)
+            : null;
+          const state = snapshot ? parseGameStateRow(snapshot as Record<string, unknown>) : gameState;
+          const projection = hierarchicalMapsEnabledForChat
+            ? await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta)
+            : null;
+          return pinnedSceneBackground({
+            chatMode,
+            chatMetadata: chatMeta,
+            location: state?.location ?? null,
+            projection,
+            userName: personaName,
+            characterNames: charInfo.map((character) => character.name),
+            speakerName: replySpeakerName(),
+            galleryPins: await galleryPinsForChat(),
+          });
+        };
         let assistantMessageReadySent = false;
         const sendAssistantMessageReady = async (savedMessage?: typeof currentIterationSavedMsg) => {
           if (assistantMessageReadySent || generationSignal.aborted || input.impersonate) return;
@@ -13509,6 +13693,50 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const defaultResultMessageId = messageId;
           const defaultResultSwipeIndex = targetSwipeIndex;
+          if (messageId && (await pinsApplyToChat(chatMeta))) {
+            pendingLocationPin = async () => {
+              try {
+                const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
+                const freshChat = await chats.getById(input.chatId);
+                const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
+                const shownPinId =
+                  typeof freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === "string"
+                    ? (freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] as string)
+                    : null;
+                if (!pinned) {
+                  // Left the pinned place: the next arrival there shows its picture again.
+                  if (shownPinId)
+                    await chats.patchMetadata(input.chatId, { [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: null });
+                  return;
+                }
+                // Same pinned place as before: a picture the user picked by hand here stays.
+                if (shownPinId === pinned.match.pin.id) return;
+                backgroundsShownThisTurn.add(pinned.filename);
+                await chats.patchMetadata(input.chatId, {
+                  background: pinned.filename,
+                  [LOCATION_BACKGROUND_PIN_SHOWN_KEY]: pinned.match.pin.id,
+                });
+                sendSseEvent(reply, {
+                  type: "agent_result",
+                  data: {
+                    agentType: "location-backgrounds",
+                    agentName: "Pinned place",
+                    resultType: "background_change",
+                    data: { chosen: pinned.filename, pinnedPlace: pinned.match.matched },
+                    success: true,
+                    error: null,
+                  },
+                });
+                logger.info(
+                  '[location-backgrounds] Arrived at "%s"; showing "%s"',
+                  pinned.match.matched,
+                  pinned.filename,
+                );
+              } catch (pinError) {
+                logger.warn(pinError, "[location-backgrounds] Could not show the pinned background");
+              }
+            };
+          }
           for (const result of sortedResults) {
             const commandTarget = roleplayMediaTargets.get(result);
             const messageId = commandTarget?.messageId ?? defaultResultMessageId;
@@ -13545,8 +13773,51 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
+              // A pinned place owns its picture: the agent can't swap it for another one there.
+              let pinnedPatch: Record<string, unknown> | null = null;
+              if (bgData.chosen && (await pinsApplyToChat(chatMeta))) {
+                try {
+                  const pinned = await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex);
+                  if (pinned) {
+                    const freshMeta = parseExtra((await chats.getById(input.chatId))?.metadata) as Record<
+                      string,
+                      unknown
+                    >;
+                    const current =
+                      typeof freshMeta.background === "string" && freshMeta.background.trim()
+                        ? freshMeta.background.trim()
+                        : null;
+                    logger.info(
+                      '[location-backgrounds] "%s" is pinned to "%s"; Background agent pick "%s" not used',
+                      pinned.match.matched,
+                      pinned.filename,
+                      bgData.chosen,
+                    );
+                    (bgData as Record<string, unknown>).pinnedPlace = pinned.match.matched;
+                    if (freshMeta[LOCATION_BACKGROUND_PIN_SHOWN_KEY] === pinned.match.pin.id) {
+                      // Already shown on arrival: whatever shows now (maybe the user's own pick) stays.
+                      bgData.chosen = null;
+                    } else {
+                      bgData.chosen = pinned.filename === current ? null : pinned.filename;
+                      pinnedPatch = pinnedBackgroundMetadataPatch(pinned);
+                    }
+                  }
+                } catch (pinError) {
+                  logger.warn(pinError, "[location-backgrounds] Could not check pinned places");
+                }
+              }
+              if (pinnedPatch) {
+                if (typeof pinnedPatch.background === "string") backgroundsShownThisTurn.add(pinnedPatch.background);
+                try {
+                  await updateChatMetadataForTools(pinnedPatch);
+                } catch {
+                  /* non-critical */
+                }
+              }
+
               // Persist the validated background to chat metadata so it restores on reload
-              if (bgData.chosen) {
+              if (bgData.chosen && !pinnedPatch) {
+                backgroundsShownThisTurn.add(bgData.chosen);
                 try {
                   await updateChatMetadataForTools({ background: bgData.chosen });
                 } catch {
@@ -14418,6 +14689,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     writableLorebooks: Array.isArray(agentContext.memory._writableLorebooks)
                       ? (agentContext.memory._writableLorebooks as Array<{ id: string; name: string }>)
                       : undefined,
+                    writerOrder:
+                      resultAgent?.isCustomAgent === true
+                        ? parseLorebookWriterOrder(resultAgent.settings.newLorebookEntryOrder)
+                        : undefined,
                     lorebookNamingScheme: getLorebookNamingScheme(resultAgent?.settings),
                     worldName: agentContext.characters[0]?.world ?? chat.name,
                     // Anchor keeper lore to the turn it was extracted from so
@@ -14665,7 +14940,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       typeof freshMeta.background === "string" && freshMeta.background.trim()
                         ? freshMeta.background.trim()
                         : null;
-                    if (backgroundBeforeGeneration !== backgroundAtDecision) {
+                    // A pinned place keeps its picture: the Illustrator paints nothing there.
+                    if (
+                      (await pinsApplyToChat(freshMeta)) &&
+                      (await pinnedSceneBackgroundForTurn(messageId, targetSwipeIndex))
+                    ) {
+                      logger.info("[illustrator-background] The story is at a pinned place; no new background");
+                      return;
+                    }
+                    if (
+                      backgroundBeforeGeneration !== backgroundAtDecision &&
+                      !(backgroundBeforeGeneration && backgroundsShownThisTurn.has(backgroundBeforeGeneration))
+                    ) {
                       logger.info(
                         "[illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
                       );
@@ -14695,21 +14981,43 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         latestGameState?.location,
                       );
                     }
-                    const generated = await generateIllustratorSceneBackground({
-                      db: app.db,
-                      chatId: input.chatId,
-                      chatName: chat.name,
-                      chatMode: chatMode === "game" ? "game" : "roleplay",
-                      chatMetadata: freshMeta,
-                      currentBackground: backgroundBeforeGeneration ?? currentBackground,
-                      illustratorAgent: illustratorBackgroundAgent,
-                      assistantResponse: agentCompletedResponse,
-                      decisionReason: backgroundDecisionReason,
-                      gameState: latestGameState,
-                      recentMessages: agentContext.recentMessages,
-                      signal: agentSignal,
-                      debugLog,
-                    });
+                    // A place the library already has a picture of is shown, not painted again: first by the
+                    // tracker location, then (without one) by the place name the background plan writes.
+                    const backgroundLibrary = readBackgroundLibrary();
+                    const trackerLocation = latestGameState?.location?.trim() || null;
+                    const existingForLocation = matchLibraryBackgroundForPlace(trackerLocation, backgroundLibrary);
+                    const generated = existingForLocation
+                      ? {
+                          filename: existingForLocation,
+                          locationName: trackerLocation ?? existingForLocation,
+                          prompt: "",
+                          reason: `Already in the library for ${trackerLocation ?? "this place"}.`,
+                          tags: [] as string[],
+                          url: `/api/backgrounds/file/${encodeURIComponent(existingForLocation)}`,
+                          reused: true,
+                        }
+                      : await generateIllustratorSceneBackground({
+                          db: app.db,
+                          chatId: input.chatId,
+                          chatName: chat.name,
+                          chatMode: chatMode === "game" ? "game" : "roleplay",
+                          chatMetadata: freshMeta,
+                          currentBackground: backgroundBeforeGeneration ?? currentBackground,
+                          illustratorAgent: illustratorBackgroundAgent,
+                          assistantResponse: agentCompletedResponse,
+                          decisionReason: backgroundDecisionReason,
+                          gameState: latestGameState,
+                          recentMessages: agentContext.recentMessages,
+                          signal: agentSignal,
+                          debugLog,
+                          reuseExisting: trackerLocation
+                            ? undefined
+                            : (plan) => matchLibraryBackgroundForPlace(plan.locationName, backgroundLibrary),
+                        });
+                    if (generated.filename === backgroundBeforeGeneration) {
+                      logger.info('[illustrator-background] "%s" already shows this place', generated.filename);
+                      return;
+                    }
 
                     const chatAfterGeneration = await chats.getById(input.chatId);
                     const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
@@ -14717,7 +15025,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
                         ? metaAfterGeneration.background.trim()
                         : null;
-                    if (backgroundAfterGeneration !== backgroundAtDecision) {
+                    if (backgroundAfterGeneration !== backgroundBeforeGeneration) {
                       logger.info(
                         "[illustrator-background] Saved %s to the library without activating it because the background changed during generation",
                         generated.filename,
@@ -14734,7 +15042,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         resultType: "background_change",
                         data: {
                           chosen: generated.filename,
-                          generated: true,
+                          generated: generated.reused !== true,
                           location: generated.locationName,
                           reason: generated.reason,
                           tags: generated.tags,
@@ -14744,7 +15052,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       },
                     });
                     logger.info(
-                      '[illustrator-background] Generated and activated "%s" for %s',
+                      '[illustrator-background] %s and activated "%s" for %s',
+                      generated.reused ? "Reused" : "Generated",
                       generated.filename,
                       generated.locationName,
                     );
@@ -14969,6 +15278,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       let illustratorRefImages: string[] | undefined;
                       const referenceResolution = await resolveIllustratorCharacterReferences({
                         charactersStore: chars,
+                        chatScope:
+                          requestChatMode === "roleplay"
+                            ? { chatId: input.chatId, characterIds: allCharacterIds, getById: chars.getById }
+                            : undefined,
                         characterGallery,
                         personaGallery,
                         ...illustratorCast(),
@@ -16094,6 +16407,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       // Start the independent scene-background tail after tracker persistence,
       // then keep the SSE stream open for visual jobs and Advanced Recall activity.
       if (chatMode === "game" && chatMeta.gameSequentialAgents === true) await pendingIllustration;
+      if (pendingLocationPin) await pendingLocationPin();
       const pendingBackground = pendingIllustratorBackground ? pendingIllustratorBackground() : null;
       if (pendingIllustration || pendingBackground || pendingAdvancedMemory || pendingRoleplayMedia.length) {
         await Promise.allSettled(

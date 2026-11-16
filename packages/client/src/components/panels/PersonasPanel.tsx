@@ -20,17 +20,13 @@ import {
   useDuplicatePersona,
 } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
-import { sortPanelFolders } from "../../lib/panel-sort";
+import { sortFoldersByTokens, sortItemsByTokens, sortPanelFolders, type LibrarySort } from "../../lib/panel-sort";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
 import {
-  Plus,
   Trash2,
   User,
   VenetianMask,
   Camera,
-  ArrowUpDown,
-  Download,
-  Search,
-  FolderPlus,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -39,6 +35,7 @@ import {
   UserMinus,
   Tag,
   Bot,
+  Hash,
 } from "lucide-react";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
@@ -48,8 +45,11 @@ import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
+import { LibraryToolbar } from "../ui/LibraryToolbar";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import { PanelVirtualList } from "./PanelVirtualList";
+import { PanelListSkeleton } from "../ui/PanelStates";
 import {
   formatCardLibraryMeta,
   getCardLibrarySummary,
@@ -58,12 +58,13 @@ import {
 } from "../../lib/card-library-search";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
-import { estimateTextTokens, type Persona } from "@marinara-engine/shared";
+import { estimatePersonaTokens, isTokenSort, type Persona } from "@marinara-engine/shared";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string; createdAt: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
 
-type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
+type SortOption = LibrarySort;
 
 function getNextUnnamedFolderName(folders: Array<{ name: string }>) {
   const names = new Set(folders.map((folder) => folder.name.toLowerCase()));
@@ -80,11 +81,6 @@ function parseDroppedPersonaIds(payload: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-function estimateTokens(p: Persona): number {
-  const text = [p.description, p.personality, p.scenario, p.backstory, p.appearance].join("");
-  return estimateTextTokens(text);
 }
 
 function getPersonaPreviewMetadata(p: Persona): string | null {
@@ -425,6 +421,7 @@ export function PersonasPanel() {
       return matchesCardLibrarySearch(
         {
           name: p.name,
+          aliases: p.nameAliases,
           title: p.comment,
           meta: formatCardLibraryMeta(p.creator, p.personaVersion),
           summary: getCardLibrarySummary([p.summary, p.creatorNotes, p.description, p.personality, p.backstory]),
@@ -460,8 +457,9 @@ export function PersonasPanel() {
         return arr.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return arr.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
-      case "tokens":
-        return arr.sort((a, b) => estimateTokens(b) - estimateTokens(a));
+      case "tokens-desc":
+      case "tokens-asc":
+        return sortItemsByTokens(arr, sort, estimatePersonaTokens, (persona) => persona.name);
       default:
         return arr;
     }
@@ -469,19 +467,19 @@ export function PersonasPanel() {
   const list = useMemo(() => orderLibraryItems(listBySort), [orderLibraryItems, listBySort]);
 
   const sortedGroups = useMemo(() => {
-    const folders = sortPanelFolders(parsedGroups, sort === "tokens" ? "name-asc" : sort);
-    if (sort !== "tokens") return folders;
-    const tokens = new Map(list.map((persona) => [persona.id, estimateTokens(persona)]));
-    const totals = new Map(
-      folders.map((folder) => [folder.id, folder.memberIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0)]),
+    if (!isTokenSort(sort)) return sortPanelFolders(parsedGroups, sort);
+    const tokens = new Map(list.map((persona) => [persona.id, estimatePersonaTokens(persona)]));
+    return sortFoldersByTokens(parsedGroups, sort, (folder) =>
+      folder.memberIds.reduce((total, id) => total + (tokens.get(id) ?? 0), 0),
     );
-    return folders.sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
   }, [parsedGroups, sort, list]);
 
   const visibleRootPersonas = useMemo(
     () => list.filter((persona) => !folderedPersonaIds.has(persona.id)),
     [list, folderedPersonaIds],
   );
+  // Only the root cards near the viewport are in the DOM; a dragged card stays mounted (see PanelVirtualList).
+  const draggedRootIndex = draggedPersonaId ? visibleRootPersonas.findIndex((p) => p.id === draggedPersonaId) : -1;
   const personaOrder = useMemo(() => new Map(list.map((persona, index) => [persona.id, index])), [list]);
   const folderFilterActive = search.trim().length > 0 || activeTag !== null;
 
@@ -572,185 +570,124 @@ export function PersonasPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <div
-        className="mari-chrome-segmented mari-chrome-segmented--two"
-        data-component="PersonaLibraryActions"
-        style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-      >
-        <button
-          type="button"
-          onClick={openBotBrowser}
-          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
-          title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
-        >
-          <span className="shrink-0 leading-none">
-            <Bot size="0.875rem" />
-          </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-            {localizeUi("ui.panels.resourceLibraryLauncher.download")}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={openPersonaLibrary}
-          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
-          title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
-        >
-          <span className="shrink-0 leading-none">
-            <VenetianMask size="0.875rem" />
-          </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-            {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
-          </span>
-        </button>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          onClick={handleCreate}
-          className="mari-panel-gradient-button mari-panel-gradient--personas flex-1 text-xs"
-          title={localizeUi("ui.lorebooks.lorebookassignmentsection.new")}
-        >
-          <Plus size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => openModal("import-persona")}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={localizeUi("ui.chat.chatbranchselector.import")}
-        >
-          <Download size="0.8125rem" />
-        </button>
-        <button
-          onClick={() => {
+      <LibraryToolbar
+        tone="personas"
+        library={{
+          download: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.download"),
+            title: localizeUi("ui.panels.resourceLibraryLauncher.downloadCards"),
+            icon: Bot,
+            onClick: openBotBrowser,
+          },
+          openLibrary: {
+            label: localizeUi("ui.panels.resourceLibraryLauncher.openLibrary"),
+            title: localizeUi("ui.panels.personaspanel.openPersonasLibrary"),
+            icon: VenetianMask,
+            onClick: openPersonaLibrary,
+          },
+          dataComponent: "PersonaLibraryActions",
+        }}
+        create={{
+          label: localizeUi("ui.panels.personaspanel.createPersona"),
+          title: localizeUi("ui.lorebooks.lorebookassignmentsection.new"),
+          onClick: handleCreate,
+        }}
+        importAction={{
+          label: localizeUi("ui.panels.personaspanel.importPersonas"),
+          title: localizeUi("ui.chat.chatbranchselector.import"),
+          onClick: () => openModal("import-persona"),
+        }}
+        select={{
+          active: selectionMode,
+          label: selectionMode
+            ? localizeUi("ui.panels.personaspanel.exitPersonaSelectionMode")
+            : localizeUi("ui.panels.personaspanel.selectPersonas"),
+          title: localizeUi("settings.common.select"),
+          onToggle: () => {
             if (selectionMode) exitSelectionMode();
             else setSelectionMode(true);
-          }}
-          className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
-            selectionMode && "mari-chrome-control--selected",
-          )}
-          title={localizeUi("settings.common.select")}
-        >
-          <Check size="0.8125rem" />
-        </button>
-      </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search size="0.8125rem" className="mari-chrome-field-icon absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={localizeUi("search.panels.personasAndTags")}
-            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-          />
-        </div>
-        <div className="relative">
-          <select
-            value={manualOrderActive || folderDrag.active ? "custom" : sort}
-            onChange={(e) => {
-              manualOrder.setActive(e.target.value === "custom");
-              folderDrag.setActive(e.target.value === "custom");
-              if (e.target.value !== "custom") setSort(e.target.value as SortOption);
-            }}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-            title={localizeUi("ui.panels.agentspanel.sortOrder")}
-          >
-            <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-              {localizeUi("dragDrop.manualOrder")}
-            </option>
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-            <option value="tokens">{localizeUi("ui.panels.personaspanel.tokens")}</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleCreateFolder}
-            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
-          >
-            <FolderPlus size="0.75rem" />
-            {localizeUi("ui.panels.backgroundpicker.newFolder")}
-          </button>
-        </div>
-        {parsedGroups.length > 0 && (
-          <p className="mari-folder-helper">
-            {localizeUi("ui.panels.personaspanel.dragAndDropPersonasToFoldersDoubleClickOr")}
-          </p>
-        )}
-      </div>
-
-      {/* Filters */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          <button
-            onClick={() => setTagsExpanded(!tagsExpanded)}
-            className={cn(
-              "mari-chrome-control mari-chrome-control--compact",
-              activeTag && "mari-chrome-control--selected",
-            )}
-          >
-            <Tag size="0.625rem" />
-            {localizeUi("ui.panels.backgroundpicker.tagsValue1", { value1: allTags.length })}
-            <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
-          </button>
-        </div>
-      )}
-
-      {allTags.length > 0 && tagsExpanded && (
-        <div className="flex flex-wrap gap-1">
-          {activeTag && (
+          },
+        }}
+        search={{ value: search, placeholder: localizeUi("search.panels.personasAndTags"), onChange: setSearch }}
+        sort={{
+          value: manualOrderActive || folderDrag.active ? "custom" : sort,
+          label: localizeUi("ui.panels.personaspanel.sortPersonas"),
+          onChange: (value) => {
+            manualOrder.setActive(value === "custom");
+            folderDrag.setActive(value === "custom");
+            if (value !== "custom") setSort(value as SortOption);
+          },
+          tokenSort: true,
+        }}
+        folder={{
+          label: localizeUi("ui.panels.backgroundpicker.newFolder"),
+          onCreate: handleCreateFolder,
+          helper:
+            parsedGroups.length > 0
+              ? localizeUi("ui.panels.personaspanel.dragAndDropPersonasToFoldersDoubleClickOr")
+              : undefined,
+        }}
+      >
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
             <button
-              onClick={() => setActiveTag(null)}
-              className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
-            >
-              <X size="0.5rem" /> {localizeUi("lorebook.editor.batch.clear")}
-            </button>
-          )}
-          {allTags.map((tag) => (
-            <div
-              key={tag}
-              role="button"
-              tabIndex={0}
-              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setActiveTag(activeTag === tag ? null : tag);
-                }
-              }}
+              onClick={() => setTagsExpanded(!tagsExpanded)}
               className={cn(
-                "mari-chrome-control mari-chrome-control--compact group/tag cursor-pointer",
-                activeTag === tag && "mari-chrome-control--selected",
+                "mari-chrome-control mari-chrome-control--compact",
+                activeTag && "mari-chrome-control--selected",
               )}
             >
-              {tag}
+              <Tag size="0.625rem" />
+              {localizeUi("ui.panels.backgroundpicker.tagsValue1", { value1: allTags.length })}
+              <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
+            </button>
+          </div>
+        )}
+
+        {allTags.length > 0 && tagsExpanded && (
+          <div className="flex flex-wrap gap-1">
+            {activeTag && (
               <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteTag(tag);
-                }}
-                className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
-                title={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
+                onClick={() => setActiveTag(null)}
+                className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
               >
-                <X size="0.5rem" />
+                <X size="0.5rem" /> {localizeUi("lorebook.editor.batch.clear")}
               </button>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+            {allTags.map((tag) => (
+              <div
+                key={tag}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveTag(activeTag === tag ? null : tag);
+                  }
+                }}
+                className={cn(
+                  "mari-chrome-control mari-chrome-control--compact group/tag cursor-pointer",
+                  activeTag === tag && "mari-chrome-control--selected",
+                )}
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTag(tag);
+                  }}
+                  className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
+                  title={localizeUi("ui.panels.characterspanel.deleteTagValue1", { value1: tag })}
+                >
+                  <X size="0.5rem" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </LibraryToolbar>
 
       {/* Hidden file input for avatar uploads */}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
@@ -765,6 +702,7 @@ export function PersonasPanel() {
           ).sort((a, b) => (personaOrder.get(a) ?? list.length) - (personaOrder.get(b) ?? list.length));
           if (folderFilterActive && folderMemberIds.length === 0) return null;
           const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
+          const renderableMemberIds = folderMemberIds.filter((pid) => personaMap.has(pid));
           const isEditing = editingGroupId === group.id;
           return (
             <div
@@ -895,15 +833,20 @@ export function PersonasPanel() {
                     {localizeUi("ui.panels.personaspanel.dropPersonasHere")}
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {folderMemberIds.map((pid) => {
-                      const p = personaMap.get(pid);
-                      if (!p) return null;
+                  <PanelVirtualList
+                    listKey={`personas:folder:${group.id}`}
+                    count={renderableMemberIds.length}
+                    getItemKey={(index) => renderableMemberIds[index]!}
+                    estimateSize={56}
+                    gap={2}
+                    pinnedIndex={draggedPersonaId ? renderableMemberIds.indexOf(draggedPersonaId) : -1}
+                    renderRow={(index) => {
+                      const pid = renderableMemberIds[index]!;
+                      const p = personaMap.get(pid)!;
                       const isBulkSelected = selectedPersonaIds.has(pid);
                       const personaMetadata = getPersonaPreviewMetadata(p);
                       return (
                         <div
-                          key={pid}
                           data-touch-drag-card="persona"
                           data-drag-id={pid}
                           aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
@@ -969,7 +912,7 @@ export function PersonasPanel() {
                           role="button"
                           tabIndex={0}
                           className={cn(
-                            "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
+                            "group group/member relative flex min-h-11 touch-pan-y cursor-grab active:cursor-grabbing items-center gap-2 rounded-lg p-1.5 text-xs transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)]",
                             touchSafePersonaDragMode && "select-none",
                             selectionMode &&
                               isBulkSelected &&
@@ -1003,7 +946,7 @@ export function PersonasPanel() {
                           <div className="mari-avatar-placeholder mari-avatar-placeholder--persona relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg">
                             {p.avatarPath ? (
                               <AvatarImage
-                                src={p.avatarPath}
+                                src={avatarPreviewSrc(p.avatarPath)}
                                 alt=""
                                 iconSize="0.625rem"
                                 className="h-full w-full rounded-lg object-cover"
@@ -1030,6 +973,13 @@ export function PersonasPanel() {
                                 {personaMetadata}
                               </div>
                             )}
+                            <div
+                              className="mari-chrome-text-muted flex items-center gap-1 text-[0.5625rem]"
+                              title={localizeUi("ui.panels.personaspanel.tokenEstimateHint")}
+                            >
+                              <Hash size="0.5rem" />
+                              {formatEstimatedTokens(estimatePersonaTokens(p), localizeUi)}
+                            </div>
                             <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
                               {p.description || "No description"}
                             </div>
@@ -1054,8 +1004,8 @@ export function PersonasPanel() {
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 )}
               </SmoothFolderContent>
             </div>
@@ -1063,13 +1013,7 @@ export function PersonasPanel() {
         })}
       </div>
 
-      {isLoading && (
-        <div className="flex flex-col gap-2 py-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="shimmer h-16 rounded-xl" />
-          ))}
-        </div>
-      )}
+      {isLoading && <PanelListSkeleton rows={2} rowClassName="h-16 rounded-xl" />}
 
       {!isLoading && list.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
@@ -1100,14 +1044,31 @@ export function PersonasPanel() {
         </div>
       )}
 
-      <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-        {visibleRootPersonas.map((persona) => {
+      <PanelVirtualList
+        listKey="personas:root"
+        count={visibleRootPersonas.length}
+        getItemKey={(index) => visibleRootPersonas[index]!.id}
+        estimateSize={64}
+        gap={4}
+        pinnedIndex={draggedRootIndex}
+        paging={
+          clientOnlyPersonaFilterActive
+            ? undefined
+            : {
+                hasNextPage: personaPages.hasNextPage,
+                isFetchingNextPage: personaPages.isFetchingNextPage,
+                isFetchNextPageError: personaPages.isFetchNextPageError,
+                onNearEnd: () => void personaPages.fetchNextPage(),
+              }
+        }
+        className="min-h-8 rounded-xl transition-colors"
+        renderRow={(index) => {
+          const persona = visibleRootPersonas[index]!;
           const isBulkSelected = selectedPersonaIds.has(persona.id);
           const personaMetadata = getPersonaPreviewMetadata(persona);
 
           return (
             <div
-              key={persona.id}
               data-touch-drag-card="persona"
               data-drag-id={persona.id}
               aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
@@ -1135,7 +1096,7 @@ export function PersonasPanel() {
                 })
               }
               className={cn(
-                "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                "group relative flex touch-pan-y cursor-grab active:cursor-grabbing items-center gap-3 rounded-xl p-2.5 transition-[color,background-color,box-shadow,opacity] hover:bg-[var(--sidebar-accent)]",
                 selectionMode &&
                   isBulkSelected &&
                   "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1214,7 +1175,7 @@ export function PersonasPanel() {
                 <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl">
                   {persona.avatarPath ? (
                     <AvatarImage
-                      src={persona.avatarPath}
+                      src={avatarPreviewSrc(persona.avatarPath)}
                       alt=""
                       iconSize="1rem"
                       loading="lazy"
@@ -1243,6 +1204,13 @@ export function PersonasPanel() {
                 {personaMetadata && (
                   <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{personaMetadata}</div>
                 )}
+                <div
+                  className="mari-chrome-text-muted flex items-center gap-1 text-[0.625rem]"
+                  title={localizeUi("ui.panels.personaspanel.tokenEstimateHint")}
+                >
+                  <Hash size="0.5625rem" />
+                  {formatEstimatedTokens(estimatePersonaTokens(persona), localizeUi)}
+                </div>
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {persona.description || "No description"}
                 </div>
@@ -1296,14 +1264,14 @@ export function PersonasPanel() {
               )}
             </div>
           );
-        })}
-      </div>
+        }}
+      />
 
       {!clientOnlyPersonaFilterActive && personaPages.hasNextPage && (
         <PanelLoadMoreBar
           onLoadMore={() => void personaPages.fetchNextPage()}
           disabled={personaPages.isFetchingNextPage}
-          autoLoad={!personaPages.isFetchNextPageError}
+          autoLoad={false}
         >
           {personaPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")

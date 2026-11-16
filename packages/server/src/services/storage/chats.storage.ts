@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import { currentRoomGeneration, resolveRoomGenerationPolicy } from "../multiplayer/generation-policy.js";
+import { hasChatMetadataSecretMask, sealChatMetadataSecrets } from "../../utils/stored-secrets.js";
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
@@ -19,7 +20,6 @@ import {
 } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
-  characters,
   chats,
   messages,
   messageTrash,
@@ -566,21 +566,6 @@ function readCardExtension(rawData: unknown, key: string): unknown {
   }
 }
 
-/** Serialize a character card with one `extensions` field replaced. */
-function writeCardExtension(rawData: unknown, key: string, value: unknown): string | null {
-  if (typeof rawData !== "string") return null;
-  try {
-    const parsed: unknown = JSON.parse(rawData);
-    if (!isPlainRecord(parsed)) return null;
-    const rawExtensions = parsed.extensions;
-    if (rawExtensions !== undefined && rawExtensions !== null && !isPlainRecord(rawExtensions)) return null;
-    const extensions = isPlainRecord(rawExtensions) ? rawExtensions : {};
-    return JSON.stringify({ ...parsed, extensions: { ...extensions, [key]: value } });
-  } catch {
-    return null;
-  }
-}
-
 function readCharacterSchedule(rawData: unknown): WeekSchedule | null {
   const schedule = readCardExtension(rawData, "conversationSchedule");
   return isValidLegacySchedule(schedule) ? schedule : null;
@@ -837,6 +822,9 @@ export function agentLoreCascadeChange(entry: AgentLoreProvenance, deletedIds: R
 }
 
 export function createChatsStorage(db: DB) {
+  // Characters are read and written through their own storage, never the table: a package bundles this file, and
+  // its overlay answers that storage from the live Engine (Pasta-Devs/Marinara-Engine#9035).
+  const characterStorage = createCharactersStorage(db);
   let chatLastMessageAtBackfilled = false;
   let chatLastMessageAtBackfillPromise: Promise<void> | null = null;
 
@@ -875,19 +863,14 @@ export function createChatsStorage(db: DB) {
     const [chat] = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
     if (chat?.mode !== "roleplay") return null;
     const ids = parseCharacterIds(chat.characterIds);
-    const rows = ids.length
-      ? await db
-          .select({ id: characters.id, data: characters.data })
-          .from(characters)
-          .where(inArray(characters.id, ids))
-      : [];
+    const rows = ids.length ? await characterStorage.getByIds(ids) : [];
     const roster = rows.flatMap((row) => {
       const name = parseExtraRecord(row.data).name;
       return typeof name === "string" ? [{ id: row.id, name }] : [];
     });
     const metadata = parseExtraRecord(chat.metadata);
     // The same identity and "User" fallback a generated reply's whispers resolve against.
-    const identity = persona ? await resolveChatUserIdentity(createCharactersStorage(db), chat) : null;
+    const identity = persona ? await resolveChatUserIdentity(characterStorage, chat) : null;
     const recipientPersona = persona ? { id: identity?.id ?? "user", name: identity?.name ?? "User" } : undefined;
     return (content: string, extra: unknown) =>
       prepareUserRoleplayCommands({
@@ -1404,13 +1387,43 @@ export function createChatsStorage(db: DB) {
     const collected: CharacterSchedules = {};
     if (wanted.length === 0) return collected;
 
-    const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
+    const rows = await characterStorage.getByIds(wanted);
     for (const row of rows) {
       const schedule = readCharacterSchedule(row.data);
       if (schedule) collected[row.id] = schedule;
     }
 
     return collected;
+  }
+
+  /** Copy one chat-cached value onto a card that has no such extension yet. True when it was written. */
+  async function hoistCardExtension(characterId: string, key: string, value: unknown): Promise<boolean> {
+    try {
+      const result = await characterStorage.updateExtensions(
+        characterId,
+        { [key]: value },
+        { onlyMissingKeys: true, versionSource: "legacy-chat-hoist" },
+      );
+      return (result?.changedKeys.length ?? 0) > 0;
+    } catch (error) {
+      // An unreadable card stays as it is, the way the hoist always left it.
+      if (!(error instanceof SyntaxError)) {
+        logger.warn(error, "[chats] Could not hoist a chat-cached %s onto character %s", key, characterId);
+        return false;
+      }
+      // Parse errors can quote private card text; log only a fixed category.
+      logger.debug(
+        {
+          event: "storage.legacy-chat-hoist",
+          characterId,
+          key,
+          errorCategory: "invalid-json",
+          outcome: "skipped",
+        },
+        "Could not hoist a chat-cached value onto a card",
+      );
+      return false;
+    }
   }
 
   /**
@@ -1430,15 +1443,7 @@ export function createChatsStorage(db: DB) {
     for (const characterId of characterIds) {
       const schedule = cachedSchedules[characterId];
       if (!isValidLegacySchedule(schedule)) continue;
-      const didHoist = await db.transaction(async (tx) => {
-        const rows = await tx.select().from(characters).where(eq(characters.id, characterId));
-        const row = rows[0];
-        if (!row || readCardExtension(row.data, "conversationSchedule") !== undefined) return false;
-        const nextData = writeCardExtension(row.data, "conversationSchedule", schedule);
-        if (!nextData) return false;
-        await tx.update(characters).set({ data: nextData }).where(eq(characters.id, characterId));
-        return true;
-      });
+      const didHoist = await hoistCardExtension(characterId, "conversationSchedule", schedule);
       hoisted ||= didHoist;
     }
     return hoisted;
@@ -1461,14 +1466,7 @@ export function createChatsStorage(db: DB) {
     for (const characterId of characterIds) {
       const override = cachedOverrides[characterId];
       if (!isValidLegacyStatusOverride(override)) continue;
-      await db.transaction(async (tx) => {
-        const rows = await tx.select().from(characters).where(eq(characters.id, characterId));
-        const row = rows[0];
-        if (!row || readCardExtension(row.data, "conversationStatusOverride") !== undefined) return;
-        const nextData = writeCardExtension(row.data, "conversationStatusOverride", override);
-        if (!nextData) return;
-        await tx.update(characters).set({ data: nextData }).where(eq(characters.id, characterId));
-      });
+      await hoistCardExtension(characterId, "conversationStatusOverride", override);
     }
   }
 
@@ -1479,7 +1477,7 @@ export function createChatsStorage(db: DB) {
     const schedules: CharacterSchedules = {};
     const overrides: Record<string, ConversationStatusOverride | null> = {};
     if (wanted.length === 0) return { schedules, overrides };
-    const rows = await db.select().from(characters).where(inArray(characters.id, wanted));
+    const rows = await characterStorage.getByIds(wanted);
     for (const row of rows) {
       const schedule = readCharacterSchedule(row.data);
       if (schedule) schedules[row.id] = schedule;
@@ -1653,7 +1651,7 @@ export function createChatsStorage(db: DB) {
         personaCharacterId: input.personaCharacterId ?? null,
         promptPresetId: input.promptPresetId,
         connectionId: input.connectionId,
-        metadata: JSON.stringify(metadata),
+        metadata: JSON.stringify(sealChatMetadataSecrets(metadata)),
         lastMessageAt: null,
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
@@ -1885,7 +1883,15 @@ export function createChatsStorage(db: DB) {
       }
       await db
         .update(chats)
-        .set({ metadata: JSON.stringify(metadata), updatedAt: now() })
+        .set({
+          metadata: JSON.stringify(
+            sealChatMetadataSecrets(
+              { ...metadata },
+              hasChatMetadataSecretMask(metadata) ? parseMetadata((await this.getById(id))?.metadata) : null,
+            ),
+          ),
+          updatedAt: now(),
+        })
         .where(eq(chats.id, id));
       return this.getById(id);
     },
@@ -2009,7 +2015,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(chats)
           .set({
-            metadata: JSON.stringify(merged),
+            metadata: JSON.stringify(sealChatMetadataSecrets(merged, current)),
             ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
           })
@@ -2063,7 +2069,7 @@ export function createChatsStorage(db: DB) {
         await db
           .update(chats)
           .set({
-            metadata: JSON.stringify(merged),
+            metadata: JSON.stringify(sealChatMetadataSecrets(merged, current)),
             characterIds: JSON.stringify(characterIds),
             ...(stamp && { writeOrdinalCounter: stamp.ordinal }),
             ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),

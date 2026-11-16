@@ -2,16 +2,10 @@ import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronRight, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
-import { ModelDownloadModal } from "../ModelDownloadModal";
-import { LocalWhisper } from "../../connections/DeviceDetail";
-import { DecisionModelModal } from "../DecisionModelModal";
-import { SpeechToTextCard } from "../../panels/settings/SpeechToTextCard";
-import { TTSConfigCard } from "../../panels/settings/TTSConfigCard";
 import { cn } from "../../../lib/utils";
 import { SECTION_HEADING_CLASS } from "../../connections/ConnectionBalance";
 import { CheckIcon, CheckLine, checkBorderClass, type FieldCheck } from "../../connections/AccessCheck";
 import {
-  type DeviceService,
   type MediaBackend,
   type ServiceId,
   type TestResult,
@@ -21,7 +15,6 @@ import {
   SELF_HOSTED,
   LINKAPI,
   LINKAPI_SERVICE,
-  DECISION_BUILTIN,
   failureReason,
   hostOf,
   inputClass,
@@ -33,7 +26,6 @@ type ProviderDefinition = (typeof PROVIDERS)[APIProvider];
 export interface AccessStepProps {
   provider: APIProvider | null;
   service: ServiceId | null;
-  device: DeviceService | null;
   selectedMedia: MediaBackend | null;
   def: ProviderDefinition | null;
   closeBlocked: boolean;
@@ -59,8 +51,6 @@ export interface AccessStepProps {
   serviceName: (service: ServiceId) => string;
   modelCount?: number;
   keyRef: RefObject<HTMLInputElement | null>;
-  /** Built-in model: its window has its own footer; this closes it. */
-  onBuiltInDone: () => void;
 }
 
 export function AccessStep(props: AccessStepProps) {
@@ -169,32 +159,6 @@ export function AccessStep(props: AccessStepProps) {
       )}
     </div>
   );
-
-  if (props.device === "local_model")
-    return (
-      <section className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain">
-        <ModelDownloadModal embedded open onClose={props.onBuiltInDone} />
-      </section>
-    );
-  if (props.service === DECISION_BUILTIN)
-    return (
-      <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
-        <DecisionModelModal embedded open onClose={props.onBuiltInDone} />
-      </section>
-    );
-  if (props.device) {
-    return (
-      <section className="h-full min-h-0 overflow-y-auto overscroll-contain">
-        <div className="max-w-xl">
-          <div className="flex flex-col gap-4 px-3 py-4">
-            {props.device === "tts" && <TTSConfigCard defaultExpanded />}
-            {props.device === "stt" && <SpeechToTextCard defaultExpanded />}
-            {props.device === "stt" && import.meta.env.VITE_MARINARA_LITE !== "true" && <LocalWhisper />}
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   if (!props.provider) return null;
 

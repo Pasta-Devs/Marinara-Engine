@@ -20,6 +20,8 @@ export interface ChatMessage {
   tool_calls?: LLMToolCall[];
   /** Base64 data URLs for multimodal image inputs */
   images?: string[];
+  /** Internal (#9342): `images` came from Professor Mari's `mari images look`, so her run's picture cap may trim them. */
+  fromImageLook?: boolean;
   /** Base64 data URLs for provider-native file/document inputs */
   files?: Array<{
     type: string;

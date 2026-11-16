@@ -171,25 +171,34 @@ function run() {
     }
   }
 
-  const child = spawn(bin, args, { stdio: "inherit", env: process.env });
+  // An in-app restart exits 75 and gets a new server here, so Restart Server works without a Docker restart policy.
+  let child;
+  let stopping = false;
+  const start = () => {
+    child = spawn(bin, args, {
+      stdio: "inherit",
+      env: { ...process.env, MARINARA_RESTART_SUPERVISOR: String(process.pid) },
+    });
+    child.on("error", (error) => {
+      log(`Failed to start ${bin}: ${error.message}`);
+      process.exit(1);
+    });
+    child.on("exit", (code, signal) => {
+      if (code === 75 && !stopping) return start();
+      if (signal) {
+        process.exit(128 + (osConstants.signals[signal] ?? 0));
+      }
+      process.exit(code ?? 0);
+    });
+  };
   const forwardSignal = (signal) => {
+    stopping = true;
     child.kill(signal);
   };
 
   process.on("SIGINT", forwardSignal);
   process.on("SIGTERM", forwardSignal);
-
-  child.on("error", (error) => {
-    log(`Failed to start ${bin}: ${error.message}`);
-    process.exit(1);
-  });
-
-  child.on("exit", (code, signal) => {
-    if (signal) {
-      process.exit(128 + (osConstants.signals[signal] ?? 0));
-    }
-    process.exit(code ?? 0);
-  });
+  start();
 }
 
 run();

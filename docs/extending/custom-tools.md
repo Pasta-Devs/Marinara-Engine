@@ -8,14 +8,14 @@ Function calling means the AI asks the app to run an action and then uses the re
 
 ## Create a tool
 
-Before you start, open the **Presets** panel from the top bar. Tools live in its **Functions** section (wrench icon). If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
+Before you start, open the **Presets** panel from the top bar. Tools live on its **Tools** tab. If you open Marinara from another device, save the admin secret first under **Settings → Advanced → Admin Access**. It must match the server's `ADMIN_SECRET`; see the [Server Configuration Reference](../CONFIGURATION.md).
 
 For a first try, pick **Static Result**: it needs nothing else.
 
 ### Creating a tool
 
-1. Open **Presets** and find **Functions**.
-2. Click **Create function** (plus icon). A blank tool editor opens.
+1. Open **Presets → Tools** from the top bar.
+2. Click **Create tool** (plus icon). A blank tool editor opens.
 3. Type a name in lowercase snake_case, such as `check_weather`. This is the exact name the AI calls. It starts with a lowercase letter, then uses lowercase letters, numbers and underscores.
 4. Fill in **Description**. Write it as an instruction to the AI, because the AI reads it to decide when to call the tool. Example: `Get the current weather for a city the user names.`
 5. Add any parameters the tool needs (see [Add parameters](#add-parameters)).
@@ -29,19 +29,40 @@ Rules for names and descriptions:
 - Two tools cannot share a name, and a tool cannot use a built-in name such as `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` or `update_about_me`. A clash shows a message such as `"your_name" is a reserved built-in tool name.`
 - If you leave the editor with unsaved changes, a banner offers **Keep editing**, **Discard** or **Save & close**.
 
-The **Functions** header has three icon buttons:
+The buttons at the top of the **Tools** tab are:
 
-- **Create function** (plus icon)
-- **Import functions from ZIP or JSON**
-- **Export functions to ZIP** (greyed out when you have no tools)
+- **Create tool** (plus icon)
+- **Import tools from ZIP or JSON**
+- **Export tools to ZIP** (greyed out when you have no tools)
+- **Select tools** (check icon)
+
+Below them, **Search tools** matches tool names and descriptions.
 
 Each tool in the list shows:
 
 - its name, type, parameter count and description
 - an on/off switch
-- **Edit function** and **Delete Function**
+- **Edit tool** and **Delete Tool**
 
-Drag a tool by its handle to reorder the list. The order is for display only. With no tools, the list reads **No functions yet**.
+Drag a tool by its handle to reorder the list. The order is for display only. You cannot drag tools while a search is active. With no tools, the list reads **No tools yet**.
+
+### Organize tools in folders
+
+1. Click **New Folder** and name the folder.
+2. Click the folder icon on a tool row to open **Move to folder**.
+3. Pick the folder. To move a tool out, pick **No folder (top level)**.
+
+Click a folder name to expand or collapse it. Turn the folder switch off to pause its tools: the AI is not offered any of them in any chat, and they cannot be picked in a chat's or agent's tool list. The header shows **Paused**. Each tool keeps its own switch position. A tool that is on but sits in a paused folder shows a gray switch and a **Paused by folder** label. When you resume the folder, the tools you had turned on are offered again and the ones you had turned off stay off. Deleting the folder moves its tools to the top level, where they follow their own switches.
+
+With folders, the list is grouped by folder. Click **Manual order** to see the full list and drag tools by their handles.
+
+### Change several tools at once
+
+1. Click **Select tools**.
+2. Check the tools you want to change, or check **Select all tools**.
+3. Click **Enable selected**, **Disable selected** or **Move to folder**. You can also export or delete the selection.
+
+**Enable selected** changes the individual switches. Resume a paused folder before its tools are offered again.
 
 ## Add parameters
 
@@ -153,7 +174,7 @@ Creating a tool does not make the AI use it. You also turn tool use on for the c
 3. Turn on **Enable Tool Use**. Its description reads **Allow AI to call functions (dice rolls, game state, etc.)**. It is off by default for a new chat.
 4. Check it works: ask the AI something your tool answers, such as "What are your store hours?" for the `store_hours` example. The reply should use the tool's text.
 
-With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in **Functions**. Game chats also need **Let the GM search lore** for `search_lorebook`.
+With **Enable Tool Use** on and nothing added below it, the chat can use every globally enabled tool it supports: the built-in tools plus each custom tool whose switch is on in the **Tools** tab. Game chats also need **Let the GM search lore** for `search_lorebook`.
 
 To limit a chat to a chosen set:
 
@@ -165,7 +186,7 @@ Once you add any tools, only those tools work in that chat. **New Custom Functio
 
 Game chats can use a separate connection for tool planning. See [Optional tool planning and lore searches](../game/getting-started.md#optional-tool-planning-and-lore-searches) for its cost and behavior.
 
-If it did not work: confirm **Enable Tool Use** is on, the tool is in the chat's list if you added specific tools, and the tool's switch in **Functions** is on. A clearer **Description** and clearer parameter descriptions help the AI decide when to call it.
+If it did not work: confirm **Enable Tool Use** is on, the tool is in the chat's list if you added specific tools, and the tool's switch in the **Tools** tab is on. A clearer **Description** and clearer parameter descriptions help the AI decide when to call it.
 
 ## Attach tools to an agent
 
@@ -179,9 +200,9 @@ You still turn on **Enable Tool Use** in the chat's **Function Calling** section
 
 ## Export and import tools
 
-- To export one tool, open it and click **Export function**. This saves a `.json` file.
-- To export every tool, click **Export functions to ZIP**.
-- To import, click **Import functions from ZIP or JSON** and pick a `.json` or `.zip` file. A message reports how many tools imported.
+- To export one tool, open it and click **Export tool**. This saves a `.json` file.
+- To export every tool, click **Export tools to ZIP**.
+- To import, click **Import tools from ZIP or JSON** and pick a `.json` or `.zip` file. A message reports how many tools imported.
 
 Imported webhook and script tools are always saved turned off, with **Include hidden chat context** off, even if the file asks for either. Marinara then shows the type, the webhook address and the permissions the file asked for. Open each imported tool, inspect it, and turn it on only if you trust it. Static tools keep their imported on/off state.
 

@@ -18,7 +18,7 @@ import {
 } from "../../schemas/ruleset.schema.js";
 import { rulesetCheckSources, rulesetHideLines } from "./check-effects.js";
 import { rulesetItemEffectFacts, rulesetItemEffectText } from "./item-book.js";
-import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm } from "./live-state.js";
+import { readRulesetLive, rulesetKeptCalls, rulesetKeptForm, rulesetSkillKeepsPractice } from "./live-state.js";
 import { rulesetCatalogEntriesByRef } from "./scaled-rows.js";
 import { rulesetItemAccess } from "./sheet-builder.js";
 import {
@@ -127,12 +127,19 @@ export function renderRulesetSheetBlock(
   // "Trained" is whatever the ruleset's first tier is not: the first tier is the untrained default
   // every unmentioned skill takes, so listing it would list the whole sheet.
   const firstTier = definition.resolution.proficiencyTiers[0]!.id;
+  // Practice toward the next rank (1.829), as the keeper of the sheet reads it: every trained skill below the
+  // top rank shows its percent, 0 included, so a practice command has a number to add to.
+  const topTier = definition.resolution.proficiencyTiers.at(-1)!.id;
+  const practiceOf = (skillId: string) => {
+    if (!rulesetSkillKeepsPractice(definition, skillId) || evaluated.skillTiers[skillId] === topTier) return "";
+    return ` (${live.progress?.[skillId] ?? 0}%)`;
+  };
   const trained = [
     ...sheet.skills
       .filter((skill) => (evaluated.skillTiers[skill.id] ?? firstTier) !== firstTier)
       .map((skill) => ({
         section: skill.section,
-        text: `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}`,
+        text: `${skill.label} ${checkValue(evaluated.skillMods[skill.id] ?? 0)}${practiceOf(skill.id)}`,
       })),
     ...sheet.saves
       .filter((save) => (evaluated.saveTiers[save.id] ?? firstTier) !== firstTier)

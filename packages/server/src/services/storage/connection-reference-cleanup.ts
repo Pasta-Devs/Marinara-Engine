@@ -25,6 +25,8 @@
 // without requiring this file to be updated in lockstep.
 
 import {
+  CHAT_FOLLOWS_MAIN_KEY,
+  CHAT_MODEL_DELETED_KEY,
   CHAT_MODEL_OVERRIDE_KEY,
   type ChatModelOverride,
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
@@ -88,6 +90,8 @@ export async function sweepDanglingConnectionReferences(
   overrideCarrierId: string | null = null,
   /** The deleted Model as a catalog pick: a chat that used it keeps it through the carrier (decision 30). */
   keptPick: ChatModelOverride | null = null,
+  /** #9126: the deleted Model's own name, for the notice a chat that ran on it gives. */
+  deletedModelName: string | null = null,
 ): Promise<ConnectionReferenceCleanupResult> {
   const result: ConnectionReferenceCleanupResult = { chatsUpdated: 0, agentsUpdated: 0, connectionsUpdated: 0 };
   if (!deletedConnectionId) return result;
@@ -125,6 +129,15 @@ export async function sweepDanglingConnectionReferences(
         const moved = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
         moved[CHAT_MODEL_OVERRIDE_KEY] = { ...override, connectionId: overrideCarrierId };
         metadata = JSON.stringify(moved);
+      } else if (directMatch) {
+        // #9126: the chat's own Model is gone. Record the Model's name, so the next reply says which one was deleted
+        // rather than passed over in silence; choosing "Use default" afterwards clears it (chats.routes.ts).
+        const cleared = JSON.parse(metadata ?? chat.metadata ?? "{}") as Record<string, unknown>;
+        // The Model's own name when the row had one; otherwise the Connection it was, never the chat's own id,
+        // which the notice would then report as the deleted Model (#9126, Dottore LOW).
+        cleared[CHAT_MODEL_DELETED_KEY] = (deletedModelName ?? "").trim() || deletedConnectionId;
+        delete cleared[CHAT_FOLLOWS_MAIN_KEY];
+        metadata = JSON.stringify(cleared);
       }
 
       await db

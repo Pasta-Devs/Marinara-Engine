@@ -24,6 +24,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
+import { marinaraSkillEstimateLabel } from "../../lib/marinara-skill-estimate";
 import { cn } from "../../lib/utils";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
@@ -94,6 +95,7 @@ type CombatantCardStyle = CSSProperties & {
   "--combat-avatar-size": string;
   "--combat-dialogue-width": string;
   "--combat-dialogue-max-height": string;
+  "--combat-info-width": string;
 };
 
 type CombatSkillType = NonNullable<Combatant["skills"]>[number]["type"];
@@ -165,6 +167,18 @@ function normalizeCombatStatusStat(value: unknown): CombatStatusStat {
   return value === "attack" || value === "defense" || value === "speed" || value === "hp" ? value : "hp";
 }
 
+/** What a skill costs, as shown on its button: a spell slot, stamina or MP. A Classic Marinara skill
+ *  that costs nothing (Power Strike pays with time on the timeline) shows no cost rather than "0 MP". */
+function skillCostLabel(
+  skill: CombatSkill,
+  localizeUi: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (skill.slotLevel) return localizeUi("game.combat.director.slotCost", { level: skill.slotLevel });
+  if (skill.staminaCost) return localizeUi("game.combat.marinara.staminaCost", { amount: skill.staminaCost });
+  if (skill.aims !== undefined && !skill.mpCost) return null;
+  return localizeUi("game.combat.director.mpCost", { amount: skill.mpCost });
+}
+
 function sanitizeCombatSkills(skills: unknown): Combatant["skills"] {
   if (!Array.isArray(skills)) return undefined;
   const sanitized: CombatSkill[] = [];
@@ -180,6 +194,31 @@ function sanitizeCombatSkills(skills: unknown): Combatant["skills"] {
       mpCost: Math.max(0, numberFromUnknown(skill.mpCost, 0)),
       power: Math.max(0.1, numberFromUnknown(skill.power, 1)),
     };
+    // Classic Marinara: what a skill costs in stamina, when it's ready and why it can't be used now.
+    const staminaCost = numberFromUnknown(skill.staminaCost, 0);
+    if (staminaCost > 0) next.staminaCost = staminaCost;
+    const readyIn = numberFromUnknown(skill.readyIn, 0);
+    if (readyIn > 0) next.readyIn = readyIn;
+    if (
+      skill.unavailable === "cost" ||
+      skill.unavailable === "cooldown" ||
+      skill.unavailable === "used" ||
+      skill.unavailable === "row" ||
+      skill.unavailable === "immune" ||
+      skill.unavailable === "companion" ||
+      skill.unavailable === "unchanneled"
+    )
+      next.unavailable = skill.unavailable;
+    if (skill.takesAction === true) next.takesAction = true;
+    if (typeof skill.aims === "string") next.aims = skill.aims as CombatSkill["aims"];
+    const estimate = skill.estimate as CombatSkill["estimate"] | undefined;
+    if (
+      estimate &&
+      (estimate.kind === "damage" || estimate.kind === "heal") &&
+      Number.isFinite(estimate.min) &&
+      Number.isFinite(estimate.max)
+    )
+      next.estimate = estimate;
     for (const [field, schema] of Object.entries(combatInterruptFields)) {
       const parsed = schema.safeParse(skill[field]);
       if (parsed.success && parsed.data !== undefined) Object.assign(next, { [field]: parsed.data });
@@ -462,6 +501,8 @@ interface GameCombatUIProps {
   directed?: {
     actorId?: string;
     canAct: boolean;
+    /** The fight waits on a choice shown beside it (sparing yielded foes): no "resolving" spinner. */
+    paused?: boolean;
     round: number;
     outcome?: "victory" | "defeat" | "flee";
     onAction: (action: CombatPlayerAction) => void;
@@ -807,6 +848,41 @@ export function GameCombatUI({
   // between the existing desktop tree and a sticky-bottom-action-sheet layout. Drawers
   // (Mechanics / Cues / Log / Party) replace inline panels that don't fit on small screens.
   const isMobile = useIsCombatMobile();
+  // Classic Marinara fights stand east-west on wide screens; phones keep the stacked stage.
+  const eastWest = !isMobile && [...enemies, ...party].some((combatant) => combatant.marinara);
+  const crowdedStage = enemies.length > 4 || party.length > 4;
+  const eastWestStageRef = useRef<HTMLDivElement>(null);
+  const [eastWestBox, setEastWestBox] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const stage = eastWestStageRef.current;
+    if (!eastWest || !stage || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setEastWestBox({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [eastWest]);
+  // One card size for both sides, fitting the tallest column in the stage height and every column in its width.
+  const eastWestLayout = useMemo(() => {
+    if (!eastWest || !eastWestBox) return undefined;
+    // How many cards a column holds: whichever of 3, 2 or 1 gives the biggest cards. A short stage
+    // (a laptop at 720px with the skill menu open) spreads a row over more columns rather than
+    // squeezing its cards (a card is its width of art plus about 110px of name and bars).
+    // A column is 120px across (the card's name and bars), 24px between columns, 48px between the
+    // sides and 48px of padding; an arrangement wider than the stage is never taken. The art is
+    // what's left of the column's height after about 80px of name and bars a card.
+    let best: { perColumn: number; art: number } | null = null;
+    for (const perColumn of [3, 2, 1]) {
+      const columns = [...stageColumns(enemies, "enemy", perColumn), ...stageColumns(party, "player", perColumn)];
+      const count = Math.max(1, columns.length);
+      const tallest = Math.max(1, ...columns.map((column) => column.length));
+      if (count * 120 + Math.max(0, count - 2) * 24 + 48 + 48 > eastWestBox.width) continue;
+      const art = Math.min(96, (eastWestBox.height - (tallest - 1) * 8) / tallest - 80);
+      if (!best || art > best.art + 4) best = { perColumn, art };
+    }
+    best ??= { perColumn: 3, art: (eastWestBox.height - 16) / 3 - 80 };
+    return { perColumn: best.perColumn, artSize: Math.round(Math.max(32, best.art)) };
+  }, [eastWest, eastWestBox, enemies, party]);
   const [openDrawer, setOpenDrawer] = useState<MobileDrawerKind>(null);
 
   const appendCombatLog = useCallback((text: string, tone: CombatLogEntry["tone"] = "action") => {
@@ -1971,7 +2047,7 @@ export function GameCombatUI({
               <ActionNarration action={roundResult.actions[animatingActionIndex]!} allCombatants={allCombatants} />
             </div>
           )}
-          {phase === "resolving" && (
+          {phase === "resolving" && !directed?.paused && (
             <div
               data-game-section="combat-banner"
               className={cn(
@@ -1986,46 +2062,104 @@ export function GameCombatUI({
             </div>
           )}
 
-          <div className="relative z-0 grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-y-[clamp(1.25rem,5svh,2.5rem)] overflow-hidden px-2 py-[clamp(0.5rem,2svh,1rem)]">
-            <div className="min-h-0 overflow-x-auto overflow-y-visible pt-[clamp(2.75rem,9svh,4rem)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full flex-nowrap items-start justify-center gap-[clamp(0.25rem,1.5vw,0.5rem)]">
+          <div
+            className={cn(
+              "relative z-0 grid min-h-0 flex-1 grid-rows-[minmax(min-content,1fr)_auto] overflow-y-auto overflow-x-hidden px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              // A crowded stage (more than four on a side) spends its height on cards, not spacing.
+              crowdedStage ? "gap-y-2 py-1" : "gap-y-[clamp(1.25rem,5svh,2.5rem)] py-[clamp(0.5rem,2svh,1rem)]",
+            )}
+          >
+            <div
+              className={cn(
+                // A scroll box's automatic minimum height is 0: hold it to its cards.
+                "min-h-min overflow-x-auto overflow-y-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                // Clear of the floating buttons over the stage's top (about 44px).
+                crowdedStage ? "pt-11" : "pt-[clamp(2.75rem,9svh,4rem)]",
+              )}
+            >
+              <div
+                className={cn(
+                  "items-start justify-center gap-x-[clamp(0.25rem,1.5vw,0.5rem)]",
+                  // More than four to a side on a phone: lines of three rather than one line off the edge.
+                  enemies.length > 4
+                    ? "grid w-full grid-cols-3 justify-items-center gap-y-2"
+                    : "flex w-max min-w-full flex-nowrap",
+                )}
+              >
                 {enemies.map((enemy) => (
-                  <CombatantCard
-                    elements={elements}
+                  <div
                     key={`stage-${enemy.id}`}
-                    combatant={enemy}
-                    side="enemy"
-                    isTargetable={phase === "target-select" && selectingEnemyTarget}
-                    isActive={turnOrder[0]?.id === enemy.id && phase === "animating"}
-                    onSelect={() => handleTargetSelect(enemy.id)}
-                    damagePopups={damagePopups.filter((p) => p.targetId === enemy.id)}
-                    sideCount={enemies.length}
-                    compact
-                  />
+                    className="relative flex flex-col items-center"
+                    data-row={enemy.marinara?.row}
+                  >
+                    <CombatantCard
+                      elements={elements}
+                      combatant={enemy}
+                      side="enemy"
+                      isTargetable={phase === "target-select" && selectingEnemyTarget}
+                      isActive={turnOrder[0]?.id === enemy.id && phase === "animating"}
+                      onSelect={() => handleTargetSelect(enemy.id)}
+                      damagePopups={damagePopups.filter((p) => p.targetId === enemy.id)}
+                      sideCount={enemies.length > 4 ? 3 : enemies.length}
+                      lines={(enemies.length > 4 ? 2 : 1) + (party.length > 4 ? 2 : 1)}
+                      compact
+                    />
+                    {enemy.marinara?.row === "back" && (
+                      <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/60 px-1 text-[0.5rem] uppercase tracking-wide text-white/70">
+                        {localizeUi("game.combat.marinara.row.back")}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
 
-            <div className="min-h-0 shrink-0 overflow-x-auto overflow-y-visible pb-[clamp(0.75rem,3svh,1.5rem)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex w-max min-w-full flex-nowrap items-end justify-center gap-[clamp(0.25rem,1.5vw,0.5rem)]">
+            <div
+              className={cn(
+                "min-h-min shrink-0 overflow-x-auto overflow-y-visible [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                crowdedStage ? "pb-1" : "pb-[clamp(0.75rem,3svh,1.5rem)]",
+              )}
+            >
+              <div
+                className={cn(
+                  "items-end justify-center gap-x-[clamp(0.25rem,1.5vw,0.5rem)]",
+                  // More than four to a side on a phone: lines of three rather than one line off the edge.
+                  party.length > 4
+                    ? "grid w-full grid-cols-3 justify-items-center gap-y-2"
+                    : "flex w-max min-w-full flex-nowrap",
+                )}
+              >
                 {party.map((member, i) => (
-                  <CombatantCard
-                    elements={elements}
+                  <div
                     key={`stage-${member.id}`}
-                    combatant={member}
-                    side="player"
-                    isTargetable={phase === "target-select" && selectingAllyTarget}
-                    isActive={
-                      (phase === "player-turn" && i === activePlayerIndex) ||
-                      (turnOrder[0]?.id === member.id && phase === "animating")
-                    }
-                    onSelect={
-                      phase === "target-select" && selectingAllyTarget ? () => handleTargetSelect(member.id) : undefined
-                    }
-                    damagePopups={damagePopups.filter((p) => p.targetId === member.id)}
-                    sideCount={party.length}
-                    compact
-                  />
+                    className="relative flex flex-col items-center"
+                    data-row={member.marinara?.row}
+                  >
+                    <CombatantCard
+                      elements={elements}
+                      combatant={member}
+                      side="player"
+                      isTargetable={phase === "target-select" && selectingAllyTarget}
+                      isActive={
+                        (phase === "player-turn" && i === activePlayerIndex) ||
+                        (turnOrder[0]?.id === member.id && phase === "animating")
+                      }
+                      onSelect={
+                        phase === "target-select" && selectingAllyTarget
+                          ? () => handleTargetSelect(member.id)
+                          : undefined
+                      }
+                      damagePopups={damagePopups.filter((p) => p.targetId === member.id)}
+                      sideCount={party.length > 4 ? 3 : party.length}
+                      lines={(enemies.length > 4 ? 2 : 1) + (party.length > 4 ? 2 : 1)}
+                      compact
+                    />
+                    {member.marinara?.row === "back" && (
+                      <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/60 px-1 text-[0.5rem] uppercase tracking-wide text-white/70">
+                        {localizeUi("game.combat.marinara.row.back")}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -2198,6 +2332,15 @@ export function GameCombatUI({
                   <div className="truncate text-xs font-semibold text-white">{activePlayer.name}</div>
                   <div className="text-[0.55rem] tabular-nums text-white/45">
                     {localizeUi("ui.game.gamecharactersheet.hp")} {activePlayer.hp}/{activePlayer.maxHp}
+                    {activePlayer.marinara
+                      ? [
+                          " · ",
+                          localizeUi("game.combat.marinara.stamina", {
+                            amount: activePlayer.marinara.stamina,
+                            max: activePlayer.marinara.maxStamina,
+                          }),
+                        ].join("")
+                      : ""}
                     {activePlayer.maxMp
                       ? localizeUi("ui.game.gamecombatui.mpValue1Value2", {
                           value1: activePlayer.mp ?? 0,
@@ -2258,6 +2401,8 @@ export function GameCombatUI({
                       .filter((s) => !s.reaction)
                       .map((skill) => {
                         const insufficientMp =
+                          // A Classic Marinara skill says itself why it can't be used now (cost, cooldown, once a fight).
+                          !!skill.unavailable ||
                           (activePlayer.skillCooldowns?.[skill.id] ?? 0) > 0 ||
                           (skill.slotLevel
                             ? (activePlayer.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0
@@ -2268,6 +2413,13 @@ export function GameCombatUI({
                             type="button"
                             disabled={insufficientMp}
                             onClick={() => {
+                              // A Classic skill on the user, the whole party or every foe has no one to
+                              // pick (Alyssa 2026-11-02: Fortress asked for a target): it goes at once.
+                              if (skill.aims === "self" || skill.aims === "party" || skill.aims === "all-enemies") {
+                                playSfx(COMBAT_SFX.magic);
+                                resolveRound({ type: "skill", skillId: skill.id, targetId: activePlayer.id });
+                                return;
+                              }
                               setSelectedAction("skill");
                               setSelectedSkillId(skill.id);
                               setSelectedItemName(null);
@@ -2282,10 +2434,29 @@ export function GameCombatUI({
                           >
                             <span className="min-w-0 truncate font-semibold text-white/90">{skill.name}</span>
                             <span className="shrink-0 text-[0.6rem] tabular-nums text-white/45">
-                              {localizeUi(combatSkillTypeLabelKey(skill.type))} ·{" "}
-                              {skill.slotLevel
-                                ? localizeUi("game.combat.director.slotCost", { level: skill.slotLevel })
-                                : localizeUi("game.combat.director.mpCost", { amount: skill.mpCost })}
+                              {[
+                                localizeUi(combatSkillTypeLabelKey(skill.type)),
+                                marinaraSkillEstimateLabel(skill, localizeUi),
+                                skillCostLabel(skill, localizeUi),
+                                skill.readyIn
+                                  ? localizeUi("game.combat.marinara.readyIn", { turns: skill.readyIn })
+                                  : null,
+                                skill.unavailable === "row" ? localizeUi("game.combat.marinara.frontRowOnly") : null,
+                                skill.unavailable === "immune"
+                                  ? localizeUi("game.combat.marinara.noneCanBeAffected")
+                                  : null,
+                                skill.unavailable === "companion"
+                                  ? localizeUi("game.combat.marinara.needsCompanion")
+                                  : null,
+                                skill.unavailable === "unchanneled"
+                                  ? localizeUi("game.combat.marinara.channelFirst")
+                                  : null,
+                                skill.takesAction && !skill.unavailable
+                                  ? localizeUi("game.combat.marinara.bonusSpent")
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </span>
                           </button>
                         );
@@ -2615,7 +2786,10 @@ export function GameCombatUI({
       {/* ── Battle scene ── */}
       <div
         className={cn(
-          "relative grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-y-[clamp(0.25rem,2svh,1.25rem)] overflow-hidden",
+          // The enemy row keeps its cards' height and the scene scrolls, rather than the cards spilling over the party when the menu below grows.
+          "relative grid min-h-0 flex-1 gap-y-[clamp(0.25rem,2svh,1.25rem)] overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          // An east-west stage fills the scene and sizes its cards to it, so it never grows the row.
+          eastWest ? "grid-rows-[minmax(0,1fr)]" : "grid-rows-[minmax(min-content,1fr)_auto]",
           activeImpactTone === "critical" && "game-combat-scene--critical",
           activeImpactTone === "hit" && "game-combat-scene--hit",
           activeImpactTone === "reaction" && "game-combat-scene--reaction",
@@ -2648,48 +2822,122 @@ export function GameCombatUI({
           </div>
         )}
 
-        {/* ── Enemy area (top section) ── */}
-        <div className="relative flex min-h-0 flex-nowrap items-start justify-center gap-[clamp(0.25rem,1vw,1rem)] overflow-visible px-3 pt-[clamp(3.25rem,13svh,5.5rem)] sm:px-6">
-          {enemies.map((enemy) => (
-            <CombatantCard
-              elements={elements}
-              key={enemy.id}
-              combatant={enemy}
-              side="enemy"
-              isTargetable={phase === "target-select" && selectingEnemyTarget}
-              isActive={turnOrder[0]?.id === enemy.id && phase === "animating"}
-              onSelect={() => handleTargetSelect(enemy.id)}
-              damagePopups={damagePopups.filter((p) => p.targetId === enemy.id)}
-              dialogueLines={combatDialogueLayout.byCombatantId.get(enemy.id)}
-              sideCount={enemies.length}
-              onDismissDialogue={dismissCombatDialogueLine}
-            />
-          ))}
-        </div>
+        {eastWest ? (
+          // Classic Marinara: an east-west stage, foes on the left and the party on the right, each
+          // side's front row the column nearer the other side; a row of more than three takes two
+          // columns (Alyssa 2026-11-01).
+          <div
+            ref={eastWestStageRef}
+            className="relative flex h-full min-h-0 w-full flex-nowrap items-stretch justify-evenly gap-12 overflow-visible px-3 pb-[clamp(0.25rem,1.5svh,0.75rem)] pt-10 sm:px-6"
+          >
+            {(["enemy", "player"] as const).map((side) => {
+              const list = side === "enemy" ? enemies : party;
+              const columns = stageColumns(list, side, eastWestLayout?.perColumn ?? 3);
+              return (
+                <div key={side} data-stage-side={side} className="flex flex-nowrap items-stretch gap-6">
+                  {columns.map((column, c) => (
+                    <div
+                      key={`${side}-${c}`}
+                      data-row={column[0]?.marinara?.row}
+                      className="flex min-w-[120px] shrink-0 flex-col items-center justify-center gap-2"
+                    >
+                      {column.map((combatant) => {
+                        const i = party.indexOf(combatant);
+                        return (
+                          <div key={combatant.id} className="relative flex shrink-0 flex-col items-center">
+                            <CombatantCard
+                              elements={elements}
+                              combatant={combatant}
+                              side={side}
+                              isTargetable={
+                                phase === "target-select" &&
+                                (side === "enemy" ? selectingEnemyTarget : selectingAllyTarget)
+                              }
+                              isActive={
+                                side === "player"
+                                  ? (phase === "player-turn" && i === activePlayerIndex) ||
+                                    (turnOrder[0]?.id === combatant.id && phase === "animating")
+                                  : turnOrder[0]?.id === combatant.id && phase === "animating"
+                              }
+                              onSelect={
+                                side === "enemy"
+                                  ? () => handleTargetSelect(combatant.id)
+                                  : phase === "target-select" && selectingAllyTarget
+                                    ? () => handleTargetSelect(combatant.id)
+                                    : undefined
+                              }
+                              damagePopups={damagePopups.filter((p) => p.targetId === combatant.id)}
+                              dialogueLines={combatDialogueLayout.byCombatantId.get(combatant.id)}
+                              artSize={eastWestLayout?.artSize}
+                              onDismissDialogue={dismissCombatDialogueLine}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            {/* ── Enemy area (top section) ── */}
+            <div className="relative flex flex-nowrap items-start justify-center gap-[clamp(0.25rem,1vw,1rem)] overflow-visible px-3 pt-[clamp(3.25rem,13svh,5.5rem)] sm:px-6">
+              {enemies.map((enemy) => (
+                <div key={enemy.id} className="relative flex flex-col items-center">
+                  <CombatantCard
+                    elements={elements}
+                    combatant={enemy}
+                    side="enemy"
+                    isTargetable={phase === "target-select" && selectingEnemyTarget}
+                    isActive={turnOrder[0]?.id === enemy.id && phase === "animating"}
+                    onSelect={() => handleTargetSelect(enemy.id)}
+                    damagePopups={damagePopups.filter((p) => p.targetId === enemy.id)}
+                    dialogueLines={combatDialogueLayout.byCombatantId.get(enemy.id)}
+                    sideCount={enemies.length}
+                    onDismissDialogue={dismissCombatDialogueLine}
+                  />
+                  {enemy.marinara?.row === "back" && (
+                    <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/60 px-1 text-[0.5rem] uppercase tracking-wide text-white/70">
+                      {localizeUi("game.combat.marinara.row.back")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
 
-        {/* ── Party area (bottom section) ── */}
-        <div className="relative flex min-h-0 shrink-0 flex-nowrap items-end justify-center gap-[clamp(0.25rem,1vw,1rem)] overflow-visible px-3 pb-[clamp(0.25rem,2svh,1rem)] sm:px-6">
-          {party.map((member, i) => (
-            <CombatantCard
-              elements={elements}
-              key={member.id}
-              combatant={member}
-              side="player"
-              isTargetable={phase === "target-select" && selectingAllyTarget}
-              isActive={
-                (phase === "player-turn" && i === activePlayerIndex) ||
-                (turnOrder[0]?.id === member.id && phase === "animating")
-              }
-              onSelect={
-                phase === "target-select" && selectingAllyTarget ? () => handleTargetSelect(member.id) : undefined
-              }
-              damagePopups={damagePopups.filter((p) => p.targetId === member.id)}
-              dialogueLines={combatDialogueLayout.byCombatantId.get(member.id)}
-              sideCount={party.length}
-              onDismissDialogue={dismissCombatDialogueLine}
-            />
-          ))}
-        </div>
+            {/* ── Party area (bottom section) ── */}
+            <div className="relative flex shrink-0 flex-nowrap items-end justify-center gap-[clamp(0.25rem,1vw,1rem)] overflow-visible px-3 pb-[clamp(0.25rem,2svh,1rem)] sm:px-6">
+              {party.map((member, i) => (
+                <div key={member.id} className="relative flex flex-col items-center">
+                  <CombatantCard
+                    elements={elements}
+                    combatant={member}
+                    side="player"
+                    isTargetable={phase === "target-select" && selectingAllyTarget}
+                    isActive={
+                      (phase === "player-turn" && i === activePlayerIndex) ||
+                      (turnOrder[0]?.id === member.id && phase === "animating")
+                    }
+                    onSelect={
+                      phase === "target-select" && selectingAllyTarget ? () => handleTargetSelect(member.id) : undefined
+                    }
+                    damagePopups={damagePopups.filter((p) => p.targetId === member.id)}
+                    dialogueLines={combatDialogueLayout.byCombatantId.get(member.id)}
+                    sideCount={party.length}
+                    onDismissDialogue={dismissCombatDialogueLine}
+                  />
+                  {member.marinara?.row === "back" && (
+                    <span className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-black/60 px-1 text-[0.5rem] uppercase tracking-wide text-white/70">
+                      {localizeUi("game.combat.marinara.row.back")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {combatDialogueLayout.unanchored.length > 0 && phase !== "intro" && (
@@ -2779,7 +3027,7 @@ export function GameCombatUI({
         {/* Resolving / animating state */}
         {(phase === "resolving" || phase === "animating") && (
           <div className="flex flex-col gap-2 px-4 py-3">
-            {phase === "resolving" && (
+            {phase === "resolving" && !directed?.paused && (
               <div className="flex items-center gap-2 text-sm text-white/60">
                 <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 {selectedAction === "custom"
@@ -2863,6 +3111,7 @@ export function GameCombatUI({
                   .filter((s) => !s.reaction)
                   .map((skill) => {
                     const insufficientMp =
+                      !!skill.unavailable ||
                       (activePlayer.skillCooldowns?.[skill.id] ?? 0) > 0 ||
                       (skill.slotLevel
                         ? (activePlayer.spellSlots?.[String(skill.slotLevel)] ?? 0) <= 0
@@ -2888,10 +3137,29 @@ export function GameCombatUI({
                         <div className="font-semibold text-white/90">{skill.name}</div>
                         <div className="mt-0.5 text-[0.65rem] text-white/45">
                           {localizeUi(combatSkillTypeLabelKey(skill.type))} ·{" "}
-                          {skill.description || localizeUi(combatSkillDescriptionKey(skill.type))} •{" "}
-                          {skill.slotLevel
-                            ? localizeUi("game.combat.director.slotCost", { level: skill.slotLevel })
-                            : localizeUi("game.combat.director.mpCost", { amount: skill.mpCost })}
+                          {skill.description || localizeUi(combatSkillDescriptionKey(skill.type))}
+                          {marinaraSkillEstimateLabel(skill, localizeUi)
+                            ? [" · ", marinaraSkillEstimateLabel(skill, localizeUi)].join("")
+                            : ""}
+                          {skillCostLabel(skill, localizeUi) ? [" • ", skillCostLabel(skill, localizeUi)].join("") : ""}
+                          {skill.readyIn
+                            ? [" · ", localizeUi("game.combat.marinara.readyIn", { turns: skill.readyIn })].join("")
+                            : ""}
+                          {skill.unavailable === "row"
+                            ? [" · ", localizeUi("game.combat.marinara.frontRowOnly")].join("")
+                            : ""}
+                          {skill.unavailable === "immune"
+                            ? [" · ", localizeUi("game.combat.marinara.noneCanBeAffected")].join("")
+                            : ""}
+                          {skill.unavailable === "companion"
+                            ? [" · ", localizeUi("game.combat.marinara.needsCompanion")].join("")
+                            : ""}
+                          {skill.unavailable === "unchanneled"
+                            ? [" · ", localizeUi("game.combat.marinara.channelFirst")].join("")
+                            : ""}
+                          {skill.takesAction && !skill.unavailable
+                            ? [" · ", localizeUi("game.combat.marinara.bonusSpent")].join("")
+                            : ""}
                         </div>
                       </button>
                     );
@@ -3305,6 +3573,23 @@ function CombatMechanicsPanel({ mechanics, round }: { mechanics: CombatMechanic[
   );
 }
 
+/**
+ * One side of an east-west stage as columns, from the middle of the stage outward: its front row,
+ * then its back row, each at most `perColumn` to a column. The foes stand on the left, so their columns
+ * are given back to front; the party's front to back.
+ */
+function stageColumns(list: readonly Combatant[], side: "player" | "enemy", perColumn = 3): Combatant[][] {
+  const chunk = (row: Combatant[]) => {
+    const out: Combatant[][] = [];
+    for (let at = 0; at < row.length; at += perColumn) out.push(row.slice(at, at + perColumn));
+    return out;
+  };
+  const front = list.filter((one) => one.marinara?.row !== "back");
+  const back = list.filter((one) => one.marinara?.row === "back");
+  const outward = [...chunk(front), ...chunk(back)];
+  return side === "enemy" ? outward.reverse() : outward;
+}
+
 /** Individual combatant card with HP bar, sprite, and status effects. */
 function CombatantCard({
   combatant,
@@ -3317,6 +3602,8 @@ function CombatantCard({
   sideCount = 1,
   onDismissDialogue,
   compact = false,
+  artSize,
+  lines = 2,
   elements,
 }: {
   combatant: Combatant;
@@ -3329,9 +3616,16 @@ function CombatantCard({
   sideCount?: number;
   onDismissDialogue?: (line: PartyDialogueLine) => void;
   compact?: boolean;
+  /** An east-west stage's art size in px: the card takes its column's 120px, its art this square. */
+  artSize?: number;
+  /** Lines of cards on a phone's stacked stage, both sides together. */
+  lines?: number;
   elements?: WorldElementSet;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  // A crowded phone stage (three or more lines of cards) shows name and HP only; stamina and MP are
+  // in the Fighters list.
+  const slim = compact && lines > 2;
   // An aura's colour is its element's own in a setting kit's set, else the older colours by its word, as a
   // game without a kit (Classic Game Mode) always drew them.
   const auraColor = combatant.elementAura
@@ -3365,12 +3659,24 @@ function CombatantCard({
   const desktopDialogueFitWidth = `calc((100vw - 3rem) / ${combatantCount})`;
   const compactFitWidth = `calc((100vw - 2.5rem) / ${combatantCount})`;
   const cardStyle: CombatantCardStyle = {
-    "--combat-card-width": compact
-      ? `clamp(2.75rem, min(22vw, 9svh, ${compactFitWidth}), 5.5rem)`
-      : `clamp(4rem, min(10vw, 12svh, ${desktopFitVw}vw), 7.5rem)`,
-    "--combat-avatar-size": compact
-      ? "calc(var(--combat-card-width) - 1rem)"
-      : "calc(var(--combat-card-width) - 1.5rem)",
+    "--combat-card-width": artSize
+      ? `${Math.max(120, artSize + 24)}px`
+      : slim
+        ? // A crowded phone stage: a line's share of the width (three across at most), for name and HP.
+          `min(calc((100vw - 2.5rem) / ${combatantCount}), 7.5rem)`
+        : compact
+          ? `clamp(2.75rem, min(22vw, 9svh, ${compactFitWidth}), 5.5rem)`
+          : `clamp(4rem, min(10vw, 12svh, ${desktopFitVw}vw), 7.5rem)`,
+    "--combat-avatar-size": artSize
+      ? `${artSize}px`
+      : slim
+        ? // Lines of cards share about 28svh of art, less ~2.25rem of name and HP bar a line.
+          `clamp(2rem, calc(28svh / ${lines} - 2.25rem), 4rem)`
+        : compact
+          ? "calc(var(--combat-card-width) - 1rem)"
+          : "calc(var(--combat-card-width) - 1.5rem)",
+    "--combat-info-width":
+      artSize || slim ? "calc(var(--combat-card-width) - 0.5rem)" : "calc(var(--combat-avatar-size) + 1rem)",
     "--combat-dialogue-width": compact
       ? "var(--combat-avatar-size)"
       : `clamp(6.5rem, min(15rem, ${desktopDialogueFitWidth}), 15rem)`,
@@ -3462,8 +3768,8 @@ function CombatantCard({
       {/* Combatant sprite / avatar area */}
       <div
         className={cn(
-          "relative flex aspect-square items-center justify-center rounded-xl border-2 transition-all duration-200",
-          "w-[var(--combat-avatar-size)]",
+          "relative flex aspect-square shrink-0 items-center justify-center rounded-xl border-2 transition-all duration-200",
+          "h-[var(--combat-avatar-size)] w-[var(--combat-avatar-size)]",
           isKo && "grayscale opacity-40",
           isTargetable &&
             !isKo &&
@@ -3478,15 +3784,18 @@ function CombatantCard({
           impactTone === "miss" && "game-combatant-impact--miss",
         )}
       >
-        <CombatantSpriteVisual
-          combatant={combatant}
-          imageClassName="h-full w-full rounded-lg object-cover"
-          textClassName={cn(
-            compact ? "text-lg font-bold" : "text-xl font-bold sm:text-2xl xl:text-3xl",
-            side === "enemy" ? "text-red-300/60" : "text-blue-300/60",
-          )}
-          emojiClassName={compact ? "text-2xl leading-none" : "text-2xl leading-none sm:text-3xl xl:text-4xl"}
-        />
+        {/* Only the sprite is clipped to the box: the status badges and the turn marker sit past its edge. */}
+        <div className="flex h-full min-h-0 w-full min-w-0 items-center justify-center overflow-hidden rounded-[10px]">
+          <CombatantSpriteVisual
+            combatant={combatant}
+            imageClassName="h-full w-full rounded-lg object-cover"
+            textClassName={cn(
+              compact ? "text-lg font-bold" : "text-xl font-bold sm:text-2xl xl:text-3xl",
+              side === "enemy" ? "text-red-300/60" : "text-blue-300/60",
+            )}
+            emojiClassName={compact ? "text-2xl leading-none" : "text-2xl leading-none sm:text-3xl xl:text-4xl"}
+          />
+        </div>
 
         {combatant.statusEffects && combatant.statusEffects.length > 0 && (
           <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-10 flex max-w-[calc(100%+0.75rem)] flex-wrap justify-end gap-0.5">
@@ -3513,6 +3822,13 @@ function CombatantCard({
           </div>
         )}
 
+        {/* A foe who yielded waits on the party's spare-or-finish choice (Alyssa 2026-11-01). */}
+        {combatant.marinara?.yielded && !isKo && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-[10px] bg-amber-500/85 py-0.5 text-center text-[0.55rem] font-semibold uppercase tracking-wide text-black">
+            {localizeUi("game.combat.marinara.yielded")}
+          </div>
+        )}
+
         {/* KO overlay */}
         {isKo && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
@@ -3534,7 +3850,7 @@ function CombatantCard({
       </div>
 
       {/* Name + Level */}
-      <div className="mt-1.5 flex max-w-[calc(var(--combat-avatar-size)+1rem)] min-w-0 items-center gap-1">
+      <div className="mt-1.5 flex max-w-[var(--combat-info-width)] min-w-0 items-center gap-1">
         <span
           className={cn("truncate text-[0.68rem] font-semibold sm:text-xs", isKo ? "text-white/30" : "text-white/90")}
         >
@@ -3547,7 +3863,7 @@ function CombatantCard({
       </div>
 
       {/* HP bar */}
-      <div className="mt-1 w-[calc(var(--combat-avatar-size)+1rem)]">
+      <div className="mt-1 w-[var(--combat-info-width)]">
         <div className="flex items-center gap-1">
           <Heart size={9} className={cn(isKo ? "text-white/20" : "text-red-400")} />
           <div className={cn("h-2 flex-1 overflow-hidden rounded-full bg-white/10", !isKo && `shadow-sm ${hpGlow}`)}>
@@ -3561,8 +3877,26 @@ function CombatantCard({
           </span>
         </div>
 
+        {/* Stamina bar (Classic Marinara fighters) */}
+        {!slim && combatant.marinara && combatant.marinara.maxStamina > 0 && (
+          <div className="mt-0.5 flex items-center gap-1">
+            <Zap size={9} className="text-emerald-400" />
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                style={{
+                  width: `${Math.max(0, Math.min(100, (combatant.marinara.stamina / combatant.marinara.maxStamina) * 100))}%`,
+                }}
+              />
+            </div>
+            <span className="min-w-[2.5rem] text-right text-[0.55rem] tabular-nums text-white/40">
+              {combatant.marinara.stamina}/{combatant.marinara.maxStamina}
+            </span>
+          </div>
+        )}
+
         {/* MP bar (if applicable) */}
-        {mpPercent !== null && (
+        {!slim && mpPercent !== null && (
           <div className="mt-0.5 flex items-center gap-1">
             <Droplets size={9} className="text-blue-400" />
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -3579,7 +3913,12 @@ function CombatantCard({
       </div>
 
       {/* Element aura indicator keeps a reserved row so one status never shifts the card. */}
-      <div className={cn("mt-0.5 flex items-center justify-center", compact ? "h-3" : "h-4")}>
+      <div
+        className={cn(
+          "mt-0.5 flex items-center justify-center",
+          slim && !combatant.elementAura ? "hidden" : compact ? "h-3" : "h-4",
+        )}
+      >
         {combatant.elementAura && (
           <div
             className="rounded-full px-1.5 py-0 text-[0.5rem] font-bold uppercase tracking-wider"

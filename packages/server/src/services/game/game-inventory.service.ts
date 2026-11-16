@@ -28,7 +28,6 @@ import {
   readGameInventoryTurn,
   readRulesetInventedItems,
   rulesetItemBook,
-  gameWorldKitFromMetadata,
   worldKitItems,
   rulesetLayerOptionKey,
   rulesetLiveWornOff,
@@ -44,6 +43,7 @@ import {
   type PlayerStats,
   type RulesetCatalogEntry,
   type RulesetItemBook,
+  marinaraGameWorldKit,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -156,7 +156,7 @@ export async function loadGameInventoryItemBook(
   if (metadata.gameRuleset == null) {
     // A game with no ruleset buys, pays and earns in its setting kit's money (worldgen W6b), the rest of
     // its items staying the plain ones it always had.
-    const kitItems = worldKitItems(gameWorldKitFromMetadata(metadata));
+    const kitItems = worldKitItems(marinaraGameWorldKit(metadata));
     return kitItems
       ? rulesetItemBook(kitItems.definition, kitItems.entries, { plain: "allow", actor: who })
       : undefined;

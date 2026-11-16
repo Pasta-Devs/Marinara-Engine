@@ -10,7 +10,7 @@ import { openAddConnection } from "../../lib/add-connection";
 import { useState, useRef, useCallback, useMemo } from "react";
 import { ChevronUp, Link, CircleUser } from "lucide-react";
 import { Modal } from "../ui/Modal";
-import { useCharacters } from "../../hooks/use-characters";
+import { useCharacterListRows } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
@@ -28,7 +28,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const [tab, setTab] = useState<"connections" | "personas">("connections");
   const btnRef = useRef<HTMLButtonElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
-  const { data: rawCharacters } = useCharacters();
+  const { data: rawCharacters } = useCharacterListRows();
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
   const chatPick = useChatModelPick(activeChatId);
@@ -144,7 +144,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   </div>
                 )}
                 <ConnectionSwitcherBody
-                  onAdd={() => openAddConnection()}
+                  onAdd={() => openAddConnection({ job: "main" })}
                   current={chatPick.current}
                   onApply={chatPick.apply}
                   onDone={closeMenu}

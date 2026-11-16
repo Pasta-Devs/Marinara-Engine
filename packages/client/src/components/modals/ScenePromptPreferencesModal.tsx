@@ -5,7 +5,9 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-
 import { normalizeScenePromptPreferences } from "../../stores/ui.store";
 import { usePresets } from "../../hooks/use-presets";
 import { useChat } from "../../hooks/use-chats";
-import { useCharacterSummaries, usePersonas } from "../../hooks/use-characters";
+import { useCharacterSummaries } from "../../hooks/use-characters";
+import { CharacterSelect } from "../characters/CharacterSelect";
+import { PresetPickerField } from "../ui/LibraryPickers";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -48,7 +50,6 @@ export function ScenePromptPreferencesModal({
     isPending: charactersLoading,
     isError: charactersError,
   } = useCharacterSummaries(originCharacterIds, !!chatId);
-  const { data: personas = [] } = usePersonas(!!chatId);
   const [participantCharacterIds, setParticipantCharacterIds] = useState<string[] | undefined>();
   const [personaSelection, setPersonaSelection] = useState("source");
   const {
@@ -161,24 +162,27 @@ export function ScenePromptPreferencesModal({
 
         {chatId && (
           <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-[var(--foreground)]">
+            <div className="space-y-1.5">
+              <span className="block text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("scene.setup.persona")}
               </span>
-              <select
-                value={personaSelection}
-                onChange={(event) => setPersonaSelection(event.target.value)}
-                className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm max-sm:text-base text-[var(--foreground)]"
-              >
-                <option value="source">{localizeUi("scene.setup.sourcePersona")}</option>
-                <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-                {personas.map((persona) => (
-                  <option key={persona.id} value={persona.id}>
-                    {persona.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <CharacterSelect
+                kind="persona"
+                withCharacters={false}
+                allowNone
+                value={personaSelection && personaSelection !== "source" ? { persona: personaSelection } : null}
+                nonePicked={personaSelection === ""}
+                placeholder={personaSelection === "source" ? localizeUi("scene.setup.sourcePersona") : undefined}
+                defaultChoice={{
+                  label: localizeUi("scene.setup.sourcePersona"),
+                  picked: personaSelection === "source",
+                  onPick: () => setPersonaSelection("source"),
+                }}
+                onChange={(choice) => setPersonaSelection(choice && "persona" in choice ? choice.persona : "")}
+                aria-label={localizeUi("scene.setup.persona")}
+                className="min-h-11 text-sm max-sm:text-base"
+              />
+            </div>
             <fieldset className="space-y-1.5">
               <legend className="text-xs font-semibold text-[var(--foreground)]">
                 {localizeUi("scene.setup.characters")}
@@ -232,33 +236,26 @@ export function ScenePromptPreferencesModal({
           </div>
         )}
 
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-[var(--foreground)]">
+        <div className="space-y-1.5">
+          <span className="block text-xs font-semibold text-[var(--foreground)]">
             {localizeUi("scene.setup.promptPreset")}
           </span>
-          <select
+          <PresetPickerField
             value={promptPresetId}
+            presets={presets}
+            ariaLabel={localizeUi("scene.setup.promptPreset")}
+            missingLabel={localizeUi(
+              presetsUnverified ? "scene.setup.unverifiedPreset" : "scene.setup.unavailablePreset",
+            )}
             disabled={presetsLoading}
-            onChange={(event) => {
-              setPromptPresetId(event.target.value);
+            onChange={(id) => {
+              setPromptPresetId(id);
               setPresetChoices(null);
               setSubmitAfterChoices(false);
-              setConfiguringPresetId(event.target.value || null);
+              setConfiguringPresetId(id || null);
             }}
-            className="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm max-sm:text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
-          >
-            <option value="">{localizeUi("ui.game.gamesurfacecomponent.none")}</option>
-            {promptPresetId && (presetsUnverified || unavailablePreset) && (
-              <option value={promptPresetId}>
-                {localizeUi(presetsUnverified ? "scene.setup.unverifiedPreset" : "scene.setup.unavailablePreset")}
-              </option>
-            )}
-            {presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
+            triggerClassName="mari-preset-native-select min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-sm max-sm:text-base text-[var(--foreground)] outline-none focus-visible:border-[var(--primary)] disabled:opacity-50"
+          />
           <span className="block text-xs text-[var(--muted-foreground)]">
             {localizeUi("scene.setup.rememberPreset")}
           </span>
@@ -267,7 +264,7 @@ export function ScenePromptPreferencesModal({
               {localizeUi("scene.setup.chooseAvailablePreset")}
             </span>
           )}
-        </label>
+        </div>
         {presetLoadFailed && (
           <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-[var(--foreground)]">
             <span>{localizeUi("scene.setup.loadPresetsFailed")}</span>

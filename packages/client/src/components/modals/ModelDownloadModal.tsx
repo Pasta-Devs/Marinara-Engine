@@ -30,6 +30,7 @@ import {
   type SidecarRuntimePreference,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { GEMMA_RESTART_MESSAGE, useSidecarStore, type SidecarTestMessageResult } from "../../stores/sidecar.store.js";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -768,6 +769,10 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
     />
   );
   const isGroup = view === "speed" || view === "memory" || view === "replies" || view === "expert";
+  // The arrow and hardware Back are one function, on the same screens the arrow is shown on. The layer registers
+  // after the Modal's own, so a reopen straight into a sub-screen still steps back before it closes the window.
+  const stepBack = () => setScreen(isGroup && (!hasModel || changing) ? "settings" : "main");
+  useBackDismiss(open && (view === "settings" || isGroup), stepBack);
 
   let body: ReactNode;
   let footerLeft: ReactNode = null;
@@ -1554,16 +1559,27 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
       <div className="mari-connection-scope flex min-h-full flex-1 flex-col" data-builtin-model={view}>
         <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
           {subTitle && (
-            <div className="-ms-1.5 flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setScreen(isGroup && (!hasModel || changing) ? "settings" : "main")}
-                aria-label={localizeUi("connections.add.back")}
-                className="mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet"
-              >
-                <ChevronLeft size="1.125rem" aria-hidden />
-              </button>
-              <h3 className="text-base font-semibold text-[var(--foreground)]">{subTitle}</h3>
+            // Pinned while the screen scrolls: the negative margins cancel the padding the row now owns, so the
+            // resting layout is unchanged. Same backing as the footer below, and the row stays a direct child here.
+            // Modal's scroller keeps its own py-4 (it outranks the p-0 above), so there the row pins at -top-4 to sit
+            // flush; the embedded shell has no scroller padding.
+            <div
+              className={cn(
+                "sticky z-10 -mx-4 -mb-2 -mt-4 bg-[var(--mari-modal-opaque-bg)] px-4 pb-2 pt-4 [background-image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] sm:-mx-5 sm:px-5",
+                embedded ? "top-0" : "-top-4",
+              )}
+            >
+              <div className="-ms-1.5 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={stepBack}
+                  aria-label={localizeUi("connections.add.back")}
+                  className="mari-chrome-control mari-chrome-control--icon mari-chrome-control--quiet"
+                >
+                  <ChevronLeft size="1.125rem" aria-hidden />
+                </button>
+                <h3 className="text-base font-semibold text-[var(--foreground)]">{subTitle}</h3>
+              </div>
             </div>
           )}
           {body}

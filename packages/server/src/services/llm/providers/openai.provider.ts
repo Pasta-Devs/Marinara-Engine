@@ -1268,8 +1268,8 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendPenaltyParams(model: string): boolean {
-    // DeepSeek marks both penalties deprecated and states they no longer take effect. Argon and the newer Gemini Flash
-    // models reject them; a custom endpoint keeps them, as it keeps their samplers.
+    // DeepSeek marks both penalties deprecated and states they no longer take effect. Argon, Carbon and the newer Gemini
+    // Flash models reject them; a custom endpoint keeps them, as it keeps their samplers.
     return (
       this.providerKind !== "deepseek" &&
       !this.isXAIReasoningModel(model) &&
@@ -1296,7 +1296,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       return true;
     // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
     if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
-    // Argon and the newer Gemini Flash models ignore sampling and reject penalties (OpenRouter, NanoGPT).
+    // Argon, Carbon and the newer Gemini Flash models ignore sampling and reject penalties (OpenRouter, NanoGPT).
     if (isGeminiStrictRequestModel(m)) return true;
     return false;
   }
@@ -2995,12 +2995,9 @@ export class OpenAIProvider extends BaseLLMProvider {
       this.applyServiceTier(body, options);
     }
 
-    if (
-      !isOpenAIChatGPT &&
-      options.tools?.length &&
-      !options.forceTextualToolCalls &&
-      !this.isXAIMultiAgentModel(options.model)
-    ) {
+    // Codex takes native tools like its own client does. Leaving them out for Codex logins (the minimal request
+    // shape from #670) left Professor Mari and tool-using agents with no tools at all.
+    if (options.tools?.length && !options.forceTextualToolCalls && !this.isXAIMultiAgentModel(options.model)) {
       body.tools = this.formatResponsesTools(options.tools);
       body.tool_choice = options.toolChoice ?? "auto";
     }

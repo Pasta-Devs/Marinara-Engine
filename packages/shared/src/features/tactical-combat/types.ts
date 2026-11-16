@@ -322,7 +322,9 @@ export type TacticalEventKind =
   | "terrain"
   | "victory"
   | "defeat-end"
-  | "flee";
+  | "flee"
+  /** Why the Engine's AI picked a Classic Marinara action: shown only with Debug on. */
+  | "reasoning";
 
 export interface TacticalEvent {
   message?: import("../combat-director.js").CombatLogMessage;

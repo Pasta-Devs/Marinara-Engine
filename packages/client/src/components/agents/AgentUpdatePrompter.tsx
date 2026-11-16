@@ -6,7 +6,8 @@ import {
   useInstallCapabilityPackage,
   usePendingCapabilityPackageUpdates,
 } from "../../hooks/use-capability-packages";
-import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import { getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { useUIStore } from "../../stores/ui.store";
 import { AgentUpdateDialog, type AgentUpdatePhase, type AgentUpdateResult } from "./AgentUpdateDialog";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -24,6 +25,7 @@ export function AgentUpdatePrompter({
   const { data: pendingUpdateData, isFetched, refetch: refetchPendingUpdates } = usePendingCapabilityPackageUpdates();
   const install = useInstallCapabilityPackage();
   const decline = useDeclineCapabilityPackageUpdates();
+  const restartServer = useRestartServer();
   const openAgentCatalog = useUIStore((state) => state.openAgentCatalog);
   // Kept as a ref, not state: a dismissed update must not re-prompt this session,
   // and marking it must not schedule another render of the queue effect.
@@ -136,6 +138,7 @@ export function AgentUpdatePrompter({
     await closed;
   }, [decline, finish, localizeUi, phase, prompted]);
 
+  const canRestart = useCanRestartServer(prompted !== null);
   const restartNeeded = Object.values(results).some((result) => result.status === "updated" && result.restartRequired);
 
   // Leaving after a run that needs a restart keeps the old reminder toast.
@@ -168,15 +171,11 @@ export function AgentUpdatePrompter({
       }}
       onClose={() => leave(prompted)}
       onRestart={
-        restartNeeded
+        restartNeeded && canRestart
           ? () => {
+              // The restart sheet opens in this step with its backdrop at full strength, so nothing flashes.
+              restartServer.mutate();
               void finish(prompted);
-              api
-                .post<{ status: "restarting" }>("/admin/restart", { confirm: true })
-                .then(() => toast.success(localizeUi("settings.serverRestart.success")))
-                .catch((error) =>
-                  toast.error(getPrivilegedActionErrorMessage(error, localizeUi("settings.serverRestart.error"))),
-                );
             }
           : undefined
       }

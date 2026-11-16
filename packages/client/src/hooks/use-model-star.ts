@@ -87,7 +87,8 @@ export function useModelStar() {
     }
   };
 
-  const unstar = async (target: StarTarget) => {
+  // Resolves true when the star came off, so callers can tell a kept star apart.
+  const unstar = async (target: StarTarget): Promise<boolean> => {
     const label = target.name || target.model;
     const findSaved = () =>
       ((qc.getQueryData(connectionKeys.list()) as Row[] | undefined) ?? []).find(
@@ -102,7 +103,7 @@ export function useModelStar() {
       }
       if (!saved) {
         await setPinned.mutateAsync({ id: target.anchorId, model: target.model, pinned: false });
-        return;
+        return true;
       }
       const row = saved;
       const { removable, reason } = await unstarModel.mutateAsync({
@@ -113,7 +114,7 @@ export function useModelStar() {
         if (reason && STAYS_REASONS.has(reason)) {
           toast(t("connections.star.stays", { model: label, reason: t(`connections.star.reason.${reason}`) }));
         }
-        return;
+        return false;
       }
       setHidden(row.id, true);
       let undone = false;
@@ -144,8 +145,10 @@ export function useModelStar() {
         onAutoClose: finish,
         onDismiss: finish,
       });
+      return true;
     } catch (error) {
       fail(error);
+      return false;
     }
   };
 

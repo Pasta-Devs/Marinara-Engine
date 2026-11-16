@@ -4,7 +4,9 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 for (const theme of ["dark", "light"] as const) {
-  test(`Schedule icon retains its size in the conversation sidebar (${theme})`, async ({ page }, info) => {
+  test(`Schedule icon matches the Activity overview icon in the conversation sidebar (${theme})`, async ({
+    page,
+  }, info) => {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {
       hasCompletedOnboarding: true,
@@ -15,6 +17,7 @@ for (const theme of ["dark", "light"] as const) {
     });
     await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
     await page.goto("/");
+    const activity = page.getByRole("button", { name: "Activity overview", exact: true });
     const schedule = page.getByRole("button", { name: "Character Schedule Manager", exact: true });
     await expect(schedule).toBeVisible();
     await page.screenshot({ path: info.outputPath(`schedule-${theme}.png`), animations: "disabled" });
@@ -24,12 +27,12 @@ for (const theme of ["dark", "light"] as const) {
       const svg = button.querySelector("svg")!.getBoundingClientRect();
       return { width: svg.width, height: svg.height, contained: svg.left >= bounds.left && svg.right <= bounds.right };
     });
-    expect(icon.width).toBeGreaterThanOrEqual(19);
-    expect(icon.height).toBeGreaterThanOrEqual(19);
-    expect(icon.contained).toBe(true);
+    const activityIcon = await activity.locator("svg").boundingBox();
+    expect(activityIcon).not.toBeNull();
+    expect(icon).toMatchObject({ width: activityIcon?.width, height: activityIcon?.height, contained: true });
     if (info.project.name.includes("mobile")) await schedule.tap();
     else await schedule.click();
-    await expect(page.getByRole("dialog", { name: "Character Schedule Manager", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Character schedule manager", exact: true })).toBeVisible();
   });
 
   test(`Professor Mari copies only fenced code, with original whitespace (${theme})`, async ({ page }, info) => {

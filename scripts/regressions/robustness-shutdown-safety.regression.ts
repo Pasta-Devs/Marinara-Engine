@@ -102,7 +102,7 @@ assert.equal(signals.runtimeStopBudgetFor("SIGINT", "win32", 2_000), 2_000);
 // index.ts applies the per-signal budget before closing.
 assert.match(
   readFileSync(join(root, "packages/server/src/index.ts"), "utf8"),
-  /setRuntimeStopBudgetMs\(runtimeStopBudgetFor\(signal\)\);[^]*?await app\.close\(\);/u,
+  /setRuntimeStopBudgetMs\(runtimeStopBudgetFor\(stopSignal\)\);[^]*?await app\.close\(\);/u,
 );
 // The early flush is opt-in, and a failure is not logged a second time (the
 // store already logged it at error level and the store close retries it).
@@ -180,7 +180,7 @@ assert.match(
   // shutdown() itself refuses to run while any close is in progress ...
   assert.match(
     source,
-    /const shutdown = async \(signal: NodeJS\.Signals\) => \{(?:\s*\/\/[^\n]*\n)*\s*if \(isShuttingDown\) \{[^}]*return;\s*\}\s*isShuttingDown = true;/u,
+    /const shutdown = async \(signal: NodeJS\.Signals \| "restart", exitCode = 0\) => \{(?:\s*\/\/[^\n]*\n)*\s*if \(isShuttingDown\) \{[^}]*return;\s*\}\s*isShuttingDown = true;/u,
     "shutdown() must keep its isShuttingDown guard",
   );
   // ... so the controller needs no alreadyStopping hook in index.ts: only the

@@ -2,7 +2,7 @@
 // Mesh avatars: what one frame asks of the mesh-avatar runtime (lane: 2D)
 // ──────────────────────────────────────────────
 // Pure functions (no DOM and no mesh-avatar import), so the setup panel can use the names without loading
-// the runtime, and scripts/regressions/avatar-2d-renderers.regression.ts can pin the mapping.
+// the runtime, and scripts/regressions/avatars/avatar-2d-renderers.regression.ts can pin the mapping.
 import type { AvatarEmotion, AvatarExpressionMap, AvatarFrameInput, AvatarViseme } from "@marinara-engine/shared";
 
 /** mesh-avatar 0.1.1 emotion tags (setEmotion): the same six names as the avatar emotions. */

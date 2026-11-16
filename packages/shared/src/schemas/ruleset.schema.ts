@@ -550,7 +550,9 @@ const diceSumResolutionSchema = z
     kind: z.literal("dice-sum"),
     dice: z
       .object({
-        count: z.number().int().min(1).max(10),
+        /** 0 is a check with no dice (1.825): the sheet's own numbers against the difficulty, as
+         *  Amber or Nobilis read them. The rest of the summed shape works unchanged. */
+        count: z.number().int().min(0).max(10),
         sides: z.number().int().min(2).max(1000),
         /** What each face is worth, lowest face first, where it is not its own number (1.136): Fate's
          *  dice are three faces worth -1, 0 and +1. One value per face. */
@@ -577,6 +579,54 @@ const diceSumResolutionSchema = z
       .object({ check: naturalPolicySchema.default("none"), save: naturalPolicySchema.default("none") })
       .strict()
       .prefault({}),
+    /** Two named dice of one size (1.821): Daggerheart's Hope and Fear. They add up as any two dice
+     *  do; the record says which one showed more, and a tie is a critical success when `tieIsCritical`. */
+    duality: z
+      .object({
+        dice: z.tuple([z.object({ id: sheetId, label }).strict(), z.object({ id: sheetId, label }).strict()]),
+        tieIsCritical: z.boolean().default(true),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
+    /** One more die whose faces carry symbols (1.822): a plot die. Thrown only when a check asks
+     *  with `plot="true"`; its face adds nothing to the total but a face's own `bonus`. Faces not
+     *  listed are blank. */
+    plotDie: z
+      .object({
+        label: promptSafeText(40),
+        sides: z.number().int().min(2).max(20),
+        faces: z
+          .array(
+            z
+              .object({
+                face: z.number().int().min(1).max(20),
+                symbol: z.enum(["complication", "opportunity"]).nullable(),
+                bonus: z.number().int().min(-20).max(20).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(20),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
+    /** The dice's own total, before anything is added, that is a critical (1.823): a natural 19 or 20
+     *  on 2d10 is `atLeast: 19`. `atMost` is a critical failure. */
+    naturalTotal: z
+      .object({
+        atLeast: z.number().int().min(-1000).max(10000).optional(),
+        atMost: z.number().int().min(-1000).max(10000).optional(),
+      })
+      .strict()
+      .optional(),
+    /** The Game Master may move one check's outcome band up or down (1.823), up to `max` bands, with
+     *  `shift="+1"`: a double edge and a double bane. Needs `outcomes`. */
+    tierShift: z
+      .object({ max: z.number().int().min(1).max(3), text: promptSafeText(200).optional() })
+      .strict()
+      .optional(),
     difficultyLadder: diceSumLadderSchema,
   })
   .strict();
@@ -691,6 +741,42 @@ const dicePoolResolutionSchema = z
     /** Optional: this many net successes or more is a critical success. */
     exceptional: z
       .object({ successes: z.number().int().min(1).max(RULESET_POOL_MAX_DICE) })
+      .strict()
+      .optional(),
+    /** Optional (1.824): each pair of dice at or above `from` counts `successes` together rather than
+     *  two, and a check that succeeds with a pair is a critical success. Vampire V5's paired 10s. */
+    pairs: z
+      .object({ from: poolFace, successes: z.number().int().min(3).max(10) })
+      .strict()
+      .optional(),
+    /** Optional (1.824): up to `max` dice of the pool are special dice, asked for with `hunger="N"` and
+     *  thrown first. A critical with one of them on the critical face is messy; a failure with one of
+     *  them on a 1 is bestial. They are never thrown again. Vampire V5's Hunger. */
+    hunger: z
+      .object({
+        label: promptSafeText(40),
+        max: z.number().int().min(1).max(10),
+        text: promptSafeText(200).optional(),
+      })
+      .strict()
+      .optional(),
+    /** Optional (1.826): the pool told apart by where its dice come from, laid out in the order listed:
+     *  the ability's own dice, gear dice asked for with `gear="N"`, and the skill's group, which holds
+     *  the rest. A group with `banes` has its 1s counted, and a push never throws those again. The Year
+     *  Zero Engine's base, skill and gear dice. */
+    groups: z
+      .array(
+        z
+          .object({ id: sheetId, label, from: z.enum(["ability", "skill", "gear"]), banes: z.boolean().default(true) })
+          .strict(),
+      )
+      .min(1)
+      .max(3)
+      .optional(),
+    /** Optional (1.826): `push="true"` on a check takes the character's last roll of it and throws again,
+     *  once, every die that neither succeeded nor shows a counted 1. The Year Zero Engine's push. */
+    push: z
+      .object({ text: promptSafeText(200).optional() })
       .strict()
       .optional(),
     /** Optional: re-throws of the low faces the system grants without anybody paying for them, each
@@ -1316,6 +1402,11 @@ const livePoolSchema = z
      *  "1 3rd-level slot", "2 3rd-level slots". The pool's label when left out. */
     unit: label.optional(),
     units: label.optional(),
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
+     *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
+     *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
+     *  track has its own boxes and ignores it. */
+    display: z.enum(["counter", "bar", "dots"]).optional(),
   })
   .strict();
 
@@ -1360,6 +1451,11 @@ const liveTrackSchema = z
      *  rating of the character's own). A wound track's is always its number of levels. */
     max: z.union([z.number().int(), rulesetValueRefSchema]),
     default: z.number().int().optional(),
+    /** How the sheet draws it (Capability API 1.828): `bar` adds a fill bar to its row, for what a player
+     *  reads at a glance (Health, Stress); `dots` adds a row of dots filled up to the value, one per point
+     *  (Hunger, Humanity), shown as a bar below 0 or past 20. `counter`, or nothing, is the number alone. A wound
+     *  track has its own boxes and ignores it. */
+    display: z.enum(["counter", "bar", "dots"]).optional(),
     /** Where a plain track starts instead of `default`, read off the sheet (Capability API 1.158). */
     startFrom: (rulesetValueRefSchema as z.ZodType<RulesetValueRef, unknown>).optional(),
     levels: z.array(liveTrackLevelSchema).min(1).max(RULESET_TRACK_LEVELS_MAX).optional(),
@@ -2449,6 +2545,16 @@ export const rulesetSheetSchema = z
     builder: sheetBuilderSchema.optional(),
     /** Permanent changes the Game Master may make (Capability API 1.142). */
     advancement: advancementSchema.optional(),
+    /** A practice meter on every skill (Capability API 1.829): progress 0 to 99 toward the next rank,
+     *  kept with the message, moved by `op="practice"` and started over when the skill's rank changes.
+     *  For systems that learn by use (a LitRPG sheet, RuneQuest's ticks). */
+    progress: z
+      .object({
+        /** Skill sections that keep no practice: what is bought or taught rather than learned by use. */
+        except: z.array(sheetId).max(20).optional(),
+      })
+      .strict()
+      .optional(),
     /** Number fields held to a combined most wherever the sheet is edited (Capability API 1.672):
      *  the full form lowers each one's most by what the others hold, the Game Master's advancement
      *  refuses a value past it, and a sheet already over it says so. 5e's class levels, 20 in all. */
@@ -17891,6 +17997,9 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
         ? 'This ruleset\'s per-die target cannot move, so "harder" cannot change a roll'
         : null;
   sheet.abilities.forEach((ability, index) => checkSection(ability.section, ["sheet", "abilities", index]));
+  sheet.progress?.except?.forEach((section, index) => {
+    if (!sections.has(section)) issue(["sheet", "progress", "except", index], `Unknown section "${section}"`);
+  });
   for (const key of ["skills", "saves"] as const) {
     sheet[key].forEach((entry, index) => {
       checkSection(entry.section, ["sheet", key, index]);
@@ -18182,6 +18291,20 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
     if (resolution.dice.count !== 1 && (resolution.naturals.check !== "none" || resolution.naturals.save !== "none")) {
       issue(["resolution", "naturals"], "Natural results need a single die; with several dice use none");
     }
+    // A check with no dice (1.825) has no die to read: every one of these keys is about a face.
+    if (resolution.dice.count === 0) {
+      const { dice, advantage, openEnded, unmodified, duality, plotDie, naturalTotal } = resolution;
+      if (advantage) issue(["resolution", "advantage"], "A check with no dice has nothing to roll twice");
+      if (openEnded) issue(["resolution", "openEnded"], "An open-ended roll needs a die");
+      if (unmodified) issue(["resolution", "unmodified"], "An unmodified face is a die's");
+      if (dice.faces) issue(["resolution", "dice", "faces"], "A check with no dice has no faces");
+      if (duality) issue(["resolution", "duality"], "Two named dice need dice.count 2");
+      if (plotDie) issue(["resolution", "plotDie"], "A plot die is a die thrown beside the check's own");
+      if (naturalTotal) issue(["resolution", "naturalTotal"], "A natural total needs dice to show it");
+      if (resolution.naturals.check !== "none" || resolution.naturals.save !== "none") {
+        issue(["resolution", "naturals"], "Natural results need a single die; a check with no dice has none");
+      }
+    }
     // Custom faces, open-ended rolls and unmodified faces (1.136).
     const { dice, openEnded, unmodified } = resolution;
     if (dice.faces && dice.faces.length !== dice.sides) {
@@ -18211,6 +18334,57 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           issue(["resolution", "unmodified", index], `A face of this die is from 1 to ${dice.sides}`);
       });
     }
+    // Two named dice (1.821) are read face against face, so they are two plain dice thrown once.
+    const { duality } = resolution;
+    if (duality) {
+      if (dice.count !== 2 || dice.faces || openEnded) {
+        issue(["resolution", "duality"], "Two named dice need dice.count 2, plain faces and no open-ended roll");
+      }
+      if (resolution.advantage)
+        issue(["resolution", "duality"], "Two named dice are read as thrown, so advantage is false");
+      if (duality.dice[0].id === duality.dice[1].id)
+        issue(["resolution", "duality", "dice"], "The two dice share an id");
+      // The record names the leading die by its label, and says "tie" when neither leads. Labels are
+      // compared as the record writes them: a double quote or a line break becomes an apostrophe.
+      const [first, second] = duality.dice.map((die) =>
+        die.label
+          .replace(/["\r\n]/g, "'")
+          .trim()
+          .toLowerCase(),
+      );
+      if (!first || !second) issue(["resolution", "duality", "dice"], "A die needs a label the record can write");
+      if (first === second) issue(["resolution", "duality", "dice"], "The two dice share a label");
+      if (first === "tie" || second === "tie")
+        issue(["resolution", "duality", "dice"], 'A die cannot be labelled "tie": the record uses it for equal faces');
+    }
+    // A plot die's listed faces (1.822) are faces it has, each listed once.
+    const { plotDie } = resolution;
+    plotDie?.faces.forEach((entry, index) => {
+      if (entry.face > plotDie.sides)
+        issue(["resolution", "plotDie", "faces", index, "face"], `A face of this die is from 1 to ${plotDie.sides}`);
+      if (plotDie.faces.findIndex((other) => other.face === entry.face) !== index)
+        issue(["resolution", "plotDie", "faces", index, "face"], `Face ${entry.face} is listed twice`);
+    });
+    // A natural total (1.823) the dice can show, read off the faces' own worth where they have it.
+    const { naturalTotal, tierShift } = resolution;
+    if (naturalTotal) {
+      const low = dice.count * (dice.faces ? Math.min(...dice.faces) : 1);
+      const high = dice.count * (dice.faces ? Math.max(...dice.faces) : dice.sides);
+      if (naturalTotal.atLeast === undefined && naturalTotal.atMost === undefined)
+        issue(["resolution", "naturalTotal"], "Give atLeast, atMost or both");
+      for (const key of ["atLeast", "atMost"] as const) {
+        const at = naturalTotal[key];
+        if (at !== undefined && (at < low || at > high))
+          issue(["resolution", "naturalTotal", key], `${dice.count}d${dice.sides} shows ${low} to ${high}`);
+      }
+      if (
+        naturalTotal.atLeast !== undefined &&
+        naturalTotal.atMost !== undefined &&
+        naturalTotal.atMost >= naturalTotal.atLeast
+      )
+        issue(["resolution", "naturalTotal", "atMost"], "atMost is at or above atLeast, so a roll would be both");
+    }
+    if (tierShift && !resolution.outcomes) issue(["resolution", "tierShift"], "Shifting a band needs outcomes");
   } else if (resolution.kind === "symbol-pool") {
     if (resolution.allowOwnUpgrade && !resolution.pool.upgrade) {
       issue(["resolution", "allowOwnUpgrade"], "Own upgrades require pool.upgrade");
@@ -18366,6 +18540,54 @@ function refineRulesetDefinition(def: RulesetDefinitionBase, ctx: z.RefinementCt
           );
       }
     }
+    // Pairs (1.824) count the faces that succeed; a face counted twice or below the target would make
+    // a pair mean two things.
+    if (resolution.pairs) {
+      faceIssue(resolution.pairs.from, ["resolution", "pairs", "from"]);
+      if (resolution.pairs.from < target.max) {
+        issue(
+          ["resolution", "pairs", "from"],
+          `A paired face succeeds, so it is at or above the highest target (${target.max})`,
+        );
+      }
+      if (resolution.double || resolution.stances) {
+        issue(["resolution", "pairs"], "Pairs count the faces that succeed once each, so leave double and stances out");
+      }
+    }
+    // Hunger dice (1.824) are dice of the pool, so there are never more of them than the pool holds.
+    if (resolution.hunger && resolution.hunger.max > resolution.pool.max)
+      issue(
+        ["resolution", "hunger", "max"],
+        `Hunger dice come from the pool, so max is at most ${resolution.pool.max}`,
+      );
+    // Dice groups (1.826): one group per source, and the skill's group takes what is left of the pool.
+    if (resolution.groups) {
+      unique(resolution.groups, ["resolution", "groups"], "group");
+      resolution.groups.forEach((group, index) => {
+        if (resolution.groups!.findIndex((other) => other.from === group.from) !== index)
+          issue(["resolution", "groups", index, "from"], `Two groups take their dice from ${group.from}`);
+        if (resolution.groups!.findIndex((other) => other.label.trim() === group.label.trim()) !== index)
+          issue(["resolution", "groups", index, "label"], "Two groups share a label");
+      });
+      if (!resolution.groups.some((group) => group.from === "skill"))
+        issue(["resolution", "groups"], "A group from skill holds the dice no other group does");
+    }
+    // A push (1.826) reads "did not succeed" as at or above the target, and starts from the dice of an
+    // earlier roll, so nothing else may count them another way, add to them or hold some back.
+    if (resolution.push && resolution.stances) {
+      issue(
+        ["resolution", "push"],
+        "A push throws again the dice that did not succeed, read at or above the target, so leave stances out",
+      );
+    }
+    if ((resolution.push || resolution.groups) && resolution.explode) {
+      issue(
+        ["resolution", resolution.push ? "push" : "groups"],
+        "Dice groups and a push count the dice first thrown, so leave explode out",
+      );
+    }
+    if (resolution.push && resolution.hunger)
+      issue(["resolution", "push"], "Special dice are never thrown again, so leave push or hunger out");
     // A number above what the largest roll can count could never be reached at the table.
     const reachable = rulesetPoolMaxSuccesses(resolution);
     if (resolution.exceptional && resolution.exceptional.successes > reachable) {
@@ -21470,9 +21692,12 @@ export type RulesetDicePoolResolution = Extract<RulesetResolution, { kind: "dice
  *  ever be reached" check and for the ceiling of a check's difficulty, so the two cannot disagree
  *  about a ladder step the file was allowed to declare. */
 export function rulesetPoolMaxSuccesses(
-  resolution: Pick<RulesetDicePoolResolution, "pool" | "explode" | "double">,
+  resolution: Pick<RulesetDicePoolResolution, "pool" | "explode" | "double" | "pairs">,
 ): number {
-  return (resolution.pool.max + (resolution.explode ? resolution.pool.max : 0)) * (resolution.double ? 2 : 1);
+  const dice = resolution.pool.max + (resolution.explode ? resolution.pool.max : 0);
+  // A pair (1.824) is worth `successes` for two dice; an odd die left over counts one.
+  if (resolution.pairs) return Math.floor(dice / 2) * resolution.pairs.successes + (dice % 2);
+  return dice * (resolution.double ? 2 : 1);
 }
 export type RulesetSheetSchema = RulesetDefinition["sheet"];
 /** A party sheet uses the existing sheet math and renderer with its own field namespace. */

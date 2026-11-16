@@ -13,11 +13,11 @@ const TIMEOUT_MS = 120_000;
 // A stopped script gets this long to run its own cleanup (it may have started processes in other groups).
 const STOP_GRACE_MS = 5_000;
 const SCRIPTS = [
-  "scripts/regressions/pnpm-runner.regression.mjs",
+  "scripts/regressions/launcher/pnpm-runner.regression.mjs",
   "scripts/regressions/launcher/env.regression.mjs",
   "scripts/regressions/launcher/existing-server.regression.mjs",
   "scripts/regressions/launcher/update.regression.mjs",
-  "scripts/regressions/dev-launcher-process.regression.mjs",
+  "scripts/regressions/launcher/dev-launcher-process.regression.mjs",
   "scripts/regressions/launcher/format-guard.regression.mjs",
   "scripts/regressions/launcher/server-build.regression.mjs",
   "scripts/check-windows-installer-layout.mjs",

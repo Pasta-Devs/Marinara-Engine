@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseCharacter } from "./character-picker.js";
 import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-settings-tools.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -84,11 +85,11 @@ for (const theme of ["dark", "light"] as const) {
       await expect(attachment).toBeVisible();
       const checkbox = () => attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
       await expect(checkbox()).not.toBeChecked();
-      await expect(attachment.getByRole("combobox")).toHaveCount(0);
+      await expect(attachment.locator("[data-lorebook-picker-trigger]")).toHaveCount(0);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
-      const select = () => attachment.getByRole("combobox", { name: "Reference lorebook" });
+      const select = () => attachment.getByRole("button", { name: "Reference lorebook" });
       await expect(select()).toBeEnabled();
-      await select().selectOption(book.id);
+      await chooseCharacter(page, select(), "Reference lorebook", book.name);
       const metadata = async () => (await (await page.request.get(`/api/chats/${chat.id}`)).json()).metadata;
       await expect
         .poll(async () => (await metadata()).agentLorebookAttachments["prose-guardian"].lorebookId)
@@ -108,19 +109,24 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       attachment = await open();
       await expect(checkbox()).toBeChecked();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText(book.name);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
       await expect.poll(async () => (await metadata()).agentLorebookAttachments["prose-guardian"].enabled).toBe(false);
       await expect(select()).toHaveCount(0);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText(book.name);
       const hidden = await page.request.patch(`/api/lorebooks/${book.id}`, { data: { hiddenFromLibrary: true } });
       expect(hidden.ok(), await hidden.text()).toBeTruthy();
       await page.reload();
       attachment = await open();
-      await expect(select()).toHaveValue(book.id);
-      await expect(select().locator(`option[value="${book.id}"]`)).toHaveText(book.name);
-      await expect(select().locator(`option[value="${book.id}"]`)).toHaveJSProperty("disabled", true);
+      await expect(select()).toHaveText(book.name);
+      // A book hidden from the library stays named on the field, but the picker no longer offers it.
+      await select().click();
+      const picker = page.getByRole("dialog", { name: "Reference lorebook", exact: true });
+      await expect(picker).toBeVisible();
+      await expect(picker.locator("[data-pick-row]").filter({ hasText: book.name })).toHaveCount(0);
+      await picker.press("Escape");
+      await expect(picker).toHaveCount(0);
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toHaveCount(0);
@@ -128,7 +134,7 @@ for (const theme of ["dark", "light"] as const) {
       ids.book = "";
       await page.reload();
       attachment = await open();
-      await expect(select()).toHaveValue(book.id);
+      await expect(select()).toHaveText("Selected lorebook unavailable");
       await expect(
         attachment.getByText("Select another lorebook. An unavailable attachment adds no reference context."),
       ).toBeVisible();
@@ -136,6 +142,97 @@ for (const theme of ["dark", "light"] as const) {
       if (ids.chat) await page.request.delete(`/api/chats/${ids.chat}`);
       if (ids.book) await page.request.delete(`/api/lorebooks/${ids.book}`);
       if (ids.custom) await page.request.delete(`/api/agents/${ids.custom}`);
+    }
+  });
+}
+
+for (const resultType of ["lorebook_update", "context_injection"] as const) {
+  test(`existing ${resultType} writers keep their order rule until it is changed`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const bookResponse = await request.post("/api/lorebooks", { data: { name: "Order fixture" } });
+    expect(bookResponse.ok()).toBeTruthy();
+    const book = await bookResponse.json();
+    let agentId: string | undefined;
+    try {
+      const type = `custom-order-${resultType}-${testInfo.project.name}`;
+      const agentResponse = await request.post("/api/agents", {
+        data: {
+          type,
+          name: "Lorebook writer",
+          phase: "post_processing",
+          resultType,
+          promptTemplate: "Save important memories.",
+          settings: {
+            customCapabilities: { edit_lorebooks: true },
+            lorebookWriteEnabled: true,
+            writableLorebookId: book.id,
+          },
+        },
+      });
+      expect(agentResponse.ok()).toBeTruthy();
+      agentId = (await agentResponse.json()).id;
+
+      await seedUIState(
+        page,
+        { hasCompletedOnboarding: true, rightPanelOpen: false, sidebarOpen: false },
+        "if-missing",
+      );
+      await page.addInitScript(
+        (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+        version,
+      );
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      const openAgent = async () => {
+        await page.evaluate(async (agentType) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().closeAllDetails();
+          useUIStore.getState().openAgentDetail(agentType);
+        }, type);
+      };
+      const order = page.getByRole("combobox", { name: "New entry order", exact: true });
+      const fixed = page.getByRole("spinbutton", { name: "Fixed order", exact: true });
+      const editor = page.locator(".mari-editor-shell").filter({ has: order });
+      const saveAndVerify = async (value: number | string | undefined) => {
+        await editor.getByRole("button", { name: "Save", exact: true }).click();
+        await expect
+          .poll(async () => {
+            const saved = await (await request.get(`/api/agents/${agentId}`)).json();
+            return {
+              name: saved.name,
+              order: JSON.parse(saved.settings).newLorebookEntryOrder,
+            };
+          })
+          .toEqual({ name: "Renamed lorebook writer", order: value });
+        await page.reload();
+        await openAgent();
+      };
+
+      await page.goto("/");
+      await openAgent();
+      await expect(order).toHaveValue("legacy");
+      await expect(fixed).toBeHidden();
+      await editor.getByPlaceholder("Agent name…").fill("Renamed lorebook writer");
+      await saveAndVerify(undefined);
+      await expect(order).toHaveValue("legacy");
+
+      await order.selectOption("fixed");
+      await expect(fixed).toHaveValue("100");
+      await saveAndVerify(100);
+      await expect(fixed).toHaveValue("100");
+
+      await order.selectOption("growing");
+      await saveAndVerify("growing");
+      await expect(order).toHaveValue("growing");
+      await expect(fixed).toBeHidden();
+
+      await order.selectOption("legacy");
+      await saveAndVerify(undefined);
+      await expect(order).toHaveValue("legacy");
+    } finally {
+      if (agentId) await request.delete(`/api/agents/${agentId}`);
+      await request.delete(`/api/lorebooks/${book.id}`);
     }
   });
 }

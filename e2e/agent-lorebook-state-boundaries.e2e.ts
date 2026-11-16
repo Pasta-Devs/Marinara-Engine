@@ -115,7 +115,7 @@ for (const theme of ["dark", "light"] as const) {
       if ((await drawer.getAttribute("aria-expanded")) !== "true") await drawer.click();
       const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
       await expect(toggle).toBeChecked();
-      await expect(attachment.getByRole("combobox", { name: "Reference lorebook" })).toHaveValue(book.id);
+      await expect(attachment.getByRole("button", { name: "Reference lorebook" })).toHaveText(book.name);
 
       failWarm = true;
       await page.evaluate(async (id) => {
@@ -134,7 +134,7 @@ for (const theme of ["dark", "light"] as const) {
         )
         .toBe("error");
       await expect(toggle).toBeChecked();
-      await expect(attachment.getByRole("combobox", { name: "Reference lorebook" })).toHaveValue(book.id);
+      await expect(attachment.getByRole("button", { name: "Reference lorebook" })).toHaveText(book.name);
       await attachment.getByText("Attach lorebook for the specific agent", { exact: true }).click();
       await expect.poll(() => writes.length).toBe(1);
       expect(writes[0]!.agentLorebookAttachments).toEqual({

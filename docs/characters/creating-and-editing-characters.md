@@ -23,17 +23,19 @@ Pick the character when you start a chat. See [Roleplay Mode: Getting Started](.
 
 ## The Character Editor at a glance
 
-The Character Editor replaces the chat area with a full-page workspace. On a wide screen the tabs run down the left side. On a narrow screen they become a scrollable strip across the top. The tabs, in order, are **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Sprites**, **Gallery**, **Colors**, **Voice**, **Stats** and **Advanced**. Each tab jumps to its section of one long form, so you can also scroll.
+The Character Editor replaces the chat area with a full-page workspace. On a wide screen the tabs are a row of buttons across the header. At some middle widths the buttons show only their icons; point at one to see its name. On a narrow screen they fold into a menu under the name. The tabs, in order, are **Metadata**, **Card**, **Onboarding**, **Convo**, **Lorebook**, **Images**, **Colors**, **Voice**, **Stats** and **Advanced**. Each tab jumps to its section of one long form, so you can also scroll.
 
 The header holds the parts you use most:
 
 - The **Back** arrow, the avatar tile, a name field, and a title or comment field for a short label such as `Modern AU version`. A line below shows the creator and version.
 - **Save**. It is off until you change something. While it works, it reads **Uploading…** (an avatar is uploading), **Embedding…** (a lorebook is being added to the card) or **Saving…**.
 - The **Favorite** star.
-- **Export character**. See [Importing and Exporting Character Cards](import-export.md).
-- **Import character as persona**, which copies this card into a new persona. See [Personas](personas.md).
-- **Duplicate character**.
-- **Delete character**.
+- The **…** (**More actions**) menu, which holds:
+  - **Ask Professor Mari**, which asks Professor Mari about this card.
+  - **Export character**. See [Importing and Exporting Character Cards](import-export.md).
+  - **Import character as persona**, which copies this card into a new persona. See [Personas](personas.md).
+  - **Duplicate character**.
+  - **Delete character**.
 
 Leaving the editor saves your changes first. If saving fails, the editor stays open with your draft so you can try again.
 
@@ -44,11 +46,22 @@ Tabs that have their own guide:
 | **Onboarding** | [Interactive Onboarding](interactive-onboarding.md) |
 | **Convo** | [Conversation Mode Profiles](../conversation/profiles.md) |
 | **Lorebook** | [Linking Lorebooks to Characters](../lorebooks/linking-to-characters.md) |
-| **Sprites** | [Character Sprites](sprites.md) |
-| **Gallery** | [Character and Persona Galleries](galleries.md) |
-| **Colors** and **Stats** | [Character Colors and RPG Stats](colors-and-stats.md) |
+| **Images** | [Character Sprites](sprites.md) and [Character and Persona Galleries](galleries.md). See [Images tab](#images-tab) below. |
+| **Colors** and **Stats** | [Character Colors and Roleplay Stats](colors-and-stats.md) |
 
-The sections below cover **Metadata**, **Card**, **Voice** and **Advanced**, plus avatars and version history.
+The sections below cover **Metadata**, **Card**, **Images**, **Voice** and **Advanced**, plus avatars and version history.
+
+
+## Images tab
+
+The **Images** tab gathers how a character looks in pictures. Its buttons at the top jump to each part:
+
+- **Character Sheet**: a reference image of the character. Click **Manage** to create, upload or pick one, and turn on **Use as reference image** to prefer it over the avatar when generating images. See [Character Sheet](sprites.md#character-sheet).
+- **Selfie instructions**: optional directions for this character's Conversation selfies, such as camera style or expressions. Noodle and Slurp can use them too when you turn that on in their settings. See [Selfies](../conversation/selfies.md).
+- **Sprites**: expressions, full-body sprites and call clips. See [Character Sprites](sprites.md).
+- **Gallery**: images and videos kept with the character. See [Character and Persona Galleries](galleries.md).
+
+A persona's **Images** tab has the same parts except **Selfie instructions**.
 
 ## Metadata tab
 
@@ -56,6 +69,7 @@ The **Metadata** tab holds identity and organization details. They help you sort
 
 - **Character ID**. Read-only. It appears after the card is saved. Click **Copy** to copy it.
 - **Name**. The display name. It is `{{char}}` in prompts, a placeholder that Marinara replaces with the character's name.
+- **Other names**. Nicknames, full names or titles the character also goes by, such as `Clark Kent, Kal-El, Mr. Kent`. Type several separated by commas and press <kbd>Enter</kbd> or click **Add**. Roleplay chats can paint them in the name color. See [Character Colors](colors-and-stats.md#the-three-colors).
 - **Creator**. Who made the card, for credit when you share it.
 - **Version**. A version number you set, such as `1.0`. The **Automatic versioning** switch next to it keeps earlier versions and raises this number when the card changes. Version history only saves snapshots while this switch is on.
 - **Talkativeness**. A slider from 0 to 100 percent. It sets how often this character speaks in group chats. The default is 50 percent.
@@ -138,11 +152,11 @@ The picture size comes from the **Portraits** image size in the image-generation
 
 The **Voice** tab sets how the character sounds when Text to Speech reads it aloud.
 
-- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in **Connections → Text to Speech**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
+- **Voice**. The voice for this character. A change saves right away, without **Save**. It is the same setting as this character's row in the **Voice** job settings in **Connections**. Leave it empty to use the default voice. When a card with a matching name has a voice, such as the original of an AU copy, the empty field names that voice, because this card uses it too.
 - **Preview**. Plays a short line in that voice. The line says the character's name, or the **Phonetic name** when one is set.
 - **Phonetic name**. An optional spelling used only to fix pronunciation. It is part of the card, so click **Save** to keep it.
 
-If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens Connections. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
+If Text to Speech is off, or every character shares one voice, a short note replaces the **Voice** field. With one shared voice, the note offers **Use a voice per character**. **Open Text to Speech settings** opens the **Voice** job settings in **Connections**. See [Text to Speech (TTS) Setup](../media/tts-setup.md).
 
 ## Advanced tab
 
@@ -159,13 +173,16 @@ The **Regex Scripts** section holds find-and-replace scripts for this one charac
 An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the seven card fields has **Add Alternative Field** below it.
 
 1. Click **Add Alternative Field** under the field you want to vary. Marinara copies the field's text into a new alternative.
-2. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
-3. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
-4. Click **Save**.
+2. Optional: click its title, such as **Backstory alternative 1**, and type a name such as `Young`. Names are up to 60 characters. Leave the name empty to keep the numbered title.
+3. Edit the alternative. It has its own wand, which uses the alternative's text as the starting details and does not change the original field.
+4. Open **Active in 0 chats** and tick the chats that should use it. Only chats that include this character are listed.
+5. Click **Save**.
+
+You can also choose from inside a chat. Open **Chat Settings** and expand **Card Field Alternatives**. It lists the chat's persona and each character in the chat that has alternatives, with one menu per field. Pick **Original** or an alternative by name. The card is saved right away, and the choice applies from the next reply. The section is hidden when nothing in the chat has alternatives.
 
 Rules:
 
-- A chat can use only one alternative per field. Ticking a chat in another alternative moves it there.
+- A chat can use only one alternative per field. Ticking a chat in another alternative, or picking another one in Chat Settings, moves it there.
 - With no chats ticked, the alternative stays inactive for later.
 - An empty alternative clears that field in its chats.
 - Chat-specific scenario and image appearance overrides still win.

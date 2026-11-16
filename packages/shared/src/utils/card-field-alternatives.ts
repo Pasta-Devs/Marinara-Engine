@@ -41,6 +41,23 @@ export function unassignCardFieldAlternatives(value: unknown): CardFieldAlternat
   return cardFieldAlternativesSchema.parse(alternatives.map((alternative) => ({ ...alternative, chatIds: [] })));
 }
 
+/**
+ * Makes `alternativeId` (or the original, for null) the one `field` alternative used in `chatId`.
+ * Every other alternative for that field gives the chat up, so the one-per-field rule holds.
+ */
+export function assignCardFieldAlternative(
+  alternatives: CardFieldAlternative[],
+  field: CardFieldKey,
+  chatId: string,
+  alternativeId: string | null,
+): CardFieldAlternative[] {
+  return alternatives.map((alternative) => {
+    if (alternative.field !== field) return alternative;
+    const chatIds = alternative.chatIds.filter((id) => id !== chatId);
+    return { ...alternative, chatIds: alternative.id === alternativeId ? [...chatIds, chatId] : chatIds };
+  });
+}
+
 /** The same membership rule is used by the picker API and prompt reads. */
 export function cardEntityBelongsToChat(chatValue: unknown, kind: "character" | "persona", entityId: string): boolean {
   const chat = record(chatValue);

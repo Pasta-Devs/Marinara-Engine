@@ -476,6 +476,7 @@ export function MsgAction({
   className,
   tabIndex,
   buttonRef,
+  disabled,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
@@ -483,10 +484,12 @@ export function MsgAction({
   className?: string;
   tabIndex?: number;
   buttonRef?: RefObject<HTMLButtonElement | null>;
+  disabled?: boolean;
 }) {
   return (
     <MessageActionButton
       buttonRef={buttonRef}
+      disabled={disabled}
       icon={icon}
       onClick={onClick}
       title={title}

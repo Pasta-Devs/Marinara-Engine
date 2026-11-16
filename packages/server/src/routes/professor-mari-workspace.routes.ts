@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Professor Mari Workspace Agent
 // ──────────────────────────────────────────────
+import { redactStoredSecretsDeep } from "../utils/stored-secrets.js";
 import {
   chatIdForMariSession,
   MARI_PERMISSIONS_MODES,
@@ -803,12 +804,22 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.get("/history", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    return getMariDbService(app.db).getHistory();
+    return redactStoredSecretsDeep(await getMariDbService(app.db).getHistory());
   });
 
   app.post("/db/command", async (req, reply) => {
     if (!privileged(req, reply, true)) return;
     const body = cliSchema.parse(req.body);
-    return getMariDbService(app.db).executeCli(body);
+    // #9342: `mari images look` pictures only reach Mari through her direct runtime; the shell CLI would print
+    // megabytes of base64, so it gets a note instead.
+    const { images, ...result } = await getMariDbService(app.db).executeCli(body);
+    if (!images?.length) return result;
+    return {
+      ...result,
+      notes: [
+        ...(result.notes ?? []),
+        `${images.length} picture(s) not shown: the shell CLI can't deliver pictures. Professor Mari sees them when she runs mari images look on its own (no pipes or ;); anyone else can ask her in chat to look.`,
+      ],
+    };
   });
 }

@@ -42,6 +42,10 @@ Pick an order in the sort dropdown next to the search box.
 | **Newest** | Most recently created first. |
 | **Oldest** | Oldest created first. |
 | **Favorites** | Favorites first, then the rest. |
+| **Most tokens** | Largest cards first, by the estimated size shown on each row. Folders sort by their cards' total. |
+| **Fewest tokens** | Smallest cards first. |
+
+The size sorts help you find cards to slim down or flesh out. The count is an estimate of the card's own text, not a tokenizer count for your model. Personas, lorebooks and prompt presets offer the same two sorts.
 
 To set a manual order, drag a row up or down, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. Either switches the sort to **Manual order**.
 

@@ -48,14 +48,11 @@ export async function showConnectionsList(page: Page) {
 /**
  * Opens an engine's settings card. Speech to text opens from its Defaults tile: on the engine's page when it is set
  * up, in the Add window when it is not. The Voice tile picks the voice Model instead (#8456), so "voice" opens the
- * Text to Speech settings in the Add window (On this device › Text to speech), which every voice source has.
+ * Voice job's settings window from its gear, which shows the Text to Speech settings whether voice is on or off.
  */
 export async function openDefaultsTile(page: Page, tile: "voice" | "stt") {
   if (tile === "voice") {
-    await page.evaluate(async () => {
-      const { openAddConnection } = await import("/src/lib/add-connection.ts" as string);
-      openAddConnection({ category: "device", item: "tts" });
-    });
+    await openJobSettings(page, "voice");
     return;
   }
   await (await revealDefaultsTile(page, tile)).click();
@@ -84,8 +81,14 @@ export function ttsConfigCard(page: Page) {
   return page.locator('[data-component="TTSConfigCard"]').filter({ visible: true });
 }
 
-/** Variant D: a set-up engine has its own page under On this device. */
-export async function openDevicePage(page: Page, item: "local-model" | "tts" | "stt") {
-  await showConnectionsList(page);
-  await page.locator(`[data-connections-row="device:${item}"]`).filter({ visible: true }).click();
+/** Opens a job's settings window from its gear in the Connections panel. */
+export async function openJobSettings(page: Page, job: string) {
+  await openConnectionsPanel(page);
+  const role = page
+    .locator("[data-connections-panel]")
+    .filter({ visible: true })
+    .locator(`[data-defaults-role="${job}"]`);
+  await role.scrollIntoViewIfNeeded();
+  await role.getByRole("button", { name: / settings$/ }).click();
+  return page.getByRole("dialog");
 }

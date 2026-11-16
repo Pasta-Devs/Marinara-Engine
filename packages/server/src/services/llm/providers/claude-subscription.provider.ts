@@ -588,6 +588,12 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     let sawSuccessResult = false;
     let finalFastModeState: string | null = null;
     let finalUsedModels: string[] = [];
+    // Why the model stopped. "refusal" means Claude declined the request; without it, a refusal before any
+    // text reads as an empty reply and the error below points at `claude login` instead.
+    let stopReason: string | null = null;
+    // An API error Claude Code turned into a reply (its synthetic "API Error: …" assistant message, and a
+    // result with `is_error`). It is the error's text, never the model's, so it must not reach the chat.
+    let apiErrorText: string | null = null;
 
     try {
       // Cast on `prompt` is needed because we type `promptArg` locally as
@@ -604,9 +610,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
         if (message.type === "stream_event") {
           const event = message.event as {
             type: string;
-            delta?: { type: string; text?: string; thinking?: string };
+            delta?: { type?: string; text?: string; thinking?: string; stop_reason?: string | null };
           };
-          if (event.type === "content_block_delta" && event.delta) {
+          if (event.type === "message_delta" && typeof event.delta?.stop_reason === "string") {
+            stopReason = event.delta.stop_reason;
+          } else if (event.type === "content_block_delta" && event.delta) {
             if (event.delta.type === "text_delta" && event.delta.text) {
               yield event.delta.text;
               emittedText = true;
@@ -649,7 +657,22 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
               "[claude-subscription] chat-context mod failed to load; the CLI's email, date and environment context reach the model",
             );
           }
-        } else if (message.type === "assistant" && !(options.stream ?? true)) {
+        } else if (message.type === "assistant") {
+          const assistantStop = (message.message as { stop_reason?: string | null } | undefined)?.stop_reason;
+          if (typeof assistantStop === "string") stopReason = assistantStop;
+          const syntheticError =
+            !!(message as { error?: unknown }).error ||
+            (message.message as { model?: string } | undefined)?.model === "<synthetic>";
+          if (syntheticError) {
+            const blocks = (message.message?.content ?? []) as Array<{ type: string; text?: string }>;
+            apiErrorText =
+              blocks
+                .map((block) => (block.type === "text" ? (block.text ?? "") : ""))
+                .join("")
+                .trim() || "unknown API error";
+            continue;
+          }
+          if (options.stream ?? true) continue;
           // Non-streaming path: the SDK still yields the full assistant
           // message at the end; emit the text blocks once.
           const blocks = (message.message?.content ?? []) as Array<{ type: string; text?: string; thinking?: string }>;
@@ -662,6 +685,8 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
             }
           }
         } else if (message.type === "result") {
+          const resultStop = (message as { stop_reason?: string | null }).stop_reason;
+          if (typeof resultStop === "string") stopReason = resultStop;
           if (message.subtype === "success") {
             sawSuccessResult = true;
             const usage = message.usage ?? null;
@@ -739,11 +764,15 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
               );
             }
             const finalResult = typeof message.result === "string" ? message.result : "";
-            if (!emittedText && finalResult.trim()) {
+            if ((message as { is_error?: boolean }).is_error === true) {
+              apiErrorText ??= finalResult.trim() || "unknown API error";
+            } else if (!apiErrorText && !emittedText && finalResult.trim()) {
               yield finalResult;
               emittedText = true;
             }
           } else {
+            // A refusal is reported below, by name.
+            if (stopReason === "refusal") break;
             const detail = message.errors?.length ? ` — ${message.errors.join("; ")}` : "";
             throw new Error(`Claude (Subscription) request failed (${message.subtype})${detail}`);
           }
@@ -766,6 +795,33 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       // No session-file cleanup: the SDK owns the temp JSONL it materializes
       // from `sessionStore.load()` and reaps it itself. The in-process
       // ResumeSessionStore is just a GC'd object.
+    }
+
+    if (apiErrorText) {
+      const flagged = /safeguards|\bAUP\b|usage polic/i.test(apiErrorText);
+      logger.warn(
+        "[claude-subscription] %s returned an API error as its reply (flagged=%s, session=%s): %s",
+        options.model,
+        flagged,
+        resumeSessionId ?? "fold-path",
+        apiErrorText,
+      );
+      throw new Error(
+        flagged
+          ? `Claude's safeguards blocked this request before it was answered (${apiErrorText}). Something in the prompt tripped them, such as a game's rating guidelines, a preset, or a card. Soften that text, or try another model.`
+          : `Claude (Subscription) request failed: ${apiErrorText}`,
+      );
+    }
+
+    if (stopReason === "refusal") {
+      logger.warn(
+        "[claude-subscription] %s declined the request (stop_reason=refusal, session=%s)",
+        options.model,
+        resumeSessionId ?? "fold-path",
+      );
+      throw new Error(
+        `Claude declined this request (stop reason: refusal). Something in the prompt tripped its safety checks, such as a game's rating guidelines, a preset, or a card. Soften that text, or try another model.`,
+      );
     }
 
     if (!emittedText) {

@@ -52,6 +52,7 @@ import {
   homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
+import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
@@ -81,6 +82,7 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { executeStateNavigation } from "../../lib/state-navigation";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { MarinaraWordmark } from "../ui/MarinaraWordmark";
 import { MOBILE_SHELL_MEDIA_QUERY, useUIStore } from "../../stores/ui.store";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
 import { useChatStore } from "../../stores/chat.store";
@@ -96,6 +98,7 @@ import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 import { capabilityPackageAssetUrl } from "../../lib/capability-package-assets";
+import { avatarPreviewSrc } from "../../lib/avatar-preview";
 
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 // Outside homeBrowserTabId's `marinara-home-tab-` namespace, so no package id can produce them.
@@ -383,21 +386,6 @@ type HomeBrowserHubProps = {
   pageActive: boolean;
   onOpenCredits: () => void;
 };
-
-function MarinaraWordmark({ className }: { className?: string }) {
-  const { t } = useTranslation();
-  const brandName = t("app.documentTitle");
-  return (
-    <span
-      className={cn(
-        "mari-logo-gradient-text mari-logo-gradient-text--active inline-flex items-baseline font-black tracking-[-0.035em]",
-        className,
-      )}
-    >
-      {brandName}
-    </span>
-  );
-}
 
 function readHomeWidgetOrder(): HomeWidgetId[] {
   if (typeof window === "undefined") return [...DEFAULT_HOME_WIDGET_ORDER];
@@ -1087,7 +1075,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     () => browserPackages.find((item) => item.id === "noodle") ?? null,
     [browserPackages],
   );
-  const [activeTab, setActiveTab] = useState("home");
+  // Kept in the store: the desktop shell unmounts Home under every editor, and Back must find the tab left behind.
+  const activeTab = useUIStore((state) => state.homeTab);
+  const setActiveTab = useUIStore((state) => state.setHomeTab);
   const [fullscreenPackageId, setFullscreenPackageId] = useState<string | null>(null);
   const activeBrowserPackageId = pageActive && browserPackages.some((item) => item.id === activeTab) ? activeTab : null;
   const activeBrowserPackageIdRef = useRef(activeBrowserPackageId);
@@ -1127,6 +1117,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const [gridRowHeight, setGridRowHeight] = useState(HOME_WIDGET_MIN_ROW_HEIGHT);
   const contentRef = useRef<HTMLElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
+  const homePageRef = useRef<HTMLDivElement | null>(null);
+  // Freeze Home's ambient animations while Professor Mari, an editor or a panel covers it (phone battery).
+  useCoveredSurfaceFlag(homePageRef, "marinaraHomeCovered");
   const feedShellRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksRef = useRef<HTMLDivElement | null>(null);
   const mobileBookmarksTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -1328,15 +1321,17 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
 
   useEffect(() => {
     if (activeTab === "home" || activeTab === "professor") return;
+    // A remount before the installed list arrives must not mistake the remembered package for an uninstalled one.
+    if (installed.isPending) return;
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
-  }, [activeTab, browserPackages]);
+  }, [activeTab, browserPackages, installed.isPending, setActiveTab]);
 
   // A scene that ended, or its Back button, asks for the package thread it started in.
   useEffect(() => {
     if (sceneOriginFocus && browserPackages.some((item) => item.id === sceneOriginFocus.packageId)) {
       setActiveTab(sceneOriginFocus.packageId);
     }
-  }, [browserPackages, sceneOriginFocus]);
+  }, [browserPackages, sceneOriginFocus, setActiveTab]);
 
   useEffect(() => {
     if (activeTab !== "noodle" || !latestNoodleRefreshMarker) return;
@@ -1418,7 +1413,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       }
       setActiveTab(tab);
     },
-    [sceneOriginFocus, setSceneOriginFocus],
+    [sceneOriginFocus, setActiveTab, setSceneOriginFocus],
   );
   const openProfessor = () => requestProfessorMariOpen();
   // The picked entry leaves with the menu, so focus moves on to the tab it opened (Professor opens a panel,
@@ -1741,7 +1736,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     >
       <div
         className={cn(
-          "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
+          "mari-home-page flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--marinara-home-page-wash)]",
           !browserFullscreen && "border border-[var(--border)]/75 shadow-2xl shadow-black/25 sm:rounded-xl",
         )}
         data-browser-fullscreen={browserFullscreen ? "" : undefined}
@@ -2316,14 +2311,13 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     initialTab: typeof options?.tab === "string" ? options.tab : undefined,
                   });
                 },
-                // Capability API 1.386: open a connection in the editor, and come back to this tab once it
-                // closes. The desktop shell unmounts Home while an editor is open, so the store remembers the
-                // tab and queues it for the remounted Home only when the editor itself closes.
+                // Capability API 1.386: open a connection in the editor. Back returns to this tab, which the
+                // store remembers while the desktop shell unmounts Home.
                 openConnection: (connectionId: string) => {
                   if (typeof connectionId !== "string" || !connectionId) return;
                   // A retained callback cannot act for a package that is no longer the active tab.
                   if (activeBrowserPackageIdRef.current !== activeTab) return;
-                  useUIStore.getState().openConnectionDetail(connectionId, { returnToHomeTab: activeTab });
+                  useUIStore.getState().openConnectionDetail(connectionId);
                 },
               }}
             />
@@ -2333,6 +2327,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
             </div>
           ) : (
             <div
+              ref={homePageRef}
               className="relative min-h-full overflow-hidden bg-[radial-gradient(circle_at_12%_8%,oklch(0.79_0.16_205/0.14),transparent_27%),radial-gradient(circle_at_87%_12%,oklch(0.73_0.21_345/0.14),transparent_29%),radial-gradient(circle_at_72%_76%,oklch(0.76_0.19_52/0.08),transparent_28%),var(--background)]"
               data-component="HomeBrowserHub.HomePage"
             >
@@ -2687,7 +2682,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                               <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent)]">
                                 {characterOfDay.avatarPath ? (
                                   <img
-                                    src={characterOfDay.avatarPath}
+                                    src={avatarPreviewSrc(characterOfDay.avatarPath)}
                                     alt=""
                                     className="h-full w-full rounded-full object-cover"
                                     style={getAvatarCropStyle(characterOfDay.avatarCrop)}

@@ -2,8 +2,16 @@ name: Platform Artifact Checks
 
 # Branch/PR proof only. Release signing, tags, registries and uploads to releases
 # remain owned by the existing release workflows.
+# Pull requests run it only when they touch builds, dependencies, the launcher, shutdown, updates, Docker, Android or
+# the installer; every other code change is proven on each staging push. Linux runs the full Node lane on every PR and
+# windows-launcher-regressions (pull-request-checks.yml) the Windows restart and shutdown checks.
 on:
   workflow_dispatch:
+  push:
+    branches: [staging]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     paths:
@@ -17,8 +25,17 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "patches/**"
-      - "packages/**"
-      - "scripts/**"
+      - "packages/*/package.json"
+      - "packages/*/scripts/**"
+      - "packages/server/src/index.ts"
+      - "packages/server/src/lib/shutdown-*.ts"
+      - "packages/server/src/routes/updates.routes.ts"
+      - "packages/server/src/services/updates/**"
+      - "scripts/*"
+      - "scripts/regressions/launcher/**"
+      - "scripts/regressions/fixtures/restart-*"
+      - "scripts/regressions/fixtures/*-shutdown.*"
+      - "scripts/regressions/server/server-signal-shutdown.regression.ts"
       - "start*"
       - "android/**"
       - "win/**"
@@ -52,7 +69,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: pnpm
+          # Only Linux has a staging-saved pnpm cache to restore; the other runners would write PR-only entries (see #8950, #8967).
+          cache: ${{ matrix.os == 'ubuntu-latest' && 'pnpm' || '' }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Install NSIS for native prerequisite command proof
@@ -64,13 +82,13 @@ jobs:
         id: restart-source
         env:
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/restart-supervisor.regression.ts
       - name: Compare compiled-server restart ownership
         if: success() || steps.restart-source.outcome == 'failure'
         env:
           MARINARA_RESTART_COMPILED: "true"
           MARINARA_RESTART_DIAGNOSTICS_DIR: ${{ github.workspace }}/test-results/restart-diagnostics
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/restart-supervisor.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/restart-supervisor.regression.ts
       - name: Retain restart diagnostic evidence
         if: failure() || cancelled()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -83,9 +101,9 @@ jobs:
         # This file runs several separately bounded console/PTY scenarios; the
         # general regression runner's 30s whole-file cap cuts those short.
         timeout-minutes: 5
-        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server-signal-shutdown.regression.ts
+        run: pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/server/server-signal-shutdown.regression.ts
       - name: Exercise update apply policy
-        run: node scripts/run-regressions.mjs --filter scripts/regressions/update-apply-hardening.regression.ts
+        run: node scripts/run-regressions.mjs --filter scripts/regressions/launcher/update-apply-hardening.regression.ts
 
   container-runtime:
     name: Container runtime (${{ matrix.variant }}, ${{ matrix.arch }})
@@ -125,8 +143,7 @@ jobs:
             BUILD_BRANCH=${{ github.head_ref || github.ref_name }}
           push: false
           load: true
-          cache-from: type=gha,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=platform-${{ matrix.variant }}-${{ matrix.arch }}
+          # This check does not use the Actions cache, to stay within its budget (see #8950, #8967).
       - name: Verify startup, native dependencies and data after replacement
         run: node scripts/smoke-container.mjs marinara-platform-proof:${{ matrix.variant }} ${{ matrix.variant }} ${{ matrix.arch }}
 

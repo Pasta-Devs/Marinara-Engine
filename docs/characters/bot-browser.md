@@ -11,6 +11,8 @@ A character card is a file that holds one character's name, personality, greetin
 
 The Card Browser fills the whole content area, with the title **Browse character cards online**. To leave, click the back arrow at the top left.
 
+The **Download** button in the **Lorebooks** panel opens the same browser on downloadable lorebooks instead. See [Download a lorebook from Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
 If you close it and open it again, your last search, filters and selected character are still there. Reloading the app resets them.
 
 ## Choose a source

@@ -1,15 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createDefaultVideoGenerationProfile } from "../packages/shared/src/constants/video-generation-defaults.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
 for (const theme of ["dark", "light"] as const) {
-  test(`connection Save remains a single stable action through success feedback in ${theme}`, async ({
-    page,
-    request,
-  }, info) => {
+  test(`Save keeps the model window open and Done closes it in ${theme}`, async ({ page, request }, info) => {
     await isolateSyncedUISettings(page);
     await seedUIState(page, {
       hasCompletedOnboarding: true,
@@ -46,16 +43,6 @@ for (const theme of ["dark", "light"] as const) {
     );
     try {
       await page.goto("/");
-      await page.evaluate(async (connectionId) => {
-        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        useUIStore.getState().openConnectionDetail(connectionId);
-      }, id);
-      // #8456 renamed the editor title field "Model name".
-      const name = page.getByPlaceholder("Model name", { exact: true });
-      await expect(name).toHaveValue("MiniMax 3");
-      const header = page.locator(".mari-editor-header");
-      const save = header.getByRole("button", { name: "Save", exact: true });
-      await expect(save).toHaveCount(1);
       const views = info.project.name.includes("mobile")
         ? [
             { label: "portrait", width: 393, height: 852 },
@@ -64,35 +51,23 @@ for (const theme of ["dark", "light"] as const) {
         : [{ label: "desktop", width: 1440, height: 900 }];
       for (const view of views) {
         await page.setViewportSize({ width: view.width, height: view.height });
+        await page.evaluate(async (connectionId) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().openConnectionDetail(connectionId);
+        }, id);
+        const dialog = page.getByRole("dialog");
+        const name = dialog.getByPlaceholder("Model name", { exact: true });
+        await expect(name).toHaveValue(/MiniMax 3/);
         calls.length = 0;
         await name.fill(`MiniMax 3 ${view.label}`);
-        await name.blur();
-        const before = await save.boundingBox();
-        await page.screenshot({ path: info.outputPath(`${view.label}-before-save.png`) });
-        await save.click();
-        await expect(header.getByText("Saved", { exact: true })).toBeAttached();
-        const after = await save.boundingBox();
-        const visible = await header.evaluate((element) => ({
-          saveIcons: element.querySelectorAll("svg.lucide-save").length,
-          checks: element.querySelectorAll("svg.lucide-check").length,
-          buttons: [...element.querySelectorAll("button")].map((button) => ({
-            label: button.getAttribute("aria-label"),
-            left: button.getBoundingClientRect().left,
-            right: button.getBoundingClientRect().right,
-          })),
-        }));
-        await page.screenshot({ path: info.outputPath(`${view.label}-saved-flash.png`) });
-        await expect(header.getByText("Saved", { exact: true })).not.toBeAttached();
-        const settled = await save.boundingBox();
-        await page.screenshot({ path: info.outputPath(`${view.label}-status-gone.png`) });
-        const proofPath = info.outputPath(`${view.label}-save-state.json`);
-        writeFileSync(proofPath, JSON.stringify({ before, after, settled, calls, visible }, null, 2));
-        await info.attach(`${view.label}-save-state`, { path: proofPath, contentType: "application/json" });
-        await expect(save).toHaveCount(1);
-        expect(visible.saveIcons).toBe(1);
+        await dialog.getByRole("button", { name: "Save", exact: true }).click();
+        // Saving keeps the window open and turns the action into Done.
+        const done = dialog.getByRole("button", { name: "Done", exact: true });
+        await expect(done).toBeVisible();
+        await page.screenshot({ path: info.outputPath(`${view.label}-after-save.png`) });
         expect(calls).toEqual([`PUT /api/connections/${id}/default-parameters`, `PATCH /api/connections/${id}`]);
-        expect(after!.x, "success feedback must not move the Save control").toBeCloseTo(before!.x, 1);
-        expect(settled!.x, "clearing success feedback must not move the Save control").toBeCloseTo(before!.x, 1);
+        await done.click();
+        await expect(dialog).toBeHidden();
       }
     } finally {
       await request.delete(`/api/connections/${id}`);

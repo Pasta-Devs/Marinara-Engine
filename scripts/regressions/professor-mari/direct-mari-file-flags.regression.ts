@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "marinara-mari-file-flags-")));
 const workspace = join(root, "workspace");
@@ -14,6 +14,7 @@ const dataDir = join(root, "data");
 const KEY = "cd".repeat(32);
 const ENV_SECRET = "env-secret-mari-must-not-see";
 const OUTSIDE_SECRET = "outside-secret-mari-must-not-see";
+const shellPath = (path: string) => path.split(sep).join("/");
 const originalEnv = { DATA_DIR: process.env.DATA_DIR, FILE_STORAGE_DIR: process.env.FILE_STORAGE_DIR };
 mkdirSync(join(workspace, "packages", "server", "data"), { recursive: true });
 mkdirSync(join(workspace, "payloads"), { recursive: true });
@@ -62,8 +63,9 @@ try {
     ["mari themes create --name t --css-file packages/server/data/.encryption-key", /cannot access secret files/u, KEY],
     ["mari themes create --name t --css-file=packages/server/data/.encryption-key", /cannot access secret files/u, KEY],
     ["mari db insert characters --file .env", /cannot access secret files/u, ENV_SECRET],
-    [`mari themes create --name t --css-file=${outsideCss}`, /escapes the workspace/u, OUTSIDE_SECRET],
-    [`mari presets create --json-file ${outsideJson}`, /escapes the workspace/u, OUTSIDE_SECRET],
+    // Her shell treats `\` as an escape, so Windows paths are written with `/` (which Windows accepts too).
+    [`mari themes create --name t --css-file=${shellPath(outsideCss)}`, /escapes the workspace/u, OUTSIDE_SECRET],
+    [`mari presets create --json-file ${shellPath(outsideJson)}`, /escapes the workspace/u, OUTSIDE_SECRET],
   ];
   for (const [command, refusal, secret] of refused) {
     const result = await bash(command);
@@ -112,7 +114,7 @@ try {
   );
   const assign = "mari images assign --target background";
   const refusedImages: Array<[string, RegExp]> = [
-    [`${assign} --source ${join(root, "outside.png")}`, /escapes the workspace/u],
+    [`${assign} --source ${shellPath(join(root, "outside.png"))}`, /escapes the workspace/u],
     [`${assign} --source-image=../outside.png`, /escapes the workspace/u],
     [`${assign} --from .env`, /cannot access secret files/u],
     [`${assign} --source packages/server/data/.encryption-key`, /cannot access secret files/u],

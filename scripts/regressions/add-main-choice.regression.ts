@@ -22,6 +22,7 @@ let fail = false;
 let main = false;
 let offerMain = true;
 const context = {
+  jobFor: undefined,
   firstPick: { connectionId: "added" },
   get offerMain() {
     return offerMain;

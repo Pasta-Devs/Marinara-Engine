@@ -5,8 +5,6 @@ import { useCallback, useState, useEffect, useId, useLayoutEffect, useMemo, useR
 import { createPortal } from "react-dom";
 import {
   Volume2,
-  Key,
-  Globe,
   Check,
   Loader2,
   RefreshCw,
@@ -22,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { toast } from "sonner";
-import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices } from "../../../hooks/use-tts";
+import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices, useVoiceJobMoved } from "../../../hooks/use-tts";
 import { useCharacters, usePersonas } from "../../../hooks/use-characters";
 import { useConnections } from "../../../hooks/use-connections";
 import { ConnectionSelect } from "../../connections/ConnectionSelect";
@@ -38,7 +36,6 @@ import type {
   TTSConfig,
   TTSConnectionProfile,
   TTSSource,
-  TTSSourceProfile,
   TTSSourceProfiles,
   TTSVoiceAssignment,
   TTSVoiceMode,
@@ -54,15 +51,14 @@ import {
   TTS_DIALOGUE_PAUSE_MAX_SECONDS,
   TTS_DIALOGUE_PAUSE_MIN_SECONDS,
   TTS_REQUEST_TIMEOUT_MS,
-  ttsConnectionProfileFromConfig,
-  ttsSourceProfileFromConfig,
   isChatProvider,
 } from "@marinara-engine/shared";
 import { DraftNumberInput } from "../../ui/DraftNumberInput";
 import { HelpTooltip } from "../../ui/HelpTooltip";
-import { SettingsCheckbox, ToggleSetting } from "./SettingControls";
+import { SettingsCheckbox } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
+import { useUIStore } from "../../../stores/ui.store";
 
 // ── Sub-components ───────────────────────────────
 
@@ -120,53 +116,8 @@ const TTS_SOURCE_DEFAULTS: Record<TTSSource, { label: string; baseUrl: string; m
   },
 };
 
-const TTS_SOURCE_OPTIONS: Array<{ value: TTSSource; label: string }> = [
-  { value: "openai", label: "OpenAI-compatible" },
-  { value: "elevenlabs", label: "ElevenLabs" },
-  { value: "pockettts", label: "PocketTTS" },
-  { value: "xai", label: "xAI Voice" },
-];
-
-function defaultSourceProfile(source: TTSSource): TTSSourceProfile {
-  const defaults = TTS_SOURCE_DEFAULTS[source];
-  return {
-    baseUrl: defaults.baseUrl,
-    apiKey: "",
-    voice: defaults.voice,
-    model: defaults.model,
-    speed: 1,
-    elevenLabsStability: 0.5,
-    elevenLabsLanguageCode: "",
-    elevenLabsGameSoundEffects: false,
-    elevenLabsGameMusic: false,
-    voiceMode: "single",
-    voiceAssignments: [],
-    narratorVoiceEnabled: false,
-    narratorVoice: defaults.voice,
-    npcDefaultVoicesEnabled: false,
-    npcDefaultMaleVoices: [],
-    npcDefaultFemaleVoices: [],
-    audioFormat: "mp3",
-  };
-}
-
 /** A new Audio connection profile starts from the connection's own default voice. */
-function defaultConnectionProfile(source: TTSSource, connectionVoice: string): TTSConnectionProfile {
-  const {
-    baseUrl: _baseUrl,
-    apiKey: _apiKey,
-    model: _model,
-    elevenLabsGameSoundEffects: _soundEffects,
-    elevenLabsGameMusic: _music,
-    ...profile
-  } = defaultSourceProfile(source);
-  const voice = connectionVoice || profile.voice;
-  return { ...profile, voice, narratorVoice: voice };
-}
-
 /** The Source list's value for an Audio connection; the four sources keep their own names. */
-const CONNECTION_SOURCE_PREFIX = "connection:";
-
 type TTSAudioConnectionOption = {
   id: string;
   name: string;
@@ -198,15 +149,6 @@ function readTTSAudioConnectionOptions(connections: unknown[] | undefined): TTSA
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
-
-const ELEVENLABS_TTS_MODELS = [
-  "eleven_v4",
-  "eleven_v3",
-  "eleven_multilingual_v2",
-  "eleven_flash_v2_5",
-  "eleven_turbo_v2_5",
-  "eleven_flash_v2",
-];
 
 const ELEVENLABS_DEFAULT_VOICE_OPTIONS: VoiceOption[] = [
   { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", category: "ElevenLabs default" },
@@ -463,6 +405,15 @@ function sameStringSet(left: string[], right: string[]): boolean {
   if (left.length === 0 || right.length === 0 || left.length !== right.length) return false;
   const rightSet = new Set(right);
   return left.every((value) => rightSet.has(value));
+}
+
+/** A heading between the groups of the Voice job's settings. */
+function TtsSectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+      {children}
+    </h3>
+  );
 }
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -1012,6 +963,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { data: savedConfig, isLoading } = useTTSConfig();
   const updateConfig = useUpdateTTSConfig();
+  const openModal = useUIStore((s) => s.openModal);
   const { data: characters } = useCharacters();
   const { data: personas } = usePersonas();
   const { data: connections } = useConnections();
@@ -1065,6 +1017,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   // Saves not answered yet. A refetch that lands meanwhile can be older than the draft.
   const savesInFlightRef = useRef(0);
   const { mutateAsync: putConfig } = updateConfig;
+  const voiceJobMoved = useVoiceJobMoved();
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceProfilesRef = useRef<TTSSourceProfiles>({});
   const connectionProfilesRef = useRef<Record<string, TTSConnectionProfile>>({});
@@ -1095,11 +1048,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     (savedConfig?.enabled ?? false) && savedChoiceUsable,
     savedConnectionId,
   );
-  const {
-    data: modelsData,
-    isFetching: fetchingModels,
-    refetch: refetchModels,
-  } = useTTSModels(
+  const { refetch: refetchModels } = useTTSModels(
     savedSource,
     savedConfig?.baseUrl ?? TTS_SOURCE_DEFAULTS[savedSource].baseUrl,
     // A connection's model is set on the connection, so the card lists models only for its own sources.
@@ -1110,6 +1059,12 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   // Populate draft from server on load. The refetch after an earlier save must not take back a newer edit that
   // is still waiting or being saved, such as the speaker picked right after "Add voice" saved its new row.
   useEffect(() => {
+    // The Voice job moved (on/off, source or row): an unsaved edit belongs to the old choice, so it is dropped, not saved here.
+    if (savedConfig && pendingSaveRef.current && voiceJobMoved(pendingSaveRef.current)) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      pendingSaveRef.current = null;
+    }
     if (!savedConfig || pendingSaveRef.current || savesInFlightRef.current > 0) return;
     setEnabled(savedConfig.enabled);
     setSource(savedConfig.source ?? "openai");
@@ -1153,7 +1108,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     sourceProfilesRef.current = savedConfig.sourceProfiles ?? {};
     connectionProfilesRef.current = savedConfig.connectionProfiles ?? {};
     setSaveStatus("idle");
-  }, [savedConfig]);
+  }, [savedConfig, voiceJobMoved]);
 
   // The chosen connection can change in its own editor; show the adapter, address and model it has now.
   useEffect(() => {
@@ -1180,10 +1135,10 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     () => () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       const pending = pendingSaveRef.current;
-      if (pending) void putConfig(pending).catch(() => undefined);
+      if (pending && !voiceJobMoved(pending)) void putConfig(pending).catch(() => undefined);
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     },
-    [putConfig],
+    [putConfig, voiceJobMoved],
   );
 
   useEffect(() => {
@@ -1255,6 +1210,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
       saveTimerRef.current = null;
     }
     pendingSaveRef.current = null;
+    if (voiceJobMoved(payload)) return;
     setSaveStatus("saving");
     savesInFlightRef.current += 1;
     try {
@@ -1286,67 +1242,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     }, 600);
   };
 
-  const sourceValue = connectionId ? `${CONNECTION_SOURCE_PREFIX}${connectionId}` : source;
-
-  const handleSourceChange = (nextValue: string) => {
-    if (nextValue === sourceValue) return;
-    // Keep the current choice's settings, under its source or under its Audio connection's ID.
-    const current = buildPayload();
-    if (connectionId) {
-      connectionProfilesRef.current = {
-        ...connectionProfilesRef.current,
-        [connectionId]: ttsConnectionProfileFromConfig(current),
-      };
-    } else {
-      sourceProfilesRef.current = { ...sourceProfilesRef.current, [source]: ttsSourceProfileFromConfig(current) };
-    }
-    const sourceProfiles = sourceProfilesRef.current;
-    const connectionProfiles = connectionProfilesRef.current;
-
-    const nextConnection = nextValue.startsWith(CONNECTION_SOURCE_PREFIX)
-      ? audioConnectionOptions.find((option) => option.id === nextValue.slice(CONNECTION_SOURCE_PREFIX.length))
-      : undefined;
-    // The connection keeps its address, key and model; the source settings' own stay as saved.
-    const nextSource = nextConnection ? nextConnection.source : (nextValue as TTSSource);
-    const nextProfile: TTSConnectionProfile & Partial<TTSSourceProfile> = nextConnection
-      ? (connectionProfiles[nextConnection.id] ?? defaultConnectionProfile(nextSource, nextConnection.voice))
-      : (sourceProfiles[nextSource] ?? defaultSourceProfile(nextSource));
-    const identity = nextConnection
-      ? { baseUrl: nextConnection.baseUrl, apiKey, model: nextConnection.model }
-      : { baseUrl: nextProfile.baseUrl ?? "", apiKey: nextProfile.apiKey ?? "", model: nextProfile.model ?? "" };
-    const nextConnectionId = nextConnection?.id ?? "";
-
-    setConnectionId(nextConnectionId);
-    setSource(nextSource);
-    setBaseUrl(identity.baseUrl);
-    setApiKey(identity.apiKey);
-    setModel(identity.model);
-    setVoice(nextProfile.voice);
-    setVoiceMode(nextProfile.voiceMode);
-    setVoiceAssignments(nextProfile.voiceAssignments);
-    setNarratorVoiceEnabled(nextProfile.narratorVoiceEnabled);
-    setNarratorVoice(nextProfile.narratorVoice);
-    setNpcDefaultVoicesEnabled(nextProfile.npcDefaultVoicesEnabled);
-    setNpcDefaultMaleVoices(nextProfile.npcDefaultMaleVoices);
-    setNpcDefaultFemaleVoices(nextProfile.npcDefaultFemaleVoices);
-    setSpeed(nextProfile.speed);
-    setElevenLabsStability(nextProfile.elevenLabsStability);
-    setElevenLabsLanguageCode(nextProfile.elevenLabsLanguageCode);
-    if (!nextConnection) {
-      setElevenLabsGameSoundEffects(nextProfile.elevenLabsGameSoundEffects ?? false);
-      setElevenLabsGameMusic(nextProfile.elevenLabsGameMusic ?? false);
-    }
-    setAudioFormat(nextProfile.audioFormat);
-    mark({
-      source: nextSource,
-      ...nextProfile,
-      ...identity,
-      connectionId: nextConnectionId,
-      sourceProfiles,
-      connectionProfiles,
-    });
-  };
-
   const handlePreview = () => {
     if (ttsState === "playing" || ttsState === "loading" || ttsState === "blocked") {
       ttsService.stop();
@@ -1356,9 +1251,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     void (async () => {
       const payload = buildPayload();
       const previewVoice =
-        payload.voiceMode === "per-character"
-          ? (payload.voiceAssignments.find((assignment) => assignment.voice)?.voice ?? payload.voice)
-          : payload.voice;
+        payload.voice || payload.voiceAssignments.find((assignment) => assignment.voice)?.voice || "";
       if (payload.source === "elevenlabs" && !previewVoice) {
         toast.error(localizeUi("ui.panels.ttsconfigcard.selectAnElevenlabsVoiceBeforePreviewing"));
         return;
@@ -1433,7 +1326,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     }
   };
 
-  const voices = voicesData?.voices ?? [];
   const voiceOptions = useMemo(
     () =>
       buildTTSVoiceOptions(voicesData, source, [
@@ -1445,7 +1337,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
       ]),
     [narratorVoice, npcDefaultFemaleVoices, npcDefaultMaleVoices, source, voice, voiceAssignments, voicesData],
   );
-  const voicesFromProvider = voicesData?.fromProvider ?? false;
   const voicesErrorMessage = voicesError
     ? getTtsRequestErrorMessage(voicesRequestError, localizeUi("ui.panels.ttsconfigcard.couldNotRefreshVoices"))
     : null;
@@ -1474,12 +1365,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
     voiceMode,
     voicesData,
   ]);
-  const modelOptions = useMemo(() => {
-    const providerModels = modelsData?.source === "elevenlabs" ? modelsData.models : [];
-    const choices = providerModels.length > 0 ? providerModels : ELEVENLABS_TTS_MODELS.map((id) => ({ id, name: id }));
-    if (!model || choices.some((option) => option.id === model)) return choices;
-    return [{ id: model, name: model }, ...choices];
-  }, [model, modelsData]);
   const canRefreshVoices = connectionId
     ? !selectedConnectionMissing
     : Boolean(baseUrl.trim()) && (source !== "elevenlabs" || Boolean(apiKey.trim()));
@@ -1566,11 +1451,7 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
   const allCharactersAssigned =
     characterOptions.length > 0 && characterOptions.every((option) => assignedCharacterIds.has(option.id));
   const selectedSource = TTS_SOURCE_DEFAULTS[source];
-  const previewVoice =
-    voiceMode === "per-character" ? (voiceAssignments.find((assignment) => assignment.voice)?.voice ?? voice) : voice;
-  const selectedLanguage =
-    ELEVENLABS_TTS_LANGUAGE_OPTIONS.find((option) => option.code === elevenLabsLanguageCode) ??
-    ELEVENLABS_TTS_LANGUAGE_OPTIONS[0];
+  const previewVoice = voice || voiceAssignments.find((assignment) => assignment.voice)?.voice || "";
   const speedMin = source === "elevenlabs" || source === "xai" ? 0.7 : 0.25;
   const speedMax = source === "elevenlabs" ? 1.2 : source === "xai" ? 1.5 : 4.0;
   const speedUnavailable = source === "elevenlabs" && !elevenLabsModelSupportsSpeed(model);
@@ -1687,413 +1568,156 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
 
   return (
     <div data-component="TTSConfigCard" className="space-y-4">
-      <ToggleSetting
-        label={localizeUi("connections.device.ttsEnabled")}
-        help={localizeUi("connections.device.ttsEnabledHelp")}
-        checked={enabled}
-        onChange={(checked) => {
-          setEnabled(checked);
-          mark({ enabled: checked });
-        }}
-      />
-      {/* Source */}
+      <TtsSectionTitle>{localizeUi("connections.jobSettings.whoSpeaks")}</TtsSectionTitle>
       <FieldRow
-        label={localizeUi("ui.panels.ttsconfigcard.source")}
-        help={localizeUi("ui.panels.ttsconfigcard.chooseTheProviderUsedByTheServerSideTts")}
+        label={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
+        help={
+          source === "elevenlabs"
+            ? localizeUi("ui.panels.ttsconfigcard.elevenlabsVoicesAreFetchedByNameAndSavedBy")
+            : source === "pockettts"
+              ? localizeUi("ui.panels.ttsconfigcard.pocketttsBuiltInOrCustomVoiceFromYourServer")
+              : source === "xai"
+                ? localizeUi("ui.panels.ttsconfigcard.xaiVoiceIdBuiltInsIncludeEveAraRex")
+                : localizeUi(
+                    "ui.panels.ttsconfigcard.chooseAProviderVoiceOrEnterACustomOpenaiCompatibleValueSuchAsAKokoroMix",
+                  )
+        }
       >
-        <select
-          aria-label={localizeUi("ui.panels.ttsconfigcard.source")}
-          value={sourceValue}
-          onChange={(e) => handleSourceChange(e.target.value)}
-          className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-        >
-          {TTS_SOURCE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-          {(audioConnectionOptions.length > 0 || connectionId) && (
-            <optgroup label={localizeUi("tts.connection.group")}>
-              {connectionId && !selectedConnection && (
-                <option value={sourceValue}>
-                  {selectedConnectionMissing
-                    ? localizeUi("tts.connection.missingOption")
-                    : localizeUi("ui.panels.ttsconfigcard.loading")}
-                </option>
-              )}
-              {audioConnectionOptions.map((connection) => (
-                <option key={connection.id} value={`${CONNECTION_SOURCE_PREFIX}${connection.id}`}>
-                  {localizeUi("ui.panels.ttsconfigcard.value1Value2", {
-                    value1: connection.name,
-                    value2: TTS_SOURCE_DEFAULTS[connection.source].label,
-                  })}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-        {selectedConnectionMissing ? (
-          <TtsNotice>{localizeUi("tts.connection.missing")}</TtsNotice>
-        ) : (
-          connectionId && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("tts.connection.hint")}</p>
-          )
-        )}
-      </FieldRow>
-
-      {/* Address, key, model and time limit: an Audio connection keeps its own. */}
-      {!connectionId && (
-        <>
-          {/* Base URL */}
-          <FieldRow
-            label={localizeUi("ui.panels.ttsconfigcard.baseUrl")}
-            help={
-              source === "elevenlabs"
-                ? localizeUi("ui.panels.ttsconfigcard.theElevenlabsApiRootUseTheDefaultUnlessYou")
-                : source === "pockettts"
-                  ? localizeUi("ui.panels.ttsconfigcard.thePocketttsOpenaiCompatibleServerRootItsDefaultIs")
-                  : source === "xai"
-                    ? localizeUi("ui.panels.ttsconfigcard.theXaiVoiceApiRootUseHttpsApiX")
-                    : localizeUi("ui.panels.ttsconfigcard.theOpenaiCompatibleTtsApiEndpointUseTheDefault")
-            }
-          >
-            <div className="relative">
-              <Globe
-                size="0.875rem"
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value);
-                  mark({ baseUrl: e.target.value });
-                }}
-                className={cn(INPUT_CLS, "pl-8 font-mono")}
-                placeholder={selectedSource.baseUrl}
-              />
-            </div>
-          </FieldRow>
-
-          {/* API Key */}
-          <FieldRow
-            label={localizeUi("ui.panels.ttsconfigcard.apiKey")}
-            help={localizeUi("ui.panels.ttsconfigcard.yourApiKeyForTheTtsProviderEncryptedAt")}
-          >
-            <div className="relative">
-              <Key
-                size="0.875rem"
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-              />
-              <input
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  mark({ apiKey: e.target.value === TTS_API_KEY_MASK ? TTS_API_KEY_MASK : e.target.value });
-                }}
-                type="password"
-                className={cn(INPUT_CLS, "pl-8")}
-                placeholder={localizeUi("ui.panels.ttsconfigcard.enterApiKeyOrClearToRemove")}
-              />
-            </div>
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.encryptedAtRestKeepTheMaskedValueToPreserve")}
-            </p>
-          </FieldRow>
-
-          {/* Model */}
-          <FieldRow
-            label={localizeUi("ui.panels.ttsconfigcard.model")}
-            help={
-              source === "elevenlabs"
-                ? localizeUi("ui.panels.ttsconfigcard.elevenlabsModelIdHelp")
-                : source === "pockettts"
-                  ? localizeUi("ui.panels.ttsconfigcard.pocketttsSelectsItsLanguageModelWhenYouStartThe")
-                  : source === "xai"
-                    ? localizeUi("ui.panels.ttsconfigcard.xaiVoiceCurrentlyUsesTheTtsEndpointThisIs")
-                    : localizeUi("ui.panels.ttsconfigcard.ttsModelToUseEGTts1Tts")
-            }
-          >
-            {source === "elevenlabs" ? (
-              <div className="relative">
-                <select
-                  aria-label={localizeUi("ui.panels.ttsconfigcard.model")}
-                  value={model}
-                  onChange={(e) => {
-                    setModel(e.target.value);
-                    mark({ model: e.target.value });
-                  }}
-                  className={cn(INPUT_CLS, "cursor-pointer appearance-none pr-10")}
-                >
-                  {modelOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name === option.id
-                        ? option.id
-                        : localizeUi("ui.panels.ttsconfigcard.value1Value2", {
-                            value1: option.name,
-                            value2: option.id,
-                          })}
-                    </option>
-                  ))}
-                </select>
-                <TtsDropdownIcon />
-              </div>
-            ) : (
-              <input
-                value={model}
-                onChange={(e) => {
-                  setModel(e.target.value);
-                  mark({ model: e.target.value });
-                }}
-                className={INPUT_CLS}
-                placeholder={selectedSource.model}
-              />
-            )}
-            {source === "elevenlabs" && (
-              <>
-                {fetchingModels && (
-                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.ttsconfigcard.loadingModels")}
-                  </p>
-                )}
-                <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                  {localizeUi("ui.panels.ttsconfigcard.elevenV4SpeechUses")}{" "}
-                  {localizeUi("ui.panels.ttsconfigcard.elevenV3SpeechUses")}{" "}
-                  <code className="font-mono">{"eleven_v3"}</code>
-                  {localizeUi("ui.panels.ttsconfigcard.idsContaining")} <code className="font-mono">{"ttv"}</code>{" "}
-                  {localizeUi("ui.panels.ttsconfigcard.areTextToVoiceVoiceDesignModelsNanogptProxies")}{" "}
-                  <code className="font-mono">{"Elevenlabs-V3"}</code>.
-                </p>
-              </>
-            )}
-          </FieldRow>
-
-          <FieldRow label={localizeUi("tts.requestTimeout")} help={localizeUi("tts.requestTimeoutHelp")}>
-            <DraftNumberInput
-              ariaLabel={localizeUi("tts.requestTimeout")}
-              min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
-              max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
-              value={requestTimeoutMs / 1000}
-              onCommit={(seconds) => {
-                setRequestTimeoutMs(seconds * 1000);
-                mark({ requestTimeoutMs: seconds * 1000 });
+        <div className="flex gap-2">
+          {source === "pockettts" ? (
+            <PocketTTSVoiceControl
+              value={voice}
+              options={voiceOptions}
+              fetching={fetchingVoices}
+              selectLabel="PocketTTS server voice"
+              inputLabel="PocketTTS voice ID, URL, or path"
+              onChange={(nextVoice) => {
+                setVoice(nextVoice);
+                mark({ voice: nextVoice });
               }}
-              className={INPUT_CLS}
             />
-          </FieldRow>
-        </>
-      )}
-
-      {/* Voice assignment mode */}
-      <FieldRow
-        label={localizeUi("ui.panels.ttsconfigcard.voiceOption")}
-        help={localizeUi("ui.panels.ttsconfigcard.useOneVoiceForEveryCharacterOrAssignSpecific")}
-      >
-        <select
-          aria-label={localizeUi("ui.panels.ttsconfigcard.voiceOption")}
-          value={voiceMode}
-          onChange={(e) => {
-            const nextMode = e.target.value as TTSVoiceMode;
-            setVoiceMode(nextMode);
-            mark({ voiceMode: nextMode });
-          }}
-          className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-        >
-          <option value="single">{localizeUi("ui.panels.ttsconfigcard.oneVoiceForAllCharacters")}</option>
-          <option value="per-character">{localizeUi("ui.panels.ttsconfigcard.selectedPerCharacter")}</option>
-        </select>
+          ) : source === "openai" ? (
+            <CustomizableVoiceInput
+              value={voice}
+              options={voiceOptions}
+              placeholder={localizeUi("ui.panels.ttsconfigcard.customVoiceOrKokoroMix")}
+              ariaLabel={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
+              testId="tts-custom-voice-input-global"
+              onChange={(nextVoice) => {
+                setVoice(nextVoice);
+                mark({ voice: nextVoice });
+              }}
+            />
+          ) : (
+            <VoiceSelect
+              value={voice}
+              options={voiceOptions}
+              disabled={fetchingVoices || voiceOptions.length === 0}
+              placeholder={
+                fetchingVoices
+                  ? localizeUi("ui.panels.ttsconfigcard.loadingVoices")
+                  : voicesError
+                    ? localizeUi("ui.panels.ttsconfigcard.couldNotLoadVoices")
+                    : source === "elevenlabs"
+                      ? localizeUi("ui.panels.ttsconfigcard.selectAnElevenlabsVoice")
+                      : localizeUi("ui.panels.ttsconfigcard.selectVoice")
+              }
+              ariaLabel={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
+              onChange={(nextVoice) => {
+                setVoice(nextVoice);
+                mark({ voice: nextVoice });
+              }}
+            />
+          )}
+          <button
+            onClick={() => void handleRefreshVoices()}
+            disabled={fetchingVoices || !canRefreshVoices}
+            className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
+            title={localizeUi("ui.panels.ttsconfigcard.refreshVoicesFromProvider")}
+          >
+            <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
+          </button>
+        </div>
       </FieldRow>
 
-      {voiceMode === "single" && (
-        <FieldRow
-          label={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
-          help={
-            source === "elevenlabs"
-              ? localizeUi("ui.panels.ttsconfigcard.elevenlabsVoicesAreFetchedByNameAndSavedBy")
-              : source === "pockettts"
-                ? localizeUi("ui.panels.ttsconfigcard.pocketttsBuiltInOrCustomVoiceFromYourServer")
-                : source === "xai"
-                  ? localizeUi("ui.panels.ttsconfigcard.xaiVoiceIdBuiltInsIncludeEveAraRex")
-                  : localizeUi(
-                      "ui.panels.ttsconfigcard.chooseAProviderVoiceOrEnterACustomOpenaiCompatibleValueSuchAsAKokoroMix",
-                    )
-          }
-        >
-          <div className="flex gap-2">
-            {source === "pockettts" ? (
-              <PocketTTSVoiceControl
-                value={voice}
-                options={voiceOptions}
-                fetching={fetchingVoices}
-                selectLabel="PocketTTS server voice"
-                inputLabel="PocketTTS voice ID, URL, or path"
-                onChange={(nextVoice) => {
-                  setVoice(nextVoice);
-                  mark({ voice: nextVoice });
-                }}
-              />
-            ) : source === "openai" ? (
-              <CustomizableVoiceInput
-                value={voice}
-                options={voiceOptions}
-                placeholder={localizeUi("ui.panels.ttsconfigcard.customVoiceOrKokoroMix")}
-                ariaLabel={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
-                testId="tts-custom-voice-input-global"
-                onChange={(nextVoice) => {
-                  setVoice(nextVoice);
-                  mark({ voice: nextVoice });
-                }}
-              />
-            ) : (
-              <VoiceSelect
-                value={voice}
-                options={voiceOptions}
-                disabled={fetchingVoices || voiceOptions.length === 0}
-                placeholder={
-                  fetchingVoices
-                    ? localizeUi("ui.panels.ttsconfigcard.loadingVoices")
-                    : voicesError
-                      ? localizeUi("ui.panels.ttsconfigcard.couldNotLoadVoices")
-                      : source === "elevenlabs"
-                        ? localizeUi("ui.panels.ttsconfigcard.selectAnElevenlabsVoice")
-                        : localizeUi("ui.panels.ttsconfigcard.selectVoice")
-                }
-                ariaLabel={localizeUi("ui.panels.ttsconfigcard.allCharactersVoice")}
-                onChange={(nextVoice) => {
-                  setVoice(nextVoice);
-                  mark({ voice: nextVoice });
-                }}
-              />
-            )}
+      <FieldRow
+        label={localizeUi("ui.panels.ttsconfigcard.characterVoices")}
+        help={localizeUi("ui.panels.ttsconfigcard.assignVoicesToSpecificCharactersFromYourCharactersTab")}
+      >
+        <div className="space-y-2 rounded-lg border border-[var(--border)] p-2">
+          <div className="flex justify-end">
             <button
+              type="button"
               onClick={() => void handleRefreshVoices()}
               disabled={fetchingVoices || !canRefreshVoices}
               className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
               title={localizeUi("ui.panels.ttsconfigcard.refreshVoicesFromProvider")}
             >
               <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
+              <span>{localizeUi("ui.panels.ttsconfigcard.refresh")}</span>
             </button>
           </div>
-          {!voicesFromProvider && source === "openai" && voices.length > 0 && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.showingOpenaiBuiltInVoicesSaveEnableToLoad")}
-            </p>
-          )}
-          {!voicesFromProvider && source === "elevenlabs" && !fetchingVoices && !voicesError && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.elevenlabsVoicesLoadAfterTheConnectionIsSavedWith")}
-            </p>
-          )}
-          {!voicesFromProvider && source === "pockettts" && voices.length > 0 && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.showingPocketttsBuiltInFallbacksSaveAndRefreshTo")}
-            </p>
-          )}
-          {voicesFromProvider && source === "pockettts" && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("connections.device.pocketVoicesLoaded", { count: voices.length })}
-            </p>
-          )}
-          {voicesFromProvider && source === "elevenlabs" && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.loadedVoiceCount", { count: voices.length })}
-            </p>
-          )}
-          {!voicesFromProvider && source === "xai" && voices.length > 0 && (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.showingXaiBuiltInVoicesSaveWithAnApi")}
-            </p>
-          )}
-        </FieldRow>
-      )}
-
-      {voiceMode === "per-character" && (
-        <FieldRow
-          label={localizeUi("ui.panels.ttsconfigcard.characterVoices")}
-          help={localizeUi("ui.panels.ttsconfigcard.assignVoicesToSpecificCharactersFromYourCharactersTab")}
-        >
-          <div className="space-y-2 rounded-lg border border-[var(--border)] p-2">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => void handleRefreshVoices()}
-                disabled={fetchingVoices || !canRefreshVoices}
-                className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
-                title={localizeUi("ui.panels.ttsconfigcard.refreshVoicesFromProvider")}
-              >
-                <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
-                <span>{localizeUi("ui.panels.ttsconfigcard.refresh")}</span>
-              </button>
-            </div>
-            {voiceAssignments.length === 0 && (
-              <p className="rounded-lg border border-dashed border-[var(--border)] px-2.5 py-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.ttsconfigcard.addACharacterVoiceToRouteTtsBySpeaker")}
-              </p>
-            )}
-            {voiceAssignments.map((assignment, index) => (
-              <div
-                key={`voice-assignment-${index}`}
-                className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/35 p-2"
-              >
-                <CharacterSelect
-                  value={assignment.characterId}
-                  options={characterOptions}
-                  assignedCharacterIds={assignedCharacterIds}
-                  onChange={(characterId) => handleVoiceAssignmentCharacterChange(index, characterId)}
-                />
-                <div className="flex min-w-0 gap-2">
-                  {source === "openai" ? (
-                    <CustomizableVoiceInput
-                      value={assignment.voice}
-                      onChange={(nextVoice) => handleVoiceAssignmentVoiceChange(index, nextVoice)}
-                      options={voiceOptions}
-                      placeholder={localizeUi("ui.panels.ttsconfigcard.customVoiceOrKokoroMix")}
-                      ariaLabel={localizeUi("ui.panels.ttsconfigcard.characterVoiceFor", {
-                        name: assignment.characterName || localizeUi("ui.panels.appearancesettings.character"),
-                      })}
-                      testId={`tts-custom-voice-input-character-${assignment.characterId || index}`}
-                      compact
-                    />
-                  ) : (
-                    <VoiceSelect
-                      value={assignment.voice}
-                      onChange={(nextVoice) => handleVoiceAssignmentVoiceChange(index, nextVoice)}
-                      disabled={fetchingVoices || voiceOptions.length === 0}
-                      options={voiceOptions}
-                      placeholder={localizeUi("ui.panels.ttsconfigcard.selectVoice")}
-                      ariaLabel={localizeUi("ui.panels.ttsconfigcard.characterVoiceFor", {
-                        name: assignment.characterName || localizeUi("ui.panels.appearancesettings.character"),
-                      })}
-                      compact
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveVoiceAssignment(index)}
-                    className="mari-chrome-control mari-chrome-control--small h-9 min-h-0 w-9 shrink-0 p-0"
-                    title={localizeUi("ui.panels.ttsconfigcard.removeCharacterVoice")}
-                  >
-                    <X size="0.75rem" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={handleAddVoiceAssignment}
-              disabled={characterOptions.length === 0 || allCharactersAssigned}
-              className="mari-chrome-control w-full text-xs"
+          {voiceAssignments.map((assignment, index) => (
+            <div
+              key={`voice-assignment-${index}`}
+              className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/35 p-2"
             >
-              <Plus size="0.75rem" />
-              {localizeUi("ui.panels.ttsconfigcard.addCharacterVoice")}
-            </button>
-            {characterOptions.length === 0 && (
-              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.ttsconfigcard.addCharactersInTheCharactersTabBeforeAssigningCharacter")}
-              </p>
-            )}
-          </div>
-        </FieldRow>
-      )}
+              <CharacterSelect
+                value={assignment.characterId}
+                options={characterOptions}
+                assignedCharacterIds={assignedCharacterIds}
+                onChange={(characterId) => handleVoiceAssignmentCharacterChange(index, characterId)}
+              />
+              <div className="flex min-w-0 gap-2">
+                {source === "openai" ? (
+                  <CustomizableVoiceInput
+                    value={assignment.voice}
+                    onChange={(nextVoice) => handleVoiceAssignmentVoiceChange(index, nextVoice)}
+                    options={voiceOptions}
+                    placeholder={localizeUi("ui.panels.ttsconfigcard.customVoiceOrKokoroMix")}
+                    ariaLabel={localizeUi("ui.panels.ttsconfigcard.characterVoiceFor", {
+                      name: assignment.characterName || localizeUi("ui.panels.appearancesettings.character"),
+                    })}
+                    testId={`tts-custom-voice-input-character-${assignment.characterId || index}`}
+                    compact
+                  />
+                ) : (
+                  <VoiceSelect
+                    value={assignment.voice}
+                    onChange={(nextVoice) => handleVoiceAssignmentVoiceChange(index, nextVoice)}
+                    disabled={fetchingVoices || voiceOptions.length === 0}
+                    options={voiceOptions}
+                    placeholder={localizeUi("ui.panels.ttsconfigcard.selectVoice")}
+                    ariaLabel={localizeUi("ui.panels.ttsconfigcard.characterVoiceFor", {
+                      name: assignment.characterName || localizeUi("ui.panels.appearancesettings.character"),
+                    })}
+                    compact
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveVoiceAssignment(index)}
+                  className="mari-chrome-control mari-chrome-control--small h-9 min-h-0 w-9 shrink-0 p-0"
+                  title={localizeUi("ui.panels.ttsconfigcard.removeCharacterVoice")}
+                >
+                  <X size="0.75rem" />
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={characterOptions.length === 0 ? () => openModal("create-character") : handleAddVoiceAssignment}
+            disabled={allCharactersAssigned}
+            className="mari-chrome-control w-full text-xs"
+          >
+            <Plus size="0.75rem" />
+            {characterOptions.length === 0
+              ? localizeUi("ui.modals.createcharactermodal.createCharacter")
+              : localizeUi("ui.panels.ttsconfigcard.addCharacterVoice")}
+          </button>
+        </div>
+      </FieldRow>
 
       {voicesError && (
         <p className="rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/10 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-[var(--destructive)]">
@@ -2166,27 +1790,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
         </div>
       </FieldRow>
 
-      {source !== "elevenlabs" && (
-        <FieldRow
-          label={localizeUi("ui.panels.ttsconfigcard.audioFormat")}
-          help={localizeUi("ui.panels.ttsconfigcard.outputAudioFormatWavAreUsefulForLocalSelf")}
-        >
-          <select
-            value={audioFormat}
-            onChange={(e) => {
-              const next = e.target.value as TTSAudioFormat;
-              setAudioFormat(next);
-              mark({ audioFormat: next });
-            }}
-            className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-          >
-            <option value="mp3">{localizeUi("ui.panels.ttsconfigcard.mp3")}</option>
-            <option value="wav">{localizeUi("ui.panels.ttsconfigcard.wav")}</option>
-            <option value="pcm">{localizeUi("ui.panels.ttsconfigcard.pcm")}</option>
-          </select>
-        </FieldRow>
-      )}
-
       <FieldRow
         label={localizeUi("ui.panels.ttsconfigcard.randomNpcVoices")}
         help={localizeUi("ui.panels.ttsconfigcard.whenEnabledTrackedGameNpcsWithoutACharacterSpecific")}
@@ -2213,19 +1816,32 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
                 onToggle={(voiceId, checked) => toggleNpcDefaultVoice("female", voiceId, checked)}
                 note={femaleNpcVoiceFallbackNote}
               />
-              <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.ttsconfigcard.npcsWithUnclearGenderUseAStablePickFrom")}
-              </p>
-              {!voicesFromProvider && (
-                <p className="text-[0.625rem] leading-relaxed text-amber-300/80">
-                  {localizeUi("ui.panels.ttsconfigcard.saveAndEnableThisTtsProviderThenRefreshVoices")}
-                </p>
-              )}
             </div>
           )}
         </div>
       </FieldRow>
 
+      <TtsSectionTitle>{localizeUi("connections.jobSettings.playback")}</TtsSectionTitle>
+      {source !== "elevenlabs" && (
+        <FieldRow
+          label={localizeUi("ui.panels.ttsconfigcard.audioFormat")}
+          help={localizeUi("ui.panels.ttsconfigcard.outputAudioFormatWavAreUsefulForLocalSelf")}
+        >
+          <select
+            value={audioFormat}
+            onChange={(e) => {
+              const next = e.target.value as TTSAudioFormat;
+              setAudioFormat(next);
+              mark({ audioFormat: next });
+            }}
+            className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
+          >
+            <option value="mp3">{localizeUi("ui.panels.ttsconfigcard.mp3")}</option>
+            <option value="wav">{localizeUi("ui.panels.ttsconfigcard.wav")}</option>
+            <option value="pcm">{localizeUi("ui.panels.ttsconfigcard.pcm")}</option>
+          </select>
+        </FieldRow>
+      )}
       {/* Speed */}
       <FieldRow label={speedLabel} help={speedHelp}>
         <input
@@ -2272,12 +1888,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
               </option>
             ))}
           </select>
-          {elevenLabsLanguageCode && (
-            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.forcing")} {selectedLanguage.label}
-              {localizeUi("ui.panels.ttsconfigcard.elevenlabsMayRejectThisIfTheSelectedModelDoes")}
-            </p>
-          )}
         </FieldRow>
       )}
 
@@ -2308,10 +1918,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           </div>
         </FieldRow>
       )}
-
-      <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-        {localizeUi("connections.audioGeneration.speechSettingsHelp")}
-      </p>
 
       {/* Auto-play */}
       <div className="space-y-1">
@@ -2369,9 +1975,6 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
                 mark({ roleplaySpeakerExtractorEmotionsEnabled: value });
               }}
             />
-            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.ttsconfigcard.roleplaySpeakerExtractorHelp")}
-            </p>
           </div>
         )}
         <ToggleRow
@@ -2467,6 +2070,23 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
         />
       </div>
 
+      <TtsSectionTitle>{localizeUi("connections.jobSettings.more")}</TtsSectionTitle>
+      {/* An Audio connection has its own time limit. */}
+      {!connectionId && (
+        <FieldRow label={localizeUi("tts.requestTimeout")} help={localizeUi("tts.requestTimeoutHelp")}>
+          <DraftNumberInput
+            ariaLabel={localizeUi("tts.requestTimeout")}
+            min={TTS_REQUEST_TIMEOUT_MS.min / 1000}
+            max={TTS_REQUEST_TIMEOUT_MS.max / 1000}
+            value={requestTimeoutMs / 1000}
+            onCommit={(seconds) => {
+              setRequestTimeoutMs(seconds * 1000);
+              mark({ requestTimeoutMs: seconds * 1000 });
+            }}
+            className={INPUT_CLS}
+          />
+        </FieldRow>
+      )}
       <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-2.5 py-2">
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium">{localizeUi("ui.panels.ttsconfigcard.cachedClips")}</div>

@@ -172,7 +172,7 @@ function makeStores(opts: {
 //       is worthless if the caller folds them back together — the cache fix
 //       lives entirely in HOW generate.routes.ts places each half. A pure-unit
 //       test on the resolver would stay green through a fold-back regression, so
-//       pin the wiring directly (mirrors prompt.regression.ts's source scans).
+//       pin the wiring directly (mirrors the prompt regressions' source scans).
 {
   const routesPath = fileURLToPath(new URL("../../../packages/server/src/routes/generate.routes.ts", import.meta.url));
   const src = readFileSync(routesPath, "utf8");

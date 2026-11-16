@@ -1,3 +1,4 @@
+import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { createRoomGameRuntime, type RoomGameRuntime } from "../services/multiplayer/game-runtime.js";
 import {
   currentRoomGeneration,
@@ -7,7 +8,15 @@ import {
 } from "../services/multiplayer/generation-policy.js";
 import { rejectGenerationOutput, type GenerationOutput } from "./generate/sse.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
+import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import {
+  GAME_RATING_GUIDELINES_MAX_CHARS,
+  GAME_CONTENT_BOUNDARIES_MAX_CHARS,
+  GAME_STORY_STYLES,
+  GAME_VIOLENCE_LEVELS,
+  resolveGameContentBoundaries,
+  resolveGameStoryStyle,
+  resolveGameViolenceLevel,
   SYMBOL_DICE_NOTATION_MAX_LENGTH,
   TTS_SETTINGS_KEY,
   normalizeGameDifficulty,
@@ -35,6 +44,9 @@ import {
   storyObjectives,
   storyScriptSchema,
   gameIntroChoiceSchema,
+  gameIntroFor,
+  readGameIntro,
+  readGameIntroChoice,
   type GameIntro,
   storyPlaceSeasons,
   storyState,
@@ -58,6 +70,15 @@ import { combatAiHintsSchema, combatTacticsSchema, combatInterruptFields } from 
 import { findRulesetCreature, type RulesetCatalogEntriesById } from "@marinara-engine/shared";
 import { loadRulesetCatalogEntries } from "../services/game/ruleset-catalog.service.js";
 import { gameDataEditRequestSchema, type GameDataEditIssue } from "@marinara-engine/shared";
+import { normalizeGameInventoryStacks } from "@marinara-engine/shared";
+import {
+  createMarinaraJoinerProgression,
+  marinaraTemperamentForSister,
+  partyTemperamentFallback,
+  readMarinaraCardProgression,
+  readMarinaraStatAmounts,
+  type MarinaraPartyTemperament,
+} from "@marinara-engine/shared";
 import { buildGameDataEditPatch, sameGameDataValue } from "../services/game/game-data-edit.service.js";
 // ──────────────────────────────────────────────
 // Routes: Game Mode
@@ -70,6 +91,7 @@ import { existsSync, readFileSync } from "fs";
 import { basename, extname, join } from "path";
 import { z } from "zod";
 import { partialInput } from "@marinara-engine/shared";
+import { MARINARA_ARCHETYPES, type MarinaraArchetype } from "@marinara-engine/shared";
 import { estimateTextTokens, sliceTextToTokenBudget } from "@marinara-engine/shared";
 import { carryGameInventory, rulesetInventedItemRef } from "@marinara-engine/shared";
 import { eq } from "../db/file-query.js";
@@ -125,6 +147,18 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { buildFallbackGameCharacterCard } from "../services/game/game-party-cards.js";
 import { withCardTemperament } from "../services/game/party-temperament.service.js";
+import {
+  applyMarinaraLegacyUpgrade,
+  marinaraLegacyGearOffers,
+  marinaraLegacyNeedsTemperament,
+  marinaraLegacyTemperamentPrompt,
+  marinaraLegacyUpgradeBlock,
+  readMarinaraLegacyTemperaments,
+} from "../services/game/marinara-legacy-upgrade.service.js";
+import {
+  marinaraCardClassicByName as legacyUpgradeClassicPicks,
+  partyLibraryDescriptions,
+} from "../services/game/marinara-card-classic.service.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
@@ -248,6 +282,7 @@ import {
 } from "../services/game/ruleset-registry.service.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import {
+  gamePlayerCardName,
   resolveChatSkillCheck,
   SkillCheckDifficultyError,
   SkillCheckRollerError,
@@ -565,6 +600,7 @@ import {
   playGameSpotifyTrack,
 } from "../services/spotify/game-spotify-music.service.js";
 import {
+  commitGameInventoryChange,
   loadGameFightItems,
   loadGameFightUseEffects,
   loadGameInventoryItemBook,
@@ -2202,6 +2238,8 @@ const gameSetupConfigSchema = z.object({
   gmBossControl: z.boolean().optional(),
   gmNamedControl: z.boolean().optional(),
   cruelOpponents: z.boolean().optional(),
+  marinaraClasses: z.boolean().optional(),
+  permadeath: z.boolean().optional(),
   playerRunsCompanions: z.boolean().optional(),
   tacticalBattlefield: tacticalBattlefieldSetupSchema.optional(),
   tacticalTurnOrder: z.enum(["side", "initiative"]).optional(),
@@ -2213,6 +2251,10 @@ const gameSetupConfigSchema = z.object({
   playerGoals: z.string().max(2000).default(""),
   gmMode: z.enum(["standalone", "character"]),
   rating: z.enum(["sfw", "nsfw"]).default("sfw"),
+  ratingGuidelines: z.string().max(GAME_RATING_GUIDELINES_MAX_CHARS).nullable().optional(),
+  storyStyle: z.enum(GAME_STORY_STYLES).optional(),
+  violence: z.enum(GAME_VIOLENCE_LEVELS).optional(),
+  contentBoundaries: z.string().max(GAME_CONTENT_BOUNDARIES_MAX_CHARS).nullable().optional(),
   gmCharacterId: z.string().nullable().optional(),
   partyCharacterIds: z.array(z.string()),
   personaId: z.string().nullable().optional(),
@@ -2368,6 +2410,15 @@ const recruitPartyMemberSchema = z.object({
   copyOf: z.string().min(1).max(200).optional(),
   /** A condition of the pinned ruleset the copy holds from the start: Simulacrum's halved health. */
   condition: z.string().min(1).max(80).optional(),
+  /** MRPG games (owner 2026-11-06): the level the Game Master has this late joiner come in at, and their
+   *  growths and stats off the norm as it wrote them ("strength+30, speed+20"). */
+  mrpg: z
+    .object({
+      level: z.number().int().min(1).max(30).optional(),
+      growths: z.string().max(400).optional(),
+      stats: z.string().max(400).optional(),
+    })
+    .optional(),
 });
 
 const regenerateCharacterSheetSchema = z.object({
@@ -3107,14 +3158,22 @@ export function applyGeneratedGameCharacterCards(
     updatedCount += 1;
     const normalizedCard = normalizeGeneratedGameCharacterCard(generatedCard, existingName);
     // The generated card is rebuilt from an allow-list. What the model never writes and the game
-    // owns rides along: the RPG stats and this game's copy of the ruleset sheet.
+    // owns rides along: the RPG stats, this game's copy of the ruleset sheet, the Classic progression
+    // (class levels, gear, tamed beasts) and the multiplayer seat the card belongs to.
     // Its temperament changes only where the model says the story changed it, and the one it started
     // the game with never does.
     return withCardTemperament(
       {
         ...normalizedCard,
+        // An MRPG character's class is the one they fight as, which only the game changes (owner
+        // 2026-11-06): the story may not rename it at a session's end.
+        ...(existingCard.marinara && typeof existingCard.class === "string" ? { class: existingCard.class } : {}),
         ...(existingCard.rpgStats ? { rpgStats: existingCard.rpgStats } : {}),
         ...(existingCard.rulesetSheet ? { rulesetSheet: existingCard.rulesetSheet } : {}),
+        ...(existingCard.marinara ? { marinara: existingCard.marinara } : {}),
+        ...(existingCard.multiplayerParticipantId
+          ? { multiplayerParticipantId: existingCard.multiplayerParticipantId }
+          : {}),
       },
       generatedCard.temperament,
       existingCard,
@@ -3122,6 +3181,41 @@ export function applyGeneratedGameCharacterCards(
   });
 
   return { cards, updatedCount };
+}
+
+/**
+ * A session's conclusion is written from the cards read before its (long) model call. What a fight, a
+ * class switch or the Legacy upgrade wrote onto a card meanwhile is the game's own, so each card keeps
+ * the Classic progression the fresh metadata holds for it.
+ */
+export function keepFreshGameOwnedCardFields(
+  next: Array<Record<string, unknown>>,
+  fresh: unknown,
+): Array<Record<string, unknown>> {
+  const freshCards = Array.isArray(fresh) ? (fresh as Array<Record<string, unknown>>) : [];
+  const byName = new Map(
+    freshCards.flatMap((card) =>
+      typeof card.name === "string" && card.name.trim()
+        ? [[normalizeCharacterLookupName(card.name), card] as const]
+        : [],
+    ),
+  );
+  return next.map((card) => {
+    const was = typeof card.name === "string" ? byName.get(normalizeCharacterLookupName(card.name)) : undefined;
+    return was?.marinara ? { ...card, marinara: was.marinara } : card;
+  });
+}
+
+/** The setup a conclusion writes back, keeping the Classic switches the fresh metadata holds (the Legacy
+ *  upgrade may have turned them on while the conclusion was being written). */
+function keepFreshClassicSetup<T extends object>(setup: T, freshMeta: Record<string, unknown>): T {
+  const fresh = (freshMeta.gameSetupConfig ?? null) as { marinaraClasses?: unknown; permadeath?: unknown } | null;
+  if (fresh?.marinaraClasses !== true) return setup;
+  return {
+    ...setup,
+    marinaraClasses: true,
+    ...(fresh.permadeath !== undefined ? { permadeath: fresh.permadeath } : {}),
+  };
 }
 
 /**
@@ -3135,7 +3229,7 @@ function gameCardsForPrompt(cards: Array<Record<string, unknown>>): Array<Record
 }
 
 function getDiscordWebhookUrl(meta: Record<string, unknown>): string {
-  return typeof meta.discordWebhookUrl === "string" ? meta.discordWebhookUrl.trim() : "";
+  return readChatMetadataSecret(meta, "discordWebhookUrl");
 }
 
 function mirrorGameMessageToDiscord(meta: Record<string, unknown>, content: string, username: string): void {
@@ -3732,23 +3826,35 @@ export function gameGenOptions(
   provider?: APIProvider | string | null,
 ): ChatOptions {
   const stored = resolveStoredChatOptions(parameters, provider ?? "", model);
+  const maxTokens = resolveStoredMaxTokens(parameters, defaults.maxTokens ?? 8192);
   const options: ChatOptions = {
     model,
     temperature: 1,
     topP: 1,
     ...defaults,
     ...Object.fromEntries(Object.entries(stored).filter(([, value]) => value !== undefined)),
-    maxTokens: resolveStoredMaxTokens(parameters, defaults.maxTokens ?? 8192),
+    maxTokens,
     maxContext: parameters?.maxContext ?? defaults.maxContext,
     customParameters: mergeCustomParameters(defaults.customParameters, stored.customParameters),
     enabledParameters: mergeEnabledParameters(defaults.enabledParameters, stored.enabledParameters),
   };
-  // Explicitly disabling a setting must also clear a helper default.
-  if (parameters?.reasoningEffort !== undefined || parameters?.enabledParameters?.reasoningEffort === false) {
+  // Explicitly disabling a setting must also clear a helper default. A level named with nothing saved (Gemini 4 Argon
+  // and Carbon) is sent too, so the call thinks with it.
+  if (
+    stored.reasoningEffort !== undefined ||
+    parameters?.reasoningEffort !== undefined ||
+    parameters?.enabledParameters?.reasoningEffort === false
+  ) {
     options.reasoningEffort = stored.reasoningEffort;
     options.enableThinking = !!stored.reasoningEffort && stored.reasoningEffort !== "none";
   }
   if (parameters?.verbosity !== undefined) options.verbosity = stored.verbosity;
+  options.maxTokens = withAlwaysOnThinkingHeadroom({
+    provider: provider ?? "",
+    model,
+    maxTokens,
+    reasoningEffort: options.reasoningEffort,
+  });
 
   if (resolveModelAccessPolicy({ provider, model }).suppressModelParameters) {
     return {
@@ -4032,6 +4138,7 @@ function truncateSessionTranscriptMiddle(content: string, targetTokens: number):
 export function buildSessionConclusionMessages(args: {
   sessionNumber: number;
   language?: string | null;
+  contentBoundaries?: string[];
   journalRecap: string;
   transcriptText: string;
   transcriptMessageCount: number;
@@ -4114,6 +4221,7 @@ export function buildSessionConclusionMessages(args: {
       role: "system",
       content: buildSessionConclusionPrompt({
         language: args.language ?? null,
+        contentBoundaries: args.contentBoundaries,
         includeCharacterCards: args.currentCards.length > 0,
       }),
     },
@@ -4124,6 +4232,7 @@ export function buildSessionConclusionMessages(args: {
 function fitSessionConclusionMessages(args: {
   sessionNumber: number;
   language?: string | null;
+  contentBoundaries?: string[];
   journalRecap: string;
   transcriptText: string;
   transcriptMessageCount: number;
@@ -4144,6 +4253,7 @@ function fitSessionConclusionMessages(args: {
   let conclusionMessages = buildSessionConclusionMessages({
     sessionNumber: args.sessionNumber,
     language: args.language,
+    contentBoundaries: args.contentBoundaries,
     journalRecap: args.journalRecap,
     transcriptText,
     transcriptMessageCount: args.transcriptMessageCount,
@@ -4182,6 +4292,7 @@ function fitSessionConclusionMessages(args: {
     conclusionMessages = buildSessionConclusionMessages({
       sessionNumber: args.sessionNumber,
       language: args.language,
+      contentBoundaries: args.contentBoundaries,
       journalRecap: args.journalRecap,
       transcriptText,
       transcriptMessageCount: args.transcriptMessageCount,
@@ -6426,7 +6537,9 @@ export function parseRoomGameConfig(value: unknown): GameSetupConfig {
   if (!isOverworldGamesEnabled() && (asked.worldKit || asked.world || asked.gameStyle === "overworld")) {
     throw new Error("Overworld games are not available on this server yet.");
   }
-  const { worldSnapshot, ...config } = gameSetupConfigSchema.parse(value);
+  const { worldSnapshot, ...parsedConfig } = gameSetupConfigSchema.parse(value);
+  // A room's new game plays MRPG too (owner 2026-11-06): never Legacy.
+  const config: typeof parsedConfig = { ...parsedConfig, marinaraClasses: true };
   if (config.gameExperienceId) throw new Error("Package Game Experiences are unavailable in shared rooms.");
   const styleIssue = gameStyleWorldIssue({ ...config, worldSnapshot });
   if (styleIssue) throw new Error(styleIssue);
@@ -6482,12 +6595,12 @@ function gameStyleWorldIssue(config: {
 }): string | null {
   if (config.gameStyle === "overworld") {
     return config.world == null || (config.worldKit == null && config.worldSnapshot == null)
-      ? "An Overworld RPG game needs a setting kit and a world: choose Classic for a game without one."
+      ? "An Overworld game needs a setting kit and a world: choose VN for a game without one."
       : null;
   }
   if (config.gameStyle !== "classic") return null;
   return config.worldKit != null || config.world != null || config.worldSnapshot != null || config.story != null
-    ? "A Classic game has no setting kit or world: choose the Overworld RPG for one."
+    ? "A VN game has no setting kit or world: choose Overworld for one."
     : null;
 }
 
@@ -7183,6 +7296,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { worldSnapshot: _sentSnapshot, ...setupInput } = parsedCreateGameInput.setupConfig;
     const setupConfig: GameSetupConfig = {
       ...setupInput,
+      // Every new game plays MRPG (owner 2026-11-06): Legacy stays only in games made before, whatever a
+      // client or an imported setup sends. A ruleset game plays its ruleset's sheets regardless.
+      marinaraClasses: true,
       ...(gameRuleset ? { ruleset: gameRuleset } : {}),
       // The setup's own copy carries the world as read, never the brief as sent, nor its snapshot.
       world: gameWorld ?? undefined,
@@ -7670,11 +7786,25 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         ? meta.gameSpecialInstructions
         : setupConfig.gameSpecialInstructions;
 
+    // How the game opens (1.339), read as the first narration reads it: the Experience's locked intro,
+    // else what the setup chose, else the Experience's or its story's own. Without it the story arc could
+    // start somewhere the first scene then contradicts (#9084).
+    const setupWorld = await loadGameWorld(app.db, chatId, meta);
+    const setupIntro = gameIntroFor(
+      readGameIntro(meta.gameExperienceIntro) ??
+        (setupWorld ? gameStoryFromMetadata(meta, setupWorld)?.intro : undefined),
+      readGameIntroChoice(meta.gameIntro),
+    );
+
     const messages: ChatMessage[] = [
       {
         role: "system",
         content: buildSetupPrompt({
           rating: setupConfig.rating ?? "sfw",
+          ratingGuidelines: setupConfig.ratingGuidelines ?? null,
+          storyStyle: resolveGameStoryStyle(setupConfig),
+          violence: resolveGameViolenceLevel(setupConfig),
+          contentBoundaries: resolveGameContentBoundaries(setupConfig),
           personaCard: personaCard || null,
           playerName: personaName,
           partyCards: partyCards.length > 0 ? partyCards : undefined,
@@ -7685,10 +7815,11 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           lorebookContext: setupLorebookContext,
           rulesetWorldGuidance,
           worldKit: gameWorldKitFromMetadata(meta),
-          world: await loadGameWorld(app.db, chatId, meta),
+          world: setupWorld,
           language: setupConfig.language,
           gameSystemPrompt: setupGameSystemPrompt,
           gameSpecialInstructions: setupGameSpecialInstructions,
+          intro: setupIntro,
         }),
       },
       {
@@ -8541,6 +8672,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
         sessionNumber,
         language: setupConfig?.language ?? null,
+        contentBoundaries: resolveGameContentBoundaries(setupConfig),
         journalRecap,
         transcriptText,
         transcriptMessageCount: relevantMessages.length,
@@ -8630,7 +8762,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
         conclusionWasStored = true;
         return {
-          ...(syncedSetupConfig ? { gameSetupConfig: syncedSetupConfig } : {}),
+          ...(syncedSetupConfig ? { gameSetupConfig: keepFreshClassicSetup(syncedSetupConfig, freshMeta) } : {}),
           gamePartyCharacterIds: syncedPartyIds,
           gameSessionNumber: sessionNumber,
           gameSessionStatus: "concluded",
@@ -8638,7 +8770,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           gamePlotTwists: appliedConclusion.updatedPlotTwists,
           gamePartyArcs: appliedConclusion.updatedPartyArcs,
           gamePreviousSessionSummaries: [...freshSummaries, appliedConclusion.summary],
-          gameCharacterCards: appliedConclusion.updatedCards,
+          gameCharacterCards: keepFreshGameOwnedCardFields(
+            appliedConclusion.updatedCards,
+            freshMeta.gameCharacterCards,
+          ),
           ...buildSessionPlanMetadataUpdates(freshMeta, appliedConclusion),
           ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
         };
@@ -8804,7 +8939,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
         conclusionWasStored = true;
         return {
-          ...(syncedSetupConfig ? { gameSetupConfig: syncedSetupConfig } : {}),
+          ...(syncedSetupConfig ? { gameSetupConfig: keepFreshClassicSetup(syncedSetupConfig, freshMeta) } : {}),
           gamePartyCharacterIds: syncedPartyIds,
           gameSessionNumber: sessionNumber,
           gameSessionStatus: "concluded",
@@ -8812,7 +8947,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           gamePlotTwists: appliedConclusion.updatedPlotTwists,
           gamePartyArcs: appliedConclusion.updatedPartyArcs,
           gamePreviousSessionSummaries: [...freshSummaries, appliedConclusion.summary],
-          gameCharacterCards: appliedConclusion.updatedCards,
+          gameCharacterCards: keepFreshGameOwnedCardFields(
+            appliedConclusion.updatedCards,
+            freshMeta.gameCharacterCards,
+          ),
           ...buildSessionPlanMetadataUpdates(freshMeta, appliedConclusion),
           ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
         };
@@ -9102,6 +9240,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
       sessionNumber,
       language: setupConfig?.language ?? null,
+      contentBoundaries: resolveGameContentBoundaries(setupConfig),
       journalRecap,
       transcriptText,
       transcriptMessageCount: relevantMessages.length,
@@ -9186,7 +9325,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         gamePlotTwists: appliedConclusion.updatedPlotTwists,
         gamePartyArcs: appliedConclusion.updatedPartyArcs,
         gamePreviousSessionSummaries: nextSummaries,
-        gameCharacterCards: appliedConclusion.updatedCards,
+        gameCharacterCards: keepFreshGameOwnedCardFields(appliedConclusion.updatedCards, freshMeta.gameCharacterCards),
         ...buildSessionPlanMetadataUpdates(freshMeta, appliedConclusion),
         ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
       };
@@ -9267,7 +9406,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         gamePlotTwists: appliedConclusion.updatedPlotTwists,
         gamePartyArcs: appliedConclusion.updatedPartyArcs,
         gamePreviousSessionSummaries: nextSummaries,
-        gameCharacterCards: appliedConclusion.updatedCards,
+        gameCharacterCards: keepFreshGameOwnedCardFields(appliedConclusion.updatedCards, freshMeta.gameCharacterCards),
         ...buildSessionPlanMetadataUpdates(freshMeta, appliedConclusion),
         ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
       };
@@ -9399,7 +9538,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     );
 
     const progressionMessages: ChatMessage[] = [
-      { role: "system", content: buildCampaignProgressionPrompt(setupConfig?.language ?? null) },
+      {
+        role: "system",
+        content: buildCampaignProgressionPrompt(
+          setupConfig?.language ?? null,
+          resolveGameContentBoundaries(setupConfig),
+        ),
+      },
       { role: "user", content: userLines.join("\n") },
     ];
     const fit = fitMessagesToModelAccessContext({
@@ -9863,6 +10008,219 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     return { characterName: targetName, gameCard };
   });
 
+  // ── POST /game/marinara/join ──
+  // A room player who joins an MRPG game already under way is brought in by the Game Master
+  // ([mrpg_join], owner 2026-11-06): their character starts at the level it gives, with any growths and
+  // stats off the norm. Only a character with no MRPG level yet: a returning player keeps the one they had.
+  app.post("/marinara/join", async (req, reply) => {
+    const input = z
+      .object({
+        chatId: z.string().min(1),
+        name: z.string().min(1).max(200),
+        level: z.number().int().min(1).max(30).optional(),
+        growths: z.string().max(400).optional(),
+        stats: z.string().max(400).optional(),
+        sister: z.string().max(40).optional(),
+      })
+      .parse(req.body);
+    const chats = createChatsStorage(app.db);
+    const chat = await chats.getById(input.chatId);
+    if (!chat) return reply.code(404).send({ error: "Chat not found" });
+    const classicPicks = await legacyUpgradeClassicPicks(app.db, chat);
+    let refusal: string | null = null;
+    let joined: { name: string; level: number } | null = null;
+    await chats.patchMetadata(input.chatId, (current) => {
+      const setup = (current.gameSetupConfig ?? null) as { marinaraClasses?: unknown } | null;
+      if (setup?.marinaraClasses !== true || current.gameRuleset != null) {
+        refusal = "This game doesn't use MRPG classes.";
+        return {};
+      }
+      const cards = Array.isArray(current.gameCharacterCards)
+        ? (current.gameCharacterCards as Array<Record<string, unknown>>)
+        : [];
+      const key = normalizeCharacterLookupName(input.name);
+      const index = cards.findIndex(
+        (card) => typeof card.name === "string" && normalizeCharacterLookupName(card.name) === key,
+      );
+      if (index < 0) {
+        refusal = "No party member has that name.";
+        return {};
+      }
+      const card = cards[index]!;
+      if (readMarinaraCardProgression(card.marinara)) {
+        refusal = "They already have their MRPG level.";
+        return {};
+      }
+      const name = String(card.name);
+      const growths = readMarinaraStatAmounts(input.growths);
+      const stats = readMarinaraStatAmounts(input.stats);
+      const had = (gameCardTemperament(card)?.initial ??
+        partyTemperamentFallback(input.chatId, name)) as MarinaraPartyTemperament;
+      // The GM picks a room guest's sister tree, through the temperament that opens it (owner 2026-11-06).
+      const temperament = marinaraTemperamentForSister(input.sister, had) ?? had;
+      // A new game starts everyone at level 1; the GM's level counts once the party is under way.
+      const underWay = cards.some((one) => {
+        const progression = readMarinaraCardProgression(one.marinara);
+        return !!progression && (progression.level > 1 || progression.xp > 0);
+      });
+      const progression = createMarinaraJoinerProgression({
+        gameId: input.chatId,
+        card: card as unknown as Parameters<typeof createMarinaraJoinerProgression>[0]["card"],
+        temperament,
+        ...(classicPicks.get(key) ? { classic: classicPicks.get(key)! } : {}),
+        terms: {
+          ...(input.level && underWay ? { level: input.level } : {}),
+          ...(growths ? { growths } : {}),
+          ...(stats ? { stats } : {}),
+        },
+      });
+      joined = { name, level: progression.level };
+      const sisterSet = temperament !== had || !gameCardTemperament(card);
+      return {
+        gameCharacterCards: cards.map((one, i) =>
+          i === index
+            ? {
+                ...one,
+                marinara: progression,
+                ...(sisterSet ? { temperament, temperamentInitial: temperament } : {}),
+              }
+            : one,
+        ),
+      };
+    });
+    if (refusal) return reply.code(409).send({ error: refusal });
+    return { joined };
+  });
+
+  // ── GET /game/marinara/upgrade-legacy/preview ──
+  // What the Journal's upgrade card offers before the player confirms: the starting trees the party's
+  // library cards picked (their Game Mode section), which come before a guess from the Legacy class,
+  // and the MRPG piece offered for each Legacy weapon and armour they carry (owner 2026-11-06).
+  app.get("/marinara/upgrade-legacy/preview", async (req, reply) => {
+    const { chatId } = z.object({ chatId: z.string().min(1) }).parse(req.query);
+    const chat = await createChatsStorage(app.db).getById(chatId);
+    if (!chat) return reply.code(404).send({ error: "Chat not found" });
+    const meta = parseMeta(chat.metadata);
+    const picks = await legacyUpgradeClassicPicks(app.db, chat);
+    const trees: Record<string, MarinaraArchetype> = {};
+    for (const [name, classic] of picks) if (classic.tree) trees[name] = classic.tree;
+    const gear = marinaraLegacyGearOffers(
+      meta,
+      normalizeGameInventoryStacks(meta.gameInventory),
+      await gamePlayerCardName(app.db, chatId, meta, chat.personaId),
+    );
+    return { trees, gear };
+  });
+
+  // ── POST /game/marinara/upgrade-legacy ──
+  // A Legacy game's party moves to Classic classes (owner 2026-11-06): one class each, the secondary
+  // tree from their temperament (read from their Description where the card has none), starting at the
+  // top of that class. Their Legacy stats stay on their cards. Refused mid-fight.
+  app.post("/marinara/upgrade-legacy", async (req, reply) => {
+    const input = z
+      .object({
+        chatId: z.string().min(1),
+        connectionId: z.string().optional(),
+        members: z
+          .array(
+            z.object({
+              name: z.string().min(1).max(200),
+              primary: z.enum(MARINARA_ARCHETYPES as unknown as [MarinaraArchetype, ...MarinaraArchetype[]]).optional(),
+            }),
+          )
+          .max(24)
+          .default([]),
+        /** The Legacy gear stacks whose MRPG piece the player took; absent takes every one offered. */
+        gear: z.array(z.string().min(1).max(200)).max(500).optional(),
+      })
+      .parse(req.body);
+    const chats = createChatsStorage(app.db);
+    const connections = createConnectionsStorage(app.db);
+    const chat = await chats.getById(input.chatId);
+    if (!chat) return reply.code(404).send({ error: "Chat not found" });
+    if ((chat.mode as string) !== "game") return reply.code(400).send({ error: "Only a game can be upgraded" });
+    const meta = parseMeta(chat.metadata);
+    const block = marinaraLegacyUpgradeBlock(meta);
+    if (block) return reply.code(409).send({ error: block });
+    // Only the session the next one starts from: an older session upgraded would be left behind when the
+    // game carries on from its latest, which stays Legacy.
+    const gameId = chat.groupId ?? readTrimmedString(meta.gameId);
+    if (gameId) {
+      const next = selectSessionForNextStart(await chats.listByGroup(gameId), chat.id);
+      if (next && next.id !== chat.id) {
+        return reply.code(409).send({ error: "Upgrade from the game's latest session: this one is an older session." });
+      }
+    }
+
+    // Temperaments the cards don't have yet are read from the Descriptions, as a new card's would be.
+    const needed = marinaraLegacyNeedsTemperament(meta);
+    let read = new Map<string, import("@marinara-engine/shared").CombatPartyTemperament>();
+    let readFailed = false;
+    if (needed.length) {
+      try {
+        const descriptions = await partyLibraryDescriptions(app.db, chat);
+        const prompt = marinaraLegacyTemperamentPrompt(needed, descriptions);
+        const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
+          connections,
+          input.connectionId,
+          chat,
+        );
+        const generationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+        const requestOptions = gameGenOptions(
+          conn.model,
+          {
+            temperature: 0.2,
+            maxTokens: 600,
+            signal: createResponseAbortSignal(reply, getChatGenerationTimeoutMs(), "Classic upgrade temperaments"),
+          },
+          generationParameters,
+          conn.provider,
+        );
+        const provider = await createGameMainProvider(connections, conn, baseUrl);
+        const result = await runGameChatComplete(
+          provider,
+          [
+            { role: "system", content: prompt.system, contextKind: "prompt" },
+            { role: "user", content: prompt.user, contextKind: "prompt" },
+          ],
+          requestOptions,
+          "Classic upgrade temperaments",
+        );
+        const extraction = extractLeadingThinkingBlocks(result.content ?? "", generationParameters?.customThinkingTags);
+        read = readMarinaraLegacyTemperaments(parseJSON(extraction.content));
+      } catch (error) {
+        // A party member the model couldn't read gets the game's drawn temperament, and the player is told.
+        readFailed = true;
+        logger.warn(error, "[game/marinara/upgrade-legacy] Reading temperaments failed for chat %s", input.chatId);
+      }
+    }
+    const classic = await legacyUpgradeClassicPicks(app.db, chat);
+    const playerCard = await gamePlayerCardName(app.db, input.chatId, meta, chat.personaId);
+    let outcome: ReturnType<typeof applyMarinaraLegacyUpgrade> | null = null;
+    // The cards, the setup and the swapped gear are saved in one write, with the bags' own bookkeeping.
+    await commitGameInventoryChange(app.db, input.chatId, (stacks, current) => {
+      outcome = applyMarinaraLegacyUpgrade(current, {
+        gameId: input.chatId,
+        members: input.members,
+        read,
+        classic,
+        at: new Date().toISOString(),
+        gear: { stacks, playerCard, ...(input.gear ? { accepted: input.gear } : {}) },
+      });
+      if (!("patch" in outcome)) return { stacks, journal: [], value: null };
+      return { stacks: outcome.stacks ?? stacks, journal: [], metadata: outcome.patch, value: null };
+    });
+    const done = outcome as ReturnType<typeof applyMarinaraLegacyUpgrade> | null;
+    if (!done) return reply.code(500).send({ error: "The upgrade did not run" });
+    if ("refusal" in done) return reply.code(409).send({ error: done.refusal });
+    logger.info(
+      "[game/marinara/upgrade-legacy] Upgraded %d party members in chat %s",
+      done.upgraded.length,
+      input.chatId,
+    );
+    return { upgraded: done.upgraded, ...(readFailed ? { temperamentReadFailed: true } : {}) };
+  });
+
   // ── POST /game/party/recruit ──
   // Adds a library character or tracked NPC to the active game party.
   app.post("/party/recruit", async (req, reply) => {
@@ -10175,6 +10533,36 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
     }
 
+    // A late joiner in a game on MRPG classes comes in at the level the Game Master gave (level 1 when it
+    // named none), with any growths and stats it set off the norm (owner 2026-11-06).
+    if (
+      existingCardIndex < 0 &&
+      !nextCard.marinara &&
+      (setupConfig as { marinaraClasses?: unknown } | null)?.marinaraClasses === true &&
+      meta.gameRuleset == null
+    ) {
+      const classicPicks = await legacyUpgradeClassicPicks(app.db, chat);
+      const growths = readMarinaraStatAmounts(input.mrpg?.growths);
+      const stats = readMarinaraStatAmounts(input.mrpg?.stats);
+      nextCard = {
+        ...nextCard,
+        marinara: createMarinaraJoinerProgression({
+          gameId: chat.id,
+          card: nextCard as unknown as Parameters<typeof createMarinaraJoinerProgression>[0]["card"],
+          temperament: (gameCardTemperament(nextCard)?.initial ??
+            partyTemperamentFallback(chat.id, recruitName)) as MarinaraPartyTemperament,
+          ...(classicPicks.get(normalizeCharacterLookupName(recruitName))
+            ? { classic: classicPicks.get(normalizeCharacterLookupName(recruitName))! }
+            : {}),
+          terms: {
+            ...(input.mrpg?.level ? { level: input.mrpg.level } : {}),
+            ...(growths ? { growths } : {}),
+            ...(stats ? { stats } : {}),
+          },
+        }),
+      };
+    }
+
     // Merge this recruit into the freshest committed party/cards/setup-config from inside the
     // patchMetadata updater, not the pre-LLM `meta` snapshot. The recruit-card LLM call above can
     // take several seconds, and a concurrent /party/recruit or /party/remove on the same chat may
@@ -10358,6 +10746,14 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       explode: z.number().int().min(2).max(1000).optional(),
       double: z.number().int().min(2).max(1000).optional(),
       reroll: z.string().trim().min(1).max(40).optional(),
+      /** `plot=` (1.822): throw the plot die with the check. Ignored where the ruleset does not take it. */
+      plot: z.boolean().optional(),
+      /** `shift=` (1.823): bands to move the outcome. */
+      shift: z.number().int().min(-3).max(3).optional(),
+      /** `hunger=` (1.824): special dice among the pool. */
+      hunger: z.number().int().min(0).max(100).optional(),
+      /** `gear=` (1.826): gear dice added to a grouped pool. */
+      gear: z.number().int().min(0).max(100).optional(),
       messageId: z.string().min(1).optional(),
     })
     .refine((input) => input.dc !== undefined || input.difficulty !== undefined, {
@@ -10388,6 +10784,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         explode: input.explode,
         double: input.double,
         reroll: input.reroll,
+        ...(input.plot ? { plot: true } : {}),
+        shift: input.shift,
+        hunger: input.hunger,
+        gear: input.gear,
       });
     } catch (err) {
       // A step no ladder in this game has, or a game with no ladder at all: nothing to roll against.
@@ -12394,7 +12794,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         return reply.status(409).send({ error: "This game's Experience decides its world." });
       }
       if (meta.gameStyle === "classic") {
-        return reply.status(409).send({ error: "A Classic game has no world." });
+        return reply.status(409).send({ error: "A VN game has no world." });
       }
       const read = readNewGameWorld(body.data);
       if (!read.ok) return reply.status(400).send({ error: read.error, code: read.code });

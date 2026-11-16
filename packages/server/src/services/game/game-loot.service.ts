@@ -10,6 +10,10 @@
 
 import {
   applyGameInventoryOps,
+  marinaraGameItemPlace,
+  marinaraVictoryLoot,
+  readMarinaraCardProgression,
+  type MarinaraFighter,
   gameWorldKitFromMetadata,
   worldLootWords,
   normalizeCharacterLookupName,
@@ -118,6 +122,48 @@ export async function planGameVictoryLoot(
     log: true,
   }));
   return ops.length > 0 ? { ops } : null;
+}
+
+/**
+ * The loot of a won Classic Marinara fight (marinara-items.ts tables): each beaten foe's drops by its
+ * rank, bestiary family and tier, named in the game's setting, and gold in the game's own coins. Into
+ * the player's bag, as native loot goes. Null when nothing drops.
+ */
+export async function planMarinaraVictoryLoot(
+  db: DB,
+  chatId: string,
+  fighters: readonly MarinaraFighter[],
+  seed: string,
+  away?: { left?: readonly MarinaraFighter[]; fled?: readonly string[]; stealOnly?: boolean },
+): Promise<GameLootPlan | null> {
+  const chat = await createChatsStorage(db).getById(chatId);
+  const metadata = readMetadata(chat?.metadata);
+  const book = await loadGameInventoryItemBook(db, { metadata }, "player");
+  const cards = Array.isArray(metadata.gameCharacterCards) ? (metadata.gameCharacterCards as unknown[]) : [];
+  const loot = marinaraVictoryLoot({
+    fighters,
+    ...(away?.left?.length ? { left: away.left } : {}),
+    ...(away?.fled?.length ? { fled: away.fled } : {}),
+    ...(away?.stealOnly ? { stealOnly: true } : {}),
+    place: marinaraGameItemPlace(metadata),
+    seed,
+    // The game's money, coin by coin, when it has some.
+    coins: (book?.coins ?? []).flatMap((coin) =>
+      coin.coin ? [{ item: coin.item, name: coin.coin.one ?? coin.name, value: coin.coin.value }] : [],
+    ),
+    equipment: cards.map(
+      (card) => readMarinaraCardProgression((card as { marinara?: unknown } | null)?.marinara)?.equipment,
+    ),
+  });
+  const ops = loot.lines.map((line) => ({
+    op: "add" as const,
+    name: line.name,
+    ...(line.item ? { item: line.item } : {}),
+    count: line.count,
+    holder: "",
+    log: true,
+  }));
+  return ops.length > 0 ? { ops, ...(book ? { rules: book } : {}) } : null;
 }
 
 /** The plan added to the stacks, for `applyGameInventoryChangeHeld`: what went in and what was left. */

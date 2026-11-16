@@ -97,7 +97,13 @@ import {
   messageEnds,
 } from "./advanced-memory-decisions.js";
 import { cosineSimilarity } from "./lorebook/embeddings.js";
-import { contextWindowForInputBudget, measureContextBudget, withLlmRequestTimeout } from "./llm/base-provider.js";
+import {
+  contextWindowForInputBudget,
+  measureContextBudget,
+  withLlmRequestTimeout,
+  type ChatOptions,
+} from "./llm/base-provider.js";
+import { withConnectionThinkingHeadroom } from "./generation/agent-generation-parameters.js";
 import { normalizeGemma4Delimiters } from "./llm/textual-tool-call-parser.js";
 import { resolveModelAccessPolicy } from "./generation/model-access-policy.js";
 import { longTermMemorySummaryInstruction } from "./generation/long-term-memory-runtime.js";
@@ -196,11 +202,16 @@ type StoredRecord = Omit<AdvancedMemoryRecord, "startIndex" | "endIndex" | "embe
 };
 type Metadata = Record<string, unknown>;
 type VisibilityReader = { id: string; name: string; visibleIds: Set<string> };
-type Context = {
+/** The summary revisions a context's metadata names, by `summary:<id>`, as recordValid reads them. */
+type SummaryRevisions = Map<string, { revision: string }>;
+/** Exported for its regression: the service's own code is the only caller. */
+export type Context = {
   chatId: string;
   mode: string;
   connectionId: string | null;
   metadata: Metadata;
+  /** #9116: the summary entries above, normalized and hashed once per context (see summaryRevisionsOf). */
+  summaryRevisions?: SummaryRevisions;
   settings: AdvancedMemorySettings;
   messages: AdvancedMemoryMessage[];
   characterIds: string[];
@@ -246,10 +257,43 @@ const RECOLLECTION_SCENES_PER_RUN = 3;
 /**
  * Updating continuity halves a text (#8820), so its reply may be as long as that text and this much more, room for
  * a short thinking block a model writes although reasoning is set to "none". A longer reply is useless: one as long
- * as the text is not shorter. ponytail: a Helper that must reason past this is cut off at its limit, so its summaries
- * stay as they are and the log says so; upgrade by sizing this from the connection's reasoning settings.
+ * as the text is not shorter. A level chosen on the connection takes its own thinking room instead, when larger
+ * (#8983, memoryOutputBudget).
  */
 const COMPACTION_REASONING_ROOM = 1024;
+
+/**
+ * A memory call's output allowance (#8983): with the thinking room an agent call gets for the level chosen on its
+ * connection, on providers that count thinking inside max tokens; unchanged when memory asks for none.
+ */
+function memoryOutputBudget(
+  resolved: { model: string; reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"] } },
+  stored: { provider: string } | null | undefined,
+  visible: number,
+): number {
+  const effort = resolved.reasoning?.reasoningEffort;
+  if (!stored?.provider || !effort || effort === "none") return visible;
+  return withConnectionThinkingHeadroom({
+    provider: stored.provider,
+    model: resolved.model,
+    maxTokens: visible,
+    reasoningEffort: effort,
+  });
+}
+
+/**
+ * The reasoning a memory call asks for (#8983): the level, or Off, chosen on its connection, as every agent call sends
+ * it (#7131), or medium with none saved on Gemini 4 Argon and Carbon, which cannot turn thinking off; otherwise none, so a short summary or decision does not spend its output allowance thinking, unless the
+ * connection switched Reasoning Effort's Send off (then the provider's default stands).
+ */
+function memoryReasoning(resolved: {
+  reasoning?: { reasoningEffort?: ChatOptions["reasoningEffort"]; enableThinking: boolean };
+  enabledParameters?: ChatOptions["enabledParameters"];
+}): Pick<ChatOptions, "reasoningEffort" | "enableThinking"> {
+  if (resolved.reasoning) return resolved.reasoning;
+  return resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" };
+}
+
 /** A part of a summary under this many tokens is kept as it is: halving it saves less than its request's prompt costs. */
 const COMPACTION_MIN_TOKENS = 64;
 /** A complete `{{…}}` macro or template tag. */
@@ -549,6 +593,26 @@ function preparationPolicyRevision(ctx: Context): string {
     ctx.metadata.macroVariables,
     object(ctx.metadata.advancedMemoryState).contextStartRevision,
   ]);
+}
+
+/**
+ * #9116: the revision of each summary entry the record's dependencies name, by `summary:<id>`, read once per
+ * context. recordValid runs once per stored record, and a long chat holds hundreds of summary entries, so
+ * normalizing and hashing them there cost seconds before the request could leave. `ctx.metadata` is replaced,
+ * never edited in place, so a context's entries are a stable snapshot for its lifetime.
+ */
+export function summaryRevisionsOf(ctx: Context): SummaryRevisions {
+  if (ctx.summaryRevisions) return ctx.summaryRevisions;
+  const revisions: SummaryRevisions = new Map();
+  for (const entry of normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
+    legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
+    now: "1970-01-01T00:00:00.000Z", // Match the stable fallback used by compaction dependencies.
+  })) {
+    const key = `summary:${entry.id}`;
+    // The first match wins, as `find` did.
+    if (!revisions.has(key)) revisions.set(key, { revision: hash(entry) });
+  }
+  return (ctx.summaryRevisions = revisions);
 }
 
 function fingerprint(ctx: Context, messages: readonly AdvancedMemoryMessage[], audience: string[]): string {
@@ -1381,10 +1445,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       const expected = source.slice(first, last + 1).filter((message) => structural || eligibleIds.has(message.id));
       if (expected.map((message) => message.id).join("\0") !== record.messageIds.join("\0")) return false;
     }
-    const manual = normalizeChatSummaryEntries(ctx.metadata.summaryEntries, {
-      legacySummary: typeof ctx.metadata.summary === "string" ? ctx.metadata.summary : null,
-      now: "1970-01-01T00:00:00.000Z", // Match the stable fallback used by compaction dependencies.
-    });
+    // Only a record that names a summary reads the summaries, and then once for the whole run (#9116).
+    const named = record.dependencies.filter((dependency) => dependency.id.startsWith("summary:"));
     if (
       record.dependencies.some(
         (dependency) =>
@@ -1393,12 +1455,9 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       )
     )
       return false;
-    return record.dependencies
-      .filter((dependency) => dependency.id.startsWith("summary:"))
-      .every((dependency) => {
-        const entry = manual.find((item) => `summary:${item.id}` === dependency.id);
-        return entry && hash(entry) === dependency.revision;
-      });
+    if (!named.length) return true;
+    const revisions = summaryRevisionsOf(ctx);
+    return named.every((dependency) => revisions.get(dependency.id)?.revision === dependency.revision);
   }
 
   function correctionReviewError(ctx: Context, record: StoredRecord, sceneRangeChanged = false) {
@@ -1597,7 +1656,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const resolved = await connection(ctx);
     if (!resolved.ok) throw new Error(resolved.error);
     const storedConnection = await connections.getById(resolved.connectionId);
-    const maxTokens = clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens);
+    const maxTokens = memoryOutputBudget(
+      resolved,
+      storedConnection,
+      clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
+    );
     const maxContext = Math.min(
       contextWindowForInputBudget(ctx.settings.maxContextTokens, maxTokens),
       resolved.provider.maxContextValue ?? 32768,
@@ -1640,7 +1703,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       {
         model: resolved.model,
         ...resolveChatSummaryTemperatureOptions(resolved),
-        ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+        ...memoryReasoning(resolved),
         maxTokens,
         maxContext,
         signal: options.signal,
@@ -1963,13 +2026,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     }).effectiveMaxContext;
     // Keep room for reasoning independently of the recap's requested length.
     // A larger Chat Summary output setting remains authoritative.
-    const outputBudget = Math.max(8196, clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens));
+    const visible = Math.max(8196, clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens));
+    // #8983: a level chosen on the connection gets its thinking room on top, as an agent call's does.
+    const outputBudget = memoryOutputBudget(resolved, storedConnection, visible);
     const window = Math.min(
       contextWindowForInputBudget(ctx.settings.maxContextTokens, outputBudget),
       resolved.provider.maxContextValue ?? 32768,
       modelLimit ?? Infinity,
     );
-    return { outputBudget, window };
+    return { outputBudget, window, reasoningRoom: Math.max(COMPACTION_REASONING_ROOM, outputBudget - visible) };
   }
 
   async function summarize(
@@ -2115,7 +2180,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const completionOptions = {
           model: resolved.model,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+          ...memoryReasoning(resolved),
           maxTokens: outputBudget,
           maxContext: window,
           signal: options.signal,
@@ -2322,17 +2387,15 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const resolved = await connection(ctx);
     if (!resolved.ok) throw new Error(resolved.error);
     const combinePrompt = resolveChatSummaryCombinePrompt(await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY));
-    const { outputBudget, window } = await summaryLimits(ctx, resolved);
+    const { outputBudget, window, reasoningRoom } = await summaryLimits(ctx, resolved);
     // A `{{` or `}}` outside a complete macro, which could open or close a condition around the parts after it.
     const stray = (text: string) => /\{\{|\}\}/u.test(text.replace(MACRO_TAG, ""));
     const instruction = (target: number, macros: boolean) =>
       `${combinePrompt}\n\nShorten it to about ${target} tokens, about half its current length. Return only the shortened summary.${macros ? " Keep every {{…}} macro exactly as written." : ""}`;
     // A part, its prompt and a reply as long as the part fit the window; half the part fits the output reserve.
     const space = Math.min(
-      Math.floor(
-        (Math.floor(window * 0.85) - tokenSize(instruction(window, true)) - 256 - COMPACTION_REASONING_ROOM) / 2,
-      ),
-      2 * (outputBudget - COMPACTION_REASONING_ROOM),
+      Math.floor((Math.floor(window * 0.85) - tokenSize(instruction(window, true)) - 256 - reasoningRoom) / 2),
+      2 * (outputBudget - reasoningRoom),
     );
     if (space < 128) throw new Error("The summary prompt and output reserve do not fit this model's context limit");
     const requests = lists.map((texts) =>
@@ -2353,8 +2416,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         const completionOptions = {
           model: resolved.model,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
-          maxTokens: Math.min(outputBudget, 2 * target + COMPACTION_REASONING_ROOM),
+          ...memoryReasoning(resolved),
+          maxTokens: Math.min(outputBudget, 2 * target + reasoningRoom),
           maxContext: window,
           signal: options.signal,
           preserveContext: true,
@@ -3058,7 +3121,11 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
       model: resolved.model,
       maxContext: storedConnection?.maxContext,
     }).effectiveMaxContext;
-    const maxTokens = clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens);
+    const maxTokens = memoryOutputBudget(
+      resolved,
+      storedConnection,
+      clampRoleplaySummaryMaxTokens(ctx.metadata.summaryMaxTokens),
+    );
     const maxContext = Math.min(
       contextWindowForInputBudget(ctx.settings.maxContextTokens, maxTokens),
       resolved.provider.maxContextValue ?? 32768,
@@ -3158,7 +3225,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
           signal: options.signal,
           preserveContext: true,
           ...resolveChatSummaryTemperatureOptions(resolved),
-          ...(resolved.enabledParameters?.reasoningEffort === false ? {} : { reasoningEffort: "none" as const }),
+          ...memoryReasoning(resolved),
         });
         abortIfNeeded(options.signal);
         if (result.finishReason === "length")

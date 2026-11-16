@@ -26,6 +26,17 @@ type RateLimitRule = {
 
 const DEFAULT_RULE: RateLimitRule = { key: "default", limit: 600, windowMs: 60_000 };
 
+/**
+ * Global gallery files read and validate a file on every request, and ?w= may write a preview with sharp, so they have
+ * a bucket of their own instead of sharing the default with every JSON call. Previews are made once per file and width,
+ * and the files are cached for a year, so an image-heavy screen asks for each picture once: 600/min leaves room for an
+ * Album page of many tiles while a scripted loop meets a wall.
+ */
+export const GLOBAL_GALLERY_FILE_RATE_LIMIT = {
+  max: 600,
+  timeWindow: 60_000,
+} as const;
+
 /** Connection probes can submit credentials and call a paid provider. */
 export const CONNECTION_TEST_RATE_LIMIT = {
   max: 30,
@@ -40,6 +51,12 @@ export const PROFESSOR_MARI_QUICK_RATE_LIMIT = {
 
 /** Bulk "skip these agent updates" writes the package catalog; a person clicks it, not a script. */
 export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/** Bulk enable/disable of custom tools rewrites every listed tool in one transaction; a person clicks it, not a script. */
+export const CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT = {
   max: 30,
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
@@ -131,6 +148,12 @@ export const EXTENSION_REVISION_HISTORY_RATE_LIMIT = {
 /** Support snapshot of storage residency and package runtimes; a person reads it a few times, not in a loop. */
 export const RUNTIME_DIAGNOSTICS_RATE_LIMIT = {
   max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
+/** The in-app server console polls every few seconds while it is open; leave room for two open tabs. */
+export const SERVER_LOGS_RATE_LIMIT = {
+  max: 120,
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
@@ -314,6 +337,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       limit: RUNTIME_DIAGNOSTICS_RATE_LIMIT.max,
       windowMs: RUNTIME_DIAGNOSTICS_RATE_LIMIT.timeWindow,
     },
+  },
+  {
+    pattern: /^\/api\/admin\/logs(?:\?|$)/,
+    rule: { key: "server-logs", limit: SERVER_LOGS_RATE_LIMIT.max, windowMs: SERVER_LOGS_RATE_LIMIT.timeWindow },
   },
   {
     pattern: /^\/api\/personal-extensions\/revision-history\/?$/,

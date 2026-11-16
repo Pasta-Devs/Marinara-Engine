@@ -1,7 +1,10 @@
 import {
   cardHasInteractiveOnboarding,
+  compareTokenEstimates,
   estimateCharacterCardTokens,
+  isTokenSort,
   matchesAllCardSearchTags,
+  normalizeNameAliases,
   normalizeTextForMatch,
   parseCardTagSearchTerms,
   PROFESSOR_MARI_ID,
@@ -63,10 +66,13 @@ function strings(data: CharacterData, comment: string) {
   const backstory = typeof extensions.backstory === "string" ? extensions.backstory : "";
   const appearance = typeof extensions.appearance === "string" ? extensions.appearance : "";
   const tags = Array.isArray(data.tags) ? data.tags.filter((tag): tag is string => typeof tag === "string") : [];
+  const nameAliases = normalizeNameAliases(extensions.nameAliases);
   return {
     tags,
+    nameAliases,
     searchText: [
       data.name,
+      ...nameAliases,
       comment,
       data.creator,
       data.character_version,
@@ -89,7 +95,7 @@ function strings(data: CharacterData, comment: string) {
 
 function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry {
   const data = readData(row.data);
-  const { tags, searchText } = strings(data, row.comment ?? "");
+  const { tags, nameAliases, searchText } = strings(data, row.comment ?? "");
   const extensions =
     data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
   const importMetadata =
@@ -107,6 +113,7 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
   return {
     id: row.id,
     name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Unknown",
+    nameAliases,
     comment: row.comment ?? "",
     creator: typeof data.creator === "string" ? data.creator : "",
     version: typeof data.character_version === "string" ? data.character_version : "",
@@ -151,6 +158,13 @@ function sortEntries(entries: CachedCharacterCatalogEntry[], sort: string) {
   return [...entries].sort((a, b) => {
     if (sort === "favorites") {
       return Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    }
+    if (isTokenSort(sort)) {
+      return (
+        compareTokenEstimates(sort, a.tokenEstimate, b.tokenEstimate) ||
+        a.name.localeCompare(b.name) ||
+        a.id.localeCompare(b.id)
+      );
     }
     if (sort === "name-desc") return b.name.localeCompare(a.name) || a.id.localeCompare(b.id);
     if (sort === "name-asc") return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
@@ -222,6 +236,12 @@ export function createCharacterCatalog(db: DB) {
       const favoriteFolderIds = new Set<string>();
       for (const item of entries)
         if (item.favorite) for (const id of folderOf.get(item.id) ?? []) favoriteFolderIds.add(id);
+      // Size sort orders folders by their matching members' total, also when those members are not loaded.
+      const folderTokenTotals: Record<string, number> = {};
+      if (isTokenSort(options.sort))
+        for (const item of entries)
+          for (const id of folderOf.get(item.id) ?? [])
+            folderTokenTotals[id] = (folderTokenTotals[id] ?? 0) + item.tokenEstimate;
       if (options.folder === "none") entries = entries.filter((item) => !folderOf.has(item.id));
       else if (options.folder === "any") entries = entries.filter((item) => folderOf.has(item.id));
       else if (options.folder) entries = entries.filter((item) => folderOf.get(item.id)?.includes(options.folder!));
@@ -245,6 +265,7 @@ export function createCharacterCatalog(db: DB) {
         catalogGeneration: catalog.generation,
         total: entries.length,
         favoriteFolderIds: [...favoriteFolderIds],
+        folderTokenTotals,
       };
     },
     /** Every tag in the library, for filter chips that must not depend on loaded pages. */

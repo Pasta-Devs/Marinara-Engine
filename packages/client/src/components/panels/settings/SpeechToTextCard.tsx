@@ -17,20 +17,21 @@ const INPUT_CLS = "mari-chrome-field w-full px-3 py-2.5 text-sm placeholder:text
 /** An address, not copy: the usual root of a self-hosted server on the same machine. */
 const SERVER_URL_EXAMPLE = "http://localhost:8000/v1";
 
-function Field({ label, help, children }: { label: string; help: string; children: ReactNode }) {
+function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label className="block space-y-1.5">
         <span className="block text-xs font-medium text-[var(--foreground)]">{label}</span>
         {children}
       </label>
-      <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{help}</p>
+      {help && <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{help}</p>}
     </div>
   );
 }
 
 /** Lets Calls send recorded speech to the user's own speech-to-text server instead of Local Whisper. */
-export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
+/** `inDictation`: the Dictation switch is the only switch, so a filled address turns the server on, and no help lines. */
+export function SpeechToTextCard({ inDictation }: { defaultExpanded?: boolean; inDictation?: boolean } = {}) {
   const { t } = useTranslation();
   const { data: installedPackages } = useInstalledCapabilityPackages();
   // Only Calls records speech, so the card stays out of the way until it is installed.
@@ -131,14 +132,19 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
 
   return (
     <div data-component="SpeechToTextCard" className="space-y-4">
-      <ToggleSetting
-        label={t("connections.speechToText.toggle")}
-        help={t("connections.speechToText.intro")}
-        checked={draft.enabled}
-        onChange={(checked) => change({ enabled: checked })}
-      />
+      {!inDictation && (
+        <ToggleSetting
+          label={t("connections.speechToText.toggle")}
+          help={t("connections.speechToText.intro")}
+          checked={draft.enabled}
+          onChange={(checked) => change({ enabled: checked })}
+        />
+      )}
 
-      <Field label={t("connections.speechToText.serverUrl")} help={t("connections.speechToText.serverUrlHelp")}>
+      <Field
+        label={t("connections.speechToText.serverUrl")}
+        help={inDictation ? undefined : t("connections.speechToText.serverUrlHelp")}
+      >
         <span className="relative block">
           <Globe
             size="0.875rem"
@@ -147,7 +153,9 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
           />
           <input
             value={draft.baseUrl}
-            onChange={(event) => change({ baseUrl: event.target.value })}
+            onChange={(event) =>
+              change({ baseUrl: event.target.value, ...(inDictation && { enabled: !!event.target.value.trim() }) })
+            }
             className={cn(INPUT_CLS, "pl-8 font-mono")}
             placeholder={SERVER_URL_EXAMPLE}
             inputMode="url"
@@ -157,7 +165,10 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
         </span>
       </Field>
 
-      <Field label={t("connections.speechToText.apiKey")} help={t("connections.speechToText.apiKeyHelp")}>
+      <Field
+        label={t("connections.speechToText.apiKey")}
+        help={inDictation ? undefined : t("connections.speechToText.apiKeyHelp")}
+      >
         <span className="relative block">
           <Key
             size="0.875rem"
@@ -175,7 +186,10 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
         </span>
       </Field>
 
-      <Field label={t("connections.speechToText.model")} help={t("connections.speechToText.modelHelp")}>
+      <Field
+        label={t("connections.speechToText.model")}
+        help={inDictation ? undefined : t("connections.speechToText.modelHelp")}
+      >
         <input
           value={draft.model}
           onChange={(event) => change({ model: event.target.value })}
@@ -186,7 +200,10 @@ export function SpeechToTextCard(_props: { defaultExpanded?: boolean } = {}) {
         />
       </Field>
 
-      <Field label={t("connections.speechToText.language")} help={t("connections.speechToText.languageHelp")}>
+      <Field
+        label={t("connections.speechToText.language")}
+        help={inDictation ? undefined : t("connections.speechToText.languageHelp")}
+      >
         <input
           value={draft.language}
           onChange={(event) => change({ language: event.target.value.replace(/[^A-Za-z-]/gu, "").slice(0, 16) })}

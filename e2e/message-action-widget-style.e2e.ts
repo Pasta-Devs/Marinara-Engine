@@ -252,7 +252,7 @@ for (const [preset, theme] of [
             exact: true,
           }),
         },
-        { name: "delete", trigger: "Delete", panel: modal("Delete message") },
+        { name: "delete", trigger: "Delete", panel: modal("Delete message?") },
         {
           name: "branch",
           trigger: "Branch from here",
@@ -362,7 +362,8 @@ for (const [preset, theme] of [
             expect([colors.radius, colors.clip]).toEqual([baseline.radius, baseline.clip]);
             expect(colors.background).not.toBe(baseline.background);
           }
-          if (surface.name === "delete" && preset === "dottore") {
+          // The delete sheet's choices left the widget controls in the sheet pass; the marks panel keeps them.
+          if (surface.name === "marks" && preset === "dottore") {
             const action = surface.panel.locator(".mari-chrome-control").first();
             await action.hover();
             const hover = await appearance(action);

@@ -104,7 +104,7 @@ async function checkCoveredChat(page: Page, info: TestInfo) {
 
   // Another screen from the top bar, without going Home first.
   await page.locator('[data-tour="panel-agents"]').click();
-  const newAgent = page.locator(AGENTS_PANEL).getByRole("button", { name: "New", exact: true });
+  const newAgent = page.locator(AGENTS_PANEL).getByRole("button", { name: "Create agent", exact: true });
   await expect(newAgent).toBeVisible();
   await snap(page, info, "agents-list");
   await expect(chatButtons).toHaveCount(0);
@@ -115,7 +115,7 @@ async function checkCoveredChat(page: Page, info: TestInfo) {
   await newAgent.click();
   const editor = page.locator('[data-component="MobileDetailSheet"]');
   const save = editor.getByRole("button", { name: "Save", exact: true });
-  const back = editor.getByRole("button", { name: "Back to agents", exact: true });
+  const back = editor.getByRole("button", { name: /^Back to/ });
   await expect(save).toBeVisible();
   await snap(page, info, "agent-editor");
   await expect(chatButtons).toHaveCount(0);
@@ -193,7 +193,7 @@ test.describe("on a computer", () => {
 
       // Docked panels sit beside the chat, which keeps its buttons; an editor replaces the chat.
       await page.locator('[data-tour="panel-agents"]').click();
-      const newAgent = page.locator(AGENTS_PANEL).getByRole("button", { name: "New", exact: true });
+      const newAgent = page.locator(AGENTS_PANEL).getByRole("button", { name: "Create agent", exact: true });
       await expect(newAgent).toBeVisible();
       await expect(page.locator(".mari-window-bubble[data-chat-settings-button]")).toBeVisible();
       await newAgent.click();

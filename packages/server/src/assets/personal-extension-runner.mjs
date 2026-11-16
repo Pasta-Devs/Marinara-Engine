@@ -9,7 +9,7 @@ const CLEANUP_TIMEOUT_MS = 2_000;
 // otherwise, and heartbeats at 5s instead of a flash write every second.
 // These values MUST stay in sync with services/extensions/sandbox-protocol.ts
 // (the runner is a standalone sandbox asset and cannot import server modules);
-// scripts/regressions/extension-ipc.regression.ts pins the pairing.
+// scripts/regressions/extensions/extension-ipc.regression.ts pins the pairing.
 const HOT_POLL_MS = 25;
 const IDLE_POLL_MS = 250;
 const HOT_WINDOW_MS = 3_000;

@@ -12,7 +12,7 @@
 //
 // The runner (src/assets/personal-extension-runner.mjs) is a standalone
 // sandbox asset that cannot import server modules — it inlines the same
-// values, and scripts/regressions/extension-ipc.regression.ts pins the two
+// values, and scripts/regressions/extensions/extension-ipc.regression.ts pins the two
 // sides byte-for-byte so they cannot drift apart.
 
 /** Poll cadence while traffic is flowing (unchanged from the old fixed rate). */

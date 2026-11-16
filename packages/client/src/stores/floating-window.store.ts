@@ -24,10 +24,17 @@ export const CHAT_SETTINGS_WINDOW_ID = "chat-settings";
 /** The Chat Settings button in the chat, the way into Chat Settings (its place saves as a standalone bubble). */
 export const CHAT_SETTINGS_BUTTON_ID = "chat-settings-button";
 export const TRACKER_WINDOW_ID = "trackers";
+/** The in-app server console. App-wide, not chat-scoped: its layout never goes into a chat's saved layout. */
+export const SERVER_CONSOLE_WINDOW_ID = "server-console";
 /** The Tracker Panel: its button's place, and runtime visibility independent of the chat's preference. */
 export const TRACKER_PANEL_BUBBLE_ID = "tracker-panel";
 /** Above the chat HUD (z-40/50), below menus (9000+), modals (10000) and the Help overlay (10050). */
 export const FLOATING_WINDOW_Z_BASE = 70;
+/**
+ * A `layer="top"` window: one above --mari-layer-omnibar (mari.css), so Professor Mari's modal never covers it.
+ * Written against the variable, so it follows the layer; command-center.regression.ts limits who may use it.
+ */
+export const TOP_LAYER_WINDOW_Z_INDEX = "calc(var(--mari-layer-omnibar) + 1)";
 /** Phone bubbles: above the chat, below the phone overlays (menus at 45-50, sheets at 70) that cover it. */
 export const PHONE_BUBBLE_Z_INDEX = 44;
 
@@ -215,8 +222,10 @@ export const useFloatingWindowStore = create<FloatingWindowState>()((set, get) =
           else open[id] = true;
         }
       }
+      // The console belongs to the app, not to a chat: keep where the user left it across chat switches.
+      const consoleLayout = state.layouts[SERVER_CONSOLE_WINDOW_ID];
       return {
-        layouts: parsed.windows,
+        layouts: consoleLayout ? { ...parsed.windows, [SERVER_CONSOLE_WINDOW_ID]: consoleLayout } : parsed.windows,
         detached: Object.fromEntries((parsed.detached ?? []).map((id) => [id, true as const])),
         phoneBubbles: parsed.phoneBubbles ?? {},
         bubbles: parsed.bubbles ?? {},
@@ -237,7 +246,7 @@ export function selectWindowLayoutSnapshot(
   state: Pick<FloatingWindowState, "layouts" | "detached" | "phoneBubbles" | "bubbles" | "phoneMenu" | "buttonLayout">,
 ): WindowLayoutSnapshot {
   return toWindowLayoutSnapshot(
-    state.layouts,
+    withoutKey(state.layouts, SERVER_CONSOLE_WINDOW_ID),
     Object.keys(state.detached),
     state.phoneBubbles,
     state.bubbles,

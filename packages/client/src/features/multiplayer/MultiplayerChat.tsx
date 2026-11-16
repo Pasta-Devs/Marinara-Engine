@@ -47,7 +47,7 @@ const ChatSetupWizard = lazy(() =>
   import("../../components/chat/ChatSetupWizard").then((module) => ({ default: module.ChatSetupWizard })),
 );
 const ChatSettingsDrawer = lazy(() =>
-  import("../../components/chat/ChatSettingsDrawer").then((module) => ({ default: module.ChatSettingsDrawer })),
+  import("../chat-settings/ChatSettingsDrawer").then((module) => ({ default: module.ChatSettingsDrawer })),
 );
 const PreparedMultiplayerGameSetup = lazy(() =>
   import("./PreparedMultiplayerGameSetup").then((module) => ({ default: module.PreparedMultiplayerGameSetup })),
@@ -226,6 +226,17 @@ function HostedMultiplayerChat({ chat, renderGame }: { chat: Chat; renderGame?: 
   useEffect(() => {
     if (!settingsOpen) setInitialSection(null);
   }, [settingsOpen]);
+  // Back from a surface opened in Chat Settings reopens it here too: this host renders the drawer, not ChatArea.
+  const chatSettingsRequest = useUIStore((state) => state.chatSettingsRequest);
+  useEffect(() => {
+    if (!hosting || chatSettingsRequest?.chatId !== chat.id) return;
+    const windows = useFloatingWindowStore.getState();
+    if (!windows.open[CHAT_SETTINGS_WINDOW_ID]) {
+      setInitialSection(chatSettingsRequest.section === "multiplayer" ? "multiplayer" : null);
+      windows.openWindow(CHAT_SETTINGS_WINDOW_ID);
+    }
+    useUIStore.getState().consumeChatSettingsRequest();
+  }, [chat.id, chatSettingsRequest, hosting]);
   const [participantOpen, setParticipantOpen] = useState(false);
   // A fight is played on the host's own Game screen, with the board and Begin the fight on it; the room's
   // view is a button away (2026-10-27). Each fight opens on the board again. A fight the room reads as
@@ -641,7 +652,7 @@ function MultiplayerHostReview({
             className={MULTIPLAYER_INPUT_CLASS}
           />
         </label>
-        <MultiplayerPersonaFields value={persona} onChange={setPersona} />
+        <MultiplayerPersonaFields value={persona} onChange={setPersona} game={chat.mode === "game"} />
         <label className="flex items-start gap-2 text-xs leading-relaxed">
           <input
             type="checkbox"

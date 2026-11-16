@@ -42,6 +42,7 @@ import {
   resolvePromptAttachmentInputs,
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
+  type ImageCaptionFallbackOptions,
   type ImageCaptioningRuntime,
 } from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
@@ -123,7 +124,7 @@ import type {
   ProfessorMariQuickEditApplyResponse,
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
-import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
+import { MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
 import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
@@ -192,11 +193,14 @@ export type WorkspaceCommandResult = {
   input: Record<string, unknown>;
   output: string;
   success: boolean;
+  /** #9342: pictures from `mari images look` (data URLs) for her next request; `output` only names them. */
+  images?: string[];
 };
 
 export type WorkspaceCommandExecution = {
   output: string;
   actionResult?: MariWorkspaceActionResult;
+  images?: string[];
 };
 
 const ACTION_RESULT_TABLES = {
@@ -535,6 +539,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "character.onboarding.update",
   "character.rulesetSheet.get",
   "character.rulesetSheet.update",
+  "character.mrpg.get",
+  "character.mrpg.update",
   "character.folder.list",
   "character.moveToFolder",
   "persona.list",
@@ -544,6 +550,8 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "persona.update",
   "persona.rulesetSheet.get",
   "persona.rulesetSheet.update",
+  "persona.mrpg.get",
+  "persona.mrpg.update",
   "lorebook.list",
   "lorebook.get",
   "lorebook.entries",
@@ -786,7 +794,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      'Read or change live app data through structured actions, without shell commands. lorebook.entries returns one page of entry previews as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset. lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
+      'Read or change live app data through structured actions, without shell commands. character.list, persona.list, lorebook.list, preset.list, chat.list and lorebook.entries return one page as { items, total, offset, nextOffset }; while nextOffset is not null, call it again with offset: nextOffset (the same offset again returns the same page). lorebook.getEntry with entryId reads one entry in full. Oversized fields in a single-item read (e.g. character.get) come back elided with a note naming each one; re-read one in full with field="<path>".',
     parameters: {
       type: "object",
       properties: {
@@ -810,6 +818,9 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         entryId: { type: "string" },
         agentId: { type: "string" },
         presetId: { type: "string" },
+        sectionId: { type: "string" },
+        choiceBlockId: { type: "string" },
+        messageId: { type: "string" },
         widgetId: { type: "string" },
         extensionId: { type: "string" },
         query: { type: "string" },
@@ -826,7 +837,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "integer",
           minimum: 0,
           description:
-            "Start item offset for chat.messages and lorebook.entries, or character offset when paging through a field= read.",
+            "Start item offset for paged reads (character.list, persona.list, lorebook.list, preset.list, chat.list, instruction.list, skill.list, chat.messages, lorebook.entries): pass the previous page's nextOffset. Or the character offset when paging through a field= read.",
         },
         name: { type: "string" },
         version: { type: "string" },
@@ -838,6 +849,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           description:
             "Optional Browser Extension data permissions. Request only what the extension needs. Server Extensions cannot request these capabilities.",
         },
+        content: { type: "string", description: "The fixed reply text for chat.updateMessage." },
         css: { type: "string" },
         js: { type: "string" },
         serverJs: { type: "string" },
@@ -857,6 +869,11 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
           type: "object",
           description:
             "Partial update fields only. Omitted fields remain unchanged. For character/persona cards, never put requested backstory or appearance content into description: description is the brief identity overview, personality is behavioral traits and mannerisms, backstory is history, and appearance is physical features/clothing.",
+        },
+        onboarding: {
+          type: "object",
+          description:
+            "The interactive onboarding block for character.onboarding.update. Put its fields (enabled, description, personality, backstory, appearance, scenario, variables, cardVariables) here directly, never inside another object. Each key you send replaces that whole field; omitted keys stay. Read skill builtin-onboarding with skill.get before writing one.",
         },
       },
       required: ["action"],
@@ -978,7 +995,7 @@ const MARI_SEASON_FLAVORS = new Map<string, string>([
   ],
 ]);
 
-const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
+export const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
 Voice:
 Use Professor Mari's existing character voice as your source of truth:
@@ -1016,7 +1033,7 @@ Command families:
 - \`package_service\`: actions that installed Agent packages offer you. Call it with no arguments to see which packages offer which actions and inputs; never guess an action name. Running one (\`package\`, \`action\`, \`input\`) acts inside that package and may spend its AI budget, so run it only for a change the user asked for. The package validates the input; on an error, fix the input or tell the user.
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
-- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
+- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, looking at images yourself (\`mari images look <ref>\`), and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
 - \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
 - \`mari characters\`: list, get, search, create, update, delete. Use it for a CLI-only operation (deleting a card) or when the user asks for the CLI; in a task, read with \`app_data\` \`character.get\`, which keeps the card's attached \`lorebooks\`.
 - \`mari personas\`: list, get, search, create, update, delete. Prefer this helper for persona edits.
@@ -1064,6 +1081,7 @@ export function workspaceCommandKnowledgePrompt() {
 - Reply diagnosis and repair: read skill \`builtin-repair\` with \`skill.get\` before you diagnose a bad reply (cut off, empty, a character who forgets or ignores their card) or fix one. Never present a hand-written "corrected" reply as text: \`chat.updateMessage\` is the only repair path and it adds a swipe. The skill has the diagnose-first order, the finding codes and the repair rules.
 - Deleting a lorebook entry: use \`lorebook.deleteEntry\` with the entry's \`entryId\` and \`apply:true\` — it removes that one entry and shows a change card. NEVER delete a lorebook entry with a raw \`mari db delete\`: its \`--where\` selector can match and permanently remove far more rows than you intend. If a raw \`mari db delete\` is ever unavoidable, dry-run it first (omit \`--apply\`) and confirm the exact affected-row count before applying.
 - Interactive onboarding (a card's persona template plus questions the player answers when a Roleplay chat starts) is a procedure with validation rules, not a plain field edit: call \`skill.get\` with top-level \`id: "builtin-onboarding"\` BEFORE you write or change one, and follow it. Read it with \`character.onboarding.get\` (\`characterId\`; also returns its problems and a sample persona), write it with \`character.onboarding.update\` (\`characterId\`, \`onboarding\`, \`reason\`, \`apply\`). User-facing reference: \`docs_read docs/characters/interactive-onboarding.md\`.
+- MRPG picks (Game Mode tree, strong and weak stats): \`character|persona.mrpg.get|update\`, \`patch\` {tree, strong, weak}. Read \`builtin-mrpg\` first (classes, build advice).
 - Game Mode ruleset sheets (a character's or persona's sheet for an installed ruleset, under Stats > Ruleset sheets): read with \`persona.rulesetSheet.get\` or \`character.rulesetSheet.get\` (\`personaId\`/\`characterId\`; without \`rulesetId\` it lists the stored sheets and installed rulesets, with it the sheet's \`build\`, worked-out \`values\` and the \`layout\` of ids and bounds). Write with \`persona.rulesetSheet.update\` or \`character.rulesetSheet.update\` (\`rulesetId\`, \`patch\`, \`reason\`, \`apply\`). \`patch\` merges into the build by the ruleset's own ids: \`abilities\` {id: score}, \`skills\`/\`saves\` {id: tier id}, \`bonuses\` {id: number}, \`fields\` {id: value}, with \`null\` clearing a value back to its default; \`lists\` {listId: {update: [{index, cells}], remove: [index], add: [row]}} or {set: [rows]} to replace a list. A missing sheet starts blank. Calculated values and live state (current hit points, spent slots) are not written here. The server refuses any id or value the ruleset does not allow and lists every problem: fix them and resend.
 - Prompt presets: read skill \`builtin-presets\` with \`skill.get\` BEFORE you create a preset, change a section, group, marker or choice block, or explain what a preset sends to the prompt. \`preset.update\` with \`data.sections\` replaces \`sectionOrder\` unless you send the complete order.
 - Custom image agents are supported by the live runtime. Use \`data.resultType: "image_prompt"\`, enable \`settings.customCapabilities.trigger_image_generation\`, and have the agent return \`shouldGenerate\` plus \`prompt\`. Marker-triggered agents should also set \`settings.activationKeywords\`. Do not claim that only Illustrator can generate image prompts.
@@ -2170,6 +2188,50 @@ function roleForMessage(row: { role: string }): "system" | "user" | "assistant" 
 
 function escapeWorkspaceXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// #9342 (D2): a model that can't read images gets them described by the Image reading model, and Mari is told so,
+// so she never claims she saw a picture herself. Without that model the picture is replaced by a plain note.
+const MARI_IMAGE_CAPTION_OPTIONS = {
+  captionNote: (model: string) =>
+    `[This picture was described by the image reading model ${model}. You did not see it yourself: say so if you describe it, and don't claim details the description doesn't give.]`,
+  unavailableNote:
+    "[Picture not shown: your model can't read images and no working Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and to check that setting; don't guess what it shows.]",
+} satisfies ImageCaptionFallbackOptions;
+
+/** #9342: the most pictures a run carries; older looks fall back to their text stub so requests stay a sane size. */
+export const MARI_RUN_IMAGE_LIMIT = 8;
+
+/**
+ * Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} looked-at pictures across the run's messages and strips older ones in
+ * place. Only messages marked `fromImageLook` count or get trimmed: the user's own attachments always stay.
+ */
+export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIMIT): void {
+  let kept = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (!message.fromImageLook || !message.images?.length) continue;
+    const room = Math.max(0, limit - kept);
+    if (message.images.length > room) {
+      const { images, ...rest } = message;
+      messages[index] = room > 0 ? { ...rest, images: images.slice(-room) } : rest;
+    }
+    kept += Math.min(message.images.length, room);
+  }
+}
+
+/**
+ * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
+ * shows them and the rest of the run keeps them (up to the cap); the stored chat and later turns keep only the text.
+ */
+export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
+  const images = results.flatMap((result) => result.images ?? []);
+  return {
+    role: "user",
+    content: formatCommandResultForPrompt(results),
+    contextKind: "history",
+    ...(images.length > 0 ? { images, fromImageLook: true } : {}),
+  };
 }
 
 // echoInput:false (pi runtime): the native tool call already carries the arguments, so the <input> block is a duplicate.
@@ -4252,6 +4314,7 @@ export class ProfessorMariWorkspaceService {
             ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
+        { ...MARI_IMAGE_CAPTION_OPTIONS, readsImages: modelReadsImages(connection) },
       );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4733,11 +4796,8 @@ export class ProfessorMariWorkspaceService {
           runHeldCalls = [];
           messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
-            messages.push({
-              role: "user",
-              content: formatCommandResultForPrompt(commandResults),
-              contextKind: "history",
-            });
+            messages.push(commandResultMessage(commandResults));
+            capRunImages(messages);
           }
           messages.push({
             role: "user",
@@ -4910,7 +4970,9 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
-        messages.push({ role: "user", content: formatCommandResultForPrompt(commandResults), contextKind: "history" });
+        messages.push(commandResultMessage(commandResults));
+
+        capRunImages(messages);
 
         if (round < MAX_COMMAND_ROUNDS - 1) {
           const steerText = await deliverSteers();

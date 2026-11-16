@@ -1,9 +1,10 @@
 // ──────────────────────────────────────────────
 // Storage: Custom Tools
 // ──────────────────────────────────────────────
-import { and, asc, desc, eq } from "../../db/file-query.js";
+import { and, asc, desc, eq, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { agentConfigs, customTools } from "../../db/schema/index.js";
+import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { parseAgentSettingsRecord, type CreateCustomToolInput } from "@marinara-engine/shared";
 import { isCustomToolScriptEnabled } from "../../config/runtime-config.js";
@@ -33,22 +34,30 @@ export function createCustomToolsStorage(db: DB) {
     return rows.reduce((maxOrder, row) => Math.max(maxOrder, row.sortOrder), 0) + 10;
   }
 
+  async function listPausedToolIds(): Promise<Set<string>> {
+    const folders = await createLibraryFoldersStorage(db).list("functions");
+    return new Set(folders.filter((folder) => folder.paused).flatMap((folder) => folder.itemIds));
+  }
+
   return {
     async list() {
-      const rows = await db
-        .select()
-        .from(customTools)
-        .orderBy(asc(customTools.sortOrder), desc(customTools.updatedAt), asc(customTools.id));
-      return decryptRows(rows);
+      const [rows, pausedIds] = await Promise.all([
+        db
+          .select()
+          .from(customTools)
+          .orderBy(asc(customTools.sortOrder), desc(customTools.updatedAt), asc(customTools.id)),
+        listPausedToolIds(),
+      ]);
+      return (await decryptRows(rows)).map((row) => ({ ...row, pausedByFolder: pausedIds.has(row.id) }));
     },
 
     async listEnabled() {
-      const rows = await db
-        .select()
-        .from(customTools)
-        .orderBy(asc(customTools.sortOrder), asc(customTools.name), asc(customTools.id));
+      const [rows, pausedIds] = await Promise.all([
+        db.select().from(customTools).orderBy(asc(customTools.sortOrder), asc(customTools.name), asc(customTools.id)),
+        listPausedToolIds(),
+      ]);
       return (await decryptRows(rows)).filter((row) => {
-        if (row.enabled !== "true") return false;
+        if (row.enabled !== "true" || pausedIds.has(row.id)) return false;
         return row.executionType !== "script" || isCustomToolScriptEnabled();
       });
     },
@@ -138,6 +147,20 @@ export function createCustomToolsStorage(db: DB) {
       return this.list();
     },
 
+    async setEnabled(toolIds: string[], enabled: boolean) {
+      const ids = [...new Set(toolIds)];
+      return db.transaction(async (tx) => {
+        const matchingIds = inArray(customTools.id, ids);
+        const rows = await tx.select({ id: customTools.id }).from(customTools).where(matchingIds);
+        if (rows.length !== ids.length) return false;
+        await tx
+          .update(customTools)
+          .set({ enabled: String(enabled), updatedAt: now() })
+          .where(matchingIds);
+        return true;
+      });
+    },
+
     async remove(id: string) {
       const tool = await this.getById(id);
       if (!tool) return;
@@ -160,6 +183,7 @@ export function createCustomToolsStorage(db: DB) {
             .where(eq(agentConfigs.id, config.id));
         }
         await tx.delete(customTools).where(eq(customTools.id, id));
+        await createLibraryFoldersStorage(tx).removeItemReferences("functions", [id]);
       });
     },
   };

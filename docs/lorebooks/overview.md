@@ -67,9 +67,28 @@ The tab also has these switches.
 
 The **Semantic search (embeddings)** panel below the switches is covered in [Semantic Search for Lorebooks](semantic-search.md).
 
+## Give a lorebook a picture
+
+The picture shows in the **Lorebooks** panel, the Lorebook Library and the lorebook pickers.
+
+1. Open the lorebook and stay on the **Overview** tab. **Image** is the first section.
+2. Click **Upload image** and pick a file, or click **Generate with AI** to create a cover with your image generation connection. **Generate with AI** is greyed out until you set one up.
+3. Drag the square on the picture to choose the part that shows, and drag its corners to resize it. The round preview shows the result.
+4. Click **Save**.
+
+A new picture starts uncropped. To take the picture off, click **Remove**.
+
+## The Lorebook Library
+
+The Lorebook Library is a full-page view of your lorebooks with their pictures, descriptions and entry counts. Open it with **Open Library** at the top of the **Lorebooks** panel.
+
+Click a lorebook to see it larger. **Edit Lorebook** opens the editor, and the back arrow returns you to the library. **Active** turns the lorebook on or off for every chat, the same as its **Enabled** switch.
+
 ## The Lorebooks panel
 
-At the top of the panel, three icon buttons show their names when you hover over them.
+At the top of the panel, **Download** opens the Card Browser on downloadable lorebooks (see [Importing and Exporting Lorebooks](import-export.md#download-a-lorebook-from-chub)), and **Open Library** opens the [Lorebook Library](#the-lorebook-library).
+
+Below them, three icon buttons show their names when you hover over them.
 
 - **New** opens the **Create Lorebook** window.
 - **Import** opens the **Import Lorebook** window. See [Importing and Exporting Lorebooks](import-export.md).
@@ -78,7 +97,7 @@ At the top of the panel, three icon buttons show their names when you hover over
 Below the buttons:
 
 - **Search lorebooks** filters by name, description, linked character or persona names, and tags.
-- **Sort order** offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest** and **Token Budget**. With **Manual order**, drag lorebooks into place, or use <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>.
+- **Sort order** offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens** and **Fewest tokens**. The size sorts use the estimated size of all of a lorebook's entries, disabled ones included, which each row also shows. With **Manual order**, drag lorebooks into place, or use <kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>.
 - **New Folder** makes a library folder. Drag a lorebook onto it. On a phone, hold the lorebook, then drag. These folders are separate from the entry folders inside a lorebook.
 
 Each row has **Copy** (duplicates the lorebook) and **Delete** buttons. They appear when you hover over the row, and are always visible on mobile. A lorebook that is turned off shows an **OFF** badge. Click the picture to upload or replace it.

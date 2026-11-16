@@ -32,6 +32,8 @@ import {
 import { ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
+import { useBackDismiss } from "../../../hooks/use-back-dismiss";
+import { useUIStore } from "../../../stores/ui.store";
 import {
   useApprovePersonalExtension,
   useCreatePersonalExtension,
@@ -313,6 +315,10 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     setEditorId(null);
     setDraft({ ...EMPTY_DRAFT });
   }, []);
+
+  // Phone Back steps from the editor to the list exactly like the button: same function, no extra discard.
+  const panelShowing = useUIStore((s) => s.rightPanelOpen && s.rightPanel === "settings");
+  useBackDismiss(panelShowing && !!editorId, closeEditor);
 
   const saveDraft = useCallback(async () => {
     if (!editingExtension) {
@@ -603,13 +609,16 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     const currentTraffic = current ? getPersonalExtensionTraffic(current.id) : null;
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2">
+        {/* Pinned while the editor scrolls: -top-3 cancels the scroller's p-3 so it sits flush, and the row must stay a direct child of this root. */}
+        <div className="sticky -top-3 z-10 -mb-2 -mt-1.5 bg-[var(--background)] pb-1 pt-1.5">
           <button type="button" onClick={closeEditor} className={cn(SETTINGS_BUTTON_CLASS, "self-start")}>
             <ChevronLeft size="0.75rem" />
             {isExternal
               ? t("settings.externalExtensions.title")
               : localizeUi("settings.sections.personalExtensions.title")}
           </button>
+        </div>
+        <div className="flex flex-col gap-2">
           <div
             className={cn(
               "grid w-full items-center gap-1.5",

@@ -64,13 +64,28 @@ export function characterMatchesSearch(character: CharacterDisplayInfo | null | 
   if (!query) return true;
   return [
     ...getCharacterLookupAliases(character),
+    // Light list rows (useCharacterListRows) carry the catalog summary instead of the description.
+    character?.summary ?? "",
     character?.description ?? "",
     character?.creator ?? "",
     ...(character?.tags ?? []),
   ].some((value) => value.toLowerCase().includes(query));
 }
 
+// Lists re-read every card's JSON on each mount (Chat settings parses the whole library each time it
+// opens). Cards from the query cache keep their identity until they change, so remember the result
+// per card object, checked against the same data and comment.
+const displayDataCache = new WeakMap<object, { data: unknown; comment: unknown; info: CharacterDisplayInfo }>();
+
 export function parseCharacterDisplayData(raw: { data: unknown; comment?: string | null }): CharacterDisplayInfo {
+  const cached = displayDataCache.get(raw);
+  if (cached && cached.data === raw.data && cached.comment === raw.comment) return cached.info;
+  const info = parseCharacterDisplayDataUncached(raw);
+  displayDataCache.set(raw, { data: raw.data, comment: raw.comment, info });
+  return info;
+}
+
+function parseCharacterDisplayDataUncached(raw: { data: unknown; comment?: string | null }): CharacterDisplayInfo {
   const comment = typeof raw.comment === "string" ? raw.comment.trim() : "";
 
   let record: Record<string, unknown> | null;

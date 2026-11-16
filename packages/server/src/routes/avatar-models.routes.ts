@@ -118,16 +118,16 @@ async function openModelFile(filePath: string, kind: Exclude<AvatarKind, "pngtub
             ? "application/octet-stream"
             : mmdTextureMime(head.subarray(0, bytesRead), filePath, info.size);
       if (!mimeType) throw new Error("unexpected content");
-      return { mimeType, handle, size: info.size };
+      return { mimeType, handle, size: info.size, mtimeMs: info.mtimeMs };
     }
     if (kind === "glb-fbx") {
       const mimeType = glbFbxFileMime(head.subarray(0, bytesRead), filePath);
       if (!mimeType) throw new Error("unexpected content");
-      return { mimeType, handle, size: info.size };
+      return { mimeType, handle, size: info.size, mtimeMs: info.mtimeMs };
     }
     const { mimeType, magic } = MODEL_MAGIC[kind];
     if (bytesRead < 4 || !magic.some((expected) => head.equals(expected))) throw new Error("unexpected content");
-    return { mimeType, handle, size: info.size };
+    return { mimeType, handle, size: info.size, mtimeMs: info.mtimeMs };
   } catch {
     await handle?.close().catch(() => undefined);
     return null;

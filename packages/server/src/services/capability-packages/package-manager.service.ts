@@ -9368,6 +9368,51 @@ function capabilityPackageInstallIssueFor(
   if (!declaresApi(150) && diceSettings.some((setting) => setting?.allowOwnUpgrade !== undefined)) {
     return "A ruleset that declares own dice upgrades requires schemaVersion 2 and capabilityApi 1.150 or newer";
   }
+  // Two named dice, 1.821: a strict key, including per-check overrides.
+  if (!declaresApi(821) && diceSettings.some((setting) => setting?.duality !== undefined)) {
+    return "A ruleset that throws two named dice requires schemaVersion 2 and capabilityApi 1.821 or newer";
+  }
+  // A plot die, 1.822: a strict key, including per-check overrides.
+  if (!declaresApi(822) && diceSettings.some((setting) => setting?.plotDie !== undefined)) {
+    return "A ruleset with a plot die requires schemaVersion 2 and capabilityApi 1.822 or newer";
+  }
+  // A natural total and a moved band, 1.823: strict keys, including per-check overrides.
+  if (
+    !declaresApi(823) &&
+    diceSettings.some((setting) => setting?.naturalTotal !== undefined || setting?.tierShift !== undefined)
+  ) {
+    return "A ruleset with a natural total or a band shift requires schemaVersion 2 and capabilityApi 1.823 or newer";
+  }
+  // Special dice and paired faces in a pool, 1.824: strict keys, including per-check overrides.
+  if (
+    !declaresApi(824) &&
+    diceSettings.some((setting) => setting?.hunger !== undefined || setting?.pairs !== undefined)
+  ) {
+    return "A ruleset whose pool has special dice or paired faces requires schemaVersion 2 and capabilityApi 1.824 or newer";
+  }
+  // A check with no dice, 1.825: a summed check's dice.count of 0.
+  if (!declaresApi(825) && diceSettings.some((setting) => plainRecord(setting?.dice)?.count === 0)) {
+    return "A ruleset whose check has no dice requires schemaVersion 2 and capabilityApi 1.825 or newer";
+  }
+  // Dice groups and a push in a pool, 1.826: strict keys, including per-check overrides.
+  if (
+    !declaresApi(826) &&
+    diceSettings.some((setting) => setting?.groups !== undefined || setting?.push !== undefined)
+  ) {
+    return "A ruleset whose pool is told apart by groups or may be pushed requires schemaVersion 2 and capabilityApi 1.826 or newer";
+  }
+  // How a pool or track is drawn, 1.828: a strict key on the sheet's and the party's pools and tracks.
+  if (!declaresApi(828)) {
+    const drawn = (rows: unknown) => Array.isArray(rows) && rows.some((row) => plainRecord(row)?.display !== undefined);
+    const sheetLive = plainRecord(plainRecord(ruleset?.sheet)?.live);
+    if (drawn(sheetLive?.pools) || drawn(sheetLive?.tracks) || drawn(plainRecord(ruleset?.party)?.pools)) {
+      return "A ruleset that chooses how a pool or track is drawn requires schemaVersion 2 and capabilityApi 1.828 or newer";
+    }
+  }
+  // A practice meter on skills, 1.829: a strict key on the sheet.
+  if (!declaresApi(829) && plainRecord(ruleset?.sheet)?.progress !== undefined) {
+    return "A ruleset whose skills keep practice progress requires schemaVersion 2 and capabilityApi 1.829 or newer";
+  }
   if (
     !declaresApi(153) &&
     (ratingBuilder?.pools !== undefined ||
@@ -14050,6 +14095,30 @@ export function resolveCapabilityPackageIconUrl(
   return `${officialArtworkRoot(branch)}/${entry.manifest.id}.png`;
 }
 
+/** What Agents shows for a package whose agent files can't be read (#9195). */
+const PACKAGE_FILES_UNREADABLE = "Its files are missing or changed on disk. Reinstall it to use it again.";
+
+/**
+ * Sets (or clears) a package's files-unreadable mark (#9195). The registry is read again first and written only while
+ * the package is still at `version`, so a reinstall that landed meanwhile is never stamped from an older read. Never
+ * throws: the agents it is about are skipped or loaded either way.
+ */
+async function markPackageFilesUnreadable(id: string, version: string, unreadable: boolean): Promise<void> {
+  try {
+    const registry = await readRegistry();
+    const index = registry.packages.findIndex((item) => item.id === id);
+    const record = registry.packages[index];
+    if (!record || record.version !== version) return;
+    if ((record.readinessError === PACKAGE_FILES_UNREADABLE) === unreadable) return;
+    registry.packages[index] = unreadable
+      ? { ...record, readiness: "error", readinessError: PACKAGE_FILES_UNREADABLE }
+      : { ...record, readiness: "ready", readinessError: null };
+    await writeRegistry(registry.packages);
+  } catch (error) {
+    logger.warn(error, "[capability] Could not update package %s's files check", id);
+  }
+}
+
 async function readInstalledAgentDefinitions(installed: InstalledCapabilityPackage) {
   const entrypoint = installed.manifest.entrypoints.agents;
   if (!entrypoint) return [];
@@ -15178,11 +15247,37 @@ export const capabilityPackageManager = {
     const definitions = [];
     const ids = new Set<string>();
     for (const installed of registry.packages) {
-      // A restart-required update still has its previous package runtime active. Keep
-      // its agent definitions visible until restart, just like the active client module.
-      const servable = await resolveServableInstalledPackage(installed);
-      if (!servable) continue;
-      const parsed = await readInstalledAgentDefinitions(servable);
+      // One package whose files went missing or changed on disk (an install cut off when a phone died, #9195) must
+      // not stop the Engine from starting: its agents are left out, and the package says it needs a check, so
+      // Agents shows it with Update or reinstall. The mark goes once its files read again (or a reinstall). Only
+      // the installed version of a package with no server entrypoint is marked: one with a runtime has its
+      // readiness set by that runtime's start, and a previous version's files say nothing about the new one.
+      const marksOwnReadiness = !installed.manifest.entrypoints.server;
+      let servable: InstalledCapabilityPackage | null = null;
+      let parsed: Awaited<ReturnType<typeof readInstalledAgentDefinitions>>;
+      try {
+        // A restart-required update still has its previous package runtime active. Keep
+        // its agent definitions visible until restart, just like the active client module.
+        servable = await resolveServableInstalledPackage(installed);
+        if (!servable) continue;
+        parsed = await readInstalledAgentDefinitions(servable);
+      } catch (error) {
+        logger.warn(error, "[capability] Skipping the agents of package %s %s", installed.id, servable?.version);
+        // The helper writes only when the mark changes; this check spares it a registry read on every refresh.
+        if (
+          marksOwnReadiness &&
+          servable?.version === installed.version &&
+          installed.readinessError !== PACKAGE_FILES_UNREADABLE
+        )
+          await markPackageFilesUnreadable(installed.id, installed.version, true);
+        continue;
+      }
+      if (
+        marksOwnReadiness &&
+        servable.version === installed.version &&
+        installed.readinessError === PACKAGE_FILES_UNREADABLE
+      )
+        await markPackageFilesUnreadable(installed.id, installed.version, false);
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
         ids.add(definition.id);

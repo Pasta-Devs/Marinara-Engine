@@ -27,12 +27,14 @@ import {
   defaultRulesetSheetBuild,
   evaluateRulesetSheet,
   readRulesetLive,
+  RULESET_PROGRESS_MAX,
   rulesetKeptCalls,
   rulesetKeptForm,
   rulesetCheckEffects,
   rulesetCheckSources,
   rulesetHideLines,
   rulesetSectionGroups,
+  rulesetSkillKeepsPractice,
   isRulesetItemHidden,
   isRulesetTextHidden,
   rulesetCatalogIdsForBuild,
@@ -72,9 +74,53 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
+
 const labelClass = "text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]";
 const stepButtonClass =
   "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40";
+
+/** Most dots a row draws; a longer scale shows as a bar, since a row of 40 dots reads as nothing. */
+const SHEET_MAX_DOTS = 20;
+
+/** A pool's or plain track's fill bar or row of dots, where the ruleset draws it as one (1.828). The
+ *  number beside it already says the value, so it is decoration for a glance and stays out of the
+ *  reading order. Dots are one per point up to the maximum, filled up to the value, the way a dot
+ *  rating reads; a scale that goes below 0 or past 20 shows as a bar. */
+function SheetFill({
+  display,
+  value,
+  min,
+  max,
+}: {
+  display?: "counter" | "bar" | "dots";
+  value: number;
+  min: number;
+  max: number;
+}) {
+  if (display !== "bar" && display !== "dots") return null;
+  if (display === "dots" && min >= 0 && max > 0 && max <= SHEET_MAX_DOTS) {
+    const filled = Math.min(max, Math.max(0, value));
+    return (
+      <div aria-hidden="true" className="flex basis-full flex-wrap gap-1">
+        {Array.from({ length: max }, (_, index) => (
+          <span
+            key={index}
+            className={`h-2.5 w-2.5 rounded-full border border-[var(--primary)] ${index < filled ? "bg-[var(--primary)]" : ""}`}
+          />
+        ))}
+      </div>
+    );
+  }
+  const share = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+  return (
+    <div aria-hidden="true" className="h-1.5 w-full basis-full overflow-hidden rounded-full bg-[var(--border)]">
+      <div
+        className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
+        style={{ width: `${share * 100}%` }}
+      />
+    </div>
+  );
+}
 const numberInputClass =
   "w-10 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-1 py-0.5 text-center text-xs tabular-nums text-[var(--foreground)]";
 const chipClass =
@@ -563,6 +609,8 @@ export interface GameRulesetSheetProps {
   ) => Promise<string | null>;
   /** The features a rest offers to use as it ends (1.789): Arcane Recovery on a Short rest. */
   onRestOffers?: (rest: string) => Promise<RulesetRestRecovery[]>;
+  /** Open with the build editor showing (a sheet nobody has built yet), as Edit would. */
+  startEditing?: boolean;
 }
 
 export function GameRulesetSheet({
@@ -582,6 +630,7 @@ export function GameRulesetSheet({
   carrying,
   onRest,
   onRestOffers,
+  startEditing: openEditing = false,
 }: GameRulesetSheetProps) {
   const readOnly = locked || buildOnly;
   // In a fight on screen the sheet is read as it stands: only what play spends (points, slots,
@@ -778,6 +827,13 @@ export function GameRulesetSheet({
 
   const { fields: summaryFields, derived: summaryDerived } = rulesetSheetSummaryShown(definition, build);
   const untrainedTier = definition.resolution.proficiencyTiers[0]?.id;
+  // Practice toward the next rank (1.829), on a trained skill below the top rank.
+  const topTier = definition.resolution.proficiencyTiers.at(-1)?.id;
+  const practiceShown = (entry: { id: string; practice?: boolean; tier?: string }) =>
+    entry.practice === true &&
+    entry.tier !== untrainedTier &&
+    entry.tier !== topTier &&
+    rulesetSkillKeepsPractice(definition, entry.id);
   const trained = [
     ...definition.sheet.skills.map((skill) => ({
       id: skill.id,
@@ -785,6 +841,7 @@ export function GameRulesetSheet({
       section: skill.section,
       tier: evaluated.skillTiers[skill.id],
       modifier: evaluated.skillMods[skill.id] ?? 0,
+      practice: true,
     })),
     ...definition.sheet.saves.map((save) => ({
       id: save.id,
@@ -812,6 +869,14 @@ export function GameRulesetSheet({
     setRestNotice(null);
     onDraftStart?.();
   };
+  // Opened to be built: the editor shows at once, the guided builder first where the ruleset has one.
+  const [openedEditing, setOpenedEditing] = useState(false);
+  useEffect(() => {
+    if (!openEditing || openedEditing || readOnly || inFight) return;
+    setOpenedEditing(true);
+    startEditing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the sheet first shows
+  }, [openEditing, openedEditing, readOnly, inFight]);
 
   const saveDraft = async () => {
     if (!draft || isSaving) return;
@@ -1089,6 +1154,14 @@ export function GameRulesetSheet({
                           />
                         </div>
                       )}
+                      {!pool.tally && (
+                        <SheetFill
+                          display={definition.sheet.live.pools.find((entry) => entry.id === pool.key)?.display}
+                          value={pool.value}
+                          min={0}
+                          max={pool.max}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1155,6 +1228,12 @@ export function GameRulesetSheet({
                             <Plus size={12} aria-hidden="true" />
                           </button>
                         </div>
+                        <SheetFill
+                          display={definition.sheet.live.tracks.find((entry) => entry.id === track.id)?.display}
+                          value={track.value}
+                          min={track.min}
+                          max={track.max}
+                        />
                       </div>
                     ),
                   )}
@@ -1481,6 +1560,37 @@ export function GameRulesetSheet({
                           <span className="tabular-nums">
                             {rulesetCheckValueText(definition, entry.modifier, localizeUi)}
                           </span>
+                          {practiceShown(entry) &&
+                            (settled ? (
+                              <span className="ml-1 tabular-nums text-[var(--muted-foreground)]">
+                                {localizeUi("game.ruleset.sheet.practice", {
+                                  value: resolved.progress?.[entry.id] ?? 0,
+                                })}
+                              </span>
+                            ) : (
+                              <span className="ml-1 inline-flex items-center gap-0.5 text-[var(--muted-foreground)]">
+                                <DraftNumberInput
+                                  value={resolved.progress?.[entry.id] ?? 0}
+                                  onCommit={(next) =>
+                                    apply({
+                                      op: "practice",
+                                      skill: entry.id,
+                                      to: Math.max(0, Math.min(RULESET_PROGRESS_MAX, Math.round(next))),
+                                    })
+                                  }
+                                  min={0}
+                                  max={RULESET_PROGRESS_MAX}
+                                  integer
+                                  selectOnFocus
+                                  ariaLabel={localizeUi("game.ruleset.sheet.practiceAria", {
+                                    name: text(entry.label),
+                                    who: cardName,
+                                  })}
+                                  className={numberInputClass}
+                                />
+                                %
+                              </span>
+                            ))}
                         </span>
                       ))}
                     </div>

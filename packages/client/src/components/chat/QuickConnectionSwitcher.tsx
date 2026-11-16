@@ -220,7 +220,7 @@ export function QuickConnectionSwitcher({
               </button>
             </div>
             <ConnectionSwitcherBody
-              onAdd={() => openAddConnection()}
+              onAdd={() => openAddConnection({ job: "main" })}
               current={chatPick.current}
               onApply={chatPick.apply}
               onDone={close}

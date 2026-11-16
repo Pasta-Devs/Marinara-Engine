@@ -9,7 +9,7 @@ Game Mode shows a map panel on the game screen. It lists the current map name, t
 - **On a computer**, the map is an inline panel you can read at a glance. You can drag it and lock it in place. For how draggable panels work, see [Game Mode: HUD Widgets](hud-widgets.md).
 - **On a phone**, tap **Map** to open the panel. Its button starts near the top left and can be dragged around the chat. Use **Lock window** to keep the button in place, and **Close** to return to it. The position is saved with the chat. The phone map uses your chat widget style from **Settings → Appearance → App**, and its button stays separate from the three-dot **Chat tools** menu.
 
-A plain Classic game has the scene map described here. The overworld, towns and dungeon maps belong to Overworld RPG games, which are not available yet (see [Classic or Overworld RPG](getting-started.md#classic-or-overworld-rpg)).
+A VN game has the scene map described here. The overworld, towns and dungeon maps belong to Overworld games, which are not available yet (see [VN or Overworld](getting-started.md#vn-or-overworld)).
 
 ### Grid view and node view
 
@@ -82,9 +82,9 @@ The game keeps a hidden party morale score from 0 to 100. It has five levels, lo
 
 Morale rises when you win a fight, complete a quest or find treasure. It falls when you lose a fight, fail a quest or lose an ally. Over time it drifts back toward the middle. It is not shown as a number. It colors how the GM describes your party's mood. It does not change your dice rolls.
 
-## The overworld and other Overworld RPG maps
+## The overworld and other Overworld maps
 
-The sections below describe **Overworld RPG** games, which are not available yet. They apply only if your server has turned the feature on.
+The sections below describe **Overworld** games, which are not available yet. They apply only if your server has turned the feature on.
 
 ### The overworld
 

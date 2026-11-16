@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { seedUIState } from "./ui-state-fixture.js";
-import { openDefaultsTile, ttsConfigCard } from "./connections-panel.js";
+import { chooseCharacter } from "./character-picker.js";
+import { openJobSettings, ttsConfigCard } from "./connections-panel.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -103,7 +104,7 @@ for (const theme of ["light", "dark"] as const) {
           const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
           return useChatStore.getState().activeChatId;
         });
-      const setup = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
+      const setup = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
       const choices = page.getByRole("dialog", { name: "Configure Preset Variables", exact: true });
       const nextCreated = () =>
         page.waitForResponse(
@@ -119,7 +120,7 @@ for (const theme of ["light", "dark"] as const) {
       };
 
       await start();
-      await setup.getByRole("combobox", { name: "Prompt preset", exact: false }).selectOption(preset.id);
+      await chooseCharacter(page, setup.locator("[data-preset-picker-trigger]"), "Prompt preset", preset.name);
       await expect(choices).toBeVisible();
       expect(planningRequests).toHaveLength(0);
       await page.keyboard.press("Escape");
@@ -128,8 +129,8 @@ for (const theme of ["light", "dark"] as const) {
       expect(planningRequests).toHaveLength(0);
       // Cancelling variable setup must not remember the draft preset or create an empty scene.
       await start();
-      await expect(setup.getByRole("combobox", { name: "Prompt preset", exact: false })).toHaveValue("");
-      await setup.getByRole("combobox", { name: "Prompt preset", exact: false }).selectOption(preset.id);
+      await expect(setup.locator("[data-preset-picker-trigger]")).toHaveText("None");
+      await chooseCharacter(page, setup.locator("[data-preset-picker-trigger]"), "Prompt preset", preset.name);
       await expect(choices.getByRole("button", { name: /^Detailed/ })).toHaveAttribute("aria-pressed", "true");
       await choices.getByRole("button", { name: /^Brief/ }).click();
       await expect(choices).toHaveCSS("opacity", "1");
@@ -139,7 +140,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(setup).toBeVisible();
       expect(planningRequests).toHaveLength(0);
       const firstCreated = nextCreated();
-      await setup.getByRole("button", { name: "Plan Scene", exact: true }).click();
+      await setup.getByRole("button", { name: "Plan scene", exact: true }).click();
       const firstMeta = await rememberCreated(await firstCreated);
       expect(planningRequests[0]!.promptPreferences.presetChoices).toEqual({ length: "Write briefly." });
       expect(firstMeta.presetChoices).toEqual({ length: "Write briefly." });
@@ -150,8 +151,8 @@ for (const theme of ["light", "dark"] as const) {
       sceneIds.shift();
       await page.reload();
       await start();
-      await expect(setup.getByRole("combobox", { name: "Prompt preset", exact: false })).toHaveValue(preset.id);
-      await setup.getByRole("button", { name: "Plan Scene", exact: true }).click();
+      await expect(setup.locator("[data-preset-picker-trigger]")).toHaveText(preset.name);
+      await setup.getByRole("button", { name: "Plan scene", exact: true }).click();
       await expect(choices).toBeVisible();
       expect(planningRequests).toHaveLength(1);
       // Scene-local choices leave saved defaults intact; Skip confirms those defaults before planning.
@@ -164,7 +165,7 @@ for (const theme of ["light", "dark"] as const) {
 
       for (const replacement of ["create-character", null] as const) {
         await start();
-        await setup.getByRole("button", { name: "Plan Scene", exact: true }).click();
+        await setup.getByRole("button", { name: "Plan scene", exact: true }).click();
         await expect(choices).toBeVisible();
         await page.evaluate(async (replacement) => {
           const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -251,16 +252,16 @@ test("Scene setup remembers the selected preset and handles a deleted selection"
       )) as typeof import("../packages/client/src/lib/scene-generation");
       void scene.startSceneWithPromptPreferences({ chatId, prompt: "A quiet moment" });
     }, origin.id);
-    const dialog = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
-    const select = dialog.getByRole("combobox", { name: "Prompt preset", exact: false });
+    const dialog = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
+    const select = dialog.locator("[data-preset-picker-trigger]");
     await expect(select).toBeEnabled();
-    await expect(select).toHaveValue("");
-    await select.selectOption(preset.id);
+    await expect(select).toHaveText("None");
+    await chooseCharacter(page, select, "Prompt preset", preset.name);
     await page.screenshot({ path: testInfo.outputPath("scene-preset-light.png") });
     const created = page.waitForResponse(
       (response) => response.url().endsWith("/api/scene/create") && response.request().method() === "POST",
     );
-    await dialog.getByRole("button", { name: "Plan Scene", exact: true }).click();
+    await dialog.getByRole("button", { name: "Plan scene", exact: true }).click();
     const response = await created;
     expect(response.ok()).toBeTruthy();
     sceneId = (await response.json()).chatId;
@@ -274,18 +275,18 @@ test("Scene setup remembers the selected preset and handles a deleted selection"
         void scene.requestScenePromptPreferences();
       });
     await reopen();
-    await expect(select).toHaveValue(preset.id);
+    await expect(select).toHaveText(preset.name);
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await request.delete(`/api/prompts/${preset.id}`);
     await page.reload();
     await reopen();
     await expect(dialog.getByRole("alert")).toContainText("Choose another preset or None");
-    await expect(dialog.getByRole("button", { name: "Plan Scene", exact: true })).toBeDisabled();
-    await select.selectOption("");
-    await expect(dialog.getByRole("button", { name: "Plan Scene", exact: true })).toBeEnabled();
-    await dialog.getByRole("button", { name: "Plan Scene", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Plan scene", exact: true })).toBeDisabled();
+    await chooseCharacter(page, select, "Prompt preset", "None");
+    await expect(dialog.getByRole("button", { name: "Plan scene", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Plan scene", exact: true }).click();
     await reopen();
-    await expect(select).toHaveValue("");
+    await expect(select).toHaveText("None");
   } finally {
     await page.close();
     if (sceneId) await request.delete(`/api/chats/${sceneId}?force=true`);
@@ -326,15 +327,15 @@ test("Scene setup retries a failed preset load without discarding the saved sele
       )) as typeof import("../packages/client/src/lib/scene-generation");
       void scene.requestScenePromptPreferences();
     });
-    const dialog = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
-    const select = dialog.getByRole("combobox", { name: "Prompt preset", exact: false });
-    const submit = dialog.getByRole("button", { name: "Plan Scene", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
+    const select = dialog.locator("[data-preset-picker-trigger]");
+    const submit = dialog.getByRole("button", { name: "Plan scene", exact: true });
     await expect(dialog.getByRole("alert")).toContainText("Could not load prompt presets");
     await expect(dialog.getByText("Choose another preset or None", { exact: false })).toHaveCount(0);
-    await expect(select).toHaveValue(preset.id);
+    await expect(select).toHaveText("Saved preset (not verified)");
     await expect(submit).toBeDisabled();
     await page.screenshot({ path: testInfo.outputPath("scene-preset-load-error-light.png") });
-    await select.selectOption("");
+    await chooseCharacter(page, select, "Prompt preset", "None");
     await expect(submit).toBeEnabled();
     // Reopen with the unchanged saved ID: clearing the draft must not discard the remembered selection.
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -347,8 +348,7 @@ test("Scene setup retries a failed preset load without discarding the saved sele
     await expect(dialog.getByRole("button", { name: "Retry loading presets", exact: true })).toBeVisible();
     allowPresets = true;
     await dialog.getByRole("button", { name: "Retry loading presets", exact: true }).click();
-    await expect(select).toHaveValue(preset.id);
-    await expect(select.locator("option:checked")).toHaveText("Recovered scene preset");
+    await expect(select).toHaveText("Recovered scene preset");
     await expect(submit).toBeEnabled();
     await expect(dialog.getByRole("alert")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("scene-preset-retry-light.png") });
@@ -376,9 +376,9 @@ test("Scene setup can continue with None while the preset list is loading", asyn
       )) as typeof import("../packages/client/src/lib/scene-generation");
       void scene.requestScenePromptPreferences();
     });
-    const dialog = page.getByRole("dialog", { name: "Scene Prompt Setup", exact: true });
-    await expect(dialog.getByRole("combobox", { name: "Prompt preset", exact: false })).toBeDisabled();
-    const submit = dialog.getByRole("button", { name: "Plan Scene", exact: true });
+    const dialog = page.getByRole("dialog", { name: "Scene prompt setup", exact: true });
+    await expect(dialog.locator("[data-preset-picker-trigger]")).toBeDisabled();
+    const submit = dialog.getByRole("button", { name: "Plan scene", exact: true });
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(dialog).toBeHidden();
@@ -408,7 +408,7 @@ test("TTS playback filters keep compatible defaults and save independent choices
   });
   // Text to Speech is off here; its settings open in the Add window.
   const open = async () => {
-    await openDefaultsTile(page, "voice");
+    await openJobSettings(page, "voice");
     return ttsConfigCard(page);
   };
   await page.goto("/");

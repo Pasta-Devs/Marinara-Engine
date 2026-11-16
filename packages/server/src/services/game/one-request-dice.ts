@@ -75,12 +75,14 @@ import {
 } from "./skill-check.service.js";
 import type { GameSkillModifierView } from "./gm-prompts.js";
 import {
+  diceAsk,
   inferRulesetCheckWho,
   isResolvableSkillCheckRequest,
   readRulesetDifficulty,
   loadSkillCheckModifierContext,
   resolveSkillCheckWithContext,
   rulesetCheckRollerRefused,
+  rulesetDeclaresPush,
   rulesetGroupCheckRollers,
   resolveRulesetGroupCheck,
   serializeRulesetGroupCheck,
@@ -145,6 +147,15 @@ export interface GameTurnChanceSession {
    * the caller gave none, and every `rolls="N"` is read as it always was.
    */
   readonly issuedD20s: number[] | null;
+  /**
+   * The check records a branch arm wrote this turn, as written. The tag pass that follows leaves
+   * these alone: they are the Engine's own rolls, and a second roll could contradict the half of the
+   * branch already kept. Vouching cannot say so for a ruleset whose records are never vouched for.
+   */
+  readonly engineRecords: Map<string, number>;
+  /** The faces those records' dice showed, exactly as this arm put them among the dice thrown this
+   *  turn (`issuedD20s`), so the tag pass can take them back out without reading the records. */
+  readonly engineDice: number[];
 }
 
 export interface GameTurnChanceSessionOptions {
@@ -199,6 +210,8 @@ export function createGameTurnChanceSession(options: GameTurnChanceSessionOption
     placeholders: [],
     failed: false,
     issuedD20s: options.playerD20s ? [...options.playerD20s] : null,
+    engineRecords: new Map(),
+    engineDice: [],
   };
 }
 
@@ -213,7 +226,9 @@ export type GameBranchArmRefusal =
   | "unrollable-check"
   | "untrained-check"
   /** The claimed check picks out no one party member to roll it. */
-  | "unknown-roller";
+  | "unknown-roller"
+  /** The claimed check is a push (1.826), and an arm has no earlier reply to take the roll from. */
+  | "not-pushable";
 
 /** Plain words for each refusal, so the log says what the model wrote rather than what a flag is called. */
 const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
@@ -227,6 +242,7 @@ const BRANCH_REFUSAL_REASONS: Record<GameBranchArmRefusal, string> = {
   "unrollable-check": "the claimed check is not one this engine rolls",
   "untrained-check": "the claimed check is one the character cannot attempt untrained",
   "unknown-roller": "the claimed check picks out no one party member to roll it",
+  "not-pushable": "the claimed check is a push, and a branch has no earlier roll to push",
 };
 
 /** What the arm decided about one block, before anything is spliced. */
@@ -314,6 +330,7 @@ export function planGameTurnBranches(content: string, blocks: GameBranchBlock[])
               ...(tag.purpose ? { purpose: tag.purpose } : {}),
               threshold: tag.threshold,
               bonusDice: tag.bonusDice,
+              ...diceAsk(tag),
             }
           : null;
       // A difficulty named only by its ladder step is read when the sheet is, below, because that is
@@ -384,7 +401,10 @@ export async function resolveGameTurnBranches(
       if (inferredWho) asked = { ...asked, who: inferredWho };
       const request = readRulesetDifficulty(asked, definition);
       // Only a named difficulty is read here; a check that wrote its own number was bounded above.
-      const groupRollers = context.ruleset ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
+      // A push (1.826) has no earlier reply to take its roll from here, whoever it names.
+      const branchPush = !!context.ruleset && !!request.push && rulesetDeclaresPush(context.ruleset.definition);
+      const groupRollers =
+        context.ruleset && !branchPush ? rulesetGroupCheckRollers(context.ruleset, request.who) : undefined;
       if (plan.check.request.dc === undefined && !isResolvableSkillCheckRequest(request, definition)) {
         refusal = "unrollable-check";
       } else if (groupRollers) {
@@ -392,25 +412,31 @@ export async function resolveGameTurnBranches(
         const group = resolveRulesetGroupCheck(context, request, groupRollers, () => session.roll(20));
         outcome = group.success;
         for (const one of group.results) {
-          if (session.issuedD20s && one.resolution === "sum") session.issuedD20s.push(...one.rolls);
+          if (session.issuedD20s && one.resolution === "sum") {
+            session.issuedD20s.push(...one.rolls);
+            session.engineDice.push(...one.rolls);
+          }
         }
-        edits.push({
-          start: plan.check.start,
-          end: plan.check.end,
-          replacement: serializeRulesetGroupCheck(request, group, {
-            ...(request.difficulty ? { difficulty: request.difficulty } : {}),
-            ...(request.withAbility ? { with: request.withAbility } : {}),
-            ...(request.purpose ? { for: request.purpose } : {}),
-          }),
+        const groupRecord = serializeRulesetGroupCheck(request, group, {
+          ...(request.difficulty ? { difficulty: request.difficulty } : {}),
+          ...(request.withAbility ? { with: request.withAbility } : {}),
+          ...(request.purpose ? { for: request.purpose } : {}),
         });
+        // Only what was rolled is the Engine's record; a member's refusal stays an ask the tag pass reads.
+        for (const one of groupRecord.match(/\[skill_check:[^\]]*\]/gi) ?? []) {
+          if (/\srolls="/.test(one)) session.engineRecords.set(one, (session.engineRecords.get(one) ?? 0) + 1);
+        }
+        edits.push({ start: plan.check.start, end: plan.check.end, replacement: groupRecord });
       } else if (
         context.ruleset &&
-        (rulesetCheckRollerRefused(context.ruleset, request.who) || rulesetRefusesUntrained(context.ruleset, request))
+        (rulesetCheckRollerRefused(context.ruleset, request.who) ||
+          branchPush ||
+          rulesetRefusesUntrained(context.ruleset, request))
       ) {
         // Not rolled, and so neither half happened. The ask is written back with the reason on it,
         // which settles it: the client's own fallback never rolls it a second time.
         const noRoller = rulesetCheckRollerRefused(context.ruleset, request.who);
-        refusal = noRoller ? "unknown-roller" : "untrained-check";
+        refusal = branchPush ? "not-pushable" : noRoller ? "unknown-roller" : "untrained-check";
         edits.push({
           start: plan.check.start,
           end: plan.check.end,
@@ -433,20 +459,25 @@ export async function resolveGameTurnBranches(
               ...(request.withAbility ? { with: request.withAbility } : {}),
               ...(request.bonusDice != null ? { bonus: request.bonusDice } : {}),
               ...(request.purpose ? { for: request.purpose } : {}),
-              reason: noRoller ? "unknown-roller" : "untrained",
+              ...diceAsk(request),
+              reason: branchPush ? "not-pushable" : noRoller ? "unknown-roller" : "untrained",
             },
           ),
         });
       } else {
+        // The roller handed over stands in for a d20 only. A ruleset's other dice (2d12, 3d6, a pool)
+        // are thrown by the resolver itself at their own size, so a record never holds a face its die
+        // cannot show.
         result = resolveSkillCheckWithContext(context, request, () => session.roll(20));
         outcome = result.success;
         // The record this writes is the Engine's own, so the tag pass after this one must vouch for it.
-        if (session.issuedD20s && result.resolution === "sum") session.issuedD20s.push(...result.rolls);
-        edits.push({
-          start: plan.check.start,
-          end: plan.check.end,
-          replacement: serializeResolvedSkillCheckTag(result),
-        });
+        if (session.issuedD20s && result.resolution === "sum") {
+          session.issuedD20s.push(...result.rolls);
+          session.engineDice.push(...result.rolls);
+        }
+        const record = serializeResolvedSkillCheckTag(result);
+        session.engineRecords.set(record, (session.engineRecords.get(record) ?? 0) + 1);
+        edits.push({ start: plan.check.start, end: plan.check.end, replacement: record });
       }
     }
 

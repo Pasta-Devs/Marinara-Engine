@@ -20,11 +20,12 @@ import {
   AVATAR_STORAGE_RATE_LIMIT,
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
   RUNTIME_DIAGNOSTICS_RATE_LIMIT,
+  SERVER_LOGS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
-import { logger } from "../lib/logger.js";
-import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
-import { noteSessionExitKind } from "../lib/session-postmortem.js";
-import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
+import { bootId, logger } from "../lib/logger.js";
+import { getRequestTimeoutSettings, saveRequestTimeoutSettings } from "../config/runtime-config.js";
+import { isRestartPending, restartExitCode, scheduleRestart } from "../lib/server-restart.js";
+import { getServerLogSnapshot } from "../lib/log-buffer.js";
 import { collectRuntimeDiagnostics } from "../lib/runtime-diagnostics.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
@@ -72,8 +73,6 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  let restartScheduled = false;
-
   app.get("/request-timeouts", () => getRequestTimeoutSettings());
   app.put("/request-timeouts", { config: { rateLimit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
@@ -89,6 +88,21 @@ export async function adminRoutes(app: FastifyInstance) {
     return collectRuntimeDiagnostics();
   });
 
+  // The in-app server console (lib/log-buffer.ts). Read-only. Its own polls are not logged
+  // (logLevel "silent"), or at LOG_LEVEL=info the console would mostly show itself.
+  app.get<{ Querystring: { afterId?: string; limit?: string } }>(
+    "/logs",
+    { logLevel: "silent", config: { rateLimit: SERVER_LOGS_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Server console" })) return;
+      reply.header("Cache-Control", "no-store");
+      const afterId = Number(req.query.afterId ?? 0);
+      const limit = req.query.limit === undefined ? undefined : Number(req.query.limit);
+      // bootId: line ids start over on a restart, so the console needs this to tell a new run from the old one.
+      return { ...getServerLogSnapshot(afterId, limit), logLevel: logger.level, bootId };
+    },
+  );
+
   app.post<{ Body: { confirm?: boolean } }>(
     "/restart",
     { config: { rateLimit: ADMIN_RESTART_RATE_LIMIT } },
@@ -97,37 +111,21 @@ export async function adminRoutes(app: FastifyInstance) {
       if (req.body?.confirm !== true) {
         return reply.status(400).send({ error: "Must send { confirm: true } to restart the server" });
       }
-      if (restartScheduled) {
-        return reply.status(409).send({ error: "Server restart is already scheduled" });
+      if (isRestartPending()) {
+        return reply.status(409).send({ error: "Server restart is already scheduled", code: "restart-scheduled" });
       }
-      const docker = isDockerRuntime();
-      if (!docker && process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) {
+      const exitCode = restartExitCode();
+      if (exitCode === null) {
         return reply.status(409).send({
+          code: "restart-unavailable",
           error:
             "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
         });
       }
-      const exitCode = docker ? 0 : 75;
+      logger.info("Server restart requested from Advanced Settings");
+      scheduleRestart(exitCode);
 
-      restartScheduled = true;
-      setTimeout(() => {
-        void (async () => {
-          armShutdownDeadline(app, "restart", { exitCode });
-          try {
-            // #5506 diagnostics: name this ending so the next startup reports
-            // an operator restart instead of an external kill.
-            noteSessionExitKind("restart");
-            await app.close();
-            logger.info("Server restart requested from Advanced Settings");
-            process.exit(exitCode);
-          } catch (error) {
-            logger.error(error, "Graceful server restart failed");
-            process.exit(1);
-          }
-        })();
-      }, 750);
-
-      return reply.status(202).send({ status: "restarting" });
+      return reply.status(202).send({ status: "restarting", bootId });
     },
   );
 
@@ -324,7 +322,13 @@ export async function adminRoutes(app: FastifyInstance) {
         db.delete(schema.appSettings).where(like(schema.appSettings.key, "agent_home_widget:%")).run(),
       );
       await runDelete("custom_tools", () => db.delete(schema.customTools).run());
+      await runDelete("library_folders:functions", () =>
+        db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "functions")).run(),
+      );
       await runDelete("regex_scripts", () => db.delete(schema.regexScripts).run());
+      await runDelete("library_folders:regex", () =>
+        db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "regex")).run(),
+      );
       await runDelete("custom_themes", () => db.delete(schema.customThemes).run());
       await runDelete("library_folders:agents", () =>
         db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "agents")).run(),

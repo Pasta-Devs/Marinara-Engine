@@ -1,5 +1,7 @@
 import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
+import { professorMariChatsQuery } from "../../hooks/use-chats";
 
 import {
   DEFAULT_COMMAND_CENTER_SESSION_STATE,
@@ -8,7 +10,7 @@ import {
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
-import { isShortcutsHelpKey, isTypingTarget } from "../../lib/keyboard-shortcuts";
+import { isShortcutsHelpKey, shortcutKeyTypesText, isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
@@ -99,9 +101,13 @@ export function GlobalOmnibar() {
 
   // Fetch the dialog's code once the app is idle, so the first ⌘K opens without
   // waiting on the network. A failed preload is retried by the real open.
+  const queryClient = useQueryClient();
   useEffect(() => {
     const preload = () =>
       void GlobalOmnibarDialog.preload()
+        // Search's Continue row lists Professor Mari's last conversation; fetched now it is there on the first open
+        // instead of pushing the rows down once it arrives.
+        .then(() => queryClient.prefetchQuery(professorMariChatsQuery))
         .then(() => import("./GlobalOmnibar"))
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
         .then((module) => module.OmnibarMariPane.preload())
@@ -112,7 +118,7 @@ export function GlobalOmnibar() {
     }
     const timer = window.setTimeout(preload, 2_000);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [queryClient]);
 
   // M16 tier 2: once the page has loaded, warm the selected pack's omnibar sprites at idle, so the
   // first ⌘K, ⌘J or pull shows Mari at once. Only this pack; a switch warms the new one (its tier 1
@@ -154,8 +160,9 @@ export function GlobalOmnibar() {
         event.preventDefault();
         if (!ui.omnibarOpen) captureMariFieldDraft();
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen) {
-        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8).
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !shortcutKeyTypesText(event)) {
+        // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). #9129: not while a
+        // field is being typed in - there Ctrl+J is the IME's own key (SKK's on switch), so the field keeps it.
         event.preventDefault();
         captureMariFieldDraft();
         requestProfessorMariOpen();

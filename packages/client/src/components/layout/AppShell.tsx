@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQueryClient } from "@tanstack/react-query";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { DelayedFallback } from "../ui/DelayedFallback";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { GlobalOmnibar } from "./GlobalOmnibarHost";
@@ -38,6 +39,7 @@ import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { resolveFeatureAgentPackage } from "../../lib/feature-agent-package";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { isIosWebKitBrowser } from "../../lib/generation-stream-policy";
+import { isTypingTarget } from "../../lib/keyboard-shortcuts";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { openGlobalSearch } from "../../lib/chat-insights";
@@ -72,29 +74,28 @@ import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/fl
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
 
 const ChatArea = preloadedLazy(() => import("../chat/ChatArea").then((module) => module.ChatArea));
-const CharacterEditor = lazy(() =>
-  import("../characters/CharacterEditor").then((module) => ({ default: module.CharacterEditor })),
+const CharacterEditor = preloadedLazy(() =>
+  import("../characters/CharacterEditor").then((module) => module.CharacterEditor),
 );
-const CharacterLibraryView = lazy(() =>
-  import("../characters/CharacterLibraryView").then((module) => ({ default: module.CharacterLibraryView })),
+const CharacterLibraryView = preloadedLazy(() =>
+  import("../characters/CharacterLibraryView").then((module) => module.CharacterLibraryView),
 );
-const AgentCatalogView = lazy(() =>
-  import("../agents/AgentCatalogView").then((module) => ({ default: module.AgentCatalogView })),
+const AgentCatalogView = preloadedLazy(() =>
+  import("../agents/AgentCatalogView").then((module) => module.AgentCatalogView),
 );
-const LorebookEditor = lazy(() =>
-  import("../lorebooks/LorebookEditor").then((module) => ({ default: module.LorebookEditor })),
+const LorebookEditor = preloadedLazy(() =>
+  import("../lorebooks/LorebookEditor").then((module) => module.LorebookEditor),
 );
-const PresetEditor = lazy(() => import("../presets/PresetEditor").then((module) => ({ default: module.PresetEditor })));
-const ConnectionEditor = lazy(() =>
-  import("../connections/ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
+const PresetEditor = preloadedLazy(() => import("../presets/PresetEditor").then((module) => module.PresetEditor));
+const ProfileEditor = preloadedLazy(() => import("../presets/ProfileEditor").then((module) => module.ProfileEditor));
+const ConnectionEditor = preloadedLazy(() =>
+  import("../connections/ConnectionEditor").then((module) => module.ConnectionEditor),
 );
-const AgentEditor = lazy(() => import("../agents/AgentEditor").then((module) => ({ default: module.AgentEditor })));
-const ToolEditor = lazy(() => import("../agents/ToolEditor").then((module) => ({ default: module.ToolEditor })));
-const PersonaEditor = lazy(() =>
-  import("../personas/PersonaEditor").then((module) => ({ default: module.PersonaEditor })),
-);
-const RegexScriptEditor = lazy(() =>
-  import("../agents/RegexScriptEditor").then((module) => ({ default: module.RegexScriptEditor })),
+const AgentEditor = preloadedLazy(() => import("../agents/AgentEditor").then((module) => module.AgentEditor));
+const ToolEditor = preloadedLazy(() => import("../agents/ToolEditor").then((module) => module.ToolEditor));
+const PersonaEditor = preloadedLazy(() => import("../personas/PersonaEditor").then((module) => module.PersonaEditor));
+const RegexScriptEditor = preloadedLazy(() =>
+  import("../agents/RegexScriptEditor").then((module) => module.RegexScriptEditor),
 );
 const BotBrowserView = lazy(() =>
   import("../bot-browser/BotBrowserView").then((module) => ({ default: module.BotBrowserView })),
@@ -126,6 +127,8 @@ const TRACKER_PANEL_HUD_GAP = 6;
 const TRACKER_PANEL_CHAT_GAP = 8;
 // The narrowest docked Tracker Panel: its close, settings and help buttons still fit side by side (#7188).
 const TRACKER_PANEL_MIN_DOCKED_WIDTH = 96;
+// Matches the .mari-shell-panel-slot width transition in globals.css.
+const SHELL_PANEL_SLIDE_MS = 220;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
@@ -179,6 +182,13 @@ function readVisibleElementRect(element: HTMLElement) {
   return rect;
 }
 
+/** The focused element, looking inside open shadow roots (a field in one leaves its host as document.activeElement). */
+function deepActiveElement(): Element | null {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active;
+}
+
 function getViewportWidth() {
   return typeof window === "undefined" ? 0 : window.innerWidth;
 }
@@ -186,9 +196,11 @@ function getViewportWidth() {
 function MainPaneFallback() {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
-      {localizeUi("ui.characters.characterlibraryview.loading")}
-    </div>
+    <DelayedFallback>
+      <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
+        {localizeUi("ui.characters.characterlibraryview.loading")}
+      </div>
+    </DelayedFallback>
   );
 }
 /** Mounts children once `open` becomes true, then keeps them mounted so state persists.
@@ -232,9 +244,11 @@ function MountOnceWhenOpened({
 function SidePanelFallback() {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
-      {localizeUi("ui.characters.characterlibraryview.loading")}
-    </div>
+    <DelayedFallback>
+      <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+        {localizeUi("ui.characters.characterlibraryview.loading")}
+      </div>
+    </DelayedFallback>
   );
 }
 
@@ -317,8 +331,18 @@ export function AppShell({
     let largestViewportHeight = 0;
     let viewportWidth = window.innerWidth;
     let previousLayoutHeight = root.clientHeight || window.innerHeight;
+    // Set once focus has left every text field while the keyboard is still up (Search closed, a field
+    // blurred): the app takes its full height in one step instead of following the closing keyboard
+    // step by step, which moved the chat behind in 5-8 jumps.
+    let keyboardDismissed = false;
+    let dismissTimer = 0;
     const supportsVirtualKeyboard = navigator.maxTouchPoints > 0 || window.matchMedia("(any-pointer: coarse)").matches;
     const isIosWebKit = isIosWebKitBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+    // An iPhone Home Screen app: no browser toolbars, so the layout viewport is the whole screen the app may use.
+    const isIosHomeScreenApp =
+      isIosWebKit &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true);
     root.toggleAttribute("data-mari-ios-webkit", isIosWebKit);
     const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
@@ -358,15 +382,34 @@ export function AppShell({
         }
         previousLayoutHeight = currentLayoutHeight;
         largestViewportHeight = Math.max(largestViewportHeight, unzoomedHeight);
-        const keyboardOpen = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        const keyboardReported = supportsVirtualKeyboard && largestViewportHeight - unzoomedHeight >= 80;
+        // Stays set until the keyboard is fully down, so its last steps do not move the app either.
+        if (largestViewportHeight - unzoomedHeight < 2 || isTypingTarget(deepActiveElement())) {
+          keyboardDismissed = false;
+        }
+        const keyboardOpen = keyboardReported && !keyboardDismissed;
+        // An iPhone Home Screen app with its keyboard closed has nothing to fit, yet iOS can go on reporting a visual
+        // viewport a status bar short (or with a stale offsetTop), and leave the page scrolled where the keyboard put
+        // it, until the app is restarted. Sized from that, the whole app stopped short with the page backing in a grey
+        // band below it. There, size it from the layout viewport alone, at the top, and undo the leftover scroll.
+        // A focused field keeps the fit: an iPad's hardware-keyboard shortcut bar is shorter than the 80 px above.
+        // ponytail: a layout viewport (innerHeight) that iOS reports short as well still leaves the band; nothing on
+        // the page measures the screen any better. Upgrade path: size from screen geometry once a device shows it.
+        const settledHomeScreen = isIosHomeScreenApp && !keyboardOpen && !isTypingTarget(deepActiveElement());
         // Preserve normal pinch magnification, but fit the visible area while
         // the keyboard is open. Closing it restores the layout even while zoomed.
         const height =
-          keyboardOpen && viewport && viewport.height > 0 ? Math.min(unzoomedHeight, viewport.height) : unzoomedHeight;
+          keyboardOpen && viewport && viewport.height > 0
+            ? Math.min(unzoomedHeight, viewport.height)
+            : settledHomeScreen || keyboardDismissed
+              ? Math.min(window.innerHeight, root.clientHeight || window.innerHeight)
+              : unzoomedHeight;
         const layoutViewportHeight = isIosWebKit ? largestViewportHeight : window.innerHeight;
         const maxOffsetTop = Math.max(0, layoutViewportHeight - height);
         const visualViewportTop = Math.max(0, viewport?.offsetTop ?? 0, viewport?.pageTop ?? 0);
-        const offsetTop = Math.min(maxOffsetTop, visualViewportTop);
+        const offsetTop = settledHomeScreen ? 0 : Math.min(maxOffsetTop, visualViewportTop);
+        // Only at normal zoom: a pinch-zoomed page pans on purpose.
+        if (settledHomeScreen && Math.abs(scale - 1) < 0.01 && window.scrollY !== 0) window.scrollTo(0, 0);
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
         root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);
         root.toggleAttribute("data-mari-software-keyboard-open", keyboardOpen);
@@ -376,6 +419,22 @@ export function AppShell({
           keyboardOpen,
         });
       });
+    };
+    const noteKeyboardDismissal = (event: FocusEvent) => {
+      window.clearTimeout(dismissTimer);
+      // Focus landing on a button (Search hands focus back to what opened it) still closes the keyboard.
+      // A field inside a shadow root retargets the event to its host, so look along the whole path.
+      if (event.type === "focusin" && event.composedPath().some((target) => isTypingTarget(target as Element))) return;
+      const dismiss = () => {
+        if (!root.hasAttribute("data-mari-software-keyboard-open") || isTypingTarget(deepActiveElement())) return;
+        keyboardDismissed = true;
+        updateVisualViewportGeometry();
+      };
+      // Focus landing on something else is certain at once, so the page closing with it (Search) and the
+      // full-height app show in the same frame.
+      if (event.type === "focusin") dismiss();
+      // Moving between two fields blurs one before focusing the next; only a blur that stays counts.
+      else dismissTimer = window.setTimeout(dismiss, 0);
     };
     const refreshAfterFocusChange = () => {
       focusTimers.forEach((timer) => window.clearTimeout(timer));
@@ -408,9 +467,14 @@ export function AppShell({
     window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
     document.addEventListener("focusin", refreshAfterFocusChange);
     document.addEventListener("focusout", refreshAfterFocusChange);
+    document.addEventListener("focusin", noteKeyboardDismissal);
+    document.addEventListener("focusout", noteKeyboardDismissal);
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
+      window.clearTimeout(dismissTimer);
+      document.removeEventListener("focusin", noteKeyboardDismissal);
+      document.removeEventListener("focusout", noteKeyboardDismissal);
       focusTimers.forEach((timer) => window.clearTimeout(timer));
       orientationTimers.forEach((timer) => window.clearTimeout(timer));
       window.visualViewport?.removeEventListener("resize", updateVisualViewportGeometry);
@@ -450,6 +514,7 @@ export function AppShell({
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
@@ -468,8 +533,10 @@ export function AppShell({
     [openLorebookDetail, refreshLorebooks],
   );
   const closeFeatureDetail = useCallback(() => {
+    // Popping back to another surface leaves the agents panel out of sight, so it only opens when nothing was popped.
+    const returnsToSurface = useUIStore.getState().mainSurfaceHistory.length > 0;
     closeAgentDetail();
-    openRightPanel("agents");
+    if (!returnsToSurface) openRightPanel("agents");
   }, [closeAgentDetail, openRightPanel]);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
@@ -539,6 +606,38 @@ export function AppShell({
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
+  // The editors and library views open from the right panel: a moment after it first opens (not during
+  // its own render), fetch their code while idle, so opening one renders at once without "Loading…".
+  useEffect(() => {
+    if (!rightPanelEverOpened) return;
+    const preload = () => {
+      for (const view of [
+        CharacterEditor,
+        CharacterLibraryView,
+        PersonaEditor,
+        LorebookEditor,
+        PresetEditor,
+        ProfileEditor,
+        ConnectionEditor,
+        RegexScriptEditor,
+        AgentEditor,
+        ToolEditor,
+        AgentCatalogView,
+      ]) {
+        view.preload().catch(() => undefined);
+      }
+    };
+    let idleId = 0;
+    const timer = window.setTimeout(() => {
+      if (typeof window.requestIdleCallback === "function")
+        idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
+      else preload();
+    }, 1_000);
+    return () => {
+      window.clearTimeout(timer);
+      if (idleId) window.cancelIdleCallback(idleId);
+    };
+  }, [rightPanelEverOpened]);
 
   const layoutSidebarOpen = sidebarOpen;
   const layoutRightPanelOpen = rightPanelOpen;
@@ -553,15 +652,31 @@ export function AppShell({
   const chatUiInsetLeft = !shellOverlayMode && layoutSidebarOpen ? Math.round(liveSidebarWidth) : 0;
   const chatUiInsetRight = !shellOverlayMode && layoutRightPanelOpen ? Math.round(liveRightPanelWidth) : 0;
 
+  const chatUiInsetPublishedRef = useRef(false);
   useLayoutEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
-    root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
-    return () => {
-      root.style.removeProperty("--mari-chat-ui-inset-left");
-      root.style.removeProperty("--mari-chat-ui-inset-right");
+    const publish = () => {
+      chatUiInsetPublishedRef.current = true;
+      root.style.setProperty("--mari-chat-ui-inset-left", `${chatUiInsetLeft}px`);
+      root.style.setProperty("--mari-chat-ui-inset-right", `${chatUiInsetRight}px`);
     };
+    // Matches the globals.css rules that turn the slide off (reduced motion, desktop Firefox): nothing to wait for.
+    const noSlide =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || CSS.supports("-moz-appearance", "none");
+    if (!chatUiInsetPublishedRef.current || noSlide) return publish();
+    // A root style write restyles the whole app. Publish once a sidebar has slid or a resize drag has
+    // paused, not in the frame that starts the slide or on every drag move. Only floating chat UI reads it.
+    const timer = window.setTimeout(publish, SHELL_PANEL_SLIDE_MS);
+    return () => window.clearTimeout(timer);
   }, [chatUiInsetLeft, chatUiInsetRight]);
+  useLayoutEffect(
+    () => () => {
+      chatUiInsetPublishedRef.current = false;
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-left");
+      document.documentElement.style.removeProperty("--mari-chat-ui-inset-right");
+    },
+    [],
+  );
 
   // ── Center-area compact detection ──
   // Side panels can shrink the center pane below the chat chrome's usable desktop
@@ -619,7 +734,9 @@ export function AppShell({
   const overflowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedCheckOverflow = useCallback(() => {
     if (overflowTimerRef.current) clearTimeout(overflowTimerRef.current);
-    overflowTimerRef.current = setTimeout(checkOverflow, 100);
+    // Measured at the start of a frame, where the browser lays the page out anyway; a bare timer
+    // forced an extra full restyle between React's commits (each Chat settings open paid one).
+    overflowTimerRef.current = setTimeout(() => window.requestAnimationFrame(checkOverflow), 100);
   }, [checkOverflow]);
 
   useEffect(() => {
@@ -645,6 +762,7 @@ export function AppShell({
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -654,6 +772,16 @@ export function AppShell({
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  // Home remembers its tab for Back from an editor; opening a chat starts it over on the first tab, as leaving Home did.
+  useEffect(() => {
+    if (activeChatId) useUIStore.getState().setHomeTab("home");
+  }, [activeChatId]);
+  // Chat Settings reopens only for the chat it was opened from.
+  useEffect(() => {
+    const ui = useUIStore.getState();
+    if (ui.chatSettingsReturn && ui.chatSettingsReturn.chatId !== activeChatId) ui.setChatSettingsReturn(null);
+    if (ui.chatSettingsRequest && ui.chatSettingsRequest.chatId !== activeChatId) ui.consumeChatSettingsRequest();
+  }, [activeChatId]);
   const discardNewChatSetup = useDiscardNewChatSetup();
   useEffect(
     () => () => {
@@ -726,10 +854,10 @@ export function AppShell({
   const openChatSummarySettings = useCallback(() => {
     if (!activeChatId || activeChat?.mode !== "roleplay") return;
     const chatId = activeChatId;
-    closeAgentDetail();
+    closeAllDetails();
     closeRightPanel();
     window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
-  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
+  }, [activeChat?.mode, activeChatId, closeAllDetails, closeRightPanel]);
   const openActivePromptPresetEditor = useCallback(() => {
     const presetId = activeChat?.promptPresetId;
     if (!activeChat || !presetId) return;
@@ -904,10 +1032,10 @@ export function AppShell({
     ) : (
       <AgentEditor />
     )
-  ) : connectionDetailId ? (
-    <ConnectionEditor />
   ) : presetDetailId ? (
     <PresetEditor />
+  ) : profileDetailId ? (
+    <ProfileEditor />
   ) : characterDetailId ? (
     <CharacterEditor />
   ) : characterLibraryOpen ? (
@@ -1420,9 +1548,11 @@ export function AppShell({
           </div>
         </aside>
       )}
-      {!shellOverlayMode && sidebarOpen && (
+      {/* Stay mounted and hide: adding a sibling to the shell row restyles the whole chat column. */}
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!sidebarOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeLeftSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
@@ -1665,9 +1795,10 @@ export function AppShell({
         </aside>
       )}
 
-      {!shellOverlayMode && rightPanelOpen && (
+      {!shellOverlayMode && (
         <div
           role="separator"
+          hidden={!rightPanelOpen}
           aria-orientation="vertical"
           aria-label={localizeUi("ui.layout.appshell.resizeRightSidebar")}
           aria-valuemin={SHARED_SIDEBAR_WIDTH_MIN}
@@ -1701,6 +1832,12 @@ export function AppShell({
         />
       ) : null}
 
+      {/* The Starred model window opens over the page the user is on. */}
+      {connectionDetailId && (
+        <Suspense fallback={null}>
+          <ConnectionEditor />
+        </Suspense>
+      )}
       {/* First-time onboarding tutorial */}
       {!hasCompletedOnboarding && (
         <Suspense fallback={null}>

@@ -272,6 +272,97 @@ test("Connections keep the established header, mixed models and compact role con
   }
 });
 
+test("a narrow Connections page keeps Connections pinned and phone Back returns to the list", async ({
+  page,
+  request,
+}, info) => {
+  // The list shows only once a Connection exists, and a set-up Text to speech engine gives it a device page.
+  const account = await request.post("/api/connection-accounts", {
+    data: {
+      provider: "openai",
+      name: `Pinned back ${info.project.name}`,
+      apiKey: "fixture-not-a-real-key",
+      baseUrl: "http://127.0.0.1:9/v1",
+      model: "gpt-5.5",
+    },
+  });
+  expect(account.ok()).toBeTruthy();
+  const created = (await account.json()) as { account: { id: string }; connectionId: string };
+  try {
+    // The page alone sees Text to speech as set up; the shared server's config stays as it is.
+    const original = await (await request.get("/api/tts/config")).json();
+    await page.route("**/api/tts/config", (route) =>
+      route.fulfill({
+        json: {
+          ...original,
+          enabled: true,
+          source: "pockettts",
+          baseUrl: "http://127.0.0.1:9",
+          model: "pocket-tts",
+          local: true,
+        },
+      }),
+    );
+    await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+    await seedUIState(page, {
+      hasCompletedOnboarding: true,
+      sidebarOpen: false,
+      rightPanelOpen: true,
+      rightPanel: "connections",
+      chibiProfessorMariEnabled: false,
+    });
+    await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
+    // A phone-width, short window: the panel is narrow.
+    await page.setViewportSize({ width: 390, height: 420 });
+    await page.goto("/");
+    const panel = page.locator("[data-connections-panel]").filter({ visible: true });
+    await expect(panel).toHaveAttribute("data-connections-panel", "narrow");
+    const row = panel.locator('[data-connections-row="device:tts"]');
+    await row.click();
+    const back = panel.locator("[data-connections-back]");
+    await expect(back).toBeVisible();
+    // The device page is one hero and a button since Voice settings moved to their own window, so it has nothing to scroll.
+    await expect(back).toBeInViewport({ ratio: 1 });
+
+    // Back from a page shows the list with the panel still open.
+    await page.goBack();
+    await expect(back).toHaveCount(0);
+    await expect(row).toBeVisible();
+    if (info.project.name === "mobile-chromium") {
+      // The phone's overlay panel is the next layer: one more Back closes it, then it opens again for the next step.
+      await page.goBack();
+      await expect(panel).toHaveCount(0);
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().openRightPanel("connections");
+      });
+    }
+
+    // The button takes the same step and returns focus to the row it left.
+    await row.click();
+    await back.click();
+    await expect(back).toHaveCount(0);
+    await expect(row).toBeFocused();
+
+    // The device page's button opens the Voice settings window itself.
+    await row.click();
+    await panel.getByRole("button", { name: "Open its settings" }).click();
+    const voice = page.getByRole("dialog", { name: "Voice settings" });
+    await expect(voice).toBeVisible();
+    // The long Text to speech settings scroll inside the window; its bottom stays on screen.
+    const panelBox = voice.locator(".mari-modal-panel");
+    await expect
+      .poll(async () => {
+        const box = await panelBox.boundingBox();
+        return box ? box.y + box.height : Infinity;
+      })
+      .toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+  } finally {
+    await request.delete(`/api/connections/${created.connectionId}`);
+    await request.delete(`/api/connection-accounts/${created.account.id}`);
+  }
+});
+
 test("Move to account offers the same service first, then other services with a model step", async ({
   page,
   request,

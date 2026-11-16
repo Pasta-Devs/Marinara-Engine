@@ -2,6 +2,11 @@ import { partialInput } from "@marinara-engine/shared";
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import {
+  hasChatMetadataSecretMask,
+  redactStoredSecretsDeep,
+  resolveChatMetadataSecretPlaceholders,
+} from "../../utils/stored-secrets.js";
 import { applyChatModelOverride, readChatModelOverride } from "../generation/connection-resolution.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
@@ -81,6 +86,7 @@ import {
   normalizePersonalExtensionCapabilities,
   PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   scopedRegexModeSchema,
+  serializeGamePresetStorySettings,
   type MariDbCommandResult,
   type MariDbMutationReadBack,
   type MariDbReadBackMismatch,
@@ -111,6 +117,10 @@ import {
   diagnoseReply,
   GENERATION_PARAMETER_SEND_KEYS,
   type CharacterData,
+  MARINARA_ARCHETYPES,
+  MARINARA_CLASSIC_STRONG_PICKS,
+  MARINARA_STATS,
+  readMarinaraCardClassic,
   type ReplyCheckupCode,
   type ReplyCheckupInput,
 } from "@marinara-engine/shared";
@@ -123,6 +133,15 @@ import { reloadFeatureSettingsIfTouched } from "../features/feature-settings.js"
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 import { encryptCustomToolWebhookUrl, ENCRYPTED_WEBHOOK_PREFIX } from "../../utils/custom-tool-webhook.js";
 import { getProfessorMariWorkspaceSkillsService } from "../professor-mari/workspace-skills.service.js";
+import {
+  completePersonaRow,
+  personaRowFromStored,
+  storedCardBase,
+  storedPersonaFromRow,
+  type PersonaStorageRow,
+  type StoredPersonaRow,
+} from "../personas/persona-card-storage.js";
+import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -480,22 +499,14 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   characters: ["data"],
   character_card_versions: ["data"],
   persona_card_versions: ["data"],
-  personas: [
-    "avatarCrop",
-    "trackerCardColors",
-    "personaStats",
-    "tags",
-    "savedStatusOptions",
-    "convoBehavior",
-    "cardFieldAlternatives",
-  ],
+  personas: ["data"],
   character_groups: ["characterIds"],
   persona_groups: ["personaIds"],
   chats: ["characterIds", "metadata"],
   messages: ["extra"],
   message_swipes: ["extra"],
   memory_chunks: ["embedding"],
-  lorebooks: ["scope", "tags"],
+  lorebooks: ["scope", "tags", "imageCrop"],
   library_folders: ["itemIds"],
   lorebook_entries: [
     "keys",
@@ -645,6 +656,36 @@ function jsonColumnSet(table: string) {
   return new Set(JSON_COLUMNS[table] ?? []);
 }
 
+// JSON columns of the flat persona view the persona actions read and write. On disk a persona
+// row keeps its authored card in `data` (storage format 11); the persona actions convert.
+const PERSONA_VIEW_JSON_COLUMNS = [
+  "avatarCrop",
+  "trackerCardColors",
+  "personaStats",
+  "tags",
+  "savedStatusOptions",
+  "nameAliases",
+  "convoBehavior",
+  "cardFieldAlternatives",
+] as const;
+
+/** Flat persona view with its JSON columns parsed, as the persona actions show it. */
+function parsePersonaView(row: PersonaStorageRow): Row {
+  const out: Row = { ...row };
+  for (const key of PERSONA_VIEW_JSON_COLUMNS) out[key] = parseJsonMaybe(out[key]);
+  return out;
+}
+
+/** Re-serialize the JSON columns a persona action set on the flat view. */
+function serializePersonaView(row: Row): Row {
+  const out: Row = { ...row };
+  for (const key of PERSONA_VIEW_JSON_COLUMNS) {
+    const value = out[key];
+    if (value !== undefined && value !== null && typeof value !== "string") out[key] = JSON.stringify(value);
+  }
+  return out;
+}
+
 function parseRow(table: string, row: Row): Row {
   const jsonCols = jsonColumnSet(table);
   const out: Row = { ...row };
@@ -792,6 +833,25 @@ export function resolveTransformTables(table: string): string[] {
     return [table];
   }
   return FILE_BACKED_TABLES.filter((name) => name !== "messages" && name !== "message_swipes");
+}
+
+/**
+ * A pending review saved before storage format 11 holds flat persona snapshots. Restore writes
+ * `beforeRaw` through the current schema's columns and compares `afterRaw` the same way, so
+ * convert both to the stored shape, or Restore brings back an empty persona.
+ */
+function migrateLegacyPersonaSnapshots(changes: PlanChange[]): void {
+  for (const change of changes) {
+    if (change.table !== "personas") continue;
+    if (change.beforeRaw && personaRowNeedsCardMigration(change.beforeRaw)) {
+      change.beforeRaw = migrateLegacyPersonaRow(change.beforeRaw);
+      change.before = parseRow(change.table, change.beforeRaw);
+    }
+    if (change.afterRaw && personaRowNeedsCardMigration(change.afterRaw)) {
+      change.afterRaw = migrateLegacyPersonaRow(change.afterRaw);
+      change.after = parseRow(change.table, change.afterRaw);
+    }
+  }
 }
 
 function protectPromptPresetSystemKeys(changes: PlanChange[]): void {
@@ -977,14 +1037,26 @@ function validationFromIssues(issues: MariDbValidationIssue[]): MariDbValidation
   return { status: errors.length > 0 ? "blocked" : "passed", errors, notices, infos };
 }
 
+/**
+ * A persona preview shows the flat persona view, like every other persona surface, so the change
+ * receipt and in-field review name persona fields (`backstory`, `creatorNotes`), not card keys
+ * (`extensions`, `creator_notes`). Restore works from `beforeRaw` / `afterRaw`, not from this.
+ */
+function personaPreviewRow(raw: Row | null | undefined, parsed: Row | null | undefined): Row | null {
+  const source = raw ?? parsed;
+  if (!source) return null;
+  const stored = isRecord(source.data) ? { ...source, data: JSON.stringify(source.data) } : source;
+  return parsePersonaView(personaRowFromStored(stored as StoredPersonaRow));
+}
+
 function summaryForChanges(changes: PlanChange[]): MariDbDiffSummary {
-  const preview = changes.slice(0, PREVIEW_LIMIT).map(({ table, id, action, before, after }) => ({
-    table,
-    id,
-    action,
-    before: before ?? null,
-    after: after ?? null,
-  }));
+  const preview = changes
+    .slice(0, PREVIEW_LIMIT)
+    .map(({ table, id, action, before, after, beforeRaw, afterRaw }) =>
+      table === "personas"
+        ? { table, id, action, before: personaPreviewRow(beforeRaw, before), after: personaPreviewRow(afterRaw, after) }
+        : { table, id, action, before: before ?? null, after: after ?? null },
+    );
   const affectedTables: Record<string, number> = {};
   for (const change of changes) affectedTables[change.table] = (affectedTables[change.table] ?? 0) + 1;
   return {
@@ -1729,6 +1801,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     personaStats: "",
     tags: firstStringList(data, ["tags"]) ?? [],
     savedStatusOptions: [],
+    nameAliases: firstStringList(data, ["nameAliases", "name_aliases"]) ?? [],
     avatarCrop: "",
     convoDisplayName: firstString(data, ["convoDisplayName", "convo_display_name", "convo-display-name"]) ?? "",
     aboutMe: firstString(data, ["aboutMe", "about_me", "about-me"]) ?? "",
@@ -1829,6 +1902,13 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
     gamePrompt:
       firstString(input, ["gamePrompt", "game_prompt"]) ??
       (typeof existing?.gamePrompt === "string" ? existing.gamePrompt : ""),
+    gameStorySettings: serializeGamePresetStorySettings(
+      input.gameStorySettings !== undefined
+        ? input.gameStorySettings
+        : input.game_story_settings !== undefined
+          ? input.game_story_settings
+          : existing?.gameStorySettings,
+    ),
     sectionOrder: jsonString(input.sectionOrder ?? input.section_order ?? existing?.sectionOrder, []),
     groupOrder: jsonString(input.groupOrder ?? input.group_order ?? existing?.groupOrder, []),
     variableGroups: jsonString(input.variableGroups ?? input.variable_groups ?? existing?.variableGroups, []),
@@ -1854,6 +1934,7 @@ function normalizePromptPresetActionData(input: Row, existing?: Row | null): Row
   };
   delete row.conversation_prompt;
   delete row.game_prompt;
+  delete row.game_story_settings;
   delete row.image_path;
   delete row.section_order;
   delete row.group_order;
@@ -2857,6 +2938,68 @@ function summarizeChatRow(row: Row): Row {
   };
 }
 
+// #9323: list reads page instead of returning a bare array. A bare array went past the
+// read bounding (arrays pass straight through) and the 32k command-output cap cut it mid-row,
+// while `offset` was ignored, so asking for the next page returned the first one again.
+// A page stops at `limit` rows or once it nears the read budget, whichever comes first, so it
+// never reaches that cap; nextOffset points at the first row not shown (null at the end).
+const MARI_LIST_PAGE_DEFAULT = 50;
+const MARI_LIST_PAGE_MAX = 100;
+// Room under the read budget for the envelope keys and the deeper indent of nested rows.
+const MARI_LIST_PAGE_BUDGET = MARI_READ_OUTPUT_BUDGET - 2_000;
+// Only a single row too large for a page on its own has its long strings cut.
+const MARI_LIST_ROW_STRING_CLIP = 2_000;
+
+// Strings inside arrays (tags) are clipped too, so no one field keeps the row over the budget.
+function clipListValue(value: unknown): unknown {
+  if (typeof value === "string" && value.length > MARI_LIST_ROW_STRING_CLIP) {
+    return truncateStr(value, MARI_LIST_ROW_STRING_CLIP);
+  }
+  if (Array.isArray(value)) return value.map(clipListValue);
+  return value;
+}
+
+function clipListRow(row: Row): Row {
+  const clipped: Row = {};
+  for (const [key, value] of Object.entries(row)) clipped[key] = clipListValue(value);
+  return clipped;
+}
+
+function pageListRows(
+  rows: Row[],
+  offsetArg: unknown,
+  limitArg: unknown,
+  fallback = MARI_LIST_PAGE_DEFAULT,
+): { items: Row[]; total: number; offset: number; nextOffset: number | null } {
+  const offset = normalizeOffset(offsetArg);
+  const limit = normalizeLimit(limitArg, fallback, MARI_LIST_PAGE_MAX);
+  const total = rows.length;
+  const items: Row[] = [];
+  let size = 0;
+  for (const row of rows.slice(offset, offset + limit)) {
+    const cost = prettyLength({ items: [row] });
+    if (items.length === 0 && cost > MARI_LIST_PAGE_BUDGET) {
+      items.push(clipListRow(row));
+      noteArgument(
+        `Row ${offset} was too large for a list page, so its long text was cut; read it in full with the matching .get action.`,
+      );
+      break;
+    }
+    if (items.length > 0 && size + cost > MARI_LIST_PAGE_BUDGET) break;
+    items.push(row);
+    size += cost;
+  }
+  // items.length (not limit), so a page cut short by the budget still points at the next unseen
+  // row, a short final page reports null, and an offset past the end returns { items: [], null }.
+  const nextOffset = offset + items.length < total ? offset + items.length : null;
+  if (nextOffset !== null && items.length < limit) {
+    noteArgument(
+      `This page stopped after ${items.length} rows to stay under the output limit; call again with offset: ${nextOffset} for the rest.`,
+    );
+  }
+  return { items, total, offset, nextOffset };
+}
+
 const CHARACTER_DATA_HINT_KEYS = new Set([
   "name",
   "summary",
@@ -3081,12 +3224,14 @@ export class MariDbService {
 
   constructor(private readonly db: DB) {}
 
-  executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
-    return withArgumentNotes(() => this.runCli(envelope));
+  // Saved DeepL keys, Discord webhooks and connection header values show only as saved (the mask) in what Mari
+  // reads back, whether they are stored encrypted or still plain from an older version.
+  async executeCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
+    return redactStoredSecretsDeep(await withArgumentNotes(() => this.runCli(envelope)));
   }
 
-  executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
-    return withArgumentNotes(() => this.runAction(envelope));
+  async executeAction(envelope: MariAppDataActionEnvelope): Promise<MariDbCommandResult> {
+    return redactStoredSecretsDeep(await withArgumentNotes(() => this.runAction(envelope)));
   }
 
   private async runCli(envelope: MariCliEnvelope): Promise<MariDbCommandResult> {
@@ -3264,7 +3409,6 @@ export class MariDbService {
         };
       }
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
         const rows = (await this.rawRows("characters")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -3272,7 +3416,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizeCharacterRow)
           .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, firstNumber(args, ["offset"]), firstNumber(args, ["limit"])),
+        };
       }
       case "get": {
         const id = requiredString(args, ["id", "characterId"], "character id");
@@ -3554,6 +3703,9 @@ export class MariDbService {
       case "rulesetsheet.get":
       case "rulesetsheet.update":
         return this.executeRulesetSheetAction("character", sub, args, context);
+      case "mrpg.get":
+      case "mrpg.update":
+        return this.executeMrpgPicksAction("character", sub, args, context);
       default:
         return {
           ok: false,
@@ -3571,15 +3723,18 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
-        const rows = (await this.rawRows("personas")).sort((a, b) =>
+        const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
         return {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizePersonaRow),
+          output: pageListRows(
+            rows.map(summarizePersonaRow),
+            firstNumber(args, ["offset"]),
+            firstNumber(args, ["limit"]),
+          ),
         };
       }
       case "active": {
@@ -3588,18 +3743,18 @@ export class MariDbService {
       }
       case "get": {
         const id = requiredString(args, ["id", "personaId"], "persona id");
-        const row = await this.getRawById(getMeta("personas"), id);
+        const row = await this.personaViewById(id);
         return {
           ok: Boolean(row),
           mode: "read",
           command: context.command,
-          output: row ? parseRow("personas", row) : null,
+          output: row ? parsePersonaView(row) : null,
         };
       }
       case "search": {
         const query = requiredString(args, ["query", "search"], "persona search query").toLowerCase();
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
-        const rows = (await this.rawRows("personas"))
+        const rows = (await this.personaViewRows())
           .filter((row) => matchesSearchQuery(row, query))
           .slice(0, limit)
           .map(summarizePersonaRow);
@@ -3627,6 +3782,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3640,7 +3797,7 @@ export class MariDbService {
         const timestamp = now();
         const id = firstString(args, ["id", "personaId"]) ?? newId();
         const row = buildPersonaCreateRow(data, id, timestamp);
-        return this.executeMutation(
+        return this.executePersonaMutation(
           {
             kind: "insert",
             table: "personas",
@@ -3678,6 +3835,8 @@ export class MariDbService {
             "creatorNotes",
             "creator_notes",
             "tags",
+            "nameAliases",
+            "name_aliases",
             "phoneticName",
             "phonetic_name",
             "convoDisplayName",
@@ -3723,12 +3882,13 @@ export class MariDbService {
           );
         }
         assignListField(patch, data, ["tags"], "tags");
+        assignListField(patch, data, ["nameAliases", "name_aliases"], "nameAliases");
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
+            'persona.update needs a patch field such as name, summary, mes_example, description, personality, scenario, backstory, appearance, imageAppearance, imageAppearanceEnabled, tags, nameAliases, comment, creator, or creatorNotes (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
-        return this.executeMutation(
+        return this.executePersonaMutation(
           {
             kind: "patch",
             table: "personas",
@@ -3746,6 +3906,9 @@ export class MariDbService {
       case "rulesetsheet.get":
       case "rulesetsheet.update":
         return this.executeRulesetSheetAction("persona", sub, args, context);
+      case "mrpg.get":
+      case "mrpg.update":
+        return this.executeMrpgPicksAction("persona", sub, args, context);
       default:
         return {
           ok: false,
@@ -3772,7 +3935,8 @@ export class MariDbService {
       owner === "character"
         ? requiredString(args, ["characterId", "id"], "character id")
         : requiredString(args, ["personaId", "id"], "persona id");
-    const existing = await this.getRawById(getMeta(table), id);
+    const existing: Row | null =
+      owner === "character" ? await this.getRawById(getMeta(table), id) : await this.personaViewById(id);
     if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
     const column = owner === "character" ? "data" : "personaStats";
     const rawColumn = existing[column];
@@ -3839,11 +4003,15 @@ export class MariDbService {
     if (owner === "persona") {
       // A replace, not a patch: a patch deep-merges personaStats, so a cleared value would come back.
       const row: Row = {
-        ...parseRow("personas", existing),
+        ...existing,
         personaStats: { ...holder, rulesetSheets: next.sheets },
         updatedAt: now(),
       };
-      return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+      return this.executePersonaMutation(
+        { kind: "replace", table, id, row, ...mutation },
+        context.command,
+        context.sessionId,
+      );
     }
     const name = typeof holder.name === "string" ? holder.name : "";
     const row: Row = {
@@ -3853,6 +4021,115 @@ export class MariDbService {
         { ...holder, extensions: { ...extensions, rulesetSheets: next.sheets } },
         new Map(),
       ),
+      comment: typeof existing.comment === "string" ? existing.comment : "",
+      avatarPath: existing.avatarPath ?? null,
+      spriteFolderPath: existing.spriteFolderPath ?? null,
+      createdAt: existing.createdAt,
+      updatedAt: now(),
+    };
+    return this.executeMutation({ kind: "replace", table, id, row, ...mutation }, context.command, context.sessionId);
+  }
+
+  /**
+   * `character.mrpg.get|update` and `persona.mrpg.get|update`: the MRPG picks of a card's or persona's
+   * Game Mode section (`data.extensions.classic`, `personaStats.classic`): the starting tree, up to two
+   * stats it is strong in and one it is weak in. The update replaces only the fields it sends (`null`
+   * clears one back to Auto), refuses anything the card's builder would refuse, and marks the builder
+   * finished so the card shows the picks. Everything else on the card or in personaStats is kept.
+   */
+  private async executeMrpgPicksAction(
+    owner: "character" | "persona",
+    sub: string,
+    args: Row,
+    context: { command: string; sessionId: string; cwd?: string },
+  ): Promise<MariDbCommandResult> {
+    const table = owner === "character" ? "characters" : "personas";
+    const id =
+      owner === "character"
+        ? requiredString(args, ["characterId", "id"], "character id")
+        : requiredString(args, ["personaId", "id"], "persona id");
+    const existing: Row | null =
+      owner === "character" ? await this.getRawById(getMeta(table), id) : await this.personaViewById(id);
+    if (!existing) throw new Error(`${owner === "character" ? "Character" : "Persona"} ${id} not found`);
+    const column = owner === "character" ? "data" : "personaStats";
+    const rawColumn = existing[column];
+    const parsedColumn = tryParseJsonColumn(existing, column);
+    if (parsedColumn === undefined && typeof rawColumn === "string" && rawColumn.trim() !== "") {
+      throw new Error(`The ${owner}'s ${column} cannot be read, so its MRPG picks are left as they are.`);
+    }
+    const holder = isRecord(parsedColumn) ? parsedColumn : {};
+    const extensions = owner === "character" && isRecord(holder.extensions) ? holder.extensions : {};
+    const stored = readMarinaraCardClassic(owner === "character" ? extensions.classic : holder.classic) ?? {};
+    const ownerKey = owner === "character" ? "characterId" : "personaId";
+    const describe = (picks: Row) => ({
+      [ownerKey]: id,
+      tree: picks.tree ?? "auto",
+      strong: picks.strong ?? [],
+      weak: picks.weak ?? null,
+      trees: MARINARA_ARCHETYPES,
+      stats: MARINARA_STATS,
+    });
+    if (sub === "mrpg.get")
+      return { ok: true, mode: "read", command: context.command, output: describe({ ...stored }) };
+
+    const patch = isRecord(args.patch) ? args.patch : isRecord(args.data) ? args.data : {};
+    const issues: string[] = [];
+    const next: Row = { ...stored };
+    const isStat = (value: unknown) =>
+      typeof value === "string" && (MARINARA_STATS as readonly string[]).includes(value);
+    if ("tree" in patch) {
+      const tree = typeof patch.tree === "string" ? patch.tree.trim().toLowerCase() : patch.tree;
+      if (tree === null || tree === "" || tree === "auto") delete next.tree;
+      else if (typeof tree === "string" && (MARINARA_ARCHETYPES as readonly string[]).includes(tree)) next.tree = tree;
+      else issues.push(`tree must be one of ${MARINARA_ARCHETYPES.join(", ")}, or null for Auto`);
+    }
+    if ("strong" in patch) {
+      const strong = patch.strong === null ? [] : patch.strong;
+      if (!Array.isArray(strong) || !strong.every(isStat) || new Set(strong).size !== strong.length) {
+        issues.push(`strong must be a list of different stats from ${MARINARA_STATS.join(", ")}`);
+      } else if (strong.length > MARINARA_CLASSIC_STRONG_PICKS) {
+        issues.push(`strong takes at most ${MARINARA_CLASSIC_STRONG_PICKS} stats`);
+      } else if (strong.length) next.strong = strong;
+      else delete next.strong;
+    }
+    if ("weak" in patch) {
+      if (patch.weak === null || patch.weak === "") delete next.weak;
+      else if (isStat(patch.weak)) next.weak = patch.weak;
+      else issues.push(`weak must be one stat from ${MARINARA_STATS.join(", ")}, or null`);
+    }
+    if (!("tree" in patch) && !("strong" in patch) && !("weak" in patch)) {
+      issues.push("send at least one of tree, strong or weak in patch");
+    }
+    if (typeof next.weak === "string" && Array.isArray(next.strong) && next.strong.includes(next.weak)) {
+      issues.push(`${next.weak} can't be both strong and weak`);
+    }
+    if (issues.length) {
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: `The MRPG picks were not changed. Fix these and resend:\n- ${issues.join("\n- ")}`,
+      };
+    }
+    const classic = readMarinaraCardClassic({ ...next, built: true })!;
+    const mutation = {
+      apply: firstBoolean(args, ["apply"]) === true,
+      cascade: false,
+      reason: firstString(args, ["reason"]) ?? null,
+      cwd: context.cwd,
+    };
+    if (owner === "persona") {
+      const row: Row = { ...existing, personaStats: { ...holder, classic }, updatedAt: now() };
+      return this.executePersonaMutation(
+        { kind: "replace", table, id, row, ...mutation },
+        context.command,
+        context.sessionId,
+      );
+    }
+    const name = typeof holder.name === "string" ? holder.name : "";
+    const row: Row = {
+      id,
+      data: buildMinimalCharacterData(name, { ...holder, extensions: { ...extensions, classic } }, new Map()),
       comment: typeof existing.comment === "string" ? existing.comment : "",
       avatarPath: existing.avatarPath ?? null,
       spriteFolderPath: existing.spriteFolderPath ?? null,
@@ -4318,7 +4595,6 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const globalOnly = firstBoolean(args, ["global", "isGlobal"]) === true;
         const rows = (await this.rawRows("lorebooks"))
           .filter((row) => !globalOnly || row.isGlobal === "true")
@@ -4327,7 +4603,11 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizeLorebookRow),
+          output: pageListRows(
+            rows.map(summarizeLorebookRow),
+            firstNumber(args, ["offset"]),
+            firstNumber(args, ["limit"]),
+          ),
         };
       }
       case "get": {
@@ -5592,7 +5872,6 @@ export class MariDbService {
   ): Promise<MariDbCommandResult> {
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
         const rows = (await this.rawRows("prompt_presets")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -5600,7 +5879,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizePromptPresetRow)
           .filter((summary) => !search || JSON.stringify(summary).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, firstNumber(args, ["offset"]), firstNumber(args, ["limit"])),
+        };
       }
       case "get": {
         const id = requiredString(args, ["id", "presetId", "promptPresetId"], "prompt preset id");
@@ -5631,6 +5915,7 @@ export class MariDbService {
             "imagePath",
             "conversationPrompt",
             "gamePrompt",
+            "gameStorySettings",
             "sectionOrder",
             "groupOrder",
             "variableGroups",
@@ -5680,6 +5965,7 @@ export class MariDbService {
             "imagePath",
             "conversationPrompt",
             "gamePrompt",
+            "gameStorySettings",
             "sectionOrder",
             "groupOrder",
             "variableGroups",
@@ -6201,7 +6487,7 @@ export class MariDbService {
 
   getPendingApprovals(): MariDbPendingApproval[] {
     this.ensurePendingHydrated();
-    return Array.from(this.pending.values()).map((record) => this.pendingView(record));
+    return Array.from(this.pending.values()).map((record) => redactStoredSecretsDeep(this.pendingView(record)));
   }
 
   // #4931: the raw (serialized) snapshot of one pending change, for the synthetic prompt render.
@@ -6222,13 +6508,13 @@ export class MariDbService {
     if (!Number.isInteger(index) || index < 0 || index >= PREVIEW_LIMIT) return null;
     const change = this.pending.get(id)?.plan.changes[index];
     if (!change) return null;
-    return {
+    return redactStoredSecretsDeep({
       table: change.table,
       id: change.id,
       action: change.action,
       beforeRaw: change.beforeRaw ?? null,
       afterRaw: change.afterRaw ?? null,
-    };
+    });
   }
 
   async getHistory(): Promise<MariDbHistoryEntry[]> {
@@ -7153,7 +7439,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const search = flagString(flags, "search")?.toLowerCase();
         const rows = (await this.rawRows("characters")).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
@@ -7161,7 +7446,12 @@ export class MariDbService {
         const summaries = rows
           .map(summarizeCharacterRow)
           .filter((s) => !search || JSON.stringify(s).toLowerCase().includes(search));
-        return { ok: true, mode: "read", command: context.command, output: summaries.slice(0, limit) };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(summaries, flagString(flags, "offset"), flagString(flags, "limit")),
+        };
       }
       case "get": {
         const id = parsed.positionals[0];
@@ -7291,15 +7581,14 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
-        const rows = (await this.rawRows("personas")).sort((a, b) =>
+        const rows = (await this.personaViewRows()).sort((a, b) =>
           String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")),
         );
         return {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizePersonaRow),
+          output: pageListRows(rows.map(summarizePersonaRow), flagString(flags, "offset"), flagString(flags, "limit")),
         };
       }
       case "active": {
@@ -7308,12 +7597,12 @@ export class MariDbService {
       case "get": {
         const id = parsed.positionals[0];
         if (!id) throw new Error("Usage: mari personas get <id>");
-        const row = await this.getRawById(getMeta("personas"), id);
+        const row = await this.personaViewById(id);
         return {
           ok: Boolean(row),
           mode: "read",
           command: context.command,
-          output: row ? parseRow("personas", row) : null,
+          output: row ? parsePersonaView(row) : null,
         };
       }
       case "search": {
@@ -7321,7 +7610,7 @@ export class MariDbService {
         if (!query) throw new Error("Usage: mari personas search <query>");
         const needle = query.toLowerCase();
         const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
-        const rows = (await this.rawRows("personas"))
+        const rows = (await this.personaViewRows())
           .filter((row) => matchesSearchQuery(row, needle))
           .slice(0, limit)
           .map(summarizePersonaRow);
@@ -7365,7 +7654,7 @@ export class MariDbService {
           reason: flagString(flags, "reason") ?? null,
           cwd: context.cwd,
         };
-        return this.executeMutation(request, context.command, context.sessionId);
+        return this.executePersonaMutation(request, context.command, context.sessionId);
       }
       case "update": {
         const id = parsed.positionals[0];
@@ -7418,7 +7707,7 @@ export class MariDbService {
           reason: flagString(flags, "reason") ?? null,
           cwd: context.cwd,
         };
-        return this.executeMutation(request, context.command, context.sessionId);
+        return this.executePersonaMutation(request, context.command, context.sessionId);
       }
       case "delete": {
         const id = parsed.positionals[0];
@@ -7452,7 +7741,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 50, 1000);
         const globalOnly = hasFlag(flags, "global");
         const characterId = flagString(flags, "character");
         const rows = (await this.rawRows("lorebooks"))
@@ -7463,7 +7751,7 @@ export class MariDbService {
           ok: true,
           mode: "read",
           command: context.command,
-          output: rows.slice(0, limit).map(summarizeLorebookRow),
+          output: pageListRows(rows.map(summarizeLorebookRow), flagString(flags, "offset"), flagString(flags, "limit")),
         };
       }
       case "get": {
@@ -7898,7 +8186,11 @@ export class MariDbService {
     };
     switch (sub) {
       case "list":
-        return run("list", { limit: flagString(flags, "limit"), search: flagString(flags, "search") });
+        return run("list", {
+          limit: flagString(flags, "limit"),
+          offset: flagString(flags, "offset"),
+          search: flagString(flags, "search"),
+        });
       case "get":
         return run("get", { id: need(0, "Usage: mari presets get <preset-id>") });
       case "sections":
@@ -8029,7 +8321,7 @@ export class MariDbService {
   private presetsHelpText() {
     return [
       "Usage: mari presets <command>",
-      "Reads:    list [--search <q>] [--limit <n>] | get <preset-id> | sections <preset-id> [--section-id <id>] | get-section <section-id> | groups <preset-id> | get-group <group-id> | choice-blocks <preset-id> | get-choice-block <id>",
+      "Reads:    list [--search <q>] [--limit <n>] [--offset <n>] | get <preset-id> | sections <preset-id> [--section-id <id>] | get-section <section-id> | groups <preset-id> | get-group <group-id> | choice-blocks <preset-id> | get-choice-block <id>",
       "Sections: add-section <preset-id> --name <n> [--content <t>] [--role <system|user|assistant>] [--group-id <id>] [--skip-wrap] | update-section <section-id> [--content <t>] [--name <n>] [--enable|--disable] [--injection-order <n>] [--skip-wrap|--no-skip-wrap] | delete-section <section-id>",
       "Groups:   add-group <preset-id> --name <n> [--parent-group-id <id>] | update-group <group-id> [--name <n>] [--enable|--disable] [--order <n>] | delete-group <group-id>",
       "Choices:  add-choice-block <preset-id> --variable-name <n> --question <t> --options <a,b,c> [--multi-select] | update-choice-block <id> [--question <t>] [--options <a,b,c>] | delete-choice-block <id>",
@@ -8051,7 +8343,6 @@ export class MariDbService {
     }
     switch (sub) {
       case "list": {
-        const limit = normalizeLimit(flagString(flags, "limit"), 20, 500);
         const characterId = flagString(flags, "character");
         const rows = (await this.rawRows("chats"))
           .filter((row) => {
@@ -8060,9 +8351,13 @@ export class MariDbService {
             return Array.isArray(ids) && ids.includes(characterId);
           })
           .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")))
-          .slice(0, limit)
           .map(summarizeChatRow);
-        return { ok: true, mode: "read", command: context.command, output: rows };
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: pageListRows(rows, flagString(flags, "offset"), flagString(flags, "limit"), 20),
+        };
       }
       case "get": {
         const id = parsed.positionals[0];
@@ -8163,6 +8458,7 @@ export class MariDbService {
 
     if (sub === "list") {
       addFlag("limit", firstNumber(args, ["limit"]));
+      addFlag("offset", firstNumber(args, ["offset"]));
       addFlag("character", firstString(args, ["characterId", "character_id"]));
     } else if (sub === "get") {
       positionals.push(requiredString(args, ["chatId", "chat_id", "id"], "chat id"));
@@ -8206,15 +8502,23 @@ export class MariDbService {
     args: Row,
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
-    const chatId = requiredString(args, ["chatId", "chat_id"], "chat id");
-    const requestedMessageId = requiredString(args, ["messageId", "message_id", "id"], "message id");
+    // #9151: every other action takes its fields inside a "patch" or "data" carrier, so a caller who
+    // learned that shape nested the repaired reply there and this read saw no content at all. Read the
+    // same carriers here; a top-level field still wins, so neither shape is guessed at.
+    const fields = actionDataWithTopLevel(
+      args,
+      ["patch", "data"],
+      ["chatId", "chat_id", "messageId", "message_id", "id", "content", "reason", "apply"],
+    );
+    const chatId = requiredString(fields, ["chatId", "chat_id"], "chat id");
+    const requestedMessageId = requiredString(fields, ["messageId", "message_id", "id"], "message id");
     // Validate against the trimmed form, but store the reply as given — unlike requiredString's
     // trim-before-return, a fixed reply's own leading/trailing whitespace is content, not noise.
-    const rawContent = typeof args.content === "string" ? args.content : "";
+    const rawContent = typeof fields.content === "string" ? fields.content : "";
     if (!rawContent.trim()) throw new Error("chat.updateMessage needs non-empty content for the fixed reply.");
     const content = rawContent;
-    const reason = firstString(args, ["reason"]) ?? null;
-    const apply = firstBoolean(args, ["apply"]) === true;
+    const reason = firstString(fields, ["reason"]) ?? null;
+    const apply = firstBoolean(fields, ["apply"]) === true;
 
     const chatsStorage = createChatsStorage(this.db);
     const chat = await chatsStorage.getById(chatId);
@@ -9181,6 +9485,29 @@ export class MariDbService {
       }
       return {};
     };
+    // Mari reads saved secrets as the mask. Writing a row back with the mask keeps the saved value, so her other
+    // changes to the row still apply and the check below sees no new key.
+    for (const change of changes) {
+      if (!change.afterRaw) continue;
+      const column =
+        change.table === "chats"
+          ? "metadata"
+          : change.table === "chat_presets"
+            ? "settings"
+            : change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY
+              ? "value"
+              : null;
+      if (!column) continue;
+      const root = parseJsonRecordValue(change.afterRaw[column]);
+      const holder = change.table === "chat_presets" ? root.metadata : root;
+      if (!isRecord(holder) || !hasChatMetadataSecretMask(holder)) continue;
+      resolveChatMetadataSecretPlaceholders(holder, localDestinations(change, change.beforeRaw));
+      change.afterRaw = {
+        ...change.afterRaw,
+        [column]: typeof change.afterRaw[column] === "string" ? JSON.stringify(root) : root,
+      };
+      change.after = parseRow(change.table, change.afterRaw);
+    }
     for (const change of changes) {
       const after = localDestinations(change, change.afterRaw);
       const before = localDestinations(change, change.beforeRaw);
@@ -9854,10 +10181,15 @@ export class MariDbService {
     if (meta.byKey.has("updatedAt") && !row.updatedAt) row.updatedAt = stamp;
   }
 
-  // #7977: a deleted preset or lorebook left its id in a library folder's itemIds. The HTTP routes
+  // #7977: a deleted preset, lorebook, regex or function left its id in a library folder's itemIds. The HTTP routes
   // prune it with removeItemReferences; here the prune joins the plan, so Restore puts it back too.
   private async addLibraryFolderPrunes(changes: PlanChange[]) {
-    const folderScopes: Record<string, string> = { prompt_presets: "presets", lorebooks: "lorebooks" };
+    const folderScopes: Record<string, string> = {
+      prompt_presets: "presets",
+      lorebooks: "lorebooks",
+      regex_scripts: "regex",
+      custom_tools: "functions",
+    };
     const removing = new Map<string, Set<string>>();
     for (const change of changes) {
       const scope = folderScopes[change.table];
@@ -10386,6 +10718,7 @@ export class MariDbService {
             stale.push(path);
             continue;
           }
+          migrateLegacyPersonaSnapshots(record.plan.changes);
           if (!this.pending.has(record.id)) loaded.push(record);
         } catch (err) {
           logger.warn(err, "[mari-db] discarding unreadable pending review %s", file);
@@ -10669,6 +11002,47 @@ export class MariDbService {
     return page();
   }
 
+  /** Every persona as its flat view (authored fields decoded from `data`). */
+  private async personaViewRows(): Promise<PersonaStorageRow[]> {
+    return (await this.rawRows("personas")).map((row) => personaRowFromStored(row as StoredPersonaRow));
+  }
+
+  private async personaViewById(id: string): Promise<PersonaStorageRow | null> {
+    const row = await this.getRawById(getMeta("personas"), id);
+    return row ? personaRowFromStored(row as StoredPersonaRow) : null;
+  }
+
+  /**
+   * Persona actions build flat-view rows and patches; the table stores the card in `data`. Fold the
+   * request into a stored row first. A patch becomes a replace: a deep-merged `data` patch would
+   * bring back fields the card leaves out when they are cleared.
+   */
+  private async executePersonaMutation(
+    request: ParsedMutationRequest,
+    command: string,
+    sessionId: string,
+  ): Promise<MariDbCommandResult> {
+    const id = request.id;
+    if (!id) throw new Error("persona mutation needs an id");
+    // One read gives both the flat view and the card base, so they come from the same stored row.
+    const storedRow = request.kind === "insert" ? null : await this.getRawById(getMeta("personas"), id);
+    const base: PersonaStorageRow | null = storedRow ? personaRowFromStored(storedRow as StoredPersonaRow) : null;
+    if (request.kind !== "insert" && !base) {
+      await this.requireRawById(getMeta("personas"), id);
+    }
+    const changes = serializePersonaView((request.kind === "patch" ? request.patch : request.row) ?? {});
+    const view = completePersonaRow({ ...(base ?? {}), ...changes, id } as PersonaStorageRow);
+    const { patch: _patch, ...rest } = request;
+    // Overlay the stored card so extensions the flat view does not carry survive the replace.
+    const cardBase = storedRow ? storedCardBase(storedRow.data) : undefined;
+    const stored: ParsedMutationRequest = {
+      ...rest,
+      kind: request.kind === "insert" ? "insert" : "replace",
+      row: storedPersonaFromRow(view, cardBase) as unknown as Row,
+    };
+    return this.executeMutation(stored, command, sessionId);
+  }
+
   private async rawRows(table: string): Promise<Row[]> {
     const meta = getMeta(table);
     const rows = (await this.db.select().from(meta.table as any)) as Row[];
@@ -10724,7 +11098,7 @@ export class MariDbService {
   private charactersHelpText() {
     return [
       "Usage: mari characters <command>",
-      "Read:  list [--limit <n>] [--search <text>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
       "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
@@ -10738,7 +11112,7 @@ export class MariDbService {
   private personasHelpText() {
     return [
       "Usage: mari personas <command>",
-      "Read:  list [--limit <n>]",
+      "Read:  list [--limit <n>] [--offset <n>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
       "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
@@ -10751,7 +11125,7 @@ export class MariDbService {
   private lorebooksHelpText() {
     return [
       "Usage: mari lorebooks <command>",
-      "Read:  list [--limit <n>] [--global] [--character <id>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--global] [--character <id>]",
       "Read:  get <id>",
       "Read:  entries <lorebook-id> [--limit <n>] [--offset <n>] [--entry-id <entry-id>]",
       "Read:  get-entry <entry-id>",
@@ -10771,7 +11145,7 @@ export class MariDbService {
   private chatsHelpText() {
     return [
       "Usage: mari chats <command>",
-      "Read:  list [--limit <n>] [--character <id>]",
+      "Read:  list [--limit <n>] [--offset <n>] [--character <id>]",
       "Read:  get <id>",
       "Read:  messages <chat-id> [--last <n> | --after-post <n>] [--limit <n>] [--offset <n>] [--tail]",
       "       --last counts back from the newest post; --after-post uses the 1-indexed #post shown in chat.",

@@ -5,6 +5,7 @@ import {
   PROVIDERS,
   localAuthProviderBaseUrl,
 } from "@marinara-engine/shared";
+import { decryptCustomHeaders } from "../utils/stored-secrets.js";
 import { createHash } from "node:crypto";
 import type { DB } from "../db/connection.js";
 import { logger } from "../lib/logger.js";
@@ -77,8 +78,12 @@ function canonicalCustomHeaders(defaultParameters: unknown): string {
     }
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "{}";
+  const rawHeaders = (parsed as Record<string, unknown>).customHeaders;
+  // Compare the real values: each save of an encrypted value differs even when the header did not change.
   const result = generationParametersSchema.shape.customHeaders.safeParse(
-    (parsed as Record<string, unknown>).customHeaders,
+    rawHeaders && typeof rawHeaders === "object" && !Array.isArray(rawHeaders)
+      ? decryptCustomHeaders(rawHeaders as Record<string, string>)
+      : rawHeaders,
   );
   if (!result.success) return "{}";
   return JSON.stringify(
@@ -248,13 +253,15 @@ export async function resolveMemoryRecallEmbeddingSource(
 /**
  * Connections > Test embedding: the source one connection's own settings resolve to, exactly as semantic search
  * resolves them (Embedding Connection, Embedding endpoint URL, model), without the app-wide default filling in,
- * and with the provider error thrown so the test can show it.
+ * and with the provider error thrown so the test can show it. Capability `embeddingsFor` (API 1.818) resolves the same
+ * source with `throwErrors` false, so a failed call resolves null like other package embeddings.
  */
 export async function resolveConnectionTestEmbeddingSource(
   db: DB,
   connection: EmbeddingConnectionLike,
+  throwErrors = true,
 ): Promise<MemoryRecallEmbeddingSource | null> {
-  return resolveEmbeddingSource(db, { activeConnection: connection }, false, true);
+  return resolveEmbeddingSource(db, { activeConnection: connection }, false, throwErrors);
 }
 
 async function resolveEmbeddingSource(

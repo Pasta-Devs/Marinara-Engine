@@ -36,10 +36,10 @@ To export a preset, click the up-arrow icon in the top bar (tooltip **Export pre
 
 ## The Presets panel
 
-**Prompts** is the section for presets. The other sections are **Regexes** and **Functions**. The top buttons are **New**, **Import** (load a `.json` file) and **Select** (export or delete several at once).
+The panel has four tabs: **Prompts**, **Regexes**, **Tools** and **Profiles**. Each tab has the same row of buttons at the top and a search box. On the **Prompts** tab, use **Create preset** to make one, **Import preset** to load a `.json` file, or **Select presets** to export or delete several at once; **Select all presets** ticks every preset the search shows. The **Regexes** tab holds your regex scripts; see [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts). The **Tools** tab holds your custom tools; see [Custom Tools](../extending/custom-tools.md). The **Profiles** tab holds your chat settings profiles; see [Settings Profiles](../chats/settings-profiles.md#the-profiles-tab).
 
 - **Search presets** filters the list.
-- The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest** and **Oldest**. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.
+- The sort menu offers **Manual order**, **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens** and **Fewest tokens**. The size counts the enabled sections' own text, the instructions a preset always sends. Marker sections, such as the character, lorebook and chat history, are filled in per chat and are not counted. Each row shows the estimate. With **Manual order**, drag a row, or press <kbd>Alt</kbd>+<kbd>Up</kbd> or <kbd>Alt</kbd>+<kbd>Down</kbd> on a focused row. On a touch screen, press and hold a row to pick it up.
 - **New Folder** groups presets. Drag a preset onto a folder, and double-click or double-tap a folder to rename it.
 
 Each row shows the name, wrap format, section count and author. A **DEFAULT** badge marks the starred default. Click a row to open it.
@@ -68,6 +68,17 @@ Two read-only cards show the **Sections** and **Groups** counts.
 - **Conversation Mode** is a text box for this preset's Conversation prompt. Leave it empty to use the built-in prompt.
 - **Roleplay Mode** is not editable here. Roleplay uses the prompt assembled from your **Sections**.
 - **Game Mode** is a text box for this preset's Game prompt. Leave it empty to use the built-in prompt.
+
+#### Game story settings
+
+A preset can carry a story style, violence level and content boundaries into Game Mode, so you do not have to set them for every game. See [Story style, violence and content boundaries](../game/getting-started.md#story-style-violence-and-content-boundaries).
+
+1. On the **Prompts** tab, under **Game story settings**, turn on **Bring story settings to games that use this preset**.
+2. Pick a **Story style** and a **Violence** level. **Follow rating** keeps each game's violence at its rating's default.
+3. Optional: write **Content boundaries**, one per line.
+4. Click **Save**.
+
+When you pick the preset for a game, in the setup wizard or in **Chat Settings → Prompt Preset**, the game takes the preset's story style and violence. The preset's boundaries are added to the ones the game already has, so none of the game's own boundaries are removed. Later edits to the preset do not change games that already picked it. The setting is kept when you duplicate, export or import the preset.
 
 The built-in **Marinara's Universal Preset** supplies prompt text but no generation parameters. Its older saved sampling, reasoning, formatting and token settings are ignored, and your account settings, chat overrides and app defaults apply instead. Make an editable copy to customize it.
 
@@ -164,7 +175,7 @@ Below the dropdown, a badge shows where the prompt comes from.
 
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
-Game chats add two controls. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
+Game chats add more controls. **Story style**, **Violence**, **Content boundaries** and **Rating guidelines** set what the game's story may contain. See [Change them during a game](../game/getting-started.md#change-them-during-a-game). Two more shape the prompt. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
 
 ## Decision blocks and prompt caching
 

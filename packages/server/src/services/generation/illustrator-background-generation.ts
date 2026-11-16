@@ -57,6 +57,8 @@ export type IllustratorBackgroundPlan = {
 export type GeneratedIllustratorBackground = IllustratorBackgroundPlan & {
   filename: string;
   url: string;
+  /** A library picture of this place was shown instead of painting a new one. */
+  reused?: boolean;
 };
 
 type IllustratorSceneBackgroundArgs = {
@@ -470,9 +472,15 @@ export async function generateIllustratorSceneBackground(
     planOverride?: IllustratorBackgroundPlan;
     promptOverride?: string;
     negativePromptOverride?: string;
+    /** After the plan is written: a library picture to show instead of painting one (null paints). */
+    reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null;
   },
 ): Promise<GeneratedIllustratorBackground> {
   const { plan, request } = await prepareIllustratorSceneBackground(args, args.planOverride);
+  const existing = args.reuseExisting?.(plan);
+  if (existing) {
+    return { ...plan, filename: existing, url: `/api/backgrounds/file/${encodeURIComponent(existing)}`, reused: true };
+  }
   const filename = await generateChatBackground({
     ...request,
     promptOverride: args.promptOverride,

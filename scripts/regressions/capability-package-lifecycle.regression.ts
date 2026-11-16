@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 817 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 829 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,7 +140,7 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.817/,
+    /requires capability API 2\.0; this Engine supports 1\.829/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
@@ -782,22 +782,33 @@ try {
     "Capability model calls must not discard an explicit reasoning disable request",
   );
 
-  const chatSettingsSource = readFileSync(
-    join(repositoryRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+  const roleplayAgentsSource = readFileSync(
+    join(repositoryRoot, "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx"),
     "utf8",
   );
   assert.match(
-    chatSettingsSource,
-    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<CapabilityElement/u,
+    roleplayAgentsSource,
+    /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,
     "Game chat settings must render the Long-Term Memory package controls",
   );
   assert.match(
-    chatSettingsSource,
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx"),
+      "utf8",
+    ),
+    /<CapabilityElement\s+packageId=\{packageId\}\s+view="settings"/u,
+    "the shared Long-Term Memory settings must render the package's own settings view",
+  );
+  assert.match(
+    readFileSync(
+      join(repositoryRoot, "packages/client/src/features/chat-settings/agents/ConversationAgentsSection.tsx"),
+      "utf8",
+    ),
     /callsPackage \?\s[\s\S]{0,2200}ltmPackage \?\s[\s\S]{0,1800}setLtmEnabledForChat/u,
     "Conversation chat settings must place Long-Term Memory below Calls with its activation control",
   );
   assert.match(
-    chatSettingsSource,
+    readFileSync(join(repositoryRoot, "packages/client/src/features/chat-settings/agents/use-chat-agents.ts"), "utf8"),
     /const setLtmEnabledForChat = useCallback\([\s\S]{0,900}activeAgentIds: enabled[\s\S]{0,300}filter\(\(id\) => id !== ltmPackageId\)/u,
     "Long-Term Memory activation must preserve other active agents while toggling its own ID",
   );

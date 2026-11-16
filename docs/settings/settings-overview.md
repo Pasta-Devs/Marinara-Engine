@@ -173,6 +173,7 @@ These switches are in **Settings → Advanced → Message Tools**. All are off b
 | **Include reasoning in exports** | Adds the model's hidden thinking to chat exports. |
 | **Include private notes in exports** | Adds your private message notes to JSONL and text exports. Keep it off when you share a transcript. |
 | **Debug mode** | Logs model payloads in the server console for support. |
+| **Open Console** | Opens the server's recent log lines in a movable window, read-only. Works from any device on this computer, or with the admin secret saved in **Admin Access**. Turn on **Debug mode** inside it to see your prompts and responses, or set `LOG_LEVEL=debug` in `.env` for everything. |
 
 For more, see [Message Actions](../chats/messages.md), [Personas](../characters/personas.md), [Choosing a model for one chat](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [Guided Generation and Impersonate](../chats/guided-and-impersonate.md), [Exporting and Importing Chats](../chats/export-import.md) and [Troubleshooting](../TROUBLESHOOTING.md).
 

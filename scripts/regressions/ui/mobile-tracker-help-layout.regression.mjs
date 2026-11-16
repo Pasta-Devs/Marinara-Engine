@@ -1,0 +1,214 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+
+function readSource(relativePath) {
+  return readFileSync(new URL(`../../../${relativePath}`, import.meta.url), "utf8");
+}
+
+const roleplayHud = readSource("packages/client/src/components/chat/RoleplayHUD.tsx");
+const roleplayPanels = readSource("packages/client/src/components/chat/RoleplayHUDPanels.tsx");
+const chatHelp = readSource("packages/client/src/components/chat/ChatHelpOverlay.tsx");
+const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
+const cardLibrary = readSource("packages/client/src/components/characters/CardLibraryPreview.tsx");
+const agentPage = readSource("packages/client/src/components/agents/organizer/AgentPage.tsx");
+const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
+const inventoryPanel = readSource(
+  "packages/client/src/features/tracker-panel/components/sections/InventoryTrackerPanel.tsx",
+);
+const sectionControls = readSource(
+  "packages/client/src/features/tracker-panel/components/controls/SectionControls.tsx",
+);
+const trackerDataSidebar = readSource("packages/client/src/features/tracker-panel/components/TrackerDataSidebar.tsx");
+const questTrackerPanel = readSource(
+  "packages/client/src/features/tracker-panel/components/sections/quest-tracker/QuestTrackerPanel.tsx",
+);
+const globals = readSource("packages/client/src/styles/globals.css");
+
+const roleplayTrackerWindow = readSource("packages/client/src/components/chat/RoleplayTrackerWindow.tsx");
+// #7034: Beholder launches from its own control window (a bubble) instead of the tracker strip.
+assert.match(
+  roleplayTrackerWindow,
+  /packages\.beholder\.map[\s\S]*<ChatControlWindow[\s\S]*CHAT_CONTROL_WINDOW_IDS\.beholder\(item\.id\)[\s\S]*<RoleplayTrackerCapability/u,
+  "Beholder must still launch, from its own control window",
+);
+assert.doesNotMatch(roleplayHud, /beholder-launcher/u, "the tracker strip must not keep a second Beholder launcher");
+assert.doesNotMatch(
+  roleplayHud,
+  /RoleplayHUDActionsMenu/u,
+  "Agent activity lives in Chat Settings' Agents drawer, not behind a tracker-strip button",
+);
+assert.doesNotMatch(
+  roleplayHud,
+  /\[\.\.\.memoryNagTrackerPackages, \.\.\.otherRoleplayTrackerPackages, \.\.\.beholderTrackerPackages\]/u,
+  "mobile must not mount standalone Memory Nag or Beholder controls in the tracker row",
+);
+assert.match(
+  roleplayPanels,
+  /showQuests[\s\S]*showInventory[\s\S]*memoryNagPackageIds\.map[\s\S]*showCustomTracker/u,
+  "the combined mobile tracker panel must order Inventory and Memory Nag after Quests and before Custom",
+);
+assert.match(
+  chatHelp,
+  /querySelectorAllDeep\(root[\s\S]*root instanceof Element && root\.shadowRoot[\s\S]*querySelectorAllDeep\(root\.shadowRoot/u,
+  "help target discovery must descend into package shadow roots",
+);
+assert.match(
+  chatHelp,
+  /definition\.selector\.startsWith\("\[data-chat-help="\)[\s\S]*readVisibleRect\(element, preferInteractive\)/u,
+  "only chat toolbar targets should shrink to their interactive controls",
+);
+assert.match(
+  chatHelp,
+  /window\.innerWidth < 768 \? 0 : TARGET_PADDING/u,
+  "dense mobile help targets must not be expanded into overlapping frames",
+);
+assert.match(
+  chatHelp,
+  /closestDeep\(interactive, "\[data-chat-toolbar-overflow-menu\]"\)[\s\S]*MOBILE_TOOLBAR_HIGHLIGHT_SIZE/u,
+  "mobile overflow help targets must share one square highlight size",
+);
+assert.match(
+  chatHelp,
+  /const railLeft = mobileOverflowRect\.left - TARGET_PADDING[\s\S]*reachesBehindRail[\s\S]*width: railLeft - target\.rect\.left/u,
+  "large mobile help regions must reserve the open toolbar rail instead of squeezing button highlights",
+);
+assert.match(
+  chatHelp,
+  /fixedMobileToolbarRects[\s\S]*fixedMobileToolbarRects\.get\(target\.id\) \?\? target\.rect/u,
+  "collision separation must preserve the equal square frames around mobile toolbar buttons",
+);
+assert.match(
+  roleplayHud,
+  /total > 0 \? \([\s\S]*tabular-nums[\s\S]*\) : \([\s\S]*<Backpack/u,
+  "the Inventory launcher must show only the item count after inventory is populated",
+);
+assert.doesNotMatch(
+  roleplayHud,
+  /<(?:TrackerPanelIcon|Backpack|MapPin)[^>]*mari-chrome-accent-icon/u,
+  "built-in tracker launchers must inherit the shared toolbar resting color",
+);
+assert.match(
+  roleplayHud,
+  /<span className="contents \[&_button>svg\]:!text-inherit">[\s\S]*<CapabilityElement/u,
+  "downloadable tracker icons must inherit the same shared toolbar color",
+);
+assert.match(
+  roleplayHud,
+  /onRerunTracker:[\s\S]*trackerRetryBusy:[\s\S]*onToggleLockMode:/u,
+  "package tracker launchers must receive working regenerate and lock callbacks",
+);
+assert.match(
+  roleplayPanels,
+  /personaStats[\s\S]*<PersonaStatusField/u,
+  "the mobile tracker panel must present Persona Stats before Current Status",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /(?:Characters|Quests|Custom)\s*\{[^}]*\.length/u,
+  "mobile tracker headings must not append item counts",
+);
+assert.doesNotMatch(
+  roleplayPanels,
+  /ui\.panels\.characterspanel\.characters/u,
+  "the mobile Characters heading must not reuse the library count-prefix label",
+);
+assert.match(
+  inventoryPanel,
+  /mari-rgb-static-icon block text-current/u,
+  "Inventory remove icons must inherit their item text color instead of the animated accent",
+);
+assert.match(
+  globals,
+  /\.mari-chrome-muted-badge[\s\S]*border-radius: 0\.625rem;[\s\S]*\.mari-chrome-tag\s*\{\s*border-radius: 0\.625rem;/u,
+  "shared tags and badges must use the compact search-tag corner radius",
+);
+assert.doesNotMatch(
+  chatSidebar,
+  /mari-chrome-muted-badge mari-chrome-tag/u,
+  "chat branch badges must use the exact shared character-tag badge",
+);
+assert.match(
+  cardLibrary,
+  /card\.tags\.slice\(0, 2\)\.map[\s\S]*mari-chrome-tag/u,
+  "character and persona library tags must use the shared compact tag shape",
+);
+assert.match(
+  agentPage,
+  /modes\.map\(\(mode\) => \([\s\S]*?rounded-md border px-1\.5 py-0\.5[\s\S]*?MODE_BADGES\[mode\]\.className/u,
+  "store page mode tags must use the shared mode badge colours",
+);
+assert.match(
+  sectionControls,
+  /export const TRACKER_SECTION_SHELL_CLASS/u,
+  "Tracker Panel sections must share one themed shell class",
+);
+assert.match(
+  trackerDataSidebar,
+  /TRACKER_SECTION_SHELL_CLASS, "mari-tracker-capability-section"[\s\S]*TrackerReadabilityVeil strength="strong"[\s\S]*<CapabilityElement/u,
+  "downloadable tracker sections must use the same shell and readability veil as built-in sections",
+);
+assert.doesNotMatch(
+  questTrackerPanel,
+  /radial-gradient|QUEST_PANEL_TEXTURE_CLASS/u,
+  "Quest Board must inherit the shared square panel texture instead of adding dots",
+);
+assert.match(
+  globals,
+  /\.mari-tracker-capability-section :is\(\.mn-tracker, \.bh-tracker-launch\)[\s\S]*border-bottom: 0;[\s\S]*\.mn-tracker-title, \.bh-tracker-launch__title[\s\S]*--tracker-panel-font-scale/u,
+  "Memory Nag and Beholder must inherit shared section dividers, backgrounds, and constrained typography",
+);
+assert.match(
+  agentSettingsControls,
+  /flex min-h-8 items-center justify-center rounded-md[\s\S]*text-center/u,
+  "shared agent segmented controls, including Music DJ, must center their contents",
+);
+
+// Execute the tutorial's real positioning helpers with a below-fold Home anchor.
+const tutorial = readSource("packages/client/src/components/onboarding/OnboardingTutorial.tsx");
+const constantsStart = tutorial.indexOf("const PAD =");
+const constantsEnd = tutorial.indexOf("const TUTORIAL_CARD_CLASS", constantsStart);
+const helpersStart = tutorial.indexOf("function getViewportWidth");
+const helpersEnd = tutorial.indexOf("// ─── Card content", helpersStart);
+assert.ok(constantsStart >= 0 && constantsEnd > constantsStart && helpersStart >= 0 && helpersEnd > helpersStart);
+const centeredSizing = tutorial.match(/const centeredTopOffset =[^;]+;\s*const centeredCardMaxHeight =[^;]+;/u)?.[0];
+assert.ok(centeredSizing, "centered tutorial sizing must be exercised too");
+const tooltipSource = `${tutorial.slice(constantsStart, constantsEnd)}\n${tutorial.slice(helpersStart, helpersEnd)}\n({ computeTooltipStyle, centeredHeight: () => { ${centeredSizing} return centeredCardMaxHeight; } });`;
+const viewport = { innerWidth: 800, innerHeight: 320 };
+const { computeTooltipStyle, centeredHeight } = runInNewContext(
+  ts.transpileModule(tooltipSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText,
+  {
+    window: viewport,
+    document: { querySelector: () => ({ getBoundingClientRect: () => ({ bottom: 48 }) }) },
+  },
+);
+for (const height of [320, 220]) {
+  viewport.innerHeight = height;
+  for (const width of [800, 390]) {
+    viewport.innerWidth = width;
+    for (const target of ["home-documentation", "panel-settings", "sidebar-toggle", "chat-mode-roleplay"]) {
+      for (const side of ["top", "bottom", "left", "right"]) {
+        const top = target === "home-documentation" ? 500 : target === "chat-mode-roleplay" ? 80 : 8;
+        const style = computeTooltipStyle({ left: 100, top, width: 500, height: 44 }, { target, side });
+        const margin = width < 640 ? 12 : 16;
+        assert.ok(style.top >= 60, `${target}/${side}: tutorial must remain below the topbar`);
+        assert.ok(
+          style.top + Number.parseFloat(style.maxHeight) <= height - margin,
+          `${width}x${height} ${target}/${side}: tutorial must fit the short viewport`,
+        );
+        assert.equal(style.overflowY, "auto", "long tutorial content must remain scrollable");
+      }
+    }
+    assert.equal(centeredHeight(), height - 60 - 16, "centered cards must also use the actual available height");
+  }
+}
+viewport.innerWidth = 800;
+viewport.innerHeight = 600;
+const normalStyle = computeTooltipStyle(
+  { left: 100, top: 200, width: 500, height: 20 },
+  { target: "home-documentation", side: "right" },
+);
+assert.equal(normalStyle.maxHeight, "340px", "retain the preferred height when the viewport has space");
+
+process.stdout.write("Mobile tracker, help, and tutorial layout regression passed\n");

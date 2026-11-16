@@ -3,12 +3,18 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { partialInput } from "@marinara-engine/shared";
+import { parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { getMariDbService } from "../services/mari-db/mari-db.service.js";
+import {
+  isEncryptedStoredSecret,
+  maskChatMetadataSecrets,
+  maskChatRowSecrets,
+  resolveChatMetadataSecretPlaceholders,
+} from "../utils/stored-secrets.js";
 import { deletePendingForChat } from "../services/professor-mari/workspace-pending-store.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
 import {
@@ -74,6 +80,7 @@ import {
   CHAT_RECENT_MODELS_KEY,
   CHAT_RECENT_MODELS_LIMIT,
   CHAT_FOLLOWS_MAIN_KEY,
+  CHAT_MODEL_DELETED_KEY,
   LOCAL_SIDECAR_CONNECTION_ID,
   chatModelChoiceSchema,
   chatModelPickSchema,
@@ -83,6 +90,7 @@ import {
   omitChatMetadataLocalDestinations,
   rulesetAllowsCombatStyle,
   rulesetCombatStyles,
+  undoChatVariableChanges,
 } from "@marinara-engine/shared";
 import type {
   Chat,
@@ -117,6 +125,7 @@ import {
 import { createGameWorldSnapshotsStorage } from "../services/storage/game-world-snapshots.storage.js";
 import { createMessageTrashStorage, MessageTrashPinnedLimitError } from "../services/storage/message-trash.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
@@ -495,7 +504,8 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
     ...chat,
     characterIds: resolveChatCharacterIds(chat.characterIds),
     personaCharacterId: (chat as T & { personaCharacterId?: string | null }).personaCharacterId ?? null,
-    metadata: parseChatMetadata(chat.metadata),
+    // Saved keys and the Discord webhook stay on the server: responses say only that one is saved.
+    metadata: maskChatMetadataSecrets(parseChatMetadata(chat.metadata)),
   });
 }
 type SummaryEntriesPatchBody =
@@ -1050,7 +1060,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         if (!updated && hideMessageIds.length > 0) {
           await storage.bulkSetHiddenFromAI(req.params.id, hideMessageIds, false);
         }
-        return updated;
+        return maskChatRowSecrets(updated);
       } catch (err) {
         if (hideMessageIds.length > 0) {
           await storage.bulkSetHiddenFromAI(req.params.id, hideMessageIds, false);
@@ -1662,9 +1672,14 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
     // Changing the Model to none ("Use default", Random off) follows Main by choice, so generation reports no deleted
     // Model; a PATCH that keeps the id (a stale form after the delete already cleared it) leaves the flag as it is.
+    // #9126: choosing Main (or setting a Model) also clears a Model deletion the sweep recorded, so the notice is
+    // not reported again for a Model the player has since replaced.
     if (updated && data.connectionId !== undefined && (data.connectionId ?? null) !== (existing.connectionId ?? null)) {
       updated =
-        (await storage.patchMetadata(req.params.id, { [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId })) ?? updated;
+        (await storage.patchMetadata(req.params.id, {
+          [CHAT_FOLLOWS_MAIN_KEY]: !data.connectionId,
+          [CHAT_MODEL_DELETED_KEY]: null,
+        })) ?? updated;
     }
     if (updated && roleplayTrackerCharacterIdsToSeed.length > 0) {
       try {
@@ -1786,6 +1801,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             [CHAT_MODEL_OVERRIDE_KEY]: choice?.model ? choice : null,
             [CHAT_RECENT_MODELS_KEY]: recent.slice(0, CHAT_RECENT_MODELS_LIMIT),
             [CHAT_FOLLOWS_MAIN_KEY]: !choice,
+            // #9126: a pick, Main included, is the player's answer to a Model the sweep recorded as deleted.
+            [CHAT_MODEL_DELETED_KEY]: null,
           };
         },
         { metadataQueueHeld: true },
@@ -1808,6 +1825,22 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const incoming = req.body as Record<string, unknown>;
+    // The mask (or nothing) keeps a saved DeepL key or webhook, "" clears it, a new value replaces it; the
+    // chat storage encrypts it on write.
+    // A settings profile named in the patch (Chat Setup, applying a profile) sends its own masked key or webhook.
+    // A newly applied profile's saved value wins; otherwise the chat's own value wins and the profile only fills
+    // a value the chat lacks.
+    const appliedPresetId = typeof incoming.appliedChatPresetId === "string" ? incoming.appliedChatPresetId : "";
+    const currentMetadata = parseChatMetadata(chat.metadata);
+    const profileMetadata = appliedPresetId
+      ? ((await createChatPresetsStorage(app.db).getById(appliedPresetId))?.settings?.metadata as
+          Record<string, unknown> | undefined)
+      : undefined;
+    const newlyApplied = appliedPresetId !== "" && appliedPresetId !== currentMetadata.appliedChatPresetId;
+    resolveChatMetadataSecretPlaceholders(
+      incoming,
+      ...(newlyApplied ? [profileMetadata, currentMetadata] : [currentMetadata, profileMetadata]),
+    );
     if (Object.prototype.hasOwnProperty.call(incoming, "customMusicExternalFolder")) {
       // This chat's Music DJ folder (#8901). A typed path needs the folder picker's access; clearing it does not.
       const value = incoming.customMusicExternalFolder;
@@ -1837,7 +1870,9 @@ export async function chatsRoutes(app: FastifyInstance) {
       incoming[key] = parsed.data;
     }
     // Validate Discord webhook URL if provided
-    if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim()) {
+    // A saved (encrypted) webhook carried over above was checked when it was first entered.
+    const webhookIsSaved = isEncryptedStoredSecret(incoming.discordWebhookUrl);
+    if (typeof incoming.discordWebhookUrl === "string" && incoming.discordWebhookUrl.trim() && !webhookIsSaved) {
       const url = incoming.discordWebhookUrl.trim();
       if (!/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(url)) {
         return reply.status(400).send({ error: "Invalid Discord webhook URL" });
@@ -2411,6 +2446,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         writableLorebookIds,
         allowTargetRouting: payload.allowTargetRouting !== false,
         namesAreVerbatim: true,
+        writerOrder: parseLorebookWriterOrder(payload.writerOrder),
         writableLorebooks,
         lorebookNamingScheme: getLorebookNamingScheme({ lorebookNamingScheme: payload.lorebookNamingScheme }),
         worldName:
@@ -5640,6 +5676,19 @@ export async function chatsRoutes(app: FastifyInstance) {
     const sourceMessagesToCopy = msgs.slice(0, sourceCutoffIndex + 1);
     const copiedSourceMessageIds = new Set(sourceMessagesToCopy.map((msg) => msg.id));
     const firstOmittedMessage = msgs[sourceCutoffIndex + 1];
+    // The branch starts from the chat variables at its cutoff (#8990): undo what the omitted
+    // replies' shown swipes changed, newest first, as deleting them would.
+    const omittedMessages = msgs.slice(sourceCutoffIndex + 1);
+    const swipesByMessageId = await storage.getSwipesByMessageId(msgs.map((msg) => msg.id));
+    const omittedVariableChanges = omittedMessages
+      .map((msg) => {
+        const shown = swipesByMessageId.get(msg.id)?.find((swipe) => swipe.index === msg.activeSwipeIndex);
+        return parseExportMetadata(shown?.extra).macroVariableChanges;
+      })
+      .reverse();
+    if (omittedVariableChanges.some(Boolean)) {
+      settingsToKeep.macroVariables = undoChatVariableChanges(sourceMeta.macroVariables, omittedVariableChanges);
+    }
     if (sourceChat.mode === "game" && firstOmittedMessage) {
       if (settingsToKeep.gameJournal) {
         settingsToKeep.gameJournal = trimJournalForBranch(
@@ -5675,7 +5724,6 @@ export async function chatsRoutes(app: FastifyInstance) {
     const copiedSourceMessages: typeof msgs = [];
     const copiedMessageInputs: Parameters<typeof storage.createMessagesBatch>[1] = [];
 
-    const swipesByMessageId = await storage.getSwipesByMessageId(sourceMessagesToCopy.map((msg) => msg.id));
     for (const msg of sourceMessagesToCopy) {
       const swipes = swipesByMessageId.get(msg.id) ?? [];
       const messageExtra = await storage.prepareRoleplayInterruptionExtraForCopy(
@@ -5732,7 +5780,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     // A branch ending before the interrupting response keeps the full preceding message.
     // Copy only; never restore or otherwise mutate the source chat while branching.
-    for (const omittedMessage of msgs.slice(sourceCutoffIndex + 1)) {
+    for (const omittedMessage of omittedMessages) {
       const omittedActivity = (
         await storage.prepareRoleplayInterruptionExtraForCopy(parseExportMetadata(omittedMessage.extra))
       ).roleplayCommandActivity;

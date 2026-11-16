@@ -17,6 +17,7 @@ export type CommandCenterModal =
   | "import-lorebook"
   | "import-persona"
   | "import-preset"
+  | "job-settings"
   | "keyboard-shortcuts"
   | "global-chat-search"
   | "activity-overview"
@@ -49,8 +50,10 @@ export type CommandCenterTitleKey =
   | "activityOverview"
   | "gameAssets"
   | "cardBrowser"
+  | "lorebookBrowser"
   | "characterLibrary"
   | "personaLibrary"
+  | "lorebookLibrary"
   | "agentLibrary"
   | "spotify"
   | "textToSpeech"
@@ -86,8 +89,10 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   activityOverview: "Activity overview",
   gameAssets: "Game assets",
   cardBrowser: "Card browser",
+  lorebookBrowser: "Lorebook browser",
   characterLibrary: "Character library",
   personaLibrary: "Persona library",
+  lorebookLibrary: "Lorebook library",
   agentLibrary: "Agent library",
   spotify: "Spotify",
   textToSpeech: "Text to speech",

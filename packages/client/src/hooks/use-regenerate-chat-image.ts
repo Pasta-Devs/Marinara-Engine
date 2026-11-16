@@ -27,3 +27,19 @@ export function useRegenerateChatImage(chatId: string) {
     },
   });
 }
+
+export interface ImagePromptDraft {
+  prompt: string;
+  negativePrompt: string;
+  characterPrompts: NonNullable<RegenerateChatImageInput["characterPrompts"]>;
+}
+
+export function useReviseChatImagePrompt(chatId: string) {
+  return useMutation({
+    mutationFn: ({
+      imageId,
+      ...input
+    }: ImagePromptDraft & { imageId: string; guidance: string; connectionId?: string; debugMode: boolean }) =>
+      api.post<ImagePromptDraft>(`/gallery/${chatId}/images/${encodeURIComponent(imageId)}/regenerate/prompt`, input),
+  });
+}

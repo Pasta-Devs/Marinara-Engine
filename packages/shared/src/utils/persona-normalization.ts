@@ -43,6 +43,23 @@ export function normalizePersonaStringArray(value: unknown): string[] {
   return Array.isArray(decoded) ? decoded.filter((item): item is string => typeof item === "string") : [];
 }
 
+/**
+ * Name aliases: trimmed, non-empty strings, unique ignoring case (the first spelling wins, as in
+ * the editor); anything else reads as none.
+ */
+export function normalizeNameAliases(value: unknown): string[] {
+  const seen = new Set<string>();
+  const aliases: string[] = [];
+  for (const item of normalizePersonaStringArray(value)) {
+    const alias = item.trim();
+    const key = alias.toLowerCase();
+    if (!alias || seen.has(key)) continue;
+    seen.add(key);
+    aliases.push(alias);
+  }
+  return aliases;
+}
+
 /** Canonicalize serialized or decoded tracker configuration without UI presentation concerns. */
 export function normalizeTrackerCardColorConfig(value: unknown): TrackerCardColorConfig & UnknownRecord {
   const config = decodeJsonValue(value);
@@ -169,13 +186,18 @@ function normalizeRpgStats(value: unknown): (RPGStatsConfig & UnknownRecord) | u
 /** Tolerantly retain valid Persona stat data for stored-row projection. */
 export function normalizePersonaStats(value: unknown): (PersonaStatsConfig & UnknownRecord) | undefined {
   const config = decodeJsonValue(value);
-  if (!isRecord(config) || typeof config.enabled !== "boolean" || !Array.isArray(config.bars)) return undefined;
-  const bars = config.bars.flatMap((bar) => {
+  if (!isRecord(config) || Object.keys(config).length === 0) return undefined;
+  // Game data (ruleset sheets, MRPG picks, combat icon) can be written before the status bars ever
+  // were, so a missing `enabled` / `bars` means "bars off", not "no stats". Wrong types still drop it.
+  const enabled = config.enabled === undefined ? false : config.enabled;
+  const rawBars = config.bars === undefined ? [] : config.bars;
+  if (typeof enabled !== "boolean" || !Array.isArray(rawBars)) return undefined;
+  const bars = rawBars.flatMap((bar) => {
     const normalized = normalizeStatBar(bar);
     return normalized ? [normalized] : [];
   });
   const rpgStats = normalizeRpgStats(config.rpgStats);
-  const result: UnknownRecord = { ...config, enabled: config.enabled, bars };
+  const result: UnknownRecord = { ...config, enabled, bars };
   if (rpgStats) result.rpgStats = rpgStats;
   else delete result.rpgStats;
   // Ruleset sheets are kept under their key whether or not the ruleset is installed; only a sheet

@@ -15,6 +15,7 @@ import {
 import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { findScrollParent } from "../../lib/panel-virtual-list";
 import { FOCUS } from "./ModelRow";
 
 /** The search field: an icon, the input and, once there is text, a clear button. Escape clears the text first. */
@@ -159,7 +160,26 @@ export function ListFrame({
     const index = from ? options.indexOf(from as HTMLElement) : -1;
     if (index < 0) return;
     event.preventDefault();
-    const next = options[index + (down ? 1 : -1)];
+    // A virtual list mounts rows near the view only, so DOM order is not list order: ask the row's own list for its neighbour.
+    const row = from?.closest<HTMLElement>("[data-index]");
+    const list = row?.parentElement?.hasAttribute("data-virtual-list") ? row.parentElement : null;
+    const step = down ? 1 : -1;
+    const want = row && list ? Number(row.dataset.index) + step : -1;
+    if (list && want >= 0 && want < Number(list.dataset.count)) {
+      const scroller = findScrollParent(row!);
+      let tries = 10;
+      const go = () => {
+        const el = list.querySelector<HTMLElement>(`[data-index="${want}"]`)?.querySelector<HTMLElement>(option);
+        if (el) el.focus();
+        else if (tries-- > 0 && scroller) {
+          scroller.scrollBy({ top: step * row!.offsetHeight });
+          requestAnimationFrame(go);
+        }
+      };
+      go();
+      return;
+    }
+    const next = options[index + step];
     if (next) next.focus();
     else if (!down) input?.focus();
   };

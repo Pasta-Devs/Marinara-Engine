@@ -25,7 +25,12 @@ import type { LegacyNoodleNavigationState as NoodleNavigationState } from "../li
 import { isCssGradient, MARINARA_GRADIENT_PRESET, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
-import { normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
+import {
+  normalizeBasicPanelSort,
+  normalizeLibrarySort,
+  type BasicPanelSort,
+  type LibrarySort,
+} from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 import { deferEditorLeave } from "../lib/editor-leave";
 import { OMNIBAR_ASIDE_DELAY_MS } from "../lib/omnibar-aside-text";
@@ -34,6 +39,16 @@ import { markOmnibarOpenStart } from "../lib/omnibar-open-timing";
 import { readUIPersistence, UI_PERSISTENCE, UI_PERSISTENCE_HOST_COPY } from "../lib/ui-persistence";
 import { addApprovedRemoteImageUrl, normalizeApprovedRemoteImageUrls } from "../lib/remote-images";
 import { normalizeChatWidgetFont } from "../lib/font-family";
+import {
+  foldAppBackgroundColor,
+  normalizeUiStyleOverride,
+  normalizeUiStyleOverrides,
+  normalizeUiStylePresets,
+  type UiStyleOverride,
+  type UiStyleOverrides,
+  type UiStylePreset,
+  type UiStyleTargetId,
+} from "../lib/ui-style-overrides";
 import type { ChatWizardDefaults, ChatWizardMode } from "../lib/chat-wizard-defaults";
 import type { MariFieldReview } from "../lib/mari-editor-fields";
 import {
@@ -60,9 +75,18 @@ export type ChatModeShortcut = "conversation" | "roleplay" | "game";
 
 /** Not saved: a Home surface the omnibar or a Command Center row asks Home to open. */
 export type HomeRequest = { kind: "faq" | "widgets" | "credits" } | { kind: "tab"; tab: string };
-export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
+export const CHARACTER_LIBRARY_SORT_OPTIONS = [
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "favorites",
+  "tokens-desc",
+  "tokens-asc",
+] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
-export type CardLibraryKind = "characters" | "personas";
+export type CardLibraryKind = "characters" | "personas" | "lorebooks";
+export type BotBrowserKind = "cards" | "lorebooks";
 export const MOBILE_SHELL_MEDIA_QUERY =
   "(max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse)";
 export const CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS = ["all", "favorites", "non-favorites"] as const;
@@ -77,9 +101,17 @@ export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
   "uncategorized",
 ] as const satisfies readonly (LorebookCategory | "all" | "active")[];
 export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[number];
-export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
+export const LOREBOOK_PANEL_SORT_OPTIONS = [
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "tokens-desc",
+  "tokens-asc",
+] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
 export type ResourcePanelSort = BasicPanelSort;
+export type { LibrarySort };
 export type ConnectionPanelSort = BasicPanelSort | "custom";
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22 | 26 | 30 | 34;
 export type VisualTheme = "default" | "sillytavern";
@@ -448,7 +480,9 @@ function normalizeLorebookPanelCategory(value: unknown): LorebookPanelCategory {
     : "all";
 }
 
-function normalizeLorebookPanelSort(value: unknown): LorebookPanelSort {
+export function normalizeLorebookPanelSort(value: unknown): LorebookPanelSort {
+  // The old Token Budget sort ("tokens") lands on the size sort that replaced it.
+  if (value === "tokens") return "tokens-desc";
   return LOREBOOK_PANEL_SORT_OPTIONS.includes(value as LorebookPanelSort) ? (value as LorebookPanelSort) : "name-asc";
 }
 
@@ -493,7 +527,8 @@ function normalizeAppAccentColor(value: unknown) {
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
-function normalizeAppBackgroundColor(value: unknown) {
+/** The retired Background Color, minus the stock scheme backgrounds; only migrations read it now. */
+export function normalizeAppBackgroundColor(value: unknown) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
@@ -687,7 +722,7 @@ export interface CustomQuickReply {
 export type MariPanelSortMode = "az" | "za" | "newest" | "oldest";
 export type MariEditViewMode = "easy" | "raw";
 
-interface UIState {
+export interface UIState {
   /** Transient: the initial cross-device settings fetch has settled. */
   settingsSyncReady: boolean;
   showHomeBrowserAddressBar: boolean;
@@ -721,20 +756,42 @@ interface UIState {
   settingsTargetSectionId: string | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
-  /** Not saved: the Home tab a package opened the connection editor from; closing that editor returns there. */
-  connectionDetailReturnTab: string | null;
+  /**
+   * Not saved: the Home tab being shown (`"home"` or an installed package's id). It lives here because the desktop
+   * shell unmounts Home under every full-page surface, so Back must find the tab the user left. Opening a chat
+   * resets it (AppShell); `closeAllDetails` leaves it alone.
+   */
+  homeTab: string;
+  /**
+   * Not saved: the chat (and Chat Settings section) whose drawer opened the full-page surface now showing. The drawer
+   * closes first, so nothing else remembers it: popping the last surface turns this into `chatSettingsRequest`.
+   */
+  chatSettingsReturn: ChatSettingsReturn | null;
+  /** Not saved: reopen Chat Settings once the chat shows again (ChatArea consumes it; the desktop shell remounts it). */
+  chatSettingsRequest: ChatSettingsReturn | null;
   /** Not saved: the What's New window should open again (see `requestWhatsNew`). */
   whatsNewRequested: boolean;
   modal: { type: string; props?: Record<string, unknown> } | null;
   /** Not saved: an Advanced Memory scene to open, or a Fix to start, once its Chat Settings section shows. */
   advancedMemoryRequest: { chatId: string; sceneId?: string; fix?: boolean } | null;
   theme: "dark" | "light";
+  /** Retired Background Color: "" once folded into the Whole app part; keeps only values that part cannot hold. */
   appBackgroundColor: string;
   appAccentColor: string;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
   reduceAmbientEffects: boolean;
+  /** User restyling of curated interface regions (Settings → Appearance); persisted and synced. */
+  uiStyleOverrides: UiStyleOverrides;
+  /** The user's saved style presets (a library that "Reset appearance" keeps); persisted and synced. */
+  uiStylePresets: UiStylePreset[];
+  /** Transient: the full-screen element picker is open. */
+  uiStylePickMode: boolean;
+  /** Transient: the region the style editor is editing. */
+  uiStyleSelectedTarget: UiStyleTargetId | null;
+  /** Transient: the unsaved draft layered over `uiStyleOverrides` while editing. */
+  uiStylePreview: { target: UiStyleTargetId; override: UiStyleOverride | null } | null;
   mariPanelSortMode: MariPanelSortMode;
   /** The omnibar aside may answer a dead-end query without being asked (R3/R10). */
   omnibarAsideEnabled: boolean;
@@ -783,6 +840,11 @@ interface UIState {
   presetDetailId: string | null;
   /** One-shot tab the preset editor should open to. */
   presetDetailInitialTab: string | null;
+  /**
+   * When set, the main area shows the settings profile editor: a profile id, or `new:<mode>` for a profile that
+   * isn't saved yet.
+   */
+  profileDetailId: string | null;
   /** When set, the main area shows the full-page connection editor instead of chat */
   connectionDetailId: string | null;
   /** When set, the main area shows the full-page agent editor. Value is the agent *type* id (e.g. "world-state") */
@@ -854,6 +916,8 @@ interface UIState {
   personaDetailInitialTab: string | null;
   /** When true, the main area shows the browser */
   botBrowserOpen: boolean;
+  /** What the browser shows: character/persona cards, or lorebooks. */
+  botBrowserKind: BotBrowserKind;
   /** When true, the main area shows the game assets browser */
   gameAssetsBrowserOpen: boolean;
   /** When true, the main area shows the Noodle social timeline */
@@ -868,7 +932,10 @@ interface UIState {
   cardLibraryKind: CardLibraryKind;
   /** When true, the main area shows the full-page downloadable agent catalog */
   agentCatalogOpen: boolean;
-  /** Optional package selected when opening the downloadable agent catalog */
+  /**
+   * The agent page the catalog shows, or null for its front page. Set when the catalog opens and kept current by
+   * the catalog while it is mounted, so Back from an agent's Settings returns to the page that was being viewed.
+   */
   agentCatalogInitialPackageId: string | null;
   /** Last selected character card inside the full-page character library */
   characterLibrarySelectedId: string | null;
@@ -876,10 +943,14 @@ interface UIState {
   characterLibraryInitialId: string | null;
   /** Last selected persona card inside the full-page card library */
   personaLibrarySelectedId: string | null;
+  /** Last selected lorebook inside the full-page card library */
+  lorebookLibrarySelectedId: string | null;
   /** Last selected sort order for character lists and the full-page character library */
   characterLibrarySort: CharacterLibrarySort;
   /** Last selected sort order for the full-page persona library */
-  personaLibrarySort: ResourcePanelSort;
+  personaLibrarySort: LibrarySort;
+  /** Last selected sort order for the full-page lorebook library */
+  lorebookLibrarySort: LibrarySort;
   /** Search text for the compact Characters panel */
   characterPanelSearch: string;
   /** Included tag filters for the compact Characters panel */
@@ -896,6 +967,8 @@ interface UIState {
   characterLibraryScrollTop: number;
   /** Last scroll offset for the full-page Persona Library list */
   personaLibraryScrollTop: number;
+  /** Last scroll offset for the full-page Lorebook Library list */
+  lorebookLibraryScrollTop: number;
   /** Selected category for the compact Lorebooks panel */
   lorebookPanelCategory: LorebookPanelCategory;
   /** Search text for the compact Lorebooks panel */
@@ -909,15 +982,19 @@ interface UIState {
   /** Sort order for imported characters in the Browser panel */
   botBrowserPanelSort: ResourcePanelSort;
   /** Sort order for the compact Presets panel */
-  presetPanelSort: ResourcePanelSort;
+  presetPanelSort: LibrarySort;
   /** Sort order for the compact Connections panel */
   /** Sort order for the compact Agents panel */
   agentPanelSort: ResourcePanelSort;
   libraryManualOrders: Record<string, { active: boolean; ids: string[] }>;
   /** True when any open detail editor has unsaved changes */
   editorDirty: boolean;
+  /** True while a Connections editor saves; job settings windows stay open until it ends */
+  connectionSaving: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
   detailReturnRightPanel: Panel | null;
+  /** Surfaces Back returns to, oldest first. In memory only: never persisted or synced. */
+  mainSurfaceHistory: MainSurfaceSnapshot[];
 
   // ── Settings (persisted) ──
   fontSize: FontSize;
@@ -1304,6 +1381,9 @@ interface UIState {
   setSettingsTargetControlId: (controlId: string | null) => void;
   requestHome: (request: HomeRequest) => void;
   consumeHomeRequest: () => void;
+  setChatSettingsReturn: (back: ChatSettingsReturn | null) => void;
+  consumeChatSettingsRequest: () => void;
+  setHomeTab: (tab: string) => void;
   requestWhatsNew: () => void;
   consumeWhatsNewRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
@@ -1311,7 +1391,14 @@ interface UIState {
   closeModal: () => void;
   setAdvancedMemoryRequest: (request: UIState["advancedMemoryRequest"]) => void;
   setTheme: (theme: "dark" | "light") => void;
-  setAppBackgroundColor: (color: string) => void;
+  saveUiStyleOverride: (target: UiStyleTargetId, override: UiStyleOverride | null) => void;
+  resetUiStyleOverrides: () => void;
+  saveUiStylePreset: (name: string) => void;
+  applyUiStylePreset: (id: string) => void;
+  deleteUiStylePreset: (id: string) => void;
+  setUiStylePickMode: (enabled: boolean) => void;
+  setUiStyleSelectedTarget: (target: UiStyleTargetId | null) => void;
+  setUiStylePreview: (preview: UIState["uiStylePreview"]) => void;
   setAppAccentColor: (color: string) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
@@ -1337,8 +1424,10 @@ interface UIState {
   setConversationBackgroundImageOpacity: (v: number) => void;
   setCharacterLibrarySelectedId: (id: string | null) => void;
   setPersonaLibrarySelectedId: (id: string | null) => void;
+  setLorebookLibrarySelectedId: (id: string | null) => void;
   setCharacterLibrarySort: (sort: CharacterLibrarySort) => void;
-  setPersonaLibrarySort: (sort: ResourcePanelSort) => void;
+  setPersonaLibrarySort: (sort: LibrarySort) => void;
+  setLorebookLibrarySort: (sort: LibrarySort) => void;
   setCharacterPanelSearch: (search: string) => void;
   setCharacterPanelIncludedTags: (tags: string[]) => void;
   setCharacterPanelExcludedTags: (tags: string[]) => void;
@@ -1347,13 +1436,14 @@ interface UIState {
   setCharacterPanelScrollTop: (scrollTop: number) => void;
   setCharacterLibraryScrollTop: (scrollTop: number) => void;
   setPersonaLibraryScrollTop: (scrollTop: number) => void;
+  setLorebookLibraryScrollTop: (scrollTop: number) => void;
   setLorebookPanelCategory: (category: LorebookPanelCategory) => void;
   setLorebookPanelSearch: (search: string) => void;
   setLorebookPanelSort: (sort: LorebookPanelSort) => void;
   setLorebookPanelActiveTag: (tag: string | null) => void;
   setLorebookPanelTagsExpanded: (expanded: boolean) => void;
   setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
-  setPresetPanelSort: (sort: ResourcePanelSort) => void;
+  setPresetPanelSort: (sort: LibrarySort) => void;
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   setLibraryManualOrder: (kind: string, order: { active: boolean; ids: string[] }) => void;
   openCharacterDetail: (
@@ -1366,7 +1456,9 @@ interface UIState {
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
-  openConnectionDetail: (id: string, options?: { returnToHomeTab?: string }) => void;
+  openProfileDetail: (id: string) => void;
+  closeProfileDetail: () => void;
+  openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
   closeAgentDetail: () => void;
@@ -1389,10 +1481,14 @@ interface UIState {
   closeSpatialMapDetail: () => void;
   openCharacterLibrary: (characterId?: string) => void;
   openPersonaLibrary: () => void;
+  openLorebookLibrary: () => void;
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
   closeAgentCatalog: () => void;
+  setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
+  /** The browser in lorebook mode (Chub lorebooks); a separate action because callers pass openBotBrowser to onClick. */
+  openLorebookBrowser: () => void;
   closeBotBrowser: () => void;
   openGameAssetsBrowser: () => void;
   closeGameAssetsBrowser: () => void;
@@ -1405,8 +1501,11 @@ interface UIState {
   hasAnyDetailOpen: () => boolean;
   /** Close all detail editors at once */
   closeAllDetails: () => void;
+  /** Close the surface in front, returning to the one opened before it (what Back does) */
+  closeTopMainSurface: () => void;
   /** Update the editor dirty flag (called by detail editors when their dirty state changes) */
   setEditorDirty: (dirty: boolean) => void;
+  setConnectionSaving: (saving: boolean) => void;
 
   // Settings actions
   setFontSize: (size: FontSize) => void;
@@ -1608,24 +1707,152 @@ function restoreMobileDetailReturnPanel(panel: Panel | null) {
   };
 }
 
+/**
+ * The full-page surfaces that replace the chat, in `AppShell`'s `detailView` precedence order (the map, Bot Browser,
+ * game assets and Noodle render outside that chain, after it).
+ */
+const MAIN_SURFACE_KEYS = [
+  "regexDetailId",
+  "personaDetailId",
+  "toolDetailId",
+  "agentDetailId",
+  "connectionDetailId",
+  "presetDetailId",
+  "profileDetailId",
+  "characterDetailId",
+  "characterLibraryOpen",
+  "agentCatalogOpen",
+  "lorebookDetailId",
+  "spatialMapDetailChatId",
+  "botBrowserOpen",
+  "gameAssetsBrowserOpen",
+  "noodleOpen",
+] as const;
+export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
+
+/** The Chat Settings drawer a surface was opened from; `section` is the drawer's `initialSection`. */
+export type ChatSettingsReturn = { chatId: string; section: string | null };
+
+const CLOSED_MAIN_SURFACE = {
+  regexDetailId: null,
+  personaDetailId: null,
+  toolDetailId: null,
+  agentDetailId: null,
+  connectionDetailId: null,
+  presetDetailId: null,
+  profileDetailId: null,
+  characterDetailId: null,
+  characterLibraryOpen: false,
+  agentCatalogOpen: false,
+  lorebookDetailId: null,
+  spatialMapDetailChatId: null,
+  botBrowserOpen: false,
+  gameAssetsBrowserOpen: false,
+  noodleOpen: false,
+  // A draft review belongs to the map; no other surface may inherit it.
+  pendingSpatialMapDraftReview: null,
+} satisfies Partial<UIState>;
+
+/**
+ * What returning to a surface needs; one-shot fields (`*InitialTab`, reveal targets) are consumed on mount. The map's
+ * pending draft review is not: it stays set until applied or skipped, so it returns with the map.
+ */
+type MainSurfaceSnapshot = Pick<
+  UIState,
+  MainSurfaceKey | "cardLibraryKind" | "detailReturnRightPanel" | "pendingSpatialMapDraftReview"
+>;
+
+const MAIN_SURFACE_HISTORY_LIMIT = 10;
+
+type MainSurfaceFields = Pick<UIState, MainSurfaceKey | "cardLibraryKind">;
+
+function mainSurfaceKind(state: MainSurfaceFields): MainSurfaceKey | null {
+  return MAIN_SURFACE_KEYS.find((key) => !!state[key]) ?? null;
+}
+
+/** Identifies the open surface; the two card libraries are distinct surfaces. */
+function mainSurfaceKey(state: MainSurfaceFields): string | null {
+  const kind = mainSurfaceKind(state);
+  if (!kind) return null;
+  return kind === "characterLibraryOpen" ? `${kind}:${state.cardLibraryKind}` : `${kind}:${String(state[kind])}`;
+}
+
+function snapshotMainSurface(state: UIState): MainSurfaceSnapshot {
+  const snapshot = {
+    cardLibraryKind: state.cardLibraryKind,
+    detailReturnRightPanel: state.detailReturnRightPanel,
+    pendingSpatialMapDraftReview: state.pendingSpatialMapDraftReview,
+  } as MainSurfaceSnapshot;
+  for (const key of MAIN_SURFACE_KEYS) (snapshot as Record<string, unknown>)[key] = state[key];
+  return snapshot;
+}
+
+/**
+ * Opens `target` as the main surface and records the surface it replaces, so Back can return to it. A surface of the
+ * same kind replaces the top instead of stacking (browsing ten lorebooks stays one Back from the chat), and
+ * revisiting a surface already in the stack drops everything above it. Reopening the surface already showing records
+ * nothing.
+ *
+ * ponytail: the stack cannot know an entity was deleted while hidden; popping to it shows that editor's existing
+ * not-found state. The oldest snapshot also carries the mobile panel the first surface was opened from, so the
+ * 10-entry cap drops that panel memory first. Upgrade path: validate entities on pop.
+ */
+function enterMainSurface(s: UIState, target: Partial<UIState>): Partial<UIState> {
+  const next = { ...CLOSED_MAIN_SURFACE, ...target };
+  const nextFields = { ...next, cardLibraryKind: next.cardLibraryKind ?? s.cardLibraryKind } as MainSurfaceFields;
+  const currentKey = mainSurfaceKey(s);
+  const targetKey = mainSurfaceKey(nextFields);
+  if (!currentKey) return { ...next, mainSurfaceHistory: [] };
+  if (currentKey === targetKey) return next;
+  const revisited = s.mainSurfaceHistory.findIndex((entry) => mainSurfaceKey(entry) === targetKey);
+  if (revisited >= 0) return { ...next, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, revisited) };
+  if (mainSurfaceKind(s) === mainSurfaceKind(nextFields)) return next;
+  return {
+    ...next,
+    mainSurfaceHistory: [...s.mainSurfaceHistory, snapshotMainSurface(s)].slice(-MAIN_SURFACE_HISTORY_LIMIT),
+  };
+}
+
+/** Closes the surface `own` describes: back to the one opened before it, else to the chat (or the mobile panel). */
+function leaveMainSurface(s: UIState, own: Partial<UIState>): Partial<UIState> {
+  const top = s.mainSurfaceHistory[s.mainSurfaceHistory.length - 1];
+  if (top) return { ...own, ...top, mainSurfaceHistory: s.mainSurfaceHistory.slice(0, -1), editorDirty: false };
+  // A mobile panel the surface came from wins; otherwise a surface opened from Chat Settings reopens the drawer.
+  const reopenSettings = !s.detailReturnRightPanel && s.chatSettingsReturn;
+  return {
+    ...own,
+    editorDirty: false,
+    ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
+    chatSettingsReturn: null,
+    ...(reopenSettings && { chatSettingsRequest: reopenSettings }),
+  };
+}
+
+/** Where the Back button of the open surface lands; `null` means the chat (or Home), which the caller resolves. */
+export type BackDestination =
+  { surface: MainSurfaceKey; cardLibraryKind: CardLibraryKind } | { panel: Panel } | { chatSettings: true } | null;
+
+/**
+ * Names the destination `closeTopMainSurface` reaches from `state`, mirroring `leaveMainSurface` and the close that
+ * overrides it: the regex editor's return target.
+ */
+export function selectBackDestination(state: UIState): BackDestination {
+  if (state.regexDetailId && state.regexDetailReturn) {
+    const ret = state.regexDetailReturn;
+    return { surface: "presetId" in ret ? "presetDetailId" : "characterDetailId", cardLibraryKind: "characters" };
+  }
+  const top = state.mainSurfaceHistory[state.mainSurfaceHistory.length - 1];
+  if (top) {
+    const surface = mainSurfaceKind(top);
+    if (surface) return { surface, cardLibraryKind: top.cardLibraryKind };
+  }
+  if (state.detailReturnRightPanel) return { panel: state.detailReturnRightPanel };
+  return state.chatSettingsReturn ? { chatSettings: true } : null;
+}
+
 function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
-  const surfaceKeys = [
-    "regexDetailId",
-    "personaDetailId",
-    "toolDetailId",
-    "agentDetailId",
-    "connectionDetailId",
-    "presetDetailId",
-    "characterDetailId",
-    "lorebookDetailId",
-    "characterLibraryOpen",
-    "agentCatalogOpen",
-    "botBrowserOpen",
-    "gameAssetsBrowserOpen",
-    "noodleOpen",
-  ] as const;
   let found = false;
-  for (const key of surfaceKeys) {
+  for (const key of MAIN_SURFACE_KEYS) {
     const value = persisted[key];
     const isOpen = typeof value === "string" ? value.trim().length > 0 : value === true;
     if (!isOpen) {
@@ -1687,6 +1914,8 @@ export function pickSyncedSettings(state: UIState) {
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1887,6 +2116,8 @@ export function pickPersistedUIState(state: UIState) {
     characterDetailId: state.characterDetailId,
     lorebookDetailId: state.lorebookDetailId,
     presetDetailId: state.presetDetailId,
+    // An unsaved `new:<mode>` profile has no draft behind it after a reload; only saved ids restore.
+    profileDetailId: state.profileDetailId?.startsWith("new:") ? null : state.profileDetailId,
     connectionDetailId: state.connectionDetailId,
     agentDetailId: state.agentDetailId,
     toolDetailId: state.toolDetailId,
@@ -1894,6 +2125,7 @@ export function pickPersistedUIState(state: UIState) {
     regexDetailId: state.regexDetailId,
     spatialMapDetailChatId: state.spatialMapDetailChatId,
     botBrowserOpen: state.botBrowserOpen,
+    botBrowserKind: state.botBrowserKind,
     gameAssetsBrowserOpen: state.gameAssetsBrowserOpen,
     noodleOpen: state.noodleOpen,
     noodleSelectedPersonaId: state.noodleSelectedPersonaId,
@@ -1903,10 +2135,13 @@ export function pickPersistedUIState(state: UIState) {
     agentCatalogOpen: state.agentCatalogOpen,
     characterLibrarySelectedId: state.characterLibrarySelectedId,
     personaLibrarySelectedId: state.personaLibrarySelectedId,
+    lorebookLibrarySelectedId: state.lorebookLibrarySelectedId,
     characterLibrarySort: state.characterLibrarySort,
     personaLibrarySort: state.personaLibrarySort,
+    lorebookLibrarySort: state.lorebookLibrarySort,
     characterLibraryScrollTop: state.characterLibraryScrollTop,
     personaLibraryScrollTop: state.personaLibraryScrollTop,
+    lorebookLibraryScrollTop: state.lorebookLibraryScrollTop,
     lorebookPanelCategory: state.lorebookPanelCategory,
     lorebookPanelSearch: state.lorebookPanelSearch,
     lorebookPanelSort: state.lorebookPanelSort,
@@ -1937,6 +2172,8 @@ export function pickPersistedUIState(state: UIState) {
     appAccentRgbMode: state.appAccentRgbMode,
     customCursorEnabled: state.customCursorEnabled,
     reduceAmbientEffects: state.reduceAmbientEffects,
+    uiStyleOverrides: state.uiStyleOverrides,
+    uiStylePresets: state.uiStylePresets,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
     omnibarAsideDisclosed: state.omnibarAsideDisclosed,
@@ -2199,7 +2436,9 @@ export const useUIStore = create<UIState>()(
         lastAppError: null,
         settingsTargetControlId: null,
         homeRequest: null,
-        connectionDetailReturnTab: null,
+        chatSettingsReturn: null,
+        chatSettingsRequest: null,
+        homeTab: "home",
         whatsNewRequested: false,
         settingsTargetSectionId: null,
         modal: null,
@@ -2211,6 +2450,11 @@ export const useUIStore = create<UIState>()(
         appAccentRgbMode: false,
         customCursorEnabled: true,
         reduceAmbientEffects: false,
+        uiStyleOverrides: {},
+        uiStylePresets: [],
+        uiStylePickMode: false,
+        uiStyleSelectedTarget: null,
+        uiStylePreview: null,
         mariPanelSortMode: "az",
         // Quick answers send a model request from Search, so they are opt-in.
         omnibarAsideEnabled: false,
@@ -2238,6 +2482,7 @@ export const useUIStore = create<UIState>()(
         lorebookLinkClipboard: null,
         presetDetailId: null,
         presetDetailInitialTab: null,
+        profileDetailId: null,
         connectionDetailId: null,
         agentDetailId: null,
         toolDetailId: null,
@@ -2254,6 +2499,7 @@ export const useUIStore = create<UIState>()(
         lorebookDetailInitialField: null,
         personaDetailInitialTab: null,
         botBrowserOpen: false,
+        botBrowserKind: "cards" as BotBrowserKind,
         gameAssetsBrowserOpen: false,
         noodleOpen: false,
         noodleSelectedPersonaId: null,
@@ -2265,8 +2511,10 @@ export const useUIStore = create<UIState>()(
         characterLibrarySelectedId: null,
         characterLibraryInitialId: null,
         personaLibrarySelectedId: null,
+        lorebookLibrarySelectedId: null,
         characterLibrarySort: "name-asc" as CharacterLibrarySort,
-        personaLibrarySort: "name-asc" as ResourcePanelSort,
+        personaLibrarySort: "name-asc" as LibrarySort,
+        lorebookLibrarySort: "name-asc" as LibrarySort,
         characterPanelSearch: "",
         characterPanelIncludedTags: [],
         characterPanelExcludedTags: [],
@@ -2275,17 +2523,20 @@ export const useUIStore = create<UIState>()(
         characterPanelScrollTop: 0,
         characterLibraryScrollTop: 0,
         personaLibraryScrollTop: 0,
+        lorebookLibraryScrollTop: 0,
         lorebookPanelCategory: "all" as LorebookPanelCategory,
         lorebookPanelSearch: "",
         lorebookPanelSort: "name-asc" as LorebookPanelSort,
         lorebookPanelActiveTag: null,
         lorebookPanelTagsExpanded: false,
         botBrowserPanelSort: "name-asc" as ResourcePanelSort,
-        presetPanelSort: "name-asc" as ResourcePanelSort,
+        presetPanelSort: "name-asc" as LibrarySort,
         agentPanelSort: "name-asc" as ResourcePanelSort,
         libraryManualOrders: {},
         editorDirty: false,
+        connectionSaving: false,
         detailReturnRightPanel: null,
+        mainSurfaceHistory: [],
 
         // Settings defaults
         fontSize: 17 as FontSize,
@@ -2599,6 +2850,9 @@ export const useUIStore = create<UIState>()(
         setSettingsTargetControlId: (controlId) => set({ settingsTargetControlId: controlId }),
         requestHome: (homeRequest) => set({ homeRequest }),
         consumeHomeRequest: () => set({ homeRequest: null }),
+        setChatSettingsReturn: (chatSettingsReturn) => set({ chatSettingsReturn }),
+        consumeChatSettingsRequest: () => set({ chatSettingsRequest: null }),
+        setHomeTab: (homeTab) => set({ homeTab }),
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
@@ -2606,7 +2860,46 @@ export const useUIStore = create<UIState>()(
         closeModal: () => set({ modal: null }),
         setAdvancedMemoryRequest: (advancedMemoryRequest) => set({ advancedMemoryRequest }),
         setTheme: (theme) => set({ theme }),
-        setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
+        saveUiStyleOverride: (target, override) =>
+          set((state) => {
+            const next = { ...state.uiStyleOverrides };
+            const clean = normalizeUiStyleOverride(override);
+            if (clean) next[target] = clean;
+            else delete next[target];
+            // A legacy Background Color the Whole app part could not hold goes once that part is reset or
+            // gets a background of its own; nothing else can clear it now that its setting is gone.
+            const dropLegacy = target === "app" && (!clean || clean.background);
+            return dropLegacy ? { uiStyleOverrides: next, appBackgroundColor: "" } : { uiStyleOverrides: next };
+          }),
+        resetUiStyleOverrides: () => set({ uiStyleOverrides: {}, uiStylePreview: null, appBackgroundColor: "" }),
+        saveUiStylePreset: (name) =>
+          set((state) => {
+            const [fresh] = normalizeUiStylePresets([{ id: "new", name, overrides: state.uiStyleOverrides }]);
+            if (!fresh) return {};
+            const same = state.uiStylePresets.find((preset) => preset.name.toLowerCase() === fresh.name.toLowerCase());
+            if (same) {
+              return {
+                uiStylePresets: state.uiStylePresets.map((preset) =>
+                  preset === same ? { ...preset, overrides: fresh.overrides } : preset,
+                ),
+              };
+            }
+            const id =
+              globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            return { uiStylePresets: normalizeUiStylePresets([...state.uiStylePresets, { ...fresh, id }]) };
+          }),
+        applyUiStylePreset: (id) =>
+          set((state) => {
+            const preset = state.uiStylePresets.find((candidate) => candidate.id === id);
+            return preset
+              ? { uiStyleOverrides: { ...preset.overrides }, uiStylePreview: null, appBackgroundColor: "" }
+              : {};
+          }),
+        deleteUiStylePreset: (id) =>
+          set((state) => ({ uiStylePresets: state.uiStylePresets.filter((preset) => preset.id !== id) })),
+        setUiStylePickMode: (uiStylePickMode) => set({ uiStylePickMode }),
+        setUiStyleSelectedTarget: (uiStyleSelectedTarget) => set({ uiStyleSelectedTarget }),
+        setUiStylePreview: (uiStylePreview) => set({ uiStylePreview }),
         setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
         setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
         setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
@@ -2656,8 +2949,10 @@ export const useUIStore = create<UIState>()(
           set({ conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(v) }),
         setCharacterLibrarySelectedId: (id) => set({ characterLibrarySelectedId: id }),
         setPersonaLibrarySelectedId: (id) => set({ personaLibrarySelectedId: id }),
+        setLorebookLibrarySelectedId: (id) => set({ lorebookLibrarySelectedId: id }),
         setCharacterLibrarySort: (sort) => set({ characterLibrarySort: normalizeCharacterLibrarySort(sort) }),
-        setPersonaLibrarySort: (sort) => set({ personaLibrarySort: normalizeBasicPanelSort(sort) }),
+        setPersonaLibrarySort: (sort) => set({ personaLibrarySort: normalizeLibrarySort(sort) }),
+        setLorebookLibrarySort: (sort) => set({ lorebookLibrarySort: normalizeLibrarySort(sort) }),
         setCharacterPanelSearch: (search) => set({ characterPanelSearch: normalizePanelText(search) }),
         setCharacterPanelIncludedTags: (tags) => set({ characterPanelIncludedTags: normalizePanelStringArray(tags) }),
         setCharacterPanelExcludedTags: (tags) => set({ characterPanelExcludedTags: normalizePanelStringArray(tags) }),
@@ -2667,6 +2962,7 @@ export const useUIStore = create<UIState>()(
         setCharacterPanelScrollTop: (scrollTop) => set({ characterPanelScrollTop: normalizeScrollTop(scrollTop) }),
         setCharacterLibraryScrollTop: (scrollTop) => set({ characterLibraryScrollTop: normalizeScrollTop(scrollTop) }),
         setPersonaLibraryScrollTop: (scrollTop) => set({ personaLibraryScrollTop: normalizeScrollTop(scrollTop) }),
+        setLorebookLibraryScrollTop: (scrollTop) => set({ lorebookLibraryScrollTop: normalizeScrollTop(scrollTop) }),
         setLorebookPanelCategory: (category) =>
           set({ lorebookPanelCategory: normalizeLorebookPanelCategory(category) }),
         setLorebookPanelSearch: (search) => set({ lorebookPanelSearch: normalizePanelText(search) }),
@@ -2674,7 +2970,7 @@ export const useUIStore = create<UIState>()(
         setLorebookPanelActiveTag: (tag) => set({ lorebookPanelActiveTag: tag ? tag.trim() || null : null }),
         setLorebookPanelTagsExpanded: (expanded) => set({ lorebookPanelTagsExpanded: expanded }),
         setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
-        setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
+        setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeLibrarySort(sort) }),
         setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
         setLibraryManualOrder: (kind, order) =>
           set((state) => ({ libraryManualOrders: { ...state.libraryManualOrders, [kind]: order } })),
@@ -2683,484 +2979,220 @@ export const useUIStore = create<UIState>()(
             const preserveCharacterLibrary =
               options?.preserveCharacterLibrary ?? (s.characterLibraryOpen && s.cardLibraryKind === "characters");
             return {
-              characterDetailId: id,
+              ...enterMainSurface(s, {
+                characterDetailId: id,
+                characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
+              }),
               characterDetailInitialTab: options?.initialTab ?? null,
               // In the same patch as the navigation, so a refused editor leave drops it too.
               mariRevealField: options?.revealField ? { entityId: id, path: options.revealField } : null,
-              lorebookDetailId: null,
-              presetDetailId: null,
-              connectionDetailId: null,
-              agentDetailId: null,
-              toolDetailId: null,
-              personaDetailId: null,
-              regexDetailId: null,
-              spatialMapDetailChatId: null,
-              characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
-              agentCatalogOpen: false,
               characterLibrarySelectedId: preserveCharacterLibrary ? id : s.characterLibrarySelectedId,
-              botBrowserOpen: false,
-              gameAssetsBrowserOpen: false,
-              noodleOpen: false,
               ...getMobileDetailReturnState(s),
             };
           }),
-        closeCharacterDetail: () =>
-          set((s) => ({
-            characterDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeCharacterDetail: () => set((s) => leaveMainSurface(s, { characterDetailId: null })),
         setLorebookLinkClipboard: (links) => set({ lorebookLinkClipboard: links }),
         openLorebookDetail: (id, options) =>
           set((s) => ({
-            lorebookDetailId: id,
+            ...enterMainSurface(s, { lorebookDetailId: id }),
             lorebookDetailInitialTab: options?.initialTab ?? null,
             lorebookDetailInitialEntryId: options?.entryId ?? null,
             lorebookDetailInitialField: options?.field ?? null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
-        closeLorebookDetail: () =>
-          set((s) => ({
-            lorebookDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeLorebookDetail: () => set((s) => leaveMainSurface(s, { lorebookDetailId: null })),
         openPresetDetail: (id, options) =>
           set((s) => ({
-            presetDetailId: id,
+            ...enterMainSurface(s, { presetDetailId: id }),
             presetDetailInitialTab: options?.initialTab ?? null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
         closePresetDetail: () =>
+          set((s) => leaveMainSurface(s, { presetDetailId: null, presetDetailInitialTab: null })),
+        openProfileDetail: (id) =>
           set((s) => ({
-            presetDetailId: null,
-            presetDetailInitialTab: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
-        openConnectionDetail: (id, options) =>
-          set((s) => ({
-            connectionDetailId: id,
-            // Switching the open editor to another connection keeps the package tab it returns to; an editor
-            // opened afresh starts without one.
-            connectionDetailReturnTab:
-              options?.returnToHomeTab || (s.connectionDetailId ? s.connectionDetailReturnTab : null),
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { profileDetailId: id }),
             ...getMobileDetailReturnState(s),
           })),
-        closeConnectionDetail: () =>
+        closeProfileDetail: () => set((s) => leaveMainSurface(s, { profileDetailId: null })),
+        openConnectionDetail: (id) =>
           set((s) => ({
-            connectionDetailId: null,
-            connectionDetailReturnTab: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-            // Only closing the editor itself returns Home to the package tab that opened it. Leaving it any other
-            // way (a chat, another editor, closeAllDetails) queues nothing, so Home never jumps to that tab later.
-            ...(s.connectionDetailId && s.connectionDetailReturnTab
-              ? { homeRequest: { kind: "tab" as const, tab: s.connectionDetailReturnTab } }
-              : {}),
+            ...enterMainSurface(s, { connectionDetailId: id }),
+            ...getMobileDetailReturnState(s),
           })),
+        closeConnectionDetail: () => set((s) => leaveMainSurface(s, { connectionDetailId: null })),
         openAgentDetail: (agentType) =>
           set((s) => ({
-            agentDetailId: agentType,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { agentDetailId: agentType }),
             ...getMobileDetailReturnState(s),
           })),
-        closeAgentDetail: () =>
-          set((s) => ({
-            agentDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeAgentDetail: () => set((s) => leaveMainSurface(s, { agentDetailId: null })),
         openToolDetail: (id) =>
           set((s) => ({
-            toolDetailId: id,
-            agentDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
+            ...enterMainSurface(s, { toolDetailId: id }),
             ...getMobileDetailReturnState(s),
           })),
-        closeToolDetail: () =>
-          set((s) => ({
-            toolDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closeToolDetail: () => set((s) => leaveMainSurface(s, { toolDetailId: null })),
         openPersonaDetail: (id, options) =>
           set((s) => {
             const preservePersonaLibrary =
               options?.preservePersonaLibrary ?? (s.characterLibraryOpen && s.cardLibraryKind === "personas");
             return {
-              personaDetailId: id,
+              ...enterMainSurface(s, {
+                personaDetailId: id,
+                characterLibraryOpen: preservePersonaLibrary ? s.characterLibraryOpen : false,
+              }),
               personaDetailInitialTab: options?.initialTab ?? null,
-              characterLibraryOpen: preservePersonaLibrary ? s.characterLibraryOpen : false,
               personaLibrarySelectedId: preservePersonaLibrary ? id : s.personaLibrarySelectedId,
-              agentCatalogOpen: false,
-              botBrowserOpen: false,
-              gameAssetsBrowserOpen: false,
-              noodleOpen: false,
-              characterDetailId: null,
-              lorebookDetailId: null,
-              presetDetailId: null,
-              connectionDetailId: null,
-              agentDetailId: null,
-              toolDetailId: null,
-              regexDetailId: null,
-              spatialMapDetailChatId: null,
               ...getMobileDetailReturnState(s),
             };
           }),
-        closePersonaDetail: () =>
-          set((s) => ({
-            personaDetailId: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+        closePersonaDetail: () => set((s) => leaveMainSurface(s, { personaDetailId: null })),
         openRegexDetail: (id, options) =>
           set((s) => ({
-            regexDetailId: id,
+            ...enterMainSurface(s, { regexDetailId: id }),
             regexDetailDefaultCharacterIds: options?.defaultCharacterIds ?? null,
             regexDetailDefaultPresetIds: options?.defaultPresetIds ?? null,
             regexDetailReturn: options?.returnTo ?? null,
-            personaDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            spatialMapDetailChatId: null,
             ...getMobileDetailReturnState(s),
           })),
         closeRegexDetail: () =>
           set((s) => {
-            const ret = s.regexDetailReturn;
-            if (ret) {
-              // Return to the character/preset manager that opened the existing editor.
-              return {
-                regexDetailId: null,
-                regexDetailReturn: null,
-                regexDetailDefaultCharacterIds: null,
-                regexDetailDefaultPresetIds: null,
-                ...("presetId" in ret
-                  ? { presetDetailId: ret.presetId, presetDetailInitialTab: "regex" }
-                  : { characterDetailId: ret.characterId, characterDetailInitialTab: ret.tab ?? null }),
-                editorDirty: false,
-              };
-            }
-            return {
+            const own = {
               regexDetailId: null,
               regexDetailReturn: null,
               regexDetailDefaultCharacterIds: null,
               regexDetailDefaultPresetIds: null,
-              editorDirty: false,
-              ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
             };
+            const ret = s.regexDetailReturn;
+            if (!ret) return leaveMainSurface(s, own);
+            // Return to the character/preset manager that opened the existing editor.
+            const returnPatch = {
+              ...own,
+              ...("presetId" in ret
+                ? { presetDetailId: ret.presetId, presetDetailInitialTab: "regex" }
+                : { characterDetailId: ret.characterId, characterDetailInitialTab: ret.tab ?? null }),
+              editorDirty: false,
+            };
+            // The return carries the tab a snapshot never has, so it wins over the pop.
+            return s.mainSurfaceHistory.length > 0 ? { ...leaveMainSurface(s, own), ...returnPatch } : returnPatch;
           }),
         openSpatialMapDetail: (chatId) =>
           set((s) => ({
-            spatialMapDetailChatId: chatId,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(s, { spatialMapDetailChatId: chatId }),
             ...getMobileDetailReturnState(s),
           })),
         openSpatialMapDraftReview: (review) =>
           set((s) => ({
-            pendingSpatialMapDraftReview: review,
-            spatialMapDetailChatId: review.chatId,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(s, { pendingSpatialMapDraftReview: review, spatialMapDetailChatId: review.chatId }),
             ...getMobileDetailReturnState(s),
           })),
         clearPendingSpatialMapDraftReview: () => set({ pendingSpatialMapDraftReview: null }),
         closeSpatialMapDetail: () =>
-          set((s) => ({
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            editorDirty: false,
-            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-          })),
+          set((s) => leaveMainSurface(s, { spatialMapDetailChatId: null, pendingSpatialMapDraftReview: null })),
         openCharacterLibrary: (characterId) =>
           set((state) => ({
-            characterLibraryOpen: true,
+            ...enterMainSurface(state, { characterLibraryOpen: true, cardLibraryKind: "characters" }),
             characterLibraryInitialId: characterId ?? null,
             characterLibrarySelectedId: characterId ?? state.characterLibrarySelectedId,
-            cardLibraryKind: "characters",
-            agentCatalogOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
         openPersonaLibrary: () =>
           set((state) => ({
-            characterLibraryOpen: true,
-            cardLibraryKind: "personas",
-            agentCatalogOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...enterMainSurface(state, { characterLibraryOpen: true, cardLibraryKind: "personas" }),
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
-        closeCharacterLibrary: () => set({ characterLibraryOpen: false, characterLibraryInitialId: null }),
+        openLorebookLibrary: () =>
+          set((state) => ({
+            ...enterMainSurface(state, { characterLibraryOpen: true, cardLibraryKind: "lorebooks" }),
+            editorDirty: false,
+            ...getMobileDetailReturnState(state),
+          })),
+        closeCharacterLibrary: () =>
+          set((s) => leaveMainSurface(s, { characterLibraryOpen: false, characterLibraryInitialId: null })),
         openAgentCatalog: (packageId) =>
           set((state) => ({
-            agentCatalogOpen: true,
+            ...enterMainSurface(state, { agentCatalogOpen: true }),
             agentCatalogInitialPackageId: packageId ?? null,
-            characterLibraryOpen: false,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            pendingSpatialMapDraftReview: null,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
-            detailReturnRightPanel: null,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            ...getMobileDetailReturnState(state),
           })),
-        closeAgentCatalog: () => set({ agentCatalogOpen: false, agentCatalogInitialPackageId: null }),
+        closeAgentCatalog: () =>
+          set((s) => leaveMainSurface(s, { agentCatalogOpen: false, agentCatalogInitialPackageId: null })),
+        setAgentCatalogPage: (agentCatalogInitialPackageId) => set({ agentCatalogInitialPackageId }),
+        // ponytail: the kind is not part of the surface history, so the two browsers replace each other like two
+        // editors of one kind do, and Back to a browser shows the kind opened last. Upgrade path: key it like cardLibraryKind.
         openBotBrowser: () =>
-          set({
-            botBrowserOpen: true,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeBotBrowser: () => set({ botBrowserOpen: false }),
+          set((s) => ({
+            ...enterMainSurface(s, { botBrowserOpen: true }),
+            botBrowserKind: "cards",
+            ...getMobileDetailReturnState(s),
+          })),
+        openLorebookBrowser: () =>
+          set((s) => ({
+            ...enterMainSurface(s, { botBrowserOpen: true }),
+            botBrowserKind: "lorebooks",
+            ...getMobileDetailReturnState(s),
+          })),
+        closeBotBrowser: () => set((s) => leaveMainSurface(s, { botBrowserOpen: false })),
         openGameAssetsBrowser: () =>
-          set({
-            gameAssetsBrowserOpen: true,
-            botBrowserOpen: false,
-            noodleOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeGameAssetsBrowser: () => set({ gameAssetsBrowserOpen: false }),
+          set((s) => ({ ...enterMainSurface(s, { gameAssetsBrowserOpen: true }), ...getMobileDetailReturnState(s) })),
+        closeGameAssetsBrowser: () => set((s) => leaveMainSurface(s, { gameAssetsBrowserOpen: false })),
         openNoodle: () =>
-          set({
-            noodleOpen: true,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            detailReturnRightPanel: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            personaDetailId: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
+          set((s) => ({
+            ...enterMainSurface(s, { noodleOpen: true }),
             editorDirty: false,
-            ...(isMobileShellViewport() && { rightPanelOpen: false }),
-          }),
-        closeNoodle: () => set({ noodleOpen: false }),
+            ...getMobileDetailReturnState(s),
+          })),
+        closeNoodle: () => set((s) => leaveMainSurface(s, { noodleOpen: false })),
         setNoodleSelectedPersonaId: (id) => set({ noodleSelectedPersonaId: id }),
         setNoodleNavigation: (navigation) => set({ noodleNavigation: navigation }),
 
-        hasAnyDetailOpen: () => {
-          const s = get();
-          return !!(
-            s.characterDetailId ||
-            s.lorebookDetailId ||
-            s.presetDetailId ||
-            s.connectionDetailId ||
-            s.agentDetailId ||
-            s.toolDetailId ||
-            s.personaDetailId ||
-            s.regexDetailId ||
-            s.spatialMapDetailChatId ||
-            s.characterLibraryOpen ||
-            s.agentCatalogOpen ||
-            s.botBrowserOpen ||
-            s.gameAssetsBrowserOpen ||
-            s.noodleOpen
-          );
-        },
+        hasAnyDetailOpen: () => mainSurfaceKey(get()) !== null,
         closeAllDetails: () =>
           set({
-            connectionDetailReturnTab: null,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
+            ...CLOSED_MAIN_SURFACE,
+            mainSurfaceHistory: [],
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
           }),
+        closeTopMainSurface: () => {
+          const actions = get();
+          const closeTop: Record<MainSurfaceKey, () => void> = {
+            regexDetailId: actions.closeRegexDetail,
+            personaDetailId: actions.closePersonaDetail,
+            toolDetailId: actions.closeToolDetail,
+            agentDetailId: actions.closeAgentDetail,
+            connectionDetailId: actions.closeConnectionDetail,
+            presetDetailId: actions.closePresetDetail,
+            profileDetailId: actions.closeProfileDetail,
+            characterDetailId: actions.closeCharacterDetail,
+            characterLibraryOpen: actions.closeCharacterLibrary,
+            agentCatalogOpen: actions.closeAgentCatalog,
+            lorebookDetailId: actions.closeLorebookDetail,
+            spatialMapDetailChatId: actions.closeSpatialMapDetail,
+            botBrowserOpen: actions.closeBotBrowser,
+            gameAssetsBrowserOpen: actions.closeGameAssetsBrowser,
+            noodleOpen: actions.closeNoodle,
+          };
+          const kind = mainSurfaceKind(actions);
+          if (kind) closeTop[kind]();
+          else actions.closeAllDetails();
+        },
         setEditorDirty: (dirty) => set({ editorDirty: dirty }),
+        setConnectionSaving: (connectionSaving) => set({ connectionSaving }),
         requestChatModeShortcut: (mode) =>
           set((state) => ({
+            ...CLOSED_MAIN_SURFACE,
+            mainSurfaceHistory: [],
             sidebarOpen: true,
             rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
-            characterDetailId: null,
-            lorebookDetailId: null,
-            presetDetailId: null,
-            connectionDetailId: null,
-            agentDetailId: null,
-            toolDetailId: null,
-            personaDetailId: null,
-            regexDetailId: null,
-            spatialMapDetailChatId: null,
-            characterLibraryOpen: false,
-            agentCatalogOpen: false,
-            botBrowserOpen: false,
-            gameAssetsBrowserOpen: false,
-            noodleOpen: false,
             editorDirty: false,
             detailReturnRightPanel: null,
+            chatSettingsReturn: null,
             chatModeShortcutRequest: {
               mode,
               token: (state.chatModeShortcutRequest?.token ?? 0) + 1,
@@ -3435,6 +3467,10 @@ export const useUIStore = create<UIState>()(
             appAccentRgbMode: false,
             customCursorEnabled: true,
             reduceAmbientEffects: false,
+            uiStyleOverrides: {},
+            uiStylePreview: null,
+            uiStyleSelectedTarget: null,
+            uiStylePickMode: false,
             mariPanelSortMode: "az",
             mariEditViewMode: "easy",
             mariWindowHeightRem: MARI_WINDOW_HEIGHT_DEFAULT_REM,
@@ -4105,8 +4141,13 @@ export const useUIStore = create<UIState>()(
         }
         delete persisted.appAccentColorBeforeRgbMode;
         persisted.characterLibrarySort = normalizeCharacterLibrarySort(persisted.characterLibrarySort);
-        persisted.cardLibraryKind = persisted.cardLibraryKind === "personas" ? "personas" : "characters";
-        persisted.personaLibrarySort = normalizeBasicPanelSort(persisted.personaLibrarySort);
+        persisted.cardLibraryKind =
+          persisted.cardLibraryKind === "personas" || persisted.cardLibraryKind === "lorebooks"
+            ? persisted.cardLibraryKind
+            : "characters";
+        persisted.botBrowserKind = persisted.botBrowserKind === "lorebooks" ? "lorebooks" : "cards";
+        persisted.personaLibrarySort = normalizeLibrarySort(persisted.personaLibrarySort);
+        persisted.lorebookLibrarySort = normalizeLibrarySort(persisted.lorebookLibrarySort);
         persisted.characterPanelSearch = normalizePanelText(persisted.characterPanelSearch);
         persisted.characterPanelIncludedTags = normalizePanelStringArray(persisted.characterPanelIncludedTags);
         persisted.characterPanelExcludedTags = normalizePanelStringArray(persisted.characterPanelExcludedTags);
@@ -4117,6 +4158,7 @@ export const useUIStore = create<UIState>()(
         persisted.characterPanelScrollTop = normalizeScrollTop(persisted.characterPanelScrollTop);
         persisted.characterLibraryScrollTop = normalizeScrollTop(persisted.characterLibraryScrollTop);
         persisted.personaLibraryScrollTop = normalizeScrollTop(persisted.personaLibraryScrollTop);
+        persisted.lorebookLibraryScrollTop = normalizeScrollTop(persisted.lorebookLibraryScrollTop);
         persisted.lorebookPanelCategory = normalizeLorebookPanelCategory(persisted.lorebookPanelCategory);
         persisted.lorebookPanelSearch = normalizePanelText(persisted.lorebookPanelSearch);
         persisted.lorebookPanelSort = normalizeLorebookPanelSort(persisted.lorebookPanelSort);
@@ -4126,7 +4168,7 @@ export const useUIStore = create<UIState>()(
             : null;
         persisted.lorebookPanelTagsExpanded = persisted.lorebookPanelTagsExpanded === true;
         persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
-        persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
+        persisted.presetPanelSort = normalizeLibrarySort(persisted.presetPanelSort);
         persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
         persisted.connectionPanelSort =
           persisted.connectionPanelSort === "custom"
@@ -4144,6 +4186,10 @@ export const useUIStore = create<UIState>()(
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
+        // v104 -> v105: Background Color became the Whole app part's background (use-settings-sync folds server copies).
+        if (version <= 104) {
+          Object.assign(persisted, foldAppBackgroundColor(persisted.appBackgroundColor, persisted.uiStyleOverrides));
+        }
         if (typeof persisted.appAccentPulseMode !== "boolean") {
           persisted.appAccentPulseMode = persisted.appAccentRgbMode !== true && getDefaultAppAccentPulseMode();
         }
@@ -4322,6 +4368,8 @@ export const useUIStore = create<UIState>()(
           mariSeasonOptOut: typeof persisted.mariSeasonOptOut === "string" ? persisted.mariSeasonOptOut : "",
           loadRemoteMessageImages: persisted.loadRemoteMessageImages === true,
           approvedRemoteImageUrls: normalizeApprovedRemoteImageUrls(persisted.approvedRemoteImageUrls),
+          uiStyleOverrides: normalizeUiStyleOverrides(persisted.uiStyleOverrides),
+          uiStylePresets: normalizeUiStylePresets(persisted.uiStylePresets),
           conversationBackgroundImageOpacity: normalizeConversationBackgroundImageOpacity(
             persisted.conversationBackgroundImageOpacity,
           ),

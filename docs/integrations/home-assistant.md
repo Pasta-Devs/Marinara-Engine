@@ -6,7 +6,7 @@ This integration lets your AI characters control real smart home devices from a 
 
 The integration is a small piece of software that installs inside Home Assistant and links it to your Marinara server. On first setup it creates the following for you. You never copy tool addresses or set up tools by hand.
 
-- Smart home tools in the **Functions** section of the Presets panel. See [Custom Tools](../extending/custom-tools.md).
+- Smart home tools on the **Tools** tab of the Presets panel. See [Custom Tools](../extending/custom-tools.md).
 - One agent named **Home Assistant**, an AI helper that runs alongside your chat. See [Agents Overview](../agents/agents-overview.md).
 - Home Assistant entities (devices, sensors and controls) so you can watch and control Marinara from Home Assistant.
 
@@ -53,7 +53,7 @@ See [Remote Access](../REMOTE_ACCESS.md) for which option to pick.
 
 If it did not work: Home Assistant shows an error when it cannot reach Marinara. See [Troubleshooting](#troubleshooting).
 
-On success the integration registers a private webhook in Home Assistant, creates the tools in Marinara's **Functions** section pointed at that webhook, creates the **Home Assistant** agent listing every enabled tool, and creates the entities described below.
+On success the integration registers a private webhook in Home Assistant, creates the tools on Marinara's **Tools** tab pointed at that webhook, creates the **Home Assistant** agent listing every enabled tool, and creates the entities described below.
 
 ## Add the agent to a chat
 
@@ -158,7 +158,7 @@ The webhook call is probably blocked. Add `WEBHOOK_LOCAL_URLS_ENABLED=true` to `
 
 ### The tools do not appear in Functions
 
-Press **Marinara Sync HA Tools**, or restart Home Assistant, then check **Functions** in the Presets panel.
+Press **Marinara Sync HA Tools**, or restart Home Assistant, then check the **Tools** tab of the Presets panel.
 
 ### The Home Assistant agent is not in my chat
 
@@ -174,7 +174,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Uninstall
 
-Delete the integration in **Settings → Devices & Services → Marinara Engine** in Home Assistant. This removes the entities. The tools in Marinara's **Functions** section and the **Home Assistant** agent stay. Delete them by hand in Marinara if you no longer want them.
+Delete the integration in **Settings → Devices & Services → Marinara Engine** in Home Assistant. This removes the entities. The tools on Marinara's **Tools** tab and the **Home Assistant** agent stay. Delete them by hand in Marinara if you no longer want them.
 
 ## Related guides
 

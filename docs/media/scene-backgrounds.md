@@ -34,7 +34,7 @@ If it did not work: if Marinara finds no image model to use, the step fails with
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-To fix it, set the **Images** job under **Defaults** in the **Connections** panel, or give the **Illustrator** agent its own image model.
+To fix it, set the **Images** job in the **Jobs** box in the **Connections** panel, or give the **Illustrator** agent its own image model.
 
 ## The Gallery section
 

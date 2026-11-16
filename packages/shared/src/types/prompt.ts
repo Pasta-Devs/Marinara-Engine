@@ -69,6 +69,11 @@ export interface PromptPreset {
   conversationPrompt: string;
   /** Game-mode GM prompt template. Empty means use the built-in fallback. */
   gamePrompt: string;
+  /**
+   * Story style, violence and boundaries this preset carries into games that pick it, as stored JSON
+   * (parseGamePresetStorySettings). Empty when it carries none.
+   */
+  gameStorySettings?: string;
   /** Ordered list of section IDs defining the prompt structure */
   sectionOrder: string[];
   /** Ordered list of group IDs */
@@ -91,6 +96,8 @@ export interface PromptPreset {
   author: string;
   /** Reserved identifier for Engine-owned presets. Empty for user presets. */
   systemKey: string;
+  /** Estimated tokens of the enabled static sections (markers excluded). Populated by the preset list route. */
+  tokenEstimate?: number;
   createdAt: string;
   updatedAt: string;
 }

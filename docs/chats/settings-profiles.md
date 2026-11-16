@@ -35,12 +35,24 @@ The builder groups the slots under **Chat**, **Story**, **Pictures** and **Behin
 
 How to fill the slots:
 
-- Pick items from each slot's list. **Agents**, **Tools** and **Lorebooks** allow several picks. Use the checkboxes in **Tools** to turn each tool on or off. For a single-item slot, choose **None** to clear it.
-- In the agents and lorebooks lists on a computer, hold <kbd>Ctrl</kbd> (<kbd>Command</kbd> on macOS) to pick several items. On a phone, use the selection controls. **Clear selection** empties a list.
+- Tap a slot's field to open a picker window with search and your library's folders, like the preset and lorebook pickers. For a single-item slot, choose **None** to clear it.
+- **Agents** and **Lorebooks** allow several picks: tick them in the window, or use **Add all** on a folder. Each pick shows under the field with a remove button, and **Clear selection** empties the slot. **Tools** is a checkbox list: tick each tool to turn it on.
 - On a computer you can open a library sidebar while the editor stays open and drag an item onto its field.
 - **Parameters**, **Memory & summary** and **Translation** only show whether the profile holds them. Change them in Chat Settings, then save into the profile.
 
-In the new chat wizard, the **Use a Profile** step also has **New profile…** at the top of the list and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+In the new chat wizard, the **Use a Profile** step has **New** beside the profile field, and **Edit** beside a saved profile. After you save, the wizard selects that profile.
+
+## The Profiles tab
+
+To manage profiles outside a chat, open the **Presets** panel and choose the **Profiles** tab. It lists every Conversation and Roleplay profile, the **Default** of each mode first. The pills above the list (**All**, **Conversation**, **Roleplay**) filter it by mode, and **Search profiles** filters it by name. A star marks each mode's default for new chats.
+
+- Click a profile to open it in the profile editor in the middle of the screen. **Back** saves your changes; **Cancel** discards them. The **Default** profiles cannot be edited, so they don't open.
+- **Create settings profile** opens an empty profile. Pick its mode with the **Conversation** and **Roleplay** pills; a saved profile keeps its mode.
+- Hover a row to star it as the default, duplicate it, export it or delete it. On a phone these buttons always show at the row's right edge.
+- **Select profiles** exports or deletes several at once. **Select all profiles** skips the Default profiles, which cannot be deleted. Each profile exports as its own file.
+- **Import settings profile (.json)** loads a `.marinara-settings-profile.json` file.
+
+**Edit** in Chat Settings still opens the builder as a window over the chat.
 
 ## Save chat settings into a profile
 
@@ -71,7 +83,7 @@ The star beside the dropdown marks the profile used automatically for new chats 
 
 **Export settings profile (.json)** downloads a `.marinara-settings-profile.json` file you can keep as a backup or share. **Import settings profile (.json)** makes a new profile from a compatible file and never overwrites an existing one. Older exports still import. A failed import shows **Import failed**.
 
-Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona and lorebooks, because they exist only on this install.
+Profiles store settings, not provider secrets. An exported or imported profile also leaves out the Discord mirror webhook, the DeepLX address, the DeepL key and the Intiface address. Profiles you save on this install keep them. Exported files leave out the persona, lorebooks and preset variable choices, because they belong to this install.
 
 ## The Default profile
 
@@ -88,7 +100,7 @@ When a new chat uses a default profile that has a saved layout, that layout take
 A profile stores how the chat talks to the model:
 
 - Connection.
-- Prompt preset (called the prompt source in Conversation).
+- Prompt preset (called the prompt source in Conversation), with the choices you made for its [preset variables](../prompts/preset-variables.md). Applying the profile gives the chat those choices. A profile saved before it held them leaves the chat's own choices.
 - Agents and tools.
 - Translation, Memory Recall and Advanced Parameters.
 - Window and button layout: positions, sizes, pins, locks, which tools are inside Chat Settings or popped out, open control windows, and button positions on computers and phones. Profiles without a saved layout, such as **Default**, leave the chat's layout as it is.
@@ -103,7 +115,7 @@ A profile can also hold **starting picks**: a persona, lorebooks to switch on, a
 - **Save current chat settings into this profile** keeps the profile's own persona, lorebooks and background. A profile without a background takes the chat's background when you save into it.
 - Updating other chats never changes their persona, lorebooks or background.
 
-A profile does not replace chat-owned content: characters, sprites, summary, tags and scene prompt. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room.
+A profile does not replace chat-owned content: characters, sprites, summary, tags, scene prompt and **Author's Notes**. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room. A profile saved in an earlier version may still hold **Author's Notes**, but applying it keeps the chat's own.
 
 ### What Save and update copies
 
@@ -116,13 +128,14 @@ A profile does not replace chat-owned content: characters, sprites, summary, tag
 - Memory and summary settings.
 - Translation.
 - The window layout.
+- Preset variable choices, only in chats that use the same prompt preset as the profile.
 
 Everything else stays as each chat has it:
 
 - Its connection, prompt preset and custom prompt.
 - Its story and characters.
 - Its lorebooks and background.
-- Its notes and progress.
+- Its **Author's Notes** and progress.
 - Which Roleplay commands only its narrator may use.
 - Whether Noodle may use its messages.
 

@@ -324,7 +324,12 @@
   --marinara-editor-surface-bg: var(--marinara-chat-chrome-panel-bg);
   --marinara-editor-surface-bg-hover: var(--marinara-chat-chrome-surface-bg-hover);
   --marinara-editor-surface-bg-active: var(--marinara-chat-chrome-surface-bg-active);
-  --marinara-editor-control-bg: color-mix(in srgb, var(--marinara-editor-surface-bg) 78%, var(--background) 22%);
+  /* Mixed with the editor's own background: in dark that is the grey shell, where --background is navy. */
+  --marinara-editor-control-bg: color-mix(
+    in srgb,
+    var(--marinara-editor-surface-bg) 78%,
+    var(--marinara-editor-bg) 22%
+  );
   --marinara-editor-control-bg-hover: color-mix(
     in srgb,
     var(--marinara-editor-surface-bg-hover) 86%,
@@ -1314,7 +1319,7 @@
 
 /* Row and card-heading buttons: no fill until hover or focus, so lists stay calm.
    !important on purpose: theme and accent-mode rules kept outranking this and the
-   bubbles came back each time. scripts/regressions/quiet-row-buttons.regression.ts pins it. */
+   bubbles came back each time. scripts/regressions/ui/quiet-row-buttons.regression.ts pins it. */
 .mari-chrome-control--quiet:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent !important;
   border-color: transparent !important;
@@ -1387,8 +1392,9 @@
 /* Accent Pulse animates --primary, and --destructive defaults to it. Delete buttons hold the
    steady accent instead, like the editor shells in 4c.
    ponytail: a theme that sets its own --destructive shows the steady accent while Accent Pulse
-   runs; a dedicated --marinara-danger-* theme hook is the upgrade path. */
-[data-marinara-accent-animation] .mari-chrome-control--danger {
+   runs; a dedicated --marinara-danger-* theme hook is the upgrade path. The server console's error lines hold it too. */
+[data-marinara-accent-animation] .mari-chrome-control--danger,
+[data-marinara-accent-animation] .mari-server-console {
   --destructive: var(--marinara-app-accent-static);
 }
 
@@ -1533,12 +1539,13 @@
   box-shadow: 0 0.25rem 0.75rem color-mix(in srgb, var(--mari-panel-gradient-end) 18%, transparent);
 }
 
-/* Connection accounts share one quiet surface across the sidebar and model pickers. */
+/* Connection accounts share one box across the sidebar and model pickers: the Jobs box and every connection. A thin
+ * accent edge (the chrome panel border, as on the Character library cards) instead of a grey fill, so the rows'
+ * --sidebar wells sit on the panel's own paint and the box still reads as one group. */
 .mari-connection-group {
   border-radius: 1rem;
   padding: 0.5rem;
-  /* One grey box for the Defaults and every connection; rows sit in neutral wells inside it. */
-  background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+  border: 1px solid var(--marinara-chat-chrome-panel-border);
 }
 
 /* Phones: a thin card edge, so the rows get the width. */
@@ -1577,7 +1584,8 @@
   overflow: hidden;
   /* Concentric with the card: 1rem card radius - 0.5rem padding. */
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--background) 45%, transparent);
+  /* The panel's own paint (--sidebar, as on .mari-sidebar and .mari-right-panel), not the app background, navy in dark. */
+  background: var(--sidebar);
 }
 
 @media (width < 48rem) {
@@ -1585,7 +1593,7 @@
     border-radius: 0.75rem;
   }
 }
-/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the Defaults box and the "via" headings. */
+/* The "+ Add" blue (#38bdf8 → #3b82f6) tints the "via" headings. */
 :root {
   --mari-connection-blue: #38bdf8;
 }
@@ -1597,12 +1605,11 @@
   background: color-mix(in srgb, var(--mari-connection-blue) 20%, transparent);
 }
 .mari-connection-model-slot + .mari-connection-model-slot,
-.mari-connection-model-section-head + .mari-connection-model-slot {
+.mari-connection-model-section-head + .mari-connection-model-slot,
+/* Long lists draw each slot inside a virtual row wrapper (PanelVirtualList). */
+[data-virtual-list] > [data-index]:not([data-index="0"]) > .mari-connection-model-slot,
+.mari-connection-model-section-head + [data-virtual-list] > [data-index="0"] > .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
-}
-/* The Defaults box is the one blue box: the same box as a card, in a flat connection-blue tint. */
-.mari-connection-group.mari-connection-defaults-box {
-  background-color: color-mix(in srgb, var(--mari-connection-blue) 10%, transparent);
 }
 /* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
 .mari-connection-empty {
@@ -1697,58 +1704,23 @@
   --mari-panel-gradient-start: #38bdf8;
   --mari-panel-gradient-end: #3b82f6;
   --mari-panel-gradient-text: #f0f9ff;
-  /* Connection blue for text, rails and selected chips; leaning on the foreground keeps it legible in light and dark. */
-  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
-  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
-  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
 }
 
 /*
- * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. It points the
- * shared chrome tokens at connection blue and quiet neutrals, so no app accent (pink) leaks in: focus rings, the step
- * bar, checks and selected cards turn blue; buttons and cards lose their accent outlines.
- * The second selector outranks the accent-animation rule that pins .mari-editor-shell to the app accent.
+ * Every connection surface (panel, Add window, editors, picker, switcher) carries .mari-connection-scope. Its chrome,
+ * selections and marks follow the app accent, as in the Lorebooks, Presets and Agents panels. Connection blue is the
+ * identity colour, worn only by the primary action and by tiles that carry .mari-panel-gradient--connections.
  */
-.mari-connection-scope,
-[data-marinara-accent-animation] .mari-connection-scope {
-  --marinara-chat-chrome-accent: var(--mari-panel-gradient-start);
-  --marinara-chat-chrome-focus-ring: var(--mari-connection-ring);
-  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-chat-chrome-button-bg-active: var(--mari-connection-tint);
-  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 28%, transparent);
-  --marinara-chat-chrome-button-border-active: transparent;
-  --marinara-chat-chrome-button-text: var(--foreground);
-  --marinara-chat-chrome-button-text-hover: var(--foreground);
-  --marinara-chat-chrome-button-text-active: var(--mari-connection-ink);
-  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--mari-panel-gradient-start) 10%, transparent);
-  --marinara-chat-chrome-highlight-bg-hover: var(--mari-connection-tint);
-  --marinara-chat-chrome-highlight-text: var(--mari-connection-ink);
-  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--mari-panel-gradient-start) 70%, transparent);
-  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --marinara-editor-accent: var(--mari-panel-gradient-start);
-  --marinara-editor-focus-ring: var(--mari-connection-ring);
-  --marinara-editor-border: color-mix(in srgb, var(--foreground) 10%, transparent);
-  --marinara-editor-border-strong: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --ring: var(--mari-connection-ring);
+.mari-connection-scope {
+  --mari-connection-ink: var(--marinara-chat-chrome-highlight-text);
+  --mari-connection-tint: var(--marinara-chat-chrome-highlight-bg-hover);
+  --mari-connection-ring: var(--marinara-chat-chrome-focus-ring);
 }
-/* The editor's main action (Save) wears the connection-blue gradient, like every primary here. */
-.mari-connection-scope .mari-editor-action--primary,
-[data-marinara-chat-chrome-accent-mode="gradient"] .mari-connection-scope .mari-editor-action--primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--mari-panel-gradient-start), var(--mari-panel-gradient-end));
-  color: var(--mari-panel-gradient-text);
-}
-.mari-connection-scope .mari-editor-action--primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-/* Selection is a light blue tint, never a ring. */
-.mari-connection-scope .mari-chrome-control[aria-pressed="true"],
-.mari-connection-scope .mari-chrome-control--card[aria-pressed="true"] {
-  box-shadow: none;
+/* Connection blue for tile text and rails; leaning on the foreground keeps it legible in light and dark. */
+.mari-panel-gradient--connections {
+  --mari-connection-ink: color-mix(in srgb, var(--mari-panel-gradient-end) 80%, var(--foreground) 20%);
+  --mari-connection-tint: color-mix(in srgb, var(--mari-panel-gradient-start) 14%, transparent);
+  --mari-connection-ring: color-mix(in srgb, var(--mari-panel-gradient-start) 55%, transparent);
 }
 
 /* The one primary per screen wears the connection-blue gradient; touch gets the 44px target.
@@ -1763,6 +1735,7 @@
   --marinara-chat-chrome-button-bg-active: var(--marinara-chat-chrome-button-bg);
   --marinara-chat-chrome-button-border: transparent;
   --marinara-chat-chrome-button-border-hover: transparent;
+  --marinara-chat-chrome-button-border-active: transparent;
   --marinara-chat-chrome-button-text: var(--mari-panel-gradient-text);
   --marinara-chat-chrome-button-text-hover: var(--mari-panel-gradient-text);
   --marinara-chat-chrome-button-text-active: var(--mari-panel-gradient-text);
@@ -2112,6 +2085,13 @@
   --mari-avatar-placeholder-start: #34d399;
   --mari-avatar-placeholder-end: #14b8a6;
   --mari-avatar-placeholder-text: #ecfdf5;
+}
+
+/* Same amber as the Lorebooks panel gradient (.mari-panel-gradient--lorebooks). */
+.mari-avatar-placeholder--lorebook {
+  --mari-avatar-placeholder-start: #f59e0b;
+  --mari-avatar-placeholder-end: #f97316;
+  --mari-avatar-placeholder-text: #fff7ed;
 }
 
 .mari-topbar-button {
@@ -3194,6 +3174,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   box-shadow: inset 0 0 0 1px var(--marinara-editor-border-strong);
 }
 
+/* The label truncates (overflow: hidden), so its line box must hold the whole glyph: the header's
+   `line-height: 1` for actions cut the descenders off "g" and "y". */
+.mari-editor-tab-label {
+  line-height: normal;
+}
+
 .mari-editor-tab-badge {
   margin-left: auto;
   border: 1px solid var(--marinara-editor-border);
@@ -3276,7 +3262,7 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 .mari-editor-panel {
   border: 1px solid var(--marinara-editor-border);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--marinara-editor-surface-bg) 74%, var(--background) 26%);
+  background: color-mix(in srgb, var(--marinara-editor-surface-bg) 74%, var(--marinara-editor-bg) 26%);
   box-shadow: inset 0 1px color-mix(in srgb, var(--foreground) 7%, transparent);
 }
 
@@ -3414,6 +3400,13 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 .mari-editor-legacy-bridge input::placeholder,
 .mari-editor-legacy-bridge textarea::placeholder {
   color: var(--marinara-editor-muted);
+}
+
+/* The ID boxes, switch knobs and a few chips paint the app background, which is navy in dark: use the editor's. */
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]"],
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]/70"],
+.mari-editor-legacy-bridge [class~="bg-[var(--background)]/55"] {
+  background: var(--marinara-editor-bg);
 }
 
 .mari-editor-legacy-bridge [class~="bg-[var(--secondary)]"],
@@ -3700,9 +3693,10 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
     max-width: 8rem;
   }
 
+  /* The actions stay flush right, under the ✕, as they are on desktop. */
   .mari-editor-header--with-nav .mari-editor-actions {
     width: auto;
-    margin-left: 0;
+    margin-left: auto;
     justify-content: flex-end;
     border-top: 0;
     padding-top: 0;
@@ -3716,9 +3710,28 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   .mari-editor-header--with-nav .mari-editor-save-label {
     display: none;
   }
+
+  /* The ✕ that closes every open surface stays top-right on Back's row; the identity leaves room for it. */
+  .mari-editor-header--with-nav {
+    position: relative;
+  }
+
+  .mari-editor-header--with-nav > .mari-surface-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .mari-editor-header--with-nav:has(> .mari-surface-close) .mari-editor-header-main {
+    padding-right: 3.5rem;
+  }
+
+  .mari-editor-header--with-nav .mari-surface-close-divider {
+    display: none;
+  }
 }
 
-/* The character editor carries eleven sections and seven actions, so its header
+/* The character editor carries ten sections plus Save, its favourite star and "…", so its header
    compacts earlier than the others: tighter spacing, an icon-only Save until
    there is room, section icons only on very wide screens, and icon-only
    sections (named in tooltips) in the narrowest desktop band. */
@@ -3778,17 +3791,6 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   .mari-editor-header--dense .mari-editor-actions {
     gap: 0.25rem;
   }
-
-  /* Character and persona cards: their 2.75rem-wide actions do not fit beside the section menu. A character's
-     seven need about 425px and a persona's six about 370px, where a 390px phone has about 365px. The menu gives
-     way first, and the tap height stays 2.75rem, only the width is narrower. */
-  .mari-editor-header--card .mari-editor-navigation {
-    flex-basis: 4rem;
-  }
-
-  .mari-editor-header--card .mari-editor-actions .mari-editor-action {
-    min-width: 2.25rem;
-  }
 }
 
 /* ─────────────────────────────────────────────
@@ -3805,6 +3807,12 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
 @layer base {
   * {
     @apply border-[var(--border)];
+  }
+  /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
+     sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
+     only drew a stray border around the whole sheet. */
+  [tabindex="-1"]:focus {
+    outline: none;
   }
 }
 
@@ -4566,6 +4574,35 @@ html[data-marinara-reduced-effects="true"] .mari-home-browser-star,
 html[data-marinara-effects-paused="true"] .mari-home-browser-star {
   animation: none;
   opacity: 0.18;
+}
+
+/* Phones and tablets: the stars hold still. Twinkling kept the GPU drawing 60 frames a second on an idle Home. */
+@media (hover: none) and (pointer: coarse) {
+  .mari-home-browser-star {
+    animation: none;
+    opacity: 0.3;
+    will-change: auto;
+  }
+}
+
+/* Home stays mounted under Professor Mari, editors and full panels. While it is covered
+   (hooks/use-covered-surface-flag.ts), nothing on it animates: not the stars, the blink, the logo,
+   nor anything a theme adds. On phones these hidden loops kept a CPU core 40-60% busy. */
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"],
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *,
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::before,
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub.HomePage"] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Home's own wordmark (its top bar) also stops shifting while Home is covered. */
+html[data-marinara-home-covered="true"] [data-component="HomeBrowserHub"] .mari-logo-gradient-text--active {
+  animation-play-state: paused;
+}
+
+html[data-marinara-home-covered="true"] .mari-home-browser-star {
+  animation: none;
+  will-change: auto;
 }
 
 html[data-marinara-reduced-effects="true"] .mari-home-widget,
@@ -9301,5 +9338,42 @@ html[data-setup-stage]:not([data-setup-stage="leaving"]) .mari-chat-input {
   to {
     opacity: 0;
     transform: translateY(-0.45em);
+  }
+}
+/* Rows keep their resting colour while a sprite folder drags. Plain CSS on purpose: Tailwind's group-has-*
+   puts :has() inside :is(), and Chromium then restyled the whole app on every DOM insertion. */
+@media (hover: hover) {
+  .group\/sprite-library:has([data-sprite-folder][data-drag-source="true"]) .mari-sprite-folder-row:hover {
+    background-color: var(--sidebar);
+  }
+}
+
+/* Off-screen chat rows skip style and layout, so an accent tick (or any root variable write)
+   restyles only the rows in view. `auto` in contain-intrinsic-size remembers a row's measured
+   height once it has rendered, so the scrollbar and scroll anchoring stay put. Paint containment
+   applies to every matched row, so a streaming, hovered or focused row is rendered in full to keep
+   its menus and overhanging controls unclipped. The last few rows are rendered in full because a
+   row that mounts at the bottom (a finished reply) would otherwise render at its estimate first
+   and jump the scroll. */
+[data-message-id] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 6rem;
+  overflow-clip-margin: 0.75rem;
+}
+[data-message-id]:is(.mari-roleplay-message-row, .mari-message-narrator) {
+  contain-intrinsic-size: auto 12rem;
+}
+[data-message-id]:is([aria-busy="true"], :hover, :focus-within),
+:nth-last-child(-n + 6) > [data-message-id] {
+  content-visibility: visible;
+}
+
+/* iPadOS/iOS pick a picture up for native drag and drop after a short press, which swallows the tap:
+   tapping a character or persona picture often did nothing while its name worked. Pictures inside
+   buttons and links never start a drag or a callout on touch screens. */
+@media (hover: none) {
+  :is(button, a, [role="button"]) img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
   }
 }

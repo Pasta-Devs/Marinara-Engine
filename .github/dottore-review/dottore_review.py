@@ -1639,13 +1639,14 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
     if tools:
         # The API holds back each tool-input parameter until it is complete, so a submission's findings list streams
         # nothing while it is written: a Sonnet finder at low ran out its 600 s box with 912 tool-input characters
-        # shown. Eager streaming sends the input as it is written, so a cut-off reply says how far it got.
+        # shown. Eager streaming sends the input as it is written, so a cut-off reply says how far it got. The API does
+        # not check eagerly streamed input, so a malformed one turns it off for the role (see the ValueError below).
         request["tools"] = [
             {
                 "name": tool["function"]["name"],
                 "description": tool["function"]["description"],
                 "input_schema": tool["function"]["parameters"],
-                "eager_input_streaming": True,
+                "eager_input_streaming": settings.get("eager_tool_input", True),
             }
             for tool in tools
         ]
@@ -1678,6 +1679,14 @@ def claude_reply(ctx, settings, messages, tools, tool_choice, read_timeout, star
                 )
             reply = stream.get_final_message()
     except (httpx2.TimeoutException, httpx2.TransportError) as exc:
+        raise StreamStalled(error_text(exc)) from exc
+    except ValueError as exc:
+        # Eagerly streamed tool input is not validated: Sonnet 5.5's finder left a string unquoted twice running on
+        # #9087 ('{"change_summary": Adds a'), which the SDK cannot parse. The role resends without eager streaming,
+        # where the API holds each parameter until it is valid, for the rest of the review.
+        if "tool parameter JSON" not in str(exc) or not settings.get("eager_tool_input", True):
+            raise
+        settings["eager_tool_input"] = False
         raise StreamStalled(error_text(exc)) from exc
     if reply.stop_reason is None:
         # A connection that closes mid-reply ends the stream without an error or a stop reason.

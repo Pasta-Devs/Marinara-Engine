@@ -1,5 +1,6 @@
 import { normalizeGameDifficulty, combatWeatherEffects } from "@marinara-engine/shared";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
+import { withAlwaysOnThinkingHeadroom } from "../generation/agent-generation-parameters.js";
 import type { DB } from "../../db/connection.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
@@ -83,7 +84,8 @@ export function buildCombatBossPrompt(state: CombatDirectorState, personality = 
         battlefield: state.tactical
           ? { grid: state.tactical.grid, environment: state.tactical.environment }
           : undefined,
-        recentEvents: state.log.slice(-16),
+        // The Engine's own AI reasons are for Debug, not for the Game Master.
+        recentEvents: state.log.filter((entry) => entry.kind !== "marinara:reasoning").slice(-16),
       }),
     },
   ];
@@ -303,7 +305,13 @@ export async function chooseGmCombatOption(
     ...storedOptions,
     temperature: storedOptions.temperature ?? 0.5,
     enableThinking: !!storedOptions.reasoningEffort && storedOptions.reasoningEffort !== "none",
-    maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 300),
+    maxTokens: withAlwaysOnThinkingHeadroom({
+      provider: conn.provider,
+      model: conn.model,
+      maxTokens: resolveStoredMaxTokens(conn.defaultParameters, 300),
+      reasoningEffort: storedOptions.reasoningEffort,
+      maxTokensOverride: conn.maxTokensOverride,
+    }),
     signal,
   });
   logDebugOverride(debugMode, "[debug/game/combat:boss] window=%s response=%s", state.window!.id, response.content);

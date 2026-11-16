@@ -1,4 +1,4 @@
-import { Check, Hash, Star, User } from "lucide-react";
+import { BookOpen, Check, Hash, Star, User } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { cn, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
@@ -16,7 +16,9 @@ export type LibraryPreviewCard = {
   favorite: boolean;
   active?: boolean;
   tags: string[];
-  tokenEstimate: number;
+  /** Absent for kinds without a card-text estimate; lorebooks show `entryCount` instead. */
+  tokenEstimate?: number;
+  entryCount?: number;
 };
 
 /** The Full Library card, also used in the optional home widget. */
@@ -28,14 +30,19 @@ export function CardLibraryPreview({
   onClick,
 }: {
   card: LibraryPreviewCard;
-  kind?: "characters" | "personas";
+  kind?: "characters" | "personas" | "lorebooks";
   isSelected?: boolean;
   compact?: boolean;
   onClick: () => void;
 }) {
   const { t: localizeUi } = useTranslation();
   const placeholderClass =
-    kind === "personas" ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
+    kind === "personas"
+      ? "mari-avatar-placeholder--persona"
+      : kind === "lorebooks"
+        ? "mari-avatar-placeholder--lorebook"
+        : "mari-avatar-placeholder--character";
+  const PlaceholderIcon = kind === "lorebooks" ? BookOpen : User;
   const portrait = card.avatarPath ? (
     <AvatarImage
       src={card.avatarPath}
@@ -80,7 +87,7 @@ export function CardLibraryPreview({
           )
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--marinara-chat-chrome-panel-title)]">
-            <User size="1.5rem" className="sm:h-8 sm:w-8" />
+            <PlaceholderIcon size="1.5rem" className="sm:h-8 sm:w-8" />
           </div>
         )}
         {card.favorite && (
@@ -134,15 +141,23 @@ export function CardLibraryPreview({
         </p>
         {!compact && (
           <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
-            <span
-              className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]"
-              title={localizeUi(
-                "ui.characters.cardlibrarydetailcard.estimatedFromValue1CardTextFieldsActualTokenizerCounts",
-                { value1: kind === "personas" ? "persona" : "character" },
-              )}
-            >
-              <Hash size="0.5625rem" /> {formatEstimatedTokens(card.tokenEstimate, localizeUi)}
-            </span>
+            {card.tokenEstimate !== undefined && (
+              <span
+                className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+                title={localizeUi(
+                  "ui.characters.cardlibrarydetailcard.estimatedFromValue1CardTextFieldsActualTokenizerCounts",
+                  { value1: kind === "personas" ? "persona" : "character" },
+                )}
+              >
+                <Hash size="0.5625rem" /> {formatEstimatedTokens(card.tokenEstimate, localizeUi)}
+              </span>
+            )}
+            {card.entryCount !== undefined && (
+              <span className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]">
+                <BookOpen size="0.5625rem" />{" "}
+                {localizeUi("chat.settings.inlineLorebook.entryCount", { count: card.entryCount })}
+              </span>
+            )}
             {card.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}

@@ -81,6 +81,7 @@ For all agents, see [Agents: AI Helpers for Your Chats](../agents/agents-overvie
 - Roleplay has a light combat layer. Add the Combat agent, then click **Encounter** above the chat box. See [Combat Encounters (Roleplay)](combat-encounters.md).
 - A scene is a side branch for a flashback or side location. See [Scenes: Branching a Roleplay](scenes.md).
 - To steer the plot, see [Narrative Director and Secret Plot](narrative-director.md).
+- To play by tabletop rules, with dice checks and character sheets, see [Roleplay: Playing by a Ruleset](rulesets.md).
 
 ## Choosing models
 
@@ -195,6 +196,7 @@ For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
 - [Roleplay HUD and Trackers](hud-and-trackers.md)
 - [Combat Encounters (Roleplay)](combat-encounters.md)
 - [Narrative Director and Secret Plot](narrative-director.md)
+- [Roleplay: Playing by a Ruleset](rulesets.md)
 - [Scenes: Branching a Roleplay](scenes.md)
 - [Character Sprites](../characters/sprites.md)
 - [Connecting a Conversation to a Roleplay or Game](../chats/connected-chats.md)

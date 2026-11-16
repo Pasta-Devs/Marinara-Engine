@@ -101,13 +101,30 @@ export const CONVERSATION_COMMAND_KEYS = [
 
 export type ConversationCommandKey = (typeof CONVERSATION_COMMAND_KEYS)[number];
 
-export type ConversationCommandToggles = Partial<Record<ConversationCommandKey, boolean>>;
+/**
+ * Which Conversation commands are on, by key: the built-in commands above, or the command type of a turn game an
+ * installed package registers (Capability API 1.827), such as `wordle`.
+ */
+export type ConversationCommandToggles = Partial<Record<string, boolean>>;
+
+/** The command type grammar a package command is registered under, so its toggle key always reads back. */
+const CONVERSATION_COMMAND_TOGGLE_KEY = /^[a-z][a-z0-9_-]*$/;
+
+/**
+ * Reads stored Conversation command toggles. Every well-formed key is kept, not only the built-in ones, so a
+ * package game's toggle survives while that package is not installed and is not lost when another toggle is saved.
+ */
+export function readConversationCommandToggles(value: unknown): ConversationCommandToggles {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const toggles: ConversationCommandToggles = {};
+  for (const [key, enabled] of Object.entries(value)) {
+    if (typeof enabled === "boolean" && CONVERSATION_COMMAND_TOGGLE_KEY.test(key)) toggles[key] = enabled;
+  }
+  return toggles;
+}
 
 /** Whether a Conversation command is on. Videos is opt-in, unlike the other commands: each video message is a video request. */
-export function isConversationCommandToggleOn(
-  toggles: ConversationCommandToggles,
-  command: ConversationCommandKey,
-): boolean {
+export function isConversationCommandToggleOn(toggles: ConversationCommandToggles, command: string): boolean {
   return command === "video" ? toggles.video === true : toggles[command] !== false;
 }
 
@@ -521,6 +538,12 @@ export interface ChatMetadata {
    * Roleplay chat's messages. Unset falls back to the retired global setting.
    */
   colorInlineNames?: boolean;
+  /**
+   * Color the chat persona's name, display name and other names in its name color inside this
+   * Roleplay chat's messages. Unset follows `colorInlineNames`. A character with the same name
+   * keeps its own color.
+   */
+  colorPersonaInlineNames?: boolean;
   /**
    * How character-scoped regex scripts (those with target characters) apply at
    * display time in this chat: "exclusive" (a scoped script only transforms its

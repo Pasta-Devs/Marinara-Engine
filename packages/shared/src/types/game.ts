@@ -182,6 +182,9 @@ export interface GameCharacterCard {
   /** This game's copy of the character's sheet for the pinned ruleset (`chat.metadata.gameRuleset`).
    *  Edited in the game, never written back to the library card or persona. */
   rulesetSheet?: import("../schemas/ruleset.schema.js").RulesetSheetEnvelope;
+  /** Classic Marinara (Marinara's own classes): this game's progression for the character, never
+   *  the library card's: class, levels, stats, hidden aptitudes, carried skills and equipment. */
+  marinara?: import("../features/marinara-party.js").MarinaraCardProgression;
 }
 
 // ── NPCs ──
@@ -252,6 +255,18 @@ export interface GameSetupConfig {
   gmMode: GameGmMode;
   /** Content rating: sfw or nsfw */
   rating: "sfw" | "nsfw";
+  /** The player's own rating guidelines, used instead of the built-in text for `rating` in the setup
+   *  and GM prompts. Absent or empty is the built-in text. */
+  ratingGuidelines?: string | null;
+  /** Gentle storytelling (constants/game-story-style.ts): "gentle" softens the Game Master's own rules
+   *  toward lower-stress stories. Absent is "standard", the Game Master as it has always been. */
+  storyStyle?: import("../constants/game-story-style.js").GameStoryStyle;
+  /** How violence is shown, read apart from `rating` (which then decides sexual content only). Absent is
+   *  what the rating has always meant: graphic for NSFW, serious for SFW. */
+  violence?: import("../constants/game-story-style.js").GameViolenceLevel;
+  /** Subjects the player never wants in the story, one per line: hard limits in every prompt that
+   *  writes story, whatever the style and rating text. */
+  contentBoundaries?: string | null;
   /** Classic Game Mode or the Overworld RPG (see `GameStyle`), stored as `chat.metadata.gameStyle`.
    *  Absent in setups made before the choice: read as Overworld with a world, Classic without. */
   gameStyle?: GameStyle;
@@ -270,6 +285,11 @@ export interface GameSetupConfig {
   /** A cruel opponent (a `cruel` temperament, combat AI T3) may strike those already down. Absent is
    *  never: off unless the game asks for it. */
   cruelOpponents?: boolean;
+  /** Classic Marinara classes (combat overhaul): party members fight with the class progression kept
+   *  on their card and opponents by tier and archetype, in Classic fights. Absent is off. */
+  marinaraClasses?: boolean;
+  /** With `marinaraClasses`, a party member who falls in a fight is gone for good. Absent is off. */
+  permadeath?: boolean;
   /** The player plays every companion in a fight themselves. Absent, each companion fights on its
    *  own (the Engine plays it) until the player takes it (Alyssa 2026-10-26). */
   playerRunsCompanions?: boolean;
@@ -630,6 +650,26 @@ export interface SkillCheckResult {
   /** Independent setback dice and own upgrades actually applied (1.150). */
   setback?: number;
   upgradeOwn?: number;
+  /** Two named dice (1.821): the label of the one that showed more, or "tie". */
+  duality?: string;
+  /** The plot die (1.822): its face, its symbol, what it added (inside `modifier` too) and its name.
+   *  It is not one of `rolls`. */
+  plotFace?: number;
+  plotSymbol?: "complication" | "opportunity";
+  plotBonus?: number;
+  plotLabel?: string;
+  /** Bands the Game Master moved the outcome by (1.823), signed. */
+  shift?: number;
+  /** Special dice (1.824): how many of `rolls`, first, they were, their name, and a messy critical or
+   *  a bestial failure they made. */
+  hunger?: number;
+  hungerLabel?: string;
+  messy?: boolean;
+  bestial?: boolean;
+  /** Dice groups (1.826), in the order their dice lie in `rolls`, with each one's counted 1s; and how
+   *  many dice a push threw again. `pushed` is set, 0 included, on every pushed roll. */
+  groups?: { label: string; dice: number; banes?: number }[];
+  pushed?: number;
   /** Narrative dice (1.141): net symbols, die ids beside their 1-based rolls, and the face symbols
    *  with the ruleset's labels, so a saved check needs no installed ruleset to display. */
   symbols?: Record<string, number>;
@@ -751,6 +791,8 @@ export interface Combatant extends CombatAttackTraits, RulesetEncounterBlueprint
   combatClass?: string;
   /** Tactical traversal rule. Classic combat ignores this; missing means walk. */
   movementMode?: TacticalMovementMode;
+  /** A Classic Marinara fighter (Marinara's own classes): what the screen shows of it. */
+  marinara?: import("../features/marinara-combat.js").MarinaraCombatantView;
 }
 
 export interface CombatStatusEffect {
@@ -780,6 +822,19 @@ export interface CombatSkill extends CombatAttackTraits {
   cooldown?: number;
   element?: string;
   statusEffect?: string;
+  /** A Classic Marinara skill that spends stamina rather than MP. */
+  staminaCost?: number;
+  /** Whom a Classic Marinara skill is aimed at; an area or a party skill strikes the rest itself. */
+  aims?: import("../features/marinara-combat.js").MarinaraEffectTarget;
+  /** Turns until it can be used again (Classic Marinara). */
+  readyIn?: number;
+  /** Can't be used now (Classic Marinara): not enough MP or stamina, cooling down, or used up. */
+  unavailable?: "cost" | "cooldown" | "used" | "row" | "immune" | "companion" | "unchanneled";
+  /** A bonus-action skill offered on the extra action a bonus already gave (Classic Marinara): using it
+   *  takes that action rather than giving another (Sonnet panel r6: Mark Prey then Sic lost the shot). */
+  takesAction?: boolean;
+  /** What one use would do now (Classic Marinara): damage per foe or healing per ally, from the user's stats. */
+  estimate?: import("../features/marinara-combat.js").MarinaraSkillEstimate;
 }
 
 /** Lightweight element info for the client */
@@ -892,8 +947,9 @@ export interface CombatSummary {
     defeated: boolean;
     hp: number;
     maxHp: number;
-    /** Out of the fight alive, its heart gone: run off, or given up to the party. */
-    left?: "fled" | "surrendered";
+    /** Out of the fight alive, its heart gone: run off, or given up to the party; or tamed by a
+     *  party member (Classic Tame), now their companion. */
+    left?: "fled" | "surrendered" | "tamed";
   }>;
   /** The party gave itself up to honourable opponents (combat AI T6), who take it alive. */
   yielded?: true;
@@ -903,6 +959,8 @@ export interface CombatSummary {
   battlefieldSummary?: string;
   /** What the win dropped into the party's bags, and how many of each nobody could carry. */
   loot?: Array<{ name: string; quantity?: number; left?: number }>;
+  /** Classic Marinara: XP each party member earned, their level-ups and stat gains. */
+  marinara?: import("../features/marinara-combat.js").MarinaraFightGrowth[];
   /** What a ruleset fight really ended on, in the ruleset's own numbers. Present only for a fight
    *  the ruleset resolved, and the recap is written from it instead of the shares above. */
   ruleset?: import("../features/ruleset-combat/types.js").RulesetEncounterSummary;

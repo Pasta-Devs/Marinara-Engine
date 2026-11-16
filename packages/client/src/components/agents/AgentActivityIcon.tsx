@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
-// Agent activity's icon: a spinner while the chat's agents work, and a dot after
-// one fails, until Agent activity has been on screen (#7322)
+// Agent activity's icon: a spinner while the chat's agents or a package work, and a dot after
+// one fails, until Agent activity has been on screen (#7322), or while a package signals an alert
 //
 // It wraps each surface's own icon (Chat Settings, the Trackers window, the
 // Tracker Panel), so the drawer, its popped-out window and its bubble all show
@@ -10,16 +10,24 @@ import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
-import { selectUnseenAgentFailureCount, useAgentStore } from "../../stores/agent.store";
+import {
+  selectPackageAlert,
+  selectPackageBusy,
+  selectUnseenAgentFailureCount,
+  useAgentStore,
+} from "../../stores/agent.store";
 
 function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }) {
   const { t } = useTranslation();
-  const running = useAgentStore((s) => s.processingChatIds.includes(chatId));
+  // A package's busy signal spins the icon like the chat's agents do; its alert shows the same dot as a failure.
+  const running = useAgentStore((s) => s.processingChatIds.includes(chatId) || selectPackageBusy(s, chatId));
   const failed = useAgentStore((s) => selectUnseenAgentFailureCount(s, chatId));
+  const alerting = useAgentStore((s) => selectPackageAlert(s, chatId));
   return (
     <span
       data-running={running ? "true" : undefined}
       data-failed={failed > 0 ? "true" : undefined}
+      data-alert={alerting ? "true" : undefined}
       // The spinner takes the icon's place and size.
       className={cn(
         "mari-agent-activity-icon relative inline-flex shrink-0",
@@ -28,7 +36,7 @@ function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }
     >
       {icon}
       {running && <Loader2 aria-hidden="true" className="absolute inset-0 h-full w-full motion-safe:animate-spin" />}
-      {failed > 0 && (
+      {(failed > 0 || alerting) && (
         // The theme's accent held steady: a failure never pulses with Accent Pulse.
         <span
           aria-hidden="true"
@@ -37,6 +45,7 @@ function AgentActivityIcon({ chatId, icon }: { chatId: string; icon: ReactNode }
       )}
       {running && <span className="sr-only">{t("chat.agentsRunning")}</span>}
       {failed > 0 && <span className="sr-only">{t("agents.activity.failed", { count: failed })}</span>}
+      {alerting && <span className="sr-only">{t("agents.activity.needsAttention")}</span>}
     </span>
   );
 }

@@ -26,6 +26,8 @@ import type { CommandCenterPresentation, CommandCenterResultGroupId } from "../.
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
 
 type OmnibarResultListProps = {
+  /** Kept in place but invisible while the suggestions' lists are still arriving (no rows popping in). */
+  held?: boolean;
   listRef: RefObject<HTMLDivElement | null>;
   query: string;
   loading: boolean;
@@ -51,6 +53,7 @@ type OmnibarResultListProps = {
 
 /** The search result list: grouped rows, each with its preview, inline control and Enter hint. */
 export function OmnibarResultList({
+  held = false,
   listRef,
   query,
   loading,
@@ -90,6 +93,8 @@ export function OmnibarResultList({
         id="global-omnibar-results"
         aria-label={t("omnibar.results", "Search results")}
         data-component="GlobalOmnibar.Results"
+        aria-busy={held || undefined}
+        style={held ? { visibility: "hidden" } : undefined}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.5rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] pt-2"
       >
         {query.trim() && loading && results.length === 0 ? (

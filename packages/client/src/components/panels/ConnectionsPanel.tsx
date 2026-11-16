@@ -41,11 +41,13 @@ import {
   useConnections,
   useMoveConnection,
   useOutsideReads,
+  useLocalServers,
   type CachedCatalogFacts,
 } from "../../hooks/use-connections";
 import { useConnectionAccounts, useFeatureModels } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -89,13 +91,13 @@ import {
 import { ListSearch } from "../connections/ListFrame";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
-import { BuiltInModelCard } from "../connections/BuiltInModelCard";
-import { ConnectionDefaultsBox, DEFAULTS_FOLD_ID } from "../connections/ConnectionDefaults";
+import { ConnectionDefaultsBox } from "../connections/ConnectionDefaults";
 import { ConnectionFolderGroup, useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { DeviceDetail, SMALL_ACTION, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import { ServiceTile, type ServiceId } from "../modals/create-connection/shared";
 import { openAddConnection } from "../../lib/add-connection";
+import { newLocalServers } from "../../lib/local-servers";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
 import { ContextMenu } from "../ui/ContextMenu";
@@ -187,12 +189,15 @@ export function ConnectionsPanel() {
   const { data: featureModels } = useFeatureModels();
   const { data: connections, isLoading } = connectionsQuery;
   const { data: accounts } = accountsQuery;
+  const { data: localServers } = useLocalServers();
   const loadFailed = connectionsQuery.isError || accountsQuery.isError;
   const activeChat = useChatStore((s) => s.activeChat);
   const chatPick = useChatModelPick(activeChat?.id ?? null);
   const modelStar = useModelStar();
   const hiddenIds = useHiddenModelIds();
   const openModal = useUIStore((s) => s.openModal);
+  // The right panel keeps visited panels mounted while closed, so a page's Back layer needs the panel on screen.
+  const panelShowing = useUIStore((s) => s.rightPanelOpen && s.rightPanel === "connections");
   const collapsedConnections = useUIStore((s) => s.connectionsCollapsed);
   const accountManualOrder = useUIStore((s) => s.libraryManualOrders?.connection);
   const toggleConnectionCollapsed = useUIStore((s) => s.toggleConnectionCollapsed);
@@ -645,7 +650,7 @@ export function ConnectionsPanel() {
     ]
       .filter(Boolean)
       .join(" · ");
-    return renderRow(row, modelSubtitle(row, upstream), where || undefined, catalog);
+    return renderRow(row, modelSubtitle(row, upstream, !!account?.loadedModel), where || undefined, catalog);
   };
   const accountRow = ({ account, rows, visibleRows = rows }: ConnectionGroupData, providerName: string) => (
     <ConnectionGroup
@@ -698,19 +703,24 @@ export function ConnectionsPanel() {
   );
 
   // An engine without its page yet (its state still loading) opens its set-up screen instead.
-  const openDevice = (item: DeviceItem) =>
-    engines.some((engine) => engine.item === item)
-      ? select(`device:${item}`)
-      : openAddConnection({ category: "device", item });
+  const openDevice = (item: DeviceItem) => select(`device:${item}`);
   const defaultsBox = !isLoading && !loadFailed && (
     <ConnectionDefaultsBox key="defaults" connectionsList={connectionsList} onOpenDevice={openDevice} />
   );
   // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
   const deviceOpen = !collapsedConnections.includes(DEVICE_FOLD_ID);
   const deviceTitle = t("connections.accounts.section.device");
-  const deviceEngines = visible.engines.filter((engine) => engine.item !== "local-model");
+  const deviceEngines = visible.engines;
+  // Found servers need nothing yet; hidden while a search or the needs-attention filter narrows the list, or before both lists load.
+  const servers =
+    query || needsAttention || !accountsQuery.isSuccess || !connectionsQuery.isSuccess
+      ? []
+      : newLocalServers(localServers ?? [], [
+          ...(accounts ?? []),
+          ...((connections as ConnectionRowData[] | undefined) ?? []),
+        ]);
   const [onlyEngine] = deviceEngines;
-  const deviceGroup = deviceEngines.length > 0 && (
+  const deviceGroup = deviceEngines.length + servers.length > 0 && (
     <div
       role="group"
       aria-label={deviceTitle}
@@ -763,11 +773,11 @@ export function ConnectionsPanel() {
                   data-connections-row={key}
                   tile={<ProviderIcon provider={engine.item} size="model" />}
                   title={engine.name}
-                  subtitle={engine.detail}
-                  roles={engine.item === "local-model" ? localModelUsedBy : []}
+                  subtitle={[engine.state, engine.detail].filter(Boolean).join(" · ")}
+                  roles={engine.item === "local-model" && !engine.fix ? localModelUsedBy : []}
                   // Its own name needs the room: one job shows, the rest fold into "+N".
                   roleSlots={1}
-                  status={engine.tone === "ok" ? null : { label: engine.state }}
+                  status={engine.tone === "warn" ? { label: engine.state } : null}
                   current={wide && current === key}
                   aria-label={t("connections.list.rowLabel", { name: engine.name, state: engine.state })}
                   onClick={() => select(key)}
@@ -787,6 +797,31 @@ export function ConnectionsPanel() {
               </div>
             );
           })}
+          {servers.map((server) => (
+            <div key={server.baseUrl} className="mari-connection-model-slot min-w-0">
+              <ModelRow
+                data-connections-row={`server:${server.baseUrl}`}
+                tile={<ProviderIcon provider="custom" baseUrl={server.baseUrl} name={server.name} size="model" />}
+                title={server.name}
+                subtitle={t("connections.device.foundServer", {
+                  count: server.models,
+                  address: hostOf(server.baseUrl),
+                })}
+                end={
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAddConnection({ provider: "custom", baseUrl: server.baseUrl, name: server.name })
+                    }
+                    aria-label={t("connections.device.addServer", { name: server.name })}
+                    className={cn(SMALL_ACTION, "shrink-0")}
+                  >
+                    {t("connections.list.add")}
+                  </button>
+                }
+              />
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -841,7 +876,11 @@ export function ConnectionsPanel() {
                   key={service}
                   type="button"
                   data-add-connection-service={service}
-                  onClick={() => openModal("create-connection", { service })}
+                  onClick={() =>
+                    service === "local_model"
+                      ? openModal("device-detail", { item: "local-model" })
+                      : openModal("create-connection", { service })
+                  }
                   className="flex min-h-[3.25rem] min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)]"
                 >
                   <ServiceTile service={service} />
@@ -881,7 +920,6 @@ export function ConnectionsPanel() {
       ) : (
         <>
           {defaultsBox}
-          <BuiltInModelCard onOpenDevice={openDevice} />
           {deviceGroup}
           <p
             className={nothingShown ? "px-2 py-6 text-center text-xs text-[var(--muted-foreground)]" : "sr-only"}
@@ -973,18 +1011,7 @@ export function ConnectionsPanel() {
 
   let detail: ReactNode = null;
   if (current?.startsWith("device:")) {
-    detail = (
-      <DeviceDetail
-        key={current}
-        item={current.slice("device:".length) as DeviceItem}
-        onOpenDefaults={() => {
-          // Back to the list, with the Defaults box unfolded.
-          if (collapsedConnections.includes(DEFAULTS_FOLD_ID)) toggleConnectionCollapsed(DEFAULTS_FOLD_ID);
-          returnKeyRef.current = "defaults";
-          setSelected(null);
-        }}
-      />
-    );
+    detail = <DeviceDetail key={current} item={current.slice("device:".length) as DeviceItem} />;
   } else if (current === "other") {
     detail = (
       <div className="flex flex-col gap-0.5">
@@ -1142,6 +1169,13 @@ export function ConnectionsPanel() {
     </div>
   );
 
+  // One step back for the "‹ Connections" button and the phone's back gesture: focus returns to the row it left.
+  const showList = () => {
+    returnKeyRef.current = current;
+    setSelected(null);
+  };
+  useBackDismiss(panelShowing && !wide && !!current && !!detail, showList);
+
   const body =
     wide && detail ? (
       <>
@@ -1153,22 +1187,22 @@ export function ConnectionsPanel() {
       </>
     ) : !wide && current && detail ? (
       <>
-        <button
-          ref={backRef}
-          type="button"
-          data-connections-back
-          onClick={() => {
-            returnKeyRef.current = current;
-            setSelected(null);
-          }}
-          className={cn(
-            "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
-            FOCUS,
-          )}
-        >
-          <ChevronLeft size="0.875rem" />
-          {t("connections.list.back")}
-        </button>
+        {/* Pinned: the page can be long, and the way back stays in reach (the root's padding is pulled out so the row meets the panel edge). */}
+        <div className="sticky top-0 z-10 -mx-3 -mt-3 bg-[var(--background)] px-3 pb-1 pt-3 max-md:-mx-1.5 max-md:-mt-1.5 max-md:px-1.5 max-md:pt-1.5">
+          <button
+            ref={backRef}
+            type="button"
+            data-connections-back
+            onClick={showList}
+            className={cn(
+              "-ml-1 flex min-h-9 w-fit items-center gap-1 rounded-lg px-1 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] max-md:min-h-11",
+              FOCUS,
+            )}
+          >
+            <ChevronLeft size="0.875rem" />
+            {t("connections.list.back")}
+          </button>
+        </div>
         {detail}
       </>
     ) : (

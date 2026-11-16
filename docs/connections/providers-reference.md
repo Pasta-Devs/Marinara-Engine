@@ -70,7 +70,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 2. An OAuth access token, for example from `gcloud auth print-access-token`.
 3. A Vertex API key.
 
-**Gemini 4 Argon** runs only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`, according to a note in Marinara's code that follows Google's documentation. To use it, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
+**Gemini 4 Argon** and **Gemini 4 Carbon** run only in the `global`, `us`, and `eu` locations, not in one region such as `us-central1`, according to a note in Marinara's code that follows Google's documentation. To use either, set the address to `https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`. With another location, Google returns an error and Marinara shows it.
 
 ### Cohere
 
@@ -145,7 +145,7 @@ See [Image Generation Providers and Setup](../media/image-providers.md) and [Sce
 
 ## Decision
 
-Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. Chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
+Under **Decisions**, the tiles are **TypeSafe** (default address `https://api.typesafe.ai`), **Own decision server**, and **Built-in model (decisions)**. The **Decision** type chip in **Add** lists these and **NanoGPT**, **OpenRouter**, and **Google Gemini**, which have decision models of their own (see [Through NanoGPT](decision-models.md#through-nanogpt) and [Through OpenRouter or Google Gemini](decision-models.md#through-openrouter-or-google-gemini)). Other chat services that use the OpenAI chat format can also do decisions, but only with a model that returns log-probabilities (scores for each possible answer). A decision model answers yes-or-no questions about your chat. See [Decision Models](decision-models.md).
 
 ## Audio
 
@@ -160,7 +160,7 @@ Under **Voice**, an audio service speaks character voices and narration. Pick an
 
 Each source fills in a default address and model. **Default voice** is the voice used when nothing more specific, such as a per-character voice, is set. **Request timeout (seconds)** is how long Marinara waits for one spoken line. Raise it for a slow voice server.
 
-To choose the speech account Marinara uses by default, click the **Voice (Text to Speech)** row in the **Jobs** box. To read messages aloud with one, pick it as the **Source** in the **Text to Speech** card. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use an Audio connection](../media/tts-setup.md#use-an-audio-connection).
+To choose the speech account Marinara uses by default, click the **Voice** row in the **Jobs** box. To read messages aloud with one, pick its model on the **Voice** row. See [Text to Speech (TTS) Setup](../media/tts-setup.md) and [Use a Voice model from an account](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 ## Music & Sound Effects
 
@@ -184,7 +184,7 @@ Turn on generated audio per Game, or turn on **Sound effects** in Roleplay's com
 
 ## Embeddings
 
-Embeddings turn text into lists of numbers so Marinara can find related text. They power lorebook semantic search and Memory Recall. Most chat services let you set an embedding model and an optional **Embedding endpoint URL** under **Semantic search (embeddings)** in the model editor.
+Embeddings turn text into lists of numbers so Marinara can find related text. They power lorebook semantic search and Memory Recall. Most chat services let you set an embedding model and an optional **Embedding endpoint URL** under **More** → **Semantic search (embeddings)** in the model's **Edit model** window.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** cannot make embeddings. For those, use the **Embedding provider** dropdown to borrow another account, such as an OpenAI-compatible one, **Google Gemini**, or the **Built-in model**.
 

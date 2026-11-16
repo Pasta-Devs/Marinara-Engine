@@ -15,7 +15,7 @@ import {
   formatTimestamp,
   type MessageRenderContext,
 } from "./ConversationMessageShared";
-import { ConversationMessageActions } from "./ConversationMessageActions";
+import { ConversationMessageActions, type ConversationMessageActionsProps } from "./ConversationMessageActions";
 import { MessageMarkIndicators } from "./MessageMarks";
 import { MessageReactions } from "./MessageReactions";
 import { ReactionAddButton } from "./ReactionAddButton";
@@ -30,10 +30,13 @@ export function ConversationMessageGrouped({
   ctx,
   msgRef,
   reactionRow,
+  speech,
 }: {
   ctx: MessageRenderContext;
   msgRef: RefObject<HTMLDivElement | null>;
   reactionRow?: ReactNode;
+  /** The Speak button (whole reply, every speaker's voice), as on the single-speaker path. */
+  speech?: ConversationMessageActionsProps["speech"];
 }) {
   const { t: localizeUi } = useUiTranslation();
   const {
@@ -127,6 +130,7 @@ export function ConversationMessageGrouped({
       data-component="ConversationMessage.Grouped"
       tabIndex={0}
       data-message-id={message.id}
+      aria-busy={isStreaming || undefined}
       data-message-role={message.role}
       className={cn(
         "relative px-4 py-0.5 transition-colors hover:bg-[var(--secondary)]/30",
@@ -474,6 +478,7 @@ export function ConversationMessageGrouped({
           // Omitting the ambiguous whole-block picker prevents mobile taps from
           // reacting to the final segment instead of the intended speaker.
           onPickReaction={undefined}
+          speech={speech}
         />
       )}
     </div>

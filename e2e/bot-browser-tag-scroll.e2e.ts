@@ -94,3 +94,103 @@ for (const theme of ["dark", "light"] as const) {
     await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
   });
 }
+
+test("character page keeps Back to results pinned and hardware Back steps to the results first", async ({ page }) => {
+  await isolateSyncedUISettings(page);
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: false,
+    rightPanelOpen: false,
+    appAccentPulseMode: false,
+  });
+  await page.addInitScript((version) => {
+    localStorage.setItem("marinara:whats-new:seen-version", version);
+    localStorage.setItem("marinara-bot-browser", JSON.stringify({ nsfw: {}, logins: {}, lastSource: "chub" }));
+  }, version);
+  await page.route("**/api/bot-browser/**", (route) => route.fulfill({ status: 404, json: {} }));
+  await page.route("**/api/bot-browser/chub/search?*", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          count: 40,
+          nodes: Array.from({ length: 40 }, (_, index) => ({
+            fullPath: `fixture/card-${index}`,
+            name: `Step back fixture ${index}`,
+            topics: ["fixture"],
+            nTokens: 80,
+          })),
+        },
+      },
+    }),
+  );
+  await page.route("**/api/bot-browser/chub/character/**", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          // Each definition section is a fixed-height box, so several of them make the page scroll.
+          node: {
+            definition: Object.fromEntries(
+              [
+                "personality",
+                "tavern_personality",
+                "scenario",
+                "first_message",
+                "example_dialogs",
+                "description",
+                "system_prompt",
+                "post_history_instructions",
+              ].map((field) => [field, Array.from({ length: 30 }, (_, i) => `${field} line ${i}`).join("\n")]),
+            ),
+          },
+        },
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().openBotBrowser();
+  });
+  const browser = page.locator('[data-component="BotBrowserView"]');
+  const results = browser.locator(".overflow-y-auto").last();
+  const lastCard = browser.getByText("Step back fixture 39", { exact: true });
+  await lastCard.scrollIntoViewIfNeeded();
+  const resultsTop = await results.evaluate((element) => element.scrollTop);
+  expect(resultsTop).toBeGreaterThan(300);
+  await lastCard.click();
+
+  const back = browser.getByRole("button", { name: "Back to results", exact: true });
+  await expect(back).toBeVisible();
+  await expect(browser.getByText("scenario line 0").first()).toBeAttached();
+  // Scroll the container that holds the button (the last .overflow-y-auto here is a definition box).
+  const pageScrollTop = await back.evaluate((element) => {
+    const scroller = element.closest(".overflow-y-auto")!;
+    scroller.scrollTop = scroller.scrollHeight;
+    return scroller.scrollTop;
+  });
+  expect(pageScrollTop).toBeGreaterThan(200);
+  await expect(back).toBeInViewport({ ratio: 1 });
+
+  // The pinned control restores the results position exactly as before.
+  await back.click();
+  await expect(back).toHaveCount(0);
+  await expect.poll(() => results.evaluate((element) => element.scrollTop)).toBe(resultsTop);
+
+  // Hardware Back steps back from the character page, and only a second press leaves the downloader.
+  await lastCard.click();
+  await expect(back).toBeVisible();
+  await page.goBack();
+  await expect(back).toHaveCount(0);
+  await expect(browser).toBeVisible();
+  await expect(lastCard).toBeVisible();
+  await page.goBack();
+  // The closed downloader stays mounted (transparent), so read the store instead of visibility.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        return useUIStore.getState().botBrowserOpen;
+      }),
+    )
+    .toBe(false);
+});
