@@ -280,10 +280,11 @@ function cleanGallerySheetOutlines(
 }
 
 /**
- * The outline passes for a sticker or emoji that was saved before: one still on the sheets' green screen is
- * keyed out like a fresh sheet (any other backdrop is left alone); one already see-through gets the outline clean-up (specks, green flecks and tint
- * along its edge) against the green screen the sheets are drawn on. Only the edge band is touched, so
- * the art inside keeps its own colours. Returns null when a backdrop doesn't key out cleanly.
+ * The outline passes for a sticker or emoji that was saved before. One still on the sheets' green screen
+ * is keyed out like a fresh sheet; one already see-through gets the outline clean-up (specks, green flecks
+ * and tint along its edge) against that green screen. Only the edge band is touched, so the art inside
+ * keeps its own colours. Returns null, leaving the picture as it is, when the backdrop isn't a green
+ * screen, when it doesn't key out cleanly, or when keying would take more than a fifth of the drawing.
  */
 export async function cleanUpSavedGalleryPiece(dataUrl: string): Promise<string | null> {
   const image = await loadImage(dataUrl);
