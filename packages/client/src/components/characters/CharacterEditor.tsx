@@ -3575,7 +3575,7 @@ function DialogueTab({
                     aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
                     className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="text-xs font-semibold">
                         {localizeUi("ui.characters.dialoguetab.greeting")}
                         {/* First Message is greeting #1. */}

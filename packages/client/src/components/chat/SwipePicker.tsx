@@ -391,7 +391,7 @@ export function SwipePicker({
         </div>
 
         <div className="sm:grid sm:min-h-0 sm:flex-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] sm:gap-4">
-          <div className={cn("sm:min-h-0 sm:overflow-y-auto", reading && reader && "max-sm:hidden")}>
+          <div className={cn("sm:min-h-0 sm:overflow-y-auto sm:pr-2", reading && reader && "max-sm:hidden")}>
             {swipes.isLoading ? (
               <p className="py-8 text-center text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
                 {localizeUi("ui.chat.swipepicker.loading")}
@@ -438,7 +438,7 @@ export function SwipePicker({
                 aria-label={localizeUi(greeting ? "ui.chat.swipepicker.title" : "ui.chat.swipepicker.titleSwipes")}
                 aria-activedescendant={visible[activeRow] ? optionId(visible[activeRow]!) : undefined}
                 onKeyDown={onListKeyDown}
-                className="-mx-3 outline-none"
+                className="-mx-3 outline-none sm:mx-0"
               >
                 {sections.map(([section, sectionRows]) => (
                   <div
@@ -554,7 +554,7 @@ export function SwipePicker({
                 content={reader.body}
                 className="text-sm leading-relaxed [overflow-wrap:anywhere] sm:text-xs"
               />
-              <div className="sticky bottom-0 mt-auto flex items-center gap-2 bg-[color:var(--mari-modal-opaque-bg)] py-2">
+              <div className="sticky mt-auto flex items-center gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[color:var(--mari-modal-opaque-bg)] bg-[image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] pt-2 max-sm:-bottom-4 max-sm:pb-4 sm:bottom-0 sm:pb-2">
                 <button
                   type="button"
                   onClick={() => moveActive(activeRow - 1)}

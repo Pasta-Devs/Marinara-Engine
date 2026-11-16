@@ -8,7 +8,7 @@ const fieldBox =
   "grid gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 focus-within:border-[var(--primary)]/40 focus-within:ring-1 focus-within:ring-[var(--primary)]/20";
 const fieldLabel = "text-[0.625rem] font-medium uppercase tracking-wide text-[var(--muted-foreground)]";
 const fieldInput =
-  "min-w-0 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]/60 max-sm:text-base";
+  "min-w-0 bg-transparent text-sm outline-none placeholder:text-[var(--muted-foreground)]/60 max-md:min-h-9 max-sm:text-base";
 const chip =
   "inline-flex max-w-full items-center gap-0.5 rounded-full border border-[var(--border)] px-1.5 text-[0.6875rem] text-[var(--muted-foreground)]";
 
@@ -47,7 +47,7 @@ export function GreetingListFilter({
           placeholder={localizeUi("ui.chat.swipepicker.searchPlaceholder")}
           autoComplete="off"
           spellCheck={false}
-          className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] pl-9 pr-3 text-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
+          className="h-9 w-full rounded-lg max-md:h-11 border border-[var(--border)] bg-[var(--secondary)] pl-9 pr-3 text-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
         />
       </div>
       {tags.length > 0 && (
@@ -148,8 +148,15 @@ export function GreetingHeaderFields({
     if (tag && !tags.includes(tag)) onChange([...tags, tag], title);
   };
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      <div className={fieldBox}>
+    // The whole box is the touch target: a tap anywhere on it focuses its input.
+    <div
+      className="grid gap-2 sm:grid-cols-2"
+      onClick={(event) => {
+        const box = (event.target as HTMLElement).closest("[data-field-box]");
+        if (box && event.target === box) box.querySelector("input")?.focus();
+      }}
+    >
+      <div data-field-box className={fieldBox}>
         <label htmlFor={`greeting-title-${id}`} className={fieldLabel}>
           {localizeUi("ui.characters.dialoguetab.greetingTitle")}
         </label>
@@ -162,7 +169,7 @@ export function GreetingHeaderFields({
           className={fieldInput}
         />
       </div>
-      <div className={fieldBox}>
+      <div data-field-box className={fieldBox}>
         <label htmlFor={`greeting-tags-${id}`} className={fieldLabel}>
           {localizeUi("ui.characters.dialoguetab.greetingTags")}
         </label>
@@ -201,7 +208,7 @@ export function GreetingHeaderFields({
               }
             }}
             onBlur={addDraft}
-            className={cn(fieldInput, "w-20 flex-1")}
+            className={cn(fieldInput, "w-20 flex-1 [&::-webkit-calendar-picker-indicator]:hidden")}
           />
           <datalist id={`greeting-tag-options-${id}`}>
             {tagOptions
