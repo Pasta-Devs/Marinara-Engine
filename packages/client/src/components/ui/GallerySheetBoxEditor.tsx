@@ -178,7 +178,7 @@ export function GallerySheetBoxEditor({
   return (
     <div
       ref={rootRef}
-      className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
+      className="select-none space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
       data-gallery-sheet-box-editor=""
     >
       <div className="flex items-center justify-between gap-3">
