@@ -6,6 +6,7 @@ import {
   type PromptDialogState,
   type ChoiceDialogState,
 } from "../stores/dialog.store";
+import { translate } from "../localization/i18n";
 
 type ActiveDialogResolver = {
   kind: AppDialogState["kind"];
@@ -53,7 +54,7 @@ export function dismissActiveDialog() {
 export function showAlertDialog(options: Omit<AlertDialogState, "kind">): Promise<void> {
   return openDialog<void>({
     kind: "alert",
-    confirmLabel: "OK",
+    confirmLabel: translate("ui.dialogs.ok"),
     ...options,
   });
 }
@@ -61,8 +62,8 @@ export function showAlertDialog(options: Omit<AlertDialogState, "kind">): Promis
 export function showConfirmDialog(options: Omit<ConfirmDialogState, "kind">): Promise<boolean> {
   return openDialog<boolean>({
     kind: "confirm",
-    confirmLabel: "Confirm",
-    cancelLabel: "Cancel",
+    confirmLabel: translate("ui.dialogs.confirm"),
+    cancelLabel: translate("ui.dialogs.cancel"),
     ...options,
   });
 }
@@ -78,8 +79,8 @@ export function confirmNonEmptyFolderDelete(
 export function showPromptDialog(options: Omit<PromptDialogState, "kind">): Promise<string | null> {
   return openDialog<string | null>({
     kind: "prompt",
-    confirmLabel: "Confirm",
-    cancelLabel: "Cancel",
+    confirmLabel: translate("ui.dialogs.confirm"),
+    cancelLabel: translate("ui.dialogs.cancel"),
     ...options,
   });
 }
@@ -88,7 +89,7 @@ export function showPromptDialog(options: Omit<PromptDialogState, "kind">): Prom
 export function showChoiceDialog(options: Omit<ChoiceDialogState, "kind">): Promise<string | null> {
   return openDialog<string | null>({
     kind: "choice",
-    cancelLabel: "Cancel",
+    cancelLabel: translate("ui.dialogs.cancel"),
     ...options,
   });
 }

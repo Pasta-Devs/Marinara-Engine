@@ -5,11 +5,15 @@ import { useDialogStore } from "../../stores/dialog.store";
 import { getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-function getDialogTitle(kind: "alert" | "confirm" | "prompt" | "choice", title?: string) {
+function getDialogTitle(
+  kind: "alert" | "confirm" | "prompt" | "choice",
+  localizeUi: (key: string) => string,
+  title?: string,
+) {
   if (title) return title;
-  if (kind === "alert") return "Notice";
-  if (kind === "prompt") return "Input Required";
-  return "Confirm Action";
+  if (kind === "alert") return localizeUi("ui.dialogs.noticeTitle");
+  if (kind === "prompt") return localizeUi("ui.dialogs.inputRequiredTitle");
+  return localizeUi("ui.dialogs.confirmActionTitle");
 }
 
 export function AppDialogRenderer() {
@@ -59,7 +63,7 @@ export function AppDialogRenderer() {
     <Modal
       open={dialog !== null}
       onClose={dismissActiveDialog}
-      title={getDialogTitle(shown.kind, shown.title)}
+      title={getDialogTitle(shown.kind, localizeUi, shown.title)}
       width="max-w-sm"
       chatFloatingPanel
       topLayer

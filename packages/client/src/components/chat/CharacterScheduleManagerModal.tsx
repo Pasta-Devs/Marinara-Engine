@@ -368,7 +368,9 @@ export function CharacterScheduleManagerModal({ open, onClose }: Props) {
             </button>
           </div>
           {isLoading ? (
-            <Spinner size="lg" className="mx-auto my-8" />
+            <div className="flex justify-center">
+              <Spinner size="lg" className="my-8" />
+            </div>
           ) : (
             <div className="max-h-[min(60vh,36rem)] space-y-4 overflow-y-auto pr-1">
               {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
