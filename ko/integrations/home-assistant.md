@@ -6,7 +6,7 @@
 
 연동 기능은 Home Assistant 안에 설치되어 Home Assistant와 Marinara 서버를 이어 주는 작은 프로그램입니다. 처음 설정할 때 다음 항목을 자동으로 만듭니다. 도구 주소를 복사하거나 도구를 직접 설정할 일은 없습니다.
 
-- Presets 패널의 **Functions**(기능) 탭에 들어가는 스마트홈 도구. [사용자 지정 도구](../extending/custom-tools.md)를 참고하세요.
+- Presets 패널의 **Tools**(도구) 탭에 들어가는 스마트홈 도구. [사용자 지정 도구](../extending/custom-tools.md)를 참고하세요.
 - **Home Assistant**라는 이름의 에이전트 하나. 에이전트는 채팅과 함께 실행되는 AI 도우미입니다. [에이전트: 채팅을 도와주는 AI](../agents/agents-overview.md)를 참고하세요.
 - Home Assistant에서 Marinara를 살펴보고 제어할 수 있게 해 주는 Home Assistant 엔티티(기기, 센서, 컨트롤).
 
@@ -53,7 +53,7 @@ WEBHOOK_LOCAL_URLS_ENABLED=true
 
 작동하지 않는 경우: Home Assistant가 Marinara에 접근할 수 없으면 오류를 표시합니다. [문제 해결](#troubleshooting)을 참고하세요.
 
-설정에 성공하면 연동 기능이 Home Assistant에 비공개 웹훅을 등록하고, 그 웹훅을 가리키는 도구를 Marinara의 **Functions** 섹션에 만들고, 활성화된 도구를 모두 담은 **Home Assistant** 에이전트를 만들고, 아래에서 설명하는 엔티티를 만듭니다.
+설정에 성공하면 연동 기능이 Home Assistant에 비공개 웹훅을 등록하고, 그 웹훅을 가리키는 도구를 Marinara의 **Tools** 탭에 만들고, 활성화된 도구를 모두 담은 **Home Assistant** 에이전트를 만들고, 아래에서 설명하는 엔티티를 만듭니다.
 
 ## 채팅에 에이전트 추가하기
 
@@ -158,9 +158,9 @@ Marinara가 실행 중인지, **Host**와 **Port**가 Marinara가 수신 중인 
 
 웹훅 호출이 차단되었을 가능성이 큽니다. `.env`에 `WEBHOOK_LOCAL_URLS_ENABLED=true`를 추가하고 저장하세요. 이 설정이 없으면 `http`가 허용되지 않는다거나 사설 주소가 거부되었다는 메시지와 함께 도구 호출이 실패할 수 있습니다. Marinara와 Home Assistant가 같은 컴퓨터에 있으면 연동 기능이 내부 주소를 자동으로 씁니다. Marinara가 다른 기기에 있다면 그 기기에서 Home Assistant의 로컬 주소에 접근할 수 있는지 확인하세요.
 
-### Functions에 도구가 나타나지 않습니다
+### Tools에 도구가 나타나지 않습니다
 
-**Marinara Sync HA Tools**를 누르거나 Home Assistant를 다시 시작한 다음 Presets 패널의 **Functions** 탭을 확인하세요.
+**Marinara Sync HA Tools**를 누르거나 Home Assistant를 다시 시작한 다음 Presets 패널의 **Tools** 탭을 확인하세요.
 
 ### 채팅에 Home Assistant 에이전트가 없습니다
 
@@ -176,7 +176,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## 제거하기
 
-Home Assistant의 **Settings → Devices & Services → Marinara Engine**에서 연동을 삭제하세요. 그러면 엔티티가 사라집니다. Marinara의 **Functions** 섹션에 있는 도구와 **Home Assistant** 에이전트는 남습니다. 더 이상 필요 없다면 Marinara에서 직접 삭제하세요.
+Home Assistant의 **Settings → Devices & Services → Marinara Engine**에서 연동을 삭제하세요. 그러면 엔티티가 사라집니다. Marinara의 **Tools** 탭에 있는 도구와 **Home Assistant** 에이전트는 남습니다. 더 이상 필요 없다면 Marinara에서 직접 삭제하세요.
 
 ## 관련 가이드
 

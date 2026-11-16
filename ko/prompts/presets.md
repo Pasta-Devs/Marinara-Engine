@@ -38,10 +38,10 @@
 
 ## Presets 패널
 
-패널에는 **Presets**(프리셋), **Regexes**(정규식), **Functions**(기능) 탭이 있습니다. 각 탭 상단에는 같은 버튼 줄과 검색창, **New Folder**(새 폴더)가 있습니다. **Presets** 탭에서 **Create preset**으로 만들고, **Import preset**으로 `.json` 파일을 불러오며, **Select presets**로 여러 프리셋을 한 번에 내보내거나 삭제하세요. **Regexes** 탭에는 [정규식 스크립트](../extending/regex-scripts.md#manage-your-scripts), **Functions** 탭에는 [사용자 지정 도구](../extending/custom-tools.md)가 있습니다.
+패널에는 **Prompts**(프롬프트), **Regexes**(정규식), **Tools**(도구), **Profiles**(프로필) 탭이 있습니다. 각 탭 상단에는 같은 버튼 줄과 검색창이 있습니다. **Prompts** 탭에서 **Create preset**으로 만들고, **Import preset**으로 `.json` 파일을 불러오며, **Select presets**로 여러 프리셋을 한 번에 내보내거나 삭제하세요. **Select all presets**(모든 프리셋 선택)는 검색 결과에 나온 모든 프리셋을 체크합니다. **Regexes** 탭에는 [정규식 스크립트](../extending/regex-scripts.md#manage-your-scripts), **Tools** 탭에는 [사용자 지정 도구](../extending/custom-tools.md), **Profiles** 탭에는 [채팅 설정 프로필](../chats/settings-profiles.md#the-profiles-tab)이 있습니다.
 
 - **Search presets**는 목록을 걸러 냅니다.
-- 정렬 메뉴에서는 **Manual order**(수동 정렬), **A-Z**, **Z-A**, **Newest**, **Oldest** 중에서 고릅니다. **Manual order**에서는 행을 끌거나, 포커스가 있는 행에서 <kbd>Alt</kbd>+<kbd>Up</kbd> 또는 <kbd>Alt</kbd>+<kbd>Down</kbd>을 누르세요. 터치스크린에서는 행을 길게 눌러 집어 드세요.
+- 정렬 메뉴에서는 **Manual order**(수동 정렬), **A-Z**, **Z-A**, **Newest**, **Oldest**, **Most tokens**(토큰이 많은 순), **Fewest tokens**(토큰이 적은 순) 중에서 고릅니다. 크기는 프리셋이 항상 보내는 활성 섹션의 텍스트 자체를 기준으로 계산합니다. 캐릭터, 로어북, 채팅 기록 등의 마커 섹션은 채팅별로 채워지므로 집계에 포함되지 않습니다. 각 행에 추정 크기가 표시됩니다. **Manual order**에서는 행을 끌거나, 포커스가 있는 행에서 <kbd>Alt</kbd>+<kbd>Up</kbd> 또는 <kbd>Alt</kbd>+<kbd>Down</kbd>을 누르세요. 터치스크린에서는 행을 길게 눌러 집어 드세요.
 - **New Folder**(새 폴더)로 프리셋을 폴더로 묶을 수 있습니다. 프리셋을 폴더 위로 끌어다 놓고, 폴더 이름은 더블 클릭하거나 두 번 탭해서 바꾸세요.
 
 각 행에는 이름, 래핑 형식, 섹션 개수, 작성자가 표시됩니다. 별표로 지정한 기본 프리셋에는 **DEFAULT**(기본) 배지가 붙습니다. 행을 클릭하면 프리셋이 열립니다.

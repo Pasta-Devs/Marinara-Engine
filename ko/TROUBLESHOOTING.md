@@ -5,7 +5,7 @@
 ## 가장 먼저 해 볼 것
 
 1. 페이지를 강제로 새로 고치세요. Windows나 Linux에서는 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>, Mac에서는 <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>을 누르세요.
-2. 서버 콘솔(Marinara를 실행하는 터미널 창)에 빨간색 오류 줄이 있는지 확인하세요. 대개 그 줄이 진짜 원인을 알려 줍니다.
+2. 서버 콘솔(Marinara를 실행하는 터미널 창)에 빨간색 오류 줄이 있는지 확인하세요. 대개 그 줄이 진짜 원인을 알려 줍니다. 서버가 다른 환경(NAS, VPS, Docker)에서 실행 중이라면 **Settings → Advanced → Open Console**(설정 → 고급 → 콘솔 열기)을 열어 앱에서 같은 줄을 읽으세요.
 3. 도움을 요청하려면 먼저 **Debug mode**(디버그 모드)를 켜세요. [도움 더 받기](#get-more-help)를 참고하세요.
 
 <a id="my-character-does-not-reply"></a>
