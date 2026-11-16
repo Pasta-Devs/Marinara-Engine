@@ -4,9 +4,16 @@
 import { existsSync, lstatSync } from "node:fs";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { inferImageSource, isOpenAIGptImageModel, type ImagePromptKind } from "@marinara-engine/shared";
+import {
+  inferImageSource,
+  isOpenAIGptImageModel,
+  type ImageGenerationDefaultsProfile,
+  type ImagePromptKind,
+  type ImageStyleProfileSettings,
+} from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
+import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
@@ -96,8 +103,15 @@ type MariImageAsset = {
   ext: string;
   operation: "generate" | "edit";
   kind: ImagePromptKind;
+  /** What the image model got. */
   prompt: string;
   negativePrompt: string;
+  /** What Mari asked for, before any style profile (#9329). Absent on assets saved before it. */
+  requestedPrompt?: string;
+  requestedNegativePrompt?: string;
+  styleMode?: "none" | "profile";
+  styleProfileId?: string | null;
+  styleProfileName?: string | null;
   width: number | null;
   height: number | null;
   connectionId: string;
@@ -130,7 +144,7 @@ type ImageTarget =
   | { type: "chat-gallery"; chatId: string; imageId?: string | null }
   | { type: "character-gallery"; characterId: string; imageId?: string | null };
 
-const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force"]);
+const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force", "no-style"]);
 const PREVIEW_CHAT_ID = "mari-images";
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
@@ -255,6 +269,144 @@ function detectImageKind(target: ImageTarget | null, explicit?: string): ImagePr
     default:
       return "illustration";
   }
+}
+
+type StyleChoice =
+  { mode: "none" } | { mode: "profile"; profileId: string; chosenBy: "flag" | "connection" | "default" };
+
+// #9329: Mari writes whole prompts, so they go out as written unless she asks for a style profile with --style.
+// A bare --style (or --style default) means the engine default: the connection's own profile, else the global one.
+function resolveStyleChoice(
+  flags: Map<string, string | boolean>,
+  styleProfiles: ImageStyleProfileSettings,
+  imageDefaults: ImageGenerationDefaultsProfile | null | undefined,
+): StyleChoice {
+  const raw = ["style", "style-profile", "style-profile-id"]
+    .map((name) => flags.get(name))
+    .find((v) => v !== undefined);
+  if (hasFlag(flags, "no-style")) {
+    if (raw !== undefined && raw !== false) throw new Error("Use either --style or --no-style, not both.");
+    return { mode: "none" };
+  }
+  if (raw === undefined || raw === false) return { mode: "none" };
+  const wanted = typeof raw === "string" ? raw.trim() : "";
+  if (!wanted || wanted.toLowerCase() === "default") {
+    const own = imageDefaults?.styleProfileId?.trim();
+    if (own && styleProfiles.profiles.some((profile) => profile.id === own))
+      return { mode: "profile", profileId: own, chosenBy: "connection" };
+    return { mode: "profile", profileId: styleProfiles.defaultProfileId, chosenBy: "default" };
+  }
+  const profile = findStyleProfileByIdOrName(styleProfiles, wanted);
+  if (!profile) throw new Error(`Style profile not found: ${wanted}. Run mari images styles to list them.`);
+  return { mode: "profile", profileId: profile.id, chosenBy: "flag" };
+}
+
+function findStyleProfileByIdOrName(styleProfiles: ImageStyleProfileSettings, wanted: string) {
+  const lower = wanted.trim().toLowerCase();
+  return (
+    styleProfiles.profiles.find((profile) => profile.id === wanted.trim()) ??
+    styleProfiles.profiles.find((profile) => profile.name.trim().toLowerCase() === lower)
+  );
+}
+
+function defaultsPrefixes(defaults: ImageGenerationDefaultsProfile | null | undefined) {
+  const own =
+    defaults?.service === "automatic1111"
+      ? defaults.automatic1111
+      : defaults?.service === "comfyui"
+        ? defaults.comfyui
+        : defaults?.service === "novelai"
+          ? defaults.novelai
+          : undefined;
+  return { prompt: own?.promptPrefix ?? "", negative: own?.negativePromptPrefix ?? "" };
+}
+
+// The connection's prompt and negative prefixes are added again inside the provider call (NovelAI, A1111, ComfyUI), so
+// an as-written prompt blanks them here too. Sampler, steps, seed and custom parameters stay.
+function withoutPromptPrefixes<T extends ImageGenerationDefaultsProfile | null | undefined>(defaults: T): T {
+  if (!defaults) return defaults;
+  const blank = <D extends { promptPrefix: string; negativePromptPrefix: string }>(own: D | undefined) =>
+    own ? { ...own, promptPrefix: "", negativePromptPrefix: "" } : own;
+  return {
+    ...defaults,
+    automatic1111: blank(defaults.automatic1111),
+    comfyui: blank(defaults.comfyui),
+    novelai: blank(defaults.novelai),
+  };
+}
+
+function clip(value: string | undefined, max = 160) {
+  const text = (value ?? "").trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function pruneEmpty(values: Record<string, string | undefined>) {
+  return Object.fromEntries(Object.entries(values).filter(([, value]) => value?.trim())) as Record<string, string>;
+}
+
+// What goes to the image model, plus a `style` report so Mari can see what a profile added, removed or moved.
+function styleImagePrompt(args: {
+  flags: Map<string, string | boolean>;
+  kind: ImagePromptKind;
+  prompt: string;
+  negativePrompt: string;
+  styleProfiles: ImageStyleProfileSettings;
+  imageDefaults: ImageGenerationDefaultsProfile | null | undefined;
+}) {
+  const { kind, prompt, negativePrompt, styleProfiles, imageDefaults } = args;
+  const choice = resolveStyleChoice(args.flags, styleProfiles, imageDefaults);
+  const requested = { requestedPrompt: prompt, requestedNegativePrompt: negativePrompt };
+  if (choice.mode === "none") {
+    return {
+      prompt,
+      negativePrompt,
+      raw: true,
+      imageDefaults: withoutPromptPrefixes(imageDefaults),
+      style: {
+        mode: "none" as const,
+        note: "Sent as written: no style profile, no per-image tags, no connection prompt prefix, no rewriting. Pass --style to use the default style profile.",
+        kind,
+        ...requested,
+      },
+    };
+  }
+  const compiled = compileImagePrompt({
+    kind,
+    prompt,
+    negativePrompt,
+    styleProfiles,
+    styleProfileId: choice.profileId,
+    imageDefaults,
+  });
+  const profile = compiled.profile;
+  const prefixes = defaultsPrefixes(imageDefaults);
+  return {
+    prompt: compiled.prompt,
+    negativePrompt: compiled.negativePrompt,
+    raw: false,
+    imageDefaults,
+    style: {
+      mode: "profile" as const,
+      profile: { id: profile.id, name: profile.name, promptGrammar: profile.promptMode },
+      chosenBy: choice.chosenBy,
+      kind,
+      ...requested,
+      // What the profile and connection can add; the final prompt shows what was kept.
+      added: pruneEmpty({
+        connectionPromptPrefix: prefixes.prompt,
+        positiveTags: profile.positiveTags,
+        perImageTags: profile.subjectTags[kind],
+        styleText: profile.styleText,
+        connectionNegativePrefix: prefixes.negative,
+        negativeTags: profile.negativeTags,
+      }),
+      removedDuplicates: [
+        ...compiled.diagnostics.removedPositiveDuplicates,
+        ...compiled.diagnostics.removedNegativeDuplicates,
+      ],
+      movedToNegative: compiled.diagnostics.movedNegativeFragments,
+    },
+  };
 }
 
 function isStabilityV1Base(baseUrl: string) {
@@ -454,6 +606,32 @@ async function readManifest() {
   return parseManifest(await readFile(path, "utf8"));
 }
 
+export const MARI_PREVIEW_CHAT_ID = PREVIEW_CHAT_ID;
+
+/**
+ * The file a preview asset URL (`/api/gallery/file/mari-images/<file>`) names, while the manifest still lists it.
+ * Preview assets have no gallery row, so the gallery file route asks here instead (#9329). A file in the folder that
+ * the manifest doesn't list, a link, or a refused manifest is not found.
+ */
+export async function findMariPreviewFile(
+  filename: string,
+): Promise<{ absolutePath: string; filename: string } | null> {
+  let listed: boolean;
+  try {
+    listed = (await readManifest()).some((asset) => asset.filename === filename);
+  } catch (error) {
+    logger.debug({ err: error, filename }, "[mari-images] Preview manifest unreadable; not serving %s", filename);
+    return null;
+  }
+  if (!listed) return null;
+  try {
+    return { absolutePath: realPathInAppFolder(PREVIEW_DIR, join(PREVIEW_DIR, filename)), filename };
+  } catch (error) {
+    logger.debug({ err: error, filename }, "[mari-images] Preview file refused; not serving %s", filename);
+    return null;
+  }
+}
+
 async function writeManifest(assets: MariImageAsset[]) {
   await writeAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2));
 }
@@ -464,6 +642,12 @@ async function savePreviewAsset(args: {
   kind: ImagePromptKind;
   prompt: string;
   negativePrompt: string;
+  style: {
+    mode: "none" | "profile";
+    requestedPrompt: string;
+    requestedNegativePrompt: string;
+    profile?: { id: string; name: string };
+  };
   width?: number;
   height?: number;
   connection: ImageConnection;
@@ -491,6 +675,11 @@ async function savePreviewAsset(args: {
     kind: args.kind,
     prompt: args.prompt,
     negativePrompt: args.negativePrompt,
+    requestedPrompt: args.style.requestedPrompt,
+    requestedNegativePrompt: args.style.requestedNegativePrompt,
+    styleMode: args.style.mode,
+    styleProfileId: args.style.profile?.id ?? null,
+    styleProfileName: args.style.profile?.name ?? null,
     width: args.width ?? null,
     height: args.height ?? null,
     connectionId: args.connection.id,
@@ -662,6 +851,9 @@ export class MariImagesService {
       case "connections":
       case "capabilities":
         return this.connections(context, parsed.flags);
+      case "styles":
+      case "style":
+        return this.styles(context, parsed.positionals);
       case "preview":
         return this.preview(context, parsed.flags);
       case "generate":
@@ -757,6 +949,53 @@ export class MariImagesService {
     };
   }
 
+  // A short list by default, since profiles get long and Mari may run on a small-context model; one profile in full
+  // (negative and per-image tags too) when she names it.
+  private async styles(context: ImageCommandContext, positionals: string[]): Promise<MariDbCommandResult> {
+    const { styleProfiles } = await loadImageGenerationUserSettings(this.db);
+    const wanted = positionals.join(" ").trim();
+    if (wanted) {
+      const profile = findStyleProfileByIdOrName(styleProfiles, wanted);
+      if (!profile) throw new Error(`Style profile not found: ${wanted}. Run mari images styles to list them.`);
+      return {
+        ok: true,
+        mode: "read",
+        command: context.command,
+        output: {
+          ...profile,
+          promptGrammar: profile.promptMode,
+          perImageTags: profile.subjectTags,
+          isDefault: profile.id === styleProfiles.defaultProfileId,
+          use: `mari images generate --style ${profile.id} --prompt <text>`,
+        },
+      };
+    }
+    const connectionProfiles = (await this.imageConnections())
+      .map((conn) => ({
+        connection: conn.name,
+        styleProfileId: resolveConnectionImageDefaults(conn)?.styleProfileId ?? null,
+      }))
+      .filter((entry) => entry.styleProfileId);
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        note: "Without --style your prompt is sent as written. --style (or --style default) uses the default profile below, or a connection's own; --style <id> picks one. mari images styles <id> shows a profile in full, with its per-image tags.",
+        defaultProfileId: styleProfiles.defaultProfileId,
+        connectionProfiles,
+        profiles: styleProfiles.profiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name,
+          ...(profile.id === styleProfiles.defaultProfileId ? { isDefault: true } : {}),
+          promptGrammar: profile.promptMode,
+          styleText: clip(profile.styleText),
+          positiveTags: clip(profile.positiveTags),
+        })),
+      },
+    };
+  }
+
   private async preview(
     context: ImageCommandContext,
     flags: Map<string, string | boolean>,
@@ -770,14 +1009,13 @@ export class MariImagesService {
     const negativePrompt = flagString(flags, "negative", "negative-prompt") ?? "";
     const kind = detectImageKind(target, flagString(flags, "kind"));
     const imageSettings = await loadImageGenerationUserSettings(this.db);
-    const imageDefaults = resolveConnectionImageDefaults(connection);
-    const compiled = compileImagePrompt({
+    const styled = styleImagePrompt({
+      flags,
       kind,
       prompt,
       negativePrompt,
       styleProfiles: imageSettings.styleProfiles,
-      styleProfileId: flagString(flags, "style-profile", "style-profile-id"),
-      imageDefaults,
+      imageDefaults: resolveConnectionImageDefaults(connection),
     });
     const size = this.resolveSize(flags, kind, imageSettings);
     const source = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
@@ -801,8 +1039,9 @@ export class MariImagesService {
         kind,
         width: size.width,
         height: size.height,
-        prompt: compiled.prompt,
-        negativePrompt: compiled.negativePrompt,
+        prompt: styled.prompt,
+        negativePrompt: styled.negativePrompt,
+        style: styled.style,
       },
     };
   }
@@ -824,26 +1063,30 @@ export class MariImagesService {
 
     const sourceImage = operation === "edit" ? await this.resolveSourceImage(flags, target, context, true) : null;
     const imageSettings = await loadImageGenerationUserSettings(this.db);
-    const imageDefaults = resolveConnectionImageDefaults(connection);
     const kind = detectImageKind(target, flagString(flags, "kind"));
     const size = this.resolveSize(flags, kind, imageSettings);
-    const compiled = compileImagePrompt({
+    const styled = styleImagePrompt({
+      flags,
       kind,
       prompt,
       negativePrompt,
       styleProfiles: imageSettings.styleProfiles,
-      styleProfileId: flagString(flags, "style-profile", "style-profile-id"),
-      imageDefaults,
+      imageDefaults: resolveConnectionImageDefaults(connection),
     });
+    const imageDefaults = styled.imageDefaults;
 
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
-    const fallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
+    const resolvedFallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
+    const fallback =
+      styled.raw && resolvedFallback
+        ? { ...resolvedFallback, imageDefaults: withoutPromptPrefixes(resolvedFallback.imageDefaults) }
+        : resolvedFallback;
     const result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt || undefined,
+      prompt: styled.prompt,
+      negativePrompt: styled.negativePrompt || undefined,
       model: imgModel || undefined,
       width: size.width,
       height: size.height,
@@ -859,8 +1102,9 @@ export class MariImagesService {
       result,
       operation,
       kind,
-      prompt: compiled.prompt,
-      negativePrompt: compiled.negativePrompt,
+      prompt: styled.prompt,
+      negativePrompt: styled.negativePrompt,
+      style: styled.style,
       width: size.width,
       height: size.height,
       connection,
@@ -878,6 +1122,8 @@ export class MariImagesService {
         message:
           "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
         asset,
+        style: styled.style,
+        show: `![${kind}](${asset.url})`,
         targetSuggestion: target,
       },
     };
@@ -1539,20 +1785,23 @@ export class MariImagesService {
 
   private helpText() {
     return [
-      "Usage: mari images <command>",
+      "Usage: mari images <command> (mari images help shows this)",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
-      "HITL preview: preview --operation generate|edit --prompt <text> [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>]",
-      "Create preview asset: generate --prompt <text> [--target <target>] [--width <n>] [--height <n>]",
-      "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>]",
-      "Apply: assign --asset <asset-id> --target character-avatar --character <id>",
-      "Apply: assign --asset <asset-id> --target persona-avatar --persona <id>",
-      "Apply: assign --asset <asset-id> --target lorebook-image --lorebook <id>",
-      "Apply: assign --asset <asset-id> --target sprite --character <id> --expression happy",
-      "Apply: assign --asset <asset-id> --target background --name <name> [--tags a,b]",
-      "Apply: assign --asset <asset-id> --target chat-gallery --chat <id>",
-      "Apply: assign --asset <asset-id> --target character-gallery --character <id>",
-      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery ...",
-      "Notes: preview never generates or saves. generate/edit save a review asset only. assign/delete mutate app image state.",
+      "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
+      "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
+      "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",
+      "Style: without --style the prompt and negative go out as written (--no-style says so explicitly). --style or --style default applies the default style profile; --style <id|name> a chosen one, including its per-image tags for --kind. Results show a style block: what was added, removed or moved.",
+      "Show a result: put the result's show line, ![alt](asset.url), in your reply.",
+      "Apply: assign --asset <asset-id> --target character-avatar --character <id> --apply",
+      "Apply: assign --asset <asset-id> --target persona-avatar --persona <id> --apply",
+      "Apply: assign --asset <asset-id> --target lorebook-image --lorebook <id> --apply",
+      "Apply: assign --asset <asset-id> --target sprite --character <id> --expression happy --apply",
+      "Apply: assign --asset <asset-id> --target background --name <name> [--tags a,b] --apply",
+      "Apply: assign --asset <asset-id> --target chat-gallery --chat <id> --apply",
+      "Apply: assign --asset <asset-id> --target character-gallery --character <id> --apply",
+      "Delete/clear: delete --target asset|character-avatar|persona-avatar|lorebook-image|sprite|background|chat-gallery|character-gallery ... [--delete-file] --apply",
+      "Notes: preview never generates or saves. generate/edit save a review asset only. assign/delete change app images only with --apply; without it they show what would change.",
     ].join("\n");
   }
 }

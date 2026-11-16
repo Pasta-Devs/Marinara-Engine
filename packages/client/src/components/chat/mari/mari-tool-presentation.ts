@@ -603,6 +603,9 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
       return info.edit ? "Finding edit-capable image connections" : "Checking image connections";
     case "capabilities":
       return info.edit ? "Checking image edit capabilities" : "Checking image capabilities";
+    case "styles":
+    case "style":
+      return info.target ? "Reading image style profile" : "Listing image style profiles";
     case "preview":
       return "Preparing image preview";
     case "generate":
