@@ -382,7 +382,7 @@ export function ConversationPresenceCard({
           );
           const failure = Object.values(result.results).find((entry) => entry.status.startsWith("error:"));
           if (failure) toast.error(failure.status.slice("error:".length).trim());
-          await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+          await queryClient.refetchQueries({ queryKey: chatKeys.detail(chatId) });
         }
         await refetchStatuses();
       } catch (error) {
