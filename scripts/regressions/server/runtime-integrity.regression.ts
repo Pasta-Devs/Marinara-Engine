@@ -12,12 +12,12 @@ import {
   getLlamaRuntimeManifestEntry,
   serializeMlxRuntimeManifestStamp,
   type RuntimeManifestAsset,
-} from "../../packages/server/src/services/sidecar/runtime-integrity-manifest.js";
-import { downloadFileWithProgress, retry } from "../../packages/server/src/services/sidecar/sidecar-download.js";
+} from "../../../packages/server/src/services/sidecar/runtime-integrity-manifest.js";
+import { downloadFileWithProgress, retry } from "../../../packages/server/src/services/sidecar/sidecar-download.js";
 import {
   dependencyAssetDigestsMatch,
   isLlamaRuntimeRecordCurrent,
-} from "../../packages/server/src/services/sidecar/sidecar-runtime.service.js";
+} from "../../../packages/server/src/services/sidecar/sidecar-runtime.service.js";
 
 function digest(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
@@ -107,7 +107,7 @@ assert.match(mlxSourceUrl.pathname, /^\/packages\/[a-f0-9]{2}\/[a-f0-9]{2}\/[a-f
 assert.equal(MLX_RUNTIME_MANIFEST.mlxLm.packageSpec, `mlx-lm @ ${mlxSourceUrl.href}`);
 assertAsset(MLX_RUNTIME_MANIFEST.uv.archive, MLX_RUNTIME_MANIFEST.uv.version);
 const mlxRequirementsLock = readFileSync(
-  fileURLToPath(new URL("../../packages/server/src/assets/mlx-runtime-requirements.lock", import.meta.url)),
+  fileURLToPath(new URL("../../../packages/server/src/assets/mlx-runtime-requirements.lock", import.meta.url)),
 );
 assert.equal(
   digest(mlxRequirementsLock),

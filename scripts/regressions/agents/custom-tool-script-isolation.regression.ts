@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { executeToolCalls, type CustomToolDef } from "../../packages/server/src/services/tools/tool-executor.js";
+import { executeToolCalls, type CustomToolDef } from "../../../packages/server/src/services/tools/tool-executor.js";
 
 process.env.CUSTOM_TOOL_SCRIPT_ENABLED = "true";
 process.env.CUSTOM_TOOL_TIMEOUT_MS = "1000";

@@ -20,7 +20,7 @@ Unbounded collections and nonleading Zod 4 checks remain unchanged, as in the up
 
 Engine core now uses native Zod 4.6.7. The explicit `zod-v3` dependency preserves the documented API-1 client slot and package-server imports, with this exact backport applied. It does not redirect Engine core validation to the legacy parser.
 
-`node scripts/regressions/zod-security-backport.regression.mjs` imports the actual server-resolved compatibility alias, bundled v4 and Mini parsers in ESM and CJS. It verifies bounded sync/async rejection, valid/default/transform behavior, the Zod 3 interface, unchanged unlimited valid parsing, intentional set/map raw-size behavior, and object JIT/interpreter paths. It also verifies the native core version in all three workspaces.
+`node scripts/regressions/security/zod-security-backport.regression.mjs` imports the actual server-resolved compatibility alias, bundled v4 and Mini parsers in ESM and CJS. It verifies bounded sync/async rejection, valid/default/transform behavior, the Zod 3 interface, unchanged unlimited valid parsing, intentional set/map raw-size behavior, and object JIT/interpreter paths. It also verifies the native core version in all three workspaces.
 
 The advisory-specific workspace exemption is valid only with the exact registered patch, matching frozen-lock patch hash, installed legacy version 3.25.76 and reviewed native version 4.6.7. The regression fails closed if those assumptions change. A stock 3.25.76 installation fails its runtime negative control. The exemption acknowledges a reviewed source backport; it does not assert that the upstream version is patched or suppress other advisories.
 

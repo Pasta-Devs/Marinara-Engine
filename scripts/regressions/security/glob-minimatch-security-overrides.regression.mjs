@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const lock = readFileSync(new URL("../../pnpm-lock.yaml", import.meta.url), "utf8");
+const lock = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
 for (const [name, fixed] of [
   ["glob", [14, 0, 2]],
   ["minimatch", [11, 0, 1]],
@@ -23,10 +23,10 @@ for (const [name, fixed] of [
 
 const fromRepo = (path) => createRequire(realpathSync(new URL(path, import.meta.url)));
 const chain = (from, ...names) => names.reduce((parent, name) => createRequire(parent.resolve(name)), from);
-const staticRequire = chain(fromRepo("../../packages/server/package.json"), "@fastify/static");
+const staticRequire = chain(fromRepo("../../../packages/server/package.json"), "@fastify/static");
 // ESM-only, so start from its package directory instead of resolving an entry point.
-const piRequire = fromRepo("../../packages/server/node_modules/@earendil-works/pi-coding-agent/package.json");
-const workboxRequire = chain(fromRepo("../../packages/client/package.json"), "vite-plugin-pwa", "workbox-build");
+const piRequire = fromRepo("../../../packages/server/node_modules/@earendil-works/pi-coding-agent/package.json");
+const workboxRequire = chain(fromRepo("../../../packages/client/package.json"), "vite-plugin-pwa", "workbox-build");
 const filelistRequire = chain(workboxRequire, "@trickfilm400/rollup-plugin-off-main-thread", "ejs", "jake", "filelist");
 
 // glob returns native separators (assets\index-AbCd.js on Windows). Both consumers convert results

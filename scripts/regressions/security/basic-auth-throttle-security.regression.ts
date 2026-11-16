@@ -12,7 +12,7 @@
 // never compares a Basic header, since nothing would count it there.
 import assert from "node:assert/strict";
 import { createHmac, randomBytes } from "node:crypto";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import type { FastifyRequest } from "fastify";
 import {
   BASIC_AUTH_FAILURE_LIMIT,
@@ -20,11 +20,11 @@ import {
   basicAuthHook,
   loginRoutes,
   isBasicAuthSatisfied,
-} from "../../packages/server/src/middleware/basic-auth.js";
-import { hostValidationHook } from "../../packages/server/src/middleware/host-validation.js";
-import { ipAllowlistHook } from "../../packages/server/src/middleware/ip-allowlist.js";
-import { rateLimitHook } from "../../packages/server/src/middleware/rate-limit.js";
-import { logger } from "../../packages/server/src/lib/logger.js";
+} from "../../../packages/server/src/middleware/basic-auth.js";
+import { hostValidationHook } from "../../../packages/server/src/middleware/host-validation.js";
+import { ipAllowlistHook } from "../../../packages/server/src/middleware/ip-allowlist.js";
+import { rateLimitHook } from "../../../packages/server/src/middleware/rate-limit.js";
+import { logger } from "../../../packages/server/src/lib/logger.js";
 
 const ENV_KEYS = [
   "ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK",

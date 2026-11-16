@@ -5,12 +5,12 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import multipart from "../../packages/server/node_modules/@fastify/multipart/index.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import multipart from "../../../packages/server/node_modules/@fastify/multipart/index.js";
 
 // The router decodes percent-escapes before matching, so "/%61pi/..." reaches
 // an "/api/..." handler. API-only hooks must not decide on the raw URL alone.
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-encoded-api-path-"));
 process.on("exit", () => rmSync(dataDir, { recursive: true, force: true }));
 process.env.DATA_DIR = dataDir;
@@ -22,11 +22,11 @@ process.env.HOST = "0.0.0.0";
 delete process.env.CSRF_TRUSTED_ORIGINS;
 delete process.env.MARINARA_E2E_DISABLE_RATE_LIMIT;
 
-const { csrfProtectionHook } = await import("../../packages/server/src/middleware/csrf-protection.js");
+const { csrfProtectionHook } = await import("../../../packages/server/src/middleware/csrf-protection.js");
 const { BACKUP_RATE_LIMIT, rateLimitHook, resetRateLimitBucketsForTests } =
-  await import("../../packages/server/src/middleware/rate-limit.js");
-const { isApiRequest } = await import("../../packages/server/src/utils/api-request.js");
-const { CSRF_HEADER, CSRF_HEADER_VALUE } = await import("../../packages/server/src/utils/security.js");
+  await import("../../../packages/server/src/middleware/rate-limit.js");
+const { isApiRequest } = await import("../../../packages/server/src/utils/api-request.js");
+const { CSRF_HEADER, CSRF_HEADER_VALUE } = await import("../../../packages/server/src/utils/security.js");
 
 const host = "127.0.0.1:7860";
 const crossSite = { host, origin: "https://elsewhere.example", "sec-fetch-site": "cross-site" };
@@ -162,7 +162,7 @@ try {
 
 // The production app's no-store and JSON compression hooks apply to an encoded
 // API path too. Compression needs a real socket: app.inject() replies stay plain.
-const { buildApp } = await import("../../packages/server/src/app.js");
+const { buildApp } = await import("../../../packages/server/src/app.js");
 const productionApp = await buildApp();
 try {
   await productionApp.listen({ port: 0, host: "127.0.0.1" });

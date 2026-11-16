@@ -3,9 +3,9 @@
 // password" list follows the same policy the hooks enforce.
 import assert from "node:assert/strict";
 import type { NetworkInterfaceInfo } from "node:os";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import { dockerTrustWarning, getPasswordlessPeers } from "../../packages/server/src/middleware/ip-allowlist.js";
-import { accessStatusRoutes } from "../../packages/server/src/routes/access-status.routes.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import { dockerTrustWarning, getPasswordlessPeers } from "../../../packages/server/src/middleware/ip-allowlist.js";
+import { accessStatusRoutes } from "../../../packages/server/src/routes/access-status.routes.js";
 
 const ENV_KEYS = [
   "ADMIN_SECRET",

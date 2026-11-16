@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import {
   buildCustomToolPatch,
   importCustomToolEntries,
   normalizeCustomToolImportEntry,
   prepareCustomToolImportEntry,
   serializeCustomToolForTransfer,
-} from "../../packages/client/src/lib/custom-tool-transfer.js";
+} from "../../../packages/client/src/lib/custom-tool-transfer.js";
 
 // #8516: saving an existing tool sends only what changed. A toggle never re-sends (and so never re-validates) a name or
 // description stored by an import or by Mari, even one the editor would now reject.
@@ -171,11 +171,11 @@ try {
     { backupRoutes },
     { ENCRYPTED_WEBHOOK_PREFIX },
   ] = await Promise.all([
-    import("../../packages/server/src/db/connection.js"),
-    import("../../packages/server/src/db/schema/index.js"),
-    import("../../packages/server/src/services/storage/custom-tools.storage.js"),
-    import("../../packages/server/src/routes/backup.routes.js"),
-    import("../../packages/server/src/utils/custom-tool-webhook.js"),
+    import("../../../packages/server/src/db/connection.js"),
+    import("../../../packages/server/src/db/schema/index.js"),
+    import("../../../packages/server/src/services/storage/custom-tools.storage.js"),
+    import("../../../packages/server/src/routes/backup.routes.js"),
+    import("../../../packages/server/src/utils/custom-tool-webhook.js"),
   ]);
   const db = await getDB();
   const app = Fastify();

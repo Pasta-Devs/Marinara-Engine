@@ -2,22 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
-import cors from "../../packages/server/node_modules/@fastify/cors/index.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import cors from "../../../packages/server/node_modules/@fastify/cors/index.js";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 process.env.HOST = "0.0.0.0";
 delete process.env.TRUSTED_HOSTS;
 delete process.env.CSRF_TRUSTED_ORIGINS;
 delete process.env.CORS_ORIGINS;
 delete process.env.MARINARA_E2E_DISABLE_RATE_LIMIT;
 
-const { corsDelegate } = await import("../../packages/server/src/config/cors-config.js");
-const { getCsrfTrustedOrigins } = await import("../../packages/server/src/config/runtime-config.js");
+const { corsDelegate } = await import("../../../packages/server/src/config/cors-config.js");
+const { getCsrfTrustedOrigins } = await import("../../../packages/server/src/config/runtime-config.js");
 const { hostValidationHook, parseRequestHostname } =
-  await import("../../packages/server/src/middleware/host-validation.js");
+  await import("../../../packages/server/src/middleware/host-validation.js");
 const { AVATAR_STORAGE_RATE_LIMIT, BACKUP_RATE_LIMIT, rateLimitHook, resetRateLimitBucketsForTests } =
-  await import("../../packages/server/src/middleware/rate-limit.js");
+  await import("../../../packages/server/src/middleware/rate-limit.js");
 
 process.env.CSRF_TRUSTED_ORIGINS = "null";
 assert.deepEqual(getCsrfTrustedOrigins(), [], "a literal null CSRF origin is treated as unset");

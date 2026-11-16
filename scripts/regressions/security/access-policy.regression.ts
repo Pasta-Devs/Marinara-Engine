@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import os from "node:os";
 import type { FastifyRequest } from "fastify";
-import { getAccessPolicy, isNonRoutableNetworkIp } from "../../packages/server/src/middleware/ip-allowlist.js";
+import { getAccessPolicy, isNonRoutableNetworkIp } from "../../../packages/server/src/middleware/ip-allowlist.js";
 
 const ENV_KEYS = [
   "ADMIN_SECRET",

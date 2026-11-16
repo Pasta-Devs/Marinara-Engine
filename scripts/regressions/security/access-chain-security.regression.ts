@@ -33,7 +33,7 @@ function resetEnv() {
 }
 resetEnv();
 
-const { buildApp } = await import("../../packages/server/src/app.js");
+const { buildApp } = await import("../../../packages/server/src/app.js");
 
 const REMOTE = "192.168.1.50";
 const app = await buildApp();

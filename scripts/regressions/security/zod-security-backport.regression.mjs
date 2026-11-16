@@ -6,12 +6,12 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const serverRequire = createRequire(new URL("../../packages/server/package.json", import.meta.url));
+const serverRequire = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
 const packageRoot = dirname(serverRequire.resolve("zod-v3/package.json"));
 const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
 assert.equal(manifest.version, "3.25.76", "Reassess the backport before changing the API-1 validator");
 for (const name of ["server", "client", "shared"]) {
-  const require = createRequire(new URL(`../../packages/${name}/package.json`, import.meta.url));
+  const require = createRequire(new URL(`../../../packages/${name}/package.json`, import.meta.url));
   assert.equal(require("zod/package.json").version, "4.6.7", `${name} uses the reviewed native core validator`);
 }
 let cases = 0;
@@ -133,8 +133,8 @@ for (const [name, file, specifier, legacy, mini] of [
   }
 }
 // Each advisory exception has its own installed-source backport and resolution guard.
-const workspace = readFileSync(new URL("../../pnpm-workspace.yaml", import.meta.url), "utf8");
-const lock = readFileSync(new URL("../../pnpm-lock.yaml", import.meta.url), "utf8");
+const workspace = readFileSync(new URL("../../../pnpm-workspace.yaml", import.meta.url), "utf8");
+const lock = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
 const section = (text, key) => {
   const lines = text.split(/\r?\n/u);
   const start = lines.indexOf(`${key}:`);
@@ -159,7 +159,7 @@ const versions = [
   ...new Set([...lock.matchAll(/^  zod@([^:(\s]+)(?:\([^\n]*\))?:/gmu)].map((match) => match[1])),
 ].sort();
 assert.deepEqual(versions, ["3.25.76", "4.6.7"], "Only the reviewed native version and patched API-1 alias are allowed");
-const patch = readFileSync(new URL("../../patches/zod@3.25.76.patch", import.meta.url));
+const patch = readFileSync(new URL("../../../patches/zod@3.25.76.patch", import.meta.url));
 const patchHash = createHash("sha256").update(patch).digest("hex");
 assert.ok(
   section(lock, "patchedDependencies").some((line) => line.trim() === `zod@3.25.76: ${patchHash}`),

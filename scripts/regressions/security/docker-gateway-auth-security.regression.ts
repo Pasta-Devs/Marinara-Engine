@@ -7,7 +7,7 @@
 // compatibility switch keeps its documented meaning.
 import assert from "node:assert/strict";
 import type { FastifyRequest } from "fastify";
-import { isTrustedInterfaceRequest } from "../../packages/server/src/middleware/ip-allowlist.js";
+import { isTrustedInterfaceRequest } from "../../../packages/server/src/middleware/ip-allowlist.js";
 
 const ENV_KEYS = [
   "BASIC_AUTH_PASS",

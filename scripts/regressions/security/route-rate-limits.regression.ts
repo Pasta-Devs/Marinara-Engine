@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
-import Fastify from "../../packages/server/node_modules/fastify/fastify.js";
+import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import {
   ACCESS_LOGIN_RATE_LIMIT,
   CONNECTION_TEST_RATE_LIMIT,
@@ -16,7 +16,7 @@ import {
   SPRITE_RENAME_RATE_LIMIT,
   UTILITY_SIDECAR_RATE_LIMIT,
   rateLimitHook,
-} from "../../packages/server/src/middleware/rate-limit.js";
+} from "../../../packages/server/src/middleware/rate-limit.js";
 
 // Each route that declares a limit must hit that wall, not the 600/min default. The hook's rule table
 // wins where it matches (it shares one bucket across related routes); any other route keeps the
@@ -113,7 +113,7 @@ try {
   );
   // The real route declares it, so that wall is the one it meets.
   const galleryRoute = await import("node:fs").then((fs) =>
-    fs.readFileSync(new URL("../../packages/server/src/routes/global-gallery.routes.ts", import.meta.url), "utf8"),
+    fs.readFileSync(new URL("../../../packages/server/src/routes/global-gallery.routes.ts", import.meta.url), "utf8"),
   );
   assert.match(galleryRoute, /"\/file\/:filename",\s*\{ config: \{ rateLimit: GLOBAL_GALLERY_FILE_RATE_LIMIT \} \}/u);
   const spriteRead = await app.inject({ method: "GET", url: "/api/sprites/c1/happy" });
