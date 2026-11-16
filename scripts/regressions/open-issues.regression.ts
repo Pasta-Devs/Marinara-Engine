@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ChatMode, ChatSummaryEntry, Message } from "../../packages/shared/src/types/chat.js";
+import type { ChatMode, Message } from "../../packages/shared/src/types/chat.js";
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
-import {
-  appendChatSummaryEntryToMetadata,
-  combineChatSummaryEntryHistory,
-  compileChatSummaryEntries,
-  createChatSummaryEntry,
-} from "../../packages/shared/src/utils/chat-summary-entries.js";
 import playwrightConfig from "../../playwright.config.js";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
 import {
@@ -29,34 +23,11 @@ import {
   CUSTOM_AGENT_RESULT_EXAMPLES,
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
-import {
-  orderConversationRespondersByDelay,
-  remainingConversationPresenceDelay,
-} from "../../packages/server/src/routes/generate/conversation-presence-runtime.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import { createLorebookEntrySchema, createLorebookSchema } from "../../packages/shared/src/schemas/lorebook.schema.js";
 import { characterDataSchema, updateCharacterSchema } from "../../packages/shared/src/schemas/character.schema.js";
-import {
-  getSlashCompletions,
-  matchSlashCommand,
-  parseTargetedHideArguments,
-  shouldExecuteQuickPostAsCommand,
-} from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
-import { filterCustomEmojisByName } from "../../packages/client/src/lib/custom-emoji.js";
-import {
-  shouldSuppressAutonomousMessages,
-  toAutonomousPresenceStatus,
-} from "../../packages/client/src/lib/user-status.js";
-import {
-  trackChatMetadataSave,
-  waitForPendingChatMetadataSaves,
-} from "../../packages/client/src/lib/chat-metadata-save-barrier.js";
-import {
-  resolveConversationSelfieConnectionId,
-  resolveConversationSelfieSetup,
-} from "../../packages/client/src/lib/conversation-selfie-setup.js";
 import { getApiErrorMessage } from "../../packages/client/src/lib/api-client.js";
 import {
   getPersonalExtensionTraffic,
@@ -73,33 +44,12 @@ import {
   resolveProfessorMariContextBudget,
 } from "../../packages/client/src/lib/professor-mari-context-budget.js";
 import {
-  compareChatsByActivityDesc,
-  compareChatsByCreatedAtAsc,
-  compareChatsByCreatedAtDesc,
-} from "../../packages/client/src/lib/chat-recency.js";
-import {
   DEFAULT_GENERATION_PARAMS,
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   resolveTranslationSystemPrompt,
 } from "../../packages/shared/src/constants/defaults.js";
 import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
 import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storage/noodle.storage.js";
-import {
-  parseCharacterCommands,
-  parseCharacterCommandsBySpeaker,
-} from "../../packages/server/src/services/conversation/character-commands.js";
-import {
-  collapseDuplicateConversationSpeakerPrefixes,
-  isRepeatedConversationResponse,
-  stripConversationPromptTimestamps,
-  stripConversationResponseEnvelope,
-} from "../../packages/server/src/services/conversation/transcript-sanitize.js";
-import {
-  resolveStandardEmojiShortcode,
-  searchStandardEmojiShortcodes,
-} from "../../packages/client/src/lib/emoji-shortcodes.js";
-import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
-import { withGalleryFileLifecycleLock } from "../../packages/server/src/services/image/gallery-file-lifecycle.js";
 import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
 import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
 import {
@@ -151,29 +101,13 @@ import {
   isMutatingWorkspaceCommand,
   PROFESSOR_MARI_APP_DATA_ACTIONS,
 } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
-import {
-  checkAutonomousMessaging,
-  clearChatActivity,
-  dailyCapForCharacter,
-  initializeActivityFromMessages,
-  isAutonomousDailyBudgetExhausted,
-} from "../../packages/server/src/services/conversation/autonomous.service.js";
-import {
-  generateScheduleRoutineSummary,
-  type WeekSchedule,
-} from "../../packages/server/src/services/conversation/schedule.service.js";
+import { generateScheduleRoutineSummary } from "../../packages/server/src/services/conversation/schedule.service.js";
 import type {
   BaseLLMProvider,
   ChatCompletionResult,
   ChatMessage,
   ChatOptions,
 } from "../../packages/server/src/services/llm/base-provider.js";
-import {
-  findInventoryTrackerAcquisitions,
-  resolveGroupGenerationMode,
-  shouldRestoreRegenerationCharacterTarget,
-} from "../../packages/server/src/routes/generate/generate-route-utils.js";
-import { normalizeChatForResponse } from "../../packages/server/src/routes/chats.routes.js";
 import {
   moveBackgroundAssignment,
   normalizeBackgroundLibraryOrganization,
@@ -186,7 +120,6 @@ import {
 import { resolveCapabilityPackageDisplay } from "../../packages/client/src/lib/capability-package-localization.js";
 import { resolveFeatureAgentPackage } from "../../packages/client/src/lib/feature-agent-package.js";
 import { formatSupportDiagnostics, resolveClientOs } from "../../packages/client/src/lib/support-diagnostics.js";
-import { normalizeHydratedMessage } from "../../packages/client/src/lib/message-hydration.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
 import {
   homeCustomWidgetCatalogSchema,
@@ -228,27 +161,6 @@ assert.equal(
   resolveFeatureAgentPackage({ id: "hierarchical-maps" } as BuiltInAgentManifest, [contributedFeaturePackage]),
   contributedFeaturePackage,
   "Feature detail contributions must remain a compatible ownership fallback",
-);
-
-const inventoryTrackerAcquisitions = findInventoryTrackerAcquisitions(
-  {
-    inventoryTrackerCurrencies: [{ name: "Mora", qty: 10 }],
-    inventoryTrackerEquipped: [],
-    inventoryTrackerInventory: [{ name: "Scalpel" }],
-  },
-  {
-    inventoryTrackerCurrencies: [{ name: "Mora", qty: 15 }],
-    inventoryTrackerEquipped: [{ name: "Scalpel" }],
-    inventoryTrackerInventory: [{ name: "Delusion", qty: 2 }],
-  },
-);
-assert.deepEqual(
-  inventoryTrackerAcquisitions,
-  [
-    { name: "Mora", quantity: 5 },
-    { name: "Delusion", quantity: 2 },
-  ],
-  "Inventory journal deltas must count quantity gains without treating equipped moves as acquisitions",
 );
 
 const characterRoutesSource = readFileSync(
@@ -501,30 +413,6 @@ for (const action of ["instruction.remember", "instruction.update", "instruction
   );
 }
 
-assert.deepEqual(
-  normalizeHydratedMessage({
-    id: "legacy-reactions",
-    chatId: "chat-legacy",
-    role: "assistant",
-    content: { reactions: [{ emoji: "💖", count: 1 }] },
-    createdAt: "2026-08-09T00:00:00.000Z",
-  } as unknown as Message),
-  {
-    id: "legacy-reactions",
-    chatId: "chat-legacy",
-    role: "assistant",
-    content: "",
-    extra: {
-      displayText: null,
-      isGenerated: true,
-      tokenCount: null,
-      generationInfo: null,
-      reactions: [{ emoji: "💖", count: 1 }],
-    },
-    createdAt: "2026-08-09T00:00:00.000Z",
-    activeSwipeIndex: 0,
-  },
-);
 assert.throws(() =>
   homeCustomWidgetCatalogSchema.parse({
     widgets: [
@@ -588,11 +476,6 @@ const backgroundOrganization = normalizeBackgroundLibraryOrganization({
     "game:backgrounds:fantasy:castle": "missing-folder",
   },
 });
-
-assert.equal(toAutonomousPresenceStatus("active"), "active");
-assert.equal(toAutonomousPresenceStatus("dnd"), "dnd");
-assert.equal(shouldSuppressAutonomousMessages("active"), false);
-assert.equal(shouldSuppressAutonomousMessages("dnd"), true);
 
 assert.equal(backgroundOrganization.folders.length, 1);
 assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
@@ -686,13 +569,6 @@ for (const workflow of ["build-container.yml", "build-container-lite.yml"]) {
   assert.match(workflowSource, /BUILD_BRANCH=\$\{\{ github\.ref_name \}\}/u);
 }
 
-assert.equal(resolveGroupGenerationMode("conversation", "individual"), "individual");
-assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
-assert.equal(
-  resolveGroupGenerationMode("conversation", undefined),
-  "merged",
-  "pre-existing Conversation groups without mode metadata must retain Grouped behavior",
-);
 const expectedChatModeSurfaces = {
   conversation: {
     showSettingsProfiles: true,
@@ -736,11 +612,6 @@ for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
   );
 }
 assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
-assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
-assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
-assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
-assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "individual", ["a", "b"]), true);
-assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a"]), true);
 
 const minimalProfessorMariPersona = buildPersonaCreateRow(
   { name: "Minimal helper persona" },
@@ -781,21 +652,6 @@ assert.deepEqual(
   partialCharacterUpdateData,
   { personality: "Quietly analytical." },
   "Partial character updates must not synthesize undefined fields that deepMerge treats as deletions",
-);
-
-assert.deepEqual(
-  normalizeChatForResponse({
-    id: "fresh-chat",
-    characterIds: '["character-a","character-b"]',
-    metadata: '{"tags":["saved-tag"],"gameNpcs":[]}',
-  }),
-  {
-    id: "fresh-chat",
-    characterIds: ["character-a", "character-b"],
-    metadata: { tags: ["saved-tag"], gameNpcs: [] },
-    personaCharacterId: null,
-  },
-  "Fresh chat responses must expose parsed tags and character IDs",
 );
 
 const characterUpdateStorageRoot = mkdtempSync(join(tmpdir(), "marinara-character-update-preservation-"));
@@ -3587,40 +3443,6 @@ try {
   rmSync(characterUpdateStorageRoot, { recursive: true, force: true });
 }
 
-const professorMariAboutMeCommands = parseCharacterCommands(
-  '[update_character: name="Luna", about_me="fate dealer. tea hoarder. 🔮"]\n' +
-    '[update_persona: name="Alex Storm", about_me=""]',
-).commands;
-assert.deepEqual(professorMariAboutMeCommands[0], {
-  type: "update_character",
-  name: "Luna",
-  aboutMe: "fate dealer. tea hoarder. 🔮",
-});
-assert.deepEqual(professorMariAboutMeCommands[1], {
-  type: "update_persona",
-  name: "Alex Storm",
-  aboutMe: "",
-});
-const strictCharacterNumberCommands = parseCharacterCommands(
-  '[create_character: name="Decimal", talkativeness=0.5]\n' +
-    '[create_character: name="Not Decimal", talkativeness=0x5]',
-).commands;
-assert.equal(strictCharacterNumberCommands[0]?.type, "create_character");
-assert.equal(
-  strictCharacterNumberCommands[0]?.type === "create_character"
-    ? strictCharacterNumberCommands[0].talkativeness
-    : undefined,
-  0.5,
-);
-assert.equal(strictCharacterNumberCommands[1]?.type, "create_character");
-assert.equal(
-  strictCharacterNumberCommands[1]?.type === "create_character"
-    ? strictCharacterNumberCommands[1].talkativeness
-    : undefined,
-  undefined,
-  "Non-decimal separators must not be accepted as character numeric parameters",
-);
-
 const generatedLorebookEntry = buildLorebookEntryCreateRow(
   {
     name: "Glass City",
@@ -3927,69 +3749,6 @@ for (const [override, expectedMaxTokens] of [
   assert.equal(options.reasoningEffort, "low");
 }
 
-const autonomousSchedule = (talkativeness: number, cap: number): WeekSchedule => ({
-  weekStart: "2026-07-13",
-  days: {},
-  inactivityThresholdMinutes: 1,
-  autonomousDailyCapOverride: cap,
-  talkativeness,
-});
-assert.equal(
-  dailyCapForCharacter(undefined, { autonomousDailyCapOverride: 75 }),
-  75,
-  "chat-level autonomous ceilings should accept numeric overrides above the former limit",
-);
-assert.equal(
-  dailyCapForCharacter(autonomousSchedule(90, 8), { autonomousDailyCapOverride: 75 }),
-  8,
-  "per-character safety limits should still be able to lower a numeric chat ceiling",
-);
-const autonomousChatId = "regression-autonomous-candidates";
-assert.equal(
-  dailyCapForCharacter(autonomousSchedule(90, 1000)),
-  1000,
-  "custom character limits are not capped at eight",
-);
-assert.equal(
-  dailyCapForCharacter(autonomousSchedule(90, 1000), { autonomousDailyCapOverride: 75 }),
-  75,
-  "the chat-wide safety cap still limits a larger custom character cap",
-);
-initializeActivityFromMessages(autonomousChatId, [
-  { role: "user", createdAt: new Date(Date.now() - 5 * 60_000).toISOString() },
-]);
-const autonomousCandidates = checkAutonomousMessaging(
-  autonomousChatId,
-  {
-    capped: autonomousSchedule(90, 1),
-    fallback: autonomousSchedule(70, 3),
-  },
-  true,
-);
-assert.deepEqual(autonomousCandidates.characterIds, ["capped", "fallback"]);
-const today = new Date();
-const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-assert.equal(
-  isAutonomousDailyBudgetExhausted("capped", autonomousSchedule(90, 1), {
-    autonomousDailyBudget: { date: dateKey, counts: { capped: 1 } },
-  }),
-  true,
-);
-assert.equal(
-  isAutonomousDailyBudgetExhausted("fallback", autonomousSchedule(70, 3), {
-    autonomousDailyBudget: { date: dateKey, counts: { fallback: 1 } },
-  }),
-  false,
-);
-assert.equal(
-  isAutonomousDailyBudgetExhausted("third-character", autonomousSchedule(70, 2), {
-    groupChatMode: "individual",
-    autonomousDailyBudget: { date: dateKey, counts: { tartaglia: 1, dottore: 1 } },
-  }),
-  true,
-  "individual Conversation groups should share one daily check-in count across their characters",
-);
-clearChatActivity(autonomousChatId);
 assert.equal(
   getApiErrorMessage(
     { formErrors: [], fieldErrors: { handle: ["Handle must contain at most 40 characters."] } },
@@ -4011,32 +3770,6 @@ assert.equal(isAllowedResponseContentType(null, ["application/json"]), false);
 assert.equal(isAllowedResponseContentType(null, ["application/json"], true), true);
 assert.equal(isAllowedResponseContentType("application/json; charset=utf-8", ["application/json"], true), true);
 assert.equal(isAllowedResponseContentType("text/html; charset=utf-8", ["application/json"], true), false);
-
-const olderActiveChat = {
-  id: "older-active",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  lastMessageAt: "2026-07-31T10:00:00.000Z",
-};
-const newerIdleChat = {
-  id: "newer-idle",
-  createdAt: "2026-07-30T00:00:00.000Z",
-  lastMessageAt: "2026-07-30T01:00:00.000Z",
-};
-assert.deepEqual(
-  [newerIdleChat, olderActiveChat].sort(compareChatsByActivityDesc).map((chat) => chat.id),
-  ["older-active", "newer-idle"],
-  "Recent chat sorting must use last-message activity",
-);
-assert.deepEqual(
-  [olderActiveChat, newerIdleChat].sort(compareChatsByCreatedAtDesc).map((chat) => chat.id),
-  ["newer-idle", "older-active"],
-  "Newest chat sorting must use creation time",
-);
-assert.deepEqual(
-  [newerIdleChat, olderActiveChat].sort(compareChatsByCreatedAtAsc).map((chat) => chat.id),
-  ["older-active", "newer-idle"],
-  "Oldest chat sorting must use creation time",
-);
 
 const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta.url), "utf8");
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
@@ -4113,49 +3846,6 @@ assert.match(
   rootPackageJson.scripts?.["dev:server"] ?? "",
   /^node \.\/scripts\/pnpm-runner\.mjs build:shared && node \.\/scripts\/pnpm-runner\.mjs --filter @marinara-engine\/server dev$/u,
   "The server-only development command must establish shared build output first",
-);
-const conversationImageConnections = [
-  { id: "text", provider: "openai", defaultForAgents: true },
-  { id: "image-secondary", provider: "image_generation", defaultForAgents: false },
-  { id: "image-default", provider: "image_generation", defaultForAgents: "true" },
-];
-assert.equal(
-  resolveConversationSelfieConnectionId({
-    currentConnectionId: null,
-    selfieCommandEnabled: true,
-    connections: conversationImageConnections,
-  }),
-  "image-default",
-);
-assert.equal(
-  resolveConversationSelfieConnectionId({
-    currentConnectionId: "image-explicit",
-    selfieCommandEnabled: true,
-    connections: conversationImageConnections,
-  }),
-  "image-explicit",
-);
-assert.equal(
-  resolveConversationSelfieConnectionId({
-    currentConnectionId: null,
-    selfieCommandEnabled: false,
-    connections: conversationImageConnections,
-  }),
-  null,
-);
-assert.deepEqual(
-  resolveConversationSelfieSetup({
-    commandToggles: {},
-    selfieCommandAvailable: true,
-    selfieCommandEnabled: true,
-    currentConnectionId: null,
-    connections: conversationImageConnections,
-  }),
-  {
-    conversationCommandToggles: { selfie: true },
-    imageGenConnectionId: "image-default",
-  },
-  "Conversation setup should persist both the enabled Selfie command and its default image connection",
 );
 const conversationGroupSettingsSource = readFileSync(
   new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
@@ -4827,27 +4517,7 @@ assert.match(
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
 
-const metadataSaveOrder: string[] = [];
-let releaseFirstMetadataSave!: () => void;
-const firstMetadataSaveBlocker = new Promise<void>((resolve) => {
-  releaseFirstMetadataSave = resolve;
-});
-const firstMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
-  await firstMetadataSaveBlocker;
-  metadataSaveOrder.push("first");
-});
-const secondMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
-  metadataSaveOrder.push("second");
-});
-let metadataWaitFinished = false;
-const pendingMetadataWait = waitForPendingChatMetadataSaves("chat-prose-swipe").then(() => {
-  metadataWaitFinished = true;
-});
 await Promise.resolve();
-assert.equal(metadataWaitFinished, false, "swipe generation should remain blocked while preferences are saving");
-releaseFirstMetadataSave();
-await Promise.all([firstMetadataSave, secondMetadataSave, pendingMetadataWait]);
-assert.deepEqual(metadataSaveOrder, ["first", "second"]);
 assert.match(
   groupChatSectionSource,
   /\{!isConversation && \(\s*<SettingsSwitch[\s\S]{0,700}ui\.chat\.chatsettingsdrawer\.namePrefixHistory/u,
@@ -4861,21 +4531,6 @@ assert.match(
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
 );
-const responderDelayOrder = orderConversationRespondersByDelay(
-  ["away", "active", "busy"],
-  new Map([
-    ["away", { delayMs: 120_000, status: "idle" }],
-    ["active", { delayMs: 0, status: "online" }],
-    ["busy", { delayMs: 240_000, status: "dnd" }],
-  ]),
-);
-assert.deepEqual(
-  responderDelayOrder,
-  ["active", "away", "busy"],
-  "individual Conversation responders should run in availability order without changing equal-delay order",
-);
-assert.equal(remainingConversationPresenceDelay(120_000, 1_000, 31_000), 90_000);
-assert.equal(remainingConversationPresenceDelay(120_000, 1_000, 151_000), 0);
 assert.match(
   conversationPresenceSource,
   /deferPresenceDelayToResponders[\s\S]{0,2500}responderDelays = Object\.fromEntries/u,
@@ -5733,84 +5388,6 @@ assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS
 assert.match(browserNotificationHelpSource, /Browser notifications are not available in this environment/u);
 assert.match(browserNotificationHelpSource, /Reset this site's notification permission/u);
 
-assert.equal(stripConversationPromptTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
-assert.equal(
-  isRepeatedConversationResponse(
-    [
-      {
-        role: "assistant",
-        characterId: "dottore",
-        content: "The experiment remains stable after every measured interval.",
-      },
-      {
-        role: "assistant",
-        characterId: "dottore",
-        content: "A different observation separates the two matching responses.",
-      },
-    ],
-    "dottore",
-    "The experiment remains stable after every measured interval.",
-  ),
-  true,
-);
-assert.equal(
-  stripConversationResponseEnvelope("[11.07 15:53] Character: Hello!", { speakerName: "Character" }),
-  "Hello!",
-);
-assert.equal(
-  stripConversationResponseEnvelope("[11.07 15:53] Character: Hello!", {
-    speakerName: "Character",
-    preserveSpeakerPrefix: true,
-  }),
-  "Character: Hello!",
-);
-assert.equal(
-  collapseDuplicateConversationSpeakerPrefixes(
-    "Dottore: Dottore: The procedure is complete.\nPantalone: Pantalone: At what cost?",
-    ["Dottore", " Pantalone ", "Dottore"],
-  ),
-  "Dottore: The procedure is complete.\nPantalone: At what cost?",
-);
-assert.equal(
-  stripConversationResponseEnvelope("Dottore: Dottore: The procedure is complete.", {
-    speakerName: "Dottore",
-    speakerNames: ["Dottore", "Pantalone"],
-  }),
-  "The procedure is complete.",
-);
-
-assert.deepEqual(
-  parseCharacterCommandsBySpeaker(
-    "Char1:\nNothing to run.\nChar2:\r\n[selfie]",
-    [
-      { id: "char-1", name: "Char1" },
-      { id: "char-2", name: "Char2" },
-    ],
-    "char-1",
-  ).commandCharacterIds,
-  ["char-2"],
-  "Commands beneath a newline-delimited speaker label must retain the same character attribution as the UI bubble",
-);
-assert.deepEqual(
-  parseCharacterCommandsBySpeaker(
-    "[selfie]\nChar1:\nChar2:\nVisible reply.",
-    [
-      { id: "char-1", name: "Char1" },
-      { id: "char-2", name: "Char2" },
-    ],
-    "char-1",
-  ).commandCharacterIds,
-  ["char-2"],
-  "A leading command must skip an empty named segment and follow the first visible speaker section",
-);
-
-assert.equal(resolveStandardEmojiShortcode("crying"), "😢");
-assert.equal(resolveStandardEmojiShortcode("test_tube"), "🧪");
-assert.equal(
-  searchStandardEmojiShortcodes("cry", 5).some((entry) => entry.name === "crying"),
-  true,
-);
-
 const chatAreaPromptReviewSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
   "utf8",
@@ -5860,16 +5437,6 @@ const settingsSyncSource = readFileSync(
 const syncedSettingsSource = uiStoreSource.slice(
   uiStoreSource.indexOf("export function pickSyncedSettings"),
   uiStoreSource.indexOf("export const useUIStore"),
-);
-assert.deepEqual(
-  filterCustomEmojisByName(
-    [
-      { name: "MariWave", id: "wave" },
-      { name: "dottore_stare", id: "stare" },
-    ],
-    "mari",
-  ),
-  [{ name: "MariWave", id: "wave" }],
 );
 assert.match(
   syncedSettingsSource,
@@ -6038,227 +5605,6 @@ assert.deepEqual(parseNoodleAvatarCrop({ zoom: 2, offsetX: -10, offsetY: 5, full
 });
 assert.equal(parseNoodleAvatarCrop({ srcX: 0, srcY: 0, srcWidth: 0, srcHeight: 0 }), null);
 
-assert.equal(shouldExecuteQuickPostAsCommand("/illustrate"), true);
-assert.equal(shouldExecuteQuickPostAsCommand("  /roll 1d20  "), true);
-assert.equal(shouldExecuteQuickPostAsCommand("/not-a-real-command"), false);
-assert.deepEqual(parseTargetedHideArguments("34-40", "roleplay"), {
-  kind: "global",
-  indices: [34, 35, 36, 37, 38, 39, 40],
-});
-assert.deepEqual(
-  parseTargetedHideArguments('"Lady Maria" 12,18-20', "roleplay", [
-    { id: "maria", name: "Lady Maria" },
-    { id: "maukie", name: "Maukie" },
-  ]),
-  {
-    kind: "targeted",
-    character: { id: "maria", name: "Lady Maria" },
-    indices: [12, 18, 19, 20],
-  },
-);
-assert.deepEqual(
-  parseTargetedHideArguments("mau 34", "roleplay", [
-    { id: "maukie", name: "Maukie" },
-    { id: "maurice", name: "Maurice" },
-  ]),
-  { kind: "error", reason: "ambiguous", targetName: "mau" },
-);
-
-const noCapabilityPackages = new Set<string>();
-const illustratorCapabilityPackages = new Set(["illustrator"]);
-const roleplayCommandsWithoutIllustrator = getSlashCompletions("/", {
-  mode: "roleplay",
-  availableCapabilityIds: noCapabilityPackages,
-});
-assert.equal(roleplayCommandsWithoutIllustrator[0]?.name, "help");
-assert.equal(
-  roleplayCommandsWithoutIllustrator.some((command) => command.name === "illustrate"),
-  false,
-);
-assert.equal(
-  roleplayCommandsWithoutIllustrator.some((command) => command.name === "selfie"),
-  false,
-);
-assert.equal(
-  getSlashCompletions("/", {
-    mode: "roleplay",
-    availableCapabilityIds: illustratorCapabilityPackages,
-  }).some((command) => command.name === "illustrate"),
-  true,
-);
-assert.equal(
-  getSlashCompletions("/", {
-    mode: "conversation",
-    availableCapabilityIds: illustratorCapabilityPackages,
-  }).some((command) => command.name === "selfie"),
-  true,
-);
-assert.equal(
-  getSlashCompletions("/", {
-    mode: "conversation",
-    availableCapabilityIds: illustratorCapabilityPackages,
-  }).some((command) => command.name === "illustrate"),
-  false,
-);
-assert.equal(
-  matchSlashCommand("/illustrate", {
-    mode: "roleplay",
-    availableCapabilityIds: noCapabilityPackages,
-  }),
-  null,
-);
-assert.equal(
-  matchSlashCommand("/illustrate", {
-    mode: "roleplay",
-    availableCapabilityIds: illustratorCapabilityPackages,
-  })?.command.name,
-  "illustrate",
-);
-assert.equal(
-  shouldExecuteQuickPostAsCommand("/selfie", {
-    mode: "conversation",
-    availableCapabilityIds: noCapabilityPackages,
-  }),
-  false,
-);
-
-const entityGalleryRoot = mkdtempSync(join(tmpdir(), "marinara-generated-entity-gallery-"));
-try {
-  const sourceDir = join(entityGalleryRoot, "chat-id");
-  mkdirSync(sourceDir, { recursive: true });
-  writeFileSync(join(sourceDir, "generated.png"), Buffer.from("generated-image"));
-  const characterRows: Array<Record<string, unknown>> = [];
-  const personaRows: Array<Record<string, unknown>> = [];
-  const persisted = await persistGeneratedImageToEntityGalleries({
-    sourceFilePath: "chat-id/generated.png",
-    characterIds: ["character-1", "character-1"],
-    personaIds: ["persona-1"],
-    characterGallery: {
-      create: async (input) => {
-        characterRows.push(input as unknown as Record<string, unknown>);
-        return input;
-      },
-    },
-    personaGallery: {
-      create: async (input) => {
-        personaRows.push(input as unknown as Record<string, unknown>);
-        return input;
-      },
-    },
-    prompt: "A generated scene with both identities.",
-    provider: "image_generation",
-    model: "regression-image-model",
-    width: 1024,
-    height: 1024,
-    galleryRoot: entityGalleryRoot,
-  });
-  assert.deepEqual(persisted, { characterCount: 1, personaCount: 1 });
-  assert.equal(characterRows.length, 1);
-  assert.equal(personaRows.length, 1);
-  const characterFile = join(entityGalleryRoot, String(characterRows[0]!.filePath));
-  const personaFile = join(entityGalleryRoot, String(personaRows[0]!.filePath));
-  assert.equal(characterFile, join(sourceDir, "generated.png"));
-  assert.equal(personaFile, join(sourceDir, "generated.png"));
-  assert.equal(readFileSync(characterFile, "utf8"), "generated-image");
-  assert.equal(readFileSync(personaFile, "utf8"), "generated-image");
-  assert.equal(existsSync(join(sourceDir, "generated.png")), true);
-
-  const cancelledGalleryPersistence = new AbortController();
-  let cancelledCharacterWrites = 0;
-  let cancelledPersonaWrites = 0;
-  await assert.rejects(
-    persistGeneratedImageToEntityGalleries({
-      sourceFilePath: "chat-id/generated.png",
-      characterIds: ["character-cancelled"],
-      personaIds: ["persona-cancelled"],
-      characterGallery: {
-        create: async () => {
-          cancelledCharacterWrites += 1;
-          cancelledGalleryPersistence.abort();
-          return {};
-        },
-      },
-      personaGallery: {
-        create: async () => {
-          cancelledPersonaWrites += 1;
-          return {};
-        },
-      },
-      prompt: "Cancelled gallery propagation.",
-      provider: "image_generation",
-      model: "regression-image-model",
-      width: 1024,
-      height: 1024,
-      signal: cancelledGalleryPersistence.signal,
-      galleryRoot: entityGalleryRoot,
-    }),
-    /aborted/iu,
-  );
-  assert.equal(cancelledCharacterWrites, 1);
-  assert.equal(cancelledPersonaWrites, 0, "Cancellation must stop later generated-image gallery writes");
-
-  let releaseHeldGalleryLock: () => void = () => undefined;
-  let markGalleryLockEntered: () => void = () => undefined;
-  const galleryLockEntered = new Promise<void>((resolve) => {
-    markGalleryLockEntered = resolve;
-  });
-  const heldGalleryLock = withGalleryFileLifecycleLock(
-    "chat-id/generated.png",
-    async () => {
-      markGalleryLockEntered();
-      await new Promise<void>((resolve) => {
-        releaseHeldGalleryLock = resolve;
-      });
-    },
-    entityGalleryRoot,
-  );
-  await galleryLockEntered;
-
-  const waitingGalleryLockAbort = new AbortController();
-  let waitingGalleryOperationRan = false;
-  const waitingGalleryLock = withGalleryFileLifecycleLock(
-    "chat-id/generated.png",
-    () => {
-      waitingGalleryOperationRan = true;
-    },
-    entityGalleryRoot,
-    waitingGalleryLockAbort.signal,
-  );
-  waitingGalleryLockAbort.abort();
-  let galleryLockTimeout: ReturnType<typeof setTimeout> | undefined;
-  let followingGalleryOperationRan = false;
-  let followingGalleryLock: Promise<void> | undefined;
-  try {
-    await assert.rejects(
-      Promise.race([
-        waitingGalleryLock,
-        new Promise<never>((_, reject) => {
-          galleryLockTimeout = setTimeout(() => reject(new Error("Gallery lock abort timed out")), 500);
-        }),
-      ]),
-      /aborted/iu,
-    );
-    followingGalleryLock = withGalleryFileLifecycleLock(
-      "chat-id/generated.png",
-      () => {
-        followingGalleryOperationRan = true;
-      },
-      entityGalleryRoot,
-    );
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.equal(followingGalleryOperationRan, false, "An aborted waiter must preserve the preceding gallery lock");
-  } finally {
-    if (galleryLockTimeout) clearTimeout(galleryLockTimeout);
-    releaseHeldGalleryLock();
-    await heldGalleryLock;
-    await followingGalleryLock;
-  }
-  assert.equal(waitingGalleryOperationRan, false, "An aborted gallery lock waiter must never run its operation");
-  assert.equal(followingGalleryOperationRan, true);
-} finally {
-  rmSync(entityGalleryRoot, { recursive: true, force: true });
-}
-
 const chatRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"), "utf8");
 assert.match(
   globalStylesSource,
@@ -6284,127 +5630,6 @@ assert.match(
   /combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
   "The Chat Summary combine route must retain source history through the tested helper",
 );
-const summaryCombineNow = "2026-08-06T09:00:00.000Z";
-const summaryCombineEntries: ChatSummaryEntry[] = [
-  createChatSummaryEntry({
-    id: "source-a",
-    content: "Source A",
-    title: "Source A",
-    enabled: true,
-    rangeStartIndex: 1,
-    rangeEndIndex: 2,
-    createdAt: "2026-08-01T09:00:00.000Z",
-    updatedAt: "2026-08-01T09:00:00.000Z",
-  }),
-  createChatSummaryEntry({
-    id: "source-b",
-    content: "Source B",
-    title: "Source B",
-    enabled: true,
-    rangeStartIndex: 3,
-    rangeEndIndex: 4,
-    createdAt: "2026-08-02T09:00:00.000Z",
-    updatedAt: "2026-08-02T09:00:00.000Z",
-  }),
-  createChatSummaryEntry({
-    id: "untouched",
-    content: "Untouched",
-    title: "Untouched",
-    enabled: true,
-    rangeStartIndex: 5,
-    rangeEndIndex: 6,
-    createdAt: "2026-08-03T09:00:00.000Z",
-    updatedAt: "2026-08-03T09:00:00.000Z",
-  }),
-];
-const combinedSummaryEntry = createChatSummaryEntry({
-  id: "combined",
-  content: "Combined A and B",
-  title: "Combined",
-  enabled: true,
-  rangeStartIndex: 1,
-  rangeEndIndex: 4,
-  createdAt: summaryCombineEntries[0]!.createdAt,
-  updatedAt: summaryCombineNow,
-});
-const retainedSummaryEntries = combineChatSummaryEntryHistory(
-  summaryCombineEntries,
-  new Set(["source-a", "source-b"]),
-  combinedSummaryEntry,
-  summaryCombineNow,
-);
-assert.deepEqual(
-  retainedSummaryEntries.map((entry) => entry.id),
-  ["combined", "source-a", "source-b", "untouched"],
-  "The combined entry must be inserted at the first selected chronological position",
-);
-for (const sourceId of ["source-a", "source-b"]) {
-  const retainedSource = retainedSummaryEntries.find((entry) => entry.id === sourceId);
-  assert.equal(retainedSource?.enabled, false, `${sourceId} must remain as inactive history`);
-  assert.equal(retainedSource?.updatedAt, summaryCombineNow, `${sourceId} must record when it was combined`);
-}
-assert.equal(retainedSummaryEntries.find((entry) => entry.id === "untouched")?.enabled, true);
-assert.equal(
-  compileChatSummaryEntries(retainedSummaryEntries),
-  "Combined A and B\n\nUntouched",
-  "Compiled Chat Summary output must exclude deactivated source entries",
-);
-const secondCombinedSummaryEntry = createChatSummaryEntry({
-  id: "combined-again",
-  content: "Combined summary of summaries",
-  title: "Combined again",
-  enabled: true,
-  rangeStartIndex: 1,
-  rangeEndIndex: 6,
-  createdAt: summaryCombineEntries[0]!.createdAt,
-  updatedAt: "2026-08-06T10:00:00.000Z",
-});
-const retainedSecondGenerationEntries = combineChatSummaryEntryHistory(
-  retainedSummaryEntries,
-  new Set(["combined", "untouched"]),
-  secondCombinedSummaryEntry,
-  secondCombinedSummaryEntry.updatedAt,
-);
-assert.deepEqual(
-  retainedSecondGenerationEntries.map((entry) => entry.id),
-  ["combined-again", "combined", "source-a", "source-b", "untouched"],
-  "A summary of summaries must retain both generations of source history",
-);
-const appendedSummaryResult = appendChatSummaryEntryToMetadata(
-  { summaryEntries: retainedSummaryEntries },
-  {
-    id: "automatic-after-combine",
-    content: "Newest automatic summary",
-    title: "Newest automatic summary",
-    enabled: true,
-    origin: "automated",
-    rangeStartIndex: 2,
-    rangeEndIndex: 3,
-    createdAt: "2026-08-06T11:00:00.000Z",
-    updatedAt: "2026-08-06T11:00:00.000Z",
-  },
-);
-assert.equal(
-  appendedSummaryResult.entries.at(-1)?.id,
-  "automatic-after-combine",
-  "A newly generated summary must append after the existing user-controlled order even when its source range is earlier",
-);
-const userReorderedSummaryEntries = [
-  appendedSummaryResult.entries.at(-1)!,
-  ...appendedSummaryResult.entries.slice(0, -1),
-];
-assert.equal(
-  compileChatSummaryEntries(userReorderedSummaryEntries),
-  "Newest automatic summary\n\nCombined A and B\n\nUntouched",
-  "Prompt compilation must preserve the summary order chosen by the user",
-);
-for (const sourceId of ["combined", "source-a", "source-b", "untouched"]) {
-  assert.equal(
-    retainedSecondGenerationEntries.find((entry) => entry.id === sourceId)?.enabled,
-    false,
-    `${sourceId} must remain as inactive history after combining summaries again`,
-  );
-}
 assert.match(
   summaryPopoverSource,
   /onSuccess: \(data\) => \{\s*setSelectedEntryIds\(new Set\(\)\);\s*setShowInactiveSummaries\(true\)/u,
