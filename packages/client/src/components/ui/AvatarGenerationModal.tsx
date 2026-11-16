@@ -246,12 +246,17 @@ export function AvatarGenerationModal({
   };
 
   const payloadName = entityName.trim() || (isCover ? "Lorebook" : "Character");
-  const buildPayload = (referenceImages?: string[], promptOverrides?: ImagePromptOverride[]) => ({
+  const buildPayload = (
+    referenceImages?: string[],
+    promptOverrides?: ImagePromptOverride[],
+    options: { forPreview?: boolean } = {},
+  ) => ({
     connectionId: effectiveConnectionId,
     purpose: mode,
     name: payloadName,
-    // The server wants a description; a card with none (or a hand-written full prompt) still gets one.
-    appearance: appearance.trim() || fullPrompt?.prompt.trim() || payloadName,
+    // The server wants a description; a card with none (or a hand-written full prompt) still gets one. The
+    // preview is built from the fields alone, so rebuilding never wraps the open full prompt inside itself.
+    appearance: appearance.trim() || (options.forPreview ? "" : fullPrompt?.prompt.trim()) || payloadName,
     referenceImages,
     stickers: isStickerSheet ? sheetNames : undefined,
     width: canvasWidth,
@@ -268,7 +273,7 @@ export function AvatarGenerationModal({
       // Reference pictures don't change the words, so the preview is built without them.
       const preview = await api.post<{ items: ImagePromptReviewItem[] }>(
         "/characters/avatar-generation/preview",
-        buildPayload(),
+        buildPayload(undefined, undefined, { forPreview: true }),
       );
       const item = preview.items[0];
       if (!item) throw new Error();
@@ -574,7 +579,7 @@ export function AvatarGenerationModal({
                     }}
                     disabled={generating || saving}
                     className="mari-chrome-field h-9 w-full rounded-lg px-3 py-0 text-xs max-sm:min-h-11 max-sm:text-base [@media(pointer:coarse)]:min-h-11"
-                    placeholder={DEFAULT_STICKER_NAMES}
+                    placeholder={mode === "emoji-sheet" ? DEFAULT_EMOJI_NAMES : DEFAULT_STICKER_NAMES}
                   />
                 </label>
               )}
