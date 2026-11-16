@@ -112,6 +112,8 @@ try {
     profile?: { id: string };
     requestedPrompt: string;
     added?: Record<string, string>;
+    dropped?: string[];
+    note?: string;
   };
   type Generated = { asset: Record<string, unknown> & { url: string; filename: string }; style: Style; show: string };
 
@@ -178,6 +180,44 @@ try {
     ((await images("generate", "--style", "default", "--prompt", scenery)) as Generated).style.profile?.id,
     "house",
   );
+
+  // 3b. #9338: kind avatar distils a character prompt and the style block names what it dropped; illustration keeps
+  // every tag and reports nothing dropped.
+  const character =
+    "priscilla barielle, re:zero kara hajimeru isekai seikatsu, 1girl, in her 20s, orange hair, red eyes, braided bangs, smug, 0.2::uncensored::, no text";
+  const avatar = (await images("preview", "--style", "--kind", "avatar", "--prompt", character)) as { style: Style };
+  assert.ok(avatar.style.dropped?.includes("priscilla barielle"), `avatar drops the name: ${avatar.style.dropped}`);
+  assert.ok(!avatar.style.dropped?.includes("no text"), "a no-clause moved to the negative is not dropped");
+  assert.match(avatar.style.note ?? "", /Kind avatar rewrote your prompt.*--kind illustration/);
+  // Avatar distils a sentence starting "No glasses" into "avoid glasses" before moving it; still not a drop.
+  const negated = (await images("preview", "--style", "--kind", "avatar", "--prompt", "red hair. No glasses")) as {
+    style: Style;
+  };
+  assert.deepEqual(negated.style.dropped, [], `avatar no-clause is not dropped: ${negated.style.dropped}`);
+  assert.equal(negated.style.note, undefined);
+  const kept = (await images("preview", "--style", "--prompt", character)) as { style: Style };
+  assert.deepEqual(kept.style.dropped, [], "illustration keeps every tag, weighted ones included");
+  assert.equal(kept.style.note, undefined);
+  // A closing period, and the compiler's other "move to the negative" phrasings, are not drops either.
+  for (const prompt of [
+    "red hair, smug.",
+    "red hair, exclude text",
+    "red hair, do not include watermark",
+    "red hair, don't include logo",
+    "1girl; solo; red hair",
+  ]) {
+    const result = (await images("preview", "--style", "--prompt", prompt)) as { style: Style };
+    assert.deepEqual(result.style.dropped, [], `${prompt}: ${JSON.stringify(result.style)}`);
+  }
+  // A natural-language profile moves every item of "avoid hat, glasses" to the negative, not just the first.
+  const avoidList = (await images(
+    "preview",
+    "--style",
+    "realistic",
+    "--prompt",
+    "a woman reading in a garden. avoid hat, glasses",
+  )) as { style: Style; negativePrompt?: string };
+  assert.deepEqual(avoidList.style.dropped, [], JSON.stringify(avoidList.style));
 
   // 4. A chosen profile, by id or name; an unknown one, or both flags, is refused.
   sent.length = 0;

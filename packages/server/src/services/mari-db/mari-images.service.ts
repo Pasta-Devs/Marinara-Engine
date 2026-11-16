@@ -380,6 +380,7 @@ function styleImagePrompt(args: {
   });
   const profile = compiled.profile;
   const prefixes = defaultsPrefixes(imageDefaults);
+  const dropped = droppedPromptTags(prompt, compiled.prompt, compiled.diagnostics.movedNegativeFragments);
   return {
     prompt: compiled.prompt,
     negativePrompt: compiled.negativePrompt,
@@ -405,8 +406,66 @@ function styleImagePrompt(args: {
         ...compiled.diagnostics.removedNegativeDuplicates,
       ],
       movedToNegative: compiled.diagnostics.movedNegativeFragments,
+      dropped,
+      ...(dropped.length > 0
+        ? {
+            note:
+              kind === "avatar"
+                ? "Kind avatar rewrote your prompt down to the visual tags it recognises; the tags in dropped never reached the image model. Use --kind illustration with --width/--height to keep your prompt."
+                : "Some of your tags never reached the image model (see dropped).",
+          }
+        : {}),
     },
   };
+}
+
+// The weightless, case-folded form of one prompt tag: `0.2::Uncensored::`, `{red_eyes}` and `(smile:1.2)` compare as
+// `uncensored`, `red eyes` and `smile`.
+function promptTagKey(tag: string) {
+  return tag
+    .toLowerCase()
+    .replace(/^-?\d*\.?\d+::|::$/g, "")
+    .replace(/:-?\d*\.?\d+\)?$/, "")
+    .replace(/[()[\]{}]/g, "")
+    .replace(/[_\s]+/g, " ")
+    .trim()
+    .replace(/[.!?;:]+$/, "")
+    .trim();
+}
+
+// The phrases the image prompt compiler reads as "move this to the negative".
+const NEGATION_PREFIX = /^(?:avoid|no|without|exclude|do not include|don't include)\s+/;
+// Commas, semicolons, line breaks and sentence ends. Wider than the compiler, which breaks a sentence only before
+// a negation ("garden. avoid hat"); a finer split only makes each tag easier to find in the final prompt.
+const PROMPT_TAG_SEPARATOR = /[,;\n]+|(?<=[.!?])\s+/;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The tags Mari wrote that the style left out of the final prompt (#9338). A tag counts as kept when it appears in the
+ * final prompt as a whole phrase; a tag the compiler moved to the negative ("no X", or "glasses" from "avoid hat,
+ * glasses") is not dropped. Commas, semicolons and line breaks separate tags, as in the compiler.
+ */
+function droppedPromptTags(requested: string, final: string, movedToNegative: string[]): string[] {
+  const finalText = final.split(PROMPT_TAG_SEPARATOR).map(promptTagKey).filter(Boolean).join(", ");
+  // Kind avatar distils "no glasses" into "avoid glasses" before it is moved, so both sides drop the negation word.
+  const movedText = movedToNegative.map((fragment) => promptTagKey(fragment).replace(NEGATION_PREFIX, "")).join(", ");
+  const appearsIn = (text: string, key: string) =>
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegExp(key)}(?:$|[^\\p{L}\\p{N}])`, "u").test(text);
+  const seen = new Set<string>();
+  const dropped: string[] = [];
+  for (const raw of requested.split(PROMPT_TAG_SEPARATOR)) {
+    const tag = raw.trim();
+    const key = promptTagKey(tag);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (appearsIn(finalText, key)) continue;
+    if (appearsIn(movedText, key.replace(NEGATION_PREFIX, ""))) continue;
+    dropped.push(tag);
+  }
+  return dropped;
 }
 
 function isStabilityV1Base(baseUrl: string) {
