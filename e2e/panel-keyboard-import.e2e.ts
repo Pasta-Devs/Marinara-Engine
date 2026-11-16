@@ -1,8 +1,28 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+
+/** Chats' state where it shows: the top-bar toggle, or on a phone the More menu's first row. */
+async function expectChatsActive(page: Page, active: boolean) {
+  const toggle = page.locator('[data-component="TopBar"] [data-tour="sidebar-toggle"]');
+  if (await toggle.isVisible()) {
+    await expect(toggle).toHaveAttribute("aria-pressed", String(active));
+    return;
+  }
+  const more = page.getByRole("button", { name: "More", exact: true });
+  await more.click();
+  const menu = page.locator('[data-component="TopbarMoreMenu"]');
+  const chats = menu.getByRole("menuitem").first();
+  await expect(chats).toHaveAttribute("data-topbar-panel", "chats");
+  await expect(chats).toBeFocused();
+  if (active) await expect(chats).toHaveAttribute("aria-current", "true");
+  else await expect(chats).not.toHaveAttribute("aria-current");
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(more).toBeFocused();
+}
 
 test("folder rename owns Escape while nested folder actions close the panel", async ({ page }, testInfo) => {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
@@ -125,14 +145,14 @@ test("chat sidebar keeps loading while initial requests retry", async ({ page })
     const activity = sidebar.getByRole("textbox", { name: "Custom activity", exact: true });
     await activity.fill("");
     await activity.press("Escape");
-    await expect(page.locator('[data-tour="sidebar-toggle"]')).toHaveAttribute("aria-pressed", "true");
+    await expectChatsActive(page, true);
     const search = sidebar.getByRole("textbox", { name: "Search conversations", exact: true });
     await search.fill("unmatched search");
     await search.press("Escape");
     await expect(search).toHaveValue("");
     await expect(sidebar).toBeVisible();
     await search.press("Escape");
-    await expect(page.locator('[data-tour="sidebar-toggle"]')).toHaveAttribute("aria-pressed", "false");
+    await expectChatsActive(page, false);
   } finally {
     finishRetry();
   }

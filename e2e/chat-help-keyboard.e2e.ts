@@ -36,7 +36,7 @@ for (const width of [390, 768, 1440]) {
         const composer = page.locator('[data-chat-mode="conversation"] [data-chat-composer]');
         await expect(composer).toBeVisible({ timeout: 30_000 });
         const overlay = page.locator('[data-chat-help-overlay="conversation"]');
-        const opener = page.locator('[data-tour="sidebar-toggle"]:visible').first();
+        const opener = page.locator('[data-component="TopBar"] [data-topbar-hover-key="home"]');
         const openHelp = async () => {
           // A distinct opener exposes cleanup incorrectly restoring focus after a typed dismissal.
           await opener.focus();

@@ -3,7 +3,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openChatSettings, openChatTool } from "./chat-settings-tools.js";
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { clickTopbarChats, clickTopbarPanel } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { inventoryButton } from "./game-inventory-fixture.js";
@@ -310,7 +310,7 @@ test.describe("phone toasts", () => {
       await expect(page.locator(".mari-settings-search-header")).toBeVisible();
       await expectToastClearsHeaders(page, "Settings");
 
-      await page.locator('[data-component="TopBar"] [data-tour="sidebar-toggle"]').click();
+      await clickTopbarChats(page);
       await expect(page.locator(".mari-sidebar-header")).toBeVisible();
       await expectToastClearsHeaders(page, "Chat list");
     } finally {

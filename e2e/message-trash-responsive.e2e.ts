@@ -2,6 +2,7 @@ import { expect, test, type JSHandle } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatMessageSearch } from "./chat-settings-tools.js";
+import { clickTopbarChats } from "./topbar-navigation.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const ENTRY_COUNT = 1001;
@@ -111,7 +112,7 @@ test("a large message trash fills in batches and a restore leaves its rows alone
       { chatId: chat.id, appVersion: version },
     );
     await page.goto("/");
-    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await clickTopbarChats(page);
     if (testInfo.project.name.includes("mobile")) await page.getByRole("button", { name: "Close chats" }).click();
     const panel = await openChatMessageSearch(page);
 

@@ -70,10 +70,14 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("package fullscreen fills Home while keeping the Engine topbar and unfinished form", async ({
+test("package fullscreen hides the Engine topbar and takes the whole screen, keeping the unfinished form", async ({
   page,
 }, testInfo) => {
   const mobile = testInfo.project.name.includes("mobile");
+  // Only a real iPhone lacks element fullscreen (there the bar alone hides); the browser's fullscreen is asserted on
+  // Chromium only, since Playwright's WebKit may or may not grant it.
+  const documentFullscreen = testInfo.project.name.includes("chromium");
+  const fullscreenElement = () => page.evaluate(() => document.fullscreenElement?.localName ?? null);
   await page.setViewportSize(mobile ? { width: 874, height: 402 } : { width: 2400, height: 1080 });
   await page.goto("/");
   await page.getByRole("tab", { name: "fullscreen-one" }).click();
@@ -94,27 +98,49 @@ test("package fullscreen fills Home while keeping the Engine topbar and unfinish
     const before = (await surface.boundingBox())!;
     await surface.getByRole("button", { name: "Enter fullscreen" }).click();
     await expect(chrome).toBeHidden();
-    await expect(topbar).toBeVisible();
+    await expect(topbar).toBeHidden();
     await expect(surface.getByRole("button", { name: "Exit fullscreen" })).toHaveAttribute("aria-pressed", "true");
+    if (documentFullscreen) await expect.poll(fullscreenElement).toBe("html");
     await expect(draft).toHaveValue("Keep this unfinished world");
     await expect(draft).toHaveAttribute("data-identity", "original");
+    // With the top bar gone the package fills the screen from its top edge (Playwright has no safe-area inset).
+    // Polled, as the browser's fullscreen may resize the page after it starts.
+    await expect
+      .poll(() =>
+        surface.evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return { top: Math.round(box.top), missing: Math.round(window.innerHeight - box.height) };
+        }),
+      )
+      .toEqual({ top: 0, missing: 0 });
     const expanded = (await surface.boundingBox())!;
     const hub = (await page.locator('[data-component="HomeBrowserHub"]').boundingBox())!;
     expect(expanded.height).toBeGreaterThan(before.height);
     expect(Math.abs(expanded.width - hub.width)).toBeLessThanOrEqual(1);
     expect(Math.abs(expanded.height - hub.height)).toBeLessThanOrEqual(1);
-    expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
     await testInfo.attach(`package-fullscreen-${theme}.png`, {
       body: await page.screenshot(),
       contentType: "image/png",
     });
     await surface.getByRole("button", { name: "Exit fullscreen" }).click();
     await expect(chrome).toBeVisible();
+    await expect(topbar).toBeVisible();
+    if (documentFullscreen) await expect.poll(fullscreenElement).toBeNull();
     await expect(draft).toHaveValue("Keep this unfinished world");
   }
 });
 
-test("leaving a package restores chrome and stale callbacks cannot fullscreen another tab", async ({ page }) => {
+test("leaving a package restores chrome and stale callbacks cannot fullscreen another tab", async ({
+  page,
+}, testInfo) => {
+  const topbar = page.locator('[data-component="TopBar"]');
+  // Every way out also brings the top bar back and leaves the browser's fullscreen (asserted on Chromium only).
+  const browserFullscreenLeft = async () => {
+    await expect(topbar).toBeVisible();
+    if (testInfo.project.name.includes("chromium")) {
+      await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+    }
+  };
   await page.goto("/");
   await page.getByRole("tab", { name: "fullscreen-one" }).click();
   const one = page.locator("marinara-capability-fullscreen-one");
@@ -123,17 +149,22 @@ test("leaving a package restores chrome and stale callbacks cannot fullscreen an
     (window as any).oldFullscreenControl = (node as any).capabilityProps.browserFullscreen;
   });
   await one.getByRole("button", { name: "Enter fullscreen" }).click();
+  // Closed at once, while the browser may still be granting its fullscreen: it is left as soon as it lands.
   await one.getByRole("button", { name: "Close package" }).click();
   await expect(page.locator(".mari-home-browser-chrome")).toBeVisible();
+  await browserFullscreenLeft();
   await page.getByRole("tab", { name: "fullscreen-two" }).click();
   await page.evaluate(() => (window as any).oldFullscreenControl.setActive(true));
   await expect(page.locator(".mari-home-browser-chrome")).toBeVisible();
+  await browserFullscreenLeft();
   const two = page.locator("marinara-capability-fullscreen-two");
   await two.getByRole("button", { name: "Enter fullscreen" }).click();
   await page.evaluate(() => (window as any).oldFullscreenControl.setActive(false));
   await expect(page.locator(".mari-home-browser-chrome")).toBeHidden();
+  await expect(topbar).toBeHidden();
   await two.getByRole("button", { name: "Fail package" }).click();
   await expect(page.locator(".mari-home-browser-chrome")).toBeVisible();
+  await browserFullscreenLeft();
   await expect(page.getByRole("alert")).toContainText("fullscreen-two stopped");
 });
 
@@ -141,11 +172,33 @@ test("a package can request fullscreen during its first prop delivery", async ({
   await page.goto("/");
   await page.getByRole("tab", { name: "fullscreen-auto", exact: true }).click();
   const surface = page.locator("marinara-capability-fullscreen-auto");
+  const topbar = page.locator('[data-component="TopBar"]');
   await expect(surface).toHaveAttribute("data-auto-requested", "true");
   await expect(page.locator(".mari-home-browser-chrome")).toBeHidden();
+  // The browser may refuse its own fullscreen outside a click; the top bar hides either way.
+  await expect(topbar).toBeHidden();
   await expect(surface.getByRole("button", { name: "Exit fullscreen" })).toHaveAttribute("aria-pressed", "true");
   await surface.getByRole("button", { name: "Exit fullscreen" }).click();
   await expect(page.locator(".mari-home-browser-chrome")).toBeVisible();
+  await expect(topbar).toBeVisible();
+});
+
+test("leaving the browser's fullscreen ends the package's fullscreen", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("chromium"), "Only Chromium's browser fullscreen is asserted here.");
+  await page.goto("/");
+  await page.getByRole("tab", { name: "fullscreen-one" }).click();
+  const surface = page.locator("marinara-capability-fullscreen-one");
+  const chrome = page.locator(".mari-home-browser-chrome");
+  const topbar = page.locator('[data-component="TopBar"]');
+  await surface.getByRole("button", { name: "Enter fullscreen" }).click();
+  await expect(chrome).toBeHidden();
+  await expect(topbar).toBeHidden();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.localName ?? null)).toBe("html");
+  // What Escape (or a phone's Back) does: the browser leaves its fullscreen without the package's button.
+  await page.evaluate(() => document.exitFullscreen());
+  await expect(surface.getByRole("button", { name: "Enter fullscreen" })).toHaveAttribute("aria-pressed", "false");
+  await expect(chrome).toBeVisible();
+  await expect(topbar).toBeVisible();
 });
 
 // Both phone bars are opaque, so a blur behind them shows nothing and only costs GPU work; Samsung Internet
