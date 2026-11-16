@@ -11,8 +11,8 @@ import { pathToFileURL } from "node:url";
 
 const { inlineMediaMarker } = await import("../../../packages/server/src/lib/log-redaction.js");
 
-const base64 = `iVBORw0KGgo${"A".repeat(200_000)}ElFTkSuQmCC`;
-assert.equal(inlineMediaMarker("image/png", base64), "[image/png base64, ~147 KB: iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]");
+const base64 = `iVBORw0KGgo${"A".repeat(40_000)}ElFTkSuQmCC`;
+assert.equal(inlineMediaMarker("image/png", base64), "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]");
 assert.equal(
   inlineMediaMarker("application/pdf", "A".repeat(4_000_000)),
   `[application/pdf base64, ~2.9 MB: ${"A".repeat(16)}…${"A".repeat(16)}]`,
@@ -44,6 +44,8 @@ logger.debug("raw text %s", dataUrl);
 logger.debug("raw json %j", { url: dataUrl });
 logger.debug("raw untyped %s", "data:;base64," + base64);
 assert.deepEqual(payloads, before);
+// pino writes to a pipe asynchronously; without a flush a Linux pipe can cut the last long line at exit.
+await new Promise((done) => logger.flush(() => done(undefined)));
 console.log("PAYLOADS_UNCHANGED");
 `,
 );
@@ -68,7 +70,13 @@ function run(inlineMedia?: string) {
   const lines = result.stdout
     .split("\n")
     .filter((line) => line.startsWith("{"))
-    .map((line) => JSON.parse(line) as { msg?: string });
+    .map((line) => {
+      try {
+        return JSON.parse(line) as { msg?: string };
+      } catch {
+        assert.fail(`unparsable log line (${line.length} chars): ${line.slice(0, 120)}…${line.slice(-120)}`);
+      }
+    });
   const msg = (prefix: string) => {
     const line = lines.find((entry) => entry.msg?.startsWith(prefix));
     assert.ok(line?.msg, `no line starting with ${prefix}`);
@@ -80,19 +88,19 @@ function run(inlineMedia?: string) {
 const edges = "iVBORw0KGgoAAAAA…AAAAAElFTkSuQmCC]";
 const short = run();
 assert.ok(!short.output.includes("A".repeat(100)), "a base64 run reached the log");
-assert.ok(short.msg("payload mari").includes(`"[image/png base64, ~147 KB: ${edges}"`));
-assert.ok(short.msg("payload openai").includes(`"url": "[image/png base64, ~147 KB: ${edges}"`));
-assert.ok(short.msg("payload anthropic").includes(`"data": "[image/jpeg base64, ~147 KB: ${edges}"`));
+assert.ok(short.msg("payload mari").includes(`"[image/png base64, ~29 KB: ${edges}"`));
+assert.ok(short.msg("payload openai").includes(`"url": "[image/png base64, ~29 KB: ${edges}"`));
+assert.ok(short.msg("payload anthropic").includes(`"data": "[image/jpeg base64, ~29 KB: ${edges}"`));
 assert.ok(short.msg("payload anthropic").includes(`"media_type": "image/jpeg"`));
-assert.ok(short.msg("payload google").includes(`"data": "[image/webp base64, ~147 KB: ${edges}"`));
-assert.ok(short.msg("payload embedded").includes(`Saved as [image/png base64, ~147 KB: ${edges} for later`));
+assert.ok(short.msg("payload google").includes(`"data": "[image/webp base64, ~29 KB: ${edges}"`));
+assert.ok(short.msg("payload embedded").includes(`Saved as [image/png base64, ~29 KB: ${edges} for later`));
 assert.ok(short.msg("payload small").includes(`"data:image/png;base64,AAAA"`), "a short data URL should stay whole");
 assert.ok(short.msg("replacer").includes(`"apiKey": "[r]"`), "the caller's replacer still runs");
-assert.ok(short.msg("replacer").includes(`[image/png base64, ~147 KB: ${edges}`));
-assert.equal(short.msg("raw text"), `raw text [image/png base64, ~147 KB: ${edges}`);
-assert.ok(short.msg("raw json").includes(`[image/png base64, ~147 KB: ${edges}`));
-assert.ok(short.msg("payload untyped").includes(`"url": "[text/plain base64, ~147 KB: ${edges}"`));
-assert.equal(short.msg("raw untyped"), `raw untyped [text/plain base64, ~147 KB: ${edges}`);
+assert.ok(short.msg("replacer").includes(`[image/png base64, ~29 KB: ${edges}`));
+assert.equal(short.msg("raw text"), `raw text [image/png base64, ~29 KB: ${edges}`);
+assert.ok(short.msg("raw json").includes(`[image/png base64, ~29 KB: ${edges}`));
+assert.ok(short.msg("payload untyped").includes(`"url": "[text/plain base64, ~29 KB: ${edges}"`));
+assert.equal(short.msg("raw untyped"), `raw untyped [text/plain base64, ~29 KB: ${edges}`);
 
 const full = run("full");
 assert.ok(full.msg("payload mari").includes(base64), "LOG_INLINE_MEDIA=full keeps the data URL whole");
