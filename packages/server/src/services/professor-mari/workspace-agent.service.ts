@@ -3114,15 +3114,19 @@ function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
 /**
  * #9348: a lone `mari <area> get|list|look|view|search …` shell command reads the store as surely as `app_data`'s
  * get, so the claim audit counts it as a state read. Only for the audit: execution still treats every bash command as
- * a possible change. Anything compounded (pipes, `;`, `&&`, redirects, substitutions) or carrying `--apply` stays out.
+ * a possible change. Anything compounded (pipes, `;`, `&&`, redirects, substitutions) or carrying `--apply` stays out,
+ * and so does an area that reads somewhere else (`mari wiki search` reads Fandom, not the store).
  */
+const MARI_STORE_READ =
+  /^mari\s+(?:characters?|personas?|lorebooks?|chats?|presets?|themes?|images|db)\s+(?:get|list|look|view|search)(?:\s|$)/u;
+
 export function bashIsLoneMariRead(command: string): boolean {
   const normalized = command.trim();
   // `--help` succeeds without reading anything, so it cannot pay a write's debt either.
   if (!normalized || /[;&|<>`\n\r]|\$\(/u.test(normalized) || /\s(?:--apply|--help|-h)(?:\s|=|$)/u.test(normalized)) {
     return false;
   }
-  return /^mari\s+[a-z][a-z-]*\s+(?:get|list|look|view|search)(?:\s|$)/u.test(normalized);
+  return MARI_STORE_READ.test(normalized);
 }
 
 function isStateReadCommand(call: WorkspaceCommandCall): boolean {

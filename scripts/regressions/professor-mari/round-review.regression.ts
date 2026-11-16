@@ -352,6 +352,10 @@ const mutationOutput = (sentinel: string) =>
   assert.equal(bashIsLoneMariRead("mari images list --apply"), false);
   assert.equal(bashIsLoneMariRead("mari characters get c1 --help"), false);
   assert.equal(bashIsLoneMariRead("mari characters get -h"), false);
+  // Dottore on #9350: an area that reads somewhere else is no store read.
+  assert.equal(bashIsLoneMariRead('mari wiki search "raven"'), false);
+  assert.equal(bashIsLoneMariRead("mari wiki get-page Raven"), false);
+  assert.equal(bashIsLoneMariRead("mari presets list"), true);
   assert.equal(bashIsLoneMariRead("mari characters list --has-avatar"), true);
   assert.equal(bashIsLoneMariRead("echo mari images get x"), false);
 
