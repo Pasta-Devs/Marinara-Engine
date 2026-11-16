@@ -204,6 +204,13 @@ test("Chat Settings shows every section for each chat mode, in order, and each o
       expect(await visibleSections(page, "code"), `${chat.mode} sections in reading order`).toEqual(
         EXPECTED_SECTIONS[chat.mode],
       );
+      // The code order alone places the sections this fixture shows; a CSS order on one would let the two drift.
+      const reordered = await settings.evaluate((root) =>
+        Array.from(root.querySelector("[data-chat-control-dock]")!.parentElement!.children)
+          .filter((element) => getComputedStyle(element).order !== "0")
+          .map((element) => element.outerHTML.slice(0, 120)),
+      );
+      expect(reordered, `${chat.mode}: no section is moved by CSS order`).toEqual([]);
 
       // A section's body only renders while it is open, so open each one and check it has content.
       for (const id of EXPECTED_SECTIONS[chat.mode].filter((section) => section !== "settings-profiles")) {

@@ -10,7 +10,6 @@ import { AdvancedMemoryInspector } from "../../../components/chat/AdvancedMemory
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface MemoryRecallSectionProps {
-  order: number;
   chat: Chat;
   metadata: Record<string, any>;
   chatMode: ChatMode;
@@ -30,7 +29,6 @@ interface MemoryRecallSectionProps {
 }
 
 export function MemoryRecallSection({
-  order,
   chat,
   metadata,
   chatMode,
@@ -122,7 +120,6 @@ export function MemoryRecallSection({
       id={`${chatMode}-memory-recall`}
       // Only Roleplay and Game open on the memory-recall link; Conversation never did.
       forceOpen={isConversation ? undefined : initialSection === "memory-recall"}
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.memoryRecall")}
       icon={<Brain size="0.875rem" />}
       help={localizeUi(

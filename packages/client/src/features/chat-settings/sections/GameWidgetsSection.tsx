@@ -13,12 +13,11 @@ import { AgentSettingsActionButton } from "../../../components/chat/AgentSetting
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface GameWidgetsSectionProps {
-  order: number;
   chat: Chat;
   metadata: Record<string, unknown>;
 }
 
-export function GameWidgetsSection({ order, chat, metadata }: GameWidgetsSectionProps) {
+export function GameWidgetsSection({ chat, metadata }: GameWidgetsSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const updateGameWidgets = useUpdateGameWidgets();
   const gameWidgetSource = useMemo<HudWidget[]>(() => {
@@ -53,7 +52,6 @@ export function GameWidgetsSection({ order, chat, metadata }: GameWidgetsSection
   return (
     <ChatSettingsSection
       id="game-widgets"
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.widgets")}
       icon={<LayoutDashboard size="0.875rem" />}
       count={gameWidgetDrafts.length}

@@ -24,7 +24,6 @@ import { getAgentSettingsMenuId, type ChatAgents } from "./use-chat-agents";
 import type { AgentSettingsRenderers } from "./agent-settings-renderers";
 
 interface ConversationAgentsSectionProps {
-  order: number;
   /** useChatAgents' result, which the drawer also reads. */
   agents: ChatAgents;
   chat: Chat;
@@ -38,7 +37,6 @@ interface ConversationAgentsSectionProps {
 }
 
 export function ConversationAgentsSection({
-  order,
   agents,
   chat,
   metadata,
@@ -89,7 +87,6 @@ export function ConversationAgentsSection({
   return (
     <Section
       id="conversation-agents"
-      style={{ order }}
       label={localizeUi("navigation.topbar.agents")}
       icon={<Sparkles size="0.875rem" />}
       help={localizeUi("ui.chat.chatsettingsdrawer.configureConversationCommandsCustomAgentsAndSettingsSuppliedBy")}

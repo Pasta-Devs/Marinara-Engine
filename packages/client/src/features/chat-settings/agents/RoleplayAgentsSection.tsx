@@ -111,7 +111,6 @@ type RoleplayAgentsSectionProps = Pick<
   | "updateMeta"
   | "onSpriteVisualSettingsChange"
 > & {
-  order: number;
   /** useChatAgents' result, which the drawer also reads. */
   agents: ChatAgents;
   /** The render helpers both faces of Agents use. */
@@ -128,7 +127,6 @@ type RoleplayAgentsSectionProps = Pick<
 };
 
 export function RoleplayAgentsSection({
-  order,
   agents,
   renderers,
   chat,
@@ -328,7 +326,6 @@ export function RoleplayAgentsSection({
     <Section
       id={`${chatMode}-agents`}
       forceOpen={initialAgentId !== null}
-      style={{ order }}
       label={localizeUi("navigation.topbar.agents")}
       icon={<Sparkles size="0.875rem" />}
       count={isGame ? gameAgentFeatureCount : visibleActiveAgentIds.length}

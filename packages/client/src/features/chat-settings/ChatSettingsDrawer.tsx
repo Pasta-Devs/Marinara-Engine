@@ -269,39 +269,6 @@ interface ChatSettingsDrawerProps {
 const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
 
-const CHAT_SETTINGS_ORDER = {
-  settingsPresets: -1600,
-  search: -1500,
-  chatName: -1400,
-  chatBranches: -1350,
-  connection: -1300,
-  promptPreset: -1200,
-  advancedParameters: -1100,
-  combatStyle: -475,
-  persona: -1000,
-  characters: -900,
-  cardFieldAlternatives: -890,
-  groupChat: -800,
-  scopedRegex: -750,
-  chatVariables: -740,
-  connectedChat: -700,
-  connectedNotes: -690,
-  lorebooks: -600,
-  chatSummary: -590,
-  activeContext: -580,
-  agents: -500,
-  agentActivity: -497,
-  authorNotes: -495,
-  background: -490,
-  gallery: -480,
-  widgets: -450,
-  impersonate: -400,
-  memoryRecall: -300,
-  functionCalling: -200,
-  translation: -100,
-  gamePrompt: 0,
-} as const;
-
 function normalizeAgentMaxTokensInputValue(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 1;
   return Math.max(1, Math.trunc(value));
@@ -1556,7 +1523,6 @@ export function ChatSettingsDrawer({
   // Only the loaded settings add the Chat Settings classes below; themes and select styling target them.
   const windowProps = getChatSettingsWindowProps(anchor);
   const personaSectionProps = {
-    order: CHAT_SETTINGS_ORDER.persona,
     updateChat,
     chat,
     chatMode,
@@ -1578,7 +1544,6 @@ export function ChatSettingsDrawer({
   // On purpose: Memory recall has two renders, one for Conversation and one for the other modes, so switching a
   // chat between them mounts a fresh section.
   const memoryRecallSectionProps = {
-    order: CHAT_SETTINGS_ORDER.memoryRecall,
     chat,
     metadata,
     chatMode,
@@ -1734,7 +1699,6 @@ export function ChatSettingsDrawer({
       </div>
     ) : null;
   const charactersSectionProps = {
-    order: CHAT_SETTINGS_ORDER.characters,
     chat,
     chatMode,
     isConversation,
@@ -1769,7 +1733,6 @@ export function ChatSettingsDrawer({
   };
   const gamePartySectionProps = {
     // Game party takes Persona's place, since a Game chat shows no Persona section.
-    order: CHAT_SETTINGS_ORDER.persona,
     chat,
     characters,
     personas,
@@ -1855,7 +1818,6 @@ export function ChatSettingsDrawer({
           {/* Settings profile bar — hidden in Game Mode. Scene chats keep it, but scene instructions stay chat-owned. */}
           {modeSettingsSurfaces.showSettingsProfiles && (
             <SettingsProfilesSection
-              order={CHAT_SETTINGS_ORDER.settingsPresets}
               chat={chat}
               chatMode={chatMode}
               isRoleplayMode={isRoleplayMode}
@@ -1872,7 +1834,6 @@ export function ChatSettingsDrawer({
               label={localizeUi("chat.toolbar.searchMessages")}
               icon={<Search size="0.875rem" />}
               help={localizeUi("chat.settings.searchMessagesHelp")}
-              style={{ order: CHAT_SETTINGS_ORDER.search }}
               forceOpen={initialSection === "message-search"}
               contentClassName="pt-0"
             >
@@ -1882,7 +1843,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div ref={setControlDockHost} data-chat-control-dock style={{ order: CHAT_SETTINGS_ORDER.search + 1 }} />
+          <div ref={setControlDockHost} data-chat-control-dock />
 
           {metadata.multiplayer && (
             <MultiplayerPlayersSection
@@ -1892,7 +1853,7 @@ export function ChatSettingsDrawer({
             />
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.chatName }}>
+          <div>
             <ChatNameSection
               chatId={chat.id}
               chatName={chat.name}
@@ -1910,7 +1871,6 @@ export function ChatSettingsDrawer({
           {chatTools && (
             <Section
               id={`${chatMode}-chat-branches`}
-              style={{ order: CHAT_SETTINGS_ORDER.chatBranches }}
               label={localizeUi("chat.settings.branches")}
               icon={<GitBranch size="0.875rem" />}
               count={branchCount}
@@ -1925,7 +1885,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.connection }}>
+          <div>
             <ConnectionSection
               chatId={chat.id}
               connectionId={chat.connectionId ?? null}
@@ -1938,7 +1898,7 @@ export function ChatSettingsDrawer({
 
           {/* Roleplay prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "roleplay" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div>
               <PromptPresetSection
                 promptPresetId={chat.promptPresetId ?? null}
                 presets={promptPresetOptions}
@@ -1971,7 +1931,7 @@ export function ChatSettingsDrawer({
 
           {/* Conversation/Game prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "conversation" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div>
               <ConversationPromptSection
                 chatId={chat.id}
                 customPrompt={(metadata.customSystemPrompt as string) ?? ""}
@@ -1985,7 +1945,7 @@ export function ChatSettingsDrawer({
           )}
 
           {modeSettingsSurfaces.promptSettingsSurface === "game" && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.promptPreset }}>
+            <div>
               <GameExtraPromptSection
                 storedValue={(metadata.gameSystemPrompt as string) ?? ""}
                 specialInstructionsValue={gameSpecialInstructionsDraft}
@@ -2031,7 +1991,7 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Advanced Parameters */}
-          <div style={{ order: CHAT_SETTINGS_ORDER.advancedParameters }}>
+          <div>
             <AdvancedParametersSection
               forceOpen={initialSection === "advanced-parameters"}
               metadata={metadata}
@@ -2076,7 +2036,6 @@ export function ChatSettingsDrawer({
           {isRoleplayMode && !metadata.multiplayer && (
             <Section
               id="roleplay-ruleset"
-              style={{ order: CHAT_SETTINGS_ORDER.characters + 1 }}
               label={localizeUi("chat.settings.ruleset.label")}
               icon={<Dices size="0.875rem" />}
               help={localizeUi("chat.settings.ruleset.help")}
@@ -2086,17 +2045,11 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Card field alternatives — hidden when no card in this chat has any */}
-          <CardFieldAlternativesSection
-            chat={chat}
-            characters={characters}
-            personas={personas}
-            style={{ order: CHAT_SETTINGS_ORDER.cardFieldAlternatives }}
-          />
+          <CardFieldAlternativesSection chat={chat} characters={characters} personas={personas} />
 
           {/* Every existing and new multi-character chat gets this section. Missing mode metadata means Grouped. */}
           <GroupChatSection
             sectionId={`${chatMode}-group-chat`}
-            order={CHAT_SETTINGS_ORDER.groupChat}
             visible={chatCharIds.length > 1 && modeSettingsSurfaces.showGroupChatControls}
             chat={chat}
             metadata={metadata}
@@ -2111,7 +2064,6 @@ export function ChatSettingsDrawer({
           {/* Scoped Regex Scripts — only shown when a chat character has scoped scripts */}
           <ScopedRegexSection
             sectionId={`${chatMode}-scoped-regex`}
-            order={CHAT_SETTINGS_ORDER.scopedRegex}
             chat={chat}
             chatCharIds={chatCharIds}
             scopedRegexMode={scopedRegexMode}
@@ -2122,13 +2074,11 @@ export function ChatSettingsDrawer({
           <ChatVariablesSection
             key={chat.id}
             sectionId={`${chatMode}-chat-variables`}
-            order={CHAT_SETTINGS_ORDER.chatVariables}
             chatId={chat.id}
             variables={chatMacroVariables}
           />
 
           <ConnectedChatsSection
-            order={CHAT_SETTINGS_ORDER.connectedChat}
             chat={chat}
             metadata={metadata}
             chatMode={chatMode}
@@ -2139,12 +2089,12 @@ export function ChatSettingsDrawer({
 
           {/* Notes from Conversation — durable notes saved by the connected conversation's character */}
           {!isConversation && chat.connectedChatId && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.connectedNotes }}>
+            <div>
               <ConversationNotesSection chatId={chat.id} />
             </div>
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.lorebooks }}>
+          <div>
             <LorebooksSection
               forceOpen={initialSection === "lorebooks"}
               chatId={chat.id}
@@ -2186,7 +2136,6 @@ export function ChatSettingsDrawer({
           {chatTools?.summary && (
             <Section
               id={`${chatMode}-chat-summary`}
-              style={{ order: CHAT_SETTINGS_ORDER.chatSummary }}
               label={localizeUi("chat.settings.summary")}
               icon={<ScrollText size="0.875rem" />}
               count={enabledSummaryCount}
@@ -2200,7 +2149,6 @@ export function ChatSettingsDrawer({
           {chatTools && (
             <Section
               id={`${chatMode}-active-context`}
-              style={{ order: CHAT_SETTINGS_ORDER.activeContext }}
               label={localizeUi("chat.settings.activeContext")}
               icon={<ScanText size="0.875rem" />}
               help={localizeUi("chat.settings.activeContextHelp")}
@@ -2217,7 +2165,6 @@ export function ChatSettingsDrawer({
           {/* Conversation feature packages expose commands and settings as soon as they are installed. */}
           {modeSettingsSurfaces.agentSettingsSurface === "conversation" && (
             <ConversationAgentsSection
-              order={CHAT_SETTINGS_ORDER.agents}
               agents={chatAgents}
               chat={chat}
               metadata={metadata}
@@ -2232,7 +2179,6 @@ export function ChatSettingsDrawer({
           {/* Agents */}
           {modeSettingsSurfaces.agentSettingsSurface === "generation" && (
             <RoleplayAgentsSection
-              order={CHAT_SETTINGS_ORDER.agents}
               agents={chatAgents}
               renderers={agentRenderers}
               chat={chat}
@@ -2271,7 +2217,6 @@ export function ChatSettingsDrawer({
             (metadata.enableAgents === true || metadata.advancedMemory?.enabled === true) && (
               <Section
                 id={`${chatMode}-agent-activity`}
-                style={{ order: CHAT_SETTINGS_ORDER.agentActivity }}
                 label={localizeUi("chat.settings.agentActivity")}
                 icon={withAgentActivityStatus(chat.id, <Activity size="0.875rem" />)}
                 help={localizeUi("chat.settings.agentActivityHelp")}
@@ -2286,7 +2231,6 @@ export function ChatSettingsDrawer({
           {chatTools?.authorNotes && (
             <Section
               id={`${chatMode}-author-notes`}
-              style={{ order: CHAT_SETTINGS_ORDER.authorNotes }}
               label={localizeUi("chat.settings.authorNotes")}
               icon={<PenLine size="0.875rem" />}
               help={localizeUi("chat.settings.authorNotesHelp")}
@@ -2299,7 +2243,6 @@ export function ChatSettingsDrawer({
           {(isRoleplayMode || isGame) && (
             <Section
               id={`${chatMode}-background`}
-              style={{ order: CHAT_SETTINGS_ORDER.background }}
               label={localizeUi("chat.settings.background")}
               icon={<Wallpaper size="0.875rem" />}
               help={localizeUi("chat.settings.backgroundHelp")}
@@ -2312,7 +2255,6 @@ export function ChatSettingsDrawer({
           {chatTools && (
             <Section
               id={`${chatMode}-gallery`}
-              style={{ order: CHAT_SETTINGS_ORDER.gallery }}
               label={localizeUi("chat.settings.gallery")}
               icon={<Images size="0.875rem" />}
               help={localizeUi("chat.settings.galleryHelp")}
@@ -2327,7 +2269,6 @@ export function ChatSettingsDrawer({
           {/* Combat Style — game mode only */}
           {isGame && (
             <CombatStyleSection
-              style={{ order: CHAT_SETTINGS_ORDER.combatStyle }}
               combatStyle={effectiveCombatStyle}
               rulesetResolvesFights={rulesetResolvesFights}
               rulesetHasPositions={rulesetHasPositions}
@@ -2338,10 +2279,10 @@ export function ChatSettingsDrawer({
             />
           )}
 
-          {isGame && <GameWidgetsSection order={CHAT_SETTINGS_ORDER.widgets} chat={chat} metadata={metadata} />}
+          {isGame && <GameWidgetsSection chat={chat} metadata={metadata} />}
 
           {!isConversation && !isGame && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
+            <div>
               <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
             </div>
           )}
@@ -2356,7 +2297,7 @@ export function ChatSettingsDrawer({
             <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
+          <div>
             <FunctionCallingSection
               chatConnectionId={chat.connectionId}
               isGameMode={isGame}
@@ -2415,7 +2356,7 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.translation }}>
+          <div>
             <TranslationSection
               chatId={chat.id}
               metadata={metadata}
