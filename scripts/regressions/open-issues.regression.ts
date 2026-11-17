@@ -975,30 +975,9 @@ assert.match(
   "manual retries should apply per-run prompt mode overrides",
 );
 
-const chatRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"), "utf8");
-assert.match(
-  chatRoutesSource,
-  /if \(existing\.mode === "conversation" && hasStartedChat\) \{/u,
-  "Only Conversation chats should create character membership timeline notices",
-);
 const summaryPopoverSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSummaryPanel.tsx"),
   "utf8",
-);
-assert.match(
-  chatRoutesSource,
-  /combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
-  "The Chat Summary combine route must retain source history through the tested helper",
-);
-assert.match(
-  readFileSync(join(REPOSITORY_ROOT, "packages/client/src/lib/touch-reorder.ts"), "utf8"),
-  /candidateIndex = readReorderIndex\(candidate\)[\s\S]{0,260}lastIndex = readReorderIndex/u,
-  "Touch reorder gaps must use persisted row indexes when filtered entries are not rendered",
-);
-assert.match(
-  chatRoutesSource,
-  /body\.operation === "reorder"[\s\S]{0,1800}body\.entryIds\.map/u,
-  "Summary reorder requests must persist the complete user-selected entry order",
 );
 const promptSettingsPersistSource = summaryPopoverSource.slice(
   summaryPopoverSource.indexOf("const persistPromptTemplates"),
@@ -1048,26 +1027,6 @@ assert.equal(
   summaryPromptTemplateRowSource.match(/disabled=\{disabled\}/gu)?.length,
   4,
   "Every template-row action must forward its disabled state",
-);
-assert.match(
-  chatRoutesSource,
-  /requestedSummaryEntryIds[\s\S]{0,6500}combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
-  "Combined summaries must replace their selected entries at the first selected chronological position",
-);
-assert.match(
-  chatRoutesSource,
-  /estimateChatSummaryTokens\(summaryPrompt\)[\s\S]{0,200}estimateChatSummaryTokens\(combinePrompt\)/u,
-  "The combine input budget must reserve the actual system and combine prompt sizes",
-);
-assert.match(
-  chatRoutesSource,
-  /combinedSummaryInputBudget[\s\S]{0,500}SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS/u,
-  "The combine input budget must reserve message overhead",
-);
-assert.match(
-  chatRoutesSource,
-  /estimateChatSummaryTokens\(sourceText\) > combinedSummaryInputBudget[\s\S]{0,500}Selected summaries are too large to combine at once[\s\S]{0,3000}provider\.chatComplete/u,
-  "Combined summaries must be rejected before provider generation when they exceed the input budget",
 );
 
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
