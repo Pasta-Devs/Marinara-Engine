@@ -27,6 +27,7 @@ jobs:
               ['[bug]', 'bug'],
               ['[feature]', 'enhancement'],
               ['[docs-i18n]', 'docs'],
+              ['[tracking]', 'tracking'],
             ];
             const labelFor = (title) =>
               prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
