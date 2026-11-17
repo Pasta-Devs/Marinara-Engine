@@ -1,16 +1,21 @@
 // ──────────────────────────────────────────────
 // PickerWindow: the floating picker window shared by the character, persona,
 // preset and lorebook pickers. On desktop a popover anchored to its trigger;
-// on a phone a bottom sheet (Modal). Escape and an outside click close it;
+// on a phone a bottom sheet (Modal), except inside a Modal, where it stays a popover so two sheets never
+// stack (S.O.U.P.). Escape and an outside click close it;
 // clicks on the anchor are left to the trigger, so the trigger can toggle it.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { useInsideModal } from "./modal-context";
 import { NEUTRAL_SURFACE_VARIABLES } from "./neutral-surface-styles";
+import { scrollPickedRow } from "./PickerParts";
 
-const PHONE_QUERY = "(max-width: 767px)";
+// Where Modal turns into a bottom sheet, so a picker and the dialogs around it switch at the same width.
+const PHONE_QUERY = "(max-width: 639px)";
 
 type Placement = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
 
@@ -36,15 +41,23 @@ export function PickerWindow({
   anchorRef,
   onClose,
   className,
+  hug,
   children,
 }: {
   title: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   className?: string;
+  /** Phone sheet hugs its rows instead of standing at 85% height (S.O.U.P.: hug by default, large for lists). For short lists without search. */
+  hug?: boolean;
   children: ReactNode;
 }) {
-  const [phone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches);
+  const insideModal = useInsideModal();
+  const [phone] = useState(
+    () => !insideModal && typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches,
+  );
+  // Back closes the popover first (on a phone inside a Modal it sits over that sheet); the sheet path is a Modal and registers itself.
+  useBackDismiss(!phone, onClose);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Placement | null>(null);
 
@@ -87,7 +100,11 @@ export function PickerWindow({
     const panel = panelRef.current;
     if (!placed || !panel || panel.contains(document.activeElement)) return;
     const search = window.matchMedia?.("(pointer: fine)").matches ? panel.querySelector("input") : null;
-    (search ?? panel).focus();
+    // A list without a search box takes the keys itself.
+    const keys = panel.querySelector<HTMLElement>("[data-picker-keys]");
+    (search ?? keys ?? panel).focus();
+    // The list could not scroll before the popover had its height, so bring the picked row into view now.
+    scrollPickedRow(panel.querySelector<HTMLElement>("[data-picker-list]"));
   }, [placed]);
 
   if (phone) {
@@ -100,7 +117,7 @@ export function PickerWindow({
         restoreFocusRef={anchorRef}
         // Same accent tint over the panel colour as the desktop window below. Important, because the
         // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!"
+        panelClassName={`max-sm:mt-auto ${hug ? "" : "max-sm:h-[85dvh]"} max-sm:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
         contentClassName="flex flex-col !overflow-hidden !p-0"
       >
         {children}

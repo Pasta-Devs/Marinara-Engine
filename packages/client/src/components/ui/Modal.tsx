@@ -15,6 +15,7 @@ import {
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
 } from "./neutral-surface-styles";
+import { InsideModalContext } from "./modal-context";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
@@ -394,7 +395,7 @@ export function Modal({
           ref={contentRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 ${NEUTRAL_PANEL_SCROLL_AREA} ${contentClassName ?? ""}`}
         >
-          {children}
+          <InsideModalContext.Provider value>{children}</InsideModalContext.Provider>
         </div>
         {footer && (
           <div className="flex shrink-0 flex-row-reverse items-center justify-start gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-sm:flex-col max-sm:items-stretch max-sm:px-4 max-sm:[&>button]:min-h-12 max-sm:[&>button]:justify-center">
