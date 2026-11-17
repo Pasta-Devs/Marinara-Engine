@@ -4373,6 +4373,20 @@ body {
   );
 }
 
+/* Safari (WebKit) sizes the columns of a grid whose items are all absolutely positioned as if the grid were
+   one gap wider than it is, so the right column of widgets ran past the page's right margin (11px on an iPad,
+   wider than Home's greeting above it). One empty in-flow item across the first row gives WebKit a normal
+   grid to size; it takes no height and no pointer, and Chromium/Firefox lay out the same either way. */
+.mari-home-feed-grid::before {
+  content: "";
+  grid-row: 1;
+  grid-column: 1 / -1;
+  height: 0;
+  min-height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* A card a theme lets end above its standard size leaves the rest of its box empty, and the next widget
    is packed right under the card, so only the card itself takes the pointer. */
 .mari-home-feed-grid > .mari-home-widget {
