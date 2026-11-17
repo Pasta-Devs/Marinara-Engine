@@ -67,6 +67,33 @@ export function explorerAchievementKey(trail: DiscoveryTrailId): string {
   return trail;
 }
 
+/**
+ * Guide quest groups (AI basics and the Deep dive groups). Finishing every quest in a group unlocks its
+ * Explorer achievement (event `explorer_<group>`). Group ids never clash with trail ids.
+ */
+export const GUIDE_QUEST_GROUPS = [
+  { id: "aiBasics", title: "Training Wheels Off", description: "Finished the AI basics tour." },
+  { id: "deepConversation", title: "Read Receipts", description: "Finished the Conversation deep dives." },
+  { id: "deepRoleplay", title: "Method Actor", description: "Finished the Roleplay deep dives." },
+  { id: "deepGame", title: "Rules Lawyer", description: "Finished the Game deep dives." },
+  { id: "deepAnyMode", title: "Knob Twiddler", description: "Finished the Any mode deep dives." },
+  { id: "deepCards", title: "Card Shark", description: "Finished the Characters and cards deep dives." },
+  { id: "deepLore", title: "Footnote Fanatic", description: "Finished the Lorebook tricks deep dives." },
+  { id: "deepPrompts", title: "Macro Magician", description: "Finished the Prompt and macro tricks deep dives." },
+  { id: "deepMessages", title: "Secret Keeper", description: "Finished the Message tricks deep dives." },
+  { id: "deepAgents", title: "Puppet Master", description: "Finished the Agents and connections deep dives." },
+  { id: "deepMedia", title: "Sound And Vision", description: "Finished the Voice, pictures and music deep dives." },
+  { id: "deepThemes", title: "Under The Hood", description: "Finished the Themes and extending deep dives." },
+] as const;
+
+export type GuideQuestGroupId = (typeof GUIDE_QUEST_GROUPS)[number]["id"];
+
+export type GuideQuestAchievementEvent = `explorer_${GuideQuestGroupId}`;
+
+export function guideQuestAchievementEvent(group: GuideQuestGroupId): GuideQuestAchievementEvent {
+  return `explorer_${group}`;
+}
+
 /** Task ids the server can check from saved data (GET /api/discovery/progress). */
 export interface DiscoveryProgressResponse {
   done: string[];

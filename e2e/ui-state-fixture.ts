@@ -71,6 +71,12 @@ export async function seedUIState(
   if (!silencedContexts.has(context)) {
     silencedContexts.add(context);
     await context.addInitScript(keepAudioSilent);
+    // The one-time AI basics offer stays answered unless a spec clears it.
+    await context.addInitScript(() => {
+      if (!localStorage.getItem("marinara:guide-quests:v1")) {
+        localStorage.setItem("marinara:guide-quests:v1", JSON.stringify({ offer: "skipped" }));
+      }
+    });
   }
   await page.addInitScript(
     ({ name, version, state, mode }) => {

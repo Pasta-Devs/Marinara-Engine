@@ -33,6 +33,7 @@ import { useOverhaulStore } from "../../stores/overhaul.store";
 import { dirLabel, prepareDocMarkdown } from "../modals/DocsViewerModal";
 import { splitDocAtShots, type DocShot } from "./docs-shots";
 import { useFeatureShow } from "../../hooks/use-feature-show";
+import { GuideCardMount } from "../docs/GuideCard";
 
 const ELLIPSIS = "\u2026";
 
@@ -345,6 +346,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
             >
               {rendered}
             </div>
+            <GuideCardMount container={contentEl} path={doc.path} revision={rendered} />
             {previous || next ? (
               <nav className="ov-docs__pager" aria-label={localize("More guides")}>
                 {previous ? (

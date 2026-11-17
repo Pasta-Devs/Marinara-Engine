@@ -265,11 +265,11 @@ export function makePage({ sessionId, device, driver = DRIVER, touch = false }) 
     },
     /** Close the first-run tour and "What's New?" (the server remembers). A script click adds no tap timings row. */
     async closeIntro() {
-      // Both can appear a moment late (after settings sync).
+      // The tutorial, the chat tip and the AI basics offer can appear a moment late (after settings sync).
       const skipped = () =>
         run(`
           const skip = [...document.querySelectorAll("button")].find(
-            (b) => b.offsetParent && /^(Skip Tutorial|Got it)$/.test(b.textContent.trim()),
+            (b) => b.offsetParent && /^(Skip Tutorial|Got it|I know this, skip)$/.test(b.textContent.trim()),
           );
           skip?.click();
           return !!skip;

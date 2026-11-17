@@ -43,7 +43,8 @@ import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor"
 import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
-import { DECISION_DEVICE_ID, useDecisionEngine } from "./decision-engine";
+import { DECISION_DEVICE_ID, EMBEDDING_DEVICE_ID, useDecisionEngine } from "./decision-engine";
+import { BuiltinEmbeddingDetail, useBuiltinEmbeddingState } from "../connections/BuiltinEmbeddingDetail";
 import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
@@ -824,6 +825,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const engines = useDeviceEngines();
   const decisionEngine = useDecisionEngine();
+  const embeddingEngine = useBuiltinEmbeddingState();
   const [search, setSearch] = useState("");
 
   // Same shape as the landing table: each account with its models, then models with no account.
@@ -878,9 +880,16 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
         sub: decisionEngine.state,
         lead: <ProviderIcon provider="decision" size="sm" dim={decisionEngine.tone !== "ok"} />,
       });
+    if (embeddingEngine && (!needle || embeddingEngine.name.toLowerCase().includes(needle)))
+      devices.push({
+        id: EMBEDDING_DEVICE_ID,
+        name: embeddingEngine.name,
+        sub: [embeddingEngine.state, embeddingEngine.detail].filter(Boolean).join(" · "),
+        lead: <ProviderIcon provider="builtin-embedding" size="sm" dim={embeddingEngine.tone !== "ok"} />,
+      });
     if (devices.length) list.push({ id: "__device", label: localize("On this device"), rows: devices });
     return list;
-  }, [decisionEngine, engines, grouped, localize, search]);
+  }, [decisionEngine, embeddingEngine, engines, grouped, localize, search]);
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
     ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
     : selectedId?.startsWith(ACCOUNT_KEY_PREFIX)
@@ -919,6 +928,12 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
           replaceKey={accountPage.replaceKey}
           onClose={closeConnectionDetail}
         />
+      ) : selectedId === EMBEDDING_DEVICE_ID ? (
+        <div className="ov-devpage">
+          <div className="p-4">
+            <BuiltinEmbeddingDetail />
+          </div>
+        </div>
       ) : selectedId === DECISION_DEVICE_ID ? (
         <div className="ov-devpage">
           <header className="ov-devpage__head">
@@ -954,6 +969,7 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
   const selectedId = useUIStore((s) => s.connectionDetailId);
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const decisionEngine = useDecisionEngine();
+  const embeddingEngine = useBuiltinEmbeddingState();
   const splitCrumbs = useSplitTouchCrumbs();
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
     ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
@@ -961,15 +977,18 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       ? { id: selectedId.slice(ACCOUNT_KEY_PREFIX.length), replaceKey: true }
       : null;
   const device =
-    selectedId?.startsWith(DEVICE_PREFIX) && selectedId !== DECISION_DEVICE_ID
+    selectedId?.startsWith(DEVICE_PREFIX) && selectedId !== DECISION_DEVICE_ID && selectedId !== EMBEDDING_DEVICE_ID
       ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem)
       : null;
-  if (!accountPage && !device && selectedId !== DECISION_DEVICE_ID) return <>{children}</>;
+  const embeddingPage = selectedId === EMBEDDING_DEVICE_ID;
+  if (!accountPage && !device && !embeddingPage && selectedId !== DECISION_DEVICE_ID) return <>{children}</>;
   const title = accountPage
     ? localize("Account")
     : device
       ? t(`connections.add.device.${device === "local-model" ? "local_model" : device}`)
-      : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
+      : embeddingPage
+        ? (embeddingEngine?.name ?? t("connections.builtinEmbedding.name"))
+        : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
   return (
     <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
       {/* Split view's narrow side: Library › Connections › page at the top, like every other Library page. */}
@@ -1006,6 +1025,12 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       ) : device ? (
         <div className="ov-devpage">
           <DeviceDetail key={device} item={device} />
+        </div>
+      ) : embeddingPage ? (
+        <div className="ov-devpage">
+          <div className="p-4">
+            <BuiltinEmbeddingDetail />
+          </div>
         </div>
       ) : (
         <div className="ov-devpage">

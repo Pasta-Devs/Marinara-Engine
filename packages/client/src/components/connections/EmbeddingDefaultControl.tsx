@@ -3,11 +3,12 @@ import { useTranslation } from "react-i18next";
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useDefaultEmbeddingConnection, useSetDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { useSidecarStore } from "../../stores/sidecar.store";
+import { useBuiltinEmbeddingOption } from "./BuiltinEmbeddingDetail";
 import { ConnectionSelect } from "./ConnectionSelect";
 
 /**
  * The Embeddings job's Model picker: the embedding source for Models that set none of their own. Offers the
- * catalog's embedding models and the local sidecar once its model is downloaded.
+ * catalog's embedding models, the built-in embedding model and the local sidecar once their models are downloaded.
  */
 export function EmbeddingDefaultControl({
   open,
@@ -21,6 +22,7 @@ export function EmbeddingDefaultControl({
   const select = useSetDefaultEmbeddingConnection();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const selectedId = current.data?.connectionId ?? "";
+  const builtinEmbedding = useBuiltinEmbeddingOption(selectedId);
   const showSidecar =
     import.meta.env.VITE_MARINARA_LITE !== "true" &&
     (sidecarModelDownloaded || selectedId === LOCAL_SIDECAR_CONNECTION_ID);
@@ -40,6 +42,7 @@ export function EmbeddingDefaultControl({
       }
       defaultLabel={t("connections.embeddingDefault.none")}
       includeLocalSidecar={showSidecar}
+      extraOptions={builtinEmbedding ? [builtinEmbedding] : []}
       disabled={select.isPending || current.isPending}
       aria-label={t("connections.embeddingDefault.label")}
     />

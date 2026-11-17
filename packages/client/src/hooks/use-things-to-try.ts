@@ -22,7 +22,7 @@ export const discoveryKeys = { progress: ["discovery", "progress"] as const };
 
 let snapshot: { raw: string | null; state: ThingsToTryState } | null = null;
 function readSnapshot(): ThingsToTryState {
-  let raw: string | null = null;
+  let raw: string | null;
   try {
     raw = window.localStorage.getItem("marinara:things-to-try:v1");
   } catch {
@@ -87,6 +87,7 @@ export function useThingsToTry(enabled = true) {
     next,
     trails,
     finished,
+    modes: query.data?.modes ?? null,
     doneCount: THINGS_TO_TRY_TASKS.filter((task) => done.has(task.id)).length,
     total: THINGS_TO_TRY_TASKS.length,
   };

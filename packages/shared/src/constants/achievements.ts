@@ -1,5 +1,10 @@
 import type { AchievementDefinition, AchievementEvent } from "../types/achievement.js";
-import { DISCOVERY_TRAILS, explorerAchievementEvent } from "./discovery-trails.js";
+import {
+  DISCOVERY_TRAILS,
+  GUIDE_QUEST_GROUPS,
+  explorerAchievementEvent,
+  guideQuestAchievementEvent,
+} from "./discovery-trails.js";
 
 export const ACHIEVEMENT_EVENTS = [
   "tutorial_completed",
@@ -11,6 +16,7 @@ export const ACHIEVEMENT_EVENTS = [
   "chat_created",
   "library_changed",
   ...DISCOVERY_TRAILS.map((trail) => explorerAchievementEvent(trail.id)),
+  ...GUIDE_QUEST_GROUPS.map((group) => guideQuestAchievementEvent(group.id)),
 ] as const satisfies readonly AchievementEvent[];
 
 const RANKS = [
@@ -164,17 +170,28 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
 
 // One per "Things to try" trail, unlocked when every task in it is done.
 ACHIEVEMENT_DEFINITIONS.push(
-  ...DISCOVERY_TRAILS.map(
-    (trail): AchievementDefinition => ({
-      id: `explorer_${trail.id}`,
-      titleKey: `achievements.definitions.explorer.${trail.id}.title`,
-      title: trail.title,
-      descriptionKey: `achievements.definitions.explorer.${trail.id}.description`,
-      description: trail.description,
-      category: "explorer",
-      icon: "compass",
-    }),
-  ),
+  ...DISCOVERY_TRAILS.map((trail): AchievementDefinition => ({
+    id: `explorer_${trail.id}`,
+    titleKey: `achievements.definitions.explorer.${trail.id}.title`,
+    title: trail.title,
+    descriptionKey: `achievements.definitions.explorer.${trail.id}.description`,
+    description: trail.description,
+    category: "explorer",
+    icon: "compass",
+  })),
+);
+
+// One per guide quest group (AI basics, each Deep dive group), unlocked when every quest in it is done.
+ACHIEVEMENT_DEFINITIONS.push(
+  ...GUIDE_QUEST_GROUPS.map((group): AchievementDefinition => ({
+    id: `explorer_${group.id}`,
+    titleKey: `achievements.definitions.explorer.${group.id}.title`,
+    title: group.title,
+    descriptionKey: `achievements.definitions.explorer.${group.id}.description`,
+    description: group.description,
+    category: "explorer",
+    icon: "compass",
+  })),
 );
 
 export const ACHIEVEMENT_DEFINITION_BY_ID = new Map(ACHIEVEMENT_DEFINITIONS.map((item) => [item.id, item]));
@@ -189,4 +206,7 @@ export const ACHIEVEMENT_DIRECT_EVENT_IDS: Partial<Record<AchievementEvent, stri
   prof_mari_message_sent: "hello_world",
   prof_mari_dragged: "please_handle_with_care",
   ...Object.fromEntries(DISCOVERY_TRAILS.map((trail) => [explorerAchievementEvent(trail.id), `explorer_${trail.id}`])),
+  ...Object.fromEntries(
+    GUIDE_QUEST_GROUPS.map((group) => [guideQuestAchievementEvent(group.id), `explorer_${group.id}`]),
+  ),
 };
