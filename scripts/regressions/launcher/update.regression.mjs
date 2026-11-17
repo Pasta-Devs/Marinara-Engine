@@ -527,4 +527,52 @@ for (const script of ["scripts/protect-launcher-data.mjs", "scripts/read-launche
   assert.doesNotMatch(direct.stderr, /ERR_INVALID_URL_SCHEME/u);
 }
 
+// A test branch rebased or force-pushed on GitHub moves forward on its own only when the local copy has
+// no commits of its own (HEAD was once a GitHub tip of the branch); local commits keep the old "not updated" path.
+for (const launcherName of ["start.sh", "start-termux.sh"]) {
+  const launcherSource = readFileSync(join(repositoryRoot, launcherName), "utf8");
+  const helper = launcherSource.match(/^head_only_has_remote_commits\(\) \{[\s\S]*?^\}$/mu)?.[0];
+  assert.ok(helper, `${launcherName} must define head_only_has_remote_commits`);
+  assert.match(launcherSource, /FEATURE_BRANCH_REWRITTEN=1[\s\S]*git reset --hard "\$TARGET_HEAD"/u);
+  const work = mkdtempSync(join(tmpdir(), "marinara-rewrite-"));
+  try {
+    const script = `set -e
+${helper}
+g() { git -c user.name=t -c user.email=t@t -c commit.gpgsign=false "$@"; }
+put() { echo "$1" > "$1.txt" && git add "$1.txt" && g commit -q -m "$1"; }
+fetch_tester() { git fetch -q origin "+refs/heads/tester:refs/remotes/origin/tester"; }
+cd "${work}"
+git init -q --bare -b tester remote.git
+git clone -q remote.git seed 2>/dev/null
+cd seed && g checkout -q -b tester && put a && put b && g push -q origin tester && cd ..
+git clone -q -b tester remote.git user
+# Rebased on GitHub: the user's tip (b) is gone and its files differ from every new commit.
+cd seed && g reset -q --hard HEAD~1 && put b2 && g push -q -f origin tester && cd ..
+cd user && fetch_tester
+if git merge-base --is-ancestor HEAD origin/tester; then echo "unexpected-ff"; exit 1; fi
+head_only_has_remote_commits origin/tester tester && echo rebased-clean || echo rebased-blocked
+put mine
+head_only_has_remote_commits origin/tester tester && echo own-clean || echo own-blocked
+cd ..
+# Reworded on GitHub (same files, new commit ids), with no reflog to go by.
+git clone -q -b tester remote.git user2
+cd user2 && git reflog expire --expire=now --all
+cd ../seed && g commit -q --amend -m b3 && g push -q -f origin tester && cd ../user2
+fetch_tester && git reflog expire --expire=now --all
+head_only_has_remote_commits origin/tester tester && echo reworded-clean || echo reworded-blocked
+put mine2
+head_only_has_remote_commits origin/tester tester && echo own2-clean || echo own2-blocked
+`;
+    const { spawnSync: runBash } = await import("node:child_process");
+    const result = runBash("bash", ["-c", script], { encoding: "utf8" });
+    assert.equal(result.status, 0, `${launcherName} rewrite check failed: ${result.stderr}${result.stdout}`);
+    assert.match(result.stdout, /rebased-clean/u, `${launcherName} must follow a rewritten test branch`);
+    assert.match(result.stdout, /own-blocked/u, `${launcherName} must never reset away local commits`);
+    assert.match(result.stdout, /own2-blocked/u, `${launcherName} must never reset away local commits`);
+    assert.match(result.stdout, /reworded-clean/u, `${launcherName} must follow a reworded history with the same files`);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
 console.log("Launcher update reminder regressions passed.");
