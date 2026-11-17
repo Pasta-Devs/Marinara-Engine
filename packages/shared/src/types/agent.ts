@@ -597,6 +597,19 @@ function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
 
 export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [];
 
+/** Built-ins whose runs the Engine already gates with its own logic. */
+const SELF_GATED_AGENT_TYPES: ReadonlySet<string> = new Set(["illustrator", "knowledge-retrieval", "knowledge-router"]);
+
+/**
+ * Whether the generic activation keywords and activation question apply to this agent.
+ * Custom agents always qualify; built-ins qualify unless a dedicated workflow runs them.
+ */
+export function agentSupportsActivationGate(agentType: string): boolean {
+  if (SELF_GATED_AGENT_TYPES.has(agentType)) return false;
+  const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === agentType);
+  return !builtIn || (builtIn.execution !== "host" && builtIn.execution !== "feature");
+}
+
 export const DEFAULT_AGENT_CONTEXT_SIZE = 5;
 export const DEFAULT_AGENT_MAX_TOKENS = 4096;
 export const MIN_AGENT_MAX_TOKENS = 128;
