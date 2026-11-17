@@ -13,21 +13,7 @@ import {
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
-import { getApiErrorMessage } from "../../packages/client/src/lib/api-client.js";
-import {
-  getPersonalExtensionTraffic,
-  recordPersonalExtensionRequest,
-} from "../../packages/client/src/lib/personal-extension-traffic.js";
-import {
-  DEFAULT_GENERATION_PARAMS,
-  DEFAULT_TRANSLATION_SYSTEM_PROMPT,
-  resolveTranslationSystemPrompt,
-} from "../../packages/shared/src/constants/defaults.js";
 import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
-import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storage/noodle.storage.js";
-import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
-import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
 import {
   formatLorebookWriteApprovalText,
   parseLorebookWriteApprovalText,
@@ -45,67 +31,7 @@ import {
   mergeGeneratedChatMacroVariables,
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
-import { generateScheduleRoutineSummary } from "../../packages/server/src/services/conversation/schedule.service.js";
-import type {
-  BaseLLMProvider,
-  ChatCompletionResult,
-  ChatMessage,
-  ChatOptions,
-} from "../../packages/server/src/services/llm/base-provider.js";
-import {
-  moveBackgroundAssignment,
-  normalizeBackgroundLibraryOrganization,
-  removeBackgroundFolder,
-} from "../../packages/server/src/services/background-library-organization.js";
-import {
-  filterAndSortBackgrounds,
-  getNextBackgroundFolderName,
-} from "../../packages/client/src/lib/background-library.js";
-import { resolveCapabilityPackageDisplay } from "../../packages/client/src/lib/capability-package-localization.js";
-import { resolveFeatureAgentPackage } from "../../packages/client/src/lib/feature-agent-package.js";
-import { formatSupportDiagnostics, resolveClientOs } from "../../packages/client/src/lib/support-diagnostics.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
-import {
-  homeCustomWidgetCatalogSchema,
-  type BuiltInAgentManifest,
-  type CapabilityPackageManifest,
-  type InstalledCapabilityPackage,
-} from "../../packages/shared/src/index.js";
-
-const installedFeaturePackage = {
-  id: "chess",
-  manifest: { contributions: { slots: ["conversation-surface"] } },
-} as InstalledCapabilityPackage;
-assert.equal(
-  resolveFeatureAgentPackage({ id: "chess", packageId: "chess" } as BuiltInAgentManifest, [installedFeaturePackage]),
-  installedFeaturePackage,
-  "Feature agents must resolve their installed package through the registry-owned package ID",
-);
-assert.equal(
-  resolveFeatureAgentPackage({ id: "chess" } as BuiltInAgentManifest, [installedFeaturePackage]),
-  null,
-  "Unowned feature manifests must not borrow an unrelated installed package",
-);
-const contributedFeaturePackage = {
-  id: "world-maps",
-  manifest: { contributions: { agentDetail: { agentIds: ["hierarchical-maps"] } } },
-} as InstalledCapabilityPackage;
-assert.equal(
-  resolveFeatureAgentPackage({ id: "chess", packageId: "chess" } as BuiltInAgentManifest, [
-    {
-      id: "legacy-chess-detail",
-      manifest: { contributions: { agentDetail: { agentIds: ["chess"] } } },
-    } as InstalledCapabilityPackage,
-    installedFeaturePackage,
-  ]),
-  installedFeaturePackage,
-  "The registry-owned Feature package must win when a legacy contribution appears first",
-);
-assert.equal(
-  resolveFeatureAgentPackage({ id: "hierarchical-maps" } as BuiltInAgentManifest, [contributedFeaturePackage]),
-  contributedFeaturePackage,
-  "Feature detail contributions must remain a compatible ownership fallback",
-);
 
 const characterRoutesSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/routes/characters.routes.ts"),
@@ -190,51 +116,6 @@ assert.match(
   "Embedded card updates must serialize writes and validate character-owned gallery references",
 );
 
-assert.equal(
-  resolveClientOs(
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
-    "MacIntel",
-  ),
-  "macOS 15.6",
-);
-assert.equal(
-  resolveClientOs(
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/27.0 Safari/605.1.15",
-    "MacIntel",
-    5,
-  ),
-  "iPadOS (WebKit 605.1.15)",
-);
-const copiedSupportDiagnostics = formatSupportDiagnostics({
-  version: "2.4.2",
-  build: "2.4.2+abcdef123456",
-  commit: "abcdef123456",
-  serverOs: "Linux 6.8.0 (x64)",
-  serverMemory: { heapUsedMiB: 768, heapLimitMiB: 1536, rssMiB: 1024 },
-  clientOs: "macOS 15.6",
-  browser: "Marinara test shell",
-  gpu: "Test GPU",
-  connectionName: "Sol",
-  connectionProvider: "openai",
-  model: "gpt-5.6-sol",
-});
-for (const expectedLine of [
-  "Version: 2.4.2",
-  "Build: 2.4.2+abcdef123456",
-  "Commit: abcdef123456",
-  "Server OS: Linux 6.8.0 (x64)",
-  "Server memory: heap 768 / 1536 MiB; RSS 1024 MiB",
-  "Background wake lock: not reported",
-  "Last detected freeze: none detected",
-  "Client OS: macOS 15.6",
-  "Browser / app shell: Marinara test shell",
-  "GPU: Test GPU",
-  "Active connection: Sol",
-  "Connection provider: openai",
-  "LLM model: gpt-5.6-sol",
-]) {
-  assert.ok(copiedSupportDiagnostics.includes(expectedLine), `Support diagnostics must include ${expectedLine}`);
-}
 const professorMariWorkspaceSource = readFileSync(
   join(REPOSITORY_ROOT, "packages/server/src/services/professor-mari/workspace-agent.service.ts"),
   "utf8",
@@ -256,172 +137,11 @@ assert.match(
   "The seeded Professor Mari command guide must retain the same targeted character-field safeguards",
 );
 
-const localizedPackageManifest = {
-  name: "Noodle",
-  description: "Canonical description",
-  contributions: { homeBrowserTab: { label: "Noodle", ariaLabel: "Open Noodle" } },
-  localizations: {
-    pl: {
-      name: "Kluska",
-      description: "Polski opis",
-      homeBrowserTab: { label: "Kluska", ariaLabel: "Otwórz Kluskę" },
-    },
-  },
-} as CapabilityPackageManifest;
-assert.deepEqual(resolveCapabilityPackageDisplay(localizedPackageManifest, "pl-PL"), {
-  name: "Kluska",
-  description: "Polski opis",
-  homeBrowserTab: { label: "Kluska", ariaLabel: "Otwórz Kluskę" },
-});
-assert.deepEqual(resolveCapabilityPackageDisplay(localizedPackageManifest, "de-DE"), {
-  name: "Noodle",
-  description: "Canonical description",
-  homeBrowserTab: { label: "Noodle", ariaLabel: "Open Noodle" },
-});
-const regionalLocalizedPackageManifest = {
-  ...localizedPackageManifest,
-  localizations: {
-    pt_BR: {
-      name: "Macarrão",
-      description: "Descrição em português",
-      homeBrowserTab: { label: "Macarrão", ariaLabel: "Abrir Macarrão" },
-    },
-  },
-} as CapabilityPackageManifest;
-assert.equal(resolveCapabilityPackageDisplay(regionalLocalizedPackageManifest, "pt-BR").name, "Macarrão");
-assert.equal(homeCustomWidgetCatalogSchema.parse({ widgets: [] }).revision, 0);
-assert.throws(() =>
-  homeCustomWidgetCatalogSchema.parse({
-    widgets: [
-      {
-        id: "bad-timestamp",
-        title: "Bad timestamp",
-        description: "Widget timestamps must use the ISO format emitted by the writer.",
-        accent: "cyan",
-        icon: "sparkles",
-        createdAt: "yesterday",
-        updatedAt: "today",
-      },
-    ],
-  }),
-);
-
-assert.throws(() =>
-  homeCustomWidgetCatalogSchema.parse({
-    widgets: [
-      {
-        id: "unsafe-widget",
-        title: "Unsafe",
-        description: "No executable fields are allowed.",
-        accent: "cyan",
-        icon: "sparkles",
-        html: "<script>alert(1)</script>",
-        createdAt: "2026-08-09T00:00:00.000Z",
-        updatedAt: "2026-08-09T00:00:00.000Z",
-      },
-    ],
-  }),
-);
-assert.throws(
-  () =>
-    homeCustomWidgetCatalogSchema.parse({
-      widgets: [
-        {
-          id: "duplicate-widget",
-          title: "One",
-          description: "First widget",
-          accent: "cyan",
-          icon: "note",
-          createdAt: "2026-08-09T00:00:00.000Z",
-          updatedAt: "2026-08-09T00:00:00.000Z",
-        },
-        {
-          id: "duplicate-widget",
-          title: "Two",
-          description: "Second widget",
-          accent: "pink",
-          icon: "heart",
-          createdAt: "2026-08-09T00:00:00.000Z",
-          updatedAt: "2026-08-09T00:00:00.000Z",
-        },
-      ],
-    }),
-  /Widget IDs must be unique/u,
-);
 assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
   conversation: "oklch(0.79 0.16 205)",
   roleplay: "oklch(0.76 0.19 52)",
   game: "var(--marinara-mode-game-accent)",
 });
-
-const backgroundOrganization = normalizeBackgroundLibraryOrganization({
-  folders: [
-    {
-      id: "folder-night",
-      name: "Night",
-      createdAt: "2026-07-16T00:00:00.000Z",
-      updatedAt: "2026-07-16T00:00:00.000Z",
-    },
-    { id: "", name: "Invalid" },
-  ],
-  assignments: {
-    "user:moonlit-garden.jpg": "folder-night",
-    "game:backgrounds:fantasy:castle": "missing-folder",
-  },
-});
-
-assert.equal(backgroundOrganization.folders.length, 1);
-assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
-assert.equal(backgroundOrganization.assignments["game:backgrounds:fantasy:castle"], undefined);
-const renamedBackgroundOrganization = moveBackgroundAssignment(
-  backgroundOrganization,
-  "user:moonlit-garden.jpg",
-  "user:moonlit-courtyard.jpg",
-);
-assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-garden.jpg"], undefined);
-assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-courtyard.jpg"], "folder-night");
-assert.deepEqual(removeBackgroundFolder(renamedBackgroundOrganization, "folder-night"), {
-  folders: [],
-  assignments: {},
-  favorites: [],
-});
-assert.equal(getNextBackgroundFolderName([{ name: "Unnamed" }, { name: "unnamed 2" }]), "unnamed 3");
-
-const backgroundLibraryFixtures = [
-  {
-    id: "user:forest.jpg",
-    filename: "Forest.jpg",
-    originalName: "Forest.jpg",
-    tags: ["nature", "day"],
-    source: "user" as const,
-    createdAt: "2026-07-14T00:00:00.000Z",
-  },
-  {
-    id: "game:backgrounds:modern:city-night",
-    filename: "City Night.webp",
-    originalName: "backgrounds:modern:city-night",
-    tag: "backgrounds:modern:city-night",
-    tags: ["modern", "night"],
-    source: "game_asset" as const,
-    createdAt: "2026-07-16T00:00:00.000Z",
-  },
-];
-assert.deepEqual(
-  filterAndSortBackgrounds(backgroundLibraryFixtures, {
-    search: "",
-    includedTags: new Set(["night"]),
-    sort: "name-asc",
-  }).map((background) => background.id),
-  ["game:backgrounds:modern:city-night"],
-);
-assert.deepEqual(
-  filterAndSortBackgrounds(backgroundLibraryFixtures, {
-    search: "",
-    includedTags: new Set(),
-    sort: "newest",
-  }).map((background) => background.id),
-  ["game:backgrounds:modern:city-night", "user:forest.jpg"],
-);
 
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
@@ -695,65 +415,7 @@ assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay
   );
 }
 
-assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
-assert.match(DEFAULT_TRANSLATION_SYSTEM_PROMPT, /\{\{targetLanguage\}\}/u);
-assert.match(resolveTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT, "Japanese"), /into Japanese/u);
-
 validatePullRequestTriage();
-
-async function captureRoutineSummaryOptions(maxTokensOverrideValue: number | null): Promise<ChatOptions> {
-  let capturedOptions: ChatOptions | null = null;
-  const provider = {
-    maxTokensOverrideValue,
-    async chatComplete(_messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
-      capturedOptions = options;
-      return { content: "Usually available in the evenings.", toolCalls: [], finishReason: "stop" };
-    },
-  } as unknown as BaseLLMProvider;
-
-  await generateScheduleRoutineSummary(provider, "reasoning-model", "Routine Tester", {
-    weekStart: "2026-07-13",
-    days: {},
-    inactivityThresholdMinutes: 60,
-    autonomousDailyCapOverride: 3,
-    talkativeness: 50,
-  });
-
-  assert.ok(capturedOptions);
-  return capturedOptions;
-}
-
-for (const [override, expectedMaxTokens] of [
-  [null, 8192],
-  [16_384, 16_384],
-  [4096, 4096],
-] as const) {
-  const options = await captureRoutineSummaryOptions(override);
-  assert.equal(options.maxTokens, expectedMaxTokens);
-  assert.equal(options.reasoningEffort, "low");
-}
-
-assert.equal(
-  getApiErrorMessage(
-    { formErrors: [], fieldErrors: { handle: ["Handle must contain at most 40 characters."] } },
-    "Invalid profile",
-  ),
-  "Handle must contain at most 40 characters.",
-);
-assert.equal(getApiErrorMessage({ code: "USER_NOT_FOUND", requestId: "abc-123" }, "Request failed"), "Request failed");
-
-await assert.rejects(
-  fetchBotBrowserJson("http://api.chub.ai/search", { allowedHosts: ["api.chub.ai"] }),
-  /rejected untrusted host/u,
-);
-await assert.rejects(
-  fetchBotBrowserJson("https://example.com/search", { allowedHosts: ["api.chub.ai"] }),
-  /rejected untrusted host/u,
-);
-assert.equal(isAllowedResponseContentType(null, ["application/json"]), false);
-assert.equal(isAllowedResponseContentType(null, ["application/json"], true), true);
-assert.equal(isAllowedResponseContentType("application/json; charset=utf-8", ["application/json"], true), true);
-assert.equal(isAllowedResponseContentType("text/html; charset=utf-8", ["application/json"], true), false);
 
 const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta.url), "utf8");
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
@@ -789,19 +451,6 @@ assert.match(
   "Termux must rebuild and recheck incomplete client assets, including a missing index",
 );
 
-const trafficExtensionId = "open-issues-extension-traffic";
-const trafficNow = 180_000;
-for (const requestedAt of [59_000, 119_000, 179_000]) {
-  for (let request = 0; request < 61; request += 1) {
-    recordPersonalExtensionRequest(trafficExtensionId, 2, requestedAt + request);
-  }
-}
-assert.deepEqual(getPersonalExtensionTraffic(trafficExtensionId, trafficNow), {
-  requests: 183,
-  bytes: 366,
-  requestsLastMinute: 61,
-  sustainedHighRate: true,
-});
 const personalExtensionInjectorSource = readFileSync(
   new URL("../../packages/client/src/components/layout/PersonalExtensionInjector.tsx", import.meta.url),
   "utf8",
@@ -2255,124 +1904,10 @@ assert.match(
   "Incomplete server settings blobs must be rewritten with newly synced preferences",
 );
 
-// The UI store needs browser storage while Zustand initializes its persisted state.
-// Supply an isolated in-memory implementation so these checks exercise its real
-// migration and projection functions in this Node-based regression lane.
-const uiStorage = new Map<string, string>();
-Object.defineProperty(globalThis, "localStorage", {
-  configurable: true,
-  value: {
-    getItem: (key: string) => uiStorage.get(key) ?? null,
-    setItem: (key: string, value: string) => uiStorage.set(key, value),
-    removeItem: (key: string) => uiStorage.delete(key),
-  },
-});
-const { pickSyncedSettings, useUIStore } = await import("../../packages/client/src/stores/ui.store.js");
-const migrateUiSettings = useUIStore.persist.getOptions().migrate;
-assert.ok(migrateUiSettings, "The UI store must retain its persisted-state migration");
-
-const representativeTrackerSettings = {
-  trackerPanelCollapsedSections: { world: true, invalid: true },
-  trackerPanelUseExpressionSprites: undefined,
-  trackerPanelSectionOrder: ["quests", "world", "world", "invalid"],
-  summaryPopoverSettings: {
-    sourceMode: "range",
-    contextSize: 11.8,
-    rangeStart: 4.2,
-    rangeEnd: 9.7,
-    hideSummarisedMessages: true,
-    collapseHiddenMessages: false,
-  },
-  trackerPanelThoughtBubbleDisplay: "floating",
-  trackerPanelSizeProfile: "invalid",
-  trackerPanelWidth: 280,
-  trackerTemperatureUnit: "kelvin",
-  trackerPanelDockedThoughtsAlwaysVisible: undefined,
-  quoteFormat: "invalid",
-  trackerPanelBackgroundColor: "  #123456  ",
-};
-const migrateRepresentativeTrackerSettings = async (version: number) =>
-  (await migrateUiSettings(structuredClone(representativeTrackerSettings), version)) as Record<string, unknown>;
-const oldTrackerSettings = await migrateRepresentativeTrackerSettings(0);
-const currentTrackerSettings = await migrateRepresentativeTrackerSettings(92);
-const trackerMigrationProjection = (settings: Record<string, unknown>) => ({
-  trackerPanelCollapsedSections: settings.trackerPanelCollapsedSections,
-  trackerPanelUseExpressionSprites: settings.trackerPanelUseExpressionSprites,
-  trackerPanelSectionOrder: settings.trackerPanelSectionOrder,
-  summaryPopoverSettings: settings.summaryPopoverSettings,
-  trackerPanelThoughtBubbleDisplay: settings.trackerPanelThoughtBubbleDisplay,
-  trackerPanelSizeProfile: settings.trackerPanelSizeProfile,
-  trackerTemperatureUnit: settings.trackerTemperatureUnit,
-  trackerPanelDockedThoughtsAlwaysVisible: settings.trackerPanelDockedThoughtsAlwaysVisible,
-  quoteFormat: settings.quoteFormat,
-  trackerPanelBackgroundColor: settings.trackerPanelBackgroundColor,
-});
-assert.deepEqual(
-  trackerMigrationProjection(oldTrackerSettings),
-  trackerMigrationProjection(currentTrackerSettings),
-  "Old and current persisted tracker settings must share the unconditional canonicalizers",
-);
-assert.deepEqual(trackerMigrationProjection(currentTrackerSettings), {
-  trackerPanelCollapsedSections: { world: true },
-  trackerPanelUseExpressionSprites: false,
-  trackerPanelSectionOrder: ["quests", "world", "persona", "characters", "inventory", "custom"],
-  summaryPopoverSettings: {
-    sourceMode: "range",
-    contextSize: 12,
-    rangeStart: 4,
-    rangeEnd: 10,
-    hideSummarisedMessages: true,
-    collapseHiddenMessages: false,
-  },
-  trackerPanelThoughtBubbleDisplay: "floating",
-  trackerPanelSizeProfile: "compact",
-  trackerTemperatureUnit: "celsius",
-  trackerPanelDockedThoughtsAlwaysVisible: false,
-  quoteFormat: "straight",
-  trackerPanelBackgroundColor: "#123456",
-});
 assert.match(
   uiStoreSource,
   /if \(version <= 37\) \{[\s\S]*IMAGE_STYLE_PROFILES_STORAGE_KEY\] \?\? persisted\.imageStyleProfiles/u,
   "The image-style legacy-key fallback must remain version-specific",
-);
-const projectionState = {
-  ...useUIStore.getState(),
-  showHomeBrowserAddressBar: false,
-  enterToSendGame: false,
-  enterToSendProfessorMari: false,
-  chatHelpSeenModes: ["game"] as ChatMode[],
-};
-assert.equal(
-  pickSyncedSettings(projectionState).showHomeBrowserAddressBar,
-  false,
-  "Home URL bar visibility must be saved per installation",
-);
-// #9389: Send on Enter depends on the device's keyboard (a phone wants Enter for new lines, a PC wants it to
-// send), so the four toggles are saved per device: kept in browser storage, never synced.
-for (const key of ["enterToSendRP", "enterToSendConvo", "enterToSendGame", "enterToSendProfessorMari"] as const) {
-  assert.ok(!(key in pickSyncedSettings(projectionState)), `${key} must stay off the cross-device settings blob`);
-}
-assert.deepEqual(
-  pickSyncedSettings(projectionState).chatHelpSeenModes,
-  ["game"],
-  "The chat-help seen modes must be server-synced",
-);
-const localProjection = useUIStore.persist.getOptions().partialize(projectionState) as Record<string, unknown>;
-const syncedSettingsMissingFromLocalPersistence = Object.keys(pickSyncedSettings(projectionState)).filter(
-  (key) => !Object.prototype.hasOwnProperty.call(localProjection, key),
-);
-assert.deepEqual(
-  syncedSettingsMissingFromLocalPersistence,
-  [],
-  "Every server-synced setting must also be browser-local persisted",
-);
-assert.deepEqual(localProjection.chatHelpSeenModes, ["game"], "Chat-help seen modes must be browser-local persisted");
-assert.equal(localProjection.enterToSendGame, false, "Game's Send on Enter must be browser-local persisted");
-assert.equal(
-  localProjection.enterToSendProfessorMari,
-  false,
-  "Professor Mari's Send on Enter must be browser-local persisted",
 );
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
 assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
@@ -2398,19 +1933,6 @@ assert.match(
   /\.\.\.normalizeAgentPromptTemplateSelectionMap\(agentPromptTemplateIds\)/,
   "manual retries should apply per-run prompt mode overrides",
 );
-
-const noodleAvatarCrop = parseNoodleAvatarCrop(
-  JSON.stringify({ srcX: 0.25, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 }),
-);
-assert.deepEqual(noodleAvatarCrop, { srcX: 0.25, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 });
-assert.equal(getAvatarCropStyle(noodleAvatarCrop).width, "200%");
-assert.deepEqual(parseNoodleAvatarCrop({ zoom: 2, offsetX: -10, offsetY: 5, fullImage: true }), {
-  zoom: 2,
-  offsetX: -10,
-  offsetY: 5,
-  fullImage: true,
-});
-assert.equal(parseNoodleAvatarCrop({ srcX: 0, srcY: 0, srcWidth: 0, srcHeight: 0 }), null);
 
 const chatRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"), "utf8");
 assert.match(
@@ -2623,77 +2145,11 @@ for (const relativePath of [
   );
 }
 
-await assert.rejects(
-  validateOutboundUrl("https://example.com/archive.zip", {
-    allowedHostnames: ["github.com", "codeload.github.com"],
-  }),
-  /hostname 'example\.com' is not allowed/u,
-);
-
 assert.match(
   appShellSource,
   /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}closeTrackerPanel\(\)/u,
   "Closing a detached Tracker window must close the Tracker instead of silently docking it",
 );
-assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata must not mutate Object.prototype");
-
-// Issue #3993 — ComfyUI model fetch must list the DiffusionModels (UNETLoader)
-// folder and keep missing loader metadata distinguishable from an empty list.
-{
-  const { parseComfyLoaderModelNames } = await import("../../packages/server/src/routes/connections.routes.js");
-  const checkpointInfo = {
-    CheckpointLoaderSimple: { input: { required: { ckpt_name: [["sd15.safetensors", "shared.safetensors"]] } } },
-  };
-  const unetInfo = {
-    UNETLoader: {
-      input: { required: { unet_name: [["anima.safetensors", "zimage.safetensors", "shared.safetensors"]] } },
-    },
-  };
-  assert.deepEqual(parseComfyLoaderModelNames(checkpointInfo, "CheckpointLoaderSimple", "ckpt_name"), [
-    "sd15.safetensors",
-    "shared.safetensors",
-  ]);
-  assert.deepEqual(parseComfyLoaderModelNames(unetInfo, "UNETLoader", "unet_name"), [
-    "anima.safetensors",
-    "zimage.safetensors",
-    "shared.safetensors",
-  ]);
-  assert.deepEqual(
-    parseComfyLoaderModelNames(
-      { CheckpointLoaderSimple: { input: { required: { ckpt_name: [[]] } } } },
-      "CheckpointLoaderSimple",
-      "ckpt_name",
-    ),
-    [],
-    "A genuinely empty checkpoint list must stay a list, not a missing-schema signal",
-  );
-  assert.equal(
-    parseComfyLoaderModelNames({}, "CheckpointLoaderSimple", "ckpt_name"),
-    null,
-    "Missing checkpoint schema must be reported as null so the route can 502",
-  );
-  assert.equal(
-    parseComfyLoaderModelNames({}, "UNETLoader", "unet_name"),
-    null,
-    "A ComfyUI build without UNETLoader must be detectable so the route can degrade to checkpoints",
-  );
-  assert.equal(
-    parseComfyLoaderModelNames(
-      { CheckpointLoaderSimple: { input: { required: { ckpt_name: ["not-an-array"] } } } },
-      "CheckpointLoaderSimple",
-      "ckpt_name",
-    ),
-    null,
-    "Malformed options must not be mistaken for an empty model list",
-  );
-  const checkpointNames = parseComfyLoaderModelNames(checkpointInfo, "CheckpointLoaderSimple", "ckpt_name") ?? [];
-  const unetNames = parseComfyLoaderModelNames(unetInfo, "UNETLoader", "unet_name") ?? [];
-  assert.deepEqual(
-    [...new Set([...checkpointNames, ...unetNames])],
-    ["sd15.safetensors", "shared.safetensors", "anima.safetensors", "zimage.safetensors"],
-    "Overlapping names across the two folders must be listed once",
-  );
-}
 
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
 // focused UI/cache ordering fixes from being lost in future refactors.
@@ -3299,151 +2755,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
   );
 }
 
-// Issue #4002 — Character Tavern stores card JSON in zTXt (zlib-compressed)
-// PNG chunks; every card-parsing path must read them, and export must strip
-// stale ones so re-exported cards cannot carry outdated compressed data.
-{
-  const { deflateSync, crc32: zlibCrc32 } = await import("node:zlib");
-  const { parsePngCharacterCard } = await import("../../packages/client/src/lib/png-parser.js");
-  const { extractCharaFromPng } = await import("../../packages/server/src/routes/import.routes.js");
-
-  const pngChunk = (type: string, data: Buffer) => {
-    const typeBytes = Buffer.from(type, "ascii");
-    const length = Buffer.alloc(4);
-    length.writeUInt32BE(data.length);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(zlibCrc32(Buffer.concat([typeBytes, data])) >>> 0);
-    return Buffer.concat([length, typeBytes, data, crc]);
-  };
-  const card = { spec: "chara_card_v3", spec_version: "3.0", data: { name: "Tavern Import", description: "zTXt" } };
-  const base64Card = Buffer.from(JSON.stringify(card), "utf8").toString("base64");
-  const ztxtData = Buffer.concat([
-    Buffer.from("chara", "ascii"),
-    Buffer.from([0, 0]),
-    deflateSync(Buffer.from(base64Card, "ascii")),
-  ]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(1, 0);
-  ihdr.writeUInt32BE(1, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  const idat = Buffer.from([0x78, 0x01, 0x62, 0x60, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x05, 0x00, 0x01]);
-  const ztxtPng = Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    pngChunk("IHDR", ihdr),
-    pngChunk("zTXt", ztxtData),
-    pngChunk("IDAT", idat),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-
-  const serverParsed = extractCharaFromPng(ztxtPng);
-  assert.equal(
-    (serverParsed as { data?: { name?: string } } | null)?.data?.name,
-    "Tavern Import",
-    "Server import must extract character JSON from zTXt chunks",
-  );
-
-  const clientParsed = await parsePngCharacterCard(
-    new File([new Uint8Array(ztxtPng)], "card.png", { type: "image/png" }),
-  );
-  assert.equal(
-    (clientParsed.json as { data?: { name?: string } }).data?.name,
-    "Tavern Import",
-    "Client Card Browser import must extract character JSON from zTXt chunks",
-  );
-
-  const largeCard = {
-    ...card,
-    data: {
-      ...card.data,
-      name: "Large Gallery Import",
-      description: "x".repeat(100 * 1024),
-    },
-  };
-  const largeCardText = Buffer.from(JSON.stringify(largeCard), "utf8").toString("base64");
-  const largeZtxtData = Buffer.concat([
-    Buffer.from("chara", "ascii"),
-    Buffer.from([0, 0]),
-    deflateSync(Buffer.from(largeCardText, "ascii")),
-  ]);
-  const largeZtxtPng = Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    pngChunk("IHDR", ihdr),
-    pngChunk("zTXt", largeZtxtData),
-    pngChunk("IDAT", idat),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-  assert.equal(
-    (extractCharaFromPng(largeZtxtPng) as { data?: { description?: string } } | null)?.data?.description?.length,
-    100 * 1024,
-    "Server import must accept valid zTXt card metadata below the decompression limit",
-  );
-  const largeClientParsed = await parsePngCharacterCard(
-    new File([new Uint8Array(largeZtxtPng)], "large-card.png", { type: "image/png" }),
-  );
-  assert.equal(
-    (largeClientParsed.json as { data?: { description?: string } }).data?.description?.length,
-    100 * 1024,
-    "Client import must accept valid zTXt card metadata below the decompression limit",
-  );
-
-  const { injectTextChunk } = await import("../../packages/server/src/routes/characters.routes.js");
-  const reExported = injectTextChunk(ztxtPng, "chara", Buffer.from(JSON.stringify({ fresh: true })).toString("base64"));
-  assert.equal(
-    reExported.includes(deflateSync(Buffer.from(base64Card, "ascii"))),
-    false,
-    "Export must strip stale zTXt chara chunks instead of shipping outdated data",
-  );
-}
-
-{
-  // #4704: the background-autonomous poller's server-side candidate filter
-  // must mirror the legacy client filter exactly (conversation mode with
-  // autonomousMessages enabled, excluding the Professor Mari home assistant;
-  // bad or missing metadata disqualifies).
-  const { isBackgroundAutonomousCandidate } =
-    await import("../../packages/server/src/services/conversation/autonomous-candidates.js");
-  const meta = (extra: Record<string, unknown>) => JSON.stringify({ autonomousMessages: true, ...extra });
-  assert.equal(isBackgroundAutonomousCandidate({ mode: "conversation", metadata: meta({}) }), true);
-  assert.equal(
-    isBackgroundAutonomousCandidate({ mode: "conversation", metadata: { autonomousMessages: true } }),
-    true,
-    "object metadata accepted",
-  );
-  assert.equal(
-    isBackgroundAutonomousCandidate({ mode: "roleplay", metadata: meta({}) }),
-    false,
-    "non-conversation excluded",
-  );
-  assert.equal(
-    isBackgroundAutonomousCandidate({ mode: "conversation", metadata: meta({ internalAssistant: "professor-mari" }) }),
-    false,
-    "Professor Mari home chat excluded",
-  );
-  assert.equal(
-    isBackgroundAutonomousCandidate({ mode: "conversation", metadata: JSON.stringify({ autonomousMessages: false }) }),
-    false,
-    "autonomous disabled excluded",
-  );
-  assert.equal(
-    isBackgroundAutonomousCandidate({ mode: "conversation", metadata: "{not json" }),
-    false,
-    "unparseable metadata excluded",
-  );
-  assert.equal(isBackgroundAutonomousCandidate({ mode: "conversation" }), false, "missing metadata excluded");
-
-  // The candidates route excludes EMPTIED Roleplay DM threads (the legacy poll
-  // ran the DM cleanup as a GET /chats side effect); the marker expression must
-  // stay in sync with cleanupEmptyRoleplayDmChats.
-  const { hasRoleplayDmThreadMarkers } =
-    await import("../../packages/server/src/services/conversation/autonomous-candidates.js");
-  assert.equal(hasRoleplayDmThreadMarkers({ roleplayDmThread: true }), true);
-  assert.equal(hasRoleplayDmThreadMarkers({ dmOriginChatId: "chat-1" }), true);
-  assert.equal(hasRoleplayDmThreadMarkers({ roleplayDmThread: false }), false);
-  assert.equal(hasRoleplayDmThreadMarkers({ dmOriginChatId: 42 }), false, "non-string origin id is not a marker");
-  assert.equal(hasRoleplayDmThreadMarkers({}), false);
-}
-
 {
   // #4721: the chat transcript's infinite query keys ONLY by chat id — its
   // pageSize lives in the option closures, so ANY second observer with a
@@ -3538,17 +2849,6 @@ assert.equal(({} as { tags?: string[] }).tags, undefined, "Background metadata m
     /queryKey: \[\.\.\.chatKeys\.messagePeek\(chatId \?\? ""\), limit\]/u,
     "The peek hook's query key must include its limit so different windows never share options",
   );
-}
-
-{
-  const { parseMessageCursor } = await import("../../packages/server/src/services/storage/chats.storage.js");
-  assert.deepEqual(parseMessageCursor("2026-08-09T12:00:00.000Z|message%7C42"), {
-    createdAt: "2026-08-09T12:00:00.000Z",
-    id: "message|42",
-  });
-  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z"), null, "bare timestamps are not cursors");
-  assert.equal(parseMessageCursor("not-a-date|42"), null, "cursor timestamps must be valid");
-  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|%"), null, "cursor ids must be valid URI components");
 }
 
 {

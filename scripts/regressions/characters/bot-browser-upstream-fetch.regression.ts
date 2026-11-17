@@ -5,9 +5,11 @@ import type { AddressInfo } from "node:net";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import { botBrowserDatacatRoutes } from "../../../packages/server/src/routes/bot-browser-datacat.routes.js";
 import { botBrowserJannyRoutes } from "../../../packages/server/src/routes/bot-browser-janny.routes.js";
+import { fetchBotBrowserJson } from "../../../packages/server/src/services/bot-browser/fetch-json.js";
 
 // DataCat and JannyAI catalog requests go through the outbound URL guard: an upstream redirect cannot send
-// the server into this machine or the local network, and an oversized reply is cut off at the size cap.
+// the server into this machine or the local network, and an oversized reply is cut off at the size cap. A Card
+// Browser JSON fetch also refuses plain HTTP and hosts outside its allowed list.
 
 const internalHits: string[] = [];
 const internal = createServer((request, response) => {
@@ -54,5 +56,14 @@ try {
   await app.close();
   await new Promise((resolve) => internal.close(resolve));
 }
+
+await assert.rejects(
+  fetchBotBrowserJson("http://api.chub.ai/search", { allowedHosts: ["api.chub.ai"] }),
+  /rejected untrusted host/u,
+);
+await assert.rejects(
+  fetchBotBrowserJson("https://example.com/search", { allowedHosts: ["api.chub.ai"] }),
+  /rejected untrusted host/u,
+);
 
 console.log("Card Browser upstream fetch regression passed");

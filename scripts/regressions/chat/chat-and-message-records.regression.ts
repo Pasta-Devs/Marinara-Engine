@@ -1,5 +1,5 @@
 // Chats and messages as the app loads them: older messages hydrated, chats normalized for the response, chats sorted
-// by recent activity, and generation waiting for pending chat metadata saves.
+// by recent activity, generation waiting for pending chat metadata saves, and message page cursors.
 import assert from "node:assert/strict";
 import type { Message } from "../../../packages/shared/src/types/chat.js";
 import {
@@ -97,3 +97,14 @@ assert.equal(metadataWaitFinished, false, "swipe generation should remain blocke
 releaseFirstMetadataSave();
 await Promise.all([firstMetadataSave, secondMetadataSave, pendingMetadataWait]);
 assert.deepEqual(metadataSaveOrder, ["first", "second"]);
+
+{
+  const { parseMessageCursor } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+  assert.deepEqual(parseMessageCursor("2026-08-09T12:00:00.000Z|message%7C42"), {
+    createdAt: "2026-08-09T12:00:00.000Z",
+    id: "message|42",
+  });
+  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z"), null, "bare timestamps are not cursors");
+  assert.equal(parseMessageCursor("not-a-date|42"), null, "cursor timestamps must be valid");
+  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|%"), null, "cursor ids must be valid URI components");
+}
