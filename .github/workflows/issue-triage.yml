@@ -9,6 +9,10 @@ jobs:
     name: Label by title prefix
     # Only a title edit can change the label. Body edits are skipped so a label a maintainer removed stays removed.
     if: github.event.action == 'opened' || github.event.changes.title
+    # Quick retitles of one issue run in order instead of racing.
+    concurrency:
+      group: issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -28,7 +32,6 @@ jobs:
               prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
             const issue = context.payload.issue;
             const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number };
-            const has = (name) => issue.labels.some((label) => label.name === name);
             const label = labelFor(issue.title);
             const previousTitle = context.payload.changes?.title?.from;
             const previous = previousTitle === undefined ? undefined : labelFor(previousTitle);
@@ -38,8 +41,18 @@ jobs:
             if (!label || previous === label) {
               return;
             }
+            // The event's label list is a snapshot from delivery time; read the issue's labels now.
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({ ...target, per_page: 100 });
+            const has = (name) => current.some((existing) => existing.name === name);
             if (previous && has(previous)) {
-              await github.rest.issues.removeLabel({ ...target, name: previous });
+              try {
+                await github.rest.issues.removeLabel({ ...target, name: previous });
+              } catch (error) {
+                // Someone removed it since the read above.
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
             }
             if (!has(label)) {
               await github.rest.issues.addLabels({ ...target, labels: [label] });
