@@ -13,6 +13,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -828,8 +829,17 @@ export function KitFolderTile({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const peek = (previews ?? []).slice(0, 4);
+  // The coloured edge sits outside the box (themes may tint card art, e.g. Gutterlight's ink print, and the
+  // folder colour should stay true), so it copies the box's top-right corner to follow its curve.
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (box) tileRef.current?.style.setProperty("--ov-folder-r", getComputedStyle(box).borderTopRightRadius);
+  });
   return (
     <div
+      ref={tileRef}
       className="ov-card ov-folder-tile"
       data-component="FolderTile"
       style={folder.color ? ({ "--ov-folder-color": folder.color } as CSSProperties) : undefined}
@@ -848,7 +858,7 @@ export function KitFolderTile({
         onClick={onOpen}
       >
         <span className="ov-folder-tile__tab" aria-hidden="true" />
-        <span className="ov-card__art ov-folder-tile__box">
+        <span ref={boxRef} className="ov-card__art ov-folder-tile__box">
           {folder.cover ? (
             <img className="ov-folder-tile__cover" src={folder.cover} alt="" draggable={false} />
           ) : peek.length ? (
@@ -869,6 +879,7 @@ export function KitFolderTile({
             {count}
           </span>
         </span>
+        <span className="ov-folder-tile__edge" aria-hidden="true" />
       </button>
       <KitMoreButton
         className="ov-card__more"

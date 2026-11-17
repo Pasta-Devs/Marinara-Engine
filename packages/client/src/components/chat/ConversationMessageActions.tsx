@@ -34,9 +34,10 @@ import { Spinner } from "../ui/Spinner";
 import { useFollowBubble } from "../../lib/follow-bubble";
 import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
 
-// Where the Convo bottom bar sits: on the bottom line of whatever box the theme draws around the
-// message (its bubble, card or row), inside it, so it is never cut by the line. When the last line of
-// text runs under that spot, it goes just beneath the box instead.
+// Where the Convo bottom bar sits, one fixed spot per theme (never moving from message to message):
+// - themes that draw a bubble around the text (narrower than the row): just beneath the bubble;
+// - everything else (cards, rows): inside the box, on its bottom line, with room kept at the end of the
+//   last line of text (--ov-cvb-room) so text never runs under the icons.
 function drawsBox(el: HTMLElement) {
   const cs = getComputedStyle(el);
   const bg = cs.backgroundColor;
@@ -58,17 +59,19 @@ function placeBottomBar(bar: HTMLElement, bubble: HTMLElement): number | null {
     }
   }
   const b = box.getBoundingClientRect();
+  if (box === bubble && b.width < row.getBoundingClientRect().width - 24) {
+    row.dataset.ovCvb = "below";
+    row.style.removeProperty("--ov-cvb-room");
+    return b.bottom + 1;
+  }
+  const content = bubble.querySelector<HTMLElement>(".mari-message-content");
+  const room = content
+    ? Math.max(0, Math.round(content.getBoundingClientRect().right - bar.getBoundingClientRect().left + 6))
+    : 0;
+  row.dataset.ovCvb = "inside";
+  row.style.setProperty("--ov-cvb-room", `${room}px`);
   const inner = b.bottom - (parseFloat(getComputedStyle(box).borderBottomWidth) || 0);
-  const height = bar.offsetHeight;
-  const top = inner - height - 2;
-  const barLeft = bar.getBoundingClientRect().left;
-  const content = bubble.querySelector<HTMLElement>(".mari-message-content") ?? bubble;
-  const range = document.createRange();
-  range.selectNodeContents(content);
-  const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
-  range.detach();
-  const clash = rects.some((r) => r.bottom > top + 1 && r.top < top + height && r.right > barLeft - 6);
-  return clash ? b.bottom + 1 : top;
+  return inner - bar.offsetHeight - 2;
 }
 
 export interface ConversationMessageActionsProps {

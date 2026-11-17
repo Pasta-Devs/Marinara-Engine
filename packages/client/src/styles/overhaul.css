@@ -13722,6 +13722,23 @@ input.ov-edhead__title:not(#ov-x) {
   pointer-events: none;
   transition: opacity 0.1s ease;
 }
+/* Room at the end of the last line of text for the bottom icons (themes where they sit inside the box), so
+   the text wraps before it would run under them. Only the last line is affected. */
+[data-ov-cvb="inside"] .mari-message-content::after {
+  content: "";
+  display: inline-block;
+  width: var(--ov-cvb-room, 0);
+  height: 1px;
+}
+[data-ov-cvb="inside"] .mari-message-content:has(> :last-child:is(p, div, ul, ol, blockquote, pre, table))::after {
+  content: none;
+}
+[data-ov-cvb="inside"] .mari-message-content > :last-child:is(p, div)::after {
+  content: "";
+  display: inline-block;
+  width: var(--ov-cvb-room, 0);
+  height: 1px;
+}
 .group:hover .ov-cvb,
 .group:focus-within .ov-cvb,
 .ov-cvb.is-on {
@@ -14099,7 +14116,13 @@ input.ov-edhead__title:not(#ov-x) {
   flex: 1;
   aspect-ratio: auto;
   min-height: 0;
-  border-top-left-radius: 0;
+}
+/* The tab has to meet the box's corner, so its top-left corner stays square even when a theme rounds card
+   corners (Dewglass, Quiet Iris, MARI to the Moon). Themes still style everything else about the box. */
+@layer mari-protected {
+  :root .ov-folder-tile .ov-folder-tile__box {
+    border-top-left-radius: 0 !important;
+  }
 }
 .ov-folder-tile__cover {
   position: absolute;
@@ -14108,13 +14131,18 @@ input.ov-edhead__title:not(#ov-x) {
   height: 100%;
   object-fit: cover;
 }
-/* The coloured edge joins the tab and stays on top of the picture. */
-.ov-folder-tile__box::after {
-  content: "";
+/* The coloured edge joins the tab and runs along the box's top, over its border and picture. It is a layer
+   the size of the box with the box's top-right corner, so the edge follows that curve; it sits outside the
+   box so a theme's tint on card art (Gutterlight prints it in ink) doesn't change the folder's colour. */
+.ov-folder-tile__art {
+  position: relative;
+}
+.ov-folder-tile__edge {
   position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: var(--ov-folder);
+  z-index: 2;
+  inset: 0.5rem 0 0;
+  border-radius: 0 var(--ov-folder-r, 0.75rem) 0 0;
+  box-shadow: inset 0 5px 0 var(--ov-folder);
   pointer-events: none;
 }
 .ov-folder-tile__peek {
