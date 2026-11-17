@@ -32,8 +32,7 @@ export function normalizeGalleryDescription(value: unknown): string | null {
   const text = value
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/gu, " ")
-    .replace(/[ \t]+/gu, " ")
-    .replace(/\s*\n\s*/gu, " ")
+    .replace(/\s+/gu, " ")
     .trim();
   if (!text) return null;
   if (text.length <= GALLERY_DESCRIPTION_MAX_LENGTH) return text;
