@@ -285,6 +285,8 @@ export function createOmnibarResultActions({
       case "start-chat":
         if (!(await confirmLeaveEditor())) return;
         recordUse(result.id);
+        // A feature row ("Start a roleplay from a profile") opens the setup on Use a Profile.
+        if (action.profile) useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
         // Closing unmounts this dialog (and the mutation hook inside
         // `startNewChatMode`), so wait for it to settle first — otherwise the
         // chat gets created but the unmount drops its success callback.

@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Panel: Settings (polished)
 // ──────────────────────────────────────────────
+import { resetFeatureTips } from "../../lib/feature-tips";
 import {
   TRACKER_DATA_PANEL_SECTIONS,
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
@@ -215,7 +216,9 @@ import {
   Sparkles,
   Wrench,
   Square,
-  CheckSquare, Loader2 } from "lucide-react";
+  CheckSquare,
+  Loader2,
+} from "lucide-react";
 import {
   useChat,
   useClearAllData,
@@ -2391,6 +2394,8 @@ function GeneralSettings() {
   const setConfirmBeforeDelete = useUIStore((s) => s.setConfirmBeforeDelete);
   const chatHelpButtonHidden = useUIStore((s) => s.chatHelpButtonHidden ?? false);
   const setChatHelpButtonHidden = useUIStore((s) => s.setChatHelpButtonHidden);
+  const featureTipsEnabled = useUIStore((s) => s.featureTipsEnabled);
+  const setFeatureTipsEnabled = useUIStore((s) => s.setFeatureTipsEnabled);
   const achievementsEnabled = useUIStore((s) => s.achievementsEnabled);
   const setAchievementsEnabled = useUIStore((s) => s.setAchievementsEnabled);
   const seasonalThemesDisabled = useUIStore((s) => s.seasonalThemesDisabled);
@@ -2480,6 +2485,27 @@ function GeneralSettings() {
             onChange={setChatHelpButtonHidden}
             help={localizeUi("settings.controls.hideChatHelpButton.help")}
           />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("feature-tips")}
+            label={localizeUi("settings.controls.featureTips.label")}
+            checked={featureTipsEnabled}
+            onChange={setFeatureTipsEnabled}
+            help={localizeUi("settings.controls.featureTips.help")}
+          />
+          {featureTipsEnabled ? (
+            <div className="flex justify-start pl-1.5">
+              <button
+                type="button"
+                className={SETTINGS_BUTTON_CLASS}
+                onClick={() => {
+                  resetFeatureTips();
+                  toast.success(localizeUi("settings.featureTips.reset"));
+                }}
+              >
+                {localizeUi("settings.featureTips.showAgain")}
+              </button>
+            </div>
+          ) : null}
           <WalkthroughSettings />
         </div>
       </SettingsSection>

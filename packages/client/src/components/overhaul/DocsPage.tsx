@@ -32,6 +32,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { dirLabel, prepareDocMarkdown } from "../modals/DocsViewerModal";
 import { splitDocAtShots, type DocShot } from "./docs-shots";
+import { useFeatureShow } from "../../hooks/use-feature-show";
 
 const ELLIPSIS = "\u2026";
 
@@ -101,6 +102,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
   const [zoomed, setZoomed] = useState<DocShot | null>(null);
   const jumpToFirstHit = useRef(false);
+  const showFeature = useFeatureShow();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query), 250);
@@ -235,7 +237,13 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
     } catch {
       return;
     }
-    if (url.origin !== window.location.origin || !url.pathname.endsWith("/api/docs/content")) return;
+    if (url.origin !== window.location.origin) return;
+    if (url.pathname.endsWith("/api/docs/show")) {
+      event.preventDefault();
+      showFeature(url.searchParams.get("feature") ?? "");
+      return;
+    }
+    if (!url.pathname.endsWith("/api/docs/content")) return;
     const target = url.searchParams.get("path");
     if (!target) return;
     event.preventDefault();

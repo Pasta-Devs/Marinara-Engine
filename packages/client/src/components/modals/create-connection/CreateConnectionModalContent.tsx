@@ -119,7 +119,7 @@ export function CreateConnectionModalContent({
   const { t } = useTranslation();
   const ovDesktop = useOverhaulActive();
   const ovMobile = useOverhaulMobile();
-  const [anchorBox, setAnchorBox] = useState<{ top: number; right: number } | null>(null);
+  const [anchorBox, setAnchorBox] = useState<{ top: number; left: number } | null>(null);
   const { data: accounts } = useConnectionAccounts();
   const connectionsQuery = useConnections();
   const rows = connectionsQuery.data;
@@ -442,7 +442,18 @@ export function CreateConnectionModalContent({
       const el = document.querySelector(`[data-ov-anchor="${anchor}"]`);
       if (!el) return setAnchorBox(null);
       const rect = el.getBoundingClientRect();
-      setAnchorBox({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
+      // The menu hangs from the button's right edge, like the Library's other menus. When the button sits
+      // near the left (the narrow Accounts list beside an open page), that would push the menu off the
+      // screen, so it then starts at the button's left edge instead. Either way it stays inside the window.
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const width = Math.min(23 * rem, window.innerWidth - rem);
+      const margin = 8;
+      const fromRight = rect.right - width;
+      const left = fromRight >= margin ? fromRight : rect.left;
+      setAnchorBox({
+        top: rect.bottom + 6,
+        left: Math.round(Math.max(margin, Math.min(left, window.innerWidth - width - margin))),
+      });
     };
     measure();
     window.addEventListener("resize", measure);
@@ -1054,7 +1065,7 @@ export function CreateConnectionModalContent({
         );
   const dropStyle: CSSProperties | undefined =
     dropdown && anchorBox
-      ? ({ "--ov-drop-top": `${anchorBox.top}px`, "--ov-drop-right": `${anchorBox.right}px` } as CSSProperties)
+      ? ({ "--ov-drop-top": `${anchorBox.top}px`, "--ov-drop-left": `${anchorBox.left}px` } as CSSProperties)
       : undefined;
 
   return (

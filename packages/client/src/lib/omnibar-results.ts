@@ -23,6 +23,7 @@ import { CHOICE_SCORE_PENALTY, buildChoiceOptionResults, readChoiceOptionId } fr
 /** Extra damping for "use for this chat" option rows, so the matching item's own (Open) row leads. */
 const CHAT_USE_SCORE_PENALTY = 80;
 import { frecencyBoost, type OmnibarFrecencyEntry } from "./omnibar-frecency";
+import { buildOmnibarFeatureResults } from "./omnibar-feature-rows";
 import { readNamedRow } from "./omnibar-row-readers";
 import { parseChatMetadata } from "./chat-display";
 import { countBlockingReviews, isMariReviewWaiting } from "./professor-mari-presentation";
@@ -761,8 +762,15 @@ export function buildOmnibarSearchResults({
         },
       ]
     : [];
+  // Feature rows (feature finder): the query used someone's word for a feature, such as "chat preset".
+  const featureRows = buildOmnibarFeatureResults({
+    query: trimmedQuery,
+    activeChatId: omnibarContext.activeChat?.id ?? null,
+    t,
+  });
   const preBoostResults = [
     ...openMariRows,
+    ...featureRows,
     ...searchOmnibar(query, {
       ...data,
       controls: [...controls, ...chatControls, ...controlChoices],

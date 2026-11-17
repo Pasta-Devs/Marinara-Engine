@@ -2,6 +2,7 @@
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef } from "react";
+import { noteBulkDeleteForTips } from "../lib/feature-tips";
 import { create } from "zustand";
 import {
   infiniteQueryOptions,
@@ -1708,6 +1709,9 @@ export function useDeleteMessages(chatId: string | null) {
     onSuccess: (result, messageIds) => {
       if (chatId) {
         settleDeletedMessages(qc, chatId, messageIds);
+        noteBulkDeleteForTips(messageIds.length, () =>
+          useUIStore.getState().openModal("docs-viewer", { initialDoc: "chats/branches.md" }),
+        );
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
           toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
