@@ -321,7 +321,8 @@ export function PickRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className={cn("truncate text-xs font-medium", picked && "text-foreground")}>{title}</span>
         {(disabledReason ?? subtitle) && (
-          <span className="truncate text-[0.6875rem] leading-tight text-foreground/50">
+          // Two lines before it cuts off, so a short hint (a sort's keyboard tip) reads in full.
+          <span className="line-clamp-2 break-words text-[0.6875rem] leading-tight text-foreground/50">
             {disabledReason ?? subtitle}
           </span>
         )}

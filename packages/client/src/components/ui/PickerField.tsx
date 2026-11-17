@@ -105,7 +105,8 @@ export function useFieldWindow(disabled: boolean | undefined) {
   }, [disabled]);
   const close = () => {
     setOpen(false);
-    triggerRef.current?.focus();
+    // Without a scroll: a popover closed because its field scrolled away must not pull the field back into view.
+    triggerRef.current?.focus({ preventScroll: true });
   };
   const toggle = () => (open ? close() : setOpen(true));
   return { open: open && !disabled, triggerRef, close, toggle };
