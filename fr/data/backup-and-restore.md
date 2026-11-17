@@ -74,15 +74,51 @@ Un profil natif garde le code des Personal Extensions, mais pas le fait qu'elles
 1. Ouvre **Settings → Imports**.
 2. Dans **Profile & Marinara**, clique sur **Import Profile (JSON/ZIP)**.
 3. Choisis `marinara-profile.json`, `marinara-profile.zip` ou un `.zip` de sauvegarde. Le bouton affiche **Scanning Profile...**.
-4. Lis la fenêtre **Import Profile**. Elle liste ce que Marinara a trouvé et te prévient que tu ne peux pas annuler l'import.
-5. Clique sur **Import**, ou sur **Cancel** pour arrêter. Le bouton affiche **Importing Profile...** et une barre de progression suit. Quand c'est fini, un message indique que le profil a été importé.
+4. Lis la fenêtre **Import Profile**. Elle liste ce que Marinara a trouvé. Les éléments déjà présents dans Marinara sont remplacés par les versions du fichier, sauf si tu [ajoutes seulement ce qui manque](#only-add-whats-missing).
+5. Clique sur **Import**, ou sur **Cancel** pour arrêter. Le bouton affiche **Importing Profile...**. Marinara enregistre d'abord une copie de sécurité de tes données, puis une barre de progression suit. Quand c'est fini, un message indique que le profil a été importé.
 
 Si ça n'a pas marché :
 
 - Sauf si tu ouvres Marinara à `localhost`, `127.0.0.1` ou `[::1]`, l'import de profil a besoin de HTTPS. L'erreur est "Profile import requires HTTPS outside local development." Ouvre Marinara avec une adresse HTTPS.
 - Si un `.zip` n'a pas quelques fichiers média, l'import se termine quand même. Un avertissement liste ce qui manque, et Marinara importe le reste.
+- S'il n'y a pas assez de place sur le disque pour la copie de sécurité, rien n'est importé. L'erreur commence par "Nothing was imported, because a safety copy could not be saved first." Libère à peu près autant d'espace qu'en prend une sauvegarde complète, puis importe à nouveau.
 
 Si tu importes deux fois le même profil, Marinara met à jour tes éléments et ne les copie pas. Les profils de versions bien plus anciennes peuvent créer des doublons.
+
+<a id="only-add-whats-missing"></a>
+
+### Ajouter seulement ce qui manque
+
+Pour récupérer quelque chose que tu as supprimé sans perdre les modifications faites depuis, active **Keep my current versions, only add what's missing** (garder mes versions actuelles, ajouter seulement ce qui manque) au-dessus de **Import Profile (JSON/ZIP)**, puis importe comme ci-dessus. Chaque élément et chaque fichier déjà présent dans Marinara reste tel quel, et seul ce que Marinara n'a pas est ajouté. Cela inclut tout ce que tu as supprimé depuis l'enregistrement du fichier, comme des messages isolés ou des entrées de lorebook, pas seulement l'élément que tu voulais récupérer. La mémoire à long terme compte comme un seul élément : si Marinara en a déjà, celle du fichier n'est pas ajoutée.
+
+Rien n'est remplacé : Marinara n'enregistre donc aucune copie de sécurité, et **Undo Last Import** (annuler le dernier import) continue d'annuler l'import qui précède celui-ci.
+
+Les profils de versions bien plus anciennes ne peuvent pas faire cela : ils ajoutent toujours leurs éléments à côté des tiens, et la fenêtre **Import Profile** le signale.
+
+### Annuler un import
+
+Avant chaque import qui remplace des éléments, Marinara enregistre une copie complète de tes données dans le dossier `backups/` du dossier de données, sous la forme d'un fichier dont le nom commence par `marinara-before-import-` suivi de la date et de l'heure. Quand l'import se termine, la copie de l'import précédent est supprimée : seule la plus récente est gardée.
+
+1. Ouvre **Settings → Imports**.
+2. Dans **Profile & Marinara**, clique sur **Undo Last Import**. La ligne en dessous indique quand la copie de sécurité a été enregistrée.
+3. Clique sur **Undo Last Import** dans la fenêtre pour confirmer.
+
+L'annulation remet en place tes versions des éléments et des fichiers que le dernier import a remplacés. Si tu as modifié l'un de ces éléments après l'import, cette modification est perdue. Le reste ne change pas, y compris les éléments que l'import a ajoutés. Tu peux annuler un import une seule fois, puis la copie de sécurité est supprimée.
+
+L'annulation ne réactive pas ce que l'import a désactivé par sécurité. Réactive ces éléments à la main :
+
+- ton thème actif ;
+- les Personal Extensions (vérifie-les à nouveau dans **Settings → Addons**) ;
+- les outils personnalisés qui lancent un script ou un webhook ;
+- les souvenirs de Professor Mari.
+
+Si l'import a vidé la clé API d'une connexion, saisis la clé à nouveau (voir [Saisis à nouveau tes clés](#enter-your-keys-again)). Redéfinis cette connexion comme connexion par défaut ou de secours si elle l'était.
+
+Les branches que l'import a remplacées restent détachées du chat dont elles proviennent. L'import a déjà retiré ce lien, et l'annulation ne peut pas le rétablir.
+
+Les profils de versions bien plus anciennes ajoutent seulement des éléments : Marinara n'enregistre donc aucune copie de sécurité pour eux, et il n'y a rien à annuler.
+
+La copie de sécurité prend autant de place qu'une sauvegarde complète. Pour libérer cette place sans annuler l'import, clique sur **Delete Safety Copy** (supprimer la copie de sécurité) dans **Profile & Marinara**, puis confirme. Tes données restent telles quelles, mais tu ne peux plus annuler cet import. Si un import a été interrompu, **Delete Safety Copy** peut apparaître tout seul ; la copie ne peut alors pas servir à annuler l'import, mais tu peux quand même la supprimer.
 
 <a id="enter-your-keys-again"></a>
 
