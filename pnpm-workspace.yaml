@@ -36,6 +36,9 @@ audit:
     - GHSA-mrhx-c7xc-m3w5
     # deepmerge 4.3.1 only; retire when an upstream fixed release replaces it.
     - GHSA-gcqx-w48m-w2h4
+    # picomatch 4.0.7, with no fixed release yet. Only build and lint tools load it, on the repository's own
+    # patterns. The glob-minimatch-security-overrides regression fails if that changes; retire it with a fix.
+    - GHSA-fc5q-39xc-vjpf
 
 # Native/build dependencies permitted to run install scripts. Explicitly deny the
 # known no-op so noninteractive installs never need to edit this tracked policy.
