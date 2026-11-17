@@ -29,6 +29,7 @@ import { rulesetFoeFates } from "../../lib/ruleset-combat-log";
 import { useRulesetText } from "../../lib/ruleset-text";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { useMatchMedia } from "../../hooks/use-match-media";
+import { Tabs } from "../ui/Tabs";
 import { cn } from "../../lib/utils";
 
 export interface RulesetCombatScreenProps {
@@ -406,27 +407,23 @@ export function RulesetCombatScreen({
         data-game-section="combat-director"
         className="flex h-full min-h-0 flex-col bg-[var(--background)] text-[var(--foreground)]"
       >
-        <div role="tablist" className="flex shrink-0 gap-1 border-b border-[var(--border)] bg-[var(--card)] p-1">
-          {(["board", "pane", "order", "log"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={phoneTab === tab}
-              disabled={boardStep && tab !== "board"}
-              onClick={() => setPhoneTab(tab)}
-              className={cn(
-                "inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-1 text-[0.8rem] font-semibold disabled:opacity-50",
-                phoneTab === tab ? "bg-[var(--primary)]/15 text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-              )}
-            >
-              <span className="truncate">{t(PHONE_TAB_KEYS[tab])}</span>
-              {tab === "pane" && asked && phoneTab !== "pane" && (
+        <Tabs
+          items={(["board", "pane", "order", "log"] as const).map((tab) => ({
+            id: tab,
+            label: t(PHONE_TAB_KEYS[tab]),
+            disabled: boardStep && tab !== "board",
+            badge:
+              tab === "pane" && asked && phoneTab !== "pane" ? (
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-[#f5c97a]" />
-              )}
-            </button>
-          ))}
-        </div>
+              ) : undefined,
+          }))}
+          value={phoneTab}
+          onChange={setPhoneTab}
+          variant="pill"
+          columns={4}
+          className="shrink-0 border-b border-[var(--border)] bg-[var(--card)] p-1"
+          label={t("game.combat.director.title")}
+        />
         {phoneTab === "board" ? (
           <>
             {boardColumn}

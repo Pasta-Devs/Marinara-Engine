@@ -31,6 +31,7 @@ import {
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -1626,53 +1627,20 @@ export function SettingsPanel() {
       </div>
 
       <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
-        <div
-          role="tablist"
-          aria-label={localize("Settings categories")}
-          className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
-        >
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = settingsTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`settings-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={settingsTab === tab.id}
-                aria-controls={`settings-panel-${tab.id}`}
-                tabIndex={settingsTab === tab.id ? 0 : -1}
-                onClick={() => setSettingsTab(tab.id)}
-                className={cn(
-                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
-                  active
-                    ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
-                    : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-                )}
-                title={t(tab.descriptionKey)}
-              >
-                {active && (
-                  <>
-                    <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
-                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
-                  </>
-                )}
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
-                      : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <Icon size="0.6875rem" />
-                </span>
-                <span className="w-full min-w-0 break-words px-0.5">{t(tab.labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          items={TABS.map((tab) => ({
+            id: tab.id,
+            label: t(tab.labelKey),
+            title: t(tab.descriptionKey),
+            icon: <tab.icon size="0.875rem" />,
+          }))}
+          value={settingsTab}
+          onChange={setSettingsTab}
+          variant="pill"
+          columns={3}
+          idPrefix="settings"
+          label={localize("Settings categories")}
+        />
 
         {activeSections.length > 1 && (
           <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">

@@ -2215,7 +2215,8 @@
 }
 
 .mari-chrome-segmented__button--selected,
-.mari-chrome-segmented__button[aria-pressed="true"] {
+.mari-chrome-segmented__button[aria-pressed="true"],
+.mari-chrome-segmented__button[aria-selected="true"] {
   background: var(--marinara-chat-chrome-button-bg-active);
   color: var(--marinara-chat-chrome-button-text-active);
   box-shadow: inset 0 0 0 1px var(--marinara-chat-chrome-focus-ring);

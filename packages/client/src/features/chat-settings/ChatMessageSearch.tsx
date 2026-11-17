@@ -10,6 +10,7 @@ import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { ChatBookmarksList, ChatTrashList } from "../../components/chat/ChatMessageMarksPanels";
 import { Spinner } from "../../components/ui/Spinner";
+import { Tabs } from "../../components/ui/Tabs";
 
 type SearchPanelView = "search" | "bookmarks" | "trash";
 const PANEL_VIEWS = [
@@ -83,34 +84,21 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
 
   return (
     <div data-chat-message-search role="search" aria-label={title} className="flex flex-col">
-      <div
-        role="tablist"
-        aria-label={localizeUi("ui.chat.messagemarks.panelViews")}
-        // One block with the search bar or list below it: no divider between the views and their content.
-        className="flex shrink-0 gap-1 px-3 pb-1 pt-2.5"
-      >
-        {PANEL_VIEWS.map(({ id, icon: Icon, labelKey }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={view === id}
-            onClick={() => {
-              setView(id);
-              setEngaged(true);
-            }}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
-              view === id
-                ? "bg-[var(--accent)] font-medium text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Icon size="0.75rem" className="shrink-0" />
-            {localizeUi(labelKey)}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={PANEL_VIEWS.map(({ id, icon: Icon, labelKey }) => ({
+          id,
+          label: localizeUi(labelKey),
+          icon: <Icon size="0.75rem" />,
+        }))}
+        value={view}
+        onChange={(id) => {
+          setView(id);
+          setEngaged(true);
+        }}
+        variant="underline"
+        className="px-3 pb-1 pt-2.5"
+        label={localizeUi("ui.chat.messagemarks.panelViews")}
+      />
 
       {view === "search" && (
         <div className="shrink-0 px-3 pb-3 pt-1.5">
