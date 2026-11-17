@@ -1259,6 +1259,13 @@ test("Notification position is selectable, moves errors, and survives reload", a
   );
   await page.reload();
   await expect(selector).toHaveAttribute("data-value", "bottom");
+  // Like a native select, the keys start from the current choice, and Back closes the list, not the panel.
+  await selector.click();
+  const list = page.getByRole("dialog", { name: "Notification position", exact: true });
+  await expect(list.locator("[data-pick-row][data-active='true']")).toHaveText("Bottom");
+  await page.goBack();
+  await expect(list).toHaveCount(0);
+  await expect(selector).toBeVisible();
   await error();
   await expect(page.locator('[data-sonner-toaster][data-y-position="bottom"] [data-sonner-toast]')).toBeVisible();
   await chooseOption(page, selector, "Top");

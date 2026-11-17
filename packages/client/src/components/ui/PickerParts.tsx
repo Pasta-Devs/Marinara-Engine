@@ -120,7 +120,17 @@ export function usePickerKeyboard({
   // folders open, searches change and the list scrolls.
   const mark = () => {
     const all = rows();
-    if (!(activeEl.current && all.includes(activeEl.current)) && all.length && (listRef.current?.scrollTop ?? 0) <= 2) {
+    // Like a native select, the keys start from the current choice when the list opens.
+    const current =
+      ringFirst.current && !query ? all.find((row) => row.getAttribute("aria-current") === "true") : undefined;
+    if (current && !activeEl.current) {
+      activeEl.current = current;
+      ringFirst.current = false;
+    } else if (
+      !(activeEl.current && all.includes(activeEl.current)) &&
+      all.length &&
+      (listRef.current?.scrollTop ?? 0) <= 2
+    ) {
       activeEl.current = all[ringFirst.current ? 0 : Math.min(active, all.length - 1)]!;
       ringFirst.current = false;
     }

@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
 import { useInsideModal } from "./modal-context";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { NEUTRAL_SURFACE_VARIABLES } from "./neutral-surface-styles";
 
 // Where Modal turns into a bottom sheet, so a picker and the dialogs around it switch at the same width.
@@ -54,6 +55,8 @@ export function PickerWindow({
   const [phone] = useState(
     () => !insideModal && typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches,
   );
+  // Back closes the popover first (on a phone inside a Modal it sits over that sheet); the sheet path is a Modal and registers itself.
+  useBackDismiss(!phone, onClose);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Placement | null>(null);
 

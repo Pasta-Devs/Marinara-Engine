@@ -6,8 +6,7 @@ export const SELECT_SEARCH_MIN = 8;
 
 type StepOption<T extends string> = { value: T; label: string; disabledReason?: string };
 
-const enabledOptions = <T extends string>(options: readonly StepOption<T>[]) =>
-  options.filter((option) => option.disabledReason === undefined);
+const enabled = <T extends string>(option: StepOption<T>) => option.disabledReason === undefined;
 
 /** The option one step up or down from `value`, skipping disabled ones. Stops at the ends, like a native select. */
 export function stepSelectOption<T extends string>(
@@ -15,11 +14,13 @@ export function stepSelectOption<T extends string>(
   value: T | null,
   step: 1 | -1,
 ): T | undefined {
-  const enabled = enabledOptions(options);
-  if (enabled.length === 0) return undefined;
-  const at = enabled.findIndex((option) => option.value === value);
-  if (at < 0) return enabled[step > 0 ? 0 : enabled.length - 1]!.value;
-  return enabled[Math.max(0, Math.min(enabled.length - 1, at + step))]!.value;
+  // Walk from the current option, even a disabled one, so a step never jumps back to the start.
+  const at = options.findIndex((option) => option.value === value);
+  const start = at >= 0 ? at : step > 0 ? -1 : options.length;
+  for (let i = start + step; i >= 0 && i < options.length; i += step)
+    if (enabled(options[i]!)) return options[i]!.value;
+  // Already on the last enabled option in that direction: stay put.
+  return at >= 0 && enabled(options[at]!) ? options[at]!.value : undefined;
 }
 
 /** The next enabled option after `value` whose label starts with `key`, wrapping around. */
@@ -28,12 +29,11 @@ export function typeAheadSelectOption<T extends string>(
   value: T | null,
   key: string,
 ): T | undefined {
-  const enabled = enabledOptions(options);
   const letter = key.toLocaleLowerCase();
-  const at = enabled.findIndex((option) => option.value === value);
-  for (let offset = 1; offset <= enabled.length; offset += 1) {
-    const option = enabled[(at + offset + enabled.length) % enabled.length]!;
-    if (option.label.trim().toLocaleLowerCase().startsWith(letter)) return option.value;
+  const at = options.findIndex((option) => option.value === value);
+  for (let offset = 1; offset <= options.length; offset += 1) {
+    const option = options[(at + offset + options.length) % options.length]!;
+    if (enabled(option) && option.label.trim().toLocaleLowerCase().startsWith(letter)) return option.value;
   }
   return undefined;
 }

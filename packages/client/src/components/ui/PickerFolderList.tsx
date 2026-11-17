@@ -196,7 +196,8 @@ export function PickerFolderList({
         id={listId}
         tabIndex={searchable ? undefined : 0}
         data-picker-keys={searchable ? undefined : ""}
-        onKeyDown={searchable ? undefined : onSearchKey}
+        // Only keys aimed at the list itself: a row reached with Tab handles its own Enter.
+        onKeyDown={searchable ? undefined : (event) => event.target === event.currentTarget && onSearchKey(event)}
         className={cn(
           "min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 outline-none",
           searchable && "mt-2 border-t border-foreground/10",
