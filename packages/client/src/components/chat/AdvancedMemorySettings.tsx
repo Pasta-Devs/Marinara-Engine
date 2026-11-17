@@ -20,6 +20,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { useConnections } from "../../hooks/use-connections";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { Select } from "../ui/Select";
 import { useChatMessageCount } from "../../hooks/use-chats";
 
 const fieldClass = "mari-chrome-field w-full rounded-lg px-3 py-2 text-xs disabled:opacity-50";
@@ -550,39 +551,38 @@ export function AdvancedMemorySettings({
               labelClassName="text-xs font-medium"
             />
           )}
-          <label className="block space-y-1 text-xs">
+          <div className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.initialModel")}</span>
-            <select
+            <Select<"main" | "helper">
+              label={t("chat.advancedMemory.initialModel")}
               value={settings.initialProcessingModel}
               disabled={disabled}
               className={fieldClass}
-              onChange={(event) => save({ initialProcessingModel: event.target.value as "main" | "helper" })}
-            >
-              <option value="helper">{t("chat.advancedMemory.helperModel")}</option>
-              <option value="main">{t("chat.advancedMemory.mainModel")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "helper", label: t("chat.advancedMemory.helperModel") },
+                { value: "main", label: t("chat.advancedMemory.mainModel") },
+              ]}
+              onChange={(value) => save({ initialProcessingModel: value })}
+            />
+          </div>
           {individual && (
-            <label className="block space-y-1 text-xs">
+            <div className="block space-y-1 text-xs">
               <span>{t("chat.advancedMemory.narrator")}</span>
-              <select
+              <Select
+                label={t("chat.advancedMemory.narrator")}
                 value={settings.narratorCharacterId ?? ""}
-                aria-label={t("chat.advancedMemory.narrator")}
                 disabled={disabled}
                 className={fieldClass}
-                onChange={(event) => save({ narratorCharacterId: event.target.value || null })}
-              >
-                <option value="">{t("chat.advancedMemory.none")}</option>
-                {characters.map((character) => (
-                  <option key={character.id} value={character.id}>
-                    {character.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("chat.advancedMemory.none") },
+                  ...characters.map((character) => ({ value: character.id, label: character.name })),
+                ]}
+                onChange={(value) => save({ narratorCharacterId: value || null })}
+              />
               <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
                 {t("chat.advancedMemory.narratorHelp")}
               </span>
-            </label>
+            </div>
           )}
           {individual && characters.length > 1 && (
             <SettingsSwitch
@@ -675,37 +675,34 @@ export function AdvancedMemorySettings({
             </p>
           )}
           {knowledgeCharacterIds.map((id) => (
-            <label key={id} className="block space-y-1 text-sm">
+            <div key={id} className="block space-y-1 text-sm">
               <span>{characters.find((character) => character.id === id)?.name ?? id}</span>
-              <select
+              <Select
+                label={characters.find((character) => character.id === id)?.name ?? id}
                 className={fieldClass}
-                value={knowledgeChoices[id] ?? ""}
+                // A character with no start yet has no "keep" choice: the field shows its prompt until one is picked.
+                value={knowledgeChoices[id] || (missing.includes(id) ? null : "")}
+                placeholder={t("chat.advancedMemory.chooseKnowledgeStart")}
                 disabled={messages.isLoading || action.isPending}
-                onChange={(event) => setKnowledgeChoices((current) => ({ ...current, [id]: event.target.value }))}
-              >
-                <option value="" disabled={missing.includes(id)}>
-                  {t(
-                    missing.includes(id)
-                      ? "chat.advancedMemory.chooseKnowledgeStart"
-                      : "chat.advancedMemory.keepKnowledgeStart",
-                  )}
-                </option>
-                <option value="beginning">{t("chat.advancedMemory.fromBeginning")}</option>
-                {knowledgeChoices[id] &&
+                options={[
+                  ...(missing.includes(id) ? [] : [{ value: "", label: t("chat.advancedMemory.keepKnowledgeStart") }]),
+                  { value: "beginning", label: t("chat.advancedMemory.fromBeginning") },
+                  ...(knowledgeChoices[id] &&
                   knowledgeChoices[id] !== "beginning" &&
-                  !messages.data?.some((message) => message.id === knowledgeChoices[id]) && (
-                    <option value={knowledgeChoices[id]}>{t("chat.advancedMemory.selectedOutsidePage")}</option>
-                  )}
-                {(messages.data ?? []).map((message) => (
-                  <option key={message.id} value={message.id}>
-                    {t("chat.advancedMemory.messageChoice", {
+                  !messages.data?.some((message) => message.id === knowledgeChoices[id])
+                    ? [{ value: knowledgeChoices[id], label: t("chat.advancedMemory.selectedOutsidePage") }]
+                    : []),
+                  ...(messages.data ?? []).map((message) => ({
+                    value: message.id,
+                    label: t("chat.advancedMemory.messageChoice", {
                       number: message.rowid,
                       excerpt: message.content.replace(/\s+/gu, " ").slice(0, 90),
-                    })}
-                  </option>
-                ))}
-              </select>
-            </label>
+                    }),
+                  })),
+                ]}
+                onChange={(value) => setKnowledgeChoices((current) => ({ ...current, [id]: value }))}
+              />
+            </div>
           ))}
           <div className="space-y-2">
             {firstKnowledgeMessage && lastKnowledgeMessage && (

@@ -17,6 +17,7 @@ import { ConnectionSelect } from "../../../components/connections/ConnectionSele
 import { NeedsModelChip } from "../../../components/connections/NeedsModelChip";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { Select } from "../../../components/ui/Select";
 import { cn } from "../../../lib/utils";
 import { ConversationCommandsSettings } from "./ConversationCommandsSettings";
 import { LongTermMemoryCapabilitySettings, LongTermMemoryEnableSwitch } from "./LongTermMemorySettings";
@@ -246,32 +247,31 @@ export function ConversationAgentsSection({
                       inherits="main"
                     />
                   </label>
-                  <label className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1">
                     <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.videoFirstFrame")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.chat.chatsettingsdrawer.videoFirstFrame")}
                       value={normalizeVideoFirstFrame(metadata.sceneVideoFirstFrame)}
-                      onChange={(e) =>
+                      options={VIDEO_FIRST_FRAMES.map((mode) => ({
+                        value: mode,
+                        // Send Avatar References for videos gives Prompt only the avatar to start from.
+                        label: localizeUi(
+                          mode === "prompt_only" && metadata.selfieVideoUseAvatarReferences === true
+                            ? "ui.chat.chatsettingsdrawer.videoFirstFrame.prompt_only_avatar"
+                            : `ui.chat.chatsettingsdrawer.videoFirstFrame.${mode}`,
+                        ),
+                      }))}
+                      onChange={(value) =>
                         updateMeta.mutate({
                           id: chat.id,
-                          sceneVideoFirstFrame: normalizeVideoFirstFrame(e.target.value),
+                          sceneVideoFirstFrame: normalizeVideoFirstFrame(value),
                         })
                       }
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                    >
-                      {VIDEO_FIRST_FRAMES.map((mode) => (
-                        <option key={mode} value={mode}>
-                          {/* Send Avatar References for videos gives Prompt only the avatar to start from. */}
-                          {localizeUi(
-                            mode === "prompt_only" && metadata.selfieVideoUseAvatarReferences === true
-                              ? "ui.chat.chatsettingsdrawer.videoFirstFrame.prompt_only_avatar"
-                              : `ui.chat.chatsettingsdrawer.videoFirstFrame.${mode}`,
-                          )}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
                   {videoConnectionsList.length === 0 && <NeedsModelChip kind="video" />}
                   <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.chat.chatsettingsdrawer.videoMessagesHelp")}

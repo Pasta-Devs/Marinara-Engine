@@ -11,6 +11,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 import { toast } from "sonner";
 import { useSaveTranslatorDefaults, useTranslatorDefaults } from "../../../hooks/use-translator-defaults";
+import { Select } from "../../../components/ui/Select";
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { trackChatMetadataSave } from "../../../lib/chat-metadata-save-barrier";
 
@@ -113,16 +114,18 @@ export function TranslationSection({ chatId, metadata, onMetadataChange }: Trans
           <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.connections.connectioneditor.provider")}
           </label>
-          <select
+          <Select
+            label={localizeUi("ui.connections.connectioneditor.provider")}
             value={provider}
-            onChange={(e) => onMetadataChange({ translationProvider: e.target.value })}
+            options={[
+              { value: "google", label: localizeUi("ui.chatSettings.translationsection.googleTranslate") },
+              { value: "deepl", label: localizeUi("ui.chatSettings.translationsection.deeplApi") },
+              { value: "deeplx", label: localizeUi("ui.chatSettings.translationsection.deeplxSelfHosted") },
+              { value: "ai", label: localizeUi("ui.chatSettings.translationsection.aiViaConnection") },
+            ]}
+            onChange={(value) => onMetadataChange({ translationProvider: value })}
             className="mt-0.5 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-          >
-            <option value="google">{localizeUi("ui.chatSettings.translationsection.googleTranslate")}</option>
-            <option value="deepl">{localizeUi("ui.chatSettings.translationsection.deeplApi")}</option>
-            <option value="deeplx">{localizeUi("ui.chatSettings.translationsection.deeplxSelfHosted")}</option>
-            <option value="ai">{localizeUi("ui.chatSettings.translationsection.aiViaConnection")}</option>
-          </select>
+          />
         </div>
 
         <TranslationLanguageField

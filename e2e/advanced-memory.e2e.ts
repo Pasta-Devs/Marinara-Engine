@@ -16,6 +16,7 @@ import {
   DEFAULT_ADVANCED_MEMORY_SETTINGS,
   createChatSummaryEntry,
 } from "@marinara-engine/shared";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, drawerToggle, openChatSettings, openChatSettingsTool } from "./chat-settings-tools.js";
 
@@ -812,7 +813,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await sceneLimit.scrollIntoViewIfNeeded();
     await captureThemes(page, info, "advanced-memory-scene-limit", settings);
 
-    await expect(settings.getByLabel("Narrator", { exact: true })).toHaveValue("");
+    await expect(settings.getByLabel("Narrator", { exact: true })).toHaveAttribute("data-value", "");
     await expect(settings).toContainText("Moving context");
     const minimum = settings.getByLabel("Minimum messages per excerpt");
     const maximum = settings.getByLabel("Maximum messages per excerpt");
@@ -846,7 +847,7 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect.poll(() => status.settings.retrieveMaxMessages).toBe(5);
     await expect(minimum).toHaveValue("0");
     await expect(settings).toContainText("Mock helper");
-    await settings.getByLabel("Initial scene processing model").selectOption("main");
+    await chooseOption(page, settings.getByLabel("Initial scene processing model"), "Main chat model");
     await settings.getByRole("button", { name: "Prepare existing history", exact: true }).click();
     const confirmation = drawer.getByRole("region", { name: "Confirm character knowledge", exact: true });
     await expect(confirmation).toBeVisible();
@@ -855,19 +856,28 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     await expect(confirmation).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toBeFocused();
-    await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption("beginning");
+    const dottore = confirmation.getByRole("combobox", { name: "Dottore", exact: true });
+    await chooseOption(page, dottore, "From the beginning of eligible history");
     await expect(confirmation).toContainText("Showing messages 55–104");
-    await expect(confirmation.getByRole("option", { name: "#55 — Historical message 55", exact: true })).toHaveCount(1);
-    await expect(confirmation.locator("option")).toHaveCount(52);
+    // Dottore has no knowledge start yet, so there is no "keep" row: the beginning plus this page's 50 messages.
+    await dottore.click();
+    const dottoreList = page.getByRole("dialog", { name: "Dottore", exact: true });
+    await expect(dottoreList.getByText("#55 — Historical message 55", { exact: true })).toHaveCount(1);
+    await expect(dottoreList.locator("[data-pick-row]")).toHaveCount(51);
+    await page.keyboard.press("Escape");
+    await expect(dottoreList).toHaveCount(0);
     await confirmation.getByRole("button", { name: "Older messages", exact: true }).click();
     await expect(confirmation).toContainText("Showing messages 5–54");
     await confirmation.getByRole("button", { name: "Older messages", exact: true }).click();
     await expect(confirmation).toContainText("Showing messages 1–4");
     await expect(confirmation.getByRole("button", { name: "Older messages", exact: true })).toBeDisabled();
-    await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption("historical-2");
+    await chooseOption(page, dottore, "#3 — Historical message 3");
     await confirmation.getByRole("button", { name: "Newer messages", exact: true }).click();
-    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveValue("historical-2");
-    await expect(confirmation.getByRole("option", { name: "Saved selection (outside this page)" })).toHaveCount(1);
+    await expect(dottore).toHaveAttribute("data-value", "historical-2");
+    await dottore.click();
+    await expect(dottoreList.getByText("Saved selection (outside this page)", { exact: true })).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(dottoreList).toHaveCount(0);
     expect(knowledgeRequests.every((url) => url.searchParams.get("limit") === "50")).toBe(true);
     expect(knowledgeRequests.some((url) => url.searchParams.has("before"))).toBe(true);
     await confirm.click();
@@ -967,9 +977,19 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     const progressWidth = await progress.evaluate((element) => element.getBoundingClientRect().width);
     expect(Math.abs(toggleWidth - progressWidth)).toBeLessThan(2);
     await settings.getByRole("button", { name: "Review character knowledge", exact: true }).click();
-    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveValue("historical-2");
-    await expect(confirmation.getByRole("combobox", { name: "Narrator", exact: true })).toHaveValue("historical-0");
-    await confirmation.getByRole("combobox", { name: "Dottore", exact: true }).selectOption(lastMessage.id);
+    await expect(confirmation.getByRole("combobox", { name: "Dottore", exact: true })).toHaveAttribute(
+      "data-value",
+      "historical-2",
+    );
+    await expect(confirmation.getByRole("combobox", { name: "Narrator", exact: true })).toHaveAttribute(
+      "data-value",
+      "historical-0",
+    );
+    await chooseOption(
+      page,
+      confirmation.getByRole("combobox", { name: "Dottore", exact: true }),
+      `#104 — ${lastMessage.content}`,
+    );
     await confirm.click();
     await expect.poll(() => initializeBodies.length).toBe(3);
     expect(status.settings.knowledgeStarts[character.id]).toBe(lastMessage.id);
@@ -1046,12 +1066,12 @@ test("Advanced Memory stays in Chat Settings with confirmed knowledge, resumable
     const access = inspector.getByRole("group", { name: "Characters who can recall this scene" });
     await expect(access).toContainText("Select the characters who were present");
     await access.getByText("Narrator", { exact: true }).click();
-    await expect(access.getByRole("checkbox", { name: "Narrator", exact: true })).not.toBeChecked();
+    await expect(access.getByRole("switch", { name: "Narrator", exact: true })).not.toBeChecked();
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
     await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([character.id]);
     await captureThemes(page, info, "advanced-memory-scene-access", access);
     await access.getByText("Narrator", { exact: true }).click();
-    await expect(access.getByRole("checkbox", { name: "Narrator", exact: true })).toBeChecked();
+    await expect(access.getByRole("switch", { name: "Narrator", exact: true })).toBeChecked();
     await inspector.getByRole("button", { name: "Save correction", exact: true }).click();
     await expect.poll(() => status.records[0]?.audienceCharacterIds).toEqual([character.id, narrator.id]);
     expect(initializeBodies).toHaveLength(3);

@@ -2,6 +2,7 @@ import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowUpDown, Check, Download, FolderPlus, Plus, Search, Upload, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Select } from "./Select";
 
 /** Which panel's gradient the create button uses (`mari-panel-gradient--<tone>`). */
 export type LibraryToolbarTone = "characters" | "personas" | "lorebooks" | "agents" | "presets";
@@ -204,33 +205,32 @@ export function LibraryToolbar({
           />
         </div>
         {sort && (
-          <div className="relative">
-            <select
+          <div className="relative" title={localizeUi("ui.panels.agentspanel.sortOrder")}>
+            {/* The sort icon below stands in for the Select's own chevron, so that one is hidden. */}
+            <Select
               value={sort.value}
-              onChange={(event) => sort.onChange(event.target.value)}
-              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-              title={localizeUi("ui.panels.agentspanel.sortOrder")}
-              aria-label={sort.label}
-            >
-              <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-                {localizeUi("dragDrop.manualOrder")}
-              </option>
-              <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-              <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-              <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-              <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-              {sort.extraOptions?.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-              {sort.tokenSort && (
-                <>
-                  <option value="tokens-desc">{localizeUi("ui.panels.librarysort.mostTokens")}</option>
-                  <option value="tokens-asc">{localizeUi("ui.panels.librarysort.fewestTokens")}</option>
-                </>
-              )}
-            </select>
+              options={[
+                {
+                  value: "custom",
+                  label: localizeUi("dragDrop.manualOrder"),
+                  description: localizeUi("dragDrop.manualOrderHelp"),
+                },
+                { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
+                { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
+                { value: "newest", label: localizeUi("ui.panels.backgroundpicker.newest") },
+                { value: "oldest", label: localizeUi("ui.panels.backgroundpicker.oldest") },
+                ...(sort.extraOptions ?? []).map((option) => ({ value: option.value, label: option.label })),
+                ...(sort.tokenSort
+                  ? [
+                      { value: "tokens-desc", label: localizeUi("ui.panels.librarysort.mostTokens") },
+                      { value: "tokens-asc", label: localizeUi("ui.panels.librarysort.fewestTokens") },
+                    ]
+                  : []),
+              ]}
+              onChange={sort.onChange}
+              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
+              label={sort.label}
+            />
             <ArrowUpDown
               size="0.625rem"
               className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"

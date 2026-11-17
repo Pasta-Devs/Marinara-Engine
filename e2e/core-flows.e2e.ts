@@ -2998,12 +2998,12 @@ test("resource panel sort fields share the canonical width", async ({ page }, te
   const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
 
   await clickTopbarPanel(page, "lorebooks");
-  const lorebookSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  const lorebookSort = rightPanel.locator("[role=combobox].mari-chrome-sort-field:visible");
   await expect(lorebookSort).toBeVisible();
   const lorebookWidth = await lorebookSort.evaluate((element) => element.getBoundingClientRect().width);
 
   await clickTopbarPanel(page, "personas");
-  const personaSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  const personaSort = rightPanel.locator("[role=combobox].mari-chrome-sort-field:visible");
   await expect(personaSort).toBeVisible();
   const personaWidth = await personaSort.evaluate((element) => element.getBoundingClientRect().width);
   const rootFontSize = await page

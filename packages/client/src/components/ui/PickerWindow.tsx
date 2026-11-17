@@ -108,20 +108,25 @@ export function PickerWindow({
   }, [placed]);
 
   if (phone) {
+    // A tap in the sheet must not reach the host's outside-click handler (a floating menu like the message note
+    // menu), or the host closes and unmounts the field before the pick lands. React events bubble through the portal
+    // to this wrapper, so stopping here keeps them from the document, as the popover's own onPointerDown does.
     return (
-      <Modal
-        open
-        onClose={onClose}
-        title={title}
-        width="max-w-md"
-        restoreFocusRef={anchorRef}
-        // Same accent tint over the panel colour as the desktop window below. Important, because the
-        // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
-        panelClassName={`max-sm:mt-auto ${hug ? "" : "max-sm:h-[85dvh]"} max-sm:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
-        contentClassName="flex flex-col !overflow-hidden !p-0"
-      >
-        {children}
-      </Modal>
+      <div className="contents" onPointerDown={(event) => event.stopPropagation()}>
+        <Modal
+          open
+          onClose={onClose}
+          title={title}
+          width="max-w-md"
+          restoreFocusRef={anchorRef}
+          // Same accent tint over the panel colour as the desktop window below. Important, because the
+          // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
+          panelClassName={`max-sm:mt-auto ${hug ? "" : "max-sm:h-[85dvh]"} max-sm:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
+          contentClassName="flex flex-col !overflow-hidden !p-0"
+        >
+          {children}
+        </Modal>
+      </div>
     );
   }
 

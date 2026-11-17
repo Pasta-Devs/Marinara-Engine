@@ -3,6 +3,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChevronLeft, Search, X } from "lucide-react";
 
 import { type MariPanelSortMode } from "../../stores/ui.store";
+import { Select } from "../ui/Select";
 
 /**
  * Shared controls for Professor Mari's management panels (Skills, Memories, and
@@ -47,19 +48,14 @@ export function MariPanelSortSelect({
     oldest: localizeUi("ui.chat.homeprofessormarichat.sortOldest"),
   };
   return (
-    <select
+    <Select<MariPanelSortMode>
       value={value}
-      onChange={(event) => onChange(event.target.value as MariPanelSortMode)}
-      aria-label={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
+      options={MARI_PANEL_SORT_OPTIONS.map((mode) => ({ value: mode, label: labels[mode] }))}
+      onChange={onChange}
+      label={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
       title={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
       className="h-9 shrink-0 rounded-[0.65rem] border border-[var(--mari-hairline)] bg-[var(--mari-group-bg)] px-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/55"
-    >
-      {MARI_PANEL_SORT_OPTIONS.map((mode) => (
-        <option key={mode} value={mode}>
-          {labels[mode]}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 

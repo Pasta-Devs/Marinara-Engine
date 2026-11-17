@@ -35,6 +35,10 @@ export type SelectProps<T extends string> = {
   className?: string;
   disabled?: boolean;
   id?: string;
+  /** Hover text on the trigger. */
+  title?: string;
+  /** Id of the element that describes the field, set on the trigger. */
+  "aria-describedby"?: string;
   /** A search box above the options. Defaults to on from SELECT_SEARCH_MIN options. */
   searchable?: boolean;
 };
@@ -48,6 +52,8 @@ export function Select<T extends string>({
   className,
   disabled,
   id,
+  title,
+  "aria-describedby": ariaDescribedBy,
   searchable,
 }: SelectProps<T>) {
   const { t } = useTranslation();
@@ -79,6 +85,8 @@ export function Select<T extends string>({
         type="button"
         role="combobox"
         aria-label={label}
+        aria-describedby={ariaDescribedBy}
+        title={title}
         aria-haspopup="dialog"
         aria-expanded={open}
         data-value={value ?? ""}

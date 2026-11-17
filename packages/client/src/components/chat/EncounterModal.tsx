@@ -30,6 +30,7 @@ import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lore
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { LorebookPickerField } from "../ui/LibraryPickers";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
@@ -312,31 +313,37 @@ function NarrativeSelect({
     <div className="space-y-2">
       <h4 className="text-xs font-bold text-[var(--muted-foreground)]">{label}</h4>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <select
+        <Select<NarrativeStyle["tense"]>
+          label={localizeUi("ui.chat.narrativeselect.tenseLabel")}
           value={value.tense}
-          onChange={(e) => onChange({ ...value, tense: e.target.value as any })}
+          options={[
+            { value: "present", label: localizeUi("ui.chat.narrativeselect.presentTense") },
+            { value: "past", label: localizeUi("ui.chat.narrativeselect.pastTense") },
+          ]}
+          onChange={(tense) => onChange({ ...value, tense })}
           className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
-        >
-          <option value="present">{localizeUi("ui.chat.narrativeselect.presentTense")}</option>
-          <option value="past">{localizeUi("ui.chat.narrativeselect.pastTense")}</option>
-        </select>
-        <select
+        />
+        <Select<NarrativeStyle["person"]>
+          label={localizeUi("ui.chat.narrativeselect.personLabel")}
           value={value.person}
-          onChange={(e) => onChange({ ...value, person: e.target.value as any })}
+          options={[
+            { value: "first", label: localizeUi("ui.chat.narrativeselect.firstPerson") },
+            { value: "second", label: localizeUi("ui.chat.narrativeselect.secondPerson") },
+            { value: "third", label: localizeUi("ui.chat.narrativeselect.thirdPerson") },
+          ]}
+          onChange={(person) => onChange({ ...value, person })}
           className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
-        >
-          <option value="first">{localizeUi("ui.chat.narrativeselect.firstPerson")}</option>
-          <option value="second">{localizeUi("ui.chat.narrativeselect.secondPerson")}</option>
-          <option value="third">{localizeUi("ui.chat.narrativeselect.thirdPerson")}</option>
-        </select>
-        <select
+        />
+        <Select<NarrativeStyle["narration"]>
+          label={localizeUi("ui.chat.narrativeselect.narrationLabel")}
           value={value.narration}
-          onChange={(e) => onChange({ ...value, narration: e.target.value as any })}
+          options={[
+            { value: "omniscient", label: localizeUi("ui.chat.narrativeselect.omniscient") },
+            { value: "limited", label: localizeUi("ui.chat.narrativeselect.limited") },
+          ]}
+          onChange={(narration) => onChange({ ...value, narration })}
           className="rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
-        >
-          <option value="omniscient">{localizeUi("ui.chat.narrativeselect.omniscient")}</option>
-          <option value="limited">{localizeUi("ui.chat.narrativeselect.limited")}</option>
-        </select>
+        />
         <input
           value={value.pov}
           onChange={(e) => onChange({ ...value, pov: e.target.value })}

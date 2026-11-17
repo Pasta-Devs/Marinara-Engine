@@ -65,6 +65,7 @@ import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
 import { PanelErrorState, PanelListSkeleton } from "../ui/PanelStates";
+import { Select } from "../ui/Select";
 import { toast } from "sonner";
 import {
   BACKGROUND_THUMBNAIL_WIDTH,
@@ -1705,26 +1706,30 @@ export function ChatSidebar() {
               className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
             />
           </div>
-          <div className="relative">
-            <select
+          <div className="relative" title={localize("Sort chats")}>
+            {/* The sort icon below stands in for the Select's own chevron, so that one is hidden. */}
+            <Select<"manual" | ChatSortOption>
               value={manualOrderActive ? "manual" : sort}
-              onChange={(e) => {
-                manualOrder.setActive(e.target.value === "manual");
-                if (e.target.value !== "manual") setSort(e.target.value as ChatSortOption);
+              options={[
+                { value: "custom", label: localizeUi("ui.layout.chatsidebar.customOrder") },
+                {
+                  value: "manual",
+                  label: localizeUi("dragDrop.manualOrder"),
+                  description: localizeUi("dragDrop.manualOrderHelp"),
+                },
+                { value: "recent", label: localizeUi("ui.layout.chatsidebar.recent") },
+                { value: "newest", label: localize("Newest") },
+                { value: "oldest", label: localize("Oldest") },
+                { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
+                { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
+              ]}
+              onChange={(value) => {
+                manualOrder.setActive(value === "manual");
+                if (value !== "manual") setSort(value);
               }}
-              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
-              title={localize("Sort chats")}
-            >
-              <option value="custom">{localizeUi("ui.layout.chatsidebar.customOrder")}</option>
-              <option value="manual" title={localizeUi("dragDrop.manualOrderHelp")}>
-                {localizeUi("dragDrop.manualOrder")}
-              </option>
-              <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
-              <option value="newest">{localize("Newest")}</option>
-              <option value="oldest">{localize("Oldest")}</option>
-              <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-              <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            </select>
+              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
+              label={localize("Sort chats")}
+            />
             <ArrowUpDown
               size="0.625rem"
               className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"

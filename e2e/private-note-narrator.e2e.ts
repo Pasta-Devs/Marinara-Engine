@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -77,7 +78,7 @@ test("a message's private note can be shown to one chosen Roleplay character", a
     await shareLabel.click();
     await expect(share).toBeChecked();
     const recipient = menu.getByRole("combobox", { name: "Narrator character" });
-    await expect(recipient).toHaveValue(narrator.id);
+    await expect(recipient).toHaveAttribute("data-value", narrator.id);
     await expect(noteBox).toHaveAttribute("placeholder", "Only you and the selected character can see this.");
     await expect.poll(async () => (await savedExtra()).privateNoteRecipientId).toBe(narrator.id);
     await menu.screenshot({ path: testInfo.outputPath("note-shared.png") });
@@ -85,7 +86,7 @@ test("a message's private note can be shown to one chosen Roleplay character", a
     expect(await promptFor(request, chat.id, narrator.id)).toContain(NOTE);
     expect(await promptFor(request, chat.id, bard.id)).not.toContain(NOTE);
 
-    await recipient.selectOption(bard.id);
+    await chooseOption(page, recipient, "Tam Bard");
     await expect.poll(async () => (await savedExtra()).privateNoteRecipientId).toBe(bard.id);
     expect(await promptFor(request, chat.id, bard.id)).toContain(NOTE);
     expect(await promptFor(request, chat.id, narrator.id)).not.toContain(NOTE);
