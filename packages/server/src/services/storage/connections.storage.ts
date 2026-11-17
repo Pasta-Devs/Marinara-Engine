@@ -76,6 +76,9 @@ function withDecryptedKey<
   };
 }
 
+export const MODEL_ADDRESS_ORIGIN_ERROR =
+  "A model's own address must be on the same server as its Connection (same https://host), because it uses the Connection's key.";
+
 /** The Model's own address when it is set and on the same origin as the row's address; otherwise null. */
 export function ownModelBaseUrl(row: { baseUrl?: string | null; modelBaseUrl?: string | null }): string | null {
   const own = row.modelBaseUrl?.trim();
@@ -1017,6 +1020,13 @@ export function createConnectionsStorage(db: DB) {
       if (account) {
         for (const key of ACCOUNT_MIRRORED_INPUT_KEYS) delete data[key];
         if (existing.provider === account.provider && !keepsKeyOnMove && !audioServiceChanged) delete data.baseUrl;
+      }
+      // A Model's own address carries the Connection's key, so it is judged against the address the row will
+      // store: one on another server is refused, and one that an address move left behind is cleared.
+      const nextOwnAddress = (data.modelBaseUrl ?? existing.modelBaseUrl ?? "").trim();
+      if (nextOwnAddress && !sameOriginUrl(nextOwnAddress, data.baseUrl ?? existing.baseUrl ?? "")) {
+        if (data.modelBaseUrl?.trim()) throw Object.assign(new Error(MODEL_ADDRESS_ORIGIN_ERROR), { statusCode: 400 });
+        data.modelBaseUrl = "";
       }
 
       const effectiveProvider = data.provider ?? existing.provider;

@@ -79,7 +79,6 @@ import {
   connectionSavesModelList,
   createConnectionsStorage,
   ownModelBaseUrl,
-  sameOriginUrl,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
 import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
@@ -159,9 +158,6 @@ import {
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
-
-const MODEL_ADDRESS_ORIGIN_ERROR =
-  "A model's own address must be on the same server as its Connection (same https://host), because it uses the Connection's key.";
 
 /** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
 
@@ -799,11 +795,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const merged = { ...current, ...data };
     const validationError = nanoGptVideoConnectionError(merged) || (await generativeAudioConnectionError(merged));
     if (validationError) return reply.status(400).send({ error: validationError });
-    // A Model's own address shares its Connection's key, so it must stay on the Connection's server.
-    const ownAddress = data.modelBaseUrl?.trim();
-    if (ownAddress && !sameOriginUrl(ownAddress, current.baseUrl ?? "")) {
-      return reply.status(400).send({ error: MODEL_ADDRESS_ORIGIN_ERROR });
-    }
+    // A Model's own address on another server than the row's is refused by storage.update (400).
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       const updated = await storage.update(req.params.id, data);
       await migrateLegacyAudio(updated?.provider);
