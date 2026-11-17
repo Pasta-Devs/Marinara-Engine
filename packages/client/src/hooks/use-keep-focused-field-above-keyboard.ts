@@ -63,7 +63,8 @@ export function useKeepFocusedFieldAboveKeyboard(): void {
     const handleViewportChange = (event: Event) => {
       const detail = (event as CustomEvent<ChatVisualViewportChangeDetail>).detail;
       const field = document.activeElement;
-      if (!detail?.keyboardOpen || !acceptsText(field)) {
+      // Inline message editors are aligned by useKeepLatestChatMessageVisible, under the floating chat controls.
+      if (!detail?.keyboardOpen || !acceptsText(field) || field.closest("[data-chat-message-editor]")) {
         revealedField = null;
         revealedHeight = Number.POSITIVE_INFINITY;
         return;

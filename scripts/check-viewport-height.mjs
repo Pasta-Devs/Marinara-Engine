@@ -5,11 +5,12 @@ import { fileURLToPath } from "node:url";
 // `100dvh`/`100vh` stay full height on iOS while the on-screen keyboard covers the bottom.
 // AppShell writes the visible height above the keyboard to --mari-visual-viewport-height.
 const ROOT = fileURLToPath(new URL("../packages/client/src", import.meta.url));
-const RAW_HEIGHT = /(?<!--mari-visual-viewport-height,\s*)\b100[dsl]?vh\b/g;
+const RAW_HEIGHT = /(?<!--mari-visual-viewport-height,\s*)\b100[dsl]?vh\b|\b(?:min-|max-)?h-(?:screen|[dsl]?vh)\b/g;
 
 // ponytail: count ratchet for files that predate this check; lower or delete an entry
 // when a file moves to the variable. Upgrade path: an ESLint/Stylelint rule with inline opt-outs.
 const KNOWN = {
+  "App.tsx": 1,
   "components/bot-browser/BotBrowserView.tsx": 1,
   "components/chat/ChatMessage.tsx": 1,
   "components/chat/ConversationPresenceCard.tsx": 1,
@@ -27,7 +28,7 @@ const KNOWN = {
   "components/game/GameSetupWizard.tsx": 1,
   "components/game/LegacyExperienceSetupDialog.tsx": 1,
   "components/game/TacticalCombatUI.tsx": 2,
-  "components/layout/AppShell.tsx": 1,
+  "components/layout/AppShell.tsx": 2,
   "components/layout/GlobalOmnibar.tsx": 1,
   "components/layout/TopBar.tsx": 1,
   "components/presets/PresetVariablesEditor.tsx": 4,
@@ -63,7 +64,7 @@ const failures = Object.entries(counts)
 if (failures.length) {
   console.error(
     [
-      "New 100dvh/100vh heights found. The on-screen keyboard covers them on iOS.",
+      "New 100dvh/100vh/h-screen heights found. The on-screen keyboard covers them on iOS.",
       "Use var(--mari-visual-viewport-height, 100dvh) for anything that holds fields,",
       "or raise the count in scripts/check-viewport-height.mjs for a full-screen backdrop.",
       ...failures,
