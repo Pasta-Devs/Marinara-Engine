@@ -14,6 +14,7 @@ import {
   PickerFolder,
   PickerSearch,
   PickRow,
+  scrollPickedRow,
   UNGROUPED_FOLDER_MIN,
   usePickerKeyboard,
 } from "./PickerParts";
@@ -55,6 +56,8 @@ export type PickerFolderListProps = {
   leadingItems?: readonly PickerFolderItem[];
   /** The search box (default on). Off, the list itself takes focus and the arrow keys. */
   searchable?: boolean;
+  /** Names the list when it has no search box (the field's label). */
+  listLabel?: string;
 };
 
 type Group = { id: string; name: string; items: readonly PickerFolderItem[] };
@@ -73,6 +76,7 @@ export function PickerFolderList({
   noMatchesLabel,
   leadingItems,
   searchable = true,
+  listLabel,
 }: PickerFolderListProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -87,7 +91,7 @@ export function PickerFolderList({
 
   // Open on the current choice: a long list scrolls the picked row into view.
   useEffect(() => {
-    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView?.({ block: "nearest" });
+    scrollPickedRow(listRef.current);
   }, []);
 
   const visibleLeading = useMemo(
@@ -146,6 +150,7 @@ export function PickerFolderList({
       disabledReason={item.disabledReason}
       badge={item.badge}
       indented={indented}
+      option={!searchable}
     />
   );
 
@@ -194,6 +199,10 @@ export function PickerFolderList({
       <div
         ref={listRef}
         id={listId}
+        data-picker-list
+        // Without search the list itself is the focused listbox (Select passes no folders, so its rows are all options).
+        role={searchable ? undefined : "listbox"}
+        aria-label={searchable ? undefined : listLabel}
         tabIndex={searchable ? undefined : 0}
         data-picker-keys={searchable ? undefined : ""}
         // Only keys aimed at the list itself: a row reached with Tab handles its own Enter.

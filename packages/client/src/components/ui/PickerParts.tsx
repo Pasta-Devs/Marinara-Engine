@@ -241,6 +241,19 @@ export function usePickerKeyboard({
   };
 }
 
+/**
+ * Scrolls a picker list to its picked row, moving only the list itself (never the page or panel around it).
+ * Run it once the list has its final height: a popover gets that only after it is placed.
+ */
+export function scrollPickedRow(list: HTMLElement | null) {
+  const row = list?.querySelector<HTMLElement>('[aria-current="true"]');
+  if (!list || !row) return;
+  const rowBox = row.getBoundingClientRect();
+  const listBox = list.getBoundingClientRect();
+  if (rowBox.top >= listBox.top && rowBox.bottom <= listBox.bottom) return;
+  list.scrollTop += rowBox.top - listBox.top - (listBox.height - rowBox.height) / 2;
+}
+
 export function PickRow({
   picked,
   multiple,
@@ -252,6 +265,7 @@ export function PickRow({
   indented,
   disabledReason,
   busy,
+  option,
 }: {
   picked: boolean;
   multiple?: boolean;
@@ -265,6 +279,8 @@ export function PickRow({
   /** Greys the row out, with this as the subtitle. */
   disabledReason?: string;
   busy?: boolean;
+  /** A row of a `role="listbox"` list (no search box): an option, so the list's aria-activedescendant has a target. */
+  option?: boolean;
 }) {
   const disabled = disabledReason !== undefined;
   return (
@@ -274,7 +290,9 @@ export function PickRow({
       title={title}
       disabled={disabled || busy}
       onClick={onClick}
-      aria-pressed={multiple ? picked : undefined}
+      role={option ? "option" : undefined}
+      aria-selected={option ? picked : undefined}
+      aria-pressed={multiple && !option ? picked : undefined}
       aria-current={!multiple && picked ? "true" : undefined}
       className={cn(
         ROW,

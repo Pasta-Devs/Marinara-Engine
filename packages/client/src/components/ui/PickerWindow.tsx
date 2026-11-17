@@ -11,6 +11,7 @@ import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
 import { useInsideModal } from "./modal-context";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { scrollPickedRow } from "./PickerParts";
 import { NEUTRAL_SURFACE_VARIABLES } from "./neutral-surface-styles";
 
 // Where Modal turns into a bottom sheet, so a picker and the dialogs around it switch at the same width.
@@ -102,6 +103,8 @@ export function PickerWindow({
     // A list without a search box takes the keys itself.
     const keys = panel.querySelector<HTMLElement>("[data-picker-keys]");
     (search ?? keys ?? panel).focus();
+    // The list could not scroll before the popover had its height, so bring the picked row into view now.
+    scrollPickedRow(panel.querySelector<HTMLElement>("[data-picker-list]"));
   }, [placed]);
 
   if (phone) {
@@ -114,7 +117,7 @@ export function PickerWindow({
         restoreFocusRef={anchorRef}
         // Same accent tint over the panel colour as the desktop window below. Important, because the
         // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
-        panelClassName={`max-md:mt-auto ${hug ? "" : "max-md:h-[85dvh]"} max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
+        panelClassName={`max-sm:mt-auto ${hug ? "" : "max-sm:h-[85dvh]"} max-sm:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
         contentClassName="flex flex-col !overflow-hidden !p-0"
       >
         {children}

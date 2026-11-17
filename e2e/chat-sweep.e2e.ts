@@ -1375,3 +1375,35 @@ test("Conversation reactions stay beside their message when actions reveal", asy
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
   }
 });
+
+test("a long Select opens on its picked row", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The popover path; phones get a sheet.");
+  page.setDefaultTimeout(10_000);
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    chibiProfessorMariEnabled: false,
+    sidebarOpen: false,
+    rightPanelOpen: true,
+    rightPanel: "settings",
+    settingsTab: "appearance",
+  });
+  await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+  await page.goto("/");
+  const field = page.getByRole("combobox", { name: "What to change", exact: true }).first();
+  await field.scrollIntoViewIfNeeded();
+  await field.click();
+  const list = page.getByRole("dialog", { name: "What to change", exact: true });
+  const last = list.locator("[data-pick-row]").last();
+  const lastLabel = (await last.textContent())!.trim();
+  await last.click();
+  await expect(list).toHaveCount(0);
+  // The list only gets its height once the popover is placed, so the scroll to the picked row must wait for that.
+  await field.click();
+  const picked = list.locator('[data-pick-row][aria-current="true"]');
+  await expect(picked).toHaveText(lastLabel);
+  await expect(picked).toBeInViewport();
+  await expect(picked).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
+});

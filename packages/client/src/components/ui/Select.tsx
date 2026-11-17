@@ -109,6 +109,7 @@ export function Select<T extends string>({
               close();
             }}
             searchable={withSearch}
+            listLabel={label}
             searchLabel={t("ui.select.search")}
             emptyLabel={t("ui.select.empty")}
             noMatchesLabel={t("ui.select.noMatches")}
