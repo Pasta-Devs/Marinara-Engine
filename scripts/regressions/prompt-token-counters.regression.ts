@@ -7,7 +7,7 @@ function source(path: string): string {
 
 const fields: Record<string, string[]> = {
   "components/characters/CharacterEditor.tsx": [
-    "g",
+    "greetingText",
     "formData.system_prompt",
     "formData.post_history_instructions",
     "depthPrompt.prompt",

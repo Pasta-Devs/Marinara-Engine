@@ -150,12 +150,21 @@ import {
   Check,
   Volume2,
   Sparkles,
+  ChevronUp,
 } from "lucide-react";
 import { PresetVariablesEditor } from "../presets/PresetVariablesEditor";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { MariContextChip } from "../chat/MariContextChip";
 import { DescriptionSplitDialog } from "./DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import {
+  GREETING_LIST_MIN,
+  parseGreeting,
+  parseGreetings,
+  setGreetingHeader,
+  splitGreetingHeader,
+} from "../../lib/character-greetings";
+import { GreetingHeaderFields, GreetingListFilter, GreetingRow } from "./CharacterGreetingList";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import {
   applyBakedGreetingImages,
@@ -3393,8 +3402,12 @@ function DialogueTab({
   }
 
   const addGreeting = () => {
-    greetingKeysRef.current.push(generateClientId());
+    const key = generateClientId();
+    greetingKeysRef.current.push(key);
     updateField("alternate_greetings", [...formData.alternate_greetings, ""]);
+    setOpenGreeting(key);
+    // Lists open a new greeting with its Title field ready; the short layout has no such field.
+    requestAnimationFrame(() => document.getElementById(`greeting-title-${key}`)?.focus());
   };
 
   const updateGreeting = (i: number, value: string) => {
@@ -3438,16 +3451,54 @@ function DialogueTab({
   // The greeting that last had the caret, so its chips are the ones on screen:
   // `first`, or an alternate's stable key (moving a greeting keeps its key).
   const [activeGreeting, setActiveGreeting] = useState<string | null>(null);
+  const greetingList = formData.alternate_greetings.length + 1 >= GREETING_LIST_MIN;
+  const [openGreeting, setOpenGreeting] = useState<string | null>(null);
+  const [rawGreeting, setRawGreeting] = useState(false);
+  const [greetingQuery, setGreetingQuery] = useState("");
+  const [greetingFilter, setGreetingFilter] = useState<string[]>([]);
+  // Brackets are tags once two greetings open with them, as in the picker. A greeting the user tags here also
+  // reads its own brackets as tags; every other lone `[OOC]` opener stays text.
+  const [taggedGreetingKeys, setTaggedGreetingKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const cardTagged = parseGreetings([formData.first_mes, ...formData.alternate_greetings]).some(
+    (entry) => entry.tags.length > 0,
+  );
+  const greetingHeaders = useMemo(
+    () =>
+      formData.alternate_greetings.map((greeting, index) =>
+        splitGreetingHeader(greeting, cardTagged || taggedGreetingKeys.has(greetingKeysRef.current[index] ?? "")),
+      ),
+    [formData.alternate_greetings, cardTagged, taggedGreetingKeys],
+  );
+  const greetingTagOptions = useMemo(
+    () =>
+      [...new Set(greetingHeaders.flatMap((header) => header.tags))].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    [greetingHeaders],
+  );
+  const greetingNeedle = greetingQuery.trim().toLowerCase();
+  const greetingShown = (i: number) =>
+    (!greetingNeedle || formData.alternate_greetings[i]!.toLowerCase().includes(greetingNeedle)) &&
+    greetingFilter.every((tag) => greetingHeaders[i]!.tags.includes(tag));
   const greetingFieldRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const insertGreetingVariable = (target: string, name: string) => {
     const token = "{{" + name + "}}";
     const textarea = greetingFieldRefs.current[target];
     const alternateIndex = greetingKeysRef.current.indexOf(target);
-    const current = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
-    const start = textarea?.selectionStart ?? current.length;
-    const end = textarea?.selectionEnd ?? current.length;
-    const next = current.slice(0, start) + token + current.slice(end);
+    const raw = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
+    // Text boxes report positions with plain line breaks: count in that form, then map back so CRLF stays.
+    const current = raw.replace(/\r\n/g, "\n");
+    const toRaw = (position: number) => {
+      let index = 0;
+      for (let seen = 0; seen < position && index < raw.length; seen++) index += raw.startsWith("\r\n", index) ? 2 : 1;
+      return index;
+    };
+    // The list's text box can hold only the text under the title and tags, which is the end of the greeting.
+    const offset = textarea ? current.length - textarea.value.length : 0;
+    const start = offset + (textarea?.selectionStart ?? current.length);
+    const end = offset + (textarea?.selectionEnd ?? current.length);
+    const next = raw.slice(0, toRaw(start)) + token + raw.slice(toRaw(end));
     // Without quote normalisation, as on the Card tab: inserting one tag must not
     // rewrite every quote already in the author's text.
     updateFormData((data) =>
@@ -3462,7 +3513,7 @@ function DialogueTab({
     );
     requestAnimationFrame(() => {
       textarea?.focus();
-      textarea?.setSelectionRange(start + token.length, start + token.length);
+      textarea?.setSelectionRange(start - offset + token.length, start - offset + token.length);
     });
   };
 
@@ -3552,92 +3603,171 @@ function DialogueTab({
                   text={localizeUi("ui.characters.dialoguetab.alternativeFirstMessagesForVarietyWhenStartingANew")}
                 />
               </div>
-              {formData.alternate_greetings.map((g, i) => (
-                <section
-                  key={greetingKeysRef.current[i] ?? i}
-                  aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                  className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-xs font-semibold">
-                      {localizeUi("ui.characters.dialoguetab.greeting")}
-                      {/* First Message is greeting #1. */}
-                      {i + 2}
-                    </h4>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <CharacterGreetingWand
-                        entityId={selfCharacterId}
-                        card={card}
-                        value={g}
-                        onApply={(text) => updateGreeting(i, text)}
-                        label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => moveGreeting(i, -1)}
-                        disabled={i === 0}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.moveUp")}
-                      >
-                        <ArrowUp size="0.875rem" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveGreeting(i, 1)}
-                        disabled={i === formData.alternate_greetings.length - 1}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.moveDown")}
-                      >
-                        <ArrowDown size="0.875rem" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeGreeting(i)}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
-                      >
-                        <Trash2 size="0.875rem" aria-hidden />
-                      </button>
-                    </div>
-                  </div>
-                  <MacroTextarea
-                    ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                    showTokenCount
-                    value={g}
-                    onChange={(value) => updateGreeting(i, value)}
-                    textareaRef={(element) => {
-                      const key = greetingKeysRef.current[i];
-                      if (key) greetingFieldRefs.current[key] = element;
-                    }}
-                    onFocus={() => setActiveGreeting(greetingKeysRef.current[i] ?? null)}
-                    rows={5}
-                    title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                    showMarkdownPreview
-                    selfCharacterId={selfCharacterId}
-                    className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-                    placeholder={
-                      localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 2 }) +
-                      " " +
-                      localizeUi("ui.cardFields.seedPlaceholder")
-                    }
-                  />
-                  {activeGreeting === greetingKeysRef.current[i] && (
-                    <GreetingVariableChips
-                      names={greetingChipNames}
-                      onInsert={(name) => insertGreetingVariable(greetingKeysRef.current[i] ?? "", name)}
+              {greetingList && (
+                <GreetingListFilter
+                  query={greetingQuery}
+                  onQuery={setGreetingQuery}
+                  tags={greetingTagOptions}
+                  picked={greetingFilter}
+                  onPicked={setGreetingFilter}
+                  shown={formData.alternate_greetings.filter((_, index) => greetingShown(index)).length}
+                  total={formData.alternate_greetings.length}
+                />
+              )}
+              {formData.alternate_greetings.map((g, i) => {
+                const greetingKey = greetingKeysRef.current[i] ?? String(i);
+                const tagsOn = cardTagged || taggedGreetingKeys.has(greetingKey);
+                if (greetingList && greetingKey !== openGreeting) {
+                  return greetingShown(i) ? (
+                    <GreetingRow
+                      key={greetingKey}
+                      number={i + 2}
+                      text={g}
+                      allowTags={tagsOn}
+                      onOpen={() => {
+                        setOpenGreeting(greetingKey);
+                        setRawGreeting(false);
+                      }}
                     />
-                  )}
-                </section>
-              ))}
+                  ) : null;
+                }
+                const header = greetingHeaders[i]!;
+                const fields = greetingList && !rawGreeting;
+                const greetingText = fields ? header.rest : g;
+                return (
+                  <section
+                    key={greetingKeysRef.current[i] ?? i}
+                    aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                    className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-xs font-semibold">
+                        {localizeUi("ui.characters.dialoguetab.greeting")}
+                        {/* First Message is greeting #1. */}
+                        {i + 2}
+                      </h4>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {greetingList && (
+                          <button
+                            type="button"
+                            onClick={() => setRawGreeting(!rawGreeting)}
+                            aria-pressed={rawGreeting}
+                            className={greetingActionButtonClassName}
+                            aria-label={localizeUi("ui.characters.dialoguetab.greetingRawText")}
+                            title={localizeUi("ui.characters.dialoguetab.greetingRawText")}
+                          >
+                            <Code2 size="0.875rem" aria-hidden />
+                          </button>
+                        )}
+                        {greetingList && (
+                          <button
+                            type="button"
+                            onClick={() => setOpenGreeting(null)}
+                            className={greetingActionButtonClassName}
+                            aria-label={localizeUi("ui.characters.dialoguetab.closeGreeting")}
+                            title={localizeUi("ui.characters.dialoguetab.closeGreeting")}
+                          >
+                            <ChevronUp size="0.875rem" aria-hidden />
+                          </button>
+                        )}
+                        <CharacterGreetingWand
+                          entityId={selfCharacterId}
+                          card={card}
+                          value={g}
+                          onApply={(text) => updateGreeting(i, text)}
+                          label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => moveGreeting(i, -1)}
+                          disabled={i === 0}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.moveUp")}
+                        >
+                          <ArrowUp size="0.875rem" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveGreeting(i, 1)}
+                          disabled={i === formData.alternate_greetings.length - 1}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.moveDown")}
+                        >
+                          <ArrowDown size="0.875rem" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeGreeting(i)}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
+                        >
+                          <Trash2 size="0.875rem" aria-hidden />
+                        </button>
+                      </div>
+                    </div>
+                    {fields && (
+                      <GreetingHeaderFields
+                        id={greetingKey}
+                        title={header.title}
+                        titlePlaceholder={parseGreeting(g).title}
+                        tags={header.tags}
+                        tagOptions={greetingTagOptions}
+                        onChange={(tags, title) => {
+                          if (tags.length) setTaggedGreetingKeys((keys) => new Set(keys).add(greetingKey));
+                          updateGreeting(i, setGreetingHeader(g, tags, title, tagsOn));
+                        }}
+                      />
+                    )}
+                    <MacroTextarea
+                      ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                      showTokenCount
+                      value={greetingText}
+                      onChange={(value) =>
+                        updateGreeting(
+                          i,
+                          fields
+                            ? // A title line needs its line break before any text can follow it.
+                              header.tagText +
+                                header.titleText +
+                                (value && header.titleText && !header.titleText.endsWith("\n") ? "\n" : "") +
+                                value
+                            : value,
+                        )
+                      }
+                      textareaRef={(element) => {
+                        const key = greetingKeysRef.current[i];
+                        if (key) greetingFieldRefs.current[key] = element;
+                      }}
+                      onFocus={() => setActiveGreeting(greetingKeysRef.current[i] ?? null)}
+                      rows={5}
+                      title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                      showMarkdownPreview
+                      selfCharacterId={selfCharacterId}
+                      className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                      placeholder={
+                        localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 2 }) +
+                        " " +
+                        localizeUi("ui.cardFields.seedPlaceholder")
+                      }
+                    />
+                    {activeGreeting === greetingKeysRef.current[i] && (
+                      <GreetingVariableChips
+                        names={greetingChipNames}
+                        onInsert={(name) => insertGreetingVariable(greetingKeysRef.current[i] ?? "", name)}
+                      />
+                    )}
+                  </section>
+                );
+              })}
               <button
                 type="button"
                 onClick={addGreeting}
