@@ -459,8 +459,8 @@
     },
     {
       "path": "extending/ruleset-sheets.md",
-      "sha256": "5d1ec323d68046f81004f6312dec75eea21912eca504e54763f0afa1f7b3e501",
-      "bytes": 42196
+      "sha256": "39775629f3472261d498d5d6bd617f5c7fbb7f86b5e24f8bebf421bb46bc87d5",
+      "bytes": 43486
     },
     {
       "path": "extending/writing-creature-packs.md",
@@ -744,8 +744,8 @@
     },
     {
       "path": "roleplay/rulesets.md",
-      "sha256": "d48e6f0c980856a91690b7d9686608233af10ed0ccd23b89d0f0baa9778a0349",
-      "bytes": 6318
+      "sha256": "ac95cf0500b1133c6a46a9cda92c5db6d3430a4ab7dc169db53b5c6e68330f84",
+      "bytes": 13560
     },
     {
       "path": "roleplay/scenes.md",

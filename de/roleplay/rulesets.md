@@ -60,6 +60,65 @@ Klick im Abschnitt **Ruleset** neben einem Mitglied auf **Open sheet** (Bogen ö
 
 Der Erzähler liest die Bögen in jedem Zug und ändert sie mit Befehlen für den Bogen in seiner Antwort, die Marinara anwendet und aus der Nachricht ausblendet. Zum Rasten sag es in deinem Zug, etwa „wir machen eine lange Rast“. Der Erzähler hält die Rast fest, und die Bögen bekommen zurück, was die Rast des Regelsatzes wiederherstellt. Du kannst auf einem Bogen auch auf **Rest** (Rast) klicken.
 
+## Einen eigenen Regelsatz erstellen
+
+Der Regelsatz-Baukasten erstellt aus einem Formular einen kleinen Regelsatz: wie Proben gewürfelt werden, was auf dem Bogen steht und was der Erzähler erfährt. Nutze ihn für ein System, das Marinara nicht hat. Ein Regelsatz, den du erstellst, funktioniert wie ein installierter, in Roleplay und in Game Mode.
+
+Bevor du anfängst: Schalte **Allow custom Agent imports** ein, denn der Baukasten speichert den Regelsatz auf dieselbe Weise wie ein Import. Siehe [Einen Regelsatz bekommen](../game/rulesets.md#get-a-ruleset).
+
+1. Klick in **Chat Settings → Ruleset** auf **New ruleset…** (neuer Regelsatz).
+2. Gib unter **Name** einen Namen ein.
+3. Wähl unter **Dice** (Würfel), wie Proben gewürfelt werden (siehe die Tabelle unten). Die Auswahl trägt einen Grundstock an Attributen, Ressourcen und Leisten ein, den du ändern kannst.
+4. Ändere **Difficulties** (Schwierigkeiten), **Stats** (Attribute), **Skills** (Fertigkeiten) und den Rest des Formulars. Die meisten Abschnitte erklären sich in einer Zeile unter ihrer Überschrift selbst.
+5. Klick auf **Create ruleset** (Regelsatz erstellen).
+
+Marinara speichert den Regelsatz. In einem Chat ohne Regelsatz schaltet es den neuen außerdem ein. Ein Chat, der schon einen Regelsatz hat, behält ihn und seine Bögen. Um zu wechseln, wähl den neuen Regelsatz in der Liste.
+
+Wenn ein installierter Regelsatz schon so würfelt, wie du es gewählt hast, nennt der Abschnitt **Dice** ihn. Jeder Regelsatz ist bei jedem Charakter ein eigener Bogen. Willst du einen Bogen pro Charakter behalten, spiel oder bearbeite deshalb diesen Regelsatz, statt einen weiteren zu erstellen.
+
+| Würfel | So wird eine Probe gewürfelt |
+| --- | --- |
+| **d20 + modifier** (d20 + Modifikator) | Ein d20 plus Attribut und Fertigkeit, gegen einen Schwierigkeitswert. |
+| **2d6 bands** (2d6 mit Ergebnisbereichen) | 2d6 plus das Attribut: 10 oder mehr ist ein starker Treffer, 7 bis 9 ein schwacher Treffer, 6 oder weniger ein Fehlschlag. |
+| **Dice pool** (Würfelpool) | Ein Würfel pro Punkt in Attribut und Fertigkeit. Jeder Würfel, der den Zielwert erreicht, zählt. Du wählst d6 oder d10 und den Zielwert. |
+| **Highest d6** (höchster d6) | Ein d6 pro Punkt, der höchste wird behalten: Eine 6 ist ein voller Erfolg, eine 4 oder 5 ein Teilerfolg, zweimal die 6 ein kritischer Erfolg. |
+| **Percentile** (Prozentwurf) | Ein d100. Die Probe gelingt bei einem Ergebnis gleich dem Wert der Fertigkeit oder darunter. |
+| **Hope and Fear** (Hoffnung und Furcht) | Zwei d12 plus das Attribut. Der höhere Würfel sagt, ob das Ergebnis mit Hoffnung oder mit Furcht einhergeht. |
+| **No dice** (keine Würfel) | Es wird nichts geworfen. Attribut und Fertigkeit werden addiert und mit der Schwierigkeit verglichen. |
+
+### Einen selbst erstellten Regelsatz ändern
+
+1. Schalte den Regelsatz für einen Chat ein.
+2. Klick in **Chat Settings → Ruleset** auf **Edit ruleset** (Regelsatz bearbeiten).
+3. Nimm deine Änderungen vor und klick auf **Save new version** (neue Version speichern).
+
+Der Chat wechselt zur neuen Version und behält jeden Bogen. Benennst du ein Attribut, eine Fertigkeit, eine Ressource oder eine Listenspalte um, bleibt erhalten, was jeder Charakter darin stehen hat. Ein anderer Chat mit demselben Regelsatz wechselt zur neuen Version, wenn du in diesem Chat auf **Add missing sheets** klickst.
+
+**Edit ruleset** erscheint bei einem Regelsatz, den du erstellt oder aus einer Datei importiert hast, wenn das Formular ihn vollständig abbilden kann: einer, den der Baukasten erstellt hat, oder eine von Hand geschriebene Datei, die nur nutzt, was das Formular zeigt. Bei einem Regelsatz aus einem Paket oder einem Repository fehlt die Schaltfläche. Der Baukasten öffnet nie einen Regelsatz mit mehr Inhalt, etwa Kampfregeln oder Kommentaren, und kann deshalb nichts verlieren, was er nicht zeigt. **Edit ruleset** erscheint außerdem nur in einem Chat, der nach der neuesten Version spielt. Klick in einem Chat mit einer älteren Version zuerst auf **Add missing sheets**.
+
+### Den Bogen gestalten
+
+| Im Formular | Auf dem Bogen |
+| --- | --- |
+| Die Reihenfolge der Zeilen | Attribute, Fertigkeiten, Ressourcen, Leisten, Felder und Listen-Tabs erscheinen in der Reihenfolge des Formulars. Zieh eine Zeile an ihrem Griff, um sie zu verschieben, oder fokussiere den Griff und drück die Pfeiltasten nach oben und unten. |
+| Die **Group** (Gruppe) eines Attributs oder einer Fertigkeit | Attribute oder Fertigkeiten mit derselben Gruppe stehen unter einer gemeinsamen Überschrift. |
+| **Skill ranks** (Fertigkeitsränge) | Die Ränge, die du für jede Fertigkeit auf dem Bogen festlegst, jeweils mit dem, was sie hinzufügen: zur Summe bei einem d20- oder 2d6-Wurf, Würfel bei einem Pool, Punkte bei einem Prozentwurf. |
+| **Practice meter** (Übungsanzeige) | Jede ausgebildete Fertigkeit zeigt, wie weit sie auf dem Weg zu ihrem nächsten Rang ist, von 0 bis 99 %. Übung in der Geschichte lässt die Anzeige steigen, und ein Rangaufstieg setzt sie zurück. Du kannst sie auf dem Bogen korrigieren. Hak unter **No meter for:** (keine Anzeige für) eine Gruppe an, um ihre Fertigkeiten auszunehmen. |
+| **Number** (Zahl), **Bar** (Balken) oder **Dots** (Punkte) bei einer Ressource oder Leiste | Nur die Zahl, ein Füllbalken daneben oder eine Reihe von Punkten, bis zum Wert gefüllt, ein Punkt pro Wertpunkt. Mehr als 20 Punkte werden als Balken angezeigt. |
+| **Lists** (Listen) | Jede Liste bekommt einen eigenen Tab, benannt nach der Liste, sofern du keinen anderen Tab-Namen eingibst. Listen mit demselben Tab-Namen teilen sich einen Tab. |
+| Die Spalten einer Liste | Jede Zeile hat einen Namen und dazu deine Spalten: **Text**, **Number** oder **Checkbox** (Kontrollkästchen). Die erste Spalte mit Kontrollkästchen erscheint als Häkchen neben jedem Namen. |
+
+### Dem Erzähler deine Regeln erklären
+
+Der Abschnitt **Prompts** enthält, was der Erzähler über deinen Regelsatz erfährt. **Checks** (Proben) und **Keeping the sheets** (Bögen führen) zeigen einen Standardtext. Lass eines der beiden Felder leer, um dessen Standardtext zu verwenden. Zeilenumbrüche werden zu Leerzeichen. Namen und Prompts dürfen keine eckigen Klammern und keine doppelten geschweiften Klammern enthalten, weil die Tags und Makros des Erzählers sie verwenden.
+
+| Feld | Wofür es da ist |
+| --- | --- |
+| **Checks** | Wann eine Probe angefordert wird und wie Fertigkeit und Schwierigkeit gewählt werden. |
+| **Keeping the sheets** | Wie sich die Bögen im Spiel ändern. |
+| **Rules reference** (Regelreferenz) | Hausregeln und alles andere, was der Erzähler immer vor sich haben soll. |
+| **World (Game Mode)** | Wird einmal gelesen, wenn ein Spiel in Game Mode mit dem Regelsatz angelegt wird, damit seine Welt zu den Regeln passt. |
+
 ## Fehlerbehebung
 
 | Symptom | Lösung |
