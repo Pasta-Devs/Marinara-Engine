@@ -217,6 +217,8 @@ export interface AssemblerInput {
   impersonate?: boolean;
   /** Preserve normal preset sections for a dedicated impersonation preset. */
   preserveImpersonatePresetSections?: boolean;
+  /** #9427: on an impersonated turn, a card with a Public Face sends only its name and Public Face. */
+  impersonatePublicFaces?: boolean;
   /** Preserve character-scoped macros for a later known-speaker finalization pass. */
   deferCharacterMacros?: boolean;
   /** This turn's answers for `decision:` and `decision_choice:` conditions (#6569). */
@@ -564,6 +566,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     onLorebookScan: addActivatedLorebookCardReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     includeExampleDialogueInCharacterMarker: !hasDialogueExamplesMarker,
+    impersonatePublicFaces: input.impersonate === true && input.impersonatePublicFaces === true,
     macroCtx,
   };
 
@@ -778,6 +781,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     macroCtx,
     wrapFormat,
     input.onCharacterPostHistoryResolved,
+    markerCtx.impersonatePublicFaces,
   );
   if (characterAdvancedPromptEntries.length > 0) {
     allDepthEntries.push(characterAdvancedPromptEntries);

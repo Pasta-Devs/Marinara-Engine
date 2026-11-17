@@ -2038,6 +2038,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
       // Get chat messages
       const chatMode = requestChatMode;
+      // #9427: Roleplay only, and only for this impersonated turn.
+      const impersonatePublicFaces =
+        chatMode === "roleplay" && input.impersonate === true && input.impersonatePublicFaces === true;
+      // The stored replay records what this turn sent, not a switch a Game chat ignored.
+      input.impersonatePublicFaces = impersonatePublicFaces;
       const advancedMemorySettings = effectiveAdvancedMemorySettings(
         chatMode,
         normalizeAdvancedMemorySettings(chatMeta.advancedMemory),
@@ -4029,6 +4034,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptMacroContext,
             wrapFormat,
             rememberCharacterPostHistory,
+            impersonatePublicFaces,
           );
           if (entries.length > 0) {
             finalMessages = injectAtDepth(finalMessages, entries);
@@ -4209,6 +4215,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             timeZone: promptTimeZone,
             impersonate: input.impersonate === true,
             preserveImpersonatePresetSections: input.impersonate === true && presetSource === "impersonate",
+            impersonatePublicFaces,
             deferCharacterMacros,
             decisions: promptMacroContext.decisions,
             lorebookDecisions,
@@ -5280,6 +5287,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptTemplateSources: identityFallbackPromptTemplateSources,
             resolvePromptMacros,
             isConversation: chatMode === "conversation",
+            impersonatePublicFaces,
           });
         }
 
