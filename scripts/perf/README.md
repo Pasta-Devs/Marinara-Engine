@@ -60,7 +60,8 @@ that can't run them.
 ### Termux install and launch: `setup-termux.sh`
 
 ```sh
-scripts/perf/setup-termux.sh            # arm64 Termux, like phones; server on http://localhost:7861
+scripts/perf/setup-termux.sh                 # arm64 Termux, like phones; server on http://localhost:7861
+scripts/perf/setup-termux.sh --from latest   # update the latest release to this checkout instead
 ```
 
 It runs Termux's official Docker image (`termux/termux-docker`): Termux's own packages, Node.js, Android libc and
@@ -68,6 +69,18 @@ paths. It installs `git` and `nodejs-lts` the way the install guide does, copies
 into `~/Marinara-Engine`, runs the real `start-termux.sh --skip-update` and waits until the server answers. On failure it
 prints the end of the launcher log (full log in `/tmp/termux-qc/`). Use it for anything that touches dependencies,
 native modules, the build, `start-termux.sh` or start-up.
+
+`--from latest` checks an update instead, which is where most Termux reports come from. It installs the newest release
+(or a tag, `--from v2.5.1`) the way users do, as a clone of `main` served by a stand-in for GitHub inside Termux, starts
+it and creates a character. Then it publishes this checkout as the next commit on that `main` and starts the release's
+own `start-termux.sh` again, which updates to it the way it does for users: it fetches, protects the data, checks the
+storage format, installs dependencies and rebuilds. It passes when the server comes back running this checkout's build
+and the character is still there. Use it for anything that touches the launcher, dependencies, the build or the storage
+format. It installs and builds twice, so it takes about twice as long.
+
+`--memory 4g` caps the container's memory like a phone's RAM. `start-termux.sh` sizes Node's heap from the RAM it
+sees, so the container also gets a `/proc/meminfo` that shows the cap. Through emulation the build needs more memory
+than on a phone, so read a failure under a cap from an ARM machine or the workflow.
 
 - Needs Docker only, no KVM, so it works in cloud containers. Termux's mirror (`packages-cf.termux.dev`) must be
   reachable; sandboxed cloud environments need it on their allowed hosts.
@@ -104,8 +117,12 @@ prints the readings. `android-qc.mjs` takes the same commands and `openDevice()`
 ### Machines without KVM: the **Android QC** workflow
 
 `.github/workflows/android-qc.yml` runs on demand (Actions > Android QC > Run workflow, pick the branch). `termux` runs
-`setup-termux.sh` natively on an arm64 runner; `android` builds the branch, starts it and runs `setup-android.sh` on a
+`setup-termux.sh` natively on an arm64 runner twice, once as an install and once as an update from the latest release
+(`--from latest`), with an optional memory cap; `android` builds the branch, starts it and runs `setup-android.sh` on a
 runner with KVM. The tap timings land in the run summary; screenshots and logs are attached to the run.
+
+Pull requests to `staging` or `main` that change `start-termux.sh`, the dependency files, the build configuration, the
+scripts the launcher runs or the storage format run the two `termux` jobs on their own.
 
 ## Other scripts
 
