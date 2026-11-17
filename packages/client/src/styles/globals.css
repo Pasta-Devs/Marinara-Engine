@@ -2254,11 +2254,6 @@
   border-color: var(--marinara-chat-chrome-button-border-hover);
 }
 
-.mari-chrome-sort-field option {
-  background: var(--marinara-chat-chrome-panel-bg);
-  color: var(--marinara-chat-chrome-button-text-active);
-}
-
 .mari-chat-settings-popover select,
 .mari-chat-settings-drawer select {
   color-scheme: dark;

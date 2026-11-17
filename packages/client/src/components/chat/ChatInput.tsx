@@ -201,7 +201,7 @@ interface ChatInputProps {
     options?: { immediate?: boolean },
   ) => void | Promise<void>;
   onPeekPrompt?: () => void;
-  onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
+  onIllustrate?: (prompt?: string, messageRange?: [string, string], promptTemplateId?: string) => void | Promise<void>;
   onHtml?: (prompt?: string) => void | Promise<void>;
   onRoleplayVideo?: (description?: string) => void | Promise<void>;
   combatAgentEnabled?: boolean;

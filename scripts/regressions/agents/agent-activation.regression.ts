@@ -40,7 +40,7 @@ assert.match(
 );
 assert.match(
   generateRouteSource,
-  /const activatedTextRewriteRunAgents = textRewriteRunAgents\.filter\(\s*\(agent\) => !inactivePostProcessingAgentIds\.has\(agent\.id\),\s*\);/u,
+  /const activatedTextRewriteRunAgents = activeTextRewriteRunAgents\(\s*textRewriteAgents,\s*inactivePostProcessingAgentIds,\s*\);/u,
   "Text-rewrite agents must honor the same completed-response activation check",
 );
 const postGenerationStart = generateRouteSource.indexOf("if (hasPostWork &&");

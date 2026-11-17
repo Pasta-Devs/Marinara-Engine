@@ -9,6 +9,8 @@ import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { Search, User, Bot, Trash2, ArrowUpDown } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { librarySortOptions } from "../../lib/library-sort-options";
+import { Select } from "../ui/Select";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -158,18 +160,20 @@ export function BotBrowserPanel() {
           />
         </div>
         <div className="relative">
-          <select
+          <Select
             value={sort}
-            onChange={(e) => setSort(e.target.value as ResourcePanelSort)}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            onChange={(next) => setSort(next as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
-            aria-label={localizeUi("ui.panels.botbrowserpanel.sortImportedCharacters")}
-          >
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-          </select>
+            label={localizeUi("ui.panels.botbrowserpanel.sortImportedCharacters")}
+            searchable={false}
+            options={librarySortOptions<ResourcePanelSort>(localizeUi, {
+              az: "name-asc",
+              za: "name-desc",
+              newest: "newest",
+              oldest: "oldest",
+            })}
+          />
           <ArrowUpDown
             size="0.625rem"
             className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"

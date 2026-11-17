@@ -65,6 +65,7 @@ import { StartingGearPicker, type StartingGearTaken } from "./StartingGearPicker
 import { ArtIcon } from "./ArtIcon";
 import { MarinaraItemFacts } from "./MarinaraItemFacts";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { Select } from "../ui/Select";
 
 /** One stack. Two stacks may hold the same item, so a stack is told apart by its id, never its name. */
 export interface InventoryItem {
@@ -184,7 +185,7 @@ const ITEMS_PER_PAGE = 20;
 
 /** Fields that keep Escape for themselves: in the window's own, it resets a name or drops a split or give. */
 const KEEPS_ESCAPE_SELECTOR =
-  "textarea, select, [contenteditable='true'], input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit'], [type='reset'], [type='color'], [type='file'])";
+  "textarea, select, [role='combobox'], [data-chat-floating-panel], [contenteditable='true'], input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit'], [type='reset'], [type='color'], [type='file'])";
 
 /** A drop's change is fire-and-forget: whoever handles it says what went wrong, and a rejection it
  *  did not catch is not left unhandled here. */
@@ -967,30 +968,34 @@ export function GameInventory({
                 <label htmlFor="game-inventory-give-to" className="text-[0.65rem] leading-tight text-white/55">
                   {localizeUi("ui.game.gameinventory.giveTo")}
                 </label>
-                <select
-                  id="game-inventory-give-to"
-                  value={giveDraft.to}
-                  onChange={(e) => setGiveDraft((draft) => (draft ? { ...draft, to: e.target.value } : draft))}
+                {/* Escape and Enter come from the closed field only: an open picker keeps them (on a phone its sheet leaves focus on the field). */}
+                <span
+                  className="flex min-w-0 flex-1"
                   onKeyDown={(e) => {
+                    const field = e.target as HTMLElement;
+                    if (field.getAttribute("role") !== "combobox" || field.getAttribute("aria-expanded") === "true")
+                      return;
                     if (e.key === "Escape") setGiveDraft(null);
                     if (e.key === "Enter") {
                       e.preventDefault();
                       void commitGive(selectedInventoryItem);
                     }
                   }}
-                  disabled={givePending}
-                  className="min-w-0 flex-1 rounded border border-white/10 bg-black/40 px-2 py-1.5 text-[0.7rem] text-white/85 outline-none transition-colors focus:border-amber-400/40"
                 >
-                  {bags
-                    .filter(
-                      (bag) => gameInventoryBagKey(bag.holder) !== gameInventoryBagKey(selectedInventoryItem.holder),
-                    )
-                    .map((bag) => (
-                      <option key={gameInventoryBagKey(bag.holder) || "player"} value={gameInventoryBagKey(bag.holder)}>
-                        {bag.name}
-                      </option>
-                    ))}
-                </select>
+                  <Select
+                    id="game-inventory-give-to"
+                    label={localizeUi("ui.game.gameinventory.giveTo")}
+                    value={giveDraft.to}
+                    onChange={(next) => setGiveDraft((draft) => (draft ? { ...draft, to: next } : draft))}
+                    disabled={givePending}
+                    className="min-w-0 flex-1 rounded border border-white/10 bg-black/40 px-2 py-1.5 text-[0.7rem] text-white/85 outline-none transition-colors focus:border-amber-400/40"
+                    options={bags
+                      .filter(
+                        (bag) => gameInventoryBagKey(bag.holder) !== gameInventoryBagKey(selectedInventoryItem.holder),
+                      )
+                      .map((bag) => ({ value: gameInventoryBagKey(bag.holder), label: bag.name }))}
+                  />
+                </span>
                 {selectedInventoryItem.quantity > 1 && (
                   <input
                     type="number"

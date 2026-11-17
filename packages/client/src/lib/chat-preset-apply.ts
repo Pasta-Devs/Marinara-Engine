@@ -28,16 +28,21 @@ export function nextWizardApplyHold(
 }
 
 /**
- * "Save into profile": the chat's current settings, but the profile keeps its own persona and
- * lorebooks. It keeps its own background too; a profile without one takes the chat's.
+ * "Save into profile": the chat's current settings. The lorebooks added to the chat replace the
+ * profile's lorebook picks, so a chat with none leaves the profile with none. The profile keeps its
+ * own persona, and its own background; a profile without a background takes the chat's.
  */
-export function saveIntoProfileSettings(snapshot: ChatPresetSettings, own: ChatPresetSettings): ChatPresetSettings {
+export function saveIntoProfileSettings(
+  snapshot: ChatPresetSettings,
+  own: ChatPresetSettings,
+  chatLorebookIds: string[],
+): ChatPresetSettings {
   const metadata = { ...snapshot.metadata } as Record<string, unknown>;
   if (own.metadata?.background !== undefined) metadata.background = own.metadata.background;
   return {
     ...snapshot,
     metadata: metadata as ChatPresetSettings["metadata"],
     ...(own.personaId ? { personaId: own.personaId } : {}),
-    ...(own.lorebookIds?.length ? { lorebookIds: own.lorebookIds } : {}),
+    ...(chatLorebookIds.length ? { lorebookIds: [...chatLorebookIds] } : {}),
   };
 }

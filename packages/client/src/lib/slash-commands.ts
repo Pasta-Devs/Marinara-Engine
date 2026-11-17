@@ -15,7 +15,9 @@ import {
   SUPPORTED_MACROS,
   buildGuidedGenerationInstructionMessage,
   buildNarratorInstructionMessage,
+  getAgentPromptTemplateOptions,
   isWithinDiceLimits,
+  mergeBuiltInAgentSettings,
   normalizeTextForMatch,
   formatKeptRolls,
   parseDicePool,
@@ -57,6 +59,7 @@ export interface SlashCommandContext {
     impersonatePresetId?: string;
     impersonateConnectionId?: string;
     impersonateBlockAgents?: boolean;
+    impersonatePublicFaces?: boolean;
     impersonatePromptTemplate?: string;
   }) => Promise<boolean | void>;
   /** Insert a message directly into the chat (no LLM) */
@@ -89,8 +92,11 @@ export interface SlashCommandContext {
   lastMessageRole?: string | null;
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
-  /** Trigger the same image illustration action exposed in the chat Gallery. */
-  illustrate?: (prompt?: string, messageRange?: [string, string]) => void | Promise<void>;
+  /**
+   * Trigger the same image illustration action exposed in the chat Gallery. With a prompt template id, that
+   * Illustrator option writes the prompt for this call and the prompt is its scene guidance.
+   */
+  illustrate?: (prompt?: string, messageRange?: [string, string], promptTemplateId?: string) => void | Promise<void>;
   /** Make one in-world HTML artifact on the latest reply. */
   html?: (prompt: string) => void | Promise<void>;
   /** Trigger the same Conversation selfie action exposed in the chat Gallery. */
@@ -1177,7 +1183,8 @@ const COMMANDS: SlashCommand[] = [
     usage: "/impersonate [direction (optional)]",
     async execute(args, ctx) {
       const direction = args.trim();
-      const { impersonatePresetId, impersonateBlockAgents, impersonatePromptTemplate } = useUIStore.getState();
+      const { impersonatePresetId, impersonateBlockAgents, impersonatePublicFaces, impersonatePromptTemplate } =
+        useUIStore.getState();
       const trimmedPromptTemplate = impersonatePromptTemplate.trim();
       await ctx.generate({
         chatId: ctx.chatId,
@@ -1186,6 +1193,7 @@ const COMMANDS: SlashCommand[] = [
         ...(direction ? { userMessage: direction } : {}),
         ...(impersonatePresetId ? { impersonatePresetId } : {}),
         ...(impersonateBlockAgents !== undefined ? { impersonateBlockAgents } : {}),
+        ...(impersonatePublicFaces ? { impersonatePublicFaces: true } : {}),
         ...(trimmedPromptTemplate ? { impersonatePromptTemplate: trimmedPromptTemplate } : {}),
       });
       return { handled: true };
@@ -1354,8 +1362,8 @@ const COMMANDS: SlashCommand[] = [
   {
     name: "illustrate",
     aliases: ["ill"],
-    description: "Generate a gallery illustration for the current chat",
-    usage: "/illustrate [range=N|range=N-M (optional)] [prompt (optional)]",
+    description: "Generate a gallery illustration for the current chat, optionally in another Illustrator Prompt Mode",
+    usage: "/illustrate [range=N|range=N-M (optional)] [template=name (optional)] [prompt (optional)]",
     requiredCapabilityId: "illustrator",
     modes: ["roleplay"],
     local: true,
@@ -1367,10 +1375,27 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: "Illustration generation is already running for this chat." };
       }
 
+      // range= and template= lead, once each, in either order. The prompt starts at the first other word, so an
+      // "x=y" inside it stays text.
       let prompt = args.trim();
+      let rangeValue: string | undefined;
+      let templateName: string | undefined;
+      for (;;) {
+        const named = prompt.match(
+          /^(range|template)=(?:"([^"]*)"|'([^']*)'|\u201c([^\u201d]*)\u201d|\u2018([^\u2019]*)\u2019|(\S*))(?=\s|$)/iu,
+        );
+        if (!named) break;
+        const isRange = named[1]!.toLowerCase() === "range";
+        if ((isRange ? rangeValue : templateName) !== undefined) break;
+        const value = (named[2] ?? named[3] ?? named[4] ?? named[5] ?? named[6] ?? "").trim();
+        if (isRange) rangeValue = value;
+        else templateName = value;
+        prompt = prompt.slice(named[0].length).trim();
+      }
+
       let messageRange: [string, string] | undefined;
-      if (/^range=/iu.test(prompt)) {
-        const match = prompt.match(/^range=(\d+)(?:-(\d+))?(?:\s+([\s\S]*))?$/iu);
+      if (rangeValue !== undefined) {
+        const match = rangeValue.match(/^(\d+)(?:-(\d+))?$/u);
         const start = Number(match?.[1]);
         const end = Number(match?.[2] ?? match?.[1]);
         if (
@@ -1391,7 +1416,50 @@ const COMMANDS: SlashCommand[] = [
           };
         }
         messageRange = [messages[start - 1]!.id, messages[end - 1]!.id];
-        prompt = match[3]?.trim() ?? "";
+      }
+
+      // template= picks one of the options the chat's Prompt Mode picker lists, for this call only.
+      let promptTemplateId: string | undefined;
+      if (templateName !== undefined) {
+        const configs = await api.get<Array<{ type: string; settings?: unknown }>>("/agents");
+        const options = getAgentPromptTemplateOptions({
+          settings: mergeBuiltInAgentSettings(
+            "illustrator",
+            configs.findLast((config) => config.type === "illustrator")?.settings,
+          ),
+        });
+        const templateKey = (value: string) =>
+          value
+            .trim()
+            .toLowerCase()
+            .replace(/[\s_-]+/gu, "-");
+        const wanted = templateKey(templateName);
+        // Ids are unique lowercase slugs, so typing one exactly picks it: "default" stays the default even if a custom
+        // option is called "Default", and the ids listed for an ambiguous name always resolve it. Any looser spelling
+        // gathers every option whose id or name matches, so a tie between them shows the ambiguity message.
+        const exactId = options.find((option) => option.id === templateName);
+        const matches = exactId
+          ? [exactId]
+          : options.filter((option) => templateKey(option.id) === wanted || templateKey(option.name) === wanted);
+        if (matches.length === 0) {
+          return {
+            handled: true,
+            feedback: await translateSlash("ui.chat.slash.illustrate.templateNotFound", {
+              name: templateName,
+              available: formatAvailableCharacterList(options),
+            }),
+          };
+        }
+        if (matches.length > 1) {
+          return {
+            handled: true,
+            feedback: await translateSlash("ui.chat.slash.illustrate.ambiguousTemplate", {
+              name: templateName,
+              matches: matches.map((option) => `${option.name} (${option.id})`).join(", "),
+            }),
+          };
+        }
+        promptTemplateId = matches[0]!.id;
       }
 
       // Another command may have started an illustration while history was loading.
@@ -1401,7 +1469,7 @@ const COMMANDS: SlashCommand[] = [
       useGalleryStore.getState().setChatIllustrating(ctx.chatId, true);
       try {
         await withSlashCommandTimeout(
-          Promise.resolve(ctx.illustrate(prompt || undefined, messageRange)),
+          Promise.resolve(ctx.illustrate(prompt || undefined, messageRange, promptTemplateId)),
           ILLUSTRATE_SLASH_TIMEOUT_MS,
           "Illustration generation timed out.",
         );

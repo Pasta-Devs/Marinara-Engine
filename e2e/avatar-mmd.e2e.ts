@@ -430,8 +430,8 @@ test("MMD setup imports, maps and removes model-specific motion for character an
         .locator('input[accept=".pmx,.zip"]')
         .setInputFiles({ name: "fixture.zip", mimeType: "application/zip", buffer: await bundle(false) });
       await expect(panel.getByRole("button", { name: "Replace PMX model", exact: true })).toBeVisible();
-      await expect(panel.getByLabel("Happy", { exact: true })).toHaveValue("笑い");
-      await panel.getByLabel("Happy", { exact: true }).selectOption("");
+      await expect(panel.getByLabel("Happy", { exact: true })).toHaveAttribute("data-value", "笑い");
+      await chooseOption(page, panel.getByLabel("Happy", { exact: true }), "None");
       await expect
         .poll(
           async () =>
@@ -439,7 +439,7 @@ test("MMD setup imports, maps and removes model-specific motion for character an
               ?.expressionMap.happy?.target,
         )
         .toBeNull();
-      await panel.getByLabel("Happy", { exact: true }).selectOption("笑い");
+      await chooseOption(page, panel.getByLabel("Happy", { exact: true }), "笑い");
       await expect
         .poll(
           async () =>

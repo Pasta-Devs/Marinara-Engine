@@ -54,6 +54,7 @@ import {
   getSceneVideoDownloadName,
 } from "./ChatImageLightbox";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 interface ChatGalleryProps {
@@ -606,19 +607,14 @@ export function ChatGallery({
   // Who sends a selfie or a video message: one picker, shown under Selfie, or under Video when selfies are off.
   const renderCharacterPicker = () =>
     selfieCharacters.length > 1 ? (
-      <select
+      <Select
         value={selectedSelfieCharacterId}
-        onChange={(event) => setSelectedSelfieCharacterId(event.target.value)}
+        options={selfieCharacters.map((character) => ({ value: character.id, label: character.name }))}
+        onChange={setSelectedSelfieCharacterId}
         disabled={isGeneratingSelfie || isGeneratingVideo}
         className="min-w-0 rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] disabled:cursor-wait disabled:opacity-70"
-        aria-label={localizeUi("ui.chat.chatgallery.messageCharacter")}
-      >
-        {selfieCharacters.map((character) => (
-          <option key={character.id} value={character.id}>
-            {character.name}
-          </option>
-        ))}
-      </select>
+        label={localizeUi("ui.chat.chatgallery.messageCharacter")}
+      />
     ) : null;
 
   return (

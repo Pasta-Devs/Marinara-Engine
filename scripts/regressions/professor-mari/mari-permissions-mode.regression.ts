@@ -312,7 +312,8 @@ const settingControlsSeq = readSource("packages/client/src/components/layout/omn
 assert.match(settingControlsSeq, /await enqueueMariPermissionsModeWrite\(\(\) =>/u);
 assert.match(settingControlsSeq, /const writeSeq = \+\+writeSeqRef\.current;/u);
 assert.match(settingControlsSeq, /writeSeqRef\.current === seqAtStart/u);
-assert.match(settingControlsSeq, /<label htmlFor=\{selectId\}/u);
+// The field reads its mode's description as its accessible description.
+assert.match(settingControlsSeq, /aria-describedby=\{`\$\{selectId\}-description`\}/u);
 assert.match(settingControlsSeq, /function PermissionsModeRow\(/u);
 assert.match(settingControlsSeq, /localize\(MARI_PERMISSIONS_MODE_LABELS\[value\]\.label\)/u);
 

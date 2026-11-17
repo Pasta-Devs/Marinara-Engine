@@ -31,6 +31,7 @@ import { Modal } from "../ui/Modal";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 const inputClass =
   "w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--foreground)]";
@@ -542,40 +543,34 @@ export function RulesetItemPicker({
             />
           </label>
           {lists.length > 1 && (
-            <label className="flex min-w-0 basis-36 flex-col gap-1">
+            <div className="flex min-w-0 basis-36 flex-col gap-1">
               <span className={labelClass}>{t("game.ruleset.items.catalog")}</span>
-              <select
+              <Select
+                label={t("game.ruleset.items.catalog")}
                 value={coinsChosen ? COINS_LIST : (catalog?.id ?? "")}
-                onChange={(event) => {
-                  setCatalogId(event.target.value);
+                onChange={(next) => {
+                  setCatalogId(next);
                   setChosen(null);
                 }}
                 className={inputClass}
-              >
-                {lists.map((each) => (
-                  <option key={each.id} value={each.id}>
-                    {each.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={lists.map((each) => ({ value: each.id, label: each.label }))}
+              />
+            </div>
           )}
           {views.map((view) => (
-            <label key={view.filter.id} className="flex min-w-0 basis-36 flex-col gap-1">
+            <div key={view.filter.id} className="flex min-w-0 basis-36 flex-col gap-1">
               <span className={labelClass}>{rt(view.filter.label)}</span>
-              <select
+              <Select
+                label={rt(view.filter.label)}
                 value={active[view.filter.id] ?? CATALOG_FILTER_ANY}
-                onChange={(event) => setChosen({ ...active, [view.filter.id]: event.target.value })}
+                onChange={(next) => setChosen({ ...active, [view.filter.id]: next })}
                 className={inputClass}
-              >
-                <option value={CATALOG_FILTER_ANY}>{t("game.ruleset.catalog.filterAny")}</option>
-                {view.options.map((option) => (
-                  <option key={option} value={option}>
-                    {rt(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: CATALOG_FILTER_ANY, label: t("game.ruleset.catalog.filterAny") },
+                  ...view.options.map((option) => ({ value: option, label: rt(option) })),
+                ]}
+              />
+            </div>
           ))}
         </div>
 

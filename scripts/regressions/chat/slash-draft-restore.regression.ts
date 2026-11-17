@@ -83,6 +83,18 @@ for (const commandLine of ["/impersonate she opens the door", "/guided the storm
 const impersonated = await run("/impersonate she opens the door", { kind: "returns", value: true });
 assert.equal(impersonated.generated[0]?.impersonate, true);
 assert.equal(impersonated.generated[0]?.userMessage, "she opens the door");
+assert.equal(impersonated.generated[0]?.impersonatePublicFaces, undefined, "Send Public Faces is off by default");
+
+// #9427: with Send Public Faces on, /impersonate asks for Public Faces. The store persists, which needs storage.
+Object.defineProperty(globalThis, "localStorage", {
+  configurable: true,
+  value: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+});
+const { useUIStore } = await import("../../../packages/client/src/stores/ui.store.js");
+useUIStore.setState({ impersonatePublicFaces: true });
+const faced = await run("/impersonate go", { kind: "returns", value: true });
+assert.equal(faced.generated[0]?.impersonatePublicFaces, true, "/impersonate sends the switch");
+useUIStore.setState({ impersonatePublicFaces: false });
 
 // While the command runs, the box is empty: storing that empty box keeps the held text, and reopening the chat does
 // not put the held text back in the box.

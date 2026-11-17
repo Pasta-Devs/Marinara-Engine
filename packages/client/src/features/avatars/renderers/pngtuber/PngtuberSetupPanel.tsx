@@ -28,6 +28,7 @@ import type { AvatarKindSetupPanelProps } from "../../contract";
 import { resolveAvatarImage } from "../../stage/avatar-stage-logic";
 import { AVATAR_FEELING_LABEL_KEYS, buildPngtuberLayersFromSprites, pngtuberFaceChoices } from "./pngtuber-layers";
 import { Spinner } from "../../../../components/ui/Spinner";
+import { Select } from "../../../../components/ui/Select";
 
 /** Labels of the six feelings, shared with the mesh avatar panel. */
 export const AVATAR_EMOTION_LABEL_KEYS: Readonly<Record<AvatarEmotion, string>> = {
@@ -237,22 +238,21 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
           <legend className="mb-1 text-[0.6875rem] font-semibold">{t("avatars.pngtuber.feelings")}</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {AVATAR_EMOTIONS.map((emotion) => (
-              <label key={emotion} className="flex flex-col gap-1 text-[0.6875rem]">
+              <div key={emotion} className="flex flex-col gap-1 text-[0.6875rem]">
                 <span>{t(AVATAR_EMOTION_LABEL_KEYS[emotion])}</span>
-                <select
+                <Select
+                  disabled={busy}
+                  id={`avatar-feeling-${emotion}`}
+                  label={t(AVATAR_EMOTION_LABEL_KEYS[emotion])}
                   value={shown.expressionMap[emotion]?.target ?? ""}
-                  onChange={(event) => chooseFace(emotion, event.target.value)}
+                  onChange={(next) => chooseFace(emotion, next)}
                   className={AVATAR_SETUP_SELECT_CLASS}
-                  data-avatar-feeling={emotion}
-                >
-                  <option value="">{t("avatars.pngtuber.restingFace")}</option>
-                  {faceKeys.map((key) => (
-                    <option key={key} value={key}>
-                      {key}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  options={[
+                    { value: "", label: t("avatars.pngtuber.restingFace") },
+                    ...faceKeys.map((key) => ({ value: key, label: key })),
+                  ]}
+                />
+              </div>
             ))}
           </div>
           <details className="group pt-1" data-avatar-more-feelings>
@@ -274,24 +274,26 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {feelings.map((feeling) => (
-                    <label key={feeling} className="flex flex-col gap-1 text-[0.6875rem]">
+                    <div key={feeling} className="flex flex-col gap-1 text-[0.6875rem]">
                       <span>{t(AVATAR_FEELING_LABEL_KEYS[feeling])}</span>
-                      <select
+                      <Select
+                        disabled={busy}
+                        id={`avatar-feeling-${feeling}`}
+                        label={t(AVATAR_FEELING_LABEL_KEYS[feeling])}
                         value={shown.feelingMap?.[feeling]?.target ?? ""}
-                        onChange={(event) => chooseFeelingFace(feeling, event.target.value)}
+                        onChange={(next) => chooseFeelingFace(feeling, next)}
                         className={AVATAR_SETUP_SELECT_CLASS}
-                        data-avatar-feeling={feeling}
-                      >
-                        <option value="">
-                          {t("avatars.pngtuber.usesFeelingFace", { feeling: t(AVATAR_EMOTION_LABEL_KEYS[emotion]) })}
-                        </option>
-                        {faceKeys.map((key) => (
-                          <option key={key} value={key}>
-                            {key}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        options={[
+                          {
+                            value: "",
+                            label: t("avatars.pngtuber.usesFeelingFace", {
+                              feeling: t(AVATAR_EMOTION_LABEL_KEYS[emotion]),
+                            }),
+                          },
+                          ...faceKeys.map((key) => ({ value: key, label: key })),
+                        ]}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>

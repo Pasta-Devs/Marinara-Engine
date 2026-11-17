@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import { chooseConnection } from "./connection-picker.js";
 import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { TONE_ACCENT } from "../packages/client/src/components/dice/dice-tone.js";
 
@@ -668,8 +669,8 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         .locator("label")
         .filter({ hasText: /^Whisper$/u })
         .click();
-      await commands.getByRole("combobox", { name: "Who can whisper" }).selectOption("narrator");
-      await commands.getByRole("combobox", { name: /^Narrator character/u }).selectOption(narrator.id);
+      await chooseOption(page, commands.getByRole("combobox", { name: "Who can whisper" }), "Narrator");
+      await chooseOption(page, commands.getByRole("combobox", { name: /^Narrator character/u }), "Narrator");
       await expect
         .poll(async () => extra((await (await request.get(`/api/chats/${chat.id}`)).json()).metadata))
         .toMatchObject({
@@ -1228,10 +1229,10 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
       await toggle(label);
     }
     const audience = commands.getByRole("combobox", { name: "Who can create documents", exact: true });
-    await expect(audience).toHaveValue("all");
-    await audience.selectOption("narrator");
+    await expect(audience).toHaveAttribute("data-value", "all");
+    await chooseOption(page, audience, "Narrator");
     await expect(audience).toHaveAccessibleDescription("Choose a Narrator character below to allow this command.");
-    await commands.getByRole("combobox", { name: /^Narrator character/u }).selectOption(characters[1]!.id);
+    await chooseOption(page, commands.getByRole("combobox", { name: /^Narrator character/u }), "Narrator");
     await expect(audience).not.toHaveAttribute("aria-describedby");
     await expect(documents).toBeChecked();
     await expect(commands.getByRole("switch", { name: /^Personal Notes\b/u })).toBeChecked();
@@ -1272,7 +1273,7 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
       await toggle("Personal Notes");
       await expect.poll(() => failedSaves).toBe(1);
       await toggle("Documents");
-      await commands.getByRole("combobox", { name: "Who can roll dice", exact: true }).selectOption("narrator");
+      await chooseOption(page, commands.getByRole("combobox", { name: "Who can roll dice", exact: true }), "Narrator");
     } finally {
       releaseFailure();
     }
@@ -1392,7 +1393,7 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
       await expect(commands.getByRole("switch", { name: new RegExp(`^${label}\\b`, "u") })).toBeChecked();
     }
     const narratorSelect = commands.getByRole("combobox", { name: /^Narrator character/u });
-    await narratorSelect.selectOption(narrator);
+    await chooseOption(page, narratorSelect, "Narrator");
     await expect
       .poll(
         async () =>
@@ -1407,17 +1408,17 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
       .filter({ hasText: /^Rolls$/u })
       .click();
     const rollAudience = commands.getByRole("combobox", { name: "Who can roll dice", exact: true });
-    await expect(rollAudience).toHaveValue("all");
-    await rollAudience.selectOption("narrator");
+    await expect(rollAudience).toHaveAttribute("data-value", "all");
+    await chooseOption(page, rollAudience, "Narrator");
     await expect
       .poll(
         async () => extra((await (await request.get(`/api/chats/${chat.id}`)).json()).metadata).roleplayRollAudience,
       )
       .toBe("narrator");
-    await narratorSelect.selectOption("");
+    await chooseOption(page, narratorSelect, "None");
     await expect(rollAudience).toHaveAccessibleName("Who can roll dice");
     await expect(rollAudience).toHaveAccessibleDescription("Choose a Narrator character below to allow this command.");
-    await narratorSelect.selectOption(narrator);
+    await chooseOption(page, narratorSelect, "Narrator");
     await expect(rollAudience).not.toHaveAttribute("aria-describedby");
     expect(await preview(alice)).not.toContain("roll_dice");
     expect(await preview(alice)).not.toContain("[roll:");
@@ -2359,7 +2360,7 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     await expect(commands.getByRole("switch", { name: /^Combat\b/u })).toBeChecked();
     await expect(commands.getByRole("switch", { name: /^Illustrations\b/u })).toBeChecked();
     const combatAudience = commands.getByRole("combobox", { name: "Who can start combat", exact: true });
-    await combatAudience.selectOption("narrator");
+    await chooseOption(page, combatAudience, "Narrator");
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate(async (theme) => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);

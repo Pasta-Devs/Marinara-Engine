@@ -31,6 +31,7 @@ import { FloatingWindow, PHONE_SHEET_CLASS } from "../ui/FloatingWindow";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { PHONE_LAYOUT_QUERY, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { Select } from "../ui/Select";
 import type { WindowBounds, WindowLayout } from "../../lib/floating-window-layout";
 
 export const MOBILE_MAP_WINDOW_ID = "control:map";
@@ -323,6 +324,8 @@ function DayTimeIndicator({
     (event: FocusEvent<HTMLDivElement>) => {
       const nextTarget = event.relatedTarget;
       if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+      // The time field's picker is portaled out of the editor; moving into it is not leaving the edit.
+      if (nextTarget instanceof Element && nextTarget.closest("[data-chat-floating-panel], [role='dialog']")) return;
       commit();
     },
     [commit],
@@ -363,30 +366,24 @@ function DayTimeIndicator({
           aria-label={localizeUi("ui.game.daytimeindicator.editGameDay")}
         />
         <span className={dividerClassName} aria-hidden="true" />
-        <select
-          value={editableTimeValue}
-          onChange={(event) => {
-            const next = event.target.value as EditableTimePhase;
-            if (next) onTimeChange?.(next);
-          }}
+        <span
+          className="contents"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
-          className={cn(
-            "h-full rounded-r-lg border-0 bg-transparent px-1 text-[0.625rem] font-semibold capitalize text-[var(--marinara-chat-chrome-panel-title)] outline-none",
-            size === "mobile" ? "w-[5.4rem]" : "w-[4.8rem]",
-          )}
-          aria-label={localizeUi("ui.game.daytimeindicator.editGameTimeOfDay")}
         >
-          <option value="" disabled>
-            {localizeUi("ui.game.daytimeindicator.time")}
-          </option>
-          {EDITABLE_TIME_PHASES.map((phase) => (
-            <option key={phase} value={phase}>
-              {getTimePhaseLabel(phase)}
-            </option>
-          ))}
-        </select>
+          <Select
+            label={localizeUi("ui.game.daytimeindicator.editGameTimeOfDay")}
+            value={editableTimeValue || null}
+            placeholder={localizeUi("ui.game.daytimeindicator.time")}
+            onChange={(next) => onTimeChange?.(next as EditableTimePhase)}
+            className={cn(
+              "h-full rounded-r-lg border-0 bg-transparent px-1 text-[0.625rem] font-semibold capitalize text-[var(--marinara-chat-chrome-panel-title)] outline-none",
+              size === "mobile" ? "w-[5.4rem]" : "w-[4.8rem]",
+            )}
+            options={EDITABLE_TIME_PHASES.map((phase) => ({ value: phase, label: getTimePhaseLabel(phase) }))}
+          />
+        </span>
       </div>
     );
   }
@@ -787,22 +784,20 @@ export function GameMapPanel({
       {!collapsed && hasWorldMap && <GameMapViewTabs value={effectiveMapView} onChange={setMapViewMode} />}
       {!collapsed && effectiveMapView === "local" && mapOptions.length > 1 && (
         <div className="flex items-center gap-1">
-          <select
-            value={selectedMapId ?? ""}
-            onChange={(event) => onViewedMapChange?.(event.target.value)}
+          <Select
+            label={localizeUi("ui.game.gamemappanel.viewMap")}
+            value={selectedMapId ?? null}
+            onChange={(next) => onViewedMapChange?.(next)}
             className={cn(GAME_MAP_FIELD_CLASS, "min-w-0 flex-1 px-1.5 py-1 text-[0.625rem]")}
             title={localizeUi("ui.game.gamemappanel.viewMap")}
-          >
-            {mapOptions.map((option, index) => {
+            options={mapOptions.map((option, index) => {
               const id = getMapId(option, index) ?? `map-${index + 1}`;
-              return (
-                <option key={id} value={id}>
-                  {option.name || `Map ${index + 1}`}
-                  {id === activeMapId ? localizeUi("ui.game.gamemappanel.current") : ""}
-                </option>
-              );
+              return {
+                value: id,
+                label: `${option.name || `Map ${index + 1}`}${id === activeMapId ? localizeUi("ui.game.gamemappanel.current") : ""}`,
+              };
             })}
-          </select>
+          />
         </div>
       )}
       {!collapsed &&
@@ -1063,25 +1058,23 @@ export function MobileMapButton({
               </p>
             ) : null}
             {effectiveMapView === "local" && mapOptions.length > 1 && (
-              <select
-                value={selectedMapId ?? ""}
-                onChange={(event) => {
-                  onViewedMapChange?.(event.target.value);
+              <Select
+                label={localizeUi("ui.game.gamemappanel.viewMap")}
+                value={selectedMapId ?? null}
+                onChange={(next) => {
+                  onViewedMapChange?.(next);
                   setSelectedNode(null);
                 }}
                 className={cn(GAME_MAP_FIELD_CLASS, "mt-1 w-full px-1.5 py-1 text-[0.625rem]")}
                 title={localizeUi("ui.game.gamemappanel.viewMap")}
-              >
-                {mapOptions.map((option, index) => {
+                options={mapOptions.map((option, index) => {
                   const id = getMapId(option, index) ?? `map-${index + 1}`;
-                  return (
-                    <option key={id} value={id}>
-                      {option.name || `Map ${index + 1}`}
-                      {id === activeMapId ? localizeUi("ui.game.gamemappanel.current") : ""}
-                    </option>
-                  );
+                  return {
+                    value: id,
+                    label: `${option.name || `Map ${index + 1}`}${id === activeMapId ? localizeUi("ui.game.gamemappanel.current") : ""}`,
+                  };
                 })}
-              </select>
+              />
             )}
           </div>
           {hasWorldMap && (

@@ -78,6 +78,7 @@ import {
 import {
   connectionSavesModelList,
   createConnectionsStorage,
+  ownModelBaseUrl,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
 import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
@@ -159,6 +160,7 @@ const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
 
 /** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
+
 export async function saveConnectionImage(
   _id: string,
   body: unknown,
@@ -793,6 +795,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const merged = { ...current, ...data };
     const validationError = nanoGptVideoConnectionError(merged) || (await generativeAudioConnectionError(merged));
     if (validationError) return reply.status(400).send({ error: validationError });
+    // A Model's own address on another server than the row's is refused by storage.update (400).
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       const updated = await storage.update(req.params.id, data);
       await migrateLegacyAudio(updated?.provider);
@@ -1898,7 +1901,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
       if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
     }
-    const savesList = connectionSavesModelList(conn.provider);
+    // A Model with its own address lists that address live; the Connection's saved catalog is another address's.
+    const savesList =
+      connectionSavesModelList(conn.provider) && !ownModelBaseUrl((await storage.getById(conn.id)) ?? {});
     if (savesList && req.query.refresh !== "true") {
       const saved = await storage.readCatalog(conn);
       if (saved) return withCosts(conn, saved);

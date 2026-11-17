@@ -37,6 +37,7 @@ import { PRIMARY_CLASS as PRIMARY, SECONDARY_CLASS } from "./create-connection/s
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 interface Props {
@@ -1235,18 +1236,16 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
                 </p>
               ) : (
                 <>
-                  <select
+                  <Select
                     value={config.runtimePreference}
-                    aria-label={localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}
-                    onChange={(event) => handleRuntimePreferenceChange(event.target.value as SidecarRuntimePreference)}
+                    label={localizeUi("ui.modals.modeldownloadmodal.runtimeTarget")}
+                    onChange={(next) => handleRuntimePreferenceChange(next as SidecarRuntimePreference)}
                     className="mari-editor-field w-full px-3 py-2 text-sm"
-                  >
-                    {runtimePreferenceOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {formatRuntimePreferenceLabel(option, localizeUi, platform)}
-                      </option>
-                    ))}
-                  </select>
+                    options={runtimePreferenceOptions.map((option) => ({
+                      value: option,
+                      label: formatRuntimePreferenceLabel(option, localizeUi, platform),
+                    }))}
+                  />
                   <p className={HINT}>
                     {localizeUi("ui.modals.modeldownloadmodal.pickTheGpuFamilyYouActuallyWantMarinaraTo")}
                   </p>
@@ -1321,21 +1320,14 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
             </Field>
             {activeBackend !== "mlx" && (
               <Field label={localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}>
-                <select
+                <Select
                   value={config.kvCacheType ?? "f16"}
-                  aria-label={localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}
-                  onChange={(event) =>
-                    void updateConfig({ kvCacheType: event.target.value as "f16" | "q8_0" | "q4_0" })
-                  }
+                  label={localizeUi("ui.modals.modeldownloadmodal.kvCacheType")}
+                  onChange={(next) => void updateConfig({ kvCacheType: next as "f16" | "q8_0" | "q4_0" })}
                   disabled={isBlockingSetup}
                   className="mari-editor-field w-full px-3 py-2 text-sm"
-                >
-                  {(["f16", "q8_0", "q4_0"] as const).map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  options={(["f16", "q8_0", "q4_0"] as const).map((type) => ({ value: type, label: type }))}
+                />
                 <p className={HINT}>{localizeUi("ui.modals.modeldownloadmodal.kvCacheTypeHint")}</p>
               </Field>
             )}
@@ -1445,18 +1437,16 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
             </Field>
             {activeBackend !== "mlx" && (
               <Field label={localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}>
-                <select
+                <Select
                   value={config.embeddingPooling}
-                  onChange={(event) => handleEmbeddingPoolingChange(event.target.value as SidecarEmbeddingPooling)}
-                  aria-label={localizeUi("ui.modals.modeldownloadmodal.poolingType")}
+                  onChange={(next) => handleEmbeddingPoolingChange(next as SidecarEmbeddingPooling)}
+                  label={localizeUi("ui.modals.modeldownloadmodal.poolingType")}
                   className="mari-editor-field w-full px-3 py-2 text-sm"
-                >
-                  {SIDECAR_EMBEDDING_POOLING_TYPES.map((pooling) => (
-                    <option key={pooling} value={pooling}>
-                      {formatEmbeddingPoolingLabel(pooling, localizeUi)}
-                    </option>
-                  ))}
-                </select>
+                  options={SIDECAR_EMBEDDING_POOLING_TYPES.map((pooling) => ({
+                    value: pooling,
+                    label: formatEmbeddingPoolingLabel(pooling, localizeUi),
+                  }))}
+                />
                 <p className={HINT}>
                   {localizeUi("ui.modals.modeldownloadmodal.useMeanPoolingForOpenaiCompatibleLorebookEmbeddingsRaise")}
                 </p>

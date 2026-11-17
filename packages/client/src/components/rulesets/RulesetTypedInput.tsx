@@ -12,6 +12,7 @@ import { DraftTextarea } from "../ui/DraftTextarea";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useRulesetText } from "../../lib/ruleset-text";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 export type Scalar = number | string | boolean;
 
@@ -122,21 +123,16 @@ export function TypedInput({
     // untouched until the user picks a value.
     const current = typeof value === "string" && spec.values.includes(value) ? value : (spec.default ?? spec.values[0]);
     return (
-      <select
+      <Select
         value={current}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(next) => onChange(next)}
         disabled={disabled}
         title={title}
-        aria-label={ariaLabel}
+        label={ariaLabel}
         aria-describedby={describedBy}
         className={inputClass}
-      >
-        {spec.values.map((option) => (
-          <option key={option} value={option}>
-            {rt(spec.valueLabels?.[option] ?? option)}
-          </option>
-        ))}
-      </select>
+        options={spec.values.map((option) => ({ value: option, label: rt(spec.valueLabels?.[option] ?? option) }))}
+      />
     );
   }
   if (spec.type === "longtext") {

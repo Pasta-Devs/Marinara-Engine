@@ -658,6 +658,8 @@ async function executeManualIllustratorPromptRequest(args: {
   illustratorEntry: ResolvedRetryAgent;
   agentContext: AgentContext;
   debugMode: boolean;
+  /** Scene guidance typed after /illustrate template=…, depicted by the selected Prompt Mode's writer. */
+  request?: string;
 }): Promise<AgentResult> {
   const startedAt = Date.now();
   try {
@@ -700,6 +702,7 @@ async function executeManualIllustratorPromptRequest(args: {
       styleInstruction,
       characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
+      request: args.request,
       // Pictures and clips / Clips only: the planner may ask for a clip, as the Illustrator agent can.
       videoOffer:
         args.agentContext.memory._generatedVideos && typeof args.agentContext.memory._generatedVideos === "object"
@@ -4860,6 +4863,8 @@ export async function registerRetryAgentsRoute(
       illustratorStillOnly?: boolean;
       /** Inclusive stored-message IDs selected by /illustrate range=N-M. */
       illustratorMessageRange?: unknown;
+      /** Scene guidance from /illustrate template=…: the manual prompt writer depicts it. */
+      illustratorRequest?: unknown;
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
       forceImageGeneration?: boolean;
       lorebookKeeperBackfill?: boolean;
@@ -4894,6 +4899,7 @@ export async function registerRetryAgentsRoute(
       illustratorRetryTargets: rawIllustratorRetryTargets,
       illustratorStillOnly = false,
       illustratorMessageRange,
+      illustratorRequest: rawIllustratorRequest,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
       customLorebookBackfill = false,
@@ -4951,6 +4957,15 @@ export async function registerRetryAgentsRoute(
     ) {
       return reply.status(400).send({ error: "Invalid Illustrator message range" });
     }
+    if (
+      rawIllustratorRequest !== undefined &&
+      (typeof rawIllustratorRequest !== "string" || !isManualIllustratorImageRequest)
+    ) {
+      return reply.status(400).send({ error: "Invalid Illustrator request" });
+    }
+    // Trimmed and bounded like beholderDirective.
+    const illustratorRequest =
+      typeof rawIllustratorRequest === "string" ? rawIllustratorRequest.trim().slice(0, 2000) || undefined : undefined;
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
 
@@ -5778,6 +5793,7 @@ export async function registerRetryAgentsRoute(
                   illustratorEntry: nonLorebookAgents[0]!,
                   agentContext,
                   debugMode,
+                  request: illustratorRequest,
                 }),
               ]
             : nonLorebookAgents.length > 0

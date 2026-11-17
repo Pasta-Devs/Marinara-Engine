@@ -52,6 +52,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { librarySortOption, type LibrarySortKey } from "../../lib/library-sort-options";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
@@ -100,6 +101,7 @@ import { openAddConnection } from "../../lib/add-connection";
 import { newLocalServers } from "../../lib/local-servers";
 import { useChatModelPick } from "../connections/ConnectionSwitcherBody";
 import { PanelSection } from "../ui/PanelSection";
+import { Select } from "../ui/Select";
 import { ContextMenu } from "../ui/ContextMenu";
 import { PictureMenu } from "../connections/PictureMenu";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
@@ -1037,26 +1039,31 @@ export function ConnectionsPanel() {
         placeholder={t("connections.list.searchModels", { count: connectionsList.length })}
       />
       {wide && (
-        <label className="relative flex min-h-9 items-center">
-          <span className="sr-only">{t("ui.panels.connectionspanel.sortConnections")}</span>
-          <select
+        <div className="relative flex min-h-9 items-center">
+          <Select
             value={sort}
-            onChange={(event) => setSort(event.target.value as ConnectionPanelSort)}
-            aria-label={t("ui.panels.connectionspanel.sortConnections")}
-            className="mari-chrome-field mari-chrome-sort-field h-full appearance-none py-0 ps-2 pe-7 text-xs"
-          >
-            {SORT_OPTIONS.map(([value, key]) => (
-              <option key={value} value={value}>
-                {t(key)}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => setSort(next as ConnectionPanelSort)}
+            label={t("ui.panels.connectionspanel.sortConnections")}
+            className="mari-chrome-field mari-chrome-sort-field h-full py-0 ps-2 pe-7 text-xs [&>svg]:hidden"
+            searchable={false}
+            options={SORT_OPTIONS.map(([value, key]) =>
+              value === "custom"
+                ? { value, label: t(key) }
+                : librarySortOption(
+                    t,
+                    { "name-asc": "az", "name-desc": "za", newest: "newest", oldest: "oldest" }[
+                      value
+                    ] as LibrarySortKey,
+                    value,
+                  ),
+            )}
+          />
           <ArrowUpDown
             aria-hidden
             size="0.625rem"
             className="pointer-events-none absolute right-2 text-muted-foreground"
           />
-        </label>
+        </div>
       )}
       <button
         type="button"

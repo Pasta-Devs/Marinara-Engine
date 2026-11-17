@@ -24,6 +24,7 @@ import { rulesetCombatNames, type RulesetCombatNames } from "../../lib/ruleset-c
 import { initialsOf } from "../../lib/tactical-board-look";
 import { rulesetHealthPercent } from "../../lib/ruleset-combat-board";
 import { cn } from "../../lib/utils";
+import { Select } from "../ui/Select";
 
 /** The ruleset's own words for what a combatant is (1.168): "Fiend · Devil", its tags beside its type
  *  rather than inside it, since a ruleset's tags are as often traits ("Headless") as subtypes. In the
@@ -164,23 +165,21 @@ export function RulesetTurnOrder({
         </span>
       </div>
       {onControlCompanions && companions.length > 0 && (
-        <label className="flex items-center gap-2 px-3.5 pb-1.5 text-xs text-[var(--muted-foreground)]">
+        <div className="flex items-center gap-2 px-3.5 pb-1.5 text-xs text-[var(--muted-foreground)]">
           <span className="flex-1">{t("game.combat.ai.allCompanions")}</span>
-          <select
-            value={companionsValue}
+          <Select
+            label={t("game.combat.ai.allCompanions")}
+            value={companionsValue === "mixed" ? null : companionsValue}
+            placeholder={t("game.combat.ai.allCompanionsMixed")}
             disabled={locked}
-            onChange={(event) => onControlCompanions(event.target.value as CombatController)}
+            onChange={(next) => onControlCompanions(next as CombatController)}
             className="h-6 min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-1 text-[0.7rem] text-[var(--foreground)] disabled:opacity-60"
-          >
-            {companionsValue === "mixed" && (
-              <option value="mixed" disabled>
-                {t("game.combat.ai.allCompanionsMixed")}
-              </option>
-            )}
-            <option value="ai">{t("game.combat.ai.allCompanionsAi")}</option>
-            <option value="manual">{t("game.combat.ai.allCompanionsManual")}</option>
-          </select>
-        </label>
+            options={[
+              { value: "ai", label: t("game.combat.ai.allCompanionsAi") },
+              { value: "manual", label: t("game.combat.ai.allCompanionsManual") },
+            ]}
+          />
+        </div>
       )}
       {view.spends && onSpends && (
         <RulesetSpendToggle choose={view.spends.choose} locked={locked} onChange={onSpends} className="px-3.5 pb-1.5" />
@@ -322,16 +321,17 @@ export function RulesetTurnOrder({
                     {player ? player.name : t("game.combat.ruleset.screen.host")}
                   </span>
                 ) : party && !isLeader ? (
-                  <select
-                    aria-label={t("game.combat.ai.controllerFor", { name: combatant.name })}
+                  <Select
+                    label={t("game.combat.ai.controllerFor", { name: combatant.name })}
                     value={unit?.controller ?? "ai"}
                     disabled={locked || combatant.down || combatant.defeated}
-                    onChange={(event) => onControl(combatant.id, event.target.value as CombatController)}
+                    onChange={(next) => onControl(combatant.id, next as CombatController)}
                     className="h-6 min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-1 text-[0.7rem] text-[var(--foreground)] disabled:opacity-60"
-                  >
-                    <option value="manual">{t("game.combat.ai.manual")}</option>
-                    <option value="ai">{t("game.combat.ai.automatic")}</option>
-                  </select>
+                    options={[
+                      { value: "manual", label: t("game.combat.ai.manual") },
+                      { value: "ai", label: t("game.combat.ai.automatic") },
+                    ]}
+                  />
                 ) : (
                   <span className="inline-flex h-6 items-center rounded-md border border-dashed border-[var(--border)] px-1.5 text-[0.7rem] text-[var(--muted-foreground)]">
                     {party ? t("game.combat.ruleset.screen.you") : t("game.combat.ruleset.screen.enemy")}

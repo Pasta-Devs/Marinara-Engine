@@ -1167,7 +1167,18 @@ public class MainActivity extends Activity {
                 + "if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin https://github.com/Pasta-Devs/Marinara-Engine.git; else git remote add origin https://github.com/Pasta-Devs/Marinara-Engine.git; fi\n"
                 + "git fetch --depth 1 origin " + releaseCommit + "\n"
                 + "test \"$(git rev-parse FETCH_HEAD)\" = " + releaseCommit + "\n"
-                + "if [ -f scripts/protect-launcher-data.mjs ]; then\n"
+                // An install already newer than this APK (a branch the user switched to, or a
+                // launcher update) starts as it is; only a fresh or older install moves to the
+                // embedded commit. ponytail: compares commit dates because the --depth 1 fetch
+                // hides ancestry; a branch tip newer by date but missing this APK's commit also
+                // starts as it is. Upgrade path: an ancestry check once installs keep history.
+                + "keep_installed=0\n"
+                + "if git rev-parse --verify -q HEAD >/dev/null"
+                + " && [ \"$(git log -1 --format=%ct HEAD)\" -gt \"$(git log -1 --format=%ct " + releaseCommit + ")\" ]; then\n"
+                + "  keep_installed=1\n"
+                + "  echo 'Starting the Marinara Engine copy already in Termux, which is newer than this Android build.'\n"
+                + "fi\n"
+                + "if [ \"$keep_installed\" = 0 ] && [ -f scripts/protect-launcher-data.mjs ]; then\n"
                 + "  guard_status=0\n"
                 + "  node scripts/protect-launcher-data.mjs check-target " + releaseCommit + " || guard_status=$?\n"
                 + "  if [ \"$guard_status\" -eq 2 ]; then\n"
@@ -1178,8 +1189,10 @@ public class MainActivity extends Activity {
                 + "    exit 1\n"
                 + "  fi\n"
                 + "fi\n"
-                + "git checkout --detach -f " + releaseCommit + "\n"
-                + "test \"$(git rev-parse HEAD)\" = " + releaseCommit + "\n"
+                + "if [ \"$keep_installed\" = 0 ]; then\n"
+                + "  git checkout --detach -f " + releaseCommit + "\n"
+                + "  test \"$(git rev-parse HEAD)\" = " + releaseCommit + "\n"
+                + "fi\n"
                 + secretProvisioning
                 + "chmod +x start-termux.sh\n"
                 + launcherCommand;

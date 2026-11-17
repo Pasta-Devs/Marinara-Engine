@@ -1332,6 +1332,8 @@ export interface UIState {
   impersonatePresetId: string | null;
   /** When true, suppress agent pipeline during impersonate. Persisted. */
   impersonateBlockAgents: boolean;
+  /** When true, Roleplay impersonates send each character's Public Face in place of its card (#9427). Persisted. */
+  impersonatePublicFaces: boolean;
 
   /** Transient: true when center content area is too narrow (overflow detected) */
   centerCompact: boolean;
@@ -1674,6 +1676,7 @@ export interface UIState {
   setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
+  setImpersonatePublicFaces: (v: boolean) => void;
 
   /** Legacy migration helpers for browser-local custom themes. */
   setHasMigratedCustomThemesToServer: (v: boolean) => void;
@@ -2096,6 +2099,7 @@ export function pickSyncedSettings(state: UIState) {
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
+    impersonatePublicFaces: state.impersonatePublicFaces,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
   };
 }
@@ -2367,6 +2371,7 @@ export function pickPersistedUIState(state: UIState) {
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
+    impersonatePublicFaces: state.impersonatePublicFaces,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
   };
@@ -2728,6 +2733,7 @@ export const useUIStore = create<UIState>()(
         addCyoaChoicesToMessage: false,
         impersonatePresetId: null,
         impersonateBlockAgents: false,
+        impersonatePublicFaces: false,
 
         toggleSidebar: () =>
           set((s) => {
@@ -3609,6 +3615,7 @@ export const useUIStore = create<UIState>()(
         setAddCyoaChoicesToMessage: (v) => set({ addCyoaChoicesToMessage: v }),
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
+        setImpersonatePublicFaces: (v) => set({ impersonatePublicFaces: v }),
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
@@ -3894,6 +3901,7 @@ export const useUIStore = create<UIState>()(
           if (persisted.impersonatePromptTemplate === undefined) persisted.impersonatePromptTemplate = "";
           if (persisted.impersonatePresetId === undefined) persisted.impersonatePresetId = null;
           if (persisted.impersonateBlockAgents === undefined) persisted.impersonateBlockAgents = false;
+          if (persisted.impersonatePublicFaces === undefined) persisted.impersonatePublicFaces = false;
           if (persisted.trimIncompleteModelOutput === undefined) {
             persisted.trimIncompleteModelOutput = false;
           }

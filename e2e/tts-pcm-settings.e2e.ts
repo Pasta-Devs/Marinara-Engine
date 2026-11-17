@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { openConnectionsPanel, openDefaultsTile, openJobSettings, ttsConfigCard } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
@@ -21,15 +22,13 @@ test("PCM speech format persists through the settings UI and reload", async ({ p
     const openSettings = async () => {
       await page.goto("/");
       await openDefaultsTile(page, "voice");
-      return ttsConfigCard(page)
-        .locator("select")
-        .filter({ has: page.locator('option[value="pcm"]') });
+      return ttsConfigCard(page).getByRole("combobox", { name: "Audio format", exact: true });
     };
     const format = await openSettings();
-    await format.selectOption("pcm");
+    await chooseOption(page, format, "PCM (converted to WAV for playback)");
     await expect.poll(async () => (await (await request.get("/api/tts/config")).json()).audioFormat).toBe("pcm");
     const afterReload = await openSettings();
-    await expect(afterReload).toHaveValue("pcm");
+    await expect(afterReload).toHaveAttribute("data-value", "pcm");
   } finally {
     const restored = await request.put("/api/tts/config", { data: original });
     expect(restored.ok()).toBeTruthy();

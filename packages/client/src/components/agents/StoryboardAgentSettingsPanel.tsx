@@ -10,6 +10,7 @@ import {
   type StoryboardAgentSettings,
 } from "@marinara-engine/shared";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { Select } from "../ui/Select";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
 
@@ -328,26 +329,25 @@ function SelectedTemplateControl({
   const { t: localizeUi } = useUiTranslation();
   const selected = templates.find((template) => template.id === value) ?? templates[0];
   return (
-    <label className="block min-w-0 space-y-1.5">
+    <div className="block min-w-0 space-y-1.5">
       <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
-      <select
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value || null)}
+      <Select
+        label={label}
+        value={selected?.id ?? ""}
+        onChange={(next) => onChange(next || null)}
         className="w-full rounded-xl bg-[var(--background)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-      >
-        {templates.length === 0 ? <option value="">{localizeUi("ui.agents.storyboard.noPromptOptions")}</option> : null}
-        {templates.map((template) => (
-          <option key={template.id} value={template.id}>
-            {template.name}
-          </option>
-        ))}
-      </select>
+        options={
+          templates.length === 0
+            ? [{ value: "", label: localizeUi("ui.agents.storyboard.noPromptOptions") }]
+            : templates.map((template) => ({ value: template.id, label: template.name }))
+        }
+      />
       {selected?.description ? (
         <span className="block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
           {selected.description}
         </span>
       ) : null}
-    </label>
+    </div>
   );
 }
 
@@ -549,19 +549,19 @@ export function StoryboardAgentSettingsPanel({
         defaults={defaults.plannerTemplates}
         prefix="storyboard-game-planner"
         renderTemplateMeta={(template) => (
-          <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+          <div className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
             <span>{localizeUi("ui.agents.storyboard.plannerType")}</span>
-            <select
+            <Select
+              label={localizeUi("ui.agents.storyboard.plannerType")}
               value={settings.animationPlannerTemplateIds.includes(template.id) ? "animation" : "illustration"}
-              onChange={(event) =>
-                setPlannerType(template.id, event.target.value === "animation" ? "animation" : "illustration")
-              }
+              onChange={(next) => setPlannerType(template.id, next === "animation" ? "animation" : "illustration")}
               className="rounded-lg bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]"
-            >
-              <option value="illustration">{localizeUi("ui.agents.storyboard.stillImages")}</option>
-              <option value="animation">{localizeUi("ui.agents.storyboard.animations")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "illustration", label: localizeUi("ui.agents.storyboard.stillImages") },
+                { value: "animation", label: localizeUi("ui.agents.storyboard.animations") },
+              ]}
+            />
+          </div>
         )}
         onChange={updatePlannerTemplates}
       />
@@ -731,20 +731,20 @@ export function StoryboardAgentSettingsPanel({
         </div>
 
         <div className={`grid gap-3 sm:grid-cols-2 ${showAnimationStages ? "lg:grid-cols-3" : ""}`}>
-          <label className="space-y-1.5">
+          <div className="space-y-1.5">
             <span className="text-[0.6875rem] font-medium">{localizeUi("ui.agents.storyboard.autoGenerate")}</span>
-            <select
+            <Select
+              label={localizeUi("ui.agents.storyboard.autoGenerate")}
               value={settings.autoGenerateMode}
-              onChange={(event) =>
-                update({ autoGenerateMode: event.target.value as StoryboardAgentSettings["autoGenerateMode"] })
-              }
+              onChange={(next) => update({ autoGenerateMode: next as StoryboardAgentSettings["autoGenerateMode"] })}
               className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-            >
-              <option value="manual">{localizeUi("ui.agents.storyboard.manual")}</option>
-              <option value="illustration">{localizeUi("ui.agents.storyboard.stillImages")}</option>
-              <option value="animation">{localizeUi("ui.agents.storyboard.animations")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "manual", label: localizeUi("ui.agents.storyboard.manual") },
+                { value: "illustration", label: localizeUi("ui.agents.storyboard.stillImages") },
+                { value: "animation", label: localizeUi("ui.agents.storyboard.animations") },
+              ]}
+            />
+          </div>
           <label className="space-y-1.5">
             <span className="text-[0.6875rem] font-medium">{localizeUi("ui.agents.storyboard.keyframes")}</span>
             <input
@@ -970,19 +970,19 @@ export function StoryboardAgentSettingsPanel({
               </PromptStage>
               {sharedWorkflowStages}
 
-              <label className="block max-w-sm space-y-1.5 rounded-xl bg-[var(--background)]/70 p-3 ring-1 ring-[var(--border)]">
+              <div className="block max-w-sm space-y-1.5 rounded-xl bg-[var(--background)]/70 p-3 ring-1 ring-[var(--border)]">
                 <span className="text-[0.6875rem] font-medium">{localizeUi("ui.agents.storyboard.viewer")}</span>
-                <select
+                <Select
+                  label={localizeUi("ui.agents.storyboard.viewer")}
                   value={settings.viewerDisplayMode}
-                  onChange={(event) =>
-                    update({ viewerDisplayMode: event.target.value === "background" ? "background" : "floating" })
-                  }
+                  onChange={(next) => update({ viewerDisplayMode: next === "background" ? "background" : "floating" })}
                   className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-                >
-                  <option value="floating">{localizeUi("ui.agents.storyboard.floating")}</option>
-                  <option value="background">{localizeUi("ui.agents.storyboard.background")}</option>
-                </select>
-              </label>
+                  options={[
+                    { value: "floating", label: localizeUi("ui.agents.storyboard.floating") },
+                    { value: "background", label: localizeUi("ui.agents.storyboard.background") },
+                  ]}
+                />
+              </div>
             </div>
           )}
 

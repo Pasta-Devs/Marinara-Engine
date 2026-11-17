@@ -35,6 +35,7 @@ import { Modal } from "../ui/Modal";
 import { useRulesetText, type RulesetText } from "../../lib/ruleset-text";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 /** The header as the picker needs it: where the entries live is the hook's business, not this one's. */
 export type RulesetCatalogHeaderView = Omit<RulesetCatalogHeader, "entries" | "asset">;
@@ -204,21 +205,19 @@ export function RulesetCatalogPicker({
             />
           </label>
           {views.map((view) => (
-            <label key={view.filter.id} className="flex min-w-0 basis-36 flex-col gap-1">
+            <div key={view.filter.id} className="flex min-w-0 basis-36 flex-col gap-1">
               <span className={labelClass}>{rt(view.filter.label)}</span>
-              <select
+              <Select
+                label={rt(view.filter.label)}
                 value={active[view.filter.id] ?? CATALOG_FILTER_ANY}
-                onChange={(event) => setChosen({ ...active, [view.filter.id]: event.target.value })}
+                onChange={(next) => setChosen({ ...active, [view.filter.id]: next })}
                 className={inputClass}
-              >
-                <option value={CATALOG_FILTER_ANY}>{t("game.ruleset.catalog.filterAny")}</option>
-                {view.options.map((option) => (
-                  <option key={option} value={option}>
-                    {rt(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: CATALOG_FILTER_ANY, label: t("game.ruleset.catalog.filterAny") },
+                  ...view.options.map((option) => ({ value: option, label: rt(option) })),
+                ]}
+              />
+            </div>
           ))}
         </div>
 

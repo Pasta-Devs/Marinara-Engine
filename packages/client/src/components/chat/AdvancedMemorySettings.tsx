@@ -6,7 +6,6 @@ import {
   type AdvancedMemorySettings as MemorySettings,
 } from "@marinara-engine/shared";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
-import { decisionModelOption } from "../connections/DecisionDefaultControl";
 import {
   advancedMemorySceneNumbers,
   markAdvancedMemoryNotified,
@@ -20,6 +19,8 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { useConnections } from "../../hooks/use-connections";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { decisionUnavailableReason } from "../connections/DecisionDefaultControl";
+import { Select } from "../ui/Select";
 import { useChatMessageCount } from "../../hooks/use-chats";
 
 const fieldClass = "mari-chrome-field w-full rounded-lg px-3 py-2 text-xs disabled:opacity-50";
@@ -61,11 +62,9 @@ export function AdvancedMemorySettings({
   const status = useAdvancedMemoryStatus(chatId);
   const action = useAdvancedMemoryAction(chatId);
   const savedConnections = useConnections();
-  const decisionConnections = (
-    (savedConnections.data ?? []) as Array<{ id: string; name: string; provider: string; model?: string }>
-  ).filter((connection) => connection.provider === "decision");
   const settings = status.data?.settings ?? normalizeAdvancedMemorySettings(metadataSettings);
-  // The local models the global Decision model offers, greyed out with the reason when one can't answer (#7326).
+  // The local models the global Decision model offers; one that can't answer is left out unless it is the saved
+  // choice, which keeps its reason (#7326).
   const decisionOptions = useDecisionOptions(settings.enabled && settings.decisionEnabled);
   const localDecisionModels = (decisionOptions.data?.options ?? []).filter((entry) => entry.group === "local");
   const [confirmKnowledge, setConfirmKnowledge] = useState(false);
@@ -370,10 +369,14 @@ export function AdvancedMemorySettings({
           />
           {settings.decisionEnabled && (
             <div className="space-y-2">
-              <label className="block space-y-1 text-xs">
+              <div className="block space-y-1 text-xs">
                 <span>{t("chat.advancedMemory.decisionConnection")}</span>
-                <select
-                  value={settings.decisionConnectionId ?? ""}
+                <ConnectionSelect
+                  kind="decision"
+                  jobKey="decision"
+                  value={settings.decisionConnectionId || null}
+                  aria-label={t("chat.advancedMemory.decisionConnection")}
+                  defaultLabel={t("chat.advancedMemory.chooseDecisionConnection")}
                   disabled={
                     disabled ||
                     savedConnections.isLoading ||
@@ -381,35 +384,20 @@ export function AdvancedMemorySettings({
                     decisionOptions.isLoading ||
                     decisionOptions.isError
                   }
-                  className={fieldClass}
-                  onChange={(event) => save({ decisionConnectionId: event.target.value || null })}
-                >
-                  <option value="">{t("chat.advancedMemory.chooseDecisionConnection")}</option>
-                  {settings.decisionConnectionId &&
-                    ![...localDecisionModels, ...decisionConnections].some(
-                      (choice) => choice.id === settings.decisionConnectionId,
-                    ) && (
-                      <option value={settings.decisionConnectionId}>
-                        {t("chat.advancedMemory.missingConnection")}
-                      </option>
-                    )}
-                  {localDecisionModels.length > 0 && (
-                    <optgroup label={t("connections.decision.localGroup")}>
-                      {localDecisionModels.map((entry) => decisionModelOption(t, entry))}
-                    </optgroup>
-                  )}
-                  {decisionConnections.length > 0 && (
-                    <optgroup label={t("connections.decision.connectionGroup")}>
-                      {decisionConnections.map((connection) => (
-                        <option key={connection.id} value={connection.id}>
-                          {connection.name}
-                          {connection.model ? <> · {connection.model}</> : null}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
+                  onChange={(next) => save({ decisionConnectionId: next || null })}
+                  extraOptions={localDecisionModels
+                    .filter((entry) => !entry.unavailable || entry.id === settings.decisionConnectionId)
+                    .map((entry) => ({
+                      value: entry.id,
+                      label: entry.unavailable
+                        ? t("connections.decision.unavailableOption", {
+                            label: entry.label,
+                            reason: decisionUnavailableReason(t, entry),
+                          })
+                        : entry.label,
+                    }))}
+                />
+              </div>
               {/* Either list failing leaves the choice incomplete; the steady accent does not pulse. */}
               {(savedConnections.isError || decisionOptions.isError) && (
                 <p role="alert" className="text-xs text-[var(--marinara-app-accent-static)]">
@@ -550,39 +538,38 @@ export function AdvancedMemorySettings({
               labelClassName="text-xs font-medium"
             />
           )}
-          <label className="block space-y-1 text-xs">
+          <div className="block space-y-1 text-xs">
             <span>{t("chat.advancedMemory.initialModel")}</span>
-            <select
+            <Select<"main" | "helper">
+              label={t("chat.advancedMemory.initialModel")}
               value={settings.initialProcessingModel}
               disabled={disabled}
               className={fieldClass}
-              onChange={(event) => save({ initialProcessingModel: event.target.value as "main" | "helper" })}
-            >
-              <option value="helper">{t("chat.advancedMemory.helperModel")}</option>
-              <option value="main">{t("chat.advancedMemory.mainModel")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "helper", label: t("chat.advancedMemory.helperModel") },
+                { value: "main", label: t("chat.advancedMemory.mainModel") },
+              ]}
+              onChange={(value) => save({ initialProcessingModel: value })}
+            />
+          </div>
           {individual && (
-            <label className="block space-y-1 text-xs">
+            <div className="block space-y-1 text-xs">
               <span>{t("chat.advancedMemory.narrator")}</span>
-              <select
+              <Select
+                label={t("chat.advancedMemory.narrator")}
                 value={settings.narratorCharacterId ?? ""}
-                aria-label={t("chat.advancedMemory.narrator")}
                 disabled={disabled}
                 className={fieldClass}
-                onChange={(event) => save({ narratorCharacterId: event.target.value || null })}
-              >
-                <option value="">{t("chat.advancedMemory.none")}</option>
-                {characters.map((character) => (
-                  <option key={character.id} value={character.id}>
-                    {character.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("chat.advancedMemory.none") },
+                  ...characters.map((character) => ({ value: character.id, label: character.name })),
+                ]}
+                onChange={(value) => save({ narratorCharacterId: value || null })}
+              />
               <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
                 {t("chat.advancedMemory.narratorHelp")}
               </span>
-            </label>
+            </div>
           )}
           {individual && characters.length > 1 && (
             <SettingsSwitch
@@ -675,37 +662,34 @@ export function AdvancedMemorySettings({
             </p>
           )}
           {knowledgeCharacterIds.map((id) => (
-            <label key={id} className="block space-y-1 text-sm">
+            <div key={id} className="block space-y-1 text-sm">
               <span>{characters.find((character) => character.id === id)?.name ?? id}</span>
-              <select
+              <Select
+                label={characters.find((character) => character.id === id)?.name ?? id}
                 className={fieldClass}
-                value={knowledgeChoices[id] ?? ""}
+                // A character with no start yet has no "keep" choice: the field shows its prompt until one is picked.
+                value={knowledgeChoices[id] || (missing.includes(id) ? null : "")}
+                placeholder={t("chat.advancedMemory.chooseKnowledgeStart")}
                 disabled={messages.isLoading || action.isPending}
-                onChange={(event) => setKnowledgeChoices((current) => ({ ...current, [id]: event.target.value }))}
-              >
-                <option value="" disabled={missing.includes(id)}>
-                  {t(
-                    missing.includes(id)
-                      ? "chat.advancedMemory.chooseKnowledgeStart"
-                      : "chat.advancedMemory.keepKnowledgeStart",
-                  )}
-                </option>
-                <option value="beginning">{t("chat.advancedMemory.fromBeginning")}</option>
-                {knowledgeChoices[id] &&
+                options={[
+                  ...(missing.includes(id) ? [] : [{ value: "", label: t("chat.advancedMemory.keepKnowledgeStart") }]),
+                  { value: "beginning", label: t("chat.advancedMemory.fromBeginning") },
+                  ...(knowledgeChoices[id] &&
                   knowledgeChoices[id] !== "beginning" &&
-                  !messages.data?.some((message) => message.id === knowledgeChoices[id]) && (
-                    <option value={knowledgeChoices[id]}>{t("chat.advancedMemory.selectedOutsidePage")}</option>
-                  )}
-                {(messages.data ?? []).map((message) => (
-                  <option key={message.id} value={message.id}>
-                    {t("chat.advancedMemory.messageChoice", {
+                  !messages.data?.some((message) => message.id === knowledgeChoices[id])
+                    ? [{ value: knowledgeChoices[id], label: t("chat.advancedMemory.selectedOutsidePage") }]
+                    : []),
+                  ...(messages.data ?? []).map((message) => ({
+                    value: message.id,
+                    label: t("chat.advancedMemory.messageChoice", {
                       number: message.rowid,
                       excerpt: message.content.replace(/\s+/gu, " ").slice(0, 90),
-                    })}
-                  </option>
-                ))}
-              </select>
-            </label>
+                    }),
+                  })),
+                ]}
+                onChange={(value) => setKnowledgeChoices((current) => ({ ...current, [id]: value }))}
+              />
+            </div>
           ))}
           <div className="space-y-2">
             {firstKnowledgeMessage && lastKnowledgeMessage && (

@@ -18,6 +18,7 @@ import {
 } from "../../../components/chat/SemanticSummaryRetrievalControls";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface AutomaticSummarizationSectionProps {
@@ -149,23 +150,19 @@ export function AutomaticSummarizationSection({
         {/* Day rollover hour */}
         <div className="space-y-1.5">
           <span className="text-xs font-medium">{localizeUi("ui.chat.chatsettingsdrawer.dayRolloverHour")}</span>
-          <select
-            value={(metadata.dayRolloverHour as number | undefined) ?? 4}
-            onChange={(e) => {
+          <Select
+            label={localizeUi("ui.chat.chatsettingsdrawer.dayRolloverHour")}
+            value={String((metadata.dayRolloverHour as number | undefined) ?? 4)}
+            options={Array.from({ length: 12 }, (_, h) => ({
+              value: String(h),
+              label: h === 0 ? "12 AM (midnight)" : `${h} AM`,
+            }))}
+            onChange={(value) => {
               setRolloverTouchedThisSession(true);
-              updateMeta.mutate({ id: chat.id, dayRolloverHour: Number(e.target.value) });
+              updateMeta.mutate({ id: chat.id, dayRolloverHour: Number(value) });
             }}
             className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
-          >
-            {Array.from({ length: 12 }, (_, h) => {
-              const label = h === 0 ? "12 AM (midnight)" : `${h} AM`;
-              return (
-                <option key={h} value={h}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
+          />
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.chatsettingsdrawer.messagesSentBeforeThisHourCountAsPartOf")}
           </p>

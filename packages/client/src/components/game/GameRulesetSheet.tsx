@@ -73,6 +73,7 @@ import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
 
@@ -1384,25 +1385,23 @@ export function GameRulesetSheet({
               {resolved.states.length > 0 && (
                 <div className="space-y-1.5">
                   {resolved.states.map((state) => (
-                    <label key={state.id} className="flex min-w-0 flex-col gap-0.5">
+                    <div key={state.id} className="flex min-w-0 flex-col gap-0.5">
                       <span className={labelClass}>{text(state.label)}</span>
-                      <select
+                      <Select
                         value={state.value}
-                        onChange={(event) => apply({ op: "state", state: state.id, value: event.target.value })}
+                        onChange={(next) => apply({ op: "state", state: state.id, value: next })}
                         disabled={settled}
-                        aria-label={localizeUi("game.ruleset.sheet.stateAria", {
+                        label={localizeUi("game.ruleset.sheet.stateAria", {
                           name: text(state.label),
                           who: cardName,
                         })}
                         className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
-                      >
-                        {state.values.map((value) => (
-                          <option key={value} value={value}>
-                            {text(state.valueLabels?.[value] ?? value)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        options={state.values.map((value) => ({
+                          value,
+                          label: text(state.valueLabels?.[value] ?? value),
+                        }))}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

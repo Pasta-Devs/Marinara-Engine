@@ -17,6 +17,7 @@ import {
   validateImpersonatePromptTemplates,
 } from "../../../hooks/use-impersonate-prompt-templates";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
+import { Select } from "../../../components/ui/Select";
 import { generateClientId } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
 
@@ -175,30 +176,35 @@ export function ImpersonatePromptTemplateField() {
             text={localizeUi("ui.chatSettings.impersonatesection.optionalGlobalInstructionSentToTheModelWhenYou")}
           />
         </div>
-        <select
+        <Select
           value={hasStandaloneDraft ? "__unsaved__" : (activePromptTemplateId ?? "")}
           disabled={promptTemplateCatalogBusy}
-          onChange={(event) => {
-            void handleSelectPromptTemplate(event.target.value || null);
+          options={[
+            { value: "", label: localizeUi("ui.chatSettings.impersonatesection.builtInDefault") },
+            ...(hasStandaloneDraft
+              ? [
+                  {
+                    value: "__unsaved__",
+                    label: localizeUi("ui.chatSettings.impersonatesection.unsavedPrompt"),
+                    disabledReason: localizeUi("ui.chatSettings.impersonatesection.unsavedPrompt"),
+                  },
+                ]
+              : []),
+            ...promptTemplates.map((template) => ({
+              value: template.id,
+              label: `${template.name}${
+                template.id === activePromptTemplateId && promptIsDirty
+                  ? localizeUi("ui.chatSettings.impersonatesection.unsavedSuffix")
+                  : ""
+              }`,
+            })),
+          ]}
+          onChange={(value) => {
+            void handleSelectPromptTemplate(value || null);
           }}
           className="min-w-0 max-w-[55%] rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] font-medium text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-2 focus:ring-[var(--ring)]"
-          aria-label={localizeUi("ui.chatSettings.impersonatesection.activePromptTemplate")}
-        >
-          <option value="">{localizeUi("ui.chatSettings.impersonatesection.builtInDefault")}</option>
-          {hasStandaloneDraft && (
-            <option value="__unsaved__" disabled>
-              {localizeUi("ui.chatSettings.impersonatesection.unsavedPrompt")}
-            </option>
-          )}
-          {promptTemplates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-              {template.id === activePromptTemplateId && promptIsDirty
-                ? localizeUi("ui.chatSettings.impersonatesection.unsavedSuffix")
-                : ""}
-            </option>
-          ))}
-        </select>
+          label={localizeUi("ui.chatSettings.impersonatesection.activePromptTemplate")}
+        />
       </div>
       <div className="mari-quick-preset-editor">
         <MacroTextarea

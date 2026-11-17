@@ -12,6 +12,7 @@ import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 const button = "mari-editor-action min-h-[44px]! min-w-[44px]! px-3 md:min-h-9! md:min-w-9!";
 
@@ -93,27 +94,25 @@ export function SpriteFolderSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <label className="block space-y-1 text-xs font-medium">
+    <div className="block space-y-1 text-xs font-medium">
       <span>{t("sprites.library.folder")}</span>
-      <select
+      <Select
+        label={t("sprites.library.folder")}
         className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm"
         value={library.folders.some((folder) => folder.id === sprite.folderId) ? sprite.folderId! : "unfiled"}
         disabled={busy || library.mutation.isPending || !library.query.data}
-        onChange={(event) =>
+        onChange={(next) =>
           void library.mutate("post", "move", {
             expressions: [sprite.expression],
-            folderId: event.target.value === "unfiled" ? null : event.target.value,
+            folderId: next === "unfiled" ? null : next,
           })
         }
-      >
-        <option value="unfiled">{t("sprites.library.unfiled")}</option>
-        {library.folders.map((folder) => (
-          <option key={folder.id} value={folder.id}>
-            {folder.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        options={[
+          { value: "unfiled", label: t("sprites.library.unfiled") },
+          ...library.folders.map((folder) => ({ value: folder.id, label: folder.name })),
+        ]}
+      />
+    </div>
   );
 }
 

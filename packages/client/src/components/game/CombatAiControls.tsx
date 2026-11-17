@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { COMBAT_POSTURES, type CombatController, type CombatOrders, type CombatTactics } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 interface Member {
   id: string;
@@ -88,48 +89,48 @@ export function CombatAiControls({
         {party.map((member) => (
           <div key={member.id} className="flex flex-wrap items-center justify-between gap-2">
             <span>{describe(member)}</span>
-            <select
-              aria-label={t("game.combat.ai.controllerFor", { name: member.name })}
+            <Select
+              label={t("game.combat.ai.controllerFor", { name: member.name })}
               value={member.id === leader ? "manual" : (member.controller ?? defaultController)}
               disabled={locked || member.id === leader || member.hp <= 0 || member.hasActed}
-              onChange={(event) => onChange(member.id, event.target.value as CombatController)}
+              onChange={(next) => onChange(member.id, next as CombatController)}
               className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-2 disabled:opacity-60"
-            >
-              <option value="manual">{t("game.combat.ai.manual")}</option>
-              <option value="ai">{t("game.combat.ai.automatic")}</option>
-            </select>
+              options={[
+                { value: "manual", label: t("game.combat.ai.manual") },
+                { value: "ai", label: t("game.combat.ai.automatic") },
+              ]}
+            />
             {onOrders && member.id !== leader && (member.controller ?? defaultController) === "ai" && member.hp > 0 && (
               <span className="flex w-full flex-wrap items-center gap-2">
-                <select
-                  aria-label={t("game.combat.ai.ordersFor", { name: member.name })}
+                <Select
+                  label={t("game.combat.ai.ordersFor", { name: member.name })}
                   value={postureOf(member.orders)}
                   disabled={locked}
-                  onChange={(event) => ordered(member, { pick: event.target.value })}
+                  onChange={(next) => ordered(member, { pick: next })}
                   className="rounded border border-[var(--border)] bg-[var(--background)] px-2 py-2 disabled:opacity-60"
-                >
-                  {COMBAT_POSTURES.filter((posture) => posture !== "protect").map((posture) => (
-                    <option key={posture} value={posture}>
-                      {t(`game.combat.ai.posture.${posture}`)}
-                    </option>
-                  ))}
-                  {party
-                    // The one it protects stays named while down, so the order shown is the order kept.
-                    .filter(
-                      (other) =>
-                        other.id !== member.id &&
-                        (other.hp > 0 ||
-                          (member.orders?.posture === "protect" && other.id === member.orders.protectId)),
-                    )
-                    .map((other) => (
-                      <option key={other.id} value={`protect:${other.id}`}>
-                        {t("game.combat.ai.posture.protect", { name: other.name })}
-                      </option>
-                    ))}
-                  {member.orders?.posture === "protect" &&
-                    !party.some((other) => other.id === member.orders?.protectId) && (
-                      <option value={postureOf(member.orders)}>{postureLabel(member.orders)}</option>
-                    )}
-                </select>
+                  options={[
+                    ...COMBAT_POSTURES.filter((posture) => posture !== "protect").map((posture) => ({
+                      value: posture as string,
+                      label: t(`game.combat.ai.posture.${posture}`),
+                    })),
+                    ...party
+                      // The one it protects stays named while down, so the order shown is the order kept.
+                      .filter(
+                        (other) =>
+                          other.id !== member.id &&
+                          (other.hp > 0 ||
+                            (member.orders?.posture === "protect" && other.id === member.orders.protectId)),
+                      )
+                      .map((other) => ({
+                        value: `protect:${other.id}`,
+                        label: t("game.combat.ai.posture.protect", { name: other.name }),
+                      })),
+                    ...(member.orders?.posture === "protect" &&
+                    !party.some((other) => other.id === member.orders?.protectId)
+                      ? [{ value: postureOf(member.orders), label: postureLabel(member.orders) }]
+                      : []),
+                  ]}
+                />
                 {(["conserve", "heal", "spare"] as const).map((flag) => (
                   <label key={flag} className="flex items-center gap-1">
                     <Checkbox

@@ -6,6 +6,7 @@
 // send a command. Shown only to the player who commands the fighter.
 import type { DirectedRulesetCombatant, DirectedRulesetView } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
+import { Select } from "../ui/Select";
 
 export interface RulesetInHandProps {
   view: DirectedRulesetView;
@@ -54,48 +55,46 @@ export function RulesetInHand({ view, busy, onDraw, onAmmo }: RulesetInHandProps
           )}
         </span>
         {ownTurn && hands.carried.length > 0 && (
-          <select
-            aria-label={localizeUi("game.combat.ruleset.inHand.drawLabel")}
+          <Select
+            label={localizeUi("game.combat.ruleset.inHand.drawLabel")}
             title={hands.free ? undefined : localizeUi("game.combat.ruleset.inHand.spent")}
-            value=""
+            value={null}
+            placeholder={localizeUi("game.combat.ruleset.inHand.draw")}
             disabled={busy || !hands.free}
-            onChange={(event) => {
-              const item = Number(event.target.value);
-              if (event.target.value !== "" && Number.isInteger(item)) onDraw(actor.id, item);
+            onChange={(next) => {
+              const item = Number(next);
+              if (next !== "" && Number.isInteger(item)) onDraw(actor.id, item);
             }}
             className="min-h-8 max-w-[11rem] rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 disabled:opacity-60"
-          >
-            <option value="">{localizeUi("game.combat.ruleset.inHand.draw")}</option>
-            {hands.carried.map((one) => (
-              <option key={one.item} value={one.item} disabled={!!one.blockedBy}>
-                {one.blockedBy
-                  ? one.blockedBy.length
-                    ? localizeUi("game.combat.ruleset.inHand.blocked", { item: one.name, by: one.blockedBy.join(", ") })
-                    : localizeUi("game.combat.ruleset.inHand.noRoom", { item: one.name })
-                  : one.name}
-              </option>
-            ))}
-          </select>
+            options={hands.carried.map((one) => ({
+              value: String(one.item),
+              label: one.name,
+              disabledReason: one.blockedBy
+                ? one.blockedBy.length
+                  ? localizeUi("game.combat.ruleset.inHand.blocked", { item: one.name, by: one.blockedBy.join(", ") })
+                  : localizeUi("game.combat.ruleset.inHand.noRoom", { item: one.name })
+                : undefined,
+            }))}
+          />
         )}
       </div>
       {ammo.map((weapon) => (
-        <label key={weapon.weapon} className="flex items-center gap-2">
+        <div key={weapon.weapon} className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">
             {localizeUi("game.combat.ruleset.inHand.ammo", { weapon: weapon.name })}
           </span>
-          <select
-            value={weapon.first}
+          <Select
+            label={localizeUi("game.combat.ruleset.inHand.ammo", { weapon: weapon.name })}
+            value={String(weapon.first)}
             disabled={busy}
-            onChange={(event) => onAmmo(actor.id, weapon.weapon, Number(event.target.value))}
+            onChange={(next) => onAmmo(actor.id, weapon.weapon, Number(next))}
             className="min-h-8 max-w-[11rem] rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 disabled:opacity-60"
-          >
-            {weapon.stacks.map((stack) => (
-              <option key={stack.item} value={stack.item}>
-                {localizeUi("game.combat.ruleset.inHand.ammoStack", { name: stack.name, left: stack.left })}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={weapon.stacks.map((stack) => ({
+              value: String(stack.item),
+              label: localizeUi("game.combat.ruleset.inHand.ammoStack", { name: stack.name, left: stack.left }),
+            }))}
+          />
+        </div>
       ))}
     </section>
   );

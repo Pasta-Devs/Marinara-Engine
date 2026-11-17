@@ -2,6 +2,7 @@ import { type Chat } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
+import { Select } from "../../../components/ui/Select";
 import { useUIStore } from "../../../stores/ui.store";
 import { Settings2, RefreshCw } from "lucide-react";
 import { cn } from "../../../lib/utils";
@@ -57,28 +58,29 @@ export function LorebookKeeperSettings({
         </div>
       </div>
       <div className="grid gap-2 @lg:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+        <div className="flex min-w-0 flex-col gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
           <span className="font-medium text-[var(--foreground)]">
             {localizeUi("ui.chat.agentaddsetupfields.targetLorebook")}
           </span>
-          <select
+          <Select
+            label={localizeUi("ui.chat.agentaddsetupfields.targetLorebook")}
             value={lorebookKeeperTargetLorebookId}
-            onChange={(e) =>
+            options={[
+              { value: "", label: localizeUi("ui.chat.agentaddsetupfields.autoSelectFirstWritableLorebook") },
+              ...((lorebooks ?? []) as Array<{ id: string; name: string }>).map((lorebook) => ({
+                value: lorebook.id,
+                label: lorebook.name,
+              })),
+            ]}
+            onChange={(value) =>
               updateMeta.mutate({
                 id: chat.id,
-                lorebookKeeperTargetLorebookId: e.target.value || null,
+                lorebookKeeperTargetLorebookId: value || null,
               })
             }
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-          >
-            <option value="">{localizeUi("ui.chat.agentaddsetupfields.autoSelectFirstWritableLorebook")}</option>
-            {((lorebooks ?? []) as Array<{ id: string; name: string }>).map((lorebook) => (
-              <option key={lorebook.id} value={lorebook.id}>
-                {lorebook.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
 
         <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
           <span className="font-medium text-[var(--foreground)]">

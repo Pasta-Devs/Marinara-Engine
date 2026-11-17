@@ -38,8 +38,8 @@ import { ProviderIcon } from "./ProviderIcon";
 type Extra = { value: string; label: string };
 
 /** The catalogs do not mark embedding models, so the id decides ("text-embedding-3-small", "bge-m3-embed"…). */
-/** A reason that fits on a row. */
-const short = (text: string) => (text.length > 38 ? `${text.slice(0, 36)}…` : text);
+/** What a tried model's line shows: a short pill, with the full reason one tap away (`detail`). */
+type TriedState = { label: string; state: "off" | "needs_key"; detail?: string };
 
 const isEmbeddingModel = (model: string) => /embed/i.test(model);
 
@@ -111,7 +111,12 @@ function ModelPickerSlot({
       .map((row) => `${row.accountId}|${row.model}`),
   );
   // `accountId|model` → what the Decision test said; a model being tried or turned down shows it on its row.
-  const [tried, setTried] = useState<Record<string, { label: string; state: "off" | "needs_key" }>>({});
+  const [tried, setTried] = useState<Record<string, TriedState>>({});
+  // A failed try's pill: "Error 404" when the reason carries a status code; the whole reason opens from it.
+  const failLabel = (message: string) => {
+    const code = /\((\d{3})\)/.exec(message)?.[1];
+    return { label: code ? t("connections.error.pillCode", { code }) : t("connections.error.pill") };
+  };
   const known = useRef<Set<string> | null>(null);
   // Undo runs later, so it must reach the host's latest setter, not the one this render saw.
   const onChangeRef = useRef(onChange);
@@ -187,7 +192,7 @@ function ModelPickerSlot({
     const model = choice.model ?? anchor?.model;
     if (!account || !model) return false;
     const key = `${account.id}|${model}`;
-    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+    const mark = (next: TriedState | null) =>
       setTried((all) => {
         const { [key]: _drop, ...rest } = all;
         return next ? { ...rest, [key]: next } : rest;
@@ -228,19 +233,26 @@ function ModelPickerSlot({
       const noLogprobs = result.success && result.logprobs === false;
       if (!result.success || noLogprobs) {
         if (!existing) await deleteRow.mutateAsync(id);
+        const message = noLogprobs
+          ? t("connections.decision.noLogprobs")
+          : decisionConnectionTestMessage(t, result).message;
         mark({
-          label: noLogprobs
-            ? t("connections.decision.noLogprobs")
-            : short(decisionConnectionTestMessage(t, result).message),
+          ...(noLogprobs ? { label: message } : failLabel(message)),
           state: "needs_key",
+          detail: message,
         });
         return false;
       }
       mark(null);
       commit(id, choice.name ?? model);
-    } catch {
+    } catch (error) {
       if (!existing && id) await deleteRow.mutateAsync(id).catch(() => undefined);
-      mark({ label: t("connections.decision.errors.network"), state: "needs_key" });
+      const message = error instanceof Error && error.message ? error.message : "";
+      mark({
+        label: t("connections.decision.errors.network"),
+        state: "needs_key",
+        ...(message ? { detail: message } : {}),
+      });
       return false;
     }
   };
@@ -278,10 +290,13 @@ function ModelPickerSlot({
     };
     const all = rows as EmbeddingRow[] | undefined;
     const row = all?.find((item) => item.id === choice.connectionId);
-    const model = choice.model ?? row?.embeddingModel ?? row?.model;
+    // A saved Model keeps "" when it has no embedding model of its own: it then embeds with its own model id.
+    const model = choice.model ?? (row?.embeddingModel?.trim() || row?.model?.trim());
     if (!row || !model) return false;
-    const key = row.accountId ? `${row.accountId}|${model}` : model;
-    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+    // The row's line is keyed by the model it shows: the catalog pick, or the saved Model's own id.
+    const shown = choice.model ?? row.model ?? model;
+    const key = row.accountId ? `${row.accountId}|${shown}` : shown;
+    const mark = (next: TriedState | null) =>
       setTried((tries) => {
         const { [key]: _drop, ...rest } = tries;
         return next ? { ...rest, [key]: next } : rest;
@@ -289,6 +304,8 @@ function ModelPickerSlot({
     mark({ label: t("connections.decision.testing"), state: "off" });
     let id = row.id;
     let before: string | null = row.embeddingModel ?? null;
+    // A catalog pick saves a new Model first; one that cannot embed is removed again, so a failed try adds nothing.
+    let created = false;
     try {
       if (choice.model && row.accountId) {
         const saved = await pickModel.mutateAsync({
@@ -297,19 +314,29 @@ function ModelPickerSlot({
           ...(choice.name ? { name: choice.name } : {}),
         });
         id = saved.connectionId;
-        before = all?.find((item) => item.id === id)?.embeddingModel ?? null;
+        const existing = all?.find((item) => item.id === id);
+        created = !existing;
+        before = existing?.embeddingModel ?? null;
       }
       await updateRow.mutateAsync({ id, embeddingModel: model });
       const result = await testEmbedding.mutateAsync(id);
       if (!result.success) {
-        await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
-        mark({ label: short(result.message) || t("connections.embeddingDefault.failed"), state: "needs_key" });
+        if (created) await deleteRow.mutateAsync(id).catch(() => undefined);
+        else await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
+        const message = result.message?.trim() || t("connections.embeddingDefault.failed");
+        mark({ ...failLabel(message), state: "needs_key", detail: message });
         return false;
       }
       mark(null);
       commit(id, choice.name ?? model);
-    } catch {
-      mark({ label: t("connections.embeddingDefault.failed"), state: "needs_key" });
+    } catch (error) {
+      if (created) await deleteRow.mutateAsync(id).catch(() => undefined);
+      const message = error instanceof Error && error.message ? error.message : "";
+      mark({
+        label: t("connections.embeddingDefault.failed"),
+        state: "needs_key",
+        ...(message ? { detail: message } : {}),
+      });
       return false;
     }
   };

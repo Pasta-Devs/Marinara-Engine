@@ -292,6 +292,8 @@ export function injectIdentityFallbackMessages(args: {
   /** Conversation mode only: enables the opt-in per-card convo display-name line.
    *  Gated so the field never reaches RP/VN/Game prompts. */
   isConversation?: boolean;
+  /** #9427: an impersonated Roleplay turn, so a card with a Public Face sends only it. */
+  impersonatePublicFaces?: boolean;
 }): void {
   const allContent = args.messages.map((message) => message.content).join("\n");
   const promptTemplateSources = args.promptTemplateSources ?? [];
@@ -316,6 +318,19 @@ export function injectIdentityFallbackMessages(args: {
       },
     };
     const resolveCharacterMacros = (value: string) => resolveMacros(value, characterMacroContext);
+    const publicFace = args.impersonatePublicFaces === true ? character.publicFace.trim() : "";
+    if (publicFace) {
+      if (hasNamedProfileBlock(allContent, character.name)) continue;
+      // Only Roleplay without a preset gets here, always in the xml format, so "none" needs no name line.
+      const leaf = sanitizePromptLeaf(resolveCharacterMacros(publicFace), args.wrapFormat).trim();
+      if (leaf) {
+        insertAfterFirstSystemMessage(
+          args.messages,
+          wrapContent(wrapContent(leaf, "public_face", args.wrapFormat, 2), character.name, args.wrapFormat, 1),
+        );
+      }
+      continue;
+    }
     const resolvedFields: Record<CharacterFallbackFieldKey, string> = {
       description: resolveCharacterMacros(character.description),
       personality: resolveCharacterMacros(character.personality),

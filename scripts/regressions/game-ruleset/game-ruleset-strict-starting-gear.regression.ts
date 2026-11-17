@@ -159,6 +159,7 @@ try {
     "lucide-react": `export const Check = 'check', ChevronLeft = 'left', ChevronRight = 'right', Dices = 'dice', Minus = 'minus', Plus = 'plus', Trash2 = 'trash';`,
     "../ui/Modal": `export const Modal = 'modal';`,
     "../ui/Checkbox": `export const Checkbox = 'checkbox';`,
+    "../ui/Select": `export const Select = 'select';`,
     "../../lib/app-dialogs": `export const showConfirmDialog = async () => true;`,
     "./RulesetItemPicker": `export const rulesetItemStatsLine = () => '';`,
     "../../hooks/use-capability-packages": `export const rulesetCatalogQuery = () => ({});`,
