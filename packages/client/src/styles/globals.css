@@ -2156,6 +2156,9 @@
 
 .mari-chrome-segmented {
   display: grid;
+  /* As .mari-chrome-control: a full panel column (Characters' own scroller) must not squeeze the row and its
+     buttons below their height. */
+  flex-shrink: 0;
   min-height: 2.5rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--marinara-chat-chrome-button-border);
@@ -5437,6 +5440,13 @@ strong {
 
 .mari-shell-panel-edge--right::after {
   right: 0;
+}
+
+/* The mirrored top bar (desktop sidebar on the left) has the music players next to Home, on the right: the YouTube
+   video opens under them, away from the sidebar. */
+.mari-topbar[data-sidebar-side="left"] [data-component="YouTubeVideoPanel"][data-video-shown] {
+  left: auto;
+  right: max(0.5rem, var(--mari-safe-area-inset-right));
 }
 
 .mari-shell-panel-slot {

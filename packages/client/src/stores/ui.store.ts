@@ -137,6 +137,13 @@ export function normalizeChatWidgetColor(value: unknown): string {
 export type ConversationMessageStyle = "classic" | "bubble";
 export type ConversationAvatarShape = "circle" | "square";
 export type TrackerPanelSide = "left" | "right";
+/** Which edge of a desktop window the one sidebar (Chats and the panels) docks to; phones and tablets ignore it. */
+export type SidebarSide = "left" | "right";
+
+/** Stale or unknown synced values keep the sidebar on the right. */
+export function normalizeSidebarSide(value: unknown): SidebarSide {
+  return value === "left" ? "left" : "right";
+}
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
 export type TrackerStatDisplayMode = "bars" | "gauges";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
@@ -263,6 +270,9 @@ export const SIDEBAR_WIDTH_MIN = 240;
 export const SIDEBAR_WIDTH_MAX = 480;
 export const RIGHT_PANEL_WIDTH_MIN = 280;
 export const RIGHT_PANEL_WIDTH_MAX = 520;
+/** The one desktop sidebar's width range: both stored widths are kept equal inside it. */
+export const SHARED_SIDEBAR_WIDTH_MIN = Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN);
+export const SHARED_SIDEBAR_WIDTH_MAX = Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX);
 export const TRACKER_PANEL_SIZE_PROFILE_WIDTHS: Record<TrackerPanelSizeProfile, number> = {
   compact: 280,
   standard: 340,
@@ -513,8 +523,9 @@ export function isMobileShellViewport(): boolean {
   mobileShellQuery ??= window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
   if (mobileShellQuery.matches) return true;
   const { sidebarWidth, rightPanelWidth } = useUIStore.getState();
-  // Reserve both docked widths plus room for the topbar controls. Checking
-  // capacity, not open panels, avoids layout flips while switching sidebars.
+  // Reserve twice the sidebar width plus room for the topbar controls, the room the old two docked sidebars
+  // needed, so the switch to the phone layout stays where it was. Checking capacity, not open panels, avoids
+  // layout flips while switching panels.
   return window.innerWidth < 2 * (rightPanelWidth || sidebarWidth) + 384;
 }
 
@@ -734,6 +745,7 @@ export interface UIState {
   rightPanelOpen: boolean;
   rightPanelWidth: number;
   rightPanel: Panel;
+  sidebarSide: SidebarSide;
   trackerPanelEnabled: boolean;
   /** This chat uses the Tracker Panel; its runtime visibility lives in the floating-window store. */
   trackerPanelOpen: boolean;
@@ -1355,6 +1367,7 @@ export interface UIState {
   hideSidebarForFight: (hidden: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
+  setSidebarSide: (side: SidebarSide) => void;
   toggleTrackerPanel: (chatId?: string | null) => void;
   setTrackerPanelEnabled: (enabled: boolean) => void;
   setTrackerPanelOpen: (open: boolean, chatId?: string | null) => void;
@@ -1712,7 +1725,7 @@ function getMobileDetailReturnState(state: UIState) {
 function restoreMobileDetailReturnPanel(panel: Panel | null) {
   return {
     detailReturnRightPanel: null,
-    ...(panel && { rightPanelOpen: true, rightPanel: panel }),
+    ...(panel && { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false }),
   };
 }
 
@@ -1907,6 +1920,7 @@ export function pickSyncedSettings(state: UIState) {
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
     rightPanelWidth: state.rightPanelWidth,
+    sidebarSide: state.sidebarSide,
     trackerPanelEnabled: state.trackerPanelEnabled,
     trackerPanelSide: state.trackerPanelSide,
     trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
@@ -2104,9 +2118,25 @@ export function pickSyncedSettings(state: UIState) {
   };
 }
 
-/** Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. */
-export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight">) {
-  return state.sidebarOpen && !state.sidebarHiddenForFight;
+/**
+ * Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. Chats shares the one
+ * sidebar with the other panels, so an open panel is drawn in its place.
+ */
+export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight" | "rightPanelOpen">) {
+  return state.sidebarOpen && !state.sidebarHiddenForFight && !state.rightPanelOpen;
+}
+
+/** Whether the one sidebar is open, on Chats or on a panel. */
+export function selectOneSidebarOpen(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight" | "rightPanelOpen">) {
+  return state.rightPanelOpen || selectSidebarShown(state);
+}
+
+/** The one sidebar's width: both stored widths are kept equal, the panel's first as it always was. */
+export function selectSharedSidebarWidth(state: Pick<UIState, "sidebarWidth" | "rightPanelWidth">) {
+  return Math.max(
+    SHARED_SIDEBAR_WIDTH_MIN,
+    Math.min(SHARED_SIDEBAR_WIDTH_MAX, state.rightPanelWidth || state.sidebarWidth),
+  );
 }
 
 export function pickPersistedUIState(state: UIState) {
@@ -2118,6 +2148,7 @@ export function pickPersistedUIState(state: UIState) {
     rightPanelOpen: state.rightPanelOpen,
     rightPanelWidth: state.rightPanelWidth,
     rightPanel: state.rightPanel,
+    sidebarSide: state.sidebarSide,
     settingsTab: state.settingsTab,
     characterDetailId: state.characterDetailId,
     lorebookDetailId: state.lorebookDetailId,
@@ -2398,6 +2429,7 @@ export const useUIStore = create<UIState>()(
         rightPanelOpen: false,
         rightPanelWidth: 320,
         rightPanel: "chat" as Panel,
+        sidebarSide: "right" as SidebarSide,
         trackerPanelEnabled: true,
         trackerPanelOpen: false,
         trackerPanelOpenByChatId: {},
@@ -2735,26 +2767,27 @@ export const useUIStore = create<UIState>()(
         impersonateBlockAgents: false,
         impersonatePublicFaces: false,
 
+        // Chats and the panels share one sidebar: opening Chats takes the place of an open panel.
         toggleSidebar: () =>
           set((s) => {
-            const mobile = isMobileShellViewport();
-            const sidebarOpen = !selectSidebarShown(s) || (mobile && s.rightPanelOpen);
+            const sidebarOpen = !selectSidebarShown(s);
             dismissChatFloatingUiForMobilePanel(sidebarOpen);
             return {
               sidebarOpen,
               sidebarHiddenForFight: false,
-              ...(mobile && sidebarOpen ? { rightPanelOpen: false } : {}),
+              ...(sidebarOpen ? { rightPanelOpen: false } : {}),
             };
           }),
         setSidebarOpen: (open) => {
           dismissChatFloatingUiForMobilePanel(open);
-          set({ sidebarOpen: open, sidebarHiddenForFight: false });
+          set({ sidebarOpen: open, sidebarHiddenForFight: false, ...(open ? { rightPanelOpen: false } : {}) });
         },
         hideSidebarForFight: (hidden) => set({ sidebarHiddenForFight: hidden }),
         setSidebarWidth: (width) =>
           set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
         setRightPanelWidth: (width) =>
           set({ rightPanelWidth: Math.max(RIGHT_PANEL_WIDTH_MIN, Math.min(RIGHT_PANEL_WIDTH_MAX, width)) }),
+        setSidebarSide: (side) => set({ sidebarSide: normalizeSidebarSide(side) }),
         toggleTrackerPanel: (chatId) =>
           set((s) => {
             const trackerPanelOpen = s.trackerPanelEnabled ? !s.trackerPanelOpen : false;
@@ -2821,27 +2854,20 @@ export const useUIStore = create<UIState>()(
             return { trackerPanelCollapsedSections: next };
           }),
 
+        // A panel takes the place of Chats in the one sidebar.
         openRightPanel: (panel) =>
           set(() => {
-            const mobile = isMobileShellViewport();
             dismissChatFloatingUiForMobilePanel(true);
-            return {
-              rightPanelOpen: true,
-              rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
-            };
+            return { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false, sidebarHiddenForFight: false };
           }),
-        closeRightPanel: () => set({ rightPanelOpen: false }),
+        // Chats and a panel share the sidebar, so closing the panel closes it, even when a synced sidebarOpen from an
+        // older client or another device arrived beside the panel.
+        closeRightPanel: () => set((s) => (s.rightPanelOpen ? { rightPanelOpen: false, sidebarOpen: false } : {})),
         toggleRightPanel: (panel) =>
           set((s) => {
-            if (s.rightPanelOpen && s.rightPanel === panel) return { rightPanelOpen: false };
-            const mobile = isMobileShellViewport();
+            if (s.rightPanelOpen && s.rightPanel === panel) return { rightPanelOpen: false, sidebarOpen: false };
             dismissChatFloatingUiForMobilePanel(true);
-            return {
-              rightPanelOpen: true,
-              rightPanel: panel,
-              ...(mobile ? { sidebarOpen: false, sidebarHiddenForFight: false } : {}),
-            };
+            return { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false, sidebarHiddenForFight: false };
           }),
 
         setSettingsTab: (tab) => set({ settingsTab: tab }),
@@ -3199,7 +3225,7 @@ export const useUIStore = create<UIState>()(
             ...CLOSED_MAIN_SURFACE,
             mainSurfaceHistory: [],
             sidebarOpen: true,
-            rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+            rightPanelOpen: false,
             editorDirty: false,
             detailReturnRightPanel: null,
             chatSettingsReturn: null,
@@ -3456,6 +3482,7 @@ export const useUIStore = create<UIState>()(
         // Swipe-menu choices intentionally survive appearance resets; only their toggles change them.
         resetAppearanceSettings: () =>
           set({
+            sidebarSide: "right" as SidebarSide,
             trackerPanelEnabled: true,
             trackerPanelOpen: false,
             trackerPanelOpenByChatId: {},
@@ -4387,6 +4414,9 @@ export const useUIStore = create<UIState>()(
           ),
           chatWidgetPreset: normalizeChatWidgetPreset(persisted.chatWidgetPreset),
           roleplayChatPosition: normalizeRoleplayChatPosition(persisted.roleplayChatPosition),
+          sidebarSide: normalizeSidebarSide(persisted.sidebarSide),
+          // One sidebar: a chat list saved open beside a panel (the old two-sidebar layout) gives the panel its place.
+          ...(persisted.rightPanelOpen === true && persisted.sidebarOpen === true ? { sidebarOpen: false } : {}),
           roleplayChatWidthPercent: normalizeRoleplayChatWidthPercent(persisted.roleplayChatWidthPercent),
           chatWidgetFont: normalizeChatWidgetFont(persisted.chatWidgetFont),
           chatWidgetShape: normalizeChatWidgetShape(persisted.chatWidgetShape),

@@ -6,10 +6,10 @@ import {
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
   QUICK_REPLIES_SETTINGS_CONTROL_ID,
   useUIStore,
-  SIDEBAR_WIDTH_MIN,
-  SIDEBAR_WIDTH_MAX,
-  RIGHT_PANEL_WIDTH_MIN,
-  RIGHT_PANEL_WIDTH_MAX,
+  SHARED_SIDEBAR_WIDTH_MIN,
+  SHARED_SIDEBAR_WIDTH_MAX,
+  normalizeSidebarSide,
+  selectSharedSidebarWidth,
   getDefaultAppAccentColor,
   getDefaultChatChromeTextColor,
   getDefaultChatTextColor,
@@ -22,6 +22,7 @@ import {
   type ChatListBackgroundMode,
   type RoleplayAvatarStyle,
   type RoleplayChatPosition,
+  type SidebarSide,
   type TrackerDataPanelSection,
   type TrackerPanelSizeProfile,
   type TrackerStatDisplayMode,
@@ -527,6 +528,7 @@ function formatStorageBytes(bytes: number): string {
 }
 
 const ROLEPLAY_CHAT_POSITIONS: RoleplayChatPosition[] = ["left", "center", "right"];
+const SIDEBAR_SIDES: SidebarSide[] = ["left", "right"];
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
@@ -3378,10 +3380,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const sharedSidebarWidth = useUIStore(selectSharedSidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
-  const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
+  const sidebarSide = useUIStore((state) => state.sidebarSide);
+  const setSidebarSide = useUIStore((state) => state.setSidebarSide);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -3753,16 +3756,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   {localizeUi("settings.appearance.sidebarWidth")}
                 </label>
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("settings.appearance.sidebarWidthHelp")}
+                  {localizeUi("settings.appearance.oneSidebarWidthHelp")}
                 </span>
                 <span className="flex min-w-0 items-center gap-2">
                   <input
                     id="desktop-sidebar-width"
                     type="range"
-                    min={Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN)}
-                    max={Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX)}
+                    min={SHARED_SIDEBAR_WIDTH_MIN}
+                    max={SHARED_SIDEBAR_WIDTH_MAX}
                     step={8}
-                    value={rightPanelWidth || sidebarWidth}
+                    value={sharedSidebarWidth}
                     onChange={(event) => {
                       const width = Number(event.target.value);
                       setSidebarWidth(width);
@@ -3771,7 +3774,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     className="min-w-0 flex-1 accent-[var(--primary)]"
                   />
                   <output className="shrink-0 text-xs tabular-nums">
-                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: rightPanelWidth || sidebarWidth })}
+                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: sharedSidebarWidth })}
                   </output>
                   <button
                     type="button"
@@ -3784,6 +3787,34 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     {localizeUi("settings.appearance.resetSidebarWidth")}
                   </button>
                 </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-2" id={getSettingsControlAnchorId("desktop-sidebar-side")}>
+                <span className="text-xs font-medium">{localizeUi("settings.appearance.sidebarSide")}</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("settings.appearance.sidebarSideHelp")}
+                </span>
+                <div
+                  role="group"
+                  aria-label={localizeUi("settings.appearance.sidebarSide")}
+                  className="grid grid-cols-2 gap-1"
+                >
+                  {SIDEBAR_SIDES.map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      onClick={() => setSidebarSide(side)}
+                      // An unknown synced value shows as Right, which is how the shell treats it.
+                      aria-pressed={normalizeSidebarSide(sidebarSide) === side}
+                      className={SETTINGS_BUTTON_CLASS}
+                    >
+                      {localizeUi(
+                        side === "left"
+                          ? "settings.appearance.sidebarSideLeft"
+                          : "settings.appearance.sidebarSideRight",
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div id={getSettingsControlAnchorId("visual-theme")} className="flex scroll-mt-3 flex-col gap-2">
                 <div className="flex items-center gap-1.5">
@@ -8191,7 +8222,8 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("selected")}
               disabled={selectedScopes.length === 0 || isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              // Accent, not red: these only open the confirm step below, whose Confirm Delete stays red.
+              className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearSelectedData")}
@@ -8200,7 +8232,7 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("all")}
               disabled={isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearAllData")}

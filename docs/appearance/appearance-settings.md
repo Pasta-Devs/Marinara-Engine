@@ -63,7 +63,8 @@ If your device asks for reduced motion, both animations are skipped.
 
 - **Custom Mouse Pointer** (on by default) uses Marinara's accent-colored cursor. Turn it off for your system cursor, or to let a custom theme control it.
 - **Reduce Ambient Animations & Effects** stops decorative animation, ambient particles, rotating previews and gradual text reveal. Marinara also does this when your device asks for reduced motion.
-- **Desktop sidebar width** sets the width of both sidebars on desktop. **Reset width** restores it. Phones keep their layout.
+- **Desktop sidebar width** sets the width of the sidebar on a computer, from 280 to 480 px. **Chats** and the panels, such as **Characters** and **Settings**, all open in this one sidebar. **Reset width** sets it back to 320 px. You can also drag the sidebar's inner edge. Phones and tablets keep their full-screen panels.
+- **Desktop sidebar side** docks the sidebar on the **Right** (the default) or the **Left** of the window. With **Left**, the top bar mirrors: **Chats** and the panel buttons move to the left, and **Home** moves to the right. This works on a computer only. Phones and tablets keep their layout.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ The **Backgrounds** section holds the **Chat Background** picker and **Backgroun
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| **Chat position** | Where messages and the input box sit on wide screens: **Left**, **Center** or **Right**. An open sidebar or a Tracker Panel on the same side moves them along. Phones keep the full width. | **Center** |
+| **Chat position** | Where messages and the input box sit on wide screens: **Left**, **Center** or **Right**. An open sidebar or a Tracker Panel on the same side moves them along (see **Desktop sidebar side**). Phones keep the full width. | **Center** |
 | **Visual Novel display** | Shows one finished paragraph at a time with a dialogue portrait and your sprites. It changes the current Roleplay and the default for chats with no saved style. | Off |
 | **Roleplay Messages Background Opacity** | A 0% to 100% slider. Lower it to let the background show through message bubbles. | 90% |
 | **Roleplay Avatars** | The avatar style beside each message: **None**, **Small Circles**, **Small Rectangles** or **Glued Side Panel**. | **Small Circles** |

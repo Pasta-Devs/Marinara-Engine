@@ -3,7 +3,16 @@
 // Uses CSS animations instead of framer-motion to
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -77,6 +86,58 @@ interface ModalProps {
   backdrop?: "blur" | "dark" | "solid" | "none";
 }
 
+const NO_DOCKED_SIDEBAR = { left: 0, right: 0 };
+
+/**
+ * The docked sidebar's width on each side, measured from the shell's one slot while a modeless dialog is open, so the
+ * dialog stays clear of it frame by frame as it slides or is dragged wider. AppShell's published insets wait for the
+ * slide or drag to pause, because writing them restyles the whole app. In sheet mode (phones, tablets) there is no
+ * slot, so both edges keep their 16px.
+ */
+function useDockedSidebarInset(enabled: boolean) {
+  const [inset, setInset] = useState(NO_DOCKED_SIDEBAR);
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    let slot: HTMLElement | null = null;
+    let frame = 0;
+    const measure = () => {
+      const current = document.querySelector<HTMLElement>('[data-component="SidebarSlot"]');
+      if (current !== slot) {
+        sizes.disconnect();
+        sides.disconnect();
+        if (current) {
+          sizes.observe(current);
+          sides.observe(current, { attributes: true, attributeFilter: ["data-sidebar-side"] });
+        }
+        slot = current;
+      }
+      const width = current ? Math.round(current.getBoundingClientRect().width) : 0;
+      const onLeft = current?.dataset.sidebarSide === "left";
+      setInset((previous) =>
+        previous.left === (onLeft ? width : 0) && previous.right === (onLeft ? 0 : width)
+          ? previous
+          : { left: onLeft ? width : 0, right: onLeft ? 0 : width },
+      );
+    };
+    const sizes = new ResizeObserver(measure);
+    const sides = new MutationObserver(measure);
+    // A window resize can switch the shell between docked and sheet: measure after it has rendered.
+    const onResize = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("resize", onResize);
+    return () => {
+      sizes.disconnect();
+      sides.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [enabled]);
+  return enabled ? inset : NO_DOCKED_SIDEBAR;
+}
+
 export function Modal({
   open,
   onClose,
@@ -109,13 +170,10 @@ export function Modal({
   layer = topLayer ? "omnibar" : "default",
   backdrop = opaque ? "solid" : "blur",
 }: ModalProps) {
-  const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
-  const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
-  const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
-  const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
+  const dockedSidebar = useDockedSidebarInset(modeless);
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
@@ -333,7 +391,7 @@ export function Modal({
       aria-labelledby={labelledBy}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component={dataComponent}
-      className={`mari-modal${backdrop === "solid" ? " mari-modal--opaque" : ""} fixed inset-x-0 top-[var(--mari-visual-viewport-offset-top,0px)] h-[var(--mari-visual-viewport-height,100dvh)] ${layer === "top" ? "z-[calc(var(--mari-layer-omnibar)+1)]" : overOmnibar || layer === "omnibar" ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
+      className={`mari-modal${backdrop === "solid" ? " mari-modal--opaque" : ""} fixed inset-x-0 top-[var(--mari-visual-viewport-offset-top,0px)] h-[var(--mari-visual-viewport-height,100dvh)] ${layer === "top" ? "z-[calc(var(--mari-layer-omnibar)+1)]" : overOmnibar || layer === "omnibar" ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! sm:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -341,8 +399,9 @@ export function Modal({
       style={{
         ...(modeless
           ? ({
-              "--dialog-left": `${sidebarOpen ? sidebarWidth + 16 : 16}px`,
-              "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
+              // A modeless dialog stays clear of the docked sidebar, on whichever side it is (useDockedSidebarInset).
+              "--dialog-left": `${dockedSidebar.left + 16}px`,
+              "--dialog-right": `${dockedSidebar.right + 16}px`,
             } as CSSProperties)
           : {}),
         opacity: backdropShown ? 1 : 0,

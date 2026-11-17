@@ -136,6 +136,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  // Desktop only: with the sidebar docked on the left, the bar mirrors (panel buttons left, Home right).
+  const sidebarOnLeft = useUIStore((s) => s.sidebarSide === "left") && !mobileTopbarNavigation;
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -288,7 +290,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
 
   const clearTopbarHover = useCallback(() => setHoveredTopbarKey(null), []);
 
-  const chatsActive = sidebarOpen && (!mobileTopbarNavigation || !rightPanelOpen);
+  // Chats shares the one sidebar with the panels, so it is shown only while no panel is open.
+  const chatsActive = sidebarOpen;
   const overflowItems: TopbarOverflowItem[] = [
     {
       key: "chats",
@@ -406,7 +409,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
       data-tour="sidebar-toggle"
       data-topbar-hover-key="chats"
       className={cn(
-        TOPBAR_BUTTON_CLASS,
+        // On desktop Chats is the first of the panel buttons, since it opens in the same sidebar.
+        mobileTopbarNavigation ? TOPBAR_BUTTON_CLASS : TOPBAR_PANEL_BUTTON_CLASS,
         // On a phone, Chats is the first row of the menu instead (overflowItems), beside the other panels.
         PHONE_OVERFLOW_HIDDEN_CLASS,
         chatsActive
@@ -471,12 +475,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     <header
       ref={headerRef}
       data-component="TopBar"
+      data-sidebar-side={sidebarOnLeft ? "left" : undefined}
       {...pull.handlers}
       onPointerLeave={clearTopbarHover}
       onPointerOver={handleTopbarPointerOver}
       className={cn(
         "mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--marinara-topbar-surface)] px-3 backdrop-blur-sm",
         mobileTopbarNavigation ? "touch-none" : "select-none",
+        sidebarOnLeft && "flex-row-reverse",
         // A Home package in fullscreen takes the whole screen (HomeBrowserHub).
         homeBrowserFullscreen && "hidden",
       )}
@@ -493,13 +499,15 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         />
       ) : null}
 
-      {/* Left section: window controls + chat info */}
-      <div className="mari-topbar-left flex min-w-0 flex-1 items-center gap-2">
+      {/* Home side (left, or right when the sidebar is docked left): Home + chat info */}
+      <div
+        className={cn("mari-topbar-left flex min-w-0 flex-1 items-center gap-2", sidebarOnLeft && "flex-row-reverse")}
+      >
         <div
           ref={leftControlsRef}
           className="mari-topbar-left-controls mari-rgb-icon-scope flex shrink-0 items-center gap-2"
         >
-          {mobileTopbarNavigation ? [homeButton, chatsButton] : [chatsButton, homeButton]}
+          {mobileTopbarNavigation ? [homeButton, chatsButton] : homeButton}
         </div>
         {musicDjInstalled ? (
           <>
@@ -512,13 +520,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         <CombatTopbarControls />
       </div>
 
-      {/* Right section - Panel toggles */}
+      {/* Panel side: Chats and the panel toggles, on the sidebar's side */}
       <nav
         ref={rightNavRef}
         data-tour="panel-buttons"
         aria-label={localize("Panel navigation")}
         className="mari-topbar-panel-nav mari-rgb-icon-scope flex shrink-0 items-center justify-end gap-0.5 rounded-xl p-1 max-sm:gap-0 max-sm:p-0.5"
       >
+        {mobileTopbarNavigation ? null : chatsButton}
         <button
           onClick={() => handleRightPanelClick("characters")}
           aria-pressed={isCharactersPanelActive}
