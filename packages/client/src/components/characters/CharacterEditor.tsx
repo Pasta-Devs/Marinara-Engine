@@ -75,12 +75,12 @@ import {
   useDeleteCharacterVersion,
   useRenameCharacterVersion,
   useResetCharacterVersions,
+  characterKeys,
   spriteKeys,
   type CharacterCallVideoGenerationInput,
   type CharacterGalleryClip,
   type CharacterGalleryImage,
   type SpriteInfo,
-  characterKeys,
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
 import { CharacterGreetingWand } from "./CharacterGreetingWand";
@@ -134,7 +134,6 @@ import {
   Palette,
   Film,
   Link2,
-  Loader2,
   Swords,
   Dices,
   Crop,
@@ -255,6 +254,7 @@ import { CopyIdLine } from "../overhaul/CopyIdLine";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { CharacterChatButton } from "../overhaul/CharacterChatButton";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 // ── Tabs ──
 const TABS = [
@@ -1873,7 +1873,7 @@ export function CharacterEditor() {
                       useAsReference={formData.extensions.useCharacterSheetAsReference === true}
                       onChange={updateCharacterSheet}
                       saving={saving || updateSheet.isPending}
-                      onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                      onCreateCharacterSheet={() => setGalleryCreateOpen(true)}
                     />
                   }
                   instructions={
@@ -3501,11 +3501,7 @@ function CharacterVersionHistoryPanel({
                 : "ui.cardversionhistory.resetVersioning",
             )}
           >
-            {resetVersions.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <RotateCcw size="0.75rem" />
-            )}
+            {resetVersions.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
             {localizeUi("ui.cardversionhistory.reset")}
           </button>
           <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
@@ -3560,7 +3556,7 @@ function CharacterVersionHistoryPanel({
                     title={localizeUi("ui.cardversionhistory.renameThisSavedVersion")}
                   >
                     {renameVersion.isPending && renameVersion.variables?.versionId === version.id ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
+                      <Spinner size="sm" />
                     ) : (
                       <Pencil size="0.75rem" />
                     )}
@@ -3572,11 +3568,7 @@ function CharacterVersionHistoryPanel({
                     className="mari-editor-action mari-editor-action--compact inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.characters.characterversionhistorypanel.restoreThisVersion")}
                   >
-                    {restoreVersion.isPending ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
-                    ) : (
-                      <RotateCcw size="0.75rem" />
-                    )}
+                    {restoreVersion.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                   </button>
                   <button
                     type="button"
@@ -3586,7 +3578,7 @@ function CharacterVersionHistoryPanel({
                     title={localizeUi("ui.characters.characterversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
-                      <Loader2 size="0.75rem" className="animate-spin" />
+                      <Spinner size="sm" />
                     ) : (
                       <Trash2 size="0.75rem" />
                     )}
@@ -3684,11 +3676,7 @@ function CharacterVersionHistoryPanel({
                 disabled={restoreVersion.isPending}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {restoreVersion.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <RotateCcw size="0.75rem" />
-                )}
+                {restoreVersion.isPending ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                 {localizeUi("ui.characters.characterversionhistorypanel.restoreThisVersion")}
               </button>
             </div>
@@ -3856,11 +3844,7 @@ function DialogueTab({
                 disabled={bakeImages.isPending}
                 className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {bakeImages.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <ImageDown size="0.75rem" />
-                )}
+                {bakeImages.isPending ? <Spinner size="sm" /> : <ImageDown size="0.75rem" />}
                 {bakeImages.isPending
                   ? localizeUi("ui.characters.dialoguetab.savingGreetingImages")
                   : localizeUi("ui.characters.dialoguetab.saveGreetingImages")}
@@ -4817,14 +4801,10 @@ function CharacterGalleryTab({
                             type="button"
                             onClick={() => void handleSetAvatar(image)}
                             disabled={setAvatar.isPending}
-                            className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25 disabled:opacity-50"
+                            className="inline-flex items-center justify-center rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25 disabled:opacity-50"
                             title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
                           >
-                            {setAvatar.isPending ? (
-                              <Loader2 size="0.75rem" className="animate-spin" />
-                            ) : (
-                              <User size="0.75rem" />
-                            )}
+                            {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.75rem" />}
                           </button>
                         </>
                       ) : null}
@@ -4911,10 +4891,10 @@ function CharacterGalleryTab({
                 type="button"
                 onClick={() => void handleSetAvatar(lightbox)}
                 disabled={setAvatar.isPending}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
                 title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
               >
-                {setAvatar.isPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <User size="0.875rem" />}
+                {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
               </button>
               <ImageDownloadButton
                 url={lightbox.url}
@@ -5296,7 +5276,7 @@ function CharacterCallClipsGallery({ characterId, characterName }: { characterId
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {uploadClip.isPending && uploadingClipId === "custom-call:upload" ? (
-              <Loader2 size="0.85rem" className="animate-spin" />
+              <Spinner size="sm" />
             ) : (
               <Upload size="0.85rem" />
             )}
@@ -5308,7 +5288,7 @@ function CharacterCallClipsGallery({ characterId, characterName }: { characterId
             disabled={generationLockActive}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {batchGenerationPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Wand2 size="0.85rem" />}
+            {batchGenerationPending ? <Spinner size="sm" /> : <Wand2 size="0.85rem" />}
             {batchGenerationPending
               ? localizeUi("ui.characters.charactercallclipsgallery.generating")
               : localizeUi("ui.characters.charactercallclipsgallery.generateClips")}
@@ -5487,7 +5467,7 @@ function CharacterClipTrimModal({
       footer={
         <>
           <button type="button" onClick={handleSave} disabled={saving || !canSave} className={SHEET_BUTTON_PRIMARY}>
-            {saving ? <Loader2 size="0.85rem" className="animate-spin" /> : <Scissors size="0.85rem" />}
+            {saving ? <Spinner size="sm" /> : <Scissors size="0.85rem" />}
             {localizeUi("ui.characters.charactercliptrimmodal.saveTrim")}
           </button>
           <button type="button" onClick={handleReset} className={SHEET_BUTTON_SECONDARY}>
@@ -5616,7 +5596,7 @@ function CharacterClipCard({
           <div className="absolute inset-0">
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
               {clip.status === "generating" ? (
-                <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
+                <Spinner size="lg" className="text-[var(--primary)]" />
               ) : clip.status === "error" ? (
                 <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
               ) : (
@@ -5638,7 +5618,7 @@ function CharacterClipCard({
                       value1: clip.label || localizeUi("ui.characters.characterclipcard.callClip"),
                     })}
                   >
-                    {generating ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wand2 size="0.75rem" />}
+                    {generating ? <Spinner size="sm" /> : <Wand2 size="0.75rem" />}
                     <span>{localizeUi("ui.characters.characterclipcard.generate")}</span>
                   </button>
                 ) : null}
@@ -5652,7 +5632,7 @@ function CharacterClipCard({
                       value1: clip.label || localizeUi("ui.characters.characterclipcard.callClip"),
                     })}
                   >
-                    {uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+                    {uploading ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
                     <span>{localizeUi("ui.characters.characterclipcard.upload")}</span>
                   </button>
                 ) : null}
@@ -5703,13 +5683,13 @@ function CharacterClipCard({
                 type="button"
                 onClick={() => onUpload(clip)}
                 disabled={uploading || uploadDisabled || generationDisabled}
-                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 title={localizeUi("ui.characters.characterclipcard.uploadReplacement")}
                 aria-label={localizeUi("ui.characters.characterclipcard.uploadReplacementForValue1", {
                   value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
                 })}
               >
-                {uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+                {uploading ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
               </button>
             ) : null}
             {isReady && clip.url ? (
@@ -5727,13 +5707,13 @@ function CharacterClipCard({
                 type="button"
                 onClick={() => void onDelete(clip)}
                 disabled={deleting}
-                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 title={localizeUi("lorebook.editor.batch.delete")}
                 aria-label={localizeUi("ui.characters.characterclipcard.deleteValue1", {
                   value1: clip.label || localizeUi("ui.panels.ttsconfigcard.clip"),
                 })}
               >
-                {deleting ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+                {deleting ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
               </button>
             ) : null}
           </div>
@@ -6419,7 +6399,7 @@ function SpritesTab({
 
         {folderProgress && (
           <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size={14} className="animate-spin" />
+            <Spinner size="sm" />
             {localizeUi("ui.noodle.noodleprofilesurface.uploading_de27240")} {folderProgress.done}/
             {folderProgress.total}
           </p>
@@ -6480,7 +6460,7 @@ function SpritesTab({
         )}
         {cleaningSprites && (
           <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size={14} className="animate-spin" />
+            <Spinner size="sm" />
             {localizeUi("ui.characters.spritestab.applyingAutomaticMatteCleanupToSavedSprites")}
           </p>
         )}
@@ -6709,7 +6689,7 @@ function SpritesTab({
                   disabled={!!deletingSprites}
                   className={SHEET_BUTTON_DESTRUCTIVE}
                 >
-                  {deletingSprites === "single" && <Loader2 size="0.875rem" className="animate-spin" />}
+                  {deletingSprites === "single" && <Spinner size="sm" />}
                   {localizeUi("ui.personas.personaspritestab.deleteSprite")}
                 </button>
                 <button
@@ -7233,7 +7213,7 @@ function LorebookTab({
       }>(`/characters/${characterId}/embedded-lorebook/import`);
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       if (result.lorebookId) {
-        qc.invalidateQueries({ queryKey: ["characters", "detail", characterId] });
+        qc.invalidateQueries({ queryKey: characterKeys.detail(characterId) });
       }
       toast.success(
         result.reimported
@@ -7276,7 +7256,7 @@ function LorebookTab({
       // Reconcile the editor (patches formData when dirty) then refresh caches so
       // the tab, entries list, and Embedded badge update from server state.
       onUnembed?.();
-      qc.invalidateQueries({ queryKey: ["characters", "detail", characterId] });
+      qc.invalidateQueries({ queryKey: characterKeys.detail(characterId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       toast.success(localizeUi("ui.characters.lorebooktab.removedTheEmbeddedLorebookFromTheCard"));
     } catch (error) {
@@ -7319,7 +7299,7 @@ function LorebookTab({
                 : "bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/25",
             )}
           >
-            {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <Library size="0.75rem" />}
+            {importing ? <Spinner size="sm" /> : <Library size="0.75rem" />}
             {linkedLorebookId
               ? localizeUi("ui.characters.lorebooktab.reimportEmbeddedLorebook")
               : localizeUi("ui.characters.lorebooktab.importEmbeddedLorebook")}
@@ -7369,7 +7349,7 @@ function LorebookTab({
                 : localizeUi("ui.characters.lorebooktab.removeTheEmbeddedLorebookDataCharacterBookFromThe")
             }
           >
-            {removing || embedding ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+            {removing || embedding ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
             {localizeUi("ui.characters.lorebooktab.removeFromCard")}
           </button>
           <span className="text-[0.6875rem] text-[var(--muted-foreground)]">

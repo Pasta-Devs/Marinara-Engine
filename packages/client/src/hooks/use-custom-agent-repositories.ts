@@ -6,6 +6,7 @@ import type {
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { capabilityPackageKeys } from "./use-capability-packages";
+import { agentKeys } from "./use-agents";
 
 const customAgentRepositoryKeys = {
   all: ["custom-agent-repositories"] as const,
@@ -25,7 +26,7 @@ function useInvalidateCustomAgentRepositories() {
   return async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: customAgentRepositoryKeys.all }),
-      queryClient.invalidateQueries({ queryKey: ["agents"] }),
+      queryClient.invalidateQueries({ queryKey: agentKeys.all }),
       // A repository may also carry Game Mode rulesets, which the wizard and the Agents panel read
       // from the installed-rulesets query.
       queryClient.invalidateQueries({ queryKey: capabilityPackageKeys.all }),

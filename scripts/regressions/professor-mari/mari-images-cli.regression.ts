@@ -2,7 +2,7 @@
 // gallery row, only a manifest entry), and her prompt goes to the image model as written unless she asks for a style
 // profile, in which case the result shows what the profile added.
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
@@ -119,7 +119,7 @@ try {
 
   // 1. The URL a generated preview asset returns serves the image.
   const generated = (await images("generate", "--prompt", "a castle above a lake at dusk")) as {
-    asset: { url: string; filename: string };
+    asset: { id: string; url: string; filename: string };
   };
   const served = await app.inject(generated.asset.url);
   assert.equal(served.statusCode, 200, `preview asset URL ${generated.asset.url} loads`);
@@ -252,6 +252,57 @@ try {
   const full = (await images("styles", "house")) as { perImageTags: Record<string, string>; positiveTags: string };
   assert.equal(full.perImageTags.avatar, "portrait, upper body, dynamic pose");
   assert.ok(full.positiveTags.endsWith("house tag 39"), "the full profile is not cut");
+
+  // 5b. #9342 look: the pictures ride on `images` (scaled to fit 1024, or 512 with --detail low), the output only
+  // names them, transparency survives, an app URL resolves like --source, and bad calls are refused whole.
+  const look = async (...args: string[]) => {
+    const result = await mari.executeCli({ argv: ["images", ...args], sessionId: "mari-images-cli" });
+    assert.equal(result.ok, true, `mari images ${args.join(" ")}\n${JSON.stringify(result).slice(0, 2000)}`);
+    return result as typeof result & { images: string[]; output: { looked: Array<Record<string, unknown>> } };
+  };
+  const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
+  const sharp = await getSharp();
+  const wide = await sharp({ create: { width: 2000, height: 1000, channels: 3, background: "#3366aa" } })
+    .png()
+    .toBuffer();
+  const wideUrl = `data:image/png;base64,${wide.toString("base64")}`;
+  const seen = await look("look", wideUrl, generated.asset.id);
+  assert.equal(seen.images.length, 2);
+  assert.match(seen.images[0]!, /^data:image\/jpeg;base64,/, "an opaque picture goes out as JPEG");
+  const sentMeta = await sharp(Buffer.from(seen.images[0]!.split(",")[1]!, "base64")).metadata();
+  assert.deepEqual([sentMeta.width, sentMeta.height], [1024, 512], "scaled to fit 1024 on the long side");
+  assert.deepEqual(seen.output.looked[0], {
+    image: 1,
+    ref: "data-url",
+    label: "data-url",
+    original: "2000x1000",
+    sent: "1024x512",
+  });
+  assert.equal(seen.output.looked[1]!.label, `asset:${generated.asset.id}`);
+  // Small pictures (stickers, weather sprites) are enlarged so their outlines and edge colours can be judged.
+  assert.equal(seen.output.looked[1]!.sent, "384x384", "a tiny picture is shown enlarged");
+  assert.ok(!JSON.stringify(seen.output).includes("base64,"), "the text output never carries pixels");
+  const low = await look("view", wideUrl, "--detail", "low");
+  assert.equal(low.output.looked[0]!.sent, "512x256", "view is look, --detail low fits 512");
+  const transparent = await sharp({
+    create: { width: 10, height: 10, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .png()
+    .toBuffer();
+  const backgroundsDir = join(root, "backgrounds");
+  mkdirSync(backgroundsDir, { recursive: true });
+  writeFileSync(join(backgroundsDir, "glass.png"), transparent);
+  const alpha = await look("look", "/api/backgrounds/file/glass.png");
+  assert.match(alpha.images[0]!, /^data:image\/png;base64,/, "a transparent picture stays PNG");
+  assert.equal(alpha.output.looked[0]!.label, "background:glass.png");
+  const byTarget = await look("look", "--target", "asset", "--asset", generated.asset.id);
+  assert.equal(byTarget.images.length, 1, "--target asset --asset names one picture, not two");
+  assert.match(await refused("look"), /Usage: mari images look/);
+  assert.match(await refused("look", "a", "b", "c", "d", "e"), /at most 4 images/);
+  assert.match(await refused("look", wideUrl, "--detail", "huge"), /--detail takes low or high/);
+  const partlyBad = await mari.executeCli({ argv: ["images", "look", wideUrl, "no-such-asset.png"], sessionId: "x" });
+  assert.equal(partlyBad.ok, false, "one bad ref fails the whole call");
+  assert.equal(partlyBad.images, undefined, "a failed look sends no pictures");
 
   // 6. Every subcommand and flag a handbook or Mari's system prompt uses with `mari images` is in the help text, so the
   // two cannot drift apart (as #9326 checks for app_data arguments).

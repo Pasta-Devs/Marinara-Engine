@@ -2,7 +2,7 @@
 // ConnectionAccountEditor — picture, name, address, key, models and shared limits for one Connection
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, ChevronRight, Loader2, Trash2, Wifi } from "lucide-react";
+import { Camera, ChevronRight, Trash2, Wifi } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -45,6 +45,7 @@ import { OvToggle } from "../overhaul/LoreEntryParts";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { starAnchorOf } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
+import { Spinner } from "../ui/Spinner";
 
 type Draft = {
   name: string;
@@ -430,7 +431,7 @@ export function ConnectionAccountEditor({
     <>
       {!account || !draft ? (
         <p className="text-xs text-[var(--muted-foreground)]">
-          {isLoading ? <Loader2 size="0.875rem" className="animate-spin" /> : t("connections.accounts.editor.notFound")}
+          {isLoading ? <Spinner size="sm" /> : t("connections.accounts.editor.notFound")}
         </p>
       ) : (
         <div className="flex flex-col gap-4">
@@ -491,7 +492,7 @@ export function ConnectionAccountEditor({
                 disabled={!testRow || test.isPending}
                 className="mari-chrome-control px-3"
               >
-                {test.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wifi size="0.75rem" />}
+                {test.isPending ? <Spinner size="sm" /> : <Wifi size="0.75rem" />}
                 {t("connections.accounts.editor.test")}
               </button>
               <p
@@ -668,7 +669,7 @@ export function ConnectionAccountEditor({
                   disabled={!dirty || update.isPending}
                   className="mari-chrome-control mari-chrome-control--primary"
                 >
-                  {update.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+                  {update.isPending && <Spinner size="sm" />}
                   {t("connections.accounts.editor.save")}
                 </button>
               </div>

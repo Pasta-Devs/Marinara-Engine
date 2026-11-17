@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ImagePlus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useIsMutating } from "@tanstack/react-query";
 import { MAX_LOREBOOK_ENTRY_IMAGES, type LorebookEntryImage } from "@marinara-engine/shared";
 import { lorebookKeys, useUpdateLorebookEntry, useUploadLorebookEntryImage } from "../../hooks/use-lorebooks";
+import { Spinner } from "../ui/Spinner";
 
 export function LorebookEntryImages({
   lorebookId,
@@ -214,11 +215,7 @@ export function LorebookEntryImages({
                 onClick={() => inputRef.current?.click()}
                 className="mari-editor-field flex min-h-11 items-center gap-2 px-3 text-xs disabled:opacity-50"
               >
-                {busy ? (
-                  <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                ) : (
-                  <ImagePlus size={16} aria-hidden="true" />
-                )}
+                {busy ? <Spinner size="md" aria-hidden="true" /> : <ImagePlus size={16} aria-hidden="true" />}
                 {t("ui.lorebooks.expandeddrawer.addImage")}
               </button>
               <button

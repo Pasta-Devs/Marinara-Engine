@@ -12,6 +12,7 @@ import {
 } from "../../components/panels/settings/SettingControls";
 import { ChatModeSelectorModal, type ChatLaunchMode } from "../../components/chat/ChatModeSelectorModal";
 import { MultiplayerPersonaFields, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 export function MultiplayerSettings() {
   const { t: localizeUi } = useUiTranslation();
@@ -60,12 +61,7 @@ export function MultiplayerSettings() {
             <p className="text-xs leading-relaxed">{t("multiplayer.warning")}</p>
             {!status.data.enabled && (
               <label className="flex items-start gap-2 text-xs leading-relaxed">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={consent}
-                  onChange={(event) => setConsent(event.target.checked)}
-                />
+                <Checkbox className="mt-0.5" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
                 {t("multiplayer.consent")}
               </label>
             )}
@@ -221,12 +217,7 @@ function MultiplayerJoin() {
           />
           <MultiplayerPersonaFields value={persona} onChange={setPersona} game={preview.data.mode === "game"} />
           <label className="flex items-start gap-2 text-xs leading-relaxed">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={consent}
-              onChange={(event) => setConsent(event.target.checked)}
-            />
+            <Checkbox className="mt-0.5" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
             {t("multiplayer.joinConsent")}
           </label>
           <button

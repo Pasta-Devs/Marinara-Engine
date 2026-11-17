@@ -157,6 +157,7 @@ const { executeAgent, executeAgentBatch } =
 const { resolveAgentPipelineAgents } =
   await import("../../../packages/server/src/services/generation/agent-resolution.js");
 const { OpenAIProvider } = await import("../../../packages/server/src/services/llm/providers/openai.provider.js");
+const { runNamedCases } = await import("../fixtures/named-cases.js");
 const { ConnectionFallbackProvider } =
   await import("../../../packages/server/src/services/llm/connection-fallback-provider.js");
 const { writeManualIllustratorPromptPlan } =
@@ -307,6 +308,37 @@ let db: Awaited<ReturnType<typeof getDB>> | null = null;
 try {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+
+  await runNamedCases([
+    {
+      name: "NanoGPT sends MiniMax M3.1 Flash reasoning effort and respects its Send switch",
+      async run() {
+        const provider = new OpenAIProvider(`${base}/v1`, "fixture-key", undefined, null, null, "nanogpt");
+        const model = "minimax/minimax-m3.1-flash";
+        const messages = [{ role: "user" as const, content: "Write an illustration prompt." }];
+        await provider.chatComplete(messages, { model, reasoningEffort: "low" });
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "low");
+
+        for await (const _chunk of provider.chat(messages, { model: `${model}:tensorix`, reasoningEffort: "xhigh" })) {
+          // Drain the response.
+        }
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "xhigh");
+
+        await provider.chatComplete(messages, { model, reasoningEffort: "none" });
+        assert.equal(requests.at(-1)?.body.reasoning_effort, "low");
+
+        await provider.chatComplete(messages, { model });
+        assert.equal(Object.hasOwn(requests.at(-1)!.body, "reasoning_effort"), false);
+
+        await provider.chatComplete(messages, {
+          model,
+          reasoningEffort: "low",
+          enabledParameters: { reasoningEffort: false },
+        });
+        assert.equal(Object.hasOwn(requests.at(-1)!.body, "reasoning_effort"), false);
+      },
+    },
+  ]);
 
   // ── OpenAI-compatible (custom endpoint): JSON and text agents send the tuned connection ─────────────────────────
   {
@@ -629,8 +661,10 @@ try {
       "none",
       "a JSON tool agent still asks for none when nothing is saved",
     );
-    for (const body of [...unset.laneBodies, unset.illustratorBody]) {
-      assert.equal("reasoning_effort" in body, false, "lanes and the prompt writer leave reasoning alone when unset");
+    assert.equal(unset.illustratorBody.reasoning_effort, "none", "manual Illustrator uses the JSON agent default");
+    assert.equal(unset.illustratorBody.max_tokens, 1000);
+    for (const body of unset.laneBodies) {
+      assert.equal("reasoning_effort" in body, false, "Beholder lanes leave reasoning alone when unset");
       assert.equal(body.max_tokens, 1000, "and add no thinking room");
     }
 
@@ -679,6 +713,27 @@ try {
     const fallbackBody = requests.at(-1)!.body;
     assert.deepEqual(fallbackBody.messages, smallBody.messages, "fallback thinking room never truncates the prompt");
     assert.equal(fallbackBody.max_tokens, smallBody.max_tokens, "thinking room respects the smaller fallback");
+
+    const glmFallback = {
+      ...fallbackConnection,
+      provider: "nanogpt",
+      model: "zai-org/glm-5.3-flash",
+      defaultParameters: { reasoningEffort: "low" },
+    };
+    await writeManualIllustratorPromptPlan({
+      illustratorAgent: {
+        ...fallbackAgent,
+        provider: new ConnectionFallbackProvider(
+          primary,
+          new OpenAIProvider(`${base}/v1`, "fixture-key", SMALL_CONTEXT, null, null, "nanogpt"),
+          glmFallback,
+          "agents",
+        ),
+      },
+      context,
+    });
+    assert.equal(requests.at(-1)?.body.model, glmFallback.model);
+    assert.equal(requests.at(-1)?.body.reasoning_effort, "low", "GLM uses the fallback connection's saved level");
 
     for (const [primaryContext, fallbackContext, expected] of [
       [200_000, SMALL_CONTEXT, SMALL_CONTEXT],

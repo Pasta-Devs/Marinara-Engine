@@ -62,7 +62,7 @@ for (const theme of ["dark", "light"] as const) {
       });
     await page.goto("/");
     await open();
-    const toggle = page.getByRole("checkbox", { name: "Save generated images as WebP", exact: true });
+    const toggle = page.getByRole("switch", { name: "Save generated images as WebP", exact: true });
     await expect(toggle).not.toBeChecked();
     await page.getByText("Overall Generations", { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("png-default.png"), animations: "disabled" });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crop, Loader2, RotateCcw, X } from "lucide-react";
+import { Crop, RotateCcw, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "./Spinner";
 
 interface SpriteFrameAdjustments {
   top: number;
@@ -221,7 +222,7 @@ export function SpriteFrameEditor({ imageUrl, label, applying = false, onApply, 
               disabled={busy}
               className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Crop size="0.75rem" />}
+              {busy ? <Spinner size="sm" /> : <Crop size="0.75rem" />}
               {localizeUi("ui.ui.spriteframeeditor.applyFrame")}
             </button>
           </div>

@@ -109,6 +109,7 @@ import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../..
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import { ProfilesSection } from "./ProfilesSection";
+import { Checkbox } from "../ui/Checkbox";
 
 type PresetRow = {
   id: string;
@@ -1297,8 +1298,7 @@ export function PresetsPanel() {
       <div className="flex flex-col gap-1">
         {selectionMode && (
           <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={sortedPresets.length > 0 && sortedPresets.every((preset) => selectedPresetIds.has(preset.id))}
               disabled={exportingSelected || sortedPresets.length === 0}
               onChange={(event) =>
@@ -1853,8 +1853,7 @@ function RegexSection({
       >
         {selectionMode ? (
           <label className="flex min-h-11 w-6 shrink-0 cursor-pointer items-center justify-center">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selectedIds.has(script.id)}
               disabled={busy}
               onChange={() => toggleSelection(script.id)}
@@ -2076,8 +2075,7 @@ function RegexSection({
         {regexImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{regexImportSuccess}</div>}
         {selectionMode && (
           <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={visibleScripts.length > 0 && visibleScripts.every((script) => selectedIds.has(script.id))}
               disabled={busy}
               onChange={(event) =>
@@ -2371,8 +2369,7 @@ function FunctionsSection({
       >
         {selectionMode ? (
           <label className="flex min-h-11 w-6 shrink-0 cursor-pointer items-center justify-center">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selectedIds.has(tool.id)}
               disabled={busy}
               onChange={() => toggleSelection(tool.id)}
@@ -2663,8 +2660,7 @@ function FunctionsSection({
         )}
         {selectionMode && (
           <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={visibleTools.length > 0 && visibleTools.every((tool) => selectedIds.has(tool.id))}
               disabled={busy}
               onChange={(event) =>

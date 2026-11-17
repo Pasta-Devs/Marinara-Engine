@@ -51,6 +51,7 @@ import {
   type GameAssetSelectionStatus,
 } from "../../lib/game-asset-selection";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "../ui/Checkbox";
 
 const PROTECTED_PATHS = new Set(["", "music", "sfx", "ambient", "sprites", "backgrounds"]);
 
@@ -1141,8 +1142,7 @@ export function GameAssetsBrowserView({
                             {itemCount !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}.
                           </p>
                           <label className="mt-2 flex items-center gap-2">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={deleteRecursive}
                               onChange={(e) => setDeleteRecursive(e.target.checked)}
                               className="rounded border-[var(--border)]"

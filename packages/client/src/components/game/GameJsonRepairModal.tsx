@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Braces, CheckCircle2, Loader2, Wand2 } from "lucide-react";
+import { AlertTriangle, Braces, CheckCircle2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, type JsonRepairRequest } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
@@ -7,6 +7,7 @@ import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 type GameJsonRepairModalProps = {
   request: JsonRepairRequest | null;
@@ -92,7 +93,7 @@ export function GameJsonRepairModal({ request, onClose, onApplied }: GameJsonRep
             disabled={!validation.valid || isApplying}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {isApplying ? <Loader2 size="0.95rem" className="animate-spin" /> : <CheckCircle2 size="0.95rem" />}
+            {isApplying ? <Spinner size="md" /> : <CheckCircle2 size="0.95rem" />}
             {localizeUi("ui.game.gamejsonrepairmodal.applyRepairedJson")}
           </button>
           <button

@@ -10,7 +10,6 @@ import {
   Download,
   Layers,
   ListChecks,
-  Loader2,
   Trash2,
   X,
 } from "lucide-react";
@@ -31,6 +30,7 @@ import { parseChatMetadata } from "../../lib/chat-display";
 import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
+import { Spinner } from "../ui/Spinner";
 
 const loadChatSettingsDrawer = async () => {
   const module = await import("../../features/chat-settings/ChatSettingsDrawer");
@@ -518,7 +518,7 @@ function ChatSettingsLoadingFallback({
       bodyRef={bodyRef}
       presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
       title={localizeUi("chat.toolbar.settings")}
-      titleIcon={<Loader2 size="0.8125rem" className="mari-chrome-accent-icon shrink-0 animate-spin" />}
+      titleIcon={<Spinner size="sm" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
       {...windowProps}
       className={cn(

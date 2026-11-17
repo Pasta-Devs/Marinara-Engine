@@ -77,6 +77,8 @@ export const characterKeys = {
   detail: (id: string) => [...characterKeys.all, "detail", id] as const,
   versions: (id: string) => [...characterKeys.detail(id), "versions"] as const,
   gallery: (id: string) => [...characterKeys.all, "gallery", id] as const,
+  /** Every character's pictures labeled "background" (the background library's All characters). */
+  galleryBackgrounds: () => [...characterKeys.all, "gallery-backgrounds"] as const,
   galleryClips: (id: string) => [...characterKeys.all, "gallery", id, "clips"] as const,
   personaGallery: (id: string) => ["persona-gallery", id] as const,
   personaGalleryClips: (id: string) => ["persona-gallery", id, "clips"] as const,
@@ -243,12 +245,19 @@ export function useCharacterListRows(options: { enabled?: boolean; includeBuiltI
   const includeBuiltIn = options.includeBuiltIn === true;
   return useQuery({
     queryKey: [...characterKeys.list(), "catalog", "rows", includeBuiltIn] as const,
-    queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ view: "summary" });
-      if (includeBuiltIn) params.set("includeBuiltIn", "true");
-      const page = await api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
-      return page.items.map(catalogEntryToCharacterRow);
-    },
+    // Drains every catalog page: one page holds at most LIBRARY_PAGE_SIZE characters.
+    queryFn: async ({ signal }) =>
+      (
+        await collectAllPaginatedItems<CharacterCatalogSummaryEntry>((offset) => {
+          const params = new URLSearchParams({
+            view: "summary",
+            limit: String(LIBRARY_PAGE_SIZE),
+            offset: String(offset),
+          });
+          if (includeBuiltIn) params.set("includeBuiltIn", "true");
+          return api.get<CharacterCatalogSummaryPage>(`/characters/catalog?${params.toString()}`, { signal });
+        })
+      ).map(catalogEntryToCharacterRow),
     enabled: options.enabled ?? true,
     staleTime: 5 * 60_000,
   });
@@ -1150,6 +1159,7 @@ export function useUploadCharacterGalleryImage(characterId: string) {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1190,6 +1200,7 @@ export function useBakeCharacterGalleryImages(characterId: string) {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1200,6 +1211,7 @@ export function useDeleteCharacterGalleryImage(characterId: string) {
     mutationFn: (imageId: string) => api.delete(`/characters/${characterId}/gallery/${imageId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }
@@ -1223,6 +1235,7 @@ export function useTagCharacterGalleryImage(characterId: string) {
       api.patch<CharacterGalleryImage>(`/characters/${characterId}/gallery/${imageId}/tag`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.gallery(characterId) });
+      qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
     },
   });
 }

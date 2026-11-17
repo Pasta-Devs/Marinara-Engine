@@ -77,7 +77,7 @@ test("Roleplay messages color the persona's names, and the persona switch turns 
 
     const settings = await openChatSettings(page);
     const section = settings.locator('[data-chat-settings-section="roleplay-persona"]');
-    const toggle = section.getByRole("checkbox", { name: "Color Persona Name in Text" });
+    const toggle = section.getByRole("switch", { name: "Color Persona Name in Text" });
     await expect(toggle).toBeChecked();
     await section.screenshot({ path: testInfo.outputPath("persona-section.png"), animations: "disabled" });
     await section.getByText("Color Persona Name in Text", { exact: true }).click();

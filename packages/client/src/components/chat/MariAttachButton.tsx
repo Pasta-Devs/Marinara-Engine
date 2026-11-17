@@ -4,11 +4,12 @@
 // (anchored div + outside-click + in-dialog focus scope), matching the surrounding composer code.
 // It doubles as the index of what she can do: Attach, the `@` link, and her commands (the `/` menu's list).
 import { useEffect, useRef, useState } from "react";
-import { AtSign, Layers, Loader2, MessageSquareText, Paperclip } from "lucide-react";
+import { AtSign, Layers, MessageSquareText, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
 import { MARI_COMMANDS, type MariCommandId } from "../../lib/mari-commands";
 import { MariRow } from "./mari-primitives";
+import { Spinner } from "../ui/Spinner";
 
 /** Attach already holds these two, so the Mari section leaves them out. */
 const ATTACH_SECTION_COMMANDS: readonly MariCommandId[] = ["attach", "context"];
@@ -86,11 +87,7 @@ export function MariAttachButton({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {isReading ? (
-          <Loader2 className="animate-spin" aria-hidden="true" />
-        ) : (
-          <Paperclip strokeWidth={1.75} aria-hidden="true" />
-        )}
+        {isReading ? <Spinner size="lg" aria-hidden="true" /> : <Paperclip strokeWidth={1.75} aria-hidden="true" />}
       </button>
 
       {open && (

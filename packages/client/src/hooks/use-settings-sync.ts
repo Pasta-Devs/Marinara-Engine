@@ -85,6 +85,11 @@ const LOCAL_ONLY_SETTING_KEYS = [
   "rightPanelWidth",
   // Phone swipe gestures are a habit of the hand holding that phone.
   "swipeGestures",
+  // Send on Enter depends on the device's keyboard: a phone wants Enter for new lines, a PC wants it to send.
+  "enterToSendRP",
+  "enterToSendConvo",
+  "enterToSendGame",
+  "enterToSendProfessorMari",
 ] as const;
 
 export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {

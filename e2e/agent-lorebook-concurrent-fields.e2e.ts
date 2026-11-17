@@ -95,7 +95,7 @@ for (const theme of ["dark", "light"] as const) {
         const drawer = drawerToggle(chatSettingsDrawer(page, "agents"));
         if ((await drawer.getAttribute("aria-expanded")) !== "true") await drawer.click();
         const attachment = page.locator('[data-agent-lorebook-attachment="prose-guardian"]').first();
-        const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
+        const toggle = attachment.getByRole("switch", { name: "Attach lorebook for the specific agent" });
         const select = attachment.getByRole("button", { name: "Reference lorebook" });
         await expect(toggle).toBeChecked();
         await expect(select).toHaveText(names[0]!);

@@ -11,8 +11,8 @@ scripts/perf/setup-webkit.sh http://localhost:7860
 ```
 
 It installs WebKitGTK's WebDriver and a virtual display the first time (about 20 seconds), starts them, then opens
-the running app as an iPhone (375x812) and an iPad mini (744x1133) with **Show tap timings** on, taps Library and
-Home, saves screenshots to `/tmp/webkit-qc/smoke/` and prints the tap timings readings. Running it again only checks
+the running app as an iPhone (375x812) and an iPad mini (744x1133) with **Show tap timings** on, taps Library (Chats
+in the classic layout) and Home, saves screenshots to `/tmp/webkit-qc/smoke/` and prints the tap timings readings. Running it again only checks
 that everything is still up. `--restart` fixes a stuck driver ("Maximum number of active sessions"), `--stop` stops
 it all.
 
@@ -46,8 +46,10 @@ How it works and its limits:
 - Painting goes through software GL, so `smooth` and long frames read higher than on a real iPad. Compare runs before
   and after a change rather than reading absolute numbers.
 - Clicks are real WebDriver clicks; a script `element.click()` does not count as a tap and can't switch some tabs.
-- Settings are saved on the server, so point it at a test data folder (`DATA_DIR=...`). By default it skips the
-  first-run tour, which the server remembers.
+- Settings are saved on the server, so point it at a test data folder (`DATA_DIR=...`). By default it closes the
+  first-run tour and "What's New?", which the server remembers.
+- It needs Ubuntu or Debian (it installs with `apt-get`, using `sudo` when not root). On a Mac, Safari's own
+  Responsive Design Mode and Web Inspector do the same job.
 
 ## Other scripts
 

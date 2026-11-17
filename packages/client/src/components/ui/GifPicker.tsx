@@ -3,9 +3,10 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Loader2, ImageOff, ExternalLink } from "lucide-react";
+import { Search, ImageOff, ExternalLink } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { rememberRecentMedia, useRecentMedia } from "../../hooks/use-recent-media";
+import { Spinner } from "./Spinner";
 
 interface GifResult {
   id: string;
@@ -336,7 +337,7 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, em
 
           {loading && (
             <div className="flex justify-center py-4">
-              <Loader2 size="1.25rem" className="animate-spin text-foreground/45" />
+              <Spinner size="lg" className="text-foreground/45" />
             </div>
           )}
         </div>

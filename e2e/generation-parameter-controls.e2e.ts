@@ -170,7 +170,7 @@ test("game chat inherits connection send switches after editing another value an
     const drawer = page.locator(".mari-chat-settings-drawer");
     const parameters = drawer.locator('[data-chat-settings-section="advanced-parameters"]');
     await parameters.getByText("Advanced Parameters", { exact: true }).click();
-    const reasoning = parameters.getByRole("checkbox", { name: "Send Reasoning Effort parameter", exact: true });
+    const reasoning = parameters.getByRole("switch", { name: "Send Reasoning Effort parameter", exact: true });
     await expect(reasoning).toBeChecked();
     const output = parameters.getByRole("textbox", { name: "Max Output Tokens", exact: true });
     // Wait for the inherited value: on WebKit a fill that races it is appended to it ("409612000").

@@ -5,7 +5,6 @@
 // Nothing here is shaped to one system: every label comes from the ruleset (its item categories,
 // rarities, tags, stats and currencies), from the catalog's own filters, or from a localization key.
 import { useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -30,6 +29,8 @@ import {
 } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
 import { GAME_DIALOG_CLASS } from "../../lib/chat-widget-colors";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 const inputClass =
   "w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs text-[var(--foreground)]";
@@ -580,7 +581,7 @@ export function RulesetItemPicker({
 
         {query.isPending && items.length === 0 ? (
           <p className="flex items-center gap-2 py-6 text-xs text-[var(--muted-foreground)]">
-            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+            <Spinner size="sm" aria-hidden="true" />
             {t("game.ruleset.catalog.loading")}
           </p>
         ) : query.isError && items.length === 0 ? (
@@ -608,8 +609,7 @@ export function RulesetItemPicker({
                   key={each.item}
                   className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.has(each.item)}
                     onChange={() => toggle(each.item)}
                     aria-label={rt(each.name)}

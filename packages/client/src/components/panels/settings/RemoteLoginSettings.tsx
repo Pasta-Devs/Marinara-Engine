@@ -17,6 +17,7 @@ import { ApiError } from "../../../lib/api-client";
 import { formatRelativeContact } from "../../../lib/relative-time";
 import type { AccessStatus } from "../../diagnostics/use-access-warning-banner";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_PRIMARY_BUTTON_CLASS } from "./SettingControls";
+import { showConfirmDialog } from "../../../lib/app-dialogs";
 
 /** Same as MIN_LOGIN_PASSWORD_LENGTH on the server, which checks it again. */
 const MIN_PASSWORD_LENGTH = 10;
@@ -121,8 +122,8 @@ function LoginForm({
       /* shown below the form */
     }
   };
-  const removeLogin = () => {
-    if (window.confirm(t("settings.accessStatus.login.removeConfirm"))) {
+  const removeLogin = async () => {
+    if (await showConfirmDialog({ message: t("settings.accessStatus.login.removeConfirm") })) {
       remove.mutate(needsCurrentPassword ? currentPassword : undefined);
     }
   };
@@ -254,8 +255,9 @@ function SignedInDevices() {
   const end = useEndSession();
   const endOthers = useEndOtherSessions();
   const hasOthers = sessions?.some((session) => !session.current) ?? false;
-  const endAllOthers = () => {
-    if (window.confirm(t("settings.accessStatus.devices.signOutOthersConfirm"))) endOthers.mutate();
+  const endAllOthers = async () => {
+    if (await showConfirmDialog({ message: t("settings.accessStatus.devices.signOutOthersConfirm") }))
+      endOthers.mutate();
   };
 
   return (

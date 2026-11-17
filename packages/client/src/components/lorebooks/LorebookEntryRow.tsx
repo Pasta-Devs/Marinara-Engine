@@ -1,3 +1,4 @@
+import { estimateTextTokens } from "@marinara-engine/shared";
 import { LorebookEntryImages } from "./LorebookEntryImages";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { appendLorebookActivationKeys } from "../../lib/lorebook-keys";
@@ -66,14 +67,7 @@ import type {
   LorebookMatchingSource,
   SelectiveLogic,
 } from "@marinara-engine/shared";
-import {
-  ExpandableTextarea,
-  FieldGroup,
-  KeysEditor,
-  NumberField,
-  ToggleButton,
-  estimateTokens,
-} from "./LorebookFormFields";
+import { ExpandableTextarea, FieldGroup, KeysEditor, NumberField, ToggleButton } from "./LorebookFormFields";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MariFieldReview } from "../characters/MariFieldReview";
 
@@ -811,7 +805,7 @@ export function LorebookEntryRow({
               patch({ order: n });
             }}
           />
-          <span className="ov-lrow__tokens">{estimateTokens(entry.content).toLocaleString()}</span>
+          <span className="ov-lrow__tokens">{estimateTextTokens(entry.content).toLocaleString()}</span>
           <span className="ov-lrow__acts">
             <button
               type="button"
@@ -1346,11 +1340,11 @@ export function LorebookEntryRow({
                 !compact && "lg:inline-flex",
               )}
               title={localizeUi("ui.lorebooks.lorebookentryrow.value1TokensEstimated", {
-                value1: estimateTokens(entry.content).toLocaleString(),
+                value1: estimateTextTokens(entry.content).toLocaleString(),
               })}
             >
               <Hash size="0.5625rem" />
-              {estimateTokens(entry.content).toLocaleString()}
+              {estimateTextTokens(entry.content).toLocaleString()}
             </span>
           </div>
 
@@ -2403,7 +2397,7 @@ function ExpandedDrawer({
               <span>
                 {localizeUi("ui.lorebooks.expandeddrawer.content")}{" "}
                 <small>
-                  ~{estimateTokens(form.content ?? "").toLocaleString()}{" "}
+                  ~{estimateTextTokens(form.content ?? "").toLocaleString()}{" "}
                   {localizeUi("ui.lorebooks.expandeddrawer.tokens")}
                 </small>
               </span>
@@ -2902,7 +2896,7 @@ function ExpandedDrawer({
           }
         />
         <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
-          <Hash size="0.5625rem" />~{estimateTokens(form.content ?? "").toLocaleString()}{" "}
+          <Hash size="0.5625rem" />~{estimateTextTokens(form.content ?? "").toLocaleString()}{" "}
           {localizeUi("ui.lorebooks.expandeddrawer.tokens")}
         </p>
       </FieldGroup>

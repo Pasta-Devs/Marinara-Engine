@@ -1,28 +1,18 @@
-// Pictures Professor Mari asked to look at. Her tools return text, so `mari images` puts the pictures here and
-// writes a short marker in its output; the pi runtime swaps the marker for the pictures themselves, which reach the
-// model like pictures the user attached. Without this she picked "the best" of several versions blind.
-import { randomUUID } from "node:crypto";
+// Copies of pictures for Professor Mari to look at. `mari images look`, generate, edit and adjust return them on the
+// command result's `images` (data URLs, #9342); her runtime attaches them to her next request, like pictures the user
+// attached. Without this she picked "the best" of several versions blind.
 import { getSharp } from "../image/sharp-runtime.js";
 
-export type LookImage = { data: string; mimeType: string };
+export type LookImage = {
+  data: string;
+  mimeType: string;
+  /** The picture's own size and the size the model gets, as "WxH" (null when unknown). */
+  original: string | null;
+  sent: string;
+};
 
 /** Big enough to judge composition, colour and edges; small enough that a few cost little. */
 const LOOK_MAX_SIDE = 1024;
-const MAX_PICTURES_PER_LOOK = 4;
-const KEEP_MS = 10 * 60 * 1000;
-const MAX_STASHED_LOOKS = 32;
-const MARKER = /\[mari-look:([0-9a-f-]{36})\]/giu;
-
-const stash = new Map<string, { images: LookImage[]; at: number }>();
-
-function prune(now: number) {
-  for (const [id, entry] of stash) if (now - entry.at > KEEP_MS) stash.delete(id);
-  // Oldest first (Map keeps insertion order): a look that is never taken can't pile up.
-  for (const id of stash.keys()) {
-    if (stash.size <= MAX_STASHED_LOOKS) break;
-    stash.delete(id);
-  }
-}
 
 /** Small pictures (stickers, weather sprites) are enlarged to this so their colours and outlines can be judged. */
 const LOOK_MIN_SIDE = 384;
@@ -34,7 +24,7 @@ const SEE_THROUGH = { r: 128, g: 128, b: 128 };
  * transparency is laid on mid grey (cleared backgrounds then show as grey) and sent as PNG; anything else as JPEG.
  * Before, a 48 px snowflake reached the model at 48 px and its pink outline looked white.
  */
-export async function lookCopy(buffer: Buffer): Promise<LookImage | null> {
+export async function lookCopy(buffer: Buffer, maxSide = LOOK_MAX_SIDE): Promise<LookImage | null> {
   try {
     const sharp = await getSharp();
     const image = sharp(buffer, { limitInputPixels: 40_000_000 }).rotate();
@@ -46,41 +36,23 @@ export async function lookCopy(buffer: Buffer): Promise<LookImage | null> {
             fit: "inside",
             kernel: longest <= 96 ? "nearest" : "lanczos3",
           })
-        : image.resize(LOOK_MAX_SIDE, LOOK_MAX_SIDE, { fit: "inside", withoutEnlargement: true });
-    if (meta.hasAlpha) {
-      return {
-        data: (await resized.flatten({ background: SEE_THROUGH }).png().toBuffer()).toString("base64"),
-        mimeType: "image/png",
-      };
-    }
-    return { data: (await resized.jpeg({ quality: 82 }).toBuffer()).toString("base64"), mimeType: "image/jpeg" };
+        : image.resize(maxSide, maxSide, { fit: "inside", withoutEnlargement: true });
+    const original = meta.width && meta.height ? `${meta.width}x${meta.height}` : null;
+    const { data, info } = await (
+      meta.hasAlpha ? resized.flatten({ background: SEE_THROUGH }).png() : resized.jpeg({ quality: 82 })
+    ).toBuffer({ resolveWithObject: true });
+    return {
+      data: data.toString("base64"),
+      mimeType: meta.hasAlpha ? "image/png" : "image/jpeg",
+      original,
+      sent: `${info.width}x${info.height}`,
+    };
   } catch {
     return null;
   }
 }
 
-/** Keeps the pictures for the next tool result and returns the marker to put in the command's output. */
-export function stashLookImages(images: Array<LookImage | null>): string | null {
-  const kept = images.filter((image): image is LookImage => !!image).slice(0, MAX_PICTURES_PER_LOOK);
-  if (kept.length === 0) return null;
-  const now = Date.now();
-  prune(now);
-  const id = randomUUID();
-  stash.set(id, { images: kept, at: now });
-  return `[mari-look:${id}]`;
-}
-
-/** Takes the pictures a tool output points at (each only once) and returns the output without the markers. */
-export function takeLookImages(text: string): { text: string; images: LookImage[] } {
-  prune(Date.now());
-  const images: LookImage[] = [];
-  const cleaned = text.replace(MARKER, (_match, id: string) => {
-    const entry = stash.get(id.toLowerCase());
-    if (entry) {
-      stash.delete(id.toLowerCase());
-      images.push(...entry.images);
-    }
-    return "";
-  });
-  return { text: images.length > 0 || cleaned !== text ? cleaned : text, images };
+/** Data URLs for a command result's `images`, skipping pictures that couldn't be read. */
+export function lookDataUrls(copies: Array<LookImage | null>): string[] {
+  return copies.filter((copy): copy is LookImage => !!copy).map((copy) => `data:${copy.mimeType};base64,${copy.data}`);
 }

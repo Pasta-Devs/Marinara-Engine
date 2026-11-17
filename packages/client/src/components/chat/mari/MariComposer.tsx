@@ -406,6 +406,27 @@ export function MariComposer({
   );
   // Phones open the same full-height Modal sheet as the ConnectionPicker; wider screens keep the popover.
   const phone = useMatchMedia("(max-width: 39.99rem)");
+  // The menus open upward from the composer. A tall draft leaves little room above it, and the header sits on a
+  // higher layer, so the menus cap their height to the room between the composer and the top of her pane.
+  const composerBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = composerBoxRef.current;
+    const pane = box?.closest("form")?.parentElement;
+    if (!box || !pane) return;
+    const sync = () => {
+      const room = box.getBoundingClientRect().top - Math.max(0, pane.getBoundingClientRect().top) - 12;
+      box.style.setProperty("--mari-menu-room", `${Math.max(120, Math.round(room))}px`);
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(box);
+    observer.observe(pane);
+    window.visualViewport?.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.visualViewport?.removeEventListener("resize", sync);
+    };
+  }, []);
   // Enter in the model search must not send the message: the menu sits inside the composer form.
   const connectionMenuKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
@@ -514,7 +535,7 @@ export function MariComposer({
       />
       {/* R11 (composer v5): Mari's own shell, not the regular chat input's: neutral at rest, a primary
                               ring only on focus, quiet controls and one neutral filled Send. */}
-      <div className="mari-workspace-composer outline-none" tabIndex={-1}>
+      <div ref={composerBoxRef} className="mari-workspace-composer outline-none" tabIndex={-1}>
         {pickerOpen && referenceUi?.picker ? <MariReferencePicker {...referenceUi.picker} /> : null}
         {attachments.length > 0 ||
         isReadingAttachments ||

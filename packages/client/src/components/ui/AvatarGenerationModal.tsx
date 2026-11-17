@@ -5,7 +5,6 @@ import {
   IdCard,
   ImageIcon,
   ImagePlus,
-  Loader2,
   PencilLine,
   RotateCcw,
   Sticker,
@@ -19,6 +18,8 @@ import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { Spinner } from "./Spinner";
+import { Checkbox } from "./Checkbox";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
@@ -438,7 +439,7 @@ export function AvatarGenerationModal({
             {generatedAvatar && (
               <button type="button" onClick={handleUseAvatar} disabled={saveDisabled} className={SHEET_BUTTON_PRIMARY}>
                 {saving ? (
-                  <Loader2 size="0.875rem" className="animate-spin" />
+                  <Spinner size="sm" />
                 ) : isCharacterSheet ? (
                   <IdCard size="0.875rem" />
                 ) : isBackground ? (
@@ -463,7 +464,7 @@ export function AvatarGenerationModal({
               }
               className={generatedAvatar ? SHEET_BUTTON_SECONDARY : SHEET_BUTTON_PRIMARY}
             >
-              {generating ? <Loader2 size="0.875rem" className="animate-spin" /> : <Wand2 size="0.875rem" />}
+              {generating ? <Spinner size="sm" /> : <Wand2 size="0.875rem" />}
               {generatedAvatar
                 ? localizeUi("ui.agents.secretplotpanel.regenerate")
                 : localizeUi("ui.characters.characterclipcard.generate")}
@@ -600,11 +601,7 @@ export function AvatarGenerationModal({
                       title={localizeUi("ui.ui.avatargenerationmodal.rebuildFullPromptHint")}
                       className="inline-flex min-h-7 items-center gap-1 rounded-lg px-2 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors disabled:opacity-50 max-sm:min-h-11 max-sm:text-[13px] [@media(hover:hover)]:hover:text-[var(--foreground)]"
                     >
-                      {fullPromptLoading ? (
-                        <Loader2 size="0.75rem" className="animate-spin" />
-                      ) : (
-                        <RotateCcw size="0.75rem" />
-                      )}
+                      {fullPromptLoading ? <Spinner size="sm" /> : <RotateCcw size="0.75rem" />}
                       {localizeUi("ui.ui.avatargenerationmodal.rebuildFullPrompt")}
                     </button>
                     <button
@@ -640,19 +637,14 @@ export function AvatarGenerationModal({
                   disabled={!effectiveConnectionId || fullPromptLoading || generating || saving}
                   className="inline-flex min-h-8 items-center gap-1.5 self-start rounded-lg px-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors disabled:opacity-50 max-sm:min-h-11 max-sm:text-[13px] [@media(hover:hover)]:hover:text-[var(--foreground)]"
                 >
-                  {fullPromptLoading ? (
-                    <Loader2 size="0.75rem" className="animate-spin" />
-                  ) : (
-                    <PencilLine size="0.75rem" />
-                  )}
+                  {fullPromptLoading ? <Spinner size="sm" /> : <PencilLine size="0.75rem" />}
                   {localizeUi("ui.ui.avatargenerationmodal.editFullPrompt")}
                 </button>
               )}
 
               {isCharacterSheet && neutralFullBodyReferenceUrl && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useNeutralFullBodyReference}
                     onChange={(event) => setUseNeutralFullBodyReference(event.target.checked)}
                     disabled={generating || saving}
@@ -671,8 +663,7 @@ export function AvatarGenerationModal({
 
               {defaultAvatarUrl && !isBackground && (
                 <label className="flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCurrentAvatarReference}
                     onChange={(event) => setUseCurrentAvatarReference(event.target.checked)}
                     className="accent-[var(--primary)]"

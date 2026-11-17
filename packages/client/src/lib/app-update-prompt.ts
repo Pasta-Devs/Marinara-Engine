@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import { translate } from "../localization/i18n";
 import { reloadBrowser } from "./browser-runtime";
+import { useUIStore } from "../stores/ui.store";
 import { SPLIT_PANE } from "./split-view-env";
 
 const APP_UPDATE_TOAST_ID = "marinara-app-update";
@@ -10,6 +11,8 @@ export function showAppUpdatePrompt(refresh: () => void | Promise<void>) {
   // Split view's second side: the main window asks once, and its reload brings this side along.
   if (SPLIT_PANE) return;
   latestRefresh = refresh;
+  // The restart sheet reloads into whatever build the server serves; a down server also reads as "update ready".
+  if (useUIStore.getState().modal?.type === "server-restart") return;
   toast.info(translate("ui.app.update.available"), {
     id: APP_UPDATE_TOAST_ID,
     description: translate("ui.app.update.description"),
@@ -23,4 +26,8 @@ export function showAppUpdatePrompt(refresh: () => void | Promise<void>) {
       },
     },
   });
+}
+
+export function dismissAppUpdatePrompt() {
+  toast.dismiss(APP_UPDATE_TOAST_ID);
 }

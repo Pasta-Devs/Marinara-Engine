@@ -9,7 +9,7 @@ Professor Mari is the built-in assistant on the Home screen. She explains the ap
 
 She opens in her own tab. You can also reach her from any screen: press <kbd>Ctrl</kbd>+<kbd>K</kbd>, type your question and pick **Ask Prof. Mari**, press <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> on a Mac) for her pop-up window, or on a phone tap the title in the top bar. Her header reads **Ready to help** when she is idle and **Working on it...** while she works.
 
-Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> sends. Your first message unlocks the **Hello World** achievement.
+Type your message in plain language and press <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line. If you turn off **Enter sends to Professor Mari** in her settings, <kbd>Enter</kbd> adds a new line and <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or the Send button sends. The toggle is saved per device, so you can turn it off on your phone and keep it on at your computer. Your first message unlocks the **Hello World** achievement.
 
 All her settings are under **Settings → General → Professor Mari → Open**, or the gear in Search. On a computer, the **Height** and **Width** sliders under **Professor Mari window** resize her window. On a phone, her window fills the screen.
 
@@ -37,7 +37,7 @@ She reads an item before she edits it, and she asks when your request is vague.
 - Create or edit a theme, an agent, a prompt preset or a Personal Extension draft. A draft stays off until you read its code and approve it in **Library → Extensions**.
 - Edit one section of a preset in place, instead of replacing the whole preset.
 - Compare the downloadable agents and tell you which fit your goal. She sends you to **Library → Agents** to install them. See [Downloadable Agents Reference](../agents/built-in-agents.md).
-- Make or assign images such as avatars, sprites, backgrounds and a theme's pictures, and crop, trim, resize or clear a flat background on them. You need an image generation account first. She does not create one. For theme art, see [Ask Professor Mari to make the art](../appearance/theme-author-guide.md#ask-professor-mari-to-make-the-art).
+- Make or assign images such as avatars, sprites, backgrounds and a theme's pictures, and crop, trim, resize or clear a flat background on them. You need an image generation account first. She does not create one. For theme art, see [Ask Professor Mari to make the art](../appearance/theme-author-guide.md#ask-professor-mari-to-make-the-art). Click an image she made to open it full size, read the prompt behind it, download it, or edit the prompt and regenerate it. The new image replaces the old one in her reply.
 - Look up public Fandom wiki pages when you research a character or world.
 
 ### Start with a chip
@@ -128,7 +128,7 @@ A link is sent once, with the message you add it in. After that she sees a one-l
 
 ### Commands with /
 
-Type `/` at the start of a line to list her commands. Keep typing to filter, then press <kbd>Enter</kbd>. The list also shows your Skills and Memories. Picking one links it, like `@`.
+Type `/` at the start of a line or after a space to list her commands, so one message can use several. Keep typing to filter, then press <kbd>Enter</kbd>. The list also shows your Skills and Memories. Picking one links it, like `@`.
 
 | Command | What it does |
 | --- | --- |

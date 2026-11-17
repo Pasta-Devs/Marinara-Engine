@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatMessageSearch } from "./chat-settings-tools.js";
+import { clickTopbarChats } from "./topbar-navigation.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -84,7 +85,7 @@ async function openChat(page: Page, chatId: string, mobile: boolean) {
     { chatId, appVersion: version },
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "Chats" }).click();
+  await clickTopbarChats(page);
   if (mobile) await page.getByRole("button", { name: "Close chats" }).click();
 }
 
@@ -164,7 +165,8 @@ for (const mode of ["conversation", "roleplay"] as const) {
         await page.setViewportSize(originalViewport);
       }
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: "Chats", exact: true }).focus();
+      // Move focus off the message to the top bar; Home is there at every width (a phone lists Chats under More).
+      await page.locator('[data-component="TopBar"]').getByRole("button", { name: "Home", exact: true }).focus();
       await page.mouse.move(0, 0);
       const bookmarkIndicator = messageRow.getByRole("img", { name: "Bookmarked", exact: true });
       await expect(bookmarkIndicator).toBeVisible();

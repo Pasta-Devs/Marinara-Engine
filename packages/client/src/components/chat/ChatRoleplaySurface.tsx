@@ -40,17 +40,7 @@ import {
   type SpritePlacement,
   type SpriteSide,
 } from "@marinara-engine/shared";
-import {
-  BookOpen,
-  FileText,
-  Loader2,
-  ChevronUp,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  User,
-  Puzzle,
-} from "lucide-react";
+import { BookOpen, FileText, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Puzzle } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { getConnectedChatDisplayName } from "../../lib/chat-display";
@@ -117,6 +107,7 @@ import {
   useGameChatStoryboards,
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
+import { Spinner } from "../ui/Spinner";
 
 /** The VN page each message was left on (message id → paragraph, -1 = last), and the message each
  *  chat was left on (chat id → message id, "" = the newest reply). Kept in localStorage (theming
@@ -806,7 +797,7 @@ function ActiveContextLinksPanel({
             <Suspense
               fallback={
                 <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
-                  <Loader2 size="0.75rem" className="animate-spin" />
+                  <Spinner size="sm" />
                   {t("chat.toolbar.loadingActiveContext")}
                 </div>
               }
@@ -845,7 +836,7 @@ function RoleplaySummaryPanel({
 function RoleplayDrawerLoading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-3 text-xs text-[var(--muted-foreground)]">
-      <Loader2 size="0.75rem" className="animate-spin" />
+      <Spinner size="sm" />
       {label}
     </div>
   );
@@ -2269,11 +2260,7 @@ export function ChatRoleplaySurface({
                       disabled={isFetchingNextPage}
                       className={HISTORY_PAGER_BUTTON_CLASS}
                     >
-                      {isFetchingNextPage ? (
-                        <Loader2 size="0.75rem" className="animate-spin" />
-                      ) : (
-                        <ChevronUp size="0.75rem" />
-                      )}
+                      {isFetchingNextPage ? <Spinner size="sm" /> : <ChevronUp size="0.75rem" />}
                       {localizeUi("ui.chat.chatroleplaysurface.loadMore")}
                     </button>
                   </div>
@@ -2290,7 +2277,7 @@ export function ChatRoleplaySurface({
 
                 {isLoading && (
                   <div className="flex flex-col items-center gap-3 py-12">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-white/60" />
+                    <Spinner size="lg" className="h-8 w-8 text-white/60" />
                   </div>
                 )}
 

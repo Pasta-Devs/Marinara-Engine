@@ -1,6 +1,6 @@
 # Character and Persona Galleries
 
-The **Gallery**, part of the **Images** tab in the character and persona editors, keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also label a gallery picture as a custom emoji, a sticker, or a background that follows the character into every chat.
+The **Gallery**, part of the **Images** tab in the character and persona editors, keeps images and videos attached to a character or persona, so they stay even if you delete chats. Use it for reference sheets, outfit variants and imported image packs. You can also create new images with AI, and label a gallery picture as a custom emoji, a sticker, or a background that follows the character into every chat.
 
 ## Find the Gallery
 
@@ -28,6 +28,39 @@ Click an image to see it larger. Each tile has a download control and a delete c
 3. Wait for the upload to finish.
 
 Supported types are MP4, WebM and MOV. Newest videos are listed first. To see which scene videos and clips appear for which character, see [Which videos are listed](#which-videos-are-listed).
+
+## Create images with AI
+
+**Create with AI** in the Gallery makes new pictures for this character or persona with your image generation connection. Pick what to make in **Type**:
+
+| Type                | What you get                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Character sheet** | A reference sheet, saved the same way as from the **Character Sheet** section.                                             |
+| **Background**      | A wide picture of a place, started from the card's scenario. It is saved to the Gallery and labelled as a chat background. |
+| **Sticker sheet**   | One picture with several stickers, cut into one sticker per picture.                                                       |
+| **Emoji sheet**     | The same, as small face emoji.                                                                                             |
+
+Before you start: add an image generation connection.
+
+1. Open **Images → Gallery** and click **Create with AI**.
+2. Pick a **Type**, and edit the prompt if you want a different look or place.
+3. For a sticker or emoji sheet, list the names in **Stickers to draw** or **Emoji to draw**, separated by commas. Up to 16 fit on one sheet.
+4. Click **Generate**.
+5. Click **Save as Background**, **Save Stickers** or **Save Emoji**, or **Save as Character Sheet**.
+
+### Fix how a sheet was cut
+
+After a sticker or emoji sheet is generated, each sticker is found by its outline, its green background is removed, and it appears as its own tile with its name. Saved stickers are at most 512 by 512 pixels and emoji at most 256 by 256, and each is tagged with its name.
+
+- Click a tile to keep or skip it. Skipped tiles are not saved.
+- Edit the name under a tile to rename it.
+- Click **Recut with a box** on a tile to place a box on the whole sheet. Drag the box, pull its corners, or draw a new box around the sticker, then click **Use this box**.
+- Click **Add a sticker** or **Add an emoji** to cut out one that was missed.
+- Click **Cut again** to start the cutting over and undo your boxes.
+
+### Write the whole prompt yourself
+
+The prompt sent to the image model is built from the fields in the dialog. To change all of it, for example to ask for stickers of things the character likes and not only of the character, click **Edit full prompt**. It is sent exactly as you write it. Changes to the other fields are added only when you click **Rebuild**, which also replaces your edits. Click the close button next to **Rebuild** to go back to the built prompt.
 
 ## Tag a gallery image as a custom emoji or sticker
 

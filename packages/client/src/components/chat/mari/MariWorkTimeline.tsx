@@ -411,7 +411,8 @@ export function MariWorkTimeline({
   // Her words (and what they made) sit in one column with her avatar gutter on the left; a thought she
   // had before them stays with the work above.
   const answerStart = tailBlocks.findIndex((block) => block.kind === "text");
-  const answerBlocks = answerStart < 0 ? [] : tailBlocks.slice(answerStart);
+  const answerBlocks =
+    answerStart < 0 ? [] : tailBlocks.slice(answerStart).filter((block) => block.kind !== "blocked_draft");
   // On the newest finished turn she rests beside her reply, like an avatar beside a bubble.
   const spriteBesideAnswer = !active && Boolean(restStory) && answerBlocks.length > 0;
   const replyLinks =
@@ -471,6 +472,20 @@ export function MariWorkTimeline({
           packId: appearance.id,
         });
   const renderBlock = (block: (typeof tailBlocks)[number]) => {
+    if (block.kind === "blocked_draft") {
+      return (
+        <details key={block.id} className="min-w-0">
+          <summary className="mari-disclosure any-pointer-coarse:min-h-11">
+            <AlertTriangle size="0.85rem" className="shrink-0 text-[var(--warning)]" aria-hidden="true" />
+            {t("mari.workCard.blockedDraft")}
+            <ChevronRight size="0.7rem" className="mari-disclosure__chevron shrink-0" aria-hidden="true" />
+          </summary>
+          <p className="mb-2 max-w-[70ch] whitespace-pre-wrap wrap-anywhere text-sm text-[var(--muted-foreground)]">
+            {block.content}
+          </p>
+        </details>
+      );
+    }
     if (block.kind !== "steps") {
       return block.kind === "text" ? (
         <CompactMarkdown
@@ -691,7 +706,9 @@ export function MariWorkTimeline({
     <>
       {renderSegments(introBlocks)}
       {phases.length > 0 ? <div className="mari-work-timeline__rail">{phases.map(renderPhase)}</div> : null}
-      {renderSegments(answerStart < 0 ? tailBlocks : tailBlocks.slice(0, answerStart))}
+      {renderSegments(
+        tailBlocks.filter((block, index) => answerStart < 0 || index < answerStart || block.kind === "blocked_draft"),
+      )}
     </>
   );
   // Slice 72: on a finished run "Worked for" sits on top and folds the work below it - open on the newest

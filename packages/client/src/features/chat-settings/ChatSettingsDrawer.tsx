@@ -19,7 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { toast } from "sonner";
-import { RoleplayCommandsSettings } from "./RoleplayCommandsSettings";
+import { RoleplayCommandsSettings } from "./agents/RoleplayCommandsSettings";
 import { ChatBranchesPanel } from "./ChatBranchesPanel";
 import { ChatMessageSearch } from "./ChatMessageSearch";
 import { ChatWindowFavoriteButton } from "./ChatWindowFavoriteButton";
@@ -170,16 +170,16 @@ import {
   GamePromptTemplateSelect,
   GenerationSettingsLink,
 } from "../../components/chat/AgentSettingsControls";
-import { ExpressionSpriteSettings } from "./ExpressionSpriteSettings";
+import { ExpressionSpriteSettings } from "./agents/ExpressionSpriteSettings";
 import { AvatarLayoutSettings, type AvatarLayoutControls } from "../../components/chat/AvatarLayoutSettings";
-import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
-import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
+import { AgentPromptTemplateSelect } from "./agents/AgentPromptTemplateSelect";
+import { AgentLorebookAttachment } from "./agents/AgentLorebookAttachment";
 import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
-import { AgentSuiteModal } from "./AgentSuiteModal";
+import { AgentSuiteModal } from "./agents/AgentSuiteModal";
 import { RoleplayMessagePreview } from "../../components/chat/ChatMessage";
 import { resolveChatContextBudget } from "../../lib/professor-mari-context-budget";
 import { CHAT_SETTINGS_SURFACES } from "./chat-settings-surfaces";
@@ -277,7 +277,7 @@ import { MultiplayerPlayersSection, type MultiplayerGameStart } from "../multipl
 import { multiplayerGuestErrorLabelKey } from "../multiplayer/multiplayer-guest-labels";
 import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { isKnowledgeAgentType } from "./agents/knowledge-agent-settings";
-import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
+import { renderRoleplayAgentMenuIcon } from "./agents/roleplay-agent-menu-icon";
 import { MemoryRecallMemoriesModal } from "./MemoryRecallMemoriesModal";
 import { KnowledgeAgentSettingsCard } from "./agents/KnowledgeAgentSettingsCard";
 import {

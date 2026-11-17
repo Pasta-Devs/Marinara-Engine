@@ -2,6 +2,7 @@
 // Chat Summary — view / edit / generate chat summaries
 // Shown as the Chat Summary drawer in Chat Settings (Roleplay).
 // ──────────────────────────────────────────────
+import { useShallow } from "zustand/react/shallow";
 import {
   useState,
   useEffect,
@@ -41,7 +42,6 @@ import {
   ChevronRight,
   Copy,
   Info,
-  Loader2,
   PenLine,
   Plus,
   RefreshCw,
@@ -97,6 +97,8 @@ import {
   type ChatSummaryBatchRangeError,
   type ChatSummaryBatchEntryRange,
 } from "../../lib/chat-summary-batch";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 interface ChatSummaryPanelProps {
   chatId: string;
@@ -440,7 +442,16 @@ export function ChatSummaryPanel({
   const [summaryDropIndex, setSummaryDropIndex] = useState<number | null>(null);
 
   const { startBackfill, stopBackfill } = useRollingSummaryBackfill();
-  const backfillState = useRollingBackfillStore();
+  const backfillState = useRollingBackfillStore(
+    useShallow(({ chatId, completedBatches, currentRangeEnd, currentRangeStart, status, totalBatches }) => ({
+      chatId,
+      completedBatches,
+      currentRangeEnd,
+      currentRangeStart,
+      status,
+      totalBatches,
+    })),
+  );
 
   // Per-chat preference, default off — no global fallback, so one chat never
   // inherits another's setting.
@@ -1901,7 +1912,7 @@ export function ChatSummaryPanel({
                       onClick={stopBackfill}
                       className="flex items-center gap-1.5 rounded-md bg-[var(--destructive)]/10 px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30 transition-colors hover:bg-[var(--destructive)]/20"
                     >
-                      <Loader2 size="0.75rem" className="animate-spin" />
+                      <Spinner size="sm" />
                       {localizeUi("ui.chat.summarypopover.stop")}
                     </button>
                   ) : (
@@ -2278,11 +2289,7 @@ export function ChatSummaryPanel({
                       disabled={combiningEntries || generateSummary.isPending || isBatchGenerating || bulkTogglePending}
                       className="inline-flex items-center gap-1 rounded-md bg-[var(--primary)]/12 px-2 py-1 text-[0.625rem] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {combiningEntries ? (
-                        <Loader2 size="0.6875rem" className="animate-spin" />
-                      ) : (
-                        <Sparkles size="0.6875rem" />
-                      )}
+                      {combiningEntries ? <Spinner size="sm" /> : <Sparkles size="0.6875rem" />}
                       {combiningEntries
                         ? localizeUi("ui.chat.summarypopover.combiningSummaries")
                         : localizeUi("ui.chat.summarypopover.combineSelectedSummaries", {
@@ -2637,11 +2644,7 @@ export function ChatSummaryPanel({
                               </div>
                             )}
                             {range.status === "running" && (
-                              <Loader2
-                                size="0.8125rem"
-                                className="h-4 w-4 shrink-0 animate-spin text-[var(--primary)]"
-                                aria-label={statusMessage}
-                              />
+                              <Spinner size="md" className="text-[var(--primary)]" label={statusMessage} />
                             )}
                           </div>
                           <button
@@ -2821,7 +2824,7 @@ export function ChatSummaryPanel({
               )}
               title={localizeUi("ui.chat.summarypopover.generateSummaryWithAi")}
             >
-              {isGenerating ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Sparkles size="0.8125rem" />}
+              {isGenerating ? <Spinner size="sm" /> : <Sparkles size="0.8125rem" />}
               {isGenerating
                 ? localizeUi("ui.chat.summarypopover.generating")
                 : localizeUi("ui.characters.characterclipcard.generate")}
@@ -2843,8 +2846,7 @@ function SummarySettingsToggle({ label, checked, onChange }: SummarySettingsTogg
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1.5 py-1.5 text-[0.6875rem] text-[var(--popover-foreground)] transition-colors hover:bg-[var(--accent)]/50">
       <span className="min-w-0 truncate">{label}</span>
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         className="h-3.5 w-3.5 shrink-0 accent-[var(--muted-foreground)]"
@@ -2984,8 +2986,7 @@ function SummaryEntryRow({
           </div>
         </div>
         <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-md focus-within:ring-2 focus-within:ring-[var(--ring)] sm:min-h-0 sm:min-w-0">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={selected}
             onChange={(event) => onToggleSelected((event.nativeEvent as MouseEvent).shiftKey === true)}
             disabled={editing || mutationPending || !reorderable}
@@ -3016,7 +3017,7 @@ function SummaryEntryRow({
           aria-pressed={entry.enabled}
         >
           {togglePending ? (
-            <Loader2 size="0.6875rem" className="animate-spin" />
+            <Spinner size="sm" />
           ) : (
             <Check size="0.6875rem" className={cn(!entry.enabled && "opacity-0")} />
           )}

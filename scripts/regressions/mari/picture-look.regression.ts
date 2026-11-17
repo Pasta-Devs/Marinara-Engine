@@ -1,6 +1,6 @@
-// Mari can look at pictures: `mari images look`, and generate/edit/adjust, put a marker in their output, and the
-// pi runtime swaps it for the pictures themselves (sent to the model like attached pictures). Before, her tools
-// returned only text, so "pick the best of 3 versions" was blind.
+// Mari can look at pictures: `mari images look`, and generate/edit/adjust, return them on the result's `images`
+// (data URLs, #9342), which her runtime attaches to her next request. Before, her tools returned only text, so
+// "pick the best of 3 versions" was blind.
 import assert from "node:assert/strict";
 import { withHandbook } from "./_handbook.js";
 
@@ -11,7 +11,7 @@ await withHandbook(
     const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
     const sharp = await getSharp();
     const { MariImagesService } = await import("../../../packages/server/src/services/mari-db/mari-images.service.js");
-    const { takeLookImages } = await import("../../../packages/server/src/services/professor-mari/mari-look-images.js");
+    const pixels = (dataUrl: string) => Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
     const images = new MariImagesService(db as any);
     const run = (...args: string[]) =>
       images
@@ -23,13 +23,13 @@ await withHandbook(
 
     const looked: any = await run("look", "--source", source);
     assert.equal(looked.ok, true, String(looked.error ?? ""));
-    const text = JSON.stringify(looked.output);
-    const taken = takeLookImages(text);
-    assert.equal(taken.images.length, 1, "one picture comes back for the model");
-    assert.ok(!/mari-look:/u.test(taken.text), "the marker is removed from the words");
-    const seen = await sharp(Buffer.from(taken.images[0]!.data, "base64")).metadata();
+    assert.equal(looked.images?.length, 1, "one picture comes back for the model");
+    assert.ok(!/base64/u.test(JSON.stringify(looked.output)), "the words only name it, never carry pixels");
+    const seen = await sharp(pixels(looked.images[0])).metadata();
     assert.ok(Math.max(seen.width!, seen.height!) <= 1024, "the model gets a smaller copy");
-    assert.equal(takeLookImages(text).images.length, 0, "each picture is handed over once");
+    const low: any = await run("look", source, "--detail", "low");
+    const seenLow = await sharp(pixels(low.images[0])).metadata();
+    assert.ok(Math.max(seenLow.width!, seenLow.height!) <= 512, "--detail low sends a smaller copy");
 
     // A tiny see-through sprite is enlarged and laid on grey, so a pink outline on a white flake can be seen.
     const flake = await sharp({ create: { width: 32, height: 32, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
@@ -37,20 +37,19 @@ await withHandbook(
       .png()
       .toBuffer();
     const small: any = await run("look", "--source", `data:image/png;base64,${flake.toString("base64")}`);
-    const seenSmall = takeLookImages(JSON.stringify(small.output)).images[0]!;
-    const smallMeta = await sharp(Buffer.from(seenSmall.data, "base64")).metadata();
+    const seenSmall = pixels(small.images[0]);
+    const smallMeta = await sharp(seenSmall).metadata();
     assert.equal(Math.max(smallMeta.width!, smallMeta.height!), 384, "small pictures are shown enlarged");
     assert.equal(smallMeta.hasAlpha, false, "see-through parts are laid on grey");
-    const corner = await sharp(Buffer.from(seenSmall.data, "base64")).extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+    const corner = await sharp(seenSmall).extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
     assert.deepEqual([...corner].slice(0, 3), [128, 128, 128]);
 
     const adjusted: any = await run("adjust", "--source", source, "--resize", "300");
     assert.equal(adjusted.ok, true, String(adjusted.error ?? ""));
-    assert.equal(takeLookImages(JSON.stringify(adjusted.output)).images.length, 1, "adjust shows Mari its result");
+    assert.equal(adjusted.images?.length, 1, "adjust shows Mari its result");
 
     const tooMany: any = await run("look", "--source", [source, source, source, source, source].join(","));
     assert.equal(tooMany.ok, false, "at most 4 at a time");
-    assert.equal(takeLookImages("no marker here").text, "no marker here");
     console.log("mari picture-look regression passed");
   },
   { dataDir: true },

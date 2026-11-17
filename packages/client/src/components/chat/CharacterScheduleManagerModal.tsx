@@ -34,6 +34,8 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CharacterScheduleEditorModal } from "./CharacterScheduleEditorModal";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 type ManagerCharacter = {
   id: string;
@@ -516,7 +518,9 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
             </button>
           </div>
           {isLoading ? (
-            <Loader2 className="mx-auto my-8 h-5 w-5 animate-spin" />
+            <div className="flex justify-center">
+              <Spinner size="lg" className="my-8" />
+            </div>
           ) : (
             <div className="max-h-[min(60vh,36rem)] space-y-4 overflow-y-auto pr-1">
               {renderGroup(localizeUi("ui.characters.schedulemanager.scheduled"), scheduled)}
@@ -663,7 +667,7 @@ function CharacterScheduleGroup({
                   <span className={`h-2 w-2 rounded-full ${statusDotClass(currentStatus)}`} />
                   {generationState === "generating" ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Spinner size="sm" />
                       {localizeUi("ui.characters.schedulemanager.generating")}
                     </span>
                   ) : generationState === "queued" ? (
@@ -687,8 +691,7 @@ function CharacterScheduleGroup({
             </button>
             {character.schedule && (
               <label className="flex shrink-0 items-center gap-1 text-[0.65rem] max-sm:text-[13px] max-sm:min-h-11 max-sm:text-[13px] text-[var(--muted-foreground)]">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={character.autoRenew}
                   onChange={(event) => onAutoRenew(character, event.target.checked)}
                 />

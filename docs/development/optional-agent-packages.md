@@ -109,6 +109,9 @@ this page. Package builds declare matching structural types instead of importing
 | `modules`                 | Library modules, keyed by bare specifier (below).                                                                                                                                        |
 | `queryClient`             | The one React Query `QueryClient` the Engine renders with.                                                                                                                               |
 | `components.Modal`        | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
+| `components.Switch`, `components.Checkbox` | From capability API 1.830, the Engine's shared switch and checkbox, so a package matches the host look. |
+| `components.Spinner` | From capability API 1.830, the Engine's shared loading ring. It is hidden from screen readers unless you pass a `label`, which makes it a status region. |
+| `components.showConfirmDialog` | From capability API 1.830, the Engine's confirm dialog, the same function as `services.dialogs.showConfirmDialog`. |
 | `data.emojiCatalog`       | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
 | `api`                     | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
 

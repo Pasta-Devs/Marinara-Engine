@@ -12,7 +12,6 @@ import {
   Keyboard,
   AtSign,
   Languages,
-  Loader2,
   FileText,
   RefreshCw,
   Sparkles,
@@ -48,7 +47,7 @@ import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
-import { prepareImageAttachment } from "../../lib/chat-attachment-images";
+import { prepareImageAttachment, readBlobAsDataUrl } from "../../lib/chat-attachment-images";
 import { isFileDrag } from "../../lib/chat-resource-drag";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
 import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generation-stream-policy";
@@ -85,6 +84,7 @@ import {
   isInstalledCapabilityReady,
 } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string;
@@ -294,15 +294,6 @@ function isSupportedChatAttachment(file: File): boolean {
     return true;
   }
   return TEXT_ATTACHMENT_EXTENSIONS.has(getFileExtension(file.name));
-}
-
-function readFileAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 function useIsMobileComposerViewport() {
@@ -916,7 +907,7 @@ export function ConversationInput({
         }
 
         try {
-          const data = await readFileAsDataUrl(file);
+          const data = await readBlobAsDataUrl(file);
           appendAttachmentForChat(originChatId, { type: inferAttachmentType(file), data, name: displayName });
         } catch {
           toast.error(localizeUi("ui.chat.chatinput.failedToReadValue1", { value1: displayName }));
@@ -2028,7 +2019,7 @@ export function ConversationInput({
             )}
           >
             {isTranslatingDraft ? (
-              <Loader2 size="1rem" className="shrink-0 animate-spin" />
+              <Spinner size="md" className="shrink-0" />
             ) : (
               <Languages size="1rem" className="shrink-0" />
             )}
@@ -2272,7 +2263,7 @@ export function ConversationInput({
           ))}
           {isReadingAttachments && (
             <div className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs text-foreground/60 ring-1 ring-foreground/10">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatinput.readingFile")}
             </div>
           )}
@@ -2444,7 +2435,7 @@ export function ConversationInput({
               )}
               title={t("chat.input.translateDraft")}
             >
-              {isTranslatingDraft ? <Loader2 size="1rem" className="animate-spin" /> : <Languages size="1rem" />}
+              {isTranslatingDraft ? <Spinner size="md" /> : <Languages size="1rem" />}
             </button>
           )}
 

@@ -693,6 +693,7 @@ import { useUIStore } from "../stores/ui.store";
 import {
   applyRecentMessageContentEditsToData,
   chatKeys,
+  conversationStatusKeys,
   forgetRecentMessageContentEdit,
   forgetUnchangedMessageContentEdit,
   getHiddenMessageIds,
@@ -704,6 +705,7 @@ import { characterKeys, fetchAllCharacterPages } from "./use-characters";
 import { connectionKeys } from "./use-connections";
 import { lorebookKeys } from "./use-lorebooks";
 import { presetKeys } from "./use-presets";
+import { personaCacheKeys } from "../lib/persona-cache";
 import { playConfiguredNotificationPing } from "../lib/notification-sound";
 import { showLocalMessageNotification, showNativeMessageNotification } from "../lib/local-notifications";
 import {
@@ -2942,7 +2944,7 @@ export function useGenerate() {
             case "schedule_updated": {
               // The server has already refreshed this chat's presence cache.
               void qc.invalidateQueries({ queryKey: chatKeys.detail(params.chatId) });
-              void qc.invalidateQueries({ queryKey: ["conversation-status", params.chatId] });
+              void qc.invalidateQueries({ queryKey: conversationStatusKeys.detail(params.chatId) });
               break;
             }
 
@@ -2955,8 +2957,8 @@ export function useGenerate() {
               };
               toast(`Message redirected to ${cpData.targetChatName}`, { icon: "↗️" });
               // Invalidate both chats: target got a new message, source had it removed
-              qc.invalidateQueries({ queryKey: ["chats", "messages", cpData.targetChatId] });
-              qc.invalidateQueries({ queryKey: ["chats", "messages", cpData.sourceChatId] });
+              qc.invalidateQueries({ queryKey: chatKeys.messages(cpData.targetChatId) });
+              qc.invalidateQueries({ queryKey: chatKeys.messages(cpData.sourceChatId) });
               break;
             }
 
@@ -3210,7 +3212,7 @@ export function useGenerate() {
               };
               toast(`${sceneData.initiatorCharName} started a scene: ${sceneData.sceneChatName}`, { icon: "🎬" });
               // Invalidate chat list so the new scene chat appears
-              qc.invalidateQueries({ queryKey: ["chats"] });
+              qc.invalidateQueries({ queryKey: chatKeys.all });
               // Apply background if the scene chose one
               if (sceneData.background) {
                 useUIStore
@@ -3245,10 +3247,10 @@ export function useGenerate() {
               const actionData = event.data as { action: string; [key: string]: unknown };
               if (actionData.action === "persona_created") {
                 toast(`Created persona: ${actionData.name}`, { icon: "🎭" });
-                qc.invalidateQueries({ queryKey: ["personas"] });
+                qc.invalidateQueries({ queryKey: personaCacheKeys.list });
               } else if (actionData.action === "persona_updated") {
                 toast(`Updated persona: ${actionData.name}`, { icon: "🎭" });
-                qc.invalidateQueries({ queryKey: ["personas"] });
+                qc.invalidateQueries({ queryKey: personaCacheKeys.list });
               } else if (actionData.action === "character_created") {
                 toast(`Created character: ${actionData.name}`, { icon: "✨" });
                 qc.invalidateQueries({ queryKey: characterKeys.list() });
@@ -3273,7 +3275,7 @@ export function useGenerate() {
                 qc.invalidateQueries({ queryKey: presetKeys.all });
               } else if (actionData.action === "chat_created") {
                 toast(`Started ${actionData.mode} chat with ${actionData.characterName}`, { icon: "💬" });
-                qc.invalidateQueries({ queryKey: ["chats"] });
+                qc.invalidateQueries({ queryKey: chatKeys.all });
                 if (typeof actionData.chatId === "string") {
                   if (actionData.chatId === params.chatId) {
                     invalidateCurrentMessagesIfSafe();
@@ -3283,7 +3285,7 @@ export function useGenerate() {
                 }
               } else if (actionData.action === "dm_posted") {
                 if (typeof actionData.chatId === "string") {
-                  qc.invalidateQueries({ queryKey: ["chats"] });
+                  qc.invalidateQueries({ queryKey: chatKeys.all });
                   if (actionData.chatId === params.chatId) {
                     invalidateCurrentMessagesIfSafe();
                   } else {

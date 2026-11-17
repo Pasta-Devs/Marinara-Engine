@@ -15,6 +15,7 @@ import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceOptionsField } from "./ChoiceOptionsField";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { Spinner } from "../ui/Spinner";
 
 interface ChoiceSelectionModalProps {
   open: boolean;
@@ -268,7 +269,7 @@ function ChatChoiceSelectionModal({
       {variables.length === 0 ? (
         isLoading ? (
           <div className="flex items-center justify-center p-8">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+            <Spinner size="lg" className="text-[var(--primary)]" />
           </div>
         ) : null
       ) : (

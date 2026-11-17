@@ -201,12 +201,12 @@ export function isMariEditorOpen(entityId: string): boolean {
 
 /** Opens a record's editor, at one field when given (`data.first_mes` or `first_mes`). False when the user
  * stays or the editor cannot be found. */
-export function openEditorAtField(
+export async function openEditorAtField(
   kind: MariEditorKind,
   entityId: string,
   path: string | undefined,
   leavePrompt: string,
-): boolean {
+): Promise<boolean> {
   const ui = useUIStore.getState();
   const id = editorRecordId(kind, entityId);
   if (!id) return false;
@@ -216,7 +216,7 @@ export function openEditorAtField(
     if (target) ui.revealMariField(entityId, target);
     return true;
   }
-  if (!confirmEditorLeave(ui, leavePrompt)) return false;
+  if (!(await confirmEditorLeave(ui, leavePrompt))) return false;
   EDITOR_DETAIL[kind].open(ui, id, entityId, target || undefined);
   return true;
 }

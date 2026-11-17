@@ -10,7 +10,6 @@ import {
   FileArchive,
   FolderOpen,
   History,
-  Loader2,
   Power,
   PowerOff,
   RotateCcw,
@@ -76,6 +75,8 @@ import {
   SettingsIntro,
   SettingsSection,
 } from "./SettingControls";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
 
 type EditorDraft = PersonalExtensionImportDraft;
 
@@ -680,7 +681,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
                 title={localizeUi("ui.panels.extensionsettings.saveDraft")}
                 className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
               >
-                {busy ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                {busy ? <Spinner size="sm" /> : <Save size="0.75rem" />}
                 <span className="truncate">{localizeUi("ui.panels.extensionsettings.saveAction")}</span>
               </button>
             )}
@@ -830,8 +831,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
                     isFullPageCapability ? "border-[var(--destructive)]/40" : "border-[var(--border)]",
                   )}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={checked}
                     disabled={!isExternal}
                     onChange={(event) =>
@@ -983,7 +983,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
                 disabled={busy}
                 className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
               >
-                {importing ? <Loader2 size="0.8125rem" className="animate-spin" /> : <FileArchive size="0.8125rem" />}
+                {importing ? <Spinner size="sm" /> : <FileArchive size="0.8125rem" />}
                 {t("settings.externalExtensions.import.file")}
               </button>
               <button

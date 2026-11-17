@@ -36,7 +36,6 @@ import {
   Trash2,
   Volume2,
   VolumeX,
-  Loader2,
   Wand2,
   RotateCcw,
   GitBranch,
@@ -128,6 +127,7 @@ import {
   type SpeakerAvatarInfo,
 } from "./GameNarrationVisuals";
 import { WindowTitle } from "../../lib/theme-slots";
+import { Spinner } from "../ui/Spinner";
 
 const GamePeekPromptButton = lazy(() => import("./GamePeekPromptButton"));
 
@@ -4199,7 +4199,7 @@ export function GameNarration({
           : localizeUi("ui.game.gamenarration.startCombat")
       }
     >
-      {combatStarting ? <Loader2 size={12} className="animate-spin" /> : <Sword size={12} />}
+      {combatStarting ? <Spinner size="sm" /> : <Sword size={12} />}
       <span className="hidden sm:inline">
         {combatGenerationFailed
           ? localizeUi("ui.game.gamenarration.retryCombat")
@@ -4218,7 +4218,7 @@ export function GameNarration({
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
-          {combatStarting ? <Loader2 size={13} className="shrink-0 animate-spin" /> : <AlertTriangle size={13} />}
+          {combatStarting ? <Spinner size="sm" className="shrink-0" /> : <AlertTriangle size={13} />}
           <span>
             {combatStarting
               ? localizeUi("ui.game.gamenarration.combatStartingPleaseWait")
@@ -4600,7 +4600,7 @@ export function GameNarration({
             : "ui.chat.chatmessage.translate",
         )}
       >
-        {activeIsTranslating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
+        {activeIsTranslating ? <Spinner size="sm" /> : <Languages size={11} />}
       </button>
     ) : null;
   const activeEditButton =
@@ -4778,7 +4778,7 @@ export function GameNarration({
               : localizeUi("ui.chat.chatmessage.translate")
           }
         >
-          {isTranslating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
+          {isTranslating ? <Spinner size="sm" /> : <Languages size={11} />}
         </button>
       ) : null;
     const deleteButton = showDeleteButton ? (
@@ -4968,7 +4968,7 @@ export function GameNarration({
             }
           >
             {voiceEntry.status === "loading" ? (
-              <Loader2 size={11} className="animate-spin" />
+              <Spinner size="sm" />
             ) : voiceActive ? (
               voicePaused ? (
                 <Play size={11} />
@@ -5062,7 +5062,7 @@ export function GameNarration({
                   )}
                   title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
                 >
-                  {logPortraitGenerating ? <Loader2 size="0.6rem" className="animate-spin" /> : <Wand2 size="0.6rem" />}
+                  {logPortraitGenerating ? <Spinner size="sm" /> : <Wand2 size="0.6rem" />}
                 </button>
               )}
             </div>
@@ -5349,7 +5349,7 @@ export function GameNarration({
                         }
                       >
                         {voiceEntry.status === "loading" ? (
-                          <Loader2 size={11} className="animate-spin" />
+                          <Spinner size="sm" />
                         ) : voiceActive ? (
                           voicePaused ? (
                             <Play size={11} />
@@ -5443,7 +5443,7 @@ export function GameNarration({
             {/* Scene preparation gate: wait for effects before showing narration */}
             {scenePreparing && (
               <div className="flex items-center gap-2 py-3">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/30 dark:border-t-white" />
+                <Spinner size="md" className="text-[var(--foreground)]/70 dark:text-white/70" />
                 <span className="text-sm text-[var(--muted-foreground)] dark:text-white/70">
                   {assetsGenerating
                     ? localizeUi("ui.game.gamenarration.generatingSprites")
@@ -5575,11 +5575,7 @@ export function GameNarration({
                                 )}
                                 title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
                               >
-                                {activePortraitGenerating ? (
-                                  <Loader2 size="0.75rem" className="animate-spin" />
-                                ) : (
-                                  <Wand2 size="0.75rem" />
-                                )}
+                                {activePortraitGenerating ? <Spinner size="sm" /> : <Wand2 size="0.75rem" />}
                               </button>
                             )}
                           </div>
@@ -6229,7 +6225,7 @@ export function GameNarration({
                                 : localizeUi("ui.chat.chatmessage.translate")
                             }
                           >
-                            {isTranslating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
+                            {isTranslating ? <Spinner size="sm" /> : <Languages size={11} />}
                           </button>
                         ) : null;
                       const deleteButton = showDeleteButton ? (
@@ -6306,7 +6302,7 @@ export function GameNarration({
                               }
                             >
                               {voiceEntry.status === "loading" ? (
-                                <Loader2 size={11} className="animate-spin" />
+                                <Spinner size="sm" />
                               ) : voiceActive ? (
                                 voicePaused ? (
                                   <Play size={11} />
@@ -6535,11 +6531,7 @@ export function GameNarration({
                                     )}
                                     title={localizeUi("ui.game.npcsview.generateNpcPortrait")}
                                   >
-                                    {logPortraitGenerating ? (
-                                      <Loader2 size="0.6rem" className="animate-spin" />
-                                    ) : (
-                                      <Wand2 size="0.6rem" />
-                                    )}
+                                    {logPortraitGenerating ? <Spinner size="sm" /> : <Wand2 size="0.6rem" />}
                                   </button>
                                 )}
                               </div>

@@ -818,8 +818,11 @@ const cases: RegressionCase[] = [
         }
       }
 
-      const drawerSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
+      const roleplayAgentsSource = readFileSync(
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const executorSource = readFileSync(
@@ -846,9 +849,12 @@ const cases: RegressionCase[] = [
         new URL("../../../packages/server/src/routes/backgrounds.routes.ts", import.meta.url),
         "utf8",
       );
-      assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.generateSceneBackgrounds"\)\}/u);
+      assert.match(
+        roleplayAgentsSource,
+        /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.generateSceneBackgrounds"\)\}/u,
+      );
       // Roleplay's Illustrator card, which holds the backgrounds switch, shows the image style its backgrounds share.
-      assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\{/u);
+      assert.match(roleplayAgentsSource, /renderIllustratorImageStyleSelect\(\{/u);
       assert.match(executorSource, /<illustrator_background_generation enabled="true">/u);
       assert.match(executorSource, /"shouldGenerate" to true/u);
       assert.match(executorSource, /"generateBackground"/u);

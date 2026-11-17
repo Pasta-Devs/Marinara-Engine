@@ -6,7 +6,10 @@ import {
   imageSourceToDefaultsService,
 } from "../../../packages/shared/src/index.js";
 import { resolveConnectionImageDefaults } from "../../../packages/server/src/services/image/image-generation-defaults.js";
-import { generateRunPodComfyUI } from "../../../packages/server/src/services/image/runpod-comfyui.service.js";
+import {
+  generateRunPodComfyUI,
+  resolveRunPodComfyUiTimeoutSeconds,
+} from "../../../packages/server/src/services/image/runpod-comfyui.service.js";
 
 assert.equal(imageSourceToDefaultsService("runpod_comfyui"), "comfyui");
 assert.equal(imageSourceToDefaultsService("swarmui"), "comfyui");
@@ -112,4 +115,9 @@ try {
   console.info("RunPod saved defaults, escaped LoRA values, and references reach the submitted workflow.");
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+}
+
+assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
+for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "120.5", "Infinity", "9007199254740992"]) {
+  assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
 }

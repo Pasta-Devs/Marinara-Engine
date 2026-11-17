@@ -61,7 +61,6 @@ import {
   BookOpen,
   FolderOpen,
   Upload,
-  Loader2,
   ImageIcon,
   Shield,
   ShieldCheck,
@@ -149,6 +148,7 @@ import { downloadZipFile } from "../../lib/download-zip";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 import { LorebookListField, LorebookPickerField } from "../ui/LibraryPickers";
+import { Spinner } from "../ui/Spinner";
 
 // The 2D and 3D Avatars setup loads only on those agents' pages.
 const AvatarAgentSetup = lazy(() =>
@@ -2786,7 +2786,7 @@ export function AgentEditor() {
               expanded={avatarSetupOpen}
               onExpandedChange={setAvatarSetupOpen}
             >
-              <Suspense fallback={<Loader2 size="1rem" className="animate-spin text-[var(--muted-foreground)]" />}>
+              <Suspense fallback={<Spinner size="md" className="text-[var(--muted-foreground)]" />}>
                 <AvatarAgentSetup agentId={currentAgentType} />
               </Suspense>
             </FieldGroup>
@@ -4897,7 +4897,7 @@ export function AgentEditor() {
                     >
                       {uploadSource.isPending ? (
                         <>
-                          <Loader2 size="0.875rem" className="animate-spin" />
+                          <Spinner size="sm" />
                           {localizeUi("ui.noodle.noodleprofilesurface.uploading")}
                         </>
                       ) : (

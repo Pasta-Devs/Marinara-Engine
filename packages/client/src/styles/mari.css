@@ -3211,6 +3211,13 @@ html[data-mari-pull-landing] .mari-arrival-content * {
   min-width: 0;
 }
 
+/* #9394: both are grid items. Left at min-width: auto, a one-step phase's single nowrap line (a whole image
+   prompt) widened the run's column, and her answer shares that column, so it stopped wrapping too. */
+.mari-run,
+.mari-phase {
+  min-width: 0;
+}
+
 /* M5a: one-line disclosures (a run phase, her "Why"): a quiet label with a chevron that turns when open. */
 .mari-disclosure {
   display: flex;
@@ -3648,6 +3655,13 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* #9394: opening a step shows its whole line (a full image prompt), wrapped instead of cut at the ellipsis. */
+.mari-phase[open] > summary .mari-live-work__step-label,
+.mari-live-work__step-details[open] > summary .mari-live-work__step-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .mari-live-work__step-subject {
@@ -5049,7 +5063,9 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   left: 0;
   display: flex;
   width: min(18rem, calc(100vw - 1.5rem));
-  max-height: min(28rem, calc(100dvh - 8rem));
+  /* --mari-menu-room: the space between the composer and the top of her pane (MariComposer), so a tall draft
+     never pushes the menu under the header. */
+  max-height: min(28rem, calc(100dvh - 8rem), var(--mari-menu-room, 100dvh));
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -5111,7 +5127,7 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   right: 0;
   left: 0;
   width: auto;
-  max-height: min(18rem, calc(100dvh - 12rem));
+  max-height: min(18rem, calc(100dvh - 12rem), var(--mari-menu-room, 100dvh));
 }
 
 .mari-reference-picker .mari-composer-menu__head {

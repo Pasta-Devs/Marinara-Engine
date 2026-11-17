@@ -9,7 +9,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Phone, PhoneIncoming, PhoneOff, X, MessageCircle } from "lucide-react";
+import { chatKeys } from "../../hooks/use-chats";
+import { Phone, PhoneIncoming, PhoneOff, X, MessageCircle } from "lucide-react";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -18,6 +19,7 @@ import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 type ChatNotification = {
   chatId: string;
@@ -59,8 +61,8 @@ export function ChatNotificationBubbles() {
 
   const refreshCallState = (chatId: string) => {
     queryClient.invalidateQueries({ queryKey: ["conversation-calls", "status", chatId] });
-    queryClient.invalidateQueries({ queryKey: ["chats", "messages", chatId] });
-    queryClient.invalidateQueries({ queryKey: ["chats", "list"] });
+    queryClient.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
+    queryClient.invalidateQueries({ queryKey: chatKeys.list() });
   };
 
   const acceptCall = async (notif: ChatNotification) => {
@@ -298,7 +300,7 @@ function NotificationBubble({
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--destructive)] text-white shadow-sm transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
             title={localizeUi("ui.chat.notificationbubble.declineCall")}
           >
-            {declining ? <Loader2 size="0.8125rem" className="animate-spin" /> : <PhoneOff size="0.8125rem" />}
+            {declining ? <Spinner size="sm" /> : <PhoneOff size="0.8125rem" />}
           </button>
           <button
             type="button"
@@ -310,7 +312,7 @@ function NotificationBubble({
             className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm transition-transform hover:scale-105 active:scale-95 disabled:opacity-60"
             title={localizeUi("ui.chat.notificationbubble.answerCall")}
           >
-            {accepting ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Phone size="0.8125rem" />}
+            {accepting ? <Spinner size="sm" /> : <Phone size="0.8125rem" />}
           </button>
         </div>
       ) : (

@@ -3,7 +3,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { AgentSettingsToggle, AgentSettingsSegmentedControl } from "../../../components/chat/AgentSettingsControls";
 import { HAPTIC_SENSITIVITY_OPTIONS } from "../../../components/chat/haptic-sensitivity-options";
-import { HapticConnectionPanel } from "../HapticConnectionPanel";
+import { HapticConnectionPanel } from "./HapticConnectionPanel";
 
 interface HapticSettingsProps {
   chat: Chat;

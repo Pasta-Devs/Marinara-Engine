@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { normalizeTextForMatch, type Message } from "@marinara-engine/shared";
-import { Bookmark, Loader2, Search, Trash2 } from "lucide-react";
+import { Bookmark, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
@@ -9,6 +9,7 @@ import { normalizeHydratedMessage } from "../../lib/message-hydration";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { ChatBookmarksList, ChatTrashList } from "../../components/chat/ChatMessageMarksPanels";
+import { Spinner } from "../../components/ui/Spinner";
 
 type SearchPanelView = "search" | "bookmarks" | "trash";
 const PANEL_VIEWS = [
@@ -146,7 +147,7 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
             <ChatTrashList key={chatId} chatId={chatId} enabled />
           ) : isLoading ? (
             <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-[var(--muted-foreground)]">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatmessagesearch.loading")}
             </div>
           ) : isError ? (

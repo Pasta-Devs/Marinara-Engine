@@ -70,13 +70,24 @@ export function activeToken(text: string, caret: number): ActiveComposerToken | 
     return { trigger: "@", query, start: i, end: close === -1 ? caret : close + 1, quoted: true };
   }
 
+  // The non-whitespace run the caret sits in.
+  let wordStart = caret;
+  while (wordStart > 0 && !isWhitespace(text[wordStart - 1])) wordStart--;
+
+  // `/` at the start of a word (line start or after whitespace), so one message can run several commands. It is
+  // checked before the bare `@` below, whose name may hold spaces: `Ask @Alice /skills` lists commands. The query
+  // holds no further slash, which keeps `and/or`, `1/2`, URLs and paths like `/usr/bin` out.
+  if (caret > wordStart && text[wordStart] === "/" && !text.slice(wordStart + 1, caret).includes("/")) {
+    let end = caret;
+    while (end < text.length && !isWhitespace(text[end])) end++;
+    return { trigger: "/", query: text.slice(wordStart + 1, caret), start: wordStart, end, quoted: false };
+  }
+
   // Unquoted `@` at the end of the draft: the name may hold spaces, so it needs no quotes.
   const bare = openBareReference(text, caret);
   if (bare) return bare;
 
-  // Unquoted `@` mid-text: look inside the non-whitespace run the caret sits in.
-  let wordStart = caret;
-  while (wordStart > 0 && !isWhitespace(text[wordStart - 1])) wordStart--;
+  // Unquoted `@` mid-text: look inside the word.
   for (let i = wordStart; i < caret; i++) {
     if (text[i] !== "@" || !canOpenAt(text, i)) continue;
     if (text[i + 1] === '"') return null; // a quoted token that already closed
@@ -85,14 +96,6 @@ export function activeToken(text: string, caret: number): ActiveComposerToken | 
     return { trigger: "@", query: text.slice(i + 1, caret), start: i, end, quoted: false };
   }
 
-  // `/` only at the start of a line, with no further slash or whitespace in the query.
-  const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
-  const slash = /^([ \t]*)\/([^\s/]*)$/.exec(text.slice(lineStart, caret));
-  if (slash) {
-    let end = caret;
-    while (end < text.length && !isWhitespace(text[end])) end++;
-    return { trigger: "/", query: slash[2]!, start: lineStart + slash[1]!.length, end, quoted: false };
-  }
   return null;
 }
 

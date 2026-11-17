@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { promises as dns } from "node:dns";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -21,6 +22,7 @@ const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.
 const { chatPresetsRoutes } = await import("../../../packages/server/src/routes/chat-presets.routes.js");
 const { connectionsRoutes } = await import("../../../packages/server/src/routes/connections.routes.js");
 const { appSettingsRoutes } = await import("../../../packages/server/src/routes/app-settings.routes.js");
+const { translateRoutes } = await import("../../../packages/server/src/routes/translate.routes.js");
 const { sanitizeProfileTableRows, quarantineProfileApiConnectionRow } =
   await import("../../../packages/server/src/routes/backup.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
@@ -51,6 +53,7 @@ await app.register(chatsRoutes, { prefix: "/api/chats" });
 await app.register(chatPresetsRoutes, { prefix: "/api/chat-presets" });
 await app.register(connectionsRoutes, { prefix: "/api/connections" });
 await app.register(appSettingsRoutes, { prefix: "/api/app-settings" });
+await app.register(translateRoutes, { prefix: "/api/translate" });
 await app.ready();
 
 const chats = createChatsStorage(db);
@@ -272,6 +275,96 @@ try {
   assert.ok(!defaultsGet.body.includes(DEEPL_KEY) && !defaultsGet.body.includes("enc:v1:"), "defaults are masked");
   const fromDefaults = (await chats.create({ name: "From defaults", mode: "conversation", characterIds: [] }))!;
   assert.equal(await resolveDeeplApiKey(db, { chatId: fromDefaults.id }), DEEPL_KEY, "a new chat inherits the key");
+
+  // Noodle forwards the defaults mask without a chat id. Only the outbound provider request gets the real key.
+  {
+    const originalFetch = globalThis.fetch;
+    const originalLookup = dns.lookup;
+    const requests: Array<{ url: string; authorization: string | null; body: unknown }> = [];
+    const appSettings = createAppSettingsStorage(db);
+    const translate = (input: { chatId?: string; deeplApiKey?: string } = {}) =>
+      app.inject({
+        method: "POST",
+        url: "/api/translate",
+        payload: { text: "Hello", provider: "deepl", targetLanguage: "de", ...input },
+      });
+    dns.lookup = (async (hostname: string) => {
+      assert.ok(["api-free.deepl.com", "api.deepl.com"].includes(hostname), "only DeepL DNS is used");
+      return [{ address: "8.8.8.8", family: 4 }];
+    }) as typeof dns.lookup;
+    globalThis.fetch = async (url, init) => {
+      assert.ok(
+        ["https://api-free.deepl.com/v2/translate", "https://api.deepl.com/v2/translate"].includes(String(url)),
+      );
+      requests.push({
+        url: String(url),
+        authorization: new Headers(init?.headers).get("authorization"),
+        body: JSON.parse(String(init?.body)),
+      });
+      return Response.json({ translations: [{ text: "Hallo" }] });
+    };
+    try {
+      const maskedKey = JSON.parse(defaultsGet.json().value).translationDeeplApiKey;
+      assert.equal(maskedKey, STORED_SECRET_MASK);
+      for (const deeplApiKey of [maskedKey, undefined, "", rawDefaults.translationDeeplApiKey]) {
+        const response = await translate({ deeplApiKey });
+        assert.equal(response.statusCode, 200, response.body);
+        assert.deepEqual(response.json(), { translatedText: "Hallo" });
+        assert.deepEqual(requests.at(-1), {
+          url: "https://api-free.deepl.com/v2/translate",
+          authorization: `DeepL-Auth-Key ${DEEPL_KEY}`,
+          body: { text: ["Hello"], target_lang: "DE" },
+        });
+      }
+      await chats.updateMetadata(fromDefaults.id, { translationDeeplApiKey: "chat-specific-key" });
+      assert.equal((await translate({ chatId: fromDefaults.id, deeplApiKey: maskedKey })).statusCode, 200);
+      assert.equal(requests.at(-1)?.authorization, "DeepL-Auth-Key chat-specific-key", "the chat key wins");
+      assert.equal((await translate({ deeplApiKey: " legacy-client-key " })).statusCode, 200);
+      assert.equal(requests.at(-1)?.authorization, "DeepL-Auth-Key legacy-client-key", "explicit plaintext wins");
+      assert.equal((await translate({ chatId: fromDefaults.id, deeplApiKey: "legacy-client-key" })).statusCode, 200);
+      assert.equal(requests.at(-1)?.authorization, "DeepL-Auth-Key legacy-client-key");
+
+      const assertMissingKey = async (input: { chatId?: string; deeplApiKey?: string } = {}) => {
+        const before = requests.length;
+        const response = await translate(input);
+        assert.equal(response.statusCode, 400, response.body);
+        assert.equal(response.json().message, "DeepL API key is required");
+        assert.equal(requests.length, before, "missing or unusable keys make no upstream request");
+      };
+      await chats.updateMetadata(fromDefaults.id, { translationDeeplApiKey: "" });
+      await assertMissingKey({ chatId: fromDefaults.id, deeplApiKey: maskedKey });
+      await assertMissingKey({ chatId: "missing-chat", deeplApiKey: maskedKey });
+
+      const after = await app.inject({ method: "GET", url: `/api/app-settings/${TRANSLATOR_DEFAULTS_SETTINGS_KEY}` });
+      assert.equal(JSON.parse(after.json().value).translationDeeplApiKey, STORED_SECRET_MASK);
+      assert.ok(!after.body.includes(DEEPL_KEY) && !after.body.includes("enc:v1:"));
+      await appSettings.remove(TRANSLATOR_DEFAULTS_SETTINGS_KEY);
+      await assertMissingKey({ deeplApiKey: maskedKey });
+      for (const value of [
+        "",
+        "broken json",
+        "null",
+        "[]",
+        JSON.stringify({ translationDeeplApiKey: "" }),
+        JSON.stringify({ translationDeeplApiKey: STORED_SECRET_MASK }),
+        JSON.stringify({ translationDeeplApiKey: "enc:v1:broken" }),
+        JSON.stringify({ translationDeeplApiKey: 42 }),
+      ]) {
+        await appSettings.set(TRANSLATOR_DEFAULTS_SETTINGS_KEY, value);
+        await assertMissingKey({ deeplApiKey: maskedKey });
+      }
+      await appSettings.set(
+        TRANSLATOR_DEFAULTS_SETTINGS_KEY,
+        JSON.stringify({ translationDeeplApiKey: "legacy-default" }),
+      );
+      assert.equal((await translate({ deeplApiKey: maskedKey })).statusCode, 200);
+      assert.equal(requests.at(-1)?.authorization, "DeepL-Auth-Key legacy-default", "legacy saved defaults still work");
+    } finally {
+      globalThis.fetch = originalFetch;
+      dns.lookup = originalLookup;
+      await appSettings.set(TRANSLATOR_DEFAULTS_SETTINGS_KEY, JSON.stringify(rawDefaults));
+    }
+  }
 
   // ── Connection custom headers ──
   const connections = createConnectionsStorage(db);

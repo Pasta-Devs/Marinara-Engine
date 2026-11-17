@@ -130,7 +130,6 @@ await withHandbook(
     const metaNow = JSON.parse(restamped.meta);
     metaNow.images.push({ name: "fence-day.svg", src: svgUrl(svg("#ff66cc")) });
     await (db as any).update(customThemes).set({ meta: JSON.stringify(metaNow) });
-    const { takeLookImages } = await import("../../../packages/server/src/services/professor-mari/mari-look-images.js");
     const svgLook: any = await run(
       "look",
       "--target",
@@ -142,7 +141,7 @@ await withHandbook(
     );
     assert.equal(svgLook.ok, true, String(svgLook.error ?? ""));
     assert.match(svgLook.output.svgSources[0].svg, /#ff66cc/, "look returns the SVG text to edit");
-    assert.equal(takeLookImages(JSON.stringify(svgLook.output)).images.length, 1, "and shows the drawing");
+    assert.equal(svgLook.images?.length, 1, "and shows the drawing");
     const several: any = await run(
       "look",
       "--target",
@@ -153,7 +152,7 @@ await withHandbook(
       "fence-day.svg,Night-Sky.webp",
     );
     assert.equal(several.ok, true, String(several.error ?? ""));
-    assert.equal(takeLookImages(JSON.stringify(several.output)).images.length, 2, "several names at once");
+    assert.equal(several.images?.length, 2, "several names at once");
     const byBase: any = await run("look", "--target", "theme-image", "--theme", "harbor-glass", "--name", "fence-day");
     assert.equal(byBase.ok, true, "a name without its ending still finds the SVG");
     const recoloured: any = await run(

@@ -2,7 +2,7 @@
 // Modal: Import Connections (JSON)
 // ──────────────────────────────────────────────
 import { useRef, useState } from "react";
-import { CheckCircle, Download, FileJson, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, Download, FileJson, XCircle } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -30,6 +30,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -270,7 +271,7 @@ export function ImportConnectionModal({ open, onClose }: Props) {
 
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />{" "}
+            <Spinner size="sm" className="text-[var(--primary)]" />{" "}
             {localizeUi("ui.modals.importconnectionmodal.importing")}
           </div>
         )}

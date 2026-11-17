@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Check, Globe, Key, Loader2, PlugZap } from "lucide-react";
+import { AlertTriangle, Check, Globe, Key, PlugZap } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { SPEECH_TO_TEXT_DEFAULT_MODEL, type SpeechToTextConfig } from "@marinara-engine/shared";
@@ -12,6 +12,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { translate } from "../../../localization/i18n";
 import { ToggleSetting } from "./SettingControls";
+import { Spinner } from "../../ui/Spinner";
 
 const INPUT_CLS = "mari-chrome-field w-full px-3 py-2.5 text-sm placeholder:text-[var(--muted-foreground)]";
 /** An address, not copy: the usual root of a self-hosted server on the same machine. */
@@ -221,13 +222,13 @@ export function SpeechToTextCard({ inDictation }: { defaultExpanded?: boolean; i
           disabled={testing || !draft.baseUrl.trim()}
           className="mari-chrome-control mari-chrome-control--small text-xs"
         >
-          {testing ? <Loader2 size="0.75rem" className="animate-spin" /> : <PlugZap size="0.75rem" />}
+          {testing ? <Spinner size="sm" /> : <PlugZap size="0.75rem" />}
           {testing ? t("connections.speechToText.testing") : t("connections.speechToText.test")}
         </button>
         <div className="flex-1" />
         {saveStatus === "saving" && (
           <span className="flex items-center gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-            <Loader2 size="0.625rem" className="animate-spin" />
+            <Spinner size="sm" />
             {t("chat.settings.inlineEditor.saving")}
           </span>
         )}

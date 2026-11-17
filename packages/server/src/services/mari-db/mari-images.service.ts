@@ -33,11 +33,12 @@ import {
   parseImageDataUrl,
 } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
+import { getSharp } from "../image/sharp-runtime.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
-import { lookCopy, stashLookImages } from "../professor-mari/mari-look-images.js";
+import { lookCopy, lookDataUrls } from "../professor-mari/mari-look-images.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
@@ -50,7 +51,6 @@ import { createThemesStorage } from "../storage/themes.storage.js";
 import { isStarterThemeId } from "../storage/starter-themes.js";
 import { themeImageName, themePackageImage } from "../image/theme-package-image.js";
 import { isSafeSvgImageBuffer } from "../../utils/media-file-security.js";
-import { getSharp } from "../image/sharp-runtime.js";
 import { adjustPicture, parseHexColour, type PictureAdjustments } from "../image/picture-adjust.js";
 import { deleteChatGalleryImageEverywhere } from "../image/chat-gallery-cascade-deletion.js";
 import {
@@ -104,7 +104,7 @@ type ImageCapability = {
   notes: string[];
 };
 
-type MariImageAsset = {
+export type MariImageAsset = {
   id: string;
   filename: string;
   filePath: string;
@@ -171,6 +171,9 @@ const BOOLEAN_FLAGS = new Set([
   "no-style",
 ]);
 const PREVIEW_CHAT_ID = "mari-images";
+// #9342: `look` sends at most this many pictures per call, each scaled to fit this long side.
+const LOOK_MAX_IMAGES = 4;
+const LOOK_LONG_SIDE = { high: 1024, low: 512 } as const;
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
 const PREVIEW_MANIFEST_PATH = join(PREVIEW_DIR, "manifest.json");
@@ -855,6 +858,105 @@ export async function findMariPreviewFile(
   }
 }
 
+/** One preview asset's manifest record, or null once the manifest no longer lists it (it keeps the newest 200). */
+export async function getMariPreviewAsset(assetId: string): Promise<MariImageAsset | null> {
+  return (await readManifest()).find((asset) => asset.id === assetId) ?? null;
+}
+
+/**
+ * The reference `resolveImageReference` reads for an edited asset's saved source label (`asset:<id>`,
+ * `gallery:<chat>/<file>`, `avatar:<file>`...), or null when the label names nothing it can read again: a pasted
+ * data URL, raw base64 or a file path. Only app URLs and asset ids come out, never a path on disk.
+ */
+export function mariSourceReference(label: string | null | undefined): string | null {
+  const at = label?.indexOf(":") ?? -1;
+  if (!label || at <= 0) return null;
+  const kind = label.slice(0, at);
+  const rest = label.slice(at + 1);
+  if (!rest) return null;
+  const slash = rest.indexOf("/");
+  const pair = slash > 0 && slash < rest.length - 1 ? [rest.slice(0, slash), rest.slice(slash + 1)] : null;
+  const enc = encodeURIComponent;
+  switch (kind) {
+    case "asset":
+      return rest;
+    case "avatar":
+      return `/api/avatars/file/${enc(rest)}`;
+    case "lorebook-image":
+      return `/api/lorebooks/images/file/${enc(rest)}`;
+    case "background":
+      return `/api/backgrounds/file/${enc(rest)}`;
+    case "gallery":
+      return pair ? `/api/gallery/file/${enc(pair[0]!)}/${enc(pair[1]!)}` : null;
+    case "persona-gallery":
+      return pair ? `/api/characters/personas/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "character-gallery":
+      return pair ? `/api/characters/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "sprite":
+      return pair ? `/api/sprites/${enc(pair[0]!)}/file/${enc(pair[1]!)}` : null;
+    default:
+      return null;
+  }
+}
+
+/** Whether the lightbox can rerun an asset: a generate always, an edit while its source image can be read again. */
+export function isMariPreviewAssetRegenerable(asset: MariImageAsset): boolean {
+  // An adjusted copy (crop, trim, tint...) has no prompt of its own to send again.
+  if (asset.operation === "adjust") return false;
+  return asset.operation !== "edit" || mariSourceReference(asset.sourceImage) !== null;
+}
+
+// The parts of Mari's reply extra that name the assets her tools made: the continuity she reads on later turns, the
+// work timeline and the action results.
+const MARI_ASSET_EXTRA_KEYS = ["mariWorkspaceContinuity", "mariWorkspaceTimeline", "mariWorkspaceActionResults"];
+
+/**
+ * After a lightbox regenerate, points one of Mari's replies at the new asset: her text shows the new picture, and the
+ * tool results she reads on later turns name the new asset, so "assign that one" afterwards means the picture the user
+ * sees. Returns the new content and the rewritten extra keys, for her window to apply as they are (#9388: rebuilding
+ * the swap on the client missed the filename and bare id); null when the message never showed the old asset.
+ */
+export async function swapMariPreviewAssetInMessage(
+  db: DB,
+  chatId: string,
+  messageId: string,
+  previous: Pick<MariImageAsset, "id" | "url" | "filename">,
+  next: Pick<MariImageAsset, "id" | "url" | "filename">,
+): Promise<{ content: string; extra: Json } | null> {
+  const chats = createChatsStorage(db);
+  const message = await chats.getMessage(messageId);
+  if (!message || message.chatId !== chatId || message.role !== "assistant") return null;
+  if (!message.content.includes(previous.url)) return null;
+  // The id is a fresh unique id and part of the url and filename, so plain replacement can't hit unrelated text.
+  const swap = (text: string) =>
+    text
+      .split(previous.url)
+      .join(next.url)
+      .split(previous.filename)
+      .join(next.filename)
+      .split(previous.id)
+      .join(next.id);
+  const content = swap(message.content);
+  await chats.updateMessageContent(messageId, content);
+
+  let extra: Json = {};
+  try {
+    const parsed = typeof message.extra === "string" ? (JSON.parse(message.extra) as unknown) : message.extra;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) extra = parsed as Json;
+  } catch {
+    // An unreadable extra has nothing to point at the new asset.
+  }
+  const partial: Json = {};
+  for (const key of MARI_ASSET_EXTRA_KEYS) {
+    if (extra[key] === undefined) continue;
+    const before = JSON.stringify(extra[key]);
+    const after = swap(before);
+    if (after !== before) partial[key] = JSON.parse(after) as unknown;
+  }
+  if (Object.keys(partial).length > 0) await chats.updateMessageExtra(messageId, partial);
+  return { content, extra: partial };
+}
+
 async function writeManifest(assets: MariImageAsset[]) {
   await writeAppFile(PREVIEW_DIR, PREVIEW_MANIFEST_PATH, JSON.stringify(assets, null, 2));
 }
@@ -1146,10 +1248,6 @@ export class MariImagesService {
       case "crop":
       case "transform":
         return this.adjust(context, parsed.flags);
-      case "look":
-      case "view":
-      case "show":
-        return this.look(context, parsed.flags);
       case "assign":
       case "add":
       case "replace":
@@ -1162,6 +1260,10 @@ export class MariImagesService {
         return this.list(context, parsed.flags, parsed.positionals);
       case "get":
         return this.get(context, parsed.flags, parsed.positionals);
+      case "look":
+      case "view":
+      case "show":
+        return this.look(context, parsed.flags, parsed.positionals);
       default:
         return {
           ok: false,
@@ -1422,6 +1524,7 @@ export class MariImagesService {
       }
     }
 
+    const seen = lookDataUrls(await Promise.all(looks));
     return {
       ok: true,
       mode: "read",
@@ -1433,14 +1536,15 @@ export class MariImagesService {
           assets.length > 1
             ? `${assets.length} versions created as preview assets. None is assigned anywhere yet. Show them to the user and use mari images assign on the one they pick.`
             : "Image created as a preview asset. It is not assigned anywhere yet. Use mari images assign after the user approves it.",
-        ...lookField(await Promise.all(looks), assets.length),
         asset: assets[0],
         ...(count > 1 ? { assets } : {}),
         ...(failure ? { stoppedEarly: `Made ${assets.length} of ${count}; the next one failed: ${failure}` } : {}),
         targetSuggestion: target,
         style: styled.style,
         show: assets.map((asset) => `![${kind}](${asset.url})`).join("\n"),
+        ...lookNote(seen.length, assets.length),
       },
+      ...(seen.length ? { images: seen } : {}),
     };
   }
 
@@ -1452,7 +1556,7 @@ export class MariImagesService {
     const target = this.parseTarget(flags, false);
     const source = await this.resolveSourceImage(flags, target, context, true);
     const adjusted = await adjustPicture(source.buffer, adjustments);
-    const looked = stashLookImages([await lookCopy(adjusted.buffer)]);
+    const seen = lookDataUrls([await lookCopy(adjusted.buffer)]);
     const asset = await savePreviewAsset({
       result: { base64: adjusted.buffer.toString("base64"), mimeType: "image/png", ext: "png" },
       operation: "adjust",
@@ -1472,7 +1576,7 @@ export class MariImagesService {
         assigned: false,
         message:
           "Adjusted copy saved as a new preview asset; the original is unchanged. Show it to the user, then use mari images assign on the one they want.",
-        ...(looked ? { look: `${looked} The adjusted picture is attached below so you can check it.` } : {}),
+        ...(seen.length ? { look: "The adjusted picture is attached to your next message so you can check it." } : {}),
         asset,
         steps: adjusted.steps,
         width: adjusted.width,
@@ -1480,7 +1584,45 @@ export class MariImagesService {
         show: `![adjusted](${asset.url})`,
         targetSuggestion: target,
       },
+      ...(seen.length ? { images: seen } : {}),
     };
+  }
+
+  /**
+   * The lightbox's Regenerate: reruns one preview asset with an edited prompt and its saved kind, size and operation,
+   * as a new asset. Null when the manifest no longer lists it.
+   */
+  async regeneratePreviewAsset(
+    assetId: string,
+    input: { prompt: string; negativePrompt?: string; connectionId?: string },
+  ): Promise<{ previous: MariImageAsset; asset: MariImageAsset } | null> {
+    const previous = await getMariPreviewAsset(assetId);
+    if (!previous) return null;
+    if (previous.operation === "adjust")
+      throw new Error("This picture was adjusted from another one, so it has no prompt of its own to make again.");
+    const flags = new Map<string, string | boolean>([
+      ["prompt", input.prompt],
+      // Left out keeps the saved one; an empty string clears it.
+      ["negative", input.negativePrompt ?? previous.negativePrompt ?? ""],
+      ["connection", input.connectionId?.trim() || previous.connectionId],
+      ["kind", previous.kind],
+      // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
+      ["no-style", true],
+    ]);
+    if (previous.width) flags.set("width", String(previous.width));
+    if (previous.height) flags.set("height", String(previous.height));
+    if (previous.operation === "edit") {
+      const source = mariSourceReference(previous.sourceImage);
+      if (!source) throw new Error("This image was edited from a picture that can't be read again.");
+      flags.set("source", source);
+    }
+    const result = await this.generateOrEdit(
+      previous.operation,
+      { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
+      flags,
+    );
+    const asset = (result.output as { asset: MariImageAsset }).asset;
+    return { previous, asset };
   }
 
   private resolveOperation(flags: Map<string, string | boolean>): "generate" | "edit" {
@@ -2223,68 +2365,91 @@ export class MariImagesService {
     return { ok: true, mode: "read", command: context.command, output: asset };
   }
 
-  /** Shows Mari up to 4 pictures (preview assets, theme pictures, app images) so she can judge them herself. */
-  private async look(context: ImageCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
-    const raw = flagString(flags, "source", "asset", "from");
-    // Several theme pictures at once: --name a.webp,b.webp,c.svg (up to 4).
+  // #9342: Mari sees the pictures. Each one is scaled down and re-encoded, rides on `images` (her runtime attaches
+  // them to her next request), and the text output only names them, so history keeps a small stub, never pixels.
+  // Small pictures (stickers, weather sprites) are enlarged and see-through parts shown on mid grey (lookCopy), and
+  // an SVG theme picture also comes back as its text so she can recolour it.
+  private async look(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
+    const detail = flagString(flags, "detail")?.trim().toLowerCase() || "high";
+    if (detail !== "high" && detail !== "low") throw new Error("--detail takes low or high.");
+    const refs = [...positionals];
+    // --source a,b,c (comma-separated, except the comma inside a data: URL). --asset names the asset a --target
+    // asset points at; on its own it is one more ref.
+    const explicit =
+      flagString(flags, "source", "from") ?? (flagString(flags, "target") ? undefined : flagString(flags, "asset"));
+    for (const piece of explicit ? explicit.split(",") : []) {
+      const previous = refs[refs.length - 1];
+      if (previous !== undefined && /^data:[^,]*$/iu.test(previous)) refs[refs.length - 1] = `${previous},${piece}`;
+      else if (piece.trim()) refs.push(piece.trim());
+    }
+    // Several theme pictures at once: --target theme-image --theme <id> --name a.webp,b.webp,c.svg
     const names = (flagString(flags, "name", "image", "filename") ?? "")
       .split(",")
-      .map((n) => n.trim())
+      .map((name) => name.trim())
       .filter(Boolean);
-    if (!raw && names.length > 1) {
-      if (names.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
-      const sources: string[] = [];
-      for (const name of names) {
+    const targetFlags = names.length > 1 ? [...names] : [null];
+    if (flagString(flags, "target")) {
+      for (const name of targetFlags) {
         const one = new Map(flags);
-        one.delete("image");
-        one.delete("filename");
-        one.set("name", name);
+        if (name) {
+          one.delete("image");
+          one.delete("filename");
+          one.set("name", name);
+        }
         const target = this.parseTarget(one, false);
-        const src = target ? await this.currentImageReferenceForTarget(target) : null;
-        if (!src) throw new Error(`No picture named ${name} in that theme.`);
-        sources.push(src);
+        if (!target) continue;
+        const current = await this.currentImageReferenceForTarget(target);
+        if (!current)
+          throw new Error(
+            name ? `No picture named ${name} in that theme.` : `That ${target.type} has no image to look at.`,
+          );
+        refs.push(current);
       }
-      const many = new Map(flags);
-      for (const key of ["name", "image", "filename", "target", "theme", "theme-id", "id"]) many.delete(key);
-      many.set("source", sources.join(","));
-      const result = await this.look(context, many);
-      const output = result.output as Record<string, unknown>;
-      if (typeof output.look === "string")
-        output.look = output.look.replace(/in the order given: .*$/u, `in the order given: ${names.join(", ")}.`);
-      return result;
     }
-    const target = raw ? null : this.parseTarget(flags, false);
-    // Comma-separated, except the comma inside a data: URL (data:image/png;base64,....).
-    const references: string[] = [];
-    for (const piece of raw ? raw.split(",") : []) {
-      const previous = references[references.length - 1];
-      if (previous !== undefined && /^data:[^,]*$/iu.test(previous))
-        references[references.length - 1] = `${previous},${piece}`;
-      else if (piece.trim()) references.push(piece.trim());
-    }
-    if (references.length === 0 && !target) {
+    if (refs.length === 0)
       throw new Error(
-        "Missing --source <asset-id,...> (up to 4, comma-separated) or a target such as --target theme-image --theme <id> --name <name>.",
+        "Usage: mari images look <asset-id|app-url|file> [more, up to 4] [--detail low|high], or --target <target> for its current image (theme pictures: --target theme-image --theme <id> --name a.webp,b.svg).",
       );
-    }
-    if (references.length > 4) throw new Error("mari images look takes at most 4 pictures at a time.");
-    const resolved = references.length
-      ? await Promise.all(references.map((reference) => this.resolveImageReference(reference, context)))
-      : [await this.resolveSourceImage(flags, target, context, true)];
-    const copies = await Promise.all(resolved.map((image) => lookCopy(image.buffer)));
-    const looked = stashLookImages(copies);
-    if (!looked) throw new Error("Couldn't read those pictures to look at them.");
-    const svgs = resolved
-      .filter((image) => image.svg)
-      .map((image) => ({ picture: image.label, svg: image.svg!.toString("utf8").slice(0, 24_000) }));
+    if (refs.length > LOOK_MAX_IMAGES)
+      throw new Error(`mari images look takes at most ${LOOK_MAX_IMAGES} images per call; you passed ${refs.length}.`);
+
+    // Resolve every ref first, so one bad ref fails the call before any image is processed.
+    const sources = [];
+    for (const ref of refs) sources.push({ ref, image: await this.resolveImageReference(ref, context) });
+    const longSide = LOOK_LONG_SIDE[detail];
+    const copies = await Promise.all(sources.map(({ image }) => lookCopy(image.buffer, longSide)));
+    const images = lookDataUrls(copies);
+    if (images.length === 0)
+      throw new Error(
+        "Couldn't read those pictures to look at them (image processing may be unavailable on this install).",
+      );
+    const looked = sources.flatMap(({ ref, image }, index) =>
+      copies[index]
+        ? [
+            {
+              ref: ref.startsWith("data:") || ref.length > 200 ? image.label : ref,
+              label: image.asset ? `asset:${image.asset.id}` : image.label,
+              ...(image.asset ? { kind: image.asset.kind, prompt: clip(image.asset.prompt, 300) } : {}),
+              original: copies[index]!.original,
+              sent: copies[index]!.sent,
+            },
+          ]
+        : [],
+    );
+    const svgs = sources
+      .filter(({ image }) => image.svg)
+      .map(({ image }) => ({ picture: image.label, svg: image.svg!.toString("utf8").slice(0, 24_000) }));
     return {
       ok: true,
       mode: "read",
       command: context.command,
       output: {
-        look: `${looked} ${copies.filter(Boolean).length} picture(s) attached below, in the order given: ${resolved.map((image) => image.label).join(", ")}.`,
-        message:
-          "Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds. See-through areas show as mid grey; small pictures are shown enlarged, so check outlines and edge colours too.",
+        looked: looked.map((entry, index) => ({ image: index + 1, ...entry })),
+        note: "The pictures are attached to your next message, in this order. Look at them yourself before you tell the user about them: composition, colour, readability behind text, edges and leftover backgrounds. See-through areas show as mid grey; small pictures are shown enlarged, so check outlines and edge colours too. Describe only what you see.",
         ...(svgs.length
           ? {
               svgSources: svgs,
@@ -2293,6 +2458,7 @@ export class MariImagesService {
             }
           : {}),
       },
+      images,
     };
   }
 
@@ -2301,13 +2467,13 @@ export class MariImagesService {
       "Usage: mari images <command> (mari images help shows this)",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
+      "Look at pictures yourself (you see them in your next message; the user doesn't): look <asset-id|app-url|file> [up to 4] [--detail low|high] (or --source a,b), look --target <target> for its current image, or look --target theme-image --theme <id> --name <name>[,<more>] (up to 4). Aliases: view, show. generate/edit/adjust already show you what they made.",
       "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
       "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--count 1-4] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style] (--count makes that many versions in one go, one request each, for the user to pick from)",
       "Theme art: generate --prompt <text> --target theme-image --theme <theme-id> --name <name> [--width <n>] [--height <n>] (sent as written; leave out --style so the user's character-art style profiles don't pull it towards a portrait)",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",
       "Style: without --style the prompt and negative go out as written (--no-style says so explicitly): no style profile, no connection prompt prefix, LoRAs or style reference. --style or --style default applies the default style profile; --style <id|name> a chosen one, including its per-image tags for --kind. Results show a style block: what was added, removed or moved.",
       "Adjust a picture without an image model (new preview asset, original kept): adjust --source <asset|url|file> [--crop left,top,width,height (px or %)] [--trim] [--transparent [auto|#hex] --tolerance 0-255 [--everywhere]] [--resize WxH|N --fit inside|cover|fill] [--flip horizontal|vertical|both] [--rotate 90|180|270] [--tint #hex]",
-      "Look at pictures yourself (you see them; the user doesn't): look --source <asset|url|file>[,<more>] (up to 4), or look --target theme-image --theme <id> --name <name>[,<more>] (up to 4). generate/edit/adjust already show you what they made.",
       "SVG theme pictures (trims, rails, buttons): look shows the drawing and its SVG text; recolour by editing the text, then assign --source <file.svg> --target theme-image --theme <id> --name <name>.svg --apply (stays SVG). adjust/edit work on a drawn copy, saved as .webp.",
       "Show a result: put the result's show line, ![alt](asset.url), in your reply.",
       "Apply: assign --asset <asset-id> --target character-avatar --character <id> --apply",
@@ -2328,11 +2494,10 @@ export function getMariImagesService(db: DB) {
   return new MariImagesService(db);
 }
 
-/** The marker that lets the pi runtime show Mari what she just made. */
-function lookField(copies: Array<Awaited<ReturnType<typeof lookCopy>>>, made: number): { look?: string } {
-  const looked = stashLookImages(copies);
-  if (!looked) return {};
+/** Tells Mari the pictures she just made ride along with her next message. */
+function lookNote(seen: number, made: number): { look?: string } {
+  if (!seen) return {};
   return {
-    look: `${looked} ${made > 1 ? `All ${made} versions are attached below, in order` : "The picture is attached below"}: look at ${made > 1 ? "them" : "it"} yourself before you describe or pick one.`,
+    look: `${made > 1 ? `All ${made} versions are attached to your next message, in order` : "The picture is attached to your next message"}: look at ${made > 1 ? "them" : "it"} yourself before you describe or pick one.`,
   };
 }

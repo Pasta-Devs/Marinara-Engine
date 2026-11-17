@@ -7,8 +7,9 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useCreateCharacter, useUploadAvatar } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
-import { Loader2, Sparkles, User, Camera } from "lucide-react";
+import { Sparkles, User, Camera } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -120,11 +121,7 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
             disabled={!name.trim() || createCharacter.isPending}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {createCharacter.isPending ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <Sparkles size="0.75rem" />
-            )}
+            {createCharacter.isPending ? <Spinner size="sm" /> : <Sparkles size="0.75rem" />}
             {localizeUi("ui.modals.createcharactermodal.createCharacter")}
           </button>
           <button onClick={guardedClose} className={SHEET_BUTTON_QUIET}>

@@ -1,12 +1,15 @@
 import { expect, test, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { clickTopbarChats, clickTopbarPanel } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 for (const mode of ["roleplay", "conversation"] as const) {
-  test(`${mode} guided regeneration keeps its guidance unless the setting clears it`, async ({ page, request }, testInfo) => {
+  test(`${mode} guided regeneration keeps its guidance unless the setting clears it`, async ({
+    page,
+    request,
+  }, testInfo) => {
     const chatIds: string[] = [];
     let connectionId: string | undefined;
     let pending: Route | undefined;
@@ -58,7 +61,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         { chatId, version },
       );
       await page.goto("/");
-      await page.getByRole("button", { name: "Chats", exact: true }).click();
+      await clickTopbarChats(page);
       const mobile = testInfo.project.name.includes("mobile");
       if (mobile) await page.getByRole("button", { name: "Close chats", exact: true }).click();
       const composer = page.locator("textarea[data-chat-composer]");
@@ -225,7 +228,7 @@ for (const mode of ["roleplay", "conversation"] as const) {
         .filter({ hasText: "Keep guidance after regenerating" })
         .first()
         .click();
-      const keepGuidance = page.getByRole("checkbox", { name: "Keep guidance after regenerating", exact: true });
+      const keepGuidance = page.getByRole("switch", { name: "Keep guidance after regenerating", exact: true });
       await expect(keepGuidance).toBeChecked();
       await page
         .locator("#settings-control-keep-guidance-after-regenerating")

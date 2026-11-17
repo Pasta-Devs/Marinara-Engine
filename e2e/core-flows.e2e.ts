@@ -1,4 +1,4 @@
-import { clickTopbarPanel } from "./topbar-navigation.js";
+import { clickTopbarChats, clickTopbarPanel } from "./topbar-navigation.js";
 import { openConnectionsPanelModel, openDefaultsTile, ttsConfigCard, openJobSettings } from "./connections-panel.js";
 import {
   expect,
@@ -5273,7 +5273,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await expandedSheet.click();
     await sheetPreview.click({ position: { x: 2, y: 2 } });
     await expect(sheetPreview).toBeHidden();
-    await expect(editor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
+    await expect(editor.getByRole("switch", { name: "Use character sheet" })).toBeChecked();
     await expect(editor.getByRole("heading", { name: "Choose from Character Gallery", exact: true })).toHaveCount(0);
     await editor
       .locator('[data-editor-subsection="character-sheet"]')
@@ -5325,7 +5325,7 @@ test("Character and persona sheets persist an explicit reference choice and fall
     await openImagesSubsection(personaEditor, "Character Sheet");
     await expect(personaEditor.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(personaEditor.getByAltText(`${personaName} character sheet`)).toBeVisible();
-    await expect(personaEditor.getByRole("checkbox", { name: "Use character sheet" })).toBeChecked();
+    await expect(personaEditor.getByRole("switch", { name: "Use character sheet" })).toBeChecked();
     await personaEditor
       .locator('[data-editor-subsection="character-sheet"]')
       .getByRole("button", { name: "Create with AI", exact: true })
@@ -7911,8 +7911,8 @@ test("Roleplay can show streaming reasoning inline and control automatic collaps
       .getByRole("button", { name: "Roleplay", exact: true })
       .click();
     const keepControl = page.locator("#settings-control-keep-roleplay-thinking-expanded");
-    const showToggle = showControl.getByRole("checkbox", { name: "Show Thinking In Messages" });
-    const keepToggle = keepControl.getByRole("checkbox", { name: "Don't Collapse Thinking" });
+    const showToggle = showControl.getByRole("switch", { name: "Show Thinking In Messages" });
+    const keepToggle = keepControl.getByRole("switch", { name: "Don't Collapse Thinking" });
     await showControl.scrollIntoViewIfNeeded();
     await expect(showToggle).not.toBeChecked();
     await expect(keepToggle).toBeDisabled();
@@ -10367,7 +10367,7 @@ test("chat Help can be hidden permanently from the overlay or App Behavior", asy
     await clickTopbarPanel(page, "settings");
     const settingRow = page.locator("#settings-control-hide-chat-help-button");
     await expect(settingRow).toBeVisible();
-    const settingToggle = settingRow.locator('input[type="checkbox"]');
+    const settingToggle = settingRow.locator('[role="switch"]');
     await expect(settingToggle).toBeChecked();
     const rowBox = await settingRow.boundingBox();
     const confirmBox = await page.locator("#settings-control-confirm-before-delete").boundingBox();
@@ -12767,7 +12767,8 @@ test(
           .filter((center): center is number => center !== null),
       );
       const spacings = iconCenters.slice(1).map((center, index) => center - iconCenters[index]!);
-      expect(iconCenters.length).toBeGreaterThan(2);
+      // Home and More: Chats moved into the More menu on a phone.
+      expect(iconCenters.length).toBeGreaterThan(1);
       expect(spacings.every((spacing) => spacing >= 36)).toBe(true);
     }
 
@@ -12781,9 +12782,7 @@ test(
       '[data-tour="panel-agents"]',
       '[data-tour="panel-settings"]',
     ]) {
-      const panel = selector.match(/panel-([a-z]+)/)?.[1];
-      if (panel) await clickTopbarPanel(page, panel);
-      else await page.locator(selector).click();
+      await clickTopbarPanel(page, selector.match(/panel-([a-z]+)/)?.[1] ?? "chats");
       await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
       if (selector === '[data-tour="panel-characters"]') {
         await expect(page.locator('[data-component="RightPanelHeaderIcon"]')).toHaveClass(
@@ -12806,7 +12805,7 @@ test("every sidebar explains itself with a help tip next to its title", async ({
   await serveEmptyModelLists(page);
   await page.goto("/");
   await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
-  await page.locator('[data-tour="sidebar-toggle"]').click();
+  await clickTopbarChats(page);
   await expectSidebarHelp(
     page,
     page.locator('[data-component="ChatSidebar"] .mari-sidebar-header'),
@@ -13984,7 +13983,7 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     await minPInput.fill("0,35");
     await minPInput.blur();
-    const minPSendToggle = drawer.getByRole("checkbox", { name: "Send Min P parameter" });
+    const minPSendToggle = drawer.getByRole("switch", { name: "Send Min P parameter" });
     const minPSendToggleId = await minPSendToggle.getAttribute("id");
     expect(minPSendToggleId).toBeTruthy();
     await drawer.locator(`label[for="${minPSendToggleId}"]`).click();
@@ -15543,7 +15542,7 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
   const musicPlayer = page.locator('[data-component^="SpotifyMiniPlayer."]');
   await expect(musicPlayer).toHaveCount(0);
   let musicPlayerRow = await openMusicPlayerSetting();
-  const musicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
+  const musicPlayerToggle = musicPlayerRow.locator('[role="switch"]');
   await expect(musicPlayerToggle).toHaveCount(1);
   await expect(musicPlayerToggle).toBeDisabled();
   await expect(musicPlayerToggle).not.toBeChecked();
@@ -15565,7 +15564,7 @@ test("Music Player stays unavailable until Music DJ is installed", async ({ page
   await expect(installedToast).toHaveCount(0);
 
   musicPlayerRow = await openMusicPlayerSetting();
-  const installedMusicPlayerToggle = musicPlayerRow.locator('input[type="checkbox"]');
+  const installedMusicPlayerToggle = musicPlayerRow.locator('[role="switch"]');
   await expect(installedMusicPlayerToggle).toBeEnabled();
   await expect(installedMusicPlayerToggle).toBeChecked();
   await musicPlayerRow.getByText("Music Player", { exact: true }).click();
@@ -16381,7 +16380,7 @@ test("Conversation setup commands follow the installed agent library", async ({ 
   const openAutomationStep = async () => {
     const newConversationButton = page.getByLabel("New Conversation", { exact: true });
     if (!(await newConversationButton.isVisible())) {
-      await page.locator('[data-tour="sidebar-toggle"]').click();
+      await clickTopbarChats(page);
     }
     await expect(newConversationButton).toBeVisible();
     const conversationModeButton = page.locator('[data-tour="chat-mode-conversation"]');
@@ -16728,7 +16727,9 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
     await page.getByRole("button", { name: "Chat Settings" }).click();
     const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(reloadedDrawer);
-    await expect(reloadedDrawer.getByText(agentName, { exact: true }).first()).toBeVisible();
+    await expect(
+      reloadedDrawer.locator('[data-drawer="conversation-agents"]').getByText(agentName, { exact: true }).first(),
+    ).toBeVisible();
     const customAgentSection = reloadedDrawer.getByRole("button", { name: "Collapse Custom Agents" });
     await expect(customAgentSection).toHaveAttribute("aria-expanded", "true");
     await customAgentSection.click();
@@ -17003,7 +17004,7 @@ test("Conversation Chat Settings exposes and persists Long-Term Memory activatio
     const drawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(drawer);
     const agentsSection = drawer.locator('[data-chat-settings-section="conversation-agents"]');
-    const toggle = agentsSection.getByRole("checkbox", { name: /^Long-Term Memory/ });
+    const toggle = agentsSection.getByRole("switch", { name: /^Long-Term Memory/ });
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();
     const calls = drawer.locator("marinara-capability-conversation-calls");
@@ -17027,7 +17028,7 @@ test("Conversation Chat Settings exposes and persists Long-Term Memory activatio
     const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
     await openAgentsSection(reloadedDrawer);
     const reloadedAgentsSection = reloadedDrawer.locator('[data-chat-settings-section="conversation-agents"]');
-    const reloadedToggle = reloadedAgentsSection.getByRole("checkbox", { name: /^Long-Term Memory/ });
+    const reloadedToggle = reloadedAgentsSection.getByRole("switch", { name: /^Long-Term Memory/ });
     await expect(reloadedToggle).toBeChecked();
     const reloadedToggleId = await reloadedToggle.getAttribute("id");
     expect(reloadedToggleId).toBeTruthy();
@@ -17306,7 +17307,7 @@ test("chat settings survive a stale autonomous-unread echo", async ({ page, requ
     if ((await agentsSection.getAttribute("aria-expanded")) !== "true") await agentsSection.click();
 
     const directorCard = drawer.locator(`#chat-settings-agent-menu-${chat.id}-director`);
-    const secretPlotToggle = directorCard.getByRole("checkbox", { name: "Secret Plot" });
+    const secretPlotToggle = directorCard.getByRole("switch", { name: "Secret Plot" });
     const intervalInput = directorCard.locator("label").filter({ hasText: "Run Interval" }).locator("input");
 
     await expect(secretPlotToggle).not.toBeChecked();
@@ -17654,8 +17655,8 @@ test("Illustrator and Storyboard keep separate visual settings cards while agent
     const gameStoryboardCard = drawer.locator('[data-chat-agent-entry="storyboard"]');
     const featureToggles = gameIllustratorCard.locator('[data-agent-settings-feature-toggles="illustrator"]');
     const storyboardFeatureToggles = gameStoryboardCard.locator('[data-agent-settings-feature-toggles="storyboard"]');
-    const sceneVideosToggle = featureToggles.getByRole("checkbox", { name: /Enable Scene Videos/ });
-    const storyboardsToggle = storyboardFeatureToggles.getByRole("checkbox", { name: /Enable Storyboards/ });
+    const sceneVideosToggle = featureToggles.getByRole("switch", { name: /Enable Scene Videos/ });
+    const storyboardsToggle = storyboardFeatureToggles.getByRole("switch", { name: /Enable Storyboards/ });
     await expect(gameIllustratorCard).toBeVisible();
     await expect(gameStoryboardCard).toBeVisible();
     await expect(sceneVideosToggle).not.toBeChecked();
@@ -17665,7 +17666,7 @@ test("Illustrator and Storyboard keep separate visual settings cards while agent
     await expect(storyboardsSubsection).toBeVisible();
     await expect(storyboardsSubsection.getByRole("heading", { name: "Storyboards" })).toBeVisible();
     await expect(
-      storyboardsSubsection.getByRole("checkbox", { name: /Automatic Storyboard Illustrations/ }),
+      storyboardsSubsection.getByRole("switch", { name: /Automatic Storyboard Illustrations/ }),
     ).toBeChecked();
     const automaticAnimationsToggle = storyboardsSubsection.getByRole("checkbox", {
       name: /Automatic Storyboard Animations/,
@@ -18081,7 +18082,7 @@ test("Roleplay setup agent category headers never cover agent rows while scrolli
 
   try {
     await page.goto("/");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await page.locator('[data-tour="chat-mode-roleplay"]').click();
     await page.getByLabel("New Roleplay", { exact: true }).click();
     const connectionGate = page.getByRole("heading", { name: "Set Up Roleplay", exact: true });
@@ -19242,7 +19243,7 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     await page.goto("/");
     await clickTopbarPanel(page, "lorebooks");
     await page.getByText(lorebookName, { exact: true }).click();
-    await page.getByRole("checkbox", { name: "Enable lorebook vectors" }).evaluate((element) => {
+    await page.getByRole("switch", { name: "Enable lorebook vectors" }).evaluate((element) => {
       (element as HTMLInputElement).click();
     });
 
@@ -19330,10 +19331,10 @@ test("Lorebook Save keeps Overview stable while the updated detail cache settles
     await page.getByText(name, { exact: true }).click();
     await expect(page.getByRole("heading", { name })).toBeVisible();
 
-    await page.getByRole("checkbox", { name: "Disable global lorebook" }).evaluate((element) => {
+    await page.getByRole("switch", { name: "Disable global lorebook" }).evaluate((element) => {
       (element as HTMLInputElement).click();
     });
-    const disabledGlobalSwitch = page.getByRole("checkbox", { name: "Enable global lorebook" });
+    const disabledGlobalSwitch = page.getByRole("switch", { name: "Enable global lorebook" });
     await expect(disabledGlobalSwitch).not.toBeChecked();
 
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -20814,7 +20815,7 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   await page.keyboard.press("Escape");
 
   await clickTopbarPanel(page, "settings");
-  const achievementsToggle = page.getByRole("checkbox", { name: "Achievements", exact: true });
+  const achievementsToggle = page.getByRole("switch", { name: "Achievements", exact: true });
   await expect(achievementsToggle).toBeChecked();
   const achievementsToggleId = await achievementsToggle.getAttribute("id");
   expect(achievementsToggleId).toBeTruthy();
@@ -21755,7 +21756,7 @@ test("chat mode tabs and new-chat actions stay reachable", { tag: "@smoke" }, as
   try {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-marinara-accent-animation");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
 
@@ -21810,7 +21811,7 @@ test("with no connection, new-chat opens Add connection directly for every mode"
   for (const mode of modes) {
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     const sidebarToggle = page.locator('[data-tour="sidebar-toggle"]');
-    if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await sidebarToggle.click();
+    if ((await sidebarToggle.getAttribute("aria-pressed")) !== "true") await clickTopbarChats(page);
     await expect(sidebarToggle).toHaveAttribute("aria-pressed", "true");
     await expect(sidebar).toBeVisible();
     await expect(sidebar).toBeInViewport();
@@ -21855,7 +21856,7 @@ test("renamed Roleplay branches keep their chat name in the Chats sidebar and se
     expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
 
     await page.goto("/");
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
     await sidebar.locator('[data-tour="chat-mode-roleplay"]').click();
@@ -22019,7 +22020,7 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   const drawer = page.locator(".mari-chat-settings-drawer");
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
   await drawer.getByText("Memory Recall", { exact: true }).click();
-  const memoryRecallSwitch = drawer.getByRole("checkbox", { name: "Enable Memory Recall" });
+  const memoryRecallSwitch = drawer.getByRole("switch", { name: "Enable Memory Recall" });
   const memoryRecallTrack = memoryRecallSwitch.locator("xpath=following-sibling::*[@data-settings-switch-track][1]");
   await expect(memoryRecallSwitch).toBeChecked();
   await memoryRecallTrack.click();
@@ -23950,24 +23951,35 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
 
   const topbar = page.locator('[data-component="TopBar"]');
   const homeButton = topbar.getByTitle("Home");
-  const chatsButton = topbar.locator('[data-tour="sidebar-toggle"]');
+  const moreButton = topbar.getByRole("button", { name: "More", exact: true });
   const homeBounds = await homeButton.boundingBox();
-  const chatsBounds = await chatsButton.boundingBox();
   expect(homeBounds).not.toBeNull();
-  expect(chatsBounds).not.toBeNull();
+  // On a phone Chats leaves the bar for the first row of the More menu, above the other sidebars.
+  await expect(topbar.locator('[data-tour="sidebar-toggle"]')).toBeHidden();
   const visibleActions = topbar.locator("[data-topbar-hover-key]:visible");
-  await expect(visibleActions).toHaveCount(2);
+  await expect(visibleActions).toHaveCount(1);
   expect(
     await visibleActions.evaluateAll((elements) =>
       elements.map((element) => (element as HTMLElement).dataset.topbarHoverKey),
     ),
-  ).toEqual(["home", "chats"]);
-  await expect(topbar.getByRole("button", { name: "More", exact: true })).toBeVisible();
+  ).toEqual(["home"]);
+  await expect(moreButton).toBeVisible();
   const homeIconBounds = await homeButton.locator("svg").boundingBox();
-  const chatsIconBounds = await chatsButton.locator("svg").boundingBox();
+  const moreIconBounds = await moreButton.locator("svg").boundingBox();
   expect(homeIconBounds).not.toBeNull();
-  expect(chatsIconBounds).not.toBeNull();
-  expect(homeIconBounds!.width).toBeGreaterThan(chatsIconBounds!.width);
+  expect(moreIconBounds).not.toBeNull();
+  expect(homeIconBounds!.width).toBeGreaterThan(moreIconBounds!.width);
+  const chatsRow = page.locator('[data-component="TopbarMoreMenu"] [role="menuitem"]').first();
+  await moreButton.click();
+  await expect(chatsRow).toHaveAttribute("data-topbar-panel", "chats");
+  await expect(chatsRow).toHaveText("Chats");
+  await expect(chatsRow).not.toHaveAttribute("aria-current", "true");
+  // A brown dialogue-box icon, apart from Lorebooks' amber.
+  const chatsTile = chatsRow.locator(".mari-panel-gradient--chats");
+  await expect(chatsTile.locator("svg")).toHaveClass(/lucide-message-square-text/u);
+  await expect(chatsTile).toHaveCSS("color", "rgb(160, 113, 79)");
+  await page.keyboard.press("Escape");
+  await expect(chatsRow).toHaveCount(0);
 
   const musicDjWidget = page.locator('[data-component="SpotifyMiniPlayer.Mobile"]');
   await expect(musicDjWidget).toBeVisible();
@@ -24014,35 +24026,15 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
     )
     .toBeGreaterThan(initialMusicDjPosition.x + 32);
 
-  await chatsButton.click();
+  await clickTopbarChats(page);
+  await expect(chatsRow).toHaveCount(0);
   await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
   await expect(page.locator('[data-component="ChatSidebar"]')).toBeVisible();
   await expect(homeButton).toHaveAttribute("aria-pressed", "false");
-  await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(() =>
-      chatsButton.evaluate((button) => {
-        const icon = button.querySelector("svg");
-        if (!icon) return false;
-        const styles = getComputedStyle(icon);
-        return (
-          styles.stroke === styles.color &&
-          !button.classList.contains("mari-topbar-chat-gradient-icon") &&
-          !button.classList.contains("mari-topbar-chat-gradient-hover")
-        );
-      }),
-    )
-    .toBe(true);
-  await chatsButton.dblclick();
-  await expect(chatsButton).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(() =>
-      chatsButton.evaluate((button) => {
-        const icon = button.querySelector("svg");
-        return icon ? getComputedStyle(icon).stroke === getComputedStyle(icon).color : false;
-      }),
-    )
-    .toBe(true);
+  await moreButton.click();
+  await expect(chatsRow).toHaveAttribute("data-active", "true");
+  await expect(chatsRow).toHaveAttribute("aria-current", "true");
+  await page.keyboard.press("Escape");
   const mobileChatSidebar = page.locator('[data-component="ChatSidebarPanel"]');
   await expect.poll(async () => (await mobileChatSidebar.boundingBox())?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(1);
   await mobileChatSidebar.evaluate((element) => element.setAttribute("data-e2e-mobile-shell", "preserved"));
@@ -24052,14 +24044,15 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   await expect(swappedRightPanel).toBeVisible();
   await expect(swappedRightPanel).toHaveAttribute("data-e2e-mobile-shell", "preserved");
   await expect(homeButton).toHaveAttribute("aria-pressed", "false");
-  await topbar.getByRole("button", { name: "More", exact: true }).click();
+  await moreButton.click();
   await expect(page.locator('[role="menuitem"][data-topbar-panel="characters"]')).toHaveAttribute(
     "aria-current",
     "true",
   );
+  await expect(chatsRow).not.toHaveAttribute("aria-current", "true");
   await page.keyboard.press("Escape");
 
-  await chatsButton.click();
+  await clickTopbarChats(page);
   await expect(mobileChatSidebar).toBeVisible();
   await expect(mobileChatSidebar).toHaveAttribute("data-e2e-mobile-shell", "preserved");
   const openMobileSidebarX = (await mobileChatSidebar.boundingBox())?.x ?? 0;
@@ -24851,9 +24844,9 @@ test("Roleplay displays a selected background when its file route is GET-only", 
     await expectBackgroundToFitRoleplaySurface();
     await clickTopbarPanel(page, "settings");
     await expectBackgroundToFitRoleplaySurface();
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await expectBackgroundToFitRoleplaySurface();
-    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await clickTopbarChats(page);
     await expectBackgroundToFitRoleplaySurface();
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");

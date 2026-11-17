@@ -222,6 +222,7 @@ import {
 import { ProfessorMariPixelScene } from "./mari/MariChatStates";
 import { isHardStepFailure } from "./mari/mari-tool-presentation";
 import { MariSeesPanel } from "./mari/MariSeesPanel";
+import type { MariReplacedMessage } from "./mari/MariImageLightbox";
 import { MariChatsPanel } from "./mari/MariChatsPanel";
 import { MariComposer } from "./mari/MariComposer";
 import { MariQuestionCard } from "./mari/MariQuestionCard";
@@ -2558,6 +2559,25 @@ export function HomeProfessorMariChat({
     setMessages,
     setSending,
   });
+  // #9387: the server already swapped the picture in her saved reply; show it here without reloading the thread,
+  // which would drop a turn that is still streaming.
+  // A reply with steps renders its words from the work timeline in its extra, so swap there too, as the server did.
+  const handleImageReplaced = useCallback((replaced: MariReplacedMessage) => {
+    // A load that started before the swap would bring the old picture back.
+    messageLoadAbortRef.current?.abort();
+    // The server's swap result as it stored it: the content, and the extra keys it rewrote (merged, as it merges them).
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === replaced.id
+          ? {
+              ...item,
+              content: replaced.content,
+              extra: { ...toMessageExtra(item), ...replaced.extra } as Message["extra"],
+            }
+          : item,
+      ),
+    );
+  }, []);
   const handleSubmit = async (
     overrideText?: string,
     overrideRecovery?: Pick<
@@ -3638,6 +3658,7 @@ export function HomeProfessorMariChat({
           onRegenerate={canManageMessage ? handleRegenerateMessage : undefined}
           canRegenerate={canManageMessage && !isBusy && message.id === messages[messages.length - 1]?.id}
           onRemoveAttachment={canManageMessage && !isBusy ? handleRemoveAttachment : undefined}
+          onImageReplaced={handleImageReplaced}
           onOpenActionResult={openActionResult}
           onOpenResource={openReferencedResource}
           characterSubject={messageCharacter}

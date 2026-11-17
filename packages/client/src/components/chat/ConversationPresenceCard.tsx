@@ -18,7 +18,7 @@ import {
   type WeekSchedule,
 } from "@marinara-engine/shared";
 import type { Message } from "@marinara-engine/shared";
-import { chatKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { chatKeys, conversationStatusKeys, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { characterKeys, useUpdateCharacter } from "../../hooks/use-characters";
 import { useGenerate } from "../../hooks/use-generate";
 import { api } from "../../lib/api-client";
@@ -183,7 +183,7 @@ export function ConversationPresenceCard({
     chatMeta.conversationSchedulesEnabled === true ||
     (chatMeta.conversationSchedulesEnabled == null && Object.keys(schedules).length > 0);
   const statusesQuery = useQuery({
-    queryKey: ["conversation-status", chatId],
+    queryKey: conversationStatusKeys.detail(chatId),
     queryFn: async ({ signal }) => api.get<StatusResponse>(`/conversation/status/${chatId}`, { signal }),
     enabled: !!chatId && chatCharIds.length > 0,
     refetchInterval: () => (document.hidden ? false : 60_000),
@@ -382,7 +382,7 @@ export function ConversationPresenceCard({
           );
           const failure = Object.values(result.results).find((entry) => entry.status.startsWith("error:"));
           if (failure) toast.error(failure.status.slice("error:".length).trim());
-          await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
+          await queryClient.refetchQueries({ queryKey: chatKeys.detail(chatId) });
         }
         await refetchStatuses();
       } catch (error) {

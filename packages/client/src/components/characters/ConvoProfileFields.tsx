@@ -4,7 +4,7 @@
 // These fields only affect Conversation mode; they are never read in RP/VN/Game.
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState } from "react";
-import { CalendarClock, Loader2, RotateCcw, Smile, Wand2 } from "lucide-react";
+import { CalendarClock, RotateCcw, Smile, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   type ConvoBehaviorConfig,
@@ -15,6 +15,8 @@ import { MacroTextarea } from "../ui/MacroTextarea";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 const STRATEGY_OPTIONS: Array<{ value: ConvoBehaviorInsertionStrategy; label: string }> = [
   { value: "constant_after", label: "Constant — after the card" },
@@ -170,8 +172,7 @@ export function ConvoProfileFields({
         />
         {kind === "character" && onDisplayNameInCardChange && (
           <label className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={!!displayNameInCard}
               onChange={(e) => onDisplayNameInCardChange(e.target.checked)}
               className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
@@ -203,7 +204,7 @@ export function ConvoProfileFields({
               title={localizeUi("ui.characters.convoprofilefields.generateAboutMe")}
               className="inline-flex items-center rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {generating === "aboutMe" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+              {generating === "aboutMe" ? <Spinner size="sm" /> : <Wand2 className="h-3 w-3" />}
             </button>
           )}
         </div>
@@ -269,11 +270,7 @@ export function ConvoProfileFields({
                 title={localizeUi("ui.characters.convoprofilefields.generateConvoBehavior")}
                 className="inline-flex items-center rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {generating === "behavior" ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Wand2 className="h-3 w-3" />
-                )}
+                {generating === "behavior" ? <Spinner size="sm" /> : <Wand2 className="h-3 w-3" />}
               </button>
             )}
           </div>

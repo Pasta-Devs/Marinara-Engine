@@ -173,6 +173,14 @@ export function isMistralGlm53Model(model: string): boolean {
   return /^zai-glm-5-3(?:$|-)/u.test(capabilityModelId(model));
 }
 
+/**
+ * NanoGPT lists low, medium, high, xhigh and max for MiniMax M3.1 Flash.
+ * https://nano-gpt.com/models/text/minimax/minimax-m3.1-flash
+ */
+export function isNanoGptMiniMaxM31FlashModel(model: string): boolean {
+  return /^minimax\/minimax-m3\.1-flash(?::|$)/u.test(capabilityModelId(model));
+}
+
 export function isOpenAIGpt56Model(model: string): boolean {
   return capabilityModelId(model).startsWith("gpt-5.6");
 }
@@ -210,6 +218,12 @@ export function resolveProviderReasoningEffort(args: {
   reasoningEffort: StoredReasoningEffort | undefined;
 }): ProviderReasoningEffort {
   const providerLower = args.provider.toLowerCase();
+  if (providerLower === "nanogpt" && isNanoGptMiniMaxM31FlashModel(args.model)) {
+    if (args.reasoningEffort === undefined) return null;
+    // MiniMax M3.1 Flash always reasons, so use Low for a saved Off.
+    if (args.reasoningEffort === null || args.reasoningEffort === "none") return "low";
+    return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
+  }
   // Argon and Carbon cannot turn thinking off; without a level they think at Google's default, medium, so name that level.
   if (
     (!args.reasoningEffort || args.reasoningEffort === "none") &&

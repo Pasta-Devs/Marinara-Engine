@@ -14,6 +14,7 @@ import { parseCharacterDisplayData } from "../../lib/character-display";
 import { generateClientId } from "../../lib/utils";
 import { MultiplayerPersonaFields, MULTIPLAYER_BUTTON_CLASS, MULTIPLAYER_INPUT_CLASS } from "./MultiplayerFields";
 import { multiplayerGuestErrorLabelKey } from "./multiplayer-guest-labels";
+import { Checkbox } from "../../components/ui/Checkbox";
 
 /** Explicit local library selection; never mounted inside the isolated guest frame. */
 export function MultiplayerParticipantControls({
@@ -112,7 +113,7 @@ export function MultiplayerParticipantControls({
         />
       </label>
       <label className="flex items-center gap-2 text-xs">
-        <input type="checkbox" checked={gm} onChange={(event) => setGm(event.target.checked)} />
+        <Checkbox checked={gm} onChange={(event) => setGm(event.target.checked)} />
         {t("multiplayer.guest.gm")}
       </label>
       <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">

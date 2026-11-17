@@ -7,7 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, FileUp, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, FileUp, XCircle } from "lucide-react";
 import {
   detectLorebookTextFormat,
   parseLorebookText,
@@ -20,6 +20,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { api } from "../../lib/api-client";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
+import { Spinner } from "../ui/Spinner";
 
 const PREVIEW_LIMIT = 200;
 
@@ -138,7 +139,7 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
             disabled={!canImport}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {importing ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
+            {importing ? <Spinner size="sm" /> : null}
             {t("lorebook.textImport.import", { count: validCount })}
           </button>
           <button type="button" onClick={close} disabled={importing} className={SHEET_BUTTON_QUIET}>

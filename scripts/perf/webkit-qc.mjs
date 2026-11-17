@@ -4,7 +4,8 @@
 // No npm dependencies. Run scripts/perf/setup-webkit.sh first (it installs and starts the driver + touch proxy).
 //
 //   node scripts/perf/webkit-qc.mjs smoke [appUrl] [--out dir]
-//       phone + tablet: open Home, screenshot, tap Library, screenshot, tap Home, print tap timings.
+//       phone + tablet: open Home, screenshot, tap Library (Chats in the classic layout), screenshot, tap Home,
+//       print tap timings.
 //   node scripts/perf/webkit-qc.mjs taps [appUrl] --device phone|tablet --tap <target> [--tap ...] [--shot file]
 //       <target> is a CSS selector, or text=Some label for a button/link/tab containing that text.
 //   node scripts/perf/webkit-qc.mjs proxy <appUrl> [--port 7899]       (started by setup-webkit.sh)
@@ -22,6 +23,7 @@ import { request as httpsRequest } from "node:https";
 import { connect } from "node:net";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DRIVER = `http://127.0.0.1:${process.env.WEBKIT_QC_DRIVER_PORT ?? 4444}`;
 const PROXY_PORT = Number(process.env.WEBKIT_QC_PROXY_PORT ?? 7899);
@@ -76,6 +78,11 @@ function shimSource(device) {
 })();`;
 }
 
+const SHIM_TAGS = {
+  phone: '<script src="/__webkit-qc/shim.js?device=phone"></script>',
+  tablet: '<script src="/__webkit-qc/shim.js?device=tablet"></script>',
+};
+
 // ── Proxy: forwards everything to the app and adds the shim to HTML pages ──
 export function startProxy(appUrl, port = PROXY_PORT) {
   const target = new URL(appUrl);
@@ -84,11 +91,19 @@ export function startProxy(appUrl, port = PROXY_PORT) {
     const url = new URL(req.url, "http://proxy");
     if (url.pathname === "/__webkit-qc/target") return res.end(appUrl);
     const cookieDevice = /(?:^|;\s*)webkit_qc=(phone|tablet|none)/.exec(req.headers.cookie ?? "")?.[1];
-    const device = url.searchParams.get("webkit_qc") ?? cookieDevice ?? "none";
+    const requested = url.searchParams.get("webkit_qc");
+    const device =
+      requested === "none" || Object.hasOwn(DEVICES, requested ?? "") ? requested : (cookieDevice ?? "none");
     if (url.pathname === "/__webkit-qc/shim.js") {
       res.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
       return res.end(shimSource(url.searchParams.get("device")));
     }
+    const fail = (error) => {
+      if (res.writableEnded) return;
+      if (res.headersSent) return res.destroy();
+      res.writeHead(502, { "content-type": "text/plain" });
+      res.end(`webkit-qc proxy: ${error.message}`);
+    };
     const wantsHtml = req.method === "GET" && /text\/html/.test(req.headers.accept ?? "");
     const headers = { ...req.headers, host: target.host };
     if (wantsHtml) {
@@ -107,9 +122,12 @@ export function startProxy(appUrl, port = PROXY_PORT) {
       },
       (up) => {
         const outHeaders = { ...up.headers };
-        if (url.searchParams.has("webkit_qc")) {
+        if (requested === device) {
           outHeaders["set-cookie"] = [...[].concat(up.headers["set-cookie"] ?? []), `webkit_qc=${device}; Path=/`];
         }
+        // A reset or cut-off answer from the app still gets a reply (or a closed socket), never a hung request.
+        up.on("error", fail);
+        up.on("aborted", () => fail(new Error("the app closed the response early")));
         if (!wantsHtml || !/text\/html/.test(up.headers["content-type"] ?? "") || device === "none") {
           res.writeHead(up.statusCode, outHeaders);
           return up.pipe(res);
@@ -117,7 +135,9 @@ export function startProxy(appUrl, port = PROXY_PORT) {
         const chunks = [];
         up.on("data", (chunk) => chunks.push(chunk));
         up.on("end", () => {
-          const tag = `<script src="/__webkit-qc/shim.js?device=${device}"></script>`;
+          if (res.writableEnded) return;
+          // Fixed strings only: nothing from the request reaches the page.
+          const tag = SHIM_TAGS[device] ?? "";
           const html = Buffer.concat(chunks)
             .toString("utf8")
             .replace(/<head[^>]*>/i, (head) => head + tag);
@@ -130,10 +150,7 @@ export function startProxy(appUrl, port = PROXY_PORT) {
         });
       },
     );
-    upstream.on("error", (error) => {
-      res.writeHead(502, { "content-type": "text/plain" });
-      res.end(`webkit-qc proxy: ${error.message}`);
-    });
+    upstream.on("error", fail);
     req.pipe(upstream);
   });
   // WebSockets / upgrades: pass the raw connection through.
@@ -172,10 +189,10 @@ async function wd(method, path, body) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Open the app as "phone" or "tablet" in WebKit, with Show tap timings on. */
-/** keepTutorial: leave the first-run tour up (by default it is skipped, which the server remembers). */
+/** keepIntro: leave the first-run tour and "What's New?" up (by default they are closed, which the server remembers). */
 export async function openDevice(
   device,
-  { appUrl = "http://localhost:7860", size, path = "/", keepTutorial = false } = {},
+  { appUrl = "http://localhost:7860", size, path = "/", keepIntro = false } = {},
 ) {
   const viewport = size ?? DEVICES[device];
   if (!viewport) throw new Error(`Unknown device ${device} (phone, tablet)`);
@@ -295,12 +312,14 @@ export async function openDevice(
     },
   };
   await page.ready();
-  if (!keepTutorial) {
-    // A fresh data folder opens with the tour over Home. A script click doesn't add a tap timings row.
-    // It can appear a moment late (after settings sync), and a device tour can follow the full one.
+  if (!keepIntro) {
+    // A fresh data folder opens with the tour over Home, and "What's New?" can follow it. Both can appear a moment
+    // late (after settings sync). A script click doesn't add a tap timings row.
     const skipped = () =>
       run(`
-        const skip = [...document.querySelectorAll('[role="dialog"] button')].find((b) => /^Skip Tutorial$/.test(b.textContent.trim()));
+        const skip = [...document.querySelectorAll("button")].find(
+          (b) => b.offsetParent && /^(Skip Tutorial|Got it)$/.test(b.textContent.trim()),
+        );
         skip?.click();
         return !!skip;
       `);
@@ -331,8 +350,8 @@ export function formatTimings(rows) {
 
 // ── CLI ──
 async function smoke(appUrl, outDir) {
-  // The overhaul shows Library in the top bar on tablets and in the bottom bar on phones.
-  const library = '[aria-label="Library"]';
+  // The new layout opens its side pane with Library; the classic layout has a Chats button. Both have Home.
+  const sidePane = '[aria-label="Library"], [aria-label="Chats"]';
   const home = '[aria-label="Home"]';
   let failed = false;
   for (const device of ["phone", "tablet"]) {
@@ -341,7 +360,7 @@ async function smoke(appUrl, outDir) {
       page = await openDevice(device, { appUrl });
       await sleep(1500);
       const size = await page.run(
-        "return [innerWidth, innerHeight, document.documentElement.dataset.marinaraTouchDevice ?? 'no']",
+        "return [innerWidth, innerHeight, matchMedia('(hover: none) and (pointer: coarse)').matches ? 'yes' : 'no']",
       );
       const want = DEVICES[device];
       if (size[0] !== want.width || size[1] !== want.height) {
@@ -350,11 +369,11 @@ async function smoke(appUrl, outDir) {
         );
       }
       const shot1 = await page.screenshot(join(outDir, `${device}-home.png`));
-      await page.tap(library);
-      const shot2 = await page.screenshot(join(outDir, `${device}-library.png`));
+      await page.tap(sidePane);
+      const shot2 = await page.screenshot(join(outDir, `${device}-side-pane.png`));
       await page.tap(home);
       const rows = await page.settled();
-      console.log(`\n${device}: ${size[0]}x${size[1]} WebKit viewport, touch device: ${size[2]}`);
+      console.log(`\n${device}: ${size[0]}x${size[1]} WebKit viewport, touch screen (as the page sees it): ${size[2]}`);
       console.log(`  screenshots: ${shot1}, ${shot2}`);
       console.log("  tap timings (tap -> shown · smooth · longest frame · server):");
       console.log(formatTimings(rows));
@@ -409,7 +428,7 @@ async function main() {
   process.exitCode = 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

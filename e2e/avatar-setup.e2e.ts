@@ -170,7 +170,7 @@ test("2D Avatars previews sprites with chats off by default and saves a PNGTuber
     await expect(setup.getByText("Shown in chats")).toHaveCount(0);
     await expect(setup.getByText("An example avatar. Set one up to see yours.")).toHaveCount(0);
     await expect(setup.getByRole("img", { name: "Preview" })).toBeVisible();
-    const showInChats = setup.getByRole("checkbox", { name: /Show this avatar in chats/u });
+    const showInChats = setup.getByRole("switch", { name: /Show this avatar in chats/u });
     await expect(showInChats).not.toBeChecked();
     await expect(showInChats).toBeEnabled();
     await setup.getByRole("radio", { name: /Mesh avatar/u }).check();

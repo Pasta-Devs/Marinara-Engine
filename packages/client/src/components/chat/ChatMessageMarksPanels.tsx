@@ -7,7 +7,7 @@ import {
   type Message,
   type MessageTrashEntry,
 } from "@marinara-engine/shared";
-import { Bookmark, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { Bookmark, RotateCcw, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -16,6 +16,7 @@ import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useDeleteTrashedMessages, useMessageTrash, useRestoreTrashedMessages } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
+import { Spinner } from "../ui/Spinner";
 
 const ROW_CLASS =
   "block w-full px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]";
@@ -289,7 +290,7 @@ export function ChatTrashList({ chatId, enabled }: { chatId: string; enabled: bo
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-[var(--muted-foreground)]">
-        <Loader2 size="0.875rem" className="animate-spin" />
+        <Spinner size="sm" />
         {localizeUi("ui.chat.chatmessagesearch.loading")}
       </div>
     );

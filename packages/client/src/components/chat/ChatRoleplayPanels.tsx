@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
-import { AlertTriangle, ChevronDown, ChevronRight, Loader2, MapPin, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, MapPin, Sparkles } from "lucide-react";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { type BudgetSkippedLorebookEntry, useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
@@ -8,6 +8,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { NEUTRAL_PANEL_SUBTITLE } from "../ui/neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { Spinner } from "../ui/Spinner";
 
 type LorebookEntryStatus = "normal" | "constant" | "selective";
 
@@ -327,7 +328,7 @@ export function ActiveLorebookEntriesContent({ chatId }: { chatId: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
-        <Loader2 size="0.75rem" className="animate-spin" />
+        <Spinner size="sm" />
         {localizeUi("ui.chat.activelorebookentriescontent.scanningEntries")}
       </div>
     );

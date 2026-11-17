@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Check, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { BookOpen, Check, Plus, Search, Trash2, X } from "lucide-react";
 import {
   includesTextForMatch,
   type Chat,
@@ -16,6 +16,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 type LorebookOwnerType = "character" | "persona";
 
@@ -573,11 +574,7 @@ export function LorebookAssignmentSection({
                 disabled={!selectedLorebook || specificSelectionInvalid || updateLorebook.isPending}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {updateLorebook.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <Check size="0.75rem" />
-                )}
+                {updateLorebook.isPending ? <Spinner size="sm" /> : <Check size="0.75rem" />}
                 {localizeUi("ui.lorebooks.lorebookassignmentsection.assign")}
               </button>
             </div>

@@ -2,7 +2,7 @@
 // Modal: Confirm agent-proposed lorebook and summary writes
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FilePenLine, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Check, FilePenLine, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../ui/Modal";
@@ -15,6 +15,7 @@ import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useGenerate } from "../../hooks/use-generate";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { characterDataSchema } from "@marinara-engine/shared";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -162,7 +163,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
             disabled={busyAction !== null || !draft.trim()}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {busyAction === "accept" ? <Loader2 size="0.75rem" className="animate-spin" /> : <Check size="0.75rem" />}
+            {busyAction === "accept" ? <Spinner size="sm" /> : <Check size="0.75rem" />}
             {localizeUi("ui.modals.agentwriteapprovalmodal.accept")}
           </button>
           <button
@@ -176,11 +177,7 @@ export function AgentWriteApprovalModal({ open, onClose }: Props) {
                 : localizeUi("ui.modals.agentwriteapprovalmodal.thisProposalCannotBeRegeneratedAutomatically")
             }
           >
-            {busyAction === "regenerate" ? (
-              <Loader2 size="0.75rem" className="animate-spin" />
-            ) : (
-              <RefreshCw size="0.75rem" />
-            )}
+            {busyAction === "regenerate" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
             {localizeUi("ui.agents.secretplotpanel.regenerate")}
           </button>
           <button type="button" onClick={closeAndAdvance} disabled={busyAction !== null} className={SHEET_BUTTON_QUIET}>

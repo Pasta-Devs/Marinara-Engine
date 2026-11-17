@@ -11,6 +11,7 @@ import {
   isWebhookLocalUrlsEnabled,
 } from "../../config/runtime-config.js";
 import { safeFetch } from "../../utils/security.js";
+import { decodeHtmlEntities, extractReadableText } from "./web-page-text.js";
 import {
   createToolArgumentsAjv,
   createToolArgumentsValidator,
@@ -200,6 +201,10 @@ const WEB_SEARCH_MAX_QUERY_LENGTH = 400;
 const WEB_SEARCH_DEFAULT_LIMIT = 5;
 const WEB_SEARCH_MAX_LIMIT = 8;
 const WEB_SEARCH_RESPONSE_MAX_BYTES = 512 * 1024;
+const WEB_FETCH_DEFAULT_MAX_CHARS = 6000;
+const WEB_FETCH_MAX_CHARS = 12_000;
+const WEB_FETCH_RESPONSE_MAX_BYTES = 2 * 1024 * 1024;
+const WEB_FETCH_TIMEOUT_MS = 12_000;
 const SPOTIFY_TRACK_INDEX_TTL_MS = 20 * 60_000;
 const SPOTIFY_TRACK_INDEX_CACHE_MAX = 24;
 const builtInToolArgumentsAjv = createToolArgumentsAjv();
@@ -396,6 +401,8 @@ async function executeBuiltInTool(
       return searchLorebook(args, context?.searchLorebook);
     case "web_search":
       return webSearch(args);
+    case "web_fetch":
+      return webFetch(args);
     case "save_lorebook_entry":
       return saveLorebookEntry(args, context?.saveLorebookEntry);
     case "edit_chat_message":
@@ -927,26 +934,6 @@ function clampInteger(value: unknown, fallback: number, min: number, max: number
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 }
 
-function decodeHtmlEntities(value: string): string {
-  const named: Record<string, string> = {
-    amp: "&",
-    apos: "'",
-    gt: ">",
-    lt: "<",
-    nbsp: " ",
-    quot: '"',
-  };
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
-    if (entity[0] === "#") {
-      const isHex = entity[1]?.toLowerCase() === "x";
-      const codePoint = Number.parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-      if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return match;
-      return String.fromCodePoint(codePoint);
-    }
-    return named[entity.toLowerCase()] ?? match;
-  });
-}
-
 function textFromHtml(value: string): string {
   return decodeHtmlEntities(value.replace(/<[^>]*>/g, " "))
     .replace(/\s+/g, " ")
@@ -1030,6 +1017,122 @@ async function webSearch(args: Record<string, unknown>): Promise<Record<string, 
       count: 0,
       error: err instanceof Error ? err.message : "Web search failed.",
     };
+  }
+}
+
+/** Decode a page body with the charset it declares, rather than assuming UTF-8. */
+function decodeWebPageBody(body: ArrayBuffer, contentType: string): string {
+  const bytes = new Uint8Array(body);
+  const declared = charsetFromContentType(contentType) ?? charsetFromDocument(bytes);
+  try {
+    return new TextDecoder(declared ?? "utf-8", { fatal: false }).decode(bytes);
+  } catch {
+    // An unknown or malformed charset label is not worth failing the fetch over.
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  }
+}
+
+function charsetFromContentType(contentType: string): string | null {
+  const match = /charset\s*=\s*"?([a-z0-9_:.-]+)/iu.exec(contentType);
+  return match?.[1] ?? null;
+}
+
+function charsetFromDocument(bytes: Uint8Array): string | null {
+  // <meta charset> has to be readable before the charset is known, so sniff the head as latin1.
+  const head = new TextDecoder("latin1").decode(bytes.subarray(0, 2048));
+  const match = /<meta[^>]+charset\s*=\s*["']?\s*([a-z0-9_:.-]+)/iu.exec(head);
+  return match?.[1] ?? null;
+}
+
+/** Clip to a character budget without splitting a surrogate pair. */
+function clipWebPageText(value: string, maxChars: number): { text: string; truncated: boolean } {
+  if (value.length <= maxChars) return { text: value, truncated: false };
+  let end = maxChars;
+  const last = value.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return { text: value.slice(0, end).trimEnd(), truncated: true };
+}
+
+async function webFetch(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const rawUrl = typeof args.url === "string" ? args.url.trim() : "";
+  if (!rawUrl) return { error: "web_fetch requires a non-empty url" };
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { url: rawUrl, error: "web_fetch requires an absolute URL, for example https://example.com/page." };
+  }
+  if (url.protocol !== "https:") {
+    return { url: rawUrl, error: "web_fetch only reads https:// pages." };
+  }
+  const maxChars = clampInteger(args.maxChars, WEB_FETCH_DEFAULT_MAX_CHARS, 500, WEB_FETCH_MAX_CHARS);
+
+  // safeFetch rebuilds a buffered Response from the body, so its own `url` is empty. The callback
+  // reports the address that actually answered, which is what a citation should name.
+  let finalUrl = url.toString();
+  let bodyTruncated = false;
+  try {
+    const res = await safeFetch(url, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml,text/plain;q=0.9",
+        "User-Agent": "Marinara Engine web_fetch tool",
+      },
+      signal: AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS),
+      policy: { allowedProtocols: ["https:"], maxRedirects: 3 },
+      allowedContentTypes: ["text/html", "application/xhtml+xml", "text/plain"],
+      maxResponseBytes: WEB_FETCH_RESPONSE_MAX_BYTES,
+      // Only the readable text is returned, so the first part of an oversized page still helps.
+      truncateResponseBody: true,
+      onResponseTruncated: () => {
+        bodyTruncated = true;
+      },
+      onFinalUrl: (resolved) => {
+        finalUrl = resolved;
+      },
+    });
+    if (!res.ok) {
+      return { url: finalUrl, status: res.status, error: `Web page request failed (${res.status})` };
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = decodeWebPageBody(await res.arrayBuffer(), contentType);
+
+    if (contentType.toLowerCase().includes("text/plain")) {
+      const trimmed = body.trim();
+      if (!trimmed) return { url: finalUrl, error: "The page had no readable text." };
+      const clipped = clipWebPageText(trimmed, maxChars);
+      return {
+        url: finalUrl,
+        text: clipped.text,
+        chars: clipped.text.length,
+        truncated: clipped.truncated || bodyTruncated,
+      };
+    }
+
+    const extracted = extractReadableText(body, { maxChars });
+    const title = extracted.title;
+    // The title travels with the text, so it comes out of the same budget.
+    const clipped = clipWebPageText(extracted.text, Math.max(200, maxChars - title.length));
+    if (!clipped.text) {
+      return { url: finalUrl, ...(title ? { title } : {}), error: "The page had no readable text." };
+    }
+    return {
+      url: finalUrl,
+      ...(title ? { title } : {}),
+      text: clipped.text,
+      // The title comes out of the same budget, so it counts toward the reported total.
+      chars: title.length + clipped.text.length,
+      truncated: extracted.truncated || clipped.truncated || bodyTruncated,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("Refused to fetch")) {
+      // safeFetch names the host and the address it resolved to. That belongs in the server log,
+      // not in the model's context, where it would map the user's network.
+      logger.warn("[web_fetch] Refused outbound request: %s", message);
+      return { url: finalUrl, error: "That address is not allowed." };
+    }
+    return { url: finalUrl, error: message || "Web page request failed." };
   }
 }
 

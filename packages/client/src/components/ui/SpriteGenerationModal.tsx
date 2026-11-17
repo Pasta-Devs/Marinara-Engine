@@ -4,7 +4,7 @@
 // Generates a character expression sheet via image generation,
 // slices it into individual sprites, and lets the user label/save them.
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
+import { X, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film, Loader2 } from "lucide-react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
@@ -22,6 +22,8 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { Spinner } from "./Spinner";
+import { Checkbox } from "./Checkbox";
 
 // ── Types ──
 
@@ -2169,7 +2171,7 @@ export function SpriteGenerationModal({
               <button onClick={handleSave} disabled={saving || selectedCount === 0} className={SHEET_BUTTON_PRIMARY}>
                 {saving ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <Spinner size="sm" />
                     {localizeUi("chat.settings.inlineEditor.saving")}
                   </>
                 ) : (
@@ -2251,8 +2253,7 @@ export function SpriteGenerationModal({
 
             {spriteType === "expressions" && !talkingHeadFaces && (
               <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={animatedPortraits}
                   onChange={(e) => setAnimatedPortraits(e.target.checked)}
                   className="mt-0.5 accent-[var(--primary)]"
@@ -2299,8 +2300,7 @@ export function SpriteGenerationModal({
               </label>
               {hasCurrentAvatarReference && (
                 <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCurrentAvatarReference}
                     onChange={(e) => setUseCurrentAvatarReference(e.target.checked)}
                     className="accent-[var(--primary)]"
@@ -2412,8 +2412,7 @@ export function SpriteGenerationModal({
             </div>
 
             <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={nativeTransparentPng}
                 onChange={(e) => {
                   const enabled = e.target.checked;
@@ -2548,8 +2547,7 @@ export function SpriteGenerationModal({
               <>
                 {existingPortraitExpressions.length > 0 && (
                   <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={matchExistingExpressions}
                       onChange={(e) => setMatchExistingExpressions(e.target.checked)}
                       className="mt-0.5 accent-[var(--primary)]"
@@ -2669,7 +2667,7 @@ export function SpriteGenerationModal({
         {/* Step 1: Generating */}
         {step === 1 && (
           <div className="flex flex-col items-center gap-4 py-12">
-            <Loader2 size={32} className="animate-spin text-[var(--primary)]" />
+            <Spinner size="lg" className="text-[var(--primary)] h-[2rem] w-[2rem]" />
             <div className="text-center">
               <p className="text-sm font-medium">
                 {animatedExpressionMode
@@ -2940,8 +2938,7 @@ export function SpriteGenerationModal({
                 <div className="mb-3 rounded-lg bg-[var(--secondary)]/60 p-2.5">
                   <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={noBackground}
                         onChange={(e) => {
                           const enabled = e.target.checked;
@@ -3067,7 +3064,7 @@ export function SpriteGenerationModal({
                           disabled={frameApplying}
                           className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] max-sm:text-[13px] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
                         >
-                          {frameApplying ? <Loader2 size={12} className="animate-spin" /> : <Crop size={12} />}
+                          {frameApplying ? <Spinner size="sm" /> : <Crop size={12} />}
                           {localizeUi("ui.ui.spriteframeeditor.applyFrame")}
                         </button>
                       </div>

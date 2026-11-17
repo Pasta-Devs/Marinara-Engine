@@ -553,6 +553,9 @@ export function AppShell({
     window.addEventListener("resize", updateVisualViewportGeometry);
     window.addEventListener("orientationchange", refreshAfterOrientationChange);
     window.screen.orientation?.addEventListener("change", refreshAfterOrientationChange);
+    // Entering or leaving the browser's fullscreen (a Home package's, HomeBrowserHub) changes the viewport by the
+    // browser's own bars, which is no software keyboard either.
+    document.addEventListener("fullscreenchange", refreshAfterOrientationChange);
     document.addEventListener("focusin", refreshAfterFocusChange);
     document.addEventListener("focusout", refreshAfterFocusChange);
     document.addEventListener("focusin", noteKeyboardDismissal);
@@ -570,6 +573,7 @@ export function AppShell({
       window.removeEventListener("resize", updateVisualViewportGeometry);
       window.removeEventListener("orientationchange", refreshAfterOrientationChange);
       window.screen.orientation?.removeEventListener("change", refreshAfterOrientationChange);
+      document.removeEventListener("fullscreenchange", refreshAfterOrientationChange);
       document.removeEventListener("focusin", refreshAfterFocusChange);
       document.removeEventListener("focusout", refreshAfterFocusChange);
       root.style.removeProperty("--mari-visual-viewport-height");
@@ -716,6 +720,7 @@ export function AppShell({
   const overhaulSchedules = useOverhaulStore((s) => s.activeSchedules);
   const overhaulActive = overhaulEnabled && !shellOverlayMode;
   const overhaulMobile = overhaulEnabled && shellOverlayMode;
+  const homeBrowserFullscreen = useUIStore((s) => s.homeBrowserFullscreen);
   // Split view (desktop only): a second page beside the main one, when both fit.
   const split = useOverhaulStore((s) => s.split);
   const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
@@ -1930,7 +1935,8 @@ export function AppShell({
           <Suspense fallback={<div className="ov-splitbar" />}>
             <SplitPaneBar />
           </Suspense>
-        ) : (
+        ) : homeBrowserFullscreen ? null : (
+          // A Home package's fullscreen takes the whole screen (HomeBrowserHub), top bar included.
           <OverhaulTopBar />
         ))}
       <div
@@ -2034,7 +2040,7 @@ export function AppShell({
             <>
               {/* Split view's second side in the phone layout: no phone top bar (tabs, chat list, Home,
                   Library), so that side stays on its page; its split bar has Chat settings. */}
-              {SPLIT_PANE ? null : <OverhaulMobileTopBar />}
+              {SPLIT_PANE || homeBrowserFullscreen ? null : <OverhaulMobileTopBar />}
               {mobileTrackerStripVisible && activeChatId ? <OverhaulMobileTrackerStrip chatId={activeChatId} /> : null}
             </>
           ) : (

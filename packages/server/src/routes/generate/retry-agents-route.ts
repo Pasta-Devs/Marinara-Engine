@@ -35,7 +35,6 @@ import {
   type ChatMode,
   type GameMap,
   type WrapFormat,
-  type GenerationParameterSendMap,
   type ManagedGenerationParameterDefinition,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
   buildChatImageGenerationRecord,
@@ -44,7 +43,8 @@ import {
 } from "@marinara-engine/shared";
 import {
   resolveAgentConnectionParameters,
-  type AgentGenerationParameters,
+  resolveIllustratorChatReasoning,
+  type AgentReasoningOptions,
 } from "../../services/generation/agent-generation-parameters.js";
 import { and, eq } from "../../db/file-query.js";
 import { listCharacterSprites } from "../../services/game/sprite.service.js";
@@ -1911,21 +1911,21 @@ export async function resolveRetryAgents(args: {
       onFallback,
     });
   type RetryAgentConnectionResolution = {
-    entry: {
-      connectionId: string | null;
-      provider: any;
-      model: string;
-      customParameters: Record<string, unknown>;
-      temperature?: number;
-      enabledParameters?: GenerationParameterSendMap;
-      suppressModelParameters: boolean;
-      maxOutputTokens: number | null;
-      maxParallelJobs: number;
-      enableCaching: boolean;
-      anthropicExtendedCacheTtl: boolean;
-      cachingAtDepth: number;
-      generation?: AgentGenerationParameters;
-    } | null;
+    entry:
+      | (AgentReasoningOptions & {
+          connectionId: string | null;
+          provider: any;
+          model: string;
+          customParameters: Record<string, unknown>;
+          temperature?: number;
+          suppressModelParameters: boolean;
+          maxOutputTokens: number | null;
+          maxParallelJobs: number;
+          enableCaching: boolean;
+          anthropicExtendedCacheTtl: boolean;
+          cachingAtDepth: number;
+        })
+      | null;
     unavailableReason?: string;
     connectionName?: string;
   };
@@ -1949,16 +1949,16 @@ export async function resolveRetryAgents(args: {
     }
 
     const knownModel = findKnownModel(storedConn.provider as APIProvider, model);
-    // The connection's saved values and Send switches, resolved like a first run's (#7131). A retry has no chat reply
-    // to resolve, so an agent on the chat's connection does not take the chat's temperature or Send switches here.
-    const connectionParameters = resolveAgentConnectionParameters({
+    // Start with the connection defaults (#7131). Illustrator applies the chat's reasoning after selecting a connection.
+    const reasoningSource = {
       provider: storedConn.provider,
       model,
       maxContext: storedConn.maxContext,
       maxTokensOverride: storedConn.maxTokensOverride,
       defaultParameters: storedConn.defaultParameters,
       managedParameterDefinitions: args.managedParameterDefinitions,
-    });
+    };
+    const connectionParameters = resolveAgentConnectionParameters(reasoningSource);
     connForPromptDefaults ??= storedConn;
     const primaryProvider = createLLMProvider(
       storedConn.provider,
@@ -1980,6 +1980,7 @@ export async function resolveRetryAgents(args: {
         temperature: connectionParameters.temperature,
         enabledParameters: connectionParameters.enabledParameters,
         generation: connectionParameters.generation,
+        reasoningSource,
         suppressModelParameters: shouldSuppressUnknownModelParameters(storedConn.provider, model),
         maxOutputTokens: knownModel?.maxOutput && knownModel.maxOutput > 0 ? Math.floor(knownModel.maxOutput) : null,
         maxParallelJobs: Number(storedConn.maxParallelJobs) || 1,
@@ -2218,13 +2219,12 @@ export async function resolveRetryAgents(args: {
         settings,
         customParameters: agentConnection.entry.customParameters,
         temperature: agentConnection.entry.temperature,
-        enabledParameters: agentConnection.entry.enabledParameters,
+        ...resolveIllustratorChatReasoning(cfg.type, agentConnection.entry, chatMeta.chatParameters),
         suppressModelParameters: agentConnection.entry.suppressModelParameters,
         maxOutputTokens: agentConnection.entry.maxOutputTokens,
         enableCaching: agentConnection.entry.enableCaching,
         anthropicExtendedCacheTtl: agentConnection.entry.anthropicExtendedCacheTtl,
         cachingAtDepth: agentConnection.entry.cachingAtDepth,
-        generation: agentConnection.entry.generation,
         provider: agentConnection.entry.provider,
         model: agentConnection.entry.model,
         maxParallelJobs: agentConnection.entry.maxParallelJobs,
@@ -2310,13 +2310,12 @@ export async function resolveRetryAgents(args: {
         settings,
         customParameters: builtInConnection.entry.customParameters,
         temperature: builtInConnection.entry.temperature,
-        enabledParameters: builtInConnection.entry.enabledParameters,
+        ...resolveIllustratorChatReasoning(builtIn.id, builtInConnection.entry, chatMeta.chatParameters),
         suppressModelParameters: builtInConnection.entry.suppressModelParameters,
         maxOutputTokens: builtInConnection.entry.maxOutputTokens,
         enableCaching: builtInConnection.entry.enableCaching,
         anthropicExtendedCacheTtl: builtInConnection.entry.anthropicExtendedCacheTtl,
         cachingAtDepth: builtInConnection.entry.cachingAtDepth,
-        generation: builtInConnection.entry.generation,
         provider: builtInConnection.entry.provider,
         model: builtInConnection.entry.model,
         maxParallelJobs: builtInConnection.entry.maxParallelJobs,

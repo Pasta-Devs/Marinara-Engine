@@ -18,7 +18,6 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import type { CharacterDisplayInfo } from "../../../lib/character-display";
 
 interface GamePartySectionProps {
-  order: number;
   chat: Chat;
   characters: CastCharacter[];
   personas: Persona[];
@@ -46,7 +45,6 @@ interface GamePartySectionProps {
 }
 
 export function GamePartySection({
-  order,
   chat,
   characters,
   personas,
@@ -78,7 +76,6 @@ export function GamePartySection({
   return (
     <ChatSettingsSection
       id="game-party"
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.party")}
       icon={<Shield size="0.875rem" />}
       count={chatCharacterCount + (chat.personaId ? 1 : 0)}

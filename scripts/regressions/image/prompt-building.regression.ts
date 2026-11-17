@@ -71,8 +71,11 @@ const cases: RegressionCase[] = [
       );
       assert.equal(resolveGameSetupArtStylePrompt({ useCampaignArtStyle: true }), "");
 
-      const drawerSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
+      const roleplayAgentsSource = readFileSync(
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const gameSurfaceSource = readFileSync(
@@ -88,7 +91,7 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.useCampaignArtStyle"\)\}/);
+      assert.match(roleplayAgentsSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.useCampaignArtStyle"\)\}/);
       assert.match(
         readFileSync(
           new URL("../../../packages/client/src/features/chat-settings/agents/use-chat-agents.ts", import.meta.url),

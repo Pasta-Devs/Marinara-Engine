@@ -17,6 +17,7 @@ import { rulesetLayerChoices, type RulesetLayerChoice } from "../../lib/ruleset-
 import { rulesetRulesSummary } from "../../lib/ruleset-resolution";
 import { rulesetRepositoryLabel } from "../../lib/ruleset-source";
 import { cn } from "../../lib/utils";
+import { Checkbox } from "../ui/Checkbox";
 
 function readRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {
@@ -244,8 +245,7 @@ function GameSetupRulesetLayers({
         {choices.map((choice) => (
           <li key={choice.layer.id}>
             <label className={cn("flex items-start gap-2", choice.blockedBy && "opacity-60")}>
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={choice.checked}
                 disabled={Boolean(choice.blockedBy)}
                 onChange={() => onToggleLayer(choice.layer.id)}

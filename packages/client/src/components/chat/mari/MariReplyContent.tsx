@@ -1,6 +1,6 @@
 // The body of one of Mari's replies: streamed words, linked names, compact markdown, files and reasoning.
 import { type CSSProperties, type ReactNode, Children, isValidElement, memo, useMemo, useState } from "react";
-import { ChevronRight, FileText, Loader2, Sparkles, X } from "lucide-react";
+import { ChevronRight, FileText, Sparkles, X } from "lucide-react";
 import { type MariWorkspaceActionResult } from "@marinara-engine/shared";
 import { type CharacterPreviewModel } from "../../../lib/character-preview";
 import { type LorebookPreviewModel } from "../../../lib/lorebook-preview";
@@ -22,6 +22,7 @@ import { resourceResultType, type ResultType } from "../../../lib/command-icons"
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ProfessorMariAttachment, isProfessorMariImageAttachment } from "./mari-chat-helpers";
 import { WorkspaceToolCall } from "./mari-tool-presentation";
+import { Spinner } from "../../ui/Spinner";
 
 /** While Mari streams, each new word mounts in its own span and blurs in; words already shown keep their key. */
 function renderStreamingInline(text: string, keyPrefix: string): ReactNode[] {
@@ -361,7 +362,7 @@ export function ProfessorMariAttachmentPreviews({
       ))}
       {isReading ? (
         <span className="mari-composer-chip">
-          <Loader2 className="animate-spin" aria-hidden="true" />
+          <Spinner size="sm" aria-hidden="true" />
           <span className="mari-composer-chip__text">{localizeUi("ui.chat.chatinput.readingFile")}</span>
         </span>
       ) : null}

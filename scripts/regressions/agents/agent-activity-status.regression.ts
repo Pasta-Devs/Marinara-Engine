@@ -54,7 +54,7 @@ for (const [path, icon] of [
   );
 }
 const icon = read("packages/client/src/components/agents/AgentActivityIcon.tsx");
-assert.match(icon, /<Loader2[^>]*animate-spin/u, "running agents turn the icon into a spinner");
+assert.match(icon, /<Spinner\b/u, "running agents turn the icon into a spinner");
 assert.match(icon, /bg-\[var\(--marinara-app-accent-static\)\]/u, "the failure dot uses the steady accent");
 assert.doesNotMatch(icon, /var\(--(?:primary|destructive)\)|animate-pulse/u, "the failure dot never pulses");
 assert.match(

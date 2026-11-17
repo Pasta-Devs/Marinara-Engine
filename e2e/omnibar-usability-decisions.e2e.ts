@@ -205,15 +205,22 @@ test("UX-16: top-bar buttons are 44 px on a touch screen and the top bar still f
   const width = 390;
   const topBar = page.locator('[data-component="TopBar"]');
   await expect(topBar).toBeVisible();
-  const chats = topBar.getByRole("button", { name: "Chats", exact: true });
-  await expect(chats).toBeVisible();
-  const box = await chats.boundingBox();
+  // A phone lists Chats first in the More menu, not in the bar.
+  await expect(topBar.getByRole("button", { name: "Chats", exact: true })).toHaveCount(0);
+  const home = topBar.getByRole("button", { name: "Home", exact: true });
+  await expect(home).toBeVisible();
+  const box = await home.boundingBox();
   expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
   // Nothing in the bar is pushed off the phone width.
   const overflow = await topBar.evaluate((element) => element.scrollWidth - element.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await topBar.screenshot({ path: shotPath("UX-16", width) });
+  await topBar.getByRole("button", { name: "More", exact: true }).click();
+  const chats = page.locator('[data-component="TopbarMoreMenu"]').getByRole("menuitem").first();
+  await expect(chats).toHaveAccessibleName("Chats");
+  const row = await chats.boundingBox();
+  expect(row?.height ?? 0).toBeGreaterThanOrEqual(43.5);
 });
 
 test("UX-18: result rows are list items with buttons, not listbox options, so nested controls stay valid", async ({

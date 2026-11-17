@@ -81,14 +81,12 @@ import {
   Mic,
   MicOff,
   Eraser,
-  Loader2,
   Pause,
   Play,
   ChevronRight,
   Clock,
   EyeOff,
-  Shield,
-} from "lucide-react";
+  Shield, Loader2 } from "lucide-react";
 import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import type { GameTurnStoryboard, GameTurnStoryboardKeyframe } from "@marinara-engine/shared";
 import {
@@ -178,6 +176,7 @@ import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia
 import { MessageTemplateSlot } from "./MessageTemplateSlot";
 import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
 import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
+import { Spinner } from "../ui/Spinner";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -4073,7 +4072,7 @@ export const ChatMessage = memo(function ChatMessage({
     <ActionBtn
       icon={
         isLoadingThis ? (
-          <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+          <Spinner size="md" />
         ) : isSpeakingThis ? (
           <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
         ) : (
@@ -4117,7 +4116,7 @@ export const ChatMessage = memo(function ChatMessage({
       <ActionBtn
         icon={
           isLoadingThis ? (
-            <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+            <Spinner size="md" />
           ) : isSpeakingThis ? (
             <MicOff size={MESSAGE_ACTION_ICON_SIZE} />
           ) : (
@@ -4137,13 +4136,7 @@ export const ChatMessage = memo(function ChatMessage({
         disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
       />
       <ActionBtn
-        icon={
-          clearingTTS ? (
-            <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-          ) : (
-            <Eraser size={MESSAGE_ACTION_ICON_SIZE} />
-          )
-        }
+        icon={clearingTTS ? <Spinner size="md" /> : <Eraser size={MESSAGE_ACTION_ICON_SIZE} />}
         onClick={handleClearCachedVoice}
         title={localizeUi("ui.chat.chatmessage.clearCachedVoice")}
         disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
@@ -4443,13 +4436,7 @@ export const ChatMessage = memo(function ChatMessage({
         />
         {hasRewriteVersions && (
           <ActionBtn
-            icon={
-              switchingRewriteVersion ? (
-                <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-              ) : (
-                <Shield size={MESSAGE_ACTION_ICON_SIZE} />
-              )
-            }
+            icon={switchingRewriteVersion ? <Spinner size="md" /> : <Shield size={MESSAGE_ACTION_ICON_SIZE} />}
             onClick={handleToggleProseGuardianVersion}
             title={
               showingProseGuardianOriginal
@@ -5467,13 +5454,7 @@ export const ChatMessage = memo(function ChatMessage({
             />
             {hasRewriteVersions && (
               <ActionBtn
-                icon={
-                  switchingRewriteVersion ? (
-                    <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-                  ) : (
-                    <Shield size={MESSAGE_ACTION_ICON_SIZE} />
-                  )
-                }
+                icon={switchingRewriteVersion ? <Spinner size="md" /> : <Shield size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={handleToggleProseGuardianVersion}
                 title={
                   showingProseGuardianOriginal
@@ -5581,7 +5562,7 @@ export const ChatMessage = memo(function ChatMessage({
                 <ActionBtn
                   icon={
                     isLoadingThis ? (
-                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                      <Spinner size="md" />
                     ) : isSpeakingThis ? (
                       <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
                     ) : (
@@ -5601,13 +5582,7 @@ export const ChatMessage = memo(function ChatMessage({
                   disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}
                 />
                 <ActionBtn
-                  icon={
-                    clearingTTS ? (
-                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
-                    ) : (
-                      <Eraser size={MESSAGE_ACTION_ICON_SIZE} />
-                    )
-                  }
+                  icon={clearingTTS ? <Spinner size="md" /> : <Eraser size={MESSAGE_ACTION_ICON_SIZE} />}
                   onClick={handleClearCachedVoice}
                   title={localizeUi("ui.chat.chatmessage.clearCachedVoice")}
                   disabled={!hasTTSContent || clearingTTS || (ttsBusy && !isSpeakingThis)}

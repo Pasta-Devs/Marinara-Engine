@@ -4,13 +4,15 @@
 import { useState, useRef } from "react";
 import { createDecisionImportTracker } from "../../lib/decision-import-notice";
 import { Modal } from "../ui/Modal";
+import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
-import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Download, FileJson, CheckCircle, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -82,7 +84,7 @@ export function ImportLorebookModal({ open, onClose }: Props) {
     decisionImports.notify(nextResults, localizeUi);
     setStatus("done");
     if (nextResults.some((result) => result.success)) {
-      qc.invalidateQueries({ queryKey: ["lorebooks"] });
+      qc.invalidateQueries({ queryKey: lorebookKeys.all });
     }
   };
 
@@ -168,7 +170,7 @@ export function ImportLorebookModal({ open, onClose }: Props) {
 
         {status === "loading" && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-3 text-xs">
-            <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />{" "}
+            <Spinner size="sm" className="text-[var(--primary)]" />{" "}
             {localizeUi("ui.modals.importconnectionmodal.importing")}
           </div>
         )}

@@ -228,7 +228,7 @@ export type WorkspaceTimelineItem =
   | { id: string; type: "text"; content: string; narration?: boolean }
   | { id: string; type: "thinking"; content: string; startedAt?: number; updatedAt?: number }
   | { id: string; type: "tool"; tool: WorkspaceToolCall }
-  | { id: string; type: "status"; content: string };
+  | { id: string; type: "status" | "blocked_draft"; content: string };
 
 function timelineId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -274,7 +274,22 @@ export function timelineItemsFromTrace(trace: MariWorkspaceTraceItem[], message:
   if (!items.some((item) => item.type === "text") && message.content.trim()) {
     items.push({ id: `${message.id}-text-fallback`, type: "text", content: message.content });
   }
-  return items;
+  return markReplayedNarration(items);
+}
+
+/**
+ * #9394: the saved trace has no narration mark, only the order. A round's words are stored right after its steps,
+ * which is exactly when the live run marks them (slice 72), so a text that follows a step is that round's caption.
+ * Her last words stay unmarked: they end the run, so they are her answer. Without this a reloaded run showed each
+ * round's words under the next step ("Let me see what image models…" under the image it generated).
+ */
+export function markReplayedNarration(items: WorkspaceTimelineItem[]): WorkspaceTimelineItem[] {
+  const answer = items.findLastIndex((item) => item.type === "text");
+  return items.map((item, index) => {
+    if (item.type !== "text" || index === answer) return item;
+    const previous = items.slice(0, index).findLast((before) => before.type !== "status");
+    return previous?.type === "tool" ? { ...item, narration: true } : item;
+  });
 }
 
 export function appendTextTimeline(current: WorkspaceTimelineItem[], delta: string): WorkspaceTimelineItem[] {
@@ -301,6 +316,10 @@ export function appendThinkingTimeline(current: WorkspaceTimelineItem[], delta: 
     return [...current.slice(0, -1), { ...last, content: `${last.content}${delta}`, updatedAt: now }];
   }
   return [...current, { id: timelineId("thinking"), type: "thinking", content: delta, startedAt: now, updatedAt: now }];
+}
+
+export function appendBlockedDraftTimeline(current: WorkspaceTimelineItem[], content: string): WorkspaceTimelineItem[] {
+  return [...current, { id: timelineId("blocked-draft"), type: "blocked_draft", content }];
 }
 
 export function appendStatusTimeline(current: WorkspaceTimelineItem[], content: string): WorkspaceTimelineItem[] {
@@ -414,6 +433,22 @@ function firstCommandValue(tokens: string[], start = 0) {
   for (let index = start; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (!token || token === "--" || token.startsWith("-") || token.includes("=")) continue;
+    return token;
+  }
+  return null;
+}
+
+/** Flags of `mari images look` that take a value (without `--target`, the only path that reads a bare ref). */
+const LOOK_VALUE_FLAGS = new Set(["--detail", "--source", "--asset", "--id"]);
+
+/** `mari images look` refs: the first bare value, skipping the values of {@link LOOK_VALUE_FLAGS}. */
+function firstLookRef(tokens: string[]) {
+  for (let index = 3; index < tokens.length; index += 1) {
+    const token = tokens[index]!;
+    if (token.startsWith("-")) {
+      if (LOOK_VALUE_FLAGS.has(token)) index += 1;
+      continue;
+    }
     return token;
   }
   return null;
@@ -587,7 +622,9 @@ function extractMariImagesCommand(command: string) {
   const action = looksLikeHelpToken(tokens[2]) ? "help" : (tokens[2] ?? "help");
   return {
     action,
-    target: tokenFlagValue(tokens, "--target") ?? firstCommandValue(tokens, 3),
+    target:
+      tokenFlagValue(tokens, "--target") ??
+      (action === "look" || action === "view" ? firstLookRef(tokens) : firstCommandValue(tokens, 3)),
     asset: tokenFlagValue(tokens, "--asset") ?? tokenFlagValue(tokens, "--id"),
     prompt: tokenFlagValue(tokens, "--prompt"),
     source: tokenFlagValue(tokens, "--source"),
@@ -624,6 +661,9 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
       return `Listing ${humanizeIdentifier(info.target)}`;
     case "get":
       return "Reading image asset";
+    case "look":
+    case "view":
+      return "Looking at image";
     case "help":
       return "Opening image command help";
     default:
@@ -632,6 +672,8 @@ function mariImagesTitle(info: NonNullable<ReturnType<typeof extractMariImagesCo
 }
 
 function mariImagesDetail(info: NonNullable<ReturnType<typeof extractMariImagesCommand>>) {
+  // `look` names what she looks at as its first value: an asset id, app URL or file, not a target kind.
+  if ((info.action === "look" || info.action === "view") && info.target) return compactCommand(info.target, 70);
   if (info.target && !["list", "get"].includes(info.action)) return humanizeIdentifier(info.target);
   if (info.asset) return compactCommand(info.asset, 70);
   if (info.source) return compactCommand(info.source, 70);

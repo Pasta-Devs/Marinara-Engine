@@ -5,7 +5,8 @@
 // back the pictures they had before they were first cleaned up.
 // ──────────────────────────────────────────────
 import { useState } from "react";
-import { Loader2, Sparkles, Undo2 } from "lucide-react";
+import { Sparkles, Undo2 } from "lucide-react";
+import { Spinner } from "./Spinner";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -88,7 +89,7 @@ export function GalleryCleanUpButton({
         className="mari-editor-action inline-flex disabled:cursor-wait disabled:opacity-60"
         title={localizeUi("ui.gallery.batch.cleanUpHint")}
       >
-        {busy === "clean" ? <Loader2 size="0.875rem" className="animate-spin" /> : <Sparkles size="0.875rem" />}
+        {busy === "clean" ? <Spinner size="sm" /> : <Sparkles size="0.875rem" />}
         {localizeUi(busy === "clean" ? "ui.gallery.batch.cleaningUp" : "ui.gallery.batch.cleanUpCount", { count })}
       </button>
       {restorable > 0 ? (
@@ -99,7 +100,7 @@ export function GalleryCleanUpButton({
           className="mari-editor-action inline-flex disabled:cursor-wait disabled:opacity-60"
           title={localizeUi("ui.gallery.batch.undoCleanUpHint")}
         >
-          {busy === "undo" ? <Loader2 size="0.875rem" className="animate-spin" /> : <Undo2 size="0.875rem" />}
+          {busy === "undo" ? <Spinner size="sm" /> : <Undo2 size="0.875rem" />}
           {localizeUi(busy === "undo" ? "ui.gallery.batch.undoingCleanUp" : "ui.gallery.batch.undoCleanUpCount", {
             count: restorable,
           })}

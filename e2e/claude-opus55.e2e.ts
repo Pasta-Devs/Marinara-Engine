@@ -42,7 +42,7 @@ for (const provider of ["anthropic", "claude_subscription"] as const) {
       if (provider === "anthropic") await expect(choice).toContainText("128k max output");
       await page.screenshot({ path: info.outputPath("opus55-model-picker.png"), animations: "disabled" });
       await choice.click();
-      const defaults = page.getByRole("checkbox", { name: "Use custom defaults for this model", exact: true });
+      const defaults = page.getByRole("switch", { name: "Use custom defaults for this model", exact: true });
       await defaults.scrollIntoViewIfNeeded();
       await defaults.press("Space");
       await expect(defaults).toBeChecked();

@@ -115,8 +115,8 @@ test("Trackers Control replaces Manual Trackers in Roleplay Agents", async ({ pa
     await expect(control.getByText("Manual Trackers", { exact: true })).toHaveCount(0);
 
     // The old switch shows every tracker as manual, and each one can still be changed.
-    const worldState = control.getByRole("checkbox", { name: /^World State/u });
-    const quest = control.getByRole("checkbox", { name: /^Quest Tracker/u });
+    const worldState = control.getByRole("switch", { name: /^World State/u });
+    const quest = control.getByRole("switch", { name: /^Quest Tracker/u });
     for (const toggle of [worldState, quest]) {
       await expect(toggle).toBeChecked();
       await expect(toggle).toBeEnabled();

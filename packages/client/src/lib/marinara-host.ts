@@ -22,6 +22,10 @@ import * as zustand from "zustand";
 import * as zustandMiddleware from "zustand/middleware";
 import { supportedCapabilityApi } from "@marinara-engine/shared";
 import { Modal } from "../components/ui/Modal";
+import { Switch } from "../components/ui/Switch";
+import { Checkbox } from "../components/ui/Checkbox";
+import { Spinner } from "../components/ui/Spinner";
+import { showConfirmDialog } from "./app-dialogs";
 import { useAgentStore } from "../stores/agent.store";
 import { useRollingBackfillStore } from "../stores/backfill.store";
 import { useChatStore } from "../stores/chat.store";
@@ -110,7 +114,7 @@ function defineMarinaraHost(): MarinaraHostV1 {
     }),
     modules,
     queryClient,
-    components: Object.freeze({ Modal }),
+    components: Object.freeze({ Modal, Switch, Checkbox, Spinner, showConfirmDialog }),
     data: Object.freeze({ emojiCatalog }),
     api,
   }) satisfies MarinaraHostV1;

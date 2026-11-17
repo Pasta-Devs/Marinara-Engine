@@ -46,7 +46,7 @@ export function buildOmnibarPreviewActions(
     updateChat: ReturnType<typeof useUpdateChat>;
     askMariAbout: (result: RankedOmnibarResult | null) => void;
     detachFromChat: (resource: ChatResourceDragKind, resourceId: string, label: string) => boolean;
-    navigate: (target: ProfessorMariNavigationTarget) => boolean;
+    navigate: (target: ProfessorMariNavigationTarget) => Promise<boolean>;
     recordUse: (id: string) => void;
     onClose: () => void;
   },
@@ -129,8 +129,8 @@ export function buildOmnibarPreviewActions(
     const editAction = {
       label: t("commandCenter.actions.editLorebook", "Edit lorebook"),
       icon: Edit3,
-      onSelect: () => {
-        if (previewResult.target && navigate(previewResult.target)) {
+      onSelect: async () => {
+        if (previewResult.target && (await navigate(previewResult.target))) {
           recordUse(previewResult.id);
           onClose();
         }

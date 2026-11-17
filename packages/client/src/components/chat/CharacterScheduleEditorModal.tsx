@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Download, Loader2, Plus, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Plus, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import {
   CONVERSATION_SCHEDULE_DAYS,
   type ConversationMessageIntent,
@@ -30,6 +30,7 @@ import {
   isConnectionFlagTrue,
   type ConnectionProviderLike,
 } from "../../lib/connection-filters";
+import { Spinner } from "../ui/Spinner";
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;
@@ -874,11 +875,7 @@ export function CharacterScheduleEditorModal({
                   disabled={generationBusy || generationUnavailable}
                   className="inline-flex shrink-0 items-center justify-center gap-1.5 self-end rounded-md bg-[var(--background)] px-3 py-2 text-xs max-sm:min-h-11 max-sm:text-[13px] font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isGeneratingSummary ? (
-                    <Loader2 size="0.75rem" className="animate-spin" />
-                  ) : (
-                    <Sparkles size="0.75rem" />
-                  )}
+                  {isGeneratingSummary ? <Spinner size="sm" /> : <Sparkles size="0.75rem" />}
                   {draft.routineSummary.trim()
                     ? localizeUi("ui.chat.characterscheduleeditormodal.refreshSummary")
                     : localizeUi("ui.chat.characterscheduleeditormodal.generateSummary")}
@@ -1249,7 +1246,7 @@ export function CharacterScheduleEditorModal({
                 disabled={generationBusy || generationUnavailable}
                 className="inline-flex items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs max-sm:text-[13px] font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isGeneratingWeek ? <Loader2 size="0.75rem" className="animate-spin" /> : <RefreshCw size="0.75rem" />}
+                {isGeneratingWeek ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
                 {WEEK_DRAFT_MODE_LABELS[weekDraftMode]} {localizeUi("ui.chat.characterscheduleeditormodal.week")}
               </button>
             </div>
@@ -1336,11 +1333,7 @@ export function CharacterScheduleEditorModal({
                         disabled={generationBusy || generationUnavailable}
                         className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {generatingDay === day ? (
-                          <Loader2 size="0.75rem" className="animate-spin" />
-                        ) : (
-                          <RefreshCw size="0.75rem" />
-                        )}
+                        {generatingDay === day ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
                         {localizeUi("ui.agents.secretplotpanel.regenerate")} {day}
                       </button>
                     </div>

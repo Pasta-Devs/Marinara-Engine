@@ -5,7 +5,8 @@
 // recuts one with a box on the sheet, or adds one the finder missed.
 // ──────────────────────────────────────────────
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Check, Crop, Loader2, Plus, RotateCcw } from "lucide-react";
+import { Check, Crop, Plus, RotateCcw } from "lucide-react";
+import { Spinner } from "./Spinner";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client";
@@ -308,7 +309,7 @@ export function GallerySheetCells({
 
       {busy && cells.length === 0 ? (
         <div className="flex min-h-24 items-center justify-center gap-2 rounded-lg bg-[var(--secondary)] text-xs text-[var(--muted-foreground)]">
-          <Loader2 size="0.875rem" className="animate-spin" />
+          <Spinner size="sm" />
           {localizeUi("ui.ui.gallerysheetcells.cutting")}
         </div>
       ) : (

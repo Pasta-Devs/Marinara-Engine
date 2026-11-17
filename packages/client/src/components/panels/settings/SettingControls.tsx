@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Bell, BellRing, Loader2, Play, Trash2, Upload, Volume2 } from "lucide-react";
+import { Bell, BellRing, Play, Trash2, Upload, Volume2 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useUIStore } from "../../../stores/ui.store";
@@ -23,6 +23,9 @@ import { cn } from "../../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { useOverhaulLook } from "../../../stores/overhaul.store";
+import { Spinner } from "../../ui/Spinner";
+import { Checkbox } from "../../ui/Checkbox";
+import { Switch } from "../../ui/Switch";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -458,7 +461,7 @@ function CustomNotificationSoundSetting() {
             disabled={isBusy}
             className={SETTINGS_BUTTON_CLASS}
           >
-            {uploadSound.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+            {uploadSound.isPending ? <Spinner size="sm" /> : <Upload size="0.75rem" />}
             {status?.configured
               ? t("settings.notifications.customSound.actions.replace")
               : t("settings.notifications.customSound.actions.choose")}
@@ -470,7 +473,7 @@ function CustomNotificationSoundSetting() {
               disabled={isBusy}
               className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger")}
             >
-              {removeSound.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+              {removeSound.isPending ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
               {t("settings.notifications.customSound.actions.remove")}
             </button>
           )}
@@ -586,8 +589,7 @@ export function SettingsCheckbox({
   const localizedLabel = localizeStringNode(label, localize);
   const localizedDescription = localizeStringNode(description, localize);
   const input = (
-    <input
-      type="checkbox"
+    <Checkbox
       checked={checked}
       disabled={disabled}
       onChange={(e) => onChange(e.target.checked)}
@@ -728,25 +730,15 @@ export function SettingsSwitch({
   const localizedDescription = localizeStringNode(description, localize);
   const localizedTitle = title ? localize(title) : undefined;
   const switchControl = (
-    <label
-      htmlFor={inputId}
+    <Switch
+      id={inputId}
+      checked={checked}
+      onCheckedChange={onChange}
+      disabled={disabled}
       title={localizedTitle}
-      className={cn("relative inline-flex h-5 w-9 shrink-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}
-    >
-      <input
-        id={inputId}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        aria-label={!label && ariaLabel ? localize(ariaLabel) : undefined}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <SettingsSwitchTrack
-        checked={checked}
-        className={cn("peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]", switchClassName)}
-      />
-    </label>
+      aria-label={!label && ariaLabel ? localize(ariaLabel) : undefined}
+      className={switchClassName}
+    />
   );
   const switchCluster = (
     <span className="inline-flex shrink-0 items-center gap-1.5">

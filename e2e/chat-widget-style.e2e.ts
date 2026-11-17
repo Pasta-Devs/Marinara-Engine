@@ -164,7 +164,7 @@ async function openAppearance(page: Page) {
 
 async function setChatStyleApplication(controls: Locator, role: keyof typeof APPLY_NONE, enabled: boolean) {
   const label = `Apply preset ${role}`;
-  const checkbox = controls.getByRole("checkbox", { name: label, exact: true });
+  const checkbox = controls.getByRole("switch", { name: label, exact: true });
   if ((await checkbox.isChecked()) !== enabled) await controls.getByText(label, { exact: true }).click();
   await expect(checkbox).toBeChecked({ checked: enabled });
   if (enabled) await expect(controls.page().locator("html")).toHaveAttribute(`data-chat-widget-apply-${role}`, "true");
@@ -707,7 +707,7 @@ test("widget font, shape and color choices survive reload and a fresh browser, a
     const preset = await measureWidgets(page);
     let controls = await openAppearance(page);
     for (const role of ["font", "shape", "colors"] as const) {
-      await expect(controls.getByRole("checkbox", { name: `Apply preset ${role}`, exact: true })).not.toBeChecked();
+      await expect(controls.getByRole("switch", { name: `Apply preset ${role}`, exact: true })).not.toBeChecked();
     }
     await setChatStyleApplication(controls, "font", true);
     await expect.poll(async () => (await readPreferences(page)).apply).toEqual({ ...APPLY_NONE, font: true });

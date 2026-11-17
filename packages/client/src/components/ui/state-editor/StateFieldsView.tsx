@@ -19,6 +19,7 @@ import {
   statePathKey,
 } from "../../../lib/state-editor/state-editor-json";
 import type { StateEditorPath } from "../../../lib/state-editor/state-editor.types";
+import { Switch } from "../Switch";
 
 interface StateFieldsViewProps {
   value: unknown;
@@ -118,32 +119,10 @@ function NumberField({ value, onChange, label, readOnly }: LeafProps<number>) {
 function BooleanField({ value, onChange, label, readOnly }: LeafProps<boolean>) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      aria-label={label}
-      onClick={() => onChange(!value)}
-      disabled={readOnly}
-      className="inline-flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-default"
-    >
-      <span
-        className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-          value ? "bg-[var(--primary)]" : "bg-[var(--secondary)] ring-1 ring-[var(--border)]",
-        )}
-      >
-        <span
-          className={cn(
-            // left-0.5 anchors the knob: absolutely positioned inside a flex row it takes its static
-            // position from the track, so without it the knob starts already slid to the right.
-            "absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm transition-transform",
-            value ? "translate-x-4" : "translate-x-0",
-          )}
-        />
-      </span>
+    <label className="inline-flex min-h-9 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)]">
+      <Switch checked={value} onCheckedChange={onChange} disabled={readOnly} aria-label={label} />
       {localizeUi(value ? "ui.stateEditor.fields.on" : "ui.stateEditor.fields.off")}
-    </button>
+    </label>
   );
 }
 

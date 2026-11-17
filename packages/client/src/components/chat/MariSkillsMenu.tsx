@@ -1,6 +1,6 @@
 import { Fragment, type ChangeEvent, type RefObject, useEffect, useMemo, useRef } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronRight, FileUp, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronRight, FileUp, Plus, Save, Trash2 } from "lucide-react";
 import type { MariWorkspaceSkillDetail } from "@marinara-engine/shared";
 
 import { useUIStore } from "../../stores/ui.store";
@@ -13,6 +13,7 @@ import {
   compareMariPanelItems,
   type SkillDraftState,
 } from "./MariPanelControls";
+import { Spinner } from "../ui/Spinner";
 
 export function ProfessorMariSkillsMenu({
   skills,
@@ -289,7 +290,7 @@ export function ProfessorMariSkillsMenu({
                               disabled={saving}
                               className="mari-btn mari-btn--solid"
                             >
-                              {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                              {saving ? <Spinner size="sm" /> : <Save size="0.75rem" />}
                               {localizeUi("ui.noodle.noodlehome.save")}
                             </button>
                           </div>

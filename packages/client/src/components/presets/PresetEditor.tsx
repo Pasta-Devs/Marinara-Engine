@@ -76,7 +76,6 @@ import {
   AlertTriangle,
   Copy,
   Camera,
-  Loader2,
   MessageCircleQuestion,
   ExternalLink,
   Regex,
@@ -86,8 +85,7 @@ import {
   ListOrdered,
   MessagesSquare,
   Variable,
-  SlidersHorizontal,
-} from "lucide-react";
+  SlidersHorizontal, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
@@ -137,6 +135,7 @@ import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "..
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 import { GameStoryBoundariesFields } from "../game/GameStoryBoundariesFields";
+import { Spinner } from "../ui/Spinner";
 
 // ── Tab definitions ──
 const TABS = [
@@ -764,7 +763,7 @@ export function PresetEditor() {
               disabled={stockCopyPending}
               className="mari-editor-action mari-editor-action--primary inline-flex px-3 py-2 disabled:opacity-50"
             >
-              {stockCopyPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <Copy size="0.875rem" />}
+              {stockCopyPending ? <Spinner size="sm" /> : <Copy size="0.875rem" />}
               {localizeUi(
                 stockCopyPending
                   ? "ui.presets.preseteditor.creatingEditableCopy"
@@ -1536,7 +1535,7 @@ export function QuickPresetSectionsEditor({
           disabled={quickCopyPending}
           className="mari-editor-action mari-editor-action--primary inline-flex px-3 py-2 disabled:opacity-50"
         >
-          {quickCopyPending ? <Loader2 size="0.875rem" className="animate-spin" /> : <Copy size="0.875rem" />}
+          {quickCopyPending ? <Spinner size="sm" /> : <Copy size="0.875rem" />}
           {t(
             quickCopyPending
               ? "ui.presets.preseteditor.creatingEditableCopy"

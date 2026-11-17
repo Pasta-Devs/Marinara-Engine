@@ -117,6 +117,7 @@ Marinara keeps your data as plain JSON files, so you can copy and read backups. 
 | `LOG_LEVEL` | `warn` | The level above. |
 | `LOG_PRESET` | `default` | `prompt-connections` shows the same prompt and model detail as `debug` but hides routine request lines such as `GET /api/chats`. |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true` hides routine request lines and keeps your level. Needs a restart. |
+| `LOG_INLINE_MEDIA` | `short` | `short` prints images and other base64 files in debug output as a short marker with their type and size. `full` prints them whole, which can be several MB per prompt. |
 | `LOG_FORMAT` | automatic | `pretty` prints readable lines everywhere, for example to read **Debug mode** prompts in `docker logs`. `json` prints one JSON object per line. Needs a restart. |
 
 In a terminal, the server prints readable lines. Elsewhere, such as Docker logs, a production server prints JSON lines. The Termux launcher asks for readable lines. Browser logging is separate and not controlled by `LOG_LEVEL`.

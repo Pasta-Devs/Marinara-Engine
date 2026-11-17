@@ -2,7 +2,7 @@
 // Settings: registered prompt overrides editor
 // ──────────────────────────────────────────────
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, Code2, FileText, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Code2, FileText, RotateCcw, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { estimateTextTokens } from "@marinara-engine/shared";
 import { formatEstimatedTokens } from "../../../lib/character-token-count";
@@ -20,6 +20,7 @@ import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { SETTINGS_BUTTON_CLASS, SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, SettingsSwitch } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../../ui/Spinner";
 
 const PREFERRED_PROMPT_KEY = "conversation.selfie";
 const ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY = "roleplay.galleryVideoDirector";
@@ -454,7 +455,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           disabled={!canSave}
           className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "flex-auto")}
         >
-          {saveOverride.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+          {saveOverride.isPending ? <Spinner size="sm" /> : <Save size="0.75rem" />}
           {localizeUi("ui.noodle.noodlehome.save")}
         </button>
         <button
@@ -464,7 +465,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           className={cn(SETTINGS_BUTTON_CLASS, "flex-auto")}
         >
           {resetOverride.isPending ? (
-            <Loader2 size="0.75rem" className="animate-spin" />
+            <Spinner size="sm" />
           ) : detail?.override ? (
             <RotateCcw size="0.75rem" />
           ) : (

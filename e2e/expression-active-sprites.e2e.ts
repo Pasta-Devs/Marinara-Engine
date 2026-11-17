@@ -205,7 +205,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
       };
       await openSettings();
       const drawer = page.locator(".mari-chat-settings-drawer");
-      const toggle = drawer.getByRole("checkbox", { name: /^Only show active sprites/ });
+      const toggle = drawer.getByRole("switch", { name: /^Only show active sprites/ });
       await expect(toggle).not.toBeChecked();
       const toggleLabel = drawer.getByText("Only show active sprites", { exact: true });
       await toggleLabel.scrollIntoViewIfNeeded();

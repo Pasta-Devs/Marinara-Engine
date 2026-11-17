@@ -29,7 +29,7 @@ type OmnibarKeyHandlerInput = {
   choose: (result: OmnibarResult) => void;
   chooseChoiceOption: (result: RankedOmnibarResult) => boolean;
   flipToggleControl: (result: RankedOmnibarResult, nextValue: boolean) => void;
-  navigate: (target: ProfessorMariNavigationTarget) => boolean;
+  navigate: (target: ProfessorMariNavigationTarget) => Promise<boolean>;
   recordUse: (id: string) => void;
   askMariAbout: (result: RankedOmnibarResult | null) => void;
   escalateAside: (question?: string) => void;
@@ -155,10 +155,11 @@ export function createOmnibarKeyHandlers({
       // Enter flips a bound toggle in place (K5); Shift+Enter keeps the pre-K5
       // path of navigating to the control's spot in Settings instead.
       event.preventDefault();
-      if (navigate(activeResult.target)) {
+      void navigate(activeResult.target).then((ok) => {
+        if (!ok) return;
         recordUse(activeResult.id);
         onClose();
-      }
+      });
     } else if (pane === "results" && event.key === "Enter" && activeResult) {
       event.preventDefault();
       if (chooseChoiceOption(activeResult)) return;

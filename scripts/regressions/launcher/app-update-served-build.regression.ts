@@ -4,6 +4,7 @@
  */
 import assert from "node:assert/strict";
 import { formatRuntimeBuild, runningBuildIsServed } from "../../../packages/client/src/lib/runtime-build.js";
+import { nextRestartStep } from "../../../packages/client/src/lib/server-restart.js";
 
 const client = formatRuntimeBuild("2.4.6", "abc1234");
 const answer =
@@ -40,3 +41,11 @@ assert.equal(
   "a silent server prompts",
 );
 console.info("App update: a waiting worker prompts only when the server serves another build.");
+
+// The old server answers 503 from the restart request on, so any ok answer is the new server.
+assert.equal(nextRestartStep("stopping", false), "starting");
+assert.equal(nextRestartStep("starting", false), "starting");
+assert.equal(nextRestartStep("starting", true), "back");
+assert.equal(nextRestartStep("stopping", true), "back", "a fast restart can skip the down window");
+assert.equal(nextRestartStep("back", false), "back", "back never goes backwards");
+console.info("Server restart: the sheet waits for an answer from the new server.");

@@ -1656,11 +1656,11 @@ function renderAgentCard({
       {!selectionMode && inChat && chatSettingsChatId && (
         <button
           type="button"
-          onClick={(event) => {
+          onClick={async (event) => {
             event.stopPropagation();
             const ui = useUIStore.getState();
             // A detail page (agent, character, ...) replaces the chat view, so leave it first.
-            if (!confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor"))) return;
+            if (!(await confirmEditorLeave(ui, localizeUi("commandCenter.dirtyEditor")))) return;
             ui.closeAllDetails();
             // On phones the panel covers the chat, so close it to show the drawer.
             if (window.matchMedia("(max-width: 767px)").matches) ui.closeRightPanel();
