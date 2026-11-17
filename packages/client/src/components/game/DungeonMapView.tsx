@@ -95,6 +95,7 @@ export function DungeonMapView({
   onLeft,
   hour,
   dungeonLooks,
+  onCaught,
 }: {
   chatId: string;
   turnKey: string | null;
@@ -106,6 +107,8 @@ export function DungeonMapView({
   hour?: number;
   /** The Experience's own looks for maps made by hand (1.357), named by a map's pack. */
   dungeonLooks?: readonly TilePack[];
+  /** Foes caught the party on its walk (walking in on them): the fight starts. */
+  onCaught?: () => void;
 }) {
   const { t } = useTranslation();
   const { data } = useDungeonMap(chatId, turnKey, true);
@@ -172,6 +175,11 @@ export function DungeonMapView({
     // A building gone bad with no pack of its own: drawn as a building, walls, hall, rooms and furniture.
     const building = buildingStyleOf(cells.set);
     const coded = !drawTile.image && (building !== null || dungeonPaintsSet(cells.set));
+    // Round a planned building's floors at and above the ground lies the land it stands on; round those
+    // below it, the earth it is cut in: never a black void (panel 2026-11-16).
+    const siteDepth = kept?.site ? (kept.site.levels[kept.site.level]?.depth ?? -1) : null;
+    const outdoors = siteDepth !== null && siteDepth >= 0;
+    const buried = siteDepth !== null && siteDepth < 0;
     if (coded) {
       const at = (x: number, y: number) =>
         x < 0 || y < 0 || x >= cells.width || y >= cells.height ? "rock" : cells.ground[y * cells.width + x];
@@ -183,13 +191,25 @@ export function DungeonMapView({
       const isHall = (x: number, y: number) =>
         at(x, y) === "floor" &&
         !inRoom(x, y) &&
+        // A doorway into a room is laid as the room's floor, never a lone square of the hall's.
+        !inRoom(x - 1, y) &&
+        !inRoom(x + 1, y) &&
+        !inRoom(x, y - 1) &&
+        !inRoom(x, y + 1) &&
         !(at(x - 1, y) === "wall" && at(x + 1, y) === "wall") &&
         !(at(x, y - 1) === "wall" && at(x, y + 1) === "wall");
       for (let y = 0; y < cells.height; y++)
         for (let x = 0; x < cells.width; x++) {
           const ground = at(x, y);
           const noise = cellNoise(x, y);
-          if (ground === "rock") continue;
+          if (ground === "rock") {
+            // Round a planned building's floors at and above the ground lies the land it stands on, not a
+            // black void (panel 2026-11-16).
+            if (outdoors) paintBuildingCourt(ctx, x * T, y * T, false, noise);
+            else if (buried && building) paintBuildingWall(ctx, building, x * T, y * T, false, noise);
+            else if (buried) paintDungeonWall(ctx, cells.set, x * T, y * T, false, noise);
+            continue;
+          }
           if (ground === "wall") {
             const below = at(x, y + 1);
             const face = below === "floor" || below === "liquid";
@@ -259,8 +279,12 @@ export function DungeonMapView({
     for (let y = 0; y < cells.height; y++)
       for (let x = 0; x < cells.width; x++) {
         const ground = cells.ground[y * cells.width + x];
-        if (ground === "rock") continue;
         const pick = cellNoise(x, y)(5);
+        if (ground === "rock") {
+          if (outdoors) paintBuildingCourt(ctx, x * T, y * T, false, cellNoise(x, y));
+          else if (buried && !drawTile(ctx, "dn_wall", x * T, y * T, pick)) plain(PLAIN.wall, x * T, y * T);
+          continue;
+        }
         // A wall shows its face where a floor lies below it and its top elsewhere, when the pack has them.
         // The face is a pattern two cells tall: its lower row, so a wall one cell thick still stands on the
         // floor. The top is a 4x4 autotile keyed by which sides meet a wall (N 1, E 2, S 4, W 8), so its rim
@@ -485,6 +509,11 @@ export function DungeonMapView({
         const snapshot = useGameStateStore.getState().current;
         if (snapshot?.chatId === chatId)
           useGameStateStore.getState().setGameState({ ...snapshot, time: result.formatted });
+        // Walked in on foes: they have the party, and the fight starts where it stands.
+        if (result.step?.met && mountedRef.current) {
+          toast.warning(t("game.dungeon.caught", { room: result.step.met.name }));
+          onCaught?.();
+        }
       };
       const fallback = setTimeout(end, duration + 500);
       endWalkRef.current = end;
@@ -510,7 +539,7 @@ export function DungeonMapView({
       };
       frameRef.current = requestAnimationFrame(frame);
     },
-    [canWalk, cells, chatId, kept, t, walkMutation],
+    [canWalk, cells, chatId, kept, onCaught, t, walkMutation],
   );
 
   const onCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {

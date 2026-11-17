@@ -1,4 +1,5 @@
 import {
+  dungeonCatchOnPath,
   dungeonGuardMarks,
   dungeonPlanContext,
   dungeonSiteHere,
@@ -12265,12 +12266,28 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       })
       .parse(req.body);
     const chats = createChatsStorage(app.db);
+    // Who holds the place (dungeon spawns): walking in on them stops the walk where they catch the party,
+    // and the fight starts there (owner 2026-11-16: enemies catching up with the party start combat).
+    const chat = await chats.getById(chatId);
+    const before = chat ? parseMeta(chat.metadata) : null;
+    const here =
+      before && gameDungeonMapFromMetadata(before)
+        ? dungeonSiteHere({
+            meta: before,
+            setup: before.gameSetupConfig as Record<string, unknown> | undefined,
+            world: await loadGameWorld(app.db, chatId, before),
+            replies: await dungeonSiteReplies(app.db, chatId, before),
+          })
+        : null;
     let path: Array<{ x: number; y: number }> | null = null;
     let minutes = 0;
+    let met: { area: number; name: string } | undefined;
     let walk: GameDungeonWalk | undefined;
     let time: GameTime | undefined;
     let map: GameDungeonMap | undefined;
-    let step: { unlocked: string[]; trap?: { area: number; dc: number } } = { unlocked: [] };
+    let step: { unlocked: string[]; trap?: { area: number; dc: number }; met?: { area: number; name: string } } = {
+      unlocked: [],
+    };
     const updated = await chats.patchMetadata(chatId, (fresh) => {
       const kept = gameDungeonMapFromMetadata(fresh);
       if (!kept || kept.id !== body.map) {
@@ -12282,10 +12299,25 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       path = dungeonPath(cells, kept.at, body);
       if (!path) throw Object.assign(new Error("There is no way there."), { statusCode: 400 });
+      // Into a room where foes are: they catch the party on its first step inside (not in the room it set
+      // out from, which it may have fled a fight in).
+      if (here && here.key && here.map.id === kept.id) {
+        const caught = dungeonCatchOnPath(here, kept, path, gameDay(fresh));
+        if (caught) {
+          path = path.slice(0, caught.step + 1);
+          met = { area: caught.area, name: caught.name };
+        }
+      }
       // A planned building: rooms walked into are seen, keys open locks, a hidden trap stops the walk.
       const walked = siteWalk(kept, path);
       path = walked.path;
-      step = { unlocked: walked.unlocked, ...(walked.trap ? { trap: walked.trap } : {}) };
+      // A trap sprung before the foes were reached stops the walk short of them.
+      if (met && walked.path.length < path.length) met = undefined;
+      step = {
+        unlocked: walked.unlocked,
+        ...(walked.trap ? { trap: walked.trap } : {}),
+        ...(met ? { met } : {}),
+      };
       minutes = dungeonWalkMinutes(path.length);
       const pending = gameDungeonWalkFromMetadata(fresh);
       const before = pending?.map === kept.id ? pending : undefined;
