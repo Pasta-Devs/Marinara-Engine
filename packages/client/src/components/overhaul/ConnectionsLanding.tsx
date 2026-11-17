@@ -44,6 +44,7 @@ import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
 import { useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { useDecisionEngine } from "./decision-engine";
+import { useBuiltinEmbeddingState } from "../connections/BuiltinEmbeddingDetail";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useDeleteConnection, useDuplicateConnection, useUpdateConnection } from "../../hooks/use-connections";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
@@ -201,13 +202,14 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const engines = useDeviceEngines();
   const usedBy = useLocalModelUsedBy();
   const decision = useDecisionEngine();
+  const embedding = useBuiltinEmbeddingState();
   // The engine list already carries the built-in model once it can run here (with its own Download), so the
   // set-up row only fills in when it is missing there.
   const builtInAvailable =
     setup["local-model"].available &&
     !setup["local-model"].setUp &&
     !engines.some((engine) => engine.item === "local-model");
-  if (engines.length === 0 && !builtInAvailable && !decision) return null;
+  if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
   const rows = [
     ...engines.map((engine) => ({
       item: engine.item,
@@ -246,6 +248,19 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
             state: decision.state,
             fix: undefined as { label: string; run: () => void } | undefined,
             open: () => onOpen("decision" as DeviceItem),
+          },
+        ]
+      : []),
+    ...(embedding
+      ? [
+          {
+            item: "builtin-embedding" as DeviceItem,
+            name: embedding.name,
+            detail: embedding.detail,
+            tone: embedding.tone,
+            state: embedding.state,
+            fix: undefined as { label: string; run: () => void } | undefined,
+            open: () => onOpen("embeddings" as DeviceItem),
           },
         ]
       : []),

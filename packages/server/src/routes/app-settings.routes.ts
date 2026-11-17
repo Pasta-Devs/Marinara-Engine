@@ -26,6 +26,7 @@ import {
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
   getChatWindowDefaultSettingsKey,
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   isChatProvider,
   parseChatWindowDefault,
@@ -42,6 +43,7 @@ import {
   readDefaultEmbeddingConnectionId,
   resetMemoryRecallVectorizerCache,
 } from "../services/memory-recall-embedding.js";
+import { builtinEmbeddingService } from "../services/sidecar/builtin-embedding.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -190,7 +192,14 @@ export async function appSettingsRoutes(app: FastifyInstance) {
   // null clears the default. Its own route so the id is checked and Long-term memory re-indexes.
   app.put(`/${DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY}`, async (req, reply) => {
     const { connectionId } = z.object({ connectionId: z.string().trim().min(1).nullable() }).parse(req.body);
-    if (connectionId && connectionId !== LOCAL_SIDECAR_CONNECTION_ID) {
+    if (connectionId === BUILTIN_EMBEDDING_CONNECTION_ID && !builtinEmbeddingService.getActiveModel()) {
+      return reply.status(400).send({ error: "Download the built-in embedding model first" });
+    }
+    if (
+      connectionId &&
+      connectionId !== LOCAL_SIDECAR_CONNECTION_ID &&
+      connectionId !== BUILTIN_EMBEDDING_CONNECTION_ID
+    ) {
       const connection = await createConnectionsStorage(app.db).getWithKey(connectionId);
       if (!connection) return reply.status(400).send({ error: "Connection not found" });
       // A connection with no embedding source of its own would leave the default silently unused.

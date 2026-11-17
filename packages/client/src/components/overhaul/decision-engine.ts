@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 
 export const DECISION_DEVICE_ID = "device:decision";
+/** The built-in embedding model's entry (its page is BuiltinEmbeddingDetail). */
+export const EMBEDDING_DEVICE_ID = "device:embeddings";
 
 export type DecisionEngineRow = { name: string; state: string; tone: "ok" | "off" | "warn" };
 

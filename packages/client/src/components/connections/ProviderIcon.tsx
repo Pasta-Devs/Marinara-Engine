@@ -11,6 +11,7 @@ import {
   ImageIcon,
   Mic,
   Scale,
+  ScanSearch,
   Server,
   Volume2,
   type LucideIcon,
@@ -224,6 +225,7 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
   audio: AudioLines,
   audio_generation: Music,
   decision: Scale,
+  "builtin-embedding": ScanSearch,
 };
 
 // The small tiles keep a fixed radius: a theme's large --radius turns them into blobs.
