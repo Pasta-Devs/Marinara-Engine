@@ -1618,8 +1618,9 @@ export function ConnectionSwitcherBody({
       <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/50">{summary}</span>
     </div>
   );
+  // The overview is hidden during search and account browsing; avoid walking every catalog on those renders.
   const unstarredGroups =
-    showUnstarred && catalogBrowse
+    showUnstarred && catalogBrowse && !query.trim() && !searching && !shownGroup && !paneFolder
       ? groups
           .map((group) => {
             const { lead, rest } = paneEntries(group);

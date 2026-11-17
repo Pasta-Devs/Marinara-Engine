@@ -163,6 +163,7 @@ test("Jobs offer unstarred provider models below starred models", async ({ page 
         models: [
           { id: "starred-model", name: "Starred model" },
           { id: "unstarred-model", name: "Unstarred model" },
+          ...Array.from({ length: 100 }, (_, index) => ({ id: `zz-bulk/${index}`, name: `Bulk ${index}` })),
         ],
       },
     }),
@@ -215,6 +216,30 @@ test("Jobs offer unstarred provider models below starred models", async ({ page 
   await expect(dialog.locator('[data-switcher-section="provider"] [aria-current="true"]')).toContainText(
     "Unstarred model",
   );
+  await page.evaluate(() => {
+    const scope = window as typeof window & { jobsCatalogComparisons: number };
+    scope.jobsCatalogComparisons = 0;
+    const compare = String.prototype.localeCompare;
+    String.prototype.localeCompare = function (
+      other: string,
+      locales?: Intl.LocalesArgument,
+      options?: Intl.CollatorOptions,
+    ) {
+      if (String(this).startsWith("zz-bulk/") && String(other).startsWith("zz-bulk/")) {
+        scope.jobsCatalogComparisons++;
+      }
+      return compare.call(this, other, locales, options);
+    };
+  });
+  const search = dialog.locator('input[type="text"], input[type="search"]').first();
+  await search.fill("no-match-qc");
+  await expect(dialog.locator('[data-switcher-section="provider"]')).toHaveCount(0);
+  await search.press("ArrowDown");
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as typeof window & { jobsCatalogComparisons: number }).jobsCatalogComparisons),
+    )
+    .toBe(0);
 });
 
 test("Decisions keep an assigned unstarred model visible without a catalog entry", async ({ page }) => {
