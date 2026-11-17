@@ -23,10 +23,9 @@ import {
   SERVER_LOGS_RATE_LIMIT,
 } from "../middleware/rate-limit.js";
 import { bootId, logger } from "../lib/logger.js";
+import { getRequestTimeoutSettings, saveRequestTimeoutSettings } from "../config/runtime-config.js";
+import { isRestartPending, restartExitCode, scheduleRestart } from "../lib/server-restart.js";
 import { getServerLogSnapshot } from "../lib/log-buffer.js";
-import { getRequestTimeoutSettings, saveRequestTimeoutSettings, isDockerRuntime } from "../config/runtime-config.js";
-import { noteSessionExitKind } from "../lib/session-postmortem.js";
-import { armShutdownDeadline } from "../lib/shutdown-deadline.js";
 import { collectRuntimeDiagnostics } from "../lib/runtime-diagnostics.js";
 import {
   ABANDONED_AVATAR_MIN_AGE_MS,
@@ -74,8 +73,6 @@ function isValidScope(scope: unknown): scope is ExpungeScope {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  let restartScheduled = false;
-
   app.get("/request-timeouts", () => getRequestTimeoutSettings());
   app.put("/request-timeouts", { config: { rateLimit: REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Request timeout settings" })) return;
@@ -114,37 +111,21 @@ export async function adminRoutes(app: FastifyInstance) {
       if (req.body?.confirm !== true) {
         return reply.status(400).send({ error: "Must send { confirm: true } to restart the server" });
       }
-      if (restartScheduled) {
-        return reply.status(409).send({ error: "Server restart is already scheduled" });
+      if (isRestartPending()) {
+        return reply.status(409).send({ error: "Server restart is already scheduled", code: "restart-scheduled" });
       }
-      const docker = isDockerRuntime();
-      if (!docker && process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) {
+      const exitCode = restartExitCode();
+      if (exitCode === null) {
         return reply.status(409).send({
+          code: "restart-unavailable",
           error:
             "Restart is unavailable for an unmanaged server. Start Marinara with its platform launcher or pnpm start; restart a development watcher from its terminal.",
         });
       }
-      const exitCode = docker ? 0 : 75;
+      logger.info("Server restart requested from Advanced Settings");
+      scheduleRestart(exitCode);
 
-      restartScheduled = true;
-      setTimeout(() => {
-        void (async () => {
-          armShutdownDeadline(app, "restart", { exitCode });
-          try {
-            // #5506 diagnostics: name this ending so the next startup reports
-            // an operator restart instead of an external kill.
-            noteSessionExitKind("restart");
-            await app.close();
-            logger.info("Server restart requested from Advanced Settings");
-            process.exit(exitCode);
-          } catch (error) {
-            logger.error(error, "Graceful server restart failed");
-            process.exit(1);
-          }
-        })();
-      }, 750);
-
-      return reply.status(202).send({ status: "restarting" });
+      return reply.status(202).send({ status: "restarting", bootId });
     },
   );
 

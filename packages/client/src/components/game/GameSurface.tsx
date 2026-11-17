@@ -52,6 +52,7 @@ import {
 // ──────────────────────────────────────────────
 // Game: Main Surface (rendered by ChatArea when mode === "game")
 // ──────────────────────────────────────────────
+import { readBlobAsDataUrl } from "../../lib/chat-attachment-images";
 import { useExperienceMapPack } from "../../hooks/use-map-pack";
 import { ExperiencePeopleSpritesContext } from "../../hooks/use-overworld-view";
 import {
@@ -1911,21 +1912,6 @@ function readPersistedGameAudioSettings(): GameAudioSettings {
   }
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error("Failed to read the selected image."));
-    };
-    reader.onerror = () => reject(new Error("Failed to read the selected image."));
-    reader.readAsDataURL(file);
-  });
-}
-
 type CombatStatusEffectLike = NonNullable<Combatant["statusEffects"]>[number];
 
 type CombatStatusTemplate = {
@@ -2192,7 +2178,6 @@ import {
   Film,
   Image,
   ImagePlus,
-  Loader2,
   Map as MapIcon,
   PanelsTopLeft,
   Pencil,
@@ -2207,6 +2192,7 @@ import {
   X,
   Gamepad2,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
 function sampleTags(tags: string[], max: number): string[] {
@@ -7959,7 +7945,9 @@ function GameSurfaceComponent({
             } satisfies GameNpc);
 
       try {
-        const avatar = await readFileAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file).catch(() => {
+          throw new Error("Failed to read the selected image.");
+        });
         const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}`, {
           name: targetNpc.name,
           avatar,
@@ -7998,7 +7986,9 @@ function GameSurfaceComponent({
           await handleNpcPortraitUpload(memberName, file);
           return;
         }
-        const avatar = await readFileAsDataUrl(file);
+        const avatar = await readBlobAsDataUrl(file).catch(() => {
+          throw new Error("Failed to read the selected image.");
+        });
         if (character) {
           await uploadCharacterAvatar.mutateAsync({ id: memberId, avatar });
         } else {
@@ -12135,11 +12125,14 @@ function GameSurfaceComponent({
     setQueuedQte(null);
   }, []);
 
-  const handleReturnToPreCombatTurn = useCallback(() => {
+  const handleReturnToPreCombatTurn = useCallback(async () => {
     if (!latestAssistantMsg?.id) return;
-    const confirmed = window.confirm(
-      localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
-    );
+    const confirmed = await showConfirmDialog({
+      message: localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
+      title: localizeUi("ui.game.tacticalcombatui.confirm"),
+      confirmLabel: localizeUi("ui.game.tacticalcombatui.confirm"),
+      cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+    });
     if (!confirmed) return;
 
     setCombatParty(null);
@@ -12974,7 +12967,7 @@ function GameSurfaceComponent({
           data-component="GameSurface.MessagesLoading"
           className="flex h-full items-center justify-center bg-[var(--background)] dark:bg-black/80"
         >
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
+          <Spinner size="lg" className="text-[var(--foreground)]/70 dark:text-white/70" />
         </div>
         {imagePromptReviewModal}
       </>
@@ -13017,7 +13010,7 @@ function GameSurfaceComponent({
         <Suspense
           fallback={
             <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-[var(--background)]/90">
-              <Loader2 size={20} className="animate-spin text-[var(--primary)]" />
+              <Spinner size="lg" className="text-[var(--primary)]" />
             </div>
           }
         >
@@ -13390,7 +13383,7 @@ function GameSurfaceComponent({
                         </div>
                       ) : (
                         <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] dark:text-white/60">
-                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
+                          <Spinner size="lg" className="text-[var(--foreground)]/70 dark:text-white/70" />
                           <span>
                             {generationPhase ??
                               (hasEverHadPlayableContent && !sceneProcessed
@@ -13492,7 +13485,7 @@ function GameSurfaceComponent({
     sessionStatus !== "concluded" ? (
       <Square size={12} />
     ) : startSessionLocked ? (
-      <Loader2 size={12} className="animate-spin" />
+      <Spinner size="sm" />
     ) : (
       <Play size={12} />
     );
@@ -13789,7 +13782,7 @@ function GameSurfaceComponent({
                 : localizeUi("ui.game.gamesurfacecomponent.generateABackgroundForTheCurrentScene")
             }
           >
-            {manualBackgroundGenerating ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+            {manualBackgroundGenerating ? <Spinner size="sm" /> : <ImagePlus size={14} />}
             {localizeUi("ui.game.gamesurfacecomponent.generateBackground")}
           </button>
           {gameSceneVideosEnabled && (
@@ -13805,7 +13798,7 @@ function GameSurfaceComponent({
               className="marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               title={localizeUi("ui.game.gamesurfacecomponent.generateASceneVideoFromTheLatestIllustration")}
             >
-              {sceneVideoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+              {sceneVideoGenerating ? <Spinner size="sm" /> : <Film size={14} />}
               {localizeUi("ui.game.gamesurfacecomponent.generateVideo")}
             </button>
           )}
@@ -13825,7 +13818,7 @@ function GameSurfaceComponent({
               title={localizeUi("ui.game.gamesurfacecomponent.createStoryboardKeyframesFromTheCurrentGmNarration")}
             >
               {storyboardGenerating || latestTurnStoryboardRendering ? (
-                <Loader2 size={14} className="animate-spin" />
+                <Spinner size="sm" />
               ) : (
                 <PanelsTopLeft size={14} />
               )}
@@ -13872,7 +13865,7 @@ function GameSurfaceComponent({
               </div>
               {storyboardGenerating && !latestTurnStoryboard ? (
                 <div className="flex items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-4 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
-                  <Loader2 size={14} className="animate-spin" />
+                  <Spinner size="sm" />
                   {localizeUi("ui.game.gamesurfacecomponent.creatingStoryboardKeyframes")}
                 </div>
               ) : null}
@@ -14376,7 +14369,7 @@ function GameSurfaceComponent({
                         <Suspense
                           fallback={
                             <div className="flex h-full flex-1 items-center justify-center text-sm text-white/70">
-                              <Loader2 size={15} className="mr-2 animate-spin" />
+                              <Spinner size="md" className="mr-2" />
                               {localizeUi("ui.game.gamesurfacecomponent.loadingReplay")}
                             </div>
                           }

@@ -13,11 +13,12 @@
 //   * `active: true` alone does not mean quota remains.
 
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import { useSubscriptionUsage, type NanoGptQuotaWindow } from "../../hooks/use-connections";
 import { quotaPercentForDisplay, quotaTotalForDisplay } from "../../lib/nanogpt-quota";
 import { formatRelativeUntil } from "../../lib/relative-time";
+import { Spinner } from "../ui/Spinner";
 
 /**
  * The provider's display name, from the shared provider catalog rather than a
@@ -212,7 +213,7 @@ export function SubscriptionUsageWidget({
   if (isLoading) {
     return (
       <div className={`flex items-center gap-2 ${surface}`}>
-        <Loader2 size="0.75rem" className="animate-spin text-[var(--marinara-chat-chrome-accent)]" />
+        <Spinner size="sm" className="text-[var(--marinara-chat-chrome-accent)]" />
         <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.connections.connectioneditor.loadingSubscriptionUsage")}
         </span>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowUpRight, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CapabilityPackageUpdate } from "@marinara-engine/shared";
 import { useCapabilityCatalog } from "../../hooks/use-capability-packages";
@@ -10,6 +10,8 @@ import { AgentArtwork } from "./AgentArtwork";
 import { AgentReleaseNoteList } from "./AgentReleaseNoteList";
 import { NotableChangeMarker } from "./NotableChangeMarker";
 import { taglineOf } from "./organizer/organizer-model";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 export type AgentUpdatePhase = "ask" | "running" | "done";
 export type AgentUpdateResult =
@@ -119,7 +121,7 @@ export function AgentUpdateDialog({
               disabled={running || selected.size === 0}
               className={SHEET_BUTTON_PRIMARY}
             >
-              {running && <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />}
+              {running && <Spinner size="sm" aria-hidden="true" />}
               {selected.size === updates.length
                 ? localizeUi("ui.agents.agentupdatedialog.updateAll")
                 : localizeUi("ui.agents.agentupdatedialog.updateSome", {
@@ -180,9 +182,8 @@ export function AgentUpdateDialog({
                     </span>
                   </label>
                   {phase === "ask" ? (
-                    <input
+                    <Checkbox
                       id={checkboxId}
-                      type="checkbox"
                       checked={isSelected}
                       onChange={() => onToggle(update.id)}
                       className="mt-1 h-5 w-5 shrink-0 accent-[var(--primary)]"
@@ -253,7 +254,7 @@ export function AgentUpdateStatus({ result }: { result: AgentUpdateResult | unde
   if (result?.status === "running") {
     return (
       <span className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
-        <Loader2 size="0.85rem" className="animate-spin" aria-hidden="true" />
+        <Spinner size="sm" aria-hidden="true" />
         {localizeUi("ui.agents.agentupdatedialog.updating")}
       </span>
     );

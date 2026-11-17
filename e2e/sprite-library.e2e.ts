@@ -462,7 +462,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     await sheetSection.getByRole("button", { name: "Manage", exact: true }).click();
     await expect(sheetSection.getByRole("heading", { name: "Character Sheet", exact: true })).toBeVisible();
     await expect(sheetSection.getByText("No character sheet selected", { exact: true })).toBeVisible();
-    await expect(sheetSection.getByRole("checkbox", { name: /Use character sheet/ })).toBeDisabled();
+    await expect(sheetSection.getByRole("switch", { name: /Use character sheet/ })).toBeDisabled();
     await sheetSection.getByRole("button", { name: "Close", exact: true }).click();
     await library.getByRole("button", { name: "Add sprites", exact: true }).click();
     const addPanel = library.getByRole("region", { name: "Add sprites", exact: true });

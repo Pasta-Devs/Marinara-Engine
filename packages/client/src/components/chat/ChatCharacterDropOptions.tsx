@@ -20,6 +20,7 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { CharacterOnboardingModal } from "../characters/CharacterOnboardingModal";
 import { RoleplayMessagePreview } from "./ChatMessage";
+import { Checkbox } from "../ui/Checkbox";
 
 type CharacterLorebook = { id: string; name: string };
 
@@ -190,8 +191,7 @@ export function ChatCharacterDropOptions({
           {greetings.length > 0 && (
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm font-semibold">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={addGreeting}
                   onChange={(event) => setAddGreeting(event.target.checked)}
                   className="h-4 w-4 accent-[var(--primary)]"
@@ -270,8 +270,7 @@ export function ChatCharacterDropOptions({
               </p>
               {lorebooks.map((lorebook) => (
                 <label key={lorebook.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={!excludedIds.includes(lorebook.id)}
                     onChange={(event) =>
                       setExcludedIds((current) =>

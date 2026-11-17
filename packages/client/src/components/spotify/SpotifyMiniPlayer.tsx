@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   GripVertical,
   Laptop,
-  Loader2,
   Music2,
   Pause,
   Play,
@@ -39,6 +38,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { MusicSourceButton } from "../music/MusicSourceButton";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 type SpotifyRepeatState = "off" | "track" | "context";
 
@@ -1052,7 +1052,7 @@ export function SpotifyMiniPlayer({
             }
           >
             {playPauseBusy ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
+              <Spinner size="sm" />
             ) : player?.isPlaying ? (
               <Pause size="0.8125rem" />
             ) : (
@@ -1097,11 +1097,7 @@ export function SpotifyMiniPlayer({
             title={localizeUi("ui.spotify.spotifyminiplayer.djMariComposesAPlaylistForYou")}
             aria-label={localizeUi("ui.spotify.spotifyminiplayer.djMariComposesAPlaylistForYou")}
           >
-            {createDjMariPlaylist.isPending ? (
-              <Loader2 size="0.8125rem" className="animate-spin" />
-            ) : (
-              localizeUi("ui.spotify.spotifyminiplayer.dj")
-            )}
+            {createDjMariPlaylist.isPending ? <Spinner size="sm" /> : localizeUi("ui.spotify.spotifyminiplayer.dj")}
           </button>
           {canUseMarinaraPlayer && (
             <button
@@ -1119,11 +1115,7 @@ export function SpotifyMiniPlayer({
                   : localizeUi("ui.spotify.spotifyminiplayer.enableMarinaraPlayer")
               }
             >
-              {browserPlaybackLoading ? (
-                <Loader2 size="0.8125rem" className="animate-spin" />
-              ) : (
-                <Laptop size="0.8125rem" />
-              )}
+              {browserPlaybackLoading ? <Spinner size="sm" /> : <Laptop size="0.8125rem" />}
             </button>
           )}
           <button

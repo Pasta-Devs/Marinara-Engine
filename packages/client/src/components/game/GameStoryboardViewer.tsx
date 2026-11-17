@@ -1,7 +1,6 @@
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 import {
   GripHorizontal,
-  Loader2,
   Maximize2,
   PanelsTopLeft,
   Pause,
@@ -18,6 +17,7 @@ import { cn } from "../../lib/utils";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
 import { getStoryboardViewerWidthBounds } from "./game-storyboard-ui";
+import { Spinner } from "../ui/Spinner";
 
 const STORYBOARD_VIEWER_CONTROL_BUTTON =
   "flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-white/10";
@@ -179,7 +179,7 @@ export function GameStoryboardInlineViewer({
             />
           ) : (
             <div className="flex aspect-video w-full items-center justify-center gap-2 bg-black/45 text-xs text-white/55">
-              {generating ? <Loader2 size={14} className="animate-spin" /> : null}
+              {generating ? <Spinner size="sm" /> : null}
               {frame
                 ? localizeUi(STORYBOARD_KEYFRAME_STATUS_KEYS[frame.status])
                 : localizeUi("ui.game.gamesurfacecomponent.creatingStoryboard")}

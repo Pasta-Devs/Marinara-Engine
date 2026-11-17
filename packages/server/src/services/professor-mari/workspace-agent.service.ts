@@ -42,6 +42,7 @@ import {
   resolvePromptAttachmentInputs,
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
+  type ImageCaptionFallbackOptions,
   type ImageCaptioningRuntime,
 } from "../generation/image-captioning-runtime.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
@@ -123,7 +124,7 @@ import type {
   ProfessorMariQuickEditApplyResponse,
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
-import { MARI_DRY_RUN_SENTINEL } from "@marinara-engine/shared";
+import { MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
 import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
@@ -192,11 +193,14 @@ export type WorkspaceCommandResult = {
   input: Record<string, unknown>;
   output: string;
   success: boolean;
+  /** #9342: pictures from `mari images look` (data URLs) for her next request; `output` only names them. */
+  images?: string[];
 };
 
 export type WorkspaceCommandExecution = {
   output: string;
   actionResult?: MariWorkspaceActionResult;
+  images?: string[];
 };
 
 const ACTION_RESULT_TABLES = {
@@ -421,7 +425,15 @@ export const SKIPPED_DIRS = new Set([
  * never saw.
  */
 export const MARI_WITHHELD_REPLY_NOTICE =
-  "Important: your previous reply was withheld - the user did NOT see any of it, and they never see your hidden reasoning either. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+  "Important: your previous reply was withheld from the chat answer. The user never sees your hidden reasoning. When you give your final answer, write out again everything the user needs (the full plan, list, or explanation). Never refer to it as already shown (no 'as above', 'the plan I made', or 'the original plan is still there').";
+
+export function formatMariGuardrail(prompt: string): string {
+  return `[Guardrail] Automated instruction from Marinara. User approval must come from the user. ${prompt}`;
+}
+
+function guardrailMessage(prompt: string): ChatMessage {
+  return { role: "user", content: formatMariGuardrail(prompt), contextKind: "history" };
+}
 
 /** A repair for a withheld turn, with the notice only when that turn had words: a silent turn withheld nothing. */
 export function withWithheldNotice(prompt: string, text: string) {
@@ -1029,7 +1041,7 @@ Command families:
 - \`package_service\`: actions that installed Agent packages offer you. Call it with no arguments to see which packages offer which actions and inputs; never guess an action name. Running one (\`package\`, \`action\`, \`input\`) acts inside that package and may spend its AI budget, so run it only for a change the user asked for. The package validates the input; on an error, fix the input or tell the user.
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
-- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
+- \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, looking at images yourself (\`mari images look <ref>\`), and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries. Your prompt is sent as written unless you add \`--style\`; read the images handbook before making one.
 - \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
 - \`mari characters\`: list, get, search, create, update, delete. Use it for a CLI-only operation (deleting a card) or when the user asks for the CLI; in a task, read with \`app_data\` \`character.get\`, which keeps the card's attached \`lorebooks\`.
 - \`mari personas\`: list, get, search, create, update, delete. Prefer this helper for persona edits.
@@ -1503,6 +1515,13 @@ export function emitRoundText(
   for (const chunk of chunkText(delta)) onEvent({ type: "token", data: chunk });
 }
 
+/** Preserve a rejected claim for inspection without emitting it as the reply. */
+export function emitBlockedDraft(trace: MariWorkspaceTraceItem[], text: string, onEvent: PromptEventSink) {
+  if (!text.trim()) return;
+  trace.push({ type: "blocked_draft", content: text });
+  onEvent({ type: "blocked_draft", data: text });
+}
+
 function appendTraceThinking(trace: MariWorkspaceTraceItem[], delta: string) {
   if (!delta) return;
   const now = Date.now();
@@ -1541,6 +1560,7 @@ export function upsertTraceTool(trace: MariWorkspaceTraceItem[], update: MariWor
 export function sanitizeTraceForStorage(trace: MariWorkspaceTraceItem[]): MariWorkspaceTraceItem[] {
   return trace
     .map((item): MariWorkspaceTraceItem | null => {
+      if (item.type === "blocked_draft") return item;
       if (item.type === "text") {
         const content = item.content.trimEnd();
         return content ? { type: "text", content } : null;
@@ -2184,6 +2204,50 @@ function roleForMessage(row: { role: string }): "system" | "user" | "assistant" 
 
 function escapeWorkspaceXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// #9342 (D2): a model that can't read images gets them described by the Image reading model, and Mari is told so,
+// so she never claims she saw a picture herself. Without that model the picture is replaced by a plain note.
+const MARI_IMAGE_CAPTION_OPTIONS = {
+  captionNote: (model: string) =>
+    `[This picture was described by the image reading model ${model}. You did not see it yourself: say so if you describe it, and don't claim details the description doesn't give.]`,
+  unavailableNote:
+    "[Picture not shown: your model can't read images and no working Image reading model is set (Connections, Jobs, Image reading). Tell the user you couldn't see it and to check that setting; don't guess what it shows.]",
+} satisfies ImageCaptionFallbackOptions;
+
+/** #9342: the most pictures a run carries; older looks fall back to their text stub so requests stay a sane size. */
+export const MARI_RUN_IMAGE_LIMIT = 8;
+
+/**
+ * Keeps the newest {@link MARI_RUN_IMAGE_LIMIT} looked-at pictures across the run's messages and strips older ones in
+ * place. Only messages marked `fromImageLook` count or get trimmed: the user's own attachments always stay.
+ */
+export function capRunImages(messages: ChatMessage[], limit = MARI_RUN_IMAGE_LIMIT): void {
+  let kept = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (!message.fromImageLook || !message.images?.length) continue;
+    const room = Math.max(0, limit - kept);
+    if (message.images.length > room) {
+      const { images, ...rest } = message;
+      messages[index] = room > 0 ? { ...rest, images: images.slice(-room) } : rest;
+    }
+    kept += Math.min(message.images.length, room);
+  }
+}
+
+/**
+ * #9342: the classic runtime's result message. Pictures from `mari images look` ride on it, so her next request
+ * shows them and the rest of the run keeps them (up to the cap); the stored chat and later turns keep only the text.
+ */
+export function commandResultMessage(results: WorkspaceCommandResult[]): ChatMessage {
+  const images = results.flatMap((result) => result.images ?? []);
+  return {
+    role: "user",
+    content: formatCommandResultForPrompt(results),
+    contextKind: "history",
+    ...(images.length > 0 ? { images, fromImageLook: true } : {}),
+  };
 }
 
 // echoInput:false (pi runtime): the native tool call already carries the arguments, so the <input> block is a duplicate.
@@ -2970,7 +3034,7 @@ export function resolveWorkspaceMutationVerification(
       unverifiedMutationSeen &&
       result.success &&
       result.name !== "package_service" &&
-      isReadOnlyWorkspaceCommand(commandCallForResult(result))
+      isStateReadCommand(commandCallForResult(result))
     ) {
       unverifiedMutationSeen = false;
     }
@@ -3060,7 +3124,31 @@ function isSuccessfulStateRead(result: WorkspaceCommandResult): boolean {
   const call = commandCallForResult(result);
   // A package action list shows what a package offers, never what any store holds.
   if (call.name === "docs_search" || call.name === "docs_read" || call.name === "package_service") return false;
-  return isReadOnlyWorkspaceCommand(call);
+  return isStateReadCommand(call);
+}
+
+/**
+ * #9348: a lone `mari <area> get|list|look|view|search …` shell command reads the store as surely as `app_data`'s
+ * get, so the claim audit counts it as a state read. Only for the audit: execution still treats every bash command as
+ * a possible change. Anything compounded (pipes, `;`, `&&`, redirects, substitutions) or carrying `--apply` stays out,
+ * and so does an area that reads somewhere else (`mari wiki search` reads Fandom, not the store).
+ */
+const MARI_STORE_READ =
+  /^mari\s+(?:characters?|personas?|lorebooks?|chats?|presets?|themes?|images?|media|db)\s+(?:get|list|look|view|search)(?:\s|$)/u;
+
+export function bashIsLoneMariRead(command: string): boolean {
+  const normalized = command.trim();
+  // `--help` succeeds without reading anything, so it cannot pay a write's debt either.
+  if (!normalized || /[;&|<>`\n\r]|\$\(/u.test(normalized) || /\s(?:--apply|--help|-h)(?:\s|=|$)/u.test(normalized)) {
+    return false;
+  }
+  return MARI_STORE_READ.test(normalized);
+}
+
+function isStateReadCommand(call: WorkspaceCommandCall): boolean {
+  if (isReadOnlyWorkspaceCommand(call)) return true;
+  const command = call.arguments.command;
+  return call.name === "bash" && typeof command === "string" && bashIsLoneMariRead(command);
 }
 
 function scopeHasSuccessfulStateRead(results: readonly WorkspaceCommandResult[], auditFrom: number): boolean {
@@ -3968,7 +4056,7 @@ export class ProfessorMariWorkspaceService {
     // Send now starts a new reply inside the run: these follow it. `runStartedAt` and the first message name the run.
     let replyStartedAt = runStartedAt;
     let replyUserMessageId = userMessage.id;
-    let replyIsFiller = false;
+    let replyIsFiller: boolean | undefined;
     // #8711: this reply's words were kept although a claim check flagged them, in a run that tried no change.
     let replyNothingChanged = false;
     // Where this reply's results start in `commandResultsForContinuity`: each row keeps only its own.
@@ -4098,9 +4186,9 @@ export class ProfessorMariWorkspaceService {
     let chipRepairPending = false;
     let chipRepairUsed = false;
 
-    const persistAssistantMessage = async () => {
+    const persistAssistantMessage = async (): Promise<void> => {
       const persistedText = assistantText.trim();
-      if (!persistedText || assistantMessagePersisted) return null;
+      if (!persistedText || assistantMessagePersisted) return;
 
       // The row may already exist from an earlier attempt whose EXTRA write
       // failed (the Manual-mode deferral marker lives there, and losing it
@@ -4108,8 +4196,12 @@ export class ProfessorMariWorkspaceService {
       // instead of early-returning past them or creating a duplicate.
       const message =
         persistedAssistantMessage ?? (await createAssistantMessage(chatStorage, args.chatId, persistedText));
-      if (!message) return null;
+      if (!message) return;
       persistedAssistantMessage = message;
+      if (replyIsFiller === false && message.content !== persistedText) {
+        await chatStorage.updateMessageContent(message.id, persistedText);
+        persistedAssistantMessage = { ...message, content: persistedText };
+      }
 
       await saveAssistantMessageExtra(chatStorage, message.id, {
         context: args.context,
@@ -4150,7 +4242,6 @@ export class ProfessorMariWorkspaceService {
         runUnderstoodRequest = { ...runUnderstoodRequest, messageId: message.id };
         this.latestUnderstoodRequest = runUnderstoodRequest;
       }
-      return message;
     };
 
     // Waiting wins: a question, a hold or a staged change ends the run with Send now still in the list, and a run that
@@ -4186,14 +4277,18 @@ export class ProfessorMariWorkspaceService {
       if (steers.length === 0) return null;
       const savedRows: NonNullable<Awaited<ReturnType<typeof chatStorage.createMessage>>>[] = [];
       try {
-        // Steps but no words keep their row. Nothing done yet leaves no row: your message follows your last one.
-        if (!assistantText.trim() && workspaceTrace.some((item) => item.type === "tool")) {
+        // Keep the timeline with the reply it belongs to even when no answer text passed the guard.
+        if (
+          !assistantText.trim() &&
+          workspaceTrace.some((item) => item.type === "tool" || item.type === "blocked_draft")
+        ) {
           assistantText = MARI_CHECKPOINT_FILLER;
           replyIsFiller = true;
         }
         await persistAssistantMessage();
         const startedAt = Date.now();
         for (const steer of steers) {
+          controller.signal.throwIfAborted();
           const row = await chatStorage.createMessage({
             chatId: args.chatId,
             role: "user",
@@ -4211,6 +4306,12 @@ export class ProfessorMariWorkspaceService {
         }
         replyStartedAt = startedAt;
       } catch (err) {
+        if (replyIsFiller) {
+          // The fallback for the error or abort must replace any checkpoint we already wrote.
+          assistantText = "";
+          replyIsFiller = false;
+          assistantMessagePersisted = false;
+        }
         // Only the ones that never reached the thread go back; a saved one would then send twice.
         for (const steer of steers.slice(savedRows.length)) {
           await restorePending(args.chatId, steer).catch((restoreErr) => {
@@ -4229,7 +4330,7 @@ export class ProfessorMariWorkspaceService {
       this.activeDecisionContext = { db: this.app.db, chatId: args.chatId, userMessageId: lastRow.id };
       assistantText = "";
       thinkingText = "";
-      replyIsFiller = false;
+      replyIsFiller = undefined;
       replyNothingChanged = false;
       workspaceTrace.length = 0;
       workspaceActionResults.length = 0;
@@ -4266,6 +4367,7 @@ export class ProfessorMariWorkspaceService {
             ...visionCaptionSettings(await readFeatureModelConnections(this.app.db)),
           }),
         args.debugMode === true,
+        { ...MARI_IMAGE_CAPTION_OPTIONS, readsImages: modelReadsImages(connection) },
       );
       const runtime = await this.readRuntime(connection);
       runRuntime = runtime.active;
@@ -4666,12 +4768,11 @@ export class ProfessorMariWorkspaceService {
           protocolRepairRounds += 1;
           if (protocolRepairRounds <= maxProtocolRepairRounds) {
             messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
-            messages.push({
-              role: "user",
-              content:
+            messages.push(
+              guardrailMessage(
                 "Your previous response was empty. Continue the task now. Return commands when work remains, or put a concise user-visible result in say before setting stop to true.",
-              contextKind: "history",
-            });
+              ),
+            );
             // A formatting stumble should not consume a productive command round — but only while
             // under the absolute refund budget, so repeated stumbles cannot run unbounded.
             if (formattingRepairRefunds < maxFormattingRepairRefunds) {
@@ -4739,6 +4840,9 @@ export class ProfessorMariWorkspaceService {
           commandResultsForContinuity,
           truncated: isLengthFinishReason(result.finishReason),
         });
+        if (claimDecision.kind === "repair" || claimDecision.kind === "stop") {
+          emitBlockedDraft(workspaceTrace, action.visibleText, args.onEvent);
+        }
         if (claimDecision.kind === "repair") {
           // The repair discards this round, and with it any hold the round made: a later round may apply the change,
           // and a stale hold would offer Accept for it a second time.
@@ -4747,19 +4851,10 @@ export class ProfessorMariWorkspaceService {
           runHeldCalls = [];
           messages.push({ role: "assistant", content: action.assistantHistoryContent, contextKind: "history" });
           if (commandResults.length > 0) {
-            messages.push({
-              role: "user",
-              content: formatCommandResultForPrompt(commandResults),
-              contextKind: "history",
-            });
+            messages.push(commandResultMessage(commandResults));
+            capRunImages(messages);
           }
-          messages.push({
-            role: "user",
-            // The rejected frame's say never reached the user (the review runs
-            // before its words are emitted), so the model must restate it.
-            content: withWithheldNotice(claimDecision.prompt, action.visibleText),
-            contextKind: "history",
-          });
+          messages.push(guardrailMessage(withWithheldNotice(claimDecision.prompt, action.visibleText)));
           continue;
         }
         if (claimDecision.kind === "stop") {
@@ -4802,13 +4897,7 @@ export class ProfessorMariWorkspaceService {
           const continueCoaching = action.protocolValid
             ? "Continue the same workspace task. Return exactly one JSON object with commands to run now, or set stop to true if the task is complete."
             : "Your previous assistant message violated the workspace protocol: it was not a JSON object or contained an unrecognized command. Use only the listed command names and put each command in the commands array with name and arguments. Do not repeat the prose outside JSON. Return exactly one JSON object now. If work remains, include the next commands and set stop to false. If the task is complete, put the final user-facing text in say and set stop to true.";
-          messages.push({
-            role: "user",
-            // A frame with neither commands nor stop is never emitted to the
-            // user, so any say it carried (often the whole answer) was lost.
-            content: withWithheldNotice(continueCoaching, action.visibleText),
-            contextKind: "history",
-          });
+          messages.push(guardrailMessage(withWithheldNotice(continueCoaching, action.visibleText)));
           continue;
         }
 
@@ -4889,12 +4978,11 @@ export class ProfessorMariWorkspaceService {
         ) {
           chipRepairUsed = true;
           chipRepairPending = true;
-          messages.push({
-            role: "user",
-            content:
+          messages.push(
+            guardrailMessage(
               'Your answer ends with a question but offers no suggestions. Return only {"say":"","suggestions":[...],"stop":true}: 2-4 chips, each one a possible answer to that question (for a list of proposals: apply all, then the main single ones), label under 40 characters. No other text.',
-            contextKind: "history",
-          });
+            ),
+          );
           round -= 1;
           continue;
         }
@@ -4924,7 +5012,9 @@ export class ProfessorMariWorkspaceService {
           break;
         }
 
-        messages.push({ role: "user", content: formatCommandResultForPrompt(commandResults), contextKind: "history" });
+        messages.push(commandResultMessage(commandResults));
+
+        capRunImages(messages);
 
         if (round < MAX_COMMAND_ROUNDS - 1) {
           const steerText = await deliverSteers();
@@ -4935,11 +5025,11 @@ export class ProfessorMariWorkspaceService {
           const content = "Command round limit reached; asking Professor Mari to summarize with the evidence she has.";
           appendTraceStatus(workspaceTrace, content);
           args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
-          messages.push({
-            role: "user",
-            content:
+          messages.push(
+            guardrailMessage(
               "You reached the workspace command round limit. Do not issue more commands. Summarize what you learned or what remains blocked.",
-          });
+            ),
+          );
           const finalResult = await this.chatCompleteWorkspace(
             provider,
             messages,
@@ -4964,8 +5054,9 @@ export class ProfessorMariWorkspaceService {
           }).issue;
           const nothingChanged = closingAnswerGetsNotice(reviewState, finalAction.visibleText, finalVerificationIssue);
           if (finalVerificationIssue && !nothingChanged) {
+            emitBlockedDraft(workspaceTrace, finalAction.visibleText, args.onEvent);
             const content =
-              "Professor Mari reached the workspace command limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.";
+              "Professor Mari reached the workspace command limit without verification, so I withheld the completion claim from the answer. Ask her to continue from the saved trace.";
             assistantText = appendVisibleText(assistantText, content);
             appendTraceStatus(workspaceTrace, content);
             args.onEvent({ type: "status", data: { content, kind: "retry", level: "warning" } });
@@ -5002,9 +5093,11 @@ export class ProfessorMariWorkspaceService {
         const content =
           failedTool?.type === "tool"
             ? `Professor Mari stopped after ${formatWorkspaceToolName(failedTool.tool.name)} failed: ${compactTraceText(String(failedTool.tool.output ?? "unknown error"), 700)}`
-            : workspaceTrace.length > 0
+            : workspaceTrace.some((item) => item.type === "tool")
               ? "Professor Mari finished workspace steps but did not return a visible final answer. I saved the tool timeline here so the work is not lost; ask her to continue and she can pick up from the trace."
-              : "Professor Mari returned an empty response. Please try again; your request remains in this chat.";
+              : workspaceTrace.some((item) => item.type === "blocked_draft")
+                ? "Professor Mari did not return a final answer. The blocked draft is saved in the work timeline."
+                : "Professor Mari returned an empty response. Please try again; your request remains in this chat.";
         assistantText = appendVisibleText(assistantText, content);
         appendTraceStatus(workspaceTrace, content);
         args.onEvent({ type: "status", data: { content, kind: "info", level: failedTool ? "warning" : "info" } });
@@ -5069,7 +5162,7 @@ export class ProfessorMariWorkspaceService {
           if (!assistantText.trim()) {
             assistantText = appendVisibleText(
               assistantText,
-              "Professor Mari's workspace run stopped on an error after saving the completed steps. Ask her to continue from the saved trace.",
+              "Professor Mari's workspace run stopped on an error. Ask her to continue from the saved trace.",
             );
           }
           try {

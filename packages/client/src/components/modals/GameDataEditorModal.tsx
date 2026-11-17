@@ -5,7 +5,7 @@
 // through the game's own inventory ops; the rest are read-only.
 // ──────────────────────────────────────────────
 import { useCallback, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ import type { StateEditorChange } from "../../lib/state-editor/state-editor.type
 import { chatKeys } from "../../hooks/use-chats";
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { stalePartySheet, useSavePartySheet } from "../../hooks/use-party-sheet";
+import { Spinner } from "../ui/Spinner";
 
 interface GameDataEditorModalProps {
   open: boolean;
@@ -437,7 +438,7 @@ export function GameDataEditorModal({ open, onClose, chatId }: GameDataEditorMod
     >
       {metadataQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center gap-2 py-16 text-sm text-[var(--muted-foreground)]">
-          <Loader2 size="1rem" className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.stateEditor.gameData.loading")}
         </div>
       ) : metadataQuery.isError || !metadata ? (

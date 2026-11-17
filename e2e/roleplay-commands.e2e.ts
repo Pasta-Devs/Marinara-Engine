@@ -249,7 +249,7 @@ test("Roleplay interruptions trim the latest message and restore its original sa
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
     const commands = page.locator("[data-roleplay-commands]");
     await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
-    const toggle = commands.getByRole("checkbox", { name: /^Interruptions\b/u });
+    const toggle = commands.getByRole("switch", { name: /^Interruptions\b/u });
     await expect(toggle).not.toBeChecked();
     await toggle.scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("interrupt-settings-disabled.png"), animations: "disabled" });
@@ -660,7 +660,7 @@ for (const presentation of ["classic", "visual-novel"] as const) {
         .locator("label")
         .filter({ hasText: /^Commands$/u })
         .click();
-      const toggle = commands.getByRole("checkbox", { name: /^Whisper\b/u });
+      const toggle = commands.getByRole("switch", { name: /^Whisper\b/u });
       await expect(toggle).not.toBeChecked();
       await toggle.scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath("whisper-default-off.png"), animations: "disabled" });
@@ -1211,7 +1211,7 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
     };
     const started = Date.now();
     await toggle("Commands");
-    const documents = commands.getByRole("checkbox", { name: /^Documents\b/u });
+    const documents = commands.getByRole("switch", { name: /^Documents\b/u });
     await expect(documents).toBeVisible();
     await expect.poll(() => patches.length).toBe(1);
     await testInfo.attach("pending-save-controls", {
@@ -1234,7 +1234,7 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
     await commands.getByRole("combobox", { name: /^Narrator character/u }).selectOption(characters[1]!.id);
     await expect(audience).not.toHaveAttribute("aria-describedby");
     await expect(documents).toBeChecked();
-    await expect(commands.getByRole("checkbox", { name: /^Personal Notes\b/u })).toBeChecked();
+    await expect(commands.getByRole("switch", { name: /^Personal Notes\b/u })).toBeChecked();
     expect(patches).toHaveLength(1);
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate(async (theme) => {
@@ -1278,7 +1278,7 @@ test("Roleplay command settings stay interactive during slow saves and preserve 
     }
     await expect.poll(() => failedSaves).toBe(2);
     await expect(documents).toBeChecked();
-    await expect(commands.getByRole("checkbox", { name: /^Personal Notes\b/u })).toBeChecked();
+    await expect(commands.getByRole("switch", { name: /^Personal Notes\b/u })).toBeChecked();
     await expect.poll(stored).toMatchObject({
       roleplayRollAudience: "narrator",
       roleplayCommandToggles: { document: true, notes: true, roll: true },
@@ -1365,7 +1365,7 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
     const commands = page.locator("[data-roleplay-commands]");
     await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
-    await expect(commands.getByRole("checkbox", { name: /^Commands\b/u })).not.toBeChecked();
+    await expect(commands.getByRole("switch", { name: /^Commands\b/u })).not.toBeChecked();
     await commands
       .locator("label")
       .filter({ hasText: /^Commands$/u })
@@ -1381,15 +1381,15 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
       "Combat",
       "Direct Messages",
     ]) {
-      await expect(commands.getByRole("checkbox", { name: new RegExp(`^${label}\\b`, "u") })).not.toBeChecked();
+      await expect(commands.getByRole("switch", { name: new RegExp(`^${label}\\b`, "u") })).not.toBeChecked();
     }
     for (const label of ["Personal Notes", "Reminders", "Documents"]) {
-      await expect(commands.getByRole("checkbox", { name: new RegExp(`^${label}\\b`, "u") })).toBeEnabled();
+      await expect(commands.getByRole("switch", { name: new RegExp(`^${label}\\b`, "u") })).toBeEnabled();
       await commands
         .locator("label")
         .filter({ hasText: new RegExp(`^${label}$`, "u") })
         .click();
-      await expect(commands.getByRole("checkbox", { name: new RegExp(`^${label}\\b`, "u") })).toBeChecked();
+      await expect(commands.getByRole("switch", { name: new RegExp(`^${label}\\b`, "u") })).toBeChecked();
     }
     const narratorSelect = commands.getByRole("combobox", { name: /^Narrator character/u });
     await narratorSelect.selectOption(narrator);
@@ -1400,8 +1400,8 @@ test("Roleplay commands default off, scope private notes, and follow swipes and 
       )
       .toBe(narrator);
     await expect(commands).not.toContainText("Scene Break");
-    await expect(commands.getByRole("checkbox", { name: /^Combat\b/u })).toBeDisabled();
-    await expect(commands.getByRole("checkbox", { name: /^Illustrations\b/u })).toBeDisabled();
+    await expect(commands.getByRole("switch", { name: /^Combat\b/u })).toBeDisabled();
+    await expect(commands.getByRole("switch", { name: /^Illustrations\b/u })).toBeDisabled();
     await commands
       .locator("label")
       .filter({ hasText: /^Rolls$/u })
@@ -2356,8 +2356,8 @@ test("Roleplay commands require attached agents, enforce combat audience, and fo
     await expect(commands).toContainText(
       "Let characters request extra Illustrator images. Automatic runs still follow the agent's Run Interval.",
     );
-    await expect(commands.getByRole("checkbox", { name: /^Combat\b/u })).toBeChecked();
-    await expect(commands.getByRole("checkbox", { name: /^Illustrations\b/u })).toBeChecked();
+    await expect(commands.getByRole("switch", { name: /^Combat\b/u })).toBeChecked();
+    await expect(commands.getByRole("switch", { name: /^Illustrations\b/u })).toBeChecked();
     const combatAudience = commands.getByRole("combobox", { name: "Who can start combat", exact: true });
     await combatAudience.selectOption("narrator");
     for (const theme of ["dark", "light"] as const) {
@@ -2585,7 +2585,7 @@ test("Render in-line shows each illustrate command's images where the command wa
     if ((await header.getAttribute("aria-expanded")) === "false") await header.click();
     const commands = page.locator("[data-roleplay-commands]");
     await commands.getByRole("button", { name: "Expand Commands", exact: true }).click();
-    const toggle = commands.getByRole("checkbox", { name: /^Render in-line\b/u });
+    const toggle = commands.getByRole("switch", { name: /^Render in-line\b/u });
     await expect(toggle).toBeChecked();
     await toggle.scrollIntoViewIfNeeded();
     await testInfo.attach(`roleplay-inline-illustration-setting-${testInfo.project.name}.png`, {
@@ -2744,7 +2744,7 @@ test("Roleplay gates Soundtrack and Documents and uses the selected Music DJ sou
       await page.reload();
       await openCommands();
       const commands = page.locator("[data-roleplay-commands]");
-      const soundtrack = commands.getByRole("checkbox", { name: /^Soundtrack\b/u });
+      const soundtrack = commands.getByRole("switch", { name: /^Soundtrack\b/u });
       if (enabled && activeAgentIds.length) await expect(soundtrack).toBeChecked();
       else {
         await expect(soundtrack).toBeDisabled();

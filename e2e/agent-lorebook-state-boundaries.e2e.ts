@@ -113,7 +113,7 @@ for (const theme of ["dark", "light"] as const) {
       await openChatSettings(page);
       const drawer = drawerToggle(chatSettingsDrawer(page, "agents"));
       if ((await drawer.getAttribute("aria-expanded")) !== "true") await drawer.click();
-      const toggle = attachment.getByRole("checkbox", { name: "Attach lorebook for the specific agent" });
+      const toggle = attachment.getByRole("switch", { name: "Attach lorebook for the specific agent" });
       await expect(toggle).toBeChecked();
       await expect(attachment.getByRole("button", { name: "Reference lorebook" })).toHaveText(book.name);
 

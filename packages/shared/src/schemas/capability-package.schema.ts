@@ -1626,7 +1626,9 @@ const capabilityPackageManifestBaseSchema = z
 // 1.829: a practice meter on skills (`sheet.progress`, `op="practice"`): 0 to 99 toward the next rank, started
 //        over when the rank changes. Not a soft seam: an Engine that cannot read it refuses the whole ruleset
 //        file. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 829 } as const);
+// 1.830: the host's `components` gain the shared Switch, Checkbox and Spinner, and showConfirmDialog.
+// Not a soft seam: an older Engine leaves them undefined, so a package that uses one declares it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 830 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

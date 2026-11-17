@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, Plus, X } from "lucide-react";
+import { ArrowRight, Plus, X } from "lucide-react";
 import {
   isEmptyCharacterTagEdit,
   normalizeCharacterTagEdit,
@@ -19,6 +19,7 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { cn } from "../../lib/utils";
 import { useAllCharacterCatalog, useBulkEditCharacterTags } from "../../hooks/use-characters";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -104,7 +105,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               disabled={bulkEdit.isPending || summary.changedIds.length === 0}
               className={SHEET_BUTTON_PRIMARY}
             >
-              {bulkEdit.isPending && <Loader2 size="0.75rem" className="animate-spin" />}
+              {bulkEdit.isPending && <Spinner size="sm" />}
               {t("characters.bulkTags.apply", { count: summary.changedIds.length })}
             </button>
             <button
@@ -130,7 +131,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
     >
       {catalog.isPending ? (
         <p role="status" className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-          <Loader2 size="0.875rem" className="animate-spin" />
+          <Spinner size="sm" />
           {t("characters.bulkTags.loading")}
         </p>
       ) : catalog.isError ? (

@@ -2,7 +2,7 @@
 // Atlas Cloud: model-specific video inputs
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   AtlasCloudModelLimits,
@@ -11,6 +11,7 @@ import type {
   AtlasCloudModelOptionValue,
 } from "@marinara-engine/shared";
 import { useAtlasCloudVideoModelSchema } from "../../hooks/use-atlas-cloud-model-schema";
+import { Spinner } from "../ui/Spinner";
 
 const LABEL_CLASS = "text-[0.625rem] font-medium text-[var(--muted-foreground)]";
 const INPUT_CLASS = "mari-chrome-field mt-1 w-full px-3 py-2 text-xs";
@@ -59,7 +60,7 @@ export function AtlasCloudModelOptions({ model, value, onChange }: Props) {
   } else if (model !== settledModel || schema.isLoading) {
     body = (
       <StatusLine>
-        <Loader2 size="0.75rem" className="animate-spin" />
+        <Spinner size="sm" />
         {t("connections.mediaSources.atlas.modelOptions.loading")}
       </StatusLine>
     );

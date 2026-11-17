@@ -27,6 +27,7 @@ import {
   isGeminiStrictRequestModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
+  isNanoGptMiniMaxM31FlashModel,
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
   isOpenAIGpt6AlwaysReasoningModel,
@@ -1569,6 +1570,13 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.reasoning_effort = !openAIFamily && (effort === "xhigh" || effort === "max") ? "high" : effort;
         inferredGatewayEfforts.add(body);
       }
+      return;
+    }
+
+    if (this.providerKind === "nanogpt" && isNanoGptMiniMaxM31FlashModel(options.model)) {
+      // NanoGPT's M3.1 Flash always reasons and defaults to max when effort is omitted.
+      const effort = options.reasoningEffort;
+      if (effort) body.reasoning_effort = effort === "none" ? "low" : effort;
       return;
     }
 

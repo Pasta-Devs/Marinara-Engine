@@ -182,7 +182,7 @@ function getChatActiveAgentIds(chat: Chat): string[] {
 }
 
 /** What the drawer passes in: the chat, and the values other sections use too. */
-interface UseChatAgentsOptions {
+export interface UseChatAgentsOptions {
   chat: Chat;
   onResetSpritePlacements?: () => void;
   onResetSpriteCharacterVisualSettings?: (characterId: string) => void;

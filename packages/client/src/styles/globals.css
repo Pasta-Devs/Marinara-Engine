@@ -1687,6 +1687,13 @@
   --mari-panel-gradient-text: #fff7fb;
 }
 
+/* Chats in the phone menu (TopBar overflowItems): brown, the maintainer's pick, apart from Lorebooks' amber. */
+.mari-panel-gradient--chats {
+  --mari-panel-gradient-start: #a0714f;
+  --mari-panel-gradient-end: #7c4f32;
+  --mari-panel-gradient-text: #fdf6ee;
+}
+
 .mari-panel-gradient--lorebooks {
   --mari-panel-gradient-start: #f59e0b;
   --mari-panel-gradient-end: #f97316;
@@ -2543,6 +2550,30 @@
   border-color: var(--marinara-chat-option-field-border-active);
   background: var(--marinara-chat-option-field-bg-active);
   box-shadow: 0 0 0 1px var(--marinara-chat-option-field-ring);
+}
+
+/* Shared Spinner: a comet arc (ring with a fading tail) in the current text colour. */
+.marinara-spinner {
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    color-mix(in srgb, currentColor 12%, transparent) 120deg,
+    currentColor 340deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - var(--s) / 9 - 0.5px),
+    #000 calc(100% - var(--s) / 9)
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--s) / 9 - 0.5px), #000 calc(100% - var(--s) / 9));
+  animation: spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marinara-spinner {
+    animation-duration: 2.5s;
+  }
 }
 
 .mari-chat-option-switch {

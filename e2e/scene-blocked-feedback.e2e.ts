@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { clickTopbarChats } from "./topbar-navigation.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -66,7 +67,7 @@ for (const width of [390, 768, 1440]) {
           { chatId: origin.id, version },
         );
         await page.goto("/");
-        await page.getByRole("button", { name: "Chats", exact: true }).click();
+        await clickTopbarChats(page);
         const closeChats = page.getByRole("button", { name: "Close chats", exact: true });
         if (await closeChats.isVisible()) await closeChats.click();
         const composer = page.locator("textarea[data-chat-composer]");

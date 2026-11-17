@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { CatalogRefreshRow } from "../../lib/ruleset-catalog";
 import { Modal } from "../ui/Modal";
+import { Checkbox } from "../ui/Checkbox";
 
 const labelClass = "text-[0.6875rem] font-medium text-[var(--muted-foreground)]";
 
@@ -61,8 +62,7 @@ export function RulesetCatalogRefreshModal({
               key={row.index}
               className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={!skipped.has(row.index)}
                 onChange={() => toggle(row.index)}
                 aria-label={t("ui.rulesets.sheet.refreshRowAria", { name: row.name })}

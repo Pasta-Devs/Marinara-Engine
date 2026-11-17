@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import { Layers } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -21,7 +21,6 @@ interface CardFieldAlternativesSectionProps {
   chat: { id: string };
   characters: Array<{ id: string; data: unknown }>;
   personas: Array<{ id: string; name: string; cardFieldAlternatives?: unknown }>;
-  style?: CSSProperties;
 }
 
 function characterEntity(character: { id: string; data: unknown }): Entity {
@@ -42,7 +41,7 @@ function characterEntity(character: { id: string; data: unknown }): Entity {
 }
 
 /** Picks, per card field, which alternative this chat uses. Assignment stays on the card (`chatIds`). */
-export function CardFieldAlternativesSection({ chat, characters, personas, style }: CardFieldAlternativesSectionProps) {
+export function CardFieldAlternativesSection({ chat, characters, personas }: CardFieldAlternativesSectionProps) {
   const { t } = useTranslation();
   const fieldLabels = useCardFieldLabels();
   const qc = useQueryClient();
@@ -95,7 +94,6 @@ export function CardFieldAlternativesSection({ chat, characters, personas, style
   return (
     <ChatSettingsSection
       id="card-field-alternatives"
-      style={style}
       label={t("ui.chatSettings.cardFieldAlternatives.title")}
       icon={<Layers size="0.875rem" />}
       help={t("ui.chatSettings.cardFieldAlternatives.help")}

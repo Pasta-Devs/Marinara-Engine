@@ -3,13 +3,14 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMayReadImages } from "../../../hooks/use-connections";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Sparkles, X } from "lucide-react";
 import { normalizeSpriteExpressionKey, type AvatarOwnerRef } from "@marinara-engine/shared";
 import type { SpriteInfo } from "../../../hooks/use-characters";
 import { isFullBodySprite } from "../renderers/pngtuber/pngtuber-layers";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { SpritePicker } from "./SpritePicker";
 import { useMeshRigJob, useOneAtATime, useSaveMeshRig } from "./use-avatar-generation";
+import { Spinner } from "../../../components/ui/Spinner";
 
 export interface ConnectionOption {
   id: string;
@@ -106,11 +107,7 @@ export function MeshAvatarSection({
           disabled={busy || !label}
           className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? (
-            <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
-          ) : (
-            <Sparkles size="0.875rem" aria-hidden />
-          )}
+          {busy ? <Spinner size="sm" aria-hidden="true" /> : <Sparkles size="0.875rem" aria-hidden />}
           {t("avatars.generation.makeMesh")}
         </button>
         {job.running && (
@@ -161,7 +158,7 @@ export function MeshAvatarSection({
               disabled={save.isPending}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:opacity-50"
             >
-              {save.isPending && <Loader2 size="0.875rem" className="animate-spin" aria-hidden />}
+              {save.isPending && <Spinner size="sm" aria-hidden="true" />}
               {t("avatars.generation.saveMesh")}
             </button>
             <button

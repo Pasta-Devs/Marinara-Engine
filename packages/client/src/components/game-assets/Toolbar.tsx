@@ -20,6 +20,7 @@ import {
 import { cn } from "../../lib/utils";
 import { SearchInput } from "./SearchInput";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Checkbox } from "../ui/Checkbox";
 
 const TOOLBAR_MENU_MARGIN = 8;
 const TOOLBAR_MENU_WIDTH = 176;
@@ -254,8 +255,7 @@ export function Toolbar({
               colsPos,
               <>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={listColumns.size}
                     onChange={() => onToggleColumn("size")}
                     className="rounded border-[var(--border)]"
@@ -263,8 +263,7 @@ export function Toolbar({
                   {localizeUi("ui.gameAssets.assetgrid.size")}
                 </label>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={listColumns.modified}
                     onChange={() => onToggleColumn("modified")}
                     className="rounded border-[var(--border)]"

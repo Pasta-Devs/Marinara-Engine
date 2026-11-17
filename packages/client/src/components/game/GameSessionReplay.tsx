@@ -7,19 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  Check,
-  ChevronRight,
-  History,
-  Loader2,
-  Maximize2,
-  Pause,
-  Play,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
+import { Check, ChevronRight, History, Maximize2, Pause, Play, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type {
   DirectionCommand,
@@ -49,6 +37,7 @@ import { GameChoiceCards } from "./GameChoiceCards";
 import { GameNarration } from "./GameNarration";
 import { StoryboardBackgroundControls } from "./StoryboardBackgroundControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface SpeakerAvatarInfo {
   url: string;
@@ -538,7 +527,7 @@ export function GameSessionReplay({
             "flex items-center gap-2 rounded-xl border border-white/15 bg-black/70 px-4 py-3 text-sm text-white/80 shadow-lg",
           )}
         >
-          <Loader2 size={15} className="animate-spin" />
+          <Spinner size="md" />
           {localizeUi("ui.game.gamesessionreplay.loadingSession")} {sessionNumber}{" "}
           {localizeUi("ui.game.gamesessionreplay.replay")}
         </div>

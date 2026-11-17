@@ -7,7 +7,6 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surf
 import {
   FolderSearch,
   FolderOpen,
-  Loader2,
   CheckCircle,
   XCircle,
   Users,
@@ -27,6 +26,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
+import { Checkbox } from "../ui/Checkbox";
 
 interface Props {
   open: boolean;
@@ -400,11 +401,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
             disabled={!folderPath.trim() || phase === "scanning"}
             className={SHEET_BUTTON_PRIMARY}
           >
-            {phase === "scanning" ? (
-              <Loader2 size="0.875rem" className="animate-spin" />
-            ) : (
-              <FolderSearch size="0.875rem" />
-            )}
+            {phase === "scanning" ? <Spinner size="sm" /> : <FolderSearch size="0.875rem" />}
             {phase === "scanning"
               ? localizeUi("ui.modals.stbulkimportmodal.scanning")
               : localizeUi("ui.modals.stbulkimportmodal.scanFolder")}
@@ -458,7 +455,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   className="flex items-center justify-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium max-sm:min-h-11 max-sm:text-sm transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
                   title={localizeUi("ui.modals.stbulkimportmodal.browseForFolder")}
                 >
-                  {picking ? <Loader2 size="0.875rem" className="animate-spin" /> : <FolderOpen size="0.875rem" />}
+                  {picking ? <Spinner size="sm" /> : <FolderOpen size="0.875rem" />}
                   {localizeUi("ui.modals.stbulkimportmodal.browse")}
                 </button>
               </div>
@@ -496,7 +493,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <div className="max-h-48 overflow-y-auto p-1">
                   {browserLoading ? (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 size="0.875rem" className="animate-spin text-[var(--muted-foreground)]" />
+                      <Spinner size="sm" className="text-[var(--muted-foreground)]" />
                     </div>
                   ) : browserFolders.length === 0 ? (
                     <p className="py-3 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
@@ -838,7 +835,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
 
         {phase === "importing" && (
           <div className="flex flex-col items-center gap-4 py-6">
-            <Loader2 size="2rem" className="animate-spin text-[var(--primary)]" />
+            <Spinner size="lg" className="text-[var(--primary)] h-[2rem] w-[2rem]" />
             <p className="text-sm font-medium">{localizeUi("ui.modals.stbulkimportmodal.importingYourData")}</p>
             {progress ? (
               <div className="flex w-full flex-col gap-2">
@@ -1084,8 +1081,7 @@ function SelectableImportCategory<T extends ScanItemBase>({
                   checked && "bg-[var(--primary)]/6",
                 )}
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   onChange={(e) => onToggleItem(item.id, e.target.checked)}
                   className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"

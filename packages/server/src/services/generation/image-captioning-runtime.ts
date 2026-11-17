@@ -561,36 +561,71 @@ export async function resolvePromptAttachmentInputs(args: {
   };
 }
 
+export type ImageCaptionFallbackOptions = {
+  /** #9342: a line before each caption, naming the model that described the picture (Mari must not claim she saw it). */
+  captionNote?: (captionModel: string) => string;
+  /** #9342: without an Image reading default, the pictures are replaced by this line instead of the refusal ending the request. */
+  unavailableNote?: string;
+  /** #9342: `false` (the on-device model, or a Model set to text only) sends captions or notes from the first request; a provider may drop images without refusing them. */
+  readsImages?: boolean | null;
+};
+
 /**
  * A chat provider that refuses images before any output gets them as captions from the Image reading default,
  * once per request. After one refusal the later requests (a tool loop) send captions straight away; each image is
- * described once. Without an Image reading default the provider's error stands.
+ * described once. Without an Image reading default the provider's error stands, unless `unavailableNote` is set.
  */
 export function withImageCaptionFallback(
   provider: BaseLLMProvider,
   resolveCaptioning: () => Promise<ImageCaptioningRuntime>,
   debugMode = false,
+  options: ImageCaptionFallbackOptions = {},
 ): BaseLLMProvider {
   let captioning: Promise<ImageCaptioningRuntime> | null = null;
-  let imagesRejected = false;
+  let imagesRejected = options.readsImages === false;
   const captions = new Map<string, string>();
   const withCaptions = async (messages: ChatMessage[], signal: AbortSignal | undefined) => {
     captioning ??= resolveCaptioning();
     const runtime = await captioning;
-    if (!runtime.provider) return null;
+    const withNote = (note: string) =>
+      messages.map((message) => {
+        if (!message.images?.length) return message;
+        const { images, ...rest } = message;
+        return {
+          ...rest,
+          content: appendImageCaptionBlocksToContent(
+            rest.content,
+            images.map(() => note),
+          ),
+        };
+      });
+    if (!runtime.provider) return options.unavailableNote ? withNote(options.unavailableNote) : null;
+    const note = options.captionNote?.(runtime.connection?.model || runtime.connection?.name || "unknown");
     const missing = [...new Set(messages.flatMap((message) => message.images ?? []))].filter(
       (url) => !captions.has(url),
     );
-    const made = await generateImageCaptionsForDataUrls(
-      missing.map((imageDataUrl, index) => ({ filename: `image-${captions.size + index + 1}`, imageDataUrl })),
-      runtime,
-      signal ?? new AbortController().signal,
-      debugMode,
-    );
+    let made: Awaited<ReturnType<typeof generateImageCaptionsForDataUrls>>;
+    try {
+      made = await generateImageCaptionsForDataUrls(
+        missing.map((imageDataUrl, index) => ({ filename: `image-${captions.size + index + 1}`, imageDataUrl })),
+        runtime,
+        signal ?? new AbortController().signal,
+        debugMode,
+      );
+    } catch (error) {
+      // #9342: with a note to fall back on, a failed caption call doesn't end the caller's request.
+      if (!options.unavailableNote || signal?.aborted) throw error;
+      logger.warn({ err: error }, "[image-captioning] Captioning failed; sending a note instead of the pictures");
+      return withNote(options.unavailableNote);
+    }
     for (const { input, caption } of made) {
+      const block = formatImageCaptionBlock({ filename: input.filename, type: "image" }, caption ?? "");
       captions.set(
         input.imageDataUrl,
-        formatImageCaptionBlock({ filename: input.filename, type: "image" }, caption ?? ""),
+        note
+          ? `${note}
+${block}`
+          : block,
       );
     }
     return messages.map((message) => {
@@ -611,7 +646,7 @@ export function withImageCaptionFallback(
     const captioned = await withCaptions(messages, options.signal);
     if (captioned) {
       imagesRejected = true;
-      logger.info("[image-captioning] The chat model refused images; described them with the Image reading model");
+      logger.info("[image-captioning] The chat model refused images; sending them as text descriptions or notes");
     }
     return captioned;
   };

@@ -30,6 +30,7 @@ import {
   parseImageDataUrl,
 } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
+import { getSharp } from "../image/sharp-runtime.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
@@ -94,7 +95,7 @@ type ImageCapability = {
   notes: string[];
 };
 
-type MariImageAsset = {
+export type MariImageAsset = {
   id: string;
   filename: string;
   filePath: string;
@@ -146,6 +147,9 @@ type ImageTarget =
 
 const BOOLEAN_FLAGS = new Set(["apply", "help", "edit", "generate", "json", "delete-file", "force", "no-style"]);
 const PREVIEW_CHAT_ID = "mari-images";
+// #9342: `look` sends at most this many pictures per call, each scaled to fit this long side.
+const LOOK_MAX_IMAGES = 4;
+const LOOK_LONG_SIDE = { high: 1024, low: 512 } as const;
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const PREVIEW_DIR = join(GALLERY_DIR, PREVIEW_CHAT_ID);
 const PREVIEW_MANIFEST_PATH = join(PREVIEW_DIR, "manifest.json");
@@ -380,6 +384,7 @@ function styleImagePrompt(args: {
   });
   const profile = compiled.profile;
   const prefixes = defaultsPrefixes(imageDefaults);
+  const dropped = droppedPromptTags(prompt, compiled.prompt, compiled.diagnostics.movedNegativeFragments);
   return {
     prompt: compiled.prompt,
     negativePrompt: compiled.negativePrompt,
@@ -405,8 +410,66 @@ function styleImagePrompt(args: {
         ...compiled.diagnostics.removedNegativeDuplicates,
       ],
       movedToNegative: compiled.diagnostics.movedNegativeFragments,
+      dropped,
+      ...(dropped.length > 0
+        ? {
+            note:
+              kind === "avatar"
+                ? "Kind avatar rewrote your prompt down to the visual tags it recognises; the tags in dropped never reached the image model. Use --kind illustration with --width/--height to keep your prompt."
+                : "Some of your tags never reached the image model (see dropped).",
+          }
+        : {}),
     },
   };
+}
+
+// The weightless, case-folded form of one prompt tag: `0.2::Uncensored::`, `{red_eyes}` and `(smile:1.2)` compare as
+// `uncensored`, `red eyes` and `smile`.
+function promptTagKey(tag: string) {
+  return tag
+    .toLowerCase()
+    .replace(/^-?\d*\.?\d+::|::$/g, "")
+    .replace(/:-?\d*\.?\d+\)?$/, "")
+    .replace(/[()[\]{}]/g, "")
+    .replace(/[_\s]+/g, " ")
+    .trim()
+    .replace(/[.!?;:]+$/, "")
+    .trim();
+}
+
+// The phrases the image prompt compiler reads as "move this to the negative".
+const NEGATION_PREFIX = /^(?:avoid|no|without|exclude|do not include|don't include)\s+/;
+// Commas, semicolons, line breaks and sentence ends. Wider than the compiler, which breaks a sentence only before
+// a negation ("garden. avoid hat"); a finer split only makes each tag easier to find in the final prompt.
+const PROMPT_TAG_SEPARATOR = /[,;\n]+|(?<=[.!?])\s+/;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The tags Mari wrote that the style left out of the final prompt (#9338). A tag counts as kept when it appears in the
+ * final prompt as a whole phrase; a tag the compiler moved to the negative ("no X", or "glasses" from "avoid hat,
+ * glasses") is not dropped. Commas, semicolons and line breaks separate tags, as in the compiler.
+ */
+function droppedPromptTags(requested: string, final: string, movedToNegative: string[]): string[] {
+  const finalText = final.split(PROMPT_TAG_SEPARATOR).map(promptTagKey).filter(Boolean).join(", ");
+  // Kind avatar distils "no glasses" into "avoid glasses" before it is moved, so both sides drop the negation word.
+  const movedText = movedToNegative.map((fragment) => promptTagKey(fragment).replace(NEGATION_PREFIX, "")).join(", ");
+  const appearsIn = (text: string, key: string) =>
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapeRegExp(key)}(?:$|[^\\p{L}\\p{N}])`, "u").test(text);
+  const seen = new Set<string>();
+  const dropped: string[] = [];
+  for (const raw of requested.split(PROMPT_TAG_SEPARATOR)) {
+    const tag = raw.trim();
+    const key = promptTagKey(tag);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (appearsIn(finalText, key)) continue;
+    if (appearsIn(movedText, key.replace(NEGATION_PREFIX, ""))) continue;
+    dropped.push(tag);
+  }
+  return dropped;
 }
 
 function isStabilityV1Base(baseUrl: string) {
@@ -630,6 +693,103 @@ export async function findMariPreviewFile(
     logger.debug({ err: error, filename }, "[mari-images] Preview file refused; not serving %s", filename);
     return null;
   }
+}
+
+/** One preview asset's manifest record, or null once the manifest no longer lists it (it keeps the newest 200). */
+export async function getMariPreviewAsset(assetId: string): Promise<MariImageAsset | null> {
+  return (await readManifest()).find((asset) => asset.id === assetId) ?? null;
+}
+
+/**
+ * The reference `resolveImageReference` reads for an edited asset's saved source label (`asset:<id>`,
+ * `gallery:<chat>/<file>`, `avatar:<file>`...), or null when the label names nothing it can read again: a pasted
+ * data URL, raw base64 or a file path. Only app URLs and asset ids come out, never a path on disk.
+ */
+export function mariSourceReference(label: string | null | undefined): string | null {
+  const at = label?.indexOf(":") ?? -1;
+  if (!label || at <= 0) return null;
+  const kind = label.slice(0, at);
+  const rest = label.slice(at + 1);
+  if (!rest) return null;
+  const slash = rest.indexOf("/");
+  const pair = slash > 0 && slash < rest.length - 1 ? [rest.slice(0, slash), rest.slice(slash + 1)] : null;
+  const enc = encodeURIComponent;
+  switch (kind) {
+    case "asset":
+      return rest;
+    case "avatar":
+      return `/api/avatars/file/${enc(rest)}`;
+    case "lorebook-image":
+      return `/api/lorebooks/images/file/${enc(rest)}`;
+    case "background":
+      return `/api/backgrounds/file/${enc(rest)}`;
+    case "gallery":
+      return pair ? `/api/gallery/file/${enc(pair[0]!)}/${enc(pair[1]!)}` : null;
+    case "persona-gallery":
+      return pair ? `/api/characters/personas/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "character-gallery":
+      return pair ? `/api/characters/${enc(pair[0]!)}/gallery/file/${enc(pair[1]!)}` : null;
+    case "sprite":
+      return pair ? `/api/sprites/${enc(pair[0]!)}/file/${enc(pair[1]!)}` : null;
+    default:
+      return null;
+  }
+}
+
+/** Whether the lightbox can rerun an asset: a generate always, an edit while its source image can be read again. */
+export function isMariPreviewAssetRegenerable(asset: MariImageAsset): boolean {
+  return asset.operation !== "edit" || mariSourceReference(asset.sourceImage) !== null;
+}
+
+// The parts of Mari's reply extra that name the assets her tools made: the continuity she reads on later turns, the
+// work timeline and the action results.
+const MARI_ASSET_EXTRA_KEYS = ["mariWorkspaceContinuity", "mariWorkspaceTimeline", "mariWorkspaceActionResults"];
+
+/**
+ * After a lightbox regenerate, points one of Mari's replies at the new asset: her text shows the new picture, and the
+ * tool results she reads on later turns name the new asset, so "assign that one" afterwards means the picture the user
+ * sees. Returns the new content and the rewritten extra keys, for her window to apply as they are (#9388: rebuilding
+ * the swap on the client missed the filename and bare id); null when the message never showed the old asset.
+ */
+export async function swapMariPreviewAssetInMessage(
+  db: DB,
+  chatId: string,
+  messageId: string,
+  previous: Pick<MariImageAsset, "id" | "url" | "filename">,
+  next: Pick<MariImageAsset, "id" | "url" | "filename">,
+): Promise<{ content: string; extra: Json } | null> {
+  const chats = createChatsStorage(db);
+  const message = await chats.getMessage(messageId);
+  if (!message || message.chatId !== chatId || message.role !== "assistant") return null;
+  if (!message.content.includes(previous.url)) return null;
+  // The id is a fresh unique id and part of the url and filename, so plain replacement can't hit unrelated text.
+  const swap = (text: string) =>
+    text
+      .split(previous.url)
+      .join(next.url)
+      .split(previous.filename)
+      .join(next.filename)
+      .split(previous.id)
+      .join(next.id);
+  const content = swap(message.content);
+  await chats.updateMessageContent(messageId, content);
+
+  let extra: Json = {};
+  try {
+    const parsed = typeof message.extra === "string" ? (JSON.parse(message.extra) as unknown) : message.extra;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) extra = parsed as Json;
+  } catch {
+    // An unreadable extra has nothing to point at the new asset.
+  }
+  const partial: Json = {};
+  for (const key of MARI_ASSET_EXTRA_KEYS) {
+    if (extra[key] === undefined) continue;
+    const before = JSON.stringify(extra[key]);
+    const after = swap(before);
+    if (after !== before) partial[key] = JSON.parse(after) as unknown;
+  }
+  if (Object.keys(partial).length > 0) await chats.updateMessageExtra(messageId, partial);
+  return { content, extra: partial };
 }
 
 async function writeManifest(assets: MariImageAsset[]) {
@@ -872,6 +1032,9 @@ export class MariImagesService {
         return this.list(context, parsed.flags, parsed.positionals);
       case "get":
         return this.get(context, parsed.flags, parsed.positionals);
+      case "look":
+      case "view":
+        return this.look(context, parsed.flags, parsed.positionals);
       default:
         return {
           ok: false,
@@ -1127,6 +1290,41 @@ export class MariImagesService {
         targetSuggestion: target,
       },
     };
+  }
+
+  /**
+   * The lightbox's Regenerate: reruns one preview asset with an edited prompt and its saved kind, size and operation,
+   * as a new asset. Null when the manifest no longer lists it.
+   */
+  async regeneratePreviewAsset(
+    assetId: string,
+    input: { prompt: string; negativePrompt?: string; connectionId?: string },
+  ): Promise<{ previous: MariImageAsset; asset: MariImageAsset } | null> {
+    const previous = await getMariPreviewAsset(assetId);
+    if (!previous) return null;
+    const flags = new Map<string, string | boolean>([
+      ["prompt", input.prompt],
+      // Left out keeps the saved one; an empty string clears it.
+      ["negative", input.negativePrompt ?? previous.negativePrompt ?? ""],
+      ["connection", input.connectionId?.trim() || previous.connectionId],
+      ["kind", previous.kind],
+      // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
+      ["no-style", true],
+    ]);
+    if (previous.width) flags.set("width", String(previous.width));
+    if (previous.height) flags.set("height", String(previous.height));
+    if (previous.operation === "edit") {
+      const source = mariSourceReference(previous.sourceImage);
+      if (!source) throw new Error("This image was edited from a picture that can't be read again.");
+      flags.set("source", source);
+    }
+    const result = await this.generateOrEdit(
+      previous.operation,
+      { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
+      flags,
+    );
+    const asset = (result.output as { asset: MariImageAsset }).asset;
+    return { previous, asset };
   }
 
   private resolveOperation(flags: Map<string, string | boolean>): "generate" | "edit" {
@@ -1783,11 +1981,79 @@ export class MariImagesService {
     return { ok: true, mode: "read", command: context.command, output: asset };
   }
 
+  // #9342: Mari sees the pictures. Each one is scaled down and re-encoded, rides on `images` (her runtime attaches
+  // them to her next request), and the text output only names them, so history keeps a small stub, never pixels.
+  private async look(
+    context: ImageCommandContext,
+    flags: Map<string, string | boolean>,
+    positionals: string[],
+  ): Promise<MariDbCommandResult> {
+    const detail = flagString(flags, "detail")?.trim().toLowerCase() || "high";
+    if (detail !== "high" && detail !== "low") throw new Error("--detail takes low or high.");
+    const refs = [...positionals];
+    // --asset names the asset a --target asset points at; on its own it is one more ref.
+    const explicit =
+      flagString(flags, "source") ?? (flagString(flags, "target") ? undefined : flagString(flags, "asset"));
+    if (explicit) refs.push(explicit);
+    const target = this.parseTarget(flags, false);
+    if (target) {
+      const current = await this.currentImageReferenceForTarget(target);
+      if (!current) throw new Error(`That ${target.type} has no image to look at.`);
+      refs.push(current);
+    }
+    if (refs.length === 0)
+      throw new Error(
+        "Usage: mari images look <asset-id|app-url|file> [more, up to 4] [--detail low|high], or --target <target> for its current image.",
+      );
+    if (refs.length > LOOK_MAX_IMAGES)
+      throw new Error(`mari images look takes at most ${LOOK_MAX_IMAGES} images per call; you passed ${refs.length}.`);
+
+    // Resolve every ref first, so one bad ref fails the call before any image is processed.
+    const sources = [];
+    for (const ref of refs) sources.push({ ref, image: await this.resolveImageReference(ref, context) });
+    const sharp = await getSharp().catch(() => {
+      throw new Error("Looking at images needs image processing (sharp), which isn't available on this install.");
+    });
+    const longSide = LOOK_LONG_SIDE[detail];
+    const images: string[] = [];
+    const looked = [];
+    for (const { ref, image } of sources) {
+      const pipeline = sharp(image.buffer).rotate();
+      const meta = await pipeline.metadata();
+      const resized = pipeline.resize({ width: longSide, height: longSide, fit: "inside", withoutEnlargement: true });
+      // A transparent sprite keeps its alpha as PNG; JPEG would turn it black.
+      const { data, info } = await (meta.hasAlpha ? resized.png() : resized.jpeg({ quality: 85 })).toBuffer({
+        resolveWithObject: true,
+      });
+      const mimeType = meta.hasAlpha ? "image/png" : "image/jpeg";
+      images.push(`data:${mimeType};base64,${data.toString("base64")}`);
+      looked.push({
+        image: images.length,
+        ref: ref.startsWith("data:") || ref.length > 200 ? image.label : ref,
+        label: image.asset ? `asset:${image.asset.id}` : image.label,
+        ...(image.asset ? { kind: image.asset.kind, prompt: clip(image.asset.prompt, 300) } : {}),
+        original: meta.width && meta.height ? `${meta.width}x${meta.height}` : null,
+        sent: `${info.width}x${info.height}`,
+      });
+    }
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        looked,
+        note: "The pictures are attached to your next message, in this order. Describe only what you see in them.",
+      },
+      images,
+    };
+  }
+
   private helpText() {
     return [
       "Usage: mari images <command> (mari images help shows this)",
       "Discovery: connections [--edit], capabilities [--edit], list assets|backgrounds|sprites|chat-gallery|character-gallery, get <asset-id>",
       "Styles: styles (short list), styles <id|name> (one profile in full, with its per-image tags)",
+      "Look at images: look <asset-id|app-url|file> [up to 4] [--detail low|high], or look --target <target> for its current image (alias: view). You see the pictures in your next message.",
       "HITL preview: preview --operation generate|edit --prompt <text> [--negative <text>] [--kind <kind>] [--target <target>] [--source <asset|url|file>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
       "Create preview asset: generate --prompt <text> [--negative <text>] [--kind illustration|avatar|portrait|selfie|background|sprite] [--target <target>] [--width <n>] [--height <n>] [--connection <id|name|default>] [--style [default|<id|name>] | --no-style]",
       "Create edited preview asset: edit --prompt <text> (--source <asset|url|file> | --target <existing-image-target>) [--connection <edit-capable>] [--style [default|<id|name>] | --no-style]",

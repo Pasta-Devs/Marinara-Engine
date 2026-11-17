@@ -1,6 +1,6 @@
 import { type ChangeEvent, type RefObject, useEffect, useMemo, useRef } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { ChevronRight, FileUp, Loader2, Plus, Save, Star, Trash2 } from "lucide-react";
+import { ChevronRight, FileUp, Plus, Save, Star, Trash2 } from "lucide-react";
 import type { MariInstructionDetail } from "@marinara-engine/shared";
 
 import { useUIStore } from "../../stores/ui.store";
@@ -13,6 +13,7 @@ import {
   compareMariPanelItems,
   type MemoryDraftState,
 } from "./MariPanelControls";
+import { Spinner } from "../ui/Spinner";
 
 // #4851: the Memories management panel, next to Skills. Mirrors ProfessorMariSkillsMenu;
 // adds a Persistent toggle (with a "keep it small" tooltip) and drops file diagnostics
@@ -282,7 +283,7 @@ export function ProfessorMariMemoriesMenu({
                           {localizeUi("lorebook.editor.batch.delete")}
                         </button>
                         <button type="button" onClick={onSave} disabled={saving} className="mari-btn mari-btn--solid">
-                          {saving ? <Loader2 size="0.75rem" className="animate-spin" /> : <Save size="0.75rem" />}
+                          {saving ? <Spinner size="sm" /> : <Save size="0.75rem" />}
                           {localizeUi("ui.noodle.noodlehome.save")}
                         </button>
                       </div>

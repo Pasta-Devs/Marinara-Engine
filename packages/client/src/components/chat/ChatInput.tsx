@@ -11,7 +11,6 @@ import {
   Users,
   UserCheck,
   Languages,
-  Loader2,
   FileText,
   Sparkles,
   WandSparkles,
@@ -57,7 +56,7 @@ import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
-import { prepareImageAttachment } from "../../lib/chat-attachment-images";
+import { prepareImageAttachment, readBlobAsDataUrl } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
 import { isFileDrag } from "../../lib/chat-resource-drag";
 import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generation-stream-policy";
@@ -77,6 +76,7 @@ import { resolveChatContextBudget } from "../../lib/professor-mari-context-budge
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import type { PendingSpatialTransitionDraft } from "../../stores/chat.store";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface Attachment {
   type: string; // MIME type
@@ -183,15 +183,6 @@ function useIsMobileComposerViewport() {
   }, []);
 
   return isMobileViewport;
-}
-
-function readFileAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 interface ChatInputProps {
@@ -737,7 +728,7 @@ export const ChatInput = memo(function ChatInput({
         }
 
         try {
-          const data = await readFileAsDataUrl(file);
+          const data = await readBlobAsDataUrl(file);
           appendAttachmentForChat(originChatId, { type: inferAttachmentType(file), data, name: displayName });
         } catch {
           toast.error(localizeUi("ui.chat.chatinput.failedToReadValue1", { value1: displayName }));
@@ -2035,7 +2026,7 @@ export const ChatInput = memo(function ChatInput({
           ))}
           {isReadingAttachments && (
             <div className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2 py-1 text-xs text-foreground/60 ring-1 ring-foreground/10">
-              <Loader2 size="0.875rem" className="animate-spin" />
+              <Spinner size="sm" />
               {localizeUi("ui.chat.chatinput.readingFile")}
             </div>
           )}
@@ -2198,7 +2189,7 @@ export const ChatInput = memo(function ChatInput({
             )}
             title={t("chat.input.translateDraft")}
           >
-            {isTranslatingDraft ? <Loader2 size="0.9375rem" className="animate-spin" /> : <Languages size="1rem" />}
+            {isTranslatingDraft ? <Spinner size="md" /> : <Languages size="1rem" />}
           </button>
         )}
 
@@ -2250,7 +2241,7 @@ export const ChatInput = memo(function ChatInput({
           {isStreaming ? (
             <StopCircle size="1rem" />
           ) : isInputBusy ? (
-            <Loader2 size="1rem" className="animate-spin" />
+            <Spinner size="md" />
           ) : (
             <Send size="0.9375rem" className={cn(hasInput && "translate-x-[1px]")} />
           )}

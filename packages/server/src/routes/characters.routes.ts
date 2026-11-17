@@ -2,7 +2,7 @@ import { embedCharacterBookImages, LOREBOOK_EXPORT_IMAGE_MAX_BYTES } from "../se
 // ──────────────────────────────────────────────
 // Routes: Characters, Personas & Groups
 // ──────────────────────────────────────────────
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   canonicalizeLegacyPersonaInput,
@@ -30,6 +30,8 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
   resolveOpenAIGifAnimation,
+  gallerySheetGrid,
+  parseGallerySheetNames,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -56,8 +58,11 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { createNoodleStorage } from "../services/storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import {
+  CHARACTERS_EMOJI_SHEET,
+  CHARACTERS_GALLERY_BACKGROUND,
   CHARACTERS_LOREBOOK_COVER,
   CHARACTERS_REFERENCE_SHEET,
+  CHARACTERS_STICKER_SHEET,
   loadPrompt,
 } from "../services/prompt-overrides/index.js";
 import { generateImage, ImageAnimationUnsupportedError } from "../services/image/image-generation.js";
@@ -87,7 +92,7 @@ import {
   uploadConversationCallCharacterVideoClip,
 } from "../services/conversation/call-character-videos.service.js";
 import { removeSavedVideoFromDisk } from "../services/video/video-generation.js";
-import { writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
+import { copyFile, writeFile, mkdir, readFile, readdir, stat, unlink } from "fs/promises";
 import { join, resolve, sep } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
@@ -486,7 +491,9 @@ type AvatarGenerationBody = {
   connectionId?: string;
   name?: string;
   appearance?: string;
-  purpose?: "avatar" | "character-sheet" | "cover";
+  purpose?: AvatarGenerationPurpose;
+  /** Sticker and emoji sheets: the names drawn, one cell each, in grid order. */
+  stickers?: string[];
   referenceImages?: string[];
   width?: number;
   height?: number;
@@ -496,6 +503,78 @@ type AvatarGenerationBody = {
   /** One looping GIF drawn from the prompt alone; refused with 400 code "animation-unsupported" (see generateImage). */
   animation?: ImageAnimation;
 };
+
+type AvatarGenerationPurpose = "avatar" | "character-sheet" | "cover" | "background" | "sticker-sheet" | "emoji-sheet";
+
+const AVATAR_GENERATION_PURPOSES: readonly AvatarGenerationPurpose[] = [
+  "avatar",
+  "character-sheet",
+  "cover",
+  "background",
+  "sticker-sheet",
+  "emoji-sheet",
+];
+
+/** Names a sticker or emoji sheet draws when the request sends none. */
+const DEFAULT_GALLERY_SHEET_NAMES = [
+  "happy",
+  "laughing",
+  "sad",
+  "angry",
+  "surprised",
+  "love",
+  "thinking",
+  "sleepy",
+  "thumbs up",
+];
+
+function avatarGenerationPurposeInfo(purpose: AvatarGenerationBody["purpose"]) {
+  switch (purpose) {
+    case "character-sheet":
+      return {
+        kind: "illustration",
+        label: "Character sheet",
+        hardNegative: CHARACTER_SHEET_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "cover":
+      return { kind: "illustration", label: "Lorebook cover", hardNegative: COVER_HARD_NEGATIVE_PROMPT } as const;
+    case "background":
+      return {
+        kind: "background",
+        label: "Background",
+        hardNegative: GALLERY_BACKGROUND_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "sticker-sheet":
+      return {
+        kind: "illustration",
+        label: "Sticker sheet",
+        hardNegative: STICKER_SHEET_HARD_NEGATIVE_PROMPT,
+      } as const;
+    case "emoji-sheet":
+      return { kind: "illustration", label: "Emoji sheet", hardNegative: STICKER_SHEET_HARD_NEGATIVE_PROMPT } as const;
+    default:
+      return { kind: "avatar", label: "Avatar", hardNegative: AVATAR_GENERATION_HARD_NEGATIVE_PROMPT } as const;
+  }
+}
+
+/** Canvas used when the client sends no size: sheets and backgrounds wide, covers and stickers square. */
+function avatarGenerationDefaultSize(
+  purpose: AvatarGenerationBody["purpose"],
+  settings: Awaited<ReturnType<typeof loadImageGenerationUserSettings>>,
+) {
+  switch (purpose) {
+    case "character-sheet":
+      return settings.characterSheet;
+    case "background":
+      return settings.background;
+    case "cover":
+    case "sticker-sheet":
+    case "emoji-sheet":
+      return { width: settings.portrait.width, height: settings.portrait.width };
+    default:
+      return settings.portrait;
+  }
+}
 
 const AVATAR_GENERATION_MAX_DIMENSION = 4096;
 const AVATAR_GENERATION_MAX_PIXELS = 16_000_000;
@@ -523,7 +602,7 @@ function validateAvatarGenerationDimensions(width: unknown, height: unknown) {
 }
 
 const avatarGenerationPromptId = (name: string, purpose: AvatarGenerationBody["purpose"] = "avatar") =>
-  `${purpose === "character-sheet" || purpose === "cover" ? purpose : "avatar"}:${
+  `${purpose && AVATAR_GENERATION_PURPOSES.includes(purpose) ? purpose : "avatar"}:${
     name
       .trim()
       .toLowerCase()
@@ -537,6 +616,10 @@ const AVATAR_GENERATION_HARD_NEGATIVE_PROMPT =
 const COVER_HARD_NEGATIVE_PROMPT = "text, captions, logos, watermarks, borders, UI, lettering, title text";
 const CHARACTER_SHEET_HARD_NEGATIVE_PROMPT =
   "text, captions, logos, watermarks, decorative borders, unrelated characters, extra limbs, inconsistent faces, cropped-off body parts";
+const GALLERY_BACKGROUND_HARD_NEGATIVE_PROMPT =
+  "people, characters, figures, faces, portraits, text, captions, logos, watermarks, borders, UI, panels, collage";
+const STICKER_SHEET_HARD_NEGATIVE_PROMPT =
+  "text, captions, speech bubbles, lettering, logos, watermarks, grid lines, frames, overlapping stickers, cropped stickers, busy background, unrelated characters, inconsistent faces";
 
 async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
@@ -551,6 +634,19 @@ async function buildAvatarGenerationPrompt(
   if (body.purpose === "character-sheet") {
     return loadPrompt(promptOverridesStorage, CHARACTERS_REFERENCE_SHEET, { name, appearance });
   }
+  if (body.purpose === "background") {
+    return loadPrompt(promptOverridesStorage, CHARACTERS_GALLERY_BACKGROUND, { name, appearance });
+  }
+  if (body.purpose === "sticker-sheet" || body.purpose === "emoji-sheet") {
+    const parsed = parseGallerySheetNames(body.stickers);
+    const stickers = parsed.length ? parsed : DEFAULT_GALLERY_SHEET_NAMES;
+    const { cols, rows } = gallerySheetGrid(stickers.length);
+    return loadPrompt(
+      promptOverridesStorage,
+      body.purpose === "emoji-sheet" ? CHARACTERS_EMOJI_SHEET : CHARACTERS_STICKER_SHEET,
+      { name, appearance, count: stickers.length, cols, rows, expressions: stickers.join(", ") },
+    );
+  }
   return buildAvatarPortraitLeadPrompt({
     name,
     profileSubjectTags: profile.subjectTags.avatar ?? "",
@@ -559,13 +655,10 @@ async function buildAvatarGenerationPrompt(
 }
 
 async function resolveAvatarGenerationConnection(app: FastifyInstance, body: AvatarGenerationBody) {
-  if (
-    body.purpose !== undefined &&
-    body.purpose !== "avatar" &&
-    body.purpose !== "character-sheet" &&
-    body.purpose !== "cover"
-  ) {
-    return { error: "purpose must be avatar, character-sheet or cover" as const };
+  if (body.purpose !== undefined && !AVATAR_GENERATION_PURPOSES.includes(body.purpose)) {
+    return {
+      error: `purpose must be ${AVATAR_GENERATION_PURPOSES.slice(0, -1).join(", ")} or ${AVATAR_GENERATION_PURPOSES.at(-1)}`,
+    } as const;
   }
   if (!body.connectionId) {
     return { error: "connectionId is required" as const };
@@ -630,6 +723,145 @@ async function isValidUploadedGalleryImage(filePath: string, filename: string): 
   }
   await unlink(storedPath).catch(() => undefined);
   return false;
+}
+
+/**
+ * Clean up keeps the first picture each gallery image had, beside the gallery in a hidden folder, so
+ * "Undo clean up" can bring it back however many times Clean up ran. One record per image id.
+ */
+const CLEAN_UP_ORIGINALS_FOLDER = ".clean-up-originals";
+type CleanUpOriginal = { filename: string; width: number | null; height: number | null };
+
+function cleanUpOriginalsDir(galleryDir: string) {
+  return assertInsideDir(galleryDir, join(galleryDir, CLEAN_UP_ORIGINALS_FOLDER));
+}
+
+async function readCleanUpOriginal(galleryDir: string, imageId: string): Promise<CleanUpOriginal | null> {
+  if (isUnsafePathSegment(imageId)) return null;
+  const dir = cleanUpOriginalsDir(galleryDir);
+  try {
+    const record = JSON.parse(
+      await readFile(assertInsideDir(dir, join(dir, `${imageId}.json`)), "utf8"),
+    ) as Partial<CleanUpOriginal>;
+    if (typeof record.filename !== "string" || isUnsafePathSegment(record.filename)) return null;
+    if (!existsSync(assertInsideDir(dir, join(dir, record.filename)))) return null;
+    return {
+      filename: record.filename,
+      width: typeof record.width === "number" ? record.width : null,
+      height: typeof record.height === "number" ? record.height : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The ids of the gallery images that have a kept original, for the gallery list. */
+async function listCleanUpOriginalIds(galleryDir: string): Promise<Set<string>> {
+  try {
+    const entries = await readdir(cleanUpOriginalsDir(galleryDir));
+    const ids = entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -".json".length));
+    // Same check the restore uses, so the list only offers what can really be put back.
+    const usable = await Promise.all(ids.map(async (id) => ((await readCleanUpOriginal(galleryDir, id)) ? id : null)));
+    return new Set(usable.filter((id): id is string => id !== null));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Keep a copy of the image's current picture as its original, unless one is kept already. */
+async function keepCleanUpOriginal(
+  galleryDir: string,
+  image: { id: string; filePath: string; width?: number | null; height?: number | null },
+) {
+  if (isUnsafePathSegment(image.id) || (await readCleanUpOriginal(galleryDir, image.id))) return;
+  const stored = resolveStoredGalleryFile(image.filePath);
+  if (!stored || !existsSync(stored.absolutePath)) return;
+  const dir = cleanUpOriginalsDir(galleryDir);
+  await mkdir(dir, { recursive: true });
+  const filename = `${image.id}${extname(stored.filename).toLowerCase()}`;
+  await copyFile(stored.absolutePath, assertInsideDir(dir, join(dir, filename)));
+  const record: CleanUpOriginal = { filename, width: image.width ?? null, height: image.height ?? null };
+  await writeFile(assertInsideDir(dir, join(dir, `${image.id}.json`)), JSON.stringify(record));
+}
+
+async function removeCleanUpOriginal(galleryDir: string, imageId: string) {
+  if (isUnsafePathSegment(imageId)) return;
+  const dir = cleanUpOriginalsDir(galleryDir);
+  const original = await readCleanUpOriginal(galleryDir, imageId);
+  // The record goes first: a stop in between leaves a stray picture, never a record without one.
+  await unlink(assertInsideDir(dir, join(dir, `${imageId}.json`))).catch(() => undefined);
+  if (original) await unlink(assertInsideDir(dir, join(dir, original.filename))).catch(() => undefined);
+}
+
+/**
+ * "Undo clean up": put the kept original back as the image's picture. The row keeps its id, tag and
+ * place; the cleaned picture goes once nothing else points at it.
+ */
+async function restoreCleanUpOriginal(input: {
+  reply: FastifyReply;
+  db: FastifyInstance["db"];
+  dir: string;
+  folder: string;
+  urlBase: string;
+  image: { id: string; filePath: string };
+  save: (patch: { filePath: string; width: number | null; height: number | null }) => Promise<unknown>;
+}) {
+  const original = await readCleanUpOriginal(input.dir, input.image.id);
+  if (!original) return input.reply.status(404).send({ error: "No earlier picture is kept for this image" });
+  const originalsDir = cleanUpOriginalsDir(input.dir);
+  const filename = `${newId()}${extname(original.filename).toLowerCase()}`;
+  const filePath = join(input.dir, filename);
+  await copyFile(assertInsideDir(originalsDir, join(originalsDir, original.filename)), filePath);
+  if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+    return input.reply.status(400).send({ error: "The kept picture is not a valid image" });
+  }
+  const updated = await input.save({
+    filePath: `${input.folder}/${filename}`,
+    width: original.width,
+    height: original.height,
+  });
+  await unlinkGalleryFileIfUnreferenced({ db: input.db, filePath: input.image.filePath });
+  await removeCleanUpOriginal(input.dir, input.image.id);
+  return { ...(updated as object), url: `${input.urlBase}/gallery/file/${encodeURIComponent(filename)}` };
+}
+
+/**
+ * Swap a gallery image's picture for a new upload (the gallery's "Clean up" for stickers and emoji): the new
+ * file is checked like any upload, the row keeps its id, tag and place, the first picture it ever had is kept
+ * for "Undo clean up", and the old file goes once nothing else points at it.
+ */
+async function replaceGalleryImageFile(input: {
+  req: FastifyRequest;
+  reply: FastifyReply;
+  db: FastifyInstance["db"];
+  dir: string;
+  /** Where the file is stored under the gallery folder, and the route its picture is served from. */
+  folder: string;
+  urlBase: string;
+  image: { id: string; filePath: string; width?: number | null; height?: number | null };
+  save: (patch: { filePath: string; width: number | null; height: number | null }) => Promise<unknown>;
+}) {
+  const data = await input.req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
+  if (!data) return input.reply.status(400).send({ error: "No file uploaded" });
+  const ext = extname(data.filename).toLowerCase();
+  if (!ALLOWED_GALLERY_EXTS.has(ext)) return input.reply.status(400).send({ error: `Unsupported file type: ${ext}` });
+  const filename = `${newId()}${ext}`;
+  const filePath = join(input.dir, filename);
+  await pipeline(data.file, createWriteStream(filePath));
+  if (!(await isValidUploadedGalleryImage(filePath, filename))) {
+    return input.reply.status(400).send({ error: "Unsupported or invalid image" });
+  }
+  await keepCleanUpOriginal(input.dir, input.image);
+  const fields = data.fields as Record<string, { value?: string } | undefined>;
+  const width = fields?.width?.value ? parseInt(fields.width.value, 10) : NaN;
+  const height = fields?.height?.value ? parseInt(fields.height.value, 10) : NaN;
+  const updated = await input.save({
+    filePath: `${input.folder}/${filename}`,
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  });
+  await unlinkGalleryFileIfUnreferenced({ db: input.db, filePath: input.image.filePath });
+  return { ...(updated as object), url: `${input.urlBase}/gallery/file/${encodeURIComponent(filename)}` };
 }
 
 async function copyGalleryImageToAvatar(
@@ -1434,17 +1666,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in resolved) return reply.status(400).send({ error: resolved.error });
 
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const isCharacterSheet = body.purpose === "character-sheet";
     const isCover = body.purpose === "cover";
-    // A cover is square, so both sides use the portrait width.
+    const purposeInfo = avatarGenerationPurposeInfo(body.purpose);
+    const defaultSize = avatarGenerationDefaultSize(body.purpose, imageSettings);
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ??
-        (isCharacterSheet
-          ? imageSettings.characterSheet.height
-          : isCover
-            ? imageSettings.portrait.width
-            : imageSettings.portrait.height),
+      body.width ?? defaultSize.width,
+      body.height ?? defaultSize.height,
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1454,17 +1681,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
     const compiled = compileImagePrompt({
-      kind: isCharacterSheet || isCover ? "illustration" : "avatar",
+      kind: purposeInfo.kind,
       prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-      userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
+      userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
       imageDefaults,
-      hardNegative: isCover
-        ? COVER_HARD_NEGATIVE_PROMPT
-        : isCharacterSheet
-          ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
-          : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+      hardNegative: purposeInfo.hardNegative,
     });
     const previewSize = resolveImagePromptReviewSize({
       connection: resolved.conn,
@@ -1478,10 +1701,8 @@ export async function charactersRoutes(app: FastifyInstance) {
       items: [
         {
           id: avatarGenerationPromptId(body.name ?? (isCover ? "lorebook" : "character"), body.purpose),
-          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
-          title: `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"}: ${
-            body.name?.trim() || (isCover ? "Lorebook" : "Character")
-          }`,
+          kind: purposeInfo.kind,
+          title: `${purposeInfo.label}: ${body.name?.trim() || (isCover ? "Lorebook" : "Character")}`,
           prompt: compiled.prompt,
           negativePrompt: compiled.negativePrompt,
           width: previewSize.width,
@@ -1498,17 +1719,12 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const conn = resolved.conn;
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const isCharacterSheet = body.purpose === "character-sheet";
     const isCover = body.purpose === "cover";
-    // A cover is square, so both sides use the portrait width.
+    const purposeInfo = avatarGenerationPurposeInfo(body.purpose);
+    const defaultSize = avatarGenerationDefaultSize(body.purpose, imageSettings);
     const dimensions = validateAvatarGenerationDimensions(
-      body.width ?? (isCharacterSheet ? imageSettings.characterSheet.width : imageSettings.portrait.width),
-      body.height ??
-        (isCharacterSheet
-          ? imageSettings.characterSheet.height
-          : isCover
-            ? imageSettings.portrait.width
-            : imageSettings.portrait.height),
+      body.width ?? defaultSize.width,
+      body.height ?? defaultSize.height,
     );
     if ("error" in dimensions) return reply.status(400).send({ error: dimensions.error });
     const { width, height } = dimensions;
@@ -1556,31 +1772,27 @@ export async function charactersRoutes(app: FastifyInstance) {
           negativePrompt: promptOverride.negativePrompt || "",
         }
       : compileImagePrompt({
-          kind: isCharacterSheet || isCover ? "illustration" : "avatar",
+          kind: purposeInfo.kind,
           prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
-          userPositive: isCharacterSheet || isCover ? undefined : body.appearance,
+          userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,
           imageDefaults,
-          hardNegative: isCover
-            ? COVER_HARD_NEGATIVE_PROMPT
-            : isCharacterSheet
-              ? CHARACTER_SHEET_HARD_NEGATIVE_PROMPT
-              : AVATAR_GENERATION_HARD_NEGATIVE_PROMPT,
+          hardNegative: purposeInfo.hardNegative,
         });
 
     const debugOverrideEnabled = body.debugMode === true || isDebugAgentsEnabled();
     logDebugOverride(
       debugOverrideEnabled,
       "[debug/characters/%s-generation] prompt:\n%s",
-      isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
+      body.purpose ?? "avatar",
       compiled.prompt,
     );
     if (compiled.negativePrompt) {
       logDebugOverride(
         debugOverrideEnabled,
         "[debug/characters/%s-generation] negative prompt:\n%s",
-        isCover ? "cover" : isCharacterSheet ? "character-sheet" : "avatar",
+        body.purpose ?? "avatar",
         compiled.negativePrompt,
       );
     }
@@ -1612,16 +1824,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (err instanceof ImageAnimationUnsupportedError) {
         return reply.status(400).send({ error: err.message, code: err.code });
       }
-      logger.error(
-        err,
-        "%s generation failed",
-        isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar",
-      );
+      logger.error(err, "%s generation failed", purposeInfo.label);
       return reply.status(500).send({
-        error:
-          err instanceof Error
-            ? err.message
-            : `${isCover ? "Lorebook cover" : isCharacterSheet ? "Character sheet" : "Avatar"} generation failed`,
+        error: err instanceof Error ? err.message : `${purposeInfo.label} generation failed`,
       });
     }
   });
@@ -1805,13 +2010,28 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   // ── Character Gallery ──
 
+  // Every character's pictures labeled "background", in one request, for the background library.
+  app.get("/gallery/backgrounds", async () => {
+    const images = await characterGallery.listByCustomKind("background");
+    return images.map((img) => ({
+      id: img.id,
+      characterId: img.characterId,
+      customName: img.customName ?? null,
+      url: `/api/characters/${img.characterId}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
+    }));
+  });
+
   app.get<{ Params: { id: string } }>("/:id/gallery", async (req, reply) => {
     const char = await storage.getById(req.params.id);
     if (!char) return reply.status(404).send({ error: "Character not found" });
 
     const images = await characterGallery.listByCharacterId(req.params.id);
+    const kept = isUnsafePathSegment(req.params.id)
+      ? new Set<string>()
+      : await listCleanUpOriginalIds(join(CHARACTER_GALLERY_ROOT, req.params.id));
     return images.map((img) => ({
       ...img,
+      hasCleanUpOriginal: kept.has(img.id),
       url: `/api/characters/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
     }));
   });
@@ -2330,6 +2550,8 @@ export async function charactersRoutes(app: FastifyInstance) {
       );
     });
     await unlinkGalleryFileIfUnreferenced({ db: app.db, filePath: image.filePath });
+    if (!isUnsafePathSegment(id))
+      await removeCleanUpOriginal(join(CHARACTER_GALLERY_ROOT, id), imageId).catch(() => undefined);
     return { success: true };
   });
 
@@ -2369,6 +2591,40 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
     return characterGallery.setTag(imageId, tag.patch);
   });
+
+  app.post<{ Params: { id: string; imageId: string } }>("/:id/gallery/:imageId/replace", async (req, reply) => {
+    const { id, imageId } = req.params;
+    const image = await characterGallery.getById(imageId);
+    if (!image || image.characterId !== id) return reply.status(404).send({ error: "Not found" });
+    return replaceGalleryImageFile({
+      req,
+      reply,
+      db: app.db,
+      dir: await ensureCharacterGalleryDir(image.characterId),
+      folder: `characters/${image.characterId}`,
+      urlBase: `/api/characters/${image.characterId}`,
+      image,
+      save: (patch) => characterGallery.replaceFile(imageId, patch),
+    });
+  });
+
+  app.post<{ Params: { id: string; imageId: string } }>(
+    "/:id/gallery/:imageId/restore-original",
+    async (req, reply) => {
+      const { id, imageId } = req.params;
+      const image = await characterGallery.getById(imageId);
+      if (!image || image.characterId !== id) return reply.status(404).send({ error: "Not found" });
+      return restoreCleanUpOriginal({
+        reply,
+        db: app.db,
+        dir: await ensureCharacterGalleryDir(image.characterId),
+        folder: `characters/${image.characterId}`,
+        urlBase: `/api/characters/${image.characterId}`,
+        image,
+        save: (patch) => characterGallery.replaceFile(imageId, patch),
+      });
+    },
+  );
 
   // ── Duplicate ──
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
@@ -2997,8 +3253,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
 
     const images = await personaGallery.listByPersonaId(req.params.id);
+    const kept = isUnsafePathSegment(req.params.id)
+      ? new Set<string>()
+      : await listCleanUpOriginalIds(join(PERSONA_GALLERY_ROOT, req.params.id));
     return images.map((img) => ({
       ...img,
+      hasCleanUpOriginal: kept.has(img.id),
       url: `/api/characters/personas/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
     }));
   });
@@ -3458,6 +3718,8 @@ export async function charactersRoutes(app: FastifyInstance) {
       );
     });
     await unlinkGalleryFileIfUnreferenced({ db: app.db, filePath: image.filePath });
+    if (!isUnsafePathSegment(id))
+      await removeCleanUpOriginal(join(PERSONA_GALLERY_ROOT, id), imageId).catch(() => undefined);
     return { success: true };
   });
 
@@ -3501,6 +3763,43 @@ export async function charactersRoutes(app: FastifyInstance) {
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
     return personaGallery.setTag(imageId, tag.patch);
   });
+
+  app.post<{ Params: { id: string; imageId: string } }>(
+    "/personas/:id/gallery/:imageId/replace",
+    async (req, reply) => {
+      const { id, imageId } = req.params;
+      const image = await personaGallery.getById(imageId);
+      if (!image || image.personaId !== id) return reply.status(404).send({ error: "Not found" });
+      return replaceGalleryImageFile({
+        req,
+        reply,
+        db: app.db,
+        dir: await ensurePersonaGalleryDir(image.personaId),
+        folder: `personas/${image.personaId}`,
+        urlBase: `/api/characters/personas/${image.personaId}`,
+        image,
+        save: (patch) => personaGallery.replaceFile(imageId, patch),
+      });
+    },
+  );
+
+  app.post<{ Params: { id: string; imageId: string } }>(
+    "/personas/:id/gallery/:imageId/restore-original",
+    async (req, reply) => {
+      const { id, imageId } = req.params;
+      const image = await personaGallery.getById(imageId);
+      if (!image || image.personaId !== id) return reply.status(404).send({ error: "Not found" });
+      return restoreCleanUpOriginal({
+        reply,
+        db: app.db,
+        dir: await ensurePersonaGalleryDir(image.personaId),
+        folder: `personas/${image.personaId}`,
+        urlBase: `/api/characters/personas/${image.personaId}`,
+        image,
+        save: (patch) => personaGallery.replaceFile(imageId, patch),
+      });
+    },
+  );
 
   // ── Persona Duplicate ──
   app.post<{ Params: { id: string } }>("/personas/:id/duplicate", async (req, reply) => {

@@ -8,6 +8,7 @@
 // flow has been replaced so users can edit row-level params without leaving
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
+import { estimateTextTokens } from "@marinara-engine/shared";
 import {
   useState,
   useEffect,
@@ -69,7 +70,6 @@ import {
   ArrowUpDown,
   Hash,
   Sparkles,
-  Loader2,
   Check,
   CheckSquare2,
   Copy,
@@ -113,7 +113,7 @@ import { LorebookFolderRow } from "./LorebookFolderRow";
 import { LorebookLintPanel } from "./LorebookLintPanel";
 import { LorebookBulkEditPanel } from "./LorebookBulkEditPanel";
 import { LorebookScanTest, type LorebookScanPreviewMatch } from "./LorebookScanTest";
-import { ExpandableTextarea, estimateTokens } from "./LorebookFormFields";
+import { ExpandableTextarea } from "./LorebookFormFields";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { LorebookTextImportDialog } from "./LorebookTextImportDialog";
 import { EditorTabNavigation } from "../ui/EditorTabNavigation";
@@ -129,6 +129,7 @@ import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
 // Folder collapse state lives in localStorage — purely a UI preference, not
@@ -727,7 +728,7 @@ export function LorebookEditor() {
       case "name-desc":
         return [...result].sort((a, b) => b.name.localeCompare(a.name));
       case "tokens":
-        return [...result].sort((a, b) => estimateTokens(b.content) - estimateTokens(a.content));
+        return [...result].sort((a, b) => estimateTextTokens(b.content) - estimateTextTokens(a.content));
       case "keys":
         return [...result].sort((a, b) => b.keys.length - a.keys.length);
       case "fired":
@@ -2215,7 +2216,7 @@ export function LorebookEditor() {
                   disabled={!entryTransferTargetId || transferEntries.isPending}
                   className={SHEET_BUTTON_PRIMARY}
                 >
-                  {transferEntries.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : null}
+                  {transferEntries.isPending ? <Spinner size="sm" /> : null}
                   {t(
                     entryTransferOperation === "copy"
                       ? "lorebook.editor.batch.transfer.copyConfirm"
@@ -3208,11 +3209,7 @@ export function LorebookEditor() {
                           }
                           className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                         >
-                          {transferEntries.isPending ? (
-                            <Loader2 size="0.6875rem" className="animate-spin" />
-                          ) : (
-                            <Copy size="0.6875rem" />
-                          )}
+                          {transferEntries.isPending ? <Spinner size="sm" /> : <Copy size="0.6875rem" />}
                           {t("lorebook.editor.batch.copy")}
                         </button>
                         <button
@@ -3226,11 +3223,7 @@ export function LorebookEditor() {
                           }
                           className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                         >
-                          {transferEntries.isPending ? (
-                            <Loader2 size="0.6875rem" className="animate-spin" />
-                          ) : (
-                            <MoveRight size="0.6875rem" />
-                          )}
+                          {transferEntries.isPending ? <Spinner size="sm" /> : <MoveRight size="0.6875rem" />}
                           {t("lorebook.editor.batch.move")}
                         </button>
                         <button
@@ -3243,11 +3236,7 @@ export function LorebookEditor() {
                           }
                           className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                         >
-                          {bulkDeleteEntries.isPending ? (
-                            <Loader2 size="0.6875rem" className="animate-spin" />
-                          ) : (
-                            <Trash2 size="0.6875rem" />
-                          )}
+                          {bulkDeleteEntries.isPending ? <Spinner size="sm" /> : <Trash2 size="0.6875rem" />}
                           {t("lorebook.editor.batch.delete")}
                         </button>
                         <button
@@ -3292,7 +3281,7 @@ export function LorebookEditor() {
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Hash size="0.625rem" />
-                          {entries.reduce((sum, e) => sum + estimateTokens(e.content), 0).toLocaleString()}{" "}
+                          {entries.reduce((sum, e) => sum + estimateTextTokens(e.content), 0).toLocaleString()}{" "}
                           {localizeUi("ui.lorebooks.lorebookeditor.tokensEst")}
                         </span>
                         {activationStats && (
@@ -3899,7 +3888,7 @@ function VectorizeSection({
               className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
             >
               {vectorizingMode === primaryVectorizeMode ? (
-                <Loader2 size="0.75rem" className="animate-spin" />
+                <Spinner size="sm" />
               ) : primaryVectorizeMode === "all" ? (
                 <RefreshCw size="0.75rem" />
               ) : (
@@ -3924,11 +3913,7 @@ function VectorizeSection({
                 className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)]/70 px-3 py-1.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--secondary)] active:scale-[0.98] disabled:opacity-50"
                 title={localizeUi("ui.lorebooks.vectorizesection.overwriteEveryStoredVectorInThisLorebookWithThe")}
               >
-                {vectorizingMode === "all" ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <RefreshCw size="0.75rem" />
-                )}
+                {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
                 {vectorizingMode === "all"
                   ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
                   : localizeUi("ui.lorebooks.vectorizesection.reVectorizeAll")}
@@ -3940,7 +3925,7 @@ function VectorizeSection({
               className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-[0.98] disabled:opacity-50"
               title={localizeUi("ui.lorebooks.vectorizesection.deleteAllStoredVectorsForThisLorebook")}
             >
-              {clearingVectors ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+              {clearingVectors ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
               {localizeUi("ui.lorebooks.vectorizesection.deleteVectors")}
             </button>
           </div>

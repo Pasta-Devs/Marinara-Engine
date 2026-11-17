@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import { RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
-import type { ChatImage } from "../../hooks/use-gallery";
+import type { ChatImage, RegenerateChatImageInput } from "../../hooks/use-gallery";
 import {
   useRegenerateChatImage,
   useReviseChatImagePrompt,
@@ -15,9 +15,26 @@ import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
+import { Spinner } from "../ui/Spinner";
+
+/**
+ * Where Regenerate and Revise send the draft. Chat gallery images use the gallery routes; Professor Mari's preview
+ * images (#9387) pass their own.
+ */
+export interface ImageRegenerator {
+  regenerate: (input: RegenerateChatImageInput) => Promise<ChatImage>;
+  revise: (
+    input: ImagePromptDraft & { imageId: string; guidance: string; connectionId?: string; debugMode: boolean },
+  ) => Promise<ImagePromptDraft>;
+  /** The connection picker's empty choice, when it isn't the chat's image provider. */
+  defaultConnectionLabel?: string;
+  /** The success toast, when the old picture is kept somewhere other than the chat gallery. */
+  regeneratedMessage?: string;
+}
 
 interface ImageRegeneratePanelProps {
   image: ChatImage;
+  regenerator?: ImageRegenerator;
   record: ChatImageGenerationRecord | null;
   /** Message the image was opened from, so the server swaps that attachment directly. */
   messageId?: string;
@@ -154,6 +171,7 @@ function PlacementFields({
 
 export function ImageRegeneratePanel({
   image,
+  regenerator,
   record,
   messageId,
   onCancel,
@@ -164,8 +182,12 @@ export function ImageRegeneratePanel({
   const { t } = useUiTranslation();
   const debugMode = useUIStore((s) => s.debugMode);
   const { data: connectionRows } = useConnections();
-  const regenerate = useRegenerateChatImage(image.chatId);
-  const revise = useReviseChatImagePrompt(image.chatId);
+  const chatRegenerate = useRegenerateChatImage(image.chatId);
+  const chatRevise = useReviseChatImagePrompt(image.chatId);
+  const regenerate =
+    regenerator?.regenerate ??
+    ((input: RegenerateChatImageInput) => chatRegenerate.mutateAsync(input).then((r) => r.image));
+  const revise = regenerator?.revise ?? chatRevise.mutateAsync;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const runningRef = useRef(false);
   const titleId = useId();
@@ -223,7 +245,7 @@ export function ImageRegeneratePanel({
         ? { connectionId }
         : {};
       if (action !== "generate") {
-        input = await revise.mutateAsync({ imageId: image.id, ...input, guidance, ...connection, debugMode });
+        input = await revise({ imageId: image.id, ...input, guidance, ...connection, debugMode });
         // Merge revisions into the sent fields, keep cleared fields for reset, and append newly extracted captions.
         let revisedIndex = 0;
         const characterPrompts = draft.characterPrompts.map((entry) =>
@@ -238,15 +260,15 @@ export function ImageRegeneratePanel({
       }
       step = "generating";
       setPhase(step);
-      const result = await regenerate.mutateAsync({
+      const regenerated = await regenerate({
         imageId: image.id,
         ...input,
         ...connection,
         ...(messageId ? { messageId } : {}),
         debugMode,
       });
-      toast.success(t("ui.chat.imageregeneratepanel.regenerated"));
-      onRegenerated(result.image);
+      toast.success(regenerator?.regeneratedMessage ?? t("ui.chat.imageregeneratepanel.regenerated"));
+      onRegenerated(regenerated);
     } catch (cause) {
       const label = t(
         step === "revising" ? "ui.chat.imageregeneratepanel.reviseFailed" : "ui.chat.imageregeneratepanel.failed",
@@ -352,7 +374,7 @@ export function ImageRegeneratePanel({
             kind="image"
             value={connectionId || null}
             onChange={(nextId) => setConnectionId(nextId ?? "")}
-            defaultLabel={t("ui.chat.imageregeneratepanel.chatConnection")}
+            defaultLabel={regenerator?.defaultConnectionLabel ?? t("ui.chat.imageregeneratepanel.chatConnection")}
             disabled={busy}
             className="min-h-11"
           />
@@ -376,7 +398,7 @@ export function ImageRegeneratePanel({
         <div className="flex flex-wrap items-center justify-end gap-2">
           {phase && (
             <p role="status" className="mr-auto flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-              <Loader2 size="1rem" className="animate-spin" aria-hidden />
+              <Spinner size="md" aria-hidden="true" />
               {t(
                 phase === "revising"
                   ? "ui.chat.imageregeneratepanel.revising"

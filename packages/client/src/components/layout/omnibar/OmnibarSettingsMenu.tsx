@@ -54,6 +54,7 @@ import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
 import { ConnectionSelect } from "../../connections/ConnectionSelect";
+import { Switch } from "../../ui/Switch";
 
 /** The anchor a search row, the Settings panel or one of Mari's links scrolls to. */
 function anchorId(controlId: string) {
@@ -161,7 +162,7 @@ function SettingRow({
   return (
     <label id={anchorId(controlId)} className="omnibar-settings-menu__row">
       <SettingText label={label} description={description} />
-      <input type="checkbox" role="switch" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
 }
@@ -818,7 +819,7 @@ export function OmnibarSettingsSheet({
             label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Professor Mari")}
             description={t(
               "omnibar.settings.sendOnEnter.description",
-              "When off, Enter adds a new line and Ctrl/Command+Enter sends.",
+              "When off, Enter adds a new line and Ctrl/Command+Enter sends. Saved on this device only.",
             )}
             checked={enterToSendMari}
             onChange={setEnterToSendMari}

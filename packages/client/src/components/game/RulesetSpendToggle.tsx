@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { Checkbox } from "../ui/Checkbox";
 
 const SPEND_CHOICE_KEY = "marinara.combat.chooseSpends";
 
@@ -43,8 +44,7 @@ export function RulesetSpendToggle({
         className,
       )}
     >
-      <input
-        type="checkbox"
+      <Checkbox
         checked={choose}
         disabled={locked}
         onChange={(event) => onChange(event.target.checked)}

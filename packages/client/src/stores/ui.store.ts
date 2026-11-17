@@ -763,6 +763,11 @@ export interface UIState {
    */
   homeTab: string;
   /**
+   * Not saved: a Home browser package is in fullscreen (HomeBrowserHub). The top bar hides while it is, so the
+   * package takes the whole screen.
+   */
+  homeBrowserFullscreen: boolean;
+  /**
    * Not saved: the chat (and Chat Settings section) whose drawer opened the full-page surface now showing. The drawer
    * closes first, so nothing else remembers it: popping the last surface turns this into `chatSettingsRequest`.
    */
@@ -1384,6 +1389,7 @@ export interface UIState {
   setChatSettingsReturn: (back: ChatSettingsReturn | null) => void;
   consumeChatSettingsRequest: () => void;
   setHomeTab: (tab: string) => void;
+  setHomeBrowserFullscreen: (active: boolean) => void;
   requestWhatsNew: () => void;
   consumeWhatsNewRequest: () => void;
   setSettingsTargetSectionId: (sectionId: string | null) => void;
@@ -1887,7 +1893,7 @@ export function shownMariAppearancePack(state: UIState, playHours: number | null
 
 /**
  * Returns the subset of UI state that is synced to the server so it persists
- * across devices and browsers. Excludes device-local sizing preferences,
+ * across devices and browsers. Excludes device-local sizing and Send on Enter preferences,
  * legacy migration flags, auto-computed fields (userStatus), and items tracked
  * via their own server resources (custom themes).
  */
@@ -2056,10 +2062,6 @@ export function pickSyncedSettings(state: UIState) {
     textStrokeColor: state.textStrokeColor,
     visualTheme: state.visualTheme,
     convoGradient: state.convoGradient,
-    enterToSendRP: state.enterToSendRP,
-    enterToSendConvo: state.enterToSendConvo,
-    enterToSendGame: state.enterToSendGame,
-    enterToSendProfessorMari: state.enterToSendProfessorMari,
     weatherEffects: state.weatherEffects,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
@@ -2439,6 +2441,7 @@ export const useUIStore = create<UIState>()(
         chatSettingsReturn: null,
         chatSettingsRequest: null,
         homeTab: "home",
+        homeBrowserFullscreen: false,
         whatsNewRequested: false,
         settingsTargetSectionId: null,
         modal: null,
@@ -2853,6 +2856,7 @@ export const useUIStore = create<UIState>()(
         setChatSettingsReturn: (chatSettingsReturn) => set({ chatSettingsReturn }),
         consumeChatSettingsRequest: () => set({ chatSettingsRequest: null }),
         setHomeTab: (homeTab) => set({ homeTab }),
+        setHomeBrowserFullscreen: (homeBrowserFullscreen) => set({ homeBrowserFullscreen }),
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),

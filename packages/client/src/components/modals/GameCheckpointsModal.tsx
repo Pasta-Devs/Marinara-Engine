@@ -7,7 +7,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { AlertTriangle, Flag, History, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Flag, History, Trash2 } from "lucide-react";
 import type { GameCheckpoint, GameState } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { api } from "../../lib/api-client";
@@ -16,6 +16,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { gameKeys } from "../../hooks/use-game";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { GAME_CHECKPOINT_LOADED_EVENT } from "../../lib/game-checkpoint-events";
+import { Spinner } from "../ui/Spinner";
 
 interface GameCheckpointsModalProps {
   open: boolean;
@@ -123,7 +124,7 @@ export function GameCheckpointsModal({ open, onClose, chatId, highlight }: GameC
       <div className="flex max-h-[min(70dvh,36rem)] flex-col gap-2 overflow-y-auto">
         {checkpoints.isPending ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--muted-foreground)]">
-            <Loader2 size="1rem" className="animate-spin" />
+            <Spinner size="md" />
             {localizeUi("ui.game.checkpoints.loading")}
           </div>
         ) : checkpoints.isError ? (

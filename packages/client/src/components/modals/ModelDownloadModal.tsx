@@ -17,7 +17,6 @@ import {
   Cpu,
   Download,
   Info,
-  Loader2,
   MessageSquare,
   RotateCw,
   Search,
@@ -38,6 +37,7 @@ import { PRIMARY_CLASS as PRIMARY, SECONDARY_CLASS } from "./create-connection/s
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
+import { Spinner } from "../ui/Spinner";
 
 interface Props {
   open: boolean;
@@ -806,7 +806,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
                 aria-hidden
               >
                 {step.state === "ok" && <Check size="0.6875rem" />}
-                {step.state === "run" && <Loader2 size="1.125rem" className="animate-spin" />}
+                {step.state === "run" && <Spinner size="lg" />}
               </span>
               <span className={step.state === "wait" ? "text-[var(--muted-foreground)]" : "text-[var(--foreground)]"}>
                 {step.label}
@@ -984,7 +984,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
                       className={SECONDARY}
                     >
                       {customModelsLoading ? (
-                        <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+                        <Spinner size="sm" aria-hidden="true" />
                       ) : (
                         <Search size="0.875rem" aria-hidden />
                       )}
@@ -1067,11 +1067,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
     ) : null;
     footerRight = (
       <button type="button" onClick={() => void startSetup()} disabled={primaryDisabled} className={PRIMARY}>
-        {selectingLocalModel ? (
-          <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
-        ) : (
-          <Download size="0.875rem" aria-hidden />
-        )}
+        {selectingLocalModel ? <Spinner size="sm" aria-hidden="true" /> : <Download size="0.875rem" aria-hidden />}
         {primaryLabel}
       </button>
     );
@@ -1108,7 +1104,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
               className={SECONDARY}
             >
               {testMessagePending ? (
-                <Loader2 size="0.875rem" className="animate-spin" aria-hidden />
+                <Spinner size="sm" aria-hidden="true" />
               ) : (
                 <MessageSquare size="0.875rem" aria-hidden />
               )}

@@ -15,7 +15,7 @@ If it did not work: with no model set for the chat, the reply fails at once with
 
 ### Send on Enter
 
-Find it in **Settings → General → Input & Editing**. There is one toggle per chat mode.
+Find it in **Settings → General → Input & Editing**. There is one toggle per chat mode, saved on the device you set it on, so a phone and a computer can differ.
 
 | Chat mode | Default | When off |
 | --- | --- | --- |

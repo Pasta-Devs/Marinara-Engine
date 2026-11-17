@@ -104,7 +104,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 829 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 830 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -140,7 +140,7 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.829/,
+    /requires capability API 2\.0; this Engine supports 1\.830/,
   );
   const currentMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
@@ -782,12 +782,12 @@ try {
     "Capability model calls must not discard an explicit reasoning disable request",
   );
 
-  const chatSettingsSource = readFileSync(
-    join(repositoryRoot, "packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx"),
+  const roleplayAgentsSource = readFileSync(
+    join(repositoryRoot, "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx"),
     "utf8",
   );
   assert.match(
-    chatSettingsSource,
+    roleplayAgentsSource,
     /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,
     "Game chat settings must render the Long-Term Memory package controls",
   );

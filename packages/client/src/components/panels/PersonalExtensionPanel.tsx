@@ -6,6 +6,7 @@ import {
   dispatchPersonalExtensionContributionEvent,
   usePersonalExtensionContributions,
 } from "../../lib/personal-extension-contributions";
+import { Checkbox } from "../ui/Checkbox";
 
 type InteractiveElement = Extract<PersonalExtensionUiElement, { id: string }>;
 
@@ -159,8 +160,7 @@ export function PersonalExtensionPanel() {
                 className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)]"
               >
                 <span>{element.label}</span>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={values[element.id] === "true"}
                   onChange={(event) =>
                     setValues((current) => ({ ...current, [element.id]: String(event.currentTarget.checked) }))

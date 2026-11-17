@@ -714,7 +714,7 @@ test("Roleplay wizard and Appearance persist the VN choice and art scales", asyn
       ui.setSettingsTab("appearance");
       ui.setSettingsTargetControlId("roleplay-vn-display");
     });
-    const toggle = page.getByRole("checkbox", { name: "Visual Novel display", exact: true });
+    const toggle = page.getByRole("switch", { name: "Visual Novel display", exact: true });
     await expect(toggle).not.toBeChecked();
     await page
       .locator(`label[for="${await toggle.getAttribute("id")}"]`)
@@ -734,7 +734,7 @@ test("Roleplay wizard and Appearance persist the VN choice and art scales", asyn
       await slider.press("Home");
       for (let step = 0; step < Math.round((Number(value) - 0.75) / 0.05); step++) await slider.press("ArrowRight");
     }
-    const autoplay = page.getByRole("checkbox", { name: "Auto-play VN paragraphs", exact: true });
+    const autoplay = page.getByRole("switch", { name: "Auto-play VN paragraphs", exact: true });
     await expect(autoplay).not.toBeChecked();
     const delay = page.locator("#settings-control-roleplay-vn-autoplay-delay input");
     await expect(delay).toBeVisible();

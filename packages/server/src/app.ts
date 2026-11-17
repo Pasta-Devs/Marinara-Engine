@@ -71,6 +71,7 @@ import { getLastFreeze } from "./lib/freeze-detector.js";
 import { buildSidecarHealthSection } from "./services/sidecar/sidecar-slot-report.js";
 import { getPreviousSessionStatus, getUncleanExitHistory } from "./lib/session-postmortem.js";
 import { followLogLevel, logger, prettyLogs, protectTerminalLogger } from "./lib/logger.js";
+import { isRestartPending, restartExitCode } from "./lib/server-restart.js";
 import { flushLorebookActivationStats } from "./services/lorebook/activation-stats.js";
 import { logRateLimited } from "./lib/log-rate-limit.js";
 import { genRequestId, registerRequestLogging, RequestLogController } from "./lib/request-logging.js";
@@ -435,7 +436,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   }
 
   // ── Health Check ──
-  app.get("/api/health", { config: { rateLimit: HEALTH_RATE_LIMIT } }, async (request) => {
+  app.get("/api/health", { config: { rateLimit: HEALTH_RATE_LIMIT } }, async (request, reply) => {
+    // The restart sheet counts any answer after this as the new server.
+    if (isRestartPending()) return reply.status(503).send({ status: "restarting" });
     // The probe is exempt from sign-in, so a caller who could not open the app itself (this machine,
     // a trusted network, or a signed-in browser) only learns that the server is up.
     if (!isBasicAuthSatisfied(request) || !isAndroidLocalAuthSatisfied(request)) return { status: "ok" };
@@ -457,6 +460,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
     return {
       status: "ok",
+      // Settings disables Restart Server when nothing would start this server again.
+      canRestart: restartExitCode() !== null,
       version: APP_VERSION,
       commit,
       build: getBuildLabel(),

@@ -1,6 +1,6 @@
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useUpdateChatMetadata, chatKeys } from "../../../hooks/use-chats";
+import { useUpdateChatMetadata, chatKeys, conversationStatusKeys } from "../../../hooks/use-chats";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useUIStore } from "../../../stores/ui.store";
 import { api } from "../../../lib/api-client";
@@ -92,7 +92,7 @@ export function AutonomousMessagingSection({
         if (controller.signal.aborted) return;
         await qc.refetchQueries({ queryKey: chatKeys.detail(chat.id) });
         await qc.invalidateQueries({ queryKey: chatKeys.list() });
-        await qc.invalidateQueries({ queryKey: ["conversation-status", chat.id] });
+        await qc.invalidateQueries({ queryKey: conversationStatusKeys.detail(chat.id) });
 
         const statuses = Object.values(result.results ?? {}).map((entry) => entry.status);
         const generatedCount = statuses.filter((status) => status === "generated").length;

@@ -14,7 +14,6 @@ import {
   Download,
   Sparkles,
   Pin,
-  Loader2,
   Images,
   Search,
   Film,
@@ -55,6 +54,7 @@ import {
   getSceneVideoDownloadName,
 } from "./ChatImageLightbox";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Spinner } from "../ui/Spinner";
 
 interface ChatGalleryProps {
   chatId: string;
@@ -645,7 +645,7 @@ export function ChatGallery({
                   className="flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
                 >
                   {isIllustrating ? (
-                    <Loader2 size="1rem" className="shrink-0 animate-spin" />
+                    <Spinner size="md" className="shrink-0" />
                   ) : (
                     <Paintbrush size="1rem" className="shrink-0" />
                   )}
@@ -701,7 +701,7 @@ export function ChatGallery({
                   className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
                 >
                   {isGeneratingSelfie ? (
-                    <Loader2 size="1rem" className="shrink-0 animate-spin" />
+                    <Spinner size="md" className="shrink-0" />
                   ) : (
                     <Camera size="1rem" className="shrink-0" />
                   )}
@@ -723,7 +723,7 @@ export function ChatGallery({
                 className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
               >
                 {isGeneratingStoryboard ? (
-                  <Loader2 size="1rem" className="shrink-0 animate-spin" />
+                  <Spinner size="md" className="shrink-0" />
                 ) : (
                   <PanelsTopLeft size="1rem" className="shrink-0" />
                 )}
@@ -744,7 +744,7 @@ export function ChatGallery({
                   className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
                 >
                   {isGeneratingVideo ? (
-                    <Loader2 size="1rem" className="shrink-0 animate-spin" />
+                    <Spinner size="md" className="shrink-0" />
                   ) : (
                     <Film size="1rem" className="shrink-0" />
                   )}
@@ -767,7 +767,7 @@ export function ChatGallery({
                 className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
               >
                 {isGeneratingBackground ? (
-                  <Loader2 size="1rem" className="shrink-0 animate-spin" />
+                  <Spinner size="md" className="shrink-0" />
                 ) : (
                   <Image size="1rem" className="shrink-0" />
                 )}
@@ -910,7 +910,7 @@ export function ChatGallery({
                 className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] py-10 text-xs text-[var(--muted-foreground)]"
                 role="status"
               >
-                <Loader2 size="1rem" className="animate-spin" />
+                <Spinner size="md" />
                 {localizeUi("ui.chat.chatgallery.searchingImages")}
               </div>
             )}
@@ -1161,11 +1161,7 @@ export function ChatGallery({
                                 className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-60"
                                 title={localizeUi("ui.chat.chatgallery.animateIllustration")}
                               >
-                                {isGeneratingVideo ? (
-                                  <Loader2 size="0.75rem" className="animate-spin" />
-                                ) : (
-                                  <Film size="0.75rem" />
-                                )}
+                                {isGeneratingVideo ? <Spinner size="sm" /> : <Film size="0.75rem" />}
                               </button>
                             )}
                             {assignTargets.length > 0 && (
@@ -1309,11 +1305,7 @@ export function ChatGallery({
                               className="mari-chrome-accent-surface mari-accent-animated pointer-events-auto rounded-md border p-1.5 transition-colors disabled:cursor-wait disabled:opacity-60"
                               title={localizeUi("ui.chat.chatgallery.deleteSceneVideo")}
                             >
-                              {deletingVideoId === video.id ? (
-                                <Loader2 size="0.75rem" className="animate-spin" />
-                              ) : (
-                                <Trash2 size="0.75rem" />
-                              )}
+                              {deletingVideoId === video.id ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
                             </button>
                           </div>
                         </div>

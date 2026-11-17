@@ -170,7 +170,7 @@ export function reviewRoundClaim(
   return {
     kind: "stop",
     content:
-      "Professor Mari could not verify the requested workspace change, so I stopped before showing an unsupported completion claim. Ask her to continue and she can use the saved workspace trace.",
+      "Professor Mari could not verify the requested workspace change, so I withheld the completion claim from the answer. Ask her to continue and she can use the saved workspace trace.",
   };
 }
 

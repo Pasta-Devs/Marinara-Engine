@@ -25,6 +25,7 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { MariChangeReceipt, type MariReceiptControls } from "../MariChangeReceipt";
 
 import { TranscriptRow } from "../MariTranscriptRow";
+import { MariImageOpener, type MariReplacedMessage } from "./MariImageLightbox";
 import { cn, copyToClipboard } from "../../../lib/utils";
 import {
   mariReferenceFact,
@@ -468,6 +469,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   onRegenerate,
   canRegenerate = false,
   onRemoveAttachment,
+  onImageReplaced,
   onOpenActionResult,
   onOpenResource,
   characterSubject,
@@ -490,6 +492,8 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   onRegenerate?: (messageId: string) => void;
   canRegenerate?: boolean;
   onRemoveAttachment?: (messageId: string, attachmentIndex: number) => void;
+  /** The lightbox regenerated a picture in this reply and the server swapped it (#9387). */
+  onImageReplaced?: (message: MariReplacedMessage) => void;
   onOpenActionResult: (result: MariWorkspaceActionResult) => void;
   onOpenResource: (resource: MariReferencedResource) => void;
   characterSubject?: CharacterPreviewModel | null;
@@ -630,44 +634,46 @@ export const CompactMariMessage = memo(function CompactMariMessage({
   if (workspaceTrace) {
     const traceItems = timelineItemsFromTrace(workspaceTrace, message);
     return (
-      <div className="group">
-        <MariWorkTimeline
-          items={traceItems}
-          character={characterSubject}
-          lorebook={lorebookSubject}
-          active={false}
-          restStory={restStory}
-          pullTarget={pullTarget}
-          goal={goal}
-          runFailed={Boolean(getMessageRunError(message, { includeDismissed: true }))}
-          // ponytail: a retry that reused your saved message counts from your first send; a per-attempt
-          // start would need the server to stamp each run. Add it if long retries make this misleading.
-          startedAtMs={runStartedAtMs}
-          endedAtMs={getMessageRunTime(message, "mariRunFinishedAt") || Date.parse(message.createdAt) || null}
-          characterPreviews={characterPreviews}
-          lorebookPreviews={lorebookPreviews}
-          actionResults={actionResults}
-          onOpenResource={onOpenResource}
-          held={typeof message.extra === "object" && message.extra?.mariDeferredMutations === true}
-        >
-          <MariWorkTimelineOutcome
-            content={content}
-            actionResults={actionResults}
+      <MariImageOpener chatId={message.chatId} messageId={message.id} onImageReplaced={onImageReplaced}>
+        <div className="group">
+          <MariWorkTimeline
+            items={traceItems}
+            character={characterSubject}
+            lorebook={lorebookSubject}
+            active={false}
+            restStory={restStory}
+            pullTarget={pullTarget}
+            goal={goal}
+            runFailed={Boolean(getMessageRunError(message, { includeDismissed: true }))}
+            // ponytail: a retry that reused your saved message counts from your first send; a per-attempt
+            // start would need the server to stamp each run. Add it if long retries make this misleading.
+            startedAtMs={runStartedAtMs}
+            endedAtMs={getMessageRunTime(message, "mariRunFinishedAt") || Date.parse(message.createdAt) || null}
             characterPreviews={characterPreviews}
             lorebookPreviews={lorebookPreviews}
-            onOpenActionResult={onOpenActionResult}
-            onRegenerate={onRegenerate && canRegenerate ? () => onRegenerate(message.id) : undefined}
-            onDelete={onDelete ? () => onDelete(message.id) : undefined}
-            reviews={reviews}
-            nothingChanged={toMessageExtra(message)?.mariNothingChanged === true}
-          />
-        </MariWorkTimeline>
-      </div>
+            actionResults={actionResults}
+            onOpenResource={onOpenResource}
+            held={typeof message.extra === "object" && message.extra?.mariDeferredMutations === true}
+          >
+            <MariWorkTimelineOutcome
+              content={content}
+              actionResults={actionResults}
+              characterPreviews={characterPreviews}
+              lorebookPreviews={lorebookPreviews}
+              onOpenActionResult={onOpenActionResult}
+              onRegenerate={onRegenerate && canRegenerate ? () => onRegenerate(message.id) : undefined}
+              onDelete={onDelete ? () => onDelete(message.id) : undefined}
+              reviews={reviews}
+              nothingChanged={toMessageExtra(message)?.mariNothingChanged === true}
+            />
+          </MariWorkTimeline>
+        </div>
+      </MariImageOpener>
     );
   }
 
   return (
-    <>
+    <MariImageOpener chatId={message.chatId} messageId={message.id} onImageReplaced={onImageReplaced}>
       <TranscriptRow layout="document" className="group" marker={null}>
         <MariResourceSubject character={characterSubject} lorebook={lorebookSubject} className="mb-2" />
         {goal}
@@ -699,6 +705,6 @@ export const CompactMariMessage = memo(function CompactMariMessage({
           <MariReasoningPanel thinking={thinking} />
         </TranscriptRow>
       )}
-    </>
+    </MariImageOpener>
   );
 });

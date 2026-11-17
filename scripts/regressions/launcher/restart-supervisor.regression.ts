@@ -121,4 +121,23 @@ try {
   await exited;
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
+// The Docker entrypoint supervises too, so a container without a restart policy survives an in-app restart.
+const marker = join(mkdtempSync(join(tmpdir(), "marinara-entrypoint-restart-")), "first-run");
+const docker = spawnSync(
+  process.execPath,
+  [
+    join(root, "scripts", "docker-entrypoint.mjs"),
+    process.execPath,
+    "-e",
+    `const fs = require("node:fs");
+     if (process.env.MARINARA_RESTART_SUPERVISOR !== String(process.ppid)) process.exit(3);
+     if (!fs.existsSync(process.argv[1])) { fs.writeFileSync(process.argv[1], ""); process.exit(75); }
+     process.stdout.write("replacement");`,
+    marker,
+  ],
+  { encoding: "utf8", timeout: 20_000 },
+);
+assert.equal(docker.status, 0, docker.stderr);
+assert.equal(docker.stdout, "replacement", "the entrypoint starts a new server after exit code 75");
+rmSync(join(marker, ".."), { recursive: true, force: true });
 console.log("Real restart route, single launcher ownership, old-process exit and launcher wiring passed.");

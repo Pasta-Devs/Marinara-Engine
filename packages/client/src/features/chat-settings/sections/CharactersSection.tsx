@@ -19,7 +19,6 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 import type { CharacterDisplayInfo } from "../../../lib/character-display";
 
 interface CharactersSectionProps {
-  order: number;
   chat: Chat;
   chatMode: ChatMode;
   isConversation: boolean;
@@ -53,7 +52,6 @@ interface CharactersSectionProps {
 }
 
 export function CharactersSection({
-  order,
   chat,
   chatMode,
   isConversation,
@@ -136,7 +134,6 @@ export function CharactersSection({
   return (
     <ChatSettingsSection
       id={`${chatMode}-characters`}
-      style={{ order }}
       label={localizeUi("navigation.topbar.characters")}
       icon={<Users size="0.875rem" />}
       count={chatCharacterCount}

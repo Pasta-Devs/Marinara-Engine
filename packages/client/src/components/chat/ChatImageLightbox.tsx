@@ -8,7 +8,7 @@ import { useGalleryStore } from "../../stores/gallery.store";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
 import { cn } from "../../lib/utils";
 import { ImagePromptPanel } from "./ImagePromptPanel";
-import { ImageRegeneratePanel } from "./ImageRegeneratePanel";
+import { ImageRegeneratePanel, type ImageRegenerator } from "./ImageRegeneratePanel";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export function formatChatImageMeta(image: Pick<ChatImage, "model" | "provider" | "width" | "height">) {
@@ -57,6 +57,15 @@ interface ChatImageLightboxProps {
    * message the image was opened from.
    */
   regenerate?: { messageId?: string };
+  /** Where Regenerate sends the draft when the image isn't a chat gallery row (Professor Mari's, #9387). */
+  regenerator?: ImageRegenerator;
+  /** Shown after the model, provider and size, e.g. the style profile that shaped the prompt. */
+  extraMeta?: string;
+  /**
+   * Opened from Professor Mari's window, which sits above the app's modals. The lightbox joins her layer, the one a
+   * Modal lifts itself to over her, so it lands above her window and the image-model picker still opens above it.
+   */
+  overMari?: boolean;
   onPin?: (image: ChatImage) => void;
   onClose: () => void;
 }
@@ -67,6 +76,9 @@ export function ChatImageLightbox({
   pinEnabled = true,
   downloadEnabled = true,
   regenerate,
+  regenerator,
+  extraMeta,
+  overMari = false,
   onPin,
   onClose,
 }: ChatImageLightboxProps) {
@@ -87,23 +99,28 @@ export function ChatImageLightbox({
   const image = galleryRow ?? activeImage;
   const record = parseChatImageGenerationRecord(image.generation);
   const prompt = record?.prompt ?? image.prompt;
-  const meta = formatChatImageMeta(image);
+  const meta = [formatChatImageMeta(image), extraMeta].filter(Boolean).join(" | ");
   const downloadName = getChatImageDownloadName(image);
   const loadingDetails = needsGalleryRow && gallery.isFetching && !gallery.data;
   const detailsFailed = needsGalleryRow && gallery.isError && !gallery.data;
   const hasDetails = !!(loadingDetails || detailsFailed || prompt.trim() || meta || record);
   // Nothing to re-send for an upload without a prompt.
   const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && !!prompt.trim();
+  // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for both, or focus
+  // falls to the page and Escape no longer reaches the lightbox.
   useEffect(() => {
-    if (!editing) closeButtonRef.current?.focus();
-  }, [editing]);
+    if (!editing && !busy) closeButtonRef.current?.focus();
+  }, [editing, busy]);
 
   if (!portalRoot) return null;
 
   return createPortal(
     <div
       data-chat-floating-panel
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
+      className={cn(
+        "fixed inset-0 flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]",
+        overMari ? "z-(--mari-layer-omnibar)" : "z-[10000]",
+      )}
       role="dialog"
       aria-modal="true"
       aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
@@ -187,6 +204,7 @@ export function ChatImageLightbox({
           <ImageRegeneratePanel
             key={image.id}
             image={image}
+            regenerator={regenerator}
             record={record}
             messageId={regenerate?.messageId}
             onBusyChange={setBusy}

@@ -62,7 +62,7 @@ for (const mode of ["conversation", "roleplay"] as const) {
           .click();
       };
       const section = page.locator('[data-chat-settings-section="advanced-parameters"]');
-      const exclusion = section.getByRole("checkbox", { name: "Exclude Past Reasoning" });
+      const exclusion = section.getByRole("switch", { name: "Exclude Past Reasoning" });
       const limit = section.getByRole("textbox", { name: "Past reasoning blocks", exact: true });
       const prefill = section.getByPlaceholder("Understood. I will now proceed with the output.", { exact: true });
       const readMeta = async () => {

@@ -6,6 +6,7 @@ import {
   isGeminiThinkingLevelModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
+  isNanoGptMiniMaxM31FlashModel,
   isOpenAIGpt56Model,
   isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
@@ -381,7 +382,9 @@ export function reasoningEffortChoices(
     }));
     if (provider === "openai_chatgpt") return [off, ...levels];
     // Adaptive-only Claude models keep thinking on; "off" only works where the model can disable it.
-    const offWorks = !caps.adaptiveThinking || supportsClaudeThinkingDisable(model);
+    const offWorks =
+      !(provider === "nanogpt" && isNanoGptMiniMaxM31FlashModel(model)) &&
+      (!caps.adaptiveThinking || supportsClaudeThinkingDisable(model));
     return offWorks ? [off, ...levels] : levels;
   }
 
@@ -396,7 +399,7 @@ export function reasoningEffortChoices(
     group.push(level);
     groups.set(sent, group);
   }
-  // A model that cannot turn thinking off (Gemini 4 Argon or Carbon) sends a level for Off too, so Off is not offered.
+  // Models that map Off to an active level only offer their supported effort levels.
   const offSendsLevel = !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
   const choices: Array<GenerationParameterChoice<StoredEffortLevel | null>> = offSendsLevel ? [] : [off];
   for (const [sent, levels] of groups) {

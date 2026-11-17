@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import {
   isChannelCheckoutBranch,
   isGitUpdateApplyAllowed,
+  isUpdateChannelSwitch,
+  resolveDockerChannelImageTags,
 } from "../../../packages/server/src/services/updates/update-apply-policy.js";
 import {
   getManualGitApplyCommand,
@@ -198,5 +200,23 @@ assert.match(
   /applyUnavailableReason === "dev-branch"/u,
   "the client must explain the development-branch refusal",
 );
+
+assert.equal(isUpdateChannelSwitch("docker", "stable", "staging"), true);
+assert.equal(isUpdateChannelSwitch("docker", "staging", "staging"), false);
+assert.equal(isUpdateChannelSwitch("git", "stable", "staging"), true);
+assert.equal(isUpdateChannelSwitch("standalone", "stable", "staging"), false);
+assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "stable"), {
+  dockerImage: "ghcr.io/pasta-devs/marinara-engine",
+  dockerImageTag: "ghcr.io/pasta-devs/marinara-engine:2.4.3",
+  dockerLiteImageTag: "ghcr.io/pasta-devs/marinara-engine:2.4.3-lite",
+});
+assert.deepEqual(resolveDockerChannelImageTags("ghcr.io/pasta-devs/marinara-engine", "2.4.3", "staging"), {
+  dockerImage: "ghcr.io/pasta-devs/marinara-engine",
+  dockerImageTag: "ghcr.io/pasta-devs/marinara-engine:staging",
+  dockerLiteImageTag: null,
+});
+assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: false, localChannelSwitchRequested: false }), false);
+assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: false, localChannelSwitchRequested: true }), true);
+assert.equal(isGitUpdateApplyAllowed({ updatesApplyEnabled: true, localChannelSwitchRequested: false }), true);
 
 console.log("Update-apply hardening regression checks passed.");

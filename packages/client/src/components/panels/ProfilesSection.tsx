@@ -31,6 +31,7 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
+import { Checkbox } from "../ui/Checkbox";
 
 interface ProfilesSectionProps {
   selectionMode: boolean;
@@ -375,8 +376,7 @@ export function ProfilesSection({ selectionMode, setSelectionMode, activeChatMod
         </div>
         {selectionMode && (
           <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selectable.length > 0 && selectable.every((profile) => selectedIds.has(profile.id))}
               disabled={busy || selectable.length === 0}
               onChange={(event) =>

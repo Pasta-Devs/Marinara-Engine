@@ -45,6 +45,7 @@ try {
     MAX_REPEATED_COMMAND_FAILURES,
     workspaceTextClaimsHeldChange,
     draftVisibleText,
+    capRunImages,
   } = await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { assertClosedToolSet, describeCutReply, outputLimitRepairPrompt, MAX_OUTPUT_LIMIT_REPAIRS } =
     await import("../../../packages/server/src/services/professor-mari/pi-runtime.js");
@@ -341,7 +342,7 @@ try {
       statusTexts(events).some((text) => /Tool round limit reached/u.test(text)),
       atLimit,
     );
-    assert.ok(!statusTexts(events).some((text) => /unsupported completion claim/u.test(text)));
+    assert.ok(!statusTexts(events).some((text) => /withheld the completion claim/u.test(text)));
   }
 
   // #7879 investigation proof: real Pi tool execution against the real store,
@@ -836,20 +837,41 @@ try {
       assert.ok(!history.includes(notice), `${runtime}: the notice is not`);
 
       // Narration beside a real command is still repaired as a step claim.
+      const blockedText = "I've created entry A. Now let me check entry B.";
       const midRun = await start(
         `mid-run claim ${runtime}`,
         [
-          answer(runtime, "I've created entry A. Now let me check entry B.", [
-            { id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } },
-          ]),
+          answer(runtime, blockedText, [{ id: `claim-read-${runtime}`, name: "read", args: { path: "hello.txt" } }]),
           answer(runtime, "Entry A is not there yet."),
         ],
         runtime,
       );
       await midRun.done;
       assert.equal(requests.length, 2, `${runtime}: the step claim is repaired`);
-      assert.match(lastUserText(1), /You claimed a step was completed/u);
-      assert.equal((await lastAssistant(midRun.chat.id))?.content, "Entry A is not there yet.");
+      assert.equal(lastUserText(0), "Do the thing.");
+      assert.match(
+        lastUserText(1),
+        /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. You claimed a step was completed/u,
+      );
+      const blocked = { type: "blocked_draft", content: blockedText };
+      assert.deepEqual(
+        midRun.events.filter((event) => event.type === "blocked_draft"),
+        [{ type: "blocked_draft", data: blockedText }],
+      );
+      const savedMidRun = await lastAssistant(midRun.chat.id);
+      assert.equal(savedMidRun?.content, "Entry A is not there yet.");
+      const savedTrace = savedMidRun?.extra.mariWorkspaceTimeline as Array<{ type: string }>;
+      assert.deepEqual(
+        savedTrace.filter((item) => item.type === "blocked_draft"),
+        [blocked],
+      );
+      assert.ok(
+        !midRun.events
+          .filter((event) => event.type === "token")
+          .map((event) => event.data)
+          .join("")
+          .includes(blockedText),
+      );
 
       // A shell command or a failed change was tried: a false closing claim is repaired, with no flag.
       for (const call of [
@@ -871,7 +893,7 @@ try {
         );
         await tried.done;
         assert.equal(requests.length, 3, `${runtime} ${call.name}: the claim is repaired`);
-        assert.match(lastUserText(2), /no mutating command succeeded/u);
+        assert.match(lastUserText(2), /^\[Guardrail\].*no mutating command succeeded/u);
         const saved = await lastAssistant(tried.chat.id);
         assert.equal(saved?.content, "Nothing changed yet.");
         assert.equal(saved?.extra.mariNothingChanged, undefined);
@@ -894,6 +916,23 @@ try {
       if (runtime === "classic") {
         assert.equal(requests.length, 2, "classic: a claim beside a held change is repaired");
         assert.match(lastUserText(1), /no mutating command succeeded/u);
+        const draftOnly = await start(
+          "classic blocked draft with no final answer",
+          [
+            answer(runtime, "Done! I updated the file.", [heldWrite]),
+            reply(JSON.stringify({ say: "", stop: true, suggestions: [{ label: "Continue", prompt: "Continue" }] })),
+          ],
+          runtime,
+        );
+        await draftOnly.done;
+        const savedDraftOnly = await lastAssistant(draftOnly.chat.id);
+        assert.match(savedDraftOnly?.content ?? "", /blocked draft is saved/u);
+        assert.doesNotMatch(savedDraftOnly?.content ?? "", /finished workspace steps/u);
+        const draftTrace = savedDraftOnly?.extra.mariWorkspaceTimeline as Array<{ type: string; content?: string }>;
+        assert.ok(
+          draftTrace.some((item) => item.type === "blocked_draft" && item.content === "Done! I updated the file."),
+        );
+        assert.ok(!draftTrace.some((item) => item.type === "tool"));
       } else {
         assert.equal(requests.length, 1);
         assert.match((await lastAssistant(held.chat.id))?.content ?? "", /^I have changes ready\./u);
@@ -1525,7 +1564,7 @@ try {
     await cut.done;
     assert.equal(requests.length, 3, "two recoveries, then the finished answer");
     assert.equal(existsSync(join(workspaceDir, "cut.txt")), false, "a cut-off call never runs");
-    assert.match(lastPrompt(1), /^\[Engine note, not from the user\]/u);
+    assert.match(lastPrompt(1), /^\[Guardrail\]/u);
     assert.match(lastPrompt(1), /`app_data` with action `character\.onboarding\.update`/u);
     assert.match(lastPrompt(1), /about 8192 tokens/u, "the connection's output limit is quoted");
     assert.match(lastPrompt(2), /cut off again/u);
@@ -1580,7 +1619,7 @@ try {
     assert.match(lastPrompt(2), /was a dry run/u, "control: the uncut claim draws the dry-run repair");
     const dryCut = await start("pi dry-run cut claim", dryRunThenClaim("length"));
     await dryCut.done;
-    assert.match(lastPrompt(2), /^\[Engine note, not from the user\]/u);
+    assert.match(lastPrompt(2), /^\[Guardrail\]/u);
     assert.doesNotMatch(lastPrompt(2), /dry run/u, "a cut claim is not sent the dry-run repair");
 
     // A failed stream is not a limit cut: its words still face the claim audit, and it keeps the old stop. The change
@@ -2073,6 +2112,103 @@ try {
     assert.equal(requests.length, 2, "an invalid ask gets another round");
     assert.match(toolMessages(requests[1]!.messages)[0]?.content ?? "", /No valid questions/u);
     assert.equal((await lastAssistant(invalid.chat.id))?.extra.mariQuestions, undefined);
+  }
+
+  // #9342: a run carries at most 8 looked-at pictures; the oldest looks lose theirs first and keep their text, and
+  // the user's own attachments never count or get trimmed.
+  {
+    const run: ChatMessage[] = [
+      { role: "user", content: "mine", images: ["u1", "u2", "u3"] },
+      { role: "user", content: "a", images: ["a1", "a2", "a3", "a4"], fromImageLook: true },
+      { role: "assistant", content: "x" },
+      { role: "user", content: "b", images: ["b1", "b2", "b3"], fromImageLook: true },
+      { role: "user", content: "c", images: ["c1", "c2"], fromImageLook: true },
+    ];
+    capRunImages(run);
+    assert.deepEqual(
+      run.map((message) => message.images ?? null),
+      [["u1", "u2", "u3"], ["a2", "a3", "a4"], null, ["b1", "b2", "b3"], ["c1", "c2"]],
+    );
+    capRunImages(run, 2);
+    assert.deepEqual(
+      run.map((message) => message.images ?? null),
+      [["u1", "u2", "u3"], null, null, null, ["c1", "c2"]],
+    );
+    assert.equal(run[1]!.content, "a", "the look's text stays");
+  }
+  // #9342: `mari images look` pictures reach her next request in every runtime, stay for the rest of the run, and
+  // never reach the saved chat (the next turn starts with text only).
+  {
+    const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
+    const sharp = await getSharp();
+    writeFileSync(
+      join(workspaceDir, "pic.png"),
+      await sharp({ create: { width: 40, height: 20, channels: 3, background: "#3366aa" } })
+        .png()
+        .toBuffer(),
+    );
+    mode = "auto";
+    const lookCall = { id: "look-1", name: "bash", args: { command: "mari images look pic.png" } };
+    const readCall = { id: "read-1", name: "read", args: { path: "hello.txt" } };
+    const pictures = (message: ChatMessage | undefined) => message?.images ?? [];
+    const withPictures = (messages: ChatMessage[]) => messages.filter((message) => pictures(message).length > 0);
+
+    // pi, native tools: the picture follows the tool results on a user message, never between two tool messages.
+    provider = "custom";
+    const native = await start("look native", [
+      reply("", [lookCall, readCall]),
+      reply("", [{ ...readCall, id: "read-2" }]),
+      reply("A blue rectangle."),
+    ]);
+    await native.done;
+    assert.equal(requests.length, 3);
+    const nativeSecond = requests[1]!.messages;
+    const pictureAt = nativeSecond.findIndex((message) => pictures(message).length > 0);
+    assert.ok(pictureAt > 0, JSON.stringify(nativeSecond.map((message) => message.role)));
+    assert.deepEqual(
+      nativeSecond.slice(pictureAt - 2, pictureAt + 1).map((message) => message.role),
+      ["tool", "tool", "user"],
+      "both tool results first, then the pictures",
+    );
+    assert.equal(pictures(nativeSecond[pictureAt]).length, 1);
+    assert.match(pictures(nativeSecond[pictureAt])[0]!, /^data:image\/jpeg;base64,/);
+    assert.match(nativeSecond[pictureAt]!.content, /mari images look/);
+    const lookResult = toolMessages(nativeSecond).find((message) => message.tool_call_id === "look-1")!;
+    assert.match(lookResult.content, /"sent": "40x20"/);
+    assert.ok(!lookResult.content.includes("base64,"), "the tool result text never carries pixels");
+    assert.equal(withPictures(requests[2]!.messages).length, 1, "the picture stays for the rest of the run");
+    const nativeNext = await start("unused", [reply("Still blue.")], "pi", service, native.chat.id, "And now?");
+    await nativeNext.done;
+    assert.equal(withPictures(requests[0]!.messages).length, 0, "the next turn keeps text only");
+    assert.ok(!JSON.stringify(await chats.listMessages(native.chat.id)).includes("base64,"), "no pixels saved");
+
+    // pi, textual tools: the picture rides on the result's user message.
+    provider = "claude_subscription";
+    const call = (name: string, args: Record<string, unknown>) =>
+      `<tool_call>${JSON.stringify({ name, arguments: args })}</tool_call>`;
+    const textual = await start("look textual", [
+      reply(`Looking.\n${call("bash", lookCall.args)}`),
+      reply("A blue rectangle."),
+    ]);
+    await textual.done;
+    const textualPictures = withPictures(requests[1]!.messages);
+    assert.equal(textualPictures.length, 1);
+    assert.match(textualPictures[0]!.content, /workspace_command_result name="bash" success="true"/u);
+    provider = "custom";
+
+    // Classic: the picture rides on the command-result message.
+    const classic = await start(
+      "look classic",
+      [
+        reply(JSON.stringify({ say: "", commands: [{ name: "bash", arguments: lookCall.args }], stop: false })),
+        reply(JSON.stringify({ say: "A blue rectangle.", commands: [], stop: true })),
+      ],
+      "classic",
+    );
+    await classic.done;
+    const classicPictures = withPictures(requests[1]!.messages);
+    assert.equal(classicPictures.length, 1, JSON.stringify(requests[1]!.messages.map((message) => message.role)));
+    assert.match(classicPictures[0]!.content, /workspace_command_result name="bash"/u);
   }
 
   console.log("Professor Mari pi runtime regression passed.");

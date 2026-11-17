@@ -117,5 +117,8 @@ export function removeCommandToken(
   draft: string,
   token: Pick<ActiveComposerToken, "start" | "end">,
 ): { value: string; caret: number } {
-  return { value: draft.slice(0, token.start) + draft.slice(token.end), caret: token.start };
+  // Mid-sentence, `foo /new bar` would leave two spaces behind; keep one.
+  const end =
+    /[ \t]/.test(draft[token.start - 1] ?? "") && /[ \t]/.test(draft[token.end] ?? "") ? token.end + 1 : token.end;
+  return { value: draft.slice(0, token.start) + draft.slice(end), caret: token.start };
 }

@@ -182,7 +182,7 @@ try {
 
   // ── Withheld-reply guidance in both runtime prompts ──
   {
-    assert.match(MARI_WITHHELD_REPLY_NOTICE, /did NOT see/u);
+    assert.match(MARI_WITHHELD_REPLY_NOTICE, /withheld from the chat answer/u);
     assert.match(MARI_WITHHELD_REPLY_NOTICE, /original plan is still there/u);
     assert.doesNotMatch(MARI_WITHHELD_REPLY_NOTICE, /\bsay\b/u, "the notice reaches pi, which has no say field");
     // Only a turn with words withheld anything.
@@ -287,14 +287,20 @@ try {
     const seen = await run("classic", [frame(plan, [], false), frame(plan)]);
     classicRequests.push(...seen);
     assert.equal(seen.length, 2);
-    assert.match(lastUser(seen[1]), /^Continue the same workspace task\./u);
+    assert.match(
+      lastUser(seen[1]),
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Continue the same workspace task\./u,
+    );
     assert.ok(lastUser(seen[1]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "classic: a withheld say carries the notice");
   }
   // ...and a silent frame had nothing to withhold.
   {
     const seen = await run("classic", [frame("", [], false), frame("All set.")]);
     classicRequests.push(...seen);
-    assert.match(lastUser(seen[1]), /^Continue the same workspace task\./u);
+    assert.match(
+      lastUser(seen[1]),
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Continue the same workspace task\./u,
+    );
     assert.ok(!lastUser(seen[1]).includes(MARI_WITHHELD_REPLY_NOTICE), "classic: a silent frame gets no notice");
   }
   // Classic: the claim audit discards the frame's words too.
@@ -342,7 +348,10 @@ try {
       reply("The edit failed; no change was made."),
     ]);
     assert.equal(seen.length, 3);
-    assert.match(lastUser(seen[2]), /^Nothing is held/u);
+    assert.match(
+      lastUser(seen[2]),
+      /^\[Guardrail\] Automated instruction from Marinara\. User approval must come from the user\. Nothing is held/u,
+    );
     assert.ok(lastUser(seen[2]).endsWith(MARI_WITHHELD_REPLY_NOTICE), "pi: the held-claim steer carries the notice");
   }
   // pi: words written before a call the output limit cut (often the plan) are withheld too.

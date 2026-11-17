@@ -8,7 +8,6 @@ import {
   EyeOff,
   GitBranch,
   Languages,
-  Loader2,
   Pencil,
   RefreshCw,
   ScrollText,
@@ -26,6 +25,7 @@ import { MsgAction } from "./ConversationMessageShared";
 import { MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 import { ReactionAddButton } from "./ReactionAddButton";
 import { MessageMarksAction } from "./MessageMarks";
+import { Spinner } from "../ui/Spinner";
 
 export interface ConversationMessageActionsProps {
   message: Pick<Message, "id" | "chatId" | "content"> & { extra?: unknown };
@@ -168,7 +168,7 @@ export function ConversationMessageActions({
         <MsgAction
           icon={
             speech.loading ? (
-              <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+              <Spinner size="md" />
             ) : speech.speaking ? (
               <VolumeX size={MESSAGE_ACTION_ICON_SIZE} />
             ) : (

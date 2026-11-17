@@ -133,7 +133,7 @@ test("Translation prompt drafts keep the caret, clear normally, and save to thei
       await route.fallback();
     });
     await section.getByText("Auto-Translate Responses", { exact: true }).click();
-    await expect(section.getByRole("checkbox", { name: /^Auto-Translate Responses/ })).toBeChecked();
+    await expect(section.getByRole("switch", { name: /^Auto-Translate Responses/ })).toBeChecked();
     await expect.poll(() => earlierSaveHeld).toBe(true);
     const pendingPrompt = "Keep this prompt while its earlier save is held.";
     await prompts.nth(0).fill(pendingPrompt);

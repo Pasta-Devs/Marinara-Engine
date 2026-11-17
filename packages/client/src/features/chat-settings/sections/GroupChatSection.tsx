@@ -17,7 +17,6 @@ import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface GroupChatSectionProps {
   sectionId: string;
-  order: number;
   /** Rendered either way so the scenario draft lives as long as the drawer does; hidden when false. */
   visible: boolean;
   chat: Chat;
@@ -32,7 +31,6 @@ interface GroupChatSectionProps {
 
 export function GroupChatSection({
   sectionId,
-  order,
   visible,
   chat,
   metadata,
@@ -66,7 +64,6 @@ export function GroupChatSection({
   return (
     <ChatSettingsSection
       id={sectionId}
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.groupChat")}
       icon={<MessagesSquare size="0.875rem" />}
       help={

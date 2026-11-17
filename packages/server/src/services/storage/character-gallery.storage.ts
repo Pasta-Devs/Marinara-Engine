@@ -40,6 +40,14 @@ export function createCharacterGalleryStorage(db: DB) {
         .orderBy(desc(characterImages.createdAt));
     },
 
+    async listByCustomKind(customKind: GalleryTagKind) {
+      return db
+        .select()
+        .from(characterImages)
+        .where(eq(characterImages.customKind, customKind))
+        .orderBy(desc(characterImages.createdAt));
+    },
+
     async listLegacyCandidates(input: LegacyCharacterImageCandidateInput) {
       return db
         .select()
@@ -93,6 +101,15 @@ export function createCharacterGalleryStorage(db: DB) {
 
     async remove(id: string) {
       await db.delete(characterImages).where(eq(characterImages.id, id));
+    },
+
+    /** Point an image at a new file (a cleaned-up copy), keeping its id, tag, prompt and place in the gallery. */
+    async replaceFile(id: string, patch: { filePath: string; width: number | null; height: number | null }) {
+      await db
+        .update(characterImages)
+        .set({ filePath: patch.filePath, width: patch.width, height: patch.height })
+        .where(eq(characterImages.id, id));
+      return this.getById(id);
     },
 
     async setTag(

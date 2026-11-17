@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useShallow } from "zustand/react/shallow";
 import { Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -40,7 +41,16 @@ export function ChatWindowFavoriteButton({
     queryFn: async () => parseChatWindowDefault((await api.get<{ value: string | null }>(path)).value),
   });
   // This small button alone subscribes to moves, pinning and docking to show whether the saved setup matches.
-  const windows = useFloatingWindowStore();
+  const windows = useFloatingWindowStore(
+    useShallow(({ layouts, detached, phoneBubbles, bubbles, phoneMenu, buttonLayout }) => ({
+      layouts,
+      detached,
+      phoneBubbles,
+      bubbles,
+      phoneMenu,
+      buttonLayout,
+    })),
+  );
   const layout = selectWindowLayoutSnapshot(windows);
   const savedLayout = parseWindowLayoutSnapshot(favorite.data?.windowLayout);
   // Upgraded defaults choose button slots on each device. Those automatic slots still represent

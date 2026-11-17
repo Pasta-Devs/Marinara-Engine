@@ -1,3 +1,5 @@
+import { showConfirmDialog } from "./app-dialogs";
+
 const EDITOR_IDS = [
   "characterDetailId",
   "personaDetailId",
@@ -34,8 +36,11 @@ export function hasEditorLeaveHandler(state: EditorIds): boolean {
  * handler saves itself on the way out (the store routes the leave through it), so only editors without
  * one need the prompt.
  */
-export function confirmEditorLeave(state: EditorIds & { editorDirty?: boolean }, message: string): boolean {
-  return !state.editorDirty || hasEditorLeaveHandler(state) || window.confirm(message);
+export async function confirmEditorLeave(
+  state: EditorIds & { editorDirty?: boolean },
+  message: string,
+): Promise<boolean> {
+  return !state.editorDirty || hasEditorLeaveHandler(state) || showConfirmDialog({ message });
 }
 
 /** Explicit deletion/discard has already been confirmed by the editor. */

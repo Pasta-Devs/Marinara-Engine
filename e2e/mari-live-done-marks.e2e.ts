@@ -46,9 +46,10 @@ test("done marks show on each step while Mari is still working", async ({ page, 
 
   const tool = (action: string) => ({ name: "app_data", arguments: { action } });
   // Each round: the action the fake model returns, and how long it holds the response first.
+  const blockedText = "I created a character named Elara.";
   const rounds: Array<{ delayMs: number; action: Record<string, unknown> }> = [
     { delayMs: 0, action: { say: "", commands: [tool("character.list"), tool("lorebook.list")], stop: false } },
-    { delayMs: 4_000, action: { say: "", commands: [tool("persona.list")], stop: false } },
+    { delayMs: 4_000, action: { say: blockedText, commands: [tool("persona.list")], stop: false } },
     { delayMs: 4_000, action: { say: "You have no characters, lorebooks or personas yet.", commands: [], stop: true } },
     { delayMs: 0, action: { say: "Hello! Ask me anything.", commands: [], stop: true } },
   ];
@@ -140,6 +141,10 @@ test("done marks show on each step while Mari is still working", async ({ page, 
     }
     await page.screenshot({ path: "test-results/mari-live-done-marks-proof/live-done-marks-round2-1440.png" });
 
+    const liveDraft = timeline.getByText("Blocked draft", { exact: true });
+    await expect(liveDraft).toBeVisible();
+    await expect(timeline.getByText(blockedText, { exact: true })).toBeHidden();
+
     // The run ends: this phase has 3 steps (at MAX_OPEN_PHASE_STEPS), so 62h keeps it open instead of
     // folding it; its summary and "Worked for" both still carry the check.
     const finished = mariPane.locator('.mari-work-timeline[data-active="false"]').last();
@@ -149,6 +154,16 @@ test("done marks show on each step while Mari is still working", async ({ page, 
     await expect(phase.locator("> summary .mari-done-mark--step")).toBeVisible();
     await expect(finished.locator(".mari-work-timeline__header .mari-work-timeline__done-mark")).toBeVisible();
     await page.screenshot({ path: "test-results/mari-live-done-marks-proof/live-done-marks-finished-1440.png" });
+
+    const savedDraft = finished.getByText("Blocked draft", { exact: true });
+    const draftText = finished.getByText(blockedText, { exact: true });
+    await expect(savedDraft).toBeVisible();
+    await expect(draftText).toBeHidden();
+    await savedDraft.click();
+    await expect(draftText).toBeVisible();
+    await page.screenshot({ path: "test-results/mari-live-done-marks-proof/blocked-draft-expanded.png" });
+    await savedDraft.click();
+    await expect(draftText).toBeHidden();
 
     // R13.2: the prompt she really got no longer sends her on reads just to make a card show, lets a
     // question that needs it get a paragraph, and keeps chat.diagnose for real bad-reply complaints.

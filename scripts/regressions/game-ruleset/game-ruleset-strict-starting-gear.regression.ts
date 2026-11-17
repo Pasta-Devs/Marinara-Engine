@@ -158,6 +158,8 @@ try {
     "@tanstack/react-query": `export const useQueries = ({combine}) => combine([]);`,
     "lucide-react": `export const Check = 'check', ChevronLeft = 'left', ChevronRight = 'right', Dices = 'dice', Minus = 'minus', Plus = 'plus', Trash2 = 'trash';`,
     "../ui/Modal": `export const Modal = 'modal';`,
+    "../ui/Checkbox": `export const Checkbox = 'checkbox';`,
+    "../../lib/app-dialogs": `export const showConfirmDialog = async () => true;`,
     "./RulesetItemPicker": `export const rulesetItemStatsLine = () => '';`,
     "../../hooks/use-capability-packages": `export const rulesetCatalogQuery = () => ({});`,
     "../../lib/api-client": `export const api = {};`,
@@ -241,7 +243,7 @@ try {
     );
   const radio = (tree: any, label: string) =>
     nodes(radioLabels(tree).find((node) => text(node).includes(label))).find((node) => node.type === "input");
-  const toggle = (tree: any) => nodes(tree).find((node) => node.type === "input" && node.props.type === "checkbox");
+  const toggle = (tree: any) => nodes(tree).find((node) => node.type === "checkbox");
   const picker = host(ui.StartingGearPicker, {
     open: true,
     onClose() {},

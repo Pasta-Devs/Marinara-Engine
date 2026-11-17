@@ -841,6 +841,7 @@ export interface MariWorkspaceToolTrace {
 
 export type MariWorkspaceTraceItem =
   | { type: "text"; content: string }
+  | { type: "blocked_draft"; content: string }
   /** Server clock (ms) when this thought began and last grew, so a saved run can say how long she thought. */
   | { type: "thinking"; content: string; startedAt?: number; updatedAt?: number }
   | { type: "tool"; tool: MariWorkspaceToolTrace }
@@ -1010,6 +1011,8 @@ export interface MariDbCommandResult {
   error?: string;
   /** #7999: arguments used differently than sent (a lowered limit), when no app_data call collected them. */
   notes?: string[];
+  /** #9342: `mari images look` pictures (data URLs) for Mari's next model request; never part of `output`. */
+  images?: string[];
 }
 
 export interface MariDbPendingApproval {
@@ -1216,6 +1219,7 @@ export type MariWorkspacePromptEvent =
   // Her words as the model writes them, before the round is parsed and audited. Provisional: never
   // saved, never the answer; `data` is the full visible text so far (replace, not append); `null` ends the round's draft. The audited text still arrives as `token`.
   | { type: "draft"; data: string | null }
+  | { type: "blocked_draft"; data: string }
   // A character field's text while she writes an `app_data` `character.update` (classic runtime
   // only). `field` is the patch key as written; `text` is appended, or replaces with `restart`.
   // `null` ends the round's text once its command was applied or held.

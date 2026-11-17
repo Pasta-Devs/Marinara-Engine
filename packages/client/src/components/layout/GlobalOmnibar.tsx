@@ -1296,14 +1296,14 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // The chat sidebar applies the same rule.
   const leavePrompt = () => t("commandCenter.dirtyEditor", "You have unsaved changes. Leave this editor?");
   const confirmLeaveEditor = () => confirmEditorLeave(ui(), leavePrompt());
-  const navigate = (target: ProfessorMariNavigationTarget) => {
+  const navigate = async (target: ProfessorMariNavigationTarget) => {
     // Q2: a setting that lives in this omnibar opens its settings view here, so the omnibar stays
     // open and nothing is left behind (no editor-leave prompt, no close).
     if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
       openSettings(target.controlId ?? null);
       return false;
     }
-    if (!confirmLeaveEditor()) return false;
+    if (!(await confirmLeaveEditor())) return false;
     executeStateNavigation(target);
     return true;
   };
@@ -1314,12 +1314,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // O2: a no-op for Mari's row, enforced inside recordOmnibarFrecencyUse.
     setFrecencyEntries(recordOmnibarFrecencyUse(id, omnibarContext.surface));
   };
-  const runSystemAction = (result: OmnibarResult) => {
+  const runSystemAction = async (result: OmnibarResult) => {
     const definition = createSystemCommandDefinitions((key, fallback) =>
       t(`commandCenter.system.${key}`, fallback),
     ).find((item) => item.id === result.id);
     if (!definition) return false;
-    if (!confirmLeaveEditor()) return false;
+    if (!(await confirmLeaveEditor())) return false;
     if (
       definition.availability.status !== "available" &&
       !(
@@ -1336,14 +1336,14 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     } else executeStateNavigation(definition.action.target);
     return true;
   };
-  const choose = (result: OmnibarResult) => {
+  const choose = async (result: OmnibarResult) => {
     // Slice 78: a pick after typing teaches "search" or "command"; a Try example teaches nothing.
     // Controls are counted where they flip; a row reaching here with one (a lorebook's Enabled
     // switch) is being opened, which is a search.
     if (query.trim() && result.id !== "ask-professor-mari" && result.action?.kind !== "refine-query")
       markTry(isOmnibarCommandPick({ action: result.action, chooseValue: result.chooseValue }) ? "command" : "search");
     if (result.action) {
-      runResultAction(result, result.action);
+      await runResultAction(result, result.action);
       return;
     }
     if (result.category === "lorebook" && !result.action) {
@@ -1351,7 +1351,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       // there, the same unambiguous rule "add <character>" uses. Lorebook rows
       // never flip the global enabled flag; only the Lorebooks panel does.
       if (attachLorebookIfNotActive(result)) return;
-      if (result.target && navigate(result.target)) {
+      if (result.target && (await navigate(result.target))) {
         recordUse(result.id);
         onClose();
       }
@@ -1359,7 +1359,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     }
     if (result.control) return;
     if (runDirectChatAction(result)) return;
-    if (runSystemAction(result)) {
+    if (await runSystemAction(result)) {
       recordUse(result.id);
       onClose();
       return;
@@ -1389,13 +1389,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     if (result.category === "connection") {
-      if (!confirmLeaveEditor()) return;
+      if (!(await confirmLeaveEditor())) return;
       ui().openConnectionDetail(result.id.slice("connection:".length));
       recordUse(result.id);
       onClose();
       return;
     }
-    if (result.target && navigate(result.target)) {
+    if (result.target && (await navigate(result.target))) {
       recordUse(result.id);
       onClose();
     }
@@ -1730,7 +1730,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     });
   }, [mariActive]);
   const completionActions = mariFinished ? omnibarCompletionActions(mariHandoff.context) : [];
-  const runCompletionAction = (action: OmnibarCompletionAction) => {
+  const runCompletionAction = async (action: OmnibarCompletionAction) => {
     setSessionValue("mariHandoff", null);
     if (action.kind === "return") {
       leaveDetail();
@@ -1746,7 +1746,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     if (!resource) return;
     if (isMariEditorKind(resource.kind)) {
       const fieldId = action.kind === "open-field" ? action.fieldId : undefined;
-      if (!openEditorAtField(resource.kind, resource.id, fieldId, leavePrompt())) return;
+      if (!(await openEditorAtField(resource.kind, resource.id, fieldId, leavePrompt()))) return;
       onClose();
       return;
     }
@@ -2045,7 +2045,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.12, ease: "easeOut" }}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
-      onKeyDown={companion ? closeCompanionOnEscape : trapFocus}
+      onKeyDown={(event) => {
+        // React bubbles keys from overlays portaled out of her window (the image lightbox and its model picker,
+        // #9387) up to here. They belong to that overlay: Escape there must not close her, nor Tab pull focus back.
+        if (!event.currentTarget.contains(event.target as Node)) return;
+        if (companion) closeCompanionOnEscape(event);
+        else trapFocus(event);
+      }}
     >
       {/* Slice 73: the height transition is the desktop dialog's. On a phone the panel is the full screen, and
           animating it let every keyboard close leave her composer up to ~200 px above the bottom for 300 ms. */}

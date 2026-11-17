@@ -58,12 +58,14 @@ function PinRow({
   mapPlaces,
   onChange,
   onRemove,
+  ownerBackgrounds,
 }: {
   pin: LocationBackgroundPin;
   here: boolean;
   mapPlaces: Array<{ id: string; name: string }> | null;
   onChange: (next: LocationBackgroundPin) => void;
   onRemove: () => void;
+  ownerBackgrounds: OwnerBackground[];
 }) {
   const { t } = useTranslation();
   const defaultBackground = useUIStore((state) => state.defaultRoleplayBackground);
@@ -96,6 +98,7 @@ function PinRow({
       <BackgroundPicker
         chatFloatingPanel
         showRoleplayDefault={false}
+        ownerBackgrounds={ownerBackgrounds}
         selected={chatBackgroundMetadataToUrl(pin.background)}
         onSelect={(next) => onChange({ ...pin, background: chatBackgroundUrlToMetadata(next) ?? "" })}
         defaultRoleplayBackground={defaultBackground}
@@ -245,7 +248,8 @@ export function LocationBackgroundPins({ chatId, metadata }: { chatId: string; m
   const status = useLocationPinStatus();
   const { data: chat } = useChat(chatId);
   // Gallery backgrounds that name places follow their character or persona into every chat.
-  const galleryPlaces = useChatOwnerBackgrounds(chat).filter((background) => background.places);
+  const ownerBackgrounds = useChatOwnerBackgrounds(chat);
+  const galleryPlaces = ownerBackgrounds.filter((background) => background.places);
   const chatBackground = useUIStore((state) => state.chatBackground);
   const mapsActive = chatUsesWorldMaps(metadata);
   const spatial = useSpatialContext(chatId, mapsActive);
@@ -302,6 +306,7 @@ export function LocationBackgroundPins({ chatId, metadata }: { chatId: string; m
           mapPlaces={mapPlaces}
           onChange={(next) => save(pins.map((entry) => (entry.id === pin.id ? next : entry)))}
           onRemove={() => save(pins.filter((entry) => entry.id !== pin.id))}
+          ownerBackgrounds={ownerBackgrounds}
         />
       ))}
       <div className="flex flex-wrap items-center gap-1.5">

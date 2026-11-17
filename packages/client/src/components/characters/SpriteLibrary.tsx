@@ -10,6 +10,7 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
+import { Checkbox } from "../ui/Checkbox";
 
 const control =
   "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
@@ -681,8 +682,7 @@ export function SpriteSelection({
   if (!library.selecting) return null;
   return (
     <label className="absolute left-2 top-2 z-10 flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-[var(--card)]/90 md:h-9 md:w-9">
-      <input
-        type="checkbox"
+      <Checkbox
         disabled={disabled}
         checked={library.selected.includes(sprite.expression)}
         onChange={() => library.toggle(sprite.expression)}

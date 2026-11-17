@@ -37,7 +37,6 @@ function helpKey(chatMode: ChatMode, linked: boolean) {
 }
 
 interface ConnectedChatsSectionProps {
-  order: number;
   chat: Chat;
   metadata: Record<string, any>;
   chatMode: ChatMode;
@@ -47,7 +46,6 @@ interface ConnectedChatsSectionProps {
 }
 
 export function ConnectedChatsSection({
-  order,
   chat,
   metadata,
   chatMode,
@@ -78,7 +76,6 @@ export function ConnectedChatsSection({
   return (
     <ChatSettingsSection
       id={`${chatMode}-connected-chats`}
-      style={{ order }}
       label={localizeUi("ui.chat.chatsettingsdrawer.connectedChats")}
       icon={<Link2 size="0.875rem" />}
       help={localizeUi(helpKey(chatMode, !!chat.connectedChatId))}

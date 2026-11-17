@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Clapperboard, Loader2 } from "lucide-react";
+import { Clapperboard } from "lucide-react";
 import type { ConversationSceneRequest } from "@marinara-engine/shared";
 import { chatKeys } from "../../hooks/use-chats";
 import { startSceneWithPromptPreferences } from "../../lib/scene-generation";
+import { Spinner } from "../ui/Spinner";
 
 export function ConversationSceneInvitation({
   chatId,
@@ -44,7 +45,7 @@ export function ConversationSceneInvitation({
         onClick={() => void open()}
         className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--primary)] transition-colors hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-[var(--primary)] disabled:opacity-60"
       >
-        {pending ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />}
+        {pending ? <Spinner size="md" /> : <Clapperboard size={16} />}
         {t(pending ? "chat.sceneInvitation.pending" : "chat.sceneInvitation.open")}
       </button>
     </div>

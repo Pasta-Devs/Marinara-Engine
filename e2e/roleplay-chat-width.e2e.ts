@@ -155,7 +155,7 @@ for (const theme of ["dark", "light"] as const)
       await expect(page.locator(".mari-roleplay-message-body")).toHaveCount(3);
       const baseline = await withinPane(page, desktop);
       await appearance(page);
-      await expect(page.getByRole("checkbox", { name: "Custom chat width", exact: true })).not.toBeChecked();
+      await expect(page.getByRole("switch", { name: "Custom chat width", exact: true })).not.toBeChecked();
       await page.getByText("Custom chat width", { exact: true }).click();
       const slider = page.getByRole("slider", { name: "Chat area width", exact: true });
       await expect(slider).toHaveAttribute("min", "40");

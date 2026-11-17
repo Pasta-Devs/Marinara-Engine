@@ -64,6 +64,7 @@ import type { RulesetText } from "../../lib/ruleset-text";
 import { StartingGearPicker, type StartingGearTaken } from "./StartingGearPicker";
 import { ArtIcon } from "./ArtIcon";
 import { MarinaraItemFacts } from "./MarinaraItemFacts";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 
 /** One stack. Two stacks may hold the same item, so a stack is told apart by its id, never its name. */
 export interface InventoryItem {
@@ -550,12 +551,12 @@ export function GameInventory({
         if (
           next === 0 &&
           item.quantity > 1 &&
-          !window.confirm(
-            localizeUi("ui.game.gameinventory.removeAllValue1Confirm", {
+          !(await showConfirmDialog({
+            message: localizeUi("ui.game.gameinventory.removeAllValue1Confirm", {
               count: item.quantity,
               value1: gameInventoryStackLabel(item),
             }),
-          )
+          }))
         ) {
           setAmountDraft(String(item.quantity));
           return;

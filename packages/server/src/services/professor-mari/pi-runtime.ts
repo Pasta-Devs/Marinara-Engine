@@ -38,7 +38,9 @@ import {
   chunkText,
   dedupeWorkspaceCommandCalls,
   describeHeldCommands,
+  emitBlockedDraft,
   emitRoundText,
+  formatMariGuardrail,
   formatCommandResultForPrompt,
   isChangeAttemptCommand,
   isLengthFinishReason,
@@ -56,6 +58,7 @@ import {
   visibleTextAsksApplyPermission,
   workspaceTextClaimsHeldChange,
   workspaceTextClaimsMutationCompletion,
+  MARI_RUN_IMAGE_LIMIT,
   WORKSPACE_TOOL_DEFINITIONS,
   type PromptEventSink,
   type WorkspaceCommandCall,
@@ -332,7 +335,7 @@ export function outputLimitRepairPrompt(cut: CutReply, attempt: number, maxOutpu
   const target = maxOutputTokens ? Math.round(maxOutputTokens * CUT_TARGET_CHARS_PER_TOKEN) : null;
   const quiet =
     "While you work, say nothing about the limit. In your final answer you may mention it in one short, light sentence.";
-  const lines = ["[Engine note, not from the user]"];
+  const lines: string[] = [];
   if (attempt > 1) lines.push("It was cut off again. Make it much smaller: one field or one item per call.");
   if (cut.kind === "thinking") {
     lines.push(
@@ -380,6 +383,8 @@ function parseArguments(raw: string): Record<string, unknown> {
   }
   return {};
 }
+
+const LOOKED_IMAGES_NOTE = "The pictures from your mari images look call, in the order it listed them.";
 
 function textOf(content: string | readonly { type: string; text?: string }[]): string {
   if (typeof content === "string") return content;
@@ -455,6 +460,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   const maxToolRounds = input.maxToolRounds ?? MAX_PI_TOOL_ROUNDS;
   // Replay metadata of each tool turn, by its first tool call id (the id is stable across the transcript).
   const metadataByCallId = new Map<string, Record<string, unknown>>();
+  // #9342: `mari images look` pictures by tool call. pi's model is text-only, so they stay out of pi's own messages and
+  // are attached here on every request of the run.
+  const imagesByCallId = new Map<string, string[]>();
 
   const addNote = (content: string, kind: "retry" | "info" | "output_limit", level: "info" | "warning") => {
     state.assistantText = appendVisibleText(state.assistantText, content);
@@ -490,8 +498,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     const prompt = getCurrentSystemPrompt(context.messages);
     if (prompt) out.push({ role: "system", content: withToolFormat(prompt), contextKind: "prompt" });
     let lastResult: ChatMessage | null = null;
+    // Native tool messages can't carry pictures: they follow the turn's last tool message on a user message.
+    let pendingImages: string[] = [];
+    const flushImages = () => {
+      if (pendingImages.length === 0) return;
+      out.push({ role: "user", content: LOOKED_IMAGES_NOTE, contextKind: "history", images: pendingImages });
+      pendingImages = [];
+    };
     for (const message of context.messages as Message[]) {
-      if (message.role !== "toolResult") lastResult = null;
+      if (message.role !== "toolResult") {
+        lastResult = null;
+        flushImages();
+      }
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
@@ -529,9 +547,16 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         });
       } else if (message.role === "toolResult" && asText) {
         // Results come back as user messages; several results of one turn share one.
+        const images = imagesByCallId.get(message.toolCallId) ?? [];
         const previous = out[out.length - 1];
-        if (previous && previous === lastResult) previous.content += `\n\n${textOf(message.content)}`;
-        else out.push((lastResult = { role: "user", content: textOf(message.content), contextKind: "history" }));
+        if (previous && previous === lastResult) {
+          previous.content += `\n\n${textOf(message.content)}`;
+          if (images.length > 0) previous.images = [...(previous.images ?? []), ...images];
+        } else {
+          lastResult = { role: "user", content: textOf(message.content), contextKind: "history" };
+          if (images.length > 0) lastResult.images = [...images];
+          out.push(lastResult);
+        }
       } else if (message.role === "toolResult") {
         out.push({
           role: "tool",
@@ -539,8 +564,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           content: textOf(message.content),
           contextKind: "history",
         });
+        pendingImages.push(...(imagesByCallId.get(message.toolCallId) ?? []));
       }
     }
+    flushImages();
     return out;
   };
 
@@ -752,7 +779,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       return "done" as const;
     }
     emptyRepairs = 0;
-    // A repaired turn's words are never shown, yet they stay in pi's history: tell her, so she restates them.
+    // A repaired turn's words stay in pi's history, outside the chat answer.
     const withheld = (prompt: string) => withWithheldNotice(prompt, current.text);
     // A turn cut at the output limit ran nothing, so no claim audit spends a repair on its half-written words: it is
     // redone smaller, and its words are not kept. Once that budget is spent the run stops with a note. A failed stream
@@ -833,10 +860,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
       // A silent hold still needs words on the saved message: they carry the deferral flag and the held changes.
       // Held calls were not applied, so words that say they were are replaced.
-      const words =
-        current.text.trim() && !workspaceTextClaimsMutationCompletion(current.text)
-          ? current.text.trim()
-          : HELD_WITHOUT_WORDS;
+      const claimsCompletion = workspaceTextClaimsMutationCompletion(current.text);
+      if (claimsCompletion) emitBlockedDraft(trace, current.text, onEvent);
+      const words = claimsCompletion ? HELD_WITHOUT_WORDS : current.text.trim() || HELD_WITHOUT_WORDS;
       state.assistantText = words;
       state.nothingChanged = false;
       emitRoundText(trace, words, onEvent);
@@ -853,6 +879,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       commandResultsForContinuity: input.commandResults,
       truncated: current.truncated,
     });
+    if (decision.kind === "repair" || decision.kind === "stop") {
+      emitBlockedDraft(trace, current.text, onEvent);
+    }
     if (decision.kind === "repair") return { ...decision, prompt: withheld(decision.prompt) };
     if (decision.kind === "stop") {
       addNote(decision.content, "retry", "warning");
@@ -874,6 +903,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       !appliedAny &&
       workspaceTextClaimsHeldChange(current.text)
     ) {
+      emitBlockedDraft(trace, current.text, onEvent);
       if (!heldClaimRepaired) {
         heldClaimRepaired = true;
         return {
@@ -957,8 +987,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       ...toChatMessages({ messages: finished.messages } as never, true).filter((message) => message.role !== "system"),
       {
         role: "user",
-        content:
+        content: formatMariGuardrail(
           "You reached the tool round limit. Do not call more tools. Summarize what you learned or what remains blocked.",
+        ),
         contextKind: "history",
       },
     ];
@@ -977,8 +1008,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     }).issue;
     const nothingChanged = closingAnswerGetsNotice(reviewState, text, issue);
     if (issue && !nothingChanged) {
+      emitBlockedDraft(trace, text, onEvent);
       addNote(
-        "Professor Mari reached the tool round limit without verification, so I stopped before showing an unsupported completion claim. Ask her to continue from the saved trace.",
+        "Professor Mari reached the tool round limit without verification, so I withheld the completion claim from the answer. Ask her to continue from the saved trace.",
         "retry",
         "warning",
       );
@@ -1135,6 +1167,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       text = "Held: this change waits for the user's Accept and was not applied. Do not repeat it.";
     } else {
       const result = await commands.executeWorkspaceCommand(call, signal, trace, onEvent, input.actionResults);
+      if (result.images?.length) {
+        imagesByCallId.set(toolCallId, result.images);
+        // #9342: the run carries at most MARI_RUN_IMAGE_LIMIT pictures; the oldest looks keep only their text.
+        let total = [...imagesByCallId.values()].reduce((sum, list) => sum + list.length, 0);
+        for (const [callId, list] of imagesByCallId) {
+          if (total <= MARI_RUN_IMAGE_LIMIT) break;
+          const drop = Math.min(list.length, total - MARI_RUN_IMAGE_LIMIT);
+          if (drop === list.length) imagesByCallId.delete(callId);
+          else imagesByCallId.set(callId, list.slice(drop));
+          total -= drop;
+        }
+      }
       input.commandResults.push(result);
       current.results.push(result);
       // The executor's refusals are shared with the JSON runtime and name its `say` field; say it in pi's words.
@@ -1286,7 +1330,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         const steerWaiting = finished.calls.length === 0 && (await input.steers?.waiting()) === true;
         const decision = finishRound(finished, event.toolResults, steerWaiting);
         if (decision !== "done") {
-          steerSession(decision.prompt);
+          steerSession(formatMariGuardrail(decision.prompt));
           return;
         }
         // pi reads steering after this listener, and it goes through even on a turn whose tools said terminate. A stop

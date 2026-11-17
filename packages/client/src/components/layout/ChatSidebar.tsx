@@ -101,6 +101,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
+import { Spinner } from "../ui/Spinner";
 
 // Opened from a menu only, so it loads on first use instead of weighing on the AppShell chunk.
 const CharacterScheduleManagerModal = lazy(async () => ({
@@ -326,7 +327,8 @@ export function ChatSidebar() {
   const sidebarKeyboard = usePanelKeyboardFocus({
     open: sidebarIsOpen,
     containerRef: sidebarNavRef,
-    toggleSelector: '[data-component="TopBar"] [data-tour="sidebar-toggle"]',
+    // On a phone Chats is a row of the top bar's More menu, so focus goes back to More.
+    toggleSelector: '[data-component="TopBar"] [data-tour="sidebar-toggle"], [data-topbar-more]',
     onClose: closeSidebarFromKeyboard,
   });
   const chatModeShortcutRequest = useUIStore((s) => s.chatModeShortcutRequest);
@@ -2115,7 +2117,7 @@ function BranchRow({
       >
         {name}
       </span>
-      {isBusy && <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin text-[var(--muted-foreground)]" />}
+      {isBusy && <Spinner size="sm" className="shrink-0 text-[var(--muted-foreground)]" />}
       {!isActive && !multiSelectMode && unread > 0 && (
         <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white">
           {unread > 99 ? "99+" : unread}
