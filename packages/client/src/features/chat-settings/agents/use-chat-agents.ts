@@ -1598,7 +1598,6 @@ export function useChatAgents({
     [chat.id, onSpriteVisualSettingsChange, patchSelectedSpriteCharacterVisualSettings, updateMeta],
   );
 
-  // ── Character drag-and-drop reordering ──
   const hasSecretPlotMemory = (memory: Record<string, unknown> | null | undefined) => {
     if (!memory) return false;
     const arc = memory.overarchingArc;

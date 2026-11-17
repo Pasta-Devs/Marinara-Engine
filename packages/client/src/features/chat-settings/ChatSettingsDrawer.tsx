@@ -2325,7 +2325,6 @@ export function ChatSettingsDrawer({
               chat={chat}
               metadata={metadata}
               setShowSummariesModal={setShowSummariesModal}
-              isGame={isGame}
             />
           )}
         </div>
