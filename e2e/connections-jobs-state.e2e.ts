@@ -235,7 +235,7 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
           name: "Starred chat",
           model: "chat-model",
           provider: "openai",
-          pinnedModels: ["chat-model"],
+          pinnedModels: [],
         },
         {
           id: "decision-row",
@@ -326,6 +326,7 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
   await expect(job).toContainText("Assigned decision");
   await job.locator("button[aria-haspopup=dialog]").first().click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.locator('[data-switcher-section="starred"]')).toBeEmpty();
   await expect(dialog.locator('[data-switcher-section="provider"] [aria-current="true"]')).toContainText(
     "Assigned decision",
   );
@@ -344,5 +345,4 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
   await dialog.locator('[data-switcher-section="provider"] button[data-switcher-model="new-decision-model"]').click();
   await expect(dialog).not.toBeVisible();
   expect(tested).toBe(2);
-
 });

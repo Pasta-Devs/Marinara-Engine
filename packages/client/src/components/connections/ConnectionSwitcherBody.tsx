@@ -1761,7 +1761,9 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-              {showUnstarred && starredEntries.length > 0 && heading(t("connections.switcher.starred"), starredEntries.length)}
+              {showUnstarred &&
+                starredEntries.length > 0 &&
+                heading(t("connections.switcher.starred"), starredEntries.length)}
               {starredEntries.length > 1 && orderToggle}
               {starredEntries.map((entry) =>
                 renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
