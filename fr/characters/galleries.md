@@ -1,6 +1,6 @@
 # Galeries de personnages et de personas
 
-La section **Gallery** (galerie) de l'onglet **Images** (images) des éditeurs de personnage et de persona conserve des images et des vidéos rattachées à un personnage ou à un persona : elles restent même si tu supprimes des chats. Sers-t'en pour les planches de référence, les variantes de tenue et les packs d'images importés. Tu peux aussi marquer une image de la galerie comme emoji ou sticker personnalisé.
+La section **Gallery** (galerie) de l'onglet **Images** (images) des éditeurs de personnage et de persona conserve des images et des vidéos rattachées à un personnage ou à un persona : elles restent même si tu supprimes des chats. Sers-t'en pour les planches de référence, les variantes de tenue et les packs d'images importés. Tu peux aussi créer de nouvelles images avec l'IA et marquer une image de la galerie comme emoji ou sticker personnalisé.
 
 ## Trouver la galerie
 
@@ -28,6 +28,39 @@ Clique sur une image pour la voir en plus grand. Chaque vignette a une commande 
 3. Attends la fin du téléversement.
 
 Les formats pris en charge sont MP4, WebM et MOV. Les vidéos les plus récentes sont listées en premier. Pour savoir quelles vidéos de scène et quels extraits apparaissent pour quel personnage, voir [Quelles vidéos sont listées](#which-videos-are-listed).
+
+## Créer des images avec l'IA
+
+Le bouton **Créer avec l'IA** de la galerie crée de nouvelles images pour ce personnage ou ce persona avec ta connexion de génération d'images. Choisis ce que tu veux créer dans **Type** :
+
+| Type                                    | Ce que tu obtiens                                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fiche de personnage**                 | Une planche de référence, enregistrée de la même façon que depuis la section **Fiche de personnage**.                                            |
+| **Arrière-plan**                        | Une image large d'un lieu, créée à partir du scénario de la fiche. Elle est enregistrée dans la galerie et étiquetée comme arrière-plan de chat. |
+| **Sticker sheet** (planche de stickers) | Une image contenant plusieurs stickers, découpée en une image par sticker.                                                                       |
+| **Emoji sheet** (planche d'emojis)      | La même chose, sous forme de petits emojis de visage.                                                                                            |
+
+Avant de commencer : ajoute une connexion de génération d'images.
+
+1. Ouvre **Images → Galerie** et clique sur **Créer avec l'IA**.
+2. Choisis un **Type** et modifie le prompt si tu veux une autre apparence ou un autre lieu.
+3. Pour une planche de stickers ou d'emojis, indique les noms dans **Stickers to draw** (stickers à dessiner) ou **Emoji to draw** (emojis à dessiner), séparés par des virgules. Une planche peut en contenir jusqu'à 16.
+4. Clique sur **Générer**.
+5. Clique sur **Save as Background** (enregistrer comme arrière-plan), **Save Stickers** (enregistrer les stickers) ou **Save Emoji** (enregistrer les emojis), ou sur **Enregistrer comme fiche de personnage**.
+
+### Corriger le découpage d'une planche
+
+Après la génération d'une planche de stickers ou d'emojis, chaque sticker est repéré grâce à son contour, son fond vert est retiré et il apparaît dans sa propre vignette avec son nom. Les stickers enregistrés mesurent au plus 512 sur 512 pixels et les emojis au plus 256 sur 256, et chacun porte un tag avec son nom.
+
+- Clique sur une vignette pour la garder ou l'exclure. Les vignettes exclues ne sont pas enregistrées.
+- Modifie le nom sous une vignette pour la renommer.
+- Clique sur **Recut with a box** (redécouper avec un cadre) sur une vignette pour placer un cadre sur la planche entière. Fais glisser le cadre, tire sur ses coins ou dessine un nouveau cadre autour du sticker, puis clique sur **Use this box** (utiliser ce cadre).
+- Clique sur **Add a sticker** (ajouter un sticker) ou **Add an emoji** (ajouter un emoji) pour découper un élément qui n'a pas été repéré.
+- Clique sur **Cut again** (découper à nouveau) pour recommencer le découpage et annuler tes cadres.
+
+### Écrire toi-même le prompt entier
+
+Le prompt envoyé au modèle d'images est construit à partir des champs de la boîte de dialogue. Pour le modifier entièrement, par exemple pour demander des stickers de choses que le personnage aime et pas seulement du personnage, clique sur **Edit full prompt** (modifier le prompt complet). Il est envoyé exactement tel que tu l'écris. Les modifications des autres champs ne sont intégrées que lorsque tu cliques sur **Rebuild** (reconstruire), ce qui remplace aussi tes modifications. Clique sur le bouton de fermeture à côté de **Rebuild** pour revenir au prompt construit à partir des champs.
 
 ## Marquer une image de la galerie comme emoji ou sticker personnalisé
 
