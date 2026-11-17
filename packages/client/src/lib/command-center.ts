@@ -104,6 +104,8 @@ export interface CommandCenterPresentableResult {
 export interface CommandCenterResultGroup<T extends CommandCenterPresentableResult> {
   id: CommandCenterResultGroupId;
   results: T[];
+  /** Rows in the whole group when `results` is capped behind a "Show more" row. */
+  total?: number;
 }
 
 export interface CommandCenterPresentation<T extends CommandCenterPresentableResult> {
@@ -749,7 +751,13 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
       return [{ id, results: groupResults }];
     }
     const shown = groupResults.slice(0, COMMAND_CENTER_GROUP_LIMIT);
-    return [{ id, results: [...shown, makeShowMoreRow(id, groupResults.slice(COMMAND_CENTER_GROUP_LIMIT))] }];
+    return [
+      {
+        id,
+        results: [...shown, makeShowMoreRow(id, groupResults.slice(COMMAND_CENTER_GROUP_LIMIT))],
+        total: groupResults.length,
+      },
+    ];
   });
   return {
     filter,

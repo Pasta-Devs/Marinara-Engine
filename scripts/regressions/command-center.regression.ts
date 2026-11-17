@@ -4659,14 +4659,23 @@ console.info("Command Center regression checks passed.");
     title: `Moon ${index}`,
   })) as unknown as CommandCenterPresentableResult[];
   const makeShowMoreRow = (groupId: string, hidden: CommandCenterPresentableResult[]) =>
-    ({ ...hidden[0], id: showMoreId(groupId, hidden[0].id), title: `Show ${hidden.length} more` }) as CommandCenterPresentableResult;
+    ({
+      ...hidden[0],
+      id: showMoreId(groupId, hidden[0].id),
+      title: `Show ${hidden.length} more`,
+    }) as CommandCenterPresentableResult;
   const capped = presentCommandCenterResults(rows, { query: "moon", makeShowMoreRow });
   const chatRows = capped.groups.find((group) => group.id === "chats")!.results;
   assert.equal(chatRows.length, COMMAND_CENTER_GROUP_LIMIT + 1);
   assert.equal(chatRows.at(-1)!.title, "Show 4 more");
+  assert.equal(capped.groups.find((group) => group.id === "chats")!.total, 12, "the header counts the whole group");
   assert.deepEqual(capped.results, chatRows, "keyboard sees the rendered rows");
   assert.deepEqual(readShowMoreId(chatRows.at(-1)!.id), { groupId: "chats", firstHiddenId: "chat:8" });
-  const opened = presentCommandCenterResults(rows, { query: "moon", makeShowMoreRow, expandedGroups: new Set(["chats"]) });
+  const opened = presentCommandCenterResults(rows, {
+    query: "moon",
+    makeShowMoreRow,
+    expandedGroups: new Set(["chats"]),
+  });
   assert.equal(opened.results.length, 12);
   assert.equal(opened.results[COMMAND_CENTER_GROUP_LIMIT]!.id, "chat:8");
   assert.equal(presentCommandCenterResults(rows, { query: "moon" }).results.length, 12, "no row builder, no cap");
