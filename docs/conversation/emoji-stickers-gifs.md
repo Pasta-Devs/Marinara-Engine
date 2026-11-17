@@ -102,6 +102,22 @@ Marinara tells the responding character which custom emojis and stickers it may 
 
 If a character writes a sticker's name like an emoji, such as `:hug:` instead of `sticker:hug:`, the reply shows the sticker. This happens only when no custom emoji has that name.
 
+### Describe emojis and stickers
+
+A description says what an emoji or sticker shows and the feeling it gives, for example "cat peeking over a pillow; shy, embarrassed". It helps when a name does not say what the picture means.
+
+- To write one, click **Edit** on the **Custom emojis** or **Stickers** tab, then click the small description button in a tile's corner. For a gallery-tagged one, click its tag button and choose **Add description**.
+- To have AI write them, click **Edit**, then **Describe with AI**. The **Image reading** model looks at each picture and writes a short description. If some already have one, choose **Describe only the … without** (only the ones with none) or **Describe all … again**.
+
+Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one under **Behind the scenes** in your connection settings, and otherwise your agents' model.
+
+Two settings in **Selection preferences** use them:
+
+- **Use descriptions** (on by default): ranks by the description as well as the name when choosing which ones to offer, in **Semantic** and **Tool-call**. It adds nothing to the prompt.
+- **Show descriptions to the model** (off by default): also lists each offered one's description next to its name, so the model knows what it means. It adds roughly 1,000 to 1,800 input tokens a reply with the default of 20 offered.
+
+Descriptions that only choose which ones are offered do not teach the model what a name means. If a name says the opposite of its feeling, such as a sarcastic `:fine:`, turn on **Show descriptions to the model** or **Show them to the model**.
+
 ### Show them to the model
 
 Normally the model sees only the names of your custom emojis and stickers. If the chat's model can read images, **Show them to the model** in the same panel sends it pictures too, so it knows what each one looks like. This helps most with names that do not describe the picture.

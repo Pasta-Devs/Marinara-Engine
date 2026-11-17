@@ -14,6 +14,8 @@ export const customEmojis = fileTable(
     /** Pixel dimensions recorded on upload (null if unknown) */
     width: integer("width"),
     height: integer("height"),
+    /** What it shows and the feeling it gives, used to pick and explain it in Conversation. Null when none. */
+    description: text("description"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

@@ -4,7 +4,7 @@
 // as a chat background with the places it shows. Shared across the galleries.
 // ──────────────────────────────────────────────
 import { useRef, useState } from "react";
-import { Tag, Smile, Sticker, Pencil, X, ImageIcon, MapPin } from "lucide-react";
+import { Tag, Smile, Sticker, Pencil, X, ImageIcon, MapPin, ScanText } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { showPromptDialog } from "../../lib/app-dialogs";
@@ -17,13 +17,18 @@ import {
   type CustomTagPatch,
 } from "../../lib/custom-emoji";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { normalizeGalleryBackgroundPlaces, type GalleryTagKind } from "@marinara-engine/shared";
+import {
+  normalizeGalleryBackgroundPlaces,
+  normalizeGalleryDescription,
+  type GalleryTagKind,
+} from "@marinara-engine/shared";
 
 export interface TaggableImage {
   id: string;
   url: string;
   customKind?: GalleryTagKind | null;
   customName?: string | null;
+  description?: string | null;
 }
 
 export function CustomEmojiTagButton({
@@ -31,6 +36,7 @@ export function CustomEmojiTagButton({
   onApply,
   allowBackground = false,
   allowEmoji = true,
+  onDescribe,
 }: {
   image: TaggableImage;
   onApply: (patch: CustomTagPatch) => void;
@@ -38,6 +44,8 @@ export function CustomEmojiTagButton({
   allowBackground?: boolean;
   /** Offer emoji/sticker (not in the chat gallery, whose pictures are too big for them). */
   allowEmoji?: boolean;
+  /** Offer "Description…": what the picture shows, used to pick emojis and stickers in Conversation. */
+  onDescribe?: (description: string | null) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const namePromptMessage = localizeUi("ui.ui.customemojitagbutton.namePrompt");
@@ -120,13 +128,38 @@ export function CustomEmojiTagButton({
     onApply({ customKind: "background", customName: normalizeGalleryBackgroundPlaces(input) || null });
   }
 
+  async function editDescription() {
+    if (!onDescribe) return;
+    const input = await showPromptDialog({
+      title: localizeUi("ui.ui.customemojitagbutton.descriptionTitle"),
+      message: localizeUi("ui.ui.customemojitagbutton.descriptionPrompt"),
+      defaultValue: image.description ?? "",
+      placeholder: localizeUi("ui.ui.customemojitagbutton.descriptionPlaceholder"),
+      previewImageUrl: image.url,
+    });
+    if (input === null) return;
+    onDescribe(normalizeGalleryDescription(input));
+  }
+
+  const descriptionItems: ContextMenuItem[] = onDescribe
+    ? [
+        {
+          label: image.description
+            ? localizeUi("ui.ui.customemojitagbutton.editDescription")
+            : localizeUi("ui.ui.customemojitagbutton.addDescription"),
+          icon: <ScanText size="0.75rem" />,
+          onSelect: () => void editDescription(),
+        },
+      ]
+    : [];
+
   const backgroundItem: ContextMenuItem = {
     label: localizeUi("ui.ui.customemojitagbutton.useAsBackground"),
     icon: <ImageIcon size="0.75rem" />,
     onSelect: () => void editBackgroundPlaces(),
   };
 
-  const items: ContextMenuItem[] =
+  const labelItems: ContextMenuItem[] =
     image.customKind === "background"
       ? [
           {
@@ -186,6 +219,22 @@ export function CustomEmojiTagButton({
               : []),
             ...(allowBackground ? [backgroundItem] : []),
           ];
+  const items: ContextMenuItem[] = [...labelItems, ...descriptionItems];
+
+  const labelTitle =
+    image.customKind === "background"
+      ? image.customName
+        ? localizeUi("ui.ui.customemojitagbutton.backgroundFor", { places: image.customName })
+        : localizeUi("ui.ui.customemojitagbutton.backgroundTitle")
+      : tagged
+        ? localizeUi("ui.ui.customemojitagbutton.value1Value2", {
+            value1: image.customKind,
+            value2: image.customName,
+          })
+        : allowEmoji
+          ? localizeUi("ui.ui.customemojitagbutton.tagAsEmojiOrSticker")
+          : localizeUi("ui.ui.customemojitagbutton.useAsBackground");
+  const badgeTitle = image.description ? [labelTitle, image.description].join(" · ") : labelTitle;
 
   return (
     <>
@@ -200,20 +249,7 @@ export function CustomEmojiTagButton({
           const rect = e.currentTarget.getBoundingClientRect();
           setMenu({ x: rect.left, y: rect.bottom + 4 });
         }}
-        title={
-          image.customKind === "background"
-            ? image.customName
-              ? localizeUi("ui.ui.customemojitagbutton.backgroundFor", { places: image.customName })
-              : localizeUi("ui.ui.customemojitagbutton.backgroundTitle")
-            : tagged
-              ? localizeUi("ui.ui.customemojitagbutton.value1Value2", {
-                  value1: image.customKind,
-                  value2: image.customName,
-                })
-              : allowEmoji
-                ? localizeUi("ui.ui.customemojitagbutton.tagAsEmojiOrSticker")
-                : localizeUi("ui.ui.customemojitagbutton.useAsBackground")
-        }
+        title={badgeTitle}
         className={cn(
           "absolute left-1 top-1 z-10 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded-lg px-1.5 py-1 text-white transition-opacity",
           tagged
