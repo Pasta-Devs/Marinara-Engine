@@ -5,7 +5,7 @@
 //
 // What the gear adds is worked out by the shared resolver the server also uses, so what is shown is
 // what is added; the server checks it all again.
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   gameInventoryBagKey,
@@ -283,6 +283,8 @@ export function StartingGearPicker({
     </fieldset>
   );
 
+  // The bag picker takes the first focus when there is a choice of bag, as the native select did.
+  const firstRef = useRef<HTMLButtonElement>(null);
   return (
     <Modal
       open={open}
@@ -292,6 +294,7 @@ export function StartingGearPicker({
       mobileFullscreen
       panelClassName={GAME_DIALOG_CLASS}
       contentClassName="flex flex-col"
+      {...(bags.length > 1 ? { initialFocusRef: firstRef } : {})}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("game.ruleset.startingGear.intro")}</p>
@@ -314,6 +317,7 @@ export function StartingGearPicker({
             <span className={labelClass}>{t("game.ruleset.startingGear.for")}</span>
             <Select
               label={t("game.ruleset.startingGear.for")}
+              buttonRef={firstRef}
               value={bagKey}
               onChange={(value) => {
                 const next = bags.find((bag) => gameInventoryBagKey(bag.holder) === value);

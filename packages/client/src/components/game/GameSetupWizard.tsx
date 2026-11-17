@@ -2978,8 +2978,7 @@ export function GameSetupWizard({
                                     {spotifyPlaylistsQuery.data?.playlists.length ? (
                                       <Select
                                         label={localizeUi("ui.game.gamesetupwizard.playlist")}
-                                        value={gameSpotifyPlaylistId || null}
-                                        placeholder={localizeUi("ui.game.gamesetupwizard.choosePlaylist")}
+                                        value={gameSpotifyPlaylistId}
                                         onChange={(next) => {
                                           const playlist = spotifyPlaylistsQuery.data?.playlists.find(
                                             (entry) => entry.id === next,
@@ -2988,15 +2987,18 @@ export function GameSetupWizard({
                                           setGameSpotifyPlaylistName(playlist?.name ?? "");
                                         }}
                                         className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                        options={spotifyPlaylistsQuery.data.playlists.map((playlist) => {
-                                          const suffix =
-                                            typeof playlist.trackCount === "number"
-                                              ? ` (${playlist.trackCount})`
-                                              : playlist.owned === false
-                                                ? " (followed — unavailable)"
-                                                : "";
-                                          return { value: playlist.id, label: `${playlist.name}${suffix}` };
-                                        })}
+                                        options={[
+                                          { value: "", label: localizeUi("ui.game.gamesetupwizard.choosePlaylist") },
+                                          ...spotifyPlaylistsQuery.data.playlists.map((playlist) => {
+                                            const suffix =
+                                              typeof playlist.trackCount === "number"
+                                                ? ` (${playlist.trackCount})`
+                                                : playlist.owned === false
+                                                  ? " (followed — unavailable)"
+                                                  : "";
+                                            return { value: playlist.id, label: `${playlist.name}${suffix}` };
+                                          }),
+                                        ]}
                                       />
                                     ) : (
                                       <input

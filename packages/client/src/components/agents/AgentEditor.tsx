@@ -2648,19 +2648,20 @@ export function AgentEditor() {
                       }}
                     />
                     <div className="flex items-center gap-2 text-xs">
-                      {localizeUi("ui.agents.agenteditor.homeWidgetSize")}
+                      <label htmlFor={`home-widget-size-${widget.id}`}>
+                        {localizeUi("ui.agents.agenteditor.homeWidgetSize")}
+                      </label>
                       <Select
+                        id={`home-widget-size-${widget.id}`}
                         label={localizeUi("ui.agents.agenteditor.homeWidgetSize")}
                         value={widget.size}
                         onChange={(next) => {
                           setLocalHomeWidgets((widgets) =>
-                            widgets.map((item) =>
-                              item.id === widget.id ? { ...item, size: next as "compact" | "large" } : item,
-                            ),
+                            widgets.map((item) => (item.id === widget.id ? { ...item, size: next } : item)),
                           );
                           markDirty();
                         }}
-                        className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+                        className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
                         options={[
                           { value: "compact", label: localizeUi("ui.agents.agenteditor.homeWidgetCompact") },
                           { value: "large", label: localizeUi("ui.agents.agenteditor.homeWidgetLarge") },
@@ -2919,10 +2920,14 @@ export function AgentEditor() {
                 {(canConfigureLorebookTarget || canConfigureLorebookReadBehind) && (
                   <>
                     <div className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      <span className="font-medium text-[var(--foreground)]">
+                      <label
+                        htmlFor={`${growingOrderDescriptionId}-field`}
+                        className="font-medium text-[var(--foreground)]"
+                      >
                         {localizeUi("ui.agents.agenteditor.newLorebookEntryOrder")}
-                      </span>
+                      </label>
                       <Select
+                        id={`${growingOrderDescriptionId}-field`}
                         label={localizeUi("ui.agents.agenteditor.newLorebookEntryOrder")}
                         value={localLorebookOrderMode}
                         aria-describedby={localLorebookOrderMode === "growing" ? growingOrderDescriptionId : undefined}

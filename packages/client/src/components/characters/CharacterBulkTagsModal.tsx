@@ -195,14 +195,16 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
             {renames.map((rename, index) => (
               <div key={index} className="flex items-center gap-1.5">
                 <Select
-                  value={rename.from || null}
-                  placeholder={t("characters.bulkTags.renameFrom")}
+                  value={rename.from}
                   onChange={(next) =>
                     setRenames((current) => current.map((item, i) => (i === index ? { ...item, from: next } : item)))
                   }
                   label={t("characters.bulkTags.renameFrom")}
                   className="mari-chrome-field h-9 min-w-0 flex-1 px-2 text-xs"
-                  options={existingTags.map(([tag]) => ({ value: tag, label: tag }))}
+                  options={[
+                    { value: "", label: t("characters.bulkTags.renameFrom") },
+                    ...existingTags.map(([tag]) => ({ value: tag, label: tag })),
+                  ]}
                 />
                 <ArrowRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 <input

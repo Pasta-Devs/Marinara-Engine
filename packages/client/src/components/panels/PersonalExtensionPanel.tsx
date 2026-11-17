@@ -136,8 +136,9 @@ export function PersonalExtensionPanel() {
           if (element.kind === "select") {
             return (
               <div key={key} className="flex flex-col gap-1.5 text-xs font-semibold text-[var(--foreground)]">
-                {element.label && <span>{element.label}</span>}
+                {element.label && <label htmlFor={`extension-field-${element.id}`}>{element.label}</label>}
                 <Select
+                  id={`extension-field-${element.id}`}
                   label={element.label || element.id}
                   value={values[element.id] ?? element.options[0]?.value ?? ""}
                   onChange={(next) => setValues((current) => ({ ...current, [element.id]: next }))}
