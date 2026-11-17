@@ -1,5 +1,6 @@
 // Generation parameters typed into a connection: custom parameter JSON drafts, number drafts (comma decimals too),
 // and reusable numeric provider parameters, which survive storage, follow chat overrides and drop stale values.
+// Also the default reasoning effort.
 import assert from "node:assert/strict";
 import { parseCustomParametersDraft } from "../../../packages/client/src/lib/generation-custom-parameters.js";
 import { parseGenerationParameterDraft } from "../../../packages/client/src/lib/generation-parameter-draft.js";
@@ -8,6 +9,7 @@ import {
   parseManagedGenerationParameterDefinitions,
   resolveManagedGenerationParameters,
 } from "../../../packages/shared/src/utils/managed-generation-parameters.js";
+import { DEFAULT_GENERATION_PARAMS } from "../../../packages/shared/src/constants/defaults.js";
 
 assert.deepEqual(parseCustomParametersDraft('{ "reasoning_effort": high, "awesomesauce": enabled }'), {
   ok: true,
@@ -124,3 +126,5 @@ assert.equal(parseGenerationParameterDraft("0,8,5"), null);
     "Managed parameter parsing must enforce the declared definition ceiling",
   );
 }
+
+assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");

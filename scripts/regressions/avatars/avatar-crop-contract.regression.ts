@@ -6,6 +6,7 @@
 //  - avatarCropSchema strict request semantics (rejects extra keys + bad numerics)
 //  - normalizeAvatarCrop tolerant stored parsing (both formats, null on malformed)
 //  - Noodle request strictness + tolerant stored reads
+//  - Noodle's stored crop parsing (both formats, null on an empty rect) and the style it produces
 //  - parseCharacterDisplayData owning character crop normalization
 //  - editor/widget output limited to SourceRectAvatarCrop
 //  - removed alias names stay gone from packages and regression scripts
@@ -386,5 +387,18 @@ assert.deepEqual(
   [],
   "Removed avatar-crop aliases and explicit current-or-legacy unions must not remain in packages or regression scripts",
 );
+
+const noodleAvatarCrop = parseNoodleAvatarCrop(
+  JSON.stringify({ srcX: 0.25, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 }),
+);
+assert.deepEqual(noodleAvatarCrop, { srcX: 0.25, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 });
+assert.equal(getAvatarCropStyle(noodleAvatarCrop).width, "200%");
+assert.deepEqual(parseNoodleAvatarCrop({ zoom: 2, offsetX: -10, offsetY: 5, fullImage: true }), {
+  zoom: 2,
+  offsetX: -10,
+  offsetY: 5,
+  fullImage: true,
+});
+assert.equal(parseNoodleAvatarCrop({ srcX: 0, srcY: 0, srcWidth: 0, srcHeight: 0 }), null);
 
 process.stdout.write("Avatar crop contract regression passed.\n");
