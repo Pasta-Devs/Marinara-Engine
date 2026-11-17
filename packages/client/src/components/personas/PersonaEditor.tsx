@@ -193,6 +193,7 @@ import {
   reconcileVersionedPersonaEditorSave,
 } from "./persona-editor-transitions";
 import { Spinner } from "../ui/Spinner";
+import { ColorField } from "../ui/ColorPicker";
 
 // ── Tabs ──
 const TABS = [
@@ -3323,12 +3324,7 @@ function PersonaStatsTab({
               {parsed.bars.map((bar, i) => (
                 <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={bar.color}
-                      onChange={(e) => updateBar(i, "color", e.target.value)}
-                      className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
-                    />
+                    <ColorField value={bar.color} onChange={(color) => updateBar(i, "color", color)} label={bar.name} />
                     <StatIconPicker
                       value={resolveStatIconAssignment(
                         formData.trackerCardColors.statIcons ?? [],
