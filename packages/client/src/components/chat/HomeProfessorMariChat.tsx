@@ -1866,37 +1866,23 @@ export function HomeProfessorMariChat({
       : null;
   }, []);
 
-  // #9340: the scroll is measured in the frame's animation callbacks, which run right after its scroll events,
-  // not inside each event.
-  const transcriptScrollFrameRef = useRef(0);
   const handleTranscriptScroll = useCallback(() => {
-    if (!scrollRef.current) return;
+    const node = scrollRef.current;
+    if (!node) return;
     if (suppressNextScrollEventRef.current) {
       suppressNextScrollEventRef.current = false;
       return;
     }
-    if (transcriptScrollFrameRef.current) return;
-    transcriptScrollFrameRef.current = window.requestAnimationFrame(() => {
-      transcriptScrollFrameRef.current = 0;
-      const node = scrollRef.current;
-      // A hidden window resets its scroll to the top. That is not the reader scrolling away.
-      if (!node || node.clientHeight === 0) return;
-      const decision = transcriptScrollAction({
-        event: "user-scroll",
-        nearBottom: isProfessorMariTranscriptNearBottom(node),
-        following: transcriptFollowOutputRef.current,
-      });
-      transcriptFollowOutputRef.current = decision.following;
-      setShowJumpToLatest(!transcriptFollowOutputRef.current);
+    // A hidden window resets its scroll to the top. That is not the reader scrolling away.
+    if (node.clientHeight === 0) return;
+    const decision = transcriptScrollAction({
+      event: "user-scroll",
+      nearBottom: isProfessorMariTranscriptNearBottom(node),
+      following: transcriptFollowOutputRef.current,
     });
+    transcriptFollowOutputRef.current = decision.following;
+    setShowJumpToLatest(!transcriptFollowOutputRef.current);
   }, []);
-  useEffect(
-    () => () => {
-      window.cancelAnimationFrame(transcriptScrollFrameRef.current);
-      transcriptScrollFrameRef.current = 0;
-    },
-    [],
-  );
   const jumpToLatest = useCallback(() => {
     const node = scrollRef.current;
     if (!node) return;
