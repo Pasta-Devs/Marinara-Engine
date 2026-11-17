@@ -677,6 +677,16 @@ try {
     ],
     "ChatGPT offers its own levels plus the model default instead of an Off it cannot honour",
   );
+  const miniMax = { provider: "nanogpt", model: "minimax/minimax-m3.1-flash" };
+  assert.deepEqual(
+    reasoningEffortChoices(miniMax).map(({ label }) => label),
+    ["low", "medium", "high", "xhigh", "max"],
+  );
+  assert.equal(resolveProviderReasoningEffort({ ...miniMax, reasoningEffort: undefined }), null);
+  const miniMaxOff = resolveAgentConnectionParameters({ ...miniMax, defaultParameters: { reasoningEffort: null } });
+  assert.equal(miniMaxOff.generation.reasoning?.reasoningEffort, "low");
+  assert.ok(withThinkingHeadroom(4096, miniMaxOff.generation, miniMaxOff.enabledParameters) > 4096);
+
   // Argon and Carbon cannot turn thinking off. A saved Off or no level sends their default, medium, everywhere: in the
   // request, in the agent's thinking room and in the panel, so the panel offers only their three levels.
   for (const [provider, model] of ["google", "google_vertex"].flatMap((provider) =>

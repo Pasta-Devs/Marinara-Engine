@@ -42,6 +42,8 @@ Each numeric parameter has an input box and a Send switch (see below).
 - With the Send switch on, **Off** asks the service to turn thinking off, when the model is known to support that. Some models cannot turn thinking off and may still return reasoning. Choose a non-reasoning model when thinking must be absent.
 - With the Send switch off, no reasoning preference is sent, and the service uses its own default.
 
+MiniMax M3.1 Flash on NanoGPT always reasons. It offers **Low** through **Max**. NanoGPT uses **Max** when it receives no effort, and Marinara sends **Low** for a previously saved **Off**.
+
 **Verbosity** sets how long and detailed replies should be: **None**, **Low**, **Medium** or **High**. Only some models use it.
 
 ## Tuning tips
@@ -152,7 +154,9 @@ The **Effective** line beside a parameter shows the value that wins and which la
 
 ## Parameters for agents
 
-Agent calls use the **Chat defaults** saved on the account they run on: the agent's own account, or the chat's account when the agent has none. The Send switches and model limits apply as for a chat reply. Presets and a chat's **Advanced Parameters** do not change agent calls, except for the temperature rule below.
+Agent calls use the **Chat defaults** saved on the account they run on: the agent's own account, or the chat's account when the agent has none. The Send switches and model limits apply as for a chat reply. The rules below explain when agents use a chat's **Advanced Parameters**.
+
+In Roleplay, a chat's **Reasoning Effort** and its Send switch also apply to Illustrator's **Prompt Model**. Automatic illustrations, narrator commands and manual illustrations use that chat setting when you set it. The fallback model uses its own saved effort when it has one.
 
 - **Sent to agents:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, custom headers, and the extra parameters you add under **Settings**, then **Advanced**, then **Parameters** (such as Top A or a seed). A parameter whose Send switch is off is not sent.
 - **Not sent to agents:** Max Output Tokens, stop sequences, prefills, Thinking Tags and other prompt-format settings. Each agent keeps its own **Max Output Tokens**.

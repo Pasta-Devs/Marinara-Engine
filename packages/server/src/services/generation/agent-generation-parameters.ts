@@ -6,6 +6,10 @@ import {
   type GenerationParameterSendMap,
   type ManagedGenerationParameterDefinition,
 } from "@marinara-engine/shared";
+import {
+  parseStoredGenerationParameters,
+  type StoredGenerationParameters,
+} from "../../routes/generate/generate-route-utils.js";
 import { resolveModelAccessPolicy } from "./model-access-policy.js";
 import { clampGenerationMaxOutputTokens, resolveThinkingHeadroom } from "./output-token-limits.js";
 import {
@@ -91,9 +95,12 @@ function connectionOnlyBaseline(): GenerationParameterArgs["initial"] {
 
 /**
  * Resolve one connection's saved parameters through the main chat's rules (send switches, reasoning normalisation,
- * Codex Default, Claude sampling limits, managed custom parameters) without a preset, a chat layer or scene forcing.
+ * Codex Default, Claude sampling limits, managed custom parameters). Illustrator can also supply chat reasoning.
  */
-export function resolveConnectionGenerationParameters(source: ConnectionParameterSource): ResolvedGenerationParameters {
+export function resolveConnectionGenerationParameters(
+  source: ConnectionParameterSource,
+  chatReasoning?: Pick<StoredGenerationParameters, "reasoningEffort" | "enabledParameters">,
+): ResolvedGenerationParameters {
   return resolveGenerationParameters({
     connection: {
       provider: source.provider,
@@ -103,7 +110,7 @@ export function resolveConnectionGenerationParameters(source: ConnectionParamete
     },
     chatMode: "agent",
     isSceneChat: false,
-    chatParameters: null,
+    chatParameters: chatReasoning,
     managedParameterDefinitions: source.managedParameterDefinitions ?? [],
     modelAccessPolicy: resolveModelAccessPolicy({
       provider: source.provider,
@@ -121,22 +128,23 @@ function connectionSends(resolved: ResolvedGenerationParameters, key: keyof Gene
 
 /** Gemini 4 Argon and Carbon on Google and Vertex think at medium even when asked for no level or Off. */
 function thinksWithoutLevel(provider: string, model: string): boolean {
-  return resolveProviderReasoningEffort({ provider, model, reasoningEffort: null }) !== null;
+  return resolveProviderReasoningEffort({ provider, model, reasoningEffort: undefined }) !== null;
 }
 
 /**
- * A level counts as chosen only when the connection saved one, sends it, and shows Reasoning Effort for this model.
+ * A level counts as chosen only when it was saved, is sent, and the model shows Reasoning Effort.
  * Codex keeps its own level while the saved value is Default (null). With `unsetCountsAsOff`, no saved level counts as
  * a saved Off when Off still names a level: Gemini 4 Argon and Carbon think at medium either way, so the call sends
  * that level and gets room for it.
  */
-function connectionChoseReasoning(
+function choseReasoning(
   source: ConnectionParameterSource,
   resolved: ResolvedGenerationParameters,
   unsetCountsAsOff = false,
 ): boolean {
   const chosen =
     resolved.parameterSources.reasoningEffort === "connection" ||
+    resolved.parameterSources.reasoningEffort === "chat" ||
     (unsetCountsAsOff && thinksWithoutLevel(source.provider, source.model));
   if (!chosen || !connectionSends(resolved, "reasoningEffort")) return false;
   if (source.provider.toLowerCase() === "openai_chatgpt" && resolved.reasoningEffort == null) return false;
@@ -147,6 +155,14 @@ function definedOnly<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
+function resolveAgentReasoning(
+  source: ConnectionParameterSource,
+  resolved: ResolvedGenerationParameters,
+): AgentGenerationParameters["reasoning"] {
+  if (!choseReasoning(source, resolved, true)) return undefined;
+  return definedOnly({ reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking });
+}
+
 /**
  * What a connection contributes to the agent calls made through it. Values behind a switched-off Send switch are left
  * out here, so an agent on the chat's connection, which sends with the chat's switches, still never sends them.
@@ -155,9 +171,6 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
   const resolved = resolveConnectionGenerationParameters(source);
   const sent = <T>(key: keyof GenerationParameterSendMap, value: T) =>
     connectionSends(resolved, key) ? value : undefined;
-  const reasoning = connectionChoseReasoning(source, resolved, true)
-    ? { reasoningEffort: resolved.providerReasoningEffort, enableThinking: resolved.enableThinking }
-    : undefined;
   return {
     customParameters: resolved.customParameters,
     temperature: resolved.temperature,
@@ -171,9 +184,41 @@ export function resolveAgentConnectionParameters(source: ConnectionParameterSour
       verbosity: sent("verbosity", resolved.verbosity ?? undefined),
       serviceTier: resolved.serviceTier ?? undefined,
       omitTemperature: resolved.isClaudeNoSampling ? true : undefined,
-      reasoning: reasoning ? definedOnly(reasoning) : undefined,
+      reasoning: resolveAgentReasoning(source, resolved),
       thinkingHeadroom: PROVIDERS_WITHOUT_THINKING_HEADROOM.has(source.provider.toLowerCase()) ? undefined : true,
     }),
+  };
+}
+
+export type AgentReasoningOptions = {
+  generation?: AgentGenerationParameters;
+  enabledParameters?: GenerationParameterSendMap;
+  reasoningSource?: ConnectionParameterSource;
+};
+
+/** Apply chat reasoning after selecting the connection, since other agents can share the cached connection. */
+export function resolveIllustratorChatReasoning(
+  agentType: string,
+  { generation, enabledParameters, reasoningSource }: AgentReasoningOptions,
+  chatParameters: unknown,
+): Pick<AgentReasoningOptions, "generation" | "enabledParameters"> {
+  if (agentType !== "illustrator" || !reasoningSource) return { generation, enabledParameters };
+
+  const chat = parseStoredGenerationParameters(chatParameters);
+  const chatSendsReasoning = chat?.enabledParameters?.reasoningEffort;
+  if (chat?.reasoningEffort === undefined && chatSendsReasoning === undefined) return { generation, enabledParameters };
+
+  const resolved = resolveConnectionGenerationParameters(reasoningSource, {
+    reasoningEffort: chat?.reasoningEffort,
+    enabledParameters: chatSendsReasoning === undefined ? undefined : { reasoningEffort: chatSendsReasoning },
+  });
+  const reasoningEffort = resolved.enabledParameters?.reasoningEffort;
+  return {
+    generation: {
+      ...generation,
+      reasoning: resolveAgentReasoning(reasoningSource, resolved),
+    },
+    enabledParameters: reasoningEffort === undefined ? enabledParameters : { ...enabledParameters, reasoningEffort },
   };
 }
 
@@ -226,7 +271,7 @@ export function withAlwaysOnThinkingHeadroom(args: Parameters<typeof withConnect
   // is sized from that level; the request itself still leaves the level out.
   const sent = args.reasoningEffort && args.reasoningEffort !== "none" ? args.reasoningEffort : null;
   const effort =
-    sent ?? resolveProviderReasoningEffort({ provider: args.provider, model: args.model, reasoningEffort: null });
+    sent ?? resolveProviderReasoningEffort({ provider: args.provider, model: args.model, reasoningEffort: undefined });
   return withConnectionThinkingHeadroom({ ...args, reasoningEffort: effort });
 }
 
@@ -286,7 +331,7 @@ export function resolveCapabilityChatOptions(
   if (switchedOff.length > 0) merged.enabledParameters = Object.fromEntries(switchedOff.map((key) => [key, false]));
 
   const effort = resolved.providerReasoningEffort;
-  if (connectionChoseReasoning(source, resolved) && effort) {
+  if (choseReasoning(source, resolved) && effort) {
     merged.reasoningEffort = effort;
     merged.enableThinking = resolved.enableThinking;
     if (

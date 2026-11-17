@@ -352,7 +352,7 @@ export async function writeManualIllustratorPromptPlan(args: {
       enableCaching: args.illustratorAgent.enableCaching,
       anthropicExtendedCacheTtl: args.illustratorAgent.anthropicExtendedCacheTtl,
       cachingAtDepth: args.illustratorAgent.cachingAtDepth,
-      ...agentRequestOptions(args.illustratorAgent, false),
+      ...agentRequestOptions(args.illustratorAgent, true),
       signal: args.signal,
     });
   };

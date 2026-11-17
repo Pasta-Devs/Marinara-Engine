@@ -30,6 +30,7 @@ let metadataPath = "/props";
 let metadataHook: (() => Promise<void>) | undefined;
 let metadataRedirect: string | undefined;
 const prompts: string[] = [];
+const illustratorEfforts: Array<string | undefined> = [];
 let mainResponse = "A fixture response.";
 const provider = createServer(async (req, res) => {
   if (req.method === "GET") {
@@ -50,6 +51,7 @@ const provider = createServer(async (req, res) => {
   const body = JSON.parse(Buffer.concat(chunks).toString());
   const prompt = JSON.stringify(body.messages);
   prompts.push(prompt);
+  if (body.model === "minimax/minimax-m3.1-flash") illustratorEfforts.push(body.reasoning_effort);
   const content = prompt.includes("DIRECTOR_FIXTURE")
     ? JSON.stringify({ direction: "UNEXPECTED_DIRECTOR", text: "UNEXPECTED_DIRECTOR" })
     : prompt.includes("You are Narrative Director maintaining a hidden long-term arc")
@@ -447,6 +449,17 @@ try {
       modeAllowlist: ["roleplay"],
     },
   ]);
+  const illustratorConnection = await connections.create({
+    name: "NanoGPT Illustrator fixture",
+    provider: "nanogpt",
+    baseUrl: connection.baseUrl,
+    apiKey: "fixture",
+    model: "minimax/minimax-m3.1-flash",
+  });
+  await connections.updateDefaultParameters(illustratorConnection.id, {
+    reasoningEffort: "high",
+    enabledParameters: { reasoningEffort: true },
+  });
   const illustrator = await agents.create({
     type: "illustrator",
     name: "Illustrator",
@@ -469,6 +482,8 @@ try {
     activeAgentIds: ["illustrator"],
     roleplayCommandsEnabled: true,
     roleplayCommandToggles: { illustrate: true },
+    illustratorPromptConnectionId: illustratorConnection.id,
+    chatParameters: { reasoningEffort: "low", enabledParameters: { reasoningEffort: true } },
   });
   const illustrateTurn = async () => {
     const before = prompts.length;
@@ -491,9 +506,42 @@ try {
   assert.equal((await illustrateTurn()).length, 0, "the automatic agent master switch is respected");
   await chats.patchMetadata(artChat.id, { enableAgents: true });
   mainResponse = '[illustrate: subject="The laboratory" characters="Dottore"] The scene changes.';
+  const beforeCommand = illustratorEfforts.length;
   const commandRequests = await illustrateTurn();
   assert.equal(commandRequests.length, 2, "an explicit illustration command adds to the automatic decision");
   assert.equal(commandRequests.filter((prompt) => prompt.includes("manual_gallery_illustration_request")).length, 1);
+  assert.deepEqual(illustratorEfforts.slice(beforeCommand), ["low", "low"], "automatic and narrator use chat effort");
+
+  const galleryIllustration = async () => {
+    const before = illustratorEfforts.length;
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/generate/retry-agents",
+      payload: { chatId: artChat.id, agentTypes: ["illustrator"], illustratorRetryTargets: ["illustration"] },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return illustratorEfforts.slice(before);
+  };
+  assert.deepEqual(await galleryIllustration(), ["low"], "gallery uses chat effort");
+
+  await chats.patchMetadata(artChat.id, { chatParameters: { reasoningEffort: "maximum" } });
+  assert.deepEqual(await galleryIllustration(), ["max"], "gallery sends a saved Maximum as Max");
+
+  await chats.patchMetadata(artChat.id, { chatParameters: { reasoningEffort: "xhigh" } });
+  assert.deepEqual(await galleryIllustration(), ["xhigh"], "gallery sends a saved Extra High as Extra High");
+
+  await chats.patchMetadata(artChat.id, { chatParameters: { reasoningEffort: null } });
+  assert.deepEqual(await galleryIllustration(), ["low"], "a previously saved Off uses Low");
+
+  await chats.patchMetadata(artChat.id, {
+    chatParameters: { reasoningEffort: "low", enabledParameters: { reasoningEffort: false } },
+  });
+  assert.deepEqual(await galleryIllustration(), [undefined], "gallery respects the chat's Send switch");
+
+  await chats.patchMetadata(artChat.id, { chatParameters: {} });
+  assert.deepEqual(await galleryIllustration(), ["high"], "gallery inherits the Illustrator connection's effort");
+  await connections.updateDefaultParameters(illustratorConnection.id, {});
+  assert.deepEqual(await galleryIllustration(), ["low"], "gallery uses the automatic JSON agent reasoning default");
   mainResponse = "A fixture response.";
   replaceBuiltInAgentDefinitions([]);
 
