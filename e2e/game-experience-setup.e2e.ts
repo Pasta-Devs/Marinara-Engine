@@ -11,6 +11,7 @@ import {
   worldSpatialDraft,
   type MultiplayerPlayer,
 } from "@marinara-engine/shared";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -948,14 +949,14 @@ test("A setting kit is off by default, can be picked, written for the setting, e
   await wizard.getByLabel("Scene", { exact: true }).first().fill("Harbor road");
   await wizard.getByLabel("Open tiles", { exact: true }).fill("Quay");
   // Its art and music (worldgen W6f): the modern day's own family, changed to the jazz age's.
-  await expect(wizard.getByLabel("Art and music", { exact: true })).toHaveValue("modern");
-  await wizard.getByLabel("Art and music", { exact: true }).selectOption({ label: "Jazz age" });
+  await expect(wizard.getByLabel("Art and music", { exact: true })).toHaveAttribute("data-value", "modern");
+  await chooseOption(page, wizard.getByLabel("Art and music", { exact: true }), "Jazz age");
   // Retyping the places keeps the settlements on the layer of that name.
   const settlements = wizard.getByLabel("Which of them holds the settlements", { exact: true });
-  await expect(settlements.locator("option:checked")).toHaveText("city");
+  await expect(settlements).toContainText("city");
   await wizard.getByLabel("Places, outermost first", { exact: true }).fill("country, city, quarter");
-  await expect(settlements.locator("option:checked")).toHaveText("city");
-  await settlements.selectOption({ label: "quarter" });
+  await expect(settlements).toContainText("city");
+  await chooseOption(page, settlements, "quarter");
 
   await page.screenshot({ path: testInfo.outputPath("setting-kit-editor.png"), fullPage: true });
 

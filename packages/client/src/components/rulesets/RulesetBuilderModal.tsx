@@ -36,6 +36,7 @@ import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 import { cn } from "../../lib/utils";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 const PRESETS: RulesetBuilderDicePreset[] = ["d20", "2d6-bands", "pool", "highest", "percentile", "duality", "no-dice"];
 /** A preset's localization key segment: keys take no dashes and start with a letter. */
@@ -119,21 +120,14 @@ function DisplayPicker({
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <select
+    <Select
       value={value ?? "counter"}
       title={localizeUi("rulesetBuilder.displayHelp")}
-      aria-label={localizeUi("rulesetBuilder.display")}
-      onChange={(event) =>
-        onChange(event.target.value === "counter" ? undefined : (event.target.value as RulesetBuilderDisplay))
-      }
+      label={localizeUi("rulesetBuilder.display")}
+      onChange={(next) => onChange(next === "counter" ? undefined : (next as RulesetBuilderDisplay))}
       className={cn(INPUT, "w-24 shrink-0")}
-    >
-      {DISPLAYS.map((display) => (
-        <option key={display} value={display}>
-          {localizeUi(`rulesetBuilder.displays.${display}`)}
-        </option>
-      ))}
-    </select>
+      options={DISPLAYS.map((display) => ({ value: display, label: localizeUi(`rulesetBuilder.displays.${display}`) }))}
+    />
   );
 }
 
@@ -182,26 +176,24 @@ function ListEditor({
               }
               className={INPUT}
             />
-            <select
+            <Select
               value={column.type}
-              aria-label={localizeUi("rulesetBuilder.fieldType")}
-              onChange={(event) =>
+              label={localizeUi("rulesetBuilder.fieldType")}
+              onChange={(next) =>
                 onChange({
                   ...list,
                   columns: patchRow(list.columns, index, {
                     ...column,
-                    type: event.target.value as RulesetBuilderColumnType,
+                    type: next as RulesetBuilderColumnType,
                   }),
                 })
               }
               className={cn(INPUT, "w-28 shrink-0")}
-            >
-              {COLUMN_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {localizeUi(`rulesetBuilder.columnTypes.${type}`)}
-                </option>
-              ))}
-            </select>
+              options={COLUMN_TYPES.map((type) => ({
+                value: type,
+                label: localizeUi(`rulesetBuilder.columnTypes.${type}`),
+              }))}
+            />
             <RemoveButton onClick={() => onChange({ ...list, columns: patchRow(list.columns, index, null) })} />
           </div>
         )}
@@ -484,20 +476,19 @@ export function RulesetBuilderModal({
           )}
           {draft.dice.preset === "pool" && (
             <div className="flex flex-wrap items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <label className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 {localizeUi("rulesetBuilder.poolSides")}
-                <select
-                  value={draft.dice.sides ?? 10}
-                  onChange={(event) => set({ dice: { ...draft.dice, sides: Number(event.target.value) } })}
+                <Select
+                  value={String(draft.dice.sides ?? 10)}
+                  label={localizeUi("rulesetBuilder.poolSides")}
+                  onChange={(next) => set({ dice: { ...draft.dice, sides: Number(next) } })}
                   className={NUMBER}
-                >
-                  {[6, 10].map((sides) => (
-                    <option key={sides} value={sides}>
-                      {localizeUi("ui.dice.diceglyph.dValue1", { value1: sides })}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  options={[6, 10].map((sides) => ({
+                    value: String(sides),
+                    label: localizeUi("ui.dice.diceglyph.dValue1", { value1: sides }),
+                  }))}
+                />
+              </div>
               <label className="flex items-center gap-1.5">
                 {localizeUi("rulesetBuilder.poolTarget")}
                 <DraftNumberInput
@@ -687,26 +678,15 @@ export function RulesetBuilderModal({
                   }
                   className={cn(INPUT, "w-auto flex-1 sm:w-28 sm:flex-none")}
                 />
-                <select
-                  value={namedAbilities.some((ability) => ability.key === skill.ability) ? skill.ability : ""}
-                  aria-label={localizeUi("rulesetBuilder.skillAbility")}
-                  onChange={(event) =>
-                    set({ skills: patchRow(draft.skills, index, { ...skill, ability: event.target.value }) })
-                  }
+                <Select
+                  value={namedAbilities.some((ability) => ability.key === skill.ability) ? skill.ability : null}
+                  label={localizeUi("rulesetBuilder.skillAbility")}
+                  // A skill whose stat was removed says so, rather than seeming to roll with the first one.
+                  placeholder={localizeUi("rulesetBuilder.chooseStat")}
+                  onChange={(next) => set({ skills: patchRow(draft.skills, index, { ...skill, ability: next }) })}
                   className={cn(INPUT, "w-auto flex-1 sm:w-36 sm:flex-none")}
-                >
-                  {/* A skill whose stat was removed says so, rather than seeming to roll with the first one. */}
-                  {!namedAbilities.some((ability) => ability.key === skill.ability) && (
-                    <option value="" disabled>
-                      {localizeUi("rulesetBuilder.chooseStat")}
-                    </option>
-                  )}
-                  {namedAbilities.map((ability) => (
-                    <option key={ability.key} value={ability.key}>
-                      {ability.label}
-                    </option>
-                  ))}
-                </select>
+                  options={namedAbilities.map((ability) => ({ value: ability.key, label: ability.label }))}
+                />
                 <RemoveButton onClick={() => set({ skills: patchRow(draft.skills, index, null) })} />
               </div>
             )}
@@ -917,22 +897,23 @@ export function RulesetBuilderModal({
                   }
                   className={INPUT}
                 />
-                <select
+                <Select
                   value={field.type}
-                  aria-label={localizeUi("rulesetBuilder.fieldType")}
-                  onChange={(event) =>
+                  label={localizeUi("rulesetBuilder.fieldType")}
+                  onChange={(next) =>
                     set({
                       fields: patchRow(draft.fields, index, {
                         ...field,
-                        type: event.target.value as "text" | "number",
+                        type: next as "text" | "number",
                       }),
                     })
                   }
                   className={cn(INPUT, "w-28 shrink-0")}
-                >
-                  <option value="text">{localizeUi("rulesetBuilder.fieldText")}</option>
-                  <option value="number">{localizeUi("rulesetBuilder.fieldNumber")}</option>
-                </select>
+                  options={[
+                    { value: "text", label: localizeUi("rulesetBuilder.fieldText") },
+                    { value: "number", label: localizeUi("rulesetBuilder.fieldNumber") },
+                  ]}
+                />
                 <RemoveButton onClick={() => set({ fields: patchRow(draft.fields, index, null) })} />
               </div>
             )}

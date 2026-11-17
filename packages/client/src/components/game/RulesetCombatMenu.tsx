@@ -314,7 +314,8 @@ export function RulesetCombatMenu({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='dialog']")) return;
+      if (target?.closest("input, textarea, select, [role='combobox'], [contenteditable='true'], [role='dialog']"))
+        return;
       event.preventDefault();
       passRef.current();
     };

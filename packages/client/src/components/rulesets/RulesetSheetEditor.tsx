@@ -50,6 +50,7 @@ import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput, type Scalar } from "./RulesetTypedInput";
 import { RollCellButton } from "./RulesetRollCellButton";
+import { Select } from "../ui/Select";
 
 type ListRow = Record<string, Scalar>;
 
@@ -169,25 +170,20 @@ function TrainedRows({
                     <span className="ml-1 text-[var(--muted-foreground)]">{abilityShort(entry.ability)}</span>
                   ) : null}
                 </span>
-                <select
+                <Select
                   value={chosen[entry.id] ?? tiers[0]!.id}
-                  onChange={(event) => onTier(entry.id, event.target.value)}
-                  aria-label={t("ui.rulesets.sheet.trainingFor", { name: rt(entry.label) })}
+                  onChange={(next) => onTier(entry.id, next)}
+                  label={t("ui.rulesets.sheet.trainingFor", { name: rt(entry.label) })}
                   className={inputClass}
-                >
-                  {[
+                  options={[
                     ...tiers,
                     // A stored tier the editor no longer offers still shows as what it is.
                     ...definition.resolution.proficiencyTiers.filter(
                       (tier) =>
                         tier.id === chosen[entry.id] && !tiers.some((offeredTier) => offeredTier.id === tier.id),
                     ),
-                  ].map((tier) => (
-                    <option key={tier.id} value={tier.id}>
-                      {rt(tier.label)}
-                    </option>
-                  ))}
-                </select>
+                  ].map((tier) => ({ value: tier.id, label: rt(tier.label) }))}
+                />
                 <DraftNumberInput
                   value={bonuses[entry.id] ?? 0}
                   onCommit={(next) => onBonus(entry.id, clamp(next, bonusRange.min, bonusRange.max))}
