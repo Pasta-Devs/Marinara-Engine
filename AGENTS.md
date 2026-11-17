@@ -74,6 +74,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - Agent-specific coordination rule: when implementation effort starts for an issue, open a draft PR immediately so the project Kanban board shows the work in progress.
 - Agent-specific coordination rule: when starting work on an issue, tag or identify the GitHub user or agent owning that issue/PR on the single issue so ownership is visible before implementation proceeds.
 - Agent-specific coordination rule: assign every issue and PR you open to yourself. If your account cannot assign, mention `@SpicyMarinara` in the description instead.
+- Agent-specific coordination rule: start every issue title with its prefix (`[Issue]:`, `[Feature]:` or `[docs-i18n]`) so the issue workflow adds its type label, since `gh issue create` skips the issue forms. See `CONTRIBUTING.md § Labels`.
 - When preparing a PR, make the why explicit in the description so reviewers can see the user problem or rationale, not just the file changes.
 - Check `README.md`, `android/README.md`, `CONTRIBUTING.md`, `docs/CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, and `docs/FAQ.md` together when install, update, or release behavior changes.
 - When writing or editing user guides under `docs/`, follow `.agents/skills/docs-writing/SKILL.md`.

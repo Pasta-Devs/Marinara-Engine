@@ -1,0 +1,38 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label:
+    name: Label by title prefix
+    # Only a title edit can change the label. Body edits are skipped so a label a maintainer removed stays removed.
+    if: github.event.action == 'opened' || github.event.changes.title
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add the type label for the title prefix
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            // Issue forms add these labels, but issues filed with gh, the API or a blank form get none.
+            const prefixLabels = [
+              ['[issue]', 'bug'],
+              ['[bug]', 'bug'],
+              ['[feature]', 'enhancement'],
+              ['[docs-i18n]', 'docs'],
+            ];
+            const issue = context.payload.issue;
+            const title = issue.title.trim().toLowerCase();
+            const match = prefixLabels.find(([prefix]) => title.startsWith(prefix));
+            if (!match || issue.labels.some((label) => label.name === match[1])) {
+              return;
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: [match[1]],
+            });
