@@ -662,10 +662,28 @@
 }
 .ov-rail__portrait-actions {
   position: absolute;
-  bottom: 0.625rem;
-  left: 0.625rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  left: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   gap: 0.375rem;
+}
+/* Crop, Generate and Replace sit centred inside the picture's inset, the same distance from the sides and the
+   bottom (the row used to start at the left edge and run past the right one on phones and with larger theme
+   fonts). Next to Crop and Generate, Replace drops its upload icon so the three read as one even set and fit
+   wide theme fonts (Granite Watch's monospace) on one row. If the text is still too big for one row, a button
+   drops to a centred second row instead of being cut off. */
+.ov-rail__portrait-actions > .ov-chip-btn {
+  flex: 0 1 auto;
+  justify-content: center;
+  padding-inline: 0.5625rem;
+  white-space: nowrap;
+}
+.ov-rail__portrait-actions > .ov-chip-btn:not(:only-child) > svg {
+  display: none;
 }
 .ov-chip-btn {
   height: 1.75rem;
