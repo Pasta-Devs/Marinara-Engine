@@ -60,6 +60,65 @@ Clique em **Open sheet** (Abrir ficha) ao lado de um membro na seção **Ruleset
 
 O narrador lê as fichas em cada turno e as muda com comandos de ficha na resposta, que o Marinara aplica e esconde da mensagem. Para descansar, diga isso no seu turno, por exemplo "a gente faz um descanso longo". O narrador registra o descanso, e as fichas recuperam o que o descanso do conjunto de regras restaura. Você também pode clicar em **Rest** (Descanso) em uma ficha.
 
+## Criar seu próprio conjunto de regras
+
+O construtor de conjuntos de regras cria um conjunto de regras pequeno a partir de um formulário: como os testes são rolados, o que vai na ficha e o que é dito ao narrador. Use-o para um sistema que o Marinara não tem. Um conjunto de regras criado por você funciona como um instalado, no Roleplay e no Game Mode.
+
+Antes de começar: ative **Allow custom Agent imports**, porque o construtor salva o conjunto de regras do mesmo jeito que uma importação. Veja [Obter um conjunto de regras](../game/rulesets.md#get-a-ruleset).
+
+1. Em **Chat Settings → Ruleset**, clique em **New ruleset…** (novo conjunto de regras).
+2. Digite um **Name** (nome).
+3. Em **Dice** (dados), escolha como os testes são rolados (veja a tabela abaixo). Escolher um preenche os atributos, as reservas e as trilhas iniciais, que você pode mudar.
+4. Mude **Difficulties** (dificuldades), **Stats** (atributos), **Skills** (perícias) e o resto do formulário. A maioria das seções se explica em uma linha abaixo do título.
+5. Clique em **Create ruleset** (criar conjunto de regras).
+
+O Marinara salva o conjunto de regras. Em um chat sem conjunto de regras, ele também ativa o novo. Um chat que já tem um conjunto de regras continua com ele e com as fichas dele; para trocar, escolha o novo conjunto de regras na lista.
+
+Se um conjunto de regras instalado já rola do jeito que você escolheu, a seção **Dice** o nomeia. Cada conjunto de regras é uma ficha separada em cada personagem, então, para manter uma só ficha por personagem, jogue com esse conjunto de regras ou edite-o em vez de criar outro.
+
+| Dados | Como um teste é rolado |
+| --- | --- |
+| **d20 + modifier** (d20 + modificador) | Um d20 mais o atributo e a perícia, contra um número de dificuldade. |
+| **2d6 bands** (patamares de 2d6) | 2d6 mais o atributo: 10 ou mais é um acerto forte, 7 a 9 um acerto fraco e 6 ou menos uma falha. |
+| **Dice pool** (parada de dados) | Um dado por ponto de atributo e de perícia. Cada dado que alcança o número-alvo conta. Você escolhe d6 ou d10 e o alvo. |
+| **Highest d6** (d6 mais alto) | Um d6 por ponto, ficando com o mais alto: 6 é um sucesso completo, 4 ou 5 um parcial, e dois 6 um crítico. |
+| **Percentile** (percentil) | Um d100. O teste é bem-sucedido com um resultado igual ou menor que o número da perícia. |
+| **Hope and Fear** (Esperança e Medo) | Dois d12 mais o atributo. O dado mais alto diz se o resultado vem com Esperança ou com Medo. |
+| **No dice** (sem dados) | Nenhum dado é rolado. O atributo e a perícia são somados e comparados com a dificuldade. |
+
+### Mudar um conjunto de regras que você criou
+
+1. Ative o conjunto de regras em um chat.
+2. Em **Chat Settings → Ruleset**, clique em **Edit ruleset** (editar o conjunto de regras).
+3. Faça suas alterações e clique em **Save new version** (salvar nova versão).
+
+O chat passa para a nova versão e mantém todas as fichas. Renomear um atributo, uma perícia, uma reserva ou uma coluna de lista mantém o que cada personagem tem ali. Outro chat com o mesmo conjunto de regras passa para a nova versão quando você clica em **Add missing sheets** nesse chat.
+
+**Edit ruleset** aparece para um conjunto de regras que você criou ou importou de um arquivo, quando o formulário consegue contê-lo inteiro: um feito pelo construtor, ou um arquivo escrito à mão que usa só o que o formulário mostra. Ele não aparece para um conjunto de regras de um pacote ou de um repositório. O construtor nunca abre um conjunto de regras com algo a mais, como regras de combate ou comentários, então não pode perder o que não mostra. Ele também só aparece em um chat que joga a versão mais nova; em um chat com uma mais antiga, clique primeiro em **Add missing sheets**.
+
+### Organizar a ficha
+
+| No formulário | Na ficha |
+| --- | --- |
+| A ordem das linhas | Atributos, perícias, reservas, trilhas, campos e abas de listas aparecem na ordem do formulário. Arraste uma linha pela alça para movê-la, ou dê foco à alça e pressione as setas para cima e para baixo. |
+| O **Group** (grupo) de um atributo ou de uma perícia | Atributos ou perícias com o mesmo grupo aparecem sob um mesmo título. |
+| **Skill ranks** (graduações de perícia) | As graduações que você escolhe para cada perícia na ficha, cada uma com o que acrescenta: ao total em uma rolagem de d20 ou de 2d6, dados em uma parada, pontos em um percentil. |
+| **Practice meter** (medidor de prática) | Cada perícia treinada mostra quanto já avançou rumo à próxima graduação, de 0 a 99%. A prática na história faz o medidor subir, e uma subida de graduação o faz recomeçar. Você pode corrigi-lo na ficha. Em **No meter for:** (sem medidor para), marque um grupo para deixar as perícias dele de fora. |
+| **Number** (número), **Bar** (barra) ou **Dots** (bolinhas) em uma reserva ou trilha | Só o número, uma barra de preenchimento ao lado dele ou uma fileira de bolinhas preenchidas até ele, uma bolinha por ponto. Mais de 20 bolinhas aparecem como uma barra. |
+| **Lists** (listas) | Cada lista ganha a própria aba, com o nome da lista, a menos que você digite outro nome de aba. Listas com o mesmo nome de aba dividem uma aba. |
+| As colunas de uma lista | Toda linha tem um nome, mais as suas colunas: **Text** (texto), **Number** ou **Checkbox** (caixa de seleção). A primeira coluna de caixa de seleção aparece como uma marca de seleção ao lado de cada nome. |
+
+### Contar as suas regras ao narrador
+
+A seção **Prompts** guarda o que é dito ao narrador sobre o seu conjunto de regras. **Checks** (testes) e **Keeping the sheets** (manter as fichas) mostram um texto padrão; deixe qualquer um dos dois vazio para usá-lo. As quebras de linha viram espaços. Nomes e prompts não podem conter colchetes nem chaves duplas, porque as marcações e as macros do narrador os usam.
+
+| Caixa | Para que serve |
+| --- | --- |
+| **Checks** | Quando pedir um teste e como escolher a perícia e a dificuldade. |
+| **Keeping the sheets** | Como as fichas mudam durante o jogo. |
+| **Rules reference** (referência de regras) | Regras da casa e qualquer outra coisa que o narrador deva ter sempre diante de si. |
+| **World (Game Mode)** (mundo: Game Mode) | É lido uma vez quando uma partida de Game Mode é criada com o conjunto de regras, para que o mundo dela combine com as regras. |
+
 ## Solução de problemas
 
 | Sintoma | Solução |

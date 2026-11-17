@@ -60,6 +60,65 @@ Clique sur **Open sheet** (ouvrir la fiche) à côté d'un membre dans la sectio
 
 Le narrateur lit les fiches à chaque tour et les modifie avec des commandes de fiche dans sa réponse, que Marinara applique et masque dans le message. Pour te reposer, dis-le dans ton tour, par exemple "on prend un repos long". Le narrateur note le repos, et les fiches récupèrent ce que le repos de l'ensemble de règles restaure. Tu peux aussi cliquer sur **Rest** (repos) sur une fiche.
 
+## Créer ton propre ensemble de règles
+
+Le constructeur d'ensembles de règles crée un petit ensemble de règles à partir d'un formulaire : la façon dont les tests se lancent, ce qui figure sur la fiche et ce qui est dit au narrateur. Utilise-le pour un système que Marinara n'a pas. Un ensemble de règles que tu crées fonctionne comme un ensemble installé, en Roleplay et en Game Mode.
+
+Avant de commencer : active **Allow custom Agent imports**, car le constructeur enregistre l'ensemble de règles comme le fait un import. Voir [Obtenir un ensemble de règles](../game/rulesets.md#get-a-ruleset).
+
+1. Dans **Chat Settings → Ruleset**, clique sur **New ruleset…** (nouvel ensemble de règles).
+2. Saisis un nom dans **Name** (nom).
+3. Sous **Dice** (dés), choisis comment les tests se lancent (voir le tableau ci-dessous). Ce choix remplit des caractéristiques, des réserves et des pistes de départ, que tu peux modifier.
+4. Modifie **Difficulties** (difficultés), **Stats** (caractéristiques), **Skills** (compétences) et le reste du formulaire. La plupart des sections s'expliquent d'elles-mêmes en une ligne sous leur titre.
+5. Clique sur **Create ruleset** (créer l'ensemble de règles).
+
+Marinara enregistre l'ensemble de règles. Dans un chat sans ensemble de règles, elle active aussi le nouveau. Un chat qui a déjà un ensemble de règles le garde, avec ses fiches ; pour changer, choisis le nouvel ensemble de règles dans la liste.
+
+Si un ensemble de règles installé lance déjà les dés de la façon que tu as choisie, la section **Dice** le nomme. Chaque ensemble de règles est une fiche distincte sur chaque personnage : pour garder une seule fiche par personnage, joue avec cet ensemble de règles ou modifie-le au lieu d'en créer un autre.
+
+| Dés | Comment un test se lance |
+| --- | --- |
+| **d20 + modifier** (d20 + modificateur) | Un d20 plus la caractéristique et la compétence, contre un nombre de difficulté. |
+| **2d6 bands** (2d6 par paliers) | 2d6 plus la caractéristique : 10 ou plus est une réussite forte, 7 à 9 une réussite faible, 6 ou moins un échec. |
+| **Dice pool** (réserve de dés) | Un dé par point de caractéristique et de compétence. Chaque dé qui atteint le nombre cible compte. Tu choisis d6 ou d10, et la cible. |
+| **Highest d6** (d6 le plus haut) | Un d6 par point, en gardant le plus haut : 6 est une réussite totale, 4 ou 5 une réussite partielle, deux 6 une réussite critique. |
+| **Percentile** (pourcentage) | Un d100. Le test réussit à un résultat égal ou inférieur au nombre de la compétence. |
+| **Hope and Fear** (espoir et peur) | Deux d12 plus la caractéristique. Le dé le plus haut indique si le résultat s'accompagne d'Espoir ou de Peur. |
+| **No dice** (sans dés) | Aucun dé n'est lancé. La caractéristique et la compétence sont additionnées et comparées à la difficulté. |
+
+### Modifier un ensemble de règles que tu as créé
+
+1. Active l'ensemble de règles pour un chat.
+2. Dans **Chat Settings → Ruleset**, clique sur **Edit ruleset** (modifier l'ensemble de règles).
+3. Fais tes modifications et clique sur **Save new version** (enregistrer une nouvelle version).
+
+Le chat passe à la nouvelle version et garde chaque fiche. Renommer une caractéristique, une compétence, une réserve ou une colonne de liste conserve ce que chaque personnage y a inscrit. Un autre chat sur le même ensemble de règles passe à la nouvelle version quand tu cliques sur **Add missing sheets** dans ce chat.
+
+Le bouton **Edit ruleset** apparaît pour un ensemble de règles que tu as créé ou importé depuis un fichier, quand le formulaire peut le contenir en entier : un ensemble créé par le constructeur, ou un fichier écrit à la main qui n'utilise que ce que montre le formulaire. Le bouton n'apparaît pas pour un ensemble de règles issu d'un package ou d'un dépôt. Le constructeur n'ouvre jamais un ensemble de règles qui contient davantage, comme des règles de combat ou des commentaires : il ne peut donc pas perdre ce qu'il ne montre pas. Le bouton n'apparaît par ailleurs que dans un chat qui joue la version la plus récente ; dans un chat sur une version plus ancienne, clique d'abord sur **Add missing sheets**.
+
+### Organiser la fiche
+
+| Dans le formulaire | Sur la fiche |
+| --- | --- |
+| L'ordre des lignes | Les caractéristiques, compétences, réserves, pistes, champs et onglets de listes s'affichent dans l'ordre du formulaire. Fais glisser une ligne par sa poignée pour la déplacer, ou mets le focus sur la poignée et appuie sur les touches fléchées haut et bas. |
+| Le **Group** (groupe) d'une caractéristique ou d'une compétence | Les caractéristiques ou compétences du même groupe s'affichent sous un même titre. |
+| **Skill ranks** (rangs de compétence) | Les rangs que tu choisis pour chaque compétence sur la fiche, chacun avec ce qu'il ajoute : au total d'un jet de d20 ou de 2d6, des dés pour une réserve, des points pour un pourcentage. |
+| **Practice meter** (jauge de pratique) | Chaque compétence entraînée montre où elle en est vers son prochain rang, de 0 à 99 %. La pratique dans l'histoire fait monter la jauge, et une montée de rang la fait repartir de zéro. Tu peux la corriger sur la fiche. Sous **No meter for:** (pas de jauge pour), coche un groupe pour en exclure les compétences. |
+| **Number** (nombre), **Bar** (barre) ou **Dots** (points) sur une réserve ou une piste | Le nombre seul, une barre de remplissage à côté, ou une rangée de points remplis jusqu'à ce nombre, un point par unité. Plus de 20 points s'affichent sous forme de barre. |
+| **Lists** (listes) | Chaque liste a son propre onglet, qui porte le nom de la liste sauf si tu saisis un autre nom d'onglet. Les listes qui ont le même nom d'onglet partagent un onglet. |
+| Les colonnes d'une liste | Chaque ligne a un nom, plus tes colonnes : **Text** (texte), **Number** ou **Checkbox** (case à cocher). La première colonne de cases à cocher s'affiche sous forme de coche à côté de chaque nom. |
+
+### Expliquer tes règles au narrateur
+
+La section **Prompts** contient ce qui est dit au narrateur sur ton ensemble de règles. **Checks** (tests) et **Keeping the sheets** (tenue des fiches) affichent un texte par défaut ; laisse l'un ou l'autre vide pour utiliser ce texte. Les retours à la ligne deviennent des espaces. Les noms et les prompts ne peuvent contenir ni crochets ni doubles accolades, car les balises et les macros du narrateur les utilisent.
+
+| Zone | À quoi elle sert |
+| --- | --- |
+| **Checks** | Quand demander un test, et comment choisir la compétence et la difficulté. |
+| **Keeping the sheets** | Comment les fiches changent en cours de jeu. |
+| **Rules reference** (référence des règles) | Les règles maison et tout ce que le narrateur doit toujours avoir sous les yeux. |
+| **World (Game Mode)** | Lue une fois, quand une partie de Game Mode est créée avec l'ensemble de règles, pour que son monde convienne aux règles. |
+
 ## Dépannage
 
 | Symptôme | Solution |
