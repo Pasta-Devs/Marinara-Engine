@@ -60,6 +60,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../../chat/ChatResourceActionButton";
 import { ContextMenu, type ContextMenuItem } from "../../ui/ContextMenu";
+import { Select } from "../../ui/Select";
 import {
   SETTINGS_BUTTON_CLASS,
   SETTINGS_ICON_BUTTON_CLASS,
@@ -1355,27 +1356,30 @@ export function BackgroundPicker({
               )}
             </div>
             <div className="relative shrink-0">
-              <select
+              {/* The sort icon below stands in for the Select's own chevron, so that one is hidden. */}
+              <Select<"custom" | BackgroundLibrarySort>
                 value={manualOrderActive || folderDrag.active ? "custom" : sort}
+                options={[
+                  {
+                    value: "custom",
+                    label: localizeUi("dragDrop.manualOrder"),
+                    description: localizeUi("dragDrop.manualOrderHelp"),
+                  },
+                  { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
+                  { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
+                  { value: "newest", label: localizeUi("ui.panels.backgroundpicker.newest") },
+                  { value: "oldest", label: localizeUi("ui.panels.backgroundpicker.oldest") },
+                ]}
                 // Character backgrounds are grouped by owner, so the library sort does not apply.
                 disabled={sourceFilter === "characters"}
-                onChange={(event) => {
-                  manualOrder.setActive(event.target.value === "custom");
-                  folderDrag.setActive(event.target.value === "custom");
-                  if (event.target.value !== "custom") setSort(event.target.value as BackgroundLibrarySort);
+                onChange={(value) => {
+                  manualOrder.setActive(value === "custom");
+                  folderDrag.setActive(value === "custom");
+                  if (value !== "custom") setSort(value);
                 }}
-                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:!text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>option]:text-[var(--foreground)] md:h-9 disabled:opacity-50"
-                title={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
-                aria-label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
-              >
-                <option value="custom" title={localizeUi("dragDrop.manualOrderHelp")}>
-                  {localizeUi("dragDrop.manualOrder")}
-                </option>
-                <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-                <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-                <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-                <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-              </select>
+                className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] max-sm:!text-[13px] max-md:!w-10 max-md:!px-0 max-md:!text-transparent [&>svg]:hidden md:h-9 disabled:opacity-50"
+                label={localizeUi("ui.panels.backgroundpicker.sortBackgrounds")}
+              />
               <ArrowUpDown
                 size="0.625rem"
                 className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 max-md:left-1/2 max-md:-translate-x-1/2"

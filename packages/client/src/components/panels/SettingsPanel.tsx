@@ -892,22 +892,18 @@ function ImageStyleProfilesEditor({
             />
           </div>
 
-          <label className="min-w-0">
+          <div className="min-w-0">
             <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
             </span>
-            <select
+            <Select
               value={selected.id}
-              onChange={(event) => setSelectedId(event.target.value)}
+              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+              onChange={setSelectedId}
+              label={localizeUi("ui.panels.imagestyleprofileseditor.editing")}
               className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            >
-              {settings.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -942,22 +938,18 @@ function ImageStyleProfilesEditor({
             className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
           />
         </label>
-        <label className="min-w-0">
+        <div className="min-w-0">
           <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
           </span>
-          <select
+          <Select
             value={selected.promptMode}
-            onChange={(event) => updateSelected({ promptMode: event.target.value as ImagePromptMode })}
+            options={IMAGE_PROMPT_MODE_OPTIONS}
+            onChange={(promptMode) => updateSelected({ promptMode })}
+            label={localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
             className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          >
-            {IMAGE_PROMPT_MODE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
       </div>
 
       <label className="mt-3 block">
@@ -1020,22 +1012,18 @@ function ImageStyleProfilesEditor({
         </summary>
         <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="space-y-2">
-            <label className="block">
+            <div className="block">
               <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
               </span>
-              <select
+              <Select
                 value={previewKind}
-                onChange={(event) => setPreviewKind(event.target.value as ImagePromptKind)}
+                options={IMAGE_STYLE_SUBJECT_KINDS.map((kind) => ({ value: kind, label: kind }))}
+                onChange={setPreviewKind}
+                label={localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs"
-              >
-                {IMAGE_STYLE_SUBJECT_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {kind}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <label className="block">
               <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.imagestyleprofileseditor.sampleInput")}
@@ -3288,22 +3276,18 @@ function GameAssetsSettings() {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.gameassetssettings.type")}
             </span>
-            <select
+            <Select
               value={assetCategory}
-              onChange={(e) => handleAssetCategoryChange(e.target.value as GameAssetCategoryId)}
+              options={GAME_ASSET_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
+              onChange={handleAssetCategoryChange}
+              label={localizeUi("ui.panels.gameassetssettings.type")}
               className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
-            >
-              {GAME_ASSET_CATEGORIES.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <label className="flex min-w-0 flex-col gap-1">
             <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.gameassetssettings.folder")}
@@ -3880,22 +3864,24 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 </div>
               </div>
 
-              <label id={getSettingsControlAnchorId("theme-mode")} className="flex scroll-mt-3 flex-col gap-1">
+              <div id={getSettingsControlAnchorId("theme-mode")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
                   {localizeUi("ui.panels.appearancesettings.colorScheme")}{" "}
                   <HelpTooltip
                     text={localizeUi("ui.panels.appearancesettings.switchBetweenDarkAndLightModeDarkModeIs")}
                   />
                 </span>
-                <select
+                <Select
                   value={theme}
-                  onChange={(e) => setTheme(e.target.value as "dark" | "light")}
+                  options={[
+                    { value: "dark", label: localizeUi("ui.panels.appearancesettings.dark") },
+                    { value: "light", label: localizeUi("ui.panels.appearancesettings.light") },
+                  ]}
+                  onChange={setTheme}
+                  label={localizeUi("ui.panels.appearancesettings.colorScheme")}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                >
-                  <option value="dark">{localizeUi("ui.panels.appearancesettings.dark")}</option>
-                  <option value="light">{localizeUi("ui.panels.appearancesettings.light")}</option>
-                </select>
-              </label>
+                />
+              </div>
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("custom-cursor")}
@@ -4026,52 +4012,60 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label
+                  <div
                     id={getSettingsControlAnchorId("chat-widget-font")}
                     className="flex min-w-0 scroll-mt-3 flex-col gap-1"
                   >
                     <span className="text-xs font-medium">{localizeUi("settings.controls.chatWidgetFont.label")}</span>
-                    <select
+                    <Select
                       id="chat-widget-font"
                       value={chatWidgetFont}
-                      onChange={(event) => setChatWidgetFont(event.target.value)}
+                      options={[
+                        { value: "", label: localizeUi("settings.controls.chatWidgetFont.preset") },
+                        { value: "@app", label: localizeUi("settings.controls.chatWidgetFont.app") },
+                        { value: "@sans", label: localizeUi("settings.controls.chatWidgetFont.sans") },
+                        { value: "@serif", label: localizeUi("settings.controls.chatWidgetFont.serif") },
+                        { value: "@mono", label: localizeUi("settings.controls.chatWidgetFont.mono") },
+                        ...customFontOptions.map((font) => ({
+                          value: `custom:${font.family}`,
+                          label: font.family,
+                        })),
+                        ...(unavailableWidgetFont
+                          ? [
+                              {
+                                value: chatWidgetFont,
+                                label: localizeUi("settings.controls.chatWidgetFont.unavailable", {
+                                  font: unavailableWidgetFont,
+                                }),
+                              },
+                            ]
+                          : []),
+                      ]}
+                      onChange={setChatWidgetFont}
+                      label={localizeUi("settings.controls.chatWidgetFont.label")}
                       className="min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                    >
-                      <option value="">{localizeUi("settings.controls.chatWidgetFont.preset")}</option>
-                      <option value="@app">{localizeUi("settings.controls.chatWidgetFont.app")}</option>
-                      <option value="@sans">{localizeUi("settings.controls.chatWidgetFont.sans")}</option>
-                      <option value="@serif">{localizeUi("settings.controls.chatWidgetFont.serif")}</option>
-                      <option value="@mono">{localizeUi("settings.controls.chatWidgetFont.mono")}</option>
-                      {customFontOptions.map((font) => (
-                        <option key={font.family} value={`custom:${font.family}`}>
-                          {font.family}
-                        </option>
-                      ))}
-                      {unavailableWidgetFont && (
-                        <option value={chatWidgetFont}>
-                          {localizeUi("settings.controls.chatWidgetFont.unavailable", { font: unavailableWidgetFont })}
-                        </option>
-                      )}
-                    </select>
-                  </label>
-                  <label
+                    />
+                  </div>
+                  <div
                     id={getSettingsControlAnchorId("chat-widget-shape")}
                     className="flex min-w-0 scroll-mt-3 flex-col gap-1"
                   >
                     <span className="text-xs font-medium">{localizeUi("settings.controls.chatWidgetShape.label")}</span>
-                    <select
+                    <Select
                       id="chat-widget-shape"
                       value={chatWidgetShape}
-                      onChange={(event) => setChatWidgetShape(event.target.value as ChatWidgetShape)}
+                      options={[
+                        { value: "preset", label: localizeUi("settings.controls.chatWidgetShape.preset") },
+                        { value: "rounded", label: localizeUi("settings.controls.chatWidgetShape.rounded") },
+                        { value: "square", label: localizeUi("settings.controls.chatWidgetShape.square") },
+                        { value: "cut-corner", label: localizeUi("settings.controls.chatWidgetShape.cutCorner") },
+                        { value: "arched", label: localizeUi("settings.controls.chatWidgetShape.arched") },
+                      ]}
+                      onChange={setChatWidgetShape}
+                      label={localizeUi("settings.controls.chatWidgetShape.label")}
                       className="min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                    >
-                      <option value="preset">{localizeUi("settings.controls.chatWidgetShape.preset")}</option>
-                      <option value="rounded">{localizeUi("settings.controls.chatWidgetShape.rounded")}</option>
-                      <option value="square">{localizeUi("settings.controls.chatWidgetShape.square")}</option>
-                      <option value="cut-corner">{localizeUi("settings.controls.chatWidgetShape.cutCorner")}</option>
-                      <option value="arched">{localizeUi("settings.controls.chatWidgetShape.arched")}</option>
-                    </select>
-                  </label>
+                    />
+                  </div>
                 </div>
                 <div id={getSettingsControlAnchorId("chat-widget-button-size")} className="mt-4 scroll-mt-3">
                   <label
@@ -4185,25 +4179,23 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
             {...getSettingsSectionAnchorProps("text-scale")}
           >
             <div className="flex flex-col gap-3">
-              <label id={getSettingsControlAnchorId("font-family")} className="flex scroll-mt-3 flex-col gap-1">
+              <div id={getSettingsControlAnchorId("font-family")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
                   {localizeUi("ui.panels.appearancesettings.font")}{" "}
                   <HelpTooltip
                     text={localizeUi("ui.panels.appearancesettings.chooseTheFontUsedAcrossTheAppDefaultInter")}
                   />
                 </span>
-                <select
+                <Select
                   value={fontFamily}
-                  onChange={(e) => setFontFamily(e.target.value)}
+                  options={[
+                    { value: "", label: localizeUi("ui.panels.appearancesettings.defaultInter") },
+                    ...customFontOptions.map((f) => ({ value: f.family, label: f.family })),
+                  ]}
+                  onChange={setFontFamily}
+                  label={localizeUi("ui.panels.appearancesettings.font")}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                >
-                  <option value="">{localizeUi("ui.panels.appearancesettings.defaultInter")}</option>
-                  {customFontOptions.map((f) => (
-                    <option key={f.family} value={f.family}>
-                      {f.family}
-                    </option>
-                  ))}
-                </select>
+                />
                 {(!customFonts || customFonts.length === 0) && (
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.panels.appearancesettings.dropFontFilesTtfOtfWoffWoff2IntoThe")}{" "}
@@ -4219,7 +4211,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   <FolderOpen size="0.75rem" />
                   {localizeUi("ui.panels.appearancesettings.openFontsFolder")}
                 </button>
-              </label>
+              </div>
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
@@ -4263,29 +4255,31 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                 </a>
               </div>
 
-              <label id={getSettingsControlAnchorId("display-size")} className="flex scroll-mt-3 flex-col gap-1">
+              <div id={getSettingsControlAnchorId("display-size")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
                   {localizeUi("ui.panels.appearancesettings.displaySize")}{" "}
                   <HelpTooltip
                     text={localizeUi("ui.panels.appearancesettings.adjustsTheBaseFontSizeAcrossTheWholeApp")}
                   />
                 </span>
-                <select
+                <Select
                   value={String(fontSize)}
-                  onChange={(e) => setFontSize(Number(e.target.value) as Parameters<typeof setFontSize>[0])}
+                  options={[
+                    { value: "12", label: localizeUi("ui.panels.appearancesettings.tiny") },
+                    { value: "14", label: localizeUi("ui.panels.appearancesettings.small") },
+                    { value: "16", label: localizeUi("ui.panels.appearancesettings.medium") },
+                    { value: "17", label: localizeUi("ui.noodle.noodlehome.default") },
+                    { value: "19", label: localizeUi("ui.panels.appearancesettings.large") },
+                    { value: "22", label: localizeUi("ui.panels.appearancesettings.huge") },
+                    { value: "26", label: localizeUi("settings.appearance.displaySize.extraLarge") },
+                    { value: "30", label: localizeUi("settings.appearance.displaySize.extraExtraLarge") },
+                    { value: "34", label: localizeUi("settings.appearance.displaySize.maximum") },
+                  ]}
+                  onChange={(value) => setFontSize(Number(value) as Parameters<typeof setFontSize>[0])}
+                  label={localizeUi("ui.panels.appearancesettings.displaySize")}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                >
-                  <option value="12">{localizeUi("ui.panels.appearancesettings.tiny")}</option>
-                  <option value="14">{localizeUi("ui.panels.appearancesettings.small")}</option>
-                  <option value="16">{localizeUi("ui.panels.appearancesettings.medium")}</option>
-                  <option value="17">{localizeUi("ui.noodle.noodlehome.default")}</option>
-                  <option value="19">{localizeUi("ui.panels.appearancesettings.large")}</option>
-                  <option value="22">{localizeUi("ui.panels.appearancesettings.huge")}</option>
-                  <option value="26">{localizeUi("settings.appearance.displaySize.extraLarge")}</option>
-                  <option value="30">{localizeUi("settings.appearance.displaySize.extraExtraLarge")}</option>
-                  <option value="34">{localizeUi("settings.appearance.displaySize.maximum")}</option>
-                </select>
-              </label>
+                />
+              </div>
 
               <label id={getSettingsControlAnchorId("chat-font-size")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
@@ -4501,26 +4495,22 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     </span>
                   </div>
                 </label>
-                <label className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     <HelpTooltip
                       text={localizeUi("ui.panels.appearancesettings.showsEachChatsOwnBackgroundAsAMutedBanner")}
                     />
                   </span>
-                  <select
+                  <Select
                     id={getSettingsControlAnchorId("chat-list-backgrounds")}
                     value={chatListBackgrounds}
-                    onChange={(e) => setChatListBackgrounds(e.target.value as ChatListBackgroundMode)}
+                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                    onChange={setChatListBackgrounds}
+                    label={localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     className="h-7 min-w-0 flex-1 scroll-mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"
-                  >
-                    {CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
                 <BackgroundPicker
                   selected={chatBackground}
                   onSelect={setChatBackground}
@@ -7529,28 +7519,20 @@ function AdvancedSettings() {
       >
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
-            <label
+            <div
               id={getSettingsControlAnchorId("release-channel")}
               className="flex scroll-mt-3 min-w-0 flex-col gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
             >
               {localizeUi("ui.panels.advancedsettings.releaseChannel")}
-              <select
-                value={selectedUpdateChannelId ?? ""}
-                onChange={(event) => setUpdateChannel(event.target.value as UpdateChannelId)}
+              <Select
+                value={selectedUpdateChannelId ?? null}
+                options={updateChannelOptions.map((channel) => ({ value: channel.id, label: channel.label }))}
+                onChange={setUpdateChannel}
+                label={localizeUi("ui.panels.advancedsettings.releaseChannel")}
+                placeholder={localizeUi("settings.updates.channelPending")}
                 className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs font-medium normal-case tracking-normal text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
-              >
-                {!selectedUpdateChannelId && (
-                  <option value="" disabled>
-                    {localizeUi("settings.updates.channelPending")}
-                  </option>
-                )}
-                {updateChannelOptions.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <button
               type="button"
               onClick={() => updateCheck.refetch()}
