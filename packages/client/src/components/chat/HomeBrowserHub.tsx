@@ -511,10 +511,29 @@ function placeHomeWidgetSlots(
  *  when a ResizeObserver reports them. Cards whose bottoms end within a few pixels of each other are
  *  stretched to one line, so the packed edges stay tidy instead of ragged. */
 const HOME_FEED_ALIGN_SLACK = 40;
-function packHomeFeed(feed: HTMLElement | null) {
+/** What the last packs of a feed measured and applied, so a pack can tell a real change from its own echo. */
+type HomeFeedPackMemory = {
+  width: number;
+  measured: WeakMap<HTMLElement, { natural: number; fills: boolean; stretchedTo: string }>;
+  recent: { layout: string; at: number }[];
+};
+const homeFeedPackMemory = new WeakMap<HTMLElement, HomeFeedPackMemory>();
+/** A layout that comes back within this long, with nothing moved or added, is a ping-pong, not a change. */
+const HOME_FEED_ECHO_WINDOW_MS = 1000;
+/** cause "resize": a ResizeObserver report (which the pack itself can trigger). "layout": slots moved, widgets were
+ *  added or removed, or a reflow animation needs the end state; those always pack. */
+function packHomeFeed(feed: HTMLElement | null, cause: "resize" | "layout" = "layout") {
   if (!feed) return;
   const columns = Math.max(1, Number(feed.dataset.homeGridColumns) || 1);
   const rowGap = Number.parseFloat(getComputedStyle(feed).rowGap) || 0;
+  let memory = homeFeedPackMemory.get(feed);
+  if (!memory) {
+    memory = { width: -1, measured: new WeakMap(), recent: [] };
+    homeFeedPackMemory.set(feed, memory);
+  }
+  const width = feed.clientWidth;
+  if (cause === "layout" || width !== memory.width) memory.recent = [];
+  memory.width = width;
   const items = Array.from(feed.children)
     .filter((child): child is HTMLElement => child instanceof HTMLElement && child.dataset.homePlaceRow !== undefined)
     .map((element) => ({
@@ -522,6 +541,7 @@ function packHomeFeed(feed: HTMLElement | null) {
       row: Number(element.dataset.homePlaceRow),
       column: Number(element.dataset.homePlaceColumn),
       span: Math.max(1, Number(element.dataset.homePlaceSpan) || 1),
+      stretchedTo: element.style.minHeight,
       natural: 0,
       fills: true,
       height: 0,
@@ -529,10 +549,26 @@ function packHomeFeed(feed: HTMLElement | null) {
     }))
     .sort((a, b) => a.row - b.row || a.column - b.column);
   // Measure without the stretch from the last pack (only costs a layout when something was stretched).
-  for (const item of items) if (item.element.style.minHeight) item.element.style.minHeight = "";
+  for (const item of items) if (item.stretchedTo) item.element.style.minHeight = "";
   for (const item of items) {
     item.natural = homeWidgetVisibleHeight(item.element);
     item.fills = item.natural >= item.element.offsetHeight - 1;
+    // Some Chromium builds (Vivaldi's, at least) still report a card whose content fills its height (Learn the
+    // engine, What's new) at its stretched size right after the stretch is taken off. Packing that stale height
+    // un-stretches the card, the next report shows it short again, it is stretched again: the card shook every
+    // frame. A widget that measures exactly the size this pack stretched it to keeps the size it had unstretched.
+    // If it really grew to that size the stretch would be the same, so the layout comes out the same either way.
+    const previous = memory.measured.get(item.element);
+    if (
+      previous &&
+      item.stretchedTo &&
+      Math.abs(Number.parseFloat(previous.stretchedTo) - Number.parseFloat(item.stretchedTo)) < 0.5 &&
+      Math.abs(item.natural - Number.parseFloat(item.stretchedTo)) <= 1 &&
+      item.natural > previous.natural + 1
+    ) {
+      item.natural = previous.natural;
+      item.fills = previous.fills;
+    }
     item.height = item.natural;
   }
   const place = () => {
@@ -564,13 +600,27 @@ function packHomeFeed(feed: HTMLElement | null) {
     if (!changed) break;
     tallest = place();
   }
+  const stretchOf = (item: (typeof items)[number]) => (item.height > item.natural + 0.5 ? `${item.height}px` : "");
+  const height = `${tallest > 0 ? tallest - rowGap : 0}px`;
+  // Last guard: a resize report that only flips the feed back to a layout it just left is the pack answering
+  // itself (a browser measuring differently in the two states). Keep what is on screen instead of shaking.
+  const layout = `${height}|${items.map((item) => `${item.top},${stretchOf(item)}`).join(";")}`;
+  const now = performance.now();
+  memory.recent = memory.recent.filter((entry) => now - entry.at < HOME_FEED_ECHO_WINDOW_MS);
+  const current = memory.recent.at(-1)?.layout;
+  if (cause === "resize" && layout !== current && memory.recent.some((entry) => entry.layout === layout)) {
+    for (const item of items) if (item.stretchedTo) item.element.style.minHeight = item.stretchedTo;
+    return;
+  }
+  if (layout !== current) memory.recent.push({ layout, at: now });
   for (const item of items) {
+    memory.measured.set(item.element, { natural: item.natural, fills: item.fills, stretchedTo: stretchOf(item) });
     if (item.height === 0) continue;
     const top = `${item.top}px`;
     if (item.element.style.top !== top) item.element.style.top = top;
-    if (item.height > item.natural + 0.5) item.element.style.minHeight = `${item.height}px`;
+    const stretch = stretchOf(item);
+    if (stretch) item.element.style.minHeight = stretch;
   }
-  const height = `${tallest > 0 ? tallest - rowGap : 0}px`;
   if (feed.style.height !== height) feed.style.height = height;
 }
 
@@ -600,6 +650,10 @@ function homePlacementProps(placement: HomeWidgetPlacement | undefined) {
     "data-home-place-column": placement.column,
     "data-home-place-span": placement.columnSpan,
     style: {
+      // Inline so a theme rule can't take a widget out of the packing: Crepuscular's Recent sets position: relative
+      // (to anchor its cat), which put it back in the grid's flow, stretched to the feed's height, and every pack
+      // then grew the feed under it without end.
+      position: "absolute",
       gridColumn: `${placement.column + 1} / span ${placement.columnSpan}`,
       "--home-widget-rows": placement.rowSpan,
     } as CSSProperties,
@@ -1369,7 +1423,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       packHomeFeed(feed);
       return;
     }
-    const resizeObserver = new ResizeObserver(() => packHomeFeed(feed));
+    const resizeObserver = new ResizeObserver(() => packHomeFeed(feed, "resize"));
     const observeChildren = () => {
       for (const element of homeFeedObservedElements(feed)) resizeObserver.observe(element);
     };
