@@ -219,13 +219,14 @@ function PermissionsModeRow() {
     >
       <div className="min-w-0">
         <span className="omnibar-settings-menu__label">{t("ui.chat.homeprofessormarichat.permissionsMode")}</span>
-        <span className="omnibar-settings-menu__description">
+        <span id={`${selectId}-description`} className="omnibar-settings-menu__description">
           {localize(MARI_PERMISSIONS_MODE_LABELS[currentMode].description)}
         </span>
       </div>
       <Select<MariPermissionsMode>
         id={selectId}
         label={t("ui.chat.homeprofessormarichat.permissionsMode")}
+        aria-describedby={`${selectId}-description`}
         className="mari-chrome-field omnibar-settings-sheet__select"
         value={currentMode}
         options={MARI_PERMISSIONS_MODES.map((value) => ({
