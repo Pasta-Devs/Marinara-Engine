@@ -510,7 +510,10 @@ export function ConnectionSwitcherBody({
    */
   confirmCurrent?: boolean;
   /** A pick that is being tried or was turned down, shown on its row. */
-  rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
+  rowState?: (
+    accountId: string,
+    model: string,
+  ) => { label: string; state: "off" | "needs_key"; detail?: string } | null;
   /** Lists only the catalog models this accepts (Embeddings); a provider with none is left out. */
   modelFilter?: (model: string) => boolean;
   /** Catalog-only filter; saved rows remain selectable by their own kind. */
@@ -1271,7 +1274,7 @@ export function ConnectionSwitcherBody({
         roles={roleLabels}
         status={
           rowStateOf
-            ? { label: rowStateOf.label, state: rowStateOf.state }
+            ? { label: rowStateOf.label, state: rowStateOf.state, detail: rowStateOf.detail }
             : stateLabel
               ? { label: stateLabel, state: unavailable ?? undefined }
               : limitReached(group, facts?.cost)
