@@ -90,13 +90,15 @@ const { createConnectionsStorage } = await import("../../packages/server/src/ser
 const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../packages/server/src/services/storage/prompts.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
-const { characterDataSchema, DECISION_SMART_ORDER_SETTINGS_KEY } = await import("../../packages/shared/dist/index.js");
+const { characterDataSchema, DECISION_SMART_ORDER_SETTINGS_KEY, DEFAULT_AGENT_MAX_TOKENS } =
+  await import("../../packages/shared/dist/index.js");
 
 let probabilities: Record<string, number> = {};
 let decisionFails = false;
 let selectorAnswer: string[] = [];
 const decisionCalls: Array<{ questions: string[] }> = [];
 const selectorCalls: string[] = [];
+const selectorRequests: Array<{ url: string; body: Record<string, any> }> = [];
 const replies: string[] = [];
 
 const provider = createServer(async (request, response) => {
@@ -119,6 +121,7 @@ const provider = createServer(async (request, response) => {
   const prompt = JSON.stringify(body.messages ?? []);
   if (prompt.includes("hidden response orchestrator")) {
     selectorCalls.push(prompt);
+    selectorRequests.push({ url: request.url ?? "", body });
     response.writeHead(200, { "content-type": "application/json" });
     response.end(
       JSON.stringify({
@@ -379,6 +382,93 @@ try {
     "a Conversation merged group answers as the character being replied to",
   );
   await settings.remove(DECISION_SMART_ORDER_SETTINGS_KEY);
+
+  // A Conversation group in Smart order, with no Decision model: the chat-model selector picks the speakers.
+  const conversationCast = await Promise.all(
+    ["Dara", "Eli", "Finn", "Gwen"].map((name) =>
+      characters.create(
+        characterDataSchema.parse({
+          name,
+          extensions: { conversationStatusOverride: { status: "online", createdAt: new Date().toISOString() } },
+        }),
+      ),
+    ),
+  );
+  assert(conversationCast.every(Boolean));
+  const [dara, eli, finn, gwen] = conversationCast as Array<{ id: string }>;
+  const conversationChat = await chats.create({
+    name: "Conversation smart order",
+    mode: "conversation",
+    characterIds: [dara!.id, eli!.id, finn!.id, gwen!.id],
+    connectionId: chatConnection.id,
+    promptPresetId: preset.id,
+  });
+  assert(conversationChat);
+  await chats.patchMetadata(conversationChat.id, {
+    enableAgents: false,
+    enableMemoryRecall: false,
+    groupChatMode: "individual",
+    groupResponseOrder: "smart",
+  });
+  const lastSelectorRequest = () => selectorRequests.at(-1)!;
+  // Conversation replies don't use the preset's "Respond as" line, so read who answered from the saved messages.
+  const castNames = new Map([
+    [dara!.id, "Dara"],
+    [eli!.id, "Eli"],
+    [finn!.id, "Finn"],
+    [gwen!.id, "Gwen"],
+  ]);
+  const conversationTurn = async (text: string) => {
+    const before = new Set((await chats.listMessages(conversationChat.id)).map((message) => message.id));
+    await turnForChat(conversationChat.id, text);
+    return (await chats.listMessages(conversationChat.id))
+      .filter((message) => message.role === "assistant" && !before.has(message.id))
+      .map((message) => castNames.get(message.characterId ?? "") ?? message.characterId);
+  };
+
+  // Every character the selector chooses answers, in its order.
+  selectorAnswer = [finn!.id, dara!.id];
+  assert.deepEqual(await conversationTurn("What should we cook tonight?"), ["Finn", "Dara"]);
+  // The selector is told to weigh each character's schedule status and talkativeness, and not to settle on a
+  // single speaker just because the group is large.
+  const selectorSystem = lastSelectorRequest().body.messages[0].content as string;
+  assert.match(selectorSystem, /current schedule status, activity, talkativeness/u);
+  assert.match(selectorSystem, /do not default to one responder merely because the group is large/u);
+  // With no Agent connection chosen, the selector runs on the chat's own connection.
+  assert.equal(lastSelectorRequest().url, "/v1/chat/completions");
+
+  // With an Agent connection chosen, the selector runs there, with that connection's own defaults.
+  const agentConnection = await connections.create({
+    name: "Agent fixture",
+    provider: "custom",
+    baseUrl: `http://127.0.0.1:${address.port}/agents/v1`,
+    model: "agent-fixture",
+    apiKey: "fixture",
+    maxContext: 8192,
+    defaultForAgents: true,
+  });
+  assert(agentConnection);
+  await connections.updateDefaultParameters(agentConnection.id, { temperature: 0.65, maxTokens: 900 });
+  selectorAnswer = [gwen!.id];
+  assert.deepEqual(await conversationTurn("Any other ideas?"), ["Gwen"]);
+  assert.equal(lastSelectorRequest().url, "/agents/v1/chat/completions");
+  assert.equal(lastSelectorRequest().body.model, "agent-fixture");
+  assert.equal(lastSelectorRequest().body.temperature, 0.65);
+  assert.equal(lastSelectorRequest().body.max_tokens, 900, "the Agent connection's token default, not a small cap");
+  // With no saved token limit, it gets the Agent default, not a small fixed cap.
+  await connections.updateDefaultParameters(agentConnection.id, { temperature: 0.65 });
+  selectorAnswer = [dara!.id];
+  assert.deepEqual(await conversationTurn("Sounds good?"), ["Dara"]);
+  assert.equal(lastSelectorRequest().body.max_tokens, DEFAULT_AGENT_MAX_TOKENS);
+  await connections.update(agentConnection.id, { defaultForAgents: false });
+
+  // A user who @mentions someone gets that character, without a selector call, even in Sequential order where
+  // everyone would otherwise answer in turn.
+  const selectorBeforeMention = selectorRequests.length;
+  assert.deepEqual(await conversationTurn("@Eli, you pick."), ["Eli"]);
+  assert.equal(selectorRequests.length, selectorBeforeMention);
+  await chats.patchMetadata(conversationChat.id, { groupResponseOrder: "sequential" });
+  assert.deepEqual(await conversationTurn("@Gwen, what about you?"), ["Gwen"]);
 
   console.log("smart-group-decision regression passed");
 } finally {
