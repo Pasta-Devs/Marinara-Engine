@@ -1775,16 +1775,23 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(settings.getByText("Advanced Memory Recall", { exact: true })).toBeVisible();
     const toggle = settings.getByRole("switch", { name: /^Use Decision model/ });
     await expect(toggle).not.toBeChecked();
-    // The Memory Decision picker stays a native select: it also lists local Decision models, which the
-    // ConnectionSelect #8456 expected here does not offer.
+    // The Memory Decision picker is a shared Select, not a ConnectionSelect (#8456): it also lists local Decision
+    // models, which a ConnectionSelect does not offer, under group headers.
     await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveCount(0);
     await captureThemes(page, info, "memory-decision-off");
     await settings.getByText("Use Decision model", { exact: true }).click();
     const picker = settings.getByRole("combobox", { name: "Memory Decision connection", exact: true });
     await expect(picker).toBeEnabled();
-    await expect(picker).toHaveValue("");
+    await expect(picker).toHaveAttribute("data-value", "");
     await expect(settings.getByText(/Choose a usable Decision connection/)).toBeVisible();
-    await picker.selectOption(connection.id);
+    // The Decision connections sit under a group header that is not itself an option.
+    await picker.click();
+    const pickerWindow = page.getByRole("dialog", { name: "Memory Decision connection", exact: true });
+    await expect(pickerWindow.getByRole("group", { name: "Connections", exact: true })).toBeVisible();
+    await expect(pickerWindow.locator("[data-pick-row]").filter({ hasText: "Connections" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(pickerWindow).toHaveCount(0);
+    await chooseOption(page, picker, "Jev memory proof · jev-fixture");
     await expect.poll(async () => (await status()).settings.decisionConnectionId).toBe(connection.id);
     await expect(settings.getByText(/Choose a usable Decision connection/)).toHaveCount(0);
     await captureThemes(page, info, "memory-decision-on");
@@ -1792,7 +1799,8 @@ test("Advanced Memory Decision connection is optional and persists for its chat"
     await expect(page.locator("textarea[data-chat-composer]")).toBeVisible();
     settings = await openMemory();
     await expect(settings.getByRole("switch", { name: /^Use Decision model/ })).toBeChecked();
-    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveValue(
+    await expect(settings.getByRole("combobox", { name: "Memory Decision connection", exact: true })).toHaveAttribute(
+      "data-value",
       connection.id,
     );
     expect((await request.delete(`/api/connections/${connection.id}`)).ok()).toBeTruthy();

@@ -371,10 +371,12 @@ export function AdvancedMemorySettings({
           />
           {settings.decisionEnabled && (
             <div className="space-y-2">
-              <label className="block space-y-1 text-xs">
+              <div className="block space-y-1 text-xs">
                 <span>{t("chat.advancedMemory.decisionConnection")}</span>
-                <select
-                  value={settings.decisionConnectionId ?? ""}
+                <Select
+                  value={settings.decisionConnectionId || null}
+                  label={t("chat.advancedMemory.decisionConnection")}
+                  placeholder={t("chat.advancedMemory.chooseDecisionConnection")}
                   disabled={
                     disabled ||
                     savedConnections.isLoading ||
@@ -383,34 +385,27 @@ export function AdvancedMemorySettings({
                     decisionOptions.isError
                   }
                   className={fieldClass}
-                  onChange={(event) => save({ decisionConnectionId: event.target.value || null })}
-                >
-                  <option value="">{t("chat.advancedMemory.chooseDecisionConnection")}</option>
-                  {settings.decisionConnectionId &&
+                  onChange={(next) => save({ decisionConnectionId: next || null })}
+                  options={[
+                    { value: "", label: t("chat.advancedMemory.chooseDecisionConnection") },
+                    ...(settings.decisionConnectionId &&
                     ![...localDecisionModels, ...decisionConnections].some(
                       (choice) => choice.id === settings.decisionConnectionId,
-                    ) && (
-                      <option value={settings.decisionConnectionId}>
-                        {t("chat.advancedMemory.missingConnection")}
-                      </option>
-                    )}
-                  {localDecisionModels.length > 0 && (
-                    <optgroup label={t("connections.decision.localGroup")}>
-                      {localDecisionModels.map((entry) => decisionModelOption(t, entry))}
-                    </optgroup>
-                  )}
-                  {decisionConnections.length > 0 && (
-                    <optgroup label={t("connections.decision.connectionGroup")}>
-                      {decisionConnections.map((connection) => (
-                        <option key={connection.id} value={connection.id}>
-                          {connection.name}
-                          {connection.model ? <> · {connection.model}</> : null}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
+                    )
+                      ? [{ value: settings.decisionConnectionId, label: t("chat.advancedMemory.missingConnection") }]
+                      : []),
+                    ...localDecisionModels.map((entry) => ({
+                      ...decisionModelOption(t, entry),
+                      group: t("connections.decision.localGroup"),
+                    })),
+                    ...decisionConnections.map((connection) => ({
+                      value: connection.id,
+                      label: connection.model ? `${connection.name} · ${connection.model}` : connection.name,
+                      group: t("connections.decision.connectionGroup"),
+                    })),
+                  ]}
+                />
+              </div>
               {/* Either list failing leaves the choice incomplete; the steady accent does not pulse. */}
               {(savedConnections.isError || decisionOptions.isError) && (
                 <p role="alert" className="text-xs text-[var(--marinara-app-accent-static)]">

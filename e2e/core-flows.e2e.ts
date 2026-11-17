@@ -14925,9 +14925,9 @@ test("Chub NSFW search uses filtered totals and spaced pagination", async ({ pag
   const library = page.locator('[data-component="BotBrowserView"]');
   await expect(library.getByText("96 cards from ChubAI", { exact: true })).toBeVisible();
   const pageSelector = library.getByRole("combobox", { name: "Page", exact: true });
-  await expect(pageSelector).toHaveValue("1");
-  await pageSelector.selectOption("2");
-  await expect(pageSelector).toHaveValue("2");
+  await expect(pageSelector).toHaveAttribute("data-value", "1");
+  await chooseOption(page, pageSelector, "2");
+  await expect(pageSelector).toHaveAttribute("data-value", "2");
   await expect.poll(() => observedSearches.some((search) => search.query === "" && search.page === "2")).toBe(true);
 
   await library.getByRole("checkbox", { name: "NSFW", exact: true }).check();
@@ -19252,7 +19252,11 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     });
 
     const vectorPanel = page.locator(".mari-editor-panel").filter({ hasText: "Semantic search (embeddings)" });
-    await vectorPanel.locator("select").selectOption(connection.id);
+    await chooseOption(
+      page,
+      vectorPanel.getByRole("combobox", { name: "Embedding connection", exact: true }),
+      `${connectionName} (e2e-embedding-model)`,
+    );
     const vectorizeButton = vectorPanel.getByRole("button", { name: "Vectorize 1 missing", exact: true });
     const firstVectorizeAttempt = vectorizeButton.click();
     await firstSaveStarted.promise;
@@ -19504,11 +19508,11 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
       .toEqual([true, true]);
 
     await firstEntryRow.getByRole("button", { name: "Expand entry", exact: true }).click();
-    await firstEntryRow
-      .getByText("Role", { exact: true })
-      .locator("..")
-      .getByRole("combobox")
-      .selectOption("assistant");
+    await chooseOption(
+      page,
+      firstEntryRow.getByText("Role", { exact: true }).locator("..").getByRole("combobox"),
+      "Assistant",
+    );
     const descriptionField = firstEntryRow.locator("textarea").first();
     await descriptionField.fill("Only the first description changes.");
     await descriptionField.blur();
@@ -19556,7 +19560,11 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
     await moveButton.click();
     const moveDialog = page.getByRole("dialog", { name: "Move Lorebook Entries", exact: true });
     await expect(moveDialog).toBeVisible();
-    await moveDialog.getByLabel("Destination lorebook", { exact: true }).selectOption(targetLorebook.id);
+    await chooseOption(
+      page,
+      moveDialog.getByRole("combobox", { name: "Destination lorebook", exact: true }),
+      targetName,
+    );
     await moveDialog.getByRole("button", { name: "Move entries", exact: true }).click();
     await expect(moveDialog).toBeHidden();
     await expect

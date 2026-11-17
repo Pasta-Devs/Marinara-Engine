@@ -20,6 +20,8 @@ export type SelectOption<T extends string = string> = {
   icon?: ReactNode;
   /** Greys the option out, with this as its second line. */
   disabledReason?: string;
+  /** Consecutive options with the same group sit under a header; the header is not an option. */
+  group?: string;
 };
 
 export type SelectProps<T extends string> = {
@@ -109,6 +111,7 @@ export function Select<T extends string>({
               subtitle: option.description,
               icon: option.icon,
               disabledReason: option.disabledReason,
+              group: option.group,
             }))}
             folders={[]}
             selectedIds={value === null ? [] : [value]}

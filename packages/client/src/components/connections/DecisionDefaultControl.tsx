@@ -35,23 +35,15 @@ function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
 }
 
 /**
- * One row of a Decision model dropdown, also used by Advanced Memory's own choice.
- *
- * A native <option> cannot be styled, so an unavailable entry carries its reason in
- * the label text. Composed here rather than in JSX so the separator is not a stray
- * untranslated string in the markup.
+ * One row of a Decision model Select, also used by Advanced Memory's own choice: an unavailable
+ * entry is greyed out with its reason as the second line.
  */
 export function decisionModelOption(t: TFunction, entry: DecisionModelOption) {
-  return (
-    <option key={entry.id} value={entry.id} disabled={!!entry.unavailable}>
-      {entry.unavailable
-        ? t("connections.decision.unavailableOption", {
-            label: entry.label,
-            reason: decisionUnavailableReason(t, entry),
-          })
-        : entry.label}
-    </option>
-  );
+  return {
+    value: entry.id,
+    label: entry.label,
+    disabledReason: entry.unavailable ? decisionUnavailableReason(t, entry) : undefined,
+  };
 }
 
 /**

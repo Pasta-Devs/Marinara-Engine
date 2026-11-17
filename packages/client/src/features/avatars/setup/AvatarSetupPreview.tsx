@@ -31,6 +31,7 @@ import {
   resolveAvatarImage,
 } from "../stage/avatar-stage-logic";
 import { useAvatarEffectsPaused, useOnScreen } from "../stage/use-avatar-pause";
+import { Select } from "../../../components/ui/Select";
 import { useAvatarRenderer } from "../stage/use-avatar-renderer";
 import { AVATAR_FEELING_LABEL_KEYS } from "../renderers/pngtuber/pngtuber-layers";
 import { DEMO_AVATAR_CONFIG, DEMO_AVATAR_OWNER, resolveDemoAvatarImage } from "./demo-avatar";
@@ -145,27 +146,20 @@ export function AvatarSetupPreview({
       {previewConfig ? (
         <div className="flex w-full max-w-[13rem] items-center gap-2">
           {!demo ? (
-            <select
+            <Select
               value={faceFeeling ?? faceEmotion}
-              onChange={(event) => setFace(event.target.value as AvatarEmotion | AvatarExtraFeeling)}
-              aria-label={t("avatars.setup.preview.face")}
+              onChange={(next) => setFace(next as AvatarEmotion | AvatarExtraFeeling)}
+              label={t("avatars.setup.preview.face")}
               className="min-w-0 flex-1 rounded-xl bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            >
-              {AVATAR_EMOTIONS.map((emotion) => (
-                <option key={emotion} value={emotion}>
-                  {t(`avatars.setup.slot.${emotion}`)}
-                </option>
-              ))}
-              {feelings.length > 0 ? (
-                <optgroup label={t("avatars.pngtuber.moreFeelings")}>
-                  {feelings.map((feeling) => (
-                    <option key={feeling} value={feeling}>
-                      {t(AVATAR_FEELING_LABEL_KEYS[feeling])}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-            </select>
+              options={[
+                ...AVATAR_EMOTIONS.map((emotion) => ({ value: emotion, label: t(`avatars.setup.slot.${emotion}`) })),
+                ...feelings.map((feeling) => ({
+                  value: feeling,
+                  label: t(AVATAR_FEELING_LABEL_KEYS[feeling]),
+                  group: t("avatars.pngtuber.moreFeelings"),
+                })),
+              ]}
+            />
           ) : null}
           <button
             type="button"
