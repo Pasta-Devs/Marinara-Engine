@@ -231,6 +231,14 @@ export function resolveProviderReasoningEffort(args: {
     if (args.reasoningEffort === null || args.reasoningEffort === "none") return "low";
     return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
   }
+  // Hydrogen cannot turn thinking off either. Its default is high, so no level names high; its top level is xhigh. It is
+  // on the Gemini API only: on Vertex it is an unknown model and sends no parameters.
+  if (providerLower === "google" && isGeminiHydrogenModel(args.model)) {
+    const effort = args.reasoningEffort;
+    if (!effort || effort === "none") return "high";
+    if (effort === "xhigh" || effort === "max" || effort === "maximum") return "xhigh";
+    return effort;
+  }
   // Argon and Carbon cannot turn thinking off; without a level they think at Google's default, medium, so name that level.
   if (
     (!args.reasoningEffort || args.reasoningEffort === "none") &&
@@ -299,6 +307,16 @@ export function isGeminiArgonOrCarbonModel(model: string): boolean {
   return /(?:^|\/)gemini-4-(?:argon|carbon)(?:$|-)/u.test(capabilityModelId(model));
 }
 
+/**
+ * Gemini 4 Hydrogen takes thinking levels low, medium, high and xhigh, defaults to high, and rejects minimal. It shares
+ * Argon and Carbon's request schema: temperature, top_p and top_k are removed. It is on the Gemini API (free and paid
+ * tiers); Google lists no Vertex location for it. Unlike Argon and Carbon it returns up to 65,536 tokens per request.
+ * https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
+ */
+export function isGeminiHydrogenModel(model: string): boolean {
+  return /(?:^|\/)gemini-4-hydrogen(?:$|-)/u.test(capabilityModelId(model));
+}
+
 /** Any Gemini model id, bare or with a router prefix such as OpenRouter's `google/`. */
 export function isGeminiModel(model: string): boolean {
   return /(?:^|\/)gemini-/u.test(capabilityModelId(model));
@@ -313,7 +331,7 @@ export function isGeminiModel(model: string): boolean {
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-6-flash (also 3-7, 3-8)
  */
 export function isGeminiStrictRequestModel(model: string): boolean {
-  return /(?:^|\/)gemini-(?:4-(?:argon|carbon)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
+  return /(?:^|\/)gemini-(?:4-(?:argon|carbon|hydrogen)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
     capabilityModelId(model),
   );
 }
@@ -545,6 +563,8 @@ export const GOOGLE_MODELS: KnownModel[] = [
   // Gemini 4. Argon and Carbon need a paid tier and, on Vertex, the global, us or eu location.
   { id: "gemini-4-argon", name: "gemini-4-argon", context: 1000000, maxOutput: 65536 },
   { id: "gemini-4-carbon", name: "gemini-4-carbon", context: 1000000, maxOutput: 65536 },
+  // Hydrogen is on the Gemini API only, free and paid tiers (left out of the Vertex list below).
+  { id: "gemini-4-hydrogen", name: "gemini-4-hydrogen", context: 1048576, maxOutput: 65536 },
   // Gemini 3.7
   { id: "gemini-3.7-flash", name: "gemini-3.7-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.6
@@ -1443,7 +1463,8 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   claude_subscription: CLAUDE_SUBSCRIPTION_MODELS,
   grok_subscription: GROK_SUBSCRIPTION_MODELS,
   google: GOOGLE_MODELS,
-  google_vertex: GOOGLE_MODELS,
+  // Google lists no Vertex location for Gemini 4 Hydrogen.
+  google_vertex: GOOGLE_MODELS.filter((model) => model.id !== "gemini-4-hydrogen"),
   mistral: MISTRAL_MODELS,
   cohere: COHERE_MODELS,
   openrouter: OPENROUTER_MODELS,

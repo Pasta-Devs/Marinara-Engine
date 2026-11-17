@@ -282,8 +282,13 @@ try {
     assert.equal(requests.at(-1)!.max_tokens, expected, `${model} test budget`);
   }
 
-  // Gemini 4 Argon and Carbon think at medium even with no level saved, so they get the same room (#9037).
-  for (const model of ["gemini-4-argon", "gemini-4-carbon"]) {
+  // Gemini 4 Argon and Carbon think at medium even with no level saved, and Hydrogen at high, so they get the same
+  // room (#9037).
+  for (const [model, level] of [
+    ["gemini-4-argon", "medium"],
+    ["gemini-4-carbon", "medium"],
+    ["gemini-4-hydrogen", "high"],
+  ] as const) {
     const gemini = await storage.create({
       name: "Gemini test fixture",
       provider: "google",
@@ -294,7 +299,7 @@ try {
     const tested = await app.inject({ method: "POST", url: `/api/connections/${gemini.id}/test-message` });
     assert.equal(tested.json().success, true, tested.body);
     const config = requests.at(-1)!.generationConfig as Record<string, any>;
-    assert.equal(config.thinkingConfig?.thinkingLevel, "medium", `${model} test thinks at medium`);
+    assert.equal(config.thinkingConfig?.thinkingLevel, level, `${model} test thinks at ${level}`);
     assert.equal(config.maxOutputTokens, 1024, `${model} test budget`);
   }
 
