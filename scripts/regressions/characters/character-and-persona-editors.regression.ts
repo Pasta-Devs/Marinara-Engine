@@ -1,6 +1,7 @@
 // The character and persona editors: personas hide the character-only Convo Behavior control, a gallery delete
-// reports failure, a second sprite pick waits for the running upload, and the galleries share one layout. Reads
-// component source until a test can drive these.
+// reports failure, a second sprite pick waits for the running upload, and the galleries share one layout. Also
+// avatar crops, sprite downloads, the phone layout of the sprite controls, the versioning switch and the header
+// avatar's click area. Reads component source until a test can drive these; most need browser tests.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -32,3 +33,32 @@ assert.match(
 );
 assert.match(characterEditorSource, /if \(uploading \|\| !expression\) return;/u);
 assert.match(personaEditorSource, /if \(uploading \|\| !expression\) return;/u);
+
+const cardEditorSource = readFileSync(
+  new URL("../../../packages/client/src/components/cards/CardEditor.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(characterEditorSource, /ui\.characters\.charactergallerytab\.failedToDeleteCharacterImage/u);
+assert.match(characterEditorSource, /getAvatarCropStyle/u);
+assert.match(characterEditorSource, /downloadSpriteFile/u);
+assert.match(personaEditorSource, /downloadSpriteFile/u);
+assert.match(
+  characterEditorSource,
+  /className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center"/u,
+);
+assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(
+  characterEditorSource,
+  /<SettingsSwitch\s+checked=\{formData\.extensions\.versioningEnabled !== false\}/u,
+  "Character versioning must use the shared aligned settings switch",
+);
+assert.match(
+  personaEditorSource,
+  /<SettingsSwitch\s+checked=\{formData\.versioningEnabled\}/u,
+  "Persona versioning must use the shared aligned settings switch",
+);
+assert.equal(
+  cardEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
+  1,
+  "The shared header avatar inside its upload target must not intercept page clicks",
+);

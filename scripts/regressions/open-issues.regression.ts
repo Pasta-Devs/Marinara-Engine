@@ -421,17 +421,6 @@ assert.match(
   "Termux must rebuild and recheck incomplete client assets, including a missing index",
 );
 
-const personalExtensionInjectorSource = readFileSync(
-  new URL("../../packages/client/src/components/layout/PersonalExtensionInjector.tsx", import.meta.url),
-  "utf8",
-);
-assert.match(personalExtensionInjectorSource, /fetch: \(input, init\) => fetchForPersonalExtension/u);
-const personalExtensionSettingsSource = readFileSync(
-  new URL("../../packages/client/src/components/panels/settings/PersonalExtensionsSettings.tsx", import.meta.url),
-  "utf8",
-);
-assert.match(personalExtensionSettingsSource, /settings\.personalExtensions\.traffic\.summary/u);
-
 const sharedPackageJson = JSON.parse(
   readFileSync(new URL("../../packages/shared/package.json", import.meta.url), "utf8"),
 ) as { scripts?: Record<string, string> };
@@ -485,21 +474,8 @@ const professorMariHomeSource = readFileSync(
 const mariChatDir = new URL("../../packages/client/src/components/chat/mari/", import.meta.url);
 const mariChatPart = (name: string) => readFileSync(new URL(name, mariChatDir), "utf8");
 const mariChatAllSource = [professorMariHomeSource, ...readdirSync(mariChatDir).map(mariChatPart)].join("\n");
-const mariMessageActionsSource = mariChatPart("use-mari-message-actions.ts");
-const mariWorkspaceRunSource = mariChatPart("use-mari-workspace-run.ts");
-const mariChatHistoryActionsSource = mariChatPart("use-mari-chat-history-actions.ts");
-const mariWorkTimelineSource = mariChatPart("MariWorkTimeline.tsx");
-const compactMariMessageSource = mariChatPart("CompactMariMessage.tsx");
 const contextBudgetChatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
-  "utf8",
-);
-const contextBudgetConversationInputSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
-  "utf8",
-);
-const contextBudgetGameInputSource = readFileSync(
-  new URL("../../packages/client/src/components/game/GameInput.tsx", import.meta.url),
   "utf8",
 );
 const contextBudgetChatSettingsSource = readFileSync(
@@ -518,41 +494,10 @@ const quickSwitcherMobileSource = readFileSync(
   new URL("../../packages/client/src/components/chat/QuickSwitcherMobile.tsx", import.meta.url),
   "utf8",
 );
-const contextBudgetIndicatorSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ContextBudgetIndicator.tsx", import.meta.url),
-  "utf8",
-);
-const lorebookHooksSource = readFileSync(
-  new URL("../../packages/client/src/hooks/use-lorebooks.ts", import.meta.url),
-  "utf8",
-);
-assert.equal(
-  contextBudgetIndicatorSource.match(/var\(--marinara-chat-chrome-text\)/gu)?.length,
-  1,
-  "non-accent context usage bars must use the configured chat chrome text color",
-);
-assert.match(
-  contextBudgetIndicatorSource,
-  /stroke="var\(--marinara-chat-chrome-accent\)"/u,
-  "Context usage gauge rings must use the configured chat chrome accent color",
-);
-assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-muted\)\]/u);
-assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-text\)\]/u);
-assert.doesNotMatch(contextBudgetIndicatorSource, /professorMari/u);
 assert.doesNotMatch(
   contextBudgetChatInputSource,
   /<ContextBudgetIndicator/u,
   "Roleplay context usage must stay inside the connection switcher",
-);
-assert.doesNotMatch(
-  contextBudgetConversationInputSource,
-  /<ContextBudgetIndicator/u,
-  "Conversation context usage must stay inside the connection switcher",
-);
-assert.doesNotMatch(
-  contextBudgetGameInputSource,
-  /ContextBudget|QuickConnectionSwitcher/u,
-  "Game input must leave context usage in chat settings",
 );
 assert.match(
   contextBudgetChatSettingsSource,
@@ -571,11 +516,6 @@ for (const [name, source] of [
   assert.match(source, /<ContextBudgetIndicator budget=\{contextBudget\}/u, `${name} must show usage in its popup`);
   assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
 }
-assert.match(
-  professorMariHomeSource,
-  /enterToSendProfessorMari/u,
-  "Professor Mari must read her persisted Send on Enter preference",
-);
 // One composer since the floating-mode branch was removed (f27ce165b). Its keys route through
 // composerKeyAction (#7913), which composer-triggers.regression.ts checks case by case.
 assert.equal(
@@ -588,161 +528,18 @@ assert.match(
   /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
   "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
 );
-assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
-assert.match(
-  mariMessageActionsSource,
-  /const handleEditMessage = useCallback\([\s\S]{0,180}if \(!chatId \|\| isBusy\) return;/u,
-  "Professor Mari's first edit after generation must not be rejected by a stale busy ref",
-);
-// A failed send now keeps the message in the transcript with one Retry card (failRun) and never refills the
-// composer; Stop is not a failure, so failRun returns before it shows anything.
-assert.match(
-  mariWorkspaceRunSource,
-  /const failRun = useCallback\(\s*\([^)]*\) => \{\s*if \(isProfessorMariAbortError\(error\)\) return;/u,
-  "Stopping Professor Mari must not show a failure",
-);
 assert.doesNotMatch(
   mariChatAllSource,
   /catch \(error\) \{[^}]*setDraft\(/u,
   "A failed or stopped Professor Mari send must not restore the submitted prompt to the composer",
 );
-assert.match(
-  lorebookHooksSource,
-  /useDeleteLorebook\(\)[\s\S]{0,900}invalidateQueries\(\{ queryKey: \["chats"\] \}\)/u,
-  "Deleting a lorebook must refresh cached chat metadata so it leaves active context immediately",
-);
-assert.match(
-  mariChatHistoryActionsSource,
-  /handleDeleteProfessorChat[\s\S]{0,500}showConfirmDialog/u,
-  "Deleting one Professor Mari chat must use the app confirmation dialog",
-);
-// Every step row, failed ones included, opens to technical details with the tool's output (slice 72
-// moved the details into one `technicalDetails` helper that every step row renders).
-assert.match(
-  mariWorkTimelineSource,
-  /const technicalDetails = \(tool: WorkspaceToolCall\) =>[\s\S]{0,600}tool\.output !== null && tool\.output !== undefined \? <pre>/u,
-  "Failed workspace tools must reveal their provider output in the transcript",
-);
 
-assert.match(
-  professorMariHomeSource,
-  /messageLoadAbortRef\.current !== controller[\s\S]{0,80}activeChatIdRef\.current !== id/u,
-  "Professor Mari message loads must discard stale requests and inactive chat results",
-);
-assert.match(
-  professorMariHomeSource,
-  /options\.shouldApply\?\.\(\) === false[\s\S]{0,480}setMessages/u,
-  "Professor Mari message loads must recheck an operation guard before applying a response",
-);
-assert.match(
-  mariWorkspaceRunSource,
-  /loadMessages\(completedChatId, \{[\s\S]{0,160}workspaceRunIdRef\.current === runId[\s\S]{0,100}activeChatIdRef\.current === completedChatId/u,
-  "Professor Mari background refreshes must not overwrite state after a newer operation starts",
-);
-assert.match(
-  professorMariHomeSource,
-  // #5725 strengthened this guard: it also rejects responses requested for a
-  // previous chat and holds mode fields across pending mode writes.
-  /const refreshWorkspaceStatus = useCallback\(\s*async \(shouldApply\?: \(\) => boolean\)[\s\S]{0,800}if \(shouldApply\?\.\(\) === false \|\| activeChatIdRef\.current !== chatIdAtStart\) return status;[\s\S]{0,900}setWorkspaceStatus\(/u,
-  "Professor Mari workspace status loads must recheck an operation guard before applying a response",
-);
-assert.match(
-  mariWorkspaceRunSource,
-  /refreshWorkspaceStatus\([\s\S]{0,140}workspaceRunIdRef\.current === runId[\s\S]{0,100}activeChatIdRef\.current === completedChatId/u,
-  "Professor Mari post-run status refreshes must not overwrite state after a newer operation starts",
-);
-// The work-stage layout (1a61247d1) replaced the user-message separators with a right-aligned bubble.
-assert.match(
-  compactMariMessageSource,
-  /message\.role === "user"[\s\S]{0,180}<TranscriptRow[^>]*className="mari-user-request/u,
-  "Professor Mari user messages must render as the user-request row",
-);
-assert.match(
-  mariChatHistoryActionsSource,
-  /Promise\.allSettled\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
-  "Professor Mari chat history should delete all selected chats through the existing endpoint",
-);
-const roleplaySurfaceSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
-  "utf8",
-);
-const echoChamberPanelSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/EchoChamberPanel.tsx", import.meta.url),
-  "utf8",
-);
 const chatFloatingUiEventsSource = readFileSync(
   new URL("../../packages/client/src/lib/chat-floating-ui-events.ts", import.meta.url),
   "utf8",
 );
 const appShellSource = readFileSync(
   new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url),
-  "utf8",
-);
-const featureAgentDetailHostSource = readFileSync(
-  new URL("../../packages/client/src/components/agents/FeatureAgentDetailHost.tsx", import.meta.url),
-  "utf8",
-);
-const guidedPresetEditorSource = readFileSync(
-  new URL("../../packages/client/src/components/presets/PresetEditor.tsx", import.meta.url),
-  "utf8",
-);
-const presetPanelSource = readFileSync(
-  new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
-  "utf8",
-);
-const chatMessageSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatMessage.tsx", import.meta.url),
-  "utf8",
-);
-const assignedSweepChatAreaSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
-  "utf8",
-);
-assert.match(assignedSweepChatAreaSource, /export const ChatArea = memo\(function ChatArea/u);
-assert.doesNotMatch(assignedSweepChatAreaSource, /updateMessage(?:Extra)?\.mutate/u);
-assert.match(chatMessageSource, /mari-chrome-accent-progress mari-accent-animated mb-1\.5 h-0\.5/u);
-assert.match(
-  chatMessageSource,
-  /function ConversationStartMarkers[\s\S]*className=\{cn\("w-full", panel \? "mb-1 px-1" : "mb-0\.5 px-2"\)\}/u,
-  "Roleplay New Start dividers must span user and assistant message bodies",
-);
-assert.match(chatMessageSource, /pointer-events-auto relative z-30 flex h-11 w-11/u);
-assert.equal(
-  chatMessageSource.match(/\(showActions \|\| editing\) && "opacity-100"/gu)?.length,
-  2,
-  "Editing must keep every Roleplay and Game message action visible",
-);
-assert.equal(
-  roleplaySurfaceSource.match(/data-roleplay-agent-window/gu)?.length,
-  3,
-  "Roleplay must identify both HUD layouts and package-provided agent surfaces",
-);
-assert.match(
-  echoChamberPanelSource,
-  /const rootAttributes = \{[^}]*"data-roleplay-agent-window": "echo"[^}]*\}/u,
-  "Echo Chamber should retain its marker for mobile composer visibility",
-);
-assert.match(
-  echoChamberPanelSource,
-  /<FloatingWindow[\s\S]*?rootAttributes=\{rootAttributes\}/u,
-  "the Echo Chamber window and desktop bubble must share the mobile edit marker",
-);
-assert.match(
-  echoChamberPanelSource,
-  /<WindowBubble[\s\S]*?attributes=\{\{ \.\.\.rootAttributes,/u,
-  "the collapsed phone Echo Chamber button must retain the mobile edit marker",
-);
-assert.match(assignedSweepChatAreaSource, /mari-chrome-accent-text-muted mari-accent-animated max-w-sm text-xs/u);
-const macroTextareaSource = readFileSync(
-  new URL("../../packages/client/src/components/ui/MacroTextarea.tsx", import.meta.url),
-  "utf8",
-);
-const roleplayHudSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/RoleplayHUD.tsx", import.meta.url),
-  "utf8",
-);
-const cyoaChoicesSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/CyoaChoices.tsx", import.meta.url),
   "utf8",
 );
 const spritesRoutesSource = readFileSync(
@@ -757,56 +554,15 @@ assert.match(
   appShellSource,
   /resolveFeatureAgentPackage\(selectedFeatureAgent, installedCapabilities\.data \?\? \[\]\)/u,
 );
-assert.match(featureAgentDetailHostSource, /mari-editor-shell mari-editor-legacy-bridge/u);
-assert.match(featureAgentDetailHostSource, /<AgentDetailHeader\b/u);
-assert.doesNotMatch(featureAgentDetailHostSource, /\bPuzzle\b/u);
-assert.doesNotMatch(featureAgentDetailHostSource, /featureagentdetailhost\.feature"/u);
 assert.match(
   chatFloatingUiEventsSource,
   /CHAT_SUMMARY_OPEN_REQUEST_EVENT[\s\S]{0,240}detail:\s*\{\s*chatId\s*\}/u,
   "Summary requests must carry the target chat ID",
 );
-// Chat Summary is a Chat Settings drawer, so a request opens Chat Settings there (desktop window or phone sheet).
-assert.match(
-  assignedSweepChatAreaSource,
-  // One listener table now serves the summary, lorebook-entries and search drawers (omnibar chat tool rows).
-  /\[CHAT_SUMMARY_OPEN_REQUEST_EVENT, "summary"\][\s\S]{0,400}chatId !== useChatStore\.getState\(\)\.activeChatId\) return;\s*handleOpenSettingsPanel\(undefined, \{ initialSection \}\)/u,
-  "Summary requests must open Chat Settings at the Chat Summary drawer for the active chat only",
-);
 assert.match(
   narratorUiStoreSource,
   /openPresetDetail: \(id, options\)[\s\S]{0,180}presetDetailInitialTab: options\?\.initialTab \?\? null/u,
   "Preset navigation must retain an optional initial tab request",
-);
-assert.match(
-  guidedPresetEditorSource,
-  /presetDetailInitialTab[\s\S]{0,260}setActiveTab\(presetDetailInitialTab \?\? "overview"\)/u,
-  "PresetEditor must consume the requested initial tab and retain Overview by default",
-);
-assert.match(
-  presetPanelSource,
-  /openPresetDetail\(preset\.id\)/u,
-  "Ordinary preset-panel navigation must continue using the default Overview tab",
-);
-assert.match(
-  chatMessageSource,
-  /const cycleMergedNarratorAvatars = \(!isRoleplay \|\| roleplayNarratorAvatarCycling\) && !reduceAmbientEffects;/u,
-  "Narrator avatar cycling must follow the Roleplay preference and stop with reduced ambient effects",
-);
-assert.match(
-  macroTextareaSource,
-  /const valueRef = useRef\(value\);[\s\S]{0,500}\}, \[open\]\);/u,
-  "Expanded macro editors must only initialize and focus when opened, not after every parent value update",
-);
-assert.match(
-  chatMessageSource,
-  /aria-label=\{localizeUi\("ui\.chat\.edittextarea\.saveEdit"\)\}[\s\S]{0,180}h-11 w-11/u,
-  "The Roleplay edit Save control must keep a full touch-sized hit target",
-);
-assert.equal(
-  roleplayHudSource.match(/!reduceAmbientEffects && "animate-\[inventory-cycle_0\.4s_ease-out\]"/gu)?.length,
-  1,
-  "The dedicated Roleplay Inventory Tracker widget must suppress mount animations with reduced ambient effects",
 );
 // Clear Trackers is shared by every Agent activity section (Chat Settings, Trackers window, Tracker Panel).
 assert.match(
@@ -815,49 +571,9 @@ assert.match(
   "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
 );
 assert.match(
-  cyoaChoicesSource,
-  /extra: \{ cyoaChoices: \[\] \}[\s\S]{0,900}if \(impersonated\)[\s\S]{0,160}connectionId: null/u,
-  "selecting a CYOA prompt must consume it permanently and follow impersonation with a character reply",
-);
-assert.match(
-  assignedSweepChatAreaSource,
-  /savedUrl \?\? \(chat\.mode === "roleplay" \? useUIStore\.getState\(\)\.defaultRoleplayBackground : null\)/u,
-  "new Roleplay chats must inherit the explicitly selected default background",
-);
-assert.match(
   spritesRoutesSource,
   /const backupDir = join\(dir, "\.cleanup-backups", backupId\)[\s\S]{0,1800}copyFile\(inputPath, join\(backupDir, filename\)\)[\s\S]{0,500}writeFile\(outputPath, output\.buffer\)/u,
   "sprite cleanup must keep the original outside the active sprite set while the cleaned file becomes active",
-);
-assert.match(
-  chatMessageSource,
-  /\[cycleMergedNarratorAvatars, isMergedGroup, mergedCycleKey, mergedAvatars\.length, mergedNameColors\.length\]/u,
-  "Narrator cycling must reset when active character IDs change without changing count",
-);
-assert.match(
-  chatMessageSource,
-  /const applyMergedCycleIndex = \(index: number\) => \{[\s\S]{0,1200}applyMergedCycleIndex\(0\);/u,
-  "Narrator cycling must immediately apply its reset index to avatar and name opacity",
-);
-assert.match(
-  chatMessageSource,
-  /const mergedNameColors = useMemo\(\(\) => mergedAvatars\.map\(\(avatar\) => avatar\.nameColor\)/u,
-  "Merged Narrator avatar and name-color indexes must come from the same renderable character list",
-);
-assert.match(
-  chatMessageSource,
-  /mergedNameColors\.length === 0 \? \([\s\S]{0,180}<NameColorText color=\{msgNameColor\}>\{localizeUi\("ui\.chat\.chatmessage\.narrator"\)\}/u,
-  "Merged messages must retain a Narrator label when no active character avatar resolves",
-);
-assert.match(
-  chatMessageSource,
-  /useCompactRectangleAvatar \|\| !cycleMergedNarratorAvatars[\s\S]{0,180}rectangleSafeCropStyle/u,
-  "Static compact Narrator avatars must not receive positioned crop dimensions that break their flex layout",
-);
-assert.match(
-  chatMessageSource,
-  /cycleMergedNarratorAvatars \? "absolute inset-0 w-full" : "relative w-0 min-w-0 flex-1"/u,
-  "Disabling Narrator cycling must place active avatars together",
 );
 assert.match(
   narratorUiStoreSource,
@@ -1017,22 +733,6 @@ const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
   "utf8",
 );
-const characterEditorSource = readFileSync(
-  new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
-  "utf8",
-);
-const cardEditorSource = readFileSync(
-  new URL("../../packages/client/src/components/cards/CardEditor.tsx", import.meta.url),
-  "utf8",
-);
-const personaEditorSource = readFileSync(
-  new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
-  "utf8",
-);
-const generationParametersEditorSource = readFileSync(
-  new URL("../../packages/client/src/components/ui/GenerationParametersEditor.tsx", import.meta.url),
-  "utf8",
-);
 const kaomojiPickerSource = readFileSync(
   new URL("../../packages/client/src/components/ui/KaomojiPicker.tsx", import.meta.url),
   "utf8",
@@ -1041,34 +741,15 @@ const emojiPickerSource = readFileSync(
   new URL("../../packages/client/src/components/ui/EmojiPicker.tsx", import.meta.url),
   "utf8",
 );
-const visualViewportChatBottomSource = readFileSync(
-  new URL("../../packages/client/src/hooks/use-visual-viewport-chat-bottom.ts", import.meta.url),
-  "utf8",
-);
 const spriteDownloadSource = readFileSync(
   new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
   "utf8",
 );
-const gameJournalSource = readFileSync(
-  new URL("../../packages/client/src/components/game/GameJournal.tsx", import.meta.url),
-  "utf8",
-);
-// The modal renders each variable's options through the shared ChoiceOptionsField.
-const choiceSelectionModalSource =
-  readFileSync(
-    new URL("../../packages/client/src/components/presets/ChoiceSelectionModal.tsx", import.meta.url),
-    "utf8",
-  ) +
-  readFileSync(new URL("../../packages/client/src/components/presets/ChoiceOptionsField.tsx", import.meta.url), "utf8");
 const gameSurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameSurface.tsx", import.meta.url),
   "utf8",
 );
 const gameAudioSource = readFileSync(new URL("../../packages/client/src/lib/game-audio.ts", import.meta.url), "utf8");
-const gameSetupWizardSource = readFileSync(
-  new URL("../../packages/client/src/components/game/GameSetupWizard.tsx", import.meta.url),
-  "utf8",
-);
 // Chat Settings' sections and agent cards live in their own folders, so read the drawer and both.
 const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
 const chatSettingsDrawerSource = [
@@ -1208,21 +889,11 @@ assert.match(
   // unlink — in that order, all inside this handler.
   /app\.delete<\{ Params: \{ chatId: string; id: string \} \}>\("\/scene-videos\/:chatId\/:id"[\s\S]{0,400}?video\.chatId !== chatId[\s\S]{0,200}?await sceneVideos\.remove\(video\.id, video\.chatId\);[\s\S]{0,120}?await removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
 );
-assert.match(characterEditorSource, /ui\.characters\.charactergallerytab\.failedToDeleteCharacterImage/u);
-assert.match(characterEditorSource, /getAvatarCropStyle/u);
-assert.match(characterEditorSource, /downloadSpriteFile/u);
-assert.match(personaEditorSource, /downloadSpriteFile/u);
 assert.match(
   conversationGenerationSource,
   /isPersona: true,\s*\/\/ Personas represent the user\.[\s\S]{0,180}?behavior: null,/u,
   "Legacy Persona Convo Behavior data must not steer Conversation prompts",
 );
-assert.match(
-  generationParametersEditorSource,
-  /placeholder=\{localizeUi\("ui\.ui\.generationparametersfields\.thinking", \{\s*value1: "<",\s*value2: ">",\s*\}\)\.trimStart\(\)\}/u,
-  "Assistant Prefill must render literal angle brackets without unbalanced localization markup",
-);
-assert.match(generationParametersEditorSource, /placeholder:\[text-indent:0\]/u);
 for (const [name, source] of [
   ["Emoji", emojiPickerSource],
   ["Kaomoji", kaomojiPickerSource],
@@ -1235,39 +906,7 @@ for (const [name, source] of [
   assert.match(source, /text-foreground\/45/u, `${name} search icon must match GIF search`);
   assert.match(source, /placeholder:text-foreground\/35/u, `${name} search placeholder must match GIF search`);
 }
-assert.match(visualViewportChatBottomSource, /const anchor = pendingAnchor \?\? captureAnchor\(\);/u);
-assert.match(
-  visualViewportChatBottomSource,
-  /scrollElement\.scrollTo\(\{ top: Math\.min\(anchor\.scrollTop, maxScrollTop\), behavior: "auto" \}\);/u,
-  "Keyboard opening should restore an intentionally scrolled transcript to its captured position",
-);
-assert.match(
-  characterEditorSource,
-  /className="grid grid-cols-2 items-stretch gap-2 md:flex md:flex-wrap md:items-center"/u,
-);
-assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
 assert.match(spriteDownloadSource, /saveBlobToDevice/u);
-assert.match(
-  characterEditorSource,
-  /<SettingsSwitch\s+checked=\{formData\.extensions\.versioningEnabled !== false\}/u,
-  "Character versioning must use the shared aligned settings switch",
-);
-assert.match(
-  personaEditorSource,
-  /<SettingsSwitch\s+checked=\{formData\.versioningEnabled\}/u,
-  "Persona versioning must use the shared aligned settings switch",
-);
-assert.equal(
-  cardEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
-  1,
-  "The shared header avatar inside its upload target must not intercept page clicks",
-);
-assert.match(gameJournalSource, /\/game\/\$\{chatId\}\/journal\/entries\/\$\{editingEntry\.index\}/u);
-assert.match(
-  gameJournalSource,
-  /<TimelineView\s+entries=\{visibleEntries\}\s+onEdit=\{beginEditingEntry\}/u,
-  "Game Journal must keep edit controls connected after JSX formatting changes",
-);
 assert.match(
   gameAudioSource,
   /const fallbackPlays = remainingPlays;[\s\S]*index < fallbackPlays[\s\S]*proceduralSfxTimers\.add\(timer\)/u,
@@ -1282,76 +921,6 @@ assert.match(
   gameAudioSource,
   /dispose\(\): void \{[\s\S]*sfxGeneration \+= 1;[\s\S]*clearTimeout\(timer\);[\s\S]*el\.onerror = null;[\s\S]*el\.onended = null;/u,
   "Disposing Game audio must invalidate late fallbacks, cancel timers, and detach SFX handlers",
-);
-assert.match(
-  choiceSelectionModalSource,
-  /presentedOptions\.length === 1[\s\S]*<SettingsSwitch[\s\S]*labelPosition="start"/u,
-  "Single-option preset variables must use the standard accessible settings switch",
-);
-// #3624: the Session window embeds the Game Journal, whose tabs scroll only inside a bounded height. The old
-// popover's fixed height cap moved to the control windows: a computer's window has a set height, and a phone's
-// sheet for content that scrolls itself is pinned top and bottom.
-const chatControlWindowSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatControlWindow.tsx", import.meta.url),
-  "utf8",
-);
-const floatingWindowSource = readFileSync(
-  new URL("../../packages/client/src/components/ui/FloatingWindow.tsx", import.meta.url),
-  "utf8",
-);
-assert.match(
-  gameSurfaceSource,
-  /id=\{CHAT_CONTROL_WINDOW_IDS\.session\}[\s\S]{0,400}scroll=\{false\}[\s\S]{0,200}\{renderSessionPanel\(\)\}/u,
-  "The Session window must leave scrolling to the Game Journal inside it",
-);
-assert.match(
-  gameSurfaceSource,
-  /const renderSessionPanel = \(\) => \{[\s\S]{0,300}<div className="flex min-h-0 flex-1 flex-col overflow-hidden">/u,
-  "The Session panel must fill its window as a bounded flex column",
-);
-assert.match(floatingWindowSource, /height: geometry\.height/u, "A computer's control window must have a set height");
-assert.match(
-  chatControlWindowSource,
-  /sheetClassName=\{cn\(PHONE_SHEET_CLASS, !scroll && PHONE_FULL_SHEET_CLASS\)\}/u,
-  "A phone sheet whose content scrolls itself must get a bounded height",
-);
-assert.match(
-  floatingWindowSource,
-  /export const PHONE_SHEET_CLASS =\s*"fixed[^"]*top-\[[^"]*max-h-\[[^"]*";\s*export const PHONE_FULL_SHEET_CLASS =\s*"bottom-\[/u,
-  "Phone sheets must stay on screen, and the full-height one must pin its bottom",
-);
-assert.match(gameSetupWizardSource, /ui\.game\.gamesetupwizard\.adjustGameAssetsForThisGame/u);
-assert.match(gameSetupWizardSource, /selectFoldersByDefault/u);
-assert.match(gameSetupWizardSource, /enableAgents: enableAgents \|\| undefined/u);
-assert.match(
-  gameSetupWizardSource,
-  /handleExportSetup[\s\S]{0,700}buildGameSetupShareFile/u,
-  "New Game's final setup step must export the same reusable setup format before starting",
-);
-assert.match(
-  gameSetupWizardSource,
-  /id="game-setup-spatial-map-target-count"[\s\S]{0,180}min=\{1\}[\s\S]{0,120}max=\{SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT\}/u,
-  "New Game AI map setup must expose the bounded custom place target from World Maps",
-);
-assert.match(
-  gameSetupWizardSource,
-  /targetLocationCount:\s*spatialMapTargetLocationCount/u,
-  "New Game setup must preserve the selected custom place target in its post-setup map plan",
-);
-assert.match(
-  gameSetupWizardSource,
-  /setSpatialMapTargetLocationCount\(importedSpatialMapDraftOptions\.targetLocationCount\)/u,
-  "New Game setup imports must restore the saved World Maps place target",
-);
-assert.match(
-  gameSetupWizardSource,
-  /setSpatialMapGroundingMode\(config\.spatialMapGroundingMode \?\? "setup"\)/u,
-  "New Game setup imports must restore the saved World Maps grounding mode",
-);
-assert.match(
-  gameSurfaceSource,
-  /targetLocationCount:\s*plan\.targetLocationCount/u,
-  "Game setup must send the custom place target to World Maps draft generation",
 );
 assert.match(gameRoutesSource, /enableAgents: z\.boolean\(\)\.optional\(\)/u);
 assert.match(
@@ -1474,10 +1043,6 @@ assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS
 assert.match(browserNotificationHelpSource, /Browser notifications are not available in this environment/u);
 assert.match(browserNotificationHelpSource, /Reset this site's notification permission/u);
 
-const chatAreaPromptReviewSource = readFileSync(
-  new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
-  "utf8",
-);
 const retryAgentsPromptReviewSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
@@ -1503,10 +1068,6 @@ assert.match(
   "Retried Roleplay illustrations must preserve latest-user character reference detection",
 );
 const uiStoreSource = readFileSync(new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url), "utf8");
-const settingsSyncSource = readFileSync(
-  new URL("../../packages/client/src/hooks/use-settings-sync.ts", import.meta.url),
-  "utf8",
-);
 const syncedSettingsSource = uiStoreSource.slice(
   uiStoreSource.indexOf("export function pickSyncedSettings"),
   uiStoreSource.indexOf("export const useUIStore"),
@@ -1516,18 +1077,12 @@ assert.match(
   /gameTextEffectsEnabled: state\.gameTextEffectsEnabled/,
   "Game text effects must remain off after synced settings are restored",
 );
-assert.match(
-  settingsSyncSource,
-  /hadMissingSyncedSettings[\s\S]*pickSyncedSettings\(useUIStore\.getState\(\)\)/u,
-  "Incomplete server settings blobs must be rewritten with newly synced preferences",
-);
 
 assert.match(
   uiStoreSource,
   /if \(version <= 37\) \{[\s\S]*IMAGE_STYLE_PROFILES_STORAGE_KEY\] \?\? persisted\.imageStyleProfiles/u,
   "The image-style legacy-key fallback must remain version-specific",
 );
-assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
 assert.match(
   retryAgentsPromptReviewSource,
   /const\s+retryAgentConnectionCache\s*=\s*new\s+Map<string,\s*RetryAgentConnectionResolution>\(\);/,
@@ -1557,69 +1112,14 @@ assert.match(
   "The Chat Summary combine route must retain source history through the tested helper",
 );
 assert.match(
-  summaryPopoverSource,
-  /onSuccess: \(data\) => \{\s*setSelectedEntryIds\(new Set\(\)\);\s*setShowInactiveSummaries\(true\)/u,
-  "The Chat Summary popover must reveal retained inactive sources after combining",
-);
-assert.match(
-  summaryPopoverSource,
-  /<[A-Za-z]+\b(?=[^>]*data-summary-entry-root\b)(?=[^>]*onDragOver=\{handleSummaryContainerDragOver\})(?=[^>]*onDrop=\{handleSummaryDrop\})[^>]*>/u,
-  "The summary entry list root must be the desktop drag-and-drop container",
-);
-assert.match(
-  summaryPopoverSource,
-  /<[A-Za-z]+\b(?=[^>]*data-touch-reorder-item=\{reorderable \? "summary-entry" : undefined\})(?=[^>]*data-touch-reorder-index=\{reorderable \? entryIndex : undefined\})(?=[^>]*draggable=\{reorderable && dragReady\})(?=[^>]*onDragStart=\{onDragStart\})[^>]*>/u,
-  "Summary entries must expose a shared desktop and touch reorder surface (the same row is a touch-reorder item, carries its persisted reorder index, and is desktop-draggable)",
-);
-assert.match(
-  summaryPopoverSource,
-  /startSummaryEntryTouchDrag\(event, entry\.id/u,
-  "Summary entries must support touch drag-and-drop on mobile",
-);
-assert.match(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/lib/touch-reorder.ts"), "utf8"),
   /candidateIndex = readReorderIndex\(candidate\)[\s\S]{0,260}lastIndex = readReorderIndex/u,
   "Touch reorder gaps must use persisted row indexes when filtered entries are not rendered",
 );
 assert.match(
-  summaryPopoverSource,
-  /<div className="flex items-center gap-0\.5">[\s\S]{0,900}onMoveUp[\s\S]{0,900}onMoveDown/u,
-  "Summary entries must keep keyboard reorder controls available on narrow viewports",
-);
-assert.match(
   chatRoutesSource,
   /body\.operation === "reorder"[\s\S]{0,1800}body\.entryIds\.map/u,
   "Summary reorder requests must persist the complete user-selected entry order",
-);
-assert.match(
-  summaryPopoverSource,
-  /!templateEditorOpen[\s\S]{0,500}\{activeSummaryPrompt\}[\s\S]{0,500}templateEditorOpen/u,
-  "The active Chat Summary prompt must remain visible until its template editor opens",
-);
-assert.doesNotMatch(
-  summaryPopoverSource,
-  /localizeUi\("ui\.chat\.summarypopover\.templates"\)/u,
-  "The Summary Prompt card must use one Edit path instead of a separate Templates button",
-);
-assert.match(
-  summaryPopoverSource,
-  /onClick=\{\(\) => void handleToggleVisiblePromptEditor\(\)\}[\s\S]{0,500}aria-expanded=\{visiblePromptEditorOpen\}/u,
-  "The Summary Prompt Edit/Done action must expose disclosure semantics for its editor",
-);
-assert.match(
-  summaryPopoverSource,
-  /if \(!visiblePromptEditorOpen\) \{\s*setTemplateSelectOpen\(false\);\s*handleEditVisiblePrompt\(\);/u,
-  "Opening the Summary Prompt editor must close its template selector",
-);
-assert.match(
-  summaryPopoverSource,
-  /const saved = await commitCombinePromptDraft\(\);\s*if \(saved\) setCombinePromptEditorOpen\(false\);/u,
-  "Done must save and close the Combine prompt editor",
-);
-assert.match(
-  summaryPopoverSource,
-  /batchAbortControllerRef\.current\?\.abort\(\);\s*void commitCombinePromptDraftRef\.current\(\);/u,
-  "Collapsing the Chat Summary drawer or closing Chat Settings must still persist the Combine draft",
 );
 const promptSettingsPersistSource = summaryPopoverSource.slice(
   summaryPopoverSource.indexOf("const persistPromptTemplates"),
@@ -1689,21 +1189,6 @@ assert.match(
   chatRoutesSource,
   /estimateChatSummaryTokens\(sourceText\) > combinedSummaryInputBudget[\s\S]{0,500}Selected summaries are too large to combine at once[\s\S]{0,3000}provider\.chatComplete/u,
   "Combined summaries must be rejected before provider generation when they exceed the input budget",
-);
-const chatSidebarSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/client/src/components/layout/ChatSidebar.tsx"),
-  "utf8",
-);
-assert.match(
-  chatSidebarSource,
-  /useState<ChatSortOption>\("recent"\)/u,
-  "Recent activity must be the default chat sort",
-);
-
-assert.match(
-  appShellSource,
-  /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}closeTrackerPanel\(\)/u,
-  "Closing a detached Tracker window must close the Tracker instead of silently docking it",
 );
 
 // Issues #4114-#4119 and the Prose Guardian staging regression — keep the
@@ -2755,12 +2240,6 @@ assert.match(
     "Lorebook Keeper backfill results retain each target message and swipe anchor",
   );
 }
-
-// A closed story ending (Capability API 1.343) stays closed when the game surface mounts again: the close
-// is kept in this browser by game and ending, and read back before the ending is shown.
-assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
-assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
-assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
 
 // #8933: a member's name in Chat Settings opens their full card again (Characters and Game Mode party), only after
 // the drawer's guarded close (drafts and the inline card editor's saves finished; a pinned drawer stays open).

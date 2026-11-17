@@ -1,6 +1,7 @@
 // Reviewing a media prompt before it is sent: previews time out instead of hanging, Game allows one review at a time
 // and falls back to the default prompt on a timeout, an edited negative prompt is sent, and an Illustrator retry logs
-// its final prompt. Reads component source until a test can drive these.
+// its final prompt, and confirming a Conversation selfie review resumes the send. Reads component source until a test
+// can drive these.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -31,3 +32,5 @@ assert.match(
   /item\.negativePrompt !== undefined \|\| negativePrompt \? \{ negativePrompt \} : \{\}/,
 );
 assert.match(retryAgentsPromptReviewSource, /\[debug\/retry-agents\/illustrator\] final prompt/);
+
+assert.match(chatAreaPromptReviewSource, /confirmConversationSelfiePromptReview/);
