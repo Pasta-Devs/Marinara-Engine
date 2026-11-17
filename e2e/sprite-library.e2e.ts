@@ -743,7 +743,9 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
       // starts the drag; bring it into view first and drag in steps like the checks above.
       const looseDrop = library.locator("[data-sprite-loose]");
       await looseDrop.scrollIntoViewIfNeeded();
-      const idleFrom = (await frontSection.getByRole("button", { name: "Preview idle", exact: true }).boundingBox())!;
+      const idleSource = frontSection.getByRole("button", { name: "Preview idle", exact: true });
+      await expect(idleSource).toBeInViewport({ ratio: 0.5 });
+      const idleFrom = (await idleSource.boundingBox())!;
       const looseTo = (await looseDrop.boundingBox())!;
       await page.mouse.move(idleFrom.x + idleFrom.width / 2, idleFrom.y + idleFrom.height / 2);
       await page.mouse.down();
