@@ -24,6 +24,8 @@ import { showPromptDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile } from "../../lib/download-json";
 import { api } from "../../lib/api-client";
 import { CustomEmojiSelectionSettings } from "./CustomEmojiSelectionSettings";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { PoolDescriptionButton } from "../ui/PoolDescriptionButton";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { rememberRecentMedia, useRecentMedia } from "../../hooks/use-recent-media";
@@ -326,6 +328,14 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
                   {localizeUi("ui.characters.spritestab.export")}
                 </button>
               )}
+              {globalList.length > 0 && (
+                <GalleryDescribeButton
+                  images={globalList}
+                  target={{ scope: "sticker" }}
+                  queryKey={["custom-stickers"]}
+                  className="inline-flex items-center gap-1 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90 disabled:cursor-wait disabled:opacity-60"
+                />
+              )}
             </>
           )}
         </div>
@@ -446,6 +456,7 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
                           <Trash2 size="0.625rem" />
                         </button>
                       )}
+                      {editing && <PoolDescriptionButton kind="sticker" item={sticker} />}
                     </div>
                   ))}
                 </div>

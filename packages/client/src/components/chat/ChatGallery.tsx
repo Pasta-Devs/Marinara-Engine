@@ -32,11 +32,14 @@ import {
   useDeleteGalleryImage,
   useTagGalleryImage,
   useAssignGalleryImage,
+  galleryKeys,
   type ChatAssetBrowserItem,
   type ChatImage,
   type GalleryAssignTarget,
 } from "../../hooks/use-gallery";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { ContextMenu } from "../ui/ContextMenu";
 import { BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { ChatImagePreview } from "./ChatImagePreview";
@@ -126,6 +129,7 @@ export function ChatGallery({
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
   const tagImage = useTagGalleryImage(chatId);
+  const saveDescription = useSaveGalleryDescription({ scope: "chat", ownerId: chatId }, galleryKeys.chat(chatId));
   const assignImage = useAssignGalleryImage(chatId);
   const [assignMenu, setAssignMenu] = useState<{ image: ChatImage; x: number; y: number } | null>(null);
   const deleteVideo = useDeleteSceneVideo(chatId);
@@ -841,7 +845,13 @@ export function ChatGallery({
             <span className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">
               {localizeUi("ui.gallery.batch.selected", { count: selectedImages.length })}
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <GalleryDescribeButton
+                images={selectedImages}
+                target={{ scope: "chat", ownerId: chatId }}
+                ownerOf={(image) => (image as ChatImage).chatId ?? chatId}
+                queryKey={galleryKeys.chat(chatId)}
+              />
               <button
                 type="button"
                 disabled={selectedImages.length === 0 || batchOperationPending}
@@ -1122,6 +1132,9 @@ export function ChatGallery({
                             { image: img, patch },
                             { onError: () => toast.error(localizeUi("ui.chat.chatgallery.couldNotTag")) },
                           )
+                        }
+                        onDescribe={(description) =>
+                          saveDescription.mutate({ imageId: img.id, description, ownerId: img.chatId })
                         }
                       />
                     )}

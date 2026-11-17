@@ -85,6 +85,17 @@ Once an image is tagged, its overlay button shows the name. Click it for more op
 
 A gallery-tagged emoji or sticker works only for that one character or persona, in Conversation Mode chats that include them. This is separate from the global emoji and sticker pools in the message composer. If a gallery name matches a global name, the gallery version wins in that chat. Names are not checked for uniqueness, so pick a distinct name for each image.
 
+## Describe pictures
+
+Any gallery picture can have a short description of what it shows. Conversation chats use the descriptions of tagged emojis and stickers to choose which ones to offer (see [Describe emojis and stickers](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)). A description is saved with the picture and travels in a **Marinara Native** export.
+
+- To write one, click the tag button in the image's top-left corner and choose **Add description**, or **Edit description** to change it.
+- To have AI write them, click **Select images**, pick the pictures, then click **Describe with AI**. The **Image reading** model looks at each one and writes a short description. If some already have one, choose to describe only the ones without or all of them again.
+
+Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one under **Behind the scenes** in your connection settings, and otherwise your agents' model. Up to 8 pictures are sent at a time, so a large selection takes a moment.
+
+A chat's own gallery has the same **Describe with AI** in its select mode.
+
 ## Reuse a gallery image in messages and greetings
 
 Any image in a character's Gallery can show inside chat text: a greeting, an example message or a message the character sends. Hover a gallery image and click **Copy image reference** (the link icon). It copies a piece of Markdown to paste wherever the character speaks:
