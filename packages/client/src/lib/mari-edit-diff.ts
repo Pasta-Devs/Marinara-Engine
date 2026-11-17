@@ -40,6 +40,7 @@ const PROSE_FIELD_NAMES = new Set([
   "personality",
   "posthistoryinstructions",
   "prompttemplate",
+  "publicface",
   "scenario",
   "summary",
   "systemprompt",

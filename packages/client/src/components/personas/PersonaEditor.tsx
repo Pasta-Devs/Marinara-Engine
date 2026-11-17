@@ -4371,6 +4371,7 @@ function PersonaCardTab({
     {
       key: "publicFace",
       sectionId: "persona-card-public-face",
+      mariField: "publicFace",
       title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
       subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
       helpText: localizeUi("ui.cardFields.publicFace.help"),
