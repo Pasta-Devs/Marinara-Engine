@@ -1,5 +1,6 @@
 // The UI store's saved settings: old and current tracker settings migrate to the same clean values, Send on Enter
-// stays on the device while other settings sync, and every synced setting is also kept in browser storage.
+// stays on the device while other settings sync, and every synced setting is also kept in browser storage. Also two
+// store defaults: Narrator avatar cycling starts on, and opening a preset remembers which tab was asked for.
 import assert from "node:assert/strict";
 import type { ChatMode } from "../../../packages/shared/src/types/chat.js";
 
@@ -116,3 +117,18 @@ assert.equal(
   false,
   "Professor Mari's Send on Enter must be browser-local persisted",
 );
+
+assert.equal(
+  useUIStore.getState().roleplayNarratorAvatarCycling,
+  true,
+  "Narrator avatar cycling must remain enabled by default",
+);
+useUIStore.getState().openPresetDetail("preset-1", { initialTab: "sections" });
+assert.equal(useUIStore.getState().presetDetailId, "preset-1");
+assert.equal(
+  useUIStore.getState().presetDetailInitialTab,
+  "sections",
+  "Preset navigation must retain an optional initial tab request",
+);
+useUIStore.getState().openPresetDetail("preset-2");
+assert.equal(useUIStore.getState().presetDetailInitialTab, null, "a plain open starts at the preset's first tab");

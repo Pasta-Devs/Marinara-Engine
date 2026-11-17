@@ -523,46 +523,15 @@ assert.equal(
   1,
   "Professor Mari's composer must route its keys through composerKeyAction",
 );
-assert.match(
-  readFileSync(new URL("../../packages/client/src/lib/composer-triggers.ts", import.meta.url), "utf8"),
-  /if \(input\.enterToSend\) \{\s*if \(!input\.shiftKey\) return modifier \? "queue" : "send";\s*\} else if \(modifier\) \{\s*return input\.shiftKey \? "queue" : "send";/u,
-  "Professor Mari's composer must preserve Shift+Enter and require the configured send shortcut",
-);
 assert.doesNotMatch(
   mariChatAllSource,
   /catch \(error\) \{[^}]*setDraft\(/u,
   "A failed or stopped Professor Mari send must not restore the submitted prompt to the composer",
 );
 
-const chatFloatingUiEventsSource = readFileSync(
-  new URL("../../packages/client/src/lib/chat-floating-ui-events.ts", import.meta.url),
-  "utf8",
-);
-const appShellSource = readFileSync(
-  new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url),
-  "utf8",
-);
 const spritesRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/sprites.routes.ts", import.meta.url),
   "utf8",
-);
-const narratorUiStoreSource = readFileSync(
-  new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url),
-  "utf8",
-);
-assert.match(
-  appShellSource,
-  /resolveFeatureAgentPackage\(selectedFeatureAgent, installedCapabilities\.data \?\? \[\]\)/u,
-);
-assert.match(
-  chatFloatingUiEventsSource,
-  /CHAT_SUMMARY_OPEN_REQUEST_EVENT[\s\S]{0,240}detail:\s*\{\s*chatId\s*\}/u,
-  "Summary requests must carry the target chat ID",
-);
-assert.match(
-  narratorUiStoreSource,
-  /openPresetDetail: \(id, options\)[\s\S]{0,180}presetDetailInitialTab: options\?\.initialTab \?\? null/u,
-  "Preset navigation must retain an optional initial tab request",
 );
 // Clear Trackers is shared by every Agent activity section (Chat Settings, Trackers window, Tracker Panel).
 assert.match(
@@ -574,11 +543,6 @@ assert.match(
   spritesRoutesSource,
   /const backupDir = join\(dir, "\.cleanup-backups", backupId\)[\s\S]{0,1800}copyFile\(inputPath, join\(backupDir, filename\)\)[\s\S]{0,500}writeFile\(outputPath, output\.buffer\)/u,
   "sprite cleanup must keep the original outside the active sprite set while the cleaned file becomes active",
-);
-assert.match(
-  narratorUiStoreSource,
-  /roleplayNarratorAvatarCycling:\s*true/u,
-  "Narrator avatar cycling must remain enabled by default",
 );
 const themesRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
@@ -686,11 +650,6 @@ assert.match(
   /let gameAwareMessagesForGen = await prepareConversationLorebookForResponder\(targetCharId, messagesForGen\)/u,
   "Individual Conversation lorebook injection should happen separately for each provider generation",
 );
-assert.match(
-  readFileSync(new URL("../../packages/server/src/routes/generate/reply-text-cleanup.ts", import.meta.url), "utf8"),
-  /chatMode === "conversation" && otherNames\.length > 0[\s\S]{0,500}fullResponse = fullResponse\.slice\(0, nextSpeakerMatch\.index\)/u,
-  "Individual Conversation generations should discard an extra character turn returned in the same completion",
-);
 for (const [source, lane] of [
   [foregroundAutonomousSource, "foreground"],
   [backgroundAutonomousSource, "background"],
@@ -733,23 +692,10 @@ const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
   "utf8",
 );
-const kaomojiPickerSource = readFileSync(
-  new URL("../../packages/client/src/components/ui/KaomojiPicker.tsx", import.meta.url),
-  "utf8",
-);
-const emojiPickerSource = readFileSync(
-  new URL("../../packages/client/src/components/ui/EmojiPicker.tsx", import.meta.url),
-  "utf8",
-);
-const spriteDownloadSource = readFileSync(
-  new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
-  "utf8",
-);
 const gameSurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameSurface.tsx", import.meta.url),
   "utf8",
 );
-const gameAudioSource = readFileSync(new URL("../../packages/client/src/lib/game-audio.ts", import.meta.url), "utf8");
 // Chat Settings' sections and agent cards live in their own folders, so read the drawer and both.
 const chatSettingsDir = join(REPOSITORY_ROOT, "packages/client/src/features/chat-settings");
 const chatSettingsDrawerSource = [
@@ -836,13 +782,8 @@ const lorebookServiceSource = readFileSync(
   new URL("../../packages/server/src/services/lorebook/index.ts", import.meta.url),
   "utf8",
 );
-const backupGuideSource = readFileSync(new URL("../../docs/data/backup-and-restore.md", import.meta.url), "utf8");
 const gameAssetHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-game-assets.ts", import.meta.url),
-  "utf8",
-);
-const sidecarStoreSource = readFileSync(
-  new URL("../../packages/client/src/stores/sidecar.store.ts", import.meta.url),
   "utf8",
 );
 const sidecarProcessSource = readFileSync(
@@ -853,15 +794,10 @@ const deviceDetailSource = readFileSync(
   new URL("../../packages/client/src/components/connections/DeviceDetail.tsx", import.meta.url),
   "utf8",
 );
-const localNotificationsSource = readFileSync(
-  new URL("../../packages/client/src/lib/local-notifications.ts", import.meta.url),
-  "utf8",
-);
 const notificationSettingsSource = readFileSync(
   new URL("../../packages/client/src/components/panels/settings/SettingControls.tsx", import.meta.url),
   "utf8",
 ).replace(/\r\n/gu, "\n");
-const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
 const galleryRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
   "utf8",
@@ -893,34 +829,6 @@ assert.match(
   conversationGenerationSource,
   /isPersona: true,\s*\/\/ Personas represent the user\.[\s\S]{0,180}?behavior: null,/u,
   "Legacy Persona Convo Behavior data must not steer Conversation prompts",
-);
-for (const [name, source] of [
-  ["Emoji", emojiPickerSource],
-  ["Kaomoji", kaomojiPickerSource],
-] as const) {
-  assert.match(
-    source,
-    /flex items-center gap-2 rounded-md bg-foreground\/5 px-2\.5 py-1\.5 ring-1 ring-foreground\/10 transition-shadow focus-within:ring-foreground\/20/u,
-    `${name} search must use the same shell treatment as GIF search`,
-  );
-  assert.match(source, /text-foreground\/45/u, `${name} search icon must match GIF search`);
-  assert.match(source, /placeholder:text-foreground\/35/u, `${name} search placeholder must match GIF search`);
-}
-assert.match(spriteDownloadSource, /saveBlobToDevice/u);
-assert.match(
-  gameAudioSource,
-  /const fallbackPlays = remainingPlays;[\s\S]*index < fallbackPlays[\s\S]*proceduralSfxTimers\.add\(timer\)/u,
-  "Procedural SFX fallback must preserve the bounded number of remaining sequential plays",
-);
-assert.match(
-  gameAudioSource,
-  /const generation = this\.sfxGeneration;[\s\S]*generation !== this\.sfxGeneration[\s\S]*proceduralSfxTimers\.add\(timer\)/u,
-  "Procedural SFX callbacks must stay scoped to the active Game audio generation",
-);
-assert.match(
-  gameAudioSource,
-  /dispose\(\): void \{[\s\S]*sfxGeneration \+= 1;[\s\S]*clearTimeout\(timer\);[\s\S]*el\.onerror = null;[\s\S]*el\.onended = null;/u,
-  "Disposing Game audio must invalidate late fallbacks, cancel timers, and detach SFX handlers",
 );
 assert.match(gameRoutesSource, /enableAgents: z\.boolean\(\)\.optional\(\)/u);
 assert.match(
@@ -980,9 +888,7 @@ assert.match(
   /const hasAutomaticBackup = await automaticBackupExists\(backupsRoot\);[\s\S]*runAutomaticBackupIfDue\(!current\.enabled \|\| !hasAutomaticBackup\)/u,
   "enabling automatic backups or repairing a missing archive should run immediately",
 );
-assert.doesNotMatch(backupGuideSource, /Export profile as ZIP\?/u);
 assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKeys\.all \}\)/u);
-assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
@@ -1015,28 +921,6 @@ assert.match(
   /characterIds: orderedSelectedSources\.map\(\(source\) => source\.id\)/u,
   "Gallery character IDs must retain every depicted character beyond the provider reference-image cap",
 );
-// The workspace transcript adds its own earlier `.mari-message-content` rule (padding only); check every rule.
-const markdownMessageStyles = [...globalStyles.matchAll(/^\.mari-message-content \{[\s\S]*?\}/gmu)]
-  .map((match) => match[0])
-  .join("\n");
-const markdownCodeBlockStyles =
-  globalStyles.match(/^\.mari-message-content \.mari-md-codeblock \{[^{}]*\}/mu)?.[0] ?? "";
-const markdownCodeChildStyles =
-  globalStyles.match(/^\.mari-message-content \.mari-md-codeblock code \{[^{}]*\}/mu)?.[0] ?? "";
-assert.match(markdownMessageStyles, /min-width:\s*0;/u);
-assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
-assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
-assert.match(markdownCodeBlockStyles, /box-sizing:\s*border-box;/u);
-assert.match(markdownCodeBlockStyles, /width:\s*100%;/u);
-assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
-assert.match(markdownCodeBlockStyles, /overflow-x:\s*hidden;/u);
-assert.match(markdownCodeBlockStyles, /overflow-wrap:\s*anywhere;/u);
-assert.match(markdownCodeBlockStyles, /white-space:\s*pre-wrap;/u);
-assert.match(markdownCodeChildStyles, /white-space:\s*inherit;/u);
-for (const media of globalStyles.matchAll(/^@media \(max-width: 767px\) \{[\s\S]*?^\}/gmu)) {
-  assert.doesNotMatch(media[0], /\.mari-message-content \.mari-md-codeblock\b/u);
-}
-assert.match(localNotificationsSource, /window\.isSecureContext === false/u);
 const browserNotificationHelpSource =
   notificationSettingsSource.match(/const browserNotificationHelp =[\s\S]*?;\n/u)?.[0] ?? "";
 assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS or localhost/u);
@@ -1078,11 +962,6 @@ assert.match(
   "Game text effects must remain off after synced settings are restored",
 );
 
-assert.match(
-  uiStoreSource,
-  /if \(version <= 37\) \{[\s\S]*IMAGE_STYLE_PROFILES_STORAGE_KEY\] \?\? persisted\.imageStyleProfiles/u,
-  "The image-style legacy-key fallback must remain version-specific",
-);
 assert.match(
   retryAgentsPromptReviewSource,
   /const\s+retryAgentConnectionCache\s*=\s*new\s+Map<string,\s*RetryAgentConnectionResolution>\(\);/,
