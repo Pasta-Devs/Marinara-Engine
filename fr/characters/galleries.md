@@ -52,6 +52,17 @@ Une fois l'image marquée, son bouton en surimpression affiche le nom. Clique de
 
 Un emoji ou un sticker marqué dans la galerie ne fonctionne que pour ce seul personnage ou persona, dans les chats en mode Conversation qui l'incluent. C'est indépendant des collections globales d'emojis et de stickers de la zone de rédaction des messages. Si un nom de la galerie correspond à un nom global, c'est la version de la galerie qui l'emporte dans ce chat. L'unicité des noms n'est pas vérifiée : choisis donc un nom distinct pour chaque image.
 
+## Décrire les images
+
+Toute image de galerie peut avoir une courte description de ce qu'elle montre. Les chats Conversation utilisent les descriptions des emojis et stickers marqués pour choisir lesquels proposer (voir [Décrire les emojis et les stickers](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)). Une description est enregistrée avec l'image et l'accompagne dans un export **Marinara Native**.
+
+- Pour en écrire une, clique sur le bouton de marquage dans le coin supérieur gauche de l'image et choisis **Add description** (ajouter une description), ou **Edit description** (modifier la description) pour la changer.
+- Pour les faire écrire par l'IA, clique sur **Select images** (sélectionner des images), choisis les images, puis clique sur **Describe with AI** (décrire avec l'IA). Le modèle **Image reading** (lecture des images) examine chacune et rédige une courte description. Si certaines en ont déjà une, choisis de décrire seulement celles qui n'en ont pas ou de toutes les décrire à nouveau.
+
+Avant de commencer : les descriptions par l'IA nécessitent un modèle capable de lire les images. Marinara utilise le modèle **Image reading** si tu en as défini un dans **Behind the scenes** (en coulisses) dans tes réglages de connexion, et sinon le modèle de tes agents. Les images sont envoyées par lots de 8 au maximum, donc une grande sélection prend un moment.
+
+La galerie propre à un chat propose le même bouton **Describe with AI** en mode sélection.
+
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## Réutiliser une image de galerie dans les messages et les salutations

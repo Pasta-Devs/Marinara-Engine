@@ -52,6 +52,17 @@ Una vez que una imagen está etiquetada, su botón superpuesto muestra el nombre
 
 Un emoji o sticker etiquetado en la galería solo funciona para ese único personaje o persona, en los chats de Conversation Mode que lo incluyen. Esto es independiente de los conjuntos globales de emojis y stickers del compositor de mensajes. Si un nombre de la galería coincide con un nombre global, la versión de la galería tiene prioridad en ese chat. No se comprueba que los nombres sean únicos, así que elige un nombre distinto para cada imagen.
 
+## Describir imágenes
+
+Cualquier imagen de la galería puede tener una descripción breve de lo que muestra. Los chats de Conversation usan las descripciones de los emojis y stickers etiquetados para elegir cuáles ofrecer (consulta [Describir emojis y stickers](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)). La descripción se guarda con la imagen y viaja en una exportación **Marinara Native**.
+
+- Para escribir una, haz clic en el botón de etiqueta de la esquina superior izquierda de la imagen y elige **Add description** (Agregar descripción), o **Edit description** (Editar descripción) para cambiarla.
+- Para que la IA las escriba, haz clic en **Select images** (Seleccionar imágenes), elige las imágenes y luego haz clic en **Describe with AI** (Describir con IA). El modelo **Image reading** (Lectura de imágenes) mira cada una y escribe una descripción breve. Si algunas ya tienen una, elige entre describir solo las que no tienen descripción o volver a describirlas todas.
+
+Antes de empezar: las descripciones de IA necesitan un modelo que pueda leer imágenes. Marinara usa el modelo **Image reading** si configuras uno en **Behind the scenes** (Entre bastidores) en los ajustes de tu conexión; de lo contrario, usa el modelo de tus agentes. Se envían hasta 8 imágenes a la vez, así que una selección grande tarda un momento.
+
+La galería propia de un chat tiene la misma opción **Describe with AI** en su modo de selección.
+
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## Reutilizar una imagen de la galería en mensajes y saludos

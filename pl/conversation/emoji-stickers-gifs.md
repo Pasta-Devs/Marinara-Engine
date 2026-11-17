@@ -101,6 +101,24 @@ Aplikacja informuje odpowiadającą postać, których własnych emoji i naklejek
 
 Jeśli postać zapisze nazwę naklejki tak jak emoji, na przykład `:hug:` zamiast `sticker:hug:`, w odpowiedzi pojawi się naklejka. Dzieje się tak tylko wtedy, gdy żadne własne emoji nie ma tej nazwy.
 
+<a id="describe-emojis-and-stickers"></a>
+
+### Opisz emoji i naklejki
+
+Opis mówi, co przedstawia emoji lub naklejka i jakie emocje wyraża, na przykład "kot wyglądający zza poduszki; nieśmiałość, zakłopotanie". Pomaga, gdy nazwa nie wyjaśnia znaczenia obrazka.
+
+- Aby napisać opis, kliknij **Edit** na zakładce **Custom emojis** lub **Stickers**, a potem mały przycisk opisu w rogu kafelka. W przypadku emoji lub naklejki oznaczonej w galerii kliknij przycisk tagu i wybierz **Add description** (dodanie opisu).
+- Aby opisy napisała AI, kliknij **Edit**, a potem **Describe with AI** (opisanie za pomocą AI). Model **Image reading** (odczytywanie obrazów) ogląda każdy obrazek i pisze krótki opis. Jeśli niektóre już go mają, wybierz **Describe only the … without** (opisanie tylko tych bez opisu) lub **Describe all … again** (ponowne opisanie wszystkich).
+
+Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go w sekcji **Behind the scenes** (za kulisami) w ustawieniach połączenia, a w przeciwnym razie używa modelu agentów.
+
+Korzystają z nich dwa ustawienia w panelu **Selection preferences**:
+
+- **Use descriptions** (używanie opisów, domyślnie włączone): przy wyborze oferowanych emoji i naklejek w trybach **Semantic** i **Tool-call** ocenia je zarówno na podstawie opisu, jak i nazwy. Nie dodaje nic do promptu.
+- **Show descriptions to the model** (pokazywanie opisów modelowi, domyślnie wyłączone): dodatkowo umieszcza opis każdego oferowanego emoji lub naklejki obok nazwy, dzięki czemu model zna ich znaczenie. Przy domyślnej liczbie 20 oferowanych dodaje około 1 000 do 1 800 tokenów wejściowych na odpowiedź.
+
+Opisy używane tylko do wyboru oferowanych emoji i naklejek nie uczą modelu znaczenia nazw. Jeśli nazwa mówi coś przeciwnego do wyrażanej emocji, jak sarkastyczne `:fine:`, włącz **Show descriptions to the model** lub **Show them to the model** (pokaż je modelowi).
+
 ### Pokaż je modelowi
 
 Zwykle model widzi tylko nazwy własnych emoji i naklejek. Jeśli model czatu potrafi odczytywać obrazy, opcja **Show them to the model** (pokaż je modelowi) w tym samym panelu wysyła mu też obrazki, dzięki czemu wie, jak wygląda każdy z nich. Pomaga to szczególnie przy nazwach, które nie opisują obrazka.

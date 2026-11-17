@@ -52,6 +52,17 @@ Po oznaczeniu obrazu przycisk na jego miniaturze pokazuje nazwę. Kliknij go, ż
 
 Emoji lub naklejka oznaczona w galerii działa tylko dla tej jednej postaci lub persony, w czatach w trybie Conversation Mode z jej udziałem. To co innego niż globalne zbiory emoji i naklejek w polu pisania wiadomości. Jeśli nazwa z galerii pokrywa się z nazwą globalną, w tym czacie wygrywa wersja z galerii. Unikalność nazw nie jest sprawdzana, więc nadaj każdemu obrazowi inną nazwę.
 
+## Opisz obrazy
+
+Każdy obraz w galerii może mieć krótki opis tego, co przedstawia. Czaty w trybie Conversation używają opisów oznaczonych emoji i naklejek, aby wybrać, które z nich oferować (zobacz [Opisz emoji i naklejki](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)). Opis zapisuje się razem z obrazem i jest dołączany do eksportu **Marinara Native**.
+
+- Aby napisać opis, kliknij przycisk oznaczania w lewym górnym rogu obrazu i wybierz **Add description** (dodanie opisu) albo **Edit description** (edycja opisu), aby go zmienić.
+- Aby opisy napisała AI, kliknij **Select images** (Zaznacz obrazy), wybierz obrazy, a potem kliknij **Describe with AI** (opisanie za pomocą AI). Model **Image reading** (odczytywanie obrazów) ogląda każdy z nich i pisze krótki opis. Jeśli niektóre już go mają, wybierz opisanie tylko tych bez opisu albo ponowne opisanie wszystkich.
+
+Zanim zaczniesz: opisy AI wymagają modelu, który potrafi odczytywać obrazy. Marinara używa modelu **Image reading**, jeśli ustawisz go w sekcji **Behind the scenes** (za kulisami) w ustawieniach połączenia, a w przeciwnym razie używa modelu agentów. Jednocześnie wysyłanych jest do 8 obrazów, więc opisanie większej liczby zajmuje chwilę.
+
+Galeria samego czatu ma tę samą opcję **Describe with AI** w trybie zaznaczania.
+
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## Ponowne używanie obrazu z galerii w wiadomościach i powitaniach

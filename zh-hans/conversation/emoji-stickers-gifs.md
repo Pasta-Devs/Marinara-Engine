@@ -102,6 +102,24 @@ Marinara 会告诉正在回复的角色，它可以使用哪些自定义表情�
 
 如果角色把贴纸名写成了表情短代码，例如用 `:hug:` 而不是 `sticker:hug:`，回复中仍会显示该贴纸。只有在没有同名自定义表情时，才会这样处理。
 
+<a id="describe-emojis-and-stickers"></a>
+
+### 描述表情和贴纸
+
+描述用来说明表情或贴纸展示的内容，以及它传达的情绪，例如“猫从枕头后探出头；害羞、尴尬”。名字无法说明图片含义时，描述就能派上用场。
+
+- 要自己写描述，点击 **Custom emojis** 或 **Stickers** 选项卡中的 **Edit**，然后点击格子角落里的小描述按钮。如果是图库中标记的表情或贴纸，点击它的标记按钮，再选择 **Add description**(添加描述)。
+- 要让 AI 写描述，点击 **Edit**，再点击 **Describe with AI**(用 AI 描述)。**Image reading**(读图) 模型会查看每张图片，写出简短描述。如果有些图片已经有描述，可以选择 **Describe only the … without**(只描述没有描述的……)，或 **Describe all … again**(重新描述所有……)。
+
+开始之前：AI 描述需要能识别图片的模型。如果在连接设置的 **Behind the scenes**(幕后) 下设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。
+
+**Selection preferences** 中有两项设置会用到描述：
+
+- **Use descriptions**(使用描述)（默认开启）：在 **Semantic** 和 **Tool-call** 模式下挑选候选项时，同时根据描述和名字排序。不会向提示词添加任何内容。
+- **Show descriptions to the model**(向模型展示描述)（默认关闭）：在每个候选项的名字旁边列出描述，让模型知道它的含义。默认提供 20 个候选项时，每条回复大约会额外消耗 1,000 到 1,800 个输入 Token。
+
+如果描述只用于挑选候选项，模型仍然不知道名字的含义。如果名字和传达的情绪相反，比如带有讽刺意味的 `:fine:`，就开启 **Show descriptions to the model** 或 **Show them to the model**。
+
 ### 向模型展示图片
 
 通常，模型只能看到自定义表情和贴纸的名字。如果聊天使用的模型能识别图片，同一面板中的 **Show them to the model**(向模型展示图片) 还会把图片发给模型，让它知道每个表情和贴纸的样子。名字无法说明图片内容时，这个功能尤其有用。
