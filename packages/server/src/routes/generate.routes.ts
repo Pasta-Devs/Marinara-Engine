@@ -31,6 +31,12 @@ import {
 import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
 import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
 import { withLorebookImageCompatibility } from "../services/llm/lorebook-image-provider.js";
+import {
+  buildConversationEmojiVisionLegend,
+  createConversationAssetVisionCatalog,
+  insertConversationEmojiVisionLegend,
+  rewriteStickerNamesWrittenAsEmojis,
+} from "../services/generation/conversation-emoji-vision.js";
 import { fixedTextProvider } from "../services/llm/fixed-text-provider.js";
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
 import {
@@ -186,6 +192,8 @@ import {
   isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
   LOCAL_SIDECAR_CONNECTION_ID,
+  modelReadsImages,
+  normalizeCustomEmojiSelection,
   normalizeImagePromptInstructions,
   normalizeVideoPromptInstructions,
   normalizeIllustratorVideoMode,
@@ -1435,6 +1443,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     let conversationGenerationStartedAt: number | null = null;
     let conversationAssistantSaved = false;
     const conversationCustomEmojiUrlByName = new Map<string, string>();
+    const conversationAssetVision = createConversationAssetVisionCatalog();
     const shouldAccountAutonomousGeneration =
       requestChatMode === "conversation" &&
       input.autonomous === true &&
@@ -4907,6 +4916,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // The reply keeps which connection failed before the fallback wrote it (#7697).
         let mainFallbackNotice: GenerationFallbackNotice | undefined;
         const lorebookReferenceImages = new Set<string>();
+        // Emoji vision sheets: dropped (names stay as text) if the model refuses images, never captioned.
+        const emojiVisionImages = new Set<string>();
+        const emojiVisionPrefs = normalizeCustomEmojiSelection(chatMeta.customEmojiSelection);
+        const emojiVisionEnabled =
+          chatMode === "conversation" &&
+          emojiVisionPrefs.visionMode !== "off" &&
+          !imageCaptioningRuntime.enabled &&
+          modelReadsImages({ id: connId, imageInput: (conn as { imageInput?: string | null }).imageInput }) !== false;
         const lorebookImageNotices = new Set<LorebookImageNotice>();
         const notifyLorebookImages = (code: LorebookImageNotice) => {
           if (lorebookImageNotices.has(code)) return;
@@ -4917,7 +4934,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           wrapProvider: (provider) =>
             withImageCaptionFallback(
               withLorebookImageCompatibility(
-                provider,
+                withLorebookImageCompatibility(
+                  provider,
+                  emojiVisionImages,
+                  () => logger.info("[custom-emoji] The chat model refused images; sending emoji names only"),
+                  new Set(finalMessages.flatMap((message) => message.images ?? [])),
+                ),
                 lorebookReferenceImages,
                 () => notifyLorebookImages("unsupported"),
                 new Set(finalMessages.flatMap((message) => message.images ?? [])),
@@ -5224,6 +5246,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           characterGallery,
           connections,
           conversationCustomEmojiUrlByName,
+          visionCatalog: conversationAssetVision,
           replyRulesMacroPlacement: conversationContextMacroSlots.replyRules
             ? (content) => {
                 conversationReplyRulesBlockValue = content;
@@ -9161,6 +9184,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             onNotice: notifyLorebookImages,
             rememberImage: (dataUrl) => lorebookReferenceImages.add(dataUrl),
           });
+          if (emojiVisionEnabled) {
+            try {
+              const legend = await buildConversationEmojiVisionLegend(
+                targetScopedMessagesForGen,
+                emojiVisionPrefs,
+                conversationAssetVision,
+              );
+              if (legend) {
+                insertConversationEmojiVisionLegend(targetScopedMessagesForGen, legend.message);
+                for (const image of legend.images) emojiVisionImages.add(image);
+              }
+            } catch (error) {
+              logger.warn(error, "[custom-emoji] Could not build the emoji picture sheet; sending names only");
+            }
+          }
           const spatiallyScopedMessagesForGen = injectOwnerSpatialPrompt(
             targetScopedMessagesForGen,
             ownerSpatialProjection,
@@ -10228,6 +10266,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
           fullResponse = cleanedReply.text;
           if (cleanedReply.changed) contentReplaced = true;
+          if (chatMode === "conversation" && !input.impersonate) {
+            const stickerFix = rewriteStickerNamesWrittenAsEmojis(
+              fullResponse,
+              conversationAssetVision.stickerPaths,
+              conversationAssetVision.emojiPaths,
+            );
+            if (stickerFix.changed) {
+              fullResponse = stickerFix.text;
+              contentReplaced = true;
+            }
+          }
           // The "Trim incomplete sentences" setting shortened the reply; say so rather than cut it silently (#8643).
           if (cleanedReply.trimmedEnding) sendSseEvent(reply, { type: "reply_trimmed" });
           const oocMessages = cleanedReply.oocMessages;
