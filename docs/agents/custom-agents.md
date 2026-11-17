@@ -102,6 +102,8 @@ By default an agent runs on its normal cadence (how often it runs). **Activation
 
 The agent then runs only when a keyword appears in those messages. Leave the box empty to turn the filter off. Cadence and any activation question still apply.
 
+Downloadable agents have the same section. See [Activation Keywords and questions](built-in-agents.md#activation-keywords-and-questions).
+
 ## Attach tools
 
 An agent can call tools: functions the AI runs to fetch or change something, then reads back. This is also called function calling.
@@ -192,7 +194,7 @@ How it runs:
 - A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit depends on the model type and on whether the model has to think first. See [Time limits](../connections/decision-models.md#time-limits).
 - Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
-Activation questions apply to custom agents only.
+Activation questions work the same way for downloadable agents, except the ones listed in [Activation Keywords and questions](built-in-agents.md#activation-keywords-and-questions).
 
 ## Decision statements in the agent's prompt
 

@@ -148,6 +148,7 @@ import {
   normalizeAdvancedMemorySettings,
   type AdvancedMemoryReceipt,
   BUILT_IN_AGENTS,
+  agentSupportsActivationGate,
   getDefaultBuiltInAgentSettings,
   isBuiltInAgentHostManaged,
   mergeBuiltInAgentSettings,
@@ -1075,6 +1076,7 @@ import {
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
+  activeTextRewriteRunAgents,
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
   isBuiltInTextRewriteAgentType,
@@ -5075,13 +5077,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           const agent = resolvedAgents[index]!;
           // Illustrator gates automatic runs below; keep it available for extra command requests.
-          if (builtInAgentTypes.has(agent.type) || agent.type === "illustrator") continue;
+          if (!agentSupportsActivationGate(agent.type)) continue;
 
           if (agent.phase !== "post_processing") {
             const activation = matchCustomAgentActivation(agent.settings, chatMessages);
             if (activation.configured && !activation.matched) {
               logger.debug(
-                "[agents] Skipping custom agent %s because no activation keywords matched in the last %d messages",
+                "[agents] Skipping agent %s because no activation keywords matched in the last %d messages",
                 agent.type,
                 activation.scanDepth,
               );
@@ -5089,6 +5091,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               continue;
             }
           }
+
+          // Built-ins keep their own cadence handling; only the activation gate applies to them.
+          if (builtInAgentTypes.has(agent.type)) continue;
 
           const runInterval = Number(agent.settings.runInterval ?? 0);
           if (!Number.isFinite(runInterval) || runInterval <= 1) continue;
@@ -6680,11 +6685,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           try {
             const candidates: ActivationQuestionCandidate[] = [];
             for (const agent of agents) {
-              if (
-                builtInAgentTypes.has(agent.type) ||
-                agent.type === "illustrator" ||
-                (agent.phase === "post_processing") !== postProcessing
-              )
+              if (!agentSupportsActivationGate(agent.type) || (agent.phase === "post_processing") !== postProcessing)
                 continue;
               const activation = activationQuestionSettings(agent.settings);
               if (!activation) continue;
@@ -6741,7 +6742,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             for (const candidate of candidates) {
               if (evaluation.skip.has(candidate.agentId))
                 logger.debug(
-                  "[agents] Skipping custom agent %s: activation question answered %s (threshold %s)",
+                  "[agents] Skipping agent %s: activation question answered %s (threshold %s)",
                   candidate.agentId,
                   evaluation.results.get(candidate.agentId),
                   candidate.threshold,
@@ -7514,7 +7515,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(allTextRewriteAgents.map((a) => a.id));
-        const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
+        let lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
         let pipelineAgents = resolvedAgents.filter(
           (a) =>
             !textRewriteAgentIds.has(a.id) &&
@@ -12751,12 +12752,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ];
         const inactivePostProcessingAgentIds = new Set<string>();
         for (const agent of resolvedAgents) {
-          if (agent.phase !== "post_processing" || builtInAgentTypes.has(agent.type)) continue;
+          if (agent.phase !== "post_processing" || !agentSupportsActivationGate(agent.type)) continue;
           const activation = matchCustomAgentActivation(agent.settings, postActivationMessages);
           if (!activation.configured || activation.matched) continue;
           inactivePostProcessingAgentIds.add(agent.id);
           logger.debug(
-            "[agents] Skipping custom agent %s because no activation keywords matched in the completed response window of %d messages",
+            "[agents] Skipping agent %s because no activation keywords matched in the completed response window of %d messages",
             agent.type,
             activation.scanDepth,
           );
@@ -12774,9 +12775,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           for (let index = pipelineAgents.length - 1; index >= 0; index--) {
             if (inactivePostProcessingAgentIds.has(pipelineAgents[index]!.id)) pipelineAgents.splice(index, 1);
           }
+          // Lorebook Keeper runs outside the pipeline, from a reference taken before gating.
+          if (lorebookKeeperAgent && inactivePostProcessingAgentIds.has(lorebookKeeperAgent.id)) {
+            lorebookKeeperAgent = null;
+          }
         }
-        const activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
-          (agent) => !inactivePostProcessingAgentIds.has(agent.id),
+        const activatedTextRewriteRunAgents = activeTextRewriteRunAgents(
+          textRewriteAgents,
+          inactivePostProcessingAgentIds,
         );
         await persistChatMacroVariables();
 
