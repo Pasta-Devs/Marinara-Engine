@@ -150,6 +150,38 @@ try {
     payload: { name: "Too large", setupConfig: { ...setupConfig, experienceConfig: { data: "x".repeat(262_145) } } },
   });
   assert.ok(rejected.statusCode >= 400, "Opaque experience config must remain bounded");
+
+  // The wizard's Agents and Storyboards choices are kept on the new game; Agents stay off unless turned on.
+  const create = (extra: Record<string, unknown>) =>
+    app.inject({
+      method: "POST",
+      url: "/api/game/create",
+      payload: { name: "Choices", setupConfig: { ...setupConfig, ...extra } },
+    });
+  const createdMetadata = async (extra: Record<string, unknown>) => {
+    const response = await create(extra);
+    assert.equal(response.statusCode, 200, response.body);
+    return JSON.parse(response.json().sessionChat.metadata);
+  };
+  for (const [extra, expected] of [
+    [{ enableAgents: true }, true],
+    [{ enableAgents: false }, false],
+    [{}, false],
+  ] as const) {
+    assert.equal((await createdMetadata(extra)).enableAgents, expected, `enableAgents ${JSON.stringify(extra)}`);
+  }
+  for (const gameStoryboardsEnabled of [true, false]) {
+    assert.equal((await createdMetadata({ gameStoryboardsEnabled })).gameStoryboardsEnabled, gameStoryboardsEnabled);
+  }
+  // The map's place count is a whole number from 1 to 40.
+  for (const count of [1, 40]) {
+    const metadata = await createdMetadata({ spatialMapTargetLocationCount: count });
+    assert.equal(metadata.gameSetupConfig.spatialMapTargetLocationCount, count);
+  }
+  for (const count of [0, 41, 2.5]) {
+    const response = await create({ spatialMapTargetLocationCount: count });
+    assert.equal(response.statusCode, 400, `a map with ${count} places must be refused`);
+  }
 } finally {
   await app.close();
   await closeDB();
