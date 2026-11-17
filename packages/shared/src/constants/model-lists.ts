@@ -220,6 +220,7 @@ export function resolveProviderReasoningEffort(args: {
   const providerLower = args.provider.toLowerCase();
   if (providerLower === "nanogpt" && isNanoGptMiniMaxM31FlashModel(args.model)) {
     if (args.reasoningEffort === undefined) return null;
+    // MiniMax M3.1 Flash always reasons, so use Low for a saved Off.
     if (args.reasoningEffort === null || args.reasoningEffort === "none") return "low";
     return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
   }
