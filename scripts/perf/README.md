@@ -76,8 +76,9 @@ Use it for anything that touches dependencies, native modules, the build, `start
 it and creates a character. Then it publishes this checkout as the next commit on that `main` and starts the release's
 own `start-termux.sh` again, which updates to it the way it does for users: it fetches, protects the data, checks the
 storage format, installs dependencies and rebuilds. It passes when the server comes back running this checkout's build
-and the character is still there. Use it for anything that touches the launcher, dependencies, the build or the storage
-format. It installs and builds twice, so it takes about twice as long.
+and the character is still there. The release itself installs with a 2 GiB Node heap, the workaround from #8902,
+because a release can need more than the launcher's default to build; the update runs with the launcher's own settings.
+Use it for anything that touches the launcher, dependencies, the build or the storage format. It installs and builds twice, so it takes about twice as long.
 
 `--memory 4g` caps the container's memory like a phone's RAM. `start-termux.sh` sizes Node's heap from the RAM it
 sees, so the container also gets a `/proc/meminfo` that shows the cap. Through emulation the build needs more memory

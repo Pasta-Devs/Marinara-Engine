@@ -198,13 +198,14 @@ stop_marinara() {
   exit 1
 }
 
-# Starts the real launcher in ~/Marinara-Engine with the given arguments and waits for the server.
+# Starts the real launcher in ~/Marinara-Engine with the given arguments (and $launch_env) and waits for the server.
+launch_env=""
 launch() {
   local launch_log="$1"
   shift
   stop_marinara
   docker exec -d -u system "${exec_env[@]}" "$NAME" "$PREFIX/bin/bash" -lc \
-    "cd ~/Marinara-Engine && env PORT=$PORT HOST=127.0.0.1 $CA_ENV ./start-termux.sh $* > ~/termux-qc-launch.log 2>&1"
+    "cd ~/Marinara-Engine && env PORT=$PORT HOST=127.0.0.1 $CA_ENV $launch_env ./start-termux.sh $* > ~/termux-qc-launch.log 2>&1"
   log "running start-termux.sh $* (log: $launch_log; a first install or an update builds, $([ "$native" = 0 ] && echo "about 10 min emulated" || echo "a few minutes"))"
   local start
   start=$(date +%s)
@@ -269,8 +270,12 @@ tx "set -e
   git clone -q ~/termux-qc-origin.git ~/Marinara-Engine" >"$UPDATE_LOG" 2>&1 ||
   { tail -20 "$UPDATE_LOG" >&2; echo "could not install $FROM (see $UPDATE_LOG)" >&2; exit 1; }
 
-# The release's own update check finds main unchanged.
+# The release's own update check finds main unchanged. Installing it is only the setup, so it gets the 2 GiB heap from
+# the workaround users were given: a release can need more than the launcher's default to build (v2.5.2's shared
+# type-check does, #8902). The update below runs with the launcher's own settings.
+launch_env="NODE_OPTIONS=--max-old-space-size=2048"
 launch "$STATE/launch-$ARCH-$FROM.log"
+launch_env=""
 character_name="Termux QC update check"
 character_id="$(curl -fsS -m 60 -H "Origin: http://127.0.0.1:$PORT" -H 'Content-Type: application/json' \
   -d "{\"data\":{\"name\":\"$character_name\"}}" "http://127.0.0.1:$PORT/api/characters" | json_field id)"
