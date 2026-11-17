@@ -220,7 +220,7 @@ test("Jobs offer unstarred provider models below starred models", async ({ page 
 test("Decisions keep an assigned unstarred model visible without a catalog entry", async ({ page }) => {
   let selected = "decision-row";
   let created = false;
-  let tested = false;
+  let tested = 0;
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await page.route("**/api/connections", (route) => {
     if (route.request().method() === "POST") {
@@ -261,7 +261,7 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
     });
   });
   await page.route("**/api/connections/decision-picked/test", (route) => {
-    tested = true;
+    tested++;
     return route.fulfill({ json: { success: true, logprobs: true } });
   });
   await page.route("**/api/decision/select", (route) => {
@@ -331,7 +331,7 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
   );
   await dialog.locator('[data-switcher-section="provider"] button[data-switcher-model="new-decision-model"]').click();
   await expect(dialog).not.toBeVisible();
-  expect(tested).toBe(true);
+  expect(tested).toBe(1);
   await expect(job).toContainText("new-decision-model");
   await job.locator("button[aria-haspopup=dialog]").first().click();
   await expect(dialog.locator('[data-switcher-section="provider"] [aria-current="true"]')).toHaveAttribute(
@@ -341,4 +341,8 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
   await expect(
     dialog.locator('[data-switcher-section="known"] button[data-switcher-model="new-decision-model"]'),
   ).toHaveCount(1);
+  await dialog.locator('[data-switcher-section="provider"] button[data-switcher-model="new-decision-model"]').click();
+  await expect(dialog).not.toBeVisible();
+  expect(tested).toBe(2);
+
 });

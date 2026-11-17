@@ -370,7 +370,7 @@ function ModelPickerSlot({
         current={currentChoice}
         onApply={decision ? applyDecision : embedding ? applyEmbedding : mediaKind ? applyMedia : apply}
         onDone={onClose}
-        confirmCurrent={confirmCurrent}
+        confirmCurrent={confirmCurrent || decision}
         showLocalModel={includeLocalSidecar}
         followDefault={
           includeDefault
