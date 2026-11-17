@@ -1,99 +1,12 @@
 // ──────────────────────────────────────────────
 // ListFrame — the shell around a list of rows: the search field, the scroll area, its arrow keys
 // and the one status line (loading, empty, no match). The pickers, the switcher and the Move
-// dialog all draw it; ListSearch and ListHeading also stand alone where a list has its own shell.
+// dialog all draw it; ListHeading also stands alone where a list has its own shell. The search
+// field is ui/SearchInput.
 // ──────────────────────────────────────────────
-import {
-  useRef,
-  type HTMLAttributes,
-  type InputHTMLAttributes,
-  type KeyboardEvent,
-  type ReactNode,
-  type Ref,
-  type RefObject,
-} from "react";
-import { Search, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { type HTMLAttributes, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { cn } from "../../lib/utils";
 import { findScrollParent } from "../../lib/panel-virtual-list";
-import { FOCUS } from "./ModelRow";
-
-/** The search field: an icon, the input and, once there is text, a clear button. Escape clears the text first. */
-export function ListSearch({
-  value,
-  onChange,
-  label,
-  inputRef,
-  onKeyDown,
-  className,
-  ...input
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  /** Read by screen readers; the placeholder can say more. */
-  label: string;
-  inputRef?: RefObject<HTMLInputElement | null>;
-  className?: string;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "className" | "type"> & {
-    [key: `data-${string}`]: string | boolean | undefined;
-  }) {
-  const { t } = useTranslation();
-  const ownRef = useRef<HTMLInputElement>(null);
-  const ref = inputRef ?? ownRef;
-  return (
-    <div
-      className={cn(
-        "mari-chrome-field flex min-h-11 min-w-0 items-center text-foreground/55 focus-within:border-[var(--marinara-chat-chrome-input-border-focus)] focus-within:shadow-[0_0_0_0.125rem_var(--marinara-chat-chrome-focus-ring)] md:min-h-9 [@media(pointer:coarse)]:min-h-11",
-        className,
-      )}
-    >
-      <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 self-stretch ps-2.5 pe-2.5 md:min-h-0 [@media(pointer:coarse)]:min-h-11">
-        <Search size="0.875rem" className="shrink-0" aria-hidden />
-        <span className="sr-only">{label}</span>
-        <input
-          ref={ref}
-          type="search"
-          data-list-search
-          autoComplete="off"
-          spellCheck={false}
-          enterKeyHint="go"
-          {...input}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            onKeyDown?.(event);
-            if (event.defaultPrevented || event.key !== "Escape" || !value) return;
-            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-            // Only a field with text keeps Escape; an empty one lets the dialog or menu close.
-            event.preventDefault();
-            event.stopPropagation();
-            onChange("");
-          }}
-          className="min-w-0 flex-1 bg-transparent py-1.5 text-base text-foreground outline-none placeholder:text-foreground/40 md:text-xs [&::-webkit-search-cancel-button]:hidden"
-        />
-      </label>
-      {value && (
-        <button
-          type="button"
-          // A tap must not take the focus, or the phone keyboard closes. Not onPointerDown: WebKit then drops the click.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            onChange("");
-            ref.current?.focus();
-          }}
-          aria-label={t("connections.list.clearSearch")}
-          title={t("connections.list.clearSearch")}
-          className={cn(
-            "-ms-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:text-foreground md:h-9 md:w-9 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
-            FOCUS,
-          )}
-        >
-          <X size="0.875rem" aria-hidden />
-        </button>
-      )}
-    </div>
-  );
-}
 
 /** A small heading over a group of rows, such as "Recent" or "All models". */
 export function ListHeading({ children, className }: { children: ReactNode; className?: string }) {
@@ -123,7 +36,7 @@ export function ListFrame({
   children,
   ...list
 }: {
-  /** Usually a ListSearch, with any buttons that sit beside it. */
+  /** Usually a SearchInput, with any buttons that sit beside it. */
   search?: ReactNode;
   /** Filters and notes between the search and the rows; they do not scroll. */
   header?: ReactNode;

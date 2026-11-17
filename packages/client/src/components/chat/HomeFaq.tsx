@@ -5,10 +5,8 @@ import {
   ChevronRight,
   HelpCircle,
   MessageCircleQuestion,
-  Search,
   Sparkles,
   TriangleAlert,
-  X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useDocsIndex } from "../../hooks/use-docs";
@@ -17,6 +15,7 @@ import { Modal } from "../ui/Modal";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
+import { SearchInput } from "../ui/SearchInput";
 import { useMariAppearancePack } from "../../hooks/use-mari-appearance-pack";
 import { MARI_ASSET_TIER, mariImgLoading } from "../../lib/mari-work-animations";
 
@@ -728,27 +727,14 @@ export function HomeFaq({
 
           {expanded && (
             <div className="border-t border-[var(--border)]/60 p-2 md:flex md:min-h-0 md:flex-1 md:flex-col">
-              <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-[var(--border)]/60 bg-[var(--background)]/70 px-2 py-1.5">
-                <Search size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={localize("Search FAQ")}
-                  aria-label={localize("Search FAQ")}
-                  className="min-w-0 flex-1 bg-transparent text-[0.6875rem] max-sm:text-[13px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/65"
-                />
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    aria-label={localize("Clear FAQ search")}
-                  >
-                    <X size="0.6875rem" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                resultCount={visibleFaqItems.length}
+                label={localize("Search FAQ")}
+                placeholder={localize("Search FAQ")}
+                className="mb-2"
+              />
               <div
                 ref={listRef}
                 className="max-h-64 space-y-1.5 overflow-y-auto pr-1 md:min-h-0 md:max-h-none md:flex-1"
@@ -972,27 +958,14 @@ export function HomeFaq({
                   {localize("Tap a question to reveal the answer.")}
                 </p>
               </div>
-              <div className="mb-3 flex items-center gap-2 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/70 px-3 py-2">
-                <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={localize("Search FAQ")}
-                  aria-label={localize("Search FAQ")}
-                  className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/65"
-                />
-                {searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    aria-label={localize("Clear FAQ search")}
-                  >
-                    <X size="0.75rem" />
-                  </button>
-                ) : null}
-              </div>
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                resultCount={visibleFaqItems.length}
+                label={localize("Search FAQ")}
+                placeholder={localize("Search FAQ")}
+                className="mb-3"
+              />
 
               <div ref={listRef} className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5 sm:max-h-[28rem] sm:pr-1">
                 {visibleFaqItems.map((item) => {

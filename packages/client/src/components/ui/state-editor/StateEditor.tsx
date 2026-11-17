@@ -15,9 +15,7 @@ import {
   ListTree,
   Lock,
   RotateCcw,
-  Search,
   Wand2,
-  X,
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { UnifiedLineDiff } from "../../chat/MariUnifiedDiff";
@@ -25,6 +23,7 @@ import { StateFieldsView } from "./StateFieldsView";
 import { StateJsonField } from "./StateJsonField";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
+import { SearchInput } from "../SearchInput";
 import {
   collectStateChanges,
   getStateSectionDraftStatus,
@@ -490,30 +489,13 @@ export function StateEditor({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-[var(--border)]/60 px-4 py-3">
-        <div className="relative">
-          <Search
-            size="0.875rem"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => handleQueryChange(event.target.value)}
-            placeholder={localizeUi("ui.stateEditor.search.placeholder")}
-            aria-label={localizeUi("ui.stateEditor.search.placeholder")}
-            className="h-9 w-full rounded-lg bg-[var(--background)] pl-8 pr-9 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] outline-none placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--ring)] [&::-webkit-search-cancel-button]:hidden"
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => handleQueryChange("")}
-              aria-label={localizeUi("ui.stateEditor.search.clear")}
-              className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              <X size="0.875rem" />
-            </button>
-          ) : null}
-        </div>
+        <SearchInput
+          value={query}
+          onChange={handleQueryChange}
+          label={localizeUi("ui.stateEditor.search.placeholder")}
+          placeholder={localizeUi("ui.stateEditor.search.placeholder")}
+          size="compact"
+        />
         {notice ? <div className="mt-3">{notice}</div> : null}
       </div>
 

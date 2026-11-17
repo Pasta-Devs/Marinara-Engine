@@ -10,7 +10,7 @@ import { parseConnectionIcon } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { ContextMenu } from "../ui/ContextMenu";
 import { Modal } from "../ui/Modal";
-import { ListSearch } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { BRAND_MARKS, brandMarkProps } from "./ProviderIcon";
 import {
   useUpdateConnection,
@@ -187,7 +187,7 @@ function BrandGrid({ selected, onPick }: { selected: string | null; onPick: (key
   const keys = Object.keys(BRAND_MARKS).filter((key) => key.includes(q));
   return (
     <>
-      <ListSearch
+      <SearchInput
         autoFocus
         className="mb-2"
         value={query}

@@ -15,7 +15,8 @@ import { cn } from "../../lib/utils";
 import { useMoveConnection } from "../../hooks/use-connections";
 import { useCatalogSearch, useSplitModel } from "../../hooks/use-connection-accounts";
 import { Modal } from "../ui/Modal";
-import { ListFrame, ListSearch } from "./ListFrame";
+import { ListFrame } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ServiceRow } from "./ServiceRow";
 import type { ConnectionRowData } from "./ConnectionRow";
 
@@ -267,7 +268,7 @@ function ModelStep({
           )}
           <ListFrame
             search={
-              <ListSearch
+              <SearchInput
                 className="mb-2"
                 data-move-search
                 value={query}

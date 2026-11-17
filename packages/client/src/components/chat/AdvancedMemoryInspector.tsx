@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, Trash2, Upload } from "lucide-react";
+import { SearchInput } from "../ui/SearchInput";
 import { toast } from "sonner";
 import {
   ADVANCED_MEMORY_SCENE_AUDIENCE as SCENE_AUDIENCE,
@@ -685,13 +686,12 @@ export function AdvancedMemoryInspector({
       ) : (
         <>
           {records.length > 0 && (
-            <input
-              type="search"
+            <SearchInput
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={setSearch}
+              label={t("chat.advancedMemory.searchScenes")}
               placeholder={t("chat.advancedMemory.searchScenes")}
-              aria-label={t("chat.advancedMemory.searchScenes")}
-              className="mari-chrome-field min-h-9 w-full rounded-lg px-3 py-2 text-xs"
+              size="compact"
             />
           )}
           {records.length > 0 && filteredRecords.length === 0 && (

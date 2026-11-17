@@ -37,6 +37,7 @@ import {
   useFloatingWindowStore,
 } from "../../stores/floating-window.store";
 import { useUIStore } from "../../stores/ui.store";
+import { SearchInput } from "../ui/SearchInput";
 
 const DEFAULT_WIDTH_REM = 46;
 const DEFAULT_HEIGHT_REM = 30;
@@ -228,13 +229,12 @@ export function ServerConsoleWindow() {
             </button>
           ))}
         </div>
-        <input
-          type="search"
+        <SearchInput
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={setSearch}
+          label={t("serverConsole.search")}
           placeholder={t("serverConsole.search")}
-          aria-label={t("serverConsole.search")}
-          className="mari-chrome-field mari-chrome-field--compact min-w-0 flex-1 basis-32 px-2 py-1 text-xs max-md:h-11"
+          className="mari-chrome-field--compact min-w-0 flex-1 basis-32"
         />
         <div className="flex items-center gap-1">
           <button type="button" onClick={() => void handleCopy()} className={TOOLBAR_BUTTON_CLASS}>
