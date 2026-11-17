@@ -330,6 +330,7 @@ export * from "./utils/message-marks.js";
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
 export * from "./utils/gallery-tags.js";
+export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 
 export * from "./utils/zod-input.js";

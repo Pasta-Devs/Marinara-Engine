@@ -18,6 +18,7 @@ export interface CreatePersonaImageInput {
   height?: number;
   customKind?: GalleryTagKind | null;
   customName?: string | null;
+  description?: string | null;
 }
 
 export interface LegacyPersonaImageCandidateInput {
@@ -86,6 +87,7 @@ export function createPersonaGalleryStorage(db: DB) {
         height: input.height ?? null,
         customKind: input.customKind ?? null,
         customName: input.customKind ? (input.customName ?? null) : null,
+        description: input.description ?? null,
         createdAt: now(),
       });
       return this.getById(id);
