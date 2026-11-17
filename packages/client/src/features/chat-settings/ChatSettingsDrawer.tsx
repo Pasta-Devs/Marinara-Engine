@@ -36,7 +36,7 @@ import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatT
 import { changedId } from "../../components/characters/CharacterSelect";
 import { ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
-import { LocationBackgroundPins } from "../../components/chat/LocationBackgroundPins";
+import { LocationBackgroundPins } from "./LocationBackgroundPins";
 import { AdvancedParametersSection } from "./sections/AdvancedParametersSection";
 import { CardFieldAlternativesSection } from "./sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "./sections/ChatNameSection";

@@ -100,7 +100,7 @@ import {
   normalizeGameVideoPromptTemplates,
   getGameVideoPromptTemplateOptions,
   resolveSelectedGameVideoPromptTemplateId,
-} from "../lib/game-video-prompt-templates";
+} from "./game-video-prompt-templates";
 import {
   buildConversationCommandToggleOptions,
   readConversationCommandToggles,

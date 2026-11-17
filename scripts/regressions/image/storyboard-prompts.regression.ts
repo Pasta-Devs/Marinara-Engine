@@ -550,7 +550,10 @@ const cases: RegressionCase[] = [
         "utf8",
       ).replace(/\r\n/gu, "\n");
       const storyboardChatSettingsSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx", import.meta.url),
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/StoryboardChatSettingsPanel.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const setupSource = readFileSync(
@@ -681,7 +684,7 @@ const cases: RegressionCase[] = [
       for (const source of [drawerSource, roleplayAgentsSource, agentRenderersSource, chatAgentsSource]) {
         assert.doesNotMatch(source, /gameStoryboard/u);
       }
-      assert.match(agentRenderersSource, /lazy\(\(\) =>\s*import\("\.\.\/StoryboardChatSettingsPanel"\)/u);
+      assert.match(agentRenderersSource, /lazy\(\(\) =>\s*import\("\.\/StoryboardChatSettingsPanel"\)/u);
       assert.match(
         roleplayMenuLinksSource,
         /addLink\(STORYBOARD_AGENT_ID, activeAgentIds\.includes\(STORYBOARD_AGENT_ID\), storyboardAgent\.name\)/u,
@@ -1615,7 +1618,10 @@ const cases: RegressionCase[] = [
         "utf8",
       );
       const storyboardChatSettingsSource = readFileSync(
-        new URL("../../../packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx", import.meta.url),
+        new URL(
+          "../../../packages/client/src/features/chat-settings/agents/StoryboardChatSettingsPanel.tsx",
+          import.meta.url,
+        ),
         "utf8",
       );
       const roleplaySettingsStart = storyboardChatSettingsSource.indexOf(
