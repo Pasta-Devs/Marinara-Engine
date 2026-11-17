@@ -15457,7 +15457,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                           ? chatMeta.illustratorUseAvatarReferences
                           : imagePromptAgent?.settings?.useAvatarReferences === true;
-                      // "Prompt writer" only: the writer saw the pictures, so the image model gets none.
+                      // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them (the writer has them).
                       const useAvatarRefs =
                         avatarReferencesOn &&
                         (!usesChatIllustratorSettings ||
@@ -15466,7 +15466,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               chatMeta.illustratorReferencePictureTarget,
                               imagePromptAgent?.settings,
                             ),
-                            true,
+                            imageConnectionTakesReferencePicture(avatarImageService(imgConnFull)),
                           ).toImageModel);
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&

@@ -8,7 +8,7 @@ export const REFERENCE_PICTURE_TARGETS = ["auto", "image", "writer", "both"] as 
 export type ReferencePictureTarget = (typeof REFERENCE_PICTURE_TARGETS)[number];
 
 export const DEFAULT_WRITER_REFERENCE_INSTRUCTION =
-  'Use the attached reference pictures as visual guidance. Carry over each character\'s look (face, hair, eyes, build, outfit) and the art style (medium, line work, shading, palette) as concrete prompt tags. Never write "reference image" or "as in the picture": the image model cannot see these pictures, so describe what you see.';
+  'Use the attached reference pictures as visual guidance. Carry over each character\'s look (face, hair, eyes, build, outfit) and the art style (medium, line work, shading, palette) as concrete prompt tags. Never write "reference image" or "as in the picture": assume the image model cannot see these pictures, so describe what you see.';
 
 export function isReferencePictureTarget(value: unknown): value is ReferencePictureTarget {
   return typeof value === "string" && (REFERENCE_PICTURE_TARGETS as readonly string[]).includes(value);
@@ -39,15 +39,15 @@ export function resolveReferencePictureTarget(
 }
 
 /**
- * Who gets the pictures once "Send avatar references" is on for images. `auto` keeps them on the image model
- * (a connection that drops them loses nothing) and adds the writer only when the connection can't take them.
+ * Who gets the pictures once "Send avatar references" is on for images. `auto` sends them to the image model when
+ * its connection takes them, else to the writer.
  */
 export function routeReferencePictures(
   target: ReferencePictureTarget,
   imageConnectionTakesReferences: boolean,
 ): { toImageModel: boolean; toWriter: boolean } {
   return {
-    toImageModel: target !== "writer",
+    toImageModel: target === "image" || target === "both" || (target === "auto" && imageConnectionTakesReferences),
     toWriter: target === "writer" || target === "both" || (target === "auto" && !imageConnectionTakesReferences),
   };
 }

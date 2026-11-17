@@ -41,7 +41,7 @@ assert.equal(resolveReferencePictureTarget("nope", null), "auto");
 const route = (target: Parameters<typeof routeReferencePictures>[0], takes: boolean) =>
   routeReferencePictures(target, takes);
 assert.deepEqual(route("auto", true), { toImageModel: true, toWriter: false });
-assert.deepEqual(route("auto", false), { toImageModel: true, toWriter: true });
+assert.deepEqual(route("auto", false), { toImageModel: false, toWriter: true });
 assert.deepEqual(route("image", false), { toImageModel: true, toWriter: false });
 assert.deepEqual(route("writer", true), { toImageModel: false, toWriter: true });
 assert.deepEqual(route("both", true), { toImageModel: true, toWriter: true });
