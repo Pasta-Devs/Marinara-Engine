@@ -79,7 +79,10 @@ try {
   const spaceCheckHeld = new Promise<void>((resolve) => (releaseSpaceCheck = resolve));
   onSpaceCheck = () => spaceCheckHeld;
   await enable(true);
-  while (spaceChecks === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+  for (let attempt = 0; spaceChecks === 0; attempt++) {
+    if (attempt === 400) assert.fail("The first automatic backup never reached its free-space check");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
   mock.timers.tick(60 * 60 * 1000);
   // Give a second backup, if one started, time to queue behind the first.
   await new Promise((resolve) => setTimeout(resolve, 50));
