@@ -74,7 +74,7 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 1. Open **Settings → Imports**.
 2. In **Profile & Marinara**, click **Import Profile (JSON/ZIP)**.
 3. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
-4. Read the **Import Profile** dialog. It lists what Marinara found. Items already in Marinara are replaced by the file's versions.
+4. Read the **Import Profile** dialog. It lists what Marinara found. Items already in Marinara are replaced by the file's versions, unless you [only add what's missing](#only-add-whats-missing).
 5. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...**. Marinara first saves a safety copy of your data, then a progress bar follows. When it finishes, a message says the profile was imported.
 
 If it did not work:
@@ -85,9 +85,15 @@ If it did not work:
 
 If you import the same profile twice, Marinara updates your items and does not copy them. Profiles from much older versions can make duplicates.
 
+### Only add what's missing
+
+To get back something you deleted without losing changes you made since, turn on **Keep my current versions, only add what's missing** above **Import Profile (JSON/ZIP)**, then import as above. Every item and file already in Marinara stays as it is, and only what Marinara doesn't have is added. That includes everything you deleted since the file was saved, such as single messages or lorebook entries, not only the item you wanted back. Long-term memory counts as one item: if Marinara already has some, the file's is not added.
+
+Nothing is replaced, so Marinara saves no safety copy, and **Undo Last Import** still undoes the import before this one.
+
 ### Undo an import
 
-Before each import, Marinara saves a full copy of your data in the `backups/` folder of the data folder, as a file whose name starts with `marinara-before-import-` and ends with the date and time. When the import finishes, the copy from the import before it is deleted, so only the latest one is kept.
+Before each import that replaces items, Marinara saves a full copy of your data in the `backups/` folder of the data folder, as a file whose name starts with `marinara-before-import-` followed by the date and time. When the import finishes, the copy from the import before it is deleted, so only the latest one is kept.
 
 1. Open **Settings → Imports**.
 2. In **Profile & Marinara**, click **Undo Last Import**. The line under it shows when the safety copy was saved.

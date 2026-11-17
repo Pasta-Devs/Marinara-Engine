@@ -38,7 +38,7 @@ import { StringDecoder } from "string_decoder";
 import { randomBytes, randomUUID } from "crypto";
 import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
-import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME } from "../db/file-backed-store.js";
+import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME, isLazyUnitTable } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
 import { migrateLegacyPersonaRow } from "../db/persona-card-migration.js";
 import { personaRowFromStored, type StoredPersonaRow } from "../services/personas/persona-card-storage.js";
@@ -1483,6 +1483,8 @@ async function importProfileStorageSnapshot(
   writes?: ProfileImportWrites,
   /** Runs inside the import's transaction once everything is written, so what it saves commits with the import. */
   beforeCommit?: (tx: DB) => Promise<void>,
+  /** "Keep my current versions": a row that already exists is skipped instead of written over. */
+  keepExisting = false,
 ) {
   validateProfileStorageTableInputs(snapshot);
   const assetInputs = buildProfileImportAssetInputs(snapshot, readAsset, warnings);
@@ -1603,7 +1605,13 @@ async function importProfileStorageSnapshot(
             }
             const insert = tx.insert(table as any).values(cleanRow as any) as any;
             const conflictTarget = schemaPrimaryKeyColumn(table);
-            if (conflictTarget) {
+            if (conflictTarget && keepExisting) {
+              if ((await insert.onConflictDoNothing({ target: conflictTarget })) === 0) {
+                completedItems++;
+                emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
+                continue;
+              }
+            } else if (conflictTarget) {
               // Exported secrets are redacted. The table-specific update set preserves
               // agent/tool secrets, while the connection plan above retains a credential
               // only when its provider and destination still match.
@@ -3682,6 +3690,38 @@ function onlyRowsAndFilesWritten(
 }
 
 /**
+ * For "Keep my current versions": drop the rows and files this install already has, so the preview,
+ * its warnings and the import only see what is missing. Lazily loaded tables (messages and the
+ * like) are left for the import's `onConflictDoNothing`, which checks them without loading every
+ * chat; the preview leaves their message count out for that reason.
+ */
+async function withoutWhatAlreadyExists(db: DB, snapshot: ProfileStorageSnapshot): Promise<ProfileStorageSnapshot> {
+  const tables: ProfileTableSnapshots = { ...snapshot.tables };
+  for (const [tableName, rows] of Object.entries(snapshot.tables)) {
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    if (!table || !keyColumn || !Array.isArray(rows) || isLazyUnitTable(tableName)) continue;
+    const existing = new Set(
+      ((await db.select().from(table as any)) as Array<Record<string, unknown>>).map((row) => String(row[keyColumn])),
+    );
+    // A malformed row stays in, so the import's own validation rejects the file as usual.
+    tables[tableName] = rows.filter((row) => !existing.has(String(row?.[keyColumn])));
+  }
+  const dataDir = getDataDir();
+  // The long-term memory vault is one set of files: keep the current one whole, or add the file's whole.
+  const hasMemoryVault = existsSync(join(dataDir, "long-term-memory"))
+    ? readdirSync(join(dataDir, "long-term-memory")).length > 0
+    : false;
+  const files = (Array.isArray(snapshot.files) ? snapshot.files : []).filter((file) => {
+    const path = normalizeProfileAssetPath(file?.path);
+    if (!path) return true;
+    if (hasMemoryVault && path.startsWith("long-term-memory/")) return false;
+    return !existsSync(join(dataDir, path));
+  });
+  return { ...snapshot, tables, files };
+}
+
+/**
  * Full backup written just before Import Profile overwrites rows, so the import can be undone from
  * Settings. Returns its file name. The previous copy stays until this import's record replaces its own.
  */
@@ -4236,7 +4276,10 @@ export async function backupRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: undo ? "Undo profile import" : "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
-    const previewOnly = !undo && (req.query as { preview?: unknown } | undefined)?.preview === "true";
+    const query = req.query as { preview?: unknown; keepExisting?: unknown } | undefined;
+    const previewOnly = !undo && query?.preview === "true";
+    // "Keep my current versions, only add what's missing": nothing already here is written over.
+    const keepExisting = !undo && query?.keepExisting === "true";
     const providedPreviewToken =
       typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
     let importInput: ProfileImportInput;
@@ -4304,9 +4347,14 @@ export async function backupRoutes(app: FastifyInstance) {
           (row) => row.key !== PROFILE_IMPORT_UNDO_SETTING,
         );
       }
+      if (keepExisting && isProfileStorageSnapshot(data.fileStorage)) {
+        data.fileStorage = await withoutWhatAlreadyExists(app.db, data.fileStorage);
+      }
       const profileStoragePreviewStats = isProfileStorageSnapshot(data.fileStorage)
         ? previewProfileStorageSnapshotStats(data.fileStorage, importInput.readAsset, warnings)
         : null;
+      // Which messages are missing is only known once the import writes them (withoutWhatAlreadyExists).
+      if (keepExisting && profileStoragePreviewStats) profileStoragePreviewStats.messages = 0;
       if (previewOnly && isProfileStorageSnapshot(data.fileStorage)) {
         await planProfileNoodleImport(
           app.db,
@@ -4331,8 +4379,9 @@ export async function backupRoutes(app: FastifyInstance) {
           warnings,
           previewToken,
           totalItems,
-          // Older profiles only add items, so they need no safety copy and leave nothing to undo.
-          undoable: isProfileStorageSnapshot(data.fileStorage),
+          // Older profiles, and "Keep my current versions", only add items, so they need no safety copy
+          // and leave nothing to undo.
+          undoable: !keepExisting && isProfileStorageSnapshot(data.fileStorage),
         };
       }
 
@@ -4367,7 +4416,7 @@ export async function backupRoutes(app: FastifyInstance) {
       try {
         if (isProfileStorageSnapshot(data.fileStorage)) {
           let safetyCopy: string | null = null;
-          if (!undo) {
+          if (!undo && !keepExisting) {
             // Import overwrites rows that already exist, so keep a way back before the first write.
             sendProgress({
               phase: "safety-copy",
@@ -4395,19 +4444,26 @@ export async function backupRoutes(app: FastifyInstance) {
               importInput.readAsset,
               writes,
               // The Undo record commits with the rows it lists: an undo clears it, an import replaces it.
-              async (tx) => {
-                const undoSettings = createAppSettingsStorage(tx);
-                const currentCopy = parseUndoRecord(await undoSettings.get(PROFILE_IMPORT_UNDO_SETTING))?.copy;
-                if (undo) {
-                  // A second undo, or an import that finished since this undo read the record, rolls this one back.
-                  if (currentCopy !== undoRecord?.copy) {
-                    throw new Error("Nothing was undone, because another import or undo finished first.");
-                  }
-                  return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
-                }
-                replacedCopy = currentCopy;
-                await undoSettings.set(PROFILE_IMPORT_UNDO_SETTING, JSON.stringify({ copy: safetyCopy, ...writes }));
-              },
+              // An import that keeps current versions replaces nothing, so the previous Undo stays.
+              keepExisting
+                ? undefined
+                : async (tx) => {
+                    const undoSettings = createAppSettingsStorage(tx);
+                    const currentCopy = parseUndoRecord(await undoSettings.get(PROFILE_IMPORT_UNDO_SETTING))?.copy;
+                    if (undo) {
+                      // A second undo, or an import that finished since this undo read the record, rolls this one back.
+                      if (currentCopy !== undoRecord?.copy) {
+                        throw new Error("Nothing was undone, because another import or undo finished first.");
+                      }
+                      return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
+                    }
+                    replacedCopy = currentCopy;
+                    await undoSettings.set(
+                      PROFILE_IMPORT_UNDO_SETTING,
+                      JSON.stringify({ copy: safetyCopy, ...writes }),
+                    );
+                  },
+              keepExisting,
             );
           } catch (error) {
             // The rollback kept the previous record, so its Undo still works. This import's copy goes,

@@ -33,6 +33,8 @@ syncBuiltinESMExports();
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { backupRoutes } = await import("../../../packages/server/src/routes/backup.routes.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
 const appSettingsModule = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
 
@@ -54,19 +56,22 @@ const undoRecord = async () => JSON.parse((await settings.get(UNDO_SETTING)) ?? 
 const undoOffer = async () => (await app.inject({ method: "GET", url: "/api/backup/import-profile/undo" })).json();
 const undo = () => app.inject({ method: "POST", url: "/api/backup/import-profile/undo" });
 const deleteCopy = () => app.inject({ method: "DELETE", url: "/api/backup/import-profile/undo" });
-const importProfile = async (profile: string) => {
+let lastPreview: any;
+/** `keep` is the "Keep my current versions, only add what's missing" switch. */
+const importProfile = async (profile: string, keep = false) => {
   const preview = await app.inject({
     method: "POST",
-    url: "/api/backup/import-profile?preview=true",
+    url: `/api/backup/import-profile?preview=true${keep ? "&keepExisting=true" : ""}`,
     headers: { "content-type": "application/json" },
     payload: profile,
   });
   assert.equal(preview.statusCode, 200, preview.body);
-  assert.equal(preview.json().undoable, true, "a current profile can be undone");
+  lastPreview = preview.json();
+  assert.equal(lastPreview.undoable, !keep, "a current profile can be undone, unless it only adds");
   return app.inject({
     method: "POST",
-    url: "/api/backup/import-profile",
-    headers: { "x-profile-preview-token": preview.json().previewToken },
+    url: `/api/backup/import-profile${keep ? "?keepExisting=true" : ""}`,
+    headers: { "x-profile-preview-token": lastPreview.previewToken },
   });
 };
 
@@ -222,6 +227,64 @@ try {
   await fs.rm(join(backups, (await backupFiles())[0]));
   assert.deepEqual(await undoOffer(), { available: false });
   assert.equal((await undo()).statusCode, 404);
+  assert.equal((await deleteCopy()).statusCode, 200);
+
+  // "Keep my current versions, only add what's missing": the full profile has Ada, notes.txt, Cy,
+  // gone.txt and a chat with two messages. Since then Ada, notes.txt and the first message were
+  // edited, and Cy, gone.txt and the second message deleted. A normal import before that left an Undo.
+  const chats = createChatsStorage(db);
+  const chat = (await chats.create({ name: "Kept chat", mode: "conversation", characterIds: [] } as any))!;
+  const editedMessage = (await chats.createMessage({
+    chatId: chat.id,
+    role: "user",
+    characterId: null,
+    content: "old",
+  } as any))!;
+  const deletedMessage = (await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    characterId: null,
+    content: "deleted later",
+  } as any))!;
+  const cy = (await characters.create({ name: "Cy", description: "deleted later" } as any))!.id;
+  await writeSource("gone.txt", "deleted later");
+  // Saving a lorebook's links re-creates them with new ids, so the file's link to Ada clashes with
+  // today's on the lorebook+character rule, not on its id. It must be kept, not fail the import.
+  const lorebooks = createLorebooksStorage(db);
+  const book = (await lorebooks.create({ name: "Linked", characterIds: [ada] } as any))!;
+  const full = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(full.statusCode, 200, full.body);
+  assert.equal((await importProfile(exported.body)).statusCode, 200);
+  const undoBefore = { offer: await undoOffer(), record: await undoRecord(), copies: await backupFiles() };
+  assert.equal(undoBefore.offer.available, true);
+  await setDescription(ada, "mine");
+  await writeSource("notes.txt", "mine");
+  await chats.updateMessageContent(editedMessage.id, "mine");
+  await chats.removeMessage(deletedMessage.id);
+  await characters.remove(cy);
+  await fs.rm(join(sources, "gone.txt"));
+  await lorebooks.update(book.id, { characterIds: [ada] } as any);
+
+  const kept = await importProfile(full.body, true);
+  assert.equal(kept.statusCode, 200, kept.body);
+  assert.equal(lastPreview.imported.characters, 1, "the preview counts only what is missing");
+  assert.equal(lastPreview.imported.messages, 0, "the preview doesn't count messages it can't check");
+  assert.equal(kept.json().imported.messages, 1, "the result counts the message added back");
+  assert.equal(await descriptionOf(ada), "mine", "an item already here keeps its current version");
+  assert.equal(await readSource("notes.txt"), "mine", "a file already here keeps its current version");
+  assert.equal((await chats.getMessage(editedMessage.id))?.content, "mine", "a message already here is kept");
+  assert.equal(await descriptionOf(cy), "deleted later", "a missing item is added back");
+  assert.equal(await readSource("gone.txt"), "deleted later", "a missing file is added back");
+  assert.equal(
+    (await chats.getMessage(deletedMessage.id))?.content,
+    "deleted later",
+    "a missing message is added back",
+  );
+  assert.deepEqual(
+    { offer: await undoOffer(), record: await undoRecord(), copies: await backupFiles() },
+    undoBefore,
+    "an import that replaces nothing saves no copy and leaves the previous Undo as it was",
+  );
 } finally {
   Object.assign(fs, { statfs: originalStatfs, rm: originalRm });
   syncBuiltinESMExports();
