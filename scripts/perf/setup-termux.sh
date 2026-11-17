@@ -242,6 +242,10 @@ json_field() {
 if [ -z "$FROM" ]; then
   # 4. This checkout into ~/Marinara-Engine. The launcher's update check reads git; a copy has no .git, and
   # --skip-update skips it anyway.
+  # A folder an update check left is a git clone of the release: the launcher would treat this checkout's new files
+  # as stray and clean them from packages/*/src, so it starts over (dependencies download again).
+  stop_marinara
+  tx '[ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine'
   log "copying this checkout into Termux"
   # Leave nothing behind from an earlier run, so the build only sees this checkout. A folder left by --from is a git
   # clone of another release: clear it but keep data/. Otherwise delete the files the last copy brought that this
