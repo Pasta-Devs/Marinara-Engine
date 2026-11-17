@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
   resolveProviderReasoningEffort,
@@ -27,6 +28,7 @@ import {
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
 import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
+import { builtinEmbeddingService } from "../../services/sidecar/builtin-embedding.service.js";
 import {
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
@@ -457,22 +459,24 @@ export async function registerRawRoute(app: FastifyInstance) {
       const embeddings =
         body.connectionId === LOCAL_SIDECAR_CONNECTION_ID
           ? await getLocalSidecarProvider().embed(texts, LOCAL_SIDECAR_MODEL, abortController.signal)
-          : await (async () => {
-              const activeConnection = await connections.getWithKey(body.connectionId);
-              if (!activeConnection) {
-                throw new Error("Connection not found");
-              }
-              const source = await resolveMemoryRecallEmbeddingSource(app.db, {
-                connectionId: body.connectionId,
-                activeConnection,
-              });
-              if (!source) {
-                throw new Error("Connection does not have an embedding model/source configured");
-              }
-              const vectors = await source.embed(texts, abortController.signal);
-              if (!vectors) throw new Error("Embedding source failed");
-              return vectors;
-            })();
+          : body.connectionId === BUILTIN_EMBEDDING_CONNECTION_ID
+            ? await builtinEmbeddingService.embed(texts, abortController.signal)
+            : await (async () => {
+                const activeConnection = await connections.getWithKey(body.connectionId);
+                if (!activeConnection) {
+                  throw new Error("Connection not found");
+                }
+                const source = await resolveMemoryRecallEmbeddingSource(app.db, {
+                  connectionId: body.connectionId,
+                  activeConnection,
+                });
+                if (!source) {
+                  throw new Error("Connection does not have an embedding model/source configured");
+                }
+                const vectors = await source.embed(texts, abortController.signal);
+                if (!vectors) throw new Error("Embedding source failed");
+                return vectors;
+              })();
 
       if (embeddings.length !== texts.length || embeddings.some((embedding) => embedding.length === 0)) {
         return reply.status(502).send({

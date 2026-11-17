@@ -9,6 +9,7 @@
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
 import { estimateTextTokens } from "@marinara-engine/shared";
+import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
   useState,
   useEffect,
@@ -92,6 +93,7 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { api } from "../../lib/api-client";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   LIMITS,
   includesTextForMatch,
@@ -3572,13 +3574,23 @@ function VectorizeSection({
       },
     ];
   }, [sidecarModelDownloaded, sidecarModelDisplayName]);
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption();
   const embeddingConnections = useMemo(
     () => [
+      ...(builtinEmbeddingOption
+        ? [
+            {
+              id: BUILTIN_EMBEDDING_CONNECTION_ID,
+              name: builtinEmbeddingOption.label,
+              embeddingModel: builtinEmbeddingOption.subtitle?.split(" · ")[0] ?? "",
+            },
+          ]
+        : []),
       ...sidecarEmbeddingConnections,
       // A connection can also get its embedding model from its Embedding Connection; the server resolves it.
       ...connections.filter((c) => c.embeddingModel?.trim() || c.embeddingConnectionId?.trim()),
     ],
-    [connections, sidecarEmbeddingConnections],
+    [builtinEmbeddingOption, connections, sidecarEmbeddingConnections],
   );
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizingMode, setVectorizingMode] = useState<"missing" | "all" | null>(null);

@@ -52,6 +52,9 @@ export const inheritLabel = (
  * The Models one slot offers, grouped by Connection, with their states and the texts of "Default" and the
  * current value. ConnectionSelect and ConnectionPicker share it.
  */
+/** A value that is not a saved Model (such as "random" or an on-device engine); the picker may show a line 2 and an icon. */
+export type ConnectionExtraOption = { value: string; label: string; subtitle?: string; icon?: ReactNode };
+
 export function useConnectionChoices({
   kind,
   value,
@@ -65,7 +68,7 @@ export function useConnectionChoices({
   value: string | null;
   defaultLabel?: string;
   includeLocalSidecar: boolean;
-  extraOptions: ReadonlyArray<{ value: string; label: string }>;
+  extraOptions: ReadonlyArray<ConnectionExtraOption>;
   /** Hides Models this slot cannot use; the current value stays listed. */
   rowFilter?: ConnectionChoiceFilter;
   /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
@@ -217,7 +220,7 @@ export function ConnectionSelect({
   /** Add the on-device Local Model after the Connections (chat kind only). */
   includeLocalSidecar?: boolean;
   /** Values that are not Models but valid for this slot, such as "random"; listed after the first option. */
-  extraOptions?: ReadonlyArray<{ value: string; label: string }>;
+  extraOptions?: ReadonlyArray<ConnectionExtraOption>;
   /** Hides Models this slot cannot use; the current value stays listed. */
   rowFilter?: ConnectionChoiceFilter;
   /** Connection the empty choice falls back to (`null` = Main); its Model is named after `defaultLabel`. */
