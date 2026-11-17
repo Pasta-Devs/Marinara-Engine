@@ -63,6 +63,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 ## Repo-Specific Cautions
 
 - Keep edits non-destructive. Do not revert unrelated work in the tree.
+- In mockups, demo data, screenshots, fixtures and examples, use `dsbwizzard` for every character, persona and user name. Do not invent other names.
 - Make Marinara Engine changes against `staging` first; do not target `main` directly unless the user or maintainer explicitly asks for a mainline change. See `CONTRIBUTING.md § Branches`.
 - Required checks and Dottore Review must complete before any `staging` merge. PRs from active Pasta-Devs organization members and owners do not require another human approval; outside and first-time contributors require an approving review from `SpicyMarinara`. Organization members with repository merge permission may merge internal PRs after those gates pass.
 - Only `SpicyMarinara` may promote the repository's `staging` branch into `main` or merge a same-repository `hotfix/*` branch.
