@@ -234,6 +234,8 @@ try {
         "gpt-6-sol",
         "gpt-6-luna",
         "gpt-6.1-sol",
+        "gpt-6.2-sol",
+        "gpt-6.2-astra",
         "some-unknown-model",
       ],
       make: registry("openai", `${base}/v1`),
@@ -369,7 +371,17 @@ try {
     {
       provider: "openai_chatgpt",
       baseUrl: `${base}/v1`,
-      models: ["gpt-6.1-sol", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-6-astra", "gpt-5.5", "gpt-4o", "some-future-model"],
+      models: [
+        "gpt-6.2-sol",
+        "gpt-6.2-astra",
+        "gpt-6.1-sol",
+        "gpt-5.6-sol",
+        "gpt-5.6-luna",
+        "gpt-6-astra",
+        "gpt-5.5",
+        "gpt-4o",
+        "some-future-model",
+      ],
       make: () => new OpenAIChatGPTProvider(`${base}/v1`, "test"),
     },
     {
@@ -589,11 +601,13 @@ try {
     "an unrecognized DeepSeek model id suppresses the sampled controls",
   );
   assert.deepEqual(
-    [...relevantGenerationParameters({
-      provider: "deepseek",
-      model: "some-unknown-deepseek-model",
-      reasoningEffort: "high",
-    })]
+    [
+      ...relevantGenerationParameters({
+        provider: "deepseek",
+        model: "some-unknown-deepseek-model",
+        reasoningEffort: "high",
+      }),
+    ]
       .filter((key) => PROBED.includes(key))
       .sort(),
     ["maxTokens"],
@@ -624,7 +638,10 @@ try {
         customParameters: custom,
       });
       await request.next().catch(() => undefined);
-      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<string, unknown>;
+      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<
+        string,
+        unknown
+      >;
       return { temperature: "temperature" in body, topP: "top_p" in body, effort: body.reasoning_effort };
     };
 
