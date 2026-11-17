@@ -14,6 +14,10 @@ import {
   isAndroidLocalAuthSatisfied,
 } from "../../../packages/server/src/middleware/android-local-auth.js";
 import { csrfProtectionHook } from "../../../packages/server/src/middleware/csrf-protection.js";
+import {
+  registerCapabilityPrivilegedRoutes,
+  runCapabilityInternalRoute,
+} from "../../../packages/server/src/services/capability-packages/capability-route-registration.service.js";
 
 const originalSecret = process.env.MARINARA_ANDROID_SECRET;
 const originalCsrfTrustedOrigins = process.env.CSRF_TRUSTED_ORIGINS;
@@ -33,6 +37,22 @@ app.get("/api/health", async (request) => ({ status: "ok", detailed: isAndroidLo
 app.get("/api/private", async () => ({ private: true }));
 app.post("/api/private-mutation", async () => ({ mutated: true }));
 app.get("/api/spotify/callback", async () => ({ callback: true }));
+// #7500: package background jobs (Noodle, Slurp) call their own routes through runInternalRoute.
+const packageRequestHeaders: Record<string, unknown>[] = [];
+const packageRoute = (id: string) =>
+  registerCapabilityPrivilegedRoutes(
+    app,
+    { id, manifest: { id, name: id, permissions: ["routes"] } } as never,
+    async (routes) => {
+      routes.post("/refresh", async (request) => {
+        packageRequestHeaders.push({ ...request.headers });
+        return { refreshed: id };
+      });
+    },
+    { prefix: `/api/${id}` },
+  );
+const releaseNoodle = await packageRoute("noodle");
+await packageRoute("slurp");
 
 try {
   await app.ready();
@@ -45,6 +65,39 @@ try {
     headers: androidLocalAuthInjectHeaders(),
   });
   assert.equal(serverOwnRequest.statusCode, 200, "the server's own injected calls carry the local secret (#7475)");
+
+  const refresh = await runCapabilityInternalRoute(app, "noodle", { method: "POST", url: "/api/noodle/refresh" });
+  assert.equal(refresh.statusCode, 200, "a package's own runInternalRoute call passes Android local auth (#7500)");
+  assert.deepEqual(refresh.json(), { refreshed: "noodle" });
+  const packageHeaders = packageRequestHeaders.at(-1)!;
+  assert.equal(packageHeaders["x-marinara-android-secret"], undefined, "the install secret never reaches package code");
+  const noodleToken = packageHeaders["x-marinara-internal-route"];
+  assert.equal(typeof noodleToken, "string");
+  const injectNoodle = (headers: Record<string, string> = {}) =>
+    app.inject({ method: "POST", url: "/api/noodle/refresh", headers });
+  assert.equal((await injectNoodle()).statusCode, 401, "a bare localhost call to a package route stays refused");
+  assert.equal((await injectNoodle({ "x-marinara-internal-route": "" })).statusCode, 401, "an empty token is refused");
+  assert.equal(
+    (await injectNoodle({ "x-marinara-internal-route": "00000000-0000-4000-8000-000000000000" })).statusCode,
+    401,
+    "a wrong token is refused",
+  );
+  const withNoodleToken = { "x-marinara-internal-route": String(noodleToken) };
+  for (const url of ["/api/slurp/refresh", "/api/private-mutation", "/api/noodle/refresh/../../private-mutation"]) {
+    const response = await app.inject({ method: "POST", url, headers: withNoodleToken });
+    assert.equal(response.statusCode, 401, `noodle's token opens only noodle's own routes, not ${url}`);
+  }
+  assert.equal(
+    (await runCapabilityInternalRoute(app, "slurp", { method: "POST", url: "/api/slurp/refresh" })).statusCode,
+    200,
+    "each package passes with its own token",
+  );
+  releaseNoodle();
+  await assert.rejects(
+    () => runCapabilityInternalRoute(app, "noodle", { method: "POST", url: "/api/noodle/refresh" }),
+    /no active internal route registration/u,
+  );
+  assert.equal((await injectNoodle(withNoodleToken)).statusCode, 401, "a token stops working once its routes end");
 
   const health = await app.inject({ method: "GET", url: "/api/health" });
   assert.equal(health.statusCode, 200, "local readiness checks must remain available without a browser session");
