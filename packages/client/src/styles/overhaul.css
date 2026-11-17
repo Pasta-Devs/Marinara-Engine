@@ -14230,3 +14230,140 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-kit-swatch.is-theme {
   background: conic-gradient(from 45deg, var(--ov-accent, var(--primary)) 0 50%, var(--ov-muted) 0 100%);
 }
+
+/* ─── Character library declutter (2026-11-17) ─── */
+/* Editor rail: tags past two rows fold behind "+N more" (EditorRail useTagRowsFold). */
+.ov-rail__tags > [hidden]:not(#ovm-x):not(#ovm-y) {
+  display: none !important;
+}
+.ov-tag--more {
+  border-style: dashed;
+  color: var(--ov-accent-text);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .ov-tag--more:hover {
+    color: var(--ov-text);
+  }
+}
+/* Library cards: the name keeps its ellipsis; the embedded-lorebook mark sits at the far right of it. */
+.ov-card__name {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-card__name-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-card__book {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+  color: var(--ov-accent-text);
+}
+/* Characters: the first lines of Creator's Notes under the name (plain text, clamped). */
+.ov-card__notes {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+/* Personas keep their tags under the name, but never more than two lines of them. */
+.ov-gallery[data-kind="personas"] .ov-card__tags {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.ov-gallery__more {
+  gap: 0.5rem;
+}
+/* Characters / Personas list view (the same table as Lorebooks). */
+.ov-cl__crumb {
+  margin-bottom: 0.75rem;
+}
+.ov-cl .ov-table__lead {
+  width: 2.75rem;
+}
+.ov-cl__thumb {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  vertical-align: middle;
+  border-radius: 0.4375rem;
+}
+.ov-cl__initial {
+  color: rgb(255 255 255 / 0.75);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.ov-cl__title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.ov-cl__name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The name column keeps one width whatever the rows hold (inside a folder too), so pages line up. */
+@container mari-main (min-width: 44.01rem) {
+  .ov-cl :is(th, td).ov-table__name {
+    width: 15rem;
+    min-width: 15rem;
+    max-width: 15rem;
+  }
+}
+.ov-cl__sub {
+  display: none;
+}
+.ov-cl td.ov-cl__tags {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-cl td.ov-table__desc {
+  width: 100%;
+  max-width: 0;
+}
+.ov-cl tbody tr.is-selected td {
+  background: color-mix(in srgb, var(--ov-accent) 10%, transparent);
+}
+/* Narrow panes keep only the picture and name, so the size and the first note line ride under the name. */
+@container mari-main (max-width: 44rem) {
+  .ov-cl td.ov-cl__name {
+    max-width: 0;
+  }
+  .ov-cl__sub {
+    display: block;
+    overflow: hidden;
+    color: var(--ov-dim);
+    font-size: 0.75rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+  }
+}
+:root[data-overhaul="mobile"] .ov-cl td.ov-cl__name {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+}
+:root[data-overhaul="mobile"] .ov-cl__sub {
+  display: block;
+  overflow: hidden;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}

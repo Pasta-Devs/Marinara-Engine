@@ -22,7 +22,13 @@ import {
   Grid2x2,
   Grid3x3,
   Square,
+  BookOpen,
+  Star,
+  Tag,
 } from "lucide-react";
+import { plainTextPreview } from "../../lib/plain-text-preview";
+import { formatRelativeContact } from "../../lib/relative-time";
+import { ViewSwitch } from "./LibraryTables";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { cn } from "../../lib/utils";
@@ -71,6 +77,10 @@ export type GalleryCard = {
   avatarPath: string | null;
   avatarStyle?: CSSProperties;
   tags: string[];
+  /** Characters: Creator's Notes (never sent to the model), previewed as plain text under the name. */
+  notes?: string;
+  /** Characters: the card carries an embedded lorebook. */
+  hasLorebook?: boolean;
   tokens: string;
   /** Estimated tokens, for the size sorts. */
   tokenEstimate?: number;
@@ -104,6 +114,8 @@ export function CardGallery({
   loading,
   hasMore,
   onLoadMore,
+  onLoadAll,
+  loadingMore,
   onOpen,
   onChat,
   onNew,
@@ -119,6 +131,9 @@ export function CardGallery({
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  /** Keep loading until every card is in. */
+  onLoadAll?: () => Promise<void>;
+  loadingMore?: boolean;
   onOpen: (id: string) => void;
   onChat?: (id: string) => void;
   onNew: () => void;
@@ -135,6 +150,10 @@ export function CardGallery({
   const localize = useLocalizedUiText();
   const cardSize = useOverhaulStore((state) => state.galleryCardSize);
   const setCardSize = useOverhaulStore((state) => state.setGalleryCardSize);
+  // List or picture grid (shared by Characters and Personas, like the card size).
+  const listView = useOverhaulStore((state) => state.galleryListView);
+  const setListView = useOverhaulStore((state) => state.setGalleryListView);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [search, setSearch] = useState("");
   const [quick, setQuick] = useState<QuickFilter>(null);
   // Phones: Favourites is a dropdown beside + New.
@@ -234,6 +253,21 @@ export function CardGallery({
         ),
     },
     moveToFolderAction(folders, () => [card.id], folders.folderOf(card.id)),
+    // Tags no longer crowd the cards: the full list is one step away, and picking one filters by it.
+    ...(card.tags.length
+      ? [
+          {
+            key: "tags",
+            label: "Tags",
+            icon: <Tag size={14} />,
+            submenu: card.tags.map((tag): KitAction => ({
+              key: `tag:${tag}`,
+              label: `#${tag}`,
+              onSelect: () => setPickedTags([tag]),
+            })),
+          } satisfies KitAction,
+        ]
+      : []),
     {
       key: "export",
       label: "Export",
@@ -297,6 +331,20 @@ export function CardGallery({
         return visible.filter((card) => ids.has(card.id));
       })()
     : [];
+
+  // Creator's Notes as a few plain-text lines (HTML, Markdown and images dropped; shown as text, never markup).
+  const notesById = useMemo(() => new Map(cards.map((card) => [card.id, plainTextPreview(card.notes)])), [cards]);
+  const notesPreview = (card: GalleryCard) => notesById.get(card.id) ?? "";
+  // Hovering the name shows the full name and every tag (the tags left the card itself).
+  const tagTooltip = (card: GalleryCard) =>
+    card.tags.length ? `${card.name}\n${card.tags.map((tag) => `#${tag}`).join(" ")}` : card.name;
+  const lorebookLabel = localize("Has an embedded lorebook");
+  const lorebookMark = (
+    <span className="ov-card__book" title={lorebookLabel} data-mari-part="card-lorebook">
+      <BookOpen size={14} aria-hidden="true" />
+      <span className="sr-only">{lorebookLabel}</span>
+    </span>
+  );
 
   // A member's picture (or its initial on the placeholder) for a folder tile's 2 × 2 peek.
   const renderPeek = (card: GalleryCard) =>
@@ -378,15 +426,106 @@ export function CardGallery({
           <MessageCircle size={14} />
         </button>
       ) : null}
-      <button type="button" className="ov-card__name" onClick={() => activate(card)} data-drag-surface>
-        {card.name}
+      <button
+        type="button"
+        className="ov-card__name"
+        onClick={() => activate(card)}
+        title={tagTooltip(card)}
+        data-drag-surface
+      >
+        <span className="ov-card__name-text">{card.name}</span>
+        {card.hasLorebook ? lorebookMark : null}
       </button>
-      <p className="ov-card__tags">
-        {card.tags.length
-          ? card.tags.map((tag) => `#${tag}`).join(" ")
-          : localizeUi("ui.overhaul.cardgallery.value1", { value1: localize("Untagged") })}
-      </p>
+      {isCharacters ? (
+        // Characters: the first lines of Creator's Notes; blank notes leave no empty line.
+        notesPreview(card) ? (
+          <p className="ov-card__tags ov-card__notes" data-mari-part="card-notes">
+            {notesPreview(card)}
+          </p>
+        ) : null
+      ) : (
+        <p className="ov-card__tags">
+          {card.tags.length
+            ? card.tags.map((tag) => `#${tag}`).join(" ")
+            : localizeUi("ui.overhaul.cardgallery.value1", { value1: localize("Untagged") })}
+        </p>
+      )}
     </div>
+  );
+
+  // ── List view: one row per card (picture, name, notes, tags, size, last edit) ──
+  const renderRow = (card: GalleryCard, folderId: string | null, inFolder = !!folderId) => (
+    <tr
+      key={card.id}
+      tabIndex={0}
+      className={cn("ov-cl__row", inFolder && "is-in-folder", selection.has(card.id) && "is-selected")}
+      data-card-library-card={card.id}
+      onClick={() => activate(card)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && event.target === event.currentTarget) activate(card);
+      }}
+      {...bindDrag(card.id, folderId)}
+      onContextMenu={(event) => menu.openFromEvent(event, card.name, cardActions(card))}
+    >
+      {selection.on ? (
+        <td className="ov-table__check">
+          <KitCheck checked={selection.has(card.id)} label={card.name} />
+        </td>
+      ) : null}
+      <td className="ov-table__lead ov-cl__lead">
+        <span
+          className="ov-thumb ov-cl__thumb"
+          aria-hidden="true"
+          style={
+            card.avatarPath
+              ? undefined
+              : { background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }
+          }
+        >
+          {card.avatarPath ? (
+            <AvatarImage
+              src={avatarPreviewSrc(card.avatarPath, "card")}
+              alt=""
+              iconSize="0.875rem"
+              className="h-full w-full object-cover"
+              style={card.avatarStyle}
+              loading="lazy"
+            />
+          ) : (
+            <span className="ov-cl__initial">{avatarInitial(card.name)}</span>
+          )}
+        </span>
+      </td>
+      <td className="ov-table__name ov-cl__name">
+        <span className="ov-cl__title">
+          <span className="ov-cl__name-text">{card.name}</span>
+          {card.hasLorebook ? lorebookMark : null}
+        </span>
+        {/* Narrow screens keep only this column, so the size and first note line ride under the name. */}
+        <span className="ov-cl__sub">
+          {[
+            `${card.tokens} ${localize("tokens")}`,
+            isCharacters ? notesPreview(card).split("\n")[0] : card.tags.map((tag) => `#${tag}`).join(" "),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </td>
+      {isCharacters ? (
+        <td className="ov-table__desc ov-cl__notes">{notesPreview(card).replace(/\n/g, " ") || "—"}</td>
+      ) : null}
+      <td className={cn("ov-cl__tags", !isCharacters && "ov-table__desc")} title={card.tags.join(", ") || undefined}>
+        {card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : "—"}
+      </td>
+      <td className="ov-table__num">{card.tokens}</td>
+      <td className="ov-cl__updated">{formatRelativeContact(card.updatedAt) ?? "—"}</td>
+      <td className="ov-table__more">
+        <KitMoreButton
+          label={localize("More actions")}
+          onOpen={(event) => menu.openFromEvent(event, card.name, cardActions(card), "button")}
+        />
+      </td>
+    </tr>
   );
 
   const browseButton = onBrowse ? (
@@ -417,8 +556,94 @@ export function CardGallery({
     </select>
   );
 
+  const viewSwitch = <ViewSwitch gallery={!listView} onChange={(gallery) => setListView(!gallery)} />;
+  const folderRow = (folder: (typeof groups)[number]["folder"], count: number, open: boolean) => (
+    <tr key={`folder:${folder.id}`} className="ov-table__folder">
+      <td colSpan={listColumns}>
+        <KitFolderHead
+          folder={folder}
+          count={count}
+          dragKind={singular}
+          collapsed={!open}
+          mode={open ? "toggle" : "open"}
+          onToggle={() => opened.openFolder(folder)}
+          onMenu={(event, anchor) => menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)}
+        />
+      </td>
+    </tr>
+  );
+  const listColumns = (selection.on ? 1 : 0) + (isCharacters ? 7 : 6);
+  const listBody = (
+    <>
+      {openFolder ? (
+        <div className="ov-cl__crumb">
+          <KitFolderCrumb
+            backLabel={title}
+            folder={openFolder}
+            count={openRows.length}
+            onBack={opened.close}
+            onMenu={(event, anchor) =>
+              menu.openFromEvent(event, openFolder.name, folderActions(folders, openFolder), anchor)
+            }
+          />
+        </div>
+      ) : null}
+      {loading && cards.length === 0 ? null : openRows.length + groups.length + loose.length === 0 ? (
+        <p className="ov-list__empty">
+          {localize(kind === "characters" ? "No characters here." : "No personas here.")}
+        </p>
+      ) : (
+        <div className="ov-table-wrap ov-cl" data-kind={kind}>
+          <table className="ov-table">
+            <thead>
+              <tr>
+                {selection.on ? (
+                  <th className="ov-table__check">
+                    <button
+                      type="button"
+                      onClick={selection.toggleAll}
+                      aria-label={localize(selection.allSelected ? "Select none" : "Select all")}
+                    >
+                      <KitCheck checked={selection.allSelected} label={localize("Select all")} />
+                    </button>
+                  </th>
+                ) : null}
+                <th className="ov-table__lead" aria-hidden="true" />
+                <th className="ov-table__name">{localize(isCharacters ? "Character" : "Persona")}</th>
+                {isCharacters ? <th className="ov-table__desc">{localize("Creator's Notes")}</th> : null}
+                <th className={cn(!isCharacters && "ov-table__desc")}>{localize("Tags")}</th>
+                <th className="ov-table__num">{localize("Tokens")}</th>
+                <th>{localize("Updated")}</th>
+                <th className="ov-table__more" aria-hidden="true" />
+              </tr>
+            </thead>
+            <tbody>
+              {openRows.map((card) => renderRow(card, openFolder?.id ?? null, false))}
+              {groups.map(({ folder, rows: members }) =>
+                searching ? (
+                  <Fragment key={`folder:${folder.id}`}>
+                    {folderRow(folder, members.length, true)}
+                    {members.map((card) => renderRow(card, folder.id, true))}
+                  </Fragment>
+                ) : (
+                  folderRow(folder, members.length, false)
+                ),
+              )}
+              {loose.map((card) => renderRow(card, null))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <section className="ov-gallery" data-component="OverhaulCardGallery" data-kind={kind}>
+    <section
+      className="ov-gallery"
+      data-component="OverhaulCardGallery"
+      data-kind={kind}
+      data-view={listView ? "list" : "grid"}
+    >
       <header className="ov-gallery__head">
         <h1 data-mari-part="page-title">{title}</h1>
         {extraHeader}
@@ -441,7 +666,21 @@ export function CardGallery({
           <Plus size={14} aria-hidden="true" />
           {mobile ? localize("New") : localize(kind === "characters" ? "New character" : "New persona")}
         </button>
-        {mobile && kind === "characters" ? quickSelect("ovm-lp-filter") : null}
+        {/* Phones: Favorites is one star toggle (the All / Favorites dropdown didn't fit beside the List /
+            Gallery switch in wide-font themes). */}
+        {mobile && kind === "characters" ? (
+          <button
+            type="button"
+            className={cn("ov-btn ov-btn--icon ovm-fav-toggle", quick === "favorites" && "is-on")}
+            aria-pressed={quick === "favorites"}
+            aria-label={localize("Favorites")}
+            title={localize("Favorites")}
+            onClick={() => setQuick((value) => (value === "favorites" ? null : "favorites"))}
+          >
+            <Star size={15} aria-hidden="true" fill={quick === "favorites" ? "currentColor" : "none"} />
+          </button>
+        ) : null}
+        {mobile ? viewSwitch : null}
       </header>
       <div className="ov-gallery__tools">
         <label className="ov-search">
@@ -467,6 +706,7 @@ export function CardGallery({
         ) : null}
         <span className="ov-gallery__spacer" />
         <KitFolderViewToggle folders={folders} view={folderView} />
+        {mobile ? null : viewSwitch}
         <select
           className="ov-select"
           value={sort}
@@ -485,7 +725,14 @@ export function CardGallery({
         {/* A narrow split side shows this copy (beside the sort) and hides the header one, so the
             toolbar keeps three lines (overhaul-mobile.css, SV14). */}
         {mobile && kind === "characters" ? quickSelect("ovm-lp-filter ovm-lp-filter--tools") : null}
-        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")}>
+        {mobile ? (
+          <ViewSwitch
+            gallery={!listView}
+            onChange={(gallery) => setListView(!gallery)}
+            className="ovm-lp-view--tools"
+          />
+        ) : null}
+        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")} hidden={listView}>
           {GALLERY_SIZES.map((option) => (
             <button
               key={option.id}
@@ -502,11 +749,13 @@ export function CardGallery({
         </div>
       </div>
 
+      {listView ? listBody : null}
       {/* First load: the grid (with its New card) waits for the cards, so they appear together instead of the
           New card first and the rest popping in around it (QC round 2). */}
       <div
         className="ov-gallery__grid"
         data-size={cardSize}
+        hidden={listView}
         style={loading && cards.length === 0 ? { visibility: "hidden" } : undefined}
       >
         {openFolder ? (
@@ -575,9 +824,22 @@ export function CardGallery({
       ) : null}
       {hasMore ? (
         <div className="ov-gallery__more">
-          <button type="button" className="ov-btn" onClick={onLoadMore}>
+          <button type="button" className="ov-btn" onClick={onLoadMore} disabled={loadingAll}>
             {localize("Load more")}
           </button>
+          {onLoadAll ? (
+            <button
+              type="button"
+              className="ov-btn"
+              disabled={loadingAll}
+              onClick={() => {
+                setLoadingAll(true);
+                void onLoadAll().finally(() => setLoadingAll(false));
+              }}
+            >
+              {localize(loadingAll || loadingMore ? "Loading…" : "Load all")}
+            </button>
+          ) : null}
         </div>
       ) : null}
       <KitBulkBar selection={selection} actions={bulkActions} />
