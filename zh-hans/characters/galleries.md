@@ -52,6 +52,17 @@ Gallery 下面有两个子选项卡：
 
 在图库里标记的 Emoji 或贴纸只属于那一个角色或用户角色，也只在包含它们的 Conversation Mode 聊天里有效。它和消息输入框里的全局 Emoji、贴纸库是两回事。如果图库里的名称和全局名称相同，那个聊天中以图库版本为准。名称不做唯一性检查，所以给每张图起一个不重样的名称。
 
+## 描述图片
+
+图库中的任何图片都可以添加一段简短描述，说明图片展示的内容。Conversation 聊天会根据已标记的表情和贴纸的描述来挑选候选项（参见[描述表情和贴纸](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)）。描述随图片一起保存，也会包含在 **Marinara Native** 导出中。
+
+- 要自己写描述，点击图片左上角的标记按钮，选择 **Add description**(添加描述)；要修改已有描述，则选择 **Edit description**(编辑描述)。
+- 要让 AI 写描述，点击 **Select images**(选择图像)，选好图片，再点击 **Describe with AI**(用 AI 描述)。**Image reading**(读图) 模型会查看每张图片，写出简短描述。如果有些图片已经有描述，可以选择只描述没有描述的图片，或重新描述所有图片。
+
+开始之前：AI 描述需要能识别图片的模型。如果在连接设置的 **Behind the scenes**(幕后) 下设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。每次最多发送 8 张图片，所以选的图片较多时需要稍等一会儿。
+
+聊天自己的图库在选择模式下也有同样的 **Describe with AI** 功能。
+
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## 在消息和开场白中复用图库图片

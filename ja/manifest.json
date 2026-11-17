@@ -129,8 +129,8 @@
     },
     {
       "path": "characters/galleries.md",
-      "sha256": "1740d478c994216d3659f97712983d0c538324458a1513db6f7796d2e5c7cffe",
-      "bytes": 11494
+      "sha256": "91e23b759cd9a4c3667ba50fb9f11772a130a9c8ad327062a223b20eea2d0f44",
+      "bytes": 13171
     },
     {
       "path": "characters/import-export.md",
@@ -269,8 +269,8 @@
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
-      "sha256": "e0788c2a6e91121a246cee5a5941ab480487f927a56e45b90ce7973d074e3ae4",
-      "bytes": 12350
+      "sha256": "6389be4ab2eb7c627e950cbf405043e5a0138e0dd34fe5359331d78015ffe059",
+      "bytes": 14873
     },
     {
       "path": "conversation/getting-started.md",

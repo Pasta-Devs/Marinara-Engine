@@ -52,6 +52,17 @@ Depois que a imagem é marcada, o botão sobreposto mostra o nome. Clique nele p
 
 Um emoji ou sticker marcado na galeria vale só para aquele personagem ou aquela persona, nos chats do Conversation Mode que o incluem. Isso é separado dos conjuntos globais de emojis e stickers do campo de escrita da mensagem. Se um nome da galeria for igual a um nome global, a versão da galeria prevalece naquele chat. Marinara não verifica se os nomes são únicos, então escolha um nome distinto para cada imagem.
 
+## Descrever imagens
+
+Qualquer imagem da galeria pode ter uma descrição curta do que mostra. Os chats de Conversation usam as descrições dos emojis e stickers marcados para escolher quais oferecer (veja [Descreva emojis e stickers](../conversation/emoji-stickers-gifs.md#describe-emojis-and-stickers)). A descrição é salva com a imagem e incluída em uma exportação **Marinara Native**.
+
+- Para escrever uma, clique no botão de tag no canto superior esquerdo da imagem e escolha **Add description** (adicionar descrição), ou **Edit description** (editar descrição) para alterá-la.
+- Para a IA escrever as descrições, clique em **Select images** (selecionar imagens), escolha as imagens e depois clique em **Describe with AI** (descrever com IA). O modelo **Image reading** (leitura de imagens) examina cada uma e escreve uma descrição curta. Se algumas já tiverem descrição, escolha descrever apenas as que não têm ou todas novamente.
+
+Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um em **Behind the scenes** (nos bastidores) nas configurações de conexão; caso contrário, usa o modelo dos seus agentes. São enviadas até 8 imagens por vez, então uma seleção grande demora um pouco.
+
+A galeria do próprio chat tem o mesmo botão **Describe with AI** no modo de seleção.
+
 <a id="reuse-a-gallery-image-in-messages-and-greetings"></a>
 
 ## Reutilizar uma imagem da galeria em mensagens e saudações

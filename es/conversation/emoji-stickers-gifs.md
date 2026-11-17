@@ -102,6 +102,24 @@ Marinara le dice al personaje que responde qué emojis y stickers personalizados
 
 Si un personaje escribe el nombre de un sticker como si fuera un emoji, por ejemplo `:hug:` en lugar de `sticker:hug:`, la respuesta muestra el sticker. Esto ocurre solo cuando no hay ningún emoji personalizado con ese nombre.
 
+<a id="describe-emojis-and-stickers"></a>
+
+### Describir emojis y stickers
+
+Una descripción dice qué muestra un emoji o sticker y qué sensación transmite, por ejemplo "gato que se asoma por encima de una almohada; tímido, avergonzado". Resulta útil cuando el nombre no explica qué significa la imagen.
+
+- Para escribir una, haz clic en **Edit** en la pestaña **Custom emojis** o **Stickers**, y luego en el pequeño botón de descripción de la esquina de una ficha. Para uno etiquetado en la galería, haz clic en su botón de etiqueta y elige **Add description** (Agregar descripción).
+- Para que la IA las escriba, haz clic en **Edit** y luego en **Describe with AI** (Describir con IA). El modelo **Image reading** (Lectura de imágenes) mira cada imagen y escribe una descripción breve. Si algunas ya tienen una, elige **Describe only the … without** (Describir solo los que no tienen descripción) o **Describe all … again** (Volver a describirlos todos).
+
+Antes de empezar: las descripciones de IA necesitan un modelo que pueda leer imágenes. Marinara usa el modelo **Image reading** si configuras uno en **Behind the scenes** (Entre bastidores) en los ajustes de tu conexión; de lo contrario, usa el modelo de tus agentes.
+
+Dos ajustes de **Selection preferences** las usan:
+
+- **Use descriptions** (Usar descripciones, activado de forma predeterminada): clasifica por la descripción además del nombre al elegir cuáles ofrecer, en **Semantic** y **Tool-call**. No agrega nada al prompt.
+- **Show descriptions to the model** (Mostrar descripciones al modelo, desactivado de forma predeterminada): también muestra la descripción de cada emoji o sticker ofrecido junto a su nombre, para que el modelo sepa qué significa. Agrega aproximadamente entre 1.000 y 1.800 tokens de entrada por respuesta con el valor predeterminado de 20 ofrecidos.
+
+Las descripciones que solo se usan para elegir cuáles ofrecer no enseñan al modelo qué significa un nombre. Si un nombre dice lo contrario de la sensación que transmite, como un `:fine:` sarcástico, activa **Show descriptions to the model** o **Show them to the model**.
+
 ### Mostrárselos al modelo
 
 Normalmente, el modelo solo ve los nombres de tus emojis y stickers personalizados. Si el modelo del chat puede leer imágenes, **Show them to the model** (Mostrárselos al modelo), en el mismo panel, también le envía imágenes para que sepa qué aspecto tiene cada uno. Esto resulta especialmente útil cuando los nombres no describen la imagen.

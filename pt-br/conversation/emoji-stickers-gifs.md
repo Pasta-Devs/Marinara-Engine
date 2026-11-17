@@ -102,6 +102,24 @@ O Marinara diz ao personagem que responde quais emojis e stickers personalizados
 
 Se um personagem escreve o nome de um sticker como se fosse um emoji, como `:hug:` em vez de `sticker:hug:`, a resposta mostra o sticker. Isso só acontece quando nenhum emoji personalizado tem esse nome.
 
+<a id="describe-emojis-and-stickers"></a>
+
+### Descreva emojis e stickers
+
+Uma descrição diz o que um emoji ou sticker mostra e a sensação que transmite, por exemplo "gato espiando por cima de um travesseiro; tímido, envergonhado". Ela ajuda quando o nome não diz o que a imagem significa.
+
+- Para escrever uma, clique em **Edit** na aba **Custom emojis** ou **Stickers** e depois no pequeno botão de descrição no canto de um bloco. Para um emoji ou sticker marcado na galeria, clique no botão de tag dele e escolha **Add description** (adicionar descrição).
+- Para a IA escrever as descrições, clique em **Edit** e depois em **Describe with AI** (descrever com IA). O modelo **Image reading** (leitura de imagens) examina cada imagem e escreve uma descrição curta. Se alguns já tiverem descrição, escolha **Describe only the … without** (descrever apenas os … sem descrição) ou **Describe all … again** (descrever todos os … novamente).
+
+Antes de começar: as descrições por IA precisam de um modelo que consiga ler imagens. Marinara usa o modelo **Image reading** se você definir um em **Behind the scenes** (nos bastidores) nas configurações de conexão; caso contrário, usa o modelo dos seus agentes.
+
+Duas configurações em **Selection preferences** usam as descrições:
+
+- **Use descriptions** (usar descrições, ativado por padrão): usa a descrição, além do nome, para classificar quais oferecer em **Semantic** e **Tool-call**. Não acrescenta nada ao prompt.
+- **Show descriptions to the model** (mostrar descrições ao modelo, desativado por padrão): também lista a descrição de cada emoji ou sticker oferecido ao lado do nome, para o modelo saber o que significa. Acrescenta cerca de 1.000 a 1.800 tokens de entrada por resposta com o padrão de 20 oferecidos.
+
+As descrições usadas apenas para escolher quais oferecer não ensinam ao modelo o que um nome significa. Se um nome diz o oposto da sensação que transmite, como um `:fine:` sarcástico, ative **Show descriptions to the model** ou **Show them to the model**.
+
 ### Mostre-os ao modelo
 
 Normalmente o modelo vê apenas os nomes dos seus emojis e stickers personalizados. Se o modelo do chat consegue ler imagens, **Show them to the model** (mostre-os ao modelo), no mesmo painel, também envia imagens para ele saber como cada um é. Isso ajuda principalmente quando os nomes não descrevem a imagem.
