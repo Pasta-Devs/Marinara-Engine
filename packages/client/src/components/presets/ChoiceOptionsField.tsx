@@ -117,7 +117,7 @@ export function ChoiceOptionsField({
           value={typeof selection === "string" ? selection : null}
           onChange={onChange}
           className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          options={presentedOptions.map((opt) => ({ value: optionKey(opt), label: opt.label }))}
+          options={presentedOptions.map((opt) => ({ value: optionKey(opt), label: String(opt.label ?? "") }))}
         />
       ) : variable.multiSelect ? (
         // ── Multi-select: checkboxes ──

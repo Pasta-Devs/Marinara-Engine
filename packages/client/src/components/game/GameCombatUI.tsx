@@ -1971,7 +1971,12 @@ export function GameCombatUI({
     if (phase !== "player-turn" || rulesetFight) return;
 
     const handleKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLElement && e.target.closest("input, select, [role='combobox'], textarea, summary"))
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.closest(
+          "input, select, [role='combobox'], textarea, summary, [data-chat-floating-panel], [role='dialog']",
+        )
+      )
         return;
       if (e.key === "ArrowUp" || e.key === "w") {
         e.preventDefault();

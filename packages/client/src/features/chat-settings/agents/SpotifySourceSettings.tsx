@@ -107,6 +107,7 @@ export function SpotifySourceSettings({
           ) : (
             <input
               key={`${chat.id}-${playlistId}`}
+              aria-label={localizeUi("ui.chat.musicdjsetupfields.playlist")}
               defaultValue={playlistId}
               onBlur={(event) =>
                 updateMeta.mutate({

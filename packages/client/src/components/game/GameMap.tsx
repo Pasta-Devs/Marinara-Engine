@@ -324,6 +324,8 @@ function DayTimeIndicator({
     (event: FocusEvent<HTMLDivElement>) => {
       const nextTarget = event.relatedTarget;
       if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+      // The time field's picker is portaled out of the editor; moving into it is not leaving the edit.
+      if (nextTarget instanceof Element && nextTarget.closest("[data-chat-floating-panel], [role='dialog']")) return;
       commit();
     },
     [commit],

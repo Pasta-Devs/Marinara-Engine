@@ -348,7 +348,7 @@ export function LorebookFolderRow({
                 { value: "", label: localizeUi("ui.lorebooks.lorebookfolderrow.topLevel") },
                 ...parentOptions.map((candidate) => ({
                   value: candidate.id,
-                  label: candidate.name.trim() || "Untitled folder",
+                  label: candidate.name.trim() || localizeUi("ui.lorebooks.lorebookfolderrow.untitledFolder"),
                 })),
               ]}
             />

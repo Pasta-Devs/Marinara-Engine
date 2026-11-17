@@ -241,6 +241,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
               <div key={emotion} className="flex flex-col gap-1 text-[0.6875rem]">
                 <span>{t(AVATAR_EMOTION_LABEL_KEYS[emotion])}</span>
                 <Select
+                  disabled={busy}
                   id={`avatar-feeling-${emotion}`}
                   label={t(AVATAR_EMOTION_LABEL_KEYS[emotion])}
                   value={shown.expressionMap[emotion]?.target ?? ""}
@@ -276,6 +277,7 @@ export function PngtuberSetupPanel({ owner, config, onChanged }: AvatarKindSetup
                     <div key={feeling} className="flex flex-col gap-1 text-[0.6875rem]">
                       <span>{t(AVATAR_FEELING_LABEL_KEYS[feeling])}</span>
                       <Select
+                        disabled={busy}
                         id={`avatar-feeling-${feeling}`}
                         label={t(AVATAR_FEELING_LABEL_KEYS[feeling])}
                         value={shown.feelingMap?.[feeling]?.target ?? ""}

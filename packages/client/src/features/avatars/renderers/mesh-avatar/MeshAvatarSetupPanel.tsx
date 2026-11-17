@@ -98,6 +98,7 @@ export function MeshAvatarSetupPanel({ owner, config, onChanged }: AvatarKindSet
               <div key={emotion} className="flex flex-col gap-1 text-[0.6875rem]">
                 <span>{t(AVATAR_EMOTION_LABEL_KEYS[emotion])}</span>
                 <Select
+                  disabled={busy}
                   id={`avatar-feeling-${emotion}`}
                   label={t(AVATAR_EMOTION_LABEL_KEYS[emotion])}
                   value={stored.expressionMap[emotion]?.target ?? emotion}
