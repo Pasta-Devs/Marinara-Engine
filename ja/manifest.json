@@ -694,8 +694,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "c634a6d2c223c06d82640b7d88d8b7560fc3ef1eba8d0504433e8a7615bad3f2",
-      "bytes": 23209
+      "sha256": "b27c628a6da25188535d6dfaf8e506932f137e8bb4c64c39f98030204393e65c",
+      "bytes": 23299
     },
     {
       "path": "prompts/macros.md",
