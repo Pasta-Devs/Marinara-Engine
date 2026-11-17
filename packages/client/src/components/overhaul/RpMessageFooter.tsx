@@ -8,6 +8,7 @@
 // (the upstream action buttons, shown as a labelled menu).
 // ──────────────────────────────────────────────
 import { useArmedAfterPaint } from "../../lib/idle-batch";
+import { useFollowBubble } from "../../lib/follow-bubble";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -269,6 +270,16 @@ export function OvRpMessageFooter({
   // Hidden until hover on a mouse: a chat opens without building these buttons for every message, and
   // they arrive right after the first paint. Always-visible bars (the newest reply, touch screens) build at once.
   const armed = useArmedAfterPaint(pinned || open !== null || touchFootersVisible());
+  // Under the message: line up with the bubble's edge, not the row's, when bubbles don't fill the row.
+  useFollowBubble(
+    rootRef,
+    (bar) => bar.parentElement?.querySelector<HTMLElement>(':scope > [data-mari-part="bubble"]') ?? null,
+    placement === "below" && armed,
+    `${swipeCount}-${swipeIndex}`,
+    // ...and its last button (›) sits right under the top bar's ⋯, wherever the theme puts that bar.
+    (bar) =>
+      bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".ov-rpf--tools > button:last-of-type") ?? null,
+  );
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
   const show = (id: MessageButtonId) => shown.includes(id);

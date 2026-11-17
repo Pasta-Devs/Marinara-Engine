@@ -26,12 +26,13 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { MsgAction } from "./ConversationMessageShared";
-import { MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
+import { MESSAGE_ACTION_BUTTON_CLASS, MESSAGE_ACTION_ICON_SIZE } from "./MessageActionButton";
 import { ReactionAddButton } from "./ReactionAddButton";
 import { MessageMarksAction, OvMessageMarksPanel } from "./MessageMarks";
 import { OvMarksMenuContext } from "../overhaul/marks-menu-context";
 import { Spinner } from "../ui/Spinner";
-import { useMessageButtons, useMessageButtonsOnTouch, type MessageButtonId } from "../overhaul/message-buttons";
+import { useFollowBubble } from "../../lib/follow-bubble";
+import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
 
 export interface ConversationMessageActionsProps {
   message: Pick<Message, "id" | "chatId" | "content"> & { extra?: unknown };
@@ -154,6 +155,13 @@ export function ConversationMessageActions({
   const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
     null,
   );
+  // Both pills line up with the message's own box (a bubble in bubble themes), not the full row.
+  const bottomBarRef = useRef<HTMLDivElement>(null);
+  const findMessageBox = (bar: HTMLElement) =>
+    bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".mari-message-body") ?? null;
+  const followTrigger = `${visible}-${mobileSheetOpen}-${thinkingOnly}`;
+  useFollowBubble(barRef, findMessageBox, overhaulActive || overhaulMobile, followTrigger);
+  useFollowBubble(bottomBarRef, findMessageBox, overhaulActive || overhaulMobile, followTrigger);
   // Speak sits left of Regenerate on desktop and above Translate in the phone and tablet sheet.
   const speakAction = speech ? (
     <MsgAction
@@ -181,7 +189,6 @@ export function ConversationMessageActions({
   ) : null;
   // Settings > Chatting > Message buttons: the picked buttons sit on the message, the rest wait in More.
   const shownButtons = useMessageButtons("conversation");
-  const touchButtons = useMessageButtonsOnTouch();
   const show = (id: MessageButtonId) => shownButtons.includes(id);
   const translateAction = (
     <MsgAction
@@ -204,7 +211,7 @@ export function ConversationMessageActions({
   // UI overhaul (Convo A): a small Discord-style bar over the message's top-right corner (reactions, Reply and the
   // other picked tools, then More), and one under its bottom-right for what asks the AI (Speak, Translate,
   // Regenerate). Every action is also in More.
-  const ovBars = (alwaysOn: boolean) => {
+  const ovBars = () => {
     const bottomSpeak = show("speak") ? speakAction : null;
     const bottomRegenerate = show("regenerate") ? regenerateAction : null;
     const hasBottom = !!bottomSpeak || show("translate") || !!bottomRegenerate;
@@ -212,7 +219,7 @@ export function ConversationMessageActions({
       <>
         <div
           ref={barRef}
-          className={cn("ov-cvh", (visible || moreAnchor || alwaysOn) && "is-on", alwaysOn && "is-touch")}
+          className={cn("ov-cvh", (visible || moreAnchor) && "is-on")}
           data-component="ConversationMessage.Actions"
           data-mari-part="actions"
         >
@@ -265,7 +272,12 @@ export function ConversationMessageActions({
                 setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
               }}
             >
-              <MessageMarksAction message={message} align="right" stopPropagation />
+              <MessageMarksAction
+                message={message}
+                align="right"
+                stopPropagation
+                className={MESSAGE_ACTION_BUTTON_CLASS}
+              />
             </OvMarksMenuContext.Provider>
           ) : null}
           {show("hide") && onToggleHiddenFromAI ? (
@@ -279,16 +291,6 @@ export function ConversationMessageActions({
                   ? localizeUi("ui.chat.conversationmessageactions.unhideFromAi")
                   : localizeUi("ui.chat.conversationmessageactions.hideFromAi")
               }
-            />
-          ) : null}
-          {show("thinking") && hasReasoning && !isUser ? (
-            <MsgAction
-              icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
-              onClick={onShowThinking}
-              title={t(
-                reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
-              )}
-              buttonRef={thinkingButtonRef}
             />
           ) : null}
           {show("delete") && onDelete ? (
@@ -425,11 +427,8 @@ export function ConversationMessageActions({
         </div>
         {hasBottom ? (
           <div
-            className={cn(
-              "ov-cvh ov-cvh--bottom",
-              (visible || moreAnchor || alwaysOn) && "is-on",
-              alwaysOn && "is-touch",
-            )}
+            ref={bottomBarRef}
+            className={cn("ov-cvh ov-cvh--bottom", (visible || moreAnchor) && "is-on")}
             data-mari-part="actions"
           >
             {bottomSpeak}
@@ -440,12 +439,9 @@ export function ConversationMessageActions({
       </>
     );
   };
-  // Mobile overhaul: holding the message opens a sheet with every action. With "Show on phones and tablets"
-  // picked in Settings, the newest reply and a tapped message also show the picked buttons.
+  // Mobile overhaul: holding the message opens a sheet with every action.
   if (overhaulMobile && !thinkingOnly) {
-    const bars =
-      touchButtons && (showActions || (isLastAssistantMessage && !isUser)) && !mobileSheetOpen ? ovBars(true) : null;
-    if (!mobileSheetOpen || !onCloseMobileSheet) return bars;
+    if (!mobileSheetOpen || !onCloseMobileSheet) return null;
     return (
       <OvMobileMessageSheet
         chatId={message.chatId}
@@ -542,28 +538,9 @@ export function ConversationMessageActions({
       />
     );
   }
-  if (overhaulActive && !thinkingOnly) return ovBars(false);
-  // A reply still arriving: only its Thinking button, to read the reasoning live (as before the overhaul, it shows
-  // while the reply streams; phones and tablets too).
-  if ((overhaulActive || overhaulMobile) && thinkingOnly) {
-    return (
-      <div
-        ref={barRef}
-        className={cn("ov-cvh", (visible || show("thinking")) && "is-on", overhaulMobile && "is-touch")}
-        data-component="ConversationMessage.Actions"
-        data-mari-part="actions"
-      >
-        <MsgAction
-          icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
-          onClick={onShowThinking}
-          title={t(
-            reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
-          )}
-          buttonRef={thinkingButtonRef}
-        />
-      </div>
-    );
-  }
+  if (overhaulActive && !thinkingOnly) return ovBars();
+  // A reply still arriving in the new layout: its reasoning toggle sits by the name and time instead.
+  if ((overhaulActive || overhaulMobile) && thinkingOnly) return null;
   return (
     <div
       ref={barRef}

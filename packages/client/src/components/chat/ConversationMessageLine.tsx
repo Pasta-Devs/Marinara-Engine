@@ -206,8 +206,11 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
                 {formatTimestamp(message.createdAt)}
               </span>
             )}
+            {ctx.thinkingToggle}
           </div>
         )}
+        {isGrouped ? ctx.thinkingToggle : null}
+        {ctx.thinkingText}
 
         {/* Body */}
         {isHiddenCollapsed ? (

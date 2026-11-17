@@ -188,115 +188,200 @@ export function ConversationMessageGrouped({
           <HiddenFromAIConversationSummary onExpand={onExpandHidden} />
         </div>
       ) : (
-        (groupedSegments ?? []).slice(0, visibleSegments).map((grp, i) => {
-          const segChar = grp.speaker && charByName ? charByName.get(normalizeTextForMatch(grp.speaker)) : null;
-          const segSelfId =
-            (grp.speaker && charIdByName ? charIdByName.get(normalizeTextForMatch(grp.speaker)) : null) ??
-            selfCharacterId;
-          const segAvatar = segChar?.avatarUrl ?? null;
-          const segAvatarCropStyle = getAvatarCropStyle(segChar?.avatarCrop);
-          const segName = segChar?.convoDisplayName?.trim() || segChar?.name || grp.speaker || "";
-          const segColor = segChar?.nameColor;
-          const isFirst = i === 0;
-          const combinedText = grp.lines.join("\n");
-          // Reactions aimed at this segment (issue #3210). The add affordance sits
-          // in the speaker's name row; the chip row renders under the segment text,
-          // outside the segment's [data-card-css] wrapper. The target key is the
-          // parsed speaker (not the resolved character name) so it stays derivable
-          // from content alone. Empty-text segments are not targetable — the
-          // classic layout doesn't render them, so a reaction there would vanish
-          // (splitReactionsBySegment applies the same rule).
-          const segHasText = combinedText.trim().length > 0;
-          const segReactions = segmentReactions?.[i] ?? [];
-          const segAddButton =
-            !hideActions && onPickSegmentReaction && grp.speaker && segHasText ? (
-              <ReactionAddButton
-                onPick={(emoji, imageUrl) =>
-                  onPickSegmentReaction({ segment: i, speaker: grp.speaker }, emoji, imageUrl)
-                }
-                className={segAddButtonClass}
-              />
-            ) : null;
-          const segReactionRow =
-            segReactions.length > 0 ? (
-              <MessageReactions
-                reactions={segReactions}
-                resolveReactorName={resolveReactorName}
-                onToggle={onToggleReactionEntry}
-                onRemoveCharacter={onRemoveCharacterReaction}
-              />
-            ) : null;
-
-          if (!grp.speaker) {
-            // Whitespace-only narration: render nothing — an empty
-            // [data-card-css] wrapper would paint a phantom themed box, the
-            // same invariant the speaker branches guard with segHasText.
-            if (!segHasText) return null;
-            return (
-              <div
-                key={i}
-                {...cardCssProps}
-                className="mari-chat-style-text pl-14 py-0.5 text-[0.875rem] leading-relaxed break-words whitespace-pre-wrap text-[var(--muted-foreground)] italic animate-[fadeSlideIn_0.4s_ease-out]"
-                style={messageTextStyle}
-              >
-                <MessageContent
-                  content={combinedText}
-                  mentionNames={mentionNames}
-                  emojiMap={emojiMap}
-                  stickerMap={stickerMap}
-                  onImageOpen={(url) => onImageOpen(url)}
-                  selfCharacterId={selfCharacterId}
-                  galleryIndex={galleryIndex}
+        <>
+          {ctx.thinkingText ? <div className="pl-14">{ctx.thinkingText}</div> : null}
+          {(groupedSegments ?? []).slice(0, visibleSegments).map((grp, i) => {
+            const segChar = grp.speaker && charByName ? charByName.get(normalizeTextForMatch(grp.speaker)) : null;
+            const segSelfId =
+              (grp.speaker && charIdByName ? charIdByName.get(normalizeTextForMatch(grp.speaker)) : null) ??
+              selfCharacterId;
+            const segAvatar = segChar?.avatarUrl ?? null;
+            const segAvatarCropStyle = getAvatarCropStyle(segChar?.avatarCrop);
+            const segName = segChar?.convoDisplayName?.trim() || segChar?.name || grp.speaker || "";
+            const segColor = segChar?.nameColor;
+            const isFirst = i === 0;
+            const combinedText = grp.lines.join("\n");
+            // Reactions aimed at this segment (issue #3210). The add affordance sits
+            // in the speaker's name row; the chip row renders under the segment text,
+            // outside the segment's [data-card-css] wrapper. The target key is the
+            // parsed speaker (not the resolved character name) so it stays derivable
+            // from content alone. Empty-text segments are not targetable — the
+            // classic layout doesn't render them, so a reaction there would vanish
+            // (splitReactionsBySegment applies the same rule).
+            const segHasText = combinedText.trim().length > 0;
+            const segReactions = segmentReactions?.[i] ?? [];
+            const segAddButton =
+              !hideActions && onPickSegmentReaction && grp.speaker && segHasText ? (
+                <ReactionAddButton
+                  onPick={(emoji, imageUrl) =>
+                    onPickSegmentReaction({ segment: i, speaker: grp.speaker }, emoji, imageUrl)
+                  }
+                  className={segAddButtonClass}
                 />
-              </div>
-            );
-          }
+              ) : null;
+            const segReactionRow =
+              segReactions.length > 0 ? (
+                <MessageReactions
+                  reactions={segReactions}
+                  resolveReactorName={resolveReactorName}
+                  onToggle={onToggleReactionEntry}
+                  onRemoveCharacter={onRemoveCharacterReaction}
+                />
+              ) : null;
 
-          if (isBubbleStyle) {
-            if (!segHasText) return null;
+            if (!grp.speaker) {
+              // Whitespace-only narration: render nothing — an empty
+              // [data-card-css] wrapper would paint a phantom themed box, the
+              // same invariant the speaker branches guard with segHasText.
+              if (!segHasText) return null;
+              return (
+                <div
+                  key={i}
+                  {...cardCssProps}
+                  className="mari-chat-style-text pl-14 py-0.5 text-[0.875rem] leading-relaxed break-words whitespace-pre-wrap text-[var(--muted-foreground)] italic animate-[fadeSlideIn_0.4s_ease-out]"
+                  style={messageTextStyle}
+                >
+                  <MessageContent
+                    content={combinedText}
+                    mentionNames={mentionNames}
+                    emojiMap={emojiMap}
+                    stickerMap={stickerMap}
+                    onImageOpen={(url) => onImageOpen(url)}
+                    selfCharacterId={selfCharacterId}
+                    galleryIndex={galleryIndex}
+                  />
+                </div>
+              );
+            }
+
+            if (isBubbleStyle) {
+              if (!segHasText) return null;
+              return (
+                <Fragment key={i}>
+                  <div
+                    {...cardCssProps}
+                    className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-2"].filter(Boolean).join(" ")}
+                  >
+                    <div className="flex items-end gap-2">
+                      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
+                        {segAvatar ? (
+                          <img
+                            src={segAvatar}
+                            alt={segName}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            style={segAvatarCropStyle}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted-foreground)]">
+                            {segName[0]?.toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 max-w-[min(32rem,calc(100%-2.5rem))]">
+                        <div className="mb-0.5 flex items-baseline gap-2">
+                          <span className="truncate text-[0.75rem] font-semibold" style={nameColorStyle(segColor)}>
+                            {segName}
+                          </span>
+                          {isFirst && !hideTimestamp && (
+                            <span
+                              className="mari-conversation-transcript-chrome-text shrink-0 text-[0.625rem]"
+                              data-mari-part="time"
+                            >
+                              {formatTimestamp(message.createdAt)}
+                            </span>
+                          )}
+                          {isFirst ? ctx.thinkingToggle : null}
+                          {segAddButton}
+                        </div>
+                        <div
+                          className="mari-message-bubble mari-chat-style-conversation texting-bubble texting-bubble-other rounded-2xl px-3.5 py-2 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap shadow-sm"
+                          style={messageTextStyle}
+                        >
+                          <MessageContent
+                            content={combinedText}
+                            mentionNames={mentionNames}
+                            emojiMap={emojiMap}
+                            stickerMap={stickerMap}
+                            onImageOpen={(url) => onImageOpen(url)}
+                            selfCharacterId={segSelfId}
+                            galleryIndex={galleryIndex}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {segReactionRow && (
+                    <div className="mari-message-reactions-row ml-10 mt-1 max-w-[min(32rem,calc(100%-2.5rem))]">
+                      {segReactionRow}
+                    </div>
+                  )}
+                </Fragment>
+              );
+            }
+
+            const paragraphs = combinedText
+              .split(/\n{2,}/)
+              .map((p) => p.trim())
+              .filter(Boolean);
+            // Whitespace-only segment: render nothing — an empty [data-card-css]
+            // wrapper would let container-styling themes paint a phantom box.
+            if (paragraphs.length === 0) return null;
+
             return (
               <Fragment key={i}>
                 <div
                   {...cardCssProps}
-                  className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-2"].filter(Boolean).join(" ")}
+                  className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-3"].filter(Boolean).join(" ")}
                 >
-                  <div className="flex items-end gap-2">
-                    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
-                      {segAvatar ? (
-                        <img
-                          src={segAvatar}
-                          alt={segName}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                          style={segAvatarCropStyle}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[var(--muted-foreground)]">
-                          {segName[0]?.toUpperCase()}
-                        </div>
+                  <div className="flex gap-4">
+                    <div className="w-10 flex-shrink-0">
+                      <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
+                        {segAvatar ? (
+                          <img
+                            src={segAvatar}
+                            alt={segName}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            style={segAvatarCropStyle}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                            {segName[0]?.toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      {isFirst && (showActions || forceShowActions || showMessageNumbers) && messageIndex != null && (
+                        <span className="mari-conversation-transcript-chrome-text mt-0.5 block text-center text-[0.5rem] font-medium select-none">
+                          #{messageIndex}
+                        </span>
                       )}
                     </div>
-                    <div className="min-w-0 max-w-[min(32rem,calc(100%-2.5rem))]">
-                      <div className="mb-0.5 flex items-baseline gap-2">
-                        <span className="truncate text-[0.75rem] font-semibold" style={nameColorStyle(segColor)}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span
+                          className="text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default"
+                          style={nameColorStyle(segColor)}
+                        >
                           {segName}
                         </span>
                         {isFirst && !hideTimestamp && (
                           <span
-                            className="mari-conversation-transcript-chrome-text shrink-0 text-[0.625rem]"
+                            className="mari-conversation-transcript-chrome-text text-[0.6875rem]"
                             data-mari-part="time"
                           >
                             {formatTimestamp(message.createdAt)}
                           </span>
                         )}
+                        {isFirst ? ctx.thinkingToggle : null}
                         {segAddButton}
                       </div>
                       <div
-                        className="mari-message-bubble mari-chat-style-conversation texting-bubble texting-bubble-other rounded-2xl px-3.5 py-2 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap shadow-sm"
+                        className="mari-chat-style-text text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
                         style={messageTextStyle}
                       >
                         <MessageContent
-                          content={combinedText}
+                          content={paragraphs[0]!}
                           mentionNames={mentionNames}
                           emojiMap={emojiMap}
                           stickerMap={stickerMap}
@@ -307,77 +392,14 @@ export function ConversationMessageGrouped({
                       </div>
                     </div>
                   </div>
-                </div>
-                {segReactionRow && (
-                  <div className="mari-message-reactions-row ml-10 mt-1 max-w-[min(32rem,calc(100%-2.5rem))]">
-                    {segReactionRow}
-                  </div>
-                )}
-              </Fragment>
-            );
-          }
-
-          const paragraphs = combinedText
-            .split(/\n{2,}/)
-            .map((p) => p.trim())
-            .filter(Boolean);
-          // Whitespace-only segment: render nothing — an empty [data-card-css]
-          // wrapper would let container-styling themes paint a phantom box.
-          if (paragraphs.length === 0) return null;
-
-          return (
-            <Fragment key={i}>
-              <div
-                {...cardCssProps}
-                className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-3"].filter(Boolean).join(" ")}
-              >
-                <div className="flex gap-4">
-                  <div className="w-10 flex-shrink-0">
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
-                      {segAvatar ? (
-                        <img
-                          src={segAvatar}
-                          alt={segName}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                          style={segAvatarCropStyle}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
-                          {segName[0]?.toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    {isFirst && (showActions || forceShowActions || showMessageNumbers) && messageIndex != null && (
-                      <span className="mari-conversation-transcript-chrome-text mt-0.5 block text-center text-[0.5rem] font-medium select-none">
-                        #{messageIndex}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2 mb-0.5">
-                      <span
-                        className="text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default"
-                        style={nameColorStyle(segColor)}
-                      >
-                        {segName}
-                      </span>
-                      {isFirst && !hideTimestamp && (
-                        <span
-                          className="mari-conversation-transcript-chrome-text text-[0.6875rem]"
-                          data-mari-part="time"
-                        >
-                          {formatTimestamp(message.createdAt)}
-                        </span>
-                      )}
-                      {segAddButton}
-                    </div>
+                  {paragraphs.slice(1).map((para, pi) => (
                     <div
-                      className="mari-chat-style-text text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
+                      key={pi}
+                      className="mari-chat-style-text pl-14 mt-0.5 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
                       style={messageTextStyle}
                     >
                       <MessageContent
-                        content={paragraphs[0]!}
+                        content={para}
                         mentionNames={mentionNames}
                         emojiMap={emojiMap}
                         stickerMap={stickerMap}
@@ -386,30 +408,13 @@ export function ConversationMessageGrouped({
                         galleryIndex={galleryIndex}
                       />
                     </div>
-                  </div>
+                  ))}
                 </div>
-                {paragraphs.slice(1).map((para, pi) => (
-                  <div
-                    key={pi}
-                    className="mari-chat-style-text pl-14 mt-0.5 text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap"
-                    style={messageTextStyle}
-                  >
-                    <MessageContent
-                      content={para}
-                      mentionNames={mentionNames}
-                      emojiMap={emojiMap}
-                      stickerMap={stickerMap}
-                      onImageOpen={(url) => onImageOpen(url)}
-                      selfCharacterId={segSelfId}
-                      galleryIndex={galleryIndex}
-                    />
-                  </div>
-                ))}
-              </div>
-              {segReactionRow && <div className="mari-message-reactions-row pl-14 mt-1">{segReactionRow}</div>}
-            </Fragment>
-          );
-        })
+                {segReactionRow && <div className="mari-message-reactions-row pl-14 mt-1">{segReactionRow}</div>}
+              </Fragment>
+            );
+          })}
+        </>
       )}
 
       {/* Trailing content (cursor, translation, attachments): kept in a

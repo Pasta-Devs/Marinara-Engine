@@ -29,7 +29,6 @@ import {
 import { cn } from "../../lib/utils";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { Checkbox } from "../ui/Checkbox";
-import { ToggleSetting } from "../panels/settings/SettingControls";
 import {
   DEFAULT_MESSAGE_BUTTONS,
   MESSAGE_BUTTONS,
@@ -69,10 +68,10 @@ function SampleBar({
   shown: readonly MessageButtonId[];
 }) {
   const { t } = useTranslation();
-  // Roleplay shows Thinking as the "Thought for Ns" toggle beside the name, not on the bar.
+  // Thinking shows as the "Thought for Ns" toggle beside the name, not on the bar.
   const ids = messageButtonsFor(mode)
     .filter((button) => button.bar === bar && shown.includes(button.id))
-    .filter((button) => !(mode === "roleplay" && button.id === "thinking"))
+    .filter((button) => button.id !== "thinking")
     .map((button) => button.id);
   if (bar === "bottom" && ids.length === 0) return null;
   return (
@@ -110,6 +109,19 @@ function SampleBar({
   );
 }
 
+/** The "Thought for Ns ›" toggle by the name, as messages show it when Thinking is picked. */
+function SampleThought({ show }: { show: boolean }) {
+  const { t } = useTranslation();
+  if (!show) return null;
+  return (
+    <span className="ov-thought-btn" title={t("ui.overhaul.messagebuttons.button.thinking")}>
+      <Clock size={11} aria-hidden="true" />
+      <span>{t("chat.message.thoughts.ovDuration", { count: SAMPLE.thoughtSeconds })}</span>
+      <ChevronRight size={11} aria-hidden="true" className="ov-thought-btn__chev" />
+    </span>
+  );
+}
+
 /** A sample reply as Roleplay or Conversation shows it, with both bars always visible. */
 function SampleMessage({ mode, shown }: { mode: MessageButtonMode; shown: readonly MessageButtonId[] }) {
   const { t } = useTranslation();
@@ -126,13 +138,7 @@ function SampleMessage({ mode, shown }: { mode: MessageButtonMode; shown: readon
               <div className="ov-mbp__head">
                 <strong>{SAMPLE.name}</strong>
                 <span className="ov-mbp__time">{SAMPLE.time}</span>
-                {shown.includes("thinking") ? (
-                  <span className="ov-thought-btn" title={t("ui.overhaul.messagebuttons.button.thinking")}>
-                    <Clock size={11} aria-hidden="true" />
-                    <span>{t("chat.message.thoughts.ovDuration", { count: SAMPLE.thoughtSeconds })}</span>
-                    <ChevronRight size={11} aria-hidden="true" className="ov-thought-btn__chev" />
-                  </span>
-                ) : null}
+                <SampleThought show={shown.includes("thinking")} />
                 <span className="ov-mbp__grow" />
                 <SampleBar mode={mode} bar="top" shown={shown} />
               </div>
@@ -153,7 +159,8 @@ function SampleMessage({ mode, shown }: { mode: MessageButtonMode; shown: readon
           </span>
           <div className="ov-mbp__cv-col">
             <div>
-              <strong>{SAMPLE.name}</strong> <span className="ov-mbp__time">{SAMPLE.time}</span>
+              <strong>{SAMPLE.name}</strong> <span className="ov-mbp__time">{SAMPLE.time}</span>{" "}
+              <SampleThought show={shown.includes("thinking")} />
             </div>
             <p className="ov-mbp__text">{t("ui.overhaul.messagebuttons.sampleConversation")}</p>
           </div>
@@ -179,8 +186,6 @@ export function MessageButtonsSettings() {
   const [mode, setMode] = useState<MessageButtonMode>("roleplay");
   const shown = useMessageButtons(mode);
   const setButtons = useOverhaulStore((state) => state.setMessageButtons);
-  const onTouch = useOverhaulStore((state) => state.messageButtonsOnTouch);
-  const setOnTouch = useOverhaulStore((state) => state.setMessageButtonsOnTouch);
   const buttons = messageButtonsFor(mode);
   const toggle = (id: MessageButtonId, on: boolean) => {
     const next = new Set(shown);
@@ -261,13 +266,6 @@ export function MessageButtonsSettings() {
         {group("top")}
         {group("bottom")}
       </div>
-      <ToggleSetting
-        anchorId="settings-control-message-buttons-touch"
-        label={t("ui.overhaul.messagebuttons.onTouch")}
-        help={t("ui.overhaul.messagebuttons.onTouchHelp")}
-        checked={onTouch}
-        onChange={setOnTouch}
-      />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
 } from "react";
 import {
   CheckSquare,
+  ChevronLeft,
   ChevronRight,
   Folder,
   FolderInput,
@@ -64,6 +65,7 @@ import {
   useUpdateGroup,
   useUpdatePersonaGroup,
 } from "../../hooks/use-characters";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Actions ──
 
@@ -613,6 +615,7 @@ export function KitFolderHead({
   note,
   trail,
   icon,
+  mode = "toggle",
 }: {
   /** Replaces the folder icon (Regex scripts: a preset's own folder shows the preset icon). */
   icon?: ReactNode;
@@ -626,11 +629,15 @@ export function KitFolderHead({
   collapsed: boolean;
   onToggle: () => void;
   onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
+  /** "open": the Folders view, where a click opens the folder on its own page instead of expanding it. */
+  mode?: "toggle" | "open";
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
+  const opens = mode === "open";
   return (
     <div
-      className="ov-kit-folder"
+      className={cn("ov-kit-folder", opens && "ov-kit-folder--opens")}
       {...(folder.virtual
         ? {}
         : {
@@ -639,7 +646,8 @@ export function KitFolderHead({
           })}
       role="button"
       tabIndex={0}
-      aria-expanded={!collapsed}
+      aria-expanded={opens ? undefined : !collapsed}
+      aria-label={opens ? localizeUi("ui.overhaul.kit.openFolder", { name: folder.name }) : undefined}
       onClick={onToggle}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -649,7 +657,9 @@ export function KitFolderHead({
       }}
       onContextMenu={(event) => onMenu(event, "pointer")}
     >
-      <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
+      {opens ? null : (
+        <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
+      )}
       {icon ?? <Folder size={15} aria-hidden="true" />}
       <span className="ov-kit-folder__name">{folder.name}</span>
       <span className="ov-kit-folder__count">{note ?? count}</span>
@@ -662,6 +672,51 @@ export function KitFolderHead({
           {trail}
         </span>
       ) : null}
+      <KitMoreButton label={localize("Folder actions")} onOpen={(event) => onMenu(event, "button")} />
+      {opens ? <ChevronRight size={14} className="ov-kit-folder__arrow" aria-hidden="true" /> : null}
+    </div>
+  );
+}
+
+/**
+ * The Folders view works like a file browser: the page lists its folders (closed) and the items in no folder;
+ * opening a folder shows its items alone, under a "back" line. Not remembered: the page opens on the list.
+ */
+export function useOpenFolder(folders: KitFolders | null | undefined) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = openId ? (folders?.folders.find((folder) => folder.id === openId) ?? null) : null;
+  return {
+    open,
+    openFolder: (folder: KitFolder) => setOpenId(folder.id),
+    close: () => setOpenId(null),
+  };
+}
+
+/** The open folder's line: back to every folder, then the folder's name, count and actions. */
+export function KitFolderCrumb({
+  backLabel,
+  folder,
+  count,
+  onBack,
+  onMenu,
+}: {
+  backLabel: string;
+  folder: KitFolder;
+  count: number;
+  onBack: () => void;
+  onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
+}) {
+  const localize = useLocalizedUiText();
+  return (
+    <div className="ov-kit-crumb" data-component="FolderCrumb" onContextMenu={(event) => onMenu(event, "pointer")}>
+      <button type="button" className="ov-kit-crumb__back" onClick={onBack}>
+        <ChevronLeft size={15} aria-hidden="true" />
+        {backLabel}
+      </button>
+      <ChevronRight size={13} className="ov-kit-crumb__sep" aria-hidden="true" />
+      <Folder size={15} aria-hidden="true" />
+      <span className="ov-kit-folder__name">{folder.name}</span>
+      <span className="ov-kit-folder__count">{count}</span>
       <KitMoreButton label={localize("Folder actions")} onOpen={(event) => onMenu(event, "button")} />
     </div>
   );

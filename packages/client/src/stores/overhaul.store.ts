@@ -76,8 +76,6 @@ interface OverhaulState {
   messageButtons: Partial<Record<MessageButtonMode, MessageButtonId[]>> | null;
   setMessageButtons: (mode: MessageButtonMode, ids: MessageButtonId[] | null) => void;
   /** Phones and tablets: also show the picked buttons on the newest reply and on a tapped message. */
-  messageButtonsOnTouch: boolean;
-  setMessageButtonsOnTouch: (on: boolean) => void;
   /** The one sidebar (right side): which view it shows, Chats or the Library sections. */
   sidePane: OverhaulSidePane;
   setSidePane: (sidePane: OverhaulSidePane) => void;
@@ -415,8 +413,6 @@ export const useOverhaulStore = create<OverhaulState>()(
           else delete next[mode];
           return { messageButtons: Object.keys(next).length ? next : null };
         }),
-      messageButtonsOnTouch: false,
-      setMessageButtonsOnTouch: (messageButtonsOnTouch) => set({ messageButtonsOnTouch }),
       sidePane: "chats",
       setSidePane: (sidePane) => set({ sidePane }),
       mobileSidePageOpen: false,
@@ -449,7 +445,6 @@ export const useOverhaulStore = create<OverhaulState>()(
         galleryCardSize: state.galleryCardSize,
         libraryFlatPages: state.libraryFlatPages,
         messageButtons: state.messageButtons,
-        messageButtonsOnTouch: state.messageButtonsOnTouch,
         sidePane: state.sidePane,
         split: state.split,
       }),

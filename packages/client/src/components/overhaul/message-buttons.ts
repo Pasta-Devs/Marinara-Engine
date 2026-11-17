@@ -96,8 +96,3 @@ const EMPTY: MessageButtonId[] = [];
 export function useMessageButtons(mode: MessageButtonMode): readonly MessageButtonId[] {
   return useOverhaulStore((state) => state.messageButtons?.[mode] ?? DEFAULT_MESSAGE_BUTTONS[mode] ?? EMPTY);
 }
-
-/** Phones and tablets: show the picked buttons on messages too (off: hold a message for its menu). */
-export function useMessageButtonsOnTouch() {
-  return useOverhaulStore((state) => state.messageButtonsOnTouch);
-}

@@ -182,6 +182,9 @@ export interface MessageRenderContext {
   onDelete?: (id: string) => void;
   onShowGenerationReplay: () => void;
   onShowThinking: () => void;
+  /** New layout: the "Thought for Ns ›" toggle (after the time) and the reasoning it opens (before the text). */
+  thinkingToggle?: ReactNode;
+  thinkingText?: ReactNode;
   // reactions — toggle the user's reaction on this message (chip row rendered by the shell)
   onPickReaction?: (emoji: string, imageUrl: string | null) => void;
   // reactions — segment-targeted (grouped multi-speaker messages, issue #3210)

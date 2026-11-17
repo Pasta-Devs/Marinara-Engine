@@ -5,7 +5,17 @@ import { useMessagePresetVariables } from "../../hooks/use-message-preset-variab
 // Resolves character/persona identity, builds render context,
 // and delegates to the appropriate layout component.
 // ──────────────────────────────────────────────
-import { useState, useCallback, useRef, useEffect, memo, useMemo, type CSSProperties, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useId,
+  memo,
+  useMemo,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { ChatImageLightbox } from "./ChatImageLightbox";
 import { AlertTriangle, Phone, PhoneIncoming, PhoneOff, Trash2 } from "lucide-react";
@@ -43,9 +53,10 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
-import { useMessageButtonsOnTouch } from "../overhaul/message-buttons";
 import { messageHooks } from "../../lib/message-hooks";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import { useMessageButtons } from "../overhaul/message-buttons";
+import { OvThinkingText, OvThinkingToggle, useThinkingToggle } from "./OvThinking";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { useLongPress } from "../overhaul/MobileMessageSheet";
 import { SystemMessage } from "./SystemMessage";
@@ -192,8 +203,6 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [editValue, setEditValue] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
   const overhaulMobile = useOverhaulTouchMessages();
-  // Settings > Chatting > Message buttons: on phones and tablets, a tap shows the message's buttons.
-  const touchButtons = useMessageButtonsOnTouch() && overhaulMobile;
   const overhaulDesktopShell = useOverhaulActive();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
@@ -283,6 +292,42 @@ export const ConversationMessage = memo(function ConversationMessage({
   useEffect(() => {
     if (!hasReasoning) setShowThinking(false);
   }, [hasReasoning]);
+
+  // New layout: the reasoning opens inline under the name ("Thought for Ns ›" by the time), as in Roleplay, and
+  // fills in live while the reply streams. The toggle shows while a reply thinks, when picked in Settings >
+  // Chatting > Message buttons, or once opened from ⋯; the old reasoning window stays for the classic layout.
+  const ovThinkingOn = (overhaulDesktopShell || overhaulMobile) && hasReasoning && !isUser;
+  const thinkingPicked = useMessageButtons("conversation").includes("thinking");
+  const reasoningDurationMs =
+    typeof extra.generationInfo?.reasoningDurationMs === "number" && extra.generationInfo.reasoningDurationMs > 0
+      ? extra.generationInfo.reasoningDurationMs
+      : null;
+  const outputStarted =
+    !!isStreaming && !!message.content?.trim() && message.content !== localizeUi("chat.message.thinking");
+  const ovThinkingId = useId();
+  const ovThinking = useThinkingToggle(
+    !!isStreaming && ovThinkingOn,
+    outputStarted,
+    false,
+    reasoningDurationMs,
+    true,
+    true,
+  );
+  const ovThinkingToggle =
+    ovThinkingOn && (thinkingPicked || isStreaming || ovThinking.expanded) ? (
+      <OvThinkingToggle
+        label={ovThinking.durationLabel}
+        expanded={ovThinking.expanded}
+        pulsing={!!isStreaming && !outputStarted}
+        controls={ovThinkingId}
+        onToggle={() => ovThinking.setExpanded((value) => !value)}
+      />
+    ) : null;
+  const ovThinkingText =
+    ovThinkingOn && ovThinking.expanded ? (
+      <OvThinkingText id={ovThinkingId} thinking={thinking} summaryUnavailable={reasoningSummaryUnavailable} />
+    ) : null;
+  const openThinking = ovThinkingOn ? () => ovThinking.setExpanded(true) : () => setShowThinking(true);
 
   const reactions = useMemo<MessageReaction[]>(
     () => (Array.isArray(extra.reactions) ? extra.reactions : []),
@@ -815,9 +860,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         return;
       }
       if (!matchMedia("(pointer: coarse)").matches) return;
-      if (!overhaulMobile || touchButtons) setShowActions((v) => !v);
+      if (!overhaulMobile) setShowActions((v) => !v);
     },
-    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile, touchButtons],
+    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile],
   );
   const longPress = useLongPress(openMobileSheet, overhaulMobile && !multiSelectMode && !editing);
 
@@ -993,7 +1038,9 @@ export const ConversationMessage = memo(function ConversationMessage({
     onPeekPrompt: onPeekPrompt ? () => onPeekPrompt(message.id) : undefined,
     onDelete,
     onShowGenerationReplay: () => setShowGenerationReplay(true),
-    onShowThinking: () => setShowThinking(true),
+    onShowThinking: openThinking,
+    thinkingToggle: ovThinkingToggle,
+    thinkingText: ovThinkingText,
     onPickReaction: handleToggleReaction,
     segmentReactions,
     resolveReactorName,
@@ -1322,7 +1369,7 @@ export const ConversationMessage = memo(function ConversationMessage({
               onPeekPrompt={onPeekPrompt ? () => onPeekPrompt(message.id) : undefined}
               onDelete={onDelete ? () => onDelete(message.id) : undefined}
               onShowGenerationReplay={() => setShowGenerationReplay(true)}
-              onShowThinking={() => setShowThinking(true)}
+              onShowThinking={openThinking}
               onPickReaction={handleToggleReaction}
               mobileSheetOpen={mobileSheetOpen}
               onSetSwipe={(index) => handleSetActiveSwipe(message.id, index)}

@@ -40,6 +40,7 @@ import {
 import {
   KitBulkBar,
   KitCheck,
+  KitFolderCrumb,
   KitFolderHead,
   KitFolderViewToggle,
   KitMoreButton,
@@ -47,6 +48,7 @@ import {
   KitSelectButton,
   folderActions,
   groupByFolder,
+  useOpenFolder,
   kitDelete,
   kitExport,
   moveToFolderAction,
@@ -205,6 +207,9 @@ export function CardGallery({
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
   const filtering = !!search.trim() || !!quick || pickedTags.length > 0 || sort === "recent";
+  // Searching or filtering looks inside every folder; otherwise the Folders view lists folders closed.
+  const searching = !!search.trim() || !!quick || pickedTags.length > 0;
+  const opened = useOpenFolder(folders);
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
   const removeMany = async (ids: string[], names?: string) => {
@@ -281,7 +286,16 @@ export function CardGallery({
     if (selection.on) selection.toggle(card.id);
     else onOpen(card.id);
   };
-  const { groups, loose } = groupByFolder(visible, folderView.flat ? null : folders, filtering);
+  const openFolder = folderView.flat ? null : opened.open;
+  const { groups, loose } = openFolder
+    ? { groups: [], loose: [] as GalleryCard[] }
+    : groupByFolder(visible, folderView.flat ? null : folders, searching || filtering);
+  const openRows = openFolder
+    ? (() => {
+        const ids = new Set(openFolder.itemIds);
+        return visible.filter((card) => ids.has(card.id));
+      })()
+    : [];
 
   const renderCard = (card: GalleryCard, folderId: string | null) => (
     <div
@@ -475,6 +489,20 @@ export function CardGallery({
         data-size={cardSize}
         style={loading && cards.length === 0 ? { visibility: "hidden" } : undefined}
       >
+        {openFolder ? (
+          <div className="ov-kit-folder-cell">
+            <KitFolderCrumb
+              backLabel={title}
+              folder={openFolder}
+              count={openRows.length}
+              onBack={opened.close}
+              onMenu={(event, anchor) =>
+                menu.openFromEvent(event, openFolder.name, folderActions(folders, openFolder), anchor)
+              }
+            />
+          </div>
+        ) : null}
+        {openRows.map((card) => renderCard(card, openFolder?.id ?? null))}
         {groups.map(({ folder, rows: members }) => (
           <Fragment key={`folder:${folder.id}`}>
             <div className="ov-kit-folder-cell">
@@ -482,21 +510,23 @@ export function CardGallery({
                 folder={folder}
                 count={members.length}
                 dragKind={singular}
-                collapsed={folders.isCollapsed(folder)}
-                onToggle={() => folders.toggleCollapsed(folder)}
+                mode={searching ? "toggle" : "open"}
+                collapsed={!searching}
+                onToggle={() => opened.openFolder(folder)}
                 onMenu={(event, anchor) =>
                   menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
                 }
               />
             </div>
-            {folders.isCollapsed(folder) ? null : members.map((card) => renderCard(card, folder.id))}
+            {/* Closed in the Folders view (open one to see inside); a search shows its matches in place. */}
+            {searching ? members.map((card) => renderCard(card, folder.id)) : null}
           </Fragment>
         ))}
         {groups.length > 0 && loose.length > 0 ? (
           <div className="ov-kit-folder-cell ov-kit-loose">{localize("Not in a folder")}</div>
         ) : null}
         {loose.map((card) => renderCard(card, null))}
-        <div className="ov-card">
+        <div className="ov-card" hidden={!!openFolder}>
           <button type="button" className="ov-card__art ov-card__art--new" onClick={onNew}>
             <Plus size={22} aria-hidden="true" />
           </button>
