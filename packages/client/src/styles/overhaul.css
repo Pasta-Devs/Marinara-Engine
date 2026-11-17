@@ -11540,7 +11540,7 @@ input.ov-edhead__title:focus {
   --tracker-panel-hud-clear-right: 0px;
 }
 
-/* Characters / Personas: card size switch (small / medium / large); the grid scales, it never becomes a list. */
+/* Characters / Personas: view switch (list, then small / medium / large cards). */
 .ov-gallery__size button {
   display: inline-grid;
   place-items: center;

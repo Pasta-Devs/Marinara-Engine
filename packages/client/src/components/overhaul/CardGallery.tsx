@@ -23,6 +23,7 @@ import {
   Grid3x3,
   Square,
   BookOpen,
+  List,
   Star,
   Tag,
 } from "lucide-react";
@@ -706,7 +707,6 @@ export function CardGallery({
         ) : null}
         <span className="ov-gallery__spacer" />
         <KitFolderViewToggle folders={folders} view={folderView} />
-        {mobile ? null : viewSwitch}
         <select
           className="ov-select"
           value={sort}
@@ -732,16 +732,33 @@ export function CardGallery({
             className="ovm-lp-view--tools"
           />
         ) : null}
-        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("Card size")} hidden={listView}>
+        {/* Desktop: List is the first stop on the card-size switch (one control, so the toolbar keeps one
+            line); phones and tablets have the List / Gallery switch in the header. */}
+        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("View")} hidden={mobile && listView}>
+          {mobile ? null : (
+            <button
+              type="button"
+              className={cn(listView && "is-on")}
+              aria-pressed={listView}
+              title={localize("List")}
+              aria-label={localize("List")}
+              onClick={() => setListView(true)}
+            >
+              <List size={14} aria-hidden="true" />
+            </button>
+          )}
           {GALLERY_SIZES.map((option) => (
             <button
               key={option.id}
               type="button"
-              className={cn(cardSize === option.id && "is-on")}
-              aria-pressed={cardSize === option.id}
+              className={cn(!listView && cardSize === option.id && "is-on")}
+              aria-pressed={!listView && cardSize === option.id}
               title={localize(option.title)}
               aria-label={localize(option.title)}
-              onClick={() => setCardSize(option.id)}
+              onClick={() => {
+                setCardSize(option.id);
+                setListView(false);
+              }}
             >
               <option.icon size={option.iconSize} aria-hidden="true" />
             </button>
