@@ -225,7 +225,7 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={selected ? selected.name : localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTitle")}
       titleSlot={

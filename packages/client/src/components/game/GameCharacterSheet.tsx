@@ -864,7 +864,7 @@ export function GameCharacterSheet({
                         {draft.pools.map((pool, index) => (
                           <div
                             key={`${pool.name}-${index}`}
-                            className="grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
+                            className="grid grid-cols-[auto_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
                           >
                             <ColorField
                               value={pool.color}

@@ -112,7 +112,6 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
             }}
             placeholder={localizeUi("ui.chat.chatmessagesearch.placeholder")}
             label={localizeUi("ui.chat.chatmessagesearch.inputLabel")}
-            resultCount={query.trim() ? results.length : undefined}
           />
           <p className="mt-2 min-h-4 text-xs text-[var(--muted-foreground)]" role="status" aria-live="polite">
             {query.trim()

@@ -146,8 +146,8 @@ export function CardRpgFields({
               key={i}
               className={
                 poolIcons
-                  ? "grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
-                  : "grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
+                  ? "grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[auto_2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
+                  : "grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[auto_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
               }
             >
               <ColorField

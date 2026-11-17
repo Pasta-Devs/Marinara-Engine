@@ -160,7 +160,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
       width="max-w-4xl"
       mobileFullscreen
       panelClassName="sm:h-[85vh]"
-      contentClassName="!overflow-hidden !p-0"
+      contentClassName="flex flex-col !overflow-hidden !p-0"
       footer={
         <div className="flex w-full items-center justify-between gap-2">
           <span className="text-xs text-[var(--muted-foreground)]">
