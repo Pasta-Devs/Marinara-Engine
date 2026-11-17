@@ -33,6 +33,7 @@ import {
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { LorebookListField, PresetPickerField } from "../ui/LibraryPickers";
 import { Modal } from "../ui/Modal";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { PickerField, PickerListField, PickerTileArt } from "../ui/PickerField";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
@@ -533,6 +534,18 @@ function ChatProfileBuilderBody({
           withCharacters={false}
           value={ids[0] ? { persona: ids[0] } : null}
           onChange={(next) => pickOne(next && "persona" in next ? next.persona : "")}
+          aria-label={ariaLabel}
+          title={ariaLabel}
+          className={fieldClass}
+        />
+      );
+    if (key === "conn")
+      return (
+        <ConnectionSelect
+          kind="chat"
+          value={ids[0] ?? null}
+          onChange={(next) => pickOne(next ?? "")}
+          defaultLabel={t("chat.settingsProfile.builder.none")}
           aria-label={ariaLabel}
           title={ariaLabel}
           className={fieldClass}

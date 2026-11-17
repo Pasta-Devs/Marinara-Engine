@@ -6,7 +6,6 @@ import {
   type AdvancedMemorySettings as MemorySettings,
 } from "@marinara-engine/shared";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
-import { decisionModelOption } from "../connections/DecisionDefaultControl";
 import {
   advancedMemorySceneNumbers,
   markAdvancedMemoryNotified,
@@ -62,9 +61,6 @@ export function AdvancedMemorySettings({
   const status = useAdvancedMemoryStatus(chatId);
   const action = useAdvancedMemoryAction(chatId);
   const savedConnections = useConnections();
-  const decisionConnections = (
-    (savedConnections.data ?? []) as Array<{ id: string; name: string; provider: string; model?: string }>
-  ).filter((connection) => connection.provider === "decision");
   const settings = status.data?.settings ?? normalizeAdvancedMemorySettings(metadataSettings);
   // The local models the global Decision model offers, greyed out with the reason when one can't answer (#7326).
   const decisionOptions = useDecisionOptions(settings.enabled && settings.decisionEnabled);
@@ -373,10 +369,12 @@ export function AdvancedMemorySettings({
             <div className="space-y-2">
               <div className="block space-y-1 text-xs">
                 <span>{t("chat.advancedMemory.decisionConnection")}</span>
-                <Select
+                <ConnectionSelect
+                  kind="decision"
+                  jobKey="decision"
                   value={settings.decisionConnectionId || null}
-                  label={t("chat.advancedMemory.decisionConnection")}
-                  placeholder={t("chat.advancedMemory.chooseDecisionConnection")}
+                  aria-label={t("chat.advancedMemory.decisionConnection")}
+                  defaultLabel={t("chat.advancedMemory.chooseDecisionConnection")}
                   disabled={
                     disabled ||
                     savedConnections.isLoading ||
@@ -384,26 +382,10 @@ export function AdvancedMemorySettings({
                     decisionOptions.isLoading ||
                     decisionOptions.isError
                   }
-                  className={fieldClass}
                   onChange={(next) => save({ decisionConnectionId: next || null })}
-                  options={[
-                    { value: "", label: t("chat.advancedMemory.chooseDecisionConnection") },
-                    ...(settings.decisionConnectionId &&
-                    ![...localDecisionModels, ...decisionConnections].some(
-                      (choice) => choice.id === settings.decisionConnectionId,
-                    )
-                      ? [{ value: settings.decisionConnectionId, label: t("chat.advancedMemory.missingConnection") }]
-                      : []),
-                    ...localDecisionModels.map((entry) => ({
-                      ...decisionModelOption(t, entry),
-                      group: t("connections.decision.localGroup"),
-                    })),
-                    ...decisionConnections.map((connection) => ({
-                      value: connection.id,
-                      label: connection.model ? `${connection.name} · ${connection.model}` : connection.name,
-                      group: t("connections.decision.connectionGroup"),
-                    })),
-                  ]}
+                  extraOptions={localDecisionModels
+                    .filter((entry) => !entry.unavailable)
+                    .map((entry) => ({ value: entry.id, label: entry.label }))}
                 />
               </div>
               {/* Either list failing leaves the choice incomplete; the steady accent does not pulse. */}

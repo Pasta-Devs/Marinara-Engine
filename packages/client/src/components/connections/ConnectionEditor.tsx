@@ -2501,35 +2501,19 @@ export function ConnectionEditor({
             <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
               {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
             </label>
-            <Select
-              label={localizeUi("ui.connections.connectioneditor.embeddingConnection")}
-              value={localEmbeddingConnectionId}
+            <ConnectionSelect
+              job={t("connections.picker.job.embeddings")}
+              kind="chat"
+              aria-label={localizeUi("ui.connections.connectioneditor.embeddingConnection")}
+              value={localEmbeddingConnectionId || null}
               onChange={(next) => {
-                setLocalEmbeddingConnectionId(next);
+                setLocalEmbeddingConnectionId(next ?? "");
                 markDirty();
               }}
+              defaultLabel={localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}
+              includeLocalSidecar={import.meta.env.VITE_MARINARA_LITE !== "true"}
+              rowFilter={(row) => row.id !== connectionDetailId && isChatProvider(row.provider)}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-              options={[
-                { value: "", label: localizeUi("ui.connections.connectioneditor.sameAsThisConnection") },
-                ...(import.meta.env.VITE_MARINARA_LITE !== "true"
-                  ? [
-                      {
-                        value: LOCAL_SIDECAR_CONNECTION_ID,
-                        label: localizeUi("ui.connections.connectioneditor.localModelSidecar"),
-                      },
-                    ]
-                  : []),
-                ...((allConnections ?? []) as Record<string, unknown>[])
-                  .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
-                  .map((c) => ({
-                    value: c.id as string,
-                    label: `${c.name as string}${
-                      c.embeddingModel
-                        ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
-                        : ""
-                    }`,
-                  })),
-              ]}
             />
           </div>
 

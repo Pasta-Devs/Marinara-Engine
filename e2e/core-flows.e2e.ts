@@ -19252,11 +19252,7 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     });
 
     const vectorPanel = page.locator(".mari-editor-panel").filter({ hasText: "Semantic search (embeddings)" });
-    await chooseOption(
-      page,
-      vectorPanel.getByRole("combobox", { name: "Embedding connection", exact: true }),
-      `${connectionName} (e2e-embedding-model)`,
-    );
+    await chooseConnection(page, vectorPanel.getByRole("button", { name: /^Embedding connection/ }), connectionId!);
     const vectorizeButton = vectorPanel.getByRole("button", { name: "Vectorize 1 missing", exact: true });
     const firstVectorizeAttempt = vectorizeButton.click();
     await firstSaveStarted.promise;

@@ -130,6 +130,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 import { Select } from "../ui/Select";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
@@ -3853,19 +3854,17 @@ function VectorizeSection({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={selectedConnectionId}
-              onChange={(next) => handleConnectionChange(next)}
-              label={localizeUi("ui.lorebooks.vectorizesection.embeddingConnection")}
-              className="mari-editor-field min-w-44 flex-1 px-2.5 py-1.5 text-xs"
-              options={[
-                { value: "", label: localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch") },
-                ...embeddingConnections.map((c) => ({
-                  value: c.id,
-                  label: c.embeddingModel?.trim() ? `${c.name} (${c.embeddingModel})` : c.name,
-                })),
-              ]}
-            />
+            <div className="min-w-44 flex-1">
+              <ConnectionSelect
+                kind="chat"
+                aria-label={localizeUi("ui.lorebooks.vectorizesection.embeddingConnection")}
+                value={selectedConnectionId || null}
+                onChange={(next) => handleConnectionChange(next ?? "")}
+                defaultLabel={localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}
+                includeLocalSidecar={sidecarEmbeddingConnections.length > 0}
+                rowFilter={(row) => embeddingConnections.some((connection) => connection.id === row.id)}
+              />
+            </div>
             <button
               onClick={() => handleVectorize(primaryVectorizeMode)}
               disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
