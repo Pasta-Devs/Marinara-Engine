@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Cpu,
   Download,
+  HardDrive,
   Info,
   MessageSquare,
   RotateCw,
@@ -37,6 +38,7 @@ import { PRIMARY_CLASS as PRIMARY, SECONDARY_CLASS } from "./create-connection/s
 import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
+import { EditorTabNavigation } from "../ui/EditorTabNavigation";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
@@ -158,6 +160,7 @@ function ResponseBlock({ label, value }: { label: string; value: string }) {
 
 type SettingsScreen = "settings" | "speed" | "memory" | "replies" | "expert";
 
+const OWN_TABS = ["hf", "file"] as const;
 const LABEL = "text-xs font-medium text-[var(--muted-foreground)]";
 const HINT = "text-xs text-[var(--muted-foreground)]";
 const LIST =
@@ -930,21 +933,15 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
           </button>
           {choice === "own" && (
             <div className="flex flex-col gap-3 rounded-xl bg-foreground/[0.04] p-3.5">
-              <div className="mari-editor-navigation-tabs flex self-start" role="tablist">
-                {(["hf", "file"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={ownTab === tab}
-                    data-active={ownTab === tab}
-                    className="mari-editor-tab"
-                    onClick={() => setOwnTab(tab)}
-                  >
-                    {localizeUi(`connections.builtin.tab.${tab}`)}
-                  </button>
-                ))}
-              </div>
+              <EditorTabNavigation
+                tabs={OWN_TABS.map((tab) => ({
+                  id: tab,
+                  label: localizeUi(`connections.builtin.tab.${tab}`),
+                  icon: tab === "hf" ? Download : HardDrive,
+                }))}
+                activeId={ownTab}
+                onChange={setOwnTab}
+              />
               {ownTab === "file" ? (
                 <>
                   <input

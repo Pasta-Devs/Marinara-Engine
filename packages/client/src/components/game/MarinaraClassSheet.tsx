@@ -50,6 +50,7 @@ import { chatKeys, useChat } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
 import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 
 const blockKey = (block: string) => block.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 
@@ -187,27 +188,15 @@ export function MarinaraClassSheet({ chatId, name, stored }: Props) {
         />
       </div>
 
-      <div className={cn("-mx-5 flex gap-0.5 overflow-x-auto border-y px-4 py-1.5", LINE)} role="tablist">
-        {TABS.map((one) => (
-          <button
-            key={one}
-            type="button"
-            role="tab"
-            id={`marinara-sheet-tab-${one}`}
-            aria-selected={tab === one}
-            aria-controls={`marinara-sheet-panel-${one}`}
-            onClick={() => setTab(one)}
-            className={cn(
-              "h-8 shrink-0 rounded-md px-2.5 text-[0.8125rem] font-medium transition-colors",
-              tab === one
-                ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]",
-            )}
-          >
-            {t(`game.combat.marinara.sheet2.tab.${one}`)}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="underline"
+        idPrefix="marinara-sheet"
+        className="-mx-5 px-4"
+        label={t("game.combat.marinara.sheet2.tabs")}
+        value={tab}
+        onChange={setTab}
+        items={TABS.map((one) => ({ id: one, label: t(`game.combat.marinara.sheet2.tab.${one}`) }))}
+      />
 
       {/* A floor on the panel's height keeps the tab row still while switching tabs on a desktop. */}
       <div
