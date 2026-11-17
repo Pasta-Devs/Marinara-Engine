@@ -6098,6 +6098,8 @@ type ProfileImportPreviewResult = {
   previewToken?: string;
   /** False for profiles from much older versions, which only add items and save no safety copy. */
   undoable?: boolean;
+  /** True when "Keep my current versions" applies; older profiles always add next to existing items. */
+  keepsExisting?: boolean;
   error?: string;
   message?: string;
 };
@@ -6199,8 +6201,9 @@ function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewRes
     warnings.length > 0
       ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
       : "";
-  const effect =
-    preview.undoable === false
+  const effect = preview.keepsExisting
+    ? localizeUi("ui.panels.importsettings.profileImportKeepWarning")
+    : preview.undoable === false
       ? localizeUi("ui.panels.importsettings.profileImportAddOnlyWarning")
       : localizeUi("ui.panels.importsettings.profileImportReplaceWarning");
   return [`Found: ${found}.`, warningDetail, effect].filter(Boolean).join("\n");
@@ -6282,6 +6285,7 @@ function ImportSettings() {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
   const [profileUndoRunning, setProfileUndoRunning] = useState(false);
+  const [profileKeepExisting, setProfileKeepExisting] = useState(false);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "preview" ||
@@ -6308,6 +6312,8 @@ function ImportSettings() {
   const handleProfileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Read once, so the preview and the import use the same mode.
+    const keepQuery = profileKeepExisting ? "keepExisting=true" : "";
     let previewToken: string | undefined;
     const releaseProfilePreview = async () => {
       if (!previewToken) return;
@@ -6368,7 +6374,7 @@ function ImportSettings() {
             }
           : current,
       );
-      const previewRes = await api.raw("/backup/import-profile?preview=true", {
+      const previewRes = await api.raw(`/backup/import-profile?preview=true${keepQuery ? `&${keepQuery}` : ""}`, {
         method: "POST",
         headers: { Accept: "application/json" },
         body: makeImportBody(isZip, profileText),
@@ -6442,7 +6448,7 @@ function ImportSettings() {
             }
           : current,
       );
-      const res = await api.raw("/backup/import-profile", {
+      const res = await api.raw(`/backup/import-profile${keepQuery ? `?${keepQuery}` : ""}`, {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
@@ -6658,6 +6664,13 @@ function ImportSettings() {
         {...getSettingsSectionAnchorProps("profile-marinara")}
       >
         <div className="flex flex-col gap-2.5">
+          <ToggleSetting
+            label={localizeUi("ui.panels.importsettings.keepCurrentVersions")}
+            checked={profileKeepExisting}
+            onChange={setProfileKeepExisting}
+            help={localizeUi("ui.panels.importsettings.keepCurrentVersionsHelp")}
+            disabled={profileImportBusy}
+          />
           <button
             type="button"
             onClick={() => profileImportInputRef.current?.click()}
