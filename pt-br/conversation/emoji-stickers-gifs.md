@@ -94,15 +94,29 @@ O botão de tag agora mostra o nome. Os mesmos limites de tamanho valem, e uma i
 
 O Marinara diz ao personagem que responde quais emojis e stickers personalizados ele pode usar. Para mudar como ele escolhe, clique na engrenagem **Selection preferences** no topo da aba **Custom emojis** ou **Stickers**. As duas abrem a mesma configuração, salva por chat.
 
-- **Semantic** (padrão): oferece os que melhor combinam com a conversa recente. Ela usa um modelo pequeno no seu próprio computador. Se isso não está disponível, escolhe ao acaso.
+- **Semantic** (padrão): oferece os que melhor combinam com a conversa recente. Ela usa um modelo pequeno no seu próprio computador. Se isso não está disponível, escolhe ao acaso. Quando um personagem responde, os emojis e stickers dele são classificados junto com os compartilhados, e os dele têm preferência quando a classificação fica próxima.
 - **Random**: oferece um conjunto aleatório a cada resposta.
 - **Tool-call**: um modelo escolhe os adequados a cada resposta. Escolha um modelo em **Select a model...**. Se nenhum está definido ou se ele falha, usa o semântico. É ignorada quando vários personagens respondem em uma rodada de grupo.
 
 **Max offered (each)** é quantos nomes de emojis e quantos nomes de stickers são oferecidos por turno. O padrão é 20, de 1 a 100.
 
+Se um personagem escreve o nome de um sticker como se fosse um emoji, como `:hug:` em vez de `sticker:hug:`, a resposta mostra o sticker. Isso só acontece quando nenhum emoji personalizado tem esse nome.
+
+### Mostre-os ao modelo
+
+Normalmente o modelo vê apenas os nomes dos seus emojis e stickers personalizados. Se o modelo do chat consegue ler imagens, **Show them to the model** (mostre-os ao modelo), no mesmo painel, também envia imagens para ele saber como cada um é. Isso ajuda principalmente quando os nomes não descrevem a imagem.
+
+- **Desativado** (padrão): apenas os nomes.
+- **Last message** (última mensagem): mostra os emojis e stickers personalizados da mensagem mais recente.
+- **Recent** (recentes): mostra os das últimas mensagens. **Messages to look at** (mensagens a examinar) define quantas, de 2 a 20. O padrão é 6.
+
+**Offered ones on the sheet** (oferecidos na folha) acrescenta às imagens essa quantidade de emojis oferecidos e essa mesma quantidade de stickers oferecidos, de 0 a 30. O padrão é 6. Uma folha comporta até 30 emojis e 12 stickers; os do chat vêm primeiro, então os oferecidos preenchem o espaço que sobrar.
+
+O modelo recebe uma imagem de emojis numerados e outra de stickers numerados a cada resposta, com os nomes exatos em texto. Isso custa tokens de entrada extras a cada resposta (tokens são os pequenos pedaços de texto e imagens pelos quais um serviço cobra), cerca de 1.000 com os valores padrão. A opção não tem efeito quando o modelo do chat não consegue ler imagens ou quando **Descrição automática de imagens** está ativada. Se o modelo recusar imagens, Marinara envia apenas os nomes.
+
 ## As reações usam só os seus emojis personalizados principais
 
-Você pode reagir a uma mensagem com um emoji personalizado, mas só com os emojis que enviou na aba **Custom emojis**. Emojis marcados pela galeria, stickers e GIFs não estão disponíveis como reações. Veja [Reaja e receba notificações](getting-started.md#react-and-get-notified).
+Você pode reagir a uma mensagem com um emoji personalizado, mas só com os emojis que enviou na aba **Custom emojis**. Emojis marcados pela galeria, stickers e GIFs não estão disponíveis como reações. Quando um personagem reage com o nome de um sticker, a reação mostra esse sticker. Veja [Reaja e receba notificações](getting-started.md#react-and-get-notified).
 
 ## Guias relacionados
 
