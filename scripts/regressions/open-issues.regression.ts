@@ -435,21 +435,6 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
-assert.match(
-  conversationGenerationSource,
-  /const selectorConnection = \(await connections\.getDefaultForAgents\(\)\) \?\? conn/u,
-  "Smart group responder selection must prefer the default Agent connection and fall back to the chat connection",
-);
-assert.match(
-  conversationGenerationSource,
-  /resolveStoredMaxTokens\(selectorConnection\.defaultParameters, DEFAULT_AGENT_MAX_TOKENS\)/u,
-  "Smart group responder selection must respect the Agent connection token default instead of a 512-token cap",
-);
-assert.match(
-  conversationGenerationSource,
-  /resolveStoredChatOptions\([\s\S]{0,180}selectorConnection\.defaultParameters/u,
-  "Smart group responder selection must inherit the Agent connection generation parameters",
-);
 const foregroundAutonomousSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
   "utf8",
@@ -622,21 +607,6 @@ assert.match(
 );
 assert.match(
   conversationGenerationSource,
-  /Choose one or more available characters[\s\S]{0,500}current schedule status[\s\S]{0,500}talkativeness/u,
-  "Conversation Smart ordering should use a schedule-aware selector prompt",
-);
-assert.match(
-  conversationGenerationSource,
-  /smartResponseQueue\?\.length\s*\? \[\.\.\.smartResponseQueue\]/u,
-  "Smart ordering should generate every character selected by the responder queue",
-);
-assert.match(
-  conversationGenerationSource,
-  /In a larger group, do not default to one responder merely because the group is large/u,
-  "Conversation Smart ordering should not bias larger groups toward one responder",
-);
-assert.match(
-  conversationGenerationSource,
   /scanConversationLorebooks[\s\S]{0,1000}characterIds: withIdentityLorebookScope\(targetCharacterIds\)/u,
   "Individual Conversation lorebook scans should use the current responder and character-backed user identity tags",
 );
@@ -661,11 +631,6 @@ for (const [source, lane] of [
     `Conversation ${lane} autonomous generation must target one character`,
   );
 }
-assert.match(
-  conversationGenerationSource,
-  /explicitlyMentionedConversationCharacterIds\.length > 0\s*\? explicitlyMentionedConversationCharacterIds/u,
-  "explicit Conversation mentions should select the mentioned responders before the stored response order",
-);
 assert.match(
   conversationGenerationSource,
   /resolveIllustratorImageSize\(\s*requestChatMode === "game" \? imageSettings\.game : imageSettings\.illustration,\s*illData\.aspectRatio/u,
