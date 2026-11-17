@@ -508,6 +508,24 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
     metadata: maskChatMetadataSecrets(parseChatMetadata(chat.metadata)),
   });
 }
+/**
+ * One page of the chat list, newest activity first. `before` is the `updatedAt` of the last chat
+ * on the previous page. A page never splits chats that share one `updatedAt` (bulk imports do), so
+ * the next page cannot skip them; such a page can run past `limit`.
+ */
+export function pageChatList<T extends { updatedAt: string }>(
+  chats: T[],
+  query: { limit?: string; before?: string },
+): T[] {
+  const limit = Number.parseInt(query.limit ?? "", 10);
+  const before = query.before;
+  const older = before ? chats.filter((chat) => chat.updatedAt < before) : chats;
+  if (!(limit > 0) || older.length <= limit) return older;
+  let end = limit;
+  while (end < older.length && older[end]!.updatedAt === older[end - 1]!.updatedAt) end++;
+  return older.slice(0, end);
+}
+
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId?: string; entryIds?: string[] }
@@ -1076,33 +1094,35 @@ export async function chatsRoutes(app: FastifyInstance) {
   };
 
   // List all chats
-  app.get("/", async (req, reply) => {
+  // No query: the whole list (what the app loads). `?limit=N&before=<updatedAt>` pages it.
+  app.get<{ Querystring: { limit?: string; before?: string } }>("/", async (req, reply) => {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    const response = chats
-      .filter((chat) => !shouldHideProfessorMariChat(chat))
-      .map((chat) => {
-        // List only public fields; stored embeddings and write counters belong to the database/export.
-        const normalized = normalizeChatForResponse(chat);
-        return {
-          id: normalized.id,
-          name: normalized.name,
-          mode: normalized.mode,
-          characterIds: normalized.characterIds,
-          groupId: normalized.groupId,
-          personaId: normalized.personaId,
-          personaCharacterId: normalized.personaCharacterId,
-          promptPresetId: normalized.promptPresetId,
-          connectionId: normalized.connectionId,
-          connectedChatId: normalized.connectedChatId,
-          folderId: normalized.folderId,
-          sortOrder: normalized.sortOrder,
-          lastMessageAt: normalized.lastMessageAt,
-          createdAt: normalized.createdAt,
-          updatedAt: normalized.updatedAt,
-          metadata: normalized.metadata,
-        } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
-      });
+    const response = pageChatList(
+      chats.filter((chat) => !shouldHideProfessorMariChat(chat)),
+      req.query,
+    ).map((chat) => {
+      // List only public fields; stored embeddings and write counters belong to the database/export.
+      const normalized = normalizeChatForResponse(chat);
+      return {
+        id: normalized.id,
+        name: normalized.name,
+        mode: normalized.mode,
+        characterIds: normalized.characterIds,
+        groupId: normalized.groupId,
+        personaId: normalized.personaId,
+        personaCharacterId: normalized.personaCharacterId,
+        promptPresetId: normalized.promptPresetId,
+        connectionId: normalized.connectionId,
+        connectedChatId: normalized.connectedChatId,
+        folderId: normalized.folderId,
+        sortOrder: normalized.sortOrder,
+        lastMessageAt: normalized.lastMessageAt,
+        createdAt: normalized.createdAt,
+        updatedAt: normalized.updatedAt,
+        metadata: normalized.metadata,
+      } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
+    });
     return prepareJsonResponse(req, reply, response);
   });
 

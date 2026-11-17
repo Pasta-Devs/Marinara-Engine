@@ -11,7 +11,7 @@ import {
   compareChatsByCreatedAtAsc,
   compareChatsByCreatedAtDesc,
 } from "../../../packages/client/src/lib/chat-recency.js";
-import { normalizeChatForResponse } from "../../../packages/server/src/routes/chats.routes.js";
+import { normalizeChatForResponse, pageChatList } from "../../../packages/server/src/routes/chats.routes.js";
 import { normalizeHydratedMessage } from "../../../packages/client/src/lib/message-hydration.js";
 
 assert.deepEqual(
@@ -107,4 +107,20 @@ assert.deepEqual(metadataSaveOrder, ["first", "second"]);
   assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z"), null, "bare timestamps are not cursors");
   assert.equal(parseMessageCursor("not-a-date|42"), null, "cursor timestamps must be valid");
   assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|%"), null, "cursor ids must be valid URI components");
+}
+
+{
+  // GET /chats paging: no query keeps the whole list; a page never splits chats with one updatedAt.
+  const list = ["05", "04", "03", "03", "03", "02", "01"].map((day, index) => ({
+    id: `chat-${index}`,
+    updatedAt: `2026-08-${day}T00:00:00.000Z`,
+  }));
+  const ids = (rows: typeof list) => rows.map((row) => row.id);
+  assert.deepEqual(ids(pageChatList(list, {})), ids(list), "no paging query returns every chat");
+  assert.deepEqual(ids(pageChatList(list, { limit: "2" })), ["chat-0", "chat-1"]);
+  const second = pageChatList(list, { limit: "2", before: "2026-08-04T00:00:00.000Z" });
+  assert.deepEqual(ids(second), ["chat-2", "chat-3", "chat-4"], "a page keeps same-time chats together");
+  const third = pageChatList(list, { limit: "2", before: second.at(-1)!.updatedAt });
+  assert.deepEqual(ids(third), ["chat-5", "chat-6"], "the next page continues after the tie");
+  assert.deepEqual(ids(pageChatList(list, { limit: "nope" })), ids(list), "a bad limit is ignored");
 }
