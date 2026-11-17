@@ -61,10 +61,11 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
-import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { PanelErrorState, PanelListSkeleton } from "../ui/PanelStates";
 import { Select } from "../ui/Select";
 import { Tabs } from "../ui/Tabs";
@@ -119,39 +120,6 @@ type ChatListEntry = {
   branchCount: number;
   branchRows?: BranchTreeRow<Chat>[];
 };
-// 40 rows at a time, the next 40 joining as you scroll near the end: every row is ~45 elements, and 100 of
-// them made each sidebar toggle and chat switch re-style ~4,500 elements (1-2 s on an iPad, Nov 14).
-const CHAT_LIST_PAGE_SIZE = 40;
-
-/** "Load more", pressed for you when it scrolls within reach (you can still press it). */
-function LoadMoreChatsButton({ onLoadMore, children }: { onLoadMore: () => void; children: ReactNode }) {
-  const ref = useRef<HTMLButtonElement | null>(null);
-  const latest = useRef(onLoadMore);
-  latest.current = onLoadMore;
-  useEffect(() => {
-    const button = ref.current;
-    if (!button || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) latest.current();
-      },
-      { rootMargin: "0px 0px 600px 0px" },
-    );
-    observer.observe(button);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => latest.current()}
-      className="mari-chrome-control mari-chrome-control--primary justify-center text-xs"
-    >
-      {children}
-    </button>
-  );
-}
-
 const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> = {
   online: 0,
   idle: 1,
@@ -355,7 +323,6 @@ export function ChatSidebar() {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">("conversation");
   const [scheduleManagerOpen, setScheduleManagerOpen] = useState(false);
-  const [visibleChatLimit, setVisibleChatLimit] = useState(CHAT_LIST_PAGE_SIZE);
   const [deleteTarget, setDeleteTarget] = useState<{
     chatId: string;
     chatName: string;
@@ -407,10 +374,6 @@ export function ChatSidebar() {
     setActiveTag(null);
     setTagsExpanded(false);
   }, [activeTab, exitMultiSelect]);
-
-  useEffect(() => {
-    setVisibleChatLimit(CHAT_LIST_PAGE_SIZE);
-  }, [activeTab, searchQuery, activeTag, sort]);
 
   const modeChats = useMemo(
     () =>
@@ -594,20 +557,6 @@ export function ChatSidebar() {
     autoExpandedBranchChatRef.current = activeChatId;
     setExpandedBranchGroups((previous) => (previous.has(groupId) ? previous : new Set(previous).add(groupId)));
   }, [activeChatId, activeChat?.groupId, branchTreesByGroup]);
-  const activeDisplayChatIndex = useMemo(
-    () =>
-      displayChats.findIndex(
-        (entry) => activeChatId === entry.chat.id || (activeGroupId != null && entry.chat.groupId === activeGroupId),
-      ),
-    [activeChatId, activeGroupId, displayChats],
-  );
-  const effectiveVisibleChatLimit =
-    activeDisplayChatIndex >= 0 ? Math.max(visibleChatLimit, activeDisplayChatIndex + 1) : visibleChatLimit;
-  const visibleDisplayChats = useMemo(
-    () => displayChats.slice(0, effectiveVisibleChatLimit),
-    [displayChats, effectiveVisibleChatLimit],
-  );
-  const hasMoreDisplayChats = visibleDisplayChats.length < displayChats.length;
 
   // ── Folder grouping ──
   const modeFolders = useMemo(() => {
@@ -625,11 +574,11 @@ export function ChatSidebar() {
   }, [folders, activeTab, sort, modeChats]);
 
   const { unfiledChats, folderChatsMap } = useMemo(() => {
-    if (!visibleDisplayChats.length)
-      return { unfiledChats: visibleDisplayChats, folderChatsMap: new Map<string, typeof displayChats>() };
+    if (!displayChats.length)
+      return { unfiledChats: displayChats, folderChatsMap: new Map<string, typeof displayChats>() };
     const unfiled: typeof displayChats = [];
     const map = new Map<string, typeof displayChats>();
-    for (const entry of visibleDisplayChats) {
+    for (const entry of displayChats) {
       const fid = entry.chat.folderId;
       if (!fid) {
         unfiled.push(entry);
@@ -639,7 +588,7 @@ export function ChatSidebar() {
       map.get(fid)!.push(entry);
     }
     return { unfiledChats: unfiled, folderChatsMap: map };
-  }, [visibleDisplayChats]);
+  }, [displayChats]);
   const folderChatCounts = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const chat of modeChats) {
@@ -1927,6 +1876,8 @@ export function ChatSidebar() {
                       onRename={handleRenameFolder}
                       onDelete={handleDeleteFolder}
                       draggedChatId={draggedChatId}
+                      activeChatId={activeChatId}
+                      activeGroupId={activeGroupId}
                       onDropChat={handleDropChatsToFolder}
                     />
                   );
@@ -1935,16 +1886,22 @@ export function ChatSidebar() {
           )}
 
           {/* Unfiled chats */}
-          {unfiledChats.map(renderChatRow)}
-
-          {hasMoreDisplayChats && (
-            <LoadMoreChatsButton
-              key={visibleDisplayChats.length}
-              onLoadMore={() => setVisibleChatLimit((limit) => limit + CHAT_LIST_PAGE_SIZE)}
-            >
-              {t("navigation.chatSidebar.loadMore", { count: visibleDisplayChats.length })}
-            </LoadMoreChatsButton>
-          )}
+          <PanelVirtualList
+            listKey={`chat-sidebar:${activeTab}:unfiled`}
+            count={unfiledChats.length}
+            getItemKey={(i) => unfiledChats[i]!.chat.groupId ?? unfiledChats[i]!.chat.id}
+            renderRow={(i) => renderChatRow(unfiledChats[i]!)}
+            estimateSize={52}
+            gap={2}
+            pinnedIndex={unfiledChats.findIndex((entry) => entry.chat.id === draggedChatId)}
+            scrollToIndex={(() => {
+              const i = unfiledChats.findIndex(
+                (entry) =>
+                  entry.chat.id === activeChatId || (activeGroupId != null && entry.chat.groupId === activeGroupId),
+              );
+              return i >= 0 ? i : undefined;
+            })()}
+          />
         </div>
       </div>
 
@@ -2157,6 +2114,8 @@ function FolderRow({
   onRename,
   onDelete,
   draggedChatId,
+  activeChatId,
+  activeGroupId,
   onDropChat,
 }: {
   folderDragBindings: ReturnType<ReturnType<typeof useLibraryFolderDrag>["bind"]>;
@@ -2169,6 +2128,8 @@ function FolderRow({
   onRename: (id: string, name: string) => void;
   onDelete: (folder: ChatFolder, chatCount: number) => void;
   draggedChatId: string | null;
+  activeChatId: string | null;
+  activeGroupId: string | null;
   onDropChat: (chatIds: string[], folderId: string | null) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -2319,7 +2280,22 @@ function FolderRow({
         className="ml-4 border-l border-[var(--border)]/20 pl-1"
         innerClassName="flex flex-col gap-0.5"
       >
-        {entries.map(renderChatRow)}
+        <PanelVirtualList
+          listKey={`chat-sidebar:folder:${folder.id}`}
+          count={entries.length}
+          getItemKey={(i) => entries[i]!.chat.groupId ?? entries[i]!.chat.id}
+          renderRow={(i) => renderChatRow(entries[i]!)}
+          estimateSize={52}
+          gap={2}
+          pinnedIndex={entries.findIndex((entry) => entry.chat.id === draggedChatId)}
+          scrollToIndex={(() => {
+            const i = entries.findIndex(
+              (entry) =>
+                entry.chat.id === activeChatId || (activeGroupId != null && entry.chat.groupId === activeGroupId),
+            );
+            return i >= 0 ? i : undefined;
+          })()}
+        />
       </SmoothFolderContent>
     </Reorder.Item>
   );
