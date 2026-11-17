@@ -5,7 +5,6 @@ import { ChatButtonLayoutSettings } from "./ChatButtonLayoutSettings";
 import { lazy, Suspense, useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { toast } from "sonner";
 import { ChatBranchesPanel } from "./ChatBranchesPanel";
 import { ChatMessageSearch } from "./ChatMessageSearch";
@@ -15,10 +14,7 @@ import { AgentActivitySection } from "../../components/agents/AgentActivitySecti
 import { withAgentActivityStatus } from "../../components/agents/AgentActivityIcon";
 import {
   X,
-  ChevronDown,
-  ChevronUp,
   Check,
-  Sparkles,
   RotateCcw,
   Settings2,
   Info,
@@ -33,11 +29,7 @@ import {
   Dices,
 } from "lucide-react";
 import { RoleplayRulesetSettings } from "../../components/chat/RoleplayRuleset";
-import {
-  NEUTRAL_PANEL_SCROLL_AREA,
-  SHEET_BUTTON_PRIMARY,
-  SHEET_BUTTON_QUIET,
-} from "../../components/ui/neutral-surface-styles";
+import { NEUTRAL_PANEL_SCROLL_AREA } from "../../components/ui/neutral-surface-styles";
 import { FloatingWindow } from "../../components/ui/FloatingWindow";
 import { TrackerPanelIcon } from "../../components/ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatToolbarControls";
@@ -99,7 +91,6 @@ import {
 import { cn } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HelpTooltip } from "../../components/ui/HelpTooltip";
-import { Modal } from "../../components/ui/Modal";
 import { type AvatarLayoutControls } from "../../components/chat/AvatarLayoutSettings";
 import { SettingsSwitch } from "../../components/panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionModal";
@@ -114,7 +105,6 @@ import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
-import { NeedsModelChip, agentModelNeed } from "../../components/connections/NeedsModelChip";
 import {
   isCapabilityPackageAvailable,
   useCapabilityAgentRegistry,
@@ -144,7 +134,6 @@ import {
 } from "../../lib/chat-lorebooks";
 import { getChatCharacterIds, resolveGreetingPreview } from "../../lib/chat-macros";
 import { cardAnswerValues } from "../../lib/onboarding-preview-highlight";
-import { getCadenceInputValue, parseCadenceInputValue, stepCadenceValue } from "../../lib/agent-cadence";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
@@ -165,9 +154,7 @@ import type { ChatMode, ChatPreset, PromptPreset } from "@marinara-engine/shared
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
-  DEFAULT_AGENT_CONTEXT_SIZE,
   GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
-  MIN_AGENT_MAX_TOKENS,
   isAgentManifestAvailableInChatMode,
   isAgentConfigDeleted,
   isBuiltInAgentRuntimeDisabled,
@@ -181,18 +168,13 @@ import {
 import type { Chat, GameCombatStyle, Lorebook } from "@marinara-engine/shared";
 import { normalizeSpritePlacements } from "../../components/chat/sprite-placement";
 import { type LocalSpriteVisualSettings } from "../../components/chat/local-sprite-visual-settings";
-import { AgentAddSetupFields } from "../../components/chat/AgentAddSetupFields";
 import { takePendingChatResourcePanelRestore } from "../../lib/chat-resource-drag";
 import { MultiplayerPlayersSection, type MultiplayerGameStart } from "../multiplayer/MultiplayerHostControls";
 import { multiplayerGuestErrorLabelKey } from "../multiplayer/multiplayer-guest-labels";
 import { multiplayerActionError, useMultiplayerMutation } from "../../hooks/use-multiplayer";
 import { MemoryRecallMemoriesModal } from "./MemoryRecallMemoriesModal";
-import {
-  getAgentSettingsMenuId,
-  type AvailableAgent,
-  normalizeAgentMaxTokens,
-  useChatAgents,
-} from "./agents/use-chat-agents";
+import { getAgentSettingsMenuId, type AvailableAgent, useChatAgents } from "./agents/use-chat-agents";
+import { AgentAddModal } from "./agents/AgentAddModal";
 import { Spinner } from "../../components/ui/Spinner";
 
 const QuickPresetSectionsEditor = lazy(() =>
@@ -272,11 +254,6 @@ interface ChatSettingsDrawerProps {
 const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
 
-function normalizeAgentMaxTokensInputValue(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
-  return Math.max(1, Math.trunc(value));
-}
-
 // Opening Chat settings read every card's onboarding JSON again; cache it per card object (the
 // query cache keeps a card's identity until it changes), checked against the same data string.
 const cardOnboardingCache = new WeakMap<object, { data: string; value: ReturnType<typeof readCardOnboarding> }>();
@@ -308,7 +285,6 @@ export function ChatSettingsDrawer({
   onOpenScheduleEditor,
 }: ChatSettingsDrawerProps) {
   const { t: localizeUi } = useUiTranslation();
-  const localizeText = useLocalizedUiText();
   const { t } = useTranslation();
   const qc = useQueryClient();
   // Popped-out sections render from here, so the settings stay live while any of them is open.
@@ -1235,24 +1211,7 @@ export function ChatSettingsDrawer({
     charTitle,
     gameSetupConfig,
   });
-  const {
-    supportsNarrativeDirectorSecretPlot,
-    getPromptOptionsForAgent,
-    agentSuiteAgents,
-    flushProseGuardianDrafts,
-    scrollToAgentMenu,
-    agentAddSpriteSubjects,
-    agentAddPreview,
-    setAgentAddPreview,
-    setAgentSetupQueue,
-    agentAddCadenceInputFocused,
-    setAgentAddCadenceInputFocused,
-    addingAgentToChat,
-    confirmAddAgent,
-    agentAddIntervalMeta,
-    agentAddIsRuntimeDisabled,
-    agentAddIsFeature,
-  } = chatAgents;
+  const { agentSuiteAgents, flushProseGuardianDrafts, scrollToAgentMenu } = chatAgents;
 
   const initialAgentId = initialSection?.startsWith("agent:") ? initialSection.slice("agent:".length) : null;
   useEffect(() => {
@@ -2484,314 +2443,7 @@ export function ChatSettingsDrawer({
         chatFloatingPanel
       />
 
-      <Modal
-        open={!!agentAddPreview}
-        onClose={() => {
-          if (!addingAgentToChat) {
-            setAgentAddPreview(null);
-            setAgentSetupQueue([]);
-          }
-        }}
-        title={
-          agentAddPreview
-            ? localizeUi("ui.chat.chatsettingsdrawer.addValue1", { value1: agentAddPreview.agent.name })
-            : localizeUi("ui.chat.chatsettingsdrawer.addAgent")
-        }
-        footer={
-          <>
-            <button onClick={confirmAddAgent} disabled={addingAgentToChat} className={SHEET_BUTTON_PRIMARY}>
-              {addingAgentToChat
-                ? localizeUi("ui.chat.chatsettingsdrawer.adding")
-                : localizeUi("ui.chat.chatsettingsdrawer.addAgent")}
-            </button>
-            <button
-              onClick={() => {
-                setAgentAddPreview(null);
-                setAgentSetupQueue([]);
-              }}
-              disabled={addingAgentToChat}
-              className={SHEET_BUTTON_QUIET}
-            >
-              {localizeUi("chat.delete.dialog.cancel")}
-            </button>
-          </>
-        }
-        closeButtonClassName="max-sm:hidden"
-        width="max-w-lg"
-        chatFloatingPanel
-      >
-        {agentAddPreview && (
-          <div className="space-y-4">
-            <div className="rounded-xl bg-[var(--secondary)]/80 px-4 py-3 ring-1 ring-[var(--border)]">
-              <div className="flex items-start gap-3">
-                <Sparkles size="1rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
-                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] max-sm:text-[13px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                      {agentAddPreview.agent.builtIn
-                        ? agentAddPreview.agent.category
-                        : localizeUi("ui.agents.toolcard.custom")}
-                    </span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-xs max-sm:text-[13px] leading-5 text-[var(--muted-foreground)]">
-                    {agentAddPreview.agent.description || "No description available."}
-                  </p>
-                  {(() => {
-                    const need = agentModelNeed(agentAddPreview.agent.id, agentAddPreview.config?.settings);
-                    return need && <NeedsModelChip kind={need.kind} own={need.own} className="mt-2" />;
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            {agentAddIsFeature ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                {localizeUi("ui.chat.chatsettingsdrawer.thisLetsCharactersInitiateTheDownloadedFeatureInThis")}
-              </div>
-            ) : agentAddIsRuntimeDisabled ? (
-              <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] max-sm:text-[13px] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                {localizeUi("ui.chat.chatsettingsdrawer.thisAddsItsInstructionsToTheNextRoleplayPrompt")}
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
-                  {localizeUi("ui.agents.agenteditor.agentBudget")}
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
-                      {localizeUi("ui.agents.agenteditor.contextSize")}
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        min={1}
-                        max={200}
-                        value={agentAddPreview.contextSize}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  contextSize: Number.isFinite(value)
-                                    ? Math.max(1, Math.min(200, value))
-                                    : DEFAULT_AGENT_CONTEXT_SIZE,
-                                }
-                              : current,
-                          );
-                        }}
-                        disabled={addingAgentToChat}
-                        className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                      />
-                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.agents.agenteditor.messages")}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)]">
-                      {localizeUi("ui.agents.agenteditor.maxOutputTokens")}
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        min={MIN_AGENT_MAX_TOKENS}
-                        value={agentAddPreview.maxTokens}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value, 10);
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  maxTokens: normalizeAgentMaxTokensInputValue(
-                                    Number.isFinite(value) ? value : undefined,
-                                  ),
-                                }
-                              : current,
-                          );
-                        }}
-                        onBlur={() => {
-                          setAgentAddPreview((current) =>
-                            current ? { ...current, maxTokens: normalizeAgentMaxTokens(current.maxTokens) } : current,
-                          );
-                        }}
-                        disabled={addingAgentToChat}
-                        className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                      />
-                      <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.agents.agenteditor.tokens")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.chatsettingsdrawer.contextSizeControlsRecentChatMessagesMaxOutputReserves")}
-                </p>
-              </div>
-            )}
-
-            {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
-              <div className="space-y-1.5">
-                <label className="block text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--foreground)]">
-                  {localizeText(agentAddIntervalMeta.label)}
-                </label>
-                <div className="flex items-center gap-3">
-                  {agentAddPreview.agent.builtIn ? (
-                    <input
-                      type="number"
-                      min={agentAddIntervalMeta.min ?? 1}
-                      max={agentAddIntervalMeta.max}
-                      value={agentAddPreview.runInterval}
-                      onChange={(e) => {
-                        setAgentAddPreview((current) =>
-                          current
-                            ? {
-                                ...current,
-                                runInterval: parseCadenceInputValue(
-                                  e.target.value,
-                                  agentAddIntervalMeta.defaultValue,
-                                  agentAddIntervalMeta.max,
-                                  agentAddIntervalMeta.min,
-                                ),
-                              }
-                            : current,
-                        );
-                      }}
-                      disabled={addingAgentToChat}
-                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                  ) : (
-                    <div className="relative w-28">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={
-                          agentAddCadenceInputFocused
-                            ? String(agentAddPreview.runInterval)
-                            : getCadenceInputValue(agentAddPreview.runInterval)
-                        }
-                        onFocus={(e) => {
-                          setAgentAddCadenceInputFocused(true);
-                          e.target.select();
-                        }}
-                        onBlur={() => setAgentAddCadenceInputFocused(false)}
-                        onKeyDown={(e) => {
-                          if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-                          e.preventDefault();
-                          const delta = e.key === "ArrowUp" ? 1 : -1;
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  runInterval: stepCadenceValue(
-                                    current.runInterval ?? 1,
-                                    delta,
-                                    agentAddIntervalMeta.max,
-                                    agentAddIntervalMeta.min,
-                                  ),
-                                }
-                              : current,
-                          );
-                        }}
-                        onChange={(e) => {
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  runInterval: parseCadenceInputValue(
-                                    e.target.value,
-                                    current.runInterval ?? 1,
-                                    agentAddIntervalMeta.max,
-                                    agentAddIntervalMeta.min,
-                                  ),
-                                }
-                              : current,
-                          );
-                        }}
-                        disabled={addingAgentToChat}
-                        className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm max-sm:text-base tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                      />
-                      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-md">
-                        <button
-                          type="button"
-                          aria-label={localizeUi("ui.agents.agenteditor.increaseTriggerCadence")}
-                          disabled={addingAgentToChat}
-                          onClick={() => {
-                            setAgentAddPreview((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    runInterval: stepCadenceValue(
-                                      current.runInterval ?? 1,
-                                      1,
-                                      agentAddIntervalMeta.max,
-                                      agentAddIntervalMeta.min,
-                                    ),
-                                  }
-                                : current,
-                            );
-                          }}
-                          className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <ChevronUp size="0.6875rem" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={localizeUi("ui.agents.agenteditor.decreaseTriggerCadence")}
-                          disabled={addingAgentToChat}
-                          onClick={() => {
-                            setAgentAddPreview((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    runInterval: stepCadenceValue(
-                                      current.runInterval ?? 1,
-                                      -1,
-                                      agentAddIntervalMeta.max,
-                                      agentAddIntervalMeta.min,
-                                    ),
-                                  }
-                                : current,
-                            );
-                          }}
-                          className="flex h-4 w-5 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <ChevronDown size="0.6875rem" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                    {agentAddIntervalMeta.unit}
-                  </span>
-                </div>
-                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                  {agentAddPreview.agent.id === "illustrator"
-                    ? localizeUi("agents.illustrator.chatRunIntervalHelp")
-                    : agentAddIntervalMeta.help}
-                </p>
-              </div>
-            )}
-
-            <AgentAddSetupFields
-              agentId={agentAddPreview.agent.id}
-              value={agentAddPreview.setup}
-              disabled={addingAgentToChat}
-              lorebooks={(lorebooks ?? []) as Lorebook[]}
-              promptOptions={getPromptOptionsForAgent(agentAddPreview.agent.id)}
-              spriteSubjects={agentAddSpriteSubjects}
-              allowSecretPlotControls={supportsNarrativeDirectorSecretPlot}
-              onChange={(patch) =>
-                setAgentAddPreview((current) =>
-                  current ? { ...current, setup: { ...current.setup, ...patch } } : current,
-                )
-              }
-            />
-          </div>
-        )}
-      </Modal>
+      <AgentAddModal agents={chatAgents} />
 
       {/* First message confirmation dialog */}
       {firstMesConfirm && (
