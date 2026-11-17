@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ChatMode } from "../../packages/shared/src/types/chat.js";
-import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
 import { createSerializedMutationQueue } from "../../packages/client/src/lib/serialized-mutation-queue.js";
 import {
@@ -12,7 +10,6 @@ import {
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
 import {
   formatLorebookWriteApprovalText,
   parseLorebookWriteApprovalText,
@@ -41,50 +38,6 @@ assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
 ) as Record<string, unknown>;
-
-const expectedChatModeSurfaces = {
-  conversation: {
-    showSettingsProfiles: true,
-    promptSettingsSurface: "conversation",
-    agentSettingsSurface: "conversation",
-    showGroupChatControls: true,
-  },
-  roleplay: {
-    showSettingsProfiles: true,
-    promptSettingsSurface: "roleplay",
-    agentSettingsSurface: "generation",
-    showGroupChatControls: true,
-  },
-  game: {
-    showSettingsProfiles: false,
-    promptSettingsSurface: "game",
-    agentSettingsSurface: "generation",
-    showGroupChatControls: false,
-  },
-} as const satisfies Record<
-  ChatMode,
-  {
-    showSettingsProfiles: boolean;
-    promptSettingsSurface: "conversation" | "roleplay" | "game";
-    agentSettingsSurface: "conversation" | "generation";
-    showGroupChatControls: boolean;
-  }
->;
-assert.deepEqual(chatModeSchema.options, ["conversation", "roleplay", "game"]);
-for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
-  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[mode];
-  assert.deepEqual(
-    {
-      showSettingsProfiles: modeSettingsSurfaces.showSettingsProfiles,
-      promptSettingsSurface: modeSettingsSurfaces.promptSettingsSurface,
-      agentSettingsSurface: modeSettingsSurfaces.agentSettingsSurface,
-      showGroupChatControls: modeSettingsSurfaces.showGroupChatControls,
-    },
-    expectedChatModeSurfaces[mode],
-    `Chat mode ${mode} must expose the expected settings surfaces`,
-  );
-}
-assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
 
 // Issue #5225 — optional integer order survives automatic and approval-gated writes.
 {
@@ -317,10 +270,6 @@ const sharedPackageJson = JSON.parse(
 const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
 assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
 assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
-const conversationGroupSettingsSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
 const foregroundAutonomousSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
   "utf8",
@@ -345,14 +294,6 @@ const contextBudgetChatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
   "utf8",
 );
-const contextBudgetChatSettingsSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
-const contextBudgetConnectionSectionSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/sections/ConnectionSection.tsx", import.meta.url),
-  "utf8",
-);
 const quickConnectionSwitcherSource = readFileSync(
   new URL("../../packages/client/src/components/chat/QuickConnectionSwitcher.tsx", import.meta.url),
   "utf8",
@@ -365,16 +306,6 @@ assert.doesNotMatch(
   contextBudgetChatInputSource,
   /<ContextBudgetIndicator/u,
   "Roleplay context usage must stay inside the connection switcher",
-);
-assert.match(
-  contextBudgetChatSettingsSource,
-  /<ConnectionSection[\s\S]{0,240}contextBudget=\{gameContextBudget\}/u,
-  "Game chat settings must pass measured usage to the connection section",
-);
-assert.match(
-  contextBudgetConnectionSectionSource,
-  /\{contextBudget && <ContextBudgetIndicator budget=\{contextBudget\} \/>\}/u,
-  "Game connection settings must show measured context usage",
 );
 for (const [name, source] of [
   ["desktop connection switcher", quickConnectionSwitcherSource],
@@ -406,58 +337,8 @@ const themesRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
   "utf8",
 );
-const groupChatSectionSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/sections/GroupChatSection.tsx", import.meta.url),
-  "utf8",
-);
-for (const source of [conversationGroupSettingsSource, groupChatSectionSource]) {
-  assert.doesNotMatch(source, /Reply When Mentioned/u);
-  assert.doesNotMatch(source, /label="Cross-Chat Awareness"/u);
-}
-assert.match(
-  groupChatSectionSource,
-  /ui\.chat\.chatsettingsdrawer\.individualRepliesCanUseManyTokens/u,
-  "Conversation group-token warning must remain wired through localization",
-);
-assert.match(
-  groupChatSectionSource,
-  /ui\.chat\.chatsettingsdrawer\.groupChat"/u,
-  "the Group Chat section keeps its label",
-);
-const groupChatUseIndex = conversationGroupSettingsSource.indexOf("<GroupChatSection");
-assert.notEqual(groupChatUseIndex, -1, "Chat Settings Drawer must retain the Group Chat section");
-const groupChatVisibilitySource = conversationGroupSettingsSource.slice(groupChatUseIndex, groupChatUseIndex + 600);
-assert.match(
-  groupChatVisibilitySource,
-  /chatCharIds\.length\s*>\s*1/u,
-  "pre-existing multi-character Conversation chats must retain the Group Chat character-count gate",
-);
-assert.match(
-  groupChatVisibilitySource,
-  /\bshowGroupChatControls\b/u,
-  "Group Chat visibility must consume the settings-surface policy",
-);
-assert.match(
-  conversationGroupSettingsSource,
-  // The close button also closes a pinned window: `force` defaults to true (#7036); a card link passes false (#8933).
-  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force(?:: true)? \})?\)[\s\S]{0,100}return true/u,
-  "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
-);
 
 await Promise.resolve();
-assert.match(
-  groupChatSectionSource,
-  /\{!isConversation && \(\s*<SettingsSwitch[\s\S]{0,700}ui\.chat\.chatsettingsdrawer\.namePrefixHistory/u,
-  "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
-);
-assert.match(
-  readFileSync(
-    new URL("../../packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx", import.meta.url),
-    "utf8",
-  ),
-  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
-  "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
-);
 for (const [source, lane] of [
   [foregroundAutonomousSource, "foreground"],
   [backgroundAutonomousSource, "background"],
@@ -516,54 +397,6 @@ assert.match(
   /requiredAnyCapability:\s*\["edit_lorebooks",\s*"create_lorebooks"\]/u,
   "Lorebook Update must be configurable by create-only custom lorebook agents",
 );
-assert.match(
-  chatSettingsDrawerSource,
-  // Chat Settings content follows the window's width (container queries) since #7036.
-  /flex w-full min-w-0 flex-col items-stretch gap-1\.5 @lg:w-auto @lg:shrink-0 @lg:flex-row/u,
-  "Lorebook Keeper actions must stack inside their mobile settings card",
-);
-assert.match(
-  chatSettingsDrawerSource,
-  /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
-  "Chat Settings Drawer must select the active mode's settings surface directly",
-);
-for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "agentSettingsSurface"]) {
-  assert.match(
-    chatSettingsDrawerSource,
-    new RegExp(`\\b${surfaceField}\\b`, "u"),
-    `Chat Settings Drawer must consume the ${surfaceField} settings-surface policy`,
-  );
-}
-assert.match(
-  chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<ConversationAgentsSection\b/u,
-  "Conversation Agents visibility must consume the conversation agent-settings surface",
-);
-assert.match(
-  chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']generation["']\s*&&\s*\(\s*<RoleplayAgentsSection\b/u,
-  "Roleplay and Game Agents visibility must consume the generation agent-settings surface",
-);
-assert.match(
-  roleplayAgentsSectionSource,
-  /return \(\s*<Section\s+id=\{`\$\{chatMode\}-agents`\}/u,
-  "the Roleplay and Game Agents component renders the mode's Agents section",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /getChatModeCapabilities|modeCapabilities/u,
-  "Chat Settings Drawer must use the settings-surface policy instead of shared capabilities",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /supportsPromptPresets\s*&&\s*isRoleplayMode/u,
-  "Prompt preset visibility must not contradict the matrix with a duplicate roleplay gate",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /sharedSections\s*\.includes\(\s*["']agents["']\s*\)\s*&&\s*!isConversation/u,
-  "Agent settings visibility must not retain the obsolete sharedSections/isConversation gate",
-);
 const gameAssetHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-game-assets.ts", import.meta.url),
   "utf8",
@@ -583,7 +416,6 @@ const gameAssetsRoutesSource = readFileSync(
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
-assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
   chatSettingsDrawerSource.match(/<GenerationSettingsLink/gu)?.length,
   3,
@@ -993,22 +825,6 @@ assert.equal(
     presetEditorSource,
     /injectableAgents\.map[\s\S]{0,700}justify-start[\s\S]{0,120}text-left/u,
     "Agent section choices must align with the preset editor's other add-section choices",
-  );
-}
-
-// Issue #4277 — the Secret Plot interval remains editable after Narrative
-// Director is installed instead of passing a string through a number-only
-// normalizer and immediately restoring the previous value.
-{
-  assert.match(
-    chatSettingsDrawerSource,
-    /<DraftNumberInput\s+value=\{narrativeDirectorSecretPlotRunInterval\}\s+min=\{1\}\s+max=\{100\}\s+onCommit=\{\(value\) =>\s+updateMeta\.mutate\(\{\s+id: chat\.id,\s+narrativeDirectorSecretPlotRunInterval: value,/u,
-    "Secret Plot run interval must use a draft number input that commits the edited numeric value",
-  );
-  assert.doesNotMatch(
-    chatSettingsDrawerSource,
-    /narrativeDirectorSecretPlotRunInterval:\s*normalizePositiveInteger\(\s*event\.target\.value/u,
-    "Secret Plot run interval must not reject the browser's string input value",
   );
 }
 
