@@ -13722,6 +13722,13 @@ input.ov-edhead__title:not(#ov-x) {
   pointer-events: none;
   transition: opacity 0.1s ease;
 }
+/* Bubble themes put the bottom icons just beneath the bubble, so every message keeps that much room under
+   it and the icons never reach the next message. Protected: a theme's row padding would otherwise win. */
+@layer mari-protected {
+  :root [data-message-id][data-ov-cvb="below"] {
+    padding-bottom: 1.75rem !important;
+  }
+}
 /* Room at the end of the last line of text for the bottom icons (themes where they sit inside the box), so
    the text wraps before it would run under them. Only the last line is affected. */
 [data-ov-cvb="inside"] .mari-message-content::after {
