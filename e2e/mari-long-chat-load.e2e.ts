@@ -40,6 +40,10 @@ test("a long Mari chat stays light under the RGB accent and while you type", asy
   const restart = await request.post("/api/chats/internal/professor-mari/restart?name=Long%20thread");
   expect(restart.ok(), await restart.text()).toBeTruthy();
   const chatId = ((await restart.json()) as { id: string }).id;
+  // A failed run in an earlier spec leaves the server's last error, which shows her "broken" in every chat and
+  // keeps typing below from turning her to "composing". Clear it the way her Dismiss does.
+  const reset = await request.post("/api/professor-mari/workspace/reset", { data: { keepRun: true } });
+  expect(reset.ok(), await reset.text()).toBeTruthy();
   try {
     const turns = 30;
     const t0 = Date.parse("2026-09-01T10:00:00Z");
