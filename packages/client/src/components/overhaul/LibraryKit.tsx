@@ -579,7 +579,7 @@ export function moveToFolderAction(folders: KitFolders, itemIds: () => string[],
 
 /** Colours offered for a folder icon (the first entry puts back the theme's own). */
 export const FOLDER_COLORS: { key: string; label: string; value: string | null }[] = [
-  { key: "theme", label: "Theme colour", value: null },
+  { key: "theme", label: "Theme color", value: null },
   { key: "blue", label: "Blue", value: "#3b82f6" },
   { key: "teal", label: "Teal", value: "#14b8a6" },
   { key: "green", label: "Green", value: "#22c55e" },
@@ -588,7 +588,7 @@ export const FOLDER_COLORS: { key: string; label: string; value: string | null }
   { key: "red", label: "Red", value: "#ef4444" },
   { key: "pink", label: "Pink", value: "#ec4899" },
   { key: "purple", label: "Purple", value: "#8b5cf6" },
-  { key: "grey", label: "Grey", value: "#78716c" },
+  { key: "grey", label: "Gray", value: "#78716c" },
 ];
 
 /** Opens the system colour picker and resolves with the picked "#rrggbb" (null if closed unchanged). */
@@ -663,7 +663,7 @@ function folderLookActions(folders: KitFolders, folder: KitFolder): KitAction[] 
   return [
     {
       key: "color",
-      label: "Colour",
+      label: "Color",
       icon: <Palette size={14} aria-hidden="true" />,
       submenu: [
         ...FOLDER_COLORS.map((color) => ({
@@ -681,7 +681,7 @@ function folderLookActions(folders: KitFolders, folder: KitFolder): KitAction[] 
         })),
         {
           key: "c:custom",
-          label: "Custom colour…",
+          label: "Custom color…",
           icon: <Pipette size={14} aria-hidden="true" />,
           onSelect: () =>
             void pickCustomColor(folder.color).then((value) => value && setLook(folder, { color: value })),
@@ -835,7 +835,15 @@ export function KitFolderTile({
   const tileRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const box = boxRef.current;
-    if (box) tileRef.current?.style.setProperty("--ov-folder-r", getComputedStyle(box).borderTopRightRadius);
+    const tile = tileRef.current;
+    if (!box || !tile) return;
+    tile.style.setProperty("--ov-folder-r", getComputedStyle(box).borderTopRightRadius);
+    // The ⋯ button goes just under the colour strip, wherever a theme puts it on the card.
+    const more = tile.querySelector<HTMLElement>(".ov-card__more");
+    if (!more) return;
+    more.style.marginTop = "0px";
+    const gap = box.getBoundingClientRect().top + 9 - more.getBoundingClientRect().top;
+    more.style.marginTop = `${Math.max(0, Math.round(gap))}px`;
   });
   return (
     <div

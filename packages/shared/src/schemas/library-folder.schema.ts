@@ -22,7 +22,7 @@ const nonEmptyLibraryFolderItemIdsSchema = z
 /** A folder's colour ("#rrggbb"); null puts back the theme's own. */
 export const folderColorSchema = z
   .string()
-  .regex(/^#[0-9a-f]{6}$/i, "Use a #rrggbb colour")
+  .regex(/^#[0-9a-f]{6}$/i, "Use a #rrggbb color")
   .nullable();
 /** A folder's front picture: a small PNG, JPEG or WebP data URL (the client shrinks it first); null removes it. */
 export const folderCoverSchema = z

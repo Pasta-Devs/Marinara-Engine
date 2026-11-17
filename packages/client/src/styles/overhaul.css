@@ -14152,6 +14152,10 @@ input.ov-edhead__title:not(#ov-x) {
   box-shadow: inset 0 5px 0 var(--ov-folder);
   pointer-events: none;
 }
+/* The ⋯ button sits above the tab and the colour strip (KitFolderTile moves it just under the strip). */
+.ov-folder-tile .ov-card__more {
+  z-index: 3;
+}
 .ov-folder-tile__peek {
   position: absolute;
   inset: 0;
