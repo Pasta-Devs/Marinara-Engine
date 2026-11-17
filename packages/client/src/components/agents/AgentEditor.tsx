@@ -89,6 +89,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
   BUILT_IN_AGENTS,
+  agentSupportsActivationGate,
   estimateTextTokens,
   BUILT_IN_TOOLS,
   DEFAULT_AGENT_CONTEXT_SIZE,
@@ -758,6 +759,9 @@ export function AgentEditor() {
   // Custom agent = DB entry with no matching built-in
   const isCustomAgent = !builtIn && !!dbConfig;
   const isNewCustomAgent = agentDetailId === "__new__";
+  // Built-ins the Engine gates itself (host workflows, Illustrator, Knowledge Router) keep their own activation.
+  const activationGateAvailable =
+    isCustomAgent || isNewCustomAgent || (!!builtIn && agentSupportsActivationGate(builtIn.id));
   // Downloaded agents show their store logo and banner, like their Organizer page.
   const { data: capabilityAgents } = useCapabilityAgentRegistry();
   const capabilityCatalog = useCapabilityCatalog();
@@ -1488,7 +1492,8 @@ export function AgentEditor() {
     const selectedPhase = resolveCustomAgentPhase(localPhase, localResultType, isEditingCustomAgent);
     const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
     const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
-    const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
+    const activationGateAvailable = isEditingCustomAgent || (!!builtIn && agentSupportsActivationGate(builtIn.id));
+    const activationKeywords = activationGateAvailable ? parseActivationKeywordsText(localActivationKeywordsText) : [];
     const activationScanDepth =
       localActivationScanDepth === ""
         ? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH
@@ -1578,7 +1583,7 @@ export function AgentEditor() {
               activationScanDepth,
             }
           : {}),
-        ...(isEditingCustomAgent && localActivationQuestion.trim()
+        ...(activationGateAvailable && localActivationQuestion.trim()
           ? {
               activationQuestion: localActivationQuestion.trim(),
               activationThreshold: localActivationThreshold,
@@ -1851,7 +1856,8 @@ export function AgentEditor() {
     const selectedPhase = resolveCustomAgentPhase(localPhase, localResultType, isEditingCustomAgent);
     const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
     const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
-    const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
+    const activationGateAvailable = isEditingCustomAgent || (!!builtIn && agentSupportsActivationGate(builtIn.id));
+    const activationKeywords = activationGateAvailable ? parseActivationKeywordsText(localActivationKeywordsText) : [];
     const activationScanDepth =
       localActivationScanDepth === ""
         ? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH
@@ -1906,7 +1912,7 @@ export function AgentEditor() {
       ...(isEditingCustomAgent ? localOutputOptions : {}),
       ...(isEditingCustomAgent ? { triggerLorebooksForAgentCalls: localTriggerLorebooksForAgentCalls } : {}),
       ...(activationKeywords.length > 0 ? { activationKeywords, activationScanDepth } : {}),
-      ...(isEditingCustomAgent && localActivationQuestion.trim()
+      ...(activationGateAvailable && localActivationQuestion.trim()
         ? {
             activationQuestion: localActivationQuestion.trim(),
             activationThreshold: localActivationThreshold,
@@ -3503,7 +3509,7 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
-          {(isCustomAgent || isNewCustomAgent) && (
+          {activationGateAvailable && (
             <FieldGroup
               label={localizeUi("ui.agents.agenteditor.activationKeywords")}
               icon={<Activity size="0.875rem" className="text-[var(--primary)]" />}

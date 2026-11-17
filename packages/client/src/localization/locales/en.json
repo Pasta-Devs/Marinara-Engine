@@ -8460,7 +8460,7 @@
   "ui.agents.agenteditor.whenEmptyUsesTheAgentDefaultConnectionIfOne": "When empty, uses the agent default connection if one is set, otherwise falls back to the chat's active connection.",
   "ui.agents.agenteditor.whenEnabledTheCharacterTrackerWillAutomaticallyGeneratePortrait": "When enabled, the Character Tracker will automatically generate portrait images for NPCs that don't have an avatar, using their appearance description.",
   "ui.agents.agenteditor.whenEnabledThisAgentSOutputBecomesAvailableAs": "Lets you place this agent's latest output anywhere in your prompt: add its section to your preset.",
-  "ui.agents.agenteditor.whenKeywordsAreSetThisCustomAgentIsSkipped": "When keywords are set, this custom agent is skipped unless at least one keyword appears in the recent chat messages it scans.",
+  "ui.agents.agenteditor.whenKeywordsAreSetThisCustomAgentIsSkipped": "When keywords are set, this agent is skipped unless at least one keyword appears in the recent chat messages it scans.",
   "ui.agents.agenteditor.whenNoFixedSourceIsSelectedBelowThisAgent": "When no fixed source is selected below, this agent scans the lorebooks attached to the current chat.",
   "ui.agents.agenteditor.whenThisAgentRunsDuringGenerationPreGenerationRuns": "When this agent runs: Pre-Generation before the AI replies, Parallel at the same time, Post-Processing after the reply is done.",
   "ui.agents.agenteditor.writePromptForJsonResultExample": "Write the system prompt for this agent. Its response must match this example JSON:",
