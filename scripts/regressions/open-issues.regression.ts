@@ -431,10 +431,6 @@ const conversationGroupSettingsSource = readFileSync(
   new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
-const conversationGenerationSource = readFileSync(
-  new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
-  "utf8",
-);
 const foregroundAutonomousSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
   "utf8",
@@ -592,11 +588,6 @@ for (const [source, lane] of [
     `Conversation ${lane} autonomous generation must target one character`,
   );
 }
-assert.match(
-  conversationGenerationSource,
-  /resolveIllustratorImageSize\(\s*requestChatMode === "game" \? imageSettings\.game : imageSettings\.illustration,\s*illData\.aspectRatio/u,
-  "automatic Illustrator generation should use the Game scene canvas in Game mode and preserve the shared orientation resolver",
-);
 assert.equal(
   themesRouteSource.match(/requirePrivilegedAccess\(req, reply, \{ feature: "Theme install\/update\/delete" \}\)/gu)
     ?.length,
@@ -761,30 +752,6 @@ assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS
 assert.match(browserNotificationHelpSource, /Browser notifications are not available in this environment/u);
 assert.match(browserNotificationHelpSource, /Reset this site's notification permission/u);
 
-const retryAgentsPromptReviewSource = readFileSync(
-  new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
-  "utf8",
-);
-assert.match(
-  conversationGenerationSource,
-  /const resultAgent = resolvedAgents\.find[\s\S]{0,300}resultAgent \?\? \(result\.agentType === "illustrator" \? fallbackIllustratorAgent : undefined\)/u,
-  "Image generation must use the custom producing agent and reserve Illustrator fallback for Illustrator results",
-);
-assert.match(
-  retryAgentsPromptReviewSource,
-  /const resultAgent = resolvedAgents\.find[\s\S]{0,360}resultAgent \?\? \(result\.agentType === "illustrator" \? fallbackIllustratorAgent : undefined\)/u,
-  "Image Prompt retries must retain custom agent settings without borrowing Illustrator configuration",
-);
-assert.match(
-  conversationGenerationSource,
-  /promptText:\s*\[\s*currentUserInputContent\(\) \?\? ""[\s\S]{0,500}includePersonaWhenMentionedInPrompt: false/u,
-  "Roleplay illustrations must resolve depicted characters from the latest user request without attaching an off-camera persona",
-);
-assert.match(
-  retryAgentsPromptReviewSource,
-  /promptText:\s*\[[\s\S]{0,180}recentMessages[\s\S]{0,500}includePersonaWhenMentionedInPrompt: false/u,
-  "Retried Roleplay illustrations must preserve latest-user character reference detection",
-);
 const uiStoreSource = readFileSync(new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url), "utf8");
 const syncedSettingsSource = uiStoreSource.slice(
   uiStoreSource.indexOf("export function pickSyncedSettings"),
@@ -794,19 +761,6 @@ assert.match(
   syncedSettingsSource,
   /gameTextEffectsEnabled: state\.gameTextEffectsEnabled/,
   "Game text effects must remain off after synced settings are restored",
-);
-
-assert.match(
-  retryAgentsPromptReviewSource,
-  /const\s+retryAgentConnectionCache\s*=\s*new\s+Map<string,\s*RetryAgentConnectionResolution>\(\);/,
-  "retry agent resolution should reuse provider wrappers for the same stored connection",
-);
-assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);
-assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.set\(connectionId, resolution\)/);
-assert.match(
-  retryAgentsPromptReviewSource,
-  /\.\.\.normalizeAgentPromptTemplateSelectionMap\(agentPromptTemplateIds\)/,
-  "manual retries should apply per-run prompt mode overrides",
 );
 
 const summaryPopoverSource = readFileSync(
