@@ -385,8 +385,6 @@ export function AdvancedMemorySettings({
                     decisionOptions.isError
                   }
                   onChange={(next) => save({ decisionConnectionId: next || null })}
-                  // Unavailable local models are not offered, but a saved one keeps its name and says why it
-                  // can't answer, instead of reading as a missing connection.
                   extraOptions={localDecisionModels
                     .filter((entry) => !entry.unavailable || entry.id === settings.decisionConnectionId)
                     .map((entry) => ({
