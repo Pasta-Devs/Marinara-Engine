@@ -5,13 +5,15 @@
 // ──────────────────────────────────────────────
 import {
   useId,
+  useRef,
+  useState,
   type ComponentProps,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { AudioLines, Film, ImageIcon, KeyRound, Power, Scale, UserCog, type LucideIcon } from "lucide-react";
+import { AudioLines, Film, ImageIcon, Info, KeyRound, Power, Scale, UserCog, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { type ConnectionAccountListItem, ConnectionModelCost, ModelCatalogPricing } from "@marinara-engine/shared";
@@ -24,6 +26,7 @@ import type { ModelKind } from "../../lib/connection-identity";
 import type { ConnectionRowData } from "./ConnectionRow";
 import { CostBadge, RetiringHint, costBadgeShows } from "./CostBadge";
 import { ProviderIcon } from "./ProviderIcon";
+import { ErrorDetailsDialog } from "./ErrorDetailsDialog";
 
 export const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
@@ -131,8 +134,9 @@ export function ModelRow({
     /** The title note (job rows: the model id) on its own line under the name, with the role and cost badges at
      * its end, so the name gets the row's full width and the badges sit with the model they describe. */
     badgesWithNote?: boolean;
-    /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. */
-    status?: { label: string; state?: string } | null;
+    /** Why it cannot run now (its Connection needs a key or is off…); replaces the role badge. With `detail`
+     * (a failed try's whole reason), the pill is its own button that opens the reason in full, with Copy. */
+    status?: { label: string; state?: string; detail?: string } | null;
     customized?: boolean;
     /** The model's catalog facts: its cost badge (CostBadge decides whether it shows; a known price replaces
      * "Paid") and, when the provider retires it, a quiet amber hint on line 2. */
@@ -168,8 +172,45 @@ export function ModelRow({
   const line2 = !!(pill || id || details || retiring || customized);
   // CostBadge's own rule, so the third line never shows empty.
   const costShown = useUIStore((s) => s.showCostBadges) && costBadgeShows(cost, showPaid, pricing);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detailRef = useRef<HTMLButtonElement>(null);
+  const detail = status?.detail?.trim() || null;
+  // A status with a full reason is a button of its own beside the row's button (one button cannot hold another).
+  const detailPill = status && detail && (
+    <>
+      <button
+        ref={detailRef}
+        type="button"
+        data-connection-error
+        onClick={() => setDetailOpen(true)}
+        aria-label={t("connections.error.show", { label: status.label })}
+        title={detail}
+        className={cn(
+          "flex min-h-11 max-w-[45%] shrink-0 items-center rounded-lg px-1 md:min-h-9 [@media(pointer:coarse)]:min-h-11",
+          FOCUS,
+        )}
+      >
+        <span
+          className={cn(
+            "mari-connection-pill min-w-0 underline decoration-dotted underline-offset-2",
+            status.state === "needs_key" && "mari-connection-pill--warn",
+          )}
+        >
+          <Info size="0.5625rem" className="shrink-0" aria-hidden />
+          <span className="truncate">{status.label}</span>
+        </span>
+      </button>
+      <ErrorDetailsDialog
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title={title}
+        message={detail}
+        restoreFocusRef={detailRef}
+      />
+    </>
+  );
   // Role or status, as before: a status (Needs key, Off) replaces the role badge.
-  const badge = status ? (
+  const badge = detailPill ? null : status ? (
     <span
       data-connection-role
       className={cn("mari-connection-pill shrink-0", status.state === "needs_key" && "mari-connection-pill--warn")}
@@ -329,6 +370,7 @@ export function ModelRow({
         )}
         {trailing}
       </button>
+      {detailPill}
       {end}
     </div>
   );

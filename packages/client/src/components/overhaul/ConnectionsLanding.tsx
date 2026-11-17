@@ -81,6 +81,16 @@ function fmtContext(tokens: number | undefined) {
   return String(tokens);
 }
 
+/** The path of a Model's own address, as the table shows it ("/proxy/openai"). */
+function ownAddressPath(url: string) {
+  try {
+    const path = new URL(url).pathname.replace(/\/+$/, "");
+    return path || url;
+  } catch {
+    return url;
+  }
+}
+
 function AccountStatus({ account }: { account: ConnectionAccountListItem }) {
   const localize = useLocalizedUiText();
   const state = account.enabled === false ? "off" : account.state;
@@ -554,6 +564,9 @@ export function ConnectionsLanding() {
     const jobs = jobsByModel.get(row.id) ?? [];
     const context = fmtContext(row.maxContext);
     const output = fmtContext(row.maxTokensOverride ?? undefined);
+    // A Model with its own address on the Connection's server says which path it uses.
+    const ownAddress = (row as { modelBaseUrl?: string | null }).modelBaseUrl?.trim() || "";
+    const ownPath = ownAddress ? ownAddressPath(ownAddress) : "";
     return (
       <tr
         key={row.id}
@@ -594,6 +607,11 @@ export function ConnectionsLanding() {
                 <span className="ov-conn__dim">{t("connections.loadedModel.subtitle")}</span>
               ) : null}
               {via ? <span className="ov-conn__dim">· {via}</span> : null}
+              {ownPath ? (
+                <span className="ov-conn__dim" title={`${t("connections.ownAddress.label")}: ${ownAddress}`}>
+                  · {ownPath}
+                </span>
+              ) : null}
             </span>
             <span className="ov-conn__dim ov-conn__ctx">
               {[context && `${context} ${localize("context")}`, output && `${output} ${localize("out")}`]

@@ -53,6 +53,7 @@ import {
   ImageIcon,
   Film,
   Music,
+  Plus,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -497,6 +498,9 @@ export function ConnectionEditor({
   const [localDefaultForAgents, setLocalDefaultForAgents] = useState(false);
   const [localEmbeddingModel, setLocalEmbeddingModel] = useState("");
   const [localEmbeddingBaseUrl, setLocalEmbeddingBaseUrl] = useState("");
+  // This Model's own address on its Connection's server ("" = the Connection's address).
+  const [localModelBaseUrl, setLocalModelBaseUrl] = useState("");
+  const [ownAddressOpen, setOwnAddressOpen] = useState(false);
   const [localEmbeddingConnectionId, setLocalEmbeddingConnectionId] = useState("");
   const [localPromptPresetId, setLocalPromptPresetId] = useState("");
   const [localOpenrouterProvider, setLocalOpenrouterProvider] = useState("");
@@ -601,6 +605,25 @@ export function ConnectionEditor({
     () => normalizeEndpointUrlInput(localEmbeddingBaseUrl, "Embedding endpoint URL"),
     [localEmbeddingBaseUrl],
   );
+  // A chat Model of a Connection with a typed address may use another path on that server (a proxy with one
+  // path per vendor). Its key is the Connection's, so the address must stay on the same server.
+  const accountAddress = linkedAccount?.baseUrl?.trim() ?? "";
+  const canOwnAddress =
+    !!accountId && !!accountAddress && isChatProvider(localProvider) && localProvider === linkedAccount?.provider;
+  const modelBaseUrlValidation = useMemo(() => {
+    const checked = normalizeEndpointUrlInput(localModelBaseUrl, t("connections.ownAddress.label"));
+    if (checked.error || !checked.value) return checked;
+    const origin = (url: string) => {
+      try {
+        return new URL(url).origin;
+      } catch {
+        return "";
+      }
+    };
+    return origin(checked.value) === origin(accountAddress)
+      ? checked
+      : { value: checked.value, error: t("connections.ownAddress.otherServer", { origin: origin(accountAddress) }) };
+  }, [localModelBaseUrl, accountAddress, t]);
 
   // Populate from server
   useEffect(() => {
@@ -630,6 +653,8 @@ export function ConnectionEditor({
     setLocalDefaultForAgents(c.defaultForAgents === "true" || c.defaultForAgents === true);
     setLocalEmbeddingModel((c.embeddingModel as string) ?? "");
     setLocalEmbeddingBaseUrl((c.embeddingBaseUrl as string) ?? "");
+    setLocalModelBaseUrl((c.modelBaseUrl as string | null | undefined) ?? "");
+    setOwnAddressOpen(!!(c.modelBaseUrl as string | null | undefined)?.trim());
     setLocalEmbeddingConnectionId((c.embeddingConnectionId as string) ?? "");
     setLocalPromptPresetId((c.promptPresetId as string) ?? "");
     setLocalOpenrouterProvider((c.openrouterProvider as string) ?? "");
@@ -1018,6 +1043,10 @@ export function ConnectionEditor({
       setSaveError(embeddingBaseUrlValidation.error);
       throw new Error(embeddingBaseUrlValidation.error);
     }
+    if (canOwnAddress && modelBaseUrlValidation.error) {
+      setSaveError(modelBaseUrlValidation.error);
+      throw new Error(modelBaseUrlValidation.error);
+    }
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isAudioProvider = localProvider === "audio";
@@ -1051,6 +1080,7 @@ export function ConnectionEditor({
       defaultForAgents: localDefaultForAgents,
       embeddingModel: supportsDirectEmbeddings ? localEmbeddingModel : existingEmbeddingModel,
       embeddingBaseUrl: supportsDirectEmbeddings ? embeddingBaseUrlValidation.value : existingEmbeddingBaseUrl,
+      ...(canOwnAddress ? { modelBaseUrl: modelBaseUrlValidation.value } : {}),
       embeddingConnectionId: localEmbeddingConnectionId || null,
       promptPresetId: !isMediaProvider ? localPromptPresetId || null : null,
       openrouterProvider: localOpenrouterProvider || null,
@@ -1208,6 +1238,9 @@ export function ConnectionEditor({
       if (supportsDirectEmbeddings && embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim()) {
         setLocalEmbeddingBaseUrl(embeddingBaseUrlValidation.value);
       }
+      if (canOwnAddress && modelBaseUrlValidation.value !== localModelBaseUrl.trim()) {
+        setLocalModelBaseUrl(modelBaseUrlValidation.value);
+      }
       setDirty(false);
       onSaved?.();
       setClearStoredApiKeyOnSave(false);
@@ -1249,6 +1282,9 @@ export function ConnectionEditor({
     localEmbeddingModel,
     localEmbeddingBaseUrl,
     embeddingBaseUrlValidation,
+    canOwnAddress,
+    localModelBaseUrl,
+    modelBaseUrlValidation,
     localEmbeddingConnectionId,
     localPromptPresetId,
     localOpenrouterProvider,
@@ -1320,6 +1356,7 @@ export function ConnectionEditor({
         localDefaultForAgents,
         localEmbeddingModel,
         localEmbeddingBaseUrl,
+        localModelBaseUrl,
         localEmbeddingConnectionId,
         localPromptPresetId,
         localOpenrouterProvider,
@@ -1388,6 +1425,10 @@ export function ConnectionEditor({
           setLocalEmbeddingModel(kept.localEmbeddingModel as typeof localEmbeddingModel);
         if ("localEmbeddingBaseUrl" in kept)
           setLocalEmbeddingBaseUrl(kept.localEmbeddingBaseUrl as typeof localEmbeddingBaseUrl);
+        if ("localModelBaseUrl" in kept) {
+          setLocalModelBaseUrl(kept.localModelBaseUrl as typeof localModelBaseUrl);
+          if ((kept.localModelBaseUrl as string)?.trim()) setOwnAddressOpen(true);
+        }
         if ("localEmbeddingConnectionId" in kept)
           setLocalEmbeddingConnectionId(kept.localEmbeddingConnectionId as typeof localEmbeddingConnectionId);
         if ("localPromptPresetId" in kept)
@@ -3216,6 +3257,50 @@ export function ConnectionEditor({
             )}
           </>
         )}
+
+        {/* ── Own address: another path on the Connection's server, for this Model only ── */}
+        {canOwnAddress &&
+          (ownAddressOpen ? (
+            <FieldGroup label={t("connections.ownAddress.label")} help={t("connections.ownAddress.help")}>
+              <input
+                data-own-address
+                value={localModelBaseUrl}
+                onChange={(e) => {
+                  setLocalModelBaseUrl(e.target.value);
+                  markDirty();
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                inputMode="url"
+                className={cn(
+                  "mari-chrome-field h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9",
+                  modelBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                )}
+                placeholder={accountAddress}
+              />
+              {modelBaseUrlValidation.error ? (
+                <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{modelBaseUrlValidation.error}</p>
+              ) : modelBaseUrlValidation.value && modelBaseUrlValidation.value !== localModelBaseUrl.trim() ? (
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.connections.connectioneditor.willSaveAs")} {modelBaseUrlValidation.value}
+                </p>
+              ) : null}
+              <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+                {t("connections.ownAddress.hint", { address: accountAddress })}
+              </p>
+            </FieldGroup>
+          ) : (
+            <button
+              type="button"
+              data-own-address-add
+              onClick={() => setOwnAddressOpen(true)}
+              className="flex min-h-11 items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--marinara-chat-chrome-accent,var(--foreground))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-8"
+            >
+              <Plus size="0.875rem" aria-hidden />
+              {t("connections.ownAddress.add")}
+            </button>
+          ))}
 
         {/* ── Image Service (only for image_generation provider) ── */}
         {!accountLinked && localProvider === "image_generation" && (
