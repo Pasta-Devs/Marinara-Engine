@@ -7641,6 +7641,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       personality: setupPersona?.personality ?? "",
       backstory: setupPersona?.backstory ?? "",
       appearance: setupPersona?.appearance ?? "",
+      publicFace: setupPersona?.publicFace ?? "",
       scenario: setupPersona?.scenario ?? "",
     };
     const setupLorebookRequested =
@@ -13713,6 +13714,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           personality: lorePersona?.personality ?? "",
           backstory: lorePersona?.backstory ?? "",
           appearance: lorePersona?.appearance ?? "",
+          publicFace: lorePersona?.publicFace ?? "",
           scenario: lorePersona?.scenario ?? "",
         };
         const loreChatCharacterIds = parseChatCharacterIds(chat.characterIds);

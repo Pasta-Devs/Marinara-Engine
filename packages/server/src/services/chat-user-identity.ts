@@ -21,6 +21,8 @@ export type ChatUserIdentity = {
   scenario: string;
   backstory: string;
   appearance: string;
+  /** Public Face text for macros only; never part of the user's own card. */
+  publicFace: string;
   /**
    * Image-prompt appearance override (#7053) for the IMAGE path only. Empty when
    * the user has not enabled an override, in which case `appearance` is used.
@@ -82,6 +84,7 @@ export async function resolveChatUserIdentity(
       scenario: data.scenario,
       backstory: stringValue(extensions.backstory),
       appearance: stringValue(extensions.appearance),
+      publicFace: stringValue(extensions.publicFace),
       imageAppearanceOverride: readImageAppearanceOverride(extensions, null) ?? "",
       avatarPath: row.avatarPath ?? null,
       avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
@@ -114,6 +117,7 @@ export async function resolveChatUserIdentity(
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
+    publicFace: persona.publicFace ?? "",
     // Personas store the override as TOP-LEVEL fields (no extensions bag), so
     // the helper is fed an object literal (#7053, task-7).
     //

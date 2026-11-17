@@ -16,6 +16,7 @@ export function useCardFieldLabels(): Record<CardFieldGenerationKey, string> {
     backstory: t("chat.settings.inlineEditor.fields.backstory"),
     appearance: t("chat.settings.inlineEditor.fields.appearance"),
     scenario: t("chat.settings.inlineEditor.fields.scenario"),
+    publicFace: t("chat.settings.inlineEditor.fields.publicFace"),
     mes_example: t("chat.settings.inlineEditor.fields.exampleDialogue"),
     first_mes: t("ui.characters.dialoguetab.firstMessage"),
   };

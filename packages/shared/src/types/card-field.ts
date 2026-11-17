@@ -6,6 +6,8 @@ export const CARD_FIELD_KEYS = [
   "backstory",
   "appearance",
   "scenario",
+  /** The card minus its private parts, for prompts about others. Never sent as part of their own card. */
+  "publicFace",
   "mes_example",
 ] as const;
 

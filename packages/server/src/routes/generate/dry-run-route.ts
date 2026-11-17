@@ -1098,6 +1098,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           scenario: cardPromptText(identity.scenario),
           backstory: cardPromptText(identity.backstory),
           appearance: cardPromptText(identity.appearance),
+          publicFace: cardPromptText(identity.publicFace),
         };
       }
     } catch {

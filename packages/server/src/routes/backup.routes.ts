@@ -4505,6 +4505,7 @@ export async function backupRoutes(app: FastifyInstance) {
                   personality: p.personality,
                   backstory: p.backstory,
                   appearance: p.appearance,
+                  publicFace: typeof p.publicFace === "string" ? p.publicFace : "",
                   scenario: p.scenario,
                   nameColor: p.nameColor,
                   dialogueColor: p.dialogueColor,

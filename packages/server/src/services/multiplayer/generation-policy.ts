@@ -258,6 +258,7 @@ export function roomHostIdentity(): ChatUserIdentity | null {
     scenario: "",
     backstory: "",
     appearance: "",
+    publicFace: "",
     imageAppearanceOverride: "",
     avatarPath: null,
     avatarCrop: null,

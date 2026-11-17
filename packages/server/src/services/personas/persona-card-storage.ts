@@ -26,6 +26,7 @@ export type PersonaStorageRow = {
   scenario: string;
   backstory: string;
   appearance: string;
+  publicFace: string;
   imageAppearanceEnabled: string;
   imageAppearance: string;
   avatarPath: string | null;
@@ -64,6 +65,7 @@ const PERSONA_COLUMN_DEFAULTS = {
   scenario: "",
   backstory: "",
   appearance: "",
+  publicFace: "",
   imageAppearanceEnabled: "false",
   imageAppearance: "",
   characterSheetImageId: null,
@@ -202,6 +204,7 @@ export function personaRowFromStored(stored: StoredPersonaRow): PersonaStorageRo
     scenario: encoded.scenario ?? PERSONA_COLUMN_DEFAULTS.scenario,
     backstory: encoded.backstory ?? PERSONA_COLUMN_DEFAULTS.backstory,
     appearance: encoded.appearance ?? PERSONA_COLUMN_DEFAULTS.appearance,
+    publicFace: encoded.publicFace ?? PERSONA_COLUMN_DEFAULTS.publicFace,
     imageAppearanceEnabled: encoded.imageAppearanceEnabled ?? PERSONA_COLUMN_DEFAULTS.imageAppearanceEnabled,
     imageAppearance: encoded.imageAppearance ?? PERSONA_COLUMN_DEFAULTS.imageAppearance,
     // The update encoder leaves these two out (the gallery route writes them), so they come from the card here.

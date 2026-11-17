@@ -268,6 +268,7 @@ const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-backstory", label: "Backstory" },
   { id: "character-card-appearance", label: "Appearance" },
   { id: "character-card-scenario", label: "Scenario" },
+  { id: "character-card-public-face", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { id: "character-card-dialogue", label: "Dialogue" },
 ] as const;
 
@@ -306,7 +307,7 @@ type CharacterSheetUpdate = {
 };
 
 function isCardVariableField(field: CardFieldKey): field is CardVariableField {
-  return field !== "summary" && field !== "mes_example";
+  return field !== "summary" && field !== "mes_example" && field !== "publicFace";
 }
 
 const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
@@ -410,7 +411,7 @@ const CHARACTER_QUOTE_FIELD_KEYS = new Set<string>([
   "creator_notes",
 ]);
 
-const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory"]);
+const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory", "publicFace"]);
 
 function readSavedCardData(row: unknown): CharacterData | undefined {
   const raw = (row as { data?: unknown } | null)?.data;
@@ -1719,10 +1720,11 @@ function CharacterCardTab({
     backstory: String(formData.extensions.backstory ?? ""),
     appearance: String(formData.extensions.appearance ?? ""),
     scenario: formData.scenario,
+    publicFace: String(formData.extensions.publicFace ?? ""),
     mes_example: formData.mes_example,
   };
   const updateCardField = (key: CardFieldKey, value: string) => {
-    if (key === "backstory" || key === "appearance") updateExtension(key, value);
+    if (key === "backstory" || key === "appearance" || key === "publicFace") updateExtension(key, value);
     else updateField(key, value);
   };
   const alternatives = useMemo(
@@ -1851,6 +1853,15 @@ function CharacterCardTab({
       rows: 8,
     },
     {
+      key: "publicFace",
+      sectionId: "character-card-public-face",
+      title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
+      subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
+      helpText: localizeUi("ui.cardFields.publicFace.help"),
+      placeholder: localizeUi("ui.cardFields.publicFace.placeholder"),
+      rows: 8,
+    },
+    {
       key: "mes_example",
       sectionId: "character-card-dialogue",
       // The dialogue section also owns the greetings and onboarding.
@@ -1894,7 +1905,13 @@ function CharacterCardTab({
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}
-        renderJumps={() => <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />}
+        renderJumps={() => (
+          <EditorSectionJumps
+            items={CHARACTER_CARD_SECTIONS.map((section) =>
+              "labelKey" in section ? { ...section, label: localizeUi(section.labelKey) } : section,
+            )}
+          />
+        )}
         renderFooter={chipsFor}
         onTextareaRef={(key, element) => {
           fieldRefs.current[key] = element;
@@ -2936,7 +2953,7 @@ function MetadataTab({
   );
 }
 
-const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
+const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "summary", label: "Summary" },
   { key: "description", label: "Description" },
@@ -2946,6 +2963,7 @@ const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
   { key: "mes_example", label: "Example Dialogue" },
   { key: "extensions.backstory", label: "Backstory" },
   { key: "extensions.appearance", label: "Appearance" },
+  { key: "extensions.publicFace", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { key: "extensions.imageAppearance", label: "Image Appearance Override" },
   { key: "extensions.imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "creator_notes", label: "Creator Notes" },
@@ -3264,7 +3282,9 @@ function CharacterVersionHistoryPanel({
                 return (
                   <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {field.labelKey ? localizeUi(field.labelKey) : field.label}
+                      </span>
                       {changed && (
                         <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
                           {localizeUi("ui.characters.characterversionhistorypanel.changed")}

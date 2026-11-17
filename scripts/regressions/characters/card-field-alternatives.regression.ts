@@ -241,12 +241,13 @@ try {
     data: {
       summary: "BASE SUMMARY METADATA",
       mes_example: "BASE CHARACTER DIALOGUE",
-      extensions: { cardFieldAlternatives: allCharacterAlternatives },
+      extensions: { cardFieldAlternatives: allCharacterAlternatives, publicFace: "BASE CHARACTER PUBLIC FACE" },
     },
   });
   await request("PATCH", `/api/characters/personas/${persona.id}`, {
     summary: "BASE PERSONA SUMMARY METADATA",
     mes_example: "BASE PERSONA DIALOGUE",
+    publicFace: "BASE PERSONA PUBLIC FACE",
     cardFieldAlternatives: allPersonaAlternatives,
   });
   async function assembleFor(chat: typeof firstChat) {
@@ -257,6 +258,7 @@ try {
       appearance: identity?.appearance,
       scenario: identity?.scenario,
       example: identity?.mesExample,
+      publicFace: identity?.publicFace,
     };
     const sections = ["character", "persona"].map((type) => ({
       id: type,
@@ -302,15 +304,17 @@ try {
     return { text: assembled.messages.map((message) => message.content).join("\n"), identity, personaFields };
   }
   const scoped = await assembleFor(firstChat);
-  for (const field of CARD_FIELD_KEYS.filter((field) => field !== "summary")) {
+  // Summary is library metadata, and Public Face is only for prompts about others: neither is part of the own card.
+  for (const field of CARD_FIELD_KEYS.filter((field) => field !== "summary" && field !== "publicFace")) {
     assert.ok(scoped.text.includes(`CHARACTER ALTERNATIVE ${field}`), `character marker must use ${field} replacement`);
     assert.ok(scoped.text.includes(`PERSONA ALTERNATIVE ${field}`), `persona marker must use ${field} replacement`);
   }
+  assert.doesNotMatch(scoped.text, /ALTERNATIVE publicFace/, "Public Face must stay out of the own-card markers");
   assert.doesNotMatch(scoped.text, /BASE DESCRIPTION|BASE PERSONA|ALTERNATIVE summary|SUMMARY METADATA/);
   const other = await assembleFor(secondChat);
   assert.match(other.text, /BASE DESCRIPTION/);
   assert.match(other.text, /BASE PERSONA/);
-  assert.doesNotMatch(other.text, /CHARACTER ALTERNATIVE|PERSONA ALTERNATIVE|SUMMARY METADATA/);
+  assert.doesNotMatch(other.text, /CHARACTER ALTERNATIVE|PERSONA ALTERNATIVE|SUMMARY METADATA|PUBLIC FACE/);
   const macroContext = await buildPromptMacroContext({
     db: await getDB(),
     characterIds: [character.id],
@@ -321,6 +325,17 @@ try {
   });
   assert.equal(macroContext.characterFields?.description, "CHARACTER ALTERNATIVE description");
   assert.equal(macroContext.characterFields?.example, "CHARACTER ALTERNATIVE mes_example");
+  // A chat's Public Face alternative reaches the macros, for the character and the persona.
+  const { resolveMacros } = await import("../../../packages/shared/src/index.js");
+  assert.equal(
+    resolveMacros("{{publicFace}} | {{personaPublicFace}}", macroContext),
+    "CHARACTER ALTERNATIVE publicFace | PERSONA ALTERNATIVE publicFace",
+  );
+  assert.doesNotMatch(
+    resolveMacros("{{persona}}", macroContext),
+    /publicFace/,
+    "{{persona}} must not join Public Face",
+  );
   assert.equal(
     (
       await loadCharacterPromptInfo({
@@ -347,6 +362,11 @@ try {
   const importedPersona = await request("POST", "/api/import/marinara", personaExport);
   assert.equal(importedCharacter.success, true);
   assert.equal(importedPersona.success, true);
+  assert.equal(
+    JSON.parse((await storage.getById(importedCharacter.id))!.data).extensions.publicFace,
+    "BASE CHARACTER PUBLIC FACE",
+  );
+  assert.equal((await storage.getPersona(importedPersona.id))!.publicFace, "BASE PERSONA PUBLIC FACE");
   assert.deepEqual(
     JSON.parse((await storage.getById(importedCharacter.id))!.data).extensions.cardFieldAlternatives,
     allCharacterAlternatives.map((entry) => ({ ...entry, chatIds: [] })),
