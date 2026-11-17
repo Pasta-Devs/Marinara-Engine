@@ -94,9 +94,10 @@ export async function galleryDescriptionsRoutes(app: FastifyInstance) {
     }
 
     const pictures = await loadDescribablePictures(app.db, scope, owner, imageIds);
+    // The request stream has already ended here (the body was read), so watch the response for a dropped client.
     const controller = new AbortController();
-    req.raw.on("close", () => {
-      if (!reply.sent) controller.abort();
+    reply.raw.on("close", () => {
+      if (!reply.raw.writableFinished) controller.abort(new DOMException("The request was cancelled.", "AbortError"));
     });
 
     type Result = { id: string; description?: string | null; skipped?: boolean; error?: string };
