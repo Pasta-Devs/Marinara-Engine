@@ -53,6 +53,8 @@ Game Mode 没有 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词
 
 成图的最终观感还取决于你的风格方案。见[图像风格方案](style-profiles.md)。
 
+要用另一种画风画一张图，而不改变聊天的选择，就输入 `/illustrate template=` 和画风名称，例如 `/illustrate template="Comic Page"`。见[斜杠命令](../chats/slash-commands.md#illustrate-and-make-artifacts)。
+
 ## 选择提示词模型
 
 **Prompt Model** 是负责写图像提示词的文本模型，它不画图。在卡片上的 **Prompt Model** 列表里选。默认是 **Main chat model**(聊天主模型)，也就是沿用聊天的模型。想让另一个模型来写提示词，就另选一个文本模型。

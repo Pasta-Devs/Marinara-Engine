@@ -53,6 +53,8 @@ Lista **Prompt Mode** (na karcie z etykietą **Prompt**) ustala styl graficzny k
 
 Ostateczny wygląd zależy też od profilu stylu. Zobacz [Profile stylu obrazów](style-profiles.md).
 
+Żeby narysować jeden obraz w innym stylu bez zmiany stylu wybranego dla czatu, wpisz `/illustrate template=` i nazwę stylu, na przykład `/illustrate template="Comic Page"`. Zobacz [Lista komend slash](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Wybór modelu promptu
 
 **Prompt Model** to model tekstowy, który pisze prompt obrazu. Nie rysuje. Wybierz go z listy **Prompt Model** na karcie. Domyślna wartość to **Main chat model** (główny model czatu), czyli ponowne użycie modelu twojego czatu. Wybierz inny model tekstowy, jeśli prompty ma pisać inny model.

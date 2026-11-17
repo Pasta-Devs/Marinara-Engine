@@ -53,6 +53,8 @@ Le sélecteur **Prompt Mode** (libellé **Prompt** sur la carte) définit le sty
 
 Le rendu final dépend aussi de ton profil de style. Voir [Profils de style d'image](style-profiles.md).
 
+Pour dessiner une seule image dans un autre style sans changer le choix du chat, tape `/illustrate template=` suivi du nom du style, par exemple `/illustrate template="Comic Page"`. Voir [Commandes slash](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Choisir le modèle de rédaction du prompt
 
 Le **Prompt Model** est le modèle de texte qui écrit le prompt d'image. Il ne dessine pas. Choisis-le dans la liste **Prompt Model** de la carte. La valeur par défaut est **Main chat model** (modèle principal du chat), qui réutilise le modèle de ton chat. Choisis un autre modèle de texte si tu veux que ce soit un autre modèle qui rédige les prompts.

@@ -118,7 +118,7 @@ Un profil peut aussi contenir des **choix de départ** : un persona, des loreboo
 - Appliquer le profil copie ces choix dans le chat. Si le profil en laisse un vide, le chat conserve le sien.
 - Les autres réglages du profil remplacent toujours ceux du chat.
 - Ces choix ne restent pas liés. Un changement fait ensuite dans le chat reste dans ce chat.
-- **Save current chat settings into this profile** conserve le persona, les lorebooks et l'arrière-plan propres au profil. Un profil sans arrière-plan prend celui du chat quand tu enregistres dans ce profil.
+- **Save current chat settings into this profile** remplace les lorebooks du profil par ceux qui ont été ajoutés au chat, avec **Add Lorebook** (ajouter un lorebook) ou en appliquant un profil. Un lorebook que Lorebook Keeper a créé pour le chat n'est pas enregistré. Si aucun lorebook n'a été ajouté, le profil n'en a aucun après l'enregistrement. Le profil conserve son propre persona et son propre arrière-plan. Un profil sans arrière-plan prend celui du chat quand tu enregistres dans ce profil.
 - La mise à jour des autres chats ne change jamais leur persona, leurs lorebooks ni leur arrière-plan.
 
 Un profil ne remplace pas le contenu qui appartient au chat : personnages, sprites, résumé, tags et prompt de scène. Il ne contient pas non plus d'historique de conversation ni d'état en cours, comme les variables de macro, les personnages que tu as désactivés ou un salon multijoueur.

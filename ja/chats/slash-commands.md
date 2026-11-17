@@ -68,7 +68,7 @@ Roleplayでは、範囲のあとにキャラクター名を付けると、その
 | `/roll` | ダイスを振って結果を投稿します。別名は`/r`、`/dice`です。書式は`/roll [dice (optional)]`です。 |
 | `/random` | 予想外の出来事を加えるよう、モデルに頼みます。別名は`/rand`、`/event`です。 |
 | `/scene` | Conversationから分岐するRoleplayのシーンを始めます。別名は`/rp`です。書式は`/scene [description (optional)]`です。 |
-| `/illustrate` | Roleplay専用です。ギャラリーの画像を生成します。Illustratorエージェントが必要です。別名は`/ill`です。書式は`/illustrate [range=N-M] [prompt]`です。 |
+| `/illustrate` | Roleplay専用です。ギャラリーの画像を生成します。Illustratorエージェントが必要です。別名は`/ill`です。書式は`/illustrate [range=N-M] [template=name] [prompt]`です。 |
 | `/html` | Roleplay専用です。最新の返信の末尾に、`a spellbook page`のような作中世界のアーティファクトを1つ作ります。書式は`/html [what you want]`です。 |
 | `/video` | Roleplay専用です。最新の返信、または指定した内容の短いクリップを、その返信の下に作ります。Illustratorの**First frame**(開始フレーム)設定に従います。Illustratorが必要です。書式は`/video [description]`です。 |
 | `/impersonate` | 自分のペルソナとして返信を書きます。別名は`/imp`です。書式は`/impersonate [direction (optional)]`です。 |
@@ -109,9 +109,20 @@ Roleplayでは、範囲のあとにキャラクター名を付けると、その
 
 名前を指定して表情を省略すると、そのキャラクターの表情を一覧表示します。スプライトをアップロード済みのRoleplayチャットが必要です。[キャラクターのスプライト](../characters/sprites.md)を参照してください。
 
+<a id="illustrate-and-make-artifacts"></a>
+
 ### イラストとアーティファクトを作る
 
-`/illustrate range=12`は、メッセージ12を描きます。`/illustrate range=12-18`は、メッセージ12から18をIllustratorに送ります。`/goto`と同じメッセージ番号を昇順で使い、最大200件まで指定できます。隠したメッセージは除外されます。画像は、範囲内で最後に表示されているメッセージに添付されます。Advanced Memoryがオンでも、以前のメッセージを引き続き使えます。`range=`を付けない場合、コマンドは現在のシーンを対象にします。入力したプロンプトは、書いたとおりに使われます。
+`/illustrate range=12`は、メッセージ12を描きます。`/illustrate range=12-18`は、メッセージ12から18をIllustratorに送ります。`/goto`と同じメッセージ番号を昇順で使い、最大200件まで指定できます。隠したメッセージは除外されます。画像は、範囲内で最後に表示されているメッセージに添付されます。Advanced Memoryがオンでも、以前のメッセージを引き続き使えます。`range=`を付けない場合、コマンドは現在のシーンを対象にします。`template=`を付けない場合、入力したプロンプトは、書いたとおりに使われます。
+
+`template=`は、Illustratorの**Prompt Mode**(プロンプトモード)の選択肢にある別の画風で、絵を1枚描きます。チャット自身の**Prompt Mode**は変わりません。画風の名前は、選択肢に表示されるとおりに入力してください。大文字と小文字は区別しません。空白、`-`、`_`は同じものとみなされ、空白を含む名前は引用符で囲みます。`template=default`は**Illustration**(イラスト)です。
+
+```text
+/illustrate template=comic-page
+/illustrate range=17 template="Comic Page" Aster holds the gate open and looks back
+```
+
+`template=`を付けた場合、入力したテキストで、何を描くかをプロンプトを書くモデルに伝えます。テキストは2,000文字までです。画風は引き続きモードで決まります。**Attach Card Appearance**(カードの外見情報を添付)と**Send Avatar References**(アバターを参照画像として送信)は、Galleryの**Illustrate**(イラストを生成)ボタンの場合と同じように動作します。`range=`と`template=`は、テキストより前に置いてください。順序はどちらが先でもかまいません。どの画風にも一致しない名前を指定すると、使える画風が一覧表示されます。同じ名前の画風が2つある場合は、メッセージに括弧付きで表示されるIDを入力してください。
 
 `/html a terminal readout`はエージェントが不要で、**HTML Artifacts**(HTMLアーティファクト)がオンでもオフでも動作します。**Roleplay Commands**(Roleplayコマンド)で**HTML Artifacts**がオンの場合は、ナレーターも`[html: prompt="..."]`で同じものを依頼できます。[オンデマンドのアーティファクト](../roleplay/getting-started.md#artifacts-on-demand)を参照してください。
 

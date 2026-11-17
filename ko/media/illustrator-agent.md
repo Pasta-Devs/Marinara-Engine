@@ -53,6 +53,8 @@ Game Mode에는 **Prompt Mode**(프롬프트 모드)나 **Prompt Model**(프롬�
 
 최종 결과물의 느낌은 스타일 프로필에도 좌우됩니다. [이미지 스타일 프로필](style-profiles.md)을 참고하세요.
 
+채팅에서 고른 그림체를 바꾸지 않고 다른 그림체로 그림 한 장을 그리려면 `/illustrate template="Comic Page"`처럼 `/illustrate template=` 뒤에 그림체 이름을 입력하세요. [슬래시 명령어](../chats/slash-commands.md#illustrate-and-make-artifacts)를 참고하세요.
+
 ## 프롬프트 모델 고르기
 
 **Prompt Model**은 이미지 프롬프트를 쓰는 텍스트 모델입니다. 그림을 그리지는 않습니다. 카드의 **Prompt Model** 목록에서 고르세요. 기본값은 **Main chat model**이며, 채팅의 모델을 그대로 씁니다. 다른 모델에 프롬프트 작성을 맡기고 싶다면 다른 텍스트 모델을 고르세요.

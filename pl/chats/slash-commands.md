@@ -68,7 +68,7 @@ Komenda `/remind` przyjmuje czas z jednostką `h` (godziny), `m` (minuty) lub `s
 | `/roll` | Rzuca kośćmi i wysyła wynik. Także `/r`, `/dice`. Format: `/roll [dice (optional)]`. |
 | `/random` | Prosi model o dodanie niespodziewanego wydarzenia. Także `/rand`, `/event`. |
 | `/scene` | Zaczyna scenę Roleplay, która odgałęzia się od rozmowy. Także `/rp`. Format: `/scene [description (optional)]`. |
-| `/illustrate` | Tylko Roleplay. Generuje obraz do galerii. Wymaga agenta Illustrator. Także `/ill`. Format: `/illustrate [range=N-M] [prompt]`. |
+| `/illustrate` | Tylko Roleplay. Generuje obraz do galerii. Wymaga agenta Illustrator. Także `/ill`. Format: `/illustrate [range=N-M] [template=name] [prompt]`. |
 | `/html` | Tylko Roleplay. Tworzy jeden artefakt ze świata opowieści, na przykład `a spellbook page`, na końcu najnowszej odpowiedzi. Format: `/html [what you want]`. |
 | `/video` | Tylko Roleplay. Tworzy krótki klip z najnowszej odpowiedzi lub na podstawie twojego opisu i umieszcza go pod tą odpowiedzią. Korzysta z ustawienia **First frame** (pierwsza klatka) agenta Illustrator. Wymaga agenta Illustrator. Format: `/video [description]`. |
 | `/impersonate` | Pisze odpowiedź w imieniu twojej persony. Także `/imp`. Format: `/impersonate [direction (optional)]`. |
@@ -109,9 +109,20 @@ Sprite to obrazek postaci pokazujący wyraz twarzy. Wpisz samo `/emote`, aby zob
 
 Z imieniem, ale bez wyrazu twarzy, komenda wypisuje wyrazy twarzy tej postaci. Wymaga czatu Roleplay z wgranymi sprite'ami. Zobacz [Sprite'y postaci](../characters/sprites.md).
 
+<a id="illustrate-and-make-artifacts"></a>
+
 ### Ilustracje i artefakty
 
-Komenda `/illustrate range=12` ilustruje wiadomość 12. `/illustrate range=12-18` wysyła do agenta Illustrator wiadomości od 12 do 18. Używaj tych samych numerów wiadomości co w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości są pomijane. Obraz zostaje dołączony do ostatniej widocznej wiadomości w zakresie. Wcześniejsze wiadomości pozostają dostępne przy włączonej funkcji Advanced Memory. Bez `range=` komenda działa na bieżącej scenie. Wpisany prompt jest używany dosłownie.
+Komenda `/illustrate range=12` ilustruje wiadomość 12. `/illustrate range=12-18` wysyła do agenta Illustrator wiadomości od 12 do 18. Używaj tych samych numerów wiadomości co w `/goto`, w kolejności rosnącej, maksymalnie 200 wiadomości. Ukryte wiadomości są pomijane. Obraz zostaje dołączony do ostatniej widocznej wiadomości w zakresie. Wcześniejsze wiadomości pozostają dostępne przy włączonej funkcji Advanced Memory. Bez `range=` komenda działa na bieżącej scenie. Bez `template=` wpisany prompt jest używany dosłownie.
+
+`template=` rysuje jeden obraz w innym stylu z listy **Prompt Mode** (tryb promptu) agenta Illustrator. Czat zachowuje własne ustawienie **Prompt Mode**. Wpisz nazwę stylu tak, jak pokazuje ją lista, przy czym wielkość liter nie ma znaczenia. Spacje, `-` i `_` są traktowane jednakowo, a nazwę ze spacjami ujmij w cudzysłów. `template=default` oznacza styl **Illustration**.
+
+```text
+/illustrate template=comic-page
+/illustrate range=17 template="Comic Page" Aster holds the gate open and looks back
+```
+
+Przy `template=` wpisany tekst (do 2 000 znaków) mówi modelowi piszącemu prompt, co pokazać, a styl nadal pochodzi z trybu. **Attach Card Appearance** (dołączenie wyglądu z karty) i **Send Avatar References** (wysyłanie awatarów jako referencji) działają tak samo jak przy przycisku **Illustrate** (zilustruj) w galerii. Umieść `range=` i `template=` przed swoim tekstem, w dowolnej kolejności. Gdy nazwa nie pasuje do żadnego stylu, komenda wypisuje te, których możesz użyć. Jeśli dwa style mają tę samą nazwę, wpisz identyfikator, który komunikat pokazuje w nawiasie.
 
 `/html a terminal readout` nie wymaga agenta i działa niezależnie od tego, czy opcja **HTML Artifacts** (artefakty HTML) jest włączona. Narrator może poprosić o to samo znacznikiem `[html: prompt="..."]`, gdy opcja **HTML Artifacts** jest włączona w sekcji **Roleplay Commands** (komendy Roleplay). Zobacz [Artefakty na żądanie](../roleplay/getting-started.md#artifacts-on-demand).
 

@@ -68,7 +68,7 @@
 | `/roll` | 掷骰子并把结果发出来。也可以用 `/r`、`/dice`。格式：`/roll [dice (optional)]`。 |
 | `/random` | 让模型加一个意外事件。也可以用 `/rand`、`/event`。 |
 | `/scene` | 从这段对话分支出一个 Roleplay 场景。也可以用 `/rp`。格式：`/scene [description (optional)]`。 |
-| `/illustrate` | 仅限 Roleplay。生成一张图库图像，需要 Illustrator 智能体。也可以用 `/ill`。格式：`/illustrate [range=N-M] [prompt]`。 |
+| `/illustrate` | 仅限 Roleplay。生成一张图库图像，需要 Illustrator 智能体。也可以用 `/ill`。格式：`/illustrate [range=N-M] [template=name] [prompt]`。 |
 | `/html` | 仅限 Roleplay。在最新回复的末尾生成一件世界观内的物件，例如 `a spellbook page`。格式：`/html [what you want]`。 |
 | `/video` | 仅限 Roleplay。为最新回复或你的描述生成一段短片，显示在这条回复下方。遵循 Illustrator 的 **First frame**(首帧) 设置，需要 Illustrator。格式：`/video [description]`。 |
 | `/impersonate` | 以你的用户角色身份写一条回复。也可以用 `/imp`。格式：`/impersonate [direction (optional)]`。 |
@@ -109,9 +109,20 @@
 
 只写名字不写表情时，会列出该角色的表情。这需要一个已上传立绘的 Roleplay 聊天。见[角色立绘](../characters/sprites.md)。
 
+<a id="illustrate-and-make-artifacts"></a>
+
 ### 生成插图和物件
 
-`/illustrate range=12` 为第 12 条消息生成插图，`/illustrate range=12-18` 把第 12 到 18 条消息交给 Illustrator。消息编号与 `/goto` 相同，按升序指定，最多 200 条。隐藏的消息会被排除。图片会附加到范围内最后一条可见消息上。开启 Advanced Memory 后，较早的消息仍可选。不带 `range=` 时，命令作用于当前场景。你输入的提示词会原样使用。
+`/illustrate range=12` 为第 12 条消息生成插图，`/illustrate range=12-18` 把第 12 到 18 条消息交给 Illustrator。消息编号与 `/goto` 相同，按升序指定，最多 200 条。隐藏的消息会被排除。图片会附加到范围内最后一条可见消息上。开启 Advanced Memory 后，较早的消息仍可选。不带 `range=` 时，命令作用于当前场景。不带 `template=` 时，你输入的提示词会原样使用。
+
+`template=` 会用 Illustrator 的 **Prompt Mode**(提示词模式) 选择器里的另一种画风画一张图。聊天会保留自己的 **Prompt Mode**。按选择器里显示的样子输入画风名称，大小写不限。空格、`-` 和 `_` 视为相同，含空格的名称要加引号。`template=default` 就是 **Illustration**(插图)。
+
+```text
+/illustrate template=comic-page
+/illustrate range=17 template="Comic Page" Aster holds the gate open and looks back
+```
+
+带 `template=` 时，你输入的文字（最多 2,000 个字符）会告诉写提示词的模型要画什么，画风仍由该模式决定。**Attach Card Appearance**(附带角色卡外貌) 和 **Send Avatar References**(发送头像参考图) 的作用与用 Gallery(图库) 的 **Illustrate**(生成插图) 按钮时相同。把 `range=` 和 `template=` 放在你的文字前面，顺序不限。名称匹配不到任何画风时，会列出你可以用的画风。如果两种画风同名，就输入消息里括号中显示的 ID。
 
 `/html a terminal readout` 不需要智能体，无论 **HTML Artifacts**(HTML 物件) 是否开启都能用。在 **Roleplay Commands**(Roleplay 命令) 下开启 **HTML Artifacts** 后，旁白也可以用 `[html: prompt="..."]` 发出同样的请求。见[按需生成物件](../roleplay/getting-started.md#artifacts-on-demand)。
 
