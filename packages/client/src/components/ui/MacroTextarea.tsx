@@ -160,7 +160,7 @@ function ExpandedMacroEditor({
               {title}
             </h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.expandedmacroeditor.expandedEditor")}
+              {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
             </p>
           </div>
           {showTokenCount && (
