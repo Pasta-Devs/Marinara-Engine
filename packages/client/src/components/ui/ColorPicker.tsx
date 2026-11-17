@@ -25,6 +25,8 @@ import {
   RAINBOW_GRADIENT_PRESET,
 } from "../../lib/css-colors";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useFieldWindow } from "./PickerField";
+import { PickerWindow } from "./PickerWindow";
 
 interface ColorPickerProps {
   value: string;
@@ -51,6 +53,8 @@ interface ColorPickerProps {
   disabled?: boolean;
   /** Show only the label row and the always-open picker panel; the caller supplies its own trigger. */
   panelOnly?: boolean;
+  /** With panelOnly: no label row, help text or clear action; the caller's window shows the title. */
+  bare?: boolean;
   /** Offer the opacity strip (default). Turn off where the value gets its own alpha appended later. */
   opacity?: boolean;
 }
@@ -487,6 +491,7 @@ export function ColorPicker({
   headerAction,
   disabled = false,
   panelOnly = false,
+  bare = false,
   opacity = true,
 }: ColorPickerProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -655,22 +660,25 @@ export function ColorPicker({
   return (
     <div className={cn("space-y-2", compact && "space-y-1.5")}>
       {/* Label */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-xs font-medium text-[var(--muted-foreground)]">{label}</span>
-          {headerAction}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {showClear && (
-            <button type="button" onClick={clearColor} disabled={disabled} className={SETTINGS_BUTTON_CLASS}>
-              <X size="0.75rem" />
-              {clearLabel}
-            </button>
-          )}
-        </div>
-      </div>
-      {helpText && <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">{helpText}</p>}
-
+      {!bare && (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 truncate text-xs font-medium text-[var(--muted-foreground)]">{label}</span>
+              {headerAction}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {showClear && (
+                <button type="button" onClick={clearColor} disabled={disabled} className={SETTINGS_BUTTON_CLASS}>
+                  <X size="0.75rem" />
+                  {clearLabel}
+                </button>
+              )}
+            </div>
+          </div>
+          {helpText && <p className="text-[0.625rem] text-[var(--muted-foreground)]/70">{helpText}</p>}
+        </>
+      )}
       {/* Preview + trigger */}
       {!panelOnly && (
         <button
@@ -954,5 +962,122 @@ export function ColorPicker({
         </div>
       )}
     </div>
+  );
+}
+
+const RECENT_COLORS_KEY = "marinara:recent-colors";
+const THEME_COLOR_VARS = [
+  "--primary",
+  "--marinara-app-accent-solid",
+  "--foreground",
+  "--muted-foreground",
+  "--destructive",
+];
+
+function readRecentColors(): string[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(RECENT_COLORS_KEY) ?? "[]");
+    return Array.isArray(stored) ? stored.filter((color): color is string => typeof color === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * A compact colour control for tight rows: a swatch with its hex code. A tap opens the ColorPicker in a
+ * popover (a bottom sheet on phones) with the theme's colours and the last colours picked anywhere.
+ * Always gives a solid `#rrggbb` (or `#rrggbbaa`) value, like a native colour input.
+ */
+export function ColorField({
+  value,
+  onChange,
+  label,
+  disabled,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const { open, triggerRef, close, toggle } = useFieldWindow(disabled);
+  const [quick, setQuick] = useState<string[]>([]);
+  const startValue = useRef(value);
+
+  useEffect(() => {
+    if (!open) return;
+    startValue.current = value;
+    const style = getComputedStyle(document.documentElement);
+    const theme = THEME_COLOR_VARS.map((name) => resolveCssColorToHex(style.getPropertyValue(name)));
+    setQuick([...new Set([...theme, ...readRecentColors()].filter((color): color is string => !!color))]);
+    // Only on open: the row must not jump while the user picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const closeAndRemember = () => {
+    const picked = normalizeHexColor(value);
+    if (picked && picked !== normalizeHexColor(startValue.current)) {
+      const recent = [picked, ...readRecentColors().filter((color) => color !== picked)].slice(0, 8);
+      try {
+        localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(recent));
+      } catch {
+        // Private mode or a full quota: recent colours are a convenience only.
+      }
+    }
+    close();
+  };
+
+  const pick = (next: string) => {
+    const hex = resolveCssColorToHex(next);
+    if (hex) onChange(hex);
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        disabled={disabled}
+        onClick={open ? closeAndRemember : toggle}
+        className={cn(
+          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] ps-1 pe-2 font-mono text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+      >
+        <span className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]" style={{ backgroundColor: value }} />
+        {value}
+      </button>
+      {open && (
+        <PickerWindow title={label} anchorRef={triggerRef} onClose={closeAndRemember} hug>
+          <div className="min-h-0 space-y-3 overflow-y-auto px-3 pt-1 pb-3">
+            {quick.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {quick.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => onChange(color)}
+                    className={cn(
+                      PALETTE_SWATCH_CLASS,
+                      normalizeHexColor(value) === color && "ring-2 ring-[var(--primary)] scale-110",
+                    )}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                    aria-label={color}
+                    aria-pressed={normalizeHexColor(value) === color}
+                  />
+                ))}
+              </div>
+            )}
+            <ColorPicker value={value} onChange={pick} label={label} panelOnly bare compact opacity={false} />
+          </div>
+        </PickerWindow>
+      )}
+    </>
   );
 }

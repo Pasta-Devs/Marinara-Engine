@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { CircleDashed, X } from "lucide-react";
+import { SearchInput } from "./SearchInput";
 import { SUPPORTED_STAT_ICONS, type SupportedStatIcon } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
@@ -208,12 +209,11 @@ export function StatIconPicker({
               style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}
             >
               <div className="border-b border-[var(--border)] p-2">
-                <input
-                  ref={searchRef}
-                  type="search"
+                <SearchInput
+                  inputRef={searchRef}
                   value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
+                  onChange={(value) => {
+                    setSearch(value);
                     setActiveOptionIndex(0);
                   }}
                   onKeyDown={(event) => {
@@ -222,9 +222,8 @@ export function StatIconPicker({
                       focusOption(0);
                     }
                   }}
+                  label={localizeUi("ui.ui.staticonpicker.searchIcons")}
                   placeholder={localizeUi("ui.ui.staticonpicker.searchIcons")}
-                  aria-label={localizeUi("ui.ui.staticonpicker.searchIcons")}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--primary)]/40"
                 />
                 {allowInherit ? (
                   <button

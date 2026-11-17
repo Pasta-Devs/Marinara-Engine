@@ -80,7 +80,8 @@ import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { modelRoleLabels } from "./ModelRow";
-import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -1431,7 +1432,7 @@ export function ConnectionSwitcherBody({
   );
 
   const searchBox = (
-    <ListSearch
+    <SearchInput
       className="mx-2 my-2 shrink-0"
       inputRef={searchRef}
       data-switcher-search

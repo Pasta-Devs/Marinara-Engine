@@ -45,6 +45,7 @@ import {
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Checkbox } from "../ui/Checkbox";
+import { ColorField } from "../ui/ColorPicker";
 
 export interface GameCharacterSheetGameCard {
   shortDescription: string;
@@ -863,14 +864,13 @@ export function GameCharacterSheet({
                         {draft.pools.map((pool, index) => (
                           <div
                             key={`${pool.name}-${index}`}
-                            className="grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
+                            className="grid grid-cols-[auto_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
                           >
-                            <input
-                              type="color"
+                            <ColorField
                               value={pool.color}
-                              onChange={(e) => updatePool(index, { color: e.target.value })}
-                              className="h-9 w-8 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-transparent p-0.5 max-sm:w-full"
-                              aria-label={localizeUi("ui.game.gamecharactersheet.value1Color", {
+                              onChange={(color) => updatePool(index, { color })}
+                              className="max-sm:w-full"
+                              label={localizeUi("ui.game.gamecharactersheet.value1Color", {
                                 value1: pool.name || localizeUi("ui.game.gamecharactersheet.pool"),
                               })}
                             />

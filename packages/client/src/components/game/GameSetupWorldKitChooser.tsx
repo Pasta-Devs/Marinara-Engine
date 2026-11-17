@@ -39,6 +39,7 @@ import { useWorldLibrary } from "../../hooks/use-world-library";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
 import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
+import { ColorField } from "../ui/ColorPicker";
 
 export interface WorldKitWriteRequest {
   connectionId?: string;
@@ -810,12 +811,10 @@ export function GameSetupWorldKitChooser({
                           aria-label={t("game.worldKit.setup.elementSign", { name: element.label })}
                           className={cn(INPUT, "w-14 shrink-0 text-center")}
                         />
-                        <input
-                          type="color"
+                        <ColorField
                           value={element.color ?? "#888888"}
-                          onChange={(event) => edit((draft) => (draft.elements![index]!.color = event.target.value))}
-                          aria-label={t("game.worldKit.setup.elementColor", { name: element.label })}
-                          className="h-8 w-10 shrink-0 cursor-pointer rounded border border-[var(--border)] bg-transparent"
+                          onChange={(hex) => edit((draft) => (draft.elements![index]!.color = hex))}
+                          label={t("game.worldKit.setup.elementColor", { name: element.label })}
                         />
                         <Select
                           label={t("game.worldKit.setup.elementWeather", { name: element.label })}

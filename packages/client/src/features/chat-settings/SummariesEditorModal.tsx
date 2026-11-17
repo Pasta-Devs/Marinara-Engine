@@ -2,10 +2,9 @@
 // Summaries Editor Modal — edit auto-generated day/week summaries
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { X, Plus, Trash2, CalendarClock, ChevronRight, ChevronsDownUp, ChevronsUpDown, RefreshCw } from "lucide-react";
+import { Plus, Trash2, CalendarClock, ChevronRight, ChevronsDownUp, ChevronsUpDown, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
-import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
+import { Modal } from "../../components/ui/Modal";
 import {
   estimateTextTokens,
   type Chat,
@@ -16,7 +15,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { chatKeys, useBackfillConversationSummaries, useUpdateChatSummaries } from "../../hooks/use-chats";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 
 function fmtTokens(n: number): string {
   return n.toLocaleString();
@@ -118,7 +116,6 @@ function computeDelta(
 
 export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
-  const backdropDismiss = useBackdropDismiss(onClose);
   const metadata = useMemo(
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
@@ -131,19 +128,6 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [backfillNotice, setBackfillNotice] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useDialogFocusScope(open, dialogRef);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Escape in a browser extension's card (Grammarly's) closes that card, not this editor and its drafts.
-      if (event.key === "Escape" && !isBrowserExtensionUi(event.target)) onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
 
   // Reinitialize drafts whenever the modal opens, refetching the chat first so
   // auto-summaries written during a prior generation show up without a page refresh.
@@ -287,228 +271,36 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
     );
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      data-chat-floating-panel
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-      {...backdropDismiss}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="summaries-editor-title"
-        className="mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="shrink-0 flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
-          <div className="flex items-center gap-2">
-            <CalendarClock size="1rem" className="text-[var(--muted-foreground)]" />
-            <h3 id="summaries-editor-title" className="text-sm font-bold">
-              {localizeUi("ui.chat.chatsettingsdrawer.automaticSummarization")}
-            </h3>
-            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {entries.length}{" "}
-              {entries.length === 1
-                ? localizeUi("ui.lorebooks.lorebookeditor.entry")
-                : localizeUi("ui.lorebooks.lorebookeditor.entries_c2e311d")}{" "}
-              {localizeUi("ui.chat.peekpromptmodal.middot")}
-              {fmtTokens(totalTokens)} {localizeUi("ui.chat.collapsibleblock.token")}
-              {totalTokens !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
-          >
-            <X size="1rem" />
-          </button>
+    <Modal
+      labelledBy="summaries-editor-title"
+      open={open}
+      onClose={onClose}
+      pullToClose={false}
+      closeDisabled={updateSummaries.isPending}
+      title={localizeUi("ui.chat.chatsettingsdrawer.automaticSummarization")}
+      titleSlot={
+        <div className="flex items-center gap-2">
+          <CalendarClock size="1rem" className="text-[var(--muted-foreground)]" />
+          <h3 id="summaries-editor-title" className="text-sm font-bold">
+            {localizeUi("ui.chat.chatsettingsdrawer.automaticSummarization")}
+          </h3>
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {entries.length}{" "}
+            {entries.length === 1
+              ? localizeUi("ui.lorebooks.lorebookeditor.entry")
+              : localizeUi("ui.lorebooks.lorebookeditor.entries_c2e311d")}{" "}
+            {localizeUi("ui.chat.peekpromptmodal.middot")}
+            {fmtTokens(totalTokens)} {localizeUi("ui.chat.collapsibleblock.token")}
+            {totalTokens !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
+          </span>
         </div>
-
-        {/* Body */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.summarieseditormodal.daysFromTheCurrentWeekAreAutomaticallyConsolidatedInto")}
-          </div>
-
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/20 px-3 py-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[0.75rem] font-medium text-[var(--foreground)]">
-                  {localizeUi("ui.chat.summarieseditormodal.missingSummaries")}
-                </p>
-                <p className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.summarieseditormodal.retryPastDaysThatFailedOrNeverReceivedAn")}
-                </p>
-              </div>
-              <button
-                onClick={handleBackfill}
-                disabled={isDirty || backfillSummaries.isPending}
-                title={
-                  isDirty
-                    ? localizeUi("ui.chat.summarieseditormodal.saveYourEditsBeforeBackfilling")
-                    : localizeUi("ui.chat.summarieseditormodal.generateMissingSummaries")
-                }
-                className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <RefreshCw size="0.75rem" className={cn(backfillSummaries.isPending && "animate-spin")} />
-                {backfillSummaries.isPending
-                  ? localizeUi("settings.notifications.customSound.status.loading")
-                  : localizeUi("ui.chat.summarieseditormodal.backfill")}
-              </button>
-            </div>
-            {(backfillNotice || backfillSummaries.isError) && (
-              <p
-                className={cn(
-                  "mt-2 text-[0.625rem] leading-snug",
-                  backfillSummaries.isError ? "text-[var(--destructive)]" : "text-[var(--muted-foreground)]",
-                )}
-              >
-                {backfillSummaries.isError
-                  ? localizeUi("ui.chat.summarieseditormodal.backfillFailedCheckTheServerLogForDetails")
-                  : backfillNotice}
-              </p>
-            )}
-          </div>
-
-          {entries.length === 0 && (
-            <div className="rounded-lg border border-dashed border-[var(--border)] px-4 py-8 text-center text-[0.75rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.chat.summarieseditormodal.noSummariesYetComeBackAfterYourFirstDay")}
-            </div>
-          )}
-
-          {entries.length > 0 && (
-            <div className="flex items-center justify-end">
-              <button
-                onClick={toggleAll}
-                title={
-                  allExpanded
-                    ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
-                    : localizeUi("ui.chat.summarieseditormodal.expandAll")
-                }
-                aria-label={
-                  allExpanded
-                    ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
-                    : localizeUi("ui.chat.summarieseditormodal.expandAll")
-                }
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-              >
-                {allExpanded ? <ChevronsDownUp size="0.85rem" /> : <ChevronsUpDown size="0.85rem" />}
-                {allExpanded
-                  ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
-                  : localizeUi("ui.chat.summarieseditormodal.expandAll")}
-              </button>
-            </div>
-          )}
-
-          {entries.map((entry) => {
-            const current = entry.kind === "week" ? drafts.weekSummaries[entry.key]! : drafts.daySummaries[entry.key]!;
-            const id = `${entry.kind}:${entry.key}`;
-            const isOpen = expanded.has(id);
-            const entryTokens = estimateTextTokens(entryTokenText(current));
-
-            return (
-              <div key={id} className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/20">
-                <button
-                  onClick={() => toggleEntry(id)}
-                  aria-expanded={isOpen}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
-                >
-                  <ChevronRight
-                    size="0.85rem"
-                    className={cn(
-                      "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                      isOpen && "rotate-90",
-                    )}
-                  />
-                  <span className="text-[0.75rem] font-semibold">{entry.label}</span>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider max-md:hidden",
-                      entry.kind === "week"
-                        ? "mari-chrome-accent-surface mari-accent-animated"
-                        : "bg-blue-500/20 text-blue-400",
-                    )}
-                  >
-                    {entry.kind}
-                  </span>
-                  <span className="ml-auto shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
-                    ~{fmtTokens(entryTokens)} {localizeUi("ui.chat.collapsibleblock.token")}
-                    {entryTokens !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
-                  </span>
-                </button>
-
-                {isOpen && (
-                  <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
-                    {/* Summary textarea */}
-                    <div className="space-y-1">
-                      <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.summarieseditormodal.summary")}
-                      </label>
-                      <AutoSizingTextarea
-                        value={current.summary}
-                        onChange={(next) => updateEntry(entry.kind, entry.key, { ...current, summary: next })}
-                        className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-[0.75rem] leading-relaxed text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Key details rows */}
-                    <div className="space-y-1">
-                      <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.summarieseditormodal.keyDetails")}
-                      </label>
-                      {current.keyDetails.length === 0 && (
-                        <p className="text-[0.6875rem] italic text-[var(--muted-foreground)]">
-                          {localizeUi("ui.chat.summarieseditormodal.noKeyDetails")}
-                        </p>
-                      )}
-                      <div className="space-y-1.5">
-                        {current.keyDetails.map((detail, i) => (
-                          <div key={i} className="flex gap-1.5">
-                            <AutoSizingTextarea
-                              value={detail}
-                              onChange={(next) => {
-                                const nextDetails = [...current.keyDetails];
-                                nextDetails[i] = next;
-                                updateEntry(entry.kind, entry.key, { ...current, keyDetails: nextDetails });
-                              }}
-                              className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-[0.75rem] leading-relaxed text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
-                            />
-                            <button
-                              onClick={() => {
-                                const nextDetails = current.keyDetails.filter((_, idx) => idx !== i);
-                                updateEntry(entry.kind, entry.key, { ...current, keyDetails: nextDetails });
-                              }}
-                              className="shrink-0 self-start rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
-                              title={localizeUi("ui.chat.summarieseditormodal.deleteKeyDetail")}
-                            >
-                              <Trash2 size="0.75rem" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() =>
-                          updateEntry(entry.kind, entry.key, { ...current, keyDetails: [...current.keyDetails, ""] })
-                        }
-                        className="mt-1 flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                      >
-                        <Plus size="0.75rem" />
-                        {localizeUi("ui.chat.summarieseditormodal.addKeyDetail")}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="shrink-0 flex items-center justify-between gap-2 border-t border-[var(--border)] px-5 py-3">
+      }
+      width="max-w-3xl"
+      chatFloatingPanel
+      contentClassName="space-y-3 !px-4"
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
           <div className="text-[0.6875rem] text-[var(--destructive)]">
             {updateSummaries.isError ? localizeUi("ui.chat.summarieseditormodal.saveFailedTryAgain") : ""}
           </div>
@@ -531,7 +323,180 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
             </button>
           </div>
         </div>
+      }
+    >
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/30 px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+        {localizeUi("ui.chat.summarieseditormodal.daysFromTheCurrentWeekAreAutomaticallyConsolidatedInto")}
       </div>
-    </div>
+
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/20 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[0.75rem] font-medium text-[var(--foreground)]">
+              {localizeUi("ui.chat.summarieseditormodal.missingSummaries")}
+            </p>
+            <p className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.summarieseditormodal.retryPastDaysThatFailedOrNeverReceivedAn")}
+            </p>
+          </div>
+          <button
+            onClick={handleBackfill}
+            disabled={isDirty || backfillSummaries.isPending}
+            title={
+              isDirty
+                ? localizeUi("ui.chat.summarieseditormodal.saveYourEditsBeforeBackfilling")
+                : localizeUi("ui.chat.summarieseditormodal.generateMissingSummaries")
+            }
+            className="flex items-center gap-1.5 rounded-md bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw size="0.75rem" className={cn(backfillSummaries.isPending && "animate-spin")} />
+            {backfillSummaries.isPending
+              ? localizeUi("settings.notifications.customSound.status.loading")
+              : localizeUi("ui.chat.summarieseditormodal.backfill")}
+          </button>
+        </div>
+        {(backfillNotice || backfillSummaries.isError) && (
+          <p
+            className={cn(
+              "mt-2 text-[0.625rem] leading-snug",
+              backfillSummaries.isError ? "text-[var(--destructive)]" : "text-[var(--muted-foreground)]",
+            )}
+          >
+            {backfillSummaries.isError
+              ? localizeUi("ui.chat.summarieseditormodal.backfillFailedCheckTheServerLogForDetails")
+              : backfillNotice}
+          </p>
+        )}
+      </div>
+
+      {entries.length === 0 && (
+        <div className="rounded-lg border border-dashed border-[var(--border)] px-4 py-8 text-center text-[0.75rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.chat.summarieseditormodal.noSummariesYetComeBackAfterYourFirstDay")}
+        </div>
+      )}
+
+      {entries.length > 0 && (
+        <div className="flex items-center justify-end">
+          <button
+            onClick={toggleAll}
+            title={
+              allExpanded
+                ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
+                : localizeUi("ui.chat.summarieseditormodal.expandAll")
+            }
+            aria-label={
+              allExpanded
+                ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
+                : localizeUi("ui.chat.summarieseditormodal.expandAll")
+            }
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            {allExpanded ? <ChevronsDownUp size="0.85rem" /> : <ChevronsUpDown size="0.85rem" />}
+            {allExpanded
+              ? localizeUi("ui.chat.summarieseditormodal.collapseAll")
+              : localizeUi("ui.chat.summarieseditormodal.expandAll")}
+          </button>
+        </div>
+      )}
+
+      {entries.map((entry) => {
+        const current = entry.kind === "week" ? drafts.weekSummaries[entry.key]! : drafts.daySummaries[entry.key]!;
+        const id = `${entry.kind}:${entry.key}`;
+        const isOpen = expanded.has(id);
+        const entryTokens = estimateTextTokens(entryTokenText(current));
+
+        return (
+          <div key={id} className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/20">
+            <button
+              onClick={() => toggleEntry(id)}
+              aria-expanded={isOpen}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
+            >
+              <ChevronRight
+                size="0.85rem"
+                className={cn("shrink-0 text-[var(--muted-foreground)] transition-transform", isOpen && "rotate-90")}
+              />
+              <span className="text-[0.75rem] font-semibold">{entry.label}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-1.5 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider max-md:hidden",
+                  entry.kind === "week"
+                    ? "mari-chrome-accent-surface mari-accent-animated"
+                    : "bg-blue-500/20 text-blue-400",
+                )}
+              >
+                {entry.kind}
+              </span>
+              <span className="ml-auto shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
+                ~{fmtTokens(entryTokens)} {localizeUi("ui.chat.collapsibleblock.token")}
+                {entryTokens !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : ""}
+              </span>
+            </button>
+
+            {isOpen && (
+              <div className="space-y-2 border-t border-[var(--border)] px-3 py-2">
+                {/* Summary textarea */}
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.summarieseditormodal.summary")}
+                  </label>
+                  <AutoSizingTextarea
+                    value={current.summary}
+                    onChange={(next) => updateEntry(entry.kind, entry.key, { ...current, summary: next })}
+                    className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-[0.75rem] leading-relaxed text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+                  />
+                </div>
+
+                {/* Key details rows */}
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.summarieseditormodal.keyDetails")}
+                  </label>
+                  {current.keyDetails.length === 0 && (
+                    <p className="text-[0.6875rem] italic text-[var(--muted-foreground)]">
+                      {localizeUi("ui.chat.summarieseditormodal.noKeyDetails")}
+                    </p>
+                  )}
+                  <div className="space-y-1.5">
+                    {current.keyDetails.map((detail, i) => (
+                      <div key={i} className="flex gap-1.5">
+                        <AutoSizingTextarea
+                          value={detail}
+                          onChange={(next) => {
+                            const nextDetails = [...current.keyDetails];
+                            nextDetails[i] = next;
+                            updateEntry(entry.kind, entry.key, { ...current, keyDetails: nextDetails });
+                          }}
+                          className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-[0.75rem] leading-relaxed text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+                        />
+                        <button
+                          onClick={() => {
+                            const nextDetails = current.keyDetails.filter((_, idx) => idx !== i);
+                            updateEntry(entry.kind, entry.key, { ...current, keyDetails: nextDetails });
+                          }}
+                          className="shrink-0 self-start rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                          title={localizeUi("ui.chat.summarieseditormodal.deleteKeyDetail")}
+                        >
+                          <Trash2 size="0.75rem" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() =>
+                      updateEntry(entry.kind, entry.key, { ...current, keyDetails: [...current.keyDetails, ""] })
+                    }
+                    className="mt-1 flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  >
+                    <Plus size="0.75rem" />
+                    {localizeUi("ui.chat.summarieseditormodal.addKeyDetail")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </Modal>
   );
 }
