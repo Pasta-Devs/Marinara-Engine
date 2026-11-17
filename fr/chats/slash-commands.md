@@ -68,7 +68,7 @@ Mets entre guillemets les noms qui contiennent des espaces. Les anciennes formes
 | `/roll` | Lance des dés et publie le résultat. Alias : `/r`, `/dice`. Format : `/roll [dice (optional)]`. |
 | `/random` | Demande au modèle d'ajouter un événement surprise. Alias : `/rand`, `/event`. |
 | `/scene` | Démarre une scène Roleplay qui crée une branche à partir de la conversation. Alias : `/rp`. Format : `/scene [description (optional)]`. |
-| `/illustrate` | Roleplay uniquement. Génère une image de galerie. Nécessite l'agent Illustrator. Alias : `/ill`. Format : `/illustrate [range=N-M] [prompt]`. |
+| `/illustrate` | Roleplay uniquement. Génère une image de galerie. Nécessite l'agent Illustrator. Alias : `/ill`. Format : `/illustrate [range=N-M] [template=name] [prompt]`. |
 | `/html` | Roleplay uniquement. Crée un artefact propre à l'univers de l'histoire, comme `a spellbook page`, à la fin de la dernière réponse. Format : `/html [what you want]`. |
 | `/video` | Roleplay uniquement. Crée un court clip de la dernière réponse, ou de ta description, sous cette réponse. Suit le réglage **First frame** (première image) d'Illustrator. Nécessite Illustrator. Format : `/video [description]`. |
 | `/impersonate` | Écrit une réponse au nom de ton persona. Alias : `/imp`. Format : `/impersonate [direction (optional)]`. |
@@ -109,9 +109,20 @@ Un sprite est une image du personnage qui montre une expression. Tape `/emote` s
 
 Avec un nom et sans expression, la commande liste les expressions de ce personnage. Elle nécessite un chat Roleplay avec des sprites téléversés. Voir [Sprites de personnage](../characters/sprites.md).
 
+<a id="illustrate-and-make-artifacts"></a>
+
 ### Illustrer et créer des artefacts
 
-`/illustrate range=12` illustre le message 12. `/illustrate range=12-18` envoie les messages 12 à 18 à Illustrator. Utilise les mêmes numéros de message que pour `/goto`, dans l'ordre croissant, avec au plus 200 messages. Les messages masqués restent exclus. L'image est jointe au dernier message visible de la plage. Les messages plus anciens restent disponibles avec Advanced Memory activé. Sans `range=`, la commande porte sur la scène actuelle. Un prompt que tu tapes est utilisé tel quel.
+`/illustrate range=12` illustre le message 12. `/illustrate range=12-18` envoie les messages 12 à 18 à Illustrator. Utilise les mêmes numéros de message que pour `/goto`, dans l'ordre croissant, avec au plus 200 messages. Les messages masqués restent exclus. L'image est jointe au dernier message visible de la plage. Les messages plus anciens restent disponibles avec Advanced Memory activé. Sans `range=`, la commande porte sur la scène actuelle. Sans `template=`, un prompt que tu tapes est utilisé tel quel.
+
+`template=` dessine une seule image dans un autre des styles du sélecteur **Prompt Mode** (mode de prompt) d'Illustrator. Le chat conserve son propre **Prompt Mode**. Tape le nom du style tel que le sélecteur l'affiche, sans distinction de majuscules ni de minuscules. Les espaces, `-` et `_` sont considérés comme identiques, et un nom qui contient des espaces se met entre guillemets. `template=default` correspond à **Illustration**.
+
+```text
+/illustrate template=comic-page
+/illustrate range=17 template="Comic Page" Aster holds the gate open and looks back
+```
+
+Avec `template=`, le texte que tu tapes, au plus 2 000 caractères, indique au modèle qui rédige le prompt ce qu'il doit montrer, et le style vient toujours du mode. **Attach Card Appearance** (joindre l'apparence de la fiche) et **Send Avatar References** (envoyer les avatars en référence) fonctionnent comme pour le bouton **Illustrate** (illustrer) de la Gallery. Place `range=` et `template=` avant ton texte, dans n'importe quel ordre. Un nom qui ne correspond à aucun style affiche la liste de ceux que tu peux utiliser. Si deux styles portent le même nom, tape l'identifiant que le message indique entre parenthèses.
 
 `/html a terminal readout` ne nécessite aucun agent et fonctionne que **HTML Artifacts** (artefacts HTML) soit activé ou non. Le narrateur peut faire la même demande avec `[html: prompt="..."]` quand **HTML Artifacts** est activé sous **Roleplay Commands** (commandes Roleplay). Voir [Artefacts à la demande](../roleplay/getting-started.md#artifacts-on-demand).
 

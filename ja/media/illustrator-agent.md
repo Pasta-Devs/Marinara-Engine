@@ -53,6 +53,8 @@ Game Modeには、**Prompt Mode**と**Prompt Model**の項目がありません�
 
 最終的な絵の雰囲気は、スタイルプロファイルにも左右されます。[画像スタイルプロファイル](style-profiles.md)を参照してください。
 
+チャットの選択を変えずに別の画風で絵を1枚描くには、`/illustrate template=`に続けて画風の名前を入力します。たとえば`/illustrate template="Comic Page"`です。[スラッシュコマンド](../chats/slash-commands.md#illustrate-and-make-artifacts)を参照してください。
+
 ## プロンプトモデルを選ぶ
 
 **Prompt Model**(プロンプトモデル)は、画像プロンプトを書くテキストモデルです。絵は描きません。カードの**Prompt Model**の一覧から選びます。デフォルトは**Main chat model**(メインのチャットモデル)で、チャットのモデルをそのまま使います。別のモデルにプロンプトを書かせたいときは、ほかのテキストモデルを選びます。

@@ -53,6 +53,8 @@ O seletor **Prompt Mode** (que aparece como **Prompt** no cartão) define o esti
 
 A aparência final também depende do seu perfil de estilo. Veja [Perfis de estilo de imagem](style-profiles.md).
 
+Para desenhar uma imagem em outro estilo sem mudar a escolha do chat, digite `/illustrate template=` e o nome do estilo, como em `/illustrate template="Comic Page"`. Veja [Comandos de barra](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Escolha o modelo do prompt
 
 O **Prompt Model** é o modelo de texto que escreve o prompt de imagem. Ele não desenha. Escolha-o na lista **Prompt Model** do cartão. O padrão é **Main chat model** (modelo principal do chat), que reaproveita o modelo do seu chat. Escolha outro modelo de texto se quiser que outro modelo escreva os prompts.

@@ -53,6 +53,8 @@ Die Auswahl **Prompt Mode** (auf der Karte heißt sie **Prompt**) legt den Kunst
 
 Wie das fertige Bild aussieht, hängt außerdem von deinem Stilprofil ab. Siehe [Bild-Stilprofile](style-profiles.md).
 
+Um ein einzelnes Bild in einem anderen Stil zu zeichnen, ohne die Auswahl des Chats zu ändern, tipp `/illustrate template=` und den Namen des Stils ein, etwa `/illustrate template="Comic Page"`. Siehe [Slash-Befehle](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Das Prompt-Modell wählen
 
 Das **Prompt Model** ist das Textmodell, das den Bild-Prompt schreibt. Es zeichnet nicht. Wähle es in der Liste **Prompt Model** auf der Karte. Standard ist **Main chat model**: Damit wird das Modell deines Chats mitgenutzt. Soll ein anderes Modell die Prompts schreiben, wähle ein anderes Textmodell.

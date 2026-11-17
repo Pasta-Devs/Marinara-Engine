@@ -118,7 +118,7 @@ Um perfil também pode guardar **escolhas iniciais**: uma persona, lorebooks par
 - Aplicar o perfil copia as escolhas para o chat. Se o perfil deixar uma delas vazia, o chat mantém a sua.
 - As outras configurações do perfil ainda substituem as do chat.
 - As escolhas não ficam vinculadas. Uma mudança posterior no chat fica naquele chat.
-- **Save current chat settings into this profile** mantém a persona, os lorebooks e o plano de fundo do próprio perfil. Um perfil sem plano de fundo recebe o plano de fundo do chat quando você salva nele.
+- **Save current chat settings into this profile** substitui os lorebooks do perfil pelos que foram adicionados ao chat, com **Add Lorebook** (adicionar um lorebook) ou ao aplicar um perfil. Um lorebook que o Lorebook Keeper criou para o chat não é salvo. Se nenhum lorebook foi adicionado, o perfil fica sem lorebooks depois de salvar. O perfil mantém a própria persona e o próprio plano de fundo. Um perfil sem plano de fundo recebe o plano de fundo do chat quando você salva nele.
 - Atualizar outros chats nunca muda a persona, os lorebooks nem o plano de fundo deles.
 
 O perfil não substitui o conteúdo que pertence ao chat: personagens, sprites, resumo, tags e prompt da cena. Ele também não guarda o histórico da conversa nem estado em andamento, como as variáveis de macro, os personagens que você desativou ou uma sala multijogador.

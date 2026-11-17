@@ -209,13 +209,13 @@
     },
     {
       "path": "chats/settings-profiles.md",
-      "sha256": "66b32c35ffaf9e5e36152436c51a266088a0b4e18faab16aec38b11f4e306e0a",
-      "bytes": 11340
+      "sha256": "6006d4eed861eff714251cd6a2501c3e3a797e42689535b905f17e5d3ba819ca",
+      "bytes": 11601
     },
     {
       "path": "chats/slash-commands.md",
-      "sha256": "eec23f5f917ec67f0ab443d87ba945554f54f9bae1c859100372928af1dab292",
-      "bytes": 10088
+      "sha256": "8294675fee84f1d35bbf646cb55504ef36dccfcf263d45a2e6e7b1ecebcc2727",
+      "bytes": 11192
     },
     {
       "path": "configuration/features.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "dcffcc8f63c363add1fe360f67e1623aea96588c06d422fe2a207b33cfc16882",
-      "bytes": 13675
+      "sha256": "ec6691b37445322dfa5d97c28d6c16b3dcd1825fb9f1c4db4905e445907ca73d",
+      "bytes": 13918
     },
     {
       "path": "media/image-providers.md",
