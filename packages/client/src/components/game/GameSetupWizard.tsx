@@ -90,7 +90,6 @@ import {
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
-  NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_SUBTITLE,
   NEUTRAL_PANEL_TITLE,
 } from "../ui/neutral-surface-styles";
@@ -168,6 +167,7 @@ import {
   setupSuggestionKeys,
 } from "../../lib/game-setup-suggestions";
 import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
+import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
@@ -300,11 +300,6 @@ function normalizeSpatialMapTargetLocationCount(value: string): number | null {
   if (!value.trim() || !Number.isInteger(parsed) || !Number.isFinite(parsed)) return null;
   return Math.max(1, Math.min(SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT, parsed));
 }
-
-const GAME_SETUP_WIZARD_PANEL_CLASS = cn(
-  NEUTRAL_PANEL_SHELL,
-  "pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(90dvh,44rem)]",
-);
 
 const GAME_SETUP_STEPS = [
   {
@@ -1888,13 +1883,17 @@ export function GameSetupWizard({
 
   return (
     <>
-      {/* Just under the body-level pickers it opens (Modal, z-[10000]). On iPhone WebKit the app shell is no
-          stacking context, so a higher layer here would cover the "Model for …" and character pickers. */}
-      <div
-        className="fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]"
-        onClick={isLoading ? undefined : onCancel}
-      />
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
+      <Modal
+        open
+        onClose={onCancel}
+        // Only the wizard's own Cancel closes it: Escape or a stray tap must not drop a half-built game.
+        closeDisabled
+        title={localizeUi("navigation.chatSidebar.new.game")}
+        hideHeader
+        pullToClose={false}
+        width={adjustGameAssetsOpen ? "max-w-5xl" : "max-w-lg"}
+        contentClassName="flex flex-col !overflow-hidden !p-0"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep.key}
@@ -1902,19 +1901,14 @@ export function GameSetupWizard({
             tabIndex={-1}
             data-component="GameSetupWizard"
             data-game-setup-step={currentStep.title}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="game-setup-wizard-title"
             initial={{ opacity: 0, y: 12, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.97 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={cn(GAME_SETUP_WIZARD_PANEL_CLASS, adjustGameAssetsOpen && "max-w-5xl")}
+            className="flex min-h-0 flex-1 flex-col"
           >
             <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
-              <h3 id="game-setup-wizard-title" className={NEUTRAL_PANEL_TITLE}>
-                {localizeUi("navigation.chatSidebar.new.game")}
-              </h3>
+              <h3 className={NEUTRAL_PANEL_TITLE}>{localizeUi("navigation.chatSidebar.new.game")}</h3>
               <button
                 type="button"
                 onClick={onCancel}
@@ -4279,7 +4273,7 @@ export function GameSetupWizard({
             </div>
           </motion.div>
         </AnimatePresence>
-      </div>
+      </Modal>
       {spatialTemplatePickerOpen && (
         <CapabilityElement
           packageId="hierarchical-maps"

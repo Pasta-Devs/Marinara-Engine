@@ -1,12 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export function useCardGallerySelection<Image extends { id: string }>(images: readonly Image[] | undefined) {
   const [lightbox, setLightbox] = useState<Image | null>(null);
-  const lightboxRef = useRef<HTMLDivElement>(null);
-  const lightboxCloseRef = useRef<HTMLButtonElement>(null);
-  // Nested confirmations own focus while retaining the preview's original return target.
-  useDialogFocusScope(!!lightbox, lightboxRef, lightboxCloseRef, undefined, '[data-component="Modal"]');
   const [selectingImages, setSelectingImages] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(() => new Set());
   const selectedImages = useMemo(
@@ -39,8 +34,6 @@ export function useCardGallerySelection<Image extends { id: string }>(images: re
   return {
     lightbox,
     setLightbox,
-    lightboxRef,
-    lightboxCloseRef,
     selectingImages,
     setSelectingImages,
     selectedImageIds,

@@ -294,6 +294,7 @@ export function ImageViewer({
       onClose={onClose}
       title={title}
       hideHeader
+      fadeOnly
       mobileFullscreen
       pullToClose={false}
       backdrop="dark"
@@ -302,12 +303,17 @@ export function ImageViewer({
       closeDisabled={closeDisabled}
       initialFocusRef={closeRef}
       width="max-w-none"
-      panelClassName="sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent !shadow-none !backdrop-blur-none"
+      panelClassName="sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent ![box-shadow:none] !backdrop-blur-none"
       contentClassName="!flex !flex-col !overflow-hidden !p-0"
     >
       <div className="relative min-h-0 flex-1">
         {media ? (
-          <div className="flex size-full items-center justify-center p-2">{media}</div>
+          <div
+            className="flex size-full items-center justify-center p-2"
+            onClick={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}
+          >
+            {media}
+          </div>
         ) : (
           <ZoomStage
             key={shownSrc}
