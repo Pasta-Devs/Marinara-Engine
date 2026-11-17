@@ -55,6 +55,7 @@ import {
 } from "@marinara-engine/shared";
 import { DraftNumberInput } from "../../ui/DraftNumberInput";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+import { Select } from "../../ui/Select";
 import { SettingsCheckbox } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ApiError } from "../../../lib/api-client";
@@ -873,27 +874,19 @@ function PocketTTSVoiceControl({
   return (
     <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
       <div className="relative">
-        <select
-          aria-label={selectLabel}
-          value={selectedServerVoice}
-          onChange={(event) => {
-            if (event.target.value) onChange(event.target.value);
-          }}
-          disabled={fetching || options.length === 0}
-          className={cn(INPUT_CLS, "cursor-pointer appearance-none pr-10")}
-        >
-          <option value="">
-            {fetching
+        <Select
+          label={selectLabel}
+          value={selectedServerVoice || null}
+          options={options.map((option) => ({ value: option.id, label: formatVoiceOptionLabel(option) }))}
+          onChange={onChange}
+          placeholder={
+            fetching
               ? localizeUi("ui.panels.pocketttsvoicecontrol.loadingServerVoices")
-              : localizeUi("ui.panels.pocketttsvoicecontrol.chooseServerVoice")}
-          </option>
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {formatVoiceOptionLabel(option)}
-            </option>
-          ))}
-        </select>
-        <TtsDropdownIcon />
+              : localizeUi("ui.panels.pocketttsvoicecontrol.chooseServerVoice")
+          }
+          disabled={fetching || options.length === 0}
+          className={cn(INPUT_CLS, "cursor-pointer")}
+        />
       </div>
       <input
         aria-label={inputLabel}
@@ -1824,19 +1817,20 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           label={localizeUi("ui.panels.ttsconfigcard.audioFormat")}
           help={localizeUi("ui.panels.ttsconfigcard.outputAudioFormatWavAreUsefulForLocalSelf")}
         >
-          <select
+          <Select
             value={audioFormat}
-            onChange={(e) => {
-              const next = e.target.value as TTSAudioFormat;
+            options={[
+              { value: "mp3", label: localizeUi("ui.panels.ttsconfigcard.mp3") },
+              { value: "wav", label: localizeUi("ui.panels.ttsconfigcard.wav") },
+              { value: "pcm", label: localizeUi("ui.panels.ttsconfigcard.pcm") },
+            ]}
+            onChange={(next: TTSAudioFormat) => {
               setAudioFormat(next);
               mark({ audioFormat: next });
             }}
-            className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-          >
-            <option value="mp3">{localizeUi("ui.panels.ttsconfigcard.mp3")}</option>
-            <option value="wav">{localizeUi("ui.panels.ttsconfigcard.wav")}</option>
-            <option value="pcm">{localizeUi("ui.panels.ttsconfigcard.pcm")}</option>
-          </select>
+            label={localizeUi("ui.panels.ttsconfigcard.audioFormat")}
+            className={cn(INPUT_CLS, "cursor-pointer")}
+          />
         </FieldRow>
       )}
       {/* Speed */}
@@ -1866,25 +1860,24 @@ export function TTSConfigCard(_props: { defaultExpanded?: boolean } = {}) {
           label={localizeUi("settings.application.language.label")}
           help={localizeUi("ui.panels.ttsconfigcard.optionalElevenlabsLanguageCodeAutoLetsElevenlabsDetectThe")}
         >
-          <select
+          <Select
             value={elevenLabsLanguageCode}
-            onChange={(e) => {
-              setElevenLabsLanguageCode(e.target.value);
-              mark({ elevenLabsLanguageCode: e.target.value });
+            options={ELEVENLABS_TTS_LANGUAGE_OPTIONS.map((option) => ({
+              value: option.code,
+              label: option.code
+                ? localizeUi("ui.panels.ttsconfigcard.value1Value2", {
+                    value1: option.label,
+                    value2: option.code,
+                  })
+                : option.label,
+            }))}
+            onChange={(code) => {
+              setElevenLabsLanguageCode(code);
+              mark({ elevenLabsLanguageCode: code });
             }}
-            className={cn(INPUT_CLS, "cursor-pointer appearance-none")}
-          >
-            {ELEVENLABS_TTS_LANGUAGE_OPTIONS.map((option) => (
-              <option key={option.code || "auto"} value={option.code}>
-                {option.code
-                  ? localizeUi("ui.panels.ttsconfigcard.value1Value2", {
-                      value1: option.label,
-                      value2: option.code,
-                    })
-                  : option.label}
-              </option>
-            ))}
-          </select>
+            label={localizeUi("settings.application.language.label")}
+            className={cn(INPUT_CLS, "cursor-pointer")}
+          />
         </FieldRow>
       )}
 

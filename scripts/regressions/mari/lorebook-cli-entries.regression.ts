@@ -1,12 +1,16 @@
 // Mari's CLI add-entry and update-entry: they save the keyword-matching and selective fields, and refuse an invalid
-// selective logic. Runs on a fresh database in a temporary folder.
+// selective logic. Runs on a fresh database in a temporary folder. After it, the entry row builder add-entry uses:
+// unset fields take the stored defaults, set ones are kept, and an invalid selective logic falls back to "and".
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLorebooksStorage } from "../../../packages/server/src/services/storage/lorebooks.storage.js";
 import { createChatPresetsStorage } from "../../../packages/server/src/services/storage/chat-presets.storage.js";
-import { MariDbService } from "../../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  MariDbService,
+  buildLorebookEntryCreateRow,
+} from "../../../packages/server/src/services/mari-db/mari-db.service.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-mari-lorebook-cli-entries-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
@@ -158,3 +162,63 @@ try {
   else process.env.FILE_STORAGE_DIR = previousFileStorageDir;
   rmSync(storageRoot, { recursive: true, force: true });
 }
+
+const generatedLorebookEntry = buildLorebookEntryCreateRow(
+  {
+    name: "Glass City",
+    content: "A city made from black glass.",
+    keys: ["Glass City", "black glass"],
+    secondaryKeys: ["rain"],
+  },
+  "lorebook-generated",
+  "entry-generated",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(generatedLorebookEntry.lorebookId, "lorebook-generated");
+assert.equal(generatedLorebookEntry.content, "A city made from black glass.");
+assert.deepEqual(generatedLorebookEntry.keys, ["Glass City", "black glass"]);
+assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
+// #4791 — unset keyword-matching/selective fields fall back to the stored defaults.
+assert.equal(generatedLorebookEntry.selective, "false");
+assert.equal(generatedLorebookEntry.selectiveLogic, "and");
+assert.equal(generatedLorebookEntry.matchWholeWords, "false");
+assert.equal(generatedLorebookEntry.caseSensitive, "false");
+assert.equal(generatedLorebookEntry.useRegex, "false");
+// #4791 — Professor Mari can now set them explicitly (previously hardcoded and ignored).
+const parameterizedLorebookEntry = buildLorebookEntryCreateRow(
+  {
+    name: "Vlad",
+    content: "The immortal count.",
+    keys: ["Vlad"],
+    secondaryKeys: ["count", "castle"],
+    selective: true,
+    selectiveLogic: "and_all",
+    matchWholeWords: true,
+    caseSensitive: true,
+    useRegex: false,
+  },
+  "lorebook-generated",
+  "entry-parameterized",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(parameterizedLorebookEntry.selective, "true");
+assert.equal(parameterizedLorebookEntry.selectiveLogic, "and_all");
+assert.equal(parameterizedLorebookEntry.matchWholeWords, "true");
+assert.equal(parameterizedLorebookEntry.caseSensitive, "true");
+assert.equal(parameterizedLorebookEntry.useRegex, "false");
+// An invalid selectiveLogic is rejected and falls back to the stored default.
+const invalidLogicLorebookEntry = buildLorebookEntryCreateRow(
+  { name: "Bad logic", content: "x", selectiveLogic: "nonsense" },
+  "lorebook-generated",
+  "entry-bad-logic",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(invalidLogicLorebookEntry.selectiveLogic, "and");
+// #4796 review — "or" is an accepted legacy selectiveLogic value (behaves like "and").
+const orLogicLorebookEntry = buildLorebookEntryCreateRow(
+  { name: "Or logic", content: "x", selectiveLogic: "or" },
+  "lorebook-generated",
+  "entry-or-logic",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(orLogicLorebookEntry.selectiveLogic, "or");

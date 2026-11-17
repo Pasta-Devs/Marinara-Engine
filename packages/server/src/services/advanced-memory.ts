@@ -2594,6 +2594,7 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         scenario: personaText("scenario"),
         backstory: personaText("backstory"),
         appearance: personaText("appearance"),
+        publicFace: personaText("publicFace"),
       },
       localVariables: normalizeChatMacroVariables(ctx.metadata.macroVariables),
       chatId: ctx.chatId,

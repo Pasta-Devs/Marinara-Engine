@@ -527,3 +527,13 @@ pkg() {
   else process.env.CSRF_TRUSTED_ORIGINS = originalCsrfTrustedOrigins;
   await app.close();
 }
+
+const androidMainActivitySource = readFileSync(
+  new URL("../../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
+  "utf8",
+);
+assert.match(
+  androidMainActivitySource,
+  /public void saveFile\(String token, String base64Data, String mimeType, String filename\)/u,
+  "Android file saves must require the authenticated top-frame bridge token",
+);

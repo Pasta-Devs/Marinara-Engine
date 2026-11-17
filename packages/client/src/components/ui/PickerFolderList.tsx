@@ -3,9 +3,10 @@
 // grouped by library folders, built from the same PickerParts as CharacterPickerList. The
 // window around it (PickerWindow) and the data (useLibraryFolders) belong to the caller.
 // ──────────────────────────────────────────────
-import { useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { includesTextForMatch } from "@marinara-engine/shared";
+import { cn } from "../../lib/utils";
 import type { LibraryFolder } from "../../hooks/use-library-folders";
 import {
   FolderToggle,
@@ -13,6 +14,7 @@ import {
   PickerFolder,
   PickerSearch,
   PickRow,
+  scrollPickedRow,
   UNGROUPED_FOLDER_MIN,
   usePickerKeyboard,
 } from "./PickerParts";
@@ -52,6 +54,10 @@ export type PickerFolderListProps = {
   noMatchesLabel: string;
   /** Rows above the folders, never grouped (such as "None" for presets). */
   leadingItems?: readonly PickerFolderItem[];
+  /** The search box (default on). Off, the list itself takes focus and the arrow keys. */
+  searchable?: boolean;
+  /** Names the list when it has no search box (the field's label). */
+  listLabel?: string;
 };
 
 type Group = { id: string; name: string; items: readonly PickerFolderItem[] };
@@ -69,6 +75,8 @@ export function PickerFolderList({
   emptyLabel,
   noMatchesLabel,
   leadingItems,
+  searchable = true,
+  listLabel,
 }: PickerFolderListProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -78,7 +86,13 @@ export function PickerFolderList({
   const searchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const onSearchKey = usePickerKeyboard({ listRef, searchRef, listId, query });
+  // Without a search box the list holds focus and the keyboard ring.
+  const onSearchKey = usePickerKeyboard({ listRef, searchRef: searchable ? searchRef : listRef, listId, query });
+
+  // Open on the current choice: a long list scrolls the picked row into view.
+  useEffect(() => {
+    scrollPickedRow(listRef.current);
+  }, []);
 
   const visibleLeading = useMemo(
     () => (query ? (leadingItems ?? []).filter((item) => matches(item, query)) : (leadingItems ?? [])),
@@ -136,6 +150,7 @@ export function PickerFolderList({
       disabledReason={item.disabledReason}
       badge={item.badge}
       indented={indented}
+      option={!searchable}
     />
   );
 
@@ -170,19 +185,32 @@ export function PickerFolderList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PickerSearch
-        inputRef={searchRef}
-        listId={listId}
-        label={searchLabel}
-        value={search}
-        onChange={setSearch}
-        onKeyDown={onSearchKey}
-      />
+      {searchable && (
+        <PickerSearch
+          inputRef={searchRef}
+          listId={listId}
+          label={searchLabel}
+          value={search}
+          onChange={setSearch}
+          onKeyDown={onSearchKey}
+        />
+      )}
 
       <div
         ref={listRef}
         id={listId}
-        className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-foreground/10 p-1"
+        data-picker-list
+        // Without search the list itself is the focused listbox (Select passes no folders, so its rows are all options).
+        role={searchable ? undefined : "listbox"}
+        aria-label={searchable ? undefined : listLabel}
+        tabIndex={searchable ? undefined : 0}
+        data-picker-keys={searchable ? undefined : ""}
+        // Only keys aimed at the list itself: a row reached with Tab handles its own Enter.
+        onKeyDown={searchable ? undefined : (event) => event.target === event.currentTarget && onSearchKey(event)}
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 outline-none",
+          searchable && "mt-2 border-t border-foreground/10",
+        )}
       >
         {empty ? (
           <div className="px-5 py-8 text-center text-xs text-foreground/55">{emptyLabel}</div>

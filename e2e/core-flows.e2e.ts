@@ -18,6 +18,7 @@ import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
+import { chooseOption } from "./select-field.js";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import {
@@ -739,7 +740,7 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
     .getByRole("group", { name: "Appearance by chat mode" })
     .getByRole("button", { name: "App", exact: true })
     .click();
-  await page.locator("#settings-control-display-size select").selectOption("22");
+  await chooseOption(page, page.locator('#settings-control-display-size [role="combobox"]'), "Huge");
   for (const controlId of controlIds) await exerciseSlider(controlId);
 });
 
@@ -12206,9 +12207,13 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
     await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
     const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
-    await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
-      "Agent Cobra (AgentCobra.wav)",
-    );
+    await serverVoiceSelect.click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "PocketTTS server voice", exact: true })
+        .getByText("Agent Cobra (AgentCobra.wav)", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await ttsCard.getByText("Only read dialogues", { exact: true }).click();
     const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
@@ -19899,11 +19904,14 @@ test("Settings profile import reuses its preview upload and skips one invalid as
 
     const confirmation = page.getByRole("dialog", { name: "Import Profile" });
     await expect(confirmation).toContainText("Found: 2 files");
+    await expect(confirmation).toContainText("A safety copy is saved first");
     await confirmation.getByRole("button", { name: "Import", exact: true }).click();
 
     const status = page.locator('[role="status"][aria-live="polite"]');
     await expect(status).toContainText("Profile import complete with warnings");
     await expect(status).toContainText("game-assets/sprites/.native");
+    // The import saved a safety copy first, so the way back is offered right away.
+    await expect(page.getByRole("button", { name: "Undo Last Import", exact: true })).toBeVisible();
     await expect.poll(() => importRequests.length).toBe(2);
     expect(importRequests[0]!.bodyBytes).toBeGreaterThan(0);
     expect(importRequests[0]!.previewToken).toBeUndefined();
@@ -24114,12 +24122,12 @@ test("Updates shows the installed channel before checks and after a failed check
   await clickTopbarPanel(page, "settings");
   await page.getByRole("tab", { name: "Advanced" }).click();
   const channel = page.getByLabel("Release Channel");
-  await expect(channel).toHaveValue("staging");
+  await expect(channel).toHaveAttribute("data-value", "staging");
   await page.getByRole("button", { name: "Check for Updates" }).click();
   await expect(page.getByRole("button", { name: "Check for Updates" })).toBeEnabled();
-  await expect(channel).toHaveValue("staging");
-  await channel.selectOption("stable");
-  await expect(channel).toHaveValue("stable");
+  await expect(channel).toHaveAttribute("data-value", "staging");
+  await chooseOption(page, channel, "Latest Stable");
+  await expect(channel).toHaveAttribute("data-value", "stable");
 });
 
 test("clearing Roleplay trackers requires confirmation and Cancel preserves state", async ({ page, request }) => {
@@ -24204,7 +24212,7 @@ test("mobile Docker update checks offer the selected staging image", async ({ pa
   await page.goto("/");
   await clickTopbarPanel(page, "settings");
   await page.getByRole("tab", { name: "Advanced" }).click();
-  await page.getByLabel("Release Channel").selectOption("staging");
+  await chooseOption(page, page.getByLabel("Release Channel"), "Staging/UAT");
   await page.getByRole("button", { name: "Check for Updates" }).click();
 
   await expect(page.getByText("Switch to Staging/UAT", { exact: true })).toBeVisible();
@@ -24930,7 +24938,12 @@ test("Background library organization works with desktop drag and touch drag", a
 
     await expect(page.getByText("Drag a background onto a folder chip to file it.")).toBeVisible();
     const sortSelect = page.getByLabel("Sort backgrounds");
-    await expect(sortSelect.locator("option")).toHaveText(["Manual order", "A-Z", "Z-A", "Newest", "Oldest"]);
+    await sortSelect.click();
+    await expect(
+      page.getByRole("dialog", { name: "Sort backgrounds", exact: true }).locator("[data-pick-row]"),
+    ).toContainText(["Manual order", "A-Z", "Z-A", "Newest", "Oldest"]);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Sort backgrounds", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /Tags \(/ }).click();
     await page.getByRole("button", { name: "smoke-folder", exact: true }).click();
 

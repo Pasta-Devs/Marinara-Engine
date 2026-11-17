@@ -5,6 +5,7 @@ import { playbackErrorMessage } from "../../../packages/client/src/lib/local-mus
 // #8618: the custom Music DJ player showed "The play() request was interrupted by …" and "Playback needs attention"
 // while music played. A new track pauses and reloads the element, which rejects any pending play() with an AbortError,
 // and the resume button's catch then set that as the current error after the new track had already cleared it.
+// After that, the player's source: local tracks play from an authenticated blob URL that is revoked afterwards.
 
 const abort = Object.assign(new Error("The play() request was interrupted by a call to pause()."), {
   name: "AbortError",
@@ -64,5 +65,14 @@ assert.equal(
   2,
   "both the desktop and the mobile player clear the error when the element starts playing",
 );
+
+const localMusicPlayerSource = readFileSync(
+  new URL("../../../packages/client/src/components/chat/LocalMusicPlayer.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(localMusicPlayerSource, /api\.raw\(`\/game-assets\/local-music-file\?path=\$\{encodedPath\}`\)/u);
+assert.match(localMusicPlayerSource, /URL\.createObjectURL\(await response\.blob\(\)\)/u);
+assert.match(localMusicPlayerSource, /URL\.revokeObjectURL/u);
+assert.doesNotMatch(localMusicPlayerSource, /return `\/api\/game-assets\/local-music-file/u);
 
 console.log("local music playback error regression passed");

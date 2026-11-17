@@ -23,6 +23,8 @@ export type CharacterPromptInfo = {
   systemPrompt: string;
   backstory: string;
   appearance: string;
+  /** For the {{publicFace}} macro only; never part of the character's own card. */
+  publicFace: string;
   /**
    * Image-prompt-only appearance override (#7053). Set when the card enables
    * `extensions.imageAppearanceEnabled` with non-empty `extensions.imageAppearance`.
@@ -158,6 +160,7 @@ export async function loadCharacterPromptInfo({
       systemPrompt: cardPromptText(charData.system_prompt),
       backstory: cardPromptText(charData.extensions?.backstory),
       appearance: cardPromptText(charData.extensions?.appearance),
+      publicFace: cardPromptText(charData.extensions?.publicFace),
       imageAppearanceOverride: readImageAppearanceOverride(charData.extensions, null) ?? undefined,
       mesExample: cardPromptText(charData.mes_example),
       firstMes: cardPromptText(charData.first_mes),
@@ -185,6 +188,7 @@ export function buildCharacterMacroProfilesById(charInfo: CharacterPromptInfo[])
         personality: character.personality,
         backstory: character.backstory,
         appearance: character.appearance,
+        publicFace: character.publicFace,
         scenario: character.scenario,
         example: character.mesExample,
         systemPrompt: character.systemPrompt,
@@ -259,6 +263,7 @@ export function injectIdentityFallbackMessages(args: {
         scenario: character.scenario,
         backstory: character.backstory,
         appearance: character.appearance,
+        publicFace: character.publicFace,
         example: character.mesExample,
         systemPrompt: character.systemPrompt,
         postHistoryInstructions: character.postHistoryInstructions,

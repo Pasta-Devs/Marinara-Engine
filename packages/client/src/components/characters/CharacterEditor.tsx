@@ -94,19 +94,21 @@ import { CharacterCombatIconSection } from "./GameModeIconSection";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { dataImageUrlToFile } from "../../lib/data-image-file";
+import { galleryCreateSeeds, saveGalleryCreation } from "../../lib/gallery-create-save";
 import { rebaseForm } from "../../lib/form-rebase";
 import { formFieldValue, withFormFieldValue } from "../../lib/mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "./MariFieldReview";
 import { mergeEmbeddedCharacterCardFields } from "../../lib/character-import";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
-import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
+import { AvatarGenerationModal, type GalleryCreateResult } from "../ui/AvatarGenerationModal";
 import { AvatarCropWidget, FullImageView } from "../ui/AvatarCropWidget";
 import { AvatarReplaceActions } from "../ui/AvatarReplaceActions";
 import { EditorAvatarTileActions } from "../ui/EditorAvatarTileActions";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
 import { CharacterRegexSection } from "./CharacterRegexSection";
 import { CharacterVoicePicker } from "./CharacterVoicePicker";
 import { NameAliasesSection } from "../ui/NameAliasesSection";
@@ -266,6 +268,7 @@ const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-backstory", label: "Backstory" },
   { id: "character-card-appearance", label: "Appearance" },
   { id: "character-card-scenario", label: "Scenario" },
+  { id: "character-card-public-face", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { id: "character-card-dialogue", label: "Dialogue" },
 ] as const;
 
@@ -304,7 +307,7 @@ type CharacterSheetUpdate = {
 };
 
 function isCardVariableField(field: CardFieldKey): field is CardVariableField {
-  return field !== "summary" && field !== "mes_example";
+  return field !== "summary" && field !== "mes_example" && field !== "publicFace";
 }
 
 const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
@@ -408,7 +411,7 @@ const CHARACTER_QUOTE_FIELD_KEYS = new Set<string>([
   "creator_notes",
 ]);
 
-const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory"]);
+const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory", "publicFace"]);
 
 function readSavedCardData(row: unknown): CharacterData | undefined {
   const raw = (row as { data?: unknown } | null)?.data;
@@ -530,7 +533,11 @@ export function CharacterEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
-  const { data: characterSheetSprites } = useCharacterSprites(characterSheetGeneratorOpen ? characterId : null);
+  const [galleryCreateOpen, setGalleryCreateOpen] = useState(false);
+  const tagGalleryCreation = useTagCharacterGalleryImage(characterId ?? "");
+  const { data: characterSheetSprites } = useCharacterSprites(
+    characterSheetGeneratorOpen || galleryCreateOpen ? characterId : null,
+  );
   const [newTag, setNewTag] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -858,6 +865,18 @@ export function CharacterEditor() {
       toast.success(localizeUi("ui.characters.charactersheet.created"));
     },
     [formData?.name, localizeUi, updateCharacterSheet, uploadCharacterSheet],
+  );
+
+  const handleGalleryCreation = useCallback(
+    (result: GalleryCreateResult) =>
+      saveGalleryCreation(result, {
+        fileStem: formData?.name || "character",
+        upload: (files) => uploadCharacterSheet.mutateAsync(files),
+        tag: (args) => tagGalleryCreation.mutateAsync(args),
+        saveCharacterSheet: handleGeneratedCharacterSheet,
+        localizeUi,
+      }),
+    [formData?.name, handleGeneratedCharacterSheet, localizeUi, tagGalleryCreation, uploadCharacterSheet],
   );
 
   const beginAvatarUpload = useCallback(() => {
@@ -1415,6 +1434,28 @@ export function CharacterEditor() {
           onClose={() => setCharacterSheetGeneratorOpen(false)}
           onUseAvatar={handleGeneratedCharacterSheet}
         />
+        <AvatarGenerationModal
+          open={galleryCreateOpen}
+          title={localizeUi("ui.characters.charactersheet.createWithAi")}
+          entityName={formData.name || localizeUi("ui.characters.charactersheet.characterFallback")}
+          galleryCreate={{
+            seeds: galleryCreateSeeds(
+              imageAppearanceGeneratorSeed(
+                formData.extensions,
+                (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
+              ),
+              formData.scenario || formData.description || formData.personality,
+              formData.name,
+            ),
+            onSave: handleGalleryCreation,
+          }}
+          defaultAvatarUrl={avatarPreview}
+          neutralFullBodyReferenceUrl={
+            characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url
+          }
+          onClose={() => setGalleryCreateOpen(false)}
+          onUseAvatar={handleGeneratedCharacterSheet}
+        />
 
         <CardEditor
           variant="character"
@@ -1557,7 +1598,7 @@ export function CharacterEditor() {
                   <CharacterGalleryTab
                     characterId={characterId}
                     characterName={formData.name}
-                    onCreateCharacterSheet={() => setCharacterSheetGeneratorOpen(true)}
+                    onCreateCharacterSheet={() => setGalleryCreateOpen(true)}
                   />
                 }
               />
@@ -1679,10 +1720,11 @@ function CharacterCardTab({
     backstory: String(formData.extensions.backstory ?? ""),
     appearance: String(formData.extensions.appearance ?? ""),
     scenario: formData.scenario,
+    publicFace: String(formData.extensions.publicFace ?? ""),
     mes_example: formData.mes_example,
   };
   const updateCardField = (key: CardFieldKey, value: string) => {
-    if (key === "backstory" || key === "appearance") updateExtension(key, value);
+    if (key === "backstory" || key === "appearance" || key === "publicFace") updateExtension(key, value);
     else updateField(key, value);
   };
   const alternatives = useMemo(
@@ -1811,6 +1853,15 @@ function CharacterCardTab({
       rows: 8,
     },
     {
+      key: "publicFace",
+      sectionId: "character-card-public-face",
+      title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
+      subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
+      helpText: localizeUi("ui.cardFields.publicFace.help"),
+      placeholder: localizeUi("ui.cardFields.publicFace.placeholder"),
+      rows: 8,
+    },
+    {
       key: "mes_example",
       sectionId: "character-card-dialogue",
       // The dialogue section also owns the greetings and onboarding.
@@ -1854,7 +1905,13 @@ function CharacterCardTab({
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}
-        renderJumps={() => <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />}
+        renderJumps={() => (
+          <EditorSectionJumps
+            items={CHARACTER_CARD_SECTIONS.map((section) =>
+              "labelKey" in section ? { ...section, label: localizeUi(section.labelKey) } : section,
+            )}
+          />
+        )}
         renderFooter={chipsFor}
         onTextareaRef={(key, element) => {
           fieldRefs.current[key] = element;
@@ -2896,7 +2953,7 @@ function MetadataTab({
   );
 }
 
-const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
+const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "summary", label: "Summary" },
   { key: "description", label: "Description" },
@@ -2906,6 +2963,7 @@ const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
   { key: "mes_example", label: "Example Dialogue" },
   { key: "extensions.backstory", label: "Backstory" },
   { key: "extensions.appearance", label: "Appearance" },
+  { key: "extensions.publicFace", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { key: "extensions.imageAppearance", label: "Image Appearance Override" },
   { key: "extensions.imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "creator_notes", label: "Creator Notes" },
@@ -3224,7 +3282,9 @@ function CharacterVersionHistoryPanel({
                 return (
                   <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {field.labelKey ? localizeUi(field.labelKey) : field.label}
+                      </span>
                       {changed && (
                         <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
                           {localizeUi("ui.characters.characterversionhistorypanel.changed")}
@@ -4264,6 +4324,13 @@ function CharacterGalleryTab({
                 <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                   {localizeUi("ui.gallery.batch.selected", { count: selectedImages.length })}
                 </span>
+              ) : null}
+              {selectingImages ? (
+                <GalleryCleanUpButton
+                  images={selectedImages}
+                  replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
+                  queryKey={characterKeys.gallery(characterId)}
+                />
               ) : null}
             </div>
             <button

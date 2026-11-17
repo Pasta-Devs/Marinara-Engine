@@ -41,3 +41,37 @@ export function galleryBackgroundPlaceList(value: unknown): string[] {
     ),
   );
 }
+
+// ── Sticker and emoji sheets (gallery "Create with AI") ──
+
+/** Most stickers or emoji one generated sheet holds; more cells get too small to read. */
+export const GALLERY_STICKER_SHEET_MAX_COUNT = 16;
+
+/** The grid a sticker or emoji sheet of `count` cells is drawn in: square-ish, never more cells than needed rows. */
+export function gallerySheetGrid(count: number): { cols: number; rows: number } {
+  const safe = Math.max(1, Math.min(GALLERY_STICKER_SHEET_MAX_COUNT, Math.floor(count) || 1));
+  const cols = Math.ceil(Math.sqrt(safe));
+  return { cols, rows: Math.ceil(safe / cols) };
+}
+
+/** Sticker or emoji names typed as a comma or line list: trimmed, deduped, capped. */
+export function parseGallerySheetNames(value: unknown): string[] {
+  const list = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,\n;]/u) : [];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== "string") continue;
+    // eslint-disable-next-line no-control-regex
+    const name = raw
+      .replace(/[\u0000-\u001f\u007f]+/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .slice(0, 40);
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+    if (names.length >= GALLERY_STICKER_SHEET_MAX_COUNT) break;
+  }
+  return names;
+}

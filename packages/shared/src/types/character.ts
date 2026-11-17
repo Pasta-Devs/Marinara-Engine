@@ -45,6 +45,8 @@ export interface CharacterExtensions {
   backstory: string;
   /** Marinara Engine extension: physical appearance description */
   appearance: string;
+  /** Marinara Engine: the card minus its private parts, for prompts about others. Never in the own card. */
+  publicFace?: string;
   /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
   imageAppearanceEnabled?: boolean;
   /** Marinara Engine: appearance text used for image prompts when the override is enabled. */
@@ -292,6 +294,8 @@ export interface PersonaCardSnapshot {
   scenario: string;
   backstory: string;
   appearance: string;
+  /** Snapshots from before Public Face existed lack it. */
+  publicFace?: string;
   /** Marinara Engine: image-prompt override flag, stored as a string like its siblings. */
   imageAppearanceEnabled?: string;
   /** Marinara Engine: appearance text used for image prompts while the override is on. */

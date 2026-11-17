@@ -11,7 +11,8 @@ import { cn } from "../../lib/utils";
 /** Items in no folder get their own "Ungrouped" folder only from this many; fewer sit loose under the folders. */
 export const UNGROUPED_FOLDER_MIN = 8;
 
-const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-12";
+// Phone rows are 52 px, the S.O.U.P. list-row height.
+const ROW = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors max-md:min-h-13";
 // The keyboard ring: the search keeps focus, so the highlighted row is marked, not focused.
 const ACTIVE_RING =
   "data-[active=true]:ring-2 data-[active=true]:ring-[var(--marinara-chat-chrome-focus-ring,currentColor)]";
@@ -64,7 +65,8 @@ export function usePickerKeyboard({
   query,
 }: {
   listRef: RefObject<HTMLElement | null>;
-  searchRef: RefObject<HTMLInputElement | null>;
+  /** The element holding focus: the search box, or the list itself when there is none. */
+  searchRef: RefObject<HTMLElement | null>;
   listId: string;
   query: string;
 }) {
@@ -118,7 +120,17 @@ export function usePickerKeyboard({
   // folders open, searches change and the list scrolls.
   const mark = () => {
     const all = rows();
-    if (!(activeEl.current && all.includes(activeEl.current)) && all.length && (listRef.current?.scrollTop ?? 0) <= 2) {
+    // Like a native select, the keys start from the current choice when the list opens.
+    const current =
+      ringFirst.current && !query ? all.find((row) => row.getAttribute("aria-current") === "true") : undefined;
+    if (current && !activeEl.current) {
+      activeEl.current = current;
+      ringFirst.current = false;
+    } else if (
+      !(activeEl.current && all.includes(activeEl.current)) &&
+      all.length &&
+      (listRef.current?.scrollTop ?? 0) <= 2
+    ) {
       activeEl.current = all[ringFirst.current ? 0 : Math.min(active, all.length - 1)]!;
       ringFirst.current = false;
     }
@@ -199,7 +211,7 @@ export function usePickerKeyboard({
     if (!box || !wrapper) return false;
     return down ? box.bottom - wrapper.bottom > 2 : wrapper.top - box.top > 2;
   };
-  return (event: KeyboardEvent<HTMLInputElement>) => {
+  return (event: KeyboardEvent<HTMLElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const all = rows();
     const count = all.length;
@@ -229,6 +241,20 @@ export function usePickerKeyboard({
   };
 }
 
+/**
+ * Scrolls a picker list to its picked row, moving only the list itself (never the page or panel around it).
+ * Run it once the list has its final height: a popover gets that only after it is placed.
+ */
+export function scrollPickedRow(list: HTMLElement | null) {
+  if (!list) return;
+  const row = list.querySelector<HTMLElement>('[aria-current="true"]');
+  if (!row) return;
+  const rowBox = row.getBoundingClientRect();
+  const listBox = list.getBoundingClientRect();
+  if (rowBox.top >= listBox.top && rowBox.bottom <= listBox.bottom) return;
+  list.scrollTop += rowBox.top - listBox.top - (listBox.height - rowBox.height) / 2;
+}
+
 export function PickRow({
   picked,
   multiple,
@@ -240,6 +266,7 @@ export function PickRow({
   indented,
   disabledReason,
   busy,
+  option,
 }: {
   picked: boolean;
   multiple?: boolean;
@@ -253,6 +280,8 @@ export function PickRow({
   /** Greys the row out, with this as the subtitle. */
   disabledReason?: string;
   busy?: boolean;
+  /** A row of a `role="listbox"` list (no search box): an option, so the list's aria-activedescendant has a target. */
+  option?: boolean;
 }) {
   const disabled = disabledReason !== undefined;
   return (
@@ -262,7 +291,9 @@ export function PickRow({
       title={title}
       disabled={disabled || busy}
       onClick={onClick}
-      aria-pressed={multiple ? picked : undefined}
+      role={option ? "option" : undefined}
+      aria-selected={option ? picked : undefined}
+      aria-pressed={multiple && !option ? picked : undefined}
       aria-current={!multiple && picked ? "true" : undefined}
       className={cn(
         ROW,

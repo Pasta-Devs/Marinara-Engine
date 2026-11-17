@@ -198,6 +198,7 @@ export type PersonaStorageWriteFields = Pick<
   | "scenario"
   | "backstory"
   | "appearance"
+  | "publicFace"
   | "imageAppearanceEnabled"
   | "imageAppearance"
   | "characterSheetImageId"
@@ -389,6 +390,7 @@ function buildPersonaSnapshot(persona: PersonaStorageRow): PersonaCardSnapshot {
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
+    publicFace: persona.publicFace ?? "",
     imageAppearanceEnabled: persona.imageAppearanceEnabled ?? "false",
     imageAppearance: persona.imageAppearance ?? "",
     characterSheetImageId: persona.characterSheetImageId ?? "",
@@ -436,6 +438,7 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     scenario: data.scenario ?? "",
     backstory: data.backstory ?? "",
     appearance: data.appearance ?? "",
+    publicFace: data.publicFace ?? "",
     imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
     imageAppearance: data.imageAppearance ?? "",
     characterSheetImageId: data.characterSheetImageId ?? "",
@@ -1201,6 +1204,7 @@ export function createCharactersStorage(db: DB) {
         scenario: extra?.scenario ?? "",
         backstory: extra?.backstory ?? "",
         appearance: extra?.appearance ?? "",
+        publicFace: extra?.publicFace ?? "",
         imageAppearanceEnabled: extra?.imageAppearanceEnabled ?? "false",
         imageAppearance: extra?.imageAppearance ?? "",
         avatarPath: avatarPath ?? null,
@@ -1270,6 +1274,7 @@ export function createCharactersStorage(db: DB) {
           scenario: source.scenario ?? "",
           backstory: source.backstory ?? "",
           appearance: source.appearance ?? "",
+          publicFace: source.publicFace ?? "",
           imageAppearanceEnabled: source.imageAppearanceEnabled ?? "false",
           imageAppearance: source.imageAppearance ?? "",
           avatarPath: source.avatarPath,
@@ -1329,6 +1334,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;
       if (updates.backstory !== undefined) sets.backstory = updates.backstory;
       if (updates.appearance !== undefined) sets.appearance = updates.appearance;
+      if (updates.publicFace !== undefined) sets.publicFace = updates.publicFace;
       if (updates.imageAppearanceEnabled !== undefined) sets.imageAppearanceEnabled = updates.imageAppearanceEnabled;
       if (updates.imageAppearance !== undefined) sets.imageAppearance = updates.imageAppearance;
       if (updates.avatarPath !== undefined) sets.avatarPath = updates.avatarPath;
@@ -1367,6 +1373,7 @@ export function createCharactersStorage(db: DB) {
           ...(updates.scenario !== undefined && { scenario: updates.scenario }),
           ...(updates.backstory !== undefined && { backstory: updates.backstory }),
           ...(updates.appearance !== undefined && { appearance: updates.appearance }),
+          ...(updates.publicFace !== undefined && { publicFace: updates.publicFace }),
           ...(updates.imageAppearanceEnabled !== undefined && {
             imageAppearanceEnabled: updates.imageAppearanceEnabled,
           }),
@@ -1466,6 +1473,7 @@ export function createCharactersStorage(db: DB) {
           scenario: data.scenario,
           backstory: data.backstory,
           appearance: data.appearance,
+          publicFace: data.publicFace ?? "",
           imageAppearanceEnabled: data.imageAppearanceEnabled ?? "false",
           imageAppearance: data.imageAppearance ?? "",
           avatarPath: version.avatarPath ?? null,
