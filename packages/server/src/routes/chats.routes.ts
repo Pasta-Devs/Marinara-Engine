@@ -1096,6 +1096,9 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List all chats
   // No query: the whole list (what the app loads). `?limit=N&before=<updatedAt>` pages it.
   app.get<{ Querystring: { limit?: string; before?: string } }>("/", async (req, reply) => {
+    if (req.query.before !== undefined && Number.isNaN(Date.parse(req.query.before))) {
+      return reply.status(400).send({ error: "before must be a timestamp" });
+    }
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
     const response = pageChatList(

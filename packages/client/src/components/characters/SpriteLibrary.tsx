@@ -210,6 +210,9 @@ export function SpriteLibraryShell({
     </div>
   );
 }
+// The grabbed tile goes first: it is the one kept mounted while it scrolls away.
+const grabbedFirst = (list: string[], grabbed: string) => [grabbed, ...list.filter((item) => item !== grabbed)];
+
 const dragType = "application/x-marinara-sprites";
 export function SpriteFolderGrid({
   library,
@@ -248,7 +251,9 @@ export function SpriteFolderGrid({
     getDragIds: (expression) => (library.selected.includes(expression) ? library.selected : [expression]),
     onActivate: (expression) => {
       suppressClick.current = true;
-      setDraggedExpressions(library.selected.includes(expression) ? library.selected : [expression]);
+      setDraggedExpressions(
+        grabbedFirst(library.selected.includes(expression) ? library.selected : [expression], expression),
+      );
     },
     onDrop: (_expression, x, y, expressions) => {
       const hit = document.elementFromPoint(x, y);
@@ -433,7 +438,7 @@ export function SpriteFolderGrid({
             expressions,
           }),
         );
-        setDraggedExpressions(expressions);
+        setDraggedExpressions(grabbedFirst(expressions, sprite.expression));
       }}
       onDragEnd={() => {
         dragPreview.current?.remove();
@@ -446,7 +451,7 @@ export function SpriteFolderGrid({
     </div>
   );
   const grid = (key: string, sprites: SpriteInfo[]) => {
-    const dragged = sprites.findIndex((sprite) => draggedExpressions.includes(sprite.expression));
+    const dragged = sprites.findIndex((sprite) => sprite.expression === draggedExpressions[0]);
     return (
       <PanelVirtualList
         listKey={`sprites:${library.ownerId}:${library.category}:${key}`}
