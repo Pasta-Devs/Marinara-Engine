@@ -715,10 +715,14 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     const laterFailedPrompt = "A later incoming prompt that cannot be saved.";
     const firstFailureGate = new Promise<void>((resolve) => (releaseFirstPromptFailure = resolve));
     const failureGate = new Promise<void>((resolve) => (releasePromptFailure = resolve));
-    await page.route(`**${settingsPath}`, async (route) => {
-      if (route.request().method() === "PUT") defaultsWrites++;
-      await route.continue();
-    });
+    // Save sends ?fromChatId= so the server keeps the chat's stored DeepL key; match the path alone.
+    await page.route(
+      (url) => url.pathname === settingsPath,
+      async (route) => {
+        if (route.request().method() === "PUT") defaultsWrites++;
+        await route.continue();
+      },
+    );
     await page.route(`**/api/chats/${origin.id}/metadata`, async (route) => {
       if (
         route.request().method() === "PATCH" &&
