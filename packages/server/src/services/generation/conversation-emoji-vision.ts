@@ -38,33 +38,45 @@ export function rewriteStickerNamesWrittenAsEmojis(
   emojiNames: ReadonlySet<string> | Map<string, unknown>,
 ): { text: string; changed: boolean } {
   if (stickerNames.size === 0 || !text.includes(":")) return { text, changed: false };
-  let changed = false;
-  let dropped = false;
   // A sticker the reply already sends is not sent twice: its bare `:name:` copy is dropped instead.
   const alreadySent = new Set([...text.matchAll(STICKER_TOKEN)].map((match) => match[1]!));
-  const out = text.replace(
-    /(sticker)?:([a-z0-9_]{1,32}):/g,
-    (whole, prefix: string | undefined, name: string, offset: number) => {
-      if (prefix || !stickerNames.has(name) || emojiNames.has(name)) return whole;
-      // Leave word-joined colons alone ("a:hug:b"), which are not emoji tokens.
-      const before = offset > 0 ? text[offset - 1]! : "";
-      if (/[a-z0-9_]/i.test(before)) return whole;
-      changed = true;
-      if (alreadySent.has(name)) {
-        dropped = true;
-        return "";
-      }
-      alreadySent.add(name);
-      return `sticker:${name}:`;
-    },
-  );
-  if (!dropped) return { text: out, changed };
-  const tidied = out
-    .replace(/ {2,}/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text: tidied, changed };
+  let out = "";
+  let cursor = 0;
+  for (const match of text.matchAll(/(sticker)?:([a-z0-9_]{1,32}):/g)) {
+    const [whole, prefix, name] = match;
+    const start = match.index!;
+    if (prefix || !stickerNames.has(name!) || emojiNames.has(name!)) continue;
+    // Leave word-joined colons alone ("a:hug:b"), which are not emoji tokens.
+    if (start > 0 && /[a-z0-9_]/i.test(text[start - 1]!)) continue;
+    const end = start + whole.length;
+    if (!alreadySent.has(name!)) {
+      alreadySent.add(name!);
+      out += `${text.slice(cursor, start)}sticker:${name}:`;
+      cursor = end;
+      continue;
+    }
+    // Drop only the duplicate and one space beside it; a copy alone on its line takes its line break with it.
+    let dropStart = start;
+    let dropEnd = end;
+    const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+    const lineEndAt = text.indexOf("\n", end);
+    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    if (text.slice(lineStart, start).trim() === "" && text.slice(end, lineEnd).trim() === "" && lineStart >= cursor) {
+      dropStart = lineStart;
+      dropEnd = lineEndAt === -1 ? lineEnd : lineEnd + 1;
+      // The last line has no line break after it: take the one before it instead.
+      if (lineEndAt === -1 && lineStart > cursor) dropStart = lineStart - 1;
+    } else if (text[end] === " ") {
+      dropEnd = end + 1;
+    } else if (start > cursor && text[start - 1] === " ") {
+      dropStart = start - 1;
+    }
+    out += text.slice(cursor, dropStart);
+    cursor = dropEnd;
+  }
+  if (cursor === 0) return { text, changed: false };
+  out += text.slice(cursor);
+  return { text: out, changed: out !== text };
 }
 
 /** Custom emoji and sticker names written in the given texts, newest text first, each name once. */
