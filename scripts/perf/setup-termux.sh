@@ -243,6 +243,18 @@ if [ -z "$FROM" ]; then
   # 4. This checkout into ~/Marinara-Engine. The launcher's update check reads git; a copy has no .git, and
   # --skip-update skips it anyway.
   log "copying this checkout into Termux"
+  # Leave nothing behind from an earlier run, so the build only sees this checkout. A folder left by --from is a git
+  # clone of another release: clear it but keep data/. Otherwise delete the files the last copy brought that this
+  # checkout no longer has; dependencies, builds and data stay, so later runs stay quick.
+  (cd "$ROOT" && git ls-files -co --exclude-standard | LC_ALL=C sort -u) >"$STATE/files-$ARCH.txt"
+  tx 'cat > ~/.termux-qc-files.new' <"$STATE/files-$ARCH.txt"
+  tx 'cd ~ && mkdir -p Marinara-Engine && cd Marinara-Engine
+    if [ -e .git ]; then
+      find . -mindepth 1 -maxdepth 1 ! -name data -exec rm -rf {} +
+    elif [ -f ~/.termux-qc-files.txt ]; then
+      LC_ALL=C comm -23 ~/.termux-qc-files.txt ~/.termux-qc-files.new | while IFS= read -r f; do rm -f -- "$f"; done
+    fi
+    mv ~/.termux-qc-files.new ~/.termux-qc-files.txt'
   copy_checkout Marinara-Engine
   # 5. Start it with the real launcher and wait for the server.
   launch "$LOG" --skip-update

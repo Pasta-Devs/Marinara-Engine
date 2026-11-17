@@ -48,8 +48,10 @@ export function useScreen(device) {
   adb("shell", "wm", "density", String(want.density));
 }
 
-/** Open the app as "phone" or "tablet" in Android Chrome, with Show tap timings on. */
-/** keepIntro: leave the first-run tour and "What's New?" up (by default they are closed, which the server remembers). */
+/**
+ * Open the app as "phone" or "tablet" in Android Chrome, with Show tap timings on.
+ * keepIntro: leave the first-run tour and "What's New?" up (by default they are closed, which the server remembers).
+ */
 export async function openDevice(device, { appUrl = "http://localhost:7860", path = "/", keepIntro = false } = {}) {
   useScreen(device);
   const { sessionId } = await wd(
@@ -136,7 +138,7 @@ async function main() {
 
   if (command === "smoke") return smoke(appUrl, options.out ?? join(STATE, "smoke"));
   if (command === "taps") {
-    const device = options.device ?? "phone";
+    const device = options.device ?? "tablet";
     const page = await openDevice(device, { appUrl });
     try {
       await sleep(1000);
