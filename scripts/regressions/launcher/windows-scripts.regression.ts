@@ -1,5 +1,7 @@
 // Windows launcher and build scripts: start.bat detects Node by running it and cleans each workspace, and the build
 // and update scripts never pass an argument array through a Windows shell.
+// regression-layout: source-path the scripts' own text is checked: no call site may combine an argument array
+// with shell: true.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

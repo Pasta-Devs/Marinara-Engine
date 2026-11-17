@@ -1,4 +1,5 @@
 // Professor Mari's stylesheet: her user bubbles take their background from the theme colours.
+// regression-layout: source-path this is a stylesheet rule, so the stylesheet's text is what is checked.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 

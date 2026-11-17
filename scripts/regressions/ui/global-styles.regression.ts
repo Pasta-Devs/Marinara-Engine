@@ -1,5 +1,6 @@
 // Rules in the app's global stylesheet: mobile Roleplay editing and Echo, paused effects, Recent Chats and gallery
 // layout, the pulse animation, reduced ambient effects and Markdown message containers.
+// regression-layout: source-path these are stylesheet rules, so the stylesheet's text is what is checked.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
