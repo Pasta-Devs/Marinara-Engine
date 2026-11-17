@@ -89,8 +89,8 @@ than on a phone, so read a failure under a cap from an ARM machine or the workfl
 - arm64 is the default because phones are arm64. On an x86 machine it runs through qemu CPU emulation (it sets that up),
   so the first build takes about 10 minutes (8 in a 4-core cloud container); on an ARM machine (or the workflow's ARM runner) it takes under a minute.
   Later runs reuse the Termux home volume and only rebuild what changed. `--fresh` starts over like a first install.
-- `--arch x86_64` checks x86 Android (Chromebooks, BlueStacks and other PC Android). Today that fails at the client
-  build: rolldown ships no Android x64 binding.
+- `--arch x86_64` checks x86 Android (Chromebooks, BlueStacks and other PC Android). rolldown ships no Android x64
+  binding, so the client build there uses rolldown's WebAssembly binding, which the client installs for it.
 - Once the server is up, the phone/tablet checks can drive it: `setup-webkit.sh http://localhost:7861` or
   `setup-android.sh http://localhost:7861`. `--shell` opens a Termux shell, `--stop` stops the container.
 - Not covered (it is Termux on a PC kernel): Android's phantom process killer, battery savers, storage permissions,
@@ -114,7 +114,7 @@ prints the readings. `android-qc.mjs` takes the same commands and `openDevice()`
 - The emulator runs on a PC processor and Chrome is the version on the system image, so timings read faster than a
   mid-range phone. Use it for Android layout, touch, keyboard and Chrome behaviour; compare speed before and after a
   change, and use WebKit for speed findings.
-- Don't run Termux inside this emulator: it is x86_64, so it hits the rolldown problem above.
+- Don't run Termux inside this emulator: it is x86_64, and phones are arm64. Use `setup-termux.sh` for Termux.
 
 ### Machines without KVM: the **Android QC** workflow
 
