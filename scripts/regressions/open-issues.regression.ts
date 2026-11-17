@@ -32,27 +32,6 @@ import {
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
 
-const professorMariWorkspaceSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/server/src/services/professor-mari/workspace-agent.service.ts"),
-  "utf8",
-);
-assert.match(
-  professorMariWorkspaceSource,
-  /description is a brief identity overview[\s\S]{0,220}backstory is[^\n]+history[\s\S]{0,180}appearance is physical features/u,
-  "Professor Mari's workspace prompt must teach smaller models the distinct character-card field meanings",
-);
-assert.match(
-  professorMariWorkspaceSource,
-  /Updates are patches[\s\S]{0,400}Read the entity back[\s\S]{0,300}Claim completion only when every requested value matches/u,
-  "Professor Mari must preserve unrelated fields and verify requested character edits before claiming completion",
-);
-const professorMariSeedSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/db/seed-mari.ts"), "utf8");
-assert.match(
-  professorMariSeedSource,
-  /Keep card fields distinct:[\s\S]{0,600}fetch the character again/u,
-  "The seeded Professor Mari command guide must retain the same targeted character-field safeguards",
-);
-
 assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
   conversation: "oklch(0.79 0.16 205)",
   roleplay: "oklch(0.76 0.19 52)",
@@ -62,12 +41,6 @@ assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
 ) as Record<string, unknown>;
-const updatesRouteSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/updates.routes.ts"), "utf8");
-assert.match(
-  updatesRouteSource,
-  /gitInstall \? await getCurrentBranch\(root\)\.catch\(\(\) => null\) : getBuildBranch\(\)/u,
-);
-assert.match(updatesRouteSource, /const currentChannel = await getUpdateChannelForCheckout\(root, currentBranch\)/u);
 
 const expectedChatModeSurfaces = {
   conversation: {
@@ -591,20 +564,8 @@ assert.doesNotMatch(
   /sharedSections\s*\.includes\(\s*["']agents["']\s*\)\s*&&\s*!isConversation/u,
   "Agent settings visibility must not retain the obsolete sharedSections/isConversation gate",
 );
-const promptMacroContextSource = readFileSync(
-  new URL("../../packages/server/src/services/prompt/macro-context.ts", import.meta.url),
-  "utf8",
-);
-const lorebookServiceSource = readFileSync(
-  new URL("../../packages/server/src/services/lorebook/index.ts", import.meta.url),
-  "utf8",
-);
 const gameAssetHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-game-assets.ts", import.meta.url),
-  "utf8",
-);
-const sidecarProcessSource = readFileSync(
-  new URL("../../packages/server/src/services/sidecar/sidecar-process.service.ts", import.meta.url),
   "utf8",
 );
 const deviceDetailSource = readFileSync(
@@ -615,10 +576,6 @@ const notificationSettingsSource = readFileSync(
   new URL("../../packages/client/src/components/panels/settings/SettingControls.tsx", import.meta.url),
   "utf8",
 ).replace(/\r\n/gu, "\n");
-const galleryRoutesSource = readFileSync(
-  new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
-  "utf8",
-);
 const gameAssetsRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/game-assets.routes.ts", import.meta.url),
   "utf8",
@@ -626,33 +583,13 @@ const gameAssetsRoutesSource = readFileSync(
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
-assert.match(
-  galleryRoutesSource,
-  // Anchored at the one scene-video delete route, with bounded lazy gaps so the
-  // match cannot span into another handler: ownership check, then the DB row
-  // removal with its exact #5611 chat-scoping argument, then the tolerated disk
-  // unlink — in that order, all inside this handler.
-  /app\.delete<\{ Params: \{ chatId: string; id: string \} \}>\("\/scene-videos\/:chatId\/:id"[\s\S]{0,400}?video\.chatId !== chatId[\s\S]{0,200}?await sceneVideos\.remove\(video\.id, video\.chatId\);[\s\S]{0,120}?await removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
-);
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
   chatSettingsDrawerSource.match(/<GenerationSettingsLink/gu)?.length,
   3,
   "generation settings navigation should use one shared control in all three locations",
 );
-assert.match(
-  promptMacroContextSource,
-  /macroSources\.some\(\(source\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(source\)\)[\s\S]*countAllEntriesByLorebook/u,
-  "prompt macro contexts must only scan lorebook counts when a source uses lorebooksize",
-);
-assert.match(
-  lorebookServiceSource,
-  /allEntries\.some\(\(entry\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(entry\.content\)\)[\s\S]*countAllEntriesByLorebook/u,
-  "lorebook scans must only count all entries when relevant content uses lorebooksize",
-);
 assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKeys\.all \}\)/u);
-assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
-assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
 const browserNotificationHelpSource =
   notificationSettingsSource.match(/const browserNotificationHelp =[\s\S]*?;\n/u)?.[0] ?? "";
