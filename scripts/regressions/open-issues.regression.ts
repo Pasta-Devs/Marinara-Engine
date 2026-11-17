@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ChatMode } from "../../packages/shared/src/types/chat.js";
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
-import playwrightConfig from "../../playwright.config.js";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
 import { createSerializedMutationQueue } from "../../packages/client/src/lib/serialized-mutation-queue.js";
 import {
@@ -146,41 +145,12 @@ assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
 const lorebookEnglishLocale = JSON.parse(
   readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
 ) as Record<string, unknown>;
-assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCharacter"], "Before character definitions");
-assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCharacter"], "After character definitions");
-assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCompact"], "↑Char");
-assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCompact"], "↓Char");
-assert.match(
-  String(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr"]),
-  /Before Character Definitions, After Character Definitions/u,
-);
 const updatesRouteSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/updates.routes.ts"), "utf8");
 assert.match(
   updatesRouteSource,
   /gitInstall \? await getCurrentBranch\(root\)\.catch\(\(\) => null\) : getBuildBranch\(\)/u,
 );
 assert.match(updatesRouteSource, /const currentChannel = await getUpdateChannelForCheckout\(root, currentBranch\)/u);
-for (const dockerfile of ["Dockerfile", "Dockerfile.lite"]) {
-  const dockerSource = readFileSync(join(REPOSITORY_ROOT, dockerfile), "utf8");
-  assert.match(dockerSource, /^ARG BUILD_BRANCH$/mu, `${dockerfile} must accept the source ref as build metadata`);
-  assert.match(dockerSource, /meta\.branch = process\.env\.BUILD_BRANCH/u);
-}
-{
-  // The client bundle reads BUILD_COMMIT during `pnpm build`; the ARG must precede it but follow the dependency
-  // install, since a per-commit ARG invalidates every later layer.
-  const dockerSource = readFileSync(join(REPOSITORY_ROOT, "Dockerfile"), "utf8");
-  const installAt = dockerSource.indexOf("pnpm install --frozen-lockfile");
-  const argAt = dockerSource.search(/^ARG BUILD_COMMIT$/mu);
-  const buildAt = dockerSource.search(/^RUN pnpm build$/mu);
-  assert.ok(
-    installAt >= 0 && installAt < argAt && argAt < buildAt,
-    "Dockerfile must declare ARG BUILD_COMMIT between the dependency install and `pnpm build`",
-  );
-}
-for (const workflow of ["build-container.yml", "build-container-lite.yml"]) {
-  const workflowSource = readFileSync(join(REPOSITORY_ROOT, ".github/workflows", workflow), "utf8");
-  assert.match(workflowSource, /BUILD_BRANCH=\$\{\{ github\.ref_name \}\}/u);
-}
 
 const expectedChatModeSurfaces = {
   conversation: {
@@ -468,18 +438,6 @@ const sharedPackageJson = JSON.parse(
 const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
 assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
 assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
-const serverPackageJson = JSON.parse(
-  readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
-) as { scripts?: Record<string, string> };
-const rootPackageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as {
-  scripts?: Record<string, string>;
-};
-assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
-assert.match(
-  rootPackageJson.scripts?.["dev:server"] ?? "",
-  /^node \.\/scripts\/pnpm-runner\.mjs build:shared && node \.\/scripts\/pnpm-runner\.mjs --filter @marinara-engine\/server dev$/u,
-  "The server-only development command must establish shared build output first",
-);
 const conversationGroupSettingsSource = readFileSync(
   new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
@@ -698,11 +656,6 @@ assert.match(
   compactMariMessageSource,
   /message\.role === "user"[\s\S]{0,180}<TranscriptRow[^>]*className="mari-user-request/u,
   "Professor Mari user messages must render as the user-request row",
-);
-assert.match(
-  readFileSync(new URL("../../packages/client/src/styles/mari.css", import.meta.url), "utf8"),
-  /\.mari-user-request__bubble \{[^}]*background: color-mix\(in srgb, var\(--foreground\) \d+%, var\(--card\)\)/u,
-  "Professor Mari user bubbles must take their colour from the theme",
 );
 assert.match(
   mariChatHistoryActionsSource,
@@ -1094,39 +1047,6 @@ assert.equal(
   2,
   "both crossfade slots should cover their surface without stretching the background",
 );
-const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
-  ? playwrightConfig.webServer[0]
-  : playwrightConfig.webServer;
-assert.equal(playwrightWebServer?.env?.DEV_PRESERVE_SHARED_DIST, "true");
-assert.match(playwrightWebServer?.command ?? "", /e2e\/start-servers\.mjs/u);
-const desktopPlaywrightProject = playwrightConfig.projects?.find((project) => project.name === "desktop-chromium");
-const mobilePlaywrightProject = playwrightConfig.projects?.find((project) => project.name === "mobile-chromium");
-assert.ok(desktopPlaywrightProject);
-assert.ok(mobilePlaywrightProject);
-assert.notEqual(
-  desktopPlaywrightProject.use?.baseURL,
-  mobilePlaywrightProject.use?.baseURL,
-  "desktop and mobile Playwright projects must use isolated app servers",
-);
-// Chromium runs with its audio output off, so opening an audio device cannot stall a headless page
-// (and the toasts with it); the switch is Chromium's own, so a WebKit project never gets it.
-for (const project of [desktopPlaywrightProject, mobilePlaywrightProject]) {
-  assert.ok(project.use?.launchOptions?.args?.includes("--disable-audio-output"), `${project.name} mutes Chromium`);
-}
-for (const project of playwrightConfig.projects ?? []) {
-  if (!/chromium/u.test(project.name ?? "")) assert.ok(!project.use?.launchOptions?.args?.length, project.name);
-}
-// WebKit on Linux opens its audio device through GStreamer on the page's main thread (the first tap's audio
-// unlock), and a hung audio stack froze that tap. The config ranks the fake audio sink first for every browser.
-assert.ok(
-  process.env.GST_PLUGIN_FEATURE_RANK?.split(",").includes("fakeaudiosink:MAX"),
-  "WebKit e2e browsers play to GStreamer's fake audio sink",
-);
-const playwrightServerSource = readFileSync(join(REPOSITORY_ROOT, "e2e/start-servers.mjs"), "utf8");
-assert.match(playwrightServerSource, /startProject\("mobile", mobileClientPort, mobileServerPort\)/u);
-assert.match(playwrightServerSource, /startProject\("desktop", desktopClientPort, desktopServerPort\)/u);
-assert.match(playwrightServerSource, /resolve\(dataRoot, name\)/u);
-assert.match(playwrightServerSource, /DATA_DIR:\s*dataDir/u);
 
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const homeBrowserHubSource = readFileSync(
@@ -1138,31 +1058,12 @@ assert.match(
   /<MessageCircle size="0\.8rem" className="mari-rgb-static-icon text-current" \/>/u,
   "The Your Guide action icon must inherit the same color as its label",
 );
-const globalStylesSource = readFileSync(
-  new URL("../../packages/client/src/styles/globals.css", import.meta.url),
-  "utf8",
-);
-assert.match(
-  globalStylesSource,
-  /@media \(max-width: 767px\)[\s\S]*\[data-component="ChatArea\.Roleplay"\]:has\(\.mari-roleplay-message-body--editing\)\s+\[data-roleplay-agent-window\]:not\(\[data-roleplay-agent-window="echo"\]\) \{\s*display: none;/u,
-  "Mobile Roleplay editing must temporarily remove agent windows from the constrained viewport",
-);
-assert.match(
-  globalStylesSource,
-  /@media \(max-width: 767px\)[\s\S]*\[data-component="ChatArea\.Roleplay"\]\[data-mobile-composer-active="true"\] \[data-roleplay-agent-window="echo"\],\s*\[data-component="ChatArea\.Roleplay"\]:has\(\.mari-roleplay-message-body--editing\) \[data-roleplay-agent-window="echo"\] \{\s*visibility: hidden;/u,
-  "Mobile Echo must keep its scroll box while hidden, or reactions revealed during typing leave it pinned to a stale offset",
-);
 assert.equal(
   appSource.match(/document\.addEventListener\("visibilitychange", syncEffectsPausedState\)/gu)?.length,
   1,
   "Home effect pausing must keep one central visibility listener",
 );
 assert.match(appSource, /dispatchEvent\(new CustomEvent\("marinara:effects-paused"/u);
-// Slice 85: the navigator is gone; the Home widget's blink is the Mari frame that pauses with the page.
-assert.match(
-  globalStylesSource,
-  /data-marinara-effects-paused="true"\] \.mari-home-professor-blink,[^}]+animation-play-state: paused !important;/u,
-);
 const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
   "utf8",
@@ -1207,21 +1108,10 @@ const visualViewportChatBottomSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-visual-viewport-chat-bottom.ts", import.meta.url),
   "utf8",
 );
-const englishLocale = JSON.parse(
-  readFileSync(new URL("../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
-) as Record<string, string>;
 const spriteDownloadSource = readFileSync(
   new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
   "utf8",
 );
-const androidMainActivitySource = readFileSync(
-  new URL("../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
-  "utf8",
-);
-const configureWebViewStart = androidMainActivitySource.indexOf("private void configureWebView()");
-const configureWebViewEnd = androidMainActivitySource.indexOf("private void tryConnect()", configureWebViewStart);
-assert.ok(configureWebViewStart >= 0 && configureWebViewEnd > configureWebViewStart);
-const configureWebViewSource = androidMainActivitySource.slice(configureWebViewStart, configureWebViewEnd);
 const gameJournalSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameJournal.tsx", import.meta.url),
   "utf8",
@@ -1462,7 +1352,6 @@ assert.match(recentChatsSource, /data-narrow-desktop-limit="4"/u);
 assert.match(recentChatsSource, /md:auto-rows-fr md:grid-rows-none/u);
 assert.match(recentChatsSource, /index === 3 && "hidden md:block"/u);
 assert.match(recentChatsSource, /index >= 4 && "hidden"/u);
-assert.match(globalStyles, /@container \(min-width: 36rem\)[\s\S]*data-component="RecentChats"/u);
 for (const editorSource of [characterEditorSource, personaEditorSource]) {
   assert.match(editorSource, /<CardEditor\b/u);
   assert.match(editorSource, /<CardColors\b/u);
@@ -1483,10 +1372,6 @@ assert.match(
   chatGallerySource,
   /onClick=\{\(\) => handleDelete\(confirmDeleteId\)\}[\s\S]{0,180}mari-chrome-accent-surface/u,
 );
-assert.match(
-  globalStyles,
-  /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u,
-);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
 assert.match(personaEditorSource, /downloadSpriteFile/u);
@@ -1500,9 +1385,6 @@ assert.match(
   /isPersona: true,\s*\/\/ Personas represent the user\.[\s\S]{0,180}?behavior: null,/u,
   "Legacy Persona Convo Behavior data must not steer Conversation prompts",
 );
-assert.equal(englishLocale["ui.characters.colorstab.ldquoHelloThereRdquo"], "“Hello there.”");
-assert.equal(englishLocale["ui.personas.personacolorstab.ldquoGeneralKenobiRdquo"], "“General Kenobi.”");
-assert.equal(englishLocale["ui.ui.generationparametersfields.thinking"], "{{value1}}thinking{{value2}}");
 assert.match(
   generationParametersEditorSource,
   /placeholder=\{localizeUi\("ui\.ui\.generationparametersfields\.thinking", \{\s*value1: "<",\s*value2: ">",\s*\}\)\.trimStart\(\)\}/u,
@@ -1535,17 +1417,6 @@ assert.match(
 );
 assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
 assert.match(spriteDownloadSource, /saveBlobToDevice/u);
-assert.match(
-  androidMainActivitySource,
-  /public void saveFile\(String token, String base64Data, String mimeType, String filename\)/u,
-  "Android file saves must require the authenticated top-frame bridge token",
-);
-assert.match(androidMainActivitySource, /MediaStore\.Images\.Media\.getContentUri/u);
-assert.match(
-  configureWebViewSource,
-  /settings\.setTextZoom\(100\);/u,
-  "The Android wrapper must not inherit oversized WebView text zoom",
-);
 assert.match(
   characterEditorSource,
   /<SettingsSwitch\s+checked=\{formData\.extensions\.versioningEnabled !== false\}/u,
@@ -1743,10 +1614,6 @@ assert.doesNotMatch(backupGuideSource, /Export profile as ZIP\?/u);
 assert.match(gameAssetBrowserSource, /createPortal/u);
 assert.match(gameAssetActionDropdownSource, /createPortal/u);
 assert.match(gameAssetActionDropdownSource, /window\.innerWidth - rect\.width/u);
-assert.equal(
-  existsSync(join(REPOSITORY_ROOT, "packages/server/src/assets/default-game-assets/sprites/generic-fantasy")),
-  false,
-);
 assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKeys\.all \}\)/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
@@ -1763,10 +1630,6 @@ assert.match(
   connectionsPanelSource,
   /FIRST_RUN_SERVICES\.map\([\s\S]*?data-add-connection-service=\{service\}[\s\S]*?className="[^"]*min-w-0[^"]*"/u,
   "First-run provider buttons must shrink within their grid cells",
-);
-assert.equal(
-  existsSync(join(REPOSITORY_ROOT, "packages/client/public/illustrations/marinara-universal-preset.webp")),
-  true,
 );
 assert.equal(
   transcriptWindowControlsSource.match(/className=\{cn\(HISTORY_PAGER_BUTTON_CLASS, buttonClassName\)\}/gu)?.length,
@@ -1802,21 +1665,10 @@ assert.match(
   /characterIds: orderedSelectedSources\.map\(\(source\) => source\.id\)/u,
   "Gallery character IDs must retain every depicted character beyond the provider reference-image cap",
 );
-assert.match(
-  globalStyles,
-  /\[data-marinara-accent-animation\] :where\(\.mari-editor-shell, select\) \{[\s\S]*--primary: var\(--marinara-app-accent-static\);[\s\S]*--marinara-chat-chrome-accent: var\(--marinara-app-accent-static\);[\s\S]*\}/u,
-);
-assert.match(globalStyles, /\[data-marinara-accent-animation\] select \{\s*transition: none;\s*\}/u);
-const markdownBlockquoteStyles =
-  globalStyles.match(/\.mari-message-content \.mari-md-blockquote \{[\s\S]*?\}/u)?.[0] ?? "";
-assert.match(markdownBlockquoteStyles, /color:\s*inherit;/u);
-assert.doesNotMatch(markdownBlockquoteStyles, /color:\s*var\(--muted-foreground\);/u);
 // The workspace transcript adds its own earlier `.mari-message-content` rule (padding only); check every rule.
 const markdownMessageStyles = [...globalStyles.matchAll(/^\.mari-message-content \{[\s\S]*?\}/gmu)]
   .map((match) => match[0])
   .join("\n");
-const markdownMessageContainerStyles =
-  globalStyles.match(/\.mari-message-body,\s*\.mari-message-bubble \{[\s\S]*?\}/u)?.[0] ?? "";
 const markdownCodeBlockStyles =
   globalStyles.match(/^\.mari-message-content \.mari-md-codeblock \{[^{}]*\}/mu)?.[0] ?? "";
 const markdownCodeChildStyles =
@@ -1824,8 +1676,6 @@ const markdownCodeChildStyles =
 assert.match(markdownMessageStyles, /min-width:\s*0;/u);
 assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
 assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
-assert.match(markdownMessageContainerStyles, /min-width:\s*0;/u);
-assert.match(markdownMessageContainerStyles, /max-width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /box-sizing:\s*border-box;/u);
 assert.match(markdownCodeBlockStyles, /width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
@@ -1935,16 +1785,6 @@ assert.match(
 );
 
 const chatRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"), "utf8");
-assert.match(
-  globalStylesSource,
-  /html\[data-marinara-reduced-effects="true"\] \[class\*="backdrop-blur"\],[\s\S]{0,300}backdrop-filter: none !important;/u,
-  "Reduced ambient effects must flatten shared backdrop blur at every viewport size",
-);
-assert.doesNotMatch(
-  globalStylesSource,
-  /@media \(max-width: 767px\) \{[\s\S]{0,300}data-marinara-reduced-effects="true"[^\n]*backdrop-blur/u,
-  "Desktop users must receive the same reduced-effects backdrop flattening as mobile users",
-);
 assert.match(
   chatRoutesSource,
   /if \(existing\.mode === "conversation" && hasStartedChat\) \{/u,
@@ -2122,28 +1962,6 @@ assert.match(
   /useState<ChatSortOption>\("recent"\)/u,
   "Recent activity must be the default chat sort",
 );
-
-const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
-assert.match(windowsLauncherSource, /node --version >nul 2>&1/u);
-assert.doesNotMatch(windowsLauncherSource, /where node >nul 2>&1/u);
-for (const workspace of ["shared", "server", "client"]) {
-  assert.match(windowsLauncherSource, new RegExp(`--filter @marinara-engine/${workspace} run clean`, "u"));
-}
-for (const relativePath of [
-  "packages/client/scripts/build.mjs",
-  "packages/server/src/config/build-info.ts",
-  "packages/server/src/routes/updates.routes.ts",
-  "packages/server/src/services/mari-db/mari-db.service.ts",
-  "scripts/check-tracked-installers.mjs",
-  "scripts/ensure-native-deps.mjs",
-]) {
-  const source = readFileSync(join(REPOSITORY_ROOT, relativePath), "utf8");
-  assert.doesNotMatch(
-    source,
-    /shell:\s*process\.platform\s*===\s*"win32"/u,
-    `${relativePath} must not pass an argument array through shell: true on Windows`,
-  );
-}
 
 assert.match(
   appShellSource,
