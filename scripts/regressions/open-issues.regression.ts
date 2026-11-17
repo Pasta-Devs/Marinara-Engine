@@ -626,7 +626,7 @@ assert.ok(
   "Summary prompt writes must lock before mutation and unlock only afterward",
 );
 const summaryPromptControlsSource = summaryPopoverSource.slice(
-  summaryPopoverSource.indexOf('role="tablist"'),
+  summaryPopoverSource.indexOf("<Tabs"),
   summaryPopoverSource.indexOf('localizeUi("ui.chat.summarypopover.summaryConnection")'),
 );
 assert.equal(

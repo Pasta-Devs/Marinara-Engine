@@ -978,6 +978,7 @@ export function GameRulesetSheet({
             <Tabs
               variant="pill"
               label={localizeUi("game.ruleset.sheet.tabs")}
+              columns={Math.min(tabs.length + 1, 3)}
               value={shownTab ?? OVERVIEW_TAB}
               onChange={(id) => setTab(id === OVERVIEW_TAB ? null : id)}
               items={[OVERVIEW_TAB, ...tabs].map((one) => ({

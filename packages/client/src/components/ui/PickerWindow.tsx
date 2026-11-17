@@ -62,6 +62,12 @@ export function PickerWindow({
   const panelRef = useRef<HTMLDivElement>(null);
   // Opened from the omnibar (its settings), the popover takes the omnibar's layer, as a Modal does, or it opens beneath it.
   const [overOmnibar] = useState(() => useUIStore.getState().omnibarOpen);
+  // Inside a `layer="top"` Modal (z above the omnibar) the popover and the phone sheet go on that layer too.
+  const [overTopModal] = useState(() => {
+    const host = anchorRef.current?.closest<HTMLElement>(".mari-modal");
+    const omnibarZ = getComputedStyle(document.documentElement).getPropertyValue("--mari-layer-omnibar");
+    return !!host && Number.parseInt(getComputedStyle(host).zIndex, 10) > Number.parseInt(omnibarZ, 10);
+  });
   const [pos, setPos] = useState<Placement | null>(null);
 
   useLayoutEffect(() => {
@@ -119,6 +125,7 @@ export function PickerWindow({
         <Modal
           open
           onClose={onClose}
+          layer={overTopModal ? "top" : undefined}
           title={title}
           width="max-w-md"
           restoreFocusRef={anchorRef}
@@ -154,7 +161,7 @@ export function PickerWindow({
         // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
         // like the wizard's footer divider, don't show through.
         "fixed flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
-        overOmnibar ? "z-(--mari-layer-omnibar)" : "z-[10050]",
+        overTopModal ? "z-[calc(var(--mari-layer-omnibar)+2)]" : overOmnibar ? "z-(--mari-layer-omnibar)" : "z-[10050]",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}

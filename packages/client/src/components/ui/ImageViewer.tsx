@@ -27,6 +27,12 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
+/** False while another Modal (a confirm, a menu sheet) is open on top of the viewer that holds `el`. */
+const isTopModal = (el: Element | null) => {
+  const modals = document.querySelectorAll(".mari-modal");
+  return !!el && modals[modals.length - 1] === el.closest(".mari-modal");
+};
+
 interface ZoomStageProps {
   src: string;
   alt: string;
@@ -91,7 +97,8 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
       zoomAt(viewRef.current.s * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.ctrlKey || event.metaKey || isTyping(event.target)) return;
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || isTyping(event.target) || !isTopModal(stage))
+        return;
       const rect = stage.getBoundingClientRect();
       const [cx, cy] = [rect.left + rect.width / 2, rect.top + rect.height / 2];
       if (event.key === "+" || event.key === "=") zoomAt(viewRef.current.s * 1.5, cx, cy);
@@ -174,7 +181,6 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
       return;
     }
     Object.assign(g, { lastTap: event.timeStamp, lastTapX: event.clientX, lastTapY: event.clientY });
-    if (!g.onImage) onBackgroundTap();
   };
 
   return (
@@ -185,6 +191,8 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      // Close on click, not pointerup: the closing viewer turns pointer-events off, so a click after pointerup would hit the page below.
+      onClick={() => !gesture.current.moved && !gesture.current.onImage && onBackgroundTap()}
     >
       <img
         ref={imgRef}
@@ -273,7 +281,7 @@ export function ImageViewer({
   useEffect(() => {
     if (!gallery) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isTyping(event.target)) return;
+      if (event.defaultPrevented || isTyping(event.target) || !isTopModal(closeRef.current)) return;
       if (event.key === "ArrowLeft") go(index - 1);
       else if (event.key === "ArrowRight") go(index + 1);
     };

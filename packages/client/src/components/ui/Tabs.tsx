@@ -190,7 +190,7 @@ export function Tabs<T extends string>({
                 {item.icon}
               </span>
             )}
-            <span className="min-w-0 truncate">{item.label}</span>
+            <span className={cn("min-w-0", pill ? "line-clamp-2 break-words" : "truncate")}>{item.label}</span>
             {item.count !== undefined && (
               <span
                 className={cn(

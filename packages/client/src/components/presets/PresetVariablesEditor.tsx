@@ -29,7 +29,6 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
-import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 
 // ── Input caret helpers ──
@@ -1259,19 +1258,6 @@ function ExpandedEditorModal({
     setLocal(value);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Escape in a browser extension's card (Grammarly's) closes that card, not this editor.
-      if (e.key === "Escape" && !isBrowserExtensionUi(e.target)) {
-        if (local !== value) onChange(local);
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose, onChange, local, value]);
-
   // Cleanup timer on unmount
   useEffect(
     () => () => {
@@ -1299,6 +1285,7 @@ function ExpandedEditorModal({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (local !== value) onChange(local);
     onClose();
   };
 
