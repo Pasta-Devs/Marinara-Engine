@@ -759,7 +759,10 @@ async function readCleanUpOriginal(galleryDir: string, imageId: string): Promise
 async function listCleanUpOriginalIds(galleryDir: string): Promise<Set<string>> {
   try {
     const entries = await readdir(cleanUpOriginalsDir(galleryDir));
-    return new Set(entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -".json".length)));
+    const ids = entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -".json".length));
+    // Same check the restore uses, so the list only offers what can really be put back.
+    const usable = await Promise.all(ids.map(async (id) => ((await readCleanUpOriginal(galleryDir, id)) ? id : null)));
+    return new Set(usable.filter((id): id is string => id !== null));
   } catch {
     return new Set();
   }
@@ -785,8 +788,9 @@ async function removeCleanUpOriginal(galleryDir: string, imageId: string) {
   if (isUnsafePathSegment(imageId)) return;
   const dir = cleanUpOriginalsDir(galleryDir);
   const original = await readCleanUpOriginal(galleryDir, imageId);
-  if (original) await unlink(assertInsideDir(dir, join(dir, original.filename))).catch(() => undefined);
+  // The record goes first: a stop in between leaves a stray picture, never a record without one.
   await unlink(assertInsideDir(dir, join(dir, `${imageId}.json`))).catch(() => undefined);
+  if (original) await unlink(assertInsideDir(dir, join(dir, original.filename))).catch(() => undefined);
 }
 
 /**
