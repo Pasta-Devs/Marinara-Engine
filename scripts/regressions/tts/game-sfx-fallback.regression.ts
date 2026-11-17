@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { mock } from "node:test";
 
 const elements: AudioStub[] = [];
+const failPending: Array<() => void> = [];
 class AudioStub {
   preload = "";
   muted = false;
@@ -20,8 +21,13 @@ class AudioStub {
     elements.push(this);
   }
   play() {
-    // A "pending" file is still loading; every other file fails to play, as a missing or blocked file does.
-    if (this.src.includes("pending")) return new Promise<void>(() => {});
+    // A "pending" file is still loading until the test fails it; every other file fails to play at once, as a
+    // missing or blocked file does.
+    if (this.src.includes("pending")) {
+      return new Promise<void>((_resolve, reject) => {
+        failPending.push(() => reject(new DOMException("No supported source", "NotSupportedError")));
+      });
+    }
     return Promise.reject(new DOMException("No supported source", "NotSupportedError"));
   }
   pause() {
@@ -105,6 +111,11 @@ mock.timers.tick(2_000);
 assert.equal(oscillators, 0, "Disposing Game audio must cancel fallbacks that haven't played yet");
 const sfxPlayers = elements.filter((element) => element.onerror !== null || element.onended !== null);
 assert.deepEqual(sfxPlayers, [], "Disposing Game audio must detach the effect players' handlers");
+// The still-loading effect fails only now, after the dispose: its fallback belongs to the closed game.
+for (const fail of failPending.splice(0)) fail();
+await flush();
+mock.timers.tick(2_000);
+assert.equal(oscillators, 0, "a play that fails after a dispose must not fall back to a sound");
 
 // Game's audio is reused after a dispose: a new effect still falls back.
 audioManager.unlock();

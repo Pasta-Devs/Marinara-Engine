@@ -1,5 +1,5 @@
-// The client's local model store passes failed unload and delete requests on to the caller, so the device page can
-// show the error, instead of treating a failure as done and showing the model as gone or unloaded.
+// The client's local model store passes failed unload and delete requests (the chat model and the speech model) on
+// to the caller, so the device page can show the error, instead of treating a failure as done.
 import assert from "node:assert/strict";
 
 const stored = new Map<string, string>();
@@ -25,7 +25,10 @@ useSidecarStore.setState({ status: "ready", modelDownloaded: true });
 await assert.rejects(useSidecarStore.getState().unloadModel(), /busy/u);
 await assert.rejects(useSidecarStore.getState().deleteModel(), /busy/u);
 assert.equal(useSidecarStore.getState().modelDownloaded, true, "a failed delete keeps the model shown as downloaded");
+useSidecarStore.setState({ speechModelDownloaded: true });
+await assert.rejects(useSidecarStore.getState().deleteSpeechModel(), /busy/u);
+assert.equal(useSidecarStore.getState().speechModelDownloaded, true, "a failed delete keeps the speech model shown");
 assert.deepEqual(
   requests.filter((request) => !request.startsWith("GET")),
-  ["POST /api/sidecar/unload", "DELETE /api/sidecar/model"],
+  ["POST /api/sidecar/unload", "DELETE /api/sidecar/model", "DELETE /api/sidecar/speech/model"],
 );
