@@ -1033,7 +1033,9 @@ import {
 import { resolveIdentityCharacterScopes } from "../services/generation/identity-context-runtime.js";
 import {
   buildCharacterMacroProfilesById,
+  buildOtherPublicFacesBlock,
   injectIdentityFallbackMessages,
+  insertAfterFirstSystemMessage,
   loadCharacterPromptInfo,
   normalizeCharacterRpgStats,
 } from "../services/generation/character-prompt-context.js";
@@ -9107,6 +9109,28 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : gameAwareMessagesForGen;
           // Each responder owns its injections; never mutate the shared prompt array.
           const targetScopedMessagesForGen = scopedMessagesForGen.map((message) => ({ ...message }));
+          // #9425: added after scoping, which would strip blocks about the other characters. Character
+          // turns only: impersonate and a regenerated user message write as the persona.
+          if (
+            chatMode === "roleplay" &&
+            isGroupChat &&
+            usesIndividualGroupGeneration &&
+            targetCharId &&
+            chatMeta.groupPublicFacesEnabled === true &&
+            !input.impersonate &&
+            regenMsg?.role !== "user"
+          ) {
+            insertAfterFirstSystemMessage(
+              targetScopedMessagesForGen,
+              buildOtherPublicFacesBlock({
+                profilesById: historyMacroProfilesById,
+                activeCharacterIds: characterIds,
+                targetCharacterId: targetCharId,
+                promptMacroContext,
+                wrapFormat,
+              }),
+            );
+          }
           if (!deferGroupPromptRegex && !promptTargetCharacterId && targetCharId) {
             applyRegexScriptsToPromptMessages(targetScopedMessagesForGen, regexScripts, {
               ...targetRegexOptions,

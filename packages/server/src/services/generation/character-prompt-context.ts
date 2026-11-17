@@ -213,6 +213,52 @@ function wrapFieldEntries(fields: Array<{ label: string; value: string }>, forma
     );
 }
 
+/**
+ * #9425: what one Individual-group responder may know about the other active characters, from
+ * their Public Faces. Each resolves its macros as its own character. Returns "" when none has one.
+ * Labels are never a bare character name, because per-responder scoping strips blocks named after
+ * other characters.
+ */
+export function buildOtherPublicFacesBlock(args: {
+  profilesById: ReadonlyMap<string, CharacterMacroProfile>;
+  activeCharacterIds: readonly string[];
+  targetCharacterId: string;
+  promptMacroContext: MacroContext;
+  wrapFormat: WrapFormat;
+}): string {
+  const entries = args.activeCharacterIds.flatMap((id) => {
+    const profile = args.profilesById.get(id);
+    if (id === args.targetCharacterId || !profile?.publicFace?.trim()) return [];
+    const text = resolveMacros(profile.publicFace, {
+      ...args.promptMacroContext,
+      char: profile.name,
+      charPhonetic: profile.phoneticName || profile.name,
+      characterFields: { ...profile },
+    }).trim();
+    if (!text) return [];
+    const leaf = sanitizePromptLeaf(text, args.wrapFormat);
+    // "none" drops wrapper labels, and this block exists to tell the characters apart.
+    if (args.wrapFormat === "none") return [`${profile.name}: ${leaf}`];
+    return [wrapContent(leaf, `${profile.name} (public face)`, args.wrapFormat, 1)];
+  });
+  if (entries.length === 0) return "";
+  return wrapContent(
+    [
+      "What the rest of the scene can see or know about the other characters. It is not their full character card: treat anything beyond it as unknown.",
+      ...entries,
+    ].join("\n"),
+    "other characters",
+    args.wrapFormat,
+  );
+}
+
+/** Adds a system message right after the first one, where the character cards usually sit. */
+export function insertAfterFirstSystemMessage(messages: GenerationPromptMessage[], content: string): void {
+  if (!content) return;
+  const firstSystem = messages.findIndex((message) => message.role === "system");
+  messages.splice(firstSystem >= 0 ? firstSystem + 1 : 0, 0, { role: "system", content });
+}
+
 function hasNamedProfileBlock(content: string, name: string): boolean {
   const xmlTag = nameToXmlTag(name);
   return (
