@@ -57,8 +57,6 @@ The character field macros read the current character's card:
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
 
-`{{publicFace}}` and `{{personaPublicFace}}` are empty in agent prompt templates for now.
-
 In a chat with one character, these resolve against that character. In a group chat, they resolve against the first character by default. To repeat text for each character, put it inside a bracketed group block. See [Conditional Prompts](conditional-prompts.md) for group blocks.
 
 `{{group}}` follows the character currently responding, including during individual group generations. For example, if Pantalone is responding in a Roleplay group containing Powers That Be, Maukie, and Pantalone, `{{group}}` resolves to `Powers That Be, Maukie`. A character card remains in this roster even if its name happens to match `{{user}}`.

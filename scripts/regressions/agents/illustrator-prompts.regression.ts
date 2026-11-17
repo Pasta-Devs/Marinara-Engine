@@ -648,6 +648,47 @@ const cases: RegressionCase[] = [
       assert.doesNotMatch(toggledReferencePrompt, /SUMMARY_SHIPWRECK_ARC/u);
       assert.match(toggledReferencePrompt, /NOTES_KEEP_IT_RAINY/u);
 
+      // #9426: the manual writer follows the Characters and Persona choice too.
+      const manualCardContext = {
+        ...makeRegressionAgentContext(),
+        characters: [
+          {
+            id: "maren",
+            name: "Maren",
+            description: "MAREN_PRIVATE_CARD",
+            backstory: "MAREN_PRIVATE_BACKSTORY",
+            publicFace: "MAREN_PUBLIC_FACE",
+          },
+          { id: "joss", name: "Joss", description: "JOSS_PRIVATE_CARD" },
+        ],
+        persona: { name: "Ilse", description: "ILSE_PRIVATE_CARD", publicFace: "ILSE_PUBLIC_FACE" },
+      };
+      const manualCardPrompt = (contextSources: Record<string, boolean>, context = manualCardContext) =>
+        buildManualIllustratorPromptMessages({
+          context,
+          contextSize: 2,
+          contextSources: contextSources as any,
+        })
+          .map((message) => message.content)
+          .join("\n");
+      const manualFacePrompt = manualCardPrompt({ charactersPublicFace: true, personaPublicFace: true });
+      assert.match(manualFacePrompt, /<character name="Maren">\nPublic Face: MAREN_PUBLIC_FACE\n<\/character>/u);
+      assert.match(manualFacePrompt, /<user_persona>\nName: Ilse\nPublic Face: ILSE_PUBLIC_FACE\n<\/user_persona>/u);
+      assert.doesNotMatch(manualFacePrompt, /PRIVATE/u);
+      // An empty Public Face sends the name alone.
+      assert.match(manualFacePrompt, /<character name="Joss">\n<\/character>/u);
+      const blankPersonaPrompt = manualCardPrompt(
+        { personaPublicFace: true },
+        { ...manualCardContext, persona: { name: "Ilse", description: "ILSE_PRIVATE_CARD" } },
+      );
+      assert.match(blankPersonaPrompt, /<user_persona>\nName: Ilse\n<\/user_persona>/u);
+      assert.doesNotMatch(blankPersonaPrompt, /PRIVATE/u);
+      const manualOffPrompt = manualCardPrompt({});
+      assert.doesNotMatch(manualOffPrompt, /MAREN_|ILSE_/u, "Off sends neither card");
+      const manualFullPrompt = manualCardPrompt({ characters: true, persona: true });
+      assert.match(manualFullPrompt, /MAREN_PRIVATE_BACKSTORY[\s\S]*ILSE_PRIVATE_CARD/u);
+      assert.doesNotMatch(manualFullPrompt, /PUBLIC_FACE/u);
+
       const macroCapture = makeCapturingProvider(
         JSON.stringify({
           prompt: "A complete three-panel comic page.",

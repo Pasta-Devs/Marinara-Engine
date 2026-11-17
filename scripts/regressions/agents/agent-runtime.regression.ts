@@ -4,7 +4,10 @@ import {
   executeAgentBatch,
   resolveAgentResultType,
 } from "../../../packages/server/src/services/agents/agent-executor.js";
-import { createAgentPipeline, type ResolvedAgent } from "../../../packages/server/src/services/agents/agent-pipeline.js";
+import {
+  createAgentPipeline,
+  type ResolvedAgent,
+} from "../../../packages/server/src/services/agents/agent-pipeline.js";
 import {
   resolveAgentPipelineAgents,
   resolveAgentsDefaultConnectionId,
@@ -1112,6 +1115,125 @@ await executeAgentBatch(
 assert.equal(unionProvider.calls, 1, "agents with different context selections still share one request");
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_CHARACTER_CONTEXT/);
 assert.match(JSON.stringify(unionProvider.messages), /UNIQUE_PERSONA_CONTEXT/);
+
+// #9426: Characters and Persona can send the Public Face instead of the card.
+// An empty Public Face sends the name alone, never the card.
+const publicFaceContext: AgentContext = {
+  ...context,
+  characters: [
+    {
+      id: "alice",
+      name: "Alice",
+      description: "ALICE_PRIVATE_CARD",
+      backstory: "ALICE_PRIVATE_BACKSTORY",
+      publicFace: "Alice keeps the lighthouse.",
+      rpgStats: { enabled: true, attributes: [{ name: "ALICE_PRIVATE_STAT", value: 3 }], hp: { value: 9, max: 9 } },
+    },
+    { id: "bob", name: "Bob", description: "BOB_PRIVATE_CARD" },
+  ],
+  persona: {
+    name: "Reader",
+    description: "READER_PRIVATE_CARD",
+    publicFace: "Reader is a travelling scribe.",
+    personaStats: { enabled: true, bars: [{ name: "READER_PRIVATE_BAR", value: 1, max: 2, color: "red" }] },
+  },
+};
+const agentWithSources = (id: string, contextSources: Record<string, boolean>): ResolvedAgent => ({
+  ...makeAgent(id, "game_state_update"),
+  settings: { ...makeAgent(id).settings, contextSources },
+});
+const loreFor = async (agents: ResolvedAgent[], agentContext = publicFaceContext) => {
+  const provider = new RecordingProvider(
+    agents.length === 1 ? '{"weather":"rain"}' : JSON.stringify(Object.fromEntries(agents.map((a) => [a.id, {}]))),
+  );
+  if (agents.length === 1) await executeAgent(agents[0]!, agentContext, provider, "agent-model");
+  else await executeAgentBatch(agents, agentContext, provider, "agent-model");
+  assert.equal(provider.calls, 1);
+  const system = provider.messages[0]!.find((message) => message.role === "system")!.content;
+  return system.slice(system.indexOf("<lore>"), system.indexOf("</lore>") + "</lore>".length);
+};
+const publicFaceLore = [
+  "<lore>",
+  "<characters>",
+  '<character id="alice" name="Alice">',
+  "Public Face: Alice keeps the lighthouse.",
+  "</character>",
+  '<character id="bob" name="Bob">',
+  "</character>",
+  "</characters>",
+  "<user_persona>",
+  "Name: Reader",
+  "Public Face: Reader is a travelling scribe.",
+  "</user_persona>",
+  "</lore>",
+].join("\n");
+const bothPublicFace = { charactersPublicFace: true, personaPublicFace: true };
+assert.equal(await loreFor([agentWithSources("world-state", bothPublicFace)]), publicFaceLore);
+const fullLore = await loreFor([agentWithSources("world-state", { characters: true, persona: true })]);
+for (const text of ["ALICE_PRIVATE_CARD", "ALICE_PRIVATE_STAT", "BOB_PRIVATE_CARD", "READER_PRIVATE_BAR"]) {
+  assert.ok(fullLore.includes(text), `Full card still sends ${text}`);
+}
+assert.ok(!fullLore.includes("Public Face:"), "Full card does not add the Public Face");
+assert.equal(await loreFor([agentWithSources("world-state", {})]), "<lore>\n</lore>", "Off sends neither");
+// Each source is its own choice.
+const mixedLore = await loreFor([agentWithSources("world-state", { characters: true, personaPublicFace: true })]);
+assert.ok(
+  mixedLore.includes("ALICE_PRIVATE_CARD") && mixedLore.includes("Public Face: Reader is a travelling scribe."),
+);
+assert.ok(!mixedLore.includes("READER_PRIVATE_CARD"));
+// A hand-edited setting with both keys on reads as Full card, like the editor shows it.
+assert.ok(
+  (await loreFor([agentWithSources("world-state", { characters: true, charactersPublicFace: true })])).includes(
+    "ALICE_PRIVATE_CARD",
+  ),
+);
+// In one batch the widest choice wins: Full card over Public Face over Off.
+const fullOverFace = await loreFor([
+  agentWithSources("world-state", bothPublicFace),
+  agentWithSources("quest", { characters: true, persona: true }),
+]);
+assert.ok(fullOverFace.includes("ALICE_PRIVATE_CARD") && fullOverFace.includes("READER_PRIVATE_CARD"));
+assert.equal(
+  await loreFor([agentWithSources("world-state", bothPublicFace), agentWithSources("quest", {})]),
+  publicFaceLore,
+  "Public Face over Off",
+);
+// {{publicFace}} and {{personaPublicFace}} work in agent prompt templates, whatever the sources say.
+const macroProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(
+  {
+    ...agentWithSources("world-state", {}),
+    promptTemplate: "Known: {{publicFace}} | You: {{personaPublicFace}}",
+  },
+  publicFaceContext,
+  macroProvider,
+  "agent-model",
+);
+assert.match(
+  JSON.stringify(macroProvider.messages),
+  /Known: Alice keeps the lighthouse\. \| You: Reader is a travelling scribe\./,
+);
+// A group block repeats {{publicFace}} for each character.
+const groupMacroProvider = new RecordingProvider('{"weather":"rain"}');
+await executeAgent(
+  { ...agentWithSources("world-state", {}), promptTemplate: "[\nGROUP {{char}} = {{publicFace}};\n]" },
+  publicFaceContext,
+  groupMacroProvider,
+  "agent-model",
+);
+const groupMacroPrompt = JSON.stringify(groupMacroProvider.messages);
+assert.ok(groupMacroPrompt.includes("GROUP Alice = Alice keeps the lighthouse.;"), groupMacroPrompt);
+assert.ok(groupMacroPrompt.includes("GROUP Bob = ;"), groupMacroPrompt);
+// A persona with an empty Public Face sends its name alone: no card, no stats.
+const blankPersonaLore = await loreFor([agentWithSources("world-state", { personaPublicFace: true })], {
+  ...publicFaceContext,
+  persona: {
+    name: "Reader",
+    description: "READER_PRIVATE_CARD",
+    rpgStats: { enabled: true, attributes: [{ name: "READER_PRIVATE_STAT", value: 2 }], hp: { value: 5, max: 5 } },
+  },
+});
+assert.equal(blankPersonaLore, "<lore>\n<user_persona>\nName: Reader\n</user_persona>\n</lore>");
 
 const longLore = {
   description: `${"Description. ".repeat(250)}The palace has violet windows.`,

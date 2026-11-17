@@ -3027,6 +3027,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     backstory: personaFields.backstory,
                     appearance: personaFields.appearance,
                     scenario: personaFields.scenario,
+                    publicFace: personaFields.publicFace,
                   }
                 : null,
             memory: {},
@@ -6558,6 +6559,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   backstory: resolvePersonaPromptText(personaFields.backstory) || undefined,
                   appearance: resolvePersonaPromptText(personaFields.appearance) || undefined,
                   scenario: resolvePersonaPromptText(personaFields.scenario) || undefined,
+                  publicFace: resolvePersonaPromptText(personaFields.publicFace) || undefined,
                   ...(persona?.personaStats
                     ? (() => {
                         let pStats: any;

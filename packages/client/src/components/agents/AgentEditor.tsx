@@ -87,6 +87,7 @@ import {
 } from "../../lib/echo-chamber-queue";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { CommandCenterSegmentedChoice } from "../command-center/CommandCenterSegmentedChoice";
 import {
   BUILT_IN_AGENTS,
   estimateTextTokens,
@@ -114,7 +115,9 @@ import {
   mergeBuiltInAgentSettings,
   normalizeAgentPhaseForType,
   normalizeCustomAgentCapabilities,
+  getAgentCardContextMode,
   getAgentContextSources,
+  setAgentCardContextMode,
   normalizeAgentPromptTemplateOptions,
   normalizeStoryboardAgentSettings,
   normalizeIllustratorRunInterval,
@@ -123,6 +126,8 @@ import {
   homeAgentWidgetsSchema,
   type HomeAgentWidgetDefinition,
   CUSTOM_AGENT_CONTEXT_SOURCE_IDS,
+  type AgentCardContextMode,
+  type AgentCardContextSource,
   type AgentPhase,
   type AgentPromptTemplateOption,
   type StoryboardAgentSettings,
@@ -356,7 +361,7 @@ const CUSTOM_AGENT_CAPABILITY_META: Array<{
 ];
 
 const CUSTOM_AGENT_CONTEXT_SOURCE_META: Array<{
-  id: CustomAgentContextSource;
+  id: Exclude<CustomAgentContextSource, "charactersPublicFace" | "personaPublicFace">;
   label: string;
   description: string;
   requiredCapability?: CustomAgentCapability;
@@ -412,7 +417,10 @@ const CUSTOM_AGENT_CONTEXT_SOURCE_META: Array<{
 if (import.meta.env.DEV) {
   const sourceIds = CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => source.id);
   const uniqueSourceIds = new Set(sourceIds);
-  const hasEverySource = CUSTOM_AGENT_CONTEXT_SOURCE_IDS.every((source) => uniqueSourceIds.has(source));
+  // The Public Face keys belong to the Characters and Persona rows' three-way choice.
+  const hasEverySource = CUSTOM_AGENT_CONTEXT_SOURCE_IDS.filter(
+    (source) => source !== "charactersPublicFace" && source !== "personaPublicFace",
+  ).every((source) => uniqueSourceIds.has(source as (typeof sourceIds)[number]));
   if (!hasEverySource || uniqueSourceIds.size !== sourceIds.length) {
     throw new Error("Custom agent context source metadata must contain every source exactly once.");
   }
@@ -2741,6 +2749,21 @@ export function AgentEditor() {
                 {CUSTOM_AGENT_CONTEXT_SOURCE_META.map((source) => {
                   const allowed =
                     !source.requiredCapability || localCustomCapabilities[source.requiredCapability] === true;
+                  if (source.id === "characters" || source.id === "persona") {
+                    const cardSource: AgentCardContextSource = source.id;
+                    return (
+                      <AgentCardSourceRow
+                        key={source.id}
+                        label={localizeUi(source.label)}
+                        description={localizeUi(source.description)}
+                        value={getAgentCardContextMode(localContextSources, cardSource)}
+                        onChange={(mode) => {
+                          setLocalContextSources((current) => setAgentCardContextMode(current, cardSource, mode));
+                          markDirty();
+                        }}
+                      />
+                    );
+                  }
                   return (
                     <EditorSwitchRow
                       key={source.id}
@@ -5070,6 +5093,49 @@ function EditorSwitchRow({
       )}
       labelClassName={cn("text-xs [&>span:first-child]:font-semibold", labelClassName)}
     />
+  );
+}
+
+/** The Characters and Persona context sources: Off, Full card or Public Face (#9426). */
+function AgentCardSourceRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: AgentCardContextMode;
+  onChange: (mode: AgentCardContextMode) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-2 rounded-xl p-3 text-left text-xs ring-1",
+        value === "off"
+          ? "bg-[var(--secondary)]/55 text-[var(--muted-foreground)] ring-[var(--border)]"
+          : "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]/40",
+      )}
+    >
+      {/* Same label and description styles as the switch rows beside it (SettingsSwitch). */}
+      <div className="flex flex-col">
+        <span className="font-semibold">{label}</span>
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+          {description}
+        </span>
+      </div>
+      <CommandCenterSegmentedChoice<AgentCardContextMode>
+        value={value}
+        label={label}
+        onValueChange={onChange}
+        options={[
+          { value: "off", label: localizeUi("ui.agents.agenteditor.cardSourceMode.off") },
+          { value: "full", label: localizeUi("ui.agents.agenteditor.cardSourceMode.full") },
+          { value: "publicFace", label: localizeUi("ui.agents.agenteditor.cardSourceMode.publicFace") },
+        ]}
+      />
+    </div>
   );
 }
 
