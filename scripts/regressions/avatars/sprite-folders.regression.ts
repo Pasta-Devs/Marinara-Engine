@@ -159,6 +159,11 @@ try {
     assert.equal(imported.sprites.length, embedded.length, "bad optional metadata cannot abort sprite restoration");
     assert.deepEqual(imported.folders, []);
   }
+  // A native character or persona import restores a sprite of any size; only PNG cards limit sprite sizes.
+  const { MAX_FILE_SIZES } = await import("../../../packages/shared/src/constants/defaults.ts");
+  const large = Buffer.concat([Buffer.from(png.split(",")[1]!, "base64"), Buffer.alloc(MAX_FILE_SIZES.SPRITE)]);
+  await restoreSprites([{ filename: "large.png", data: `data:image/png;base64,${large.toString("base64")}` }], "big");
+  assert.deepEqual(readFileSync(join(process.env.DATA_DIR!, "sprites", "big", "large.png")), large);
 
   await request("PATCH", `${base}/folders/${front}`, { name: "Front", description: "Main view" });
   assert.equal(

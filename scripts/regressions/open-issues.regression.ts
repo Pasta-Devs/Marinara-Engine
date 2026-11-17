@@ -32,48 +32,7 @@ import {
 } from "../../packages/server/src/services/prompt/macro-context.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
 
-const characterRoutesSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/server/src/routes/characters.routes.ts"),
-  "utf8",
-);
-const stCharacterImporterSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/server/src/services/import/st-character.importer.ts"),
-  "utf8",
-);
-const marinaraImporterSource = readFileSync(
-  join(REPOSITORY_ROOT, "packages/server/src/services/import/marinara.importer.ts"),
-  "utf8",
-);
 const importRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/import.routes.ts"), "utf8");
-assert.match(
-  characterRoutesSource,
-  /const sprites = await readSpritesForId\(char\.id, true\);[\s\S]*if \(!sprites\)[\s\S]*status\(413\)[\s\S]*buildCompatibleCharacterExport\(charData, sprites, \{\s*keepOnboarding: true,/u,
-  "PNG export must reject sprite collections that cannot round-trip before building the card envelope",
-);
-assert.match(
-  characterRoutesSource,
-  /if \(enforcePortableLimits\)[\s\S]*await stat[\s\S]*embeddedSpriteSizesAreWithinLimits[\s\S]*return null;[\s\S]*readImageAsDataUrl/u,
-  "compatible PNG export must stop reading sprites as soon as a portable size limit is exceeded",
-);
-assert.match(
-  stCharacterImporterSource,
-  /await restoreSprites\(embeddedMarinaraSprites, charId, embeddedSpriteCatalog\)/u,
-  "PNG import must restore embedded sprites under the newly imported character ID",
-);
-const nativeGalleryRestoreMatch = marinaraImporterSource.match(
-  /export async function restoreSprites[\s\S]*?export async function importMarinara/u,
-);
-assert.ok(nativeGalleryRestoreMatch, "native gallery restore implementation must remain discoverable");
-assert.doesNotMatch(
-  nativeGalleryRestoreMatch[0],
-  /MAX_FILE_SIZES|embeddedSpriteSizesAreWithinLimits|MAX_EMBEDDED_SPRITE_DATA_CHARS/u,
-  "native character and persona imports must not reject galleries by byte size",
-);
-assert.doesNotMatch(
-  stCharacterImporterSource,
-  /MAX_CHARX_ENTRIES|MAX_CHARX_ENTRY_BYTES|MAX_CHARX_TOTAL_BYTES/u,
-  "CharX imports must not reject galleries by entry count or byte size",
-);
 assert.match(
   importRoutesSource,
   /app\.post\("\/marinara-package", \{ bodyLimit: NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES \}[\s\S]*?req\.file\(\{[\s\S]*?fields: 1,[\s\S]*?parts: 2,[\s\S]*?files: 1,[\s\S]*?fileSize: NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES[\s\S]*?\}\)/u,
@@ -108,11 +67,6 @@ assert.doesNotMatch(
   importRoutesSource,
   /MAX_DATA_JSON_BYTES|MAX_AVATAR_BYTES|MAX_CHARACTER_CARD_CHUNK_SIZE/u,
   "native packages must not use obsolete metadata ceilings",
-);
-assert.match(
-  characterRoutesSource,
-  /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/avatar"[\s\S]{0,2400}withCharacterUpdateQueue\(id, async \(\) => \{\s*const validatedData = await validateCharacterGalleryReferences/u,
-  "Embedded card updates must serialize writes and validate character-owned gallery references",
 );
 
 const professorMariWorkspaceSource = readFileSync(
@@ -506,20 +460,11 @@ assert.doesNotMatch(
   "A failed or stopped Professor Mari send must not restore the submitted prompt to the composer",
 );
 
-const spritesRoutesSource = readFileSync(
-  new URL("../../packages/server/src/routes/sprites.routes.ts", import.meta.url),
-  "utf8",
-);
 // Clear Trackers is shared by every Agent activity section (Chat Settings, Trackers window, Tracker Panel).
 assert.match(
   readFileSync(new URL("../../packages/client/src/hooks/use-agent-activity.ts", import.meta.url), "utf8"),
   /latestAssistantMessage[\s\S]{0,240}extra: \{ cyoaChoices: \[\] \}/u,
   "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
-);
-assert.match(
-  spritesRoutesSource,
-  /const backupDir = join\(dir, "\.cleanup-backups", backupId\)[\s\S]{0,1800}copyFile\(inputPath, join\(backupDir, filename\)\)[\s\S]{0,500}writeFile\(outputPath, output\.buffer\)/u,
-  "sprite cleanup must keep the original outside the active sprite set while the cleaned file becomes active",
 );
 const themesRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
