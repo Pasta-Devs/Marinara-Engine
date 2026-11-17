@@ -147,6 +147,7 @@ function EntryRows({
   if (entries.length < VIRTUAL_MIN) return <>{entries.map(render)}</>;
   return (
     <PanelVirtualList
+      asList={false}
       listKey={`connection-switcher:${listKey}`}
       count={entries.length}
       getItemKey={(index) => entries[index]!.key}

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import {
   findScrollParent,
@@ -30,6 +30,10 @@ interface PanelVirtualListProps {
     onNearEnd: () => void;
   };
   className?: string;
+  /** Grid: items per row for the list's width in px. Rows are windowed, items sit in a grid row. */
+  columns?: (width: number) => number;
+  /** Off for lists whose rows carry their own roles (a picker's `option` rows). */
+  asList?: boolean;
 }
 
 /**
@@ -49,15 +53,23 @@ export function PanelVirtualList({
   scrollToIndex,
   paging,
   className,
+  columns,
+  asList = true,
 }: PanelVirtualListProps) {
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [width, setWidth] = useState(0);
+  // The row holding focus stays mounted, so keyboard focus is not lost when it scrolls away.
+  const [focusedRow, setFocusedRow] = useState<number>();
+  const perRow = columns ? Math.max(1, Math.floor(columns(width))) : 1;
+  const rowCount = Math.ceil(count / perRow);
+  const toRow = (index: number | undefined) => (index === undefined || index < 0 ? index : Math.floor(index / perRow));
 
   const virtualizer = useVirtualizer({
-    count,
+    count: rowCount,
     getScrollElement: () => scroller,
-    getItemKey,
+    getItemKey: perRow === 1 ? getItemKey : (row) => `${perRow}:${getItemKey(row * perRow)}`,
     estimateSize: () => estimateSize,
     // The default rounds to whole pixels, which drifts rows that have fractional heights.
     measureElement: (el) => el.getBoundingClientRect().height,
@@ -65,7 +77,11 @@ export function PanelVirtualList({
     overscan: 6,
     scrollMargin,
     initialMeasurementsCache: loadMeasurementSnapshot(listKey),
-    rangeExtractor: (range) => withPinnedIndex(defaultRangeExtractor(range), pinnedIndex),
+    rangeExtractor: (range) =>
+      withPinnedIndex(
+        withPinnedIndex(defaultRangeExtractor(range), toRow(pinnedIndex)),
+        focusedRow !== undefined && focusedRow < rowCount ? focusedRow : undefined,
+      ),
   });
 
   // Remember measured heights so a remount (panel switch) lands on the same row without re-estimating.
@@ -77,8 +93,10 @@ export function PanelVirtualList({
     const container = findScrollParent(listEl);
     if (!container) return;
     setScroller(container);
-    const measure = () =>
+    const measure = () => {
+      setWidth(listEl.clientWidth);
       setScrollMargin(listEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop);
+    };
     const resize = new ResizeObserver(measure);
     // Anything above the list that changes size moves it: watch every ancestor up to the container and all of their
     // earlier siblings (an open folder closing while another opens keeps the total height, but not the offsets).
@@ -103,7 +121,7 @@ export function PanelVirtualList({
   useEffect(() => {
     // Only a new highlight scrolls; rows streaming in (count) must not pull the list back.
     if (scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count) {
-      virtualizer.scrollToIndex(scrollToIndex, { align: "auto" });
+      virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: "auto" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToIndex, virtualizer]);
@@ -117,7 +135,7 @@ export function PanelVirtualList({
   }, [isFetchingNextPage]);
   useEffect(() => {
     if (!paging || requestedRef.current) return;
-    if (shouldFetchNextPage({ lastVisibleIndex, count, ...paging })) {
+    if (shouldFetchNextPage({ lastVisibleIndex, count: rowCount, ...paging })) {
       // Hold off until the fetch shows up as in flight, so a scroll re-render cannot fire it twice.
       requestedRef.current = true;
       paging.onNearEnd();
@@ -128,26 +146,52 @@ export function PanelVirtualList({
     <div
       ref={setListEl}
       data-virtual-list
-      data-count={count}
+      data-count={rowCount}
+      role={asList ? "list" : undefined}
       className={className}
       style={{ position: "relative", height: virtualizer.getTotalSize() }}
     >
-      {items.map((virtualRow) => (
-        <div
-          key={virtualRow.key}
-          ref={virtualizer.measureElement}
-          data-index={virtualRow.index}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
-          }}
-        >
-          {renderRow(virtualRow.index)}
-        </div>
-      ))}
+      {items.map((virtualRow) => {
+        const first = virtualRow.index * perRow;
+        const item = (index: number) =>
+          asList ? (
+            <div key={getItemKey(index)} role="listitem" aria-posinset={index + 1} aria-setsize={count}>
+              {renderRow(index)}
+            </div>
+          ) : (
+            <Fragment key={getItemKey(index)}>{renderRow(index)}</Fragment>
+          );
+        return (
+          <div
+            key={virtualRow.key}
+            ref={virtualizer.measureElement}
+            data-index={virtualRow.index}
+            role={asList && perRow === 1 ? "listitem" : undefined}
+            aria-posinset={asList && perRow === 1 ? first + 1 : undefined}
+            aria-setsize={asList && perRow === 1 ? count : undefined}
+            onFocus={() => setFocusedRow(virtualRow.index)}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setFocusedRow(undefined);
+            }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+              ...(perRow > 1 && {
+                display: "grid",
+                gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
+                columnGap: gap,
+              }),
+            }}
+          >
+            {perRow === 1
+              ? renderRow(first)
+              : Array.from({ length: Math.min(perRow, count - first) }, (_, offset) => item(first + offset))}
+          </div>
+        );
+      })}
     </div>
   );
 }
