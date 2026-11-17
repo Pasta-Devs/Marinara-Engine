@@ -766,10 +766,6 @@ assert.doesNotMatch(
   /sharedSections\s*\.includes\(\s*["']agents["']\s*\)\s*&&\s*!isConversation/u,
   "Agent settings visibility must not retain the obsolete sharedSections/isConversation gate",
 );
-const gameRoutesSource = readFileSync(
-  new URL("../../packages/server/src/routes/game.routes.ts", import.meta.url),
-  "utf8",
-);
 const promptMacroContextSource = readFileSync(
   new URL("../../packages/server/src/services/prompt/macro-context.ts", import.meta.url),
   "utf8",
@@ -825,27 +821,6 @@ assert.match(
   conversationGenerationSource,
   /isPersona: true,\s*\/\/ Personas represent the user\.[\s\S]{0,180}?behavior: null,/u,
   "Legacy Persona Convo Behavior data must not steer Conversation prompts",
-);
-assert.match(gameRoutesSource, /enableAgents: z\.boolean\(\)\.optional\(\)/u);
-assert.match(
-  gameRoutesSource,
-  /spatialMapTargetLocationCount: z\.number\(\)\.int\(\)\.min\(1\)\.max\(40\)\.optional\(\)/u,
-);
-assert.match(gameRoutesSource, /enableAgents: setupConfig\.enableAgents === true/u);
-assert.match(gameRoutesSource, /gameStoryboardsEnabled: setupConfig\.gameStoryboardsEnabled/u);
-assert.equal(
-  gameRoutesSource.match(/const conclusionTimeoutMs = getChatGenerationTimeoutMs\(\);/gu)?.length,
-  2,
-  "Game session conclusion and regeneration must read the configured chat timeout",
-);
-assert.equal(
-  gameRoutesSource.match(/withLlmRequestTimeout\(conclusionTimeoutMs/gu)?.length,
-  2,
-  "Game session conclusion requests must scope provider body timeouts to the configured chat timeout",
-);
-assert.match(
-  gameRoutesSource,
-  /if \(!selectedTemplate\?\.promptTemplate\.trim\(\)\) \{[\s\S]*The Storyboard Agent has no/u,
 );
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(

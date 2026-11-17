@@ -1843,6 +1843,34 @@ const cases: RegressionCase[] = [
       assert.equal(disabledPlannerCalls, 0);
     },
   },
+  {
+    name: "Storyboard planning names the missing planner prompt instead of sending an empty one",
+    async run() {
+      const plan = (generateVideos: boolean, promptTemplate: string) =>
+        buildStoryboardIllustratorMessages({
+          meta: {
+            gameStoryboardPromptTemplates: [{ id: "planner", name: "Planner", promptTemplate }],
+            gameStoryboardIllustrationPlannerTemplateIds: ["planner"],
+            gameStoryboardAnimationPlannerTemplateIds: ["planner"],
+          },
+          setupConfig: null,
+          latestState: null,
+          sourceNarration: "Lyra lights a lantern.",
+          sections: [],
+          keyframeCount: 1,
+          durationSeconds: 6,
+          aspectRatio: "16:9",
+          generateVideos,
+        });
+      assert.match((await plan(false, "Plan the scene.")).systemPrompt, /^Plan the scene\./u);
+      await assert.rejects(plan(false, "   "), {
+        message: "The Storyboard Agent has no illustration planner prompt configured.",
+      });
+      await assert.rejects(plan(true, ""), {
+        message: "The Storyboard Agent has no animation planner prompt configured.",
+      });
+    },
+  },
 ];
 
 await runNamedCases(cases);
