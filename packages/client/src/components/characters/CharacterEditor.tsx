@@ -3572,6 +3572,7 @@ function DialogueTab({
                 }
                 const header = greetingHeaders[i]!;
                 const fields = greetingList && !rawGreeting;
+                const greetingText = fields ? header.rest : g;
                 return (
                   <section
                     key={greetingKeysRef.current[i] ?? i}
@@ -3665,7 +3666,7 @@ function DialogueTab({
                     <MacroTextarea
                       ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
                       showTokenCount
-                      value={fields ? header.rest : g}
+                      value={greetingText}
                       onChange={(value) =>
                         updateGreeting(i, fields ? header.tagText + header.titleText + value : value)
                       }
