@@ -75,7 +75,17 @@ log() { printf '[termux-qc] %s\n' "$*"; }
 command -v docker >/dev/null || { echo "Docker is required (https://docs.docker.com/engine/install/)" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker is installed but not running (try: sudo dockerd &, or start Docker Desktop)" >&2; exit 1; }
 [ -z "$FROM" ] || command -v node >/dev/null || { echo "--from needs Node.js on this machine to read the server's replies" >&2; exit 1; }
-tx() { docker exec -i -u system "$NAME" "$PREFIX/bin/bash" -lc "$1"; }
+# Android has no /bin/sh or /usr/bin/env. On a phone the Termux app preloads termux-exec, which runs those #! lines with
+# Termux's own programs (pnpm's bin shims start with #!/bin/sh); the image doesn't, so every command here does.
+exec_env=()
+find_termux_exec() {
+  local lib
+  lib="$(docker exec -u system "$NAME" "$PREFIX/bin/sh" -c \
+    "ls $PREFIX/lib/libtermux-exec-ld-preload.so $PREFIX/lib/libtermux-exec.so 2>/dev/null | head -1" || true)"
+  exec_env=()
+  [ -z "$lib" ] || exec_env=(-e "LD_PRELOAD=$lib")
+}
+tx() { docker exec -i -u system ${exec_env[@]+"${exec_env[@]}"} "$NAME" "$PREFIX/bin/bash" -lc "$1"; }
 
 if [ "$ACTION" = stop ]; then
   docker rm -f "$NAME" >/dev/null 2>&1 || true
@@ -143,12 +153,13 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; 
 fi
 
 if [ "$ACTION" = shell ]; then
-  exec docker exec -it -u system -w "$HOME_DIR/Marinara-Engine" "$NAME" "$PREFIX/bin/bash" -l
+  find_termux_exec
+  exec docker exec -it -u system ${exec_env[@]+"${exec_env[@]}"} -w "$HOME_DIR/Marinara-Engine" "$NAME" "$PREFIX/bin/bash" -l
 fi
 
 # 3. Termux packages, like docs/installation/android-termux.md (pkg upgrade, then git and nodejs-lts).
-if ! tx 'command -v node && command -v git' >/dev/null 2>&1; then
-  log "installing Termux packages (git, nodejs-lts; one time)"
+if ! tx 'command -v node && command -v git && ls $PREFIX/lib/libtermux-exec*.so' >/dev/null 2>&1; then
+  log "installing Termux packages (git, nodejs-lts, termux-exec; one time)"
   tx "set -e
     if [ -f /termux-qc-ca.crt ] && ! grep -q termux-qc \$PREFIX/etc/tls/cert.pem; then
       { echo '# termux-qc'; cat /termux-qc-ca.crt; } >> \$PREFIX/etc/tls/cert.pem
@@ -157,10 +168,12 @@ if ! tx 'command -v node && command -v git' >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -q
     apt-get -y -q -o Dpkg::Options::=--force-confold full-upgrade
-    apt-get -y -q install git nodejs-lts" >"$STATE/packages-$ARCH.log" 2>&1 ||
+    apt-get -y -q install git nodejs-lts termux-exec" >"$STATE/packages-$ARCH.log" 2>&1 ||
     { tail -20 "$STATE/packages-$ARCH.log" >&2; echo "Termux package install failed, see $STATE/packages-$ARCH.log (is $MIRROR reachable?)" >&2; exit 1; }
 fi
-log "$(tx 'echo "Termux $(uname -m), Node $(node -v), $(git --version)"')"
+find_termux_exec
+[ ${#exec_env[@]} -gt 0 ] || { echo "termux-exec is missing from the container (see $STATE/packages-$ARCH.log)" >&2; exit 1; }
+log "$(tx 'echo "Termux $(uname -m), Node $(node -v), $(git --version), ${LD_PRELOAD##*/}"')"
 
 CA_ENV=""
 tx 'grep -q termux-qc $PREFIX/etc/tls/cert.pem' 2>/dev/null &&
@@ -190,7 +203,7 @@ launch() {
   local launch_log="$1"
   shift
   stop_marinara
-  docker exec -d -u system "$NAME" "$PREFIX/bin/bash" -lc \
+  docker exec -d -u system "${exec_env[@]}" "$NAME" "$PREFIX/bin/bash" -lc \
     "cd ~/Marinara-Engine && env PORT=$PORT HOST=127.0.0.1 $CA_ENV ./start-termux.sh $* > ~/termux-qc-launch.log 2>&1"
   log "running start-termux.sh $* (log: $launch_log; a first install or an update builds, $([ "$native" = 0 ] && echo "about 10 min emulated" || echo "a few minutes"))"
   local start

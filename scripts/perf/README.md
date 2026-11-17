@@ -65,10 +65,11 @@ scripts/perf/setup-termux.sh --from latest   # update the latest release to this
 ```
 
 It runs Termux's official Docker image (`termux/termux-docker`): Termux's own packages, Node.js, Android libc and
-paths. It installs `git` and `nodejs-lts` the way the install guide does, copies this checkout (tracked and new files)
-into `~/Marinara-Engine`, runs the real `start-termux.sh --skip-update` and waits until the server answers. On failure it
-prints the end of the launcher log (full log in `/tmp/termux-qc/`). Use it for anything that touches dependencies,
-native modules, the build, `start-termux.sh` or start-up.
+paths. Like the Termux app, it preloads `termux-exec`, so programs that start with `#!/bin/sh` or `#!/usr/bin/env` run
+as they do on a phone (the image leaves it out). It installs `git` and `nodejs-lts` the way the install guide does,
+copies this checkout (tracked and new files) into `~/Marinara-Engine`, runs the real `start-termux.sh --skip-update`
+and waits until the server answers. On failure it prints the end of the launcher log (full log in `/tmp/termux-qc/`).
+Use it for anything that touches dependencies, native modules, the build, `start-termux.sh` or start-up.
 
 `--from latest` checks an update instead, which is where most Termux reports come from. It installs the newest release
 (or a tag, `--from v2.5.1`) the way users do, as a clone of `main` served by a stand-in for GitHub inside Termux, starts
