@@ -1434,10 +1434,13 @@ const COMMANDS: SlashCommand[] = [
             .toLowerCase()
             .replace(/[\s_-]+/gu, "-");
         const wanted = templateKey(templateName);
-        // Ids are unique, so an id wins over a display name: "default" stays the default even if a custom option is
-        // called "Default", and the ids listed for an ambiguous name always resolve it.
-        const byId = options.filter((option) => templateKey(option.id) === wanted);
-        const matches = byId.length > 0 ? byId : options.filter((option) => templateKey(option.name) === wanted);
+        // Ids are unique lowercase slugs, so typing one exactly picks it: "default" stays the default even if a custom
+        // option is called "Default", and the ids listed for an ambiguous name always resolve it. Any looser spelling
+        // gathers every option whose id or name matches, so a tie between them shows the ambiguity message.
+        const exactId = options.find((option) => option.id === templateName);
+        const matches = exactId
+          ? [exactId]
+          : options.filter((option) => templateKey(option.id) === wanted || templateKey(option.name) === wanted);
         if (matches.length === 0) {
           return {
             handled: true,

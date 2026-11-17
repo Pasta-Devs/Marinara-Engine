@@ -39,6 +39,12 @@ const agentConfigs = [
         { id: "house-default", name: "Default", promptTemplate: "House style." },
         { id: "night-a", name: "Night Sky", promptTemplate: "Night A." },
         { id: "night-b", name: "Night Sky", promptTemplate: "Night B." },
+        // A custom option renamed to a built-in's name keeps its generated id.
+        { id: "background", name: "Background", promptTemplate: "Background." },
+        { id: "prompt-6", name: "Background", promptTemplate: "Custom background." },
+        // Ids that differ only by "_" and "-" stay separate options.
+        { id: "dusk_sky", name: "Dusk_Sky", promptTemplate: "Dusk underscore." },
+        { id: "dusk-sky", name: "Dusk Sky", promptTemplate: "Dusk hyphen." },
       ],
     }),
   },
@@ -136,6 +142,11 @@ try {
     "TEMPLATE=Comic-Page",
     "template=night-b",
     "a garden template=comic-page",
+    // The exact id an ambiguity message lists always resolves it.
+    "template=background",
+    "template=prompt-6",
+    "template=dusk_sky",
+    "template=dusk-sky",
   ]) {
     await illustrate.execute(args, illustrationContext);
   }
@@ -148,22 +159,32 @@ try {
     { prompt: undefined, range: undefined, template: "comic-page" },
     { prompt: undefined, range: undefined, template: "night-b" },
     { prompt: "a garden template=comic-page", range: undefined },
+    { prompt: undefined, range: undefined, template: "background" },
+    { prompt: undefined, range: undefined, template: "prompt-6" },
+    { prompt: undefined, range: undefined, template: "dusk_sky" },
+    { prompt: undefined, range: undefined, template: "dusk-sky" },
   ]);
   assert.equal(
     (await illustrate.execute("template=watercolor a garden", illustrationContext)).feedback,
     translate("ui.chat.slash.illustrate.templateNotFound", {
       name: "watercolor",
-      available: "Illustration, Comic Page, Painterly Cinematic, Default, Night Sky, Night Sky",
+      available:
+        "Illustration, Comic Page, Painterly Cinematic, Default, Night Sky, Night Sky, Background, Background, Dusk_Sky, Dusk Sky",
     }),
   );
-  assert.equal(
-    (await illustrate.execute('range=1 template="Night Sky" stars', illustrationContext)).feedback,
-    translate("ui.chat.slash.illustrate.ambiguousTemplate", {
-      name: "Night Sky",
-      matches: "Night Sky (night-a), Night Sky (night-b)",
-    }),
-  );
-  assert.equal(illustrations.length, 8, "an unknown or ambiguous Prompt Mode never starts illustration");
+  for (const [args, name, matches] of [
+    ['range=1 template="Night Sky" stars', "Night Sky", "Night Sky (night-a), Night Sky (night-b)"],
+    // A name that ties with another option's id is ambiguous too, not a silent pick of the id.
+    ["template=Background", "Background", "Background (background), Background (prompt-6)"],
+    ['template="Dusk Sky"', "Dusk Sky", "Dusk_Sky (dusk_sky), Dusk Sky (dusk-sky)"],
+  ] as const) {
+    assert.equal(
+      (await illustrate.execute(args, illustrationContext)).feedback,
+      translate("ui.chat.slash.illustrate.ambiguousTemplate", { name, matches }),
+      args,
+    );
+  }
+  assert.equal(illustrations.length, 12, "an unknown or ambiguous Prompt Mode never starts illustration");
 
   const command = matchSlashCommand("/hide 1-2 Lady Maria", { mode: "roleplay" })!;
   await command.command.execute(command.args, context);
