@@ -359,8 +359,9 @@ type Executable<T> = PromiseLike<T> & {
   finally: Promise<T>["finally"];
 };
 
-type InsertValuesBuilder = Executable<void> & {
-  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<void>;
+/** Every insert resolves to the number of rows it added; a row a conflict updated isn't counted. */
+type InsertValuesBuilder = Executable<number> & {
+  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<number>;
   /**
    * Skips a row that clashes with an existing one on `target` or on any unique constraint, leaving
    * the existing row as it is. Resolves to the number of rows inserted.
@@ -3715,8 +3716,8 @@ class FileTableStore {
             }
             return inserted;
           });
-        const builder = runInsert() as unknown as InsertValuesBuilder;
-        builder.onConflictDoUpdate = (config) => runInsert(config) as unknown as Executable<void>;
+        const builder = runInsert() as InsertValuesBuilder;
+        builder.onConflictDoUpdate = (config) => runInsert(config);
         builder.onConflictDoNothing = (config) => runInsert({ target: config.target });
         return builder;
       },

@@ -68,6 +68,7 @@ const importProfile = async (profile: string, keep = false) => {
   assert.equal(preview.statusCode, 200, preview.body);
   lastPreview = preview.json();
   assert.equal(lastPreview.undoable, !keep, "a current profile can be undone, unless it only adds");
+  assert.equal(lastPreview.keepsExisting, keep, "the preview says whether current versions are kept");
   return app.inject({
     method: "POST",
     url: `/api/backup/import-profile${keep ? "?keepExisting=true" : ""}`,
@@ -285,6 +286,18 @@ try {
     undoBefore,
     "an import that replaces nothing saves no copy and leaves the previous Undo as it was",
   );
+
+  // A profile from a much older version (no storage snapshot) always adds next to existing items, so
+  // with the switch on its preview must not promise that current versions are kept.
+  const legacyPreview = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile?preview=true&keepExisting=true",
+    headers: { "content-type": "application/json" },
+    payload: JSON.stringify({ type: "marinara_profile", version: 1, data: { characters: [{ name: "Old" }] } }),
+  });
+  assert.equal(legacyPreview.statusCode, 200, legacyPreview.body);
+  assert.equal(legacyPreview.json().keepsExisting, false, "an older profile can't keep current versions");
+  assert.equal(legacyPreview.json().undoable, false, "an older profile only adds");
 } finally {
   Object.assign(fs, { statfs: originalStatfs, rm: originalRm });
   syncBuiltinESMExports();

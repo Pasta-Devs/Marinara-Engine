@@ -6098,6 +6098,8 @@ type ProfileImportPreviewResult = {
   previewToken?: string;
   /** False for profiles from much older versions, which only add items and save no safety copy. */
   undoable?: boolean;
+  /** True when "Keep my current versions" applies; older profiles always add next to existing items. */
+  keepsExisting?: boolean;
   error?: string;
   message?: string;
 };
@@ -6191,11 +6193,7 @@ function getProfileImportErrorMessage(data: unknown) {
   return "Unknown error";
 }
 
-function formatProfileImportConfirmationMessage(
-  preview: ProfileImportPreviewResult,
-  localizeUi: TFunction,
-  keepExisting: boolean,
-) {
+function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewResult, localizeUi: TFunction) {
   const warnings = normalizeProfileImportWarnings(preview.warnings);
   const found = formatProfileImportStats(preview.imported, localizeUi) || "no counted records";
   const warningCopy = getProfileImportWarningCopy(localizeUi);
@@ -6203,7 +6201,7 @@ function formatProfileImportConfirmationMessage(
     warnings.length > 0
       ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
       : "";
-  const effect = keepExisting
+  const effect = preview.keepsExisting
     ? localizeUi("ui.panels.importsettings.profileImportKeepWarning")
     : preview.undoable === false
       ? localizeUi("ui.panels.importsettings.profileImportAddOnlyWarning")
@@ -6405,7 +6403,7 @@ function ImportSettings() {
 
       const confirmed = await showConfirmDialog({
         title: localizeUi("ui.panels.importsettings.importProfile"),
-        message: formatProfileImportConfirmationMessage(preview, localizeUi, !!keepQuery),
+        message: formatProfileImportConfirmationMessage(preview, localizeUi),
         confirmLabel: localizeUi("ui.chat.chatbranchselector.import"),
         cancelLabel: "Cancel",
         tone: "destructive",

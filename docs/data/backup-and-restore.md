@@ -91,6 +91,8 @@ To get back something you deleted without losing changes you made since, turn on
 
 Nothing is replaced, so Marinara saves no safety copy, and **Undo Last Import** still undoes the import before this one.
 
+Profiles from much older versions can't do this: they always add their items next to yours, and the **Import Profile** dialog says so.
+
 ### Undo an import
 
 Before each import that replaces items, Marinara saves a full copy of your data in the `backups/` folder of the data folder, as a file whose name starts with `marinara-before-import-` followed by the date and time. When the import finishes, the copy from the import before it is deleted, so only the latest one is kept.

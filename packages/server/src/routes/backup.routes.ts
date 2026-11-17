@@ -1605,12 +1605,9 @@ async function importProfileStorageSnapshot(
             }
             const insert = tx.insert(table as any).values(cleanRow as any) as any;
             const conflictTarget = schemaPrimaryKeyColumn(table);
+            let added = true;
             if (conflictTarget && keepExisting) {
-              if ((await insert.onConflictDoNothing({ target: conflictTarget })) === 0) {
-                completedItems++;
-                emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
-                continue;
-              }
+              added = (await insert.onConflictDoNothing({ target: conflictTarget })) > 0;
             } else if (conflictTarget) {
               // Exported secrets are redacted. The table-specific update set preserves
               // agent/tool secrets, while the connection plan above retains a credential
@@ -1624,7 +1621,7 @@ async function importProfileStorageSnapshot(
               await insert;
             }
             completedItems++;
-            tableCounts[tableName] = (tableCounts[tableName] ?? 0) + 1;
+            if (added) tableCounts[tableName] = (tableCounts[tableName] ?? 0) + 1;
             emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
           }
         }
@@ -4382,6 +4379,8 @@ export async function backupRoutes(app: FastifyInstance) {
           // Older profiles, and "Keep my current versions", only add items, so they need no safety copy
           // and leave nothing to undo.
           undoable: !keepExisting && isProfileStorageSnapshot(data.fileStorage),
+          // Older profiles can't keep current versions: their import always adds next to them.
+          keepsExisting: keepExisting && isProfileStorageSnapshot(data.fileStorage),
         };
       }
 
