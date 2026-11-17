@@ -902,6 +902,74 @@ try {
     assert.equal(retried[0]?.resolved.settings.customMusicExternalFolder, "/music/nazuna", "the retry route");
   }
 
+  // ── Retry route: agents on one connection share it; a run's prompt choice wins over the chat's ─────────────────
+  {
+    const shared = {
+      id: "shared-connection",
+      name: "Shared fixture",
+      provider: "custom",
+      baseUrl: `${base}/v1`,
+      apiKey: "fixture-key",
+      model: "fixture-model",
+      maxContext: 200_000,
+      defaultParameters: "{}",
+      maxParallelJobs: 1,
+    };
+    let connectionReads = 0;
+    const withChoices = (type: string) => ({
+      ...agentConfig(type, "game_state_update", shared.id),
+      settings: {
+        ...agentConfig(type, "game_state_update", shared.id).settings,
+        promptTemplates: [
+          { id: "chat-choice", name: "Chat choice", promptTemplate: "CHAT_CHOICE_PROMPT" },
+          { id: "run-choice", name: "Run choice", promptTemplate: "RUN_CHOICE_PROMPT" },
+        ],
+      },
+    });
+    const resolveShared = (agentPromptTemplateIds?: Record<string, string>) =>
+      retryRoute.resolveRetryAgents({
+        agentTypes: ["first-fixture", "second-fixture"],
+        chat: {
+          mode: "roleplay",
+          connectionId: "chat-only-connection",
+          metadata: JSON.stringify({
+            enableAgents: true,
+            activeAgentIds: ["first-fixture", "second-fixture"],
+            agentPromptTemplateIds: { "first-fixture": "chat-choice", "second-fixture": "chat-choice" },
+          }),
+        },
+        conns: {
+          getDefaultForAgents: async () => null,
+          getFallbackForAgents: async () => null,
+          getWithKey: async (id: string) => {
+            if (id === shared.id) connectionReads++;
+            return id === shared.id ? shared : id === "chat-only-connection" ? { ...shared, id } : null;
+          },
+          listRandomPool: async () => [],
+        } as any,
+        agentsStore: { list: async () => [withChoices("first-fixture"), withChoices("second-fixture")] } as any,
+        agentPromptTemplateIds,
+        allowExternalAgentImports: true,
+        managedParameterDefinitions,
+      });
+    const before = connectionReads;
+    const { resolvedAgents: sharing } = await resolveShared();
+    assert.equal(sharing.length, 2);
+    assert.equal(connectionReads - before, 1, "the two agents' shared connection is looked up once");
+    assert.equal(sharing[0]!.agentProvider, sharing[1]!.agentProvider, "both agents use the same provider");
+    assert.deepEqual(
+      sharing.map((agent) => agent.resolved.promptTemplate),
+      ["CHAT_CHOICE_PROMPT", "CHAT_CHOICE_PROMPT"],
+      "without a choice for this run, the chat's prompt choice applies",
+    );
+    const { resolvedAgents: overridden } = await resolveShared({ "second-fixture": "run-choice" });
+    assert.deepEqual(
+      overridden.map((agent) => agent.resolved.promptTemplate),
+      ["CHAT_CHOICE_PROMPT", "RUN_CHOICE_PROMPT"],
+      "a prompt choice for this run wins over the chat's",
+    );
+  }
+
   db = await getDB();
   const connections = createConnectionsStorage(db);
   await createAppSettingsStorage(db).set(
