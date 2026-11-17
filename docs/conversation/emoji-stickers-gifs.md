@@ -94,15 +94,29 @@ The tag button now shows the name. The same size limits apply, and an image that
 
 Marinara tells the responding character which custom emojis and stickers it may use. To change how it picks them, click the gear **Selection preferences** at the top of the **Custom emojis** or **Stickers** tab. Both open the same setting, saved per chat.
 
-- **Semantic** (default): offers the ones that best fit the recent conversation. It uses a small model on your own computer. If that is not available, it picks at random.
+- **Semantic** (default): offers the ones that best fit the recent conversation. It uses a small model on your own computer. If that is not available, it picks at random. When one character replies, its own emojis and stickers and the shared ones are ranked together, and its own win a close call.
 - **Random**: offers a random set each reply.
 - **Tool-call**: a model picks the fitting ones each reply. Choose a model in **Select a model…**. If none is set or it fails, it uses semantic. It is skipped when several characters reply in one group turn.
 
 **Max offered (each)** is how many emoji names and how many sticker names are offered per turn. The default is 20, from 1 to 100.
 
+If a character writes a sticker's name like an emoji, such as `:hug:` instead of `sticker:hug:`, the reply shows the sticker. This happens only when no custom emoji has that name.
+
+### Show them to the model
+
+Normally the model sees only the names of your custom emojis and stickers. If the chat's model can read images, **Show them to the model** in the same panel sends it pictures too, so it knows what each one looks like. This helps most with names that do not describe the picture.
+
+- **Off** (default): names only.
+- **Last message**: shows the custom emojis and stickers in the newest message.
+- **Recent**: shows the ones in the last few messages. **Messages to look at** sets how many, from 2 to 20. The default is 6.
+
+**Offered ones on the sheet** adds that many of the offered emojis and that many of the offered stickers to the pictures, from 0 to 30. The default is 6.
+
+The model gets one picture of numbered emojis and one of numbered stickers each reply, with the exact names in text. This costs extra input tokens each reply (tokens are the small pieces of text and images a service charges for), roughly 1,000 with the defaults. It does nothing when the chat's model cannot read images or **Image captioning** is on. If the model refuses images, Marinara sends the names only.
+
 ## Reactions use only your main custom emojis
 
-You can react to a message with a custom emoji, but only from the emojis you uploaded on the **Custom emojis** tab. Gallery-tagged emojis, stickers and GIFs are not available as reactions. See [React and get notified](getting-started.md#react-and-get-notified).
+You can react to a message with a custom emoji, but only from the emojis you uploaded on the **Custom emojis** tab. Gallery-tagged emojis, stickers and GIFs are not available as reactions. When a character reacts with a sticker's name, the reaction shows that sticker. See [React and get notified](getting-started.md#react-and-get-notified).
 
 ## Related guides
 
