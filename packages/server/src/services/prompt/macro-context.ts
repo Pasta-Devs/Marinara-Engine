@@ -37,6 +37,7 @@ import { createChatsStorage, parseCharacterIds } from "../storage/chats.storage.
 import { createGameStateStorage } from "../storage/game-state.storage.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
+import { impersonatePublicFaceText } from "./card-text.js";
 import { logger } from "../../lib/logger.js";
 
 type PersonaFields = NonNullable<MacroContext["personaFields"]>;
@@ -1015,6 +1016,7 @@ export async function collectCharacterDepthPromptEntries(
   db: DB,
   characterIds: string[],
   macroCtx: MacroContext,
+  impersonatePublicFaces?: boolean,
 ): Promise<PromptDepthEntry[]> {
   if (characterIds.length === 0) return [];
 
@@ -1024,6 +1026,7 @@ export async function collectCharacterDepthPromptEntries(
   for (const id of characterIds) {
     const row = await chars.getById(id, macroCtx.chatId);
     const data = parseCharacterData(row?.data);
+    if (impersonatePublicFaceText(data, impersonatePublicFaces)) continue;
     const depthPrompt = normalizeDepthPrompt(data?.extensions?.depth_prompt);
     if (!depthPrompt) continue;
 
@@ -1059,6 +1062,7 @@ export async function collectCharacterPostHistoryEntries(
   macroCtx: MacroContext,
   wrapFormat: WrapFormat,
   onResolved?: (characterId: string, content: string) => void,
+  impersonatePublicFaces?: boolean,
 ): Promise<PromptDepthEntry[]> {
   if (characterIds.length === 0) return [];
 
@@ -1070,7 +1074,7 @@ export async function collectCharacterPostHistoryEntries(
     const row = await chars.getById(id, macroCtx.chatId);
     const data = parseCharacterData(row?.data);
     const raw = stripMacroComments(data?.post_history_instructions ?? "").trim();
-    if (!data || !raw) continue;
+    if (!data || !raw || impersonatePublicFaceText(data, impersonatePublicFaces)) continue;
 
     const content = resolveMacros(raw, {
       ...macroCtx,
@@ -1112,10 +1116,19 @@ export async function collectCharacterAdvancedPromptEntries(
   macroCtx: MacroContext,
   wrapFormat: WrapFormat,
   onPostHistoryResolved?: (characterId: string, content: string) => void,
+  /** #9427: leave out the depth prompt and post-history instructions of a card that sends its Public Face. */
+  impersonatePublicFaces?: boolean,
 ): Promise<PromptDepthEntry[]> {
   const [depthEntries, postHistoryEntries] = await Promise.all([
-    collectCharacterDepthPromptEntries(db, characterIds, macroCtx),
-    collectCharacterPostHistoryEntries(db, characterIds, macroCtx, wrapFormat, onPostHistoryResolved),
+    collectCharacterDepthPromptEntries(db, characterIds, macroCtx, impersonatePublicFaces),
+    collectCharacterPostHistoryEntries(
+      db,
+      characterIds,
+      macroCtx,
+      wrapFormat,
+      onPostHistoryResolved,
+      impersonatePublicFaces,
+    ),
   ]);
   return [...depthEntries, ...postHistoryEntries];
 }

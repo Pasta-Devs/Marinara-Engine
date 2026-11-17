@@ -1179,6 +1179,7 @@ export interface MessageExtra {
     impersonatePresetId?: string | null;
     impersonateConnectionId?: string | null;
     impersonateBlockAgents?: boolean;
+    impersonatePublicFaces?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
   /** Internal trigger intent captured from the request that generated this message or swipe. */

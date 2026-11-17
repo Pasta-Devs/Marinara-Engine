@@ -190,6 +190,13 @@ assert.equal(standardChoiceSubmission.pendingSpatialTransition, impersonatedMove
 assert.equal(impersonatedChoiceSubmission.pendingSpatialTransition, impersonatedMove);
 assert.equal(impersonatedChoiceSubmission.impersonate, true);
 assert.equal(impersonatedChoiceSubmission.impersonatePromptTemplate, "Stay in character.");
+assert.equal(impersonatedChoiceSubmission.impersonatePublicFaces, undefined);
+assert.equal(
+  buildCyoaChoiceSubmissionPayload({ chatId: "c", text: "t", impersonation: { publicFaces: true } })
+    .impersonatePublicFaces,
+  true,
+  "#9427: a CYOA impersonate sends Send Public Faces",
+);
 assert.equal(appendCyoaChoiceToDraft("", "Take the bridge"), "Take the bridge");
 assert.equal(appendCyoaChoiceToDraft("  \n", "Take the bridge"), "Take the bridge");
 assert.equal(

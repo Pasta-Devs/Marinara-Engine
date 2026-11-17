@@ -1323,6 +1323,7 @@ export function useGenerate() {
       impersonatePresetId?: string;
       impersonateConnectionId?: string;
       impersonateBlockAgents?: boolean;
+      impersonatePublicFaces?: boolean;
       impersonatePromptTemplate?: string;
       /** When true, this generation drives the active turn-game's bot seats instead of a chat reply. */
       turnGameBots?: boolean;
