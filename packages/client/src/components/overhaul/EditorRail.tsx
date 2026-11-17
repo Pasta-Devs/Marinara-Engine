@@ -229,12 +229,14 @@ export function EditorRail({
   addable: { id: string; label: string }[];
   onAdd: (id: string) => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const mobile = useOverhaulMobile();
   const [tagDraft, setTagDraft] = useState("");
   const [tagOpen, setTagOpen] = useState(false);
   // With no Chat / Save row in the rail (they sit in the page header), the helpers join the tag row.
   const assistBesideTags = Boolean(assist) && !actions && Boolean(tags && onAddTag);
+  const tagFold = useTagRowsFold(tags ?? []);
 
   // Enter/comma adds the tag and keeps the box open (and the keyboard up) for the next one;
   // Enter on an empty box, blur or Escape closes it.
@@ -292,9 +294,9 @@ export function EditorRail({
       {byline ? <p className="ov-rail__byline">{byline}</p> : null}
 
       {tags && onAddTag ? (
-        <div className="ov-rail__tags">
-          {tags.map((tag) => (
-            <span key={tag} className="ov-tag">
+        <div className="ov-rail__tags" ref={tagFold.ref}>
+          {tags.map((tag, index) => (
+            <span key={tag} className="ov-tag" data-ov-tag="" hidden={tagFold.hides(index)}>
               {tag}
               {onRemoveTag ? (
                 <button
@@ -307,6 +309,20 @@ export function EditorRail({
               ) : null}
             </span>
           ))}
+          {/* Long tag lists stop after two rows; this shows the rest (and folds them away again). */}
+          {tagFold.cut !== null ? (
+            <button
+              type="button"
+              className="ov-tag ov-tag--more"
+              data-ov-tag-more=""
+              aria-expanded={tagFold.open}
+              onClick={() => tagFold.setOpen(!tagFold.open)}
+            >
+              {tagFold.open
+                ? localize("Show less")
+                : localizeUi("ui.overhaul.editorrail.moreTags", { count: tags.length - tagFold.cut })}
+            </button>
+          ) : null}
           {tagOpen ? (
             <input
               autoFocus
@@ -466,4 +482,66 @@ export function RailMoreMenu({
       <div className="mari-editor-actions">{children}</div>
     </div>
   );
+}
+
+/**
+ * Keeps a wrapping tag row to two lines: `cut` is the first tag that is hidden (null when every tag
+ * fits), leaving room on the second line for the "+N more" button. Re-measures when the tags or the
+ * rail's width change.
+ */
+function useTagRowsFold(tags: string[]) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState<number | null>(null);
+  const [width, setWidth] = useState(0);
+  const secondRowTop = useRef<number | null>(null);
+  const tagKey = tags.join("\u0000");
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const next = Math.round(entries[0]?.contentRect.width ?? 0);
+      setWidth((current) => (current === next ? current : next));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  // Pass 1: with every tag showing, find the first tag on a third line.
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const items = Array.from(node.querySelectorAll<HTMLElement>(":scope > [data-ov-tag]"));
+    const wasHidden = items.map((item) => item.hidden);
+    for (const item of items) item.hidden = false;
+    const tops = items.map((item) => item.offsetTop);
+    items.forEach((item, index) => (item.hidden = wasHidden[index]));
+    const rows: number[] = [];
+    for (const top of tops) if (!rows.some((row) => Math.abs(row - top) < 4)) rows.push(top);
+    rows.sort((a, b) => a - b);
+    if (rows.length <= 2) {
+      secondRowTop.current = null;
+      setCut(null);
+      return;
+    }
+    secondRowTop.current = rows[1];
+    setCut(tops.findIndex((top) => top > rows[1] + 3));
+  }, [tagKey, width]);
+
+  // Pass 2 (folded): the "+N more" button must sit on the second line too; drop tags until it does.
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || open || cut === null || cut <= 0 || secondRowTop.current === null) return;
+    const more = node.querySelector<HTMLElement>(":scope > [data-ov-tag-more]");
+    if (more && more.offsetTop > secondRowTop.current + 3) setCut(cut - 1);
+  }, [cut, open, tagKey, width]);
+
+  return {
+    ref,
+    open,
+    setOpen,
+    cut,
+    hides: (index: number) => !open && cut !== null && index >= cut,
+  };
 }

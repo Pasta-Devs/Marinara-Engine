@@ -578,6 +578,8 @@ export function CharacterLibraryView() {
           avatarPath: card.avatarPath,
           avatarStyle: getAvatarCropStyle(card.avatarCrop),
           tags: card.tags,
+          notes: card.creatorNotes,
+          hasLorebook: card.hasEmbeddedLorebook,
           tokens: (card.tokenEstimate ?? 0).toLocaleString(),
           tokenEstimate: card.tokenEstimate,
           favorite: card.favorite,
@@ -587,6 +589,8 @@ export function CharacterLibraryView() {
         loading={isLoading}
         hasMore={Boolean(hasNextPage)}
         onLoadMore={source.fetchNextPage}
+        onLoadAll={source.fetchAllPages}
+        loadingMore={isFetchingNextPage}
         onOpen={openDetailFromLibrary}
         onChat={
           isPersonaLibrary
