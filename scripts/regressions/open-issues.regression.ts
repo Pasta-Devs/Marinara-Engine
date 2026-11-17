@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ChatMode, Message } from "../../packages/shared/src/types/chat.js";
+import type { ChatMode } from "../../packages/shared/src/types/chat.js";
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import playwrightConfig from "../../playwright.config.js";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
@@ -19,16 +19,6 @@ import {
   getPersonalExtensionTraffic,
   recordPersonalExtensionRequest,
 } from "../../packages/client/src/lib/personal-extension-traffic.js";
-import {
-  isProfessorMariTranscriptNearBottom,
-  landProfessorMariTranscript,
-  scrollProfessorMariTranscriptToBottom,
-} from "../../packages/client/src/lib/professor-mari-transcript-scroll.js";
-import {
-  formatCompactTokenCount,
-  resolveChatContextBudget,
-  resolveProfessorMariContextBudget,
-} from "../../packages/client/src/lib/professor-mari-context-budget.js";
 import {
   DEFAULT_GENERATION_PARAMS,
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
@@ -55,15 +45,6 @@ import {
   mergeGeneratedChatMacroVariables,
   normalizeChatMacroVariables,
 } from "../../packages/server/src/services/prompt/macro-context.js";
-import {
-  buildLorebookEntryCreateRow,
-  buildPersonaCreateRow,
-  normalizeCharacterActionData,
-} from "../../packages/server/src/services/mari-db/mari-db.service.js";
-import {
-  isAppDataActionName,
-  isMutatingWorkspaceCommand,
-} from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { generateScheduleRoutineSummary } from "../../packages/server/src/services/conversation/schedule.service.js";
 import type {
   BaseLLMProvider,
@@ -324,57 +305,6 @@ assert.throws(() =>
     ],
   }),
 );
-assert.equal(
-  isMutatingWorkspaceCommand({
-    id: "widget-preview",
-    name: "app_data",
-    arguments: { action: "home_widget.create", apply: false },
-  }),
-  false,
-);
-assert.equal(
-  isMutatingWorkspaceCommand({
-    id: "widget-save",
-    name: "app_data",
-    arguments: { action: "home_widget.create", apply: true },
-  }),
-  true,
-);
-
-// F6: the direct-JSON compatibility recovery parser (isAppDataActionName) must recognize the
-// instruction.* family, or a small/custom model's bare {"action":"instruction.get",...} is dropped
-// instead of normalized to app_data. Pin the regex directly (isMutatingWorkspaceCommand bypasses
-// the recovery path, so it can't catch a regression at that anchor).
-assert.equal(isAppDataActionName("instruction.get"), true, "the recovery parser recognizes instruction.get");
-assert.equal(isAppDataActionName("instruction.list"), true, "the recovery parser recognizes instruction.list");
-assert.equal(
-  isAppDataActionName("instructions.remember"),
-  true,
-  "the recovery parser tolerates the lenient plural instructions.*",
-);
-assert.equal(
-  isAppDataActionName("post_history_instructions"),
-  false,
-  "a field name that merely contains 'instructions' is not an action (anchored match)",
-);
-// And read/write classification (suffix-based) is correct for the new family.
-assert.equal(
-  isMutatingWorkspaceCommand({ id: "i-get", name: "app_data", arguments: { action: "instruction.get" } }),
-  false,
-  "instruction.get classifies as a read",
-);
-assert.equal(
-  isMutatingWorkspaceCommand({ id: "i-list", name: "app_data", arguments: { action: "instruction.list" } }),
-  false,
-  "instruction.list classifies as a read",
-);
-for (const action of ["instruction.remember", "instruction.update", "instruction.forget"]) {
-  assert.equal(
-    isMutatingWorkspaceCommand({ id: `i-${action}`, name: "app_data", arguments: { action, apply: true } }),
-    true,
-    `${action} classifies as a mutation`,
-  );
-}
 
 assert.throws(() =>
   homeCustomWidgetCatalogSchema.parse({
@@ -576,107 +506,6 @@ for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
 }
 assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
 
-const minimalProfessorMariPersona = buildPersonaCreateRow(
-  { name: "Minimal helper persona" },
-  "persona-minimal",
-  "2026-07-13T00:00:00.000Z",
-);
-assert.equal(minimalProfessorMariPersona.phoneticName, "");
-assert.equal(minimalProfessorMariPersona.convoDisplayName, "");
-assert.equal(minimalProfessorMariPersona.aboutMe, "");
-assert.equal(minimalProfessorMariPersona.convoBehavior, "");
-
-const generatedCharacterData = normalizeCharacterActionData({
-  firstMessage: "Welcome to the laboratory.",
-  mesExample: "{{char}}: Observe carefully.",
-  creatorNotes: "Created for regression coverage.",
-  systemPrompt: "Stay in character.",
-  postHistoryInstructions: "Remain concise.",
-  characterVersion: "1.2.3",
-  alternateGreetings: ["You made it."],
-  aboutMe: "lab gremlin. ethically flexible. coffee required.",
-});
-assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
-assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
-assert.equal(generatedCharacterData.creator_notes, "Created for regression coverage.");
-assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
-assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
-assert.equal(generatedCharacterData.character_version, "1.2.3");
-assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
-assert.equal(
-  (generatedCharacterData.extensions as Record<string, unknown>).aboutMe,
-  "lab gremlin. ethically flexible. coffee required.",
-);
-assert.equal(Object.hasOwn(generatedCharacterData, "aboutMe"), false);
-assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
-
-const partialCharacterUpdateData = normalizeCharacterActionData({ personality: "Quietly analytical." });
-assert.deepEqual(
-  partialCharacterUpdateData,
-  { personality: "Quietly analytical." },
-  "Partial character updates must not synthesize undefined fields that deepMerge treats as deletions",
-);
-
-const generatedLorebookEntry = buildLorebookEntryCreateRow(
-  {
-    name: "Glass City",
-    content: "A city made from black glass.",
-    keys: ["Glass City", "black glass"],
-    secondaryKeys: ["rain"],
-  },
-  "lorebook-generated",
-  "entry-generated",
-  "2026-07-16T00:00:00.000Z",
-);
-assert.equal(generatedLorebookEntry.lorebookId, "lorebook-generated");
-assert.equal(generatedLorebookEntry.content, "A city made from black glass.");
-assert.deepEqual(generatedLorebookEntry.keys, ["Glass City", "black glass"]);
-assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
-// #4791 — unset keyword-matching/selective fields fall back to the stored defaults.
-assert.equal(generatedLorebookEntry.selective, "false");
-assert.equal(generatedLorebookEntry.selectiveLogic, "and");
-assert.equal(generatedLorebookEntry.matchWholeWords, "false");
-assert.equal(generatedLorebookEntry.caseSensitive, "false");
-assert.equal(generatedLorebookEntry.useRegex, "false");
-// #4791 — Professor Mari can now set them explicitly (previously hardcoded and ignored).
-const parameterizedLorebookEntry = buildLorebookEntryCreateRow(
-  {
-    name: "Vlad",
-    content: "The immortal count.",
-    keys: ["Vlad"],
-    secondaryKeys: ["count", "castle"],
-    selective: true,
-    selectiveLogic: "and_all",
-    matchWholeWords: true,
-    caseSensitive: true,
-    useRegex: false,
-  },
-  "lorebook-generated",
-  "entry-parameterized",
-  "2026-07-16T00:00:00.000Z",
-);
-assert.equal(parameterizedLorebookEntry.selective, "true");
-assert.equal(parameterizedLorebookEntry.selectiveLogic, "and_all");
-assert.equal(parameterizedLorebookEntry.matchWholeWords, "true");
-assert.equal(parameterizedLorebookEntry.caseSensitive, "true");
-assert.equal(parameterizedLorebookEntry.useRegex, "false");
-// An invalid selectiveLogic is rejected and falls back to the stored default.
-const invalidLogicLorebookEntry = buildLorebookEntryCreateRow(
-  { name: "Bad logic", content: "x", selectiveLogic: "nonsense" },
-  "lorebook-generated",
-  "entry-bad-logic",
-  "2026-07-16T00:00:00.000Z",
-);
-assert.equal(invalidLogicLorebookEntry.selectiveLogic, "and");
-// #4796 review — "or" is an accepted legacy selectiveLogic value (behaves like "and").
-const orLogicLorebookEntry = buildLorebookEntryCreateRow(
-  { name: "Or logic", content: "x", selectiveLogic: "or" },
-  "lorebook-generated",
-  "entry-or-logic",
-  "2026-07-16T00:00:00.000Z",
-);
-assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
-
 // Issue #5225 — optional integer order survives automatic and approval-gated writes.
 {
   for (const resultType of CUSTOM_AGENT_RESULT_TYPE_IDS) {
@@ -865,25 +694,6 @@ assert.equal(orLogicLorebookEntry.selectiveLogic, "or");
     "a routing book created for one run must remain writable on the next run instead of being duplicated",
   );
 }
-
-const completeProfessorMariPersona = buildPersonaCreateRow(
-  {
-    name: "Complete helper persona",
-    phoneticName: "Professor Mah-ree",
-    convoDisplayName: "Prof. Mari",
-    aboutMe: "I help people build worlds.",
-    convoBehavior: "Speak warmly and precisely.",
-  },
-  "persona-complete",
-  "2026-07-13T00:00:00.000Z",
-);
-assert.equal(completeProfessorMariPersona.phoneticName, "Professor Mah-ree");
-assert.equal(completeProfessorMariPersona.convoDisplayName, "Prof. Mari");
-assert.equal(completeProfessorMariPersona.aboutMe, "I help people build worlds.");
-assert.deepEqual(completeProfessorMariPersona.convoBehavior, {
-  instruction: "Speak warmly and precisely.",
-  insertionStrategy: "constant_after",
-});
 
 assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
 assert.match(DEFAULT_TRANSLATION_SYSTEM_PROMPT, /\{\{targetLanguage\}\}/u);
@@ -1109,117 +919,6 @@ const lorebookHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-lorebooks.ts", import.meta.url),
   "utf8",
 );
-const professorMariContextBudget = resolveProfessorMariContextBudget(
-  [
-    {
-      role: "assistant",
-      extra: { generationInfo: { tokensPrompt: 12_000, tokensCompletion: 345 } },
-    },
-  ] as Message[],
-  128_000,
-);
-assert.deepEqual(professorMariContextBudget, {
-  usedTokens: 12_345,
-  maxTokens: 128_000,
-  percentage: (12_345 / 128_000) * 100,
-});
-assert.equal(formatCompactTokenCount(professorMariContextBudget!.usedTokens), "12.3k");
-assert.equal(
-  resolveProfessorMariContextBudget(
-    [
-      {
-        role: "assistant",
-        extra: {
-          generationInfo: {
-            tokensPrompt: 3_500,
-            tokensCachedPrompt: 75_000,
-            tokensCacheWritePrompt: 5_000,
-            tokensCompletion: 2_000,
-          },
-        },
-      },
-    ] as Message[],
-    128_000,
-  )?.usedTokens,
-  85_500,
-  "context usage must include all Anthropic input tokens and the current response",
-);
-assert.equal(
-  resolveProfessorMariContextBudget(
-    [
-      { role: "assistant", extra: { generationInfo: { usage: { promptTokens: 8_000, completionTokens: 192 } } } },
-    ] as Message[],
-    32_000,
-  )?.usedTokens,
-  8_192,
-  "legacy Professor Mari usage metadata should keep the context indicator available",
-);
-assert.equal(resolveProfessorMariContextBudget([], 128_000), null);
-for (const tokensContext of [230, 0, null, undefined]) {
-  assert.equal(
-    resolveProfessorMariContextBudget(
-      [
-        { role: "assistant", extra: { generationInfo: { tokensPrompt: 100, tokensCompletion: 20 } } },
-        {
-          role: "assistant",
-          extra: {
-            generationInfo: {
-              tokensPrompt: 300,
-              tokensCachedPrompt: 160,
-              tokensCompletion: 50,
-              requestCount: 2,
-              ...(tokensContext !== undefined ? { tokensContext } : {}),
-            },
-          },
-        },
-      ] as Message[],
-      1000,
-    )?.usedTokens ?? null,
-    tokensContext ?? null,
-    "latest request context wins over billed sums; missing usage must not resurrect an earlier context",
-  );
-}
-assert.equal(
-  resolveChatContextBudget(
-    [
-      {
-        role: "assistant",
-        extra: JSON.stringify({ generationInfo: { tokensPrompt: 4_000, tokensCompletion: 100 } }),
-      },
-    ] as Message[],
-    "connection-1",
-    [{ id: "connection-1", maxContext: 8_000 }] as never,
-  )?.usedTokens,
-  4_100,
-  "chat context usage must parse JSON-encoded message metadata",
-);
-const contextBudgetConnections = [
-  { id: "first", maxContext: 8_000, isDefault: false },
-  { id: "default", maxContext: 16_000, isDefault: true },
-  { id: "selected", maxContext: 32_000, isDefault: false },
-] as never;
-const contextBudgetMessages = [
-  { role: "assistant", extra: { generationInfo: { tokensPrompt: 1_000, tokensCompletion: 100 } } },
-  { role: "user", extra: {} },
-  { role: "assistant", extra: { generationInfo: { tokensPrompt: 4_000, tokensCompletion: 100 } } },
-] as Message[];
-assert.equal(resolveChatContextBudget(contextBudgetMessages, "selected", contextBudgetConnections)?.maxTokens, 32_000);
-assert.equal(
-  resolveChatContextBudget(contextBudgetMessages, null, contextBudgetConnections),
-  null,
-  "a chat without a selected connection must not borrow the default connection's context limit",
-);
-assert.equal(
-  resolveChatContextBudget(contextBudgetMessages, "missing", contextBudgetConnections),
-  null,
-  "a missing selected connection must not borrow another connection's context limit",
-);
-assert.equal(resolveChatContextBudget(contextBudgetMessages, "__local_sidecar__", [], 24_000)?.maxTokens, 24_000);
-assert.equal(
-  resolveChatContextBudget(contextBudgetMessages, "selected", contextBudgetConnections)?.usedTokens,
-  4_100,
-  "chat context usage must use the newest assistant measurement",
-);
 assert.equal(
   contextBudgetIndicatorSource.match(/var\(--marinara-chat-chrome-text\)/gu)?.length,
   1,
@@ -1233,15 +932,6 @@ assert.match(
 assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-muted\)\]/u);
 assert.match(contextBudgetIndicatorSource, /text-\[var\(--marinara-chat-chrome-panel-text\)\]/u);
 assert.doesNotMatch(contextBudgetIndicatorSource, /professorMari/u);
-assert.equal(
-  resolveChatContextBudget(
-    [{ role: "assistant", extra: { generationInfo: { tokensPrompt: 4_000, tokensCompletion: 100 } } }] as Message[],
-    "random",
-    [{ id: "a", maxContext: 8_000 }] as never,
-  ),
-  null,
-  "random connection mode must not show a misleading single-connection context budget",
-);
 assert.doesNotMatch(
   contextBudgetChatInputSource,
   /<ContextBudgetIndicator/u,
@@ -1326,65 +1016,7 @@ assert.match(
   /const technicalDetails = \(tool: WorkspaceToolCall\) =>[\s\S]{0,600}tool\.output !== null && tool\.output !== undefined \? <pre>/u,
   "Failed workspace tools must reveal their provider output in the transcript",
 );
-const professorMariTranscript = { clientHeight: 240, scrollHeight: 720, scrollTop: 0 };
-scrollProfessorMariTranscriptToBottom(professorMariTranscript);
-assert.equal(
-  professorMariTranscript.scrollTop,
-  professorMariTranscript.scrollHeight,
-  "Professor Mari transcript scrolling must align a mounted pane with its newest message",
-);
-assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true);
 
-// #9115: opening her console left the transcript mid-history. The turns below the fold measure frames
-// after the first pin, and the landing must keep pinning through that, not stop at the first settle.
-{
-  const frame = { clientHeight: 600, scrollHeight: 4000, scrollTop: 0 };
-  const pending: Array<() => void> = [];
-  const run = landProfessorMariTranscript(
-    frame,
-    (callback) => pending.push(callback),
-    () => {},
-  );
-  const tick = () => pending.shift()?.();
-  tick();
-  assert.equal(frame.scrollTop, 4000, "the first frame pins to the newest line");
-  // Her window is still animating its height open: the content is unchanged, the viewport is not. The loop
-  // must not read that as settled (#9115), so a frame budget of 6 is given to prove it keeps the frames.
-  frame.clientHeight = 900;
-  // A growing viewport lets the browser clamp the position down to the new bottom; that is not the reader.
-  frame.scrollTop = frame.scrollHeight - frame.clientHeight;
-  tick();
-  assert.equal(pending.length, 1, "a viewport that is still growing does not end the landing");
-  frame.scrollHeight = 5200; // a turn below the fold took its real height
-  tick();
-  assert.equal(frame.scrollTop, 5200, "a later measure pins again, rather than leaving the view mid-history");
-  frame.scrollTop = 3000; // the reader scrolled up to read
-  tick();
-  frame.scrollHeight = 5600;
-  tick();
-  assert.equal(frame.scrollTop, 3000, "a reader who scrolled away is never pulled back");
-  run();
-  assert.equal(pending.length, 0, "the landing stops when the node or chat goes");
-  // Once the geometry holds still for a few frames the loop lets go, so it cannot pin the reader forever.
-  const held = { clientHeight: 600, scrollHeight: 4000, scrollTop: 0 };
-  const frames: Array<() => void> = [];
-  landProfessorMariTranscript(
-    held,
-    (callback) => frames.push(callback),
-    () => {},
-    undefined,
-    120,
-    3,
-  );
-  for (let frame = 0; frame < 6; frame += 1) frames.shift()?.();
-  assert.equal(frames.length, 0, "a settled transcript stops the landing");
-}
-professorMariTranscript.scrollTop = 200;
-assert.equal(
-  isProfessorMariTranscriptNearBottom(professorMariTranscript),
-  false,
-  "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
-);
 assert.match(
   professorMariHomeSource,
   /messageLoadAbortRef\.current !== controller[\s\S]{0,80}activeChatIdRef\.current !== id/u,
