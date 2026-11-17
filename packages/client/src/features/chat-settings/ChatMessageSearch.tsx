@@ -9,6 +9,7 @@ import { normalizeHydratedMessage } from "../../lib/message-hydration";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { ChatBookmarksList, ChatTrashList } from "../../components/chat/ChatMessageMarksPanels";
+import { SearchInput } from "../../components/ui/SearchInput";
 import { Spinner } from "../../components/ui/Spinner";
 import { Tabs } from "../../components/ui/Tabs";
 
@@ -102,24 +103,17 @@ export function ChatMessageSearch({ chatId }: { chatId: string }) {
 
       {view === "search" && (
         <div className="shrink-0 px-3 pb-3 pt-1.5">
-          <div className="relative">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              type="search"
-              value={query}
-              onFocus={() => setEngaged(true)}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && results[0]) jumpToMessage(results[0].messageNumber);
-              }}
-              placeholder={localizeUi("ui.chat.chatmessagesearch.placeholder")}
-              aria-label={localizeUi("ui.chat.chatmessagesearch.inputLabel")}
-              className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] pl-9 pr-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/25"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            onFocus={() => setEngaged(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && results[0]) jumpToMessage(results[0].messageNumber);
+            }}
+            placeholder={localizeUi("ui.chat.chatmessagesearch.placeholder")}
+            label={localizeUi("ui.chat.chatmessagesearch.inputLabel")}
+            resultCount={query.trim() ? results.length : undefined}
+          />
           <p className="mt-2 min-h-4 text-xs text-[var(--muted-foreground)]" role="status" aria-live="polite">
             {query.trim()
               ? localizeUi("ui.chat.chatmessagesearch.resultCount", { count: results.length })
