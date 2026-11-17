@@ -161,7 +161,14 @@ export function ConversationMessageActions({
     bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".mari-message-body") ?? null;
   const followTrigger = `${visible}-${mobileSheetOpen}-${thinkingOnly}`;
   useFollowBubble(barRef, findMessageBox, overhaulActive || overhaulMobile, followTrigger);
-  useFollowBubble(bottomBarRef, findMessageBox, overhaulActive || overhaulMobile, followTrigger);
+  // Like Roleplay's: the bottom bar's last button sits under the top bar's ⋯.
+  useFollowBubble(
+    bottomBarRef,
+    findMessageBox,
+    overhaulActive || overhaulMobile,
+    followTrigger,
+    (bar) => bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".ov-cvh > button:last-of-type") ?? null,
+  );
   // Speak sits left of Regenerate on desktop and above Translate in the phone and tablet sheet.
   const speakAction = speech ? (
     <MsgAction
@@ -426,11 +433,7 @@ export function ConversationMessageActions({
           ) : null}
         </div>
         {hasBottom ? (
-          <div
-            ref={bottomBarRef}
-            className={cn("ov-cvh ov-cvh--bottom", (visible || moreAnchor) && "is-on")}
-            data-mari-part="actions"
-          >
+          <div ref={bottomBarRef} className={cn("ov-cvb", (visible || moreAnchor) && "is-on")} data-mari-part="actions">
             {bottomSpeak}
             {show("translate") ? translateAction : null}
             {bottomRegenerate}

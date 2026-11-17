@@ -42,6 +42,7 @@ import {
   KitCheck,
   KitFolderCrumb,
   KitFolderHead,
+  KitFolderTile,
   KitFolderViewToggle,
   KitMoreButton,
   KitNewFolderButton,
@@ -503,26 +504,37 @@ export function CardGallery({
           </div>
         ) : null}
         {openRows.map((card) => renderCard(card, openFolder?.id ?? null))}
-        {groups.map(({ folder, rows: members }) => (
-          <Fragment key={`folder:${folder.id}`}>
-            <div className="ov-kit-folder-cell">
-              <KitFolderHead
-                folder={folder}
-                count={members.length}
-                dragKind={singular}
-                mode={searching ? "toggle" : "open"}
-                collapsed={!searching}
-                onToggle={() => opened.openFolder(folder)}
-                onMenu={(event, anchor) =>
-                  menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
-                }
-              />
-            </div>
-            {/* Closed in the Folders view (open one to see inside); a search shows its matches in place. */}
-            {searching ? members.map((card) => renderCard(card, folder.id)) : null}
-          </Fragment>
-        ))}
-        {groups.length > 0 && loose.length > 0 ? (
+        {groups.map(({ folder, rows: members }) =>
+          searching ? (
+            // A search shows each folder's matches in place, under its name.
+            <Fragment key={`folder:${folder.id}`}>
+              <div className="ov-kit-folder-cell">
+                <KitFolderHead
+                  folder={folder}
+                  count={members.length}
+                  dragKind={singular}
+                  collapsed={false}
+                  onToggle={() => opened.openFolder(folder)}
+                  onMenu={(event, anchor) =>
+                    menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
+                  }
+                />
+              </div>
+              {members.map((card) => renderCard(card, folder.id))}
+            </Fragment>
+          ) : (
+            // The Folders view: each folder is an icon in the grid, like a file explorer; open one to see inside.
+            <KitFolderTile
+              key={`folder:${folder.id}`}
+              folder={folder}
+              count={members.length}
+              dragKind={singular}
+              onOpen={() => opened.openFolder(folder)}
+              onMenu={(event, anchor) => menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)}
+            />
+          ),
+        )}
+        {searching && groups.length > 0 && loose.length > 0 ? (
           <div className="ov-kit-folder-cell ov-kit-loose">{localize("Not in a folder")}</div>
         ) : null}
         {loose.map((card) => renderCard(card, null))}

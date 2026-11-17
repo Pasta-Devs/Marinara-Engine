@@ -13,6 +13,10 @@ export const libraryFolders = fileTable("library_folders", {
   sortOrder: integer("sort_order").notNull().default(0),
   /** JSON array of resource IDs assigned to this folder. */
   itemIds: text("item_ids").notNull().default("[]"),
+  /** The folder icon's colour ("#rrggbb"); null = the theme's own. */
+  color: text("color"),
+  /** A small picture data URL shown on the folder's front; null = none. */
+  cover: text("cover"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

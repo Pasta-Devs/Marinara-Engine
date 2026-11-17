@@ -83,7 +83,6 @@ import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
 import {
   KitBulkBar,
   KitCheck,
-  KitFolderCrumb,
   KitFolderHead,
   KitFolderViewToggle,
   KitMoreButton,
@@ -97,7 +96,6 @@ import {
   useKitMenu,
   useKitSelection,
   useLibraryFolderView,
-  useOpenFolder,
   useScopeFolders,
   useLocalCollapsed,
   useKitRowDrag,
@@ -283,22 +281,7 @@ function ListPage<T extends { id: string }>({
   });
   const folderView = useLibraryFolderView(kit?.folderView ?? "");
   const flat = !!kit?.folderView && folderView.flat;
-  // Folders view (pages with the switch): folders listed closed, open one to see inside. A search or filter
-  // looks inside every folder instead.
-  const browse = !!kit?.folderView && !flat && !kit.filtering;
-  const opened = useOpenFolder(kit?.folders);
-  const openFolder = kit?.folderView && !flat ? opened.open : null;
-  const grouped = openFolder
-    ? { groups: [] as { folder: KitFolder; rows: T[] }[], loose: [] as T[] }
-    : groupByFolder(rows, flat ? null : (kit?.folders ?? null), !!kit?.filtering);
-  const { groups, loose } = grouped;
-  const openRows = openFolder
-    ? (() => {
-        const ids = new Set(openFolder.itemIds);
-        return rows.filter((row) => ids.has(row.id));
-      })()
-    : [];
-  const folderClosed = (folder: KitFolder) => (browse ? true : !!kit?.folders?.isCollapsed(folder));
+  const { groups, loose } = groupByFolder(rows, flat ? null : (kit?.folders ?? null), !!kit?.filtering);
   const makeChipSelect = (toolsCopy = false) => (
     <select
       className={cn("ov-select", mobile && "ovm-lp-filter", toolsCopy && "ovm-lp-filter--tools")}
@@ -323,9 +306,8 @@ function ListPage<T extends { id: string }>({
         count={count}
         {...kit.folderExtra?.(folder)}
         dragKind={kit.drag?.kind}
-        mode={browse ? "open" : "toggle"}
-        collapsed={folderClosed(folder)}
-        onToggle={() => (browse ? opened.openFolder(folder) : kit.folders!.toggleCollapsed(folder))}
+        collapsed={kit.folders.isCollapsed(folder)}
+        onToggle={() => kit.folders!.toggleCollapsed(folder)}
         onMenu={(event, anchor) =>
           kit.menu.openFromEvent(
             event,
@@ -336,22 +318,6 @@ function ListPage<T extends { id: string }>({
         }
       />
     ) : null;
-  const folderCrumb = openFolder ? (
-    <KitFolderCrumb
-      backLabel={title}
-      folder={openFolder}
-      count={openRows.length}
-      onBack={opened.close}
-      onMenu={(event, anchor) =>
-        kit?.menu.openFromEvent(
-          event,
-          openFolder.name,
-          kit.folderMenu?.(openFolder) ?? folderActions(kit.folders!, openFolder),
-          anchor,
-        )
-      }
-    />
-  ) : null;
   const tableRow = (row: T, folderId: string | null, inFolder = !!folderId) => (
     <tr
       key={row.id}
@@ -444,16 +410,16 @@ function ListPage<T extends { id: string }>({
           ? cloneElement(view, { className: "ovm-lp-view--tools" })
           : null}
       </div>
-      {rows.length === 0 && groups.length === 0 && !openFolder ? (
+      {rows.length === 0 && groups.length === 0 ? (
         <p className="ov-list__empty">{empty}</p>
       ) : gallery?.on ? (
         <div className="ov-gallery__grid">
-          {folderCrumb ? <div className="ov-kit-folder-cell">{folderCrumb}</div> : null}
-          {openRows.map((row) => galleryItem(row, openFolder!.id))}
           {groups.map(({ folder, rows: members }) => (
             <Fragment key={`folder:${folder.id}`}>
               <div className="ov-kit-folder-cell">{folderHead(folder, members.length)}</div>
-              {folderClosed(folder) ? null : members.map((row) => galleryItem(row, folder.virtual ? null : folder.id))}
+              {kit?.folders?.isCollapsed(folder)
+                ? null
+                : members.map((row) => galleryItem(row, folder.virtual ? null : folder.id))}
             </Fragment>
           ))}
           {groups.length > 0 && loose.length > 0 ? (
@@ -487,18 +453,12 @@ function ListPage<T extends { id: string }>({
               </tr>
             </thead>
             <tbody>
-              {folderCrumb ? (
-                <tr className="ov-table__folder">
-                  <td colSpan={colCount}>{folderCrumb}</td>
-                </tr>
-              ) : null}
-              {openRows.map((row) => tableRow(row, openFolder!.id, false))}
               {groups.map(({ folder, rows: members }) => (
                 <Fragment key={`folder:${folder.id}`}>
                   <tr className="ov-table__folder">
                     <td colSpan={colCount}>{folderHead(folder, members.length)}</td>
                   </tr>
-                  {folderClosed(folder)
+                  {kit?.folders?.isCollapsed(folder)
                     ? null
                     : members.map((row) => tableRow(row, folder.virtual ? null : folder.id, true))}
                 </Fragment>

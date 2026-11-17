@@ -33,6 +33,8 @@ function mapFolder(row: LibraryFolderRow) {
     paused: row.paused === "true",
     sortOrder: row.sortOrder,
     itemIds: parseItemIds(row.itemIds),
+    color: row.color ?? null,
+    cover: row.cover ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -83,6 +85,8 @@ export function createLibraryFoldersStorage(db: DB) {
             input.paused !== undefined && { paused: String(input.paused) }),
           ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
           ...(input.itemIds !== undefined && { itemIds: JSON.stringify(input.itemIds) }),
+          ...(input.color !== undefined && { color: input.color }),
+          ...(input.cover !== undefined && { cover: input.cover }),
           updatedAt: now(),
         })
         .where(eq(libraryFolders.id, id));

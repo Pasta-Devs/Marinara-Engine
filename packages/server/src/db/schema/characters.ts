@@ -83,6 +83,10 @@ export const characterGroups = fileTable("character_groups", {
   avatarPath: text("avatar_path"),
   /** JSON array of character IDs */
   characterIds: text("character_ids").notNull().default("[]"),
+  /** The folder icon's colour ("#rrggbb"); null = the theme's own. */
+  color: text("color"),
+  /** A small picture data URL shown on the folder's front; null = none. */
+  cover: text("cover"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -93,6 +97,10 @@ export const personaGroups = fileTable("persona_groups", {
   description: text("description").notNull().default(""),
   /** JSON array of persona IDs */
   personaIds: text("persona_ids").notNull().default("[]"),
+  /** The folder icon's colour ("#rrggbb"); null = the theme's own. */
+  color: text("color"),
+  /** A small picture data URL shown on the folder's front; null = none. */
+  cover: text("cover"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
