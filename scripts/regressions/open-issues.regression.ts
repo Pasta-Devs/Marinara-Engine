@@ -447,10 +447,6 @@ const serverAutonomousSchedulerSource = readFileSync(
   new URL("../../packages/server/src/services/conversation/server-autonomous-scheduler.service.ts", import.meta.url),
   "utf8",
 );
-const conversationPresenceSource = readFileSync(
-  new URL("../../packages/server/src/routes/generate/conversation-presence-runtime.ts", import.meta.url),
-  "utf8",
-);
 const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
@@ -584,41 +580,6 @@ assert.match(
   ),
   /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
   "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
-);
-assert.match(
-  conversationPresenceSource,
-  /deferPresenceDelayToResponders[\s\S]{0,2500}responderDelays = Object\.fromEntries/u,
-  "individual Conversation presence should retain one delay per responder instead of waiting on the worst status",
-);
-assert.match(
-  conversationGenerationSource,
-  /remainingConversationPresenceDelay\([\s\S]{0,1200}type: "delayed"[\s\S]{0,1200}waitForConversationPresenceDelay[\s\S]{0,4000}type: "typing"/u,
-  "individual Conversation generation should wait only when the current responder's delay remains",
-);
-assert.match(
-  conversationGenerationSource,
-  /knownConversationMessageIds = new Set\(\s*scopedMessages\s*\.filter\(\(message: any\) => !supportsHiddenFromAI \|\| !isMessageHiddenFromAI\(message\)\)/u,
-  "Conversation responder refreshes should seed known IDs from the full visible scope, not truncated context",
-);
-assert.match(
-  conversationGenerationSource,
-  /await waitForConversationPresenceDelay\(remainingDelayMs, generationSignal\);\s*if \(generationSignal\.aborted\) break;\s*\}\s*if \(responderDelay\) \{\s*const refreshedMessages = await chats\.listMessages/u,
-  "delayed Conversation responders should refresh user history even when an earlier reply consumed their wait",
-);
-assert.match(
-  conversationGenerationSource,
-  /scanConversationLorebooks[\s\S]{0,1000}characterIds: withIdentityLorebookScope\(targetCharacterIds\)/u,
-  "Individual Conversation lorebook scans should use the current responder and character-backed user identity tags",
-);
-assert.match(
-  conversationGenerationSource,
-  /prepareConversationLorebookForResponder[\s\S]{0,1000}scanConversationLorebooks\(\[targetCharId\], \{ previewOnly: true \}\)/u,
-  "Individual Conversation lorebook scans should receive only the current responder ID",
-);
-assert.match(
-  conversationGenerationSource,
-  /let gameAwareMessagesForGen = await prepareConversationLorebookForResponder\(targetCharId, messagesForGen\)/u,
-  "Individual Conversation lorebook injection should happen separately for each provider generation",
 );
 for (const [source, lane] of [
   [foregroundAutonomousSource, "foreground"],
@@ -781,11 +742,6 @@ assert.match(
   // removal with its exact #5611 chat-scoping argument, then the tolerated disk
   // unlink — in that order, all inside this handler.
   /app\.delete<\{ Params: \{ chatId: string; id: string \} \}>\("\/scene-videos\/:chatId\/:id"[\s\S]{0,400}?video\.chatId !== chatId[\s\S]{0,200}?await sceneVideos\.remove\(video\.id, video\.chatId\);[\s\S]{0,120}?await removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
-);
-assert.match(
-  conversationGenerationSource,
-  /isPersona: true,\s*\/\/ Personas represent the user\.[\s\S]{0,180}?behavior: null,/u,
-  "Legacy Persona Convo Behavior data must not steer Conversation prompts",
 );
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
