@@ -36,6 +36,7 @@ import {
   lorebookBulkDeleteSchema,
   createLorebookFolderSchema,
   updateLorebookFolderSchema,
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   canReparentFolder,
   estimateTextTokens,
@@ -86,6 +87,7 @@ import {
   createMemoryRecallEmbeddingSpaceId,
   formatMemoryRecallEmbeddingTexts,
   resolveMemoryRecallEmbeddingSource,
+  resolvePseudoEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
@@ -1457,17 +1459,25 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "connectionId is required" });
     }
     const useLocalSidecar = body.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+    const useBuiltinEmbedding = body.connectionId === BUILTIN_EMBEDDING_CONNECTION_ID;
 
     const connStorage = createConnectionsStorage(app.db);
-    const conn = useLocalSidecar ? null : await connStorage.getWithKey(body.connectionId);
-    if (!useLocalSidecar && !conn) return reply.status(404).send({ error: "Connection not found" });
+    const conn = useLocalSidecar || useBuiltinEmbedding ? null : await connStorage.getWithKey(body.connectionId);
+    if (!useLocalSidecar && !useBuiltinEmbedding && !conn) {
+      return reply.status(404).send({ error: "Connection not found" });
+    }
     // Resolve the source the way chat-time semantic matching does (Embedding Connection override
     // included), so stored entry vectors and query vectors land in the same embedding space.
-    const remoteSource = conn ? await resolveMemoryRecallEmbeddingSource(app.db, { activeConnection: conn }) : null;
+    const remoteSource = useBuiltinEmbedding
+      ? (resolvePseudoEmbeddingSource(BUILTIN_EMBEDDING_CONNECTION_ID, true) ?? null)
+      : conn
+        ? await resolveMemoryRecallEmbeddingSource(app.db, { activeConnection: conn })
+        : null;
     if (!useLocalSidecar && !remoteSource?.spaceId) {
       return reply.status(400).send({
-        error:
-          "No usable embedding source for this connection. Set an embedding model, or check its Embedding Connection.",
+        error: useBuiltinEmbedding
+          ? "Download the built-in embedding model first (Connections, On this device)."
+          : "No usable embedding source for this connection. Set an embedding model, or check its Embedding Connection.",
       });
     }
 

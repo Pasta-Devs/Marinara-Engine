@@ -106,6 +106,13 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     importMetadata.card && typeof importMetadata.card === "object"
       ? (importMetadata.card as Record<string, unknown>)
       : {};
+  const embeddedMetadata =
+    importMetadata.embeddedLorebook && typeof importMetadata.embeddedLorebook === "object"
+      ? (importMetadata.embeddedLorebook as Record<string, unknown>)
+      : {};
+  const book = data.character_book as { entries?: unknown } | null | undefined;
+  const hasEmbeddedLorebook =
+    (Array.isArray(book?.entries) && book.entries.length > 0) || embeddedMetadata.hasEmbeddedLorebook === true;
   const summary =
     [data.summary, data.creator_notes, data.description, data.personality].find(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
@@ -128,6 +135,7 @@ function entry(row: typeof characters.$inferSelect): CachedCharacterCatalogEntry
     creatorNotes: typeof data.creator_notes === "string" ? data.creator_notes : "",
     tokenEstimate: estimateCharacterCardTokens(data),
     hasOnboarding: cardHasInteractiveOnboarding(data),
+    hasEmbeddedLorebook,
     nameColor: typeof extensions.nameColor === "string" ? extensions.nameColor : null,
     avatarPath: row.avatarPath ?? null,
     avatarCrop: extensions.avatarCrop ?? null,

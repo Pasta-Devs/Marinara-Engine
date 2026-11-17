@@ -83,6 +83,7 @@ import { useModelStar } from "../../hooks/use-model-star";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
+import { useBuiltinEmbeddingOption } from "./BuiltinEmbeddingDetail";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { priceBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -101,6 +102,7 @@ import {
 import {
   PROVIDERS,
   createConnectionSchema,
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   IMAGE_GENERATION_SOURCES,
@@ -2064,9 +2066,11 @@ export function ConnectionEditor({
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   // The server embeds with the Embedding Connection's own model when it has one, else with the one typed here.
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption(localEmbeddingConnectionId);
   const canTestEmbedding =
     !!localEmbeddingModel.trim() ||
     localEmbeddingConnectionId === LOCAL_SIDECAR_CONNECTION_ID ||
+    localEmbeddingConnectionId === BUILTIN_EMBEDDING_CONNECTION_ID ||
     !!((allConnections ?? []) as Array<{ id: string; embeddingModel?: string | null }>)
       .find((row) => row.id === localEmbeddingConnectionId)
       ?.embeddingModel?.trim();
@@ -2723,6 +2727,11 @@ export function ConnectionEditor({
               {import.meta.env.VITE_MARINARA_LITE !== "true" && (
                 <option value={LOCAL_SIDECAR_CONNECTION_ID}>
                   {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
+                </option>
+              )}
+              {builtinEmbeddingOption && (
+                <option value={BUILTIN_EMBEDDING_CONNECTION_ID}>
+                  {builtinEmbeddingOption.label} ({builtinEmbeddingOption.subtitle})
                 </option>
               )}
               {((allConnections ?? []) as Record<string, unknown>[])

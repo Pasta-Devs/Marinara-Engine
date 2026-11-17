@@ -2,6 +2,7 @@
 // The body is the chat switcher's, so every picker lists, stars and searches alike; only the title differs.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,7 +35,7 @@ import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connect
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
 import { ProviderIcon } from "./ProviderIcon";
 
-type Extra = { value: string; label: string };
+type Extra = ConnectionExtraOption;
 
 /** The catalogs do not mark embedding models, so the id decides ("text-embedding-3-small", "bge-m3-embed"…). */
 /** What a tried model's line shows: a short pill, with the full reason one tap away (`detail`). */
