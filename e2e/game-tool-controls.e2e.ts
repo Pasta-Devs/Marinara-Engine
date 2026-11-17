@@ -102,10 +102,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(tools()).not.toBeChecked();
       await section.evaluate((element) => element.scrollIntoView({ block: "start" }));
       await page.screenshot({ path: testInfo.outputPath(`game-tool-controls-${theme}.png`) });
-      await section
-        .locator("label")
-        .filter({ has: page.getByLabel("Enable Tool Use", { exact: true }) })
-        .click();
+      await section.getByLabel("Enable Tool Use", { exact: true }).click();
       await expect.poll(async () => (await metadata()).enableTools).toBe(true);
       const toolPicker = page.getByRole("dialog", { name: /^Add Functions/ });
       const loreSearchRow = toolPicker.locator("[data-pick-row]").filter({ hasText: "search_lorebook" });
@@ -114,10 +111,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(loreSearchRow).toHaveAttribute("aria-pressed", "true");
       await page.keyboard.press("Escape");
       await expect(toolPicker).toHaveCount(0);
-      await section
-        .locator("label")
-        .filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) })
-        .click();
+      await section.getByLabel("Let the GM search lore", { exact: true }).click();
       await expect.poll(async () => (await metadata()).gameLorebookSearch).toBe(false);
       await expect(
         section.getByText("search_lorebook is unavailable while “Let the GM search lore” is off.", { exact: true }),
@@ -128,10 +122,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(loreSearchRow).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(toolPicker).toHaveCount(0);
-      await section
-        .locator("label")
-        .filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) })
-        .click();
+      await section.getByLabel("Let the GM search lore", { exact: true }).click();
       await section.getByRole("button", { name: "Add Functions", exact: true }).click();
       await expect(loreSearchRow).toBeVisible();
       await page.keyboard.press("Escape");
@@ -141,10 +132,7 @@ for (const theme of ["dark", "light"] as const) {
       await expect(agents.getByText("No agents downloaded yet.", { exact: true })).toBeVisible();
       const sequential = agents.getByLabel("Run Game tasks one at a time", { exact: true });
       await expect(sequential).not.toBeChecked();
-      await agents
-        .locator("label")
-        .filter({ has: page.getByLabel("Run Game tasks one at a time", { exact: true }) })
-        .click();
+      await agents.getByLabel("Run Game tasks one at a time", { exact: true }).click();
       await expect.poll(async () => (await metadata()).gameSequentialAgents).toBe(true);
       await expect(agents).toContainText("in this chat");
       await sequential.scrollIntoViewIfNeeded();
