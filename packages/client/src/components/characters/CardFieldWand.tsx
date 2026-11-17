@@ -1,5 +1,6 @@
 import { Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { CardFieldGenerationKey } from "@marinara-engine/shared";
 import { Spinner } from "../ui/Spinner";
 
 export function CardFieldWand({
@@ -14,7 +15,7 @@ export function CardFieldWand({
   disabled: boolean;
   loading: boolean;
   /** The field it writes. Public Face has its own tooltip: it has no word range. */
-  field?: string;
+  field?: CardFieldGenerationKey;
 }) {
   const { t } = useTranslation();
   return (
