@@ -374,7 +374,7 @@ function ModelPickerSlot({
       title={title}
       width="max-w-2xl"
       opaque
-      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(100dvh-1.5rem))]"
+      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(var(--mari-visual-viewport-height,100dvh)-1.5rem))]"
       closeButtonClassName="!min-h-11 !min-w-11"
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
