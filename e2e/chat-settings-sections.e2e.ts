@@ -1,6 +1,6 @@
 // Chat Settings shows the same sections, in the same order, in each chat mode, and each drawer section opens with
-// content and no page error (the settings profiles bar isn't a drawer, so it is only listed). It guards the drawer split into one component per section (#9119, and the plan in
-// .github/plans/chat-settings-drawer-split.md). It covers the sections this fixture turns on; sections that need other
+// content and no page error (the settings profiles bar isn't a drawer, so it is only listed). It guards the drawer split into one component per section (#9119; the rules are in
+// packages/client/.instructions.md § Chat Settings). It covers the sections this fixture turns on; sections that need other
 // data (multiplayer, card field alternatives, scene instructions, a connected chat) need their own tests.
 // A section added or removed on purpose updates its mode's list below. A renamed id is a real change: the id keys
 // each person's remembered open and popped-out state, so a rename resets it.
