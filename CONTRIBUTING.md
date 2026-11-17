@@ -287,6 +287,20 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 - Describe every user-visible fix, behavior change or feature under "What changed" in the PR description, written last from the final diff, not from the issue or plan; the release notes are written from it. If the change makes something stop working that worked before, say so in plain user words at the top of "What changed".
 - Avoid version drift. If your PR intentionally bumps a release, update every version-bearing file in one pass.
 
+## Labels
+
+Workflows add most labels. Only people with triage access can set labels by hand, so for everyone else the title is how an issue gets its label.
+
+- **Issues:** start the title with the prefix the issue forms use. `.github/workflows/issue-triage.yml` sets the type label when the issue is opened or its title changes, whether it was filed through the form, `gh issue create` or the API:
+  - `[Issue]:` or `[Bug]:` gets `bug`.
+  - `[Feature]:` gets `enhancement`.
+  - `[docs-i18n]` gets `docs`.
+
+  The type label follows the prefix: of `bug`, `enhancement` and `docs`, the issue keeps only the one its prefix names, so change the prefix to change the type. A title without one of these prefixes keeps its labels.
+- **Pull requests:** `.github/workflows/pull-request-triage.yml` adds `bugfix` to a title that starts with `fix` or a `fix/` branch, and `feature` to a title that starts with `feat` or a `feat/` branch. Area labels such as `client`, `server`, `android` and `docs` follow the changed files, as listed in `.github/labeler.yml`.
+- **Linked issues:** `.github/workflows/issue-status-from-prs.yml` adds `in-pr` to an issue named on a pull request's `Closes #N` line while the pull request is open, and `fixed-in-staging` once it merges into `staging`.
+- Maintainers add the rest by hand, such as `regression`, `qol`, the scope labels (`normal-scope`, `scope-risk`, `feature-creep`) and `needs-codeowner-decision`.
+
 ## Documentation Rules
 
 - `README.md` is the user-facing overview and quickstart, not the full release log.
