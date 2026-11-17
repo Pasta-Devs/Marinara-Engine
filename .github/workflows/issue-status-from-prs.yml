@@ -160,6 +160,25 @@ jobs:
               core.info('Pull request does not target staging; only reconciling existing in-pr labels.');
             } else {
               const openStagingPrIssues = pr.state === 'closed' ? await openStagingPrIssueNumbers() : new Set();
+              // An issue gets the area labels from .github/labeler.yml that its pull requests carry, such as `client`
+              // or `ci`. `docs` stays off, because on issues it is a type label. Labels are only added, so one set on
+              // the issue by hand stays.
+              // ponytail: reads the labels the pull request has when this runs. The labeler runs beside this workflow,
+              // so a just-opened pull request may not have them yet. They reach the issue on the next push or edit, or
+              // at the latest when it merges. Add `labeled` to the triggers if issues need them sooner.
+              const areaLabels = ['client', 'server', 'shared', 'android', 'windows', 'ci', 'container', 'dependencies'];
+              const pullRequestLabels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+                owner,
+                repo,
+                issue_number: pr.number,
+                per_page: 100,
+              });
+              const areas = pullRequestLabels.map((label) => label.name).filter((name) => areaLabels.includes(name));
+              const addAreaLabels = async (issue_number) => {
+                if (areas.length) {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number, labels: areas });
+                }
+              };
 
               for (const issueNumber of issues) {
                 if (!(await isOpenIssue(issueNumber))) {
@@ -170,6 +189,7 @@ jobs:
                 if (pr.state === 'closed') {
                   if (pr.merged) {
                     await addLabel(issueNumber, 'fixed-in-staging');
+                    await addAreaLabels(issueNumber);
                   }
 
                   if (!openStagingPrIssues.has(issueNumber)) {
@@ -180,6 +200,7 @@ jobs:
                 }
 
                 await addLabel(issueNumber, 'in-pr');
+                await addAreaLabels(issueNumber);
               }
             }
 

@@ -102,29 +102,51 @@ jobs:
               }
             }
 
-            const pr = context.payload.pull_request;
-            const title = pr.title.toLowerCase();
-            const branch = (pr.head.ref || '').toLowerCase();
-            const add = [];
+            const target = { owner: context.repo.owner, repo: context.repo.repo };
+            // Read the pull request now, not from the event, which a quick retitle can make out of date.
+            const { data: pr } = await github.rest.pulls.get({ ...target, pull_number: context.payload.pull_request.number });
 
-            if (title.includes('[feature]') || title.startsWith('feat') || branch.startsWith('feat/') || branch.startsWith('feature/')) {
-              add.push('feature');
+            // The type label follows the title's prefix. `fix` and `feat` get one. `docs`, `test`, `chore` and the
+            // other conventional types already name their type in the title, so they get neither.
+            const titleTypes = new Map([
+              ['fix', 'bugfix'], ['fixes', 'bugfix'], ['fixed', 'bugfix'], ['bugfix', 'bugfix'], ['issue', 'bugfix'], ['bug', 'bugfix'],
+              ['feat', 'feature'], ['feature', 'feature'],
+              ...['docs', 'test', 'chore', 'perf', 'refactor', 'ci', 'build', 'style', 'revert'].map((type) => [type, null]),
+            ]);
+            // `fix(client)!: x`, `[Issue]: x`, or a leading word as in `Fix the picker`.
+            const prefix = pr.title.trim().toLowerCase().match(/^(?:\[([a-z-]+)\]|([a-z]+)(?:\([^)]*\))?!?:|(fix(?:e[sd])?|feat(?:ure)?)\b)/);
+            let type = prefix ? titleTypes.get(prefix[1] ?? prefix[2] ?? prefix[3]) : undefined;
+            // A title without a known prefix falls back to the branch name.
+            if (type === undefined) {
+              const branch = (pr.head.ref || '').toLowerCase();
+              if (/^(?:fix|bugfix)\//.test(branch)) {
+                type = 'bugfix';
+              } else if (/^(?:feat|feature)\//.test(branch)) {
+                type = 'feature';
+              }
             }
-            if (title.includes('[issue]') || title.includes('[bug]') || title.startsWith('fix') || branch.startsWith('fix/') || branch.startsWith('bugfix/')) {
-              add.push('bugfix');
+            // Neither names a type, so the labels stay as they are.
+            if (type === undefined) {
+              return;
             }
 
-            for (const name of add) {
-              await ensureLabel(name);
+            const current = pr.labels.map((label) => label.name);
+            for (const name of Object.keys(labels)) {
+              if (name === type || !current.includes(name)) {
+                continue;
+              }
+              try {
+                await github.rest.issues.removeLabel({ ...target, issue_number: pr.number, name });
+              } catch (error) {
+                // Someone removed it since the read above.
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
             }
-
-            if (add.length) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                labels: add,
-              });
+            if (type && !current.includes(type)) {
+              await ensureLabel(type);
+              await github.rest.issues.addLabels({ ...target, issue_number: pr.number, labels: [type] });
             }
       - name: Label by path
         uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
