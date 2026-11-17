@@ -725,7 +725,7 @@ export function RoleplayAgentsSection({
                     rows={2}
                     onChange={setProseGuardianBannedDraft}
                     onBlur={() => {
-                      if (proseGuardianBannedDraft !== proseGuardianBannedWords) {
+                      if (proseGuardianBannedDraft.trim() !== proseGuardianBannedWords) {
                         commitProseGuardianSettings({
                           proseGuardianBannedWords: proseGuardianBannedDraft.trim(),
                         });
@@ -739,7 +739,7 @@ export function RoleplayAgentsSection({
                     rows={3}
                     onChange={setProseGuardianAvoidDraft}
                     onBlur={() => {
-                      if (proseGuardianAvoidDraft !== proseGuardianAvoidInstructions) {
+                      if (proseGuardianAvoidDraft.trim() !== proseGuardianAvoidInstructions) {
                         commitProseGuardianSettings({
                           proseGuardianAvoidInstructions: proseGuardianAvoidDraft.trim(),
                         });
@@ -753,7 +753,7 @@ export function RoleplayAgentsSection({
                     rows={3}
                     onChange={setProseGuardianStyleDraft}
                     onBlur={() => {
-                      if (proseGuardianStyleDraft !== proseGuardianStyleInstructions) {
+                      if (proseGuardianStyleDraft.trim() !== proseGuardianStyleInstructions) {
                         commitProseGuardianSettings({
                           proseGuardianStyleInstructions: proseGuardianStyleDraft.trim(),
                         });

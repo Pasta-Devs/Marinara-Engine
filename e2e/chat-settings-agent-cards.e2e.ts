@@ -660,14 +660,141 @@ test("Chat Settings stays open when Prose Guardian's unsaved text fails to save 
     await expect.poll(() => failedSaves).toBe(2);
     await expect(page.getByText("Failed to save Prose Guardian changes.", { exact: true }).first()).toBeVisible();
     await expect(settings).toBeVisible();
+    // What was typed is still there to save again.
+    await expect(banned).toHaveValue("ozone, velvet");
 
     await page.unroute(`**/api/chats/${chatId}/metadata`, failSaves);
-    // The failed save puts the old text back in the field, so type it again.
-    await banned.fill("ozone, velvet");
-    await settings.locator('[data-window-control="close"]').click();
-    await expect(settings).toHaveCount(0);
+    const close = settings.locator('[data-window-control="close"]');
+    // The first close may still be finishing, and a click while one runs is ignored, so click until it closes.
+    await expect(async () => {
+      await close.click();
+      await expect(settings).toHaveCount(0, { timeout: 2_000 });
+    }).toPass();
     expect((await readMetadata(request, chatId)).proseGuardianBannedWords).toBe("ozone, velvet");
   } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Prose Guardian keeps its typed text when the save it started on leaving the field fails as Chat Settings closes", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["prose-guardian"]);
+  let failedSaves = 0;
+  // Prose Guardian's saves fail, slowly, so the field's own save is still running when the close checks for unsaved text.
+  const failSaves = async (route: Route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown> | null;
+    if (route.request().method() !== "PATCH" || !Object.keys(body ?? {}).some((key) => key.startsWith("proseGuardian")))
+      return route.fallback();
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.fulfill({ status: 500, json: { error: "Save failed" } });
+    failedSaves += 1;
+  };
+  try {
+    await openApp(page, chatId);
+    const { settings, card } = await openAgentCard(page, chatId, "prose-guardian");
+    const avoid = card.getByRole("textbox", { name: "Remove From Writing", exact: true });
+    await avoid.fill("Purple prose.");
+
+    await page.route(`**/api/chats/${chatId}/metadata`, failSaves);
+    // A real click: leaving the field starts its save, then the close runs while that save is in flight.
+    const close = settings.locator('[data-window-control="close"]');
+    await close.click();
+    // The field's save fails while the close waits on it.
+    await expect.poll(() => failedSaves, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.getByText("Failed to save Prose Guardian changes.", { exact: true }).first()).toBeVisible();
+    await expect(settings).toBeVisible();
+    await expect(avoid).toHaveValue("Purple prose.");
+
+    await page.unroute(`**/api/chats/${chatId}/metadata`, failSaves);
+    // The first close may still be finishing, and a click while one runs is ignored, so click until it closes.
+    await expect(async () => {
+      await close.click();
+      await expect(settings).toHaveCount(0, { timeout: 2_000 });
+    }).toPass();
+    expect((await readMetadata(request, chatId)).proseGuardianAvoidInstructions).toBe("Purple prose.");
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Chat Settings stays open when one Prose Guardian box's save fails and another box's text saves on close", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["prose-guardian"]);
+  // Only saves that carry Remove From Writing fail, slowly; Banned Words on its own saves fine.
+  const failAvoidSaves = async (route: Route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown> | null;
+    if (route.request().method() !== "PATCH" || !Object.hasOwn(body ?? {}, "proseGuardianAvoidInstructions"))
+      return route.fallback();
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.fulfill({ status: 500, json: { error: "Save failed" } });
+  };
+  try {
+    await openApp(page, chatId);
+    const { settings, card } = await openAgentCard(page, chatId, "prose-guardian");
+    const avoid = card.getByRole("textbox", { name: "Remove From Writing", exact: true });
+    const banned = card.getByRole("textbox", { name: "Banned Words", exact: true });
+    await page.route(`**/api/chats/${chatId}/metadata`, failAvoidSaves);
+
+    await avoid.fill("Purple prose.");
+    // Moving to Banned Words starts Remove From Writing's own save, which will fail.
+    const avoidSave = page.waitForRequest(
+      (saveRequest) =>
+        saveRequest.method() === "PATCH" &&
+        Object.hasOwn(saveRequest.postDataJSON() ?? {}, "proseGuardianAvoidInstructions"),
+    );
+    await banned.fill("ozone, velvet");
+    await avoidSave;
+    await settings.locator('[data-window-control="close"]').click();
+    await expect(page.getByText("Failed to save Prose Guardian changes.", { exact: true }).first()).toBeVisible();
+    await expect(settings).toBeVisible();
+    await expect(avoid).toHaveValue("Purple prose.");
+
+    await page.unroute(`**/api/chats/${chatId}/metadata`, failAvoidSaves);
+    const close = settings.locator('[data-window-control="close"]');
+    // The first close may still be finishing, and a click while one runs is ignored, so click until it closes.
+    await expect(async () => {
+      await close.click();
+      await expect(settings).toHaveCount(0, { timeout: 2_000 });
+    }).toPass();
+    const metadata = await readMetadata(request, chatId);
+    expect(metadata.proseGuardianAvoidInstructions).toBe("Purple prose.");
+    expect(metadata.proseGuardianBannedWords).toBe("ozone, velvet");
+  } finally {
+    await request.delete(`/api/chats/${chatId}?force=true`);
+  }
+});
+
+test("Chat Settings closes while saves fail once Prose Guardian's typed text is taken back", async ({
+  page,
+  request,
+}) => {
+  const chatId = await createRoleplayChat(request, ["prose-guardian"], { proseGuardianBannedWords: "ozone" });
+  const failSaves = (route: Route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown> | null;
+    if (route.request().method() !== "PATCH" || !Object.keys(body ?? {}).some((key) => key.startsWith("proseGuardian")))
+      return route.fallback();
+    return route.fulfill({ status: 500, json: { error: "Save failed" } });
+  };
+  try {
+    await openApp(page, chatId);
+    const { settings, card } = await openAgentCard(page, chatId, "prose-guardian");
+    const banned = card.getByRole("textbox", { name: "Banned Words", exact: true });
+    await page.route(`**/api/chats/${chatId}/metadata`, failSaves);
+    await banned.fill("ozone, velvet");
+    await banned.blur();
+    await expect(page.getByText("Failed to save Prose Guardian changes.", { exact: true }).first()).toBeVisible();
+    await expect(banned).toHaveValue("ozone, velvet");
+
+    // With saves still failing, putting the saved text back leaves nothing to save, so Chat Settings can close.
+    await banned.fill("ozone");
+    await settings.locator('[data-window-control="close"]').click();
+    await expect(settings).toHaveCount(0);
+  } finally {
+    await page.unroute(`**/api/chats/${chatId}/metadata`, failSaves);
     await request.delete(`/api/chats/${chatId}?force=true`);
   }
 });
