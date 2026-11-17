@@ -64,6 +64,10 @@ interface ModalProps {
   modeless?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
   topLayer?: boolean;
+  /** Stacking: `default`; `omnibar` = the omnibar's layer (same as `topLayer`); `top` = one above the omnibar, for dialogs opened from inside it. */
+  layer?: "default" | "omnibar" | "top";
+  /** `blur` (default) dims and blurs; `dark` dims more, for image viewers; `solid` = `opaque`; `none` shows no backdrop (an outside tap still closes). */
+  backdrop?: "blur" | "dark" | "solid" | "none";
 }
 
 export function Modal({
@@ -92,6 +96,8 @@ export function Modal({
   dragThrough = false,
   modeless = false,
   topLayer = false,
+  layer = topLayer ? "omnibar" : "default",
+  backdrop = opaque ? "solid" : "blur",
 }: ModalProps) {
   const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
   const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
@@ -314,7 +320,7 @@ export function Modal({
       aria-label={localizedTitle}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
+      className={`mari-modal${backdrop === "solid" ? " mari-modal--opaque" : ""} fixed inset-0 ${layer === "top" ? "z-[calc(var(--mari-layer-omnibar)+1)]" : overOmnibar || layer === "omnibar" ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -336,7 +342,7 @@ export function Modal({
       {!modeless && (
         <div
           data-backdrop-dismiss-surface="true"
-          className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+          className={`mari-modal-backdrop absolute inset-0 ${backdrop === "dark" ? "bg-black/80" : backdrop === "none" ? "" : "bg-black/55 backdrop-blur-[2px]"}`}
           style={{
             opacity: backdropShown ? 1 : 0,
             transition: "opacity 150ms ease-out",
