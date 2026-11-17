@@ -1,4 +1,5 @@
 import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
+import { useFeatureShow } from "../../hooks/use-feature-show";
 // ──────────────────────────────────────────────
 // DocsViewerModal: Browse the guides shipped in docs/
 // ──────────────────────────────────────────────
@@ -310,6 +311,8 @@ export function prepareDocMarkdown(raw: string, docPath: string): string {
       .join("\n")
       // Keys (<kbd>Enter</kbd>) show as small code chips; the renderer has no raw HTML.
       .replace(/<kbd>([^<]{1,40})<\/kbd>/gi, "`$1`")
+      // "Show me" links (#show-<feature>) run that feature's step in the app (lib/feature-finder.ts).
+      .replace(/\[([^\]]+)\]\(#show-([A-Za-z0-9]+)\)/g, "[$1](/api/docs/show?feature=$2)")
       .replace(/\[([^\]]+)\]\(#[^)]*\)/g, "$1")
       .replace(
         /\[([^\]]+)\]\((?!(?:https?|card):\/\/|\/api\/|#|mailto:)([^()\s#]+\.md)(?:#[^)]*)?\)/gi,
@@ -402,6 +405,7 @@ export function DocsViewerModal({
 }) {
   const { t: localizeUi, i18n: uiI18n } = useUiTranslation();
   const savedPlaceRef = useRef(readSavedPlace());
+  const showFeature = useFeatureShow();
   const [selected, setSelectedState] = useState<string | null>(initialDoc ?? savedPlaceRef.current.doc);
   const [searchQuery, setSearchQuery] = useState(initialSearchTerm);
   const [debouncedQuery, setDebouncedQuery] = useState(initialSearchTerm);
@@ -587,7 +591,13 @@ export function DocsViewerModal({
     } catch {
       return;
     }
-    if (url.origin !== window.location.origin || !url.pathname.endsWith("/api/docs/content")) return;
+    if (url.origin !== window.location.origin) return;
+    if (url.pathname.endsWith("/api/docs/show")) {
+      event.preventDefault();
+      if (showFeature(url.searchParams.get("feature") ?? "")) onClose();
+      return;
+    }
+    if (!url.pathname.endsWith("/api/docs/content")) return;
     const target = url.searchParams.get("path");
     if (!target) return;
     event.preventDefault();

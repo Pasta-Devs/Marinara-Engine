@@ -148,9 +148,16 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { MultiplayerPrepareButton } from "../../features/multiplayer/MultiplayerPrepareButton";
 import { ChatProfileBuilder } from "./ChatProfileBuilder";
+import { FeatureTip } from "../ui/FeatureTip";
+import { bumpFeatureTipCount, featureTipCount } from "../../lib/feature-tips";
 import { CharacterSelect, changedId } from "../characters/CharacterSelect";
 import { Spinner } from "../ui/Spinner";
 import { Switch } from "../ui/Switch";
+
+/** Feature tip counters: setups finished step by step, and profiles applied in the setup. */
+const ROLEPLAY_FULL_SETUPS = "roleplay-full-setups";
+const ROLEPLAY_PROFILE_USES = "roleplay-profile-uses";
+const CONVERSATION_FULL_SETUPS = "conversation-full-setups";
 
 // ─── Step definitions ─────────────────────────
 
@@ -365,6 +372,7 @@ function SetupWizardShell({
   secondaryAction,
   busyContent,
   validationContent,
+  tip,
 }: {
   title: string;
   steps: WizardStep[];
@@ -382,6 +390,8 @@ function SetupWizardShell({
   secondaryAction?: React.ReactNode;
   busyContent?: React.ReactNode;
   validationContent?: React.ReactNode;
+  /** A feature tip (components/ui/FeatureTip) above the buttons. */
+  tip?: React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -442,6 +452,7 @@ function SetupWizardShell({
               busyContent
             ) : (
               <>
+                {tip}
                 {validationContent}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -964,6 +975,8 @@ function ConversationQuickSetup({
   const [step, setStep] = useState(0);
   const currentStep = CONVERSATION_STEPS[step]!;
   const isLast = step === CONVERSATION_STEPS.length - 1;
+  // Feature tip: the third conversation set up step by step points at Save as default.
+  const [defaultsTipDue] = useState(() => !defaultsApplied && featureTipCount(CONVERSATION_FULL_SETUPS) >= 2);
   const { data: connections } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
@@ -1314,6 +1327,7 @@ function ConversationQuickSetup({
 
   const handleStartChatting = useCallback(async () => {
     if (metadata.multiplayerSetup !== true && (!hasConnection || !hasCharacters)) return;
+    bumpFeatureTipCount(CONVERSATION_FULL_SETUPS);
     const trimmedConversationSystemPrompt = conversationSystemPromptDraft.trim();
     const baseConversationPromptText = baseConversationPrompt.trim();
     const customSystemPrompt =
@@ -1827,6 +1841,11 @@ function ConversationQuickSetup({
         }
         validationContent={validationContent}
         busyContent={busyContent}
+        tip={
+          <FeatureTip id="chatDefaultsConversation" when={defaultsTipDue && isLast} className="mb-3">
+            {localizeUi("featureTips.chatDefaultsConversation")}
+          </FeatureTip>
+        }
       >
         {content}
       </SetupWizardShell>
@@ -1865,6 +1884,11 @@ function RoleplaySetupWizard({
     return flag;
   });
   const [shortcutPresetId, setShortcutPresetId] = useState<string>("");
+  // Feature tip: the third roleplay set up step by step, by someone who never used a profile.
+  const [profileTipDue] = useState(
+    () =>
+      !defaultsApplied && featureTipCount(ROLEPLAY_FULL_SETUPS) >= 2 && featureTipCount(ROLEPLAY_PROFILE_USES) === 0,
+  );
   // The quick-setup picker only shows the profile's starting persona; nothing is written until
   // the user picks one here (their pick then wins) or Apply & Start applies the profile.
   const [shortcutPersonaPicked, setShortcutPersonaPicked] = useState(false);
@@ -2324,6 +2348,7 @@ function RoleplaySetupWizard({
       for (const charId of chatCharIds) await createInitialGreetingForCharacter(charId);
     }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
+    bumpFeatureTipCount(ROLEPLAY_FULL_SETUPS);
     onFinish();
   }, [
     chat.id,
@@ -2368,6 +2393,7 @@ function RoleplaySetupWizard({
         keepPersona: shortcutPersonaPicked,
       });
       profileApplied = true;
+      bumpFeatureTipCount(ROLEPLAY_PROFILE_USES);
     } catch {
       /* fall through — still close the wizard */
     } finally {
@@ -3444,6 +3470,12 @@ function RoleplaySetupWizard({
             primaryLabel={isLast ? "Start" : "Next"}
             primaryIcon={isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
             primaryDisabled={nextDisabled}
+            tip={
+              <FeatureTip id="settingsProfilesRoleplay" when={profileTipDue && step === 0} className="mb-3">
+                {/* No action button: Use a Profile sits right under the tip. */}
+                {localizeUi("featureTips.settingsProfilesRoleplay")}
+              </FeatureTip>
+            }
             secondaryAction={
               <>
                 {isLast && defaultsAction({ chatParameters: customizeParameters ? generationParameters : null })}

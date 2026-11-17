@@ -73,6 +73,7 @@ export type CommandCenterResultGroupId =
   | "messages"
   | "lorebook-entries"
   | Exclude<CommandCenterCategoryFilter, "all">
+  | "features"
   | "professor-suggested"
   | "top-hit"
   | "professor-fallback";
@@ -177,6 +178,9 @@ export const COMMAND_CENTER_SEARCH_GROUP_ORDER: readonly CommandCenterResultGrou
   // dropped those rows back into their category bucket, where a same-named chat
   // outranked them.
   "current-work",
+  // The feature finder (lib/feature-finder.ts): the user's own word for a feature ("chat preset")
+  // named what Marinara calls it, so that answer leads.
+  "features",
   "professor-suggested",
   "top-hit",
   "navigation",
@@ -603,6 +607,7 @@ const NEVER_TOP_HIT = new Set<CommandCenterResultGroupId>([
   "current-work",
   "context",
   "continue",
+  "features",
   "professor-suggested",
   "professor-fallback",
   "messages",

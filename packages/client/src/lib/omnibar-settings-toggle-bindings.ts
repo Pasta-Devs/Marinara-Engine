@@ -43,6 +43,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.omnibarSuggestionsEnabled,
     set: (value) => useUIStore.getState().setOmnibarSuggestionsEnabled(value),
   },
+  "feature-tips": {
+    get: (state) => state.featureTipsEnabled,
+    set: (value) => useUIStore.getState().setFeatureTipsEnabled(value),
+  },
   "hide-chat-help-button": {
     get: (state) => state.chatHelpButtonHidden,
     set: (value) => useUIStore.getState().setChatHelpButtonHidden(value),

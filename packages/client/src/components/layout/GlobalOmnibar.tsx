@@ -1097,6 +1097,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // same thing as a row you can press Enter on.
   const inlineSuffix = useMemo(() => {
     if (mariSurface) return "";
+    // A Feature row on top means the words were understood ("chat preset" -> Settings profiles), so a
+    // ghost guess from a lower row ("Preset Editor…") would only contradict it.
+    if (results[0]?.group === "features") return "";
     const candidates = results.flatMap((result) => (result.id === "ask-professor-mari" ? [] : [result.title]));
     return completeInline(query, candidates);
   }, [mariSurface, query, results]);

@@ -59,7 +59,8 @@ export type OmnibarAction =
       name: string;
     }
   | { kind: "start-character-chat"; characterId: string; characterName: string }
-  | { kind: "start-chat"; mode: "conversation" | "roleplay" | "game" }
+  /** `profile`: the setup opens on Use a Profile (Roleplay). */
+  | { kind: "start-chat"; mode: "conversation" | "roleplay" | "game"; profile?: boolean }
   | {
       kind: "open-chat-tool";
       chatId: string;
@@ -93,6 +94,8 @@ export type OmnibarResult = {
   path?: string;
   line?: number | null;
   contextLabel?: string;
+  /** A short label beside the title, such as the SillyTavern word a feature row was found by. */
+  badge?: string;
   /** Short fact shown at the row's end: a match count, a time. Never the line-2 text. */
   meta?: string;
   /** The row this one belongs to: a hit line under its chat row. */

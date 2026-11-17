@@ -2,6 +2,8 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
+import { noteRegenerationForTips } from "../lib/feature-tips";
+import { requestChatPeekPrompt } from "../lib/chat-floating-ui-events";
 import { audioManager } from "../lib/game-audio";
 import { normalizeEchoChamberMessages } from "../lib/echo-chamber-queue";
 import { characterDataSchema, normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
@@ -1410,6 +1412,10 @@ export function useGenerate() {
         if (agentState.mariPlanChatId === params.chatId) clearMariPlan();
         clearFailedAgentTypes(params.chatId);
         setRegenerateMessageId(params.regenerateMessageId ?? null);
+        if (params.regenerateMessageId) {
+          const tipChatId = params.chatId;
+          noteRegenerationForTips(tipChatId, params.regenerateMessageId, () => requestChatPeekPrompt(tipChatId));
+        }
         const swipeSpeaker = getIndividualGroupSwipeSpeaker(qc, params.chatId, params.regenerateMessageId);
         if (swipeSpeaker) setStreamingCharacterId(swipeSpeaker);
       }

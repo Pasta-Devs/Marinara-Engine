@@ -9500,3 +9500,96 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
     -webkit-user-drag: none;
   }
 }
+
+/* Feature tips (components/ui/FeatureTip.tsx, lib/feature-tips.tsx): one quiet line with Mari's face,
+   inside the panel where the feature lives. Themes restyle it through [data-mari-part="feature-tip"]. */
+@layer components {
+  .mari-feature-tip {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.5rem 0.45rem 0.55rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+    background: color-mix(in srgb, var(--primary) 9%, var(--card));
+    color: var(--foreground);
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+  .mari-feature-tip__face {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border-radius: 999px;
+    object-fit: cover;
+  }
+  .mari-feature-tip__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+  .mari-feature-tip__text strong {
+    font-weight: 650;
+  }
+  .mari-feature-tip__actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  .mari-feature-tip__action {
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+  }
+  .mari-feature-tip__close {
+    display: inline-flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+  }
+  @media (hover: hover) {
+    .mari-feature-tip__action:hover {
+      background: color-mix(in srgb, var(--primary) 14%, transparent);
+    }
+    .mari-feature-tip__close:hover {
+      color: var(--foreground);
+      background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    }
+  }
+  .mari-feature-tip__action:focus-visible,
+  .mari-feature-tip__close:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  /* Phones: the text takes the full line and the buttons sit under it on the right. */
+  @media (max-width: 480px) {
+    .mari-feature-tip {
+      flex-wrap: wrap;
+      row-gap: 0.25rem;
+    }
+    .mari-feature-tip__text {
+      flex-basis: calc(100% - 2.4rem);
+    }
+    .mari-feature-tip__actions {
+      margin-left: auto;
+    }
+    .mari-feature-tip__close,
+    .mari-feature-tip__action {
+      min-height: 2rem;
+    }
+    .mari-feature-tip__close {
+      width: 2rem;
+    }
+  }
+  .mari-feature-tip-toast .mari-feature-tip__face {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}

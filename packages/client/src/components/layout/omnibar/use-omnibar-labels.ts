@@ -98,6 +98,7 @@ export function useOmnibarLabels(activeChat: Chat | null, activeChatId: string |
       agents: filterLabels.agents,
       settings: filterLabels.settings,
       docs: filterLabels.docs,
+      features: t("commandCenter.groups.features", "Feature"),
       "professor-suggested": t("commandCenter.groups.mariSuggested", "Professor Mari"),
       "top-hit": t("commandCenter.groups.topHit", "Top hit"),
       "professor-fallback": t("commandCenter.groups.askMari", "Ask Professor Mari"),

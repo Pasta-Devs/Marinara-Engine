@@ -205,7 +205,13 @@ const DOC_ORDER: Record<string, string[]> = {
     "theme-weather.md",
     "card-css-theming.md",
   ],
-  data: ["importing-from-sillytavern.md", "backup-and-restore.md", "where-data-is-stored.md", "clearing-data.md"],
+  data: [
+    "coming-from-sillytavern.md",
+    "importing-from-sillytavern.md",
+    "backup-and-restore.md",
+    "where-data-is-stored.md",
+    "clearing-data.md",
+  ],
   extending: [
     "personal-extensions.md",
     "writing-personal-extensions.md",
