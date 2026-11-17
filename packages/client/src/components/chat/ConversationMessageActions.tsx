@@ -34,6 +34,43 @@ import { Spinner } from "../ui/Spinner";
 import { useFollowBubble } from "../../lib/follow-bubble";
 import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
 
+// Where the Convo bottom bar sits: on the bottom line of whatever box the theme draws around the
+// message (its bubble, card or row), inside it, so it is never cut by the line. When the last line of
+// text runs under that spot, it goes just beneath the box instead.
+function drawsBox(el: HTMLElement) {
+  const cs = getComputedStyle(el);
+  const bg = cs.backgroundColor;
+  return (
+    parseFloat(cs.borderBottomWidth) > 0 ||
+    (bg !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(bg)) ||
+    cs.backgroundImage !== "none"
+  );
+}
+
+function placeBottomBar(bar: HTMLElement, bubble: HTMLElement): number | null {
+  const row = bar.closest<HTMLElement>("[data-message-id]");
+  if (!row) return null;
+  let box: HTMLElement = row;
+  for (let el: HTMLElement | null = bubble; el && el !== row; el = el.parentElement) {
+    if (drawsBox(el)) {
+      box = el;
+      break;
+    }
+  }
+  const b = box.getBoundingClientRect();
+  const inner = b.bottom - (parseFloat(getComputedStyle(box).borderBottomWidth) || 0);
+  const height = bar.offsetHeight;
+  const top = inner - height - 2;
+  const barLeft = bar.getBoundingClientRect().left;
+  const content = bubble.querySelector<HTMLElement>(".mari-message-content") ?? bubble;
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+  range.detach();
+  const clash = rects.some((r) => r.bottom > top + 1 && r.top < top + height && r.right > barLeft - 6);
+  return clash ? b.bottom + 1 : top;
+}
+
 export interface ConversationMessageActionsProps {
   message: Pick<Message, "id" | "chatId" | "content"> & { extra?: unknown };
   name: string;
@@ -168,6 +205,7 @@ export function ConversationMessageActions({
     overhaulActive || overhaulMobile,
     followTrigger,
     (bar) => bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".ov-cvh > button:last-of-type") ?? null,
+    placeBottomBar,
   );
   // Speak sits left of Regenerate on desktop and above Translate in the phone and tablet sheet.
   const speakAction = speech ? (

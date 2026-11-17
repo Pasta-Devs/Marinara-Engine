@@ -298,6 +298,25 @@ export function CardGallery({
       })()
     : [];
 
+  // A member's picture (or its initial on the placeholder) for a folder tile's 2 × 2 peek.
+  const renderPeek = (card: GalleryCard) =>
+    card.avatarPath ? (
+      <AvatarImage
+        src={avatarPreviewSrc(card.avatarPath, "card")}
+        alt=""
+        iconSize="1rem"
+        className="h-full w-full object-cover"
+        style={card.avatarStyle}
+        loading="lazy"
+      />
+    ) : (
+      <span
+        className="ov-folder-tile__peek-ph"
+        style={{ background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }}
+      >
+        {avatarInitial(card.name)}
+      </span>
+    );
   const renderCard = (card: GalleryCard, folderId: string | null) => (
     <div
       key={card.id}
@@ -529,6 +548,7 @@ export function CardGallery({
               folder={folder}
               count={members.length}
               dragKind={singular}
+              previews={members.slice(0, 4).map(renderPeek)}
               onOpen={() => opened.openFolder(folder)}
               onMenu={(event, anchor) => menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)}
             />

@@ -3,6 +3,7 @@
 // full row: themes and settings where bubbles don't fill the row keep the bar under the bubble.
 // With `findAlign`, the bar's last button is centred under that element instead (Roleplay: the
 // bottom bar's › lines up with the ⋯ above it, wherever a theme puts the top bar).
+// With `placeTop`, the bar's vertical spot too (--ov-follow-top).
 // Sets --ov-follow-left / --ov-follow-right (px from the bar's containing block) on the bar.
 // ──────────────────────────────────────────────
 import { useLayoutEffect, type RefObject } from "react";
@@ -14,6 +15,8 @@ export function useFollowBubble(
   /** Changes when the bar may have mounted or moved (e.g. it only renders while shown). */
   trigger?: unknown,
   findAlign?: (bar: HTMLElement) => HTMLElement | null,
+  /** Where the bar's top goes, in px from the containing block's padding box (sets --ov-follow-top). */
+  placeTop?: (bar: HTMLElement, bubble: HTMLElement) => number | null,
 ) {
   useLayoutEffect(() => {
     const bar = ref.current;
@@ -33,14 +36,18 @@ export function useFollowBubble(
       const target = findAlign?.(bar);
       const buttons = bar.querySelectorAll<HTMLElement>("button");
       const last = buttons[buttons.length - 1];
-      if (!target || !last) return;
-      const t = target.getBoundingClientRect();
-      const l = last.getBoundingClientRect();
-      if (!t.width || !l.width) return;
-      const delta = Math.round((t.left + t.right) / 2 - (l.left + l.right) / 2);
-      if (!delta) return;
-      right = Math.max(0, right - delta);
-      bar.style.setProperty("--ov-follow-right", `${right}px`);
+      if (target && last) {
+        const t = target.getBoundingClientRect();
+        const l = last.getBoundingClientRect();
+        const delta = t.width && l.width ? Math.round((t.left + t.right) / 2 - (l.left + l.right) / 2) : 0;
+        if (delta) {
+          right = Math.max(0, right - delta);
+          bar.style.setProperty("--ov-follow-right", `${right}px`);
+        }
+      }
+      // After the sideways move, so the vertical spot can check what the bar would cover.
+      const top = placeTop?.(bar, bubble);
+      if (top != null) bar.style.setProperty("--ov-follow-top", `${Math.round(top - (p.top + box.clientTop))}px`);
     };
     place();
     const observer = new ResizeObserver(place);

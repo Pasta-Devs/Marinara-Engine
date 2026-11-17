@@ -13,7 +13,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -683,7 +682,8 @@ function folderLookActions(folders: KitFolders, folder: KitFolder): KitAction[] 
           key: "c:custom",
           label: "Custom colour…",
           icon: <Pipette size={14} aria-hidden="true" />,
-          onSelect: () => void pickCustomColor(folder.color).then((value) => value && setLook(folder, { color: value })),
+          onSelect: () =>
+            void pickCustomColor(folder.color).then((value) => value && setLook(folder, { color: value })),
         },
       ],
     },
@@ -782,15 +782,11 @@ export function KitFolderViewToggle({
   );
 }
 
-/**
- * A folder drawn like a file explorer's: back with a tab, front panel in the folder's colour (the theme's accent
- * unless picked), and the folder's picture on the front when it has one. Small in rows, large as a tile.
- */
-export function KitFolderIcon({ folder, large = false }: { folder: KitFolder; large?: boolean }) {
-  const clipId = `ovf${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+/** A small folder mark in the folder's colour (the theme's accent unless picked), for rows, lines and badges. */
+export function KitFolderIcon({ folder }: { folder: KitFolder }) {
   return (
     <svg
-      className={cn("ov-folder-icon", large && "ov-folder-icon--large")}
+      className="ov-folder-icon"
       viewBox="0 0 64 52"
       aria-hidden="true"
       style={folder.color ? ({ "--ov-folder-color": folder.color } as CSSProperties) : undefined}
@@ -803,50 +799,40 @@ export function KitFolderIcon({ folder, large = false }: { folder: KitFolder; la
         className="ov-folder-icon__front"
         d="M1.5 18.5A4.5 4.5 0 0 1 6 14h52a4.5 4.5 0 0 1 4.5 4.5v28A4.5 4.5 0 0 1 58 51H6a4.5 4.5 0 0 1-4.5-4.5z"
       />
-      {/* The picture only on the big icon: at row size it would be an unreadable smudge. */}
-      {large && folder.cover ? (
-        <>
-          <clipPath id={clipId}>
-            <rect x="5.5" y="18" width="53" height="29" rx="2.5" />
-          </clipPath>
-          <image
-            href={folder.cover}
-            x="5.5"
-            y="18"
-            width="53"
-            height="29"
-            preserveAspectRatio="xMidYMid slice"
-            clipPath={`url(#${clipId})`}
-          />
-          <rect className="ov-folder-icon__frame" x="5.5" y="18" width="53" height="29" rx="2.5" />
-        </>
-      ) : (
-        <path className="ov-folder-icon__shine" d="M6 15.5h52" />
-      )}
+      <path className="ov-folder-icon__shine" d="M6 15.5h52" />
     </svg>
   );
 }
 
-/** The Folders view's folder: a big folder icon with its name and count under it, in the grid with the cards. */
+/**
+ * The Folders view's folder: the same size and box as the cards beside it, with a folder tab on top in
+ * the folder's colour. The folder's picture fills the box, or else up to four of the things inside peek
+ * through. The colour also runs along the top edge and tints the folder mark in the count badge.
+ */
 export function KitFolderTile({
   folder,
   count,
   dragKind,
+  previews,
   onOpen,
   onMenu,
 }: {
   folder: KitFolder;
   count: number;
   dragKind?: string;
+  /** Up to four of the folder's members, drawn as a 2 × 2 peek when the folder has no picture. */
+  previews?: ReactNode[];
   onOpen: () => void;
   onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
+  const peek = (previews ?? []).slice(0, 4);
   return (
     <div
       className="ov-card ov-folder-tile"
       data-component="FolderTile"
+      style={folder.color ? ({ "--ov-folder-color": folder.color } as CSSProperties) : undefined}
       {...(folder.virtual
         ? {}
         : {
@@ -857,14 +843,35 @@ export function KitFolderTile({
     >
       <button
         type="button"
-        className="ov-card__art ov-folder-tile__art"
+        className="ov-folder-tile__art"
         aria-label={localizeUi("ui.overhaul.kit.openFolder", { name: folder.name })}
         onClick={onOpen}
       >
-        <KitFolderIcon folder={folder} large />
+        <span className="ov-folder-tile__tab" aria-hidden="true" />
+        <span className="ov-card__art ov-folder-tile__box">
+          {folder.cover ? (
+            <img className="ov-folder-tile__cover" src={folder.cover} alt="" draggable={false} />
+          ) : peek.length ? (
+            <span className="ov-folder-tile__peek" data-count={peek.length} aria-hidden="true">
+              {peek.map((node, index) => (
+                <span key={index} className="ov-folder-tile__peek-cell">
+                  {node}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="ov-folder-tile__empty" aria-hidden="true">
+              <KitFolderIcon folder={folder} />
+            </span>
+          )}
+          <span className="ov-folder-tile__badge" aria-hidden="true">
+            <KitFolderIcon folder={folder} />
+            {count}
+          </span>
+        </span>
       </button>
       <KitMoreButton
-        className="ov-folder-tile__more"
+        className="ov-card__more"
         label={localize("Folder actions")}
         onOpen={(event) => onMenu(event, "button")}
       />
