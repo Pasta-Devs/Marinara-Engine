@@ -7686,7 +7686,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         ): Promise<WriterReferencePayload | null> => {
           const writerSettings = readWriterReferenceSettings(agent.settings);
           if (writerSettings.source === "off") return null;
-          if (imageConnectionTakesReferencePicture(avatarImageService(imageConnection))) return null;
+          if (imageConnectionTakesReferencePicture(avatarImageService(imageConnection))) {
+            logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
+            return null;
+          }
           const writerConnection = agent.connectionId ? await connections.getById(agent.connectionId) : conn;
           const visionKey = writerVisionKey(agent.connectionId, (agent as { model?: string }).model ?? "");
           const readsImages = modelReadsImages({
