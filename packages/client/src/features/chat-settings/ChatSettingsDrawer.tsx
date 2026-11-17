@@ -1814,20 +1814,18 @@ export function ChatSettingsDrawer({
             />
           )}
 
-          <div>
-            <ChatNameSection
-              chatId={chat.id}
-              chatName={chat.name}
-              editingName={editingName}
-              nameValue={nameVal}
-              onBeginEdit={() => {
-                setNameVal(chat.name);
-                setEditingName(true);
-              }}
-              onNameValueChange={setNameVal}
-              onSaveName={saveName}
-            />
-          </div>
+          <ChatNameSection
+            chatId={chat.id}
+            chatName={chat.name}
+            editingName={editingName}
+            nameValue={nameVal}
+            onBeginEdit={() => {
+              setNameVal(chat.name);
+              setEditingName(true);
+            }}
+            onNameValueChange={setNameVal}
+            onSaveName={saveName}
+          />
 
           {chatTools && (
             <Section
@@ -1846,143 +1844,131 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          <div>
-            <ConnectionSection
-              chatId={chat.id}
-              connectionId={chat.connectionId ?? null}
-              connections={chatGenerationConnectionsList}
-              contextBudget={gameContextBudget}
-              isGame={isGame}
-              onConnectionChange={setConnection}
-            />
-          </div>
+          <ConnectionSection
+            chatId={chat.id}
+            connectionId={chat.connectionId ?? null}
+            connections={chatGenerationConnectionsList}
+            contextBudget={gameContextBudget}
+            isGame={isGame}
+            onConnectionChange={setConnection}
+          />
 
           {/* Roleplay prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "roleplay" && (
-            <div>
-              <PromptPresetSection
-                promptPresetId={chat.promptPresetId ?? null}
-                presets={promptPresetOptions}
-                hasVariables={currentPromptPresetHasVariables}
-                quickEditor={
-                  chat.promptPresetId ? (
-                    <Suspense
-                      fallback={
-                        <div className="mari-editor-empty flex min-h-24 items-center justify-center px-3 py-6 text-xs">
-                          {t("chat.settings.promptPreset.quickEdit.loading")}
-                        </div>
-                      }
-                    >
-                      <QuickPresetSectionsEditor
-                        presetId={chat.promptPresetId}
-                        parentChatHasLorebook={activeLorebooks.length > 0}
-                        onEditableCopyCreated={assignEditablePresetCopy}
-                      />
-                    </Suspense>
-                  ) : null
-                }
-                showLorebookMarkerWarning={showLorebookMarkerWarning}
-                onEditVariables={() => {
-                  if (chat.promptPresetId) setChoiceModalPresetId(chat.promptPresetId);
-                }}
-                onPromptPresetChange={setPreset}
-              />
-            </div>
+            <PromptPresetSection
+              promptPresetId={chat.promptPresetId ?? null}
+              presets={promptPresetOptions}
+              hasVariables={currentPromptPresetHasVariables}
+              quickEditor={
+                chat.promptPresetId ? (
+                  <Suspense
+                    fallback={
+                      <div className="mari-editor-empty flex min-h-24 items-center justify-center px-3 py-6 text-xs">
+                        {t("chat.settings.promptPreset.quickEdit.loading")}
+                      </div>
+                    }
+                  >
+                    <QuickPresetSectionsEditor
+                      presetId={chat.promptPresetId}
+                      parentChatHasLorebook={activeLorebooks.length > 0}
+                      onEditableCopyCreated={assignEditablePresetCopy}
+                    />
+                  </Suspense>
+                ) : null
+              }
+              showLorebookMarkerWarning={showLorebookMarkerWarning}
+              onEditVariables={() => {
+                if (chat.promptPresetId) setChoiceModalPresetId(chat.promptPresetId);
+              }}
+              onPromptPresetChange={setPreset}
+            />
           )}
 
           {/* Conversation/Game prompt preset */}
           {modeSettingsSurfaces.promptSettingsSurface === "conversation" && (
-            <div>
-              <ConversationPromptSection
-                chatId={chat.id}
-                customPrompt={(metadata.customSystemPrompt as string) ?? ""}
-                promptPresetId={effectiveModePromptPresetId}
-                promptPresets={promptPresetOptions}
-                selectedPresetPrompt={selectedModePromptPreset?.conversationPrompt ?? ""}
-                onCustomPromptChange={(id, customSystemPrompt) => updateMeta.mutate({ id, customSystemPrompt })}
-                onPromptPresetChange={handleModePromptPresetChange}
-              />
-            </div>
+            <ConversationPromptSection
+              chatId={chat.id}
+              customPrompt={(metadata.customSystemPrompt as string) ?? ""}
+              promptPresetId={effectiveModePromptPresetId}
+              promptPresets={promptPresetOptions}
+              selectedPresetPrompt={selectedModePromptPreset?.conversationPrompt ?? ""}
+              onCustomPromptChange={(id, customSystemPrompt) => updateMeta.mutate({ id, customSystemPrompt })}
+              onPromptPresetChange={handleModePromptPresetChange}
+            />
           )}
 
           {modeSettingsSurfaces.promptSettingsSurface === "game" && (
-            <div>
-              <GameExtraPromptSection
-                storedValue={(metadata.gameSystemPrompt as string) ?? ""}
-                specialInstructionsValue={gameSpecialInstructionsDraft}
-                promptPresetId={effectiveModePromptPresetId}
-                promptPresets={promptPresetOptions}
-                selectedPresetPrompt={selectedModePromptPreset?.gamePrompt ?? ""}
-                gmPromptTemplateId={selectedGameGmPromptTemplateId}
-                gmPromptTemplates={GAME_GM_BUILT_IN_PROMPT_TEMPLATES}
-                onCommit={(gameSystemPrompt) => updateMeta.mutate({ id: chat.id, gameSystemPrompt })}
-                onSpecialInstructionsCommit={(gameSpecialInstructions) =>
-                  updateMeta.mutate({ id: chat.id, gameSpecialInstructions })
-                }
-                onSpecialInstructionsChange={setGameSpecialInstructionsDraft}
-                onPromptPresetChange={handleModePromptPresetChange}
-                onGmPromptTemplateChange={updateGameGmPromptTemplateSelection}
-                rating={gameSetupConfig.rating === "nsfw" ? "nsfw" : "sfw"}
-                ratingGuidelinesValue={
-                  typeof gameSetupConfig.ratingGuidelines === "string" ? gameSetupConfig.ratingGuidelines : ""
-                }
-                onRatingGuidelinesCommit={(ratingGuidelines) =>
-                  updateMeta.mutate({ id: chat.id, gameSetupConfig: { ...gameSetupConfig, ratingGuidelines } })
-                }
-                storySettings={{
-                  storyStyle: resolveGameStoryStyle(gameSetupConfig),
-                  violence: resolveGameViolenceLevel(gameSetupConfig),
-                  contentBoundaries:
-                    typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
-                }}
-                onStorySettingsCommit={(patch) =>
-                  updateMeta.mutate({
-                    id: chat.id,
-                    gameSetupConfig: {
-                      ...gameSetupConfig,
-                      ...patch,
-                      ...(patch.contentBoundaries !== undefined
-                        ? { contentBoundaries: patch.contentBoundaries || null }
-                        : {}),
-                    },
-                  })
-                }
-              />
-            </div>
+            <GameExtraPromptSection
+              storedValue={(metadata.gameSystemPrompt as string) ?? ""}
+              specialInstructionsValue={gameSpecialInstructionsDraft}
+              promptPresetId={effectiveModePromptPresetId}
+              promptPresets={promptPresetOptions}
+              selectedPresetPrompt={selectedModePromptPreset?.gamePrompt ?? ""}
+              gmPromptTemplateId={selectedGameGmPromptTemplateId}
+              gmPromptTemplates={GAME_GM_BUILT_IN_PROMPT_TEMPLATES}
+              onCommit={(gameSystemPrompt) => updateMeta.mutate({ id: chat.id, gameSystemPrompt })}
+              onSpecialInstructionsCommit={(gameSpecialInstructions) =>
+                updateMeta.mutate({ id: chat.id, gameSpecialInstructions })
+              }
+              onSpecialInstructionsChange={setGameSpecialInstructionsDraft}
+              onPromptPresetChange={handleModePromptPresetChange}
+              onGmPromptTemplateChange={updateGameGmPromptTemplateSelection}
+              rating={gameSetupConfig.rating === "nsfw" ? "nsfw" : "sfw"}
+              ratingGuidelinesValue={
+                typeof gameSetupConfig.ratingGuidelines === "string" ? gameSetupConfig.ratingGuidelines : ""
+              }
+              onRatingGuidelinesCommit={(ratingGuidelines) =>
+                updateMeta.mutate({ id: chat.id, gameSetupConfig: { ...gameSetupConfig, ratingGuidelines } })
+              }
+              storySettings={{
+                storyStyle: resolveGameStoryStyle(gameSetupConfig),
+                violence: resolveGameViolenceLevel(gameSetupConfig),
+                contentBoundaries:
+                  typeof gameSetupConfig.contentBoundaries === "string" ? gameSetupConfig.contentBoundaries : "",
+              }}
+              onStorySettingsCommit={(patch) =>
+                updateMeta.mutate({
+                  id: chat.id,
+                  gameSetupConfig: {
+                    ...gameSetupConfig,
+                    ...patch,
+                    ...(patch.contentBoundaries !== undefined
+                      ? { contentBoundaries: patch.contentBoundaries || null }
+                      : {}),
+                  },
+                })
+              }
+            />
           )}
 
           {/* Advanced Parameters */}
-          <div>
-            <AdvancedParametersSection
-              forceOpen={initialSection === "advanced-parameters"}
-              metadata={metadata}
-              isConversation={isConversation}
-              connectionId={chat.connectionId ?? null}
-              connections={chatGenerationConnectionsList}
-              contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
-              advancedMemoryManagesHistory={advancedMemoryEnabled}
-              excludePastReasoning={metadata.excludePastReasoning as boolean | undefined}
-              imageCaptioningEnabled={metadata.imageCaptioningEnabled as boolean | undefined}
-              imageCaptioningConnectionId={
-                Object.prototype.hasOwnProperty.call(metadata, "imageCaptioningConnectionId")
-                  ? typeof metadata.imageCaptioningConnectionId === "string"
-                    ? metadata.imageCaptioningConnectionId
-                    : null
-                  : undefined
-              }
-              onChatParametersChange={(chatParameters) => updateMeta.mutate({ id: chat.id, chatParameters })}
-              onContextMessageLimitChange={(contextMessageLimit) =>
-                updateMeta.mutate({ id: chat.id, contextMessageLimit })
-              }
-              onExcludePastReasoningChange={(excludePastReasoning) =>
-                updateMeta.mutate({ id: chat.id, excludePastReasoning })
-              }
-              onPastReasoningLimitChange={(pastReasoningLimit) =>
-                updateMeta.mutate({ id: chat.id, pastReasoningLimit })
-              }
-              onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
-            />
-          </div>
+          <AdvancedParametersSection
+            forceOpen={initialSection === "advanced-parameters"}
+            metadata={metadata}
+            isConversation={isConversation}
+            connectionId={chat.connectionId ?? null}
+            connections={chatGenerationConnectionsList}
+            contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
+            advancedMemoryManagesHistory={advancedMemoryEnabled}
+            excludePastReasoning={metadata.excludePastReasoning as boolean | undefined}
+            imageCaptioningEnabled={metadata.imageCaptioningEnabled as boolean | undefined}
+            imageCaptioningConnectionId={
+              Object.prototype.hasOwnProperty.call(metadata, "imageCaptioningConnectionId")
+                ? typeof metadata.imageCaptioningConnectionId === "string"
+                  ? metadata.imageCaptioningConnectionId
+                  : null
+                : undefined
+            }
+            onChatParametersChange={(chatParameters) => updateMeta.mutate({ id: chat.id, chatParameters })}
+            onContextMessageLimitChange={(contextMessageLimit) =>
+              updateMeta.mutate({ id: chat.id, contextMessageLimit })
+            }
+            onExcludePastReasoningChange={(excludePastReasoning) =>
+              updateMeta.mutate({ id: chat.id, excludePastReasoning })
+            }
+            onPastReasoningLimitChange={(pastReasoningLimit) => updateMeta.mutate({ id: chat.id, pastReasoningLimit })}
+            onImageCaptioningChange={(patch) => updateMeta.mutate({ id: chat.id, ...patch })}
+          />
 
           {/* Party (game mode) */}
           {isGame && <GamePartySection {...gamePartySectionProps} />}
@@ -2049,50 +2035,44 @@ export function ChatSettingsDrawer({
           />
 
           {/* Notes from Conversation — durable notes saved by the connected conversation's character */}
-          {!isConversation && chat.connectedChatId && (
-            <div>
-              <ConversationNotesSection chatId={chat.id} />
-            </div>
-          )}
+          {!isConversation && chat.connectedChatId && <ConversationNotesSection chatId={chat.id} />}
 
-          <div>
-            <LorebooksSection
-              forceOpen={initialSection === "lorebooks"}
-              chatId={chat.id}
-              metadata={metadata}
-              activeLorebookIds={activeLorebookIds}
-              excludedLorebookIds={excludedLorebookIds}
-              activeLorebooks={activeLorebooks}
-              lorebooks={(lorebooks ?? []) as Lorebook[]}
-              onEditLorebook={(lorebookId) => toggleInlineResourceEditor("lorebook", lorebookId)}
-              editingLorebookId={inlineResourceEditor?.kind === "lorebook" ? inlineResourceEditor.id : null}
-              inlineLorebookEditor={
-                inlineResourceEditor?.kind === "lorebook" ? (
-                  <Suspense
-                    fallback={
-                      <div className="mari-chat-settings-inline-editor mt-2 space-y-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] p-2.5">
-                        <div className="shimmer h-8 rounded-lg" />
-                        <div className="shimmer h-9 rounded-lg" />
-                        <div className="shimmer h-9 rounded-lg" />
-                      </div>
+          <LorebooksSection
+            forceOpen={initialSection === "lorebooks"}
+            chatId={chat.id}
+            metadata={metadata}
+            activeLorebookIds={activeLorebookIds}
+            excludedLorebookIds={excludedLorebookIds}
+            activeLorebooks={activeLorebooks}
+            lorebooks={(lorebooks ?? []) as Lorebook[]}
+            onEditLorebook={(lorebookId) => toggleInlineResourceEditor("lorebook", lorebookId)}
+            editingLorebookId={inlineResourceEditor?.kind === "lorebook" ? inlineResourceEditor.id : null}
+            inlineLorebookEditor={
+              inlineResourceEditor?.kind === "lorebook" ? (
+                <Suspense
+                  fallback={
+                    <div className="mari-chat-settings-inline-editor mt-2 space-y-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] p-2.5">
+                      <div className="shimmer h-8 rounded-lg" />
+                      <div className="shimmer h-9 rounded-lg" />
+                      <div className="shimmer h-9 rounded-lg" />
+                    </div>
+                  }
+                >
+                  <InlineLorebookEntriesEditor
+                    key={inlineResourceEditor.id}
+                    chatId={chat.id}
+                    entryStateOverrides={metadata.entryStateOverrides}
+                    lorebookId={inlineResourceEditor.id}
+                    lorebookName={
+                      activeLorebooks.find((lorebook) => lorebook.id === inlineResourceEditor.id)?.name ?? "Lorebook"
                     }
-                  >
-                    <InlineLorebookEntriesEditor
-                      key={inlineResourceEditor.id}
-                      chatId={chat.id}
-                      entryStateOverrides={metadata.entryStateOverrides}
-                      lorebookId={inlineResourceEditor.id}
-                      lorebookName={
-                        activeLorebooks.find((lorebook) => lorebook.id === inlineResourceEditor.id)?.name ?? "Lorebook"
-                      }
-                      characterRows={characters}
-                      onClose={() => setInlineResourceEditor(null)}
-                    />
-                  </Suspense>
-                ) : null
-              }
-            />
-          </div>
+                    characterRows={characters}
+                    onClose={() => setInlineResourceEditor(null)}
+                  />
+                </Suspense>
+              ) : null
+            }
+          />
 
           {chatTools?.summary && (
             <Section
@@ -2243,9 +2223,7 @@ export function ChatSettingsDrawer({
           {isGame && <GameWidgetsSection chat={chat} metadata={metadata} />}
 
           {!isConversation && !isGame && (
-            <div>
-              <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
-            </div>
+            <ImpersonateSection presets={(presets ?? []) as Array<{ id: string; name: string }>} />
           )}
 
           {/* Memory Recall — Conversation */}
@@ -2258,72 +2236,62 @@ export function ChatSettingsDrawer({
             <MemoryRecallSection {...memoryRecallSectionProps} />
           )}
 
-          <div>
-            <FunctionCallingSection
-              chatConnectionId={chat.connectionId}
-              isGameMode={isGame}
-              isConversation={isConversation}
-              narratorProvider={
-                (
-                  chatGenerationConnectionsList as Array<{
-                    id: string;
-                    provider?: string;
-                    isDefault?: boolean | string;
-                  }>
-                ).find((connection) =>
-                  chat.connectionId ? connection.id === chat.connectionId : isConnectionFlagTrue(connection.isDefault),
-                )?.provider
-              }
-              connections={textConnectionsList}
-              toolConnectionId={(metadata.gameGmToolConnectionId as string) ?? ""}
-              onToolConnectionChange={(gameGmToolConnectionId) =>
-                updateMeta.mutate({ id: chat.id, gameGmToolConnectionId })
-              }
-              gameLorebookSearch={metadata.gameLorebookSearch === true}
-              onGameLorebookSearchChange={(gameLorebookSearch) =>
-                updateMeta.mutate({ id: chat.id, gameLorebookSearch })
-              }
-              gameDiceOutcomeNarration={metadata.gameDiceOutcomeNarration !== false}
-              onGameDiceOutcomeNarrationChange={(gameDiceOutcomeNarration) =>
-                updateMeta.mutate({ id: chat.id, gameDiceOutcomeNarration })
-              }
-              gameOneRequestDice={metadata.gameOneRequestDice !== false}
-              onGameOneRequestDiceChange={(gameOneRequestDice) =>
-                updateMeta.mutate({ id: chat.id, gameOneRequestDice })
-              }
-              gameDicePoolMode={metadata.gameDicePoolMode === true}
-              onGameDicePoolModeChange={(gameDicePoolMode) => updateMeta.mutate({ id: chat.id, gameDicePoolMode })}
-              gameDicePoolWindow={
-                typeof metadata.gameDicePoolWindow === "number" ? metadata.gameDicePoolWindow : DEFAULT_DICE_POOL_WINDOW
-              }
-              onGameDicePoolWindowChange={(gameDicePoolWindow) =>
-                updateMeta.mutate({ id: chat.id, gameDicePoolWindow })
-              }
-              gameDicePoolAgeTurns={
-                typeof metadata.gameDicePoolAgeTurns === "number"
-                  ? metadata.gameDicePoolAgeTurns
-                  : DEFAULT_DICE_POOL_AGE_TURNS
-              }
-              onGameDicePoolAgeTurnsChange={(gameDicePoolAgeTurns) =>
-                updateMeta.mutate({ id: chat.id, gameDicePoolAgeTurns })
-              }
-              enableTools={metadata.enableTools as boolean | undefined}
-              forceToolCall={metadata.forceToolCall as boolean | undefined}
-              activeToolIds={activeToolIds}
-              onEnableToolsChange={(enableTools) => updateMeta.mutate({ id: chat.id, enableTools })}
-              onForceToolCallChange={(forceToolCall) => updateMeta.mutate({ id: chat.id, forceToolCall })}
-              onActiveToolIdsChange={(next) => updateMeta.mutate({ id: chat.id, activeToolIds: next })}
-              onCreateCustomTool={handleCreateCustomTool}
-            />
-          </div>
+          <FunctionCallingSection
+            chatConnectionId={chat.connectionId}
+            isGameMode={isGame}
+            isConversation={isConversation}
+            narratorProvider={
+              (
+                chatGenerationConnectionsList as Array<{
+                  id: string;
+                  provider?: string;
+                  isDefault?: boolean | string;
+                }>
+              ).find((connection) =>
+                chat.connectionId ? connection.id === chat.connectionId : isConnectionFlagTrue(connection.isDefault),
+              )?.provider
+            }
+            connections={textConnectionsList}
+            toolConnectionId={(metadata.gameGmToolConnectionId as string) ?? ""}
+            onToolConnectionChange={(gameGmToolConnectionId) =>
+              updateMeta.mutate({ id: chat.id, gameGmToolConnectionId })
+            }
+            gameLorebookSearch={metadata.gameLorebookSearch === true}
+            onGameLorebookSearchChange={(gameLorebookSearch) => updateMeta.mutate({ id: chat.id, gameLorebookSearch })}
+            gameDiceOutcomeNarration={metadata.gameDiceOutcomeNarration !== false}
+            onGameDiceOutcomeNarrationChange={(gameDiceOutcomeNarration) =>
+              updateMeta.mutate({ id: chat.id, gameDiceOutcomeNarration })
+            }
+            gameOneRequestDice={metadata.gameOneRequestDice !== false}
+            onGameOneRequestDiceChange={(gameOneRequestDice) => updateMeta.mutate({ id: chat.id, gameOneRequestDice })}
+            gameDicePoolMode={metadata.gameDicePoolMode === true}
+            onGameDicePoolModeChange={(gameDicePoolMode) => updateMeta.mutate({ id: chat.id, gameDicePoolMode })}
+            gameDicePoolWindow={
+              typeof metadata.gameDicePoolWindow === "number" ? metadata.gameDicePoolWindow : DEFAULT_DICE_POOL_WINDOW
+            }
+            onGameDicePoolWindowChange={(gameDicePoolWindow) => updateMeta.mutate({ id: chat.id, gameDicePoolWindow })}
+            gameDicePoolAgeTurns={
+              typeof metadata.gameDicePoolAgeTurns === "number"
+                ? metadata.gameDicePoolAgeTurns
+                : DEFAULT_DICE_POOL_AGE_TURNS
+            }
+            onGameDicePoolAgeTurnsChange={(gameDicePoolAgeTurns) =>
+              updateMeta.mutate({ id: chat.id, gameDicePoolAgeTurns })
+            }
+            enableTools={metadata.enableTools as boolean | undefined}
+            forceToolCall={metadata.forceToolCall as boolean | undefined}
+            activeToolIds={activeToolIds}
+            onEnableToolsChange={(enableTools) => updateMeta.mutate({ id: chat.id, enableTools })}
+            onForceToolCallChange={(forceToolCall) => updateMeta.mutate({ id: chat.id, forceToolCall })}
+            onActiveToolIdsChange={(next) => updateMeta.mutate({ id: chat.id, activeToolIds: next })}
+            onCreateCustomTool={handleCreateCustomTool}
+          />
 
-          <div>
-            <TranslationSection
-              chatId={chat.id}
-              metadata={metadata}
-              onMetadataChange={(patch) => updateTranslationMeta.mutate({ id: chat.id, ...patch })}
-            />
-          </div>
+          <TranslationSection
+            chatId={chat.id}
+            metadata={metadata}
+            onMetadataChange={(patch) => updateTranslationMeta.mutate({ id: chat.id, ...patch })}
+          />
 
           {/* Scene System Prompt — shown only for scene-created chats */}
           {metadata.sceneSystemPrompt && (
