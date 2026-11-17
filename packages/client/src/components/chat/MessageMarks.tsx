@@ -80,11 +80,14 @@ export function MessageMarksAction({
   align = "left",
   stopPropagation,
   noteSharing,
+  className,
 }: {
   message: MarkableMessage;
   align?: "left" | "right";
   stopPropagation?: boolean;
   noteSharing?: MessageNoteSharing;
+  /** On a message's top bar: the bar's own button class, so themes style it like its neighbours. */
+  className?: string;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
@@ -121,7 +124,7 @@ export function MessageMarksAction({
         type="button"
         title={localizeUi("ui.chat.messagemarks.menuTitle")}
         data-ovm-keep-open
-        className={cn("ov-marks-row", marks.any && "is-on")}
+        className={cn("ov-marks-row", className, marks.any && "is-on")}
         onClick={(event) => {
           event.stopPropagation();
           openInMenu();

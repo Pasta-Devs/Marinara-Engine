@@ -19,6 +19,18 @@ const nonEmptyLibraryFolderItemIdsSchema = z
     }
   });
 
+/** A folder's colour ("#rrggbb"); null puts back the theme's own. */
+export const folderColorSchema = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, "Use a #rrggbb colour")
+  .nullable();
+/** A folder's front picture: a small PNG, JPEG or WebP data URL (the client shrinks it first); null removes it. */
+export const folderCoverSchema = z
+  .string()
+  .max(400_000)
+  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/, "Use a PNG, JPEG or WebP picture")
+  .nullable();
+
 export const libraryFolderScopeSchema = z.enum(["lorebooks", "presets", "agents", "regex", "functions", "profiles"]);
 
 export const libraryFolderScopeParamsSchema = z.object({
@@ -39,6 +51,8 @@ export const updateLibraryFolderSchema = z.object({
   paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   itemIds: libraryFolderItemIdsSchema.optional(),
+  color: folderColorSchema.optional(),
+  cover: folderCoverSchema.optional(),
 });
 
 export const moveLibraryItemsSchema = z.object({

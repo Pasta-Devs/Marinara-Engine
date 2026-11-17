@@ -3,6 +3,12 @@ import { cn } from "../../lib/utils";
 
 export const MESSAGE_ACTION_ICON_SIZE = "1em";
 
+/** The look of a message action button, for buttons drawn elsewhere that sit in the same row (the bookmark). */
+export const MESSAGE_ACTION_BUTTON_CLASS = cn(
+  "mari-chat-style-control mari-chat-message-action [-webkit-tap-highlight-color:transparent] inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-base leading-none transition-colors md:transition-all md:active:scale-90 max-md:h-8 max-md:w-7 max-md:max-w-full max-md:text-sm max-md:active:bg-[var(--marinara-chat-message-action-bg-hover)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
+  "text-[var(--marinara-chat-message-action-text)] [@media(pointer:fine)]:hover:bg-[var(--marinara-chat-message-action-bg-hover)] [@media(pointer:fine)]:hover:text-[var(--marinara-chat-message-action-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+);
+
 export function MessageActionButton({
   icon,
   onClick,
@@ -40,11 +46,7 @@ export function MessageActionButton({
       data-message-thinking-action={thinkingAction || undefined}
       disabled={disabled}
       tabIndex={tabIndex}
-      className={cn(
-        "mari-chat-style-control mari-chat-message-action [-webkit-tap-highlight-color:transparent] inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-base leading-none transition-colors md:transition-all md:active:scale-90 max-md:h-8 max-md:w-7 max-md:max-w-full max-md:text-sm max-md:active:bg-[var(--marinara-chat-message-action-bg-hover)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
-        "text-[var(--marinara-chat-message-action-text)] [@media(pointer:fine)]:hover:bg-[var(--marinara-chat-message-action-bg-hover)] [@media(pointer:fine)]:hover:text-[var(--marinara-chat-message-action-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-        className,
-      )}
+      className={cn(MESSAGE_ACTION_BUTTON_CLASS, className)}
     >
       {icon}
     </button>

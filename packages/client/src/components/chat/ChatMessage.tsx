@@ -84,7 +84,6 @@ import {
   Pause,
   Play,
   ChevronRight,
-  Clock,
   EyeOff,
   Shield, Loader2 } from "lucide-react";
 import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
@@ -161,6 +160,8 @@ import { ChatImageLightbox } from "./ChatImageLightbox";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
+import { OvThinkingText, OvThinkingToggle, useThinkingToggle } from "./OvThinking";
+import { useMessageButtons } from "../overhaul/message-buttons";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
@@ -494,6 +495,7 @@ function HideFromAIAction({
   characters,
   onToggle,
   align = "left",
+  className,
 }: {
   messageId: string;
   hiddenFromAll: boolean;
@@ -501,6 +503,8 @@ function HideFromAIAction({
   characters: AIVisibilityCharacter[];
   onToggle: ToggleHiddenFromAI;
   align?: "left" | "right";
+  /** On the message's top bar: "ov-rpf__btn", so themes style it like the bar's other buttons. */
+  className?: string;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
@@ -541,6 +545,7 @@ function HideFromAIAction({
         }
         className={cn(
           "[-webkit-tap-highlight-color:transparent]",
+          className,
           hasRestriction && MESSAGE_CHROME_ACTIVE_ICON_CLASS,
           hasRestriction && "mari-accent-animated",
         )}
@@ -1111,108 +1116,6 @@ const IMAGE_URL_RE = /^https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?[^\s]*)?$/i;
 const SPEAKER_TAG_RE = /<speaker="([^"]*)">([\s\S]*?)<\/speaker>/g;
 const INLINE_MARKDOWN_CONTAINER_RE =
   /\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|(?<!\*)\*(?!\*)[\s\S]+?(?<!\*)\*(?!\*)|==[\s\S]+?==|~~[\s\S]+?~~|(?<![_\w])_[^_]+?_(?![_\w])/g;
-
-/** Shared timer + open state for the reasoning ("Thought for Ns") toggle. */
-function useThinkingToggle(
-  isStreaming: boolean,
-  outputStarted: boolean,
-  keepExpanded: boolean,
-  durationMs: number | null,
-  short = false,
-) {
-  const { t } = useTranslation();
-  const startedAtRef = useRef(Date.now());
-  const [expanded, setExpanded] = useState(isStreaming || keepExpanded);
-  const [liveDurationMs, setLiveDurationMs] = useState(0);
-  const [capturedReasoningDurationMs, setCapturedReasoningDurationMs] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!isStreaming || outputStarted) return;
-    startedAtRef.current = Date.now();
-    setCapturedReasoningDurationMs(null);
-    const updateDuration = () => setLiveDurationMs(Date.now() - startedAtRef.current);
-    updateDuration();
-    const interval = window.setInterval(updateDuration, 1_000);
-    return () => window.clearInterval(interval);
-  }, [isStreaming, outputStarted]);
-
-  useLayoutEffect(() => {
-    if (!isStreaming || !outputStarted) return;
-    const elapsedMs = Date.now() - startedAtRef.current;
-    setLiveDurationMs(elapsedMs);
-    setCapturedReasoningDurationMs((current) => current ?? elapsedMs);
-    if (!keepExpanded) setExpanded(false);
-  }, [isStreaming, keepExpanded, outputStarted]);
-
-  const displayedDurationMs = capturedReasoningDurationMs ?? (isStreaming ? liveDurationMs : durationMs);
-  const durationLabel =
-    displayedDurationMs === null
-      ? t("chat.message.thoughts.durationUnknown")
-      : t(short ? "chat.message.thoughts.ovDuration" : "chat.message.thoughts.duration", {
-          count: Math.max(1, Math.round(displayedDurationMs / 1_000)),
-        });
-  return { expanded, setExpanded, durationLabel };
-}
-
-/** New layout: small "Thought for Ns ›" toggle that sits next to the name and time. */
-function OvThinkingToggle({
-  label,
-  expanded,
-  pulsing,
-  controls,
-  onToggle,
-}: {
-  label: string;
-  expanded: boolean;
-  pulsing: boolean;
-  controls: string;
-  onToggle: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      className={cn("ov-thought-btn", expanded && "is-on", pulsing && "is-live")}
-      data-mari-part="reasoning"
-      aria-expanded={expanded}
-      aria-controls={expanded ? controls : undefined}
-      title={t(expanded ? "chat.message.thoughts.collapse" : "chat.message.thoughts.expand")}
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle();
-      }}
-    >
-      <Clock size={11} aria-hidden="true" />
-      <span>{label}</span>
-      <ChevronRight size={11} aria-hidden="true" className="ov-thought-btn__chev" />
-    </button>
-  );
-}
-
-/** New layout: the reasoning text itself, grey italic with no box. */
-function OvThinkingText({
-  id,
-  thinking,
-  summaryUnavailable,
-}: {
-  id: string;
-  thinking: string | null;
-  summaryUnavailable: boolean;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div id={id} data-message-thinking-inline data-mari-part="reasoning-text" className="ov-thought-text">
-      {summaryUnavailable ? (
-        <>
-          <p>{t("chat.message.thoughts.unavailable.title")}</p>
-          <p>{t("chat.message.thoughts.unavailable.description")}</p>
-        </>
-      ) : (
-        <pre>{thinking}</pre>
-      )}
-    </div>
-  );
-}
 
 function RoleplayThinkingDisclosure({
   thinking,
@@ -2178,6 +2081,8 @@ export const ChatMessage = memo(function ChatMessage({
   const overhaulActive = useOverhaulActive();
   // Phones and tablets with the overhaul: no action row on messages; long-press opens the action sheet.
   const overhaulMobile = useOverhaulTouchMessages();
+  // Settings > Chatting > Message buttons: which buttons sit on the message (the rest wait in ⋯).
+  const rpShownButtons = useMessageButtons("roleplay");
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -2673,16 +2578,27 @@ export const ChatMessage = memo(function ChatMessage({
   // A user turn has reasoning only when a model wrote it (impersonation or a rewrite), so it shows it like a reply (#8682).
   const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning;
   const showThinkingAction = hasReasoning && !showInlineThinking;
-  const ovThinkingInHeader = overhaulActive && showInlineThinking;
+  // The Thinking button picked to show on Roleplay messages: the same "Thought for Ns" toggle in the header, closed
+  // until clicked, and it fills in live while the reply streams.
+  const thinkingButtonPicked = isRoleplay && hasReasoning && rpShownButtons.includes("thinking");
+  const ovThinkingPickedOnly = overhaulActive && !showInlineThinking && thinkingButtonPicked;
+  const ovThinkingInHeader = overhaulActive && (showInlineThinking || thinkingButtonPicked);
   const ovThinkingId = useId();
   const ovThinking = useThinkingToggle(
     !!isStreaming && ovThinkingInHeader,
     streamingOutputStarted,
-    keepRoleplayThinkingExpanded,
+    keepRoleplayThinkingExpanded && !ovThinkingPickedOnly,
     readPositiveNumber(extra.generationInfo?.reasoningDurationMs),
     true,
+    ovThinkingPickedOnly,
   );
-  const ovThinkingButton = ovThinkingInHeader ? (
+  // "View model thoughts" (⋯ menu, or the hold menu on phones and tablets) opens the same toggle inline instead of
+  // a popup, wherever the new layout draws the message.
+  const ovThinkingCanInline =
+    hasReasoning && (overhaulActive || (overhaulMobile && isRoleplay && !showInlineThinking));
+  const ovThinkingShown = ovThinkingInHeader || (ovThinkingCanInline && ovThinking.expanded);
+  const openThinking = ovThinkingCanInline ? () => ovThinking.setExpanded(true) : () => setShowThinking(true);
+  const ovThinkingButton = ovThinkingShown ? (
     <OvThinkingToggle
       label={ovThinking.durationLabel}
       expanded={ovThinking.expanded}
@@ -3967,8 +3883,8 @@ export const ChatMessage = memo(function ChatMessage({
     />
   ) : (
     <>
-      {ovThinkingInHeader && isGrouped ? ovThinkingButton : null}
-      {ovThinkingInHeader && ovThinking.expanded ? (
+      {ovThinkingShown && isGrouped ? ovThinkingButton : null}
+      {ovThinkingShown && ovThinking.expanded ? (
         <OvThinkingText id={ovThinkingId} thinking={thinking} summaryUnavailable={reasoningSummaryUnavailable} />
       ) : null}
       {showInlineThinking && !ovThinkingInHeader && (
@@ -4486,7 +4402,7 @@ export const ChatMessage = memo(function ChatMessage({
         {showThinkingAction && (
           <ActionBtn
             icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
-            onClick={() => setShowThinking(true)}
+            onClick={openThinking}
             title={t(
               reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
             )}
@@ -4588,11 +4504,59 @@ export const ChatMessage = memo(function ChatMessage({
         )}
       </button>
     );
+    // Picked extra buttons for the bars (the same buttons the ⋯ menu lists).
+    const rpShows = (id: (typeof rpShownButtons)[number]) => rpShownButtons.includes(id);
+    const rpToolsExtra =
+      rpShows("marks") || (rpShows("hide") && onToggleHiddenFromAI) || (rpShows("delete") && onDelete) ? (
+        <>
+          {rpShows("marks") ? (
+            <MessageMarksAction
+              message={message}
+              align="right"
+              noteSharing={noteSharing}
+              stopPropagation
+              className="ov-rpf__btn"
+            />
+          ) : null}
+          {rpShows("hide") && onToggleHiddenFromAI ? (
+            <HideFromAIAction
+              messageId={message.id}
+              hiddenFromAll={isHiddenFromAllAI}
+              hiddenCharacterIds={hiddenFromAICharacterIds}
+              characters={isRoleplay ? aiVisibilityCharacters : []}
+              onToggle={onToggleHiddenFromAI}
+              align="right"
+              className="ov-rpf__btn"
+            />
+          ) : null}
+          {rpShows("delete") && onDelete ? (
+            <ActionBtn
+              className="ov-rpf__btn"
+              icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+              onClick={() => onDelete(message.id)}
+              title={localizeUi("lorebook.editor.batch.delete")}
+            />
+          ) : null}
+        </>
+      ) : null;
+    const rpGenerateExtra = rpShows("translate") ? (
+      <ActionBtn
+        className="ov-rpf__btn"
+        icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+        onClick={() => translate(message.id, message.content, message.chatId)}
+        title={
+          translatedText ? localizeUi("ui.chat.chatmessage.hideTranslation") : localizeUi("ui.chat.chatmessage.translate")
+        }
+      />
+    ) : null;
     const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
           part={part}
           placement={part === "generate" ? "below" : "footer"}
+          shown={rpShownButtons}
+          toolsExtra={rpToolsExtra}
+          generateExtra={rpGenerateExtra}
           chatId={message.chatId}
           messageId={message.id}
           pinned={Boolean(isLastAssistantMessage && !isUser)}
@@ -4606,7 +4570,7 @@ export const ChatMessage = memo(function ChatMessage({
           onCopy={handleCopy}
           onBranch={onBranch ? () => onBranch(message.id) : undefined}
           more={rpActionsRow}
-          speak={!isUser && ttsEnabled ? ovSpeakButton : undefined}
+          speak={!isUser && ttsEnabled && rpShows("speak") ? ovSpeakButton : undefined}
           marksPanel={({ back, done }) => (
             <OvMessageMarksPanel message={message} noteSharing={noteSharing} onBack={back} onDone={done} />
           )}
@@ -4616,9 +4580,7 @@ export const ChatMessage = memo(function ChatMessage({
     /** New layout: name, time and the message tools inside the bubble, above a divider line. */
     const ovRpHead = overhaulActive ? (
       isGrouped ? (
-        overhaulMobile ? null : (
-          <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
-        )
+        overhaulMobile ? null : <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
       ) : (
         <div className="ov-rpmsg__head" data-mari-part="header" data-placement="inside">
           {rpNameMeta}
@@ -5495,7 +5457,7 @@ export const ChatMessage = memo(function ChatMessage({
             {showThinkingAction && (
               <ActionBtn
                 icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
-                onClick={() => setShowThinking(true)}
+                onClick={openThinking}
                 title={t(
                   reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view",
                 )}

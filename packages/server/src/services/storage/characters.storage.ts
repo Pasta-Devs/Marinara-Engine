@@ -1550,7 +1550,14 @@ export function createCharactersStorage(db: DB) {
 
     async updateGroup(
       id: string,
-      updates: { name?: string; description?: string; characterIds?: string[]; avatarPath?: string | null },
+      updates: {
+        name?: string;
+        description?: string;
+        characterIds?: string[];
+        avatarPath?: string | null;
+        color?: string | null;
+        cover?: string | null;
+      },
     ) {
       const update = async () => {
         const existing = await this.getGroupById(id);
@@ -1562,6 +1569,8 @@ export function createCharactersStorage(db: DB) {
             ...(updates.description !== undefined && { description: updates.description }),
             ...(updates.characterIds !== undefined && { characterIds: JSON.stringify(updates.characterIds) }),
             ...(updates.avatarPath !== undefined && { avatarPath: updates.avatarPath }),
+            ...(updates.color !== undefined && { color: updates.color }),
+            ...(updates.cover !== undefined && { cover: updates.cover }),
             updatedAt: now(),
           })
           .where(eq(characterGroups.id, id));
@@ -1599,7 +1608,16 @@ export function createCharactersStorage(db: DB) {
       return this.getPersonaGroupById(id);
     },
 
-    async updatePersonaGroup(id: string, updates: { name?: string; description?: string; personaIds?: string[] }) {
+    async updatePersonaGroup(
+      id: string,
+      updates: {
+        name?: string;
+        description?: string;
+        personaIds?: string[];
+        color?: string | null;
+        cover?: string | null;
+      },
+    ) {
       const existing = await this.getPersonaGroupById(id);
       if (!existing) return null;
       await db
@@ -1608,6 +1626,8 @@ export function createCharactersStorage(db: DB) {
           ...(updates.name !== undefined && { name: updates.name }),
           ...(updates.description !== undefined && { description: updates.description }),
           ...(updates.personaIds !== undefined && { personaIds: JSON.stringify(updates.personaIds) }),
+          ...(updates.color !== undefined && { color: updates.color }),
+          ...(updates.cover !== undefined && { cover: updates.cover }),
           updatedAt: now(),
         })
         .where(eq(personaGroups.id, id));

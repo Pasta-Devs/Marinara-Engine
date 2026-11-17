@@ -2,6 +2,7 @@
 // Character Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { folderColorSchema, folderCoverSchema } from "./library-folder.schema.js";
 import { partialInput } from "../utils/zod-input.js";
 import { cardFieldAlternativesSchema } from "./card-field-alternative.schema.js";
 import { choiceDisplayModeSchema, choiceOptionSchema, choiceOptionSortSchema } from "./prompt.schema.js";
@@ -203,7 +204,10 @@ export const createGroupSchema = z.object({
   characterIds: z.array(z.string()).default([]),
 });
 
-export const updateGroupSchema = partialInput(createGroupSchema);
+export const updateGroupSchema = partialInput(createGroupSchema).extend({
+  color: folderColorSchema.optional(),
+  cover: folderCoverSchema.optional(),
+});
 
 export const createPersonaGroupSchema = z.object({
   name: z.string().min(1),
@@ -211,7 +215,10 @@ export const createPersonaGroupSchema = z.object({
   personaIds: z.array(z.string()).default([]),
 });
 
-export const updatePersonaGroupSchema = partialInput(createPersonaGroupSchema);
+export const updatePersonaGroupSchema = partialInput(createPersonaGroupSchema).extend({
+  color: folderColorSchema.optional(),
+  cover: folderCoverSchema.optional(),
+});
 
 export type CreateCharacterInput = z.infer<typeof createCharacterSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterSchema>;

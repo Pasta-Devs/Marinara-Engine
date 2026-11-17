@@ -13,21 +13,29 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent,
   type ReactNode,
   type TouchEvent,
 } from "react";
 import {
   CheckSquare,
+  ChevronLeft,
   ChevronRight,
   Folder,
   FolderInput,
   FolderPlus,
+  FolderTree,
+  ImageOff,
+  ImagePlus,
   MoreHorizontal,
+  Palette,
   Pencil,
+  Pipette,
   Square,
   Trash2,
   X,
@@ -39,6 +47,7 @@ import { RowActionSheet } from "./RowActionSheet";
 import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
@@ -62,6 +71,7 @@ import {
   useUpdateGroup,
   useUpdatePersonaGroup,
 } from "../../hooks/use-characters";
+import { useTranslation as useUiTranslation } from "react-i18next";
 
 // ── Actions ──
 
@@ -331,7 +341,20 @@ export function KitBulkBar({ selection, actions }: { selection: KitSelection; ac
 // ── Folders ──
 
 /** `virtual`: a folder the app makes on its own (a preset's regex scripts); nothing can be dropped or filed into it. */
-export type KitFolder = { id: string; name: string; itemIds: string[]; collapsed?: boolean; virtual?: boolean; paused?: boolean };
+export type KitFolder = {
+  id: string;
+  name: string;
+  itemIds: string[];
+  collapsed?: boolean;
+  virtual?: boolean;
+  paused?: boolean;
+  /** The folder icon's colour ("#rrggbb"); null/undefined = the theme's accent. */
+  color?: string | null;
+  /** A small picture (data URL) on the folder icon's front. */
+  cover?: string | null;
+};
+
+export type KitFolderLook = { color?: string | null; cover?: string | null };
 
 export type KitFolders = {
   folders: KitFolder[];
@@ -342,6 +365,8 @@ export type KitFolders = {
   isCollapsed: (folder: KitFolder) => boolean;
   toggleCollapsed: (folder: KitFolder) => void;
   folderOf: (itemId: string) => string | null;
+  /** Colour and front picture of the folder icon (folders that store them). */
+  setLook?: (folder: KitFolder, look: KitFolderLook) => void;
 };
 
 export function useLocalCollapsed(key: string) {
@@ -415,7 +440,16 @@ export function useScopeFolders(scope: LibraryFolderScope, kindLabel: string): K
   const remove = useDeleteLibraryFolder(scope);
   const move = useMoveLibraryItem(scope);
   const folders = useMemo(
-    () => (data ?? []).map((f) => ({ id: f.id, name: f.name, itemIds: f.itemIds, collapsed: f.collapsed, paused: f.paused })),
+    () =>
+      (data ?? []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        itemIds: f.itemIds,
+        collapsed: f.collapsed,
+        paused: f.paused,
+        color: f.color ?? null,
+        cover: f.cover ?? null,
+      })),
     [data],
   );
   const basics = useFolderBasics(folders, kindLabel);
@@ -428,10 +462,18 @@ export function useScopeFolders(scope: LibraryFolderScope, kindLabel: string): K
     move: (itemIds, folderId) => move.mutate({ itemIds, folderId }),
     isCollapsed: (folder) => !!folder.collapsed,
     toggleCollapsed: (folder) => update.mutate({ id: folder.id, collapsed: !folder.collapsed }),
+    setLook: (folder, look) => update.mutate({ id: folder.id, ...look }),
   };
 }
 
-type GroupRow = { id: string; name: string; characterIds?: string; personaIds?: string };
+type GroupRow = {
+  id: string;
+  name: string;
+  characterIds?: string;
+  personaIds?: string;
+  color?: string | null;
+  cover?: string | null;
+};
 
 function parseIds(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
@@ -459,7 +501,13 @@ export function useCardFolders(kind: "characters" | "personas", kindLabel: strin
   const folders = useMemo(
     () =>
       raw
-        .map((g) => ({ id: g.id, name: g.name, itemIds: parseIds(isCharacters ? g.characterIds : g.personaIds) }))
+        .map((g) => ({
+          id: g.id,
+          name: g.name,
+          itemIds: parseIds(isCharacters ? g.characterIds : g.personaIds),
+          color: g.color ?? null,
+          cover: g.cover ?? null,
+        }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [isCharacters, raw],
   );
@@ -501,6 +549,10 @@ export function useCardFolders(kind: "characters" | "personas", kindLabel: strin
     },
     isCollapsed: (folder) => local.collapsed.has(folder.id),
     toggleCollapsed: (folder) => local.toggle(folder.id),
+    setLook: (folder, look) =>
+      isCharacters
+        ? updateCharacterGroup.mutate({ id: folder.id, ...look })
+        : updatePersonaGroup.mutate({ id: folder.id, ...look }),
   };
 }
 
@@ -525,6 +577,136 @@ export function moveToFolderAction(folders: KitFolders, itemIds: () => string[],
   };
 }
 
+/** Colours offered for a folder icon (the first entry puts back the theme's own). */
+export const FOLDER_COLORS: { key: string; label: string; value: string | null }[] = [
+  { key: "theme", label: "Theme colour", value: null },
+  { key: "blue", label: "Blue", value: "#3b82f6" },
+  { key: "teal", label: "Teal", value: "#14b8a6" },
+  { key: "green", label: "Green", value: "#22c55e" },
+  { key: "yellow", label: "Yellow", value: "#eab308" },
+  { key: "orange", label: "Orange", value: "#f97316" },
+  { key: "red", label: "Red", value: "#ef4444" },
+  { key: "pink", label: "Pink", value: "#ec4899" },
+  { key: "purple", label: "Purple", value: "#8b5cf6" },
+  { key: "grey", label: "Grey", value: "#78716c" },
+];
+
+/** Opens the system colour picker and resolves with the picked "#rrggbb" (null if closed unchanged). */
+function pickCustomColor(current: string | null | undefined): Promise<string | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = current ?? "#3b82f6";
+    input.style.cssText = "position:fixed;left:50%;top:50%;width:1px;height:1px;opacity:0;pointer-events:none";
+    document.body.appendChild(input);
+    const done = (value: string | null) => {
+      input.remove();
+      resolve(value);
+    };
+    input.addEventListener("change", () => done(/^#[0-9a-f]{6}$/i.test(input.value) ? input.value : null), {
+      once: true,
+    });
+    input.addEventListener("cancel", () => done(null), { once: true });
+    input.click();
+  });
+}
+
+/** Asks for a picture and shrinks it to a small front-of-folder image (5:3, centre-cropped, WebP or JPEG). */
+export function pickFolderPicture(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp,image/gif";
+    input.addEventListener(
+      "change",
+      () => {
+        const file = input.files?.[0];
+        if (!file) return resolve(null);
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          const width = 300;
+          const height = 180;
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            URL.revokeObjectURL(url);
+            return resolve(null);
+          }
+          const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+          const drawWidth = image.naturalWidth * scale;
+          const drawHeight = image.naturalHeight * scale;
+          context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+          URL.revokeObjectURL(url);
+          const webp = canvas.toDataURL("image/webp", 0.85);
+          resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.85));
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          toast.error(translate("ui.overhaul.kit.pictureUnreadable"));
+          resolve(null);
+        };
+        image.src = url;
+      },
+      { once: true },
+    );
+    input.click();
+  });
+}
+
+/** Colour and Picture entries for a folder's menu, when its folders store a look. */
+function folderLookActions(folders: KitFolders, folder: KitFolder): KitAction[] {
+  const setLook = folders.setLook;
+  if (!setLook || folder.virtual) return [];
+  return [
+    {
+      key: "color",
+      label: "Colour",
+      icon: <Palette size={14} aria-hidden="true" />,
+      submenu: [
+        ...FOLDER_COLORS.map((color) => ({
+          key: `c:${color.key}`,
+          label: color.label,
+          icon: (
+            <span
+              className={cn("ov-kit-swatch", !color.value && "is-theme")}
+              style={color.value ? { background: color.value } : undefined}
+              aria-hidden="true"
+            />
+          ),
+          disabled: (folder.color ?? null) === color.value,
+          onSelect: () => setLook(folder, { color: color.value }),
+        })),
+        {
+          key: "c:custom",
+          label: "Custom colour…",
+          icon: <Pipette size={14} aria-hidden="true" />,
+          onSelect: () =>
+            void pickCustomColor(folder.color).then((value) => value && setLook(folder, { color: value })),
+        },
+      ],
+    },
+    {
+      key: "picture",
+      label: folder.cover ? "Change picture…" : "Add picture…",
+      icon: <ImagePlus size={14} aria-hidden="true" />,
+      onSelect: () => void pickFolderPicture().then((cover) => cover && setLook(folder, { cover })),
+    },
+    ...(folder.cover
+      ? [
+          {
+            key: "picture-remove",
+            label: "Remove picture",
+            icon: <ImageOff size={14} aria-hidden="true" />,
+            onSelect: () => setLook(folder, { cover: null }),
+          },
+        ]
+      : []),
+  ];
+}
+
 export function folderActions(folders: KitFolders, folder: KitFolder): KitAction[] {
   return [
     {
@@ -533,6 +715,7 @@ export function folderActions(folders: KitFolders, folder: KitFolder): KitAction
       icon: <Pencil size={14} aria-hidden="true" />,
       onSelect: () => folders.rename(folder),
     },
+    ...folderLookActions(folders, folder),
     {
       key: "delete",
       label: "Delete folder",
@@ -543,7 +726,7 @@ export function folderActions(folders: KitFolders, folder: KitFolder): KitAction
   ];
 }
 
-export function KitNewFolderButton({ folders }: { folders: KitFolders }) {
+export function KitNewFolderButton({ folders, onCreate }: { folders: KitFolders; onCreate?: () => void }) {
   const localize = useLocalizedUiText();
   return (
     <button
@@ -551,10 +734,163 @@ export function KitNewFolderButton({ folders }: { folders: KitFolders }) {
       className="ov-btn ov-btn--icon"
       aria-label={localize("New folder")}
       title={localize("New folder")}
-      onClick={folders.create}
+      onClick={() => {
+        onCreate?.();
+        folders.create();
+      }}
     >
       <FolderPlus size={15} aria-hidden="true" />
     </button>
+  );
+}
+
+/**
+ * Folders or everything together, per Library page and remembered on this device: with folders off, the page
+ * lists every item in one run, so a sort such as Newest reaches across folders.
+ */
+export function useLibraryFolderView(page: string) {
+  const flat = useOverhaulStore((state) => state.libraryFlatPages.includes(page));
+  const setFlat = useOverhaulStore((state) => state.setLibraryFlat);
+  return { flat, setFlat: (next: boolean) => setFlat(page, next) };
+}
+
+/** The "Folders" switch on a Library page's toolbar; only shown while the page has folders. */
+export function KitFolderViewToggle({
+  folders,
+  view,
+}: {
+  folders: KitFolders | null | undefined;
+  view: ReturnType<typeof useLibraryFolderView>;
+}) {
+  const localize = useLocalizedUiText();
+  const mobile = useOverhaulMobile();
+  if (!folders || !folders.folders.some((folder) => !folder.virtual)) return null;
+  const on = !view.flat;
+  const title = localize(on ? "Showing folders. Turn off to list everything together" : "Show folders");
+  return (
+    <button
+      type="button"
+      className={cn("ov-btn ov-kit-folderview", on && "is-on", mobile && "ov-btn--icon")}
+      aria-pressed={on}
+      aria-label={localize("Folders")}
+      title={title}
+      data-folder-view={on ? "folders" : "all"}
+      onClick={() => view.setFlat(on)}
+    >
+      <FolderTree size={14} aria-hidden="true" />
+      {mobile ? null : localize("Folders")}
+    </button>
+  );
+}
+
+/** A small folder mark in the folder's colour (the theme's accent unless picked), for rows, lines and badges. */
+export function KitFolderIcon({ folder }: { folder: KitFolder }) {
+  return (
+    <svg
+      className="ov-folder-icon"
+      viewBox="0 0 64 52"
+      aria-hidden="true"
+      style={folder.color ? ({ "--ov-folder-color": folder.color } as CSSProperties) : undefined}
+    >
+      <path
+        className="ov-folder-icon__back"
+        d="M3 7.5A4.5 4.5 0 0 1 7.5 3h14.2a3 3 0 0 1 2.1.9L28 8h28.5A4.5 4.5 0 0 1 61 12.5v34a4.5 4.5 0 0 1-4.5 4.5h-49A4.5 4.5 0 0 1 3 46.5z"
+      />
+      <path
+        className="ov-folder-icon__front"
+        d="M1.5 18.5A4.5 4.5 0 0 1 6 14h52a4.5 4.5 0 0 1 4.5 4.5v28A4.5 4.5 0 0 1 58 51H6a4.5 4.5 0 0 1-4.5-4.5z"
+      />
+      <path className="ov-folder-icon__shine" d="M6 15.5h52" />
+    </svg>
+  );
+}
+
+/**
+ * The Folders view's folder: the same size and box as the cards beside it, with a folder tab on top in
+ * the folder's colour. The folder's picture fills the box, or else up to four of the things inside peek
+ * through. The colour also runs along the top edge and tints the folder mark in the count badge.
+ */
+export function KitFolderTile({
+  folder,
+  count,
+  dragKind,
+  previews,
+  onOpen,
+  onMenu,
+}: {
+  folder: KitFolder;
+  count: number;
+  dragKind?: string;
+  /** Up to four of the folder's members, drawn as a 2 × 2 peek when the folder has no picture. */
+  previews?: ReactNode[];
+  onOpen: () => void;
+  onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
+  const peek = (previews ?? []).slice(0, 4);
+  // The coloured edge sits outside the box (themes may tint card art, e.g. Gutterlight's ink print, and the
+  // folder colour should stay true), so it copies the box's top-right corner to follow its curve.
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (box) tileRef.current?.style.setProperty("--ov-folder-r", getComputedStyle(box).borderTopRightRadius);
+  });
+  return (
+    <div
+      ref={tileRef}
+      className="ov-card ov-folder-tile"
+      data-component="FolderTile"
+      style={folder.color ? ({ "--ov-folder-color": folder.color } as CSSProperties) : undefined}
+      {...(folder.virtual
+        ? {}
+        : {
+            "data-ov-folder-id": folder.id,
+            ...(dragKind ? { [`data-${dragKind}-folder-id`]: folder.id } : {}),
+          })}
+      onContextMenu={(event) => onMenu(event, "pointer")}
+    >
+      <button
+        type="button"
+        className="ov-folder-tile__art"
+        aria-label={localizeUi("ui.overhaul.kit.openFolder", { name: folder.name })}
+        onClick={onOpen}
+      >
+        <span className="ov-folder-tile__tab" aria-hidden="true" />
+        <span ref={boxRef} className="ov-card__art ov-folder-tile__box">
+          {folder.cover ? (
+            <img className="ov-folder-tile__cover" src={folder.cover} alt="" draggable={false} />
+          ) : peek.length ? (
+            <span className="ov-folder-tile__peek" data-count={peek.length} aria-hidden="true">
+              {peek.map((node, index) => (
+                <span key={index} className="ov-folder-tile__peek-cell">
+                  {node}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="ov-folder-tile__empty" aria-hidden="true">
+              <KitFolderIcon folder={folder} />
+            </span>
+          )}
+          <span className="ov-folder-tile__badge" aria-hidden="true">
+            <KitFolderIcon folder={folder} />
+            {count}
+          </span>
+        </span>
+        <span className="ov-folder-tile__edge" aria-hidden="true" />
+      </button>
+      <KitMoreButton
+        className="ov-card__more"
+        label={localize("Folder actions")}
+        onOpen={(event) => onMenu(event, "button")}
+      />
+      <button type="button" className="ov-card__name" onClick={onOpen}>
+        {folder.name}
+      </button>
+      <p className="ov-card__tags">{localizeUi("ui.overhaul.kit.itemCount", { count })}</p>
+    </div>
   );
 }
 
@@ -569,6 +905,7 @@ export function KitFolderHead({
   note,
   trail,
   icon,
+  mode = "toggle",
 }: {
   /** Replaces the folder icon (Regex scripts: a preset's own folder shows the preset icon). */
   icon?: ReactNode;
@@ -582,11 +919,15 @@ export function KitFolderHead({
   collapsed: boolean;
   onToggle: () => void;
   onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
+  /** "open": the Folders view, where a click opens the folder on its own page instead of expanding it. */
+  mode?: "toggle" | "open";
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
+  const opens = mode === "open";
   return (
     <div
-      className="ov-kit-folder"
+      className={cn("ov-kit-folder", opens && "ov-kit-folder--opens")}
       {...(folder.virtual
         ? {}
         : {
@@ -595,7 +936,8 @@ export function KitFolderHead({
           })}
       role="button"
       tabIndex={0}
-      aria-expanded={!collapsed}
+      aria-expanded={opens ? undefined : !collapsed}
+      aria-label={opens ? localizeUi("ui.overhaul.kit.openFolder", { name: folder.name }) : undefined}
       onClick={onToggle}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -605,8 +947,10 @@ export function KitFolderHead({
       }}
       onContextMenu={(event) => onMenu(event, "pointer")}
     >
-      <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
-      {icon ?? <Folder size={15} aria-hidden="true" />}
+      {opens ? null : (
+        <ChevronRight size={14} className={cn("ov-kit-folder__arrow", !collapsed && "is-open")} aria-hidden="true" />
+      )}
+      {icon ?? <KitFolderIcon folder={folder} />}
       <span className="ov-kit-folder__name">{folder.name}</span>
       <span className="ov-kit-folder__count">{note ?? count}</span>
       {trail ? (
@@ -618,6 +962,51 @@ export function KitFolderHead({
           {trail}
         </span>
       ) : null}
+      <KitMoreButton label={localize("Folder actions")} onOpen={(event) => onMenu(event, "button")} />
+      {opens ? <ChevronRight size={14} className="ov-kit-folder__arrow" aria-hidden="true" /> : null}
+    </div>
+  );
+}
+
+/**
+ * The Folders view works like a file browser: the page lists its folders (closed) and the items in no folder;
+ * opening a folder shows its items alone, under a "back" line. Not remembered: the page opens on the list.
+ */
+export function useOpenFolder(folders: KitFolders | null | undefined) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = openId ? (folders?.folders.find((folder) => folder.id === openId) ?? null) : null;
+  return {
+    open,
+    openFolder: (folder: KitFolder) => setOpenId(folder.id),
+    close: () => setOpenId(null),
+  };
+}
+
+/** The open folder's line: back to every folder, then the folder's name, count and actions. */
+export function KitFolderCrumb({
+  backLabel,
+  folder,
+  count,
+  onBack,
+  onMenu,
+}: {
+  backLabel: string;
+  folder: KitFolder;
+  count: number;
+  onBack: () => void;
+  onMenu: (event: MouseEvent<HTMLElement>, anchor: "pointer" | "button") => void;
+}) {
+  const localize = useLocalizedUiText();
+  return (
+    <div className="ov-kit-crumb" data-component="FolderCrumb" onContextMenu={(event) => onMenu(event, "pointer")}>
+      <button type="button" className="ov-kit-crumb__back" onClick={onBack}>
+        <ChevronLeft size={15} aria-hidden="true" />
+        {backLabel}
+      </button>
+      <ChevronRight size={13} className="ov-kit-crumb__sep" aria-hidden="true" />
+      <KitFolderIcon folder={folder} />
+      <span className="ov-kit-folder__name">{folder.name}</span>
+      <span className="ov-kit-folder__count">{count}</span>
       <KitMoreButton label={localize("Folder actions")} onOpen={(event) => onMenu(event, "button")} />
     </div>
   );

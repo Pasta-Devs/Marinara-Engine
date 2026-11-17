@@ -84,6 +84,7 @@ import {
   KitBulkBar,
   KitCheck,
   KitFolderHead,
+  KitFolderViewToggle,
   KitMoreButton,
   KitNewFolderButton,
   KitSelectButton,
@@ -94,6 +95,7 @@ import {
   moveToFolderAction,
   useKitMenu,
   useKitSelection,
+  useLibraryFolderView,
   useScopeFolders,
   useLocalCollapsed,
   useKitRowDrag,
@@ -194,6 +196,8 @@ export type ListKit<T> = {
   drag?: { kind: string; reorder?: (ids: string[], target: string, edge: InsertEdge, visibleIds: string[]) => void };
   /** Search or a filter is on: folders with no matching rows step aside. */
   filtering: boolean;
+  /** The page's key for the Folders switch (folders or everything together); leave out to always show folders. */
+  folderView?: string;
   /** A folder's own ⋯ menu (default: Rename and Delete). */
   folderMenu?: (folder: KitFolder) => KitAction[];
   /** A folder heading's count text and switch (Regex scripts: "3/12 on" and on/off for the folder). */
@@ -275,7 +279,9 @@ function ListPage<T extends { id: string }>({
       ? (event: ReactMouseEvent<HTMLElement>) => kit.menu.openFromEvent(event, kit.rowTitle(row), kit.rowActions(row))
       : undefined,
   });
-  const { groups, loose } = groupByFolder(rows, kit?.folders ?? null, !!kit?.filtering);
+  const folderView = useLibraryFolderView(kit?.folderView ?? "");
+  const flat = !!kit?.folderView && folderView.flat;
+  const { groups, loose } = groupByFolder(rows, flat ? null : (kit?.folders ?? null), !!kit?.filtering);
   const makeChipSelect = (toolsCopy = false) => (
     <select
       className={cn("ov-select", mobile && "ovm-lp-filter", toolsCopy && "ovm-lp-filter--tools")}
@@ -364,7 +370,12 @@ function ListPage<T extends { id: string }>({
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
         <h1 data-mari-part="page-title">{title}</h1>
-        {kit?.folders ? <KitNewFolderButton folders={kit.folders} /> : null}
+        {kit?.folders ? (
+          <KitNewFolderButton
+            folders={kit.folders}
+            onCreate={kit.folderView ? () => folderView.setFlat(false) : undefined}
+          />
+        ) : null}
         {kit ? <KitSelectButton selection={kit.selection} /> : null}
         {actions}
         {mobile ? chipSelect : null}
@@ -389,6 +400,7 @@ function ListPage<T extends { id: string }>({
           </button>
         ))}
         <span className="ov-gallery__spacer" />
+        {kit?.folderView ? <KitFolderViewToggle folders={kit.folders} view={folderView} /> : null}
         {mobile ? null : view}
         {toolsEnd}
         {/* Narrow split side: these copies sit after the sort and the header ones hide, so the
@@ -744,6 +756,7 @@ export function LorebooksLanding() {
     folders,
     filtering: !!search.trim() || chip !== "all" || pickedTags.length > 0,
     drag: { kind: "lorebook", reorder: order.reorder },
+    folderView: "lorebooks",
     rowTitle: (book) => book.name,
     rowActions: (book) => [
       { key: "dup", label: "Duplicate", icon: <Copy size={14} />, onSelect: () => void duplicate(book) },
@@ -963,6 +976,7 @@ export function PresetsLanding() {
     folders,
     filtering: !!search.trim() || chip !== "all" || pickedTags.length > 0,
     drag: { kind: "preset", reorder: order.reorder },
+    folderView: "presets",
     rowTitle: (preset) => preset.name,
     rowActions: (preset) => [
       {

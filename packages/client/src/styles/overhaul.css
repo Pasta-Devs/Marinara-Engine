@@ -5004,8 +5004,9 @@ input.ov-edhead__title:focus {
   position: absolute;
   z-index: 3;
   top: 100%;
-  right: 0;
-  left: 0;
+  /* Follows the bubble's edges (lib/follow-bubble.ts), so a narrow bubble keeps its bar under it. */
+  right: var(--ov-follow-right, 0);
+  left: var(--ov-follow-left, 0);
   max-height: none;
   margin: 0;
   padding: 0.125rem 0.25rem 0;
@@ -5164,7 +5165,8 @@ input.ov-edhead__title:focus {
   position: absolute;
   z-index: 20;
   top: -0.875rem;
-  right: 1.25rem;
+  /* Lines up with the message's own box (lib/follow-bubble.ts), so bubble themes keep it on the bubble. */
+  right: calc(var(--ov-follow-right, 1rem) + 0.25rem);
   display: flex;
   align-items: center;
   gap: 0.0625rem;
@@ -13667,4 +13669,560 @@ input.ov-edhead__title:not(#ov-x) {
    --destructive is the same pink as the safe choices (keyboard QC round 2, AC16/TP19). */
 :root[data-overhaul] .ovm-action-sheet__group > button.is-danger {
   color: var(--ov-danger, #e5484d);
+}
+
+/* ─── Message buttons picked in Settings > Chatting > Message buttons ───
+   Roleplay: the shared message buttons (Bookmark, Hide from AI, Delete, Translate) take the bars' own size and
+   colour. Conversation: what asks the AI (Speak, Translate, Regenerate) hangs under the message's bottom-right,
+   mirroring the top bar. Phones and tablets have no bars: holding a message opens every action. */
+.ov-rpf .mari-chat-message-action,
+.ov-rpf .ov-marks-row {
+  display: inline-grid;
+  /* The same square as .ov-rpf__btn (audit D10), so a bookmark, hide or delete keeps the bar's spacing even. */
+  width: 1.625rem;
+  min-width: 0;
+  height: 1.625rem;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border-radius: 0.375rem;
+  color: inherit;
+  font-size: 0.875rem;
+}
+.ov-rpf .ov-marks-row svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.ov-rpf .ov-marks-row.is-on {
+  color: var(--ov-accent-text);
+}
+@media (hover: hover) {
+  .ov-rpf .mari-chat-message-action:hover,
+  .ov-rpf .ov-marks-row:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: var(--ov-text);
+  }
+}
+/* Under the message: plain icons like Roleplay's bottom bar, not a pill (her ask, 2026-11-17; the top pill stays,
+   it's the familiar messaging-app one). Its own class, so themes that skin the top pill (.ov-cvh) don't box it.
+   Hangs just under the text without taking space, so nothing moves on hover; follows the message's box and puts
+   its last icon under the top pill's ⋯ (lib/follow-bubble.ts). */
+:root[data-overhaul="on"] [data-message-id]:has(.ov-cvb) {
+  position: relative;
+}
+.ov-cvb {
+  position: absolute;
+  z-index: 20;
+  top: var(--ov-follow-top, calc(100% - 0.375rem));
+  right: calc(var(--ov-follow-right, 1rem) + 0.25rem);
+  display: flex;
+  align-items: center;
+  color: var(--ov-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+/* Bubble themes put the bottom icons just beneath the bubble, so every message keeps that much room under
+   it and the icons never reach the next message. Protected: a theme's row padding would otherwise win. */
+@layer mari-protected {
+  :root [data-message-id][data-ov-cvb="below"] {
+    padding-bottom: 1.75rem !important;
+  }
+}
+/* Room at the end of the last line of text for the bottom icons (themes where they sit inside the box), so
+   the text wraps before it would run under them. Only the last line is affected. */
+[data-ov-cvb="inside"] .mari-message-content::after {
+  content: "";
+  display: inline-block;
+  width: var(--ov-cvb-room, 0);
+  height: 1px;
+}
+[data-ov-cvb="inside"] .mari-message-content:has(> :last-child:is(p, div, ul, ol, blockquote, pre, table))::after {
+  content: none;
+}
+[data-ov-cvb="inside"] .mari-message-content > :last-child:is(p, div)::after {
+  content: "";
+  display: inline-block;
+  width: var(--ov-cvb-room, 0);
+  height: 1px;
+}
+.group:hover .ov-cvb,
+.group:focus-within .ov-cvb,
+.ov-cvb.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ov-cvb > button,
+.ov-cvb .mari-message-action {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+}
+.ov-cvb > button > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+@media (hover: hover) {
+  .ov-cvb > button:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: var(--ov-text);
+  }
+}
+/* Library pages: the Folders switch (folders, or everything together). */
+.ov-kit-folderview {
+  flex: none;
+}
+
+/* Settings > Chatting > Message buttons: mode switch and quick picks, a sample message, then the two lists. */
+.ov-mbs {
+  display: grid;
+  gap: 0.625rem;
+}
+.ov-mbs__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-mbs__spacer {
+  flex: 1;
+}
+.ov-mbs__tools .ov-btn:disabled {
+  opacity: 0.45;
+}
+.ov-mbs__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.5rem 1rem;
+}
+.ov-mbs__group {
+  display: grid;
+  align-content: start;
+  gap: 0.0625rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ov-mbs__group legend {
+  display: grid;
+  gap: 0.0625rem;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ov-mbs__group legend span {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+.ov-mbs__group[data-bar="bottom"] legend span {
+  color: var(--ov-accent-text);
+}
+.ov-mbs__row {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.375rem;
+  border-radius: 0.375rem;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ov-mbs__row:hover {
+    background: var(--ov-hover);
+  }
+}
+.ov-mbs__icon {
+  display: inline-grid;
+  color: var(--ov-muted);
+}
+/* The sample message: drawn with the chat's own colours, both bars always showing. */
+.ov-mbp {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.125rem 0.875rem 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+  background: var(--background);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-mbp__avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f0a35e, #b0457b);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.ov-mbp__rp {
+  display: flex;
+  gap: 0.625rem;
+}
+.ov-mbp__rp-col {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ov-mbp__bubble {
+  padding: 0.625rem 0.875rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--ov-text) 8%, transparent);
+  border-radius: 0.25rem 1rem 1rem 1rem;
+  background: var(--mari-rp-bubble-bg, var(--card));
+}
+.ov-mbp__head {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-text) 14%, transparent);
+  font-size: 0.75rem;
+}
+.ov-mbp__time {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+}
+.ov-mbp__grow {
+  flex: 1;
+}
+.ov-mbp__text {
+  margin: 0;
+  font-style: italic;
+  line-height: 1.5;
+}
+.ov-mbp__under {
+  display: flex;
+  min-height: 1.75rem;
+  justify-content: flex-end;
+  padding-top: 0.125rem;
+}
+.ov-mbp__bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  color: var(--mari-message-actions, color-mix(in srgb, var(--ov-text) 62%, transparent));
+}
+.ov-mbp__btn,
+.ov-mbp__swipes,
+.ov-mbp__react {
+  display: inline-flex;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+}
+.ov-mbp__btn {
+  width: 1.75rem;
+}
+.ov-mbp__btn.is-accent {
+  color: var(--ov-accent-text);
+}
+.ov-mbp__swipes {
+  gap: 0.125rem;
+  padding: 0 0.25rem;
+  color: var(--mari-swipe-counter, color-mix(in srgb, var(--ov-text) 82%, transparent));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.ov-mbp__react {
+  gap: 0.25rem;
+  margin-right: 0.125rem;
+  padding: 0 0.375rem 0 0.25rem;
+  border-right: 1px solid var(--ov-line);
+  border-radius: 0;
+  font-size: 0.875rem;
+}
+/* Conversation: Discord-style pills over the top-right and bottom-right corners. */
+.ov-mbp__cv {
+  position: relative;
+  display: flex;
+  gap: 0.625rem;
+  margin: 0.75rem 0 1rem;
+  /* Room for the top pill and the icons under the text, so the name, the Thinking toggle and the text stay clear. */
+  padding: 1.25rem 0.5rem 1.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+}
+.ov-mbp__cv-col {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+}
+.ov-mbp__cv .ov-mbp__text {
+  font-style: normal;
+}
+.ov-mbp__cv-top,
+.ov-mbp__cv-bottom {
+  position: absolute;
+  right: 0.75rem;
+}
+.ov-mbp__cv-top {
+  top: -0.875rem;
+}
+.ov-mbp__cv-bottom {
+  bottom: 0.125rem;
+}
+/* The sample's bottom bar is plain icons, like the real one (.ov-cvb). */
+.ov-mbp__cv .ov-mbp__cv-bottom .ov-mbp__bar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ov-mbp__cv .ov-mbp__bar {
+  padding: 0.125rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: var(--card);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
+  color: var(--ov-muted);
+}
+.ov-mbp__menu {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+}
+
+/* Folders view (file-browser style): a folder line opens the folder; the open folder shows a back line. */
+.ov-kit-folder--opens .ov-kit-folder__arrow {
+  margin-left: 0.125rem;
+}
+.ov-kit-folder--opens .ov-kit-more {
+  margin-left: auto;
+}
+@media (hover: hover) {
+  .ov-kit-folder--opens:hover {
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  }
+}
+.ov-kit-crumb {
+  display: flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.375rem 0 0.25rem;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.ov-kit-crumb .ov-kit-more {
+  margin-left: auto;
+}
+.ov-kit-crumb__back {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem 0 0.25rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--ov-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ov-kit-crumb__back:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+}
+@media (hover: hover) {
+  .ov-kit-crumb__back:hover {
+    background: color-mix(in srgb, var(--foreground) 6%, transparent);
+    color: var(--ov-text);
+  }
+}
+.ov-kit-crumb__sep {
+  color: var(--ov-dim);
+}
+
+/* ─── Folder icons (2026-11-17): drawn like a file explorer's, in the folder's colour (the theme's accent
+   unless picked) with its picture on the front. Small in rows and lines; large as a tile in the card grid. ─── */
+.ov-folder-icon {
+  --ov-folder: var(--ov-folder-color, var(--ov-accent, var(--primary)));
+  width: 1.25rem;
+  height: auto;
+  flex: none;
+  overflow: visible;
+}
+.ov-folder-icon__back {
+  fill: color-mix(in srgb, var(--ov-folder) 62%, #000);
+}
+.ov-folder-icon__front {
+  fill: var(--ov-folder);
+}
+.ov-folder-icon__shine {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.28);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+.ov-folder-icon__frame {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.22);
+  stroke-width: 0.6;
+}
+/* The folder tile (2026-11-17, second pass): a box the same size and shape as the cards beside it, so the grid
+   stays one family. Its picture fills it; without one, up to four members peek through in a 2 × 2. The folder's
+   colour runs along the top edge and tints the folder mark in the count badge. */
+.ov-folder-tile {
+  --ov-folder: var(--ov-folder-color, var(--ov-accent, var(--primary)));
+}
+/* The button keeps the card's 3:4 footprint; the tab takes the top 0.5rem and the box the rest. */
+.ov-folder-tile__art {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 3 / 4;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+@media (hover: hover) {
+  .ov-folder-tile__art:hover {
+    transform: translateY(-2px);
+  }
+  .ov-folder-tile__art:hover .ov-folder-tile__box {
+    transform: none;
+  }
+}
+.ov-folder-tile__art:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+.ov-folder-tile__tab {
+  flex: none;
+  width: 42%;
+  height: 0.5rem;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--ov-folder);
+}
+.ov-folder-tile .ov-folder-tile__box {
+  flex: 1;
+  aspect-ratio: auto;
+  min-height: 0;
+}
+/* The tab has to meet the box's corner, so its top-left corner stays square even when a theme rounds card
+   corners (Dewglass, Quiet Iris, MARI to the Moon). Themes still style everything else about the box. */
+@layer mari-protected {
+  :root .ov-folder-tile .ov-folder-tile__box {
+    border-top-left-radius: 0 !important;
+  }
+}
+.ov-folder-tile__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The coloured edge joins the tab and runs along the box's top, over its border and picture. It is a layer
+   the size of the box with the box's top-right corner, so the edge follows that curve; it sits outside the
+   box so a theme's tint on card art (Gutterlight prints it in ink) doesn't change the folder's colour. */
+.ov-folder-tile__art {
+  position: relative;
+}
+.ov-folder-tile__edge {
+  position: absolute;
+  z-index: 2;
+  inset: 0.5rem 0 0;
+  border-radius: 0 var(--ov-folder-r, 0.75rem) 0 0;
+  box-shadow: inset 0 5px 0 var(--ov-folder);
+  pointer-events: none;
+}
+.ov-folder-tile__peek {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+.ov-folder-tile__peek[data-count="1"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+.ov-folder-tile__peek[data-count="2"] {
+  grid-template-rows: 1fr;
+}
+/* Three: the first one takes the whole left column. */
+.ov-folder-tile__peek[data-count="3"] .ov-folder-tile__peek-cell:first-child {
+  grid-row: span 2;
+}
+.ov-folder-tile__peek-cell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--secondary);
+}
+.ov-folder-tile__peek-cell > * {
+  width: 100%;
+  height: 100%;
+}
+.ov-folder-tile__peek-ph {
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 0.7);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.ov-folder-tile__empty .ov-folder-icon {
+  width: 2.75rem;
+  opacity: 0.85;
+}
+.ov-folder-tile__badge {
+  position: absolute;
+  right: 0.375rem;
+  bottom: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.3125rem;
+  background: rgb(0 0 0 / 0.65);
+  color: #fff;
+  font:
+    500 0.6875rem/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.ov-folder-tile__badge .ov-folder-icon {
+  width: 0.8125rem;
+}
+/* Colour swatches in the folder menu's Colour list. */
+.ov-kit-swatch {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-radius: 999px;
+}
+.ov-kit-swatch.is-theme {
+  background: conic-gradient(from 45deg, var(--ov-accent, var(--primary)) 0 50%, var(--ov-muted) 0 100%);
 }

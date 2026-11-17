@@ -1690,8 +1690,17 @@ export function useCreateGroup() {
 export function useUpdateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
-      api.patch(`/characters/groups/${id}`, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      description?: string;
+      characterIds?: string[];
+      color?: string | null;
+      cover?: string | null;
+    }) => api.patch(`/characters/groups/${id}`, data),
     mutationKey: characterGroupEditKey,
     // A refused edit just stops showing; refetch so the list matches the server.
     onError: () => invalidateGroupsAndCatalog(qc),
@@ -1737,8 +1746,17 @@ export function useCreatePersonaGroup() {
 export function useUpdatePersonaGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; personaIds?: string[] }) =>
-      api.patch(`/characters/persona-groups/${id}`, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string;
+      name?: string;
+      description?: string;
+      personaIds?: string[];
+      color?: string | null;
+      cover?: string | null;
+    }) => api.patch(`/characters/persona-groups/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
   });
 }

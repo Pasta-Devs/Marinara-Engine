@@ -20,6 +20,10 @@ export type LibraryFolder = {
   paused?: boolean;
   sortOrder: number;
   itemIds: string[];
+  /** The folder icon's colour ("#rrggbb"); null = the theme's own. */
+  color?: string | null;
+  /** A small picture data URL on the folder's front. */
+  cover?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -140,6 +144,8 @@ export function useUpdateLibraryFolder(scope: LibraryFolderScope) {
       collapsed?: boolean;
       paused?: boolean;
       itemIds?: string[];
+      color?: string | null;
+      cover?: string | null;
     }) => {
       return api.patch<LibraryFolder>(`/library-folders/${scope}/${id}`, data);
     },

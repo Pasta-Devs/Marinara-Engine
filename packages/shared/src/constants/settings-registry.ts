@@ -44,6 +44,7 @@ export type SettingsSectionId =
   | "request-timeouts"
   | "parameters"
   | "message-tools"
+  | "message-buttons"
   | "backup-export"
   | "storage-optimization"
   | "danger-zone"
@@ -415,6 +416,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     label: "Message Info",
     description: "What each message shows: time, model, tokens and numbers.",
     aliases: ["messages", "tools", "repair", "cleanup"],
+  },
+  {
+    id: "message-buttons",
+    tab: "advanced",
+    label: "Message Buttons",
+    description: "Which buttons sit on each message, and which wait in the ⋯ menu.",
+    aliases: ["buttons", "actions", "regenerate", "swipe", "speak", "menu", "three dots", "hover", "toolbar"],
   },
   {
     id: "backup-export",

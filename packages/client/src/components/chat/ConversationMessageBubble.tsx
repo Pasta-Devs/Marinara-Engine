@@ -213,8 +213,11 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                   {formatTimestamp(message.createdAt)}
                 </span>
               )}
+              {ctx.thinkingToggle}
             </div>
           )}
+          {isGrouped ? ctx.thinkingToggle : null}
+          {ctx.thinkingText}
 
           {/* Bubble */}
           {isHiddenCollapsed ? (

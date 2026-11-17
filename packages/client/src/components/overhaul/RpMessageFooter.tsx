@@ -8,6 +8,7 @@
 // (the upstream action buttons, shown as a labelled menu).
 // ──────────────────────────────────────────────
 import { useArmedAfterPaint } from "../../lib/idle-batch";
+import { useFollowBubble } from "../../lib/follow-bubble";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +19,7 @@ import {
   ChevronRight,
   Copy,
   GitBranch,
+  ListOrdered,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -28,6 +30,7 @@ import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { OvMarksMenuContext } from "./marks-menu-context";
+import { DEFAULT_MESSAGE_BUTTONS, type MessageButtonId } from "./message-buttons";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 type Anchor = { left: number; top: number; bottom: number; right: number; alignRight?: boolean };
@@ -199,6 +202,9 @@ export function OvRpMessageFooter({
   placement = "footer",
   part = "all",
   speak,
+  shown = DEFAULT_MESSAGE_BUTTONS.roleplay,
+  toolsExtra,
+  generateExtra,
 }: {
   chatId: string;
   messageId: string;
@@ -225,11 +231,28 @@ export function OvRpMessageFooter({
    * top-right) or "generate" (Regenerate and swipes, everything that costs an API call: bottom-right).
    */
   part?: "all" | "tools" | "generate";
-  /** Speak button, left of Regenerate; only passed while a voice model is set up. */
+  /** Speak button, left of Regenerate; only passed while a voice model is set up (and picked to show). */
   speak?: ReactNode;
+  /** The buttons picked to sit on the message (Settings > Chatting > Message buttons); the rest stay in More. */
+  shown?: readonly MessageButtonId[];
+  /** More picked buttons for the top bar (before More), such as Delete or Hide from AI. */
+  toolsExtra?: ReactNode;
+  /** More picked buttons for the bottom bar (before Regenerate), such as Translate. */
+  generateExtra?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<null | { kind: "more" | "swipes" | "marks"; anchor: Anchor }>(null);
+  // Bookmark on the bar: the same marks form as in More, under the bar's right end.
+  const openMarksFromBar = () => {
+    const r = rootRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setOpen((current) =>
+      current?.kind === "marks"
+        ? null
+        : { kind: "marks", anchor: { left: r.right - 240, top: r.top, bottom: r.bottom, right: r.right } },
+    );
+  };
   const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
     if (open?.kind === kind || (kind === "more" && open?.kind === "marks")) return setOpen(null);
     const r = el.getBoundingClientRect();
@@ -247,9 +270,24 @@ export function OvRpMessageFooter({
   // Hidden until hover on a mouse: a chat opens without building these buttons for every message, and
   // they arrive right after the first paint. Always-visible bars (the newest reply, touch screens) build at once.
   const armed = useArmedAfterPaint(pinned || open !== null || touchFootersVisible());
+  // Under the message: line up with the bubble's edge, not the row's, when bubbles don't fill the row.
+  useFollowBubble(
+    rootRef,
+    (bar) => bar.parentElement?.querySelector<HTMLElement>(':scope > [data-mari-part="bubble"]') ?? null,
+    placement === "below" && armed,
+    `${swipeCount}-${swipeIndex}`,
+    // ...and its last button (›) sits right under the top bar's ⋯, wherever the theme puts that bar.
+    (bar) =>
+      bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".ov-rpf--tools > button:last-of-type") ?? null,
+  );
   const count = Math.max(1, swipeCount);
   const hasSwipes = swipeCount > 1;
-  if (part === "generate" && !speak && !onRegenerate && !hasSwipes && !onCreateSwipe) return null;
+  const show = (id: MessageButtonId) => shown.includes(id);
+  const regenerate = show("regenerate") ? onRegenerate : undefined;
+  const swipesOnBar = show("swipes") && (hasSwipes || !!onCreateSwipe);
+  // Swipes left off the bar: More lists them, so the other versions stay one click away.
+  const swipesInMenu = !show("swipes") && (hasSwipes || !!onCreateSwipe);
+  if (part === "generate" && !speak && !generateExtra && !regenerate && !swipesOnBar) return null;
   const footerClassName = cn(
     "ov-rpf",
     placement === "below" && "ov-rpf--below",
@@ -259,9 +297,10 @@ export function OvRpMessageFooter({
   );
   if (!armed) return <div className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
   return (
-    <div className={footerClassName} data-ov-rp-footer data-mari-part="actions">
+    <div ref={rootRef} className={footerClassName} data-ov-rp-footer data-mari-part="actions">
       {part === "generate" ? speak : null}
-      {part === "generate" && onRegenerate ? (
+      {part === "generate" ? generateExtra : null}
+      {part === "generate" && regenerate ? (
         <button
           type="button"
           className="ov-rpf__btn is-accent"
@@ -272,7 +311,7 @@ export function OvRpMessageFooter({
           <RefreshCw size={14} />
         </button>
       ) : null}
-      {part !== "tools" && (hasSwipes || onCreateSwipe) ? (
+      {part !== "tools" && swipesOnBar ? (
         <span className="ov-rpf__swipes">
           <button
             type="button"
@@ -316,7 +355,8 @@ export function OvRpMessageFooter({
       {meta && part === "all" ? <span className="ov-rpf__meta">{meta}</span> : null}
       {part === "all" ? <span className="ov-rpf__grow" /> : null}
       {part === "all" ? speak : null}
-      {part === "all" && onRegenerate ? (
+      {part === "all" ? generateExtra : null}
+      {part === "all" && regenerate ? (
         <button
           type="button"
           className="ov-rpf__btn is-accent"
@@ -329,25 +369,29 @@ export function OvRpMessageFooter({
       ) : null}
       {part !== "generate" ? (
         <>
-          <button
-            type="button"
-            className="ov-rpf__btn"
-            title={localizeUi("chat.settingsProfile.builder.edit")}
-            aria-label={localizeUi("chat.settingsProfile.builder.edit")}
-            onClick={onEdit}
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            type="button"
-            className="ov-rpf__btn"
-            title={localizeUi("lorebook.editor.batch.copy")}
-            aria-label={localizeUi("lorebook.editor.batch.copy")}
-            onClick={onCopy}
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-          {onBranch ? (
+          {show("edit") ? (
+            <button
+              type="button"
+              className="ov-rpf__btn"
+              title={localizeUi("chat.settingsProfile.builder.edit")}
+              aria-label={localizeUi("chat.settingsProfile.builder.edit")}
+              onClick={onEdit}
+            >
+              <Pencil size={14} />
+            </button>
+          ) : null}
+          {show("copy") ? (
+            <button
+              type="button"
+              className="ov-rpf__btn"
+              title={localizeUi("lorebook.editor.batch.copy")}
+              aria-label={localizeUi("lorebook.editor.batch.copy")}
+              onClick={onCopy}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          ) : null}
+          {onBranch && show("branch") ? (
             <button
               type="button"
               className="ov-rpf__btn"
@@ -357,6 +401,11 @@ export function OvRpMessageFooter({
             >
               <GitBranch size={14} />
             </button>
+          ) : null}
+          {toolsExtra ? (
+            <OvMarksMenuContext.Provider value={marksPanel ? openMarksFromBar : null}>
+              {toolsExtra}
+            </OvMarksMenuContext.Provider>
           ) : null}
           <button
             type="button"
@@ -373,6 +422,18 @@ export function OvRpMessageFooter({
       {open?.kind === "more" ? (
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
           <p className="ov-rpf-pop__label">{localizeUi("ui.overhaul.ovrpmessagefooter.messageActions")}</p>
+          {swipesInMenu ? (
+            <div className="mari-message-actions">
+              <button
+                type="button"
+                title={localizeUi("ui.overhaul.messagebuttons.swipesInMenu", { current: swipeIndex + 1, count })}
+                aria-label={localizeUi("ui.overhaul.messagebuttons.swipesInMenu", { current: swipeIndex + 1, count })}
+                onClick={() => setOpen({ kind: "swipes", anchor: { ...open.anchor, alignRight: true } })}
+              >
+                <ListOrdered size={14} />
+              </button>
+            </div>
+          ) : null}
           <div className="contents" onClickCapture={closeAfterAction(() => setOpen(null))}>
             <OvMarksMenuContext.Provider
               value={marksPanel ? () => setOpen({ kind: "marks", anchor: { ...open.anchor } }) : null}

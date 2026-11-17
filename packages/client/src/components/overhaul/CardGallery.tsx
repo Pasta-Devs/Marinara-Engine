@@ -40,12 +40,16 @@ import {
 import {
   KitBulkBar,
   KitCheck,
+  KitFolderCrumb,
   KitFolderHead,
+  KitFolderTile,
+  KitFolderViewToggle,
   KitMoreButton,
   KitNewFolderButton,
   KitSelectButton,
   folderActions,
   groupByFolder,
+  useOpenFolder,
   kitDelete,
   kitExport,
   moveToFolderAction,
@@ -53,6 +57,7 @@ import {
   useKitMenu,
   useKitRowDrag,
   useKitSelection,
+  useLibraryFolderView,
   useSuppressClick,
   type KitAction,
 } from "./LibraryKit";
@@ -77,6 +82,8 @@ export type GalleryCard = {
 // "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16).
 type QuickFilter = "favorites" | null;
 type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "tokens-desc" | "tokens-asc" | "custom";
+/** Sorts the server can apply when it loads the cards, so a large library loads the newest (or largest) first. */
+const SERVER_SORTS = new Set<string>(["name-asc", "name-desc", "newest", "oldest", "tokens-desc", "tokens-asc"]);
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
@@ -103,6 +110,8 @@ export function CardGallery({
   onImport,
   onBrowse,
   extraHeader,
+  serverSort,
+  onServerSort,
 }: {
   kind: "characters" | "personas";
   title: string;
@@ -117,6 +126,10 @@ export function CardGallery({
   /** Characters: open the online card browser (ChubAI and others). */
   onBrowse?: () => void;
   extraHeader?: ReactNode;
+  /** The sort the cards load in (saved); the page starts on it. */
+  serverSort?: string;
+  /** Load the cards in this order (only the sorts the server knows). */
+  onServerSort?: (sort: string) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -129,7 +142,9 @@ export function CardGallery({
   // The tag selector beside search (several tags narrow to cards with all of them).
   const [pickedTags, setPickedTags] = useState<string[]>([]);
   const tagCounts = useMemo(() => countItemTags(cards), [cards]);
-  const [baseSort, setBaseSort] = useState<SortKey>("name-asc");
+  const [baseSort, setBaseSort] = useState<SortKey>(() =>
+    serverSort && SERVER_SORTS.has(serverSort) ? (serverSort as SortKey) : "name-asc",
+  );
   const singular = kind === "characters" ? "character" : "persona";
   // My order: drag cards into your own order (shared with the classic panel's manual order).
   const order = useLibraryOrder(singular);
@@ -139,6 +154,8 @@ export function CardGallery({
     else {
       if (order.active) order.setActive(false);
       setBaseSort(next);
+      // Pages load from the server in this order, so Newest shows the newest cards even before "Load more".
+      if (SERVER_SORTS.has(next) && next !== serverSort) onServerSort?.(next);
     }
   };
 
@@ -183,12 +200,17 @@ export function CardGallery({
   const selection = useKitSelection(visible.map((card) => card.id));
   const menu = useKitMenu();
   const folders = useCardFolders(kind, localize(isCharacters ? "Characters" : "Personas"));
+  // Folders, or every card together (so Newest or Recent reaches across folders).
+  const folderView = useLibraryFolderView(kind);
   const suppress = useSuppressClick();
   const duplicateCharacter = useDuplicateCharacter();
   const duplicatePersona = useDuplicatePersona();
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
   const filtering = !!search.trim() || !!quick || pickedTags.length > 0 || sort === "recent";
+  // Searching or filtering looks inside every folder; otherwise the Folders view lists folders closed.
+  const searching = !!search.trim() || !!quick || pickedTags.length > 0;
+  const opened = useOpenFolder(folders);
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const exportBase = isCharacters ? "/characters" : "/characters/personas";
   const removeMany = async (ids: string[], names?: string) => {
@@ -265,8 +287,36 @@ export function CardGallery({
     if (selection.on) selection.toggle(card.id);
     else onOpen(card.id);
   };
-  const { groups, loose } = groupByFolder(visible, folders, filtering);
+  const openFolder = folderView.flat ? null : opened.open;
+  const { groups, loose } = openFolder
+    ? { groups: [], loose: [] as GalleryCard[] }
+    : groupByFolder(visible, folderView.flat ? null : folders, searching || filtering);
+  const openRows = openFolder
+    ? (() => {
+        const ids = new Set(openFolder.itemIds);
+        return visible.filter((card) => ids.has(card.id));
+      })()
+    : [];
 
+  // A member's picture (or its initial on the placeholder) for a folder tile's 2 × 2 peek.
+  const renderPeek = (card: GalleryCard) =>
+    card.avatarPath ? (
+      <AvatarImage
+        src={avatarPreviewSrc(card.avatarPath, "card")}
+        alt=""
+        iconSize="1rem"
+        className="h-full w-full object-cover"
+        style={card.avatarStyle}
+        loading="lazy"
+      />
+    ) : (
+      <span
+        className="ov-folder-tile__peek-ph"
+        style={{ background: `var(--mari-card-art-placeholder, ${placeholderGradient(card.id)})` }}
+      >
+        {avatarInitial(card.name)}
+      </span>
+    );
   const renderCard = (card: GalleryCard, folderId: string | null) => (
     <div
       key={card.id}
@@ -372,7 +422,7 @@ export function CardGallery({
       <header className="ov-gallery__head">
         <h1 data-mari-part="page-title">{title}</h1>
         {extraHeader}
-        <KitNewFolderButton folders={folders} />
+        <KitNewFolderButton folders={folders} onCreate={() => folderView.setFlat(false)} />
         <KitSelectButton selection={selection} />
         {mobile ? null : browseButton}
         <button type="button" className="ov-btn" onClick={onImport}>
@@ -416,6 +466,7 @@ export function CardGallery({
           </button>
         ) : null}
         <span className="ov-gallery__spacer" />
+        <KitFolderViewToggle folders={folders} view={folderView} />
         <select
           className="ov-select"
           value={sort}
@@ -458,28 +509,56 @@ export function CardGallery({
         data-size={cardSize}
         style={loading && cards.length === 0 ? { visibility: "hidden" } : undefined}
       >
-        {groups.map(({ folder, rows: members }) => (
-          <Fragment key={`folder:${folder.id}`}>
-            <div className="ov-kit-folder-cell">
-              <KitFolderHead
-                folder={folder}
-                count={members.length}
-                dragKind={singular}
-                collapsed={folders.isCollapsed(folder)}
-                onToggle={() => folders.toggleCollapsed(folder)}
-                onMenu={(event, anchor) =>
-                  menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
-                }
-              />
-            </div>
-            {folders.isCollapsed(folder) ? null : members.map((card) => renderCard(card, folder.id))}
-          </Fragment>
-        ))}
-        {groups.length > 0 && loose.length > 0 ? (
+        {openFolder ? (
+          <div className="ov-kit-folder-cell">
+            <KitFolderCrumb
+              backLabel={title}
+              folder={openFolder}
+              count={openRows.length}
+              onBack={opened.close}
+              onMenu={(event, anchor) =>
+                menu.openFromEvent(event, openFolder.name, folderActions(folders, openFolder), anchor)
+              }
+            />
+          </div>
+        ) : null}
+        {openRows.map((card) => renderCard(card, openFolder?.id ?? null))}
+        {groups.map(({ folder, rows: members }) =>
+          searching ? (
+            // A search shows each folder's matches in place, under its name.
+            <Fragment key={`folder:${folder.id}`}>
+              <div className="ov-kit-folder-cell">
+                <KitFolderHead
+                  folder={folder}
+                  count={members.length}
+                  dragKind={singular}
+                  collapsed={false}
+                  onToggle={() => opened.openFolder(folder)}
+                  onMenu={(event, anchor) =>
+                    menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)
+                  }
+                />
+              </div>
+              {members.map((card) => renderCard(card, folder.id))}
+            </Fragment>
+          ) : (
+            // The Folders view: each folder is an icon in the grid, like a file explorer; open one to see inside.
+            <KitFolderTile
+              key={`folder:${folder.id}`}
+              folder={folder}
+              count={members.length}
+              dragKind={singular}
+              previews={members.slice(0, 4).map(renderPeek)}
+              onOpen={() => opened.openFolder(folder)}
+              onMenu={(event, anchor) => menu.openFromEvent(event, folder.name, folderActions(folders, folder), anchor)}
+            />
+          ),
+        )}
+        {searching && groups.length > 0 && loose.length > 0 ? (
           <div className="ov-kit-folder-cell ov-kit-loose">{localize("Not in a folder")}</div>
         ) : null}
         {loose.map((card) => renderCard(card, null))}
-        <div className="ov-card">
+        <div className="ov-card" hidden={!!openFolder}>
           <button type="button" className="ov-card__art ov-card__art--new" onClick={onNew}>
             <Plus size={22} aria-hidden="true" />
           </button>

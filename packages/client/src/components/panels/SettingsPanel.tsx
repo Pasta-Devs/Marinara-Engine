@@ -34,6 +34,7 @@ import {
   selectDefaultDialogueColor,
 } from "../../stores/ui.store";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
@@ -184,6 +185,7 @@ import {
   Dock,
   FolderOpen,
   MessageCircle,
+  MousePointerClick,
   RefreshCw,
   RotateCcw,
   ExternalLink,
@@ -8069,6 +8071,8 @@ function ManualUpdateCommand({ command }: { command: string }) {
 
 function AdvancedSettings() {
   const { t: localizeUi } = useUiTranslation();
+  // Message buttons only exist in the new layout (Settings > Chatting there).
+  const overhaulEnabled = useOverhaulStore((s) => s.enabled);
   const { t } = useTranslation();
   const activeChatId = useChatStore((state) => state.activeChatId);
   const { data: activeChat, isLoading: isActiveChatLoading } = useChat(activeChatId);
@@ -9142,6 +9146,17 @@ function AdvancedSettings() {
           />
         </div>
       </SettingsSection>
+
+      {overhaulEnabled ? (
+        <SettingsSection
+          title={localizeUi("ui.overhaul.messagebuttons.title")}
+          description={localizeUi("ui.overhaul.messagebuttons.description")}
+          icon={<MousePointerClick size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("message-buttons")}
+        >
+          <MessageButtonsSettings />
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection
         title={localizeUi("ui.panels.advancedsettings.backupRestore")}
