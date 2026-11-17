@@ -135,6 +135,23 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     expect(calls[2]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
     expect(calls[3]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
     await expect(dialog).not.toBeVisible();
+    // template=: the server writes the prompt with that Prompt Mode first, and the resume keeps references.
+    await input.fill("/illustrate template=default range=1 cup of tea");
+    await expect(input).toHaveValue("/illustrate template=default range=1 cup of tea");
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("textbox")).toHaveValue("Historical room");
+    expect(calls[4]).toMatchObject({
+      agentPromptTemplateIds: { illustrator: "default" },
+      illustratorRequest: "cup of tea",
+      illustratorMessageRange: [historicalMessage.id, historicalMessage.id],
+    });
+    expect(calls[4]).not.toHaveProperty("illustratorPromptReviewOverride");
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => calls.length).toBe(6);
+    expect(calls[5]?.illustratorPromptReviewOverride).toMatchObject({ prompt: "Historical room" });
+    expect(calls[5]?.illustratorPromptReviewOverride).not.toHaveProperty("subjectOnly");
+    await expect(dialog).not.toBeVisible();
     const conversation = await (
       await request.post("/api/chats", {
         data: { name: "Conversation review", mode: "conversation", characterIds: [], connectionId: connection.id },
@@ -166,7 +183,7 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     await expect(dialog.getByRole("textbox")).toHaveValue("A reviewed scene");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(6);
   } finally {
     await Promise.all(resources.map((path) => request.delete(path)));
   }
