@@ -25,11 +25,14 @@ windows:
           - MarinaraLauncher.exe
           - start.bat
 
+# Documentation people read: the guides, the top-level Markdown files and the Android README. Other Markdown, such as
+# Professor Mari's skill files and .github/plans/, is not documentation.
 docs:
   - changed-files:
       - any-glob-to-any-file:
-          - "**/*.md"
           - docs/**
+          - "*.md"
+          - android/README.md
 
 ci:
   - changed-files:
@@ -43,8 +46,11 @@ container:
           - Dockerfile
           - Dockerfile.lite
 
+# Dependabot pull requests also match by branch, so sync-labels keeps the label on GitHub Actions and Gradle updates.
 dependencies:
-  - changed-files:
-      - any-glob-to-any-file:
-          - pnpm-lock.yaml
-          - "**/package.json"
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - pnpm-lock.yaml
+              - "**/package.json"
+      - head-branch: ["^dependabot/"]

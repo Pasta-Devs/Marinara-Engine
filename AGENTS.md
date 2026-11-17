@@ -75,6 +75,7 @@ References: [OpenAI agent instructions](https://learn.chatgpt.com/docs/agent-con
 - Agent-specific coordination rule: when starting work on an issue, tag or identify the GitHub user or agent owning that issue/PR on the single issue so ownership is visible before implementation proceeds.
 - Agent-specific coordination rule: assign every issue and PR you open to yourself. If your account cannot assign, mention `@SpicyMarinara` in the description instead.
 - Agent-specific coordination rule: start every issue title with its prefix (`[Issue]:`, `[Feature]:`, `[Tracking]:` or `[docs-i18n]`) so the issue workflow adds its type label, since `gh issue create` skips the issue forms. Never title an issue with a pull request prefix such as `fix:` or `feat:`. See `CONTRIBUTING.md § Labels`.
+- Agent-specific coordination rule: **always start a pull request title with a conventional prefix** (`fix`, `feat`, `docs`, `test`, `chore`, `perf`, `refactor` or `ci`, optionally with a scope, as in `fix(client):`). The pull request workflow sets the type label from it. See `CONTRIBUTING.md § Labels`.
 - When preparing a PR, make the why explicit in the description so reviewers can see the user problem or rationale, not just the file changes.
 - Check `README.md`, `android/README.md`, `CONTRIBUTING.md`, `docs/CONFIGURATION.md`, `docs/TROUBLESHOOTING.md`, and `docs/FAQ.md` together when install, update, or release behavior changes.
 - When writing or editing user guides under `docs/`, follow `.agents/skills/docs-writing/SKILL.md`.
