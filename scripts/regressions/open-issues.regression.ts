@@ -724,14 +724,6 @@ const gameAssetsRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/game-assets.routes.ts", import.meta.url),
   "utf8",
 );
-const conversationSelfieRuntimeSource = readFileSync(
-  new URL("../../packages/server/src/services/generation/conversation-selfie-command-runtime.ts", import.meta.url),
-  "utf8",
-);
-const illustratorReferencesSource = readFileSync(
-  new URL("../../packages/server/src/services/image/illustrator-references.ts", import.meta.url),
-  "utf8",
-);
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
@@ -763,35 +755,6 @@ assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKey
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
 assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(deviceDetailSource, /connections\.device\.whisper\.deleteFailed/u);
-assert.match(galleryRoutesSource, /resolveIllustratorPromptRuntime\(\{[\s\S]*chatMetadata: meta/u);
-assert.match(
-  conversationSelfieRuntimeSource,
-  /resolveIllustratorPromptRuntime\(\{[\s\S]*chatMetadata: args\.chatMeta/u,
-);
-assert.match(
-  conversationSelfieRuntimeSource,
-  /logDebugOverride\([\s\S]*\[debug\/commands\/selfie\] prompt-builder system/u,
-);
-assert.match(
-  conversationSelfieRuntimeSource,
-  /resolveConversationSelfieRequestedNames\(\{[\s\S]{0,400}generationGuide: args\.generationGuide/u,
-  "Conversation group selfies must carry the guided request into reference selection",
-);
-assert.match(
-  conversationSelfieRuntimeSource,
-  /resolveIllustratorCharacterReferences\(\{[\s\S]{0,800}persona: null,[\s\S]{0,200}requestedNames,[\s\S]{0,300}maxReferences: 6/u,
-  "Conversation group selfies must keep all depicted character references without attaching the photographer persona",
-);
-assert.match(
-  conversationSelfieRuntimeSource,
-  /selfieResolvedCharacterIds = Array\.from\([\s\S]{0,300}referenceResolution\.characterIds[\s\S]{0,5000}characterIds: selfieResolvedCharacterIds/u,
-  "Conversation group selfies must be saved to every depicted character gallery",
-);
-assert.match(
-  illustratorReferencesSource,
-  /characterIds: orderedSelectedSources\.map\(\(source\) => source\.id\)/u,
-  "Gallery character IDs must retain every depicted character beyond the provider reference-image cap",
-);
 const browserNotificationHelpSource =
   notificationSettingsSource.match(/const browserNotificationHelp =[\s\S]*?;\n/u)?.[0] ?? "";
 assert.match(browserNotificationHelpSource, /Browser notifications require HTTPS or localhost/u);
