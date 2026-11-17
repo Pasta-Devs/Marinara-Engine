@@ -29,9 +29,6 @@ interface SwipePickerProps {
 }
 
 type Row = GreetingEntry & { index: number; haystack: string; body: string };
-/** More chips than this start folded behind the Filters button. */
-const OPEN_FILTERS_MAX = 8;
-
 /** Tag positions 4 and later share the last filter group. */
 const tagSlot = (position: number) => Math.min(position, 3);
 const byTag = (a: string, b: string) =>
@@ -58,10 +55,10 @@ export function SwipePicker({
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<string[][]>([[], [], [], []]);
   const [activeRow, setActiveRow] = useState(0);
-  // null = folded only when there are many chips; the Filters button sets it either way.
+  // Filters stay tucked away until requested; the reading pane keeps the focus.
   // Rows open only after a click or an arrow key, so the list shows whole when the picker opens.
   const [reading, setReading] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState<boolean | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -111,8 +108,10 @@ export function SwipePicker({
   const visible = sections.flatMap(([, sectionRows]) => sectionRows);
   // On wide screens the pane next to the list reads the active row; on phones it replaces the list while reading.
   const reader = visible[activeRow];
-  // The phone reader shares the modal's scroller with the list, so each greeting starts at its top.
+  // Each greeting starts at its top; the phone reader shares the modal's scroller with the list.
+  // Scrolling instead of remounting the pane keeps focus on Previous and Next.
   useEffect(() => {
+    paneRef.current?.scrollTo({ top: 0 });
     if (reading && window.matchMedia("(max-width: 639px)").matches)
       paneRef.current?.closest(".overflow-y-auto")?.scrollTo({ top: 0 });
   }, [reading, reader?.index]);
@@ -131,7 +130,7 @@ export function SwipePicker({
   const openPicker = () => {
     setQuery("");
     setFilters([[], [], [], []]);
-    setFiltersOpen(null);
+    setFiltersOpen(false);
     setReading(false);
     setActiveRow(0);
     scrollToCurrent.current = true;
@@ -221,7 +220,7 @@ export function SwipePicker({
   // Cards with real tags have titles worth scanning; the rest need more text to tell apart.
   const tagged = rows.some((row) => row.tags.length > 0);
   const chipTotal = groups.reduce((total, values) => total + values.length, 0);
-  const showFilters = filtersOpen ?? chipTotal <= OPEN_FILTERS_MAX;
+  const showFilters = filtersOpen;
 
   return (
     <>
@@ -249,14 +248,14 @@ export function SwipePicker({
         open={open}
         onClose={() => setOpen(false)}
         title={localizeUi(greeting ? "ui.chat.swipepicker.title" : "ui.chat.swipepicker.titleSwipes")}
-        width="max-w-5xl"
+        width="max-w-4xl"
         opaque
         initialFocusRef={large && window.matchMedia("(pointer: fine)").matches ? searchRef : undefined}
         restoreFocusRef={triggerRef}
-        panelClassName={cn("sm:h-[min(85dvh,44rem)] sm:overflow-hidden", large && "max-sm:h-[85dvh]")}
+        panelClassName={cn("sm:h-[min(80dvh,34rem)] sm:overflow-hidden", large && "max-sm:h-[85dvh]")}
         contentClassName="sm:flex sm:flex-col sm:overflow-hidden sm:p-0"
       >
-        <div className="sm:grid sm:min-h-0 sm:flex-1 sm:grid-cols-[minmax(17rem,0.85fr)_minmax(0,1.5fr)]">
+        <div className="sm:grid sm:min-h-0 sm:flex-1 sm:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.5fr)]">
           <div
             className={cn(
               "sm:flex sm:min-h-0 sm:flex-col sm:border-r sm:border-[var(--marinara-chat-chrome-panel-divider)]",
@@ -265,35 +264,10 @@ export function SwipePicker({
           >
             <div
               className={cn(
-                "sticky -top-4 z-10 -mx-5 -mt-4 mb-1 grid gap-2.5 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[color:var(--mari-modal-opaque-bg)] bg-[image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] px-5 pt-3 pb-3 sm:static sm:m-0 sm:shrink-0 sm:gap-3 sm:p-4",
+                "sticky -top-4 z-10 -mx-5 -mt-4 mb-1 grid gap-2.5 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[color:var(--mari-modal-opaque-bg)] bg-[image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] px-5 pt-3 pb-3 sm:static sm:m-0 sm:shrink-0 sm:gap-2 sm:p-3",
                 reading && reader && "max-sm:hidden",
               )}
             >
-              <div className="flex items-center gap-2 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
-                <span className="tabular-nums" aria-live="polite">
-                  {needle || pickedCount
-                    ? localizeUi("ui.chat.swipepicker.countFiltered", { shown: visible.length, total: rows.length })
-                    : localizeUi(greeting ? "ui.chat.swipepicker.count" : "ui.chat.swipepicker.countSwipes", {
-                        total: swipeCount,
-                      })}
-                </span>
-                {large && (
-                  <button
-                    type="button"
-                    title={localizeUi("ui.chat.swipepicker.surpriseTitle")}
-                    onClick={() => {
-                      const others = visible
-                        .map((row, i) => (row.index === activeSwipeIndex ? -1 : i))
-                        .filter((i) => i >= 0);
-                      if (others.length) moveActive(others[Math.floor(Math.random() * others.length)]!, "center");
-                    }}
-                    className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-chrome-panel-text)] max-md:h-9"
-                  >
-                    <Shuffle size="1em" aria-hidden="true" />
-                    {localizeUi("ui.chat.swipepicker.surprise")}
-                  </button>
-                )}
-              </div>
               {large && (
                 <div className="relative">
                   <Search
@@ -322,7 +296,7 @@ export function SwipePicker({
                       listRef.current?.parentElement?.scrollTo({ top: 0 });
                     }}
                     onKeyDown={onListKeyDown}
-                    className="h-10 w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] pr-9 pl-9 text-base text-[var(--marinara-chat-chrome-panel-text)] placeholder:text-[var(--marinara-chat-chrome-panel-muted)] focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)] focus:outline-none sm:text-sm [&::-webkit-search-cancel-button]:hidden"
+                    className="h-10 w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] pr-9 pl-9 text-base text-[var(--marinara-chat-chrome-panel-text)] placeholder:text-[var(--marinara-chat-chrome-panel-muted)] focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)] focus:outline-none sm:h-9 sm:text-sm [&::-webkit-search-cancel-button]:hidden"
                   />
                   {query && (
                     <button
@@ -339,46 +313,75 @@ export function SwipePicker({
                   )}
                 </div>
               )}
-              {chipTotal > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
+                <span className="mr-auto tabular-nums" aria-live="polite">
+                  {needle || pickedCount
+                    ? localizeUi("ui.chat.swipepicker.countFiltered", { shown: visible.length, total: rows.length })
+                    : localizeUi(greeting ? "ui.chat.swipepicker.count" : "ui.chat.swipepicker.countSwipes", {
+                        total: swipeCount,
+                      })}
+                </span>
+                {chipTotal > 0 && (
+                  <button
+                    type="button"
+                    aria-expanded={showFilters}
+                    aria-controls={`greeting-filters-${messageId}`}
+                    onClick={() => setFiltersOpen(!showFilters)}
+                    className={cn(
+                      "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors max-md:h-9",
+                      pickedCount > 0
+                        ? "border-[var(--primary)] text-[var(--primary)]"
+                        : "border-[var(--marinara-chat-chrome-panel-border)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+                    )}
+                  >
+                    <ListFilter size="0.9rem" aria-hidden="true" />
+                    {localizeUi("ui.chat.swipepicker.filters")}
+                    {pickedCount > 0 && <span className="font-semibold tabular-nums">{pickedCount}</span>}
+                    <ChevronDown
+                      size="0.8rem"
+                      aria-hidden="true"
+                      className={cn("transition-transform", showFilters && "rotate-180")}
+                    />
+                  </button>
+                )}
+                {large && (
+                  <button
+                    type="button"
+                    title={localizeUi("ui.chat.swipepicker.surpriseTitle")}
+                    aria-label={localizeUi("ui.chat.swipepicker.surprise")}
+                    onClick={() => {
+                      const others = visible
+                        .map((row, i) => (row.index === activeSwipeIndex ? -1 : i))
+                        .filter((i) => i >= 0);
+                      if (others.length) moveActive(others[Math.floor(Math.random() * others.length)]!, "center");
+                    }}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-[var(--marinara-chat-message-action-bg-hover)] hover:text-[var(--marinara-chat-chrome-panel-text)] max-md:h-11 max-md:w-11"
+                  >
+                    <Shuffle size="1em" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {chipTotal > 0 && (showFilters || pickedCount > 0) && (
                 <div className="grid gap-2">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      aria-expanded={showFilters}
-                      aria-controls={`greeting-filters-${messageId}`}
-                      onClick={() => setFiltersOpen(!showFilters)}
-                      className={cn(
-                        "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs transition-colors max-md:h-9",
-                        pickedCount > 0
-                          ? "border-[var(--primary)] text-[var(--primary)]"
-                          : "border-[var(--marinara-chat-chrome-panel-border)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
+                  {pickedCount > 0 && (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      {!showFilters && pickedCount > 0 && (
+                        <span className="min-w-0 truncate text-xs text-[var(--primary)]">
+                          {filters.flat().join(" · ")}
+                        </span>
                       )}
-                    >
-                      <ListFilter size="0.9rem" aria-hidden="true" />
-                      {localizeUi("ui.chat.swipepicker.filters")}
-                      {pickedCount > 0 && <span className="font-semibold tabular-nums">{pickedCount}</span>}
-                      <ChevronDown
-                        size="0.8rem"
-                        aria-hidden="true"
-                        className={cn("transition-transform", showFilters && "rotate-180")}
-                      />
-                    </button>
-                    {!showFilters && pickedCount > 0 && (
-                      <span className="min-w-0 truncate text-xs text-[var(--primary)]">
-                        {filters.flat().join(" · ")}
-                      </span>
-                    )}
-                    {pickedCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setFilters([[], [], [], []])}
-                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary)] max-md:h-9"
-                      >
-                        <X size="0.8rem" aria-hidden="true" />
-                        {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
-                      </button>
-                    )}
-                  </div>
+                      {pickedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFilters([[], [], [], []])}
+                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary)] max-md:h-9"
+                        >
+                          <X size="0.8rem" aria-hidden="true" />
+                          {localizeUi("ui.chat.swipepicker.clearTags", { count: pickedCount })}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {showFilters && (
                     <div
                       id={`greeting-filters-${messageId}`}
@@ -399,7 +402,7 @@ export function SwipePicker({
               )}
             </div>
 
-            <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:p-3">
+            <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:p-2">
               {swipes.isLoading ? (
                 <p className="py-8 text-center text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
                   {localizeUi("ui.chat.swipepicker.loading")}
@@ -476,7 +479,7 @@ export function SwipePicker({
                             aria-selected={isActive}
                             onClick={() => moveActive(visible.indexOf(row))}
                             className={cn(
-                              "relative grid cursor-pointer grid-cols-[2ch_minmax(0,1fr)_auto] gap-x-2.5 gap-y-1 rounded-lg py-3 pr-3 pl-2 [contain-intrinsic-size:auto_4rem] [content-visibility:auto] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] max-md:py-2.5",
+                              "relative grid cursor-pointer grid-cols-[2ch_minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 rounded-md py-2 pr-3 pl-2 [contain-intrinsic-size:auto_4rem] [content-visibility:auto] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] max-md:py-2.5",
                               isActive &&
                                 "bg-[var(--marinara-chat-chrome-highlight-bg-hover)] ring-1 ring-[var(--marinara-chat-chrome-panel-border)]",
                             )}
@@ -489,22 +492,21 @@ export function SwipePicker({
                             >
                               {row.index + 1}
                             </span>
-                            <span className="line-clamp-2 text-[0.8125rem] leading-snug font-semibold [overflow-wrap:anywhere]">
+                            <span className="line-clamp-2 text-[0.8125rem] sm:line-clamp-1 leading-snug font-semibold [overflow-wrap:anywhere]">
                               {row.title || localizeUi("ui.chat.swipepicker.untitled")}
                             </span>
                             <span
                               className={cn(
                                 "max-w-28 truncate pt-px text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]",
-                                !isCurrent && "sm:hidden lg:block",
                               )}
                             >
                               {isCurrent ? (
                                 <span className="inline-flex items-center gap-1 font-semibold text-[var(--primary)]">
                                   <Check size="0.8rem" aria-hidden="true" />
-                                  {localizeUi("ui.chat.swipepicker.current")}
+                                  <span className="sr-only">{localizeUi("ui.chat.swipepicker.current")}</span>
                                 </span>
                               ) : (
-                                row.tags.slice(1).join(" · ")
+                                isActive && <ChevronRight size="0.8rem" aria-hidden="true" />
                               )}
                             </span>
                             {row.preview && (
@@ -528,12 +530,11 @@ export function SwipePicker({
           </div>
           {reader && (
             <section
-              key={reader.index}
               ref={paneRef}
               aria-label={reader.title || localizeUi("ui.chat.swipepicker.untitled")}
               className={cn("flex flex-col gap-3 sm:min-h-0 sm:overflow-hidden sm:gap-0", !reading && "max-sm:hidden")}
             >
-              <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:px-8 sm:py-6">
+              <div className="sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:p-5">
                 <button
                   type="button"
                   onClick={() => {
@@ -547,8 +548,8 @@ export function SwipePicker({
                   <ChevronLeft size="1rem" aria-hidden="true" />
                   {localizeUi("ui.chat.swipepicker.back")}
                 </button>
-                <div className="mb-4 grid gap-2 sm:mb-6">
-                  <h3 className="text-lg leading-snug font-semibold [overflow-wrap:anywhere] sm:text-xl">
+                <div className="mb-4 grid gap-1.5">
+                  <h3 className="text-base leading-snug font-semibold [overflow-wrap:anywhere]">
                     <span className="mr-1.5 tabular-nums text-[var(--marinara-chat-chrome-panel-muted)]">
                       {reader.index + 1}
                     </span>
@@ -562,10 +563,10 @@ export function SwipePicker({
                 </div>
                 <RoleplayMessagePreview
                   content={reader.body}
-                  className="max-w-[65ch] text-sm leading-relaxed [overflow-wrap:anywhere] sm:text-base sm:leading-7"
+                  className="max-w-[65ch] text-sm leading-relaxed [overflow-wrap:anywhere] sm:text-sm sm:leading-6"
                 />
               </div>
-              <div className="sticky mt-auto flex items-center gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[color:var(--mari-modal-opaque-bg)] bg-[image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] pt-2 max-sm:-bottom-4 max-sm:pb-4 sm:static sm:shrink-0 sm:px-6 sm:py-4">
+              <div className="sticky mt-auto flex items-center gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[color:var(--mari-modal-opaque-bg)] bg-[image:linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] pt-2 max-sm:-bottom-4 max-sm:pb-4 sm:static sm:shrink-0 sm:px-4 sm:py-3">
                 <button
                   type="button"
                   onClick={() => moveActive(activeRow - 1)}
