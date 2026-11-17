@@ -246,7 +246,8 @@ if [ -z "$FROM" ]; then
   # is a git clone of the release, whose launcher would clean this checkout's new files from packages/*/src as stray,
   # and a folder copied before the copied-files list existed may hold another branch's files.
   stop_marinara
-  tx '[ -f ~/.termux-qc-files ] && [ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine ~/.termux-qc-files'
+  # (.termux-qc-files.txt is the list's earlier, newline-separated name.)
+  tx '[ -f ~/.termux-qc-files ] && [ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine ~/.termux-qc-files ~/.termux-qc-files.txt'
   log "copying this checkout into Termux"
   # Leave nothing behind from an earlier copy either (another branch's files would end up in the build): delete the
   # files the last copy brought that this checkout no longer has. Dependencies, builds and data stay, so later runs
@@ -276,7 +277,7 @@ fi
 log "installing $FROM the way users do, then updating it to this checkout"
 stop_marinara
 tx "set -e
-  rm -rf ~/Marinara-Engine ~/termux-qc-origin.git ~/termux-qc-target ~/.termux-qc-files
+  rm -rf ~/Marinara-Engine ~/termux-qc-origin.git ~/termux-qc-target ~/.termux-qc-files ~/.termux-qc-files.txt
   git init -q --bare -b main ~/termux-qc-origin.git
   cd ~/termux-qc-origin.git
   git config receive.shallowUpdate true
