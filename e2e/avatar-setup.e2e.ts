@@ -3,6 +3,7 @@ import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { AVATAR_EMOTIONS, AVATAR_EXTRA_FEELINGS, PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 // #7537 and #7915: expression sprites preview in setup, but chats require a saved, enabled avatar.
@@ -219,9 +220,9 @@ test("2D Avatars previews sprites with chats off by default and saves a PNGTuber
       "Shows your expression sprites until you change something here.",
     );
     await expect(setup.getByRole("button", { name: "Remove", exact: true })).toHaveCount(1);
-    await expect(setup.locator('[data-avatar-feeling="sad"]')).toHaveValue("crying");
-    await expect(setup.locator('[data-avatar-feeling="angry"]')).toHaveValue("");
-    await setup.locator('[data-avatar-feeling="angry"]').selectOption("happy");
+    await expect(setup.locator("#avatar-feeling-sad")).toHaveAttribute("data-value", "crying");
+    await expect(setup.locator("#avatar-feeling-angry")).toHaveAttribute("data-value", "");
+    await chooseOption(page, setup.locator("#avatar-feeling-angry"), "happy");
     await expect
       .poll(async () => {
         const saved = (await (await request.get(`/api/avatar-models/character/${character.id}`)).json()) as {
@@ -677,7 +678,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
       ).kinds?.pngtuber;
     const userPick = (target: string) => ({ target, source: "user", confidence: 1 });
     await setup.getByRole("button", { name: "Use my sprites", exact: true }).click();
-    await setup.locator('[data-avatar-feeling="happy"]').selectOption("angry");
+    await chooseOption(page, setup.locator("#avatar-feeling-happy"), "angry");
     await expect.poll(async () => (await savedSetup())?.expressionMap.happy).toEqual(userPick("angry"));
     await makeFaces.click();
     await useConnection(connection.id);
@@ -690,7 +691,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
       .poll(async () => (await savedSetup())?.expressionMap)
       .toMatchObject(Object.fromEntries(AVATAR_EMOTIONS.map((emotion) => [emotion, userPick(emotion)])));
     expect(Object.keys((await savedSetup())?.layers ?? {}).sort()).toEqual([...AVATAR_EMOTIONS].sort());
-    await expect(setup.locator('[data-avatar-feeling="happy"]')).toHaveValue("happy");
+    await expect(setup.locator("#avatar-feeling-happy")).toHaveAttribute("data-value", "happy");
 
     // ── All 29 faces, a 2x3 sheet at a time, main faces first ──
     const allFaces = [...AVATAR_EMOTIONS, ...AVATAR_EXTRA_FEELINGS];

@@ -152,6 +152,7 @@ import {
   type VideoResolution,
 } from "@marinara-engine/shared";
 import { Spinner } from "../ui/Spinner";
+import { Select } from "../ui/Select";
 import { Checkbox } from "../ui/Checkbox";
 
 /** Links where users can obtain API keys for each provider */
@@ -2245,30 +2246,35 @@ export function ConnectionEditor({
               <label className="block text-xs" htmlFor="decision-credentials">
                 {t("connections.decision.credentials")}
               </label>
-              <select
+              <Select
                 id="decision-credentials"
+                label={t("connections.decision.credentials")}
                 value={localCredentialsFrom}
                 className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                onChange={(event) => {
-                  setLocalCredentialsFrom(event.target.value);
+                onChange={(next) => {
+                  setLocalCredentialsFrom(next);
                   setLocalApiKey("");
                   setClearStoredApiKeyOnSave(true);
                   markDirty();
                 }}
-              >
-                <option value="">{t("connections.decision.separateKey")}</option>
-                {localCredentialsFrom &&
-                  !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom) && (
-                    <option value={localCredentialsFrom} disabled>
-                      {t("connections.decision.errors.needs_relinking")}
-                    </option>
-                  )}
-                {credentialSources(localDecisionSource).map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {t("connections.decision.useKeyFrom", { name: row.name })}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("connections.decision.separateKey") },
+                  ...(localCredentialsFrom &&
+                  !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom)
+                    ? [
+                        {
+                          value: localCredentialsFrom,
+                          label: t("connections.decision.errors.needs_relinking"),
+                          disabledReason: t("connections.decision.errors.needs_relinking"),
+                        },
+                      ]
+                    : []),
+                  ...credentialSources(localDecisionSource).map((row) => ({
+                    value: row.id,
+                    label: t("connections.decision.useKeyFrom", { name: row.name }),
+                  })),
+                ]}
+              />
               {localCredentialsFrom && (
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {t(
@@ -2495,31 +2501,36 @@ export function ConnectionEditor({
             <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
               {localizeUi("ui.connections.connectioneditor.embeddingConnection")}
             </label>
-            <select
+            <Select
+              label={localizeUi("ui.connections.connectioneditor.embeddingConnection")}
               value={localEmbeddingConnectionId}
-              onChange={(e) => {
-                setLocalEmbeddingConnectionId(e.target.value);
+              onChange={(next) => {
+                setLocalEmbeddingConnectionId(next);
                 markDirty();
               }}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-            >
-              <option value="">{localizeUi("ui.connections.connectioneditor.sameAsThisConnection")}</option>
-              {import.meta.env.VITE_MARINARA_LITE !== "true" && (
-                <option value={LOCAL_SIDECAR_CONNECTION_ID}>
-                  {localizeUi("ui.connections.connectioneditor.localModelSidecar")}
-                </option>
-              )}
-              {((allConnections ?? []) as Record<string, unknown>[])
-                .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
-                .map((c) => (
-                  <option key={c.id as string} value={c.id as string}>
-                    {c.name as string}
-                    {c.embeddingModel
-                      ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
-                      : ""}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: "", label: localizeUi("ui.connections.connectioneditor.sameAsThisConnection") },
+                ...(import.meta.env.VITE_MARINARA_LITE !== "true"
+                  ? [
+                      {
+                        value: LOCAL_SIDECAR_CONNECTION_ID,
+                        label: localizeUi("ui.connections.connectioneditor.localModelSidecar"),
+                      },
+                    ]
+                  : []),
+                ...((allConnections ?? []) as Record<string, unknown>[])
+                  .filter((c) => c.id !== connectionDetailId && isChatProvider(c.provider))
+                  .map((c) => ({
+                    value: c.id as string,
+                    label: `${c.name as string}${
+                      c.embeddingModel
+                        ? localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })
+                        : ""
+                    }`,
+                  })),
+              ]}
+            />
           </div>
 
           <div className="mt-3 space-y-3">
@@ -3420,20 +3431,22 @@ export function ConnectionEditor({
               </label>
               {localAudioGenerationSource === "custom" && (
                 <div className="space-y-3">
-                  <label className="block space-y-1.5">
+                  <div className="block space-y-1.5">
                     <span className="text-xs">{t("connections.gameAudio.format")}</span>
-                    <select
+                    <Select
+                      label={t("connections.gameAudio.format")}
                       value={localAudioGenerationFormat}
-                      onChange={(event) => {
-                        setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
+                      onChange={(next) => {
+                        setLocalAudioGenerationFormat(next as "binary" | "chat_completions");
                         markDirty();
                       }}
                       className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-                    >
-                      <option value="binary">{t("connections.gameAudio.binary")}</option>
-                      <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
-                    </select>
-                  </label>
+                      options={[
+                        { value: "binary", label: t("connections.gameAudio.binary") },
+                        { value: "chat_completions", label: t("connections.gameAudio.chatCompletions") },
+                      ]}
+                    />
+                  </div>
                   {(
                     [
                       ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
@@ -3553,19 +3566,20 @@ export function ConnectionEditor({
           {/* ── Image reading ── */}
           {isChatProvider(localProvider) && (
             <FieldGroup label={t("connections.editor.imageInput.label")}>
-              <select
+              <Select
                 value={localImageInput}
-                aria-label={t("connections.editor.imageInput.label")}
-                onChange={(event) => {
-                  setLocalImageInput(event.target.value as "" | "reads" | "text");
+                label={t("connections.editor.imageInput.label")}
+                onChange={(next) => {
+                  setLocalImageInput(next as "" | "reads" | "text");
                   markDirty();
                 }}
                 className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-              >
-                <option value="">{t("connections.editor.imageInput.auto")}</option>
-                <option value="reads">{t("connections.editor.imageInput.reads")}</option>
-                <option value="text">{t("connections.editor.imageInput.text")}</option>
-              </select>
+                options={[
+                  { value: "", label: t("connections.editor.imageInput.auto") },
+                  { value: "reads", label: t("connections.editor.imageInput.reads") },
+                  { value: "text", label: t("connections.editor.imageInput.text") },
+                ]}
+              />
             </FieldGroup>
           )}
 
@@ -3715,25 +3729,27 @@ export function ConnectionEditor({
 
           {supportsGptImageQuality && (
             <FieldGroup label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}>
-              <select
+              <Select
+                label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}
                 value={effectiveImageGenerationQuality}
-                onChange={(event) => {
-                  setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
+                onChange={(next) => {
+                  setLocalImageGenerationQuality(next as ImageGenerationQuality);
                   markDirty();
                 }}
                 className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-              >
-                <option value="auto">{localizeUi("ui.connections.connectioneditor.imageQualityAuto")}</option>
-                <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
-                <option value="medium">{localizeUi("ui.connections.connectioneditor.imageQualityMedium")}</option>
-                <option value="high">{localizeUi("ui.connections.connectioneditor.imageQualityHigh")}</option>
-                {isOpenAIGptImage25Model(localModel) && (
-                  <>
-                    <option value="xhigh">{localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh")}</option>
-                    <option value="max">{localizeUi("ui.connections.connectioneditor.imageQualityMax")}</option>
-                  </>
-                )}
-              </select>
+                options={[
+                  { value: "auto", label: localizeUi("ui.connections.connectioneditor.imageQualityAuto") },
+                  { value: "low", label: localizeUi("ui.connections.connectioneditor.imageQualityLow") },
+                  { value: "medium", label: localizeUi("ui.connections.connectioneditor.imageQualityMedium") },
+                  { value: "high", label: localizeUi("ui.connections.connectioneditor.imageQualityHigh") },
+                  ...(isOpenAIGptImage25Model(localModel)
+                    ? [
+                        { value: "xhigh", label: localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh") },
+                        { value: "max", label: localizeUi("ui.connections.connectioneditor.imageQualityMax") },
+                      ]
+                    : []),
+                ]}
+              />
             </FieldGroup>
           )}
 
@@ -3860,21 +3876,19 @@ export function ConnectionEditor({
           {/* ── Prompt Preset Override ── */}
           {!isMediaGenerationProvider && (
             <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
-              <select
+              <Select
+                label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}
                 value={localPromptPresetId}
-                onChange={(e) => {
-                  setLocalPromptPresetId(e.target.value);
+                onChange={(next) => {
+                  setLocalPromptPresetId(next);
                   markDirty();
                 }}
                 className="mari-preset-native-select mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-              >
-                <option value="">{localizeUi("ui.connections.connectioneditor.useChatSPromptPreset")}</option>
-                {(allPresets ?? []).map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: localizeUi("ui.connections.connectioneditor.useChatSPromptPreset") },
+                  ...(allPresets ?? []).map((preset) => ({ value: preset.id, label: preset.name })),
+                ]}
+              />
             </FieldGroup>
           )}
 
@@ -4007,14 +4021,15 @@ export function ConnectionEditor({
                   className="p-1"
                 />
                 {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
-                  <label className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
                       value={localVideoDefaults.seedance.temporaryPublicReferenceUploadExpiry}
-                      onChange={(event) => {
-                        const expiry = event.target.value as VideoReferenceUploadExpiry;
+                      onChange={(next) => {
+                        const expiry = next as VideoReferenceUploadExpiry;
                         setLocalVideoDefaults(
                           sanitizeVideoGenerationProfile({
                             ...localVideoDefaults,
@@ -4028,14 +4043,9 @@ export function ConnectionEditor({
                         markDirty();
                       }}
                       className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
-                    >
-                      {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      options={VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS}
+                    />
+                  </div>
                 )}
                 <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
                   {localizeUi("ui.connections.connectioneditor.keepThisOffIfYouDoNotWantLocal")}
@@ -4450,7 +4460,7 @@ function ImageGenerationDefaultsPanel({
                 max={4_294_967_295}
                 onCommit={updateSeed}
               />
-              <label className="flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
+              <div className="flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
@@ -4465,25 +4475,23 @@ function ImageGenerationDefaultsPanel({
                     </button>
                   )}
                 </div>
-                <select
+                <Select
+                  label={localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
                   value={value.styleProfileId ?? ""}
-                  onChange={(event) => updateStyleProfile(event.target.value)}
+                  onChange={updateStyleProfile}
                   className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
-                >
-                  <option value="">{localizeUi("ui.connections.imagegenerationdefaultspanel.useGlobalDefault")}</option>
-                  {styleProfiles.profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: localizeUi("ui.connections.imagegenerationdefaultspanel.useGlobalDefault") },
+                    ...styleProfiles.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+                  ]}
+                />
                 {suggestedStyleProfile && (
                   <span className="text-[0.55rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.suggestedFromModelSource")}{" "}
                     {suggestedStyleProfile.name}
                   </span>
                 )}
-              </label>
+              </div>
               {service === "automatic1111" ? (
                 <>
                   <NumberSetting
@@ -5043,11 +5051,12 @@ function VideoGenerationDefaultsPanel({
                       onCommit={(fps) => updateComfyUi({ fps })}
                     />
                   )}
-                  <label className="block">
+                  <div className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                       value={
                         service === "xai"
                           ? value.xai.aspectRatio
@@ -5061,8 +5070,8 @@ function VideoGenerationDefaultsPanel({
                                   ? value.comfyui.aspectRatio
                                   : value.openrouter.aspectRatio
                       }
-                      onChange={(event) => {
-                        const aspectRatio = event.target.value === "9:16" ? "9:16" : "16:9";
+                      onChange={(next) => {
+                        const aspectRatio = next === "9:16" ? "9:16" : "16:9";
                         if (service === "xai") updateXai({ aspectRatio });
                         else if (service === "google_veo") updateGoogleVeo({ aspectRatio });
                         else if (service === "atlas") updateAtlas({ aspectRatio });
@@ -5071,16 +5080,18 @@ function VideoGenerationDefaultsPanel({
                         else updateOpenRouter({ aspectRatio });
                       }}
                       className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                    >
-                      <option value="16:9">16:9</option>
-                      <option value="9:16">9:16</option>
-                    </select>
-                  </label>
-                  <label className="block">
+                      options={[
+                        { value: "16:9", label: "16:9" },
+                        { value: "9:16", label: "9:16" },
+                      ]}
+                    />
+                  </div>
+                  <div className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.videogenerationdefaultspanel.resolution")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.connections.videogenerationdefaultspanel.resolution")}
                       value={
                         service === "xai"
                           ? value.xai.resolution
@@ -5094,8 +5105,8 @@ function VideoGenerationDefaultsPanel({
                                   ? value.comfyui.resolution
                                   : value.openrouter.resolution
                       }
-                      onChange={(event) => {
-                        const resolution = event.target.value as VideoResolution;
+                      onChange={(next) => {
+                        const resolution = next as VideoResolution;
                         if (service === "xai") updateXai({ resolution });
                         else if (service === "google_veo") updateGoogleVeo({ resolution });
                         else if (service === "atlas") updateAtlas({ resolution });
@@ -5104,20 +5115,15 @@ function VideoGenerationDefaultsPanel({
                         else updateOpenRouter({ resolution });
                       }}
                       className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                    >
-                      {VIDEO_RESOLUTION_OPTIONS.filter(
+                      options={VIDEO_RESOLUTION_OPTIONS.filter(
                         (option) =>
                           (service !== "google_veo" || option.value !== "480p") &&
                           (service !== "comfyui" || option.value !== "1080p") &&
                           (option.value !== "768p" || !!openRouterLimits?.resolutions.includes("768p")) &&
                           (!openRouterLimits || openRouterLimits.resolutions.includes(option.value)),
-                      ).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      )}
+                    />
+                  </div>
                 </div>
                 {service === "atlas" && (
                   <AtlasCloudModelOptions
@@ -5174,21 +5180,21 @@ function VideoGenerationDefaultsPanel({
                   max={60}
                   onCommit={(durationSeconds) => updateGeminiOmni({ durationSeconds })}
                 />
-                <label className="block">
+                <div className="block">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                   </span>
-                  <select
+                  <Select
+                    label={localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                     value={value.geminiOmni.aspectRatio}
-                    onChange={(event) =>
-                      updateGeminiOmni({ aspectRatio: event.target.value === "9:16" ? "9:16" : "16:9" })
-                    }
+                    onChange={(next) => updateGeminiOmni({ aspectRatio: next === "9:16" ? "9:16" : "16:9" })}
                     className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                  >
-                    <option value="16:9">16:9</option>
-                    <option value="9:16">9:16</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: "16:9", label: "16:9" },
+                      { value: "9:16", label: "9:16" },
+                    ]}
+                  />
+                </div>
               </div>
             )}
           </div>

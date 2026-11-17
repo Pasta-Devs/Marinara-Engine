@@ -38,6 +38,7 @@ import { sortItemsByTokens } from "../../lib/panel-sort";
 import { useUIStore, type CardLibraryKind, type UIState } from "../../stores/ui.store";
 import { useSetLorebooksEnabled } from "../../hooks/use-lorebooks";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { Select } from "../ui/Select";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 import { toast } from "sonner";
 import {
@@ -619,25 +620,26 @@ export function CharacterLibraryView() {
             </div>
 
             <div data-library-toolbar-sort className="relative min-w-0">
-              <select
+              <Select
                 value={sort}
-                onChange={(event) => handleSortChange(event.target.value)}
-                aria-label={localizeUi("ui.panels.agentspanel.sortOrder")}
+                onChange={handleSortChange}
+                label={localizeUi("ui.panels.agentspanel.sortOrder")}
                 className={cn(
                   libraryToolbarFieldClass,
-                  "mari-chrome-sort-field mari-accent-animated !w-full appearance-none pl-2.5 pr-7",
+                  "mari-chrome-sort-field mari-accent-animated !w-full pl-2.5 pr-7 [&>svg]:hidden",
                 )}
-              >
-                <option value="name-asc">{localizeUi("ui.characters.characterlibraryview.nameAZ")}</option>
-                <option value="name-desc">{localizeUi("ui.characters.characterlibraryview.nameZA")}</option>
-                <option value="newest">{localizeUi("ui.characters.characterlibraryview.newest")}</option>
-                <option value="oldest">{localizeUi("ui.characters.characterlibraryview.oldest")}</option>
-                {config.hasFavorites && (
-                  <option value="favorites">{localizeUi("ui.characters.characterlibraryview.favoritesFirst")}</option>
-                )}
-                <option value="tokens-desc">{localizeUi("ui.panels.librarysort.mostTokens")}</option>
-                <option value="tokens-asc">{localizeUi("ui.panels.librarysort.fewestTokens")}</option>
-              </select>
+                options={[
+                  { value: "name-asc", label: localizeUi("ui.characters.characterlibraryview.nameAZ") },
+                  { value: "name-desc", label: localizeUi("ui.characters.characterlibraryview.nameZA") },
+                  { value: "newest", label: localizeUi("ui.characters.characterlibraryview.newest") },
+                  { value: "oldest", label: localizeUi("ui.characters.characterlibraryview.oldest") },
+                  ...(config.hasFavorites
+                    ? [{ value: "favorites", label: localizeUi("ui.characters.characterlibraryview.favoritesFirst") }]
+                    : []),
+                  { value: "tokens-desc", label: localizeUi("ui.panels.librarysort.mostTokens") },
+                  { value: "tokens-asc", label: localizeUi("ui.panels.librarysort.fewestTokens") },
+                ]}
+              />
               <ArrowUpDown
                 size="0.6875rem"
                 className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"

@@ -1,6 +1,7 @@
 import { expect, test, request as createRequest, type CDPSession, type Page, type Locator } from "@playwright/test";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { isSpriteImageFile } from "../packages/client/src/lib/sprite-folder-import.js";
+import { chooseOption } from "./select-field.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 
 async function dispatchTouch(
@@ -127,7 +128,7 @@ test("sprite metadata stays optional and folder moves work without dragging", as
       const dialog = page.getByRole("dialog").last();
       const folder = dialog.getByRole("combobox", { name: "Folder", exact: true });
       await expect(folder).toBeEnabled();
-      await folder.selectOption({ label: "Front" }, { timeout: 10000 });
+      await chooseOption(page, folder, "Front");
       await expect
         .poll(
           async () =>
@@ -136,7 +137,7 @@ test("sprite metadata stays optional and folder moves work without dragging", as
             ).folderId,
         )
         .toBe(folderId);
-      await folder.selectOption("unfiled");
+      await chooseOption(page, folder, "No folder");
       await expect
         .poll(
           async () =>
@@ -865,7 +866,7 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
     releaseFrameSave();
     await expect(details.getByRole("button", { name: "Rename", exact: true })).toBeVisible();
     await page.unroute(`**${path}`);
-    await details.getByRole("combobox", { name: "Folder", exact: true }).selectOption(alternate);
+    await chooseOption(page, details.getByRole("combobox", { name: "Folder", exact: true }), "Alternate");
     await expectFolder("full_idle", alternate);
     await details.getByRole("button", { name: "Delete Sprite", exact: true }).click();
     const singleDelete = page.getByRole("dialog").last();

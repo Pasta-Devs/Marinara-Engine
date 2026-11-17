@@ -17,6 +17,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 const STRATEGY_OPTIONS: Array<{ value: ConvoBehaviorInsertionStrategy; label: string }> = [
   { value: "constant_after", label: "Constant — after the card" },
@@ -282,27 +283,23 @@ export function ConvoProfileFields({
             title={localizeUi("ui.characters.convoprofilefields.convoBehavior")}
             className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
-          <label className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-[var(--muted-foreground)]">
               {localizeUi("ui.characters.convoprofilefields.insertion")}
             </span>
-            <select
+            <Select
+              label={localizeUi("ui.characters.convoprofilefields.insertion")}
               value={behaviorStrategy}
-              onChange={(e) =>
+              onChange={(next) =>
                 onBehaviorChange({
                   instruction: behaviorInstruction,
-                  insertionStrategy: e.target.value as ConvoBehaviorInsertionStrategy,
+                  insertionStrategy: next as ConvoBehaviorInsertionStrategy,
                 })
               }
               className="max-w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
-            >
-              {STRATEGY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={STRATEGY_OPTIONS}
+            />
+          </div>
         </div>
       )}
 

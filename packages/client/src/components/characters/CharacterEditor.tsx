@@ -181,6 +181,7 @@ import { ImageDownloadButton } from "../ui/ImageDownloadButton";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
+import { Select } from "../ui/Select";
 import {
   SHEET_BUTTON_DESTRUCTIVE,
   SHEET_BUTTON_PRIMARY,
@@ -3753,18 +3754,20 @@ function AdvancedTab({
                   className="w-16 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-center text-xs outline-none"
                 />
               </label>
-              <label className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs">
                 <span className="text-[var(--muted-foreground)]">{localizeUi("ui.characters.advancedtab.role")}</span>
-                <select
+                <Select
+                  label={localizeUi("ui.characters.advancedtab.role")}
                   value={depthPrompt.role}
-                  onChange={(e) => updateExtension("depth_prompt", { ...depthPrompt, role: e.target.value })}
+                  onChange={(next) => updateExtension("depth_prompt", { ...depthPrompt, role: next })}
                   className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
-                >
-                  <option value="system">{localizeUi("ui.characters.advancedtab.system")}</option>
-                  <option value="user">{localizeUi("ui.characters.advancedtab.user")}</option>
-                  <option value="assistant">{localizeUi("ui.characters.advancedtab.assistant")}</option>
-                </select>
-              </label>
+                  options={[
+                    { value: "system", label: localizeUi("ui.characters.advancedtab.system") },
+                    { value: "user", label: localizeUi("ui.characters.advancedtab.user") },
+                    { value: "assistant", label: localizeUi("ui.characters.advancedtab.assistant") },
+                  ]}
+                />
+              </div>
             </div>
           }
         />

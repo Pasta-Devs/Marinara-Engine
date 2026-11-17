@@ -22,6 +22,7 @@ import { openAddConnection } from "../../lib/add-connection";
 import { useUIStore } from "../../stores/ui.store";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
 function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
@@ -320,18 +321,17 @@ function LocalSlotControls({
       <label htmlFor={`decision-thinking-${slot}`} className="block text-[0.6875rem] font-medium">
         {t("connections.decision.thinkingLabel")}
       </label>
-      <select
+      <Select
         id={`decision-thinking-${slot}`}
+        label={t("connections.decision.thinkingLabel")}
         value={entry.thinking ?? "auto"}
-        onChange={(event) => onThinking(event.target.value as DecisionThinkingMode)}
+        onChange={(next) => onThinking(next as DecisionThinkingMode)}
         className="w-full rounded-lg bg-foreground/[0.06] px-3 py-2 text-sm ring-1 ring-[var(--border)]"
-      >
-        {DECISION_THINKING_MODES.map((mode) => (
-          <option key={mode} value={mode}>
-            {t(`connections.decision.thinking.${mode}`)}
-          </option>
-        ))}
-      </select>
+        options={DECISION_THINKING_MODES.map((mode) => ({
+          value: mode,
+          label: t(`connections.decision.thinking.${mode}`),
+        }))}
+      />
 
       {entry.answerStyle !== "unknown" && (
         <p className="text-[0.625rem] text-[var(--muted-foreground)]">

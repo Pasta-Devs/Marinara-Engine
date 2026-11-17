@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field";
 import { seedUIState } from "./ui-state-fixture";
 
 const appVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -61,13 +62,17 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
   try {
     await page.goto("/");
     const editor = await openPreset(page, preset.id);
-    await editor.getByRole("combobox", { name: "Scoped regex default", exact: true }).selectOption("exclusive");
+    await chooseOption(page, editor.getByRole("combobox", { name: "Scoped regex default", exact: true }), "Exclusive");
     await editor.getByRole("button", { name: "Save", exact: true }).click();
     await expect(editor.getByText("Changes saved", { exact: true })).toBeVisible();
     await expect
       .poll(async () => (await (await request.get(`/api/prompts/${preset.id}`)).json()).scopedRegexMode)
       .toBe("exclusive");
-    await editor.getByRole("combobox", { name: "Add existing script", exact: true }).selectOption(script.id);
+    await chooseOption(
+      page,
+      editor.getByRole("combobox", { name: "Add existing script", exact: true }),
+      "Existing scoped fixture",
+    );
     await expect(editor.locator(".mari-editor-title-input")).toHaveValue("Existing scoped fixture");
     // Binding remains a draft until Save, rather than changing a global script on selection.
     expect(
@@ -78,8 +83,15 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
     ).toEqual(["other-preset"]);
     await editor.getByRole("button", { name: /^Back to/ }).click();
     await editor.getByRole("button", { name: "Discard", exact: true }).click();
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
-    await editor.getByRole("combobox", { name: "Add existing script", exact: true }).selectOption(script.id);
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
+    await chooseOption(
+      page,
+      editor.getByRole("combobox", { name: "Add existing script", exact: true }),
+      "Existing scoped fixture",
+    );
     await expect(editor.locator(".mari-editor-title-input")).toHaveValue("Existing scoped fixture");
     await page.route(`**/api/regex-scripts/${script.id}`, (route) =>
       route.fulfill({ status: 500, json: { error: "Synthetic save failure" } }),
@@ -134,11 +146,17 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
     expect(JSON.parse(created.targetPromptPresetIds)).toEqual([preset.id]);
     await editor.getByRole("button", { name: /^Back to/ }).click();
     await expect(editor.getByRole("button", { name: "Created in preset fixture" })).toBeVisible();
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
     await testInfo.attach("preset-regex-editor", { body: await page.screenshot(), contentType: "image/png" });
     await page.reload();
     await openPreset(page, preset.id);
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
   } finally {
     await Promise.all(scriptIds.map((id) => request.delete(`/api/regex-scripts/${id}`)));
     await request.delete(`/api/prompts/${preset.id}`);

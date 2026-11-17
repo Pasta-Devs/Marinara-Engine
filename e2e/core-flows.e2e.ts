@@ -5661,7 +5661,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     await expect(aboutMe).toHaveValue("alpha\nbeta");
     await expect(fields.getByRole("button", { name: "AI Write", exact: true })).toHaveCount(0);
     await expect(fields.getByRole("button", { name: "AI Write sources", exact: true })).toHaveCount(0);
-    await expect(fields.locator("select")).toHaveCount(1);
+    await expect(fields.getByRole("combobox")).toHaveCount(1);
 
     await aboutMe.evaluate((textarea: HTMLTextAreaElement) => {
       textarea.focus();
@@ -10881,7 +10881,7 @@ test("preset token counters stay localized and editable with malformed marker se
     for (const name of Object.keys(brokenConfigs)) {
       const card = cards.filter({ hasText: name });
       await card.locator("[data-preset-section-toggle]").click();
-      await expect(card.locator("[data-preset-section-position]")).toBeVisible();
+      await expect(card.locator('[id^="preset-section-position-"]')).toBeVisible();
       await expect(card.locator("textarea")).toHaveCount(0);
       await card.locator("[data-preset-section-toggle]").click();
     }
@@ -10890,7 +10890,7 @@ test("preset token counters stay localized and editable with malformed marker se
       await card.locator("[data-preset-section-toggle]").click();
       // #8625 shows the same count in the section's header badge, so read the field's own counter.
       await expect(card.locator("p", { hasText: /^約3トークン$/u })).toBeVisible();
-      await expect(card.locator("[data-preset-section-position]")).toBeVisible();
+      await expect(card.locator('[id^="preset-section-position-"]')).toBeVisible();
       if (name === "Agent marker") await card.locator("[data-preset-section-toggle]").click();
     }
     const prompt = cards.filter({ hasText: "CJK prompt" });
@@ -11175,9 +11175,9 @@ test("mobile roleplay quick preset editor keeps marker and metadata controls com
 
     await markerSection.locator("[data-preset-section-toggle]").click();
     for (const selector of [
-      "[data-preset-section-role]",
-      "[data-preset-section-position]",
-      "[data-preset-section-group]",
+      '[id^="preset-section-role-"]',
+      '[id^="preset-section-position-"]',
+      '[id^="preset-section-group-"]',
     ]) {
       const control = markerSection.locator(selector);
       await expect(control).toBeVisible();
@@ -15684,16 +15684,15 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     await expect(speechModel).toBeVisible();
     await expect(dictation.getByRole("button", { name: "Download Whisper" })).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
-      const speechSelect = dictation
-        .locator("select")
-        .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
+      const speechSelect = dictation.getByRole("combobox").filter({ visible: true });
       await expect(speechSelect).toBeVisible();
       const spacing = await speechSelect.evaluate((element) => {
         const style = getComputedStyle(element);
         return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight) };
       });
       expect(spacing.left).toBeGreaterThanOrEqual(8);
-      expect(spacing.right).toBeGreaterThanOrEqual(24);
+      // The arrow is a flex sibling of the text in the shared Select, so the field no longer reserves room for an overlay.
+      expect(spacing.right).toBeGreaterThanOrEqual(8);
       await speechSelect.scrollIntoViewIfNeeded();
       await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
         body: await page.screenshot(),
