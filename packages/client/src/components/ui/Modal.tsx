@@ -3,7 +3,16 @@
 // Uses CSS animations instead of framer-motion to
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -77,6 +86,58 @@ interface ModalProps {
   backdrop?: "blur" | "dark" | "solid" | "none";
 }
 
+const NO_DOCKED_SIDEBAR = { left: 0, right: 0 };
+
+/**
+ * The docked sidebar's width on each side, measured from the shell's one slot while a modeless dialog is open, so the
+ * dialog stays clear of it frame by frame as it slides or is dragged wider. AppShell's published insets wait for the
+ * slide or drag to pause, because writing them restyles the whole app. In sheet mode (phones, tablets) there is no
+ * slot, so both edges keep their 16px.
+ */
+function useDockedSidebarInset(enabled: boolean) {
+  const [inset, setInset] = useState(NO_DOCKED_SIDEBAR);
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    let slot: HTMLElement | null = null;
+    let frame = 0;
+    const measure = () => {
+      const current = document.querySelector<HTMLElement>('[data-component="SidebarSlot"]');
+      if (current !== slot) {
+        sizes.disconnect();
+        sides.disconnect();
+        if (current) {
+          sizes.observe(current);
+          sides.observe(current, { attributes: true, attributeFilter: ["data-sidebar-side"] });
+        }
+        slot = current;
+      }
+      const width = current ? Math.round(current.getBoundingClientRect().width) : 0;
+      const onLeft = current?.dataset.sidebarSide === "left";
+      setInset((previous) =>
+        previous.left === (onLeft ? width : 0) && previous.right === (onLeft ? 0 : width)
+          ? previous
+          : { left: onLeft ? width : 0, right: onLeft ? 0 : width },
+      );
+    };
+    const sizes = new ResizeObserver(measure);
+    const sides = new MutationObserver(measure);
+    // A window resize can switch the shell between docked and sheet: measure after it has rendered.
+    const onResize = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("resize", onResize);
+    return () => {
+      sizes.disconnect();
+      sides.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [enabled]);
+  return enabled ? inset : NO_DOCKED_SIDEBAR;
+}
+
 export function Modal({
   open,
   onClose,
@@ -112,6 +173,7 @@ export function Modal({
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
+  const dockedSidebar = useDockedSidebarInset(modeless);
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
@@ -337,10 +399,9 @@ export function Modal({
       style={{
         ...(modeless
           ? ({
-              // A modeless dialog stays clear of the docked sidebar, on whichever side it is. AppShell publishes its
-              // width per side, and 0 while the shell draws Chats and the panels as a sheet (phones and tablets).
-              "--dialog-left": "calc(var(--mari-chat-ui-inset-left, 0px) + 16px)",
-              "--dialog-right": "calc(var(--mari-chat-ui-inset-right, 0px) + 16px)",
+              // A modeless dialog stays clear of the docked sidebar, on whichever side it is (useDockedSidebarInset).
+              "--dialog-left": `${dockedSidebar.left + 16}px`,
+              "--dialog-right": `${dockedSidebar.right + 16}px`,
             } as CSSProperties)
           : {}),
         opacity: backdropShown ? 1 : 0,
