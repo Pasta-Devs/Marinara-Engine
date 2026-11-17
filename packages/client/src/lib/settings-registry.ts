@@ -868,10 +868,21 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     labelKey: "settings.appearance.sidebarWidth",
     label: "Desktop sidebar width",
     description:
-      "Adjust both desktop sidebars. Their contents adapt to the available space; mobile panels keep their existing layout.",
-    descriptionKey: "settings.appearance.sidebarWidthHelp",
-    aliases: ["sidebar", "width", "resize", "left panel", "right panel"],
+      "Sets the width of the desktop sidebar that holds Chats and the panels. Its contents adapt to the available space; phones and tablets keep their full-screen panels.",
+    descriptionKey: "settings.appearance.oneSidebarWidthHelp",
+    aliases: ["sidebar", "width", "resize", "panel", "chats"],
     kind: "Slider",
+  },
+  {
+    id: "desktop-sidebar-side",
+    sectionId: "app-style",
+    labelKey: "settings.appearance.sidebarSide",
+    label: "Desktop sidebar side",
+    description:
+      "Docks Chats and the panels on the right or left of the window. On the left, the top bar mirrors: the panel buttons move to the left and Home to the right. Phones and tablets keep their layout.",
+    descriptionKey: "settings.appearance.sidebarSideHelp",
+    aliases: ["sidebar", "side", "left", "right", "dock", "panel", "chats", "top bar", "mirror", "flip"],
+    kind: "Button group",
   },
   {
     id: "custom-cursor",

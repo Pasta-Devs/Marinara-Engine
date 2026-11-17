@@ -2156,6 +2156,9 @@
 
 .mari-chrome-segmented {
   display: grid;
+  /* As .mari-chrome-control: a full panel column (Characters' own scroller) must not squeeze the row and its
+     buttons below their height. */
+  flex-shrink: 0;
   min-height: 2.5rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--marinara-chat-chrome-button-border);

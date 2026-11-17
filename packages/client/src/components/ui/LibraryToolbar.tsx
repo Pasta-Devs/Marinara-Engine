@@ -65,6 +65,61 @@ const FOLDER_BUTTON = "mari-chrome-control mari-chrome-control--small flex-1 jus
 const SEGMENTED_BUTTON =
   "mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal";
 
+interface SegmentedButton {
+  label: string;
+  title?: string;
+  icon?: LucideIcon;
+  onClick: () => void;
+  /** A tab of the row (the Presets panel's): its selected state. */
+  pressed?: boolean;
+}
+
+/**
+ * One long button split by "|": Download | Open Library, and the Presets panel's Prompts | Regexes | Tools |
+ * Profiles, so every panel's top row has the same height and look.
+ */
+export function SegmentedButtons({
+  buttons,
+  dataComponent,
+  groupLabel,
+}: {
+  buttons: SegmentedButton[];
+  dataComponent?: string;
+  /** Names the row as a group of tabs. */
+  groupLabel?: string;
+}) {
+  return (
+    <div
+      className={cn("mari-chrome-segmented", buttons.length === 2 && "mari-chrome-segmented--two")}
+      data-component={dataComponent}
+      role={groupLabel ? "group" : undefined}
+      aria-label={groupLabel}
+      // The unlayered .mari-chrome-segmented rule beats grid-cols-* utilities.
+      style={{ gridTemplateColumns: `repeat(${buttons.length}, minmax(0, 1fr))` }}
+    >
+      {buttons.map(({ label, title, icon: Icon, onClick, pressed }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={onClick}
+          className={SEGMENTED_BUTTON}
+          title={title ?? label}
+          aria-pressed={pressed}
+        >
+          {Icon ? (
+            <span className="shrink-0 leading-none">
+              <Icon size="0.875rem" />
+            </span>
+          ) : null}
+          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
+            {label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The toolbar every library panel shares (Characters, Personas, Lorebooks, Agents and the Presets panel's tabs):
  * an optional library row, create / import / export / select, search with sort, New Folder, then filters.
@@ -86,29 +141,11 @@ export function LibraryToolbar({
   const importInputRef = useRef<HTMLInputElement>(null);
   const importBlocked = Boolean(importAction.disabledReason);
 
-  const renderLibraryButton = ({ label, title, icon: Icon, onClick }: LibraryRowButton) => (
-    <button type="button" onClick={onClick} className={SEGMENTED_BUTTON} title={title ?? label}>
-      <span className="shrink-0 leading-none">
-        <Icon size="0.875rem" />
-      </span>
-      <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-        {label}
-      </span>
-    </button>
-  );
-
   return (
     <>
       {library &&
         (library.openLibrary ? (
-          <div
-            className="mari-chrome-segmented mari-chrome-segmented--two"
-            data-component={library.dataComponent}
-            style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-          >
-            {renderLibraryButton(library.download)}
-            {renderLibraryButton(library.openLibrary)}
-          </div>
+          <SegmentedButtons buttons={[library.download, library.openLibrary]} dataComponent={library.dataComponent} />
         ) : (
           <button
             type="button"

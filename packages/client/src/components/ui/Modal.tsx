@@ -21,7 +21,7 @@ import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { useUIStore } from "../../stores/ui.store";
+import { selectOneSidebarOpen, selectSharedSidebarWidth, useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ModalProps {
@@ -93,10 +93,9 @@ export function Modal({
   modeless = false,
   topLayer = false,
 }: ModalProps) {
-  const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
-  const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
-  const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
-  const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
+  // A modeless dialog stays clear of the one sidebar, on whichever side it is docked.
+  const sidebarInset = useUIStore((s) => (modeless && selectOneSidebarOpen(s) ? selectSharedSidebarWidth(s) : 0));
+  const sidebarOnLeft = useUIStore((s) => s.sidebarSide === "left");
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
@@ -322,8 +321,8 @@ export function Modal({
       style={{
         ...(modeless
           ? ({
-              "--dialog-left": `${sidebarOpen ? sidebarWidth + 16 : 16}px`,
-              "--dialog-right": `${rightPanelOpen ? rightPanelWidth + 16 : 16}px`,
+              "--dialog-left": `${(sidebarOnLeft ? sidebarInset : 0) + 16}px`,
+              "--dialog-right": `${(sidebarOnLeft ? 0 : sidebarInset) + 16}px`,
             } as CSSProperties)
           : {}),
         opacity: backdropShown ? 1 : 0,
