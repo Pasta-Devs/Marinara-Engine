@@ -32,6 +32,13 @@ const cases: RegressionCase[] = [
         changed: true,
       });
       assert.equal(rewriteStickerNamesWrittenAsEmojis(":hug: :hug:", stickers, emojis).text, "sticker:hug:");
+      // Only the duplicate goes: hard breaks, indentation and blank lines elsewhere stay as written.
+      const formatted =
+        "line one  \nline two\n\n```\n    code\n```\n\n\nsticker:hug:\n:hug:\nend :wave: sticker:wave: :hug: bye";
+      assert.equal(
+        rewriteStickerNamesWrittenAsEmojis(formatted, new Set(["hug", "wave"]), new Set()).text,
+        "line one  \nline two\n\n```\n    code\n```\n\n\nsticker:hug:\nend sticker:wave: bye",
+      );
     },
   },
   {

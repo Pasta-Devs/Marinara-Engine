@@ -10915,7 +10915,7 @@
   "ui.chat.customemojiselectionsettings.offersARandomSetForEachReply": "Offers a random set for each reply.",
   "ui.chat.customemojiselectionsettings.offersTheEmojisAndStickersMostRelevantToThe": "Offers the emojis and stickers most relevant to the recent conversation (falls back to random if the local embedder is unavailable).",
   "ui.chat.customemojiselectionsettings.selectAConnection": "Select a model…",
-  "ui.chat.customemojiselectionsettings.visionHelp": "Models that read images get one picture sheet of the custom emojis and stickers in the chat, so they know what each one looks like. It costs a few hundred input tokens a reply, and does nothing when the chat's model can't read images or Image captioning is on.",
+  "ui.chat.customemojiselectionsettings.visionHelp": "Models that read images get one picture sheet of the custom emojis and stickers in the chat, so they know what each one looks like. It costs a few hundred input tokens a reply, and does nothing when the chat's model can't read images or Image captioning is on. A sheet holds up to 30 emojis and 12 stickers, the ones in the chat first.",
   "ui.chat.customemojiselectionsettings.visionLast": "Last message",
   "ui.chat.customemojiselectionsettings.visionOff": "Off",
   "ui.chat.customemojiselectionsettings.visionOfferedCount": "Offered ones on the sheet",

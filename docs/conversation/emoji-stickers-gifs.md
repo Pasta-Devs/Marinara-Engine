@@ -110,7 +110,7 @@ Normally the model sees only the names of your custom emojis and stickers. If th
 - **Last message**: shows the custom emojis and stickers in the newest message.
 - **Recent**: shows the ones in the last few messages. **Messages to look at** sets how many, from 2 to 20. The default is 6.
 
-**Offered ones on the sheet** adds that many of the offered emojis and that many of the offered stickers to the pictures, from 0 to 30. The default is 6.
+**Offered ones on the sheet** adds that many of the offered emojis and that many of the offered stickers to the pictures, from 0 to 30. The default is 6. A sheet holds up to 30 emojis and 12 stickers; the ones from the chat come first, so the offered ones fill whatever room is left.
 
 The model gets one picture of numbered emojis and one of numbered stickers each reply, with the exact names in text. This costs extra input tokens each reply (tokens are the small pieces of text and images a service charges for), roughly 1,000 with the defaults. It does nothing when the chat's model cannot read images or **Image captioning** is on. If the model refuses images, Marinara sends the names only.
 
