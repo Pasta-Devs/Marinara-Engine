@@ -14,6 +14,7 @@ import { downloadJsonFile } from "../../lib/download-json";
 import { cn } from "../../lib/utils";
 import { translate } from "../../localization/i18n";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { Select } from "../ui/Select";
 import { ColorPicker } from "../ui/ColorPicker";
 import { AgentSettingsActionButton } from "../chat/AgentSettingsControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -494,18 +495,14 @@ export function GameWidgetSetupEditor({
           {normalizedWidgets.length}/{MAX_GAME_SETUP_WIDGETS} {localizeUi("ui.game.gamewidgetsetupeditor.widgets")}
         </span>
         <div className="flex min-w-0 items-center gap-2">
-          <select
+          <Select
+            label={localizeUi("ui.panels.gameassetssettings.type")}
             value={newWidgetType}
-            onChange={(event) => setNewWidgetType(event.target.value as HudWidgetType)}
+            onChange={(next) => setNewWidgetType(next as HudWidgetType)}
             disabled={disabled || !canAddWidget}
             className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] disabled:opacity-50"
-          >
-            {WIDGET_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {formatWidgetTypeLabel(type)}
-              </option>
-            ))}
-          </select>
+            options={WIDGET_TYPES.map((type) => ({ value: type, label: formatWidgetTypeLabel(type) }))}
+          />
           <AgentSettingsActionButton
             type="button"
             variant="primary"
@@ -557,23 +554,19 @@ export function GameWidgetSetupEditor({
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                   />
                 </label>
-                <label className="space-y-1">
+                <div className="space-y-1">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.panels.gameassetssettings.type")}
                   </span>
-                  <select
+                  <Select
+                    label={localizeUi("ui.panels.gameassetssettings.type")}
                     value={widget.type}
                     disabled={disabled}
-                    onChange={(event) => replaceWidget(widget.id, { type: event.target.value as HudWidgetType })}
+                    onChange={(next) => replaceWidget(widget.id, { type: next as HudWidgetType })}
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-                  >
-                    {WIDGET_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {formatWidgetTypeLabel(type)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={WIDGET_TYPES.map((type) => ({ value: type, label: formatWidgetTypeLabel(type) }))}
+                  />
+                </div>
                 <div className="flex gap-1.5">
                   <button
                     type="button"
@@ -618,24 +611,24 @@ export function GameWidgetSetupEditor({
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                   />
                 </label>
-                <label className="space-y-1">
+                <div className="space-y-1">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.game.gamewidgetsetupeditor.side")}
                   </span>
-                  <select
+                  <Select
+                    label={localizeUi("ui.game.gamewidgetsetupeditor.side")}
                     value={widget.position}
                     disabled={disabled}
-                    onChange={(event) =>
-                      replaceWidget(widget.id, {
-                        position: event.target.value === "hud_right" ? "hud_right" : "hud_left",
-                      })
+                    onChange={(next) =>
+                      replaceWidget(widget.id, { position: next === "hud_right" ? "hud_right" : "hud_left" })
                     }
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-                  >
-                    <option value="hud_left">{localizeUi("ui.game.gamewidgetsetupeditor.leftHud")}</option>
-                    <option value="hud_right">{localizeUi("ui.game.gamewidgetsetupeditor.rightHud")}</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: "hud_left", label: localizeUi("ui.game.gamewidgetsetupeditor.leftHud") },
+                      { value: "hud_right", label: localizeUi("ui.game.gamewidgetsetupeditor.rightHud") },
+                    ]}
+                  />
+                </div>
                 <ColorPicker
                   opacity={false}
                   compact

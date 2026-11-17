@@ -13,6 +13,7 @@ import {
   type HeatmapCell,
 } from "../../lib/chat-insights-display";
 import { SectionTitle, StatTile } from "./ChatStatsModal";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const LEVEL_CLASSES: Record<HeatmapCell["level"], string> = {
@@ -56,19 +57,16 @@ function ActivityHeatmap({ overview }: { overview: ActivityOverview }) {
         <SectionTitle>
           {t("chatInsights.activity.heatmap", { count: grid.total, value: grid.total.toLocaleString() })}
         </SectionTitle>
-        <select
+        <Select
           value={String(selection)}
-          onChange={(event) => setSelection(event.target.value === "recent" ? "recent" : Number(event.target.value))}
-          aria-label={t("chatInsights.activity.range")}
+          onChange={(next) => setSelection(next === "recent" ? "recent" : Number(next))}
+          label={t("chatInsights.activity.range")}
           className="mb-2 ml-auto h-8 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-        >
-          <option value="recent">{t("chatInsights.activity.lastYear")}</option>
-          {years.map((year) => (
-            <option key={year} value={year}>
-              {year}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "recent", label: t("chatInsights.activity.lastYear") },
+            ...years.map((year) => ({ value: String(year), label: String(year) })),
+          ]}
+        />
       </div>
       <div
         ref={scrollRef}

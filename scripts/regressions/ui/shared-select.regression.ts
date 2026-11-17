@@ -2,6 +2,7 @@
 // options and stop at the ends, and a letter jumps to the next option starting with it, like a native select.
 import assert from "node:assert/strict";
 import {
+  groupSelectOptions,
   SELECT_SEARCH_MIN,
   stepSelectOption,
   typeAheadSelectOption,
@@ -34,6 +35,35 @@ assert.equal(typeAheadSelectOption(options, "bottom", "B"), "beside");
 assert.equal(typeAheadSelectOption(options, "beside", "b"), "bottom");
 assert.equal(typeAheadSelectOption(options, "top", "m"), undefined);
 assert.equal(typeAheadSelectOption(options, null, "t"), "top");
+
+// Group headers: consecutive options share one header, ungrouped ones stay loose, headers are never options.
+const grouped = [
+  { value: "none", label: "None" },
+  { value: "a", label: "Alpha", group: "Local" },
+  { value: "b", label: "Beta", group: "Local" },
+  { value: "c", label: "Gamma", group: "Remote" },
+];
+assert.deepEqual(
+  groupSelectOptions(grouped).map((run) => [run.group, run.options.map((option) => option.value)]),
+  [
+    [undefined, ["none"]],
+    ["Local", ["a", "b"]],
+    ["Remote", ["c"]],
+  ],
+);
+// After a search only the groups that still have a match keep their header.
+assert.deepEqual(
+  groupSelectOptions(grouped.filter((option) => option.label.includes("a") && option.value !== "a")).map(
+    (run) => run.group,
+  ),
+  ["Local", "Remote"],
+);
+assert.deepEqual(
+  groupSelectOptions(grouped.filter((option) => option.value === "c")).map((run) => run.group),
+  ["Remote"],
+);
+assert.equal(stepSelectOption(grouped, "none", 1), "a");
+assert.equal(stepSelectOption(grouped, "b", 1), "c");
 
 assert.equal(SELECT_SEARCH_MIN, 8, "short lists open without a search box");
 

@@ -10,6 +10,7 @@ import { api } from "../../lib/api-client";
 import { BookOpen, AlertCircle } from "lucide-react";
 import type { LorebookCategory, LorebookScope } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
@@ -127,22 +128,18 @@ export function CreateLorebookModal({
           />
         </label>
 
-        <label className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.lorebooks.lorebookeditor.category")}
           </span>
-          <select
+          <Select
             value={form.category}
-            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as LorebookCategory }))}
+            onChange={(next) => setForm((f) => ({ ...f, category: next as LorebookCategory }))}
+            label={localizeUi("ui.lorebooks.lorebookeditor.category")}
             className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-sm outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)] max-sm:text-base"
-          >
-            {LOREBOOK_CATEGORIES.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={LOREBOOK_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
+          />
+        </div>
 
         {createLorebook.isError && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--destructive)]/10 p-2.5 text-xs text-[var(--destructive)]">

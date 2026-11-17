@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { PNGTUBER_DEFAULT_MOTION } from "@marinara-engine/shared";
 import { tripoMadeVrm } from "../scripts/regressions/fixtures/avatar-3d-fixtures.js";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 // Maintainer decision (2026-10-19): avatars have no Arrange button, Done button or size control on the chat. Chat
@@ -554,7 +555,8 @@ for (const mode of ["roleplay", "game"] as const) {
         await drawer.getByRole("button", { name: "Close Chat Settings" }).first().click();
         await expect(drawer).toHaveCount(0);
       };
-      const pick = (ownerId: string) => avatars.getByRole("combobox", { name: "Avatar" }).selectOption(ownerId);
+      const pick = (ownerId: string) =>
+        chooseOption(page, avatars.getByRole("combobox", { name: "Avatar" }), ownerId === pip.id ? "Pip" : "Maukie");
       const framing = (name: string) => avatars.getByRole("button", { name, exact: true });
 
       await openAvatars();

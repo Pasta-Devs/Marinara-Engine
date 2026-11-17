@@ -57,6 +57,7 @@ import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
 import { ApiError } from "../../lib/api-client";
 import { Spinner } from "../ui/Spinner";
+import { Select } from "../ui/Select";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -804,17 +805,18 @@ export function ConnectionModelPicker({
                         ))}
                       </div>
                     )}
-                    <select
-                      data-model-sort
-                      aria-label={t("connections.modelPicker.sort")}
+                    <Select
+                      label={t("connections.modelPicker.sort")}
+                      searchable={false}
                       value={sort}
-                      onChange={(event) => setSort(event.target.value as ModelSort)}
+                      onChange={(next) => setSort(next as ModelSort)}
                       className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
-                    >
-                      <option value="list">{t("connections.modelPicker.sortList")}</option>
-                      <option value="price">{t("connections.modelPicker.sortPrice")}</option>
-                      <option value="context">{t("connections.modelPicker.sortContext")}</option>
-                    </select>
+                      options={[
+                        { value: "list", label: t("connections.modelPicker.sortList") },
+                        { value: "price", label: t("connections.modelPicker.sortPrice") },
+                        { value: "context", label: t("connections.modelPicker.sortContext") },
+                      ]}
+                    />
                   </div>
                 )}
 

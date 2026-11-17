@@ -9,6 +9,7 @@ import {
   type AvatarExpressionSlot,
 } from "@marinara-engine/shared";
 import { Spinner } from "../../../components/ui/Spinner";
+import { Select } from "../../../components/ui/Select";
 
 const SOURCE_KEYS: Readonly<Record<AvatarExpressionBindingSource, string>> = {
   preset: "avatars.vrm.source.preset",
@@ -103,26 +104,24 @@ export function ExpressionBindings({
             <label htmlFor={id} className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
               {t(`avatars.vrm.slot.${slot}`)}
             </label>
-            <select
+            <Select
               id={id}
+              label={t(`avatars.vrm.slot.${slot}`)}
               value={target}
               disabled={saving}
-              onChange={(event) =>
+              onChange={(next) =>
                 onChange({
                   ...data.expressionMap,
-                  [slot]: { target: event.target.value || null, source: "user", confidence: 1 },
+                  [slot]: { target: next || null, source: "user", confidence: 1 },
                 })
               }
               className="mt-1 min-h-11 w-full rounded-lg bg-[var(--secondary)] px-2.5 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-60 pointer-coarse:text-base"
-            >
-              <option value="">{t("avatars.vrm.expressions.none")}</option>
-              {target && !names.includes(target) ? <option value={target}>{target}</option> : null}
-              {names.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: t("avatars.vrm.expressions.none") },
+                ...(target && !names.includes(target) ? [{ value: target, label: target }] : []),
+                ...names.map((name) => ({ value: name, label: name })),
+              ]}
+            />
             <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               {t(SOURCE_KEYS[binding?.source ?? "missing"])}
             </p>

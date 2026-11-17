@@ -27,6 +27,7 @@ import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-
 import { api } from "../../../lib/api-client";
 import { saveExportUrl } from "../../../lib/file-download";
 import { cn, getAvatarCropStyle } from "../../../lib/utils";
+import { librarySortOptions } from "../../../lib/library-sort-options";
 import { avatarPreviewSrc } from "../../../lib/avatar-preview";
 import {
   filterAndSortBackgrounds,
@@ -1365,11 +1366,14 @@ export function BackgroundPicker({
                     label: localizeUi("dragDrop.manualOrder"),
                     description: localizeUi("dragDrop.manualOrderHelp"),
                   },
-                  { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
-                  { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
-                  { value: "newest", label: localizeUi("ui.panels.backgroundpicker.newest") },
-                  { value: "oldest", label: localizeUi("ui.panels.backgroundpicker.oldest") },
+                  ...librarySortOptions<BackgroundLibrarySort>(localizeUi, {
+                    az: "name-asc",
+                    za: "name-desc",
+                    newest: "newest",
+                    oldest: "oldest",
+                  }),
                 ]}
+                searchable={false}
                 // Character backgrounds are grouped by owner, so the library sort does not apply.
                 disabled={sourceFilter === "characters"}
                 onChange={(value) => {

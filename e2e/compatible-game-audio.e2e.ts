@@ -4,6 +4,7 @@ import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { chooseConnection } from "./connection-picker.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -423,10 +424,11 @@ for (const theme of ["dark", "light"] as const) {
       const format = editor.getByRole("combobox", { name: "Generation API format", exact: true });
       const musicPath = editor.getByLabel("Music endpoint path", { exact: true });
       const sfxPath = editor.getByLabel("Sound-effect endpoint path", { exact: true });
-      await expect(format).toHaveValue("binary");
+      await expect(format).toHaveAttribute("data-value", "binary");
       if (info.project.name.startsWith("mobile-")) {
         const typography = await Promise.all(
-          [format, musicPath, sfxPath].map((control) =>
+          // The format field is a button now, which iOS never zooms for; only the text inputs need the 16px floor.
+          [musicPath, sfxPath].map((control) =>
             control.evaluate((element) => ({
               coarsePointer: matchMedia("(pointer: coarse)").matches,
               rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
@@ -445,7 +447,7 @@ for (const theme of ["dark", "light"] as const) {
         });
       }
       // #8456 removed the compatible server's help text; its format and endpoint fields are checked above.
-      await format.selectOption("chat_completions");
+      await chooseOption(page, format, "Chat Completions → inline audio (ACE-Step compatible)");
       await musicPath.fill("chat/completions");
       await sfxPath.fill("audio/generations");
       await editor.getByText("Sound-effect generation", { exact: true }).click();
@@ -468,7 +470,8 @@ for (const theme of ["dark", "light"] as const) {
 
       await page.reload();
       editor = await openConnection(page, id);
-      await expect(editor.getByRole("combobox", { name: "Generation API format", exact: true })).toHaveValue(
+      await expect(editor.getByRole("combobox", { name: "Generation API format", exact: true })).toHaveAttribute(
+        "data-value",
         "chat_completions",
       );
       await expect(editor.getByLabel("Music endpoint path", { exact: true })).toHaveValue("chat/completions");

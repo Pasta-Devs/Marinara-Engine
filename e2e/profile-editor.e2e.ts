@@ -61,13 +61,25 @@ test("profile editor keeps library navigation accessible and saves native select
     await expect(editor.getByLabel("Persona", { exact: true }).locator("../..")).toHaveClass(/border-dashed/);
     await expect(editor).not.toHaveAttribute("aria-modal", "true");
     await expect(editor.getByText("Library", { exact: true })).toHaveCount(0);
-    await editor.getByLabel("Persona", { exact: true }).selectOption(persona.id);
-    await expect(editor.getByLabel("Lorebooks", { exact: true })).toHaveAttribute("multiple", "");
-    const tools = editor.getByRole("group", { name: "Tools", exact: true });
-    await tools.getByRole("checkbox", { name: "roll_dice", exact: true }).check();
-    await tools.getByRole("checkbox", { name: "set_expression", exact: true }).check();
-    await tools.getByRole("checkbox", { name: "roll_dice", exact: true }).uncheck();
-    await expect(tools.getByRole("checkbox", { name: "set_expression", exact: true })).toBeChecked();
+    // Persona and Lorebooks are the shared picker fields, not native selects.
+    const personaField = editor.getByLabel("Persona", { exact: true });
+    const personaPicker = page.getByRole("dialog", { name: "Persona", exact: true });
+    await personaField.click();
+    await personaPicker.getByRole("button", { name: new RegExp(personaName) }).click();
+    await expect(personaPicker).toHaveCount(0);
+    await expect(personaField).toContainText(personaName);
+    await expect(editor.getByLabel("Lorebooks", { exact: true })).toBeVisible();
+    // The Tools slot opens the shared multi-pick window; a tick applies at once.
+    await editor.getByText("Choose tools", { exact: true }).click();
+    const tools = page.getByRole("dialog", { name: /^Tools/ });
+    const toolRow = (name: string) => tools.locator("[data-pick-row]").filter({ hasText: name });
+    await toolRow("roll_dice").click();
+    await toolRow("set_expression").click();
+    await toolRow("roll_dice").click();
+    await expect(toolRow("set_expression")).toHaveAttribute("aria-pressed", "true");
+    await expect(toolRow("roll_dice")).toHaveAttribute("aria-pressed", "false");
+    await page.keyboard.press("Escape");
+    await expect(tools).toHaveCount(0);
     // The same topbar action must remain clickable while the editor stays open.
     if (testInfo.project.name.includes("desktop")) {
       await clickTopbarPanel(page, "personas");
@@ -104,9 +116,11 @@ test("profile editor keeps library navigation accessible and saves native select
       await expect(editor).toBeVisible();
       await expect(editor.getByLabel("Profile name", { exact: true })).toHaveValue("Escape-safe draft");
       // Clear first, then exercise the real sidebar drag path.
-      await editor.getByLabel("Persona", { exact: true }).selectOption("");
+      await personaField.click();
+      await personaPicker.getByRole("button", { name: /^None/ }).click();
+      await expect(personaField).not.toContainText(personaName);
       await source.dragTo(editor.getByLabel("Persona", { exact: true }), { timeout: 10_000 });
-      await expect(editor.getByLabel("Persona", { exact: true })).toHaveValue(persona.id);
+      await expect(personaField).toContainText(personaName);
     }
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 900 });
@@ -142,17 +156,27 @@ test("profile editor keeps library navigation accessible and saves native select
       if (!saved) throw new Error("Expected the saved profile");
       const defaultProfile = profiles.find((profile) => profile.isDefault);
       if (!defaultProfile) throw new Error("Expected the default profile");
-      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(saved.id);
+      // The Profile field is the shared profile picker: open it and pick the row by its name.
+      const profileField = reopenedSettings.getByLabel("Profile", { exact: true });
+      // The open profile editor may cover the field, so open it from the keyboard, as a user would.
+      const pickProfile = async (profile: { id: string; name: string }) => {
+        await profileField.focus();
+        await page.keyboard.press("Enter");
+        const picker = page.getByRole("dialog", { name: "Profile", exact: true });
+        await picker.locator("[data-pick-row]").filter({ hasText: profile.name }).first().click();
+        await expect(picker).toHaveCount(0);
+        await expect(profileField).toContainText(profile.name);
+      };
+      await pickProfile(saved);
       await expect(reopenedSettings.getByTitle("Edit this profile's slots")).toBeEnabled();
       await reopenedSettings.getByTitle("Edit this profile's slots").click();
       const editDialog = page.getByRole("dialog", { name: "Edit settings profile", exact: true });
       await editDialog.getByLabel("Profile name", { exact: true }).fill("Pinned draft");
-      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(defaultProfile.id);
-      await expect(reopenedSettings.getByLabel("Profile", { exact: true })).toHaveValue(defaultProfile.id);
+      await pickProfile(defaultProfile);
       await expect(editDialog.getByLabel("Profile name", { exact: true })).toHaveValue("Pinned draft");
       await editDialog.getByLabel("Profile name", { exact: true }).press("Escape");
       await expect(editDialog).toBeHidden();
-      await reopenedSettings.getByLabel("Profile", { exact: true }).selectOption(saved.id);
+      await pickProfile(saved);
       await reopenedSettings.getByTitle("Edit this profile's slots").click();
       await editDialog.getByLabel("Profile name", { exact: true }).fill("Deleted profile draft");
       await reopenedSettings.getByTitle("Delete profile", { exact: true }).click({ timeout: 10_000 });

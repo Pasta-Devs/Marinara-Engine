@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { trackPageFetches, waitForPageFetchesToSettle } from "./page-fetch-fixture.js";
+import { chooseOption, pickerLabels } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string })
@@ -74,8 +75,8 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
   try {
     await page.goto("/");
     await openConnection(page, id);
-    await expect(quality).toHaveValue("high");
-    await expect(quality.locator("option")).toHaveCount(4);
+    await expect(quality).toHaveAttribute("data-value", "high");
+    expect(await pickerLabels(page, quality)).toHaveLength(4);
     await screenshot("legacy-gpt-image-2-dark");
 
     for (const [model, value, label] of [
@@ -83,12 +84,12 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
       ["gpt-image-2.5-sunburst", "max", "Max"],
     ] as const) {
       await selectModel(model);
-      await expect(quality.locator("option")).toHaveCount(6);
-      await quality.selectOption({ label });
+      expect(await pickerLabels(page, quality)).toHaveLength(6);
+      await chooseOption(page, quality, label);
       await save(model, value);
       await reload();
       await openConnection(page, id);
-      await expect(quality).toHaveValue(value);
+      await expect(quality).toHaveAttribute("data-value", value);
       await screenshot(`${model}-dark`);
 
       const preview = await request.post("/api/sprites/generate-sheet/preview", {
@@ -117,8 +118,8 @@ test("GPT Image 2.5 quality persists and sprite previews retain transparent expr
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
     await selectModel("gpt-image-2");
-    await expect(quality.locator("option")).toHaveCount(4);
-    await expect(quality).toHaveValue("auto");
+    expect(await pickerLabels(page, quality)).toHaveLength(4);
+    await expect(quality).toHaveAttribute("data-value", "auto");
     await save("gpt-image-2", "auto");
 
     await page.route(`**/api/connections/${id}`, async (route) => {

@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { Select } from "../ui/Select";
 
 export const AGENT_SETTINGS_SURFACE_CLASS = "border border-[var(--border)] bg-[var(--secondary)]/70";
 
@@ -369,7 +370,7 @@ export function MediaScopeSelect({
   const value: MediaScope = images ? (videos ? "both" : "images") : videos ? "videos" : "off";
   return (
     <div className="flex h-full flex-col gap-1">
-      <label
+      <div
         className={cn(
           "flex flex-1 flex-col gap-1.5 rounded-md px-3 py-2.5",
           value === "off"
@@ -379,21 +380,19 @@ export function MediaScopeSelect({
       >
         <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
         <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{description}</span>
-        <select
+        <Select<MediaScope>
+          label={label}
           value={value}
-          onChange={(event) => {
-            const next = event.target.value as MediaScope;
+          options={(["off", "images", "videos", "both"] as const).map((option) => ({
+            value: option,
+            label: localizeUi(`ui.chat.mediascopeselect.${option}`),
+          }))}
+          onChange={(next) => {
             onChange({ images: next === "images" || next === "both", videos: next === "videos" || next === "both" });
           }}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-        >
-          {(["off", "images", "videos", "both"] as const).map((option) => (
-            <option key={option} value={option}>
-              {localizeUi(`ui.chat.mediascopeselect.${option}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </div>
       {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
     </div>
   );
@@ -418,20 +417,16 @@ export function GamePromptTemplateSelect({
   const activeOption = options.find((option) => option.id === selectedId) ?? options[0];
   return (
     <div className="rounded-lg bg-[var(--background)]/75 px-2.5 py-2 ring-1 ring-[var(--border)]">
-      <label className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5">
         <span className="text-[0.625rem] font-semibold text-[var(--foreground)]">{label}</span>
-        <select
+        <Select
+          label={label}
           value={activeOption?.id ?? fallbackId}
-          onChange={(event) => onChange(event.target.value)}
+          options={options.map((option) => ({ value: option.id, label: option.name }))}
+          onChange={onChange}
           className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        />
+      </div>
       <p className="mt-1.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
         {description}
         {activeOption?.description

@@ -10,7 +10,7 @@ import {
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
-import { isShortcutsHelpKey, shortcutKeyTypesText, isTypingTarget } from "../../lib/keyboard-shortcuts";
+import { isShortcutsHelpKey, shortcutKeyTypesText, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
@@ -174,7 +174,7 @@ export function GlobalOmnibar() {
         !ui.modal &&
         !isModalOverlayOpen() &&
         // A package shadow root retargets the event to its host; the path retains its editor.
-        !event.composedPath().some(isTypingTarget)
+        !event.composedPath().some(takesLetterKeys)
       ) {
         event.preventDefault();
         ui.openModal("keyboard-shortcuts");

@@ -142,8 +142,8 @@ try {
   assert.match(wizard, /\(!combatStyles \|\| combatStyles\.includes\("classic"\)\) && \(/);
   assert.match(wizard, /\(!combatStyles \|\| combatStyles\.includes\("tactical"\)\) && \(/);
   const section = readSource("packages/client/src/features/chat-settings/sections/CombatStyleSection.tsx");
-  assert.match(section, /offered\("classic"\) && \(/);
-  assert.match(section, /offered\("tactical"\) && \(/);
+  assert.match(section, /offered\("classic"\)\s*\?/);
+  assert.match(section, /offered\("tactical"\)\s*\?/);
   assert.match(section, /!isBuiltInCombatStyle\(id\) && offered\(id\)/);
   const drawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
   assert.match(drawer, /allowedStyles=\{allowedCombatStyles\}/);

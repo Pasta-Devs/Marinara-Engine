@@ -62,6 +62,7 @@ import {
 } from "../../hooks/use-library-folders";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
+import { Select } from "../ui/Select";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { LibraryToolbar } from "../ui/LibraryToolbar";
@@ -824,22 +825,14 @@ export function LorebooksPanel() {
           {localizeUi("ui.panels.lorebookspanel.lorebookCategory")}
         </label>
         <div className="relative min-w-0 flex-1">
-          <select
+          <Select
             id="lorebook-category-filter"
             value={activeCategory}
-            onChange={(event) => setActiveCategory(event.target.value as LorebookPanelCategory)}
-            className="mari-chrome-field h-10 w-full min-w-0 appearance-none truncate py-0 pl-3 pr-8 text-xs"
+            onChange={(next) => setActiveCategory(next as LorebookPanelCategory)}
+            className="mari-chrome-field h-10 w-full min-w-0 truncate py-0 pl-3 pr-3 text-xs"
             title={localizeUi("ui.panels.lorebookspanel.lorebookCategory")}
-          >
-            {CATEGORIES.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            size="0.75rem"
-            className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
+            label={localizeUi("ui.panels.lorebookspanel.lorebookCategory")}
+            options={CATEGORIES.map((cat) => ({ value: cat.id, label: cat.label }))}
           />
         </div>
         <button

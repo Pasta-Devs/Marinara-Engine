@@ -3336,6 +3336,7 @@ const LocalChatArea = memo(function LocalChatArea({
         } else if (
           target.tagName === "INPUT" ||
           target.tagName === "SELECT" ||
+          target.getAttribute("role") === "combobox" ||
           target.getAttribute("contenteditable") === "true"
         ) {
           return;

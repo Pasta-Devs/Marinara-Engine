@@ -170,6 +170,7 @@ import {
 import { restoredRulesetLayers, rulesetLayerOptions, toggleRulesetLayer } from "../../lib/ruleset-layers";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 /** The "Surprise me!" chip, told apart from the localized ideas by this value, never by its text. */
 const SURPRISE_SUGGESTION = "__surprise__";
@@ -2744,31 +2745,29 @@ export function GameSetupWizard({
                         <div className="mt-1.5 overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-[var(--border)]">
                           <div className="flex items-center gap-2 px-3 py-2">
                             <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                            <select
-                              value={partyFolderId}
-                              onChange={(event) => setPartyFolderId(event.target.value)}
+                            <Select
+                              label={localizeUi("ui.game.gamesetupwizard.addPartyMembersFromFolder")}
+                              value={partyFolderId || null}
+                              placeholder={localizeUi("ui.noodle.noodlehome.addFromFolder")}
+                              onChange={(next) => setPartyFolderId(next)}
                               className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none"
-                              aria-label={localizeUi("ui.game.gamesetupwizard.addPartyMembersFromFolder")}
-                            >
-                              <option value="">{localizeUi("ui.noodle.noodlehome.addFromFolder")}</option>
-                              {characterFolders.map((folder) => {
+                              options={characterFolders.map((folder) => {
                                 const newCount = folder.characterIds.filter(
                                   (id) =>
                                     validCharacterIds.has(id) &&
                                     id !== gmCharacterId &&
                                     !partyCharacterIds.includes(id),
                                 ).length;
-                                return (
-                                  <option key={folder.id} value={folder.id}>
-                                    {folder.name} (
-                                    {newCount > 0
+                                return {
+                                  value: folder.id,
+                                  label: `${folder.name} (${
+                                    newCount > 0
                                       ? localizeUi("ui.game.gamesetupwizard.value1New", { value1: newCount })
-                                      : localizeUi("ui.game.gamesetupwizard.allAdded")}
-                                    )
-                                  </option>
-                                );
+                                      : localizeUi("ui.game.gamesetupwizard.allAdded")
+                                  })`,
+                                };
                               })}
-                            </select>
+                            />
                             <button
                               type="button"
                               onClick={() => addPartyMembersFromFolder(partyFolderId)}
@@ -2941,14 +2940,15 @@ export function GameSetupWizard({
 
                             {enableSpotifyDj && (
                               <div className="mt-2 space-y-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
-                                <label className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1">
                                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                                     {localizeUi("ui.game.gamesetupwizard.musicSource")}
                                   </span>
-                                  <select
+                                  <Select
+                                    label={localizeUi("ui.game.gamesetupwizard.musicSource")}
                                     value={gameSpotifySourceType}
-                                    onChange={(event) => {
-                                      const next = normalizeSpotifySourceType(event.target.value);
+                                    onChange={(value) => {
+                                      const next = normalizeSpotifySourceType(value);
                                       setGameSpotifySourceType(next);
                                       if (next !== "playlist") {
                                         setGameSpotifyPlaylistId("");
@@ -2959,54 +2959,63 @@ export function GameSetupWizard({
                                       }
                                     }}
                                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                  >
-                                    {GAME_SPOTIFY_SOURCE_OPTIONS.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    options={GAME_SPOTIFY_SOURCE_OPTIONS.map((option) => ({
+                                      value: option.id,
+                                      label: option.label,
+                                    }))}
+                                  />
                                   <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
                                     {GAME_SPOTIFY_SOURCE_OPTIONS.find((option) => option.id === gameSpotifySourceType)
                                       ?.description ?? ""}
                                   </span>
-                                </label>
+                                </div>
 
                                 {gameSpotifySourceType === "playlist" && (
-                                  <label className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-1">
                                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                                       {localizeUi("ui.game.gamesetupwizard.playlist")}
                                     </span>
                                     {spotifyPlaylistsQuery.data?.playlists.length ? (
-                                      <select
+                                      <Select
+                                        label={localizeUi("ui.game.gamesetupwizard.playlist")}
                                         value={gameSpotifyPlaylistId}
-                                        onChange={(event) => {
+                                        placeholder={localizeUi("ui.game.gamesetupwizard.choosePlaylist")}
+                                        onChange={(next) => {
                                           const playlist = spotifyPlaylistsQuery.data?.playlists.find(
-                                            (entry) => entry.id === event.target.value,
+                                            (entry) => entry.id === next,
                                           );
-                                          setGameSpotifyPlaylistId(event.target.value);
+                                          setGameSpotifyPlaylistId(next);
                                           setGameSpotifyPlaylistName(playlist?.name ?? "");
                                         }}
                                         className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
-                                      >
-                                        <option value="">{localizeUi("ui.game.gamesetupwizard.choosePlaylist")}</option>
-                                        {spotifyPlaylistsQuery.data.playlists.map((playlist) => {
-                                          const suffix =
-                                            typeof playlist.trackCount === "number"
-                                              ? ` (${playlist.trackCount})`
-                                              : playlist.owned === false
-                                                ? " (followed — unavailable)"
-                                                : "";
-                                          return (
-                                            <option key={playlist.id} value={playlist.id}>
-                                              {playlist.name}
-                                              {suffix}
-                                            </option>
-                                          );
-                                        })}
-                                      </select>
+                                        options={[
+                                          { value: "", label: localizeUi("ui.game.gamesetupwizard.choosePlaylist") },
+                                          // A saved playlist outside the fetched page still shows as the pick.
+                                          ...(gameSpotifyPlaylistId &&
+                                          !spotifyPlaylistsQuery.data.playlists.some(
+                                            (entry) => entry.id === gameSpotifyPlaylistId,
+                                          )
+                                            ? [
+                                                {
+                                                  value: gameSpotifyPlaylistId,
+                                                  label: gameSpotifyPlaylistName || gameSpotifyPlaylistId,
+                                                },
+                                              ]
+                                            : []),
+                                          ...spotifyPlaylistsQuery.data.playlists.map((playlist) => {
+                                            const suffix =
+                                              typeof playlist.trackCount === "number"
+                                                ? ` (${playlist.trackCount})`
+                                                : playlist.owned === false
+                                                  ? " (followed — unavailable)"
+                                                  : "";
+                                            return { value: playlist.id, label: `${playlist.name}${suffix}` };
+                                          }),
+                                        ]}
+                                      />
                                     ) : (
                                       <input
+                                        aria-label={localizeUi("ui.game.gamesetupwizard.playlist")}
                                         value={gameSpotifyPlaylistId}
                                         onChange={(event) => {
                                           setGameSpotifyPlaylistId(event.target.value);
@@ -3025,7 +3034,7 @@ export function GameSetupWizard({
                                         {localizeUi("ui.game.gamesetupwizard.connectSpotifyInTheMusicDjAgentToLoad")}
                                       </span>
                                     )}
-                                  </label>
+                                  </div>
                                 )}
 
                                 {gameSpotifySourceType === "artist" && (
@@ -3975,14 +3984,16 @@ export function GameSetupWizard({
                         <Sparkles size={12} />
                         {localizeUi("settings.sections.gamePresentation.title")}
                       </label>
-                      <select
+                      <Select
+                        label={localizeUi("settings.sections.gamePresentation.title")}
                         value={gamePresentation}
-                        onChange={(event) => setGamePresentation(event.target.value === "anime" ? "anime" : "standard")}
+                        onChange={(next) => setGamePresentation(next === "anime" ? "anime" : "standard")}
                         className={GAME_SETUP_INPUT_CLASS}
-                      >
-                        <option value="standard">{localizeUi("ui.game.gamesetupwizard.standard")}</option>
-                        <option value="anime">{localizeUi("ui.game.gamesetupwizard.storyboardOptimized")}</option>
-                      </select>
+                        options={[
+                          { value: "standard", label: localizeUi("ui.game.gamesetupwizard.standard") },
+                          { value: "anime", label: localizeUi("ui.game.gamesetupwizard.storyboardOptimized") },
+                        ]}
+                      />
                       <p className="mt-1 text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
                         {gamePresentation === "anime"
                           ? localizeUi("ui.game.gamesetupwizard.storyboardOptimizedNarrationDescription")

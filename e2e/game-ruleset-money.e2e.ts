@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
 import { inventoryButton } from "./game-inventory-fixture.js";
 import { openGame, savedInventory, withImports } from "./game-ruleset-fight-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 /**
  * Money (#6901), on screen. A ruleset's coins are stacks in the bags: the purse line above them says
@@ -132,7 +133,7 @@ test("coins show their worth, are picked from the Coins list, and the Game Maste
 
       // The picker offers the coins as one more list.
       await page.getByRole("button", { name: "From the ruleset", exact: true }).click();
-      await picker.getByRole("combobox", { name: "Catalog", exact: true }).selectOption({ label: "Coins" });
+      await chooseOption(page, picker.getByRole("combobox", { name: "Catalog", exact: true }), "Coins");
       await expect(picker.getByRole("checkbox")).toHaveCount(3);
       await picker.getByRole("checkbox", { name: "shillings", exact: true }).check();
       await picker.getByRole("button", { name: "Add 1 item", exact: true }).click();
@@ -202,7 +203,7 @@ test("a layer that takes a coin out leaves it out of the purse and the picker, a
     await picker.getByRole("searchbox").fill("watch pistol");
     await expect(picker.getByText("Price in shillings: 15", { exact: true })).toBeVisible();
     await picker.getByRole("searchbox").fill("");
-    await picker.getByRole("combobox", { name: "Catalog", exact: true }).selectOption({ label: "Coins" });
+    await chooseOption(page, picker.getByRole("combobox", { name: "Catalog", exact: true }), "Coins");
     await expect(picker.getByRole("checkbox")).toHaveCount(2);
     await expect(picker.getByRole("checkbox", { name: "crowns", exact: true })).toHaveCount(0);
   });

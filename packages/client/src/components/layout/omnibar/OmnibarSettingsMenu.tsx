@@ -55,6 +55,7 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { cn } from "../../../lib/utils";
 import { ConnectionSelect } from "../../connections/ConnectionSelect";
 import { Switch } from "../../ui/Switch";
+import { Select } from "../../ui/Select";
 
 /** The anchor a search row, the Settings panel or one of Mari's links scrolls to. */
 function anchorId(controlId: string) {
@@ -216,24 +217,24 @@ function PermissionsModeRow() {
       id={anchorId("mari-permissions-mode")}
       className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked"
     >
-      <label htmlFor={selectId} className="min-w-0">
+      <div className="min-w-0">
         <span className="omnibar-settings-menu__label">{t("ui.chat.homeprofessormarichat.permissionsMode")}</span>
-        <span className="omnibar-settings-menu__description">
+        <span id={`${selectId}-description`} className="omnibar-settings-menu__description">
           {localize(MARI_PERMISSIONS_MODE_LABELS[currentMode].description)}
         </span>
-      </label>
-      <select
+      </div>
+      <Select<MariPermissionsMode>
         id={selectId}
+        label={t("ui.chat.homeprofessormarichat.permissionsMode")}
+        aria-describedby={`${selectId}-description`}
         className="mari-chrome-field omnibar-settings-sheet__select"
         value={currentMode}
-        onChange={(event) => void change(event.target.value as MariPermissionsMode)}
-      >
-        {MARI_PERMISSIONS_MODES.map((value) => (
-          <option key={value} value={value}>
-            {localize(MARI_PERMISSIONS_MODE_LABELS[value].label)}
-          </option>
-        ))}
-      </select>
+        options={MARI_PERMISSIONS_MODES.map((value) => ({
+          value,
+          label: localize(MARI_PERMISSIONS_MODE_LABELS[value].label),
+        }))}
+        onChange={(value) => void change(value)}
+      />
     </div>
   );
 }
@@ -338,22 +339,16 @@ function RuntimeRow() {
   };
   return (
     <div id={anchorId("mari-runtime")} className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked">
-      <label htmlFor={selectId} className="omnibar-settings-menu__label">
-        {t("omnibar.settings.mariRuntime.label")}
-      </label>
-      <select
+      <div className="omnibar-settings-menu__label">{t("omnibar.settings.mariRuntime.label")}</div>
+      <Select<MariRuntime>
         id={selectId}
+        label={t("omnibar.settings.mariRuntime.label")}
+        aria-describedby={helpId}
         className="mari-chrome-field omnibar-settings-sheet__select"
         value={selected}
-        aria-describedby={helpId}
-        onChange={(event) => void change(event.target.value as MariRuntime)}
-      >
-        {MARI_RUNTIMES.map((value) => (
-          <option key={value} value={value}>
-            {t(MARI_RUNTIME_LABEL_KEYS[value])}
-          </option>
-        ))}
-      </select>
+        options={MARI_RUNTIMES.map((value) => ({ value, label: t(MARI_RUNTIME_LABEL_KEYS[value]) }))}
+        onChange={(value) => void change(value)}
+      />
       <span id={helpId} aria-live="polite" className="omnibar-settings-menu__description">
         {t("omnibar.settings.mariRuntime.help")}
         {fellBack ? (

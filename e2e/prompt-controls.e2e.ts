@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -277,24 +278,24 @@ test("prompt controls persist and preview preserves the selected history shape",
       return (await response.json()).prompt.messages as Array<{ role: string; content: string }>;
     };
     await openSettings();
-    await expect(selector).toHaveValue("apply");
+    await expect(selector).toHaveAttribute("data-value", "apply");
     await expect(page.getByText("Service Tier", { exact: true })).toBeVisible();
-    await selector.selectOption("none");
+    await chooseOption(page, selector, "Don't Apply");
     await expect.poll(async () => (await savedParameters()).strictRoleFormatting).toBe(false);
     await page.reload();
     await openSettings();
-    await expect(selector).toHaveValue("none");
+    await expect(selector).toHaveAttribute("data-value", "none");
     let prompt = await preview();
     expect(prompt.some((m) => m.content.includes("HISTORY_ONE") && m.content.includes("HISTORY_TWO"))).toBe(false);
     expect(prompt[0]?.role).toBe("system");
     expect(prompt[0]?.content).toContain("SYSTEM_RULES");
     expect(prompt[0]?.content).toContain("SYSTEM_WORLD");
-    await selector.selectOption("single");
+    await chooseOption(page, selector, "Single User Message");
     await expect.poll(async () => (await savedParameters()).singleUserMessage).toBe(true);
     prompt = await preview();
     expect(prompt.map((m) => m.role)).toEqual(["system", "user"]);
     expect(prompt[1]?.content).toContain("HISTORY_FOUR");
-    await selector.selectOption("apply");
+    await chooseOption(page, selector, "Apply");
     await expect.poll(async () => (await savedParameters()).strictRoleFormatting).toBe(true);
     prompt = await preview();
     expect(prompt.some((m) => m.content.includes("HISTORY_ONE") && m.content.includes("HISTORY_TWO"))).toBe(true);

@@ -4,6 +4,8 @@ import { compareCapabilityPackageVersions } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useCapabilityPackageReleaseNotes } from "../../../hooks/use-capability-packages";
 import { cn } from "../../../lib/utils";
+import { librarySortOption } from "../../../lib/library-sort-options";
+import { Select } from "../../ui/Select";
 import { AgentReleaseNoteList } from "../AgentReleaseNoteList";
 import { AgentUpdateFailure, AgentUpdateStatus, type AgentUpdateResult } from "../AgentUpdateDialog";
 import {
@@ -33,13 +35,13 @@ function PageHeader({ title, hint, children }: { title: string; hint?: string; c
 
 type SortKey = "store" | "name-asc" | "name-desc" | "newest" | "size";
 
-const SORT_LABEL_KEYS: Record<SortKey, string> = {
+/** The sorts that read the same as everywhere else ("newest" here is the install date). */
+const SHARED_SORT_KEYS = { "name-asc": "az", "name-desc": "za", newest: "newest" } as const;
+
+const SORT_LABEL_KEYS = {
   store: "ui.agents.organizer.sortStore",
-  "name-asc": "ui.panels.backgroundpicker.aZ",
-  "name-desc": "ui.panels.backgroundpicker.zA",
-  newest: "ui.agents.organizer.sortInstalled",
   size: "ui.agents.organizer.sortSize",
-};
+} as const;
 
 function sortEntries(
   entries: readonly OrganizerEntry[],
@@ -60,19 +62,19 @@ function SortSelect({ value, keys, onChange }: { value: SortKey; keys: SortKey[]
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="relative shrink-0">
-      <select
+      <Select
         value={value}
-        onChange={(event) => onChange(event.target.value as SortKey)}
+        onChange={(next) => onChange(next as SortKey)}
         title={localizeUi("ui.panels.agentspanel.sortOrder")}
-        aria-label={localizeUi("ui.panels.agentspanel.sortOrder")}
-        className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-9 appearance-none py-0 pl-2.5 pr-7 text-xs"
-      >
-        {keys.map((key) => (
-          <option key={key} value={key}>
-            {localizeUi(SORT_LABEL_KEYS[key])}
-          </option>
-        ))}
-      </select>
+        label={localizeUi("ui.panels.agentspanel.sortOrder")}
+        className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-9 py-0 pl-2.5 pr-7 text-xs [&>svg]:hidden"
+        searchable={false}
+        options={keys.map((key) =>
+          key === "name-asc" || key === "name-desc" || key === "newest"
+            ? librarySortOption(localizeUi, SHARED_SORT_KEYS[key], key)
+            : { value: key, label: localizeUi(SORT_LABEL_KEYS[key]) },
+        )}
+      />
       <ArrowUpDown
         size="0.625rem"
         className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"

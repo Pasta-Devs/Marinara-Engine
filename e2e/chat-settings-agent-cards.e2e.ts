@@ -2,6 +2,7 @@
 // control and reads the saved value back through the API.
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { openChatSettings } from "./chat-settings-tools.js";
 import { chooseConnection } from "./connection-picker.js";
@@ -203,17 +204,14 @@ test("Echo Chamber's card picks its prompt for this chat and opens its setup", a
   try {
     await openApp(page, chatId, { agentConfigs: [agentConfig("echo-chamber", [{ id: "crowd", name: "Crowd" }])] });
     const { settings, card } = await openAgentCard(page, chatId, "echo-chamber");
-    const prompt = card
-      .locator("label")
-      .filter({ hasText: /^Prompt/iu })
-      .locator("select");
-    await expect(prompt).toHaveValue("default");
-    await prompt.selectOption("crowd");
+    const prompt = card.getByRole("combobox", { name: "Prompt", exact: true });
+    await expect(prompt).toHaveAttribute("data-value", "default");
+    await chooseOption(page, prompt, "Crowd");
     await expect
       .poll(async () => (await readMetadata(request, chatId)).agentPromptTemplateIds)
       .toEqual({ "echo-chamber": "crowd" });
     // Picking Default again clears the chat's choice instead of storing it.
-    await prompt.selectOption("default");
+    await chooseOption(page, prompt, "Default");
     await expect.poll(async () => (await readMetadata(request, chatId)).agentPromptTemplateIds).toEqual({});
 
     await card.getByRole("button", { name: "Open Setup", exact: true }).click();
@@ -239,11 +237,7 @@ test("Lorebook Keeper's card saves its target and read-behind, and starts a back
     await openApp(page, chatId);
     const { card } = await openAgentCard(page, chatId, "lorebook-keeper");
 
-    await card
-      .locator("label")
-      .filter({ hasText: /^Target Lorebook/u })
-      .locator("select")
-      .selectOption(book.id);
+    await chooseOption(page, card.getByRole("combobox", { name: "Target Lorebook", exact: true }), book.name);
     await expect.poll(async () => (await readMetadata(request, chatId)).lorebookKeeperTargetLorebookId).toBe(book.id);
 
     const readBehind = card
@@ -272,29 +266,30 @@ const SPOTIFY_PLAYLISTS = [
 
 /** Walks Music DJ's Spotify source, playlist and artist, reading back the keys that mode saves under. */
 async function exerciseSpotifySource(
+  page: Page,
   card: Locator,
   read: () => Promise<Record<string, unknown>>,
   keys: { sourceType: string; playlistId: string; playlistName: string; artist: string },
   followedLabel: string,
 ) {
-  const source = card
-    .locator("label")
-    .filter({ hasText: /^Spotify source/u })
-    .locator("select");
-  await source.selectOption("playlist");
+  const source = card.getByRole("combobox", { name: /^Spotify source$/iu });
+  await chooseOption(page, source, "Playlist");
   await expect.poll(async () => (await read())[keys.sourceType]).toBe("playlist");
 
-  const playlist = card
-    .locator("label")
-    .filter({ hasText: /^Playlist/u })
-    .locator("select");
-  await expect(playlist.locator("option")).toHaveText(["Choose playlist...", "Road trip (12)", followedLabel]);
-  await playlist.selectOption("pl-road");
+  const playlist = card.getByRole("combobox", { name: "Playlist", exact: true });
+  await playlist.click();
+  await expect(page.getByRole("dialog", { name: "Playlist", exact: true }).locator("[data-pick-row]")).toHaveText([
+    "Choose playlist...",
+    "Road trip (12)",
+    followedLabel,
+  ]);
+  await page.keyboard.press("Escape");
+  await chooseOption(page, playlist, "Road trip (12)");
   await expect.poll(async () => (await read())[keys.playlistId]).toBe("pl-road");
   expect((await read())[keys.playlistName]).toBe("Road trip");
 
   // Switching to Artist drops the playlist, and the artist saves when the box loses focus.
-  await source.selectOption("artist");
+  await chooseOption(page, source, "Artist");
   await expect.poll(async () => (await read())[keys.sourceType]).toBe("artist");
   expect((await read())[keys.playlistId]).toBeNull();
   const artist = card
@@ -314,6 +309,7 @@ test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ p
     await openApp(page, roleplayId, { uiState: { musicPlayerSource: "spotify" } });
     const { card: roleplayCard } = await openAgentCard(page, roleplayId, "spotify");
     await exerciseSpotifySource(
+      page,
       roleplayCard,
       () => readMetadata(request, roleplayId),
       {
@@ -343,6 +339,7 @@ test("Music DJ's Spotify source saves per chat in Roleplay and Game", async ({ p
     if ((await musicDjToggle.getAttribute("aria-expanded")) !== "true") await musicDjToggle.click();
     await expect(musicDjToggle).toHaveAttribute("aria-expanded", "true");
     await exerciseSpotifySource(
+      page,
       agents,
       () => readMetadata(request, gameId),
       {
@@ -413,24 +410,18 @@ test("Illustrator's card saves this chat's run intervals and images per generati
       await expect.poll(async () => (await readMetadata(request, chatId))[key] ?? null).toBeNull();
     }
 
-    await card
-      .locator("label")
-      .filter({ hasText: /^Images Per Generation/u })
-      .locator("select")
-      .selectOption("2");
+    await chooseOption(page, card.getByRole("combobox", { name: "Images Per Generation", exact: true }), "2");
     await expect.poll(async () => (await readMetadata(request, chatId)).illustratorImagesPerGeneration).toBe(2);
 
     // The built-in style profiles are always listed after the "use default" choice.
-    const style = card
-      .locator("label")
-      .filter({ hasText: /^Image Style/u })
-      .locator("select");
-    await expect(style).toHaveValue("");
-    await style.selectOption({ index: 1 });
-    const chosenStyle = await style.inputValue();
+    const style = card.getByRole("combobox", { name: "Image Style", exact: true });
+    await expect(style).toHaveAttribute("data-value", "");
+    await style.click();
+    await page.getByRole("dialog", { name: "Image Style", exact: true }).locator("[data-pick-row]").nth(1).click();
+    const chosenStyle = (await style.getAttribute("data-value")) ?? "";
     expect(chosenStyle).not.toBe("");
     await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId).toBe(chosenStyle);
-    await style.selectOption("");
+    await chooseOption(page, style, "Use default style from Style Profiles in Advanced settings");
     await expect.poll(async () => (await readMetadata(request, chatId)).imageStyleProfileId ?? null).toBeNull();
   } finally {
     await request.delete(`/api/chats/${chatId}?force=true`);
@@ -453,10 +444,7 @@ test("Conversation's Commands card turns single commands and all commands off", 
       .toMatchObject({ memory: false });
 
     // The card's title is also "Commands", so reach the switch through its checkbox's label.
-    await card
-      .getByRole("switch", { name: /^Commands/u })
-      .locator("xpath=ancestor::label[1]")
-      .click();
+    await card.getByRole("switch", { name: /^Commands/u }).click();
     await expect.poll(async () => (await readMetadata(request, chatId)).characterCommands).toBe(false);
     await expect(card.getByText("Memories", { exact: true })).toHaveCount(0);
   } finally {
@@ -565,27 +553,19 @@ test("Conversation's Illustrator card saves video messages, their first frame an
     );
     await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoConnectionId).toBe(videoId);
 
-    await card
-      .locator("label")
-      .filter({ hasText: /^First frame/u })
-      .locator("select")
-      .selectOption("avatar");
+    await chooseOption(page, card.getByRole("combobox", { name: "First frame", exact: true }), "Avatar or sprite");
     await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoFirstFrame).toBe("avatar");
 
     // Each scope saves one switch for pictures and one for videos.
-    const scope = (label: string) =>
-      card
-        .locator("label")
-        .filter({ hasText: new RegExp(`^${label}`, "u") })
-        .locator("select");
-    await scope("Send Avatar References").selectOption("images");
+    const scope = (label: string) => card.getByRole("combobox", { name: label, exact: true });
+    await chooseOption(page, scope("Send Avatar References"), "Images only");
     await expect
       .poll(async () => {
         const metadata = await readMetadata(request, chatId);
         return [metadata.selfieUseAvatarReferences, metadata.selfieVideoUseAvatarReferences];
       })
       .toEqual([true, false]);
-    await scope("Attach Card Appearance").selectOption("videos");
+    await chooseOption(page, scope("Attach Card Appearance"), "Videos only");
     await expect
       .poll(async () => {
         const metadata = await readMetadata(request, chatId);
@@ -879,27 +859,23 @@ test("Roleplay's Illustrator card saves what it makes, the first frame, both ref
   try {
     await openApp(page, chatId);
     const { card } = await openAgentCard(page, chatId, "illustrator");
-    const select = (label: string) =>
-      card
-        .locator("label")
-        .filter({ hasText: new RegExp(`^${label}`, "u") })
-        .locator("select");
+    const select = (label: string) => card.getByRole("combobox", { name: label, exact: true });
 
-    await select("Illustrator makes").selectOption("clips_only");
+    await chooseOption(page, select("Illustrator makes"), "Clips only");
     await expect.poll(async () => (await readMetadata(request, chatId)).illustratorVideoMode).toBe("clips_only");
 
-    await select("First frame").selectOption("picture");
+    await chooseOption(page, select("First frame"), "New Illustrator picture, then animate it");
     await expect.poll(async () => (await readMetadata(request, chatId)).sceneVideoFirstFrame).toBe("picture");
 
     // Each scope saves one switch for pictures and one for videos.
-    await select("Attach Card Appearance").selectOption("images");
+    await chooseOption(page, select("Attach Card Appearance"), "Images only");
     await expect
       .poll(async () => {
         const metadata = await readMetadata(request, chatId);
         return [metadata.illustratorIncludeCharacterAppearance, metadata.illustratorVideoIncludeCharacterAppearance];
       })
       .toEqual([true, false]);
-    await select("Send Avatar References").selectOption("videos");
+    await chooseOption(page, select("Send Avatar References"), "Videos only");
     await expect
       .poll(async () => {
         const metadata = await readMetadata(request, chatId);
@@ -958,7 +934,7 @@ test("Game's agent list turns a catalog agent on and off for the game", async ({
     await openApp(page, chatId, { mode: "game" });
     const { agents } = await openAgentsSection(page, "game");
     const entry = agents.locator('[data-chat-agent-entry="echo-chamber"]');
-    const toggle = entry.getByRole("checkbox", { name: /^Echo Chamber/u });
+    const toggle = entry.getByRole("switch", { name: /^Echo Chamber/u });
     await expect(toggle).not.toBeChecked();
 
     await entry.getByText("Echo Chamber", { exact: true }).click();
@@ -1019,7 +995,7 @@ test("Game's Music DJ and Lorebook Keeper cards turn on and save the music playe
     // "Music DJ" is also the card's title, so reach the switch through its checkbox's label.
     const musicDj = agents.getByRole("switch", { name: /^Music DJ/u });
     await expect(musicDj).not.toBeChecked();
-    await musicDj.locator("xpath=ancestor::label[1]").click();
+    await musicDj.click();
     await expect
       .poll(async () => {
         const metadata = await readMetadata(request, chatId);

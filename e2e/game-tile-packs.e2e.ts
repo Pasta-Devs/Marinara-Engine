@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { WORLD_GENERATOR_VERSION, WORLD_STARTER_KITS, parseWorldKit } from "@marinara-engine/shared";
 import { openGame } from "./game-ruleset-fight-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 import { downloadExport } from "./export-save.js";
 
 /**
@@ -52,7 +53,11 @@ test("a tile pack is imported, chosen for its family, drawn on the overworld, ex
     await expect(page.getByText("Fantasy, version 1", { exact: true })).toBeVisible();
 
     // Chosen for fantasy.
-    await page.getByRole("combobox", { name: "Tiles for Fantasy", exact: true }).selectOption("local/night-meadows");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Tiles for Fantasy", exact: true }),
+      "Night meadows (version 1)",
+    );
     await expect
       .poll(async () => (await (await request.get("/api/game-tile-packs")).json()).selection)
       .toEqual({ fantasy: "local/night-meadows" });

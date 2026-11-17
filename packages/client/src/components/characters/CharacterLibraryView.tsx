@@ -29,6 +29,7 @@ import {
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
@@ -38,6 +39,7 @@ import { sortItemsByTokens } from "../../lib/panel-sort";
 import { useUIStore, type CardLibraryKind, type UIState } from "../../stores/ui.store";
 import { useSetLorebooksEnabled } from "../../hooks/use-lorebooks";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { Select } from "../ui/Select";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 import { toast } from "sonner";
 import {
@@ -619,25 +621,25 @@ export function CharacterLibraryView() {
             </div>
 
             <div data-library-toolbar-sort className="relative min-w-0">
-              <select
+              <Select
                 value={sort}
-                onChange={(event) => handleSortChange(event.target.value)}
-                aria-label={localizeUi("ui.panels.agentspanel.sortOrder")}
+                onChange={handleSortChange}
+                label={localizeUi("ui.panels.agentspanel.sortOrder")}
                 className={cn(
                   libraryToolbarFieldClass,
-                  "mari-chrome-sort-field mari-accent-animated !w-full appearance-none pl-2.5 pr-7",
+                  "mari-chrome-sort-field mari-accent-animated !w-full pl-2.5 pr-7 [&>svg]:hidden",
                 )}
-              >
-                <option value="name-asc">{localizeUi("ui.characters.characterlibraryview.nameAZ")}</option>
-                <option value="name-desc">{localizeUi("ui.characters.characterlibraryview.nameZA")}</option>
-                <option value="newest">{localizeUi("ui.characters.characterlibraryview.newest")}</option>
-                <option value="oldest">{localizeUi("ui.characters.characterlibraryview.oldest")}</option>
-                {config.hasFavorites && (
-                  <option value="favorites">{localizeUi("ui.characters.characterlibraryview.favoritesFirst")}</option>
-                )}
-                <option value="tokens-desc">{localizeUi("ui.panels.librarysort.mostTokens")}</option>
-                <option value="tokens-asc">{localizeUi("ui.panels.librarysort.fewestTokens")}</option>
-              </select>
+                searchable={false}
+                options={librarySortOptions(localizeUi, {
+                  az: "name-asc",
+                  za: "name-desc",
+                  newest: "newest",
+                  oldest: "oldest",
+                  ...(config.hasFavorites ? { favorites: "favorites" } : {}),
+                  mostTokens: "tokens-desc",
+                  fewestTokens: "tokens-asc",
+                })}
+              />
               <ArrowUpDown
                 size="0.6875rem"
                 className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"

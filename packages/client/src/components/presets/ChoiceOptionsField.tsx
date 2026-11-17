@@ -7,6 +7,7 @@
 import { CheckCircle2, Circle, CheckSquare2, Square } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { Select } from "../ui/Select";
 
 export interface ChoiceFieldOption {
   id: string;
@@ -110,21 +111,14 @@ export function ChoiceOptionsField({
           ))}
         </select>
       ) : listboxMode ? (
-        <select
-          aria-label={ariaLabel}
-          value={typeof selection === "string" ? selection : ""}
-          onChange={(e) => onChange(e.target.value)}
+        // With nothing picked (e.g. "Write your own"), the field stays blank instead of showing the first option.
+        <Select
+          label={ariaLabel ?? ""}
+          value={typeof selection === "string" ? selection : null}
+          onChange={onChange}
           className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          {/* With nothing picked (e.g. "Write your own"), show a blank row instead of
-              letting the browser display the first option as the answer. */}
-          {!presentedOptions.some((opt) => optionKey(opt) === selection) && <option value="" disabled />}
-          {presentedOptions.map((opt) => (
-            <option key={opt.id} value={optionKey(opt)}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          options={presentedOptions.map((opt) => ({ value: optionKey(opt), label: String(opt.label ?? "") }))}
+        />
       ) : variable.multiSelect ? (
         // ── Multi-select: checkboxes ──
         presentedOptions.map((opt) => {

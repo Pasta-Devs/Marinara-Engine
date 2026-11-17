@@ -6,7 +6,9 @@
 // VRM panel still reports a failed import after it closes, and making a mesh avatar starts from the
 // full-body neutral sprite (else the neutral one) until the user picks another.
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { meshAvatarFiles, paintPng, solid, zipFiles } from "../scripts/regressions/fixtures/avatar-2d-fixtures.js";
+import { chooseOption } from "./select-field.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
@@ -43,7 +45,11 @@ async function routeSprites(page: Page, ownerId: string, sprites: Record<string,
   });
 }
 
+const appVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
+
 async function openApp(page: Page) {
+  // No What’s New window: it would sit over the setup panel the tests mount, now that panel stays under the pickers.
+  await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), appVersion);
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
   );
@@ -458,8 +464,9 @@ async function mountPanel(page: Page, module: string, name: string, ownerId: str
       const panels = (await import(module)) as Record<string, unknown>;
       const mount = document.createElement("div");
       mount.dataset.avatarPanel = "true";
+      // Below the shared picker window (z-index 10000 as a phone sheet, 10050 as a popover), so a Select in the panel can open over it.
       mount.style.cssText =
-        "position:fixed;inset:0;z-index:99999;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
+        "position:fixed;inset:0;z-index:9990;overflow:auto;background:var(--background);color:var(--foreground);padding:12px";
       document.body.append(mount);
       const root = ReactDOM.createRoot(mount);
       // Closes the panel the way switching owner or leaving the page does: React unmounts it.
@@ -519,20 +526,24 @@ test("the PNGTuber setup saves the owner's sprites, a chosen face and an importe
     },
   });
 
-  await panel.locator('[data-avatar-feeling="happy"]').selectOption("neutral");
+  await chooseOption(page, panel.locator("#avatar-feeling-happy"), "neutral");
   await expect.poll(() => saved.length).toBe(2);
   expect(saved[1]).toMatchObject({
     kinds: { pngtuber: { expressionMap: { happy: { target: "neutral", source: "user", confidence: 1 } } } },
   });
 
   // The extra feelings wait under "More feelings", each on its main feeling's face until one is picked.
-  const embarrassment = panel.locator('[data-avatar-feeling="embarrassment"]');
+  const embarrassment = panel.locator("#avatar-feeling-embarrassment");
   await expect(embarrassment).toBeHidden();
   await panel.locator("[data-avatar-more-feelings] > summary").click();
-  await expect(embarrassment).toHaveValue("");
-  await expect(embarrassment.locator("option").first()).toHaveText("Uses Happy's face");
-  await expect(panel.locator("[data-avatar-more-feelings] select")).toHaveCount(23);
-  await embarrassment.selectOption("happy");
+  await expect(embarrassment).toHaveAttribute("data-value", "");
+  await embarrassment.click();
+  await expect(
+    page.getByRole("dialog", { name: "Embarrassment", exact: true }).locator("[data-pick-row]").first(),
+  ).toContainText("Uses Happy's face");
+  await page.keyboard.press("Escape");
+  await expect(panel.locator("[data-avatar-more-feelings] [role=combobox]")).toHaveCount(23);
+  await chooseOption(page, embarrassment, "happy");
   await expect.poll(() => saved.length).toBe(3);
   expect(saved[2]).toMatchObject({
     kinds: { pngtuber: { feelingMap: { embarrassment: { target: "happy", source: "user", confidence: 1 } } } },
@@ -649,12 +660,21 @@ test("a saved PNGTuber setup offers sprites made since, named after a feeling to
   await expect(panel.locator("[data-avatar-face]")).toHaveCount(5);
   await expect(panel.locator('[data-avatar-face="happy"]')).toContainText("Talk");
   await expect(panel.locator('[data-avatar-face="happy_talk"]')).toHaveCount(0);
-  const happy = panel.locator('[data-avatar-feeling="happy"]');
-  await expect(happy).toHaveValue("laughing");
-  await expect(happy.locator("option")).toHaveText(["Resting face", "smirk", "laughing", "neutral", "happy", "fear"]);
+  const happy = panel.locator("#avatar-feeling-happy");
+  await expect(happy).toHaveAttribute("data-value", "laughing");
+  await happy.click();
+  await expect(page.getByRole("dialog", { name: "Happy", exact: true }).locator("[data-pick-row]")).toHaveText([
+    /Resting face/,
+    /smirk/,
+    /laughing/,
+    /neutral/,
+    /happy/,
+    /fear/,
+  ]);
+  await page.keyboard.press("Escape");
 
   // Choosing a new face adds it to the setup with its talk picture; the old faces stay.
-  await happy.selectOption("happy");
+  await chooseOption(page, happy, "happy");
   await expect.poll(() => saved.length).toBe(1);
   expect(saved[0]).toMatchObject({
     kinds: {
@@ -676,7 +696,7 @@ test("a saved PNGTuber setup offers sprites made since, named after a feeling to
 
   // The extra feelings offer them too.
   await panel.locator("[data-avatar-more-feelings] > summary").click();
-  await panel.locator('[data-avatar-feeling="fear"]').selectOption("fear");
+  await chooseOption(page, panel.locator("#avatar-feeling-fear"), "fear");
   await expect.poll(() => saved.length).toBe(2);
   expect(saved[1]).toMatchObject({
     kinds: { pngtuber: { layers: { fear: sprite("fear") }, feelingMap: { fear: user("fear") } } },
@@ -745,7 +765,7 @@ test("the mesh avatar setup imports a file and saves the look for a feeling", as
   const panel = page.locator("[data-avatar-panel]");
   await expect(panel.locator("[data-avatar-mesh-status]")).toHaveText("Ready. It has drawn mouth shapes for talking.");
   await expect(panel.getByRole("button", { name: "Replace file" })).toBeVisible();
-  await panel.locator('[data-avatar-feeling="relaxed"]').selectOption({ label: "Shy" });
+  await chooseOption(page, panel.locator("#avatar-feeling-relaxed"), "Shy");
   await expect.poll(() => saved.length).toBe(1);
   expect(saved[0]).toMatchObject({
     kinds: { "mesh-avatar": { expressionMap: { relaxed: { target: "shy", source: "user", confidence: 1 } } } },
