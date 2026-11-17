@@ -22,7 +22,7 @@ import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { selectOneSidebarOpen, selectSharedSidebarWidth, useUIStore } from "../../stores/ui.store";
+import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface ModalProps {
@@ -109,9 +109,6 @@ export function Modal({
   layer = topLayer ? "omnibar" : "default",
   backdrop = opaque ? "solid" : "blur",
 }: ModalProps) {
-  // A modeless dialog stays clear of the one sidebar, on whichever side it is docked.
-  const sidebarInset = useUIStore((s) => (modeless && selectOneSidebarOpen(s) ? selectSharedSidebarWidth(s) : 0));
-  const sidebarOnLeft = useUIStore((s) => s.sidebarSide === "left");
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const localizedTitle = localize(title);
@@ -340,8 +337,10 @@ export function Modal({
       style={{
         ...(modeless
           ? ({
-              "--dialog-left": `${(sidebarOnLeft ? sidebarInset : 0) + 16}px`,
-              "--dialog-right": `${(sidebarOnLeft ? 0 : sidebarInset) + 16}px`,
+              // A modeless dialog stays clear of the docked sidebar, on whichever side it is. AppShell publishes its
+              // width per side, and 0 while the shell draws Chats and the panels as a sheet (phones and tablets).
+              "--dialog-left": "calc(var(--mari-chat-ui-inset-left, 0px) + 16px)",
+              "--dialog-right": "calc(var(--mari-chat-ui-inset-right, 0px) + 16px)",
             } as CSSProperties)
           : {}),
         opacity: backdropShown ? 1 : 0,
