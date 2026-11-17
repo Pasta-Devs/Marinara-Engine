@@ -9825,7 +9825,8 @@ input.ov-edhead__title:focus {
 .mari-modal-panel.ov-add-drop {
   position: fixed !important;
   top: var(--ov-drop-top);
-  right: var(--ov-drop-right);
+  left: var(--ov-drop-left);
+  right: auto;
   width: 23rem !important;
   max-width: calc(100vw - 1rem) !important;
   height: auto;
