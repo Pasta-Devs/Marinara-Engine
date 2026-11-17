@@ -351,19 +351,36 @@ export function formatMariMessageTime(value: string): string | null {
   return mariMessageTimeFormat.format(date);
 }
 
+// #9340: one stand-in per context resource, so a memoized row (or the header) that shows a missing record
+// gets the same object on every render instead of re-rendering for a new one.
+const contextSubjectStandIns = new WeakMap<object, CharacterPreviewModel | LorebookPreviewModel>();
+function contextSubjectStandIn<T extends CharacterPreviewModel | LorebookPreviewModel>(
+  resource: object,
+  name: string,
+  build: () => T,
+): T {
+  const cached = contextSubjectStandIns.get(resource);
+  if (cached?.name === name) return cached as T;
+  const standIn = build();
+  contextSubjectStandIns.set(resource, standIn);
+  return standIn;
+}
+
 export function resolveContextCharacter(
   context: ProfessorMariAskContext | null | undefined,
   characters: ReadonlyMap<string, CharacterPreviewModel>,
   fallbackName: string,
 ): CharacterPreviewModel | null {
-  if (context?.resource?.kind !== "character") return null;
+  const resource = context?.resource;
+  if (resource?.kind !== "character") return null;
   return (
-    characters.get(context.resource.id) ?? {
-      id: context.resource.id,
-      name: context.resource.label ?? fallbackName,
+    characters.get(resource.id) ??
+    contextSubjectStandIn(resource, resource.label ?? fallbackName, () => ({
+      id: resource.id,
+      name: resource.label ?? fallbackName,
       tags: [],
       lorebookCount: 0,
-    }
+    }))
   );
 }
 
@@ -372,17 +389,19 @@ export function resolveContextLorebook(
   lorebooks: ReadonlyMap<string, LorebookPreviewModel>,
   fallbackName: string,
 ): LorebookPreviewModel | null {
-  if (context?.resource?.kind !== "lorebook") return null;
+  const resource = context?.resource;
+  if (resource?.kind !== "lorebook") return null;
   return (
-    lorebooks.get(context.resource.id) ?? {
-      id: context.resource.id,
-      name: context.resource.label ?? fallbackName,
+    lorebooks.get(resource.id) ??
+    contextSubjectStandIn(resource, resource.label ?? fallbackName, () => ({
+      id: resource.id,
+      name: resource.label ?? fallbackName,
       category: "uncategorized",
       isGlobal: false,
       enabled: true,
       linkedNames: [],
       tags: [],
-    }
+    }))
   );
 }
 
