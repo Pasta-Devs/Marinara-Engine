@@ -1,7 +1,8 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   BookOpen,
   Bot,
+  Compass,
   GraduationCap,
   Heart,
   Library,
@@ -22,6 +23,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { localizeAchievementDescription, localizeAchievementTitle } from "../../lib/achievement-localization";
 import { Modal } from "../ui/Modal";
+import { markThingTried } from "../../lib/things-to-try-progress";
 import { useTranslation } from "react-i18next";
 
 const ICONS: Record<AchievementDefinition["icon"], LucideIcon> = {
@@ -38,6 +40,7 @@ const ICONS: Record<AchievementDefinition["icon"], LucideIcon> = {
   lorebook: BookOpen,
   persona: Library,
   trophy: Trophy,
+  compass: Compass,
 };
 
 const CATEGORY_LABELS: Record<AchievementDefinition["category"], string> = {
@@ -45,6 +48,7 @@ const CATEGORY_LABELS: Record<AchievementDefinition["category"], string> = {
   community: "Community",
   creation: "Creation",
   milestone: "Milestone",
+  explorer: "Explorer",
 };
 
 function achievementTone(achievement: AchievementDefinition) {
@@ -54,6 +58,7 @@ function achievementTone(achievement: AchievementDefinition) {
   if (achievement.category === "collection") return "oklch(0.7 0.16 205)";
   if (achievement.category === "community") return "oklch(0.68 0.2 345)";
   if (achievement.category === "creation") return "oklch(0.7 0.18 52)";
+  if (achievement.category === "explorer") return "oklch(0.7 0.14 160)";
   return "oklch(0.64 0.19 295)";
 }
 
@@ -268,6 +273,9 @@ export function HomeAchievements({
     onOpenChange?.(nextOpen);
   };
   const achievements = useAchievements(achievementsEnabled);
+  useEffect(() => {
+    if (open && showModal) markThingTried("X10");
+  }, [open, showModal]);
 
   const progressById = useMemo(
     () => new Map((achievements.data?.progress ?? []).map((item) => [item.id, item])),

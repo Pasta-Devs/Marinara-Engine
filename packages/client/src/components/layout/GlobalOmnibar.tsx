@@ -171,6 +171,7 @@ import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { markThingTried } from "../../lib/things-to-try-progress";
 import { WindowTitle } from "../../lib/theme-slots";
 // Each pane only renders once the user opens it, so they stay out of the
 // initial AppShell chunk.
@@ -1395,6 +1396,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     return true;
   };
   const choose = async (result: OmnibarResult) => {
+    markThingTried("C8");
     // Slice 78: a pick after typing teaches "search" or "command"; a Try example teaches nothing.
     // Controls are counted where they flip; a row reaching here with one (a lorebook's Enabled
     // switch) is being opened, which is a search.
@@ -1585,6 +1587,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     }
     autoSelectionRef.current = false;
     setActiveResultId(result.id);
+    if (result.control?.type === "toggle") {
+      markThingTried("C8");
+      markThingTried("C9");
+    }
     // A preset row opens the preset; its "Set default preset" button is the toggle (user panel 2, N8).
     if (result.category === "preset" && result.control?.type === "toggle") choose(result);
     else if (result.control?.type === "toggle") flipToggleControl(result, result.control.value !== true);

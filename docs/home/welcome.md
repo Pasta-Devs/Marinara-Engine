@@ -64,7 +64,7 @@ Professor Mari can make a personal widget for you if you ask her. Installed agen
 | --- | --- | --- |
 | **Professor Mari** | **Ask Professor Mari** opens her chat. | Yes |
 | **Recent chats** | Your latest chats. Click one to reopen it. Empty: **Your chats will show here**. | Yes |
-| **Learn the engine** | Links to **Documentation**, **Replay tutorial** and **Read FAQ**. | Yes |
+| **Things to try** | The next three small things to try, one feature each. When you've tried them all, or turn tips off, it shows **Documentation**, **Replay tutorial** and **Read FAQ** instead. See [Things to try](#things-to-try). | Yes |
 | **What's New** | **See what's new** and **Read release notes**. | Yes |
 | **Community** | Links to **Discord**, **Support** and **Credits**. | Yes |
 | **Character Library** | A fresh selection of your characters each day. | No |
@@ -73,10 +73,22 @@ Professor Mari can make a personal widget for you if you ask her. Installed agen
 | **Clock & calendar** | Today's date and time. | No |
 | **Achievements** | Your latest and closest achievements. Needs the Achievements setting on. | No |
 
+## Things to try
+
+The **Things to try** widget suggests the next three features to try. Each task builds on the one before it: a gallery picture becomes a sticker, and the sticker gets sent in a chat.
+
+- Click a task to open the spot in the app. If it has no spot, its guide opens.
+- Click the check to mark it done, or the cross to skip it. A skipped task never shows again.
+- Most tasks tick themselves when Marinara sees you've done them, such as a chat in that mode or a sticker label. Tick the others yourself.
+- **See all** lists every task by trail, with **Show me**. A trail's tasks show once the tasks they build on are done. Trails under **Only in this layout** cover features of the new layout.
+- Finishing a trail unlocks its **Explorer** achievement.
+
+The widget follows **Feature tips** in **Settings > General > Confirmations & Help**. With tips off, it shows the guide links. Progress is saved in this browser.
+
 ## Where to get help
 
 - Ask Professor Mari on the Home screen.
-- Click **Read FAQ** in the **Learn the engine** widget for quick answers.
+- Open **See all** in the **Things to try** widget, then **Read FAQ**, for quick answers.
 - Click **Docs** in the top bar for the in-app guides.
 - Click **Discord** in the **Community** widget to reach the community, or **Support** to back the project.
 

@@ -11,14 +11,12 @@ import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { useStartNewChatMode } from "./use-start-new-chat-mode";
 
-export function useFeatureShow() {
+/** Runs one feature step. False when it can't run here (a chat tool with no chat open). */
+export function useRunFeatureStep() {
   const startNewChatMode = useStartNewChatMode();
   return useCallback(
-    (featureId: string): boolean => {
-      const feature = findFeature(featureId);
-      if (!feature) return false;
+    (step: FeatureStep): boolean => {
       const chatId = useChatStore.getState().activeChatId;
-      const step: FeatureStep = featureShowStep(feature, !!chatId);
       switch (step.kind) {
         case "docs":
           useUIStore.getState().openModal("docs-viewer", { initialDoc: step.path });
@@ -37,5 +35,18 @@ export function useFeatureShow() {
       }
     },
     [startNewChatMode],
+  );
+}
+
+export function useFeatureShow() {
+  const runStep = useRunFeatureStep();
+  return useCallback(
+    (featureId: string): boolean => {
+      const feature = findFeature(featureId);
+      if (!feature) return false;
+      const chatId = useChatStore.getState().activeChatId;
+      return runStep(featureShowStep(feature, !!chatId));
+    },
+    [runStep],
   );
 }
