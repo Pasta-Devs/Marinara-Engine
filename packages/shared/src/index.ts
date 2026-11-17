@@ -163,6 +163,7 @@ export * from "./constants/game-prompt.js";
 export * from "./constants/game-rating-guidelines.js";
 export * from "./constants/game-story-style.js";
 export * from "./constants/achievements.js";
+export * from "./constants/discovery-trails.js";
 export * from "./constants/tracker-custom-field-icons.js";
 export * from "./constants/stat-icons.js";
 export * from "./constants/docs-languages.js";

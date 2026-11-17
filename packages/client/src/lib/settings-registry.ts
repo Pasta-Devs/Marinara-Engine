@@ -163,6 +163,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    id: "feature-tips",
+    sectionId: "confirmations-help",
+    labelKey: "settings.controls.featureTips.label",
+    label: "Feature tips",
+    description: "Show a one-line tip where a feature lives, once, when it would help.",
+    descriptionKey: "settings.search.featureTips.description",
+    aliases: ["tips", "hints", "did you know", "suggestions"],
+    keywords: ["turn off tips", "hide tips", "show tips again"],
+    kind: "Toggle",
+  },
+  {
     id: "replay-walkthroughs",
     sectionId: "confirmations-help",
     labelKey: "settings.controls.replayWalkthroughs.label",

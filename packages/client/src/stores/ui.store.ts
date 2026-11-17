@@ -1413,6 +1413,8 @@ export interface UIState {
   chatHelpSeenModes: ChatModeShortcut[];
   /** Removes the chat Help button and suppresses automatic help overlays. */
   chatHelpButtonHidden: boolean;
+  /** One-line tips that name a feature where it lives, once each (lib/feature-tips.ts). */
+  featureTipsEnabled: boolean;
 
   // ── Dismissals ──
   linkApiBannerDismissed: boolean;
@@ -1748,6 +1750,7 @@ export interface UIState {
   setIntuitiveSwipeNavigation: (v: boolean) => void;
   setIntuitiveSwipeRerollLatest: (v: boolean) => void;
   setSwipeGestures: (v: boolean) => void;
+  setFeatureTipsEnabled: (v: boolean) => void;
   setEditLastMessageOnArrowUp: (v: boolean) => void;
   setEditMessageOnDoubleClick: (v: boolean) => void;
   setSummaryPopoverSettings: (settings: Partial<SummaryPopoverSettings>) => void;
@@ -2241,6 +2244,7 @@ export function pickSyncedSettings(state: UIState) {
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
+    featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
@@ -2530,6 +2534,7 @@ export function pickPersistedUIState(state: UIState) {
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
+    featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
     connectionsUpgradeNoteDismissed: state.connectionsUpgradeNoteDismissed,
     connectionsCollapsed: state.connectionsCollapsed,
@@ -2920,6 +2925,7 @@ export const useUIStore = create<UIState>()(
         hasCompletedOnboarding: false,
         chatHelpSeenModes: [],
         chatHelpButtonHidden: false,
+        featureTipsEnabled: true,
         linkApiBannerDismissed: false,
         connectionsUpgradeNoteDismissed: false,
         connectionsCollapsed: [],
@@ -3656,6 +3662,7 @@ export const useUIStore = create<UIState>()(
         setIntuitiveSwipeNavigation: (v) => set({ intuitiveSwipeNavigation: v }),
         setIntuitiveSwipeRerollLatest: (v) => set({ intuitiveSwipeRerollLatest: v }),
         setSwipeGestures: (v) => set({ swipeGestures: v }),
+        setFeatureTipsEnabled: (v) => set({ featureTipsEnabled: v }),
         setEditLastMessageOnArrowUp: (v) => set({ editLastMessageOnArrowUp: v }),
         setEditMessageOnDoubleClick: (v) => set({ editMessageOnDoubleClick: v }),
         setSummaryPopoverSettings: (settings) =>

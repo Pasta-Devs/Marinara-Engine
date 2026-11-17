@@ -7,7 +7,7 @@ The tutorial is a guided tour that starts the first time you open Marinara Engin
 1. Open **Settings → General → Confirmations & Help**.
 2. Under **Walkthroughs**, click **Replay the welcome tour**.
 
-You can also click **Replay tutorial** in the **Learn the engine** widget on Home. The tour starts again from the first step.
+You can also open **See all** in the **Things to try** widget on Home and click **Replay tutorial**. The tour starts again from the first step.
 
 **Walkthroughs** has two more buttons. **Replay the computer walkthrough** (or tablet, or phone) replays the short tour for the kind of device you are on, and **Show chat mode tips again** brings back each chat mode's tips. See [Walkthroughs for each device](#walkthroughs-for-each-device).
 

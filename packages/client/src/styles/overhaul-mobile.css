@@ -3037,7 +3037,8 @@
   order: 4;
   flex: 1 1 0;
   width: auto;
-  min-width: 4.25rem;
+  /* 3.5rem: four icon buttons, the filter and the List/Gallery switch share one line on a 375px phone. */
+  min-width: 3.5rem;
   max-width: 6.5rem;
   font-size: 0.875rem;
 }
@@ -5294,7 +5295,9 @@
   }
   /* Every Library page: the filter (and list/grid switch) moves from the header to the right of the
      sort, under a full-width search, so it is in the same spot on every page. */
-  :root[data-ov-split-pane][data-overhaul="mobile"] .ov-gallery__head > :is(.ovm-lp-filter, .ovm-lp-view):not(#ovm-x) {
+  :root[data-ov-split-pane][data-overhaul="mobile"]
+    .ov-gallery__head
+    > :is(.ovm-lp-filter, .ovm-lp-view, .ovm-fav-toggle):not(#ovm-x) {
     display: none;
   }
   :root[data-ov-split-pane][data-overhaul="mobile"]
@@ -5415,4 +5418,24 @@
   max-height: var(--ov-topbar-height) !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+}
+
+/* Characters / Personas (2026-11-17): the List / Gallery switch is the same size as on Lorebooks. Its two
+   buttons sit inside a thumb-sized frame, so the page-wide 2.5rem minimum doesn't apply to them (it
+   pushed the switch onto a line of its own). */
+:root[data-overhaul="mobile"] .ov-gallery .ovm-lp-view > button:not(#ovm-x):not(#ovm-y) {
+  min-width: 0;
+  min-height: 0;
+}
+/* A theme that sizes the filter to its widest option (Granite Watch: "Favorites" in a wide mono face)
+   pushed the List / Gallery switch onto a third line. The filter shares what is left of the line instead,
+   so a theme never adds a row here. */
+@media (max-width: 34rem) {
+  :root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-filter:not(.ovm-conn-group):not(#ovm-x) {
+    flex: 1 1 0 !important;
+    min-width: 3.25rem !important;
+  }
+  :root[data-overhaul="mobile"] .ov-gallery__head > .ovm-lp-view > button:not(#ovm-x):not(#ovm-y) {
+    width: 1.875rem;
+  }
 }

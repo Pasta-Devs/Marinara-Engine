@@ -226,7 +226,12 @@ export function OmnibarResultList({
                       inline={Boolean(result.parentId)}
                       typeLabel={
                         // Line 1 names the type only where the list mixes types, and always for a chat's mode.
-                        result.category === "chat" || mixedGroup ? preview?.categoryLabel : undefined
+                        // Feature rows name the SillyTavern word they were found by, if any.
+                        group.id === "features"
+                          ? result.badge
+                          : result.category === "chat" || mixedGroup
+                            ? preview?.categoryLabel
+                            : undefined
                       }
                       meta={result.meta}
                       accent={row.accent}

@@ -56,6 +56,7 @@ import { uiLanguagesRoutes } from "./ui-languages.routes.js";
 import { themesRoutes } from "./themes.routes.js";
 import { appSettingsRoutes } from "./app-settings.routes.js";
 import { achievementsRoutes } from "./achievements.routes.js";
+import { discoveryRoutes } from "./discovery.routes.js";
 import { gameRoutes } from "./game.routes.js";
 import { combatDirectorRoutes, type RoomFightBridge } from "./combat-director.routes.js";
 import { gameInventoryRoutes } from "./game-inventory.routes.js";
@@ -166,6 +167,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(themesRoutes, { prefix: "/api/themes" });
   await app.register(appSettingsRoutes, { prefix: "/api/app-settings" });
   await app.register(achievementsRoutes, { prefix: "/api/achievements" });
+  await app.register(discoveryRoutes, { prefix: "/api/discovery" });
   await app.register(gameRoutes, {
     prefix: "/api/game",
     onRoomRuntimeReady: (runtime: MultiplayerGameRuntime) => multiplayer.setGameRuntime(runtime),

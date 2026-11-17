@@ -48,6 +48,8 @@ export type LibraryCard = {
   /** Lorebooks: globally enabled. */
   active?: boolean;
   creatorNotes: string;
+  /** Characters: the card carries an embedded lorebook. */
+  hasEmbeddedLorebook?: boolean;
   hasExplicitSummary: boolean;
   sections: LibrarySection[];
 };
@@ -59,6 +61,8 @@ export interface CardLibrarySource {
   isFetchingNextPage: boolean;
   isFetchNextPageError: boolean;
   fetchNextPage: () => void;
+  /** Keep loading pages until every card is in (Load all). */
+  fetchAllPages: () => Promise<void>;
   /** Server total when the kind reports one; the load-more button then says "N of M". */
   total: number | null;
 }
@@ -69,6 +73,19 @@ interface SourceOptions {
   sort: string;
 }
 
+/** Load the remaining pages one after another (each waits for the last), stopping on an error. */
+async function fetchAllPages(pages: {
+  hasNextPage?: boolean;
+  fetchNextPage: () => Promise<{ hasNextPage?: boolean; isError?: boolean }>;
+}) {
+  if (!pages.hasNextPage) return;
+  // A cap well past any real library guards against a server that always reports more.
+  for (let step = 0; step < 1000; step += 1) {
+    const result = await pages.fetchNextPage();
+    if (result.isError || !result.hasNextPage) return;
+  }
+}
+
 function getText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -77,7 +94,7 @@ function getText(value: unknown) {
 
 type ParsedCharacterRow = Pick<
   CharacterCatalogEntry,
-  "id" | "comment" | "avatarPath" | "createdAt" | "updatedAt" | "tokenEstimate"
+  "id" | "comment" | "avatarPath" | "createdAt" | "updatedAt" | "tokenEstimate" | "hasEmbeddedLorebook"
 > & {
   parsed: Partial<CharacterData> & {
     extensions?: Record<string, unknown>;
@@ -146,6 +163,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
     tokenEstimate: char.tokenEstimate ?? estimateCharacterCardTokens(char.parsed),
     favorite: !!char.parsed.extensions?.fav,
     creatorNotes: getText(char.parsed.creator_notes),
+    hasEmbeddedLorebook: char.hasEmbeddedLorebook === true,
     hasExplicitSummary: Boolean(getText(char.parsed.summary)),
     sections: getCharacterSections(char),
   };
@@ -183,6 +201,7 @@ export function useCharacterLibrarySource({
     isFetchingNextPage: pages.isFetchingNextPage,
     isFetchNextPageError: pages.isFetchNextPageError,
     fetchNextPage: () => void pages.fetchNextPage(),
+    fetchAllPages: () => fetchAllPages(pages),
     total: pages.data?.pages[0]?.total ?? null,
   };
 }
@@ -236,6 +255,7 @@ export function usePersonaLibrarySource({ enabled, search, sort }: SourceOptions
     isFetchingNextPage: pages.isFetchingNextPage,
     isFetchNextPageError: pages.isFetchNextPageError,
     fetchNextPage: () => void pages.fetchNextPage(),
+    fetchAllPages: () => fetchAllPages(pages),
     total: null,
   };
 }
@@ -281,6 +301,7 @@ export function useLorebookLibrarySource({ enabled, search, sort }: SourceOption
     isFetchingNextPage: pages.isFetchingNextPage,
     isFetchNextPageError: pages.isFetchNextPageError,
     fetchNextPage: () => void pages.fetchNextPage(),
+    fetchAllPages: () => fetchAllPages(pages),
     // Lorebook pages carry no total.
     total: null,
   };

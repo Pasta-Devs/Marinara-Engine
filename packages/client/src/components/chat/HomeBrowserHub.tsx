@@ -102,6 +102,7 @@ import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/
 import { RecentChats } from "./RecentChats";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
+import { ThingsToTryList, ThingsToTrySeeAll, ThingsToTryWidget } from "./HomeThingsToTry";
 
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 // Outside homeBrowserTabId's `marinara-home-tab-` namespace, so no package id can produce them.
@@ -1368,7 +1369,43 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     : "group !h-auto !min-h-11 !w-full !gap-1.5 !border-[color-mix(in_srgb,var(--home-chat-mode-accent)_35%,var(--border))] !bg-[color-mix(in_srgb,var(--home-chat-mode-accent)_7%,var(--card))] !px-2 !py-1 !text-center sm:!min-h-9";
   const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [faqOpen, setFaqOpen] = useState(false);
+  const [thingsToTryOpen, setThingsToTryOpen] = useState(false);
+  const featureTipsEnabled = useUIStore((state) => state.featureTipsEnabled);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  // Field notes' guide links: the widget's rows once Things to try is done or tips are off, and See all's links.
+  const learnLinks = [
+    {
+      icon: "/home/tab-icons/documentation.png",
+      title: t("home.learn.docsTitle"),
+      description: t("home.learn.docsDescription"),
+      action: () => useUIStore.getState().openModal("docs-viewer"),
+    },
+    {
+      icon: "/home/tab-icons/tutorial.png",
+      title: t("home.learn.tutorialTitle"),
+      description: t("home.learn.tutorialDescription"),
+      action: () => useUIStore.getState().setHasCompletedOnboarding(false),
+    },
+    {
+      icon: "/home/tab-icons/faq.png",
+      title: t("home.learn.faqTitle"),
+      description: t("home.learn.faqDescription"),
+      action: () => setFaqOpen(true),
+    },
+  ];
+  const learnShortcuts = (
+    <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
+      {learnLinks.map((item) => (
+        <HomeWidgetShortcut
+          key={item.title}
+          onClick={item.action}
+          icon={item.icon}
+          title={item.title}
+          description={item.description}
+        />
+      ))}
+    </div>
+  );
   const [widgetManagerOpen, setWidgetManagerOpen] = useState(false);
   const [editingCustomWidget, setEditingCustomWidget] = useState<HomeCustomWidget | null>(null);
   const [widgetManagerAgentId, setWidgetManagerAgentId] = useState<string | null>(null);
@@ -3172,41 +3209,15 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
 
                     <HomeWidgetFrame {...widgetFrameProps("learn")}>
                       <FeedModule
-                        eyebrow={t("home.learn.eyebrow")}
-                        title={t("home.learn.title")}
+                        eyebrow={t(featureTipsEnabled ? "thingsToTry.eyebrow" : "home.learn.eyebrow")}
+                        title={t(featureTipsEnabled ? "thingsToTry.title" : "home.learn.title")}
                         accent={HOME_MODULE_ACCENTS.cyan}
                         className="h-full"
+                        action={
+                          featureTipsEnabled ? <ThingsToTrySeeAll onOpen={() => setThingsToTryOpen(true)} /> : undefined
+                        }
                       >
-                        <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
-                          {[
-                            {
-                              icon: "/home/tab-icons/documentation.png",
-                              title: t("home.learn.docsTitle"),
-                              description: t("home.learn.docsDescription"),
-                              action: () => useUIStore.getState().openModal("docs-viewer"),
-                            },
-                            {
-                              icon: "/home/tab-icons/tutorial.png",
-                              title: t("home.learn.tutorialTitle"),
-                              description: t("home.learn.tutorialDescription"),
-                              action: () => useUIStore.getState().setHasCompletedOnboarding(false),
-                            },
-                            {
-                              icon: "/home/tab-icons/faq.png",
-                              title: t("home.learn.faqTitle"),
-                              description: t("home.learn.faqDescription"),
-                              action: () => setFaqOpen(true),
-                            },
-                          ].map((item) => (
-                            <HomeWidgetShortcut
-                              key={item.title}
-                              onClick={item.action}
-                              icon={item.icon}
-                              title={item.title}
-                              description={item.description}
-                            />
-                          ))}
-                        </div>
+                        {featureTipsEnabled ? <ThingsToTryWidget fallback={learnShortcuts} /> : learnShortcuts}
                       </FeedModule>
                     </HomeWidgetFrame>
 
@@ -3363,6 +3374,30 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
         width="max-w-5xl"
       >
         <HomeFaq headerless faqOnly expanded className="max-w-none" onAskMari={() => setFaqOpen(false)} />
+      </Modal>
+      <Modal
+        open={thingsToTryOpen}
+        onClose={() => setThingsToTryOpen(false)}
+        title={t("thingsToTry.windowTitle")}
+        width="max-w-2xl"
+      >
+        <ThingsToTryList
+          onClose={() => setThingsToTryOpen(false)}
+          links={learnLinks.map((item) => (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => {
+                setThingsToTryOpen(false);
+                item.action();
+              }}
+              className="flex min-h-9 items-center gap-2 rounded-lg border border-[var(--border)] px-2.5 text-xs font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
+            >
+              <img src={item.icon} alt="" className="h-4 w-4 object-contain" />
+              {item.title}
+            </button>
+          ))}
+        />
       </Modal>
       <Modal
         open={widgetManagerOpen}

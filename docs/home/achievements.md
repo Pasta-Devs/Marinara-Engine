@@ -45,6 +45,10 @@ There are 24, in four categories: **Milestone**, **Community**, **Creation** and
 - **Collection** counts everything of that type in your library, including imported and downloaded items. For **Hoarder**, the built-in Professor Mari character never counts.
 - For the community achievements, visiting the link is enough. You do not need to sign up on the other site.
 
+## Explorer achievements
+
+Finishing every task in a **Things to try** trail unlocks that trail's achievement, in the **Explorer** category. There is one per trail: **Fresh Out Of The Oven** for Core, then **Cast Of Thousands**, **Shutterbug**, **Chronically Online**, **Set Dresser**, **Keeper Of Lore**, **Plot Armor**, **Roll For Initiative**, **Prompt Whisperer**, **Interior Decorator** and **Bells And Whistles**. In the new layout, also **Tab Hoarder**, **Neat Freak**, **Storm Chaser** and **Dress To Impress**. Skipped tasks don't count, so tick a task instead if you've done it. See [Getting Started](welcome.md#things-to-try).
+
 ## Achievements from agents
 
 Installed agents can add their own achievements. They show in the same window, after the built-in ones, under a heading such as **From Noodle**. They follow the same rules, and an agent can show its own badge art.

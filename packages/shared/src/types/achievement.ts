@@ -13,9 +13,10 @@ export type AchievementIconKey =
   | "character"
   | "lorebook"
   | "persona"
-  | "trophy";
+  | "trophy"
+  | "compass";
 
-export type AchievementCategory = "community" | "collection" | "creation" | "milestone";
+export type AchievementCategory = "community" | "collection" | "creation" | "milestone" | "explorer";
 
 export type AchievementMetric =
   "conversationChats" | "roleplayChats" | "gameChats" | "characters" | "lorebooks" | "personas";
@@ -103,4 +104,5 @@ export type AchievementEvent =
   | "prof_mari_message_sent"
   | "prof_mari_dragged"
   | "chat_created"
-  | "library_changed";
+  | "library_changed"
+  | import("../constants/discovery-trails.js").ExplorerAchievementEvent;

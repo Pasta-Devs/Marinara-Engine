@@ -34,6 +34,7 @@ import {
 } from "@marinara-engine/shared";
 import { DecisionDebugPanel } from "./DecisionDebugPanel";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { markThingTried } from "../../lib/things-to-try-progress";
 import { ReplyCheckupFacts } from "./ReplyCheckup";
 
 const PROMPT_TAG_CLASS =
@@ -610,6 +611,7 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
   const ovMobile = useOverhaulMobile();
   const [partsOpen, setPartsOpen] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
+  useEffect(() => markThingTried("S2"), []);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const [tested, setTested] = useState<DecisionDebugPreview | null>(null);
   const [showTest, setShowTest] = useState(false);

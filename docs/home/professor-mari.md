@@ -223,7 +223,7 @@ When a request fails, the chat keeps the reason and shows **Retry** when you can
 
 ## Read the FAQ
 
-Click **Read FAQ** in the **Learn the engine** widget on Home (or the **FAQ** bookmark in the classic layout) to open **Professor Mari's FAQ**. It is a fixed written list, not the AI chat, so it does not know your setup. Type in **Search FAQ** to filter. Each question has a category tag such as **Setup**, **Connections** or **Game Mode**. Tap a question to read the answer.
+Open **See all** in the **Things to try** widget on Home and click **Read FAQ** (or the **FAQ** bookmark in the classic layout) to open **Professor Mari's FAQ**. It is a fixed written list, not the AI chat, so it does not know your setup. Type in **Search FAQ** to filter. Each question has a category tag such as **Setup**, **Connections** or **Game Mode**. Tap a question to read the answer.
 
 ## Limits and safety
 

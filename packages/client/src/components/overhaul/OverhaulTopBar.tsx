@@ -62,6 +62,7 @@ import { showChoiceDialog } from "../../lib/app-dialogs";
 import { discardParkedDraft, useEditorDraftOfferStore, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
 import { translate } from "../../localization/i18n";
 import { useTabScrollMemory } from "./use-tab-scroll-memory";
+import { markThingTried } from "../../lib/things-to-try-progress";
 import { splitDragProps } from "./split-view";
 // Its own chunk, so the app shell stays under the bundle budget.
 const DesktopTabStrip = lazy(() => import("./DesktopTabStrip").then((module) => ({ default: module.DesktopTabStrip })));
@@ -627,6 +628,7 @@ export function closeTabAndMove(tab: OverhaulTab, tabs: OverhaulTab[], currentKe
 export function reopenClosedTab() {
   const tab = useOverhaulStore.getState().takeClosedTab();
   if (!tab) return false;
+  markThingTried("KW3");
   useOverhaulStore.getState().touchTab(tab);
   activateTab(tab);
   return true;

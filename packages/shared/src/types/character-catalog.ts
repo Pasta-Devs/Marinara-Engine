@@ -19,6 +19,8 @@ export type CharacterCatalogEntry = {
   nameColor: string | null;
   /** The card has interactive onboarding the player will be offered. */
   hasOnboarding: boolean;
+  /** The card carries an embedded lorebook (character_book entries or the embed pointer). */
+  hasEmbeddedLorebook?: boolean;
   avatarPath: string | null;
   avatarCrop: unknown;
   createdAt: string;

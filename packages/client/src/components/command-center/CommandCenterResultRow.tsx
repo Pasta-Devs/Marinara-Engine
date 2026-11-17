@@ -155,9 +155,12 @@ export function CommandCenterResultRow({
         />
         <span className={cn("min-w-0 leading-tight", inlineLine && "flex items-baseline gap-2")}>
           <span className={cn("flex min-w-0 items-baseline gap-1.5", inlineLine && "max-w-[40%] shrink-0")}>
-            <span className="block min-w-0 truncate text-sm font-semibold">{highlightSpan(title, titleHighlight)}</span>
+            {/* The title keeps its room on a phone; the type label gives way first. */}
+            <span className="block min-w-0 max-w-full shrink-0 truncate text-sm font-semibold">
+              {highlightSpan(title, titleHighlight)}
+            </span>
             {typeLabel ? (
-              <span className="shrink-0 text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span>
+              <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">{typeLabel}</span>
             ) : null}
             {meta && !inlineLine ? (
               <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] sm:hidden">

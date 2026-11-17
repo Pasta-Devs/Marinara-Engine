@@ -69,6 +69,8 @@ export function overhaulTabKey(tab: OverhaulTab) {
 interface OverhaulState {
   /** Card size in the Characters / Personas galleries (this device). */
   galleryCardSize: GalleryCardSize;
+  /** Characters / Personas: show the Library as a list (table) instead of the picture grid. */
+  galleryListView: boolean;
   /** Library pages showing everything together instead of in folders ("characters", "lorebooks", ...). */
   libraryFlatPages: string[];
   setLibraryFlat: (page: string, flat: boolean) => void;
@@ -83,6 +85,7 @@ interface OverhaulState {
   mobileSidePageOpen: boolean;
   setMobileSidePageOpen: (open: boolean) => void;
   setGalleryCardSize: (size: GalleryCardSize) => void;
+  setGalleryListView: (list: boolean) => void;
   /** The person's choice; on by default on this branch. */
   enabled: boolean;
   /** Set by AppShell: the desktop shell is showing (not the phone overlay shell). */
@@ -399,6 +402,8 @@ export const useOverhaulStore = create<OverhaulState>()(
       setSplitDrag: (splitDrag) => set({ splitDrag }),
       galleryCardSize: "medium",
       setGalleryCardSize: (galleryCardSize) => set({ galleryCardSize }),
+      galleryListView: false,
+      setGalleryListView: (galleryListView) => set({ galleryListView }),
       libraryFlatPages: [],
       setLibraryFlat: (page, flat) =>
         set((state) => {
@@ -443,6 +448,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         gamePaneOpen: state.gamePaneOpen,
         gamePaneTab: state.gamePaneTab,
         galleryCardSize: state.galleryCardSize,
+        galleryListView: state.galleryListView,
         libraryFlatPages: state.libraryFlatPages,
         messageButtons: state.messageButtons,
         sidePane: state.sidePane,
