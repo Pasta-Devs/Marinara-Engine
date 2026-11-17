@@ -186,7 +186,6 @@ function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: Tar
         </span>
       }
       width="max-w-xs"
-      layer="top"
       backdrop="dark"
       footer={
         <button
@@ -350,7 +349,6 @@ function EncounterConfig() {
         </span>
       }
       width="max-w-[26.25rem]"
-      layer="top"
       backdrop="dark"
       footer={
         <>

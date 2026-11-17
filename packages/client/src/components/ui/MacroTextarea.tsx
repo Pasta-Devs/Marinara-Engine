@@ -171,7 +171,7 @@ function ExpandedMacroEditor({
         </div>
       }
       width="max-w-5xl"
-      layer="top"
+      layer="omnibar"
       backdrop="dark"
       mobileFullscreen
       chatFloatingPanel
@@ -228,7 +228,7 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
         </div>
       }
       width="max-w-4xl"
-      layer="top"
+      layer="omnibar"
       backdrop="dark"
       chatFloatingPanel
       panelClassName={EDITOR_MODAL_SURFACE_VARIABLES}

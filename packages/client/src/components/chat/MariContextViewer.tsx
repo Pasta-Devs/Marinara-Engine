@@ -28,7 +28,7 @@ export function MariContextViewer({ open, onClose, workspaceChatId }: Props) {
       onClose={onClose}
       title={localizeUi("ui.chat.homeprofessormarichat.contextViewerTitle")}
       width="max-w-lg"
-      layer="top"
+      layer="omnibar"
       backdrop="dark"
     >
       {isLoading ? (

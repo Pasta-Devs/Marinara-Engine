@@ -50,7 +50,7 @@ export function MariPromptPreviewModal({
         </div>
       }
       width="max-w-3xl"
-      layer="top"
+      layer="omnibar"
       backdrop="dark"
     >
       <p className="mb-2 text-[0.6875rem] text-[var(--muted-foreground)]">

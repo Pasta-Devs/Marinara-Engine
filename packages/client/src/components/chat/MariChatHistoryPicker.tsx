@@ -247,7 +247,7 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
         ) : undefined
       }
       width="max-w-lg"
-      layer="top"
+      layer="omnibar"
       backdrop="dark"
       contentClassName="!p-0"
       footer={
