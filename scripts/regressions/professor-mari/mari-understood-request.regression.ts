@@ -183,7 +183,7 @@ assert.match(mariChat, /actingOnOutcomeInterrupted/u);
 assert.match(mariChat, /aria-expanded=\{expanded\}/u, "the disclosure exposes its expanded state to assistive tech");
 assert.match(
   mariChat,
-  /expanded \? "ui\.chat\.homeprofessormarichat\.actingOnCollapse" : "ui\.chat\.homeprofessormarichat\.actingOnExpand"/u,
+  /expanded\s*\?\s*"ui\.chat\.homeprofessormarichat\.actingOnCollapse"\s*:\s*"ui\.chat\.homeprofessormarichat\.actingOnExpand"/u,
   "the tooltip switches between expand and collapse wording",
 );
 assert.match(mariChat, /understoodRequest\.outcome === "held"/u);
