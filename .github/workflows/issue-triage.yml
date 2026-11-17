@@ -7,7 +7,7 @@ on:
 jobs:
   label:
     name: Label by title prefix
-    # Only a title edit can change the label. Body edits are skipped so a label a maintainer removed stays removed.
+    # Only the title decides the label, so body edits are skipped.
     if: github.event.action == 'opened' || github.event.changes.title
     # Quick retitles of one issue run in order instead of racing.
     concurrency:
@@ -17,7 +17,7 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Add the type label for the title prefix
+      - name: Match the type label to the title prefix
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -30,25 +30,19 @@ jobs:
             ];
             const labelFor = (title) =>
               prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
-            const { payload } = context;
-            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: payload.issue.number };
-            const edited = payload.action === 'edited';
-            // On an edit only a changed prefix counts, so a label a maintainer removed stays removed.
-            if (edited && labelFor(payload.changes.title.from) === labelFor(payload.issue.title)) {
-              return;
-            }
-            // Read the issue now. The event is a snapshot from delivery time, and during quick retitles
-            // GitHub can drop a queued run, so only the current title and labels can be trusted.
+            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: context.payload.issue.number };
+            // Read the issue now and reconcile from what it is, not from the event: the event is a snapshot
+            // from delivery time, and during quick retitles GitHub can drop a queued run.
             const { data: issue } = await github.rest.issues.get(target);
             const label = labelFor(issue.title);
-            // A prefix removed from the title leaves the labels alone.
+            // A title without one of these prefixes keeps its labels.
             if (!label) {
               return;
             }
             const current = issue.labels.map((existing) => existing.name);
-            // A title switched to another prefix is a correction, so the other type labels go.
+            // The type label follows the prefix: the issue keeps only the one its title names.
             const typeLabels = [...new Set(prefixLabels.map(([, name]) => name))];
-            const stale = edited ? typeLabels.filter((name) => name !== label && current.includes(name)) : [];
+            const stale = typeLabels.filter((name) => name !== label && current.includes(name));
             for (const name of stale) {
               try {
                 await github.rest.issues.removeLabel({ ...target, name });
