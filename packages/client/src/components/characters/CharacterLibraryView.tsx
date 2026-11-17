@@ -716,7 +716,7 @@ export function CharacterLibraryView() {
                       onClick={() => setSelectedId(card.id)}
                     />
                     {isSelected && (
-                      <div className="col-span-full lg:hidden">
+                      <div className="col-span-full mt-3 lg:hidden">
                         <CardLibraryDetailCard card={card} kind={kind} actions={renderDetailActions(card)} />
                       </div>
                     )}
