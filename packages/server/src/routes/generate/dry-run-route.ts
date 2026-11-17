@@ -4,6 +4,10 @@ import {
   type LorebookImageEntry,
 } from "../../services/generation/lorebook-image-prompt.js";
 import { withLatestMessageReply } from "../../services/generation/message-reply.js";
+import {
+  buildOtherPublicFacesBlock,
+  insertAfterFirstSystemMessage,
+} from "../../services/generation/character-prompt-context.js";
 import type { FastifyInstance } from "fastify";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
@@ -2232,6 +2236,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           }
         },
       );
+      // #9425: the same block a generation adds for this responder, after scoping like there.
+      if (promptTargetCharacterId && chatMeta.groupPublicFacesEnabled === true) {
+        insertAfterFirstSystemMessage(
+          finalMessages,
+          buildOtherPublicFacesBlock({
+            profilesById: historyMacroProfilesById,
+            activeCharacterIds: characterIds,
+            targetCharacterId: promptTargetCharacterId,
+            promptMacroContext,
+            wrapFormat,
+          }),
+        );
+      }
     }
 
     // ── Impersonate: same instruction block as POST /api/generate (no DB writes) ──
