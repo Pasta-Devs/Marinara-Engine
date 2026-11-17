@@ -242,21 +242,22 @@ json_field() {
 if [ -z "$FROM" ]; then
   # 4. This checkout into ~/Marinara-Engine. The launcher's update check reads git; a copy has no .git, and
   # --skip-update skips it anyway.
-  # A folder an update check left is a git clone of the release: the launcher would treat this checkout's new files
-  # as stray and clean them from packages/*/src, so it starts over (dependencies download again).
+  # The folder starts over (dependencies download again) when its leftovers are unknown: a folder an update check left
+  # is a git clone of the release, whose launcher would clean this checkout's new files from packages/*/src as stray,
+  # and a folder copied before the copied-files list existed may hold another branch's files.
   stop_marinara
-  tx '[ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine ~/.termux-qc-files.txt'
+  tx '[ -f ~/.termux-qc-files ] && [ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine ~/.termux-qc-files'
   log "copying this checkout into Termux"
   # Leave nothing behind from an earlier copy either (another branch's files would end up in the build): delete the
   # files the last copy brought that this checkout no longer has. Dependencies, builds and data stay, so later runs
-  # stay quick.
-  (cd "$ROOT" && git ls-files -co --exclude-standard | LC_ALL=C sort -u) >"$STATE/files-$ARCH.txt"
-  tx 'cat > ~/.termux-qc-files.new' <"$STATE/files-$ARCH.txt"
-  tx 'cd ~ && mkdir -p Marinara-Engine && cd Marinara-Engine
-    if [ -f ~/.termux-qc-files.txt ]; then
-      LC_ALL=C comm -23 ~/.termux-qc-files.txt ~/.termux-qc-files.new | while IFS= read -r f; do rm -f -- "$f"; done
+  # stay quick. The lists are NUL-separated, so every file name survives the trip unchanged.
+  (cd "$ROOT" && git ls-files -z -co --exclude-standard | LC_ALL=C sort -zu) >"$STATE/files-$ARCH"
+  tx 'cat > ~/.termux-qc-files.new' <"$STATE/files-$ARCH"
+  tx 'mkdir -p ~/Marinara-Engine && cd ~/Marinara-Engine
+    if [ -f ~/.termux-qc-files ]; then
+      LC_ALL=C comm -z -23 ~/.termux-qc-files ~/.termux-qc-files.new | while IFS= read -r -d "" f; do rm -f -- "$f"; done
     fi
-    mv ~/.termux-qc-files.new ~/.termux-qc-files.txt'
+    mv ~/.termux-qc-files.new ~/.termux-qc-files'
   copy_checkout Marinara-Engine
   # 5. Start it with the real launcher and wait for the server.
   launch "$LOG" --skip-update
@@ -275,7 +276,7 @@ fi
 log "installing $FROM the way users do, then updating it to this checkout"
 stop_marinara
 tx "set -e
-  rm -rf ~/Marinara-Engine ~/termux-qc-origin.git ~/termux-qc-target
+  rm -rf ~/Marinara-Engine ~/termux-qc-origin.git ~/termux-qc-target ~/.termux-qc-files
   git init -q --bare -b main ~/termux-qc-origin.git
   cd ~/termux-qc-origin.git
   git config receive.shallowUpdate true
