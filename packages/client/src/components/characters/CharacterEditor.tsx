@@ -1855,6 +1855,7 @@ function CharacterCardTab({
     {
       key: "publicFace",
       sectionId: "character-card-public-face",
+      mariField: "extensions.publicFace",
       title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
       subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
       helpText: localizeUi("ui.cardFields.publicFace.help"),

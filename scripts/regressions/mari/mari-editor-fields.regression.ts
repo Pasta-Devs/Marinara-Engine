@@ -159,6 +159,11 @@ assert.equal(mariPatchFieldId("persona", "backstory"), "backstory");
 assert.equal(mariPatchFieldId("persona", "first_mes"), null);
 assert.equal(mariPatchFieldId("persona", "aboutMe"), null);
 assert.equal(mariPatchFieldId("character", "imageAppearance"), null);
+// Public Face reviews in its own box: under extensions on a character, a column on a persona.
+assert.equal(mariPatchFieldId("character", "publicFace"), "extensions.publicFace");
+assert.equal(mariPatchFieldId("character", "public_face"), "extensions.publicFace");
+assert.equal(mariPatchFieldId("persona", "publicFace"), "publicFace");
+assert.equal(mariPatchFieldId("persona", "public_face"), "publicFace");
 // Finding 1: separators are dropped as on the server, so `persona_update` is no action.
 assert.equal(appDataAction("Personas.Update"), "persona.update");
 assert.equal(mariEditorKindForAction("Personas.Update"), "persona");

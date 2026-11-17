@@ -67,6 +67,83 @@ await withHandbook("builtin-characters", async ({ commands, mari, run }) => {
     data: { name: "Placeholder" },
   })) as HandbookResult;
   assert.equal(placeholder.ok, true, "a name-only create is accepted — the handbook is the only guard");
+
+  // Public Face lands where the editor and the macros read it: under extensions on a character, on the persona.
+  const publicFace = (await mari.executeAction({
+    action: "character.update",
+    characterId: commands[0]!.characterId,
+    patch: { publicFace: "Keeper of the Lantern Coast light." },
+    reason: "Write her Public Face",
+    apply: true,
+  })) as HandbookResult;
+  assert.equal(publicFace.ok, true, `the Public Face patch failed: ${String(publicFace.error ?? "")}`);
+  const withFace = await readCard();
+  assert.equal(withFace.data?.extensions?.publicFace, "Keeper of the Lantern Coast light.");
+  assert.equal(Object.hasOwn(withFace.data ?? {}, "publicFace"), false, "publicFace is not a top-level card key");
+  const aliased = (await mari.executeAction({
+    action: "character.update",
+    characterId: commands[0]!.characterId,
+    patch: { public_face: "" },
+    reason: "Clear her Public Face",
+    apply: true,
+  })) as HandbookResult;
+  assert.equal(aliased.ok, true, `the public_face clear failed: ${String(aliased.error ?? "")}`);
+  assert.equal((await readCard()).data?.extensions?.publicFace, "", 'public_face is an alias and "" clears');
+
+  const personaId = "note-ada";
+  const persona = (await mari.executeAction({
+    action: "persona.create",
+    personaId,
+    data: { name: "Ada", publicFace: "A countess with ink-stained gloves." },
+  })) as HandbookResult;
+  assert.equal(persona.ok, true, `persona.create failed: ${String(persona.error ?? "")}`);
+  const readPersona = async () =>
+    ((await mari.executeAction({ action: "persona.get", personaId })) as HandbookResult).output as Record<
+      string,
+      unknown
+    >;
+  assert.equal((await readPersona()).publicFace, "A countess with ink-stained gloves.");
+  const personaUpdate = (await mari.executeAction({
+    action: "persona.update",
+    personaId,
+    patch: { publicFace: "A countess known for her lectures." },
+    reason: "Rewrite her Public Face",
+    apply: true,
+  })) as HandbookResult;
+  assert.equal(personaUpdate.ok, true, `persona.update failed: ${String(personaUpdate.error ?? "")}`);
+  assert.equal((await readPersona()).publicFace, "A countess known for her lectures.");
+
+  // The skill says "" clears a persona's Public Face, alone or beside another field.
+  for (const patch of [{ publicFace: "" }, { publicFace: "", description: "Mathematician" }]) {
+    await mari.executeAction({
+      action: "persona.update",
+      personaId,
+      patch: { publicFace: "Before the clear." },
+      reason: "Set her Public Face",
+      apply: true,
+    });
+    const cleared = (await mari.executeAction({
+      action: "persona.update",
+      personaId,
+      patch,
+      reason: "Clear her Public Face",
+      apply: true,
+    })) as HandbookResult;
+    assert.equal(cleared.ok, true, `the persona clear failed: ${String(cleared.error ?? "")}`);
+    assert.equal((await readPersona()).publicFace, "", `"" clears with ${JSON.stringify(patch)}`);
+  }
+
+  // The --public-face flag the CLI help advertises works for both kinds.
+  const cliCharacter = (await mari.executeCli({
+    argv: ["characters", "update", commands[0]!.characterId, "--public-face", "From the CLI.", "--apply"],
+  })) as HandbookResult;
+  assert.equal(cliCharacter.ok, true, `characters update --public-face failed: ${String(cliCharacter.error ?? "")}`);
+  assert.equal((await readCard()).data?.extensions?.publicFace, "From the CLI.");
+  const cliPersona = (await mari.executeCli({
+    argv: ["personas", "update", personaId, "--public-face", "Persona CLI.", "--apply"],
+  })) as HandbookResult;
+  assert.equal(cliPersona.ok, true, `personas update --public-face failed: ${String(cliPersona.error ?? "")}`);
+  assert.equal((await readPersona()).publicFace, "Persona CLI.");
 });
 
 console.log("Professor Mari characters handbook regression passed.");

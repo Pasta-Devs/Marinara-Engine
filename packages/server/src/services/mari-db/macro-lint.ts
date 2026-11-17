@@ -48,6 +48,8 @@ const CARD_MACRO_FIELDS = [
   "aboutMe",
   "about_me",
   "about-me",
+  "publicFace",
+  "public_face",
   "alternate_greetings",
   "alternateGreetings",
   // Sent as prompt text with macros resolved. Creator notes stay out: card CSS there ends in "}}".
