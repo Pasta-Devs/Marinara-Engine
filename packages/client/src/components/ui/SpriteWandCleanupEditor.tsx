@@ -1134,7 +1134,7 @@ export function SpriteWandCleanupEditor({
                         setPickingBrushColor(false);
                       }}
                       disabled={loading || applying}
-                      label={localizeUi("ui.spritewandcleanupeditor.brushColor")}
+                      label={localizeUi("ui.ui.spritewandcleanupeditor.brushColor")}
                     />
                     <span className="font-mono text-[0.6875rem] uppercase text-[var(--muted-foreground)]">
                       {brushColor}
