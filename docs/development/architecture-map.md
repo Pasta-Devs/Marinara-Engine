@@ -56,7 +56,7 @@ React 19 and Vite PWA. It currently holds several hundred source files.
 Current top-level shape:
 
 - `App.tsx`, `main.tsx`: app bootstrap, React Query, PWA, global effects.
-- `components/layout`: app shell, sidebars, top bar, modal renderer.
+- `components/layout`: app shell, the sidebar (Chats or a panel), top bar, modal renderer.
 - `components/ui`: reusable UI primitives.
 - `components/chat`: mixed common chat, conversation, roleplay, scene, sprite, and encounter UI.
 - `components/game`: game-mode surface and panels.

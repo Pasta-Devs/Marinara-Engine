@@ -36,7 +36,7 @@ Marinara exports every message from the first to the last one you picked. Click 
 
 ## Export several chats at once
 
-1. In the left sidebar, click the tab for the mode you want: **CONVO**, **RP** or **GM**. Each tab exports only its own chats.
+1. In **Chats**, click the tab for the mode you want: **CONVO**, **RP** or **GM**. Each tab exports only its own chats.
 2. Click **Select chats** at the top of the list.
 3. Click each chat you want. A bar at the bottom shows the count, such as "3 selected".
 4. Click **Export** in the bar.
@@ -47,7 +47,7 @@ Your browser downloads a `.zip` file with one JSONL transcript per chat. Bulk ex
 
 This makes a new chat from a `.jsonl` file saved by Marinara or exported from SillyTavern.
 
-1. In the left sidebar, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
+1. In **Chats**, click the tab for the mode you want. The imported chat uses the mode of the tab you have open, not the mode in the file.
 2. Click the **Import** button next to the **+** button. Its label is **Import SillyTavern or Marinara chat JSONL**.
 3. Choose your `.jsonl` file.
 

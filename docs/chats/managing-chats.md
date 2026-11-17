@@ -1,6 +1,8 @@
 # Managing Your Chat List
 
-The **Chats** panel on the left holds every chat you have. Use it to start, find, sort, organize and delete chats.
+The **Chats** panel holds every chat you have. Use it to start, find, sort, organize and delete chats. To open it, click **Chats** in the top bar. If you do not see it, open **More** first.
+
+On a computer, **Chats** opens in the sidebar, the same place as **Characters** and the other panels. Only one shows at a time: opening a panel replaces **Chats**, and clicking **Chats** brings it back. The sidebar is on the right unless you set **Desktop sidebar side** to **Left** (see [Appearance Settings](../appearance/appearance-settings.md#other-app-style-controls)). On a phone or tablet, it opens as a full-screen sheet.
 
 ## The chat list and mode tabs
 

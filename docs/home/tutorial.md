@@ -31,17 +31,17 @@ On a phone or other narrow screen, each card shows centered below the top bar. T
 | # | Card title | What it covers |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | A centered welcome card. Professor Mari offers to show you around. |
-| 2 | **Characters** | The **Characters** panel button, where your characters live. |
-| 3 | **Personas** | The **Personas** panel button, where you define who you are in a chat. |
-| 4 | **Lorebooks** | The **Lorebooks** panel button, which holds extra world and character details. |
-| 5 | **Presets** | The **Presets** panel button, which controls how the prompt is built. |
-| 6 | **Connections** | The **Connections** panel button. Connections are the first thing to set up before chatting. |
-| 7 | **Agents** | The **Agents** panel button. The card points you to **Agent Organizer** to install agents. |
-| 8 | **Settings** | The **Settings** panel button. Opens **Settings** on the **General** tab. |
-| 9 | **Chats** | The sidebar toggle. Opens the chat sidebar. |
-| 10 | **Conversation Mode** | The conversation tab, labeled **CONVO**. |
-| 11 | **Roleplay Mode** | The roleplay tab, labeled **RP**. |
-| 12 | **Game Mode** | The game tab, labeled **GM**. |
+| 2 | **Chats** | The **Chats** button, the first of the panel buttons on a computer. Opens **Chats** in the sidebar, where the panels in the next steps open too. The card also says that on a computer you can dock the sidebar on the left in **Settings → Appearance**. |
+| 3 | **Conversation Mode** | The conversation tab, labeled **CONVO**. |
+| 4 | **Roleplay Mode** | The roleplay tab, labeled **RP**. |
+| 5 | **Game Mode** | The game tab, labeled **GM**. |
+| 6 | **Characters** | The **Characters** panel button, where your characters live. |
+| 7 | **Personas** | The **Personas** panel button, where you define who you are in a chat. |
+| 8 | **Lorebooks** | The **Lorebooks** panel button, which holds extra world and character details. |
+| 9 | **Presets** | The **Presets** panel button, which controls how the prompt is built. |
+| 10 | **Connections** | The **Connections** panel button. Connections are the first thing to set up before chatting. |
+| 11 | **Agents** | The **Agents** panel button. The card points you to **Agent Organizer** to install agents. |
+| 12 | **Settings** | The **Settings** panel button. Opens **Settings** on the **General** tab. |
 | 13 | **Home: Your Story Hub** | Goes back to Home. Home is where you continue a chat, start a new one and arrange widgets. |
 | 14 | **Ask Me Where Things Are** | The search bar at the top of Home. On a phone, the card tells you to pull down from the top bar of the app. |
 | 15 | **Guides and Home Controls** | The **Documentation**, **Tutorial**, **FAQ** and **Widgets** bookmarks. |

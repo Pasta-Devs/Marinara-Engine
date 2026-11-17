@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Layout: Main App Shell (Discord-like three-column)
+// Layout: Main App Shell (the chat, and one sidebar for Chats and the panels)
 // ──────────────────────────────────────────────
 import { useQueryClient } from "@tanstack/react-query";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
