@@ -245,13 +245,6 @@ export function EditorRail({
     if (!keepOpen || !value) setTagOpen(false);
   };
 
-  const jumpToElement = (id: string) => {
-    const target = document.getElementById(id);
-    if (!target) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-  };
-
   return (
     <aside className="ov-rail" data-component="OverhaulEditorRail">
       {crumbs}
@@ -368,7 +361,7 @@ export function EditorRail({
               <ul className="ov-rail__children">
                 {section.children.map((child) => (
                   <li key={child.id}>
-                    <button type="button" onClick={() => jumpToElement(child.id)}>
+                    <button type="button" onClick={() => onJump(child.id)}>
                       {localize(child.label)}
                     </button>
                   </li>
