@@ -148,6 +148,7 @@ try {
     ["anthropic", "v1", "claude-opus-5-5", false],
     ["google", "google", "gemini-4-argon", false],
     ["google", "google", "gemini-4-carbon", false],
+    ["google", "google", "gemini-4-hydrogen", false],
     ["openrouter", "openrouter.ai/api/v1", "google/gemini-3.8-flash", false],
   ] as const) {
     const connection = await createConnectionsStorage(db).create({

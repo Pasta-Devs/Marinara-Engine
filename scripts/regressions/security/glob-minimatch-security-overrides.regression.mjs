@@ -1,11 +1,15 @@
 // GHSA-3g3m-2fjr-6pw4 (glob) and GHSA-g3hv-75wg-m249 (minimatch) are fixed only in the glob 14 and
 // minimatch 11 majors, which pnpm-workspace.yaml forces under every consumer. Guard the resolutions
 // and the exact calls each consumer makes, so a reverted override or a broken major shows up here.
+// GHSA-fc5q-39xc-vjpf (picomatch) has no fixed release, so pnpm-workspace.yaml ignores it; see the end.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { resolvePnpmRunner } from "../../pnpm-runner.mjs";
 
 const lock = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8");
 for (const [name, fixed] of [
@@ -56,4 +60,27 @@ assert.equal(piRequire("minimatch").minimatch("openai/GPT-5", "openai/gpt-*", { 
 assert.equal(piRequire("minimatch").minimatch("skills/x.md", "skills/*.ts"), false);
 assert.deepEqual(filelistRequire("minimatch").match(["a.js", "b.ts"], "*.js", {}), ["a.js"]);
 
-console.log("glob/minimatch security overrides: fixed resolutions and every consumer call passed");
+// picomatch's ReDoS (single-branch repeated extglobs) needs a pattern someone else wrote. Only build and lint tools
+// load picomatch here, on the repository's own patterns, so the advisory is ignored until a fixed release exists.
+// Reassess it when picomatch reaches a production dependency or another version is installed.
+const pnpm = resolvePnpmRunner();
+const whyPicomatch = (...args) => {
+  const result = spawnSync(pnpm.command, [...pnpm.args, "why", "picomatch", "--json", ...args], {
+    cwd: fileURLToPath(new URL("../../..", import.meta.url)),
+    encoding: "utf8",
+    env: { ...process.env, COREPACK_ENABLE_NETWORK: "0" },
+    timeout: 60_000,
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr + (result.error?.message ?? ""));
+  return JSON.parse(result.stdout);
+};
+assert.deepEqual(whyPicomatch("--prod"), [], "picomatch must stay out of production dependencies while ignored");
+assert.deepEqual(
+  [...new Set(whyPicomatch().map((entry) => entry.version))],
+  ["4.0.7"],
+  "picomatch changed: reassess the GHSA-fc5q-39xc-vjpf exception, and drop it if the new version is fixed",
+);
+
+console.log(
+  "glob/minimatch/picomatch security guards: fixed resolutions, every consumer call and the picomatch exception passed",
+);

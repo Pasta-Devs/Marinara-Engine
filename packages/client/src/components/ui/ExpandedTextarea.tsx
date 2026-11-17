@@ -8,7 +8,6 @@ import { Minimize2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
@@ -46,9 +45,7 @@ export function ExpandedTextarea({
 }: ExpandedTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   const isChatSurface = surface === "chat";
-  useKeepFocusedFieldAboveKeyboard(panelRef);
 
   useEffect(() => {
     if (!open) return;
@@ -71,7 +68,6 @@ export function ExpandedTextarea({
     <AnimatePresence>
       {open && (
         <motion.div
-          ref={panelRef}
           // This overlay portals to <body> and sits above any chat drawer that
           // opened it. Mark it as a chat floating panel so the drawer's
           // outside-pointerdown close handler treats clicks inside the editor as

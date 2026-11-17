@@ -23,6 +23,7 @@ import {
   CUSTOM_EMOJI_NAME_PATTERN,
   CUSTOM_EMOJI_MAX_DIMENSION,
   updateCustomEmojiSchema,
+  normalizeGalleryDescription,
 } from "@marinara-engine/shared";
 
 const CUSTOM_EMOJIS_ROOT = join(DATA_DIR, "custom-emojis");
@@ -43,7 +44,14 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/avif": ".avif",
 };
 
-type CustomEmojiRow = { id: string; name: string; filePath: string; width: number | null; height: number | null };
+type CustomEmojiRow = {
+  id: string;
+  name: string;
+  filePath: string;
+  width: number | null;
+  height: number | null;
+  description?: string | null;
+};
 
 function ensureDir() {
   if (!existsSync(CUSTOM_EMOJIS_ROOT)) {
@@ -220,7 +228,13 @@ export async function customEmojisRoutes(app: FastifyInstance) {
     const rows = (await storage.list()) as CustomEmojiRow[];
     const selected = ids ? rows.filter((row) => ids.includes(row.id)) : rows;
 
-    const emojis: Array<{ name: string; width: number | null; height: number | null; dataUrl: string }> = [];
+    const emojis: Array<{
+      name: string;
+      width: number | null;
+      height: number | null;
+      description?: string;
+      dataUrl: string;
+    }> = [];
     for (const row of selected) {
       const filePath = resolveFlatMediaFile(CUSTOM_EMOJIS_ROOT, row.filePath);
       const mime = MIME_BY_EXT[extname(row.filePath).toLowerCase()];
@@ -232,6 +246,7 @@ export async function customEmojisRoutes(app: FastifyInstance) {
           name: row.name,
           width: row.width,
           height: row.height,
+          ...(row.description ? { description: row.description } : {}),
           dataUrl: `data:${mime};base64,${buf.toString("base64")}`,
         });
       } catch (err) {
@@ -244,7 +259,9 @@ export async function customEmojisRoutes(app: FastifyInstance) {
 
   // ── Import a set (JSON bundle of base64 images); duplicates are skipped ──
   app.post<{
-    Body: { emojis?: Array<{ name?: unknown; dataUrl?: unknown; width?: unknown; height?: unknown }> };
+    Body: {
+      emojis?: Array<{ name?: unknown; dataUrl?: unknown; width?: unknown; height?: unknown; description?: unknown }>;
+    };
   }>("/import", async (req) => {
     const entries = Array.isArray(req.body?.emojis) ? req.body.emojis : [];
     let imported = 0;
@@ -296,7 +313,13 @@ export async function customEmojisRoutes(app: FastifyInstance) {
 
       try {
         await writeFile(filePath, buffer);
-        await storage.create({ name, filePath: filename, width, height });
+        await storage.create({
+          name,
+          filePath: filename,
+          width,
+          height,
+          description: normalizeGalleryDescription(entry.description),
+        });
         imported++;
       } catch (err) {
         if (existsSync(filePath)) unlinkSync(filePath);

@@ -190,15 +190,22 @@ export function isOpenAIGpt6AstraModel(model: string): boolean {
 }
 
 export function isOpenAIGpt6Model(model: string): boolean {
-  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol)(?:$|[-:])/u.test(capabilityModelId(model));
+  return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol|\.2-(?:sol|astra))(?:$|[-:])/u.test(
+    capabilityModelId(model),
+  );
 }
 
 /**
  * GPT-6 models that cannot turn reasoning off. GPT-6 only takes sampling with effort "none",
  * so these never take it at all. https://developers.openai.com/api/docs/models/gpt-6.1-sol
+ * GPT-6.2 Sol and Astra: "The API rejects requests that set reasoning effort to `none`."
+ * https://developers.openai.com/api/docs/models/gpt-6.2-sol and /gpt-6.2-astra
  */
 export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
-  return isOpenAIGpt6AstraModel(model) || /^(?:openai\/)?gpt-6\.1-sol(?:$|[-:])/u.test(capabilityModelId(model));
+  return (
+    isOpenAIGpt6AstraModel(model) ||
+    /^(?:openai\/)?gpt-6\.(?:1-sol|2-(?:sol|astra))(?:$|[-:])/u.test(capabilityModelId(model))
+  );
 }
 
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
@@ -223,6 +230,14 @@ export function resolveProviderReasoningEffort(args: {
     // MiniMax M3.1 Flash always reasons, so use Low for a saved Off.
     if (args.reasoningEffort === null || args.reasoningEffort === "none") return "low";
     return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
+  }
+  // Hydrogen cannot turn thinking off either. Its default is high, so no level names high; its top level is xhigh. It is
+  // on the Gemini API only: on Vertex it is an unknown model and sends no parameters.
+  if (providerLower === "google" && isGeminiHydrogenModel(args.model)) {
+    const effort = args.reasoningEffort;
+    if (!effort || effort === "none") return "high";
+    if (effort === "xhigh" || effort === "max" || effort === "maximum") return "xhigh";
+    return effort;
   }
   // Argon and Carbon cannot turn thinking off; without a level they think at Google's default, medium, so name that level.
   if (
@@ -292,6 +307,16 @@ export function isGeminiArgonOrCarbonModel(model: string): boolean {
   return /(?:^|\/)gemini-4-(?:argon|carbon)(?:$|-)/u.test(capabilityModelId(model));
 }
 
+/**
+ * Gemini 4 Hydrogen takes thinking levels low, medium, high and xhigh, defaults to high, and rejects minimal. It shares
+ * Argon and Carbon's request schema: temperature, top_p and top_k are removed. It is on the Gemini API (free and paid
+ * tiers); Google lists no Vertex location for it. Unlike Argon and Carbon it returns up to 65,536 tokens per request.
+ * https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
+ */
+export function isGeminiHydrogenModel(model: string): boolean {
+  return /(?:^|\/)gemini-4-hydrogen(?:$|-)/u.test(capabilityModelId(model));
+}
+
 /** Any Gemini model id, bare or with a router prefix such as OpenRouter's `google/`. */
 export function isGeminiModel(model: string): boolean {
   return /(?:^|\/)gemini-/u.test(capabilityModelId(model));
@@ -306,7 +331,7 @@ export function isGeminiModel(model: string): boolean {
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-6-flash (also 3-7, 3-8)
  */
 export function isGeminiStrictRequestModel(model: string): boolean {
-  return /(?:^|\/)gemini-(?:4-(?:argon|carbon)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
+  return /(?:^|\/)gemini-(?:4-(?:argon|carbon|hydrogen)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
     capabilityModelId(model),
   );
 }
@@ -331,6 +356,8 @@ export const OPENAI_MODELS: KnownModel[] = [
   { id: "gpt-5.6-terra", name: "gpt-5.6-terra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.6-luna", name: "gpt-5.6-luna", context: 1050000, maxOutput: 128000 },
   // GPT-6
+  { id: "gpt-6.2-sol", name: "gpt-6.2-sol", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6.2-astra", name: "gpt-6.2-astra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6.1-sol", name: "gpt-6.1-sol", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-astra", name: "gpt-6-astra", context: 1050000, maxOutput: 128000 },
   { id: "gpt-6-sol", name: "gpt-6-sol", context: 1050000, maxOutput: 128000 },
@@ -501,10 +528,12 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 // The ChatGPT-backed Codex endpoint can return an account-specific model
 // catalog when authenticated. This curated fallback keeps the selector useful
 // before the user has run `codex login`. GPT-6 and GPT-5.6 contexts are Codex's
-// default window from its model catalog (October 2026). GPT-5.5 stays first so
+// default window from its model catalog (October 2026; GPT-6.2 from November 2026). GPT-5.5 stays first so
 // new connections keep it as their default model.
 export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
   { id: "gpt-5.5", name: "GPT-5.5", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-6.2-sol", name: "GPT-6.2-Sol", context: 500000, maxOutput: 128000 },
+  { id: "gpt-6.2-astra", name: "GPT-6.2-Astra", context: 272000, maxOutput: 128000 },
   { id: "gpt-6.1-sol", name: "GPT-6.1-Sol", context: 272000, maxOutput: 128000 },
   { id: "gpt-6-astra", name: "GPT-6-Astra", context: 272000, maxOutput: 128000 },
   { id: "gpt-6-sol", name: "GPT-6-Sol", context: 272000, maxOutput: 128000 },
@@ -534,6 +563,8 @@ export const GOOGLE_MODELS: KnownModel[] = [
   // Gemini 4. Argon and Carbon need a paid tier and, on Vertex, the global, us or eu location.
   { id: "gemini-4-argon", name: "gemini-4-argon", context: 1000000, maxOutput: 65536 },
   { id: "gemini-4-carbon", name: "gemini-4-carbon", context: 1000000, maxOutput: 65536 },
+  // Hydrogen is on the Gemini API only, free and paid tiers (left out of the Vertex list below).
+  { id: "gemini-4-hydrogen", name: "gemini-4-hydrogen", context: 1048576, maxOutput: 65536 },
   // Gemini 3.7
   { id: "gemini-3.7-flash", name: "gemini-3.7-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.6
@@ -1432,7 +1463,8 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   claude_subscription: CLAUDE_SUBSCRIPTION_MODELS,
   grok_subscription: GROK_SUBSCRIPTION_MODELS,
   google: GOOGLE_MODELS,
-  google_vertex: GOOGLE_MODELS,
+  // Google lists no Vertex location for Gemini 4 Hydrogen.
+  google_vertex: GOOGLE_MODELS.filter((model) => model.id !== "gemini-4-hydrogen"),
   mistral: MISTRAL_MODELS,
   cohere: COHERE_MODELS,
   openrouter: OPENROUTER_MODELS,

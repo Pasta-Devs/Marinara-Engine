@@ -7,6 +7,11 @@ import { resolveClientBuildHeapMb, resolveDesktopClientBuildHeapMb, typeCheckHea
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(__dirname, "..");
+// On x86_64 Android (Chromebooks, BlueStacks), Vite's bundler and Tailwind run as WebAssembly, which reaches only files
+// under the folder its process starts in (Android apps can't open "/"). The client's dependencies sit in the
+// workspace's .pnpm folder, outside the package, so the build runs from the workspace root there.
+const BUILD_CWD =
+  process.platform === "android" && process.arch === "x64" ? resolve(PACKAGE_ROOT, "../..") : PACKAGE_ROOT;
 const packageRequire = createRequire(resolve(PACKAGE_ROOT, "package.json"));
 const TSC_CLI = packageRequire.resolve("typescript/bin/tsc");
 const VITE_CLI = resolve(dirname(packageRequire.resolve("vite/package.json")), "bin/vite.js");
@@ -24,7 +29,7 @@ if (BUILD_HEAP_MB) {
 
 function run(script, args, options = {}) {
   const result = spawnSync(process.execPath, [script, ...args], {
-    cwd: PACKAGE_ROOT,
+    cwd: BUILD_CWD,
     env: { ...process.env, ...BUILD_ENV, ...options.env },
     stdio: "inherit",
   });
@@ -38,10 +43,10 @@ function run(script, args, options = {}) {
 
 if (LOW_MEMORY_BUILD) {
   console.log("[build] Android/low-memory client build: skipping tsc and PWA generation.");
-  run(VITE_CLI, ["build"], { env: { SKIP_PWA: "1" } });
+  run(VITE_CLI, ["build", PACKAGE_ROOT], { env: { SKIP_PWA: "1" } });
 } else {
   run(TSC_CLI, ["-b"]);
-  run(VITE_CLI, ["build"]);
+  run(VITE_CLI, ["build", PACKAGE_ROOT]);
 }
 
 run(resolve(__dirname, "build-multiplayer-guest.mjs"), []);

@@ -32,6 +32,8 @@ COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
+# The client's local file: dependency (lightningcss on x86_64 Android) must exist for a frozen install.
+COPY packages/client/fallbacks/ packages/client/fallbacks/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
 COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs
 
@@ -70,6 +72,8 @@ COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
+# The client's local file: dependency (lightningcss on x86_64 Android) must exist for a frozen install.
+COPY packages/client/fallbacks/ packages/client/fallbacks/
 
 # Install production deps. We can't pass --no-optional here because sharp's
 # native binary ships through transitive optional packages (@img/sharp-*),
@@ -114,6 +118,8 @@ COPY package.json pnpm-workspace.yaml ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
+# The client's local file: dependency (lightningcss on x86_64 Android) must exist for a frozen install.
+COPY packages/client/fallbacks/ packages/client/fallbacks/
 
 # Fail the image build if pnpm's symlinked virtual store is incomplete.
 RUN node -e "for (const dep of ['fastify', '@fastify/cors', 'sharp']) require.resolve(dep, { paths: ['/app/packages/server'] })"

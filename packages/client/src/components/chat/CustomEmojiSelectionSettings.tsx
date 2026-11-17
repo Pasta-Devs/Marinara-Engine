@@ -131,6 +131,36 @@ export function CustomEmojiSelectionSettings() {
           className="w-16 rounded bg-foreground/5 px-2 py-1 text-right text-foreground ring-1 ring-foreground/10 focus:outline-none focus:ring-[var(--primary)]"
         />
       </label>
+      <label className="mt-1.5 flex items-start gap-2 text-xs text-foreground/60">
+        <input
+          type="checkbox"
+          checked={draftPrefs.useDescriptions}
+          onChange={(e) => savePrefs({ useDescriptions: e.target.checked })}
+          className="mt-0.5 accent-[var(--primary)]"
+        />
+        <span>
+          {localizeUi("ui.chat.customemojiselectionsettings.useDescriptions")}
+          <span className="block text-[0.625rem] text-foreground/40">
+            {localizeUi("ui.chat.customemojiselectionsettings.useDescriptionsHelp")}
+          </span>
+        </span>
+      </label>
+      {draftPrefs.useDescriptions && (
+        <label className="mt-1.5 flex items-start gap-2 pl-5 text-xs text-foreground/60">
+          <input
+            type="checkbox"
+            checked={draftPrefs.showDescriptions}
+            onChange={(e) => savePrefs({ showDescriptions: e.target.checked })}
+            className="mt-0.5 accent-[var(--primary)]"
+          />
+          <span>
+            {localizeUi("ui.chat.customemojiselectionsettings.showDescriptions")}
+            <span className="block text-[0.625rem] text-foreground/40">
+              {localizeUi("ui.chat.customemojiselectionsettings.showDescriptionsHelp")}
+            </span>
+          </span>
+        </label>
+      )}
       <div className="mt-2 border-t border-foreground/10 pt-2">
         <p className="mb-1.5 text-xs text-foreground/60">
           {localizeUi("ui.chat.customemojiselectionsettings.visionTitle")}

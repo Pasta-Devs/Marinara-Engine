@@ -115,6 +115,8 @@ import { MacroTextarea } from "../ui/MacroTextarea";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
@@ -478,6 +480,10 @@ function PersonaGalleryTab({
   const upload = useUploadPersonaGalleryImage(personaId);
   const remove = useDeletePersonaGalleryImage(personaId);
   const tag = useTagPersonaGalleryImage(personaId);
+  const saveDescription = useSaveGalleryDescription(
+    { scope: "persona", ownerId: personaId },
+    characterKeys.personaGallery(personaId),
+  );
   const {
     lightbox,
     setLightbox,
@@ -662,11 +668,18 @@ function PersonaGalleryTab({
                 </span>
               ) : null}
               {selectingImages ? (
-                <GalleryCleanUpButton
-                  images={selectedImages}
-                  replacePath={(imageId) => `/characters/personas/${personaId}/gallery/${imageId}/replace`}
-                  queryKey={characterKeys.personaGallery(personaId)}
-                />
+                <>
+                  <GalleryDescribeButton
+                    images={selectedImages}
+                    target={{ scope: "persona", ownerId: personaId }}
+                    queryKey={characterKeys.personaGallery(personaId)}
+                  />
+                  <GalleryCleanUpButton
+                    images={selectedImages}
+                    replacePath={(imageId) => `/characters/personas/${personaId}/gallery/${imageId}/replace`}
+                    queryKey={characterKeys.personaGallery(personaId)}
+                  />
+                </>
               ) : null}
             </div>
             <button
@@ -716,6 +729,7 @@ function PersonaGalleryTab({
                       image={image}
                       allowBackground
                       onApply={(patch) => tag.mutate({ imageId: image.id, patch })}
+                      onDescribe={(description) => saveDescription.mutate({ imageId: image.id, description })}
                     />
                   ) : (
                     <button
