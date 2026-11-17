@@ -25,7 +25,7 @@ import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
 
 /** Why an entry cannot serve, in the user's language, with the detail the server gave. */
-function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
+export function decisionUnavailableReason(t: TFunction, entry: DecisionModelOption) {
   return entry.unavailable
     ? t(`connections.decision.unavailable.${entry.unavailable}`, {
         defaultValue: t("connections.decision.unavailableSuffix"),

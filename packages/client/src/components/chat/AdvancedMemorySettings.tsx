@@ -19,6 +19,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { AdvancedMemoryProgress } from "./AdvancedMemoryProgress";
 import { useConnections } from "../../hooks/use-connections";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { decisionUnavailableReason } from "../connections/DecisionDefaultControl";
 import { Select } from "../ui/Select";
 import { useChatMessageCount } from "../../hooks/use-chats";
 
@@ -62,7 +63,8 @@ export function AdvancedMemorySettings({
   const action = useAdvancedMemoryAction(chatId);
   const savedConnections = useConnections();
   const settings = status.data?.settings ?? normalizeAdvancedMemorySettings(metadataSettings);
-  // The local models the global Decision model offers, greyed out with the reason when one can't answer (#7326).
+  // The local models the global Decision model offers; one that can't answer is left out unless it is the saved
+  // choice, which keeps its reason (#7326).
   const decisionOptions = useDecisionOptions(settings.enabled && settings.decisionEnabled);
   const localDecisionModels = (decisionOptions.data?.options ?? []).filter((entry) => entry.group === "local");
   const [confirmKnowledge, setConfirmKnowledge] = useState(false);
@@ -383,9 +385,19 @@ export function AdvancedMemorySettings({
                     decisionOptions.isError
                   }
                   onChange={(next) => save({ decisionConnectionId: next || null })}
+                  // Unavailable local models are not offered, but a saved one keeps its name and says why it
+                  // can't answer, instead of reading as a missing connection.
                   extraOptions={localDecisionModels
-                    .filter((entry) => !entry.unavailable)
-                    .map((entry) => ({ value: entry.id, label: entry.label }))}
+                    .filter((entry) => !entry.unavailable || entry.id === settings.decisionConnectionId)
+                    .map((entry) => ({
+                      value: entry.id,
+                      label: entry.unavailable
+                        ? t("connections.decision.unavailableOption", {
+                            label: entry.label,
+                            reason: decisionUnavailableReason(t, entry),
+                          })
+                        : entry.label,
+                    }))}
                 />
               </div>
               {/* Either list failing leaves the choice incomplete; the steady accent does not pulse. */}
