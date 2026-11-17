@@ -110,6 +110,8 @@ import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { CharacterRegexSection } from "./CharacterRegexSection";
 import { CharacterVoicePicker } from "./CharacterVoicePicker";
 import { NameAliasesSection } from "../ui/NameAliasesSection";
@@ -4472,6 +4474,10 @@ function CharacterGalleryTab({
   const remove = useDeleteCharacterGalleryImage(characterId);
   const setAvatar = useSetCharacterGalleryImageAsAvatar(characterId);
   const tag = useTagCharacterGalleryImage(characterId);
+  const saveDescription = useSaveGalleryDescription(
+    { scope: "character", ownerId: characterId },
+    characterKeys.gallery(characterId),
+  );
   const {
     lightbox,
     setLightbox,
@@ -4691,11 +4697,18 @@ function CharacterGalleryTab({
                 </span>
               ) : null}
               {selectingImages ? (
-                <GalleryCleanUpButton
-                  images={selectedImages}
-                  replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
-                  queryKey={characterKeys.gallery(characterId)}
-                />
+                <>
+                  <GalleryDescribeButton
+                    images={selectedImages}
+                    target={{ scope: "character", ownerId: characterId }}
+                    queryKey={characterKeys.gallery(characterId)}
+                  />
+                  <GalleryCleanUpButton
+                    images={selectedImages}
+                    replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
+                    queryKey={characterKeys.gallery(characterId)}
+                  />
+                </>
               ) : null}
             </div>
             <button
@@ -4745,6 +4758,7 @@ function CharacterGalleryTab({
                       image={image}
                       allowBackground
                       onApply={(patch) => tag.mutate({ imageId: image.id, patch })}
+                      onDescribe={(description) => saveDescription.mutate({ imageId: image.id, description })}
                     />
                   ) : (
                     <button

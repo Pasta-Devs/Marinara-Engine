@@ -33,6 +33,7 @@ export function createCustomStickersStorage(db: DB) {
         filePath: input.filePath,
         width: input.width ?? null,
         height: input.height ?? null,
+        description: input.description ?? null,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
