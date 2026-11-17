@@ -13,7 +13,6 @@ import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
@@ -440,8 +439,6 @@ export function ConnectionEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   // The window's own body is what scrolls, so the keyboard check reaches it, not just the content inside it.
-  const scrollBodyRef = useRef<HTMLDivElement>(null);
-  useKeepFocusedFieldAboveKeyboard(scrollBodyRef);
   // The unsaved and save-error banners sit at the top of the scrolling body; bring them into view when they appear.
   useEffect(() => {
     if (showUnsavedWarning || saveError) contentRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -2624,7 +2621,6 @@ export function ConnectionEditor({
       title={localName || localModel}
       width="max-w-lg"
       panelClassName="mari-editor-shell"
-      contentRef={scrollBodyRef}
       closeDisabled={editorBusy}
       titleSlot={
         <div className="flex min-w-0 items-center gap-2.5">

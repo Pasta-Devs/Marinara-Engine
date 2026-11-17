@@ -31,6 +31,7 @@ import { useClearAutonomousUnread, useUpdateChatMetadata } from "../../hooks/use
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { dispatchChatVisualViewportChange } from "../../hooks/use-visual-viewport-chat-bottom";
+import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import { usePageActivity } from "../../hooks/use-page-activity";
 import { useCapabilityAgentRegistry, useCapabilityClientModules } from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
@@ -288,6 +289,7 @@ export function AppShell({
 
   // Auto idle detection (10 min inactivity → idle, activity → active)
   useIdleDetection();
+  useKeepFocusedFieldAboveKeyboard();
 
   useEffect(() => {
     const handleGlobalSearchShortcut = (event: KeyboardEvent) => {

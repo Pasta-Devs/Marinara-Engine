@@ -348,7 +348,7 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(100dvh-5rem)]!" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(var(--mari-visual-viewport-height,100dvh)-5rem)]!" : ""} ${width} max-h-[calc(var(--mari-visual-viewport-height,100dvh)-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""
