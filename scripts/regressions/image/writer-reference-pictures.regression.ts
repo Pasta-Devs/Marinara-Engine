@@ -17,17 +17,34 @@ import {
 import {
   DEFAULT_WRITER_REFERENCE_INSTRUCTION,
   readWriterReferenceSettings,
+  resolveReferencePictureTarget,
+  routeReferencePictures,
 } from "../../../packages/shared/src/features/agents/writer-reference-settings.js";
 
-// Settings: off by default, empty instruction means the default text.
-assert.deepEqual(readWriterReferenceSettings({}), { source: "off", instruction: DEFAULT_WRITER_REFERENCE_INSTRUCTION });
+// Settings: automatic by default, empty instruction means the default text, junk falls back to automatic.
+assert.deepEqual(readWriterReferenceSettings({}), {
+  target: "auto",
+  instruction: DEFAULT_WRITER_REFERENCE_INSTRUCTION,
+});
 assert.deepEqual(
-  readWriterReferenceSettings({ writerReferenceSource: "cast", writerReferenceInstruction: "  Only the style.  " }),
-  {
-    source: "cast",
-    instruction: "Only the style.",
-  },
+  readWriterReferenceSettings({ referencePictureTarget: "writer", writerReferenceInstruction: "  Only the style.  " }),
+  { target: "writer", instruction: "Only the style." },
 );
+assert.equal(readWriterReferenceSettings({ referencePictureTarget: "cast" }).target, "auto");
+
+// The chat's pick wins over the agent's; a missing or unknown chat value keeps the agent's.
+assert.equal(resolveReferencePictureTarget("both", { referencePictureTarget: "image" }), "both");
+assert.equal(resolveReferencePictureTarget(undefined, { referencePictureTarget: "image" }), "image");
+assert.equal(resolveReferencePictureTarget("nope", null), "auto");
+
+// Routing: who gets the pictures, given whether the image connection takes them.
+const route = (target: Parameters<typeof routeReferencePictures>[0], takes: boolean) =>
+  routeReferencePictures(target, takes);
+assert.deepEqual(route("auto", true), { toImageModel: true, toWriter: false });
+assert.deepEqual(route("auto", false), { toImageModel: true, toWriter: true });
+assert.deepEqual(route("image", false), { toImageModel: true, toWriter: false });
+assert.deepEqual(route("writer", true), { toImageModel: false, toWriter: true });
+assert.deepEqual(route("both", true), { toImageModel: true, toWriter: true });
 
 // Pictures become JPEG data URLs; something that isn't a picture is refused.
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2jX8AAAAASUVORK5CYII=";

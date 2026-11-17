@@ -207,6 +207,8 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   modelReadsImages,
   readWriterReferenceSettings,
+  resolveReferencePictureTarget,
+  routeReferencePictures,
   normalizeCustomEmojiSelection,
   normalizeImagePromptInstructions,
   normalizeVideoPromptInstructions,
@@ -7684,10 +7686,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           memory: Record<string, unknown>,
           imageConnection: Parameters<typeof avatarImageService>[0],
         ): Promise<WriterReferencePayload | null> => {
+          // Follows the effective "Send avatar references" (images): the chat override wins, then the agent's.
+          const avatarReferencesOn =
+            typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+              ? chatMeta.illustratorUseAvatarReferences
+              : agent.settings?.useAvatarReferences === true;
+          if (!avatarReferencesOn) return null;
           const writerSettings = readWriterReferenceSettings(agent.settings);
-          if (writerSettings.source === "off") return null;
-          if (imageConnectionTakesReferencePicture(avatarImageService(imageConnection))) {
-            logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
+          const target = resolveReferencePictureTarget(chatMeta.illustratorReferencePictureTarget, agent.settings);
+          const takesReferences = imageConnectionTakesReferencePicture(avatarImageService(imageConnection));
+          if (!routeReferencePictures(target, takesReferences).toWriter) {
+            if (target === "auto") {
+              logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
+            }
             return null;
           }
           const writerConnection = agent.connectionId ? await connections.getById(agent.connectionId) : conn;
@@ -15442,10 +15453,21 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       // portraits for references, then fall back to full-body sprites.
                       // Illustrate commands follow the same reference switch as automatic and manual
                       // illustrations; naming characters only narrows whose references are sent.
-                      const useAvatarRefs =
+                      const avatarReferencesOn =
                         usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                           ? chatMeta.illustratorUseAvatarReferences
                           : imagePromptAgent?.settings?.useAvatarReferences === true;
+                      // "Prompt writer" only: the writer saw the pictures, so the image model gets none.
+                      const useAvatarRefs =
+                        avatarReferencesOn &&
+                        (!usesChatIllustratorSettings ||
+                          routeReferencePictures(
+                            resolveReferencePictureTarget(
+                              chatMeta.illustratorReferencePictureTarget,
+                              imagePromptAgent?.settings,
+                            ),
+                            true,
+                          ).toImageModel);
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&
                         typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"

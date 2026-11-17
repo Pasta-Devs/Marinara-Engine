@@ -141,7 +141,8 @@ import {
   NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
   DEFAULT_WRITER_REFERENCE_INSTRUCTION,
   readWriterReferenceSettings,
-  type WriterReferenceSource,
+  REFERENCE_PICTURE_TARGETS,
+  type ReferencePictureTarget,
 } from "@marinara-engine/shared";
 import {
   createAgentFolderPackageFilename,
@@ -868,7 +869,7 @@ export function AgentEditor() {
   const [localIncludeOutfitInAvatars, setLocalIncludeOutfitInAvatars] = useState(true);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
-  const [localWriterReferenceSource, setLocalWriterReferenceSource] = useState<WriterReferenceSource>("off");
+  const [localReferencePictureTarget, setLocalReferencePictureTarget] = useState<ReferencePictureTarget>("auto");
   const [localWriterReferenceInstruction, setLocalWriterReferenceInstruction] = useState("");
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
   const [localImageNegativePrompt, setLocalImageNegativePrompt] = useState("");
@@ -1085,7 +1086,7 @@ export function AgentEditor() {
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
-      setLocalWriterReferenceSource(readWriterReferenceSettings(settings).source);
+      setLocalReferencePictureTarget(readWriterReferenceSettings(settings).target);
       setLocalWriterReferenceInstruction(
         typeof settings.writerReferenceInstruction === "string" ? settings.writerReferenceInstruction : "",
       );
@@ -1169,7 +1170,7 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
-      setLocalWriterReferenceSource("off");
+      setLocalReferencePictureTarget("auto");
       setLocalWriterReferenceInstruction("");
       setLocalIncludeCharacterAppearance(defaultSettings.includeCharacterAppearance === true);
       setLocalImagePositivePrompt("");
@@ -1246,7 +1247,7 @@ export function AgentEditor() {
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
-      setLocalWriterReferenceSource("off");
+      setLocalReferencePictureTarget("auto");
       setLocalWriterReferenceInstruction("");
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
@@ -1674,7 +1675,7 @@ export function AgentEditor() {
               includeCharacterAppearance: localIncludeCharacterAppearance,
               ...(isIllustratorAgent
                 ? {
-                    writerReferenceSource: localWriterReferenceSource,
+                    referencePictureTarget: localReferencePictureTarget,
                     writerReferenceInstruction: localWriterReferenceInstruction.trim(),
                   }
                 : {}),
@@ -1756,7 +1757,7 @@ export function AgentEditor() {
     localIncludeOutfitInAvatars,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
-    localWriterReferenceSource,
+    localReferencePictureTarget,
     localWriterReferenceInstruction,
     localProseGuardianBanned,
     localProseGuardianAvoid,
@@ -2004,7 +2005,7 @@ export function AgentEditor() {
             includeCharacterAppearance: localIncludeCharacterAppearance,
             ...(isIllustratorAgent
               ? {
-                  writerReferenceSource: localWriterReferenceSource,
+                  referencePictureTarget: localReferencePictureTarget,
                   writerReferenceInstruction: localWriterReferenceInstruction.trim(),
                 }
               : {}),
@@ -3251,19 +3252,32 @@ export function AgentEditor() {
                   }}
                   description={localizeUi("ui.agents.agenteditor.addsOnlyMatchedVisibleNamesAsLinesLikeName")}
                 />
-                {isIllustratorAgent && (
-                  <EditorSwitchRow
-                    label={localizeUi("ui.agents.agenteditor.writerReferencePictures")}
-                    checked={localWriterReferenceSource === "cast"}
-                    onChange={(checked) => {
-                      setLocalWriterReferenceSource(checked ? "cast" : "off");
-                      markDirty();
-                    }}
-                    description={localizeUi("ui.agents.agenteditor.writerReferencePicturesDescription")}
-                  />
+                {isIllustratorAgent && localUseAvatarReferences && (
+                  <label className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
+                    <span className="text-xs font-medium text-[var(--foreground)]">
+                      {localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                    </span>
+                    <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      {localizeUi(`ui.agents.agenteditor.referencePictureTargetHelp.${localReferencePictureTarget}`)}
+                    </span>
+                    <select
+                      value={localReferencePictureTarget}
+                      onChange={(event) => {
+                        setLocalReferencePictureTarget(event.target.value as ReferencePictureTarget);
+                        markDirty();
+                      }}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+                    >
+                      {REFERENCE_PICTURE_TARGETS.map((target) => (
+                        <option key={target} value={target}>
+                          {localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
               </div>
-              {isIllustratorAgent && localWriterReferenceSource === "cast" && (
+              {isIllustratorAgent && localUseAvatarReferences && localReferencePictureTarget !== "image" && (
                 <div className="mt-2 grid gap-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
