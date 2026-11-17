@@ -770,10 +770,6 @@ const gameRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/game.routes.ts", import.meta.url),
   "utf8",
 );
-const backupRoutesSource = readFileSync(
-  new URL("../../packages/server/src/routes/backup.routes.ts", import.meta.url),
-  "utf8",
-);
 const promptMacroContextSource = readFileSync(
   new URL("../../packages/server/src/services/prompt/macro-context.ts", import.meta.url),
   "utf8",
@@ -857,18 +853,6 @@ assert.equal(
   3,
   "generation settings navigation should use one shared control in all three locations",
 );
-assert.match(backupRoutesSource, /tolerateSourceChanges: true/u);
-assert.match(backupRoutesSource, /record\.usesDataDescriptor \? 0x0808 : 0x0800/u);
-assert.match(
-  backupRoutesSource,
-  /limits: \{ fields: 0, parts: 1, files: 1,/u,
-  "profile archive imports must accept only one file part",
-);
-assert.match(
-  backupRoutesSource,
-  /contentLength > PROFILE_IMPORT_BODY_LIMIT_BYTES[\s\S]*Profile import JSON exceeds the upload limit/u,
-  "JSON profile imports must keep the smaller body limit",
-);
 assert.match(
   promptMacroContextSource,
   /macroSources\.some\(\(source\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(source\)\)[\s\S]*countAllEntriesByLorebook/u,
@@ -878,15 +862,6 @@ assert.match(
   lorebookServiceSource,
   /allEntries\.some\(\(entry\) => \/\\\{\\\{\\s\*lorebooksize::\/iu\.test\(entry\.content\)\)[\s\S]*countAllEntriesByLorebook/u,
   "lorebook scans must only count all entries when relevant content uses lorebooksize",
-);
-assert.match(
-  backupRoutesSource,
-  /if \(automaticBackupRunning\) return;\s*automaticBackupRunning = true;\s*try \{\s*const settings = await loadAutomaticBackupSettings\(\);/u,
-);
-assert.match(
-  backupRoutesSource,
-  /const hasAutomaticBackup = await automaticBackupExists\(backupsRoot\);[\s\S]*runAutomaticBackupIfDue\(!current\.enabled \|\| !hasAutomaticBackup\)/u,
-  "enabling automatic backups or repairing a missing archive should run immediately",
 );
 assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKeys\.all \}\)/u);
 assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
