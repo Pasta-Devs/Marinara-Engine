@@ -245,17 +245,15 @@ if [ -z "$FROM" ]; then
   # A folder an update check left is a git clone of the release: the launcher would treat this checkout's new files
   # as stray and clean them from packages/*/src, so it starts over (dependencies download again).
   stop_marinara
-  tx '[ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine'
+  tx '[ ! -d ~/Marinara-Engine/.git ] || rm -rf ~/Marinara-Engine ~/.termux-qc-files.txt'
   log "copying this checkout into Termux"
-  # Leave nothing behind from an earlier run, so the build only sees this checkout. A folder left by --from is a git
-  # clone of another release: clear it but keep data/. Otherwise delete the files the last copy brought that this
-  # checkout no longer has; dependencies, builds and data stay, so later runs stay quick.
+  # Leave nothing behind from an earlier copy either (another branch's files would end up in the build): delete the
+  # files the last copy brought that this checkout no longer has. Dependencies, builds and data stay, so later runs
+  # stay quick.
   (cd "$ROOT" && git ls-files -co --exclude-standard | LC_ALL=C sort -u) >"$STATE/files-$ARCH.txt"
   tx 'cat > ~/.termux-qc-files.new' <"$STATE/files-$ARCH.txt"
   tx 'cd ~ && mkdir -p Marinara-Engine && cd Marinara-Engine
-    if [ -e .git ]; then
-      find . -mindepth 1 -maxdepth 1 ! -name data -exec rm -rf {} +
-    elif [ -f ~/.termux-qc-files.txt ]; then
+    if [ -f ~/.termux-qc-files.txt ]; then
       LC_ALL=C comm -23 ~/.termux-qc-files.txt ~/.termux-qc-files.new | while IFS= read -r f; do rm -f -- "$f"; done
     fi
     mv ~/.termux-qc-files.new ~/.termux-qc-files.txt'
