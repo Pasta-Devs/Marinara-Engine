@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { RULESET_CHARGE_STEP_PREFIX, RULESET_PASS_OPTION, rulesetItemSlotPayment } from "@marinara-engine/shared";
 import type { DirectedRulesetOption, DirectedRulesetView } from "@marinara-engine/shared";
 import { ArtIcon } from "./ArtIcon";
+import { SearchInput } from "../ui/SearchInput";
 import { useRulesetKinds } from "./RulesetKindsContext";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -825,13 +826,13 @@ export function RulesetCombatMenu({
             {t("game.combat.ruleset.mode.prompt", { label: rulesetOptionLabel(option, t) })}
           </p>
           {searchable && (
-            <input
-              type="search"
+            <SearchInput
+              size="compact"
               value={modeQuery}
-              onChange={(event) => setModeQuery(event.target.value)}
+              onChange={setModeQuery}
               placeholder={t("game.combat.ruleset.mode.search")}
-              aria-label={t("game.combat.ruleset.mode.search")}
-              className={`w-full rounded-md border px-2 py-1 text-xs ${ink.border} ${ink.fill} ${ink.body}`}
+              label={t("game.combat.ruleset.mode.search")}
+              resultCount={query ? shown.length : undefined}
             />
           )}
           <div

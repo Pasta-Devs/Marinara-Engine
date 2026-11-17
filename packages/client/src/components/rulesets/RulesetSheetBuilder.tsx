@@ -3,6 +3,7 @@
 // beside them. Everything it writes goes through the shared builder, which keeps the build the one
 // sheet the rest of the Engine reads and takes back what an unpicked entry gave.
 import { Check, ChevronLeft, ChevronRight, Dices, Minus, Plus, Trash2 } from "lucide-react";
+import { SearchInput } from "../ui/SearchInput";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -741,13 +742,11 @@ export function RulesetSheetBuilder({
             </button>
           )}
           {searching && (
-            <input
-              type="search"
+            <SearchInput
               value={searches[current.id] ?? ""}
-              onChange={(event) => setSearches({ ...searches, [current.id]: event.target.value })}
+              onChange={(value) => setSearches({ ...searches, [current.id]: value })}
+              label={t("ui.rulesets.builder.search", { count: options.length })}
               placeholder={t("ui.rulesets.builder.search", { count: options.length })}
-              aria-label={t("ui.rulesets.builder.search", { count: options.length })}
-              className={inputClass}
             />
           )}
           {searching && listed.length === 0 && (

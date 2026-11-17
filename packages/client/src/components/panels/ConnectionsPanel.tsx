@@ -89,7 +89,7 @@ import {
   moveRowsTo,
   moveTargetsFor,
 } from "../connections/ConnectionGroup";
-import { ListSearch } from "../connections/ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ServiceRow } from "../connections/ServiceRow";
 import { ConnectionHeading, ConnectionHeadingMeta } from "../connections/ConnectionHeading";
 import { ConnectionDefaultsBox } from "../connections/ConnectionDefaults";
@@ -1028,7 +1028,7 @@ export function ConnectionsPanel() {
   // One row: Search, Add and ⋯ (Import, Export). An empty panel has nothing to search or export yet.
   const header = !isLoading && !noConnections && (
     <div className="flex gap-2">
-      <ListSearch
+      <SearchInput
         className="flex-1"
         value={search}
         onChange={(value) => {

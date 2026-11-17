@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { GlobalChatSearchResult } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SearchInput } from "../ui/SearchInput";
 import { cn } from "../../lib/utils";
 import { useChats } from "../../hooks/use-chats";
 import { useCharacterSummaries } from "../../hooks/use-characters";
@@ -159,21 +160,17 @@ export function GlobalSearchModal({
       <div className="flex min-h-0 flex-col gap-3">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              ref={inputRef}
-              type="search"
+            <SearchInput
+              inputRef={inputRef}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={setQuery}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && results[0] && !waiting) openResult(results[0]);
               }}
               placeholder={t("chatInsights.search.placeholder")}
-              aria-label={t("chatInsights.search.inputLabel")}
-              className={cn(FIELD_CLASS, "h-10 pl-9 text-sm")}
+              label={t("chatInsights.search.inputLabel")}
+              resultCount={query.trim() ? results.length : undefined}
+              busy={waiting}
             />
           </div>
           <button

@@ -50,6 +50,7 @@ import { useRulesetDefinitionText } from "../../hooks/use-ruleset-text";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { clamp, inputClass, labelClass, rulesetPickCount, TypedInput, type Scalar } from "./RulesetTypedInput";
 import { RollCellButton } from "./RulesetRollCellButton";
+import { Tabs } from "../ui/Tabs";
 import { Select } from "../ui/Select";
 
 type ListRow = Record<string, Scalar>;
@@ -499,34 +500,17 @@ function SheetEditor({ definition, layerOptions, envelope, onChange, live, items
     });
 
   const tabs = sheet.builder ? (
-    <div role="tablist" aria-label={t("ui.rulesets.builder.views")} className="flex gap-1.5">
-      {(["guided", "all"] as const).map((each) => (
-        <button
-          key={each}
-          type="button"
-          role="tab"
-          id={`${viewBaseId}-${each}`}
-          aria-selected={view === each}
-          aria-controls={`${viewBaseId}-panel`}
-          tabIndex={view === each ? 0 : -1}
-          onKeyDown={(event) => {
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-            event.preventDefault();
-            const other = each === "guided" ? "all" : "guided";
-            setView(other);
-            document.getElementById(`${viewBaseId}-${other}`)?.focus();
-          }}
-          onClick={() => setView(each)}
-          className={`rounded-lg border px-2 py-1 text-[0.6875rem] ${
-            view === each
-              ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)]"
-              : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-          }`}
-        >
-          {t(each === "guided" ? "ui.rulesets.builder.guided" : "ui.rulesets.builder.allFields")}
-        </button>
-      ))}
-    </div>
+    <Tabs
+      items={(["guided", "all"] as const).map((each) => ({
+        id: each,
+        label: t(each === "guided" ? "ui.rulesets.builder.guided" : "ui.rulesets.builder.allFields"),
+        buttonProps: { id: `${viewBaseId}-${each}`, "aria-controls": `${viewBaseId}-panel` },
+      }))}
+      value={view}
+      onChange={setView}
+      variant="pill"
+      label={t("ui.rulesets.builder.views")}
+    />
   ) : null;
 
   if (sheet.builder && view === "guided") {

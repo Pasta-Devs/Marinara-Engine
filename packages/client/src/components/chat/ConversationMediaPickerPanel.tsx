@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { Tabs } from "../ui/Tabs";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { KaomojiPicker } from "../ui/KaomojiPicker";
 import { GifPicker } from "../ui/GifPicker";
@@ -50,23 +51,18 @@ export function ConversationMediaPickerPanel({
         className,
       )}
     >
-      <div className="flex shrink-0 items-center gap-1 border-b border-foreground/10 px-2 py-1.5">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onActiveTabChange(tab.id)}
-            className={cn(
-              "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-              activeTab === tab.id
-                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
-                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
-            )}
-          >
-            {t(`ui.noodle.media.tabs.${tab.id}`, { defaultValue: tab.label })}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={tabs.map((tab) => ({
+          id: tab.id,
+          label: t(`ui.noodle.media.tabs.${tab.id}`, { defaultValue: tab.label }),
+        }))}
+        value={activeTab}
+        onChange={onActiveTabChange}
+        variant="pill"
+        columns={tabs.length}
+        className="shrink-0 border-b border-foreground/10 px-2 py-1.5"
+        label={t("ui.noodle.media.tabsLabel")}
+      />
       <div className="min-h-0 flex-1">
         {activeTab === "emoji" && (
           <EmojiPicker

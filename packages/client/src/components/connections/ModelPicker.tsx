@@ -11,7 +11,6 @@ import {
   type ChatModelChoice,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
-import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import {
@@ -33,6 +32,7 @@ import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-sourc
 import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
+import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
 
 type Extra = { value: string; label: string };
@@ -532,24 +532,24 @@ export function ModelPicker({
           }
         : {})}
       header={
-        <div role="tablist" className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-[var(--border)]/40 p-2">
-          {slots.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              role="tab"
-              aria-selected={slot === entry.key}
-              onClick={() => setSlot(entry.key)}
-              className={cn(
-                "flex min-h-11 min-w-0 flex-col items-start justify-center rounded-lg px-3 py-1 text-left transition-colors",
-                slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
-              )}
-            >
-              <span className="text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">{entry.label}</span>
-              <span className="w-full truncate text-xs font-medium">{entry.value}</span>
-            </button>
-          ))}
-        </div>
+        <Tabs
+          items={slots.map((entry) => ({
+            id: entry.key,
+            label: (
+              <>
+                <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                  {entry.label}
+                </span>
+                <span className="block truncate text-xs font-medium">{entry.value}</span>
+              </>
+            ),
+          }))}
+          value={slot}
+          onChange={setSlot}
+          variant="pill"
+          className="border-b border-[var(--border)]/40 p-2"
+          label={t("connections.picker.slots")}
+        />
       }
     />
   );

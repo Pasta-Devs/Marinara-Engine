@@ -156,7 +156,7 @@ try {
     "react/jsx-runtime": `export const Fragment = 'fragment'; export const jsx = (type, props) => ({type, props}); export const jsxs = jsx;`,
     "react-i18next": `export const useTranslation = () => ({ t: (key) => key });`,
     "@tanstack/react-query": `export const useQueries = ({combine}) => combine([]);`,
-    "lucide-react": `export const Check = 'check', ChevronLeft = 'left', ChevronRight = 'right', Dices = 'dice', Minus = 'minus', Plus = 'plus', Trash2 = 'trash';`,
+    "lucide-react": `export const Check = 'check', ChevronLeft = 'left', ChevronRight = 'right', Dices = 'dice', Minus = 'minus', Plus = 'plus', Search = 'search', Trash2 = 'trash', X = 'x';`,
     "../ui/Modal": `export const Modal = 'modal';`,
     "../ui/Checkbox": `export const Checkbox = 'checkbox';`,
     "../ui/Select": `export const Select = 'select';`,

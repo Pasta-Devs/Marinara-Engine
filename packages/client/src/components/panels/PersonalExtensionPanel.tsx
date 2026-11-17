@@ -7,6 +7,7 @@ import {
   usePersonalExtensionContributions,
 } from "../../lib/personal-extension-contributions";
 import { Checkbox } from "../ui/Checkbox";
+import { ColorField } from "../ui/ColorPicker";
 import { Select } from "../ui/Select";
 
 type InteractiveElement = Extract<PersonalExtensionUiElement, { id: string }>;
@@ -188,20 +189,17 @@ export function PersonalExtensionPanel() {
           }
           if (element.kind === "color") {
             return (
-              <label
+              <div
                 key={key}
                 className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
               >
                 <span>{element.label}</span>
-                <input
-                  type="color"
+                <ColorField
                   value={values[element.id] ?? "#808080"}
-                  onChange={(event) =>
-                    setValues((current) => ({ ...current, [element.id]: event.currentTarget.value }))
-                  }
-                  className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent p-0.5"
+                  onChange={(color) => setValues((current) => ({ ...current, [element.id]: color }))}
+                  label={element.label ?? element.id}
                 />
-              </label>
+              </div>
             );
           }
           if (element.kind === "button") {

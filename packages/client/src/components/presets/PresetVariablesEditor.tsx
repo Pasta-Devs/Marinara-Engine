@@ -3,8 +3,8 @@
 // question, options, presentation) and the expanded option-value editor.
 // Moved verbatim out of PresetEditor.tsx so other editors can reuse it.
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -29,7 +29,6 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { handleTextareaTab } from "../../lib/textarea-editing";
-import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 
 // ── Input caret helpers ──
@@ -1235,11 +1234,6 @@ function VariableQuestionInput({ value, onCommit }: { value: string; onCommit: (
 }
 
 // ── Expanded prompt editor modal ──
-function PresetModalPortal({ children }: { children: ReactNode }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(children, document.body);
-}
-
 function ExpandedEditorModal({
   title,
   value,
@@ -1263,24 +1257,6 @@ function ExpandedEditorModal({
   useEffect(() => {
     setLocal(value);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Focus the textarea on mount
-  useEffect(() => {
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  }, []);
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Escape in a browser extension's card (Grammarly's) closes that card, not this editor.
-      if (e.key === "Escape" && !isBrowserExtensionUi(e.target)) {
-        if (local !== value) onChange(local);
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose, onChange, local, value]);
 
   // Cleanup timer on unmount
   useEffect(
@@ -1309,56 +1285,49 @@ function ExpandedEditorModal({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (local !== value) onChange(local);
     onClose();
   };
 
   return (
-    <PresetModalPortal>
-      <div
-        data-chat-floating-panel
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6 sm:pl-[max(1.5rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1.5rem,var(--mari-safe-area-inset-right))]"
-      >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
-        <div className="mari-editor-shell mari-editor-legacy-bridge relative flex h-[80vh] max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col rounded-2xl border border-[var(--marinara-editor-border)] bg-[var(--marinara-editor-surface-bg)] shadow-2xl shadow-black/50 [--marinara-editor-bg:var(--sidebar)] [--marinara-editor-control-bg:var(--sidebar)] [--marinara-editor-surface-bg:var(--sidebar)] supports-[height:100dvh]:h-[80dvh] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <h3 className="text-sm font-semibold">{title}</h3>
-            <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-              <X size="1rem" />
-            </button>
-          </div>
-          {/* Editor */}
-          <div className="flex-1 overflow-hidden p-4">
-            <textarea
-              ref={textareaRef}
-              value={local}
-              onChange={handleChange}
-              onBlur={() => {
-                if (timeoutRef.current) {
-                  clearTimeout(timeoutRef.current);
-                  timeoutRef.current = null;
-                }
-                if (local !== value) onChange(local);
-              }}
-              onKeyDown={handleTextareaTab}
-              className="mari-editor-field mari-prompt-font h-full w-full resize-none p-4 text-sm"
-              placeholder={localizeUi("ui.presets.expandededitormodal.promptContentSupportsMacrosLikeUserCharEtc")}
-            />
-          </div>
-          {/* Footer */}
-          <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-2.5">
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {localizeUi("ui.presets.expandededitormodal.changesAutoSavePressEscapeToClose")}
-            </p>
-            <button
-              onClick={handleClose}
-              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex px-4 py-1.5"
-            >
-              {localizeUi("lorebook.editor.batch.done")}
-            </button>
-          </div>
+    <Modal
+      open
+      onClose={handleClose}
+      title={title}
+      width="max-w-3xl"
+      mobileFullscreen
+      initialFocusRef={textareaRef}
+      panelClassName="mari-editor-legacy-bridge sm:h-[80vh]"
+      contentClassName="!overflow-hidden"
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
+          <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+            {localizeUi("ui.presets.expandededitormodal.changesAutoSavePressEscapeToClose")}
+          </p>
+          <button
+            onClick={handleClose}
+            className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex px-4 py-1.5"
+          >
+            {localizeUi("lorebook.editor.batch.done")}
+          </button>
         </div>
-      </div>
-    </PresetModalPortal>
+      }
+    >
+      <textarea
+        ref={textareaRef}
+        value={local}
+        onChange={handleChange}
+        onBlur={() => {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          if (local !== value) onChange(local);
+        }}
+        onKeyDown={handleTextareaTab}
+        className="mari-editor-field mari-prompt-font h-full w-full resize-none p-4 text-sm"
+        placeholder={localizeUi("ui.presets.expandededitormodal.promptContentSupportsMacrosLikeUserCharEtc")}
+      />
+    </Modal>
   );
 }

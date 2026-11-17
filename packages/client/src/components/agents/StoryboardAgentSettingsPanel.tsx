@@ -13,6 +13,7 @@ import { MacroTextarea } from "../ui/MacroTextarea";
 import { Select } from "../ui/Select";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
+import { Tabs } from "../ui/Tabs";
 
 interface StoryboardAgentSettingsPanelProps {
   settings: StoryboardAgentSettings;
@@ -820,38 +821,23 @@ export function StoryboardAgentSettingsPanel({
       </StoryboardSetupSection>
 
       <div className="space-y-3" data-storyboard-active-workflow={activeWorkflow}>
-        <div
-          role="tablist"
-          aria-label={localizeUi("ui.agents.storyboard.workflowTabsLabel")}
-          className="grid grid-cols-2 gap-1 rounded-xl bg-[var(--secondary)]/70 p-1 ring-1 ring-[var(--border)]"
-        >
-          {(["roleplay", "game"] as const).map((workflow) => {
-            const selected = activeWorkflow === workflow;
-            return (
-              <button
-                key={workflow}
-                id={`storyboard-workflow-tab-${workflow}`}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-controls="storyboard-active-flow"
-                onClick={() => setActiveWorkflow(workflow)}
-                className={`min-h-11 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
-                  selected
-                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm ring-1 ring-[var(--border)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {localizeUi(
-                  workflow === "roleplay" ? "ui.agents.storyboard.roleplayScope" : "ui.agents.storyboard.gameScope",
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          variant="pill"
+          idPrefix="storyboard-workflow"
+          label={localizeUi("ui.agents.storyboard.workflowTabsLabel")}
+          value={activeWorkflow}
+          onChange={setActiveWorkflow}
+          columns={2}
+          items={(["roleplay", "game"] as const).map((workflow) => ({
+            id: workflow,
+            label: localizeUi(
+              workflow === "roleplay" ? "ui.agents.storyboard.roleplayScope" : "ui.agents.storyboard.gameScope",
+            ),
+          }))}
+        />
 
         <section
-          id="storyboard-active-flow"
+          id={`storyboard-workflow-panel-${activeWorkflow}`}
           role="tabpanel"
           aria-labelledby={`storyboard-workflow-tab-${activeWorkflow}`}
           className="space-y-3 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary)]/8 p-3"

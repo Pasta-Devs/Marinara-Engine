@@ -12,13 +12,11 @@
 // container's full area. Square-in-source-pixels crops survive any source aspect
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { Crop, X } from "lucide-react";
+import { Crop } from "lucide-react";
 import type { AvatarCrop, SourceRectAvatarCrop } from "@marinara-engine/shared";
 import { getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
-import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { ImageViewer } from "./ImageViewer";
 
 interface CropPx {
   x: number;
@@ -397,36 +395,12 @@ export function AvatarCropWidget({
 
 export function FullImageView({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   const { t: localizeUi } = useUiTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
-  useDialogFocusScope(true, containerRef);
-  useBackDismiss(true, onClose);
-
-  return createPortal(
-    <div
-      ref={containerRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
-      tabIndex={-1}
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
-      onClick={onClose}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
-      <img src={src} alt={alt} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
-      <button
-        type="button"
-        aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-        className="absolute right-[max(0.75rem,var(--mari-safe-area-inset-right))] top-3 rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-      >
-        <X size="1rem" />
-      </button>
-    </div>,
-    document.body,
+  return (
+    <ImageViewer
+      title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+      onClose={onClose}
+      media={<img src={src} alt={alt} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />}
+    />
   );
 }
 

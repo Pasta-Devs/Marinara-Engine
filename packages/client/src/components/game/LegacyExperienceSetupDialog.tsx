@@ -1,17 +1,6 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
+import { useCallback, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { X } from "lucide-react";
-import { cn } from "../../lib/utils";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
-import {
-  NEUTRAL_PANEL_CLOSE_BUTTON,
-  NEUTRAL_PANEL_CLOSE_ICON_SIZE,
-  NEUTRAL_PANEL_HEADER,
-  NEUTRAL_PANEL_SHELL,
-  NEUTRAL_PANEL_TITLE,
-} from "../ui/neutral-surface-styles";
+import { Modal } from "../ui/Modal";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { useCreateGame, useGameSetup } from "../../hooks/use-game";
 import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
@@ -40,27 +29,11 @@ export function LegacyExperienceSetupDialog({
   restoreFocusRef: RefObject<HTMLElement | null>;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocusScope(true, panelRef, undefined, restoreFocusRef);
   const queryClient = useQueryClient();
   const createGame = useCreateGame();
   const gameSetup = useGameSetup();
   const launching = createGame.isPending || gameSetup.isPending;
   const selectedId = experience.id;
-  // Escape closes the package's setup, matching the backdrop click and the wizard this panel replaces.
-  // A stacked `Modal` — the malformed-JSON repair dialog `GameSurface` mounts beside setup — takes the
-  // press first from its own `document` listener without stopping propagation, so stand down while one
-  // is open or a single press would dismiss both it and the setup behind it.
-  useEffect(() => {
-    if (!selectedId || launching) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || isModalOverlayOpen()) return;
-      onCancelSetup();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedId, launching, onCancelSetup]);
-
   // The package prepares the config; the host creates the game and runs the opening, since it owns
   // navigation and the query cache. The experience must supply the connection — guessing one here would
   // duplicate the eligibility rules that live in the setup wizard.
@@ -127,60 +100,28 @@ export function LegacyExperienceSetupDialog({
   // Activated → the package draws the wizard body inside the same shell the built-in one uses, with the
   // block kept above it so the player can switch back.
   return (
-    <>
-      <div
-        className="fixed inset-0 z-[10000] bg-black/45 backdrop-blur-[2px]"
-        onClick={launching ? undefined : onCancelSetup}
+    <Modal
+      open
+      onClose={onCancelSetup}
+      title={experience.manifest.name ?? localizeUi("navigation.chatSidebar.new.game")}
+      width="max-w-lg"
+      restoreFocusRef={restoreFocusRef}
+      closeDisabled={launching}
+    >
+      <button type="button" className={SECONDARY_BUTTON} disabled={launching} onClick={onBack}>
+        {localizeUi("navigation.common.back")}
+      </button>
+      <CapabilityElement
+        packageId={selectedId}
+        view="setup"
+        capabilityProps={{
+          chatId: activeChatId,
+          onLaunch,
+          onCancel: () => {
+            if (!launching) onBack();
+          },
+        }}
       />
-      <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4">
-        {/* NEUTRAL_PANEL_SHELL remaps the theme tokens to the chrome palette inside the panel, the same
-            way the built-in wizard does. Without it the package's setup comes out tinted. */}
-        <motion.div
-          ref={panelRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="game-experience-setup-title"
-          initial={{ opacity: 0, y: 12, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className={cn(
-            NEUTRAL_PANEL_SHELL,
-            "pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(90dvh,44rem)]",
-          )}
-        >
-          <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
-            <h3 id="game-experience-setup-title" className={NEUTRAL_PANEL_TITLE}>
-              {experience.manifest.name ?? localizeUi("navigation.chatSidebar.new.game")}
-            </h3>
-            <button
-              type="button"
-              onClick={onCancelSetup}
-              disabled={launching}
-              className={cn(NEUTRAL_PANEL_CLOSE_BUTTON, "disabled:cursor-wait disabled:opacity-40")}
-              aria-label={localizeUi("ui.game.gamesetupwizard.closeSetup")}
-            >
-              <X size={NEUTRAL_PANEL_CLOSE_ICON_SIZE} />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <button type="button" className={SECONDARY_BUTTON} disabled={launching} onClick={onBack}>
-              {localizeUi("navigation.common.back")}
-            </button>
-            <CapabilityElement
-              packageId={selectedId}
-              view="setup"
-              capabilityProps={{
-                chatId: activeChatId,
-                onLaunch,
-                onCancel: () => {
-                  if (!launching) onBack();
-                },
-              }}
-            />
-          </div>
-        </motion.div>
-      </div>
-    </>
+    </Modal>
   );
 }
