@@ -30,7 +30,10 @@ interface PanelVirtualListProps {
     onNearEnd: () => void;
   };
   className?: string;
-  /** Grid: items per row for the list's width in px. Rows are windowed, items sit in a grid row. */
+  /**
+   * Grid: items per row for the list's width in px. Rows are windowed; each row is a CSS grid, so an
+   * item may add a `col-span-full` cell after itself. Grid rows get no list roles.
+   */
   columns?: (width: number) => number;
   /** Off for lists whose rows carry their own roles (a picker's `option` rows). */
   asList?: boolean;
@@ -94,8 +97,11 @@ export function PanelVirtualList({
     if (!container) return;
     setScroller(container);
     const measure = () => {
+      // A breakpoint can move the scrolling to another ancestor (a page that scrolls on phones, a pane on desktop).
+      const current = findScrollParent(listEl) ?? container;
+      setScroller(current);
       setWidth(listEl.clientWidth);
-      setScrollMargin(listEl.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop);
+      setScrollMargin(listEl.getBoundingClientRect().top - current.getBoundingClientRect().top + current.scrollTop);
     };
     const resize = new ResizeObserver(measure);
     // Anything above the list that changes size moves it: watch every ancestor up to the container and all of their
@@ -118,13 +124,14 @@ export function PanelVirtualList({
     };
   }, [listEl]);
 
+  // Only a new target item scrolls: rows streaming in (count) or the same item moving (a chat that
+  // re-sorts to the top) must not pull the list back.
+  const scrollToKey =
+    scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count ? getItemKey(scrollToIndex) : undefined;
   useEffect(() => {
-    // Only a new highlight scrolls; rows streaming in (count) must not pull the list back.
-    if (scrollToIndex !== undefined && scrollToIndex >= 0 && scrollToIndex < count) {
-      virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: "auto" });
-    }
+    if (scrollToKey !== undefined) virtualizer.scrollToIndex(toRow(scrollToIndex)!, { align: "auto" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollToIndex, virtualizer]);
+  }, [scrollToKey, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
   const lastVisibleIndex = items.length > 0 ? items[items.length - 1]!.index : undefined;
@@ -147,20 +154,12 @@ export function PanelVirtualList({
       ref={setListEl}
       data-virtual-list
       data-count={rowCount}
-      role={asList ? "list" : undefined}
+      role={asList && perRow === 1 ? "list" : undefined}
       className={className}
       style={{ position: "relative", height: virtualizer.getTotalSize() }}
     >
       {items.map((virtualRow) => {
         const first = virtualRow.index * perRow;
-        const item = (index: number) =>
-          asList ? (
-            <div key={getItemKey(index)} role="listitem" aria-posinset={index + 1} aria-setsize={count}>
-              {renderRow(index)}
-            </div>
-          ) : (
-            <Fragment key={getItemKey(index)}>{renderRow(index)}</Fragment>
-          );
         return (
           <div
             key={virtualRow.key}
@@ -188,7 +187,9 @@ export function PanelVirtualList({
           >
             {perRow === 1
               ? renderRow(first)
-              : Array.from({ length: Math.min(perRow, count - first) }, (_, offset) => item(first + offset))}
+              : Array.from({ length: Math.min(perRow, count - first) }, (_, offset) => (
+                  <Fragment key={getItemKey(first + offset)}>{renderRow(first + offset)}</Fragment>
+                ))}
           </div>
         );
       })}
