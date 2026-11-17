@@ -35,6 +35,7 @@ import {
   buildConversationEmojiVisionLegend,
   createConversationAssetVisionCatalog,
   insertConversationEmojiVisionLegend,
+  rewriteStickerNamesWrittenAsEmojis,
 } from "../services/generation/conversation-emoji-vision.js";
 import { fixedTextProvider } from "../services/llm/fixed-text-provider.js";
 import { DECISION_SETTINGS_KEYS, resolveDecisionBackend } from "../services/decision/decision-default.js";
@@ -10311,6 +10312,17 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
           fullResponse = cleanedReply.text;
           if (cleanedReply.changed) contentReplaced = true;
+          if (chatMode === "conversation" && !input.impersonate) {
+            const stickerFix = rewriteStickerNamesWrittenAsEmojis(
+              fullResponse,
+              conversationAssetVision.stickerPaths,
+              conversationAssetVision.emojiPaths,
+            );
+            if (stickerFix.changed) {
+              fullResponse = stickerFix.text;
+              contentReplaced = true;
+            }
+          }
           // The "Trim incomplete sentences" setting shortened the reply; say so rather than cut it silently (#8643).
           if (cleanedReply.trimmedEnding) sendSseEvent(reply, { type: "reply_trimmed" });
           const oocMessages = cleanedReply.oocMessages;

@@ -348,8 +348,10 @@ export async function appendConversationCustomAssetAdvertisements(args: {
   const ownEmojisByChar = new Map<string, string[]>();
   const ownStickersByChar = new Map<string, string[]>();
   const vision = args.visionCatalog;
+  const characterAssetRowsById = new Map<string, GalleryAssetRow[]>();
   for (const info of respondingConversationChars) {
     const images = await args.characterGallery.listByCharacterId(info.charId);
+    characterAssetRowsById.set(info.charId, images);
     if (vision) {
       for (const img of images) {
         if (!img.customName || (img.customKind !== "emoji" && img.customKind !== "sticker")) continue;
@@ -402,6 +404,44 @@ export async function appendConversationCustomAssetAdvertisements(args: {
           vision.stickerPaths,
           String(sticker.name),
           resolveFlatMediaFile(CUSTOM_STICKERS_ROOT, sticker.filePath),
+        );
+      }
+    }
+  }
+
+  // A reaction written with a sticker's name (":hug:" for sticker:hug:) shows that sticker, unless an emoji owns it.
+  const setStickerReactionUrl = (key: string, url: string) => {
+    if (!args.conversationCustomEmojiUrlByName.has(key)) args.conversationCustomEmojiUrlByName.set(key, url);
+  };
+  const emojiNameSet = new Set<string>([
+    ...globalEmojiRows.map((emoji) => String(emoji.name ?? "")),
+    ...personaEmojiNames,
+    ...[...ownEmojisByChar.values()].flat(),
+  ]);
+  for (const sticker of globalStickerRows) {
+    if (sticker.name && sticker.filePath && !emojiNameSet.has(String(sticker.name))) {
+      setStickerReactionUrl(
+        buildConversationCustomEmojiKey("global", null, String(sticker.name)),
+        buildGlobalCustomStickerUrl(String(sticker.filePath)),
+      );
+    }
+  }
+  if (args.personaId) {
+    for (const img of personaAssetRows) {
+      if (img.customKind === "sticker" && img.customName && img.filePath && !emojiNameSet.has(String(img.customName))) {
+        setStickerReactionUrl(
+          buildConversationCustomEmojiKey("persona", args.personaId, String(img.customName)),
+          buildPersonaGalleryEmojiUrl(args.personaId, getStoredFilename(String(img.filePath))),
+        );
+      }
+    }
+  }
+  for (const [charId, rows] of characterAssetRowsById) {
+    for (const img of rows) {
+      if (img.customKind === "sticker" && img.customName && img.filePath && !emojiNameSet.has(String(img.customName))) {
+        setStickerReactionUrl(
+          buildConversationCustomEmojiKey("character", charId, String(img.customName)),
+          buildCharacterGalleryEmojiUrl(charId, getStoredFilename(String(img.filePath))),
         );
       }
     }
@@ -819,6 +859,10 @@ export function addMessageReactor(
   const next = [...current];
   next[index] = { ...entry, by: [...entry.by, reactor], ...(imageUrl && !entry.imageUrl ? { imageUrl } : {}) };
   return next;
+}
+
+export function buildGlobalCustomStickerUrl(filePath: string): string {
+  return `/api/custom-stickers/file/${encodeURIComponent(filePath)}`;
 }
 
 export function buildGlobalCustomEmojiUrl(filePath: string): string {

@@ -28,6 +28,31 @@ export function recordVisionAssetPath(paths: Map<string, string>, name: string, 
 const STICKER_TOKEN = /sticker:([a-z0-9_]{1,32}):/g;
 const EMOJI_TOKEN = /:([a-z0-9_]{1,32}):/g;
 
+/**
+ * Models often write a sticker as an emoji (`:hug:` for `sticker:hug:`). Rewrite a bare `:name:` into a sticker token
+ * when the name is a sticker the responders can see and no custom emoji has that name, so it shows as the sticker.
+ */
+export function rewriteStickerNamesWrittenAsEmojis(
+  text: string,
+  stickerNames: ReadonlySet<string> | Map<string, unknown>,
+  emojiNames: ReadonlySet<string> | Map<string, unknown>,
+): { text: string; changed: boolean } {
+  if (stickerNames.size === 0 || !text.includes(":")) return { text, changed: false };
+  let changed = false;
+  const out = text.replace(
+    /(sticker)?:([a-z0-9_]{1,32}):/g,
+    (whole, prefix: string | undefined, name: string, offset: number) => {
+      if (prefix || !stickerNames.has(name) || emojiNames.has(name)) return whole;
+      // Leave word-joined colons alone ("a:hug:b"), which are not emoji tokens.
+      const before = offset > 0 ? text[offset - 1]! : "";
+      if (/[a-z0-9_]/i.test(before)) return whole;
+      changed = true;
+      return `sticker:${name}:`;
+    },
+  );
+  return { text: out, changed };
+}
+
 /** Custom emoji and sticker names written in the given texts, newest text first, each name once. */
 export function extractCustomAssetNames(textsNewestFirst: string[]): { emojis: string[]; stickers: string[] } {
   const emojis: string[] = [];
