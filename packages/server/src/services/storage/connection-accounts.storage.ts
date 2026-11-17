@@ -43,7 +43,13 @@ import { setConnectionBudgetScope, setAccountRateLimit } from "../llm/connection
 import { setAccountParallelLimit } from "../llm/account-budget.js";
 import { logger } from "../../lib/logger.js";
 // A cycle with connections.storage, safe: the functions are only called at request time.
-import { catalogOf, readAccountCatalogs, readSavedModelList, withAccountCatalog } from "./connections.storage.js";
+import {
+  catalogOf,
+  readAccountCatalogs,
+  readSavedModelList,
+  sameOriginUrl,
+  withAccountCatalog,
+} from "./connections.storage.js";
 
 export type ConnectionRow = typeof apiConnections.$inferSelect;
 export type ConnectionAccountRow = typeof connectionAccounts.$inferSelect;
@@ -768,6 +774,9 @@ export function createConnectionAccountsStorage(db: DB) {
             if (input.showUsageWeekly !== undefined) rowSet.showUsageWeekly = updated.showUsageWeekly;
             if (input.treatAsLocalEndpoint !== undefined) rowSet.treatAsLocalEndpoint = updated.treatAsLocalEndpoint;
             if (takesBaseUrl) rowSet.baseUrl = updated.baseUrl;
+            // A Model's own address only counts on its Connection's server; one the address left behind is dropped.
+            const ownAddress = row.modelBaseUrl?.trim();
+            if (takesBaseUrl && ownAddress && !sameOriginUrl(ownAddress, updated.baseUrl)) rowSet.modelBaseUrl = "";
             // A different key or address can serve a different model list.
             if (keyChanged || (takesBaseUrl && baseUrlChanged)) rowSet.savedModels = null;
             // A row with a second endpoint on another origin stays under review.
