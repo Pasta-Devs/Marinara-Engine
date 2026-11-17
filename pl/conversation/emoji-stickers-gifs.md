@@ -93,15 +93,29 @@ Przycisk tagu pokazuje teraz tę nazwę. Obowiązują te same limity rozmiaru, a
 
 Aplikacja informuje odpowiadającą postać, których własnych emoji i naklejek może używać. Aby zmienić sposób ich wyboru, kliknij ikonę koła zębatego **Selection preferences** na górze zakładki **Custom emojis** lub **Stickers**. Obie otwierają to samo ustawienie, zapisywane dla każdego czatu osobno.
 
-- **Semantic** (domyślnie): oferuje te, które najlepiej pasują do ostatniej rozmowy. Używa małego modelu na twoim komputerze. Jeśli nie jest dostępny, wybiera losowo.
+- **Semantic** (domyślnie): oferuje te, które najlepiej pasują do ostatniej rozmowy. Używa małego modelu na twoim komputerze. Jeśli nie jest dostępny, wybiera losowo. Gdy odpowiada jedna postać, jej własne emoji i naklejki są oceniane razem ze wspólnymi, a przy zbliżonej ocenie pierwszeństwo mają jej własne.
 - **Random**: oferuje losowy zestaw przy każdej odpowiedzi.
 - **Tool-call**: model wybiera pasujące przy każdej odpowiedzi. Wybierz model w polu **Select a model...**. Jeśli żaden nie jest ustawiony albo wybór się nie uda, używa trybu Semantic. Jest pomijany, gdy w jednej grupowej turze odpowiada kilka postaci.
 
 **Max offered (each)** to liczba nazw emoji i nazw naklejek oferowanych na turę. Domyślnie jest to 20, w zakresie od 1 do 100.
 
+Jeśli postać zapisze nazwę naklejki tak jak emoji, na przykład `:hug:` zamiast `sticker:hug:`, w odpowiedzi pojawi się naklejka. Dzieje się tak tylko wtedy, gdy żadne własne emoji nie ma tej nazwy.
+
+### Pokaż je modelowi
+
+Zwykle model widzi tylko nazwy własnych emoji i naklejek. Jeśli model czatu potrafi odczytywać obrazy, opcja **Show them to the model** (pokaż je modelowi) w tym samym panelu wysyła mu też obrazki, dzięki czemu wie, jak wygląda każdy z nich. Pomaga to szczególnie przy nazwach, które nie opisują obrazka.
+
+- **Off** (wyłączone, domyślnie): tylko nazwy.
+- **Last message** (ostatnia wiadomość): pokazuje własne emoji i naklejki z najnowszej wiadomości.
+- **Recent** (ostatnie): pokazuje te z kilku ostatnich wiadomości. **Messages to look at** (liczba sprawdzanych wiadomości) określa ich liczbę, od 2 do 20. Domyślnie jest to 6.
+
+**Offered ones on the sheet** (oferowane na arkuszu) dodaje do obrazków wybraną liczbę oferowanych emoji i taką samą liczbę oferowanych naklejek, od 0 do 30. Domyślnie jest to 6. Arkusz mieści do 30 emoji i 12 naklejek; te z czatu mają pierwszeństwo, więc oferowane wypełniają pozostałe miejsce.
+
+Przy każdej odpowiedzi model otrzymuje jeden obraz z ponumerowanymi emoji i jeden z ponumerowanymi naklejkami oraz ich dokładne nazwy w tekście. Zużywa to dodatkowe tokeny wejściowe przy każdej odpowiedzi (tokeny to małe fragmenty tekstu i obrazów, za które usługa nalicza opłaty), około 1 000 przy ustawieniach domyślnych. Funkcja nie działa, gdy model czatu nie potrafi odczytywać obrazów lub włączone jest **Opisywanie obrazów**. Jeśli model odrzuca obrazy, Marinara wysyła tylko nazwy.
+
 ## Reakcje używają tylko głównych własnych emoji
 
-Na wiadomość możesz zareagować własnym emoji, ale tylko z emoji wgranych w zakładce **Custom emojis**. Emoji, naklejki i GIF-y oznaczone w galerii nie są dostępne jako reakcje. Zobacz [Reaguj i otrzymuj powiadomienia](getting-started.md#react-and-get-notified).
+Na wiadomość możesz zareagować własnym emoji, ale tylko z emoji wgranych w zakładce **Custom emojis**. Emoji, naklejki i GIF-y oznaczone w galerii nie są dostępne jako reakcje. Gdy postać reaguje nazwą naklejki, reakcja pokazuje tę naklejkę. Zobacz [Reaguj i otrzymuj powiadomienia](getting-started.md#react-and-get-notified).
 
 ## Powiązane przewodniki
 

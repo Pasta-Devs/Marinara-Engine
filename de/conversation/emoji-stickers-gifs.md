@@ -94,15 +94,29 @@ Die Tag-Schaltfläche zeigt nun den Namen. Es gelten dieselben Größenlimits, u
 
 Marinara teilt dem antwortenden Charakter mit, welche eigenen Emojis und Sticker er verwenden darf. Um zu ändern, wie es sie auswählt, klicke oben im Tab **Custom emojis** oder **Stickers** auf das Zahnrad **Selection preferences**. Beide öffnen dieselbe Einstellung, die pro Chat gespeichert wird.
 
-- **Semantic** (Standard): bietet die an, die am besten zum aktuellen Gespräch passen. Es nutzt ein kleines Modell auf deinem eigenen Rechner. Ist es nicht verfügbar, wählt es zufällig aus.
+- **Semantic** (Standard): bietet die an, die am besten zum aktuellen Gespräch passen. Es nutzt ein kleines Modell auf deinem eigenen Rechner. Ist es nicht verfügbar, wählt es zufällig aus. Wenn ein einzelner Charakter antwortet, werden seine eigenen Emojis und Sticker zusammen mit den gemeinsam verfügbaren bewertet. Bei annähernd gleicher Eignung haben seine eigenen Vorrang.
 - **Random**: bietet bei jeder Antwort eine zufällige Auswahl an.
 - **Tool-call**: Ein Modell wählt bei jeder Antwort die passenden aus. Wähle ein Modell unter **Select a model...**. Ist keines gesetzt oder schlägt es fehl, nutzt es Semantic. Es wird übersprungen, wenn in einem Gruppenzug mehrere Charaktere antworten.
 
 **Max offered (each)** legt fest, wie viele Emoji-Namen und wie viele Sticker-Namen pro Zug angeboten werden. Standard ist 20, von 1 bis 100.
 
+Wenn ein Charakter den Namen eines Stickers wie ein Emoji schreibt, etwa `:hug:` statt `sticker:hug:`, erscheint in der Antwort der Sticker. Das passiert nur, wenn kein eigenes Emoji diesen Namen hat.
+
+### Dem Modell die Bilder zeigen
+
+Normalerweise sieht das Modell nur die Namen deiner eigenen Emojis und Sticker. Wenn das Chat-Modell Bilder lesen kann, sendet ihm **Show them to the model** (dem Modell die Bilder zeigen) im selben Panel auch die Bilder, damit es weiß, wie sie aussehen. Das hilft besonders bei Namen, die das Bild nicht beschreiben.
+
+- **Aus** (Standard): nur Namen.
+- **Last message** (letzte Nachricht): zeigt die eigenen Emojis und Sticker aus der neuesten Nachricht.
+- **Recent** (letzte Nachrichten): zeigt die aus den letzten paar Nachrichten. **Messages to look at** (zu berücksichtigende Nachrichten) legt fest, wie viele: 2 bis 20. Standard ist 6.
+
+**Offered ones on the sheet** (angebotene Emojis und Sticker auf dem Übersichtsbild) fügt den Bildern jeweils die eingestellte Anzahl angebotener Emojis und Sticker hinzu, von 0 bis 30. Standard ist 6. Ein Übersichtsbild fasst bis zu 30 Emojis und 12 Sticker. Die aus dem Chat haben Vorrang; die angebotenen füllen den verbleibenden Platz.
+
+Das Modell erhält bei jeder Antwort ein Bild mit nummerierten Emojis und eines mit nummerierten Stickern, dazu die genauen Namen als Text. Das kostet bei jeder Antwort zusätzliche Eingabe-Tokens (Tokens sind die kleinen Text- und Bildbestandteile, die ein Dienst abrechnet), mit den Standardeinstellungen ungefähr 1.000. Die Funktion hat keine Wirkung, wenn das Chat-Modell keine Bilder lesen kann oder **Bildbeschreibungen** eingeschaltet ist. Wenn das Modell Bilder ablehnt, sendet Marinara nur die Namen.
+
 ## Reaktionen nutzen nur deine Haupt-Emojis
 
-Du kannst auf eine Nachricht mit einem eigenen Emoji reagieren, aber nur aus den Emojis, die du im Tab **Custom emojis** hochgeladen hast. Galerie-markierte Emojis, Sticker und GIFs sind als Reaktionen nicht verfügbar. Siehe [Reagieren und benachrichtigt werden](getting-started.md#react-and-get-notified).
+Du kannst auf eine Nachricht mit einem eigenen Emoji reagieren, aber nur aus den Emojis, die du im Tab **Custom emojis** hochgeladen hast. Galerie-markierte Emojis, Sticker und GIFs sind als Reaktionen nicht verfügbar. Wenn ein Charakter mit dem Namen eines Stickers reagiert, zeigt die Reaktion diesen Sticker. Siehe [Reagieren und benachrichtigt werden](getting-started.md#react-and-get-notified).
 
 ## Verwandte Anleitungen
 
