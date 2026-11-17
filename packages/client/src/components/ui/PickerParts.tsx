@@ -246,8 +246,9 @@ export function usePickerKeyboard({
  * Run it once the list has its final height: a popover gets that only after it is placed.
  */
 export function scrollPickedRow(list: HTMLElement | null) {
-  const row = list?.querySelector<HTMLElement>('[aria-current="true"]');
-  if (!list || !row) return;
+  if (!list) return;
+  const row = list.querySelector<HTMLElement>('[aria-current="true"]');
+  if (!row) return;
   const rowBox = row.getBoundingClientRect();
   const listBox = list.getBoundingClientRect();
   if (rowBox.top >= listBox.top && rowBox.bottom <= listBox.bottom) return;

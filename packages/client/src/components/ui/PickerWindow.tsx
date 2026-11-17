@@ -7,12 +7,12 @@
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
 import { useInsideModal } from "./modal-context";
-import { useBackDismiss } from "../../hooks/use-back-dismiss";
-import { scrollPickedRow } from "./PickerParts";
 import { NEUTRAL_SURFACE_VARIABLES } from "./neutral-surface-styles";
+import { scrollPickedRow } from "./PickerParts";
 
 // Where Modal turns into a bottom sheet, so a picker and the dialogs around it switch at the same width.
 const PHONE_QUERY = "(max-width: 639px)";
