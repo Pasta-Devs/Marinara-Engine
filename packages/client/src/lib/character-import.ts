@@ -1,5 +1,6 @@
 import { api } from "./api-client";
 import type { CharacterData } from "@marinara-engine/shared";
+import type { CardUpdateMatch } from "../components/characters/CardUpdateChoices";
 
 // The server takes a native .marinara.json as a JSON request up to 256 MiB (IMPORT_BODY_LIMIT_BYTES), less
 // headroom for the fields sent with it. A bigger export, such as a character with a large gallery, is
@@ -183,9 +184,15 @@ export function readEmbeddedLorebookFromCharacterPayload(raw: Record<string, unk
   return readCharacterCardData(raw).character_book;
 }
 
-export async function inspectCharacterFilesForEmbeddedLorebooks(
-  files: File[],
-): Promise<EmbeddedLorebookImportPreview[]> {
+/** One file's inspection: its embedded lorebook and the characters it may be a newer release of. */
+export interface CharacterFileInspection extends EmbeddedLorebookImportPreview {
+  creator?: string;
+  version?: string;
+  matches?: CardUpdateMatch[];
+}
+
+/** Inspect card files before importing, in the order given. */
+export async function inspectCharacterFiles(files: File[]): Promise<CharacterFileInspection[]> {
   if (files.length === 0) return [];
 
   const form = new FormData();
@@ -195,8 +202,13 @@ export async function inspectCharacterFilesForEmbeddedLorebooks(
 
   const result = await api.upload<{
     success: boolean;
-    results: EmbeddedLorebookImportPreview[];
+    results: CharacterFileInspection[];
   }>("/import/st-character/inspect", form);
+  return result.results;
+}
 
-  return result.results.filter((item) => item.success && item.hasEmbeddedLorebook);
+export async function inspectCharacterFilesForEmbeddedLorebooks(
+  files: File[],
+): Promise<EmbeddedLorebookImportPreview[]> {
+  return (await inspectCharacterFiles(files)).filter((item) => item.success && item.hasEmbeddedLorebook);
 }

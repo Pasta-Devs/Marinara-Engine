@@ -103,6 +103,12 @@ Before you start: to chat with the character you will need a working text connec
 
 If it did not work: read the error message in the toast. For **JannyAI**, a Cloudflare block is the most common cause (see Troubleshooting below).
 
+### Update a character you already have
+
+If the card you import is already in your library (downloaded from the same page before, or with the same name and creator), the import pauses on **Already in your library**. Choose **Update "Name"** to update your copy in place, **Add as a new character** to keep both, or **Skip this card**. To link the card to a character that came another way, click **Update a character you already have…** in the **Import Card** window and pick it from the list. See [Update a character you already have](import-export.md#update-a-character-you-already-have).
+
+To look for a newer version of a card you downloaded here, open the character, click **⋯** next to **Save** and choose **Check for update**. The Card Browser opens on that card.
+
 ### Download as PNG
 
 Click **Download as PNG** in the detail view to save the card as a standard PNG character card on your device, without adding it to your library. The button reads **Building PNG...** while it works. It works for every source, and the file is named after the character, such as `Some_Character.png`. A PNG card is an image with the character data stored inside it. You can share it or import it into another app.

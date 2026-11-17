@@ -87,6 +87,8 @@ export const CHARACTER_LIBRARY_SORT_OPTIONS = [
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas" | "lorebooks";
 export type BotBrowserKind = "cards" | "lorebooks";
+/** A Card Browser card to open: `source` is the provider id ("chub"), `id` its card id there, `name` for a search. */
+export type BotBrowserCardLookup = { source: string; id: string; name: string };
 export const MOBILE_SHELL_MEDIA_QUERY =
   "(max-width: 767px), (max-width: 1440px) and (hover: none) and (any-pointer: coarse)";
 export const CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS = ["all", "favorites", "non-favorites"] as const;
@@ -935,6 +937,8 @@ export interface UIState {
   botBrowserOpen: boolean;
   /** What the browser shows: character/persona cards, or lorebooks. */
   botBrowserKind: BotBrowserKind;
+  /** A card for the browser to show when it opens ("Check for update" in a character's editor); it clears it. */
+  botBrowserCardLookup: BotBrowserCardLookup | null;
   /** When true, the main area shows the game assets browser */
   gameAssetsBrowserOpen: boolean;
   /** When true, the main area shows the Noodle social timeline */
@@ -1508,6 +1512,9 @@ export interface UIState {
   closeAgentCatalog: () => void;
   setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
+  /** The card browser on one card's page (its source and id, as `extensions.botBrowserSource` stores them). */
+  openBotBrowserCard: (lookup: BotBrowserCardLookup) => void;
+  clearBotBrowserCardLookup: () => void;
   /** The browser in lorebook mode (Chub lorebooks); a separate action because callers pass openBotBrowser to onClick. */
   openLorebookBrowser: () => void;
   closeBotBrowser: () => void;
@@ -2540,6 +2547,7 @@ export const useUIStore = create<UIState>()(
         personaDetailInitialTab: null,
         botBrowserOpen: false,
         botBrowserKind: "cards" as BotBrowserKind,
+        botBrowserCardLookup: null as BotBrowserCardLookup | null,
         gameAssetsBrowserOpen: false,
         noodleOpen: false,
         noodleSelectedPersonaId: null,
@@ -3166,6 +3174,14 @@ export const useUIStore = create<UIState>()(
             botBrowserKind: "cards",
             ...getMobileDetailReturnState(s),
           })),
+        openBotBrowserCard: (botBrowserCardLookup) =>
+          set((s) => ({
+            ...enterMainSurface(s, { botBrowserOpen: true }),
+            botBrowserKind: "cards",
+            botBrowserCardLookup,
+            ...getMobileDetailReturnState(s),
+          })),
+        clearBotBrowserCardLookup: () => set({ botBrowserCardLookup: null }),
         openLorebookBrowser: () =>
           set((s) => ({
             ...enterMainSurface(s, { botBrowserOpen: true }),
