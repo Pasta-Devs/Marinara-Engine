@@ -24,9 +24,14 @@ const cases: RegressionCase[] = [
     run: () => {
       const stickers = new Set(["hug", "wave"]);
       const emojis = new Set(["wave"]);
-      const fixed = rewriteStickerNamesWrittenAsEmojis("aww :hug: :wave: sticker:hug: at 10:hug:", stickers, emojis);
-      assert.deepEqual(fixed, { text: "aww sticker:hug: :wave: sticker:hug: at 10:hug:", changed: true });
+      const fixed = rewriteStickerNamesWrittenAsEmojis("aww :hug: :wave: at 10:hug:", stickers, emojis);
+      assert.deepEqual(fixed, { text: "aww sticker:hug: :wave: at 10:hug:", changed: true });
       assert.equal(rewriteStickerNamesWrittenAsEmojis("plain :cat:", stickers, emojis).changed, false);
+      assert.deepEqual(rewriteStickerNamesWrittenAsEmojis("sleep well :hug:\n\nsticker:hug:", stickers, emojis), {
+        text: "sleep well\n\nsticker:hug:",
+        changed: true,
+      });
+      assert.equal(rewriteStickerNamesWrittenAsEmojis(":hug: :hug:", stickers, emojis).text, "sticker:hug:");
     },
   },
   {

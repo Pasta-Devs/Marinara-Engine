@@ -39,6 +39,9 @@ export function rewriteStickerNamesWrittenAsEmojis(
 ): { text: string; changed: boolean } {
   if (stickerNames.size === 0 || !text.includes(":")) return { text, changed: false };
   let changed = false;
+  let dropped = false;
+  // A sticker the reply already sends is not sent twice: its bare `:name:` copy is dropped instead.
+  const alreadySent = new Set([...text.matchAll(STICKER_TOKEN)].map((match) => match[1]!));
   const out = text.replace(
     /(sticker)?:([a-z0-9_]{1,32}):/g,
     (whole, prefix: string | undefined, name: string, offset: number) => {
@@ -47,10 +50,21 @@ export function rewriteStickerNamesWrittenAsEmojis(
       const before = offset > 0 ? text[offset - 1]! : "";
       if (/[a-z0-9_]/i.test(before)) return whole;
       changed = true;
+      if (alreadySent.has(name)) {
+        dropped = true;
+        return "";
+      }
+      alreadySent.add(name);
       return `sticker:${name}:`;
     },
   );
-  return { text: out, changed };
+  if (!dropped) return { text: out, changed };
+  const tidied = out
+    .replace(/ {2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text: tidied, changed };
 }
 
 /** Custom emoji and sticker names written in the given texts, newest text first, each name once. */
