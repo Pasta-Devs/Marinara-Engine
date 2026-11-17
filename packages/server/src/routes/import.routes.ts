@@ -22,7 +22,10 @@ import {
   inspectSTCharacter,
   inspectCharX,
   getExistingCharacterTagKeys,
+  findMatchingCharacters,
   IMPORT_BODY_LIMIT_BYTES,
+  type CharacterImportMatch,
+  type CreatorNotesUpdate,
   type STCharacterImportPreview,
   type STCharacterTagImportMode,
 } from "../services/import/st-character.importer.js";
@@ -456,6 +459,38 @@ function flagDecisionStatements<T extends { success?: boolean }>(result: T, pars
   return result.success && containsDecisionStatements(parsed) ? { ...result, usesDecisions: true } : result;
 }
 
+/** Which existing character a card updates, when the person picked "Update" for a newer release of a card. */
+type CharacterUpdateTarget = { characterId: string; useCardPicture?: boolean; creatorNotes?: CreatorNotesUpdate };
+
+function readCreatorNotesUpdate(value: unknown): CreatorNotesUpdate {
+  return value === "card" || value === "mine" ? value : "merge";
+}
+
+/** Parse the `updateTargets` field: `[{ name: filename, characterId, useCardPicture }]`, one per file to update. */
+function readCharacterUpdateTargets(value: unknown): Map<string, CharacterUpdateTarget[]> {
+  const targets = new Map<string, CharacterUpdateTarget[]>();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(value ?? "[]"));
+  } catch {
+    return targets;
+  }
+  if (!Array.isArray(parsed)) return targets;
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== "object") continue;
+    const { name, characterId, useCardPicture, creatorNotes } = entry as Record<string, unknown>;
+    if (typeof name !== "string" || typeof characterId !== "string" || !characterId) continue;
+    const queue = targets.get(name) ?? [];
+    queue.push({
+      characterId,
+      useCardPicture: useCardPicture !== false,
+      creatorNotes: readCreatorNotesUpdate(creatorNotes),
+    });
+    targets.set(name, queue);
+  }
+  return targets;
+}
+
 async function importCharacterBuffer(
   fileName: string,
   buffer: Buffer,
@@ -467,7 +502,15 @@ async function importCharacterBuffer(
   regexScriptScope?: "character" | "global",
   splitDescription?: boolean,
   importTags?: ImportTagOptions,
+  update?: CharacterUpdateTarget,
 ) {
+  const updateOptions = update
+    ? {
+        updateCharacterId: update.characterId,
+        useCardPicture: update.useCardPicture !== false,
+        creatorNotes: update.creatorNotes ?? "merge",
+      }
+    : {};
   if (fileName.toLowerCase().endsWith(".png")) {
     const charData = extractCharaFromPng(buffer);
     if (!charData) {
@@ -489,6 +532,7 @@ async function importCharacterBuffer(
           regexScriptScope,
           splitDescription,
           importTags,
+          ...updateOptions,
         }),
         charData,
       );
@@ -506,6 +550,7 @@ async function importCharacterBuffer(
       regexScriptScope,
       splitDescription,
       importTags,
+      ...updateOptions,
     });
   }
 
@@ -529,6 +574,7 @@ async function importCharacterBuffer(
         regexScriptScope,
         splitDescription,
         importTags,
+        ...updateOptions,
       }),
       json,
     );
@@ -889,10 +935,16 @@ export async function importRoutes(app: FastifyInstance) {
     if (rawRegexScriptScope !== undefined && regexScriptScope === undefined) return invalidRegexScriptScopeResponse();
     const splitDescription = readBooleanOption(body.splitDescription);
     const importTags = takeBodyImportTags(body);
+    const updateCharacterId = typeof body.updateCharacterId === "string" ? body.updateCharacterId : undefined;
+    const useCardPicture = body.useCardPicture !== false;
+    const creatorNotes = readCreatorNotesUpdate(body.creatorNotes);
     delete body.importEmbeddedLorebook;
     delete body.tagImportMode;
     delete body.regexScriptScope;
     delete body.splitDescription;
+    delete body.updateCharacterId;
+    delete body.useCardPicture;
+    delete body.creatorNotes;
     try {
       return await importSTCharacter(body, app.db, {
         timestampOverrides: readTimestampOverridesFromBody(body),
@@ -901,19 +953,34 @@ export async function importRoutes(app: FastifyInstance) {
         regexScriptScope,
         splitDescription,
         importTags,
+        ...(updateCharacterId ? { updateCharacterId, useCardPicture, creatorNotes } : {}),
       });
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 
-  /** Inspect character cards before importing, so clients can ask about embedded lorebooks. */
+  /** Characters a card from the Card Browser may be a newer release of (same page, or same name and creator). */
+  app.post("/st-character/matches", async (req) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 500) : "");
+    return {
+      matches: await findMatchingCharacters(app.db, {
+        name: text(body.name),
+        creator: text(body.creator),
+        botBrowserSource: text(body.botBrowserSource),
+        characterId: text(body.characterId),
+      }),
+    };
+  });
+
+  /** Inspect character cards before importing, so clients can ask about embedded lorebooks and cards you already have. */
   app.post("/st-character/inspect", { bodyLimit: IMPORT_BODY_LIMIT_BYTES }, async (req, reply) => {
     const parts = req.parts({
       limits: { files: MAX_BATCH_IMPORT_FILES, parts: MAX_BATCH_IMPORT_FILES + 8, fileSize: IMPORT_BODY_LIMIT_BYTES },
     });
     let totalBytes = 0;
-    const results: Array<{ filename: string } & STCharacterImportPreview> = [];
+    const results: Array<{ filename: string; matches?: CharacterImportMatch[] } & STCharacterImportPreview> = [];
 
     for await (const part of parts) {
       if (part.type !== "file") continue;
@@ -928,7 +995,8 @@ export async function importRoutes(app: FastifyInstance) {
       }
       try {
         const result = await inspectCharacterBuffer(part.filename ?? "character", buffer);
-        results.push({ filename: part.filename ?? "character", ...result });
+        const matches = result.success ? await findMatchingCharacters(app.db, result) : [];
+        results.push({ filename: part.filename ?? "character", ...result, matches });
       } catch (error) {
         results.push({
           filename: part.filename ?? "character",
@@ -961,6 +1029,7 @@ export async function importRoutes(app: FastifyInstance) {
     let invalidRegexScriptScope = false;
     let splitDescription: boolean | undefined;
     let importTags = readImportTagOptions(undefined);
+    let updateTargets = new Map<string, CharacterUpdateTarget[]>();
 
     for await (const part of parts) {
       if (part.type === "file") {
@@ -1012,6 +1081,10 @@ export async function importRoutes(app: FastifyInstance) {
       if (part.fieldname === IMPORT_TAGS_FIELD) {
         importTags = readImportTagOptions(part.value);
       }
+
+      if (part.fieldname === "updateTargets") {
+        updateTargets = readCharacterUpdateTargets(part.value);
+      }
     }
 
     if (invalidTagImportMode) return { ...invalidTagImportModeResponse(), results: [] };
@@ -1050,6 +1123,7 @@ export async function importRoutes(app: FastifyInstance) {
           regexScriptScope,
           splitDescription,
           importTags,
+          updateTargets.get(file.filename)?.shift(),
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {

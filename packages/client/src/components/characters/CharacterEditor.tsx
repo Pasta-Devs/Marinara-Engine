@@ -185,6 +185,7 @@ import { ImageDownloadButton } from "../ui/ImageDownloadButton";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
+import { useCharacterCardUpdate } from "./useCharacterCardUpdate";
 import {
   SHEET_BUTTON_DESTRUCTIVE,
   SHEET_BUTTON_PRIMARY,
@@ -1381,6 +1382,13 @@ export function CharacterEditor() {
     updateField("tags", []);
   };
 
+  const cardUpdate = useCharacterCardUpdate({
+    characterId,
+    name: formData?.name ?? "",
+    botBrowserSource: formData?.extensions.botBrowserSource,
+    dirty,
+  });
+
   if (isLoading || !formData) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -1455,6 +1463,7 @@ export function CharacterEditor() {
       icon: <Upload size="0.75rem" />,
       onSelect: () => setExportDialogOpen(true),
     },
+    ...cardUpdate.menuItems,
     {
       label: localizeUi("ui.characters.charactereditor.importCharacterAsPersona"),
       icon: <UserPlus size="0.75rem" />,
@@ -1656,6 +1665,7 @@ export function CharacterEditor() {
   return (
     <MariFieldReviewProvider value={mariReview.value}>
       <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
+        {cardUpdate.element}
         <ExportFormatDialog
           open={exportDialogOpen}
           title={localizeUi("ui.characters.charactereditor.exportCharacter_cdcda78")}
