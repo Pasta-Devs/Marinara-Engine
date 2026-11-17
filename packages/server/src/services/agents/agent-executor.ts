@@ -18,6 +18,13 @@ import {
   type LLMToolCall,
   type LLMUsage,
 } from "../llm/base-provider.js";
+import {
+  attachWriterReferencePictures,
+  logWriterReferenceAttach,
+  readWriterReferencePayload,
+  withWriterReferenceFallback,
+  writerVisionKey,
+} from "../image/writer-reference-pictures.js";
 import { withThinkingHeadroom, type AgentGenerationParameters } from "../generation/agent-generation-parameters.js";
 import type {
   AgentResult,
@@ -870,7 +877,7 @@ export async function executeAgent(
       return makeError(config, "No prompt template configured", startTime);
     }
 
-    const messages = prepareAgentProviderMessages(
+    let messages = prepareAgentProviderMessages(
       config.type === "expression"
         ? buildExpressionAgentMessages(config, template, context)
         : config.type === "knowledge-retrieval"
@@ -881,6 +888,13 @@ export async function executeAgent(
               ? buildBeholderMessages(config, template, context)
               : buildStandardAgentMessages(config, template, context),
     );
+    // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
+    const writerReferences = config.type === "illustrator" ? readWriterReferencePayload(context.memory) : null;
+    if (writerReferences) {
+      messages = attachWriterReferencePictures(messages, writerReferences);
+      provider = withWriterReferenceFallback(provider, writerReferences, writerVisionKey(config.connectionId, model));
+      logWriterReferenceAttach("Illustrator", writerReferences);
+    }
 
     const temperature = resolveAgentTemperature(config);
     const maxTokens = resolveAgentCallMaxTokens(provider, config, normalizeAgentMaxTokens(config.settings.maxTokens), {
