@@ -115,6 +115,8 @@ export function Select<T extends string>({
               id: option.value,
               label: option.label,
               subtitle: option.description,
+              // The search also finds an option by its description (a language by its English name).
+              searchText: option.description,
               icon: option.icon,
               disabledReason: option.disabledReason,
               group: option.group,

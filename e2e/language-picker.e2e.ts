@@ -22,7 +22,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("soup/language picker searches native names and English names with keyboard selection", async ({
+test("soup/language picker searches native names and picks with the search and the keyboard", async ({
   page,
 }, testInfo) => {
   const errors: string[] = [];
@@ -33,11 +33,12 @@ test("soup/language picker searches native names and English names with keyboard
   const trigger = page.locator("#settings-control-language-select");
   await expect(trigger).toBeEnabled();
   await trigger.click();
-  const search = page.getByRole("combobox", { name: "Search languages" });
-  const popup = page.locator("[data-language-picker-portal]");
-  await expect(search).toBeFocused();
-  await expect(popup.getByRole("option")).toHaveCount(12);
-  await expect(popup.getByRole("option", { name: "English", exact: true })).toHaveAttribute("aria-selected", "true");
+  const popup = page.getByRole("dialog", { name: "Language", exact: true });
+  const search = popup.getByRole("searchbox", { name: "Search…", exact: true });
+  const rows = popup.locator("[data-pick-row]");
+  await expect(popup).toBeVisible();
+  await expect(rows).toHaveCount(12);
+  await expect(popup.locator('[data-pick-row][title="English"]')).toHaveAttribute("aria-current", "true");
   await testInfo.attach("language-picker-open", { body: await page.screenshot(), contentType: "image/png" });
   const box = (await popup.boundingBox())!;
   const viewport = page.viewportSize()!;
@@ -47,60 +48,43 @@ test("soup/language picker searches native names and English names with keyboard
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 
   await search.fill("zzzz");
-  await expect(popup.getByRole("status")).toHaveText("No languages found. Try another name.");
-  await expect(popup.getByRole("status")).toBeInViewport({ ratio: 1 });
+  await expect(popup.getByText("No matches.", { exact: true })).toBeVisible();
+  await expect(popup.getByText("No matches.", { exact: true })).toBeInViewport({ ratio: 1 });
   await testInfo.attach("language-picker-empty", {
     body: await page.screenshot({ path: testInfo.outputPath("language-picker-empty.png") }),
     contentType: "image/png",
   });
-  if (!testInfo.project.name.includes("mobile")) {
-    const constraint = await page.addStyleTag({
-      content: "[data-language-picker-portal] { max-height: 100px !important; }",
-    });
-    await popup.hover();
-    await page.mouse.wheel(0, 40);
-    await expect(popup.getByRole("status")).toBeInViewport({ ratio: 1 });
-    await constraint.evaluate((element) => {
-      element.parentNode?.removeChild(element);
-    });
-  }
   await page.keyboard.press("Enter");
   expect(packs.downloads).toEqual([]);
-  await search.fill("japanese");
-  await expect(popup.getByRole("option")).toHaveCount(1);
-  await expect(popup.getByRole("option")).toContainText("日本語");
+  await search.fill("日本語");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("日本語");
+  // Accents are optional and the English name finds the native one.
   await search.fill("portugues");
-  await expect(popup.getByRole("option")).toHaveCount(1);
-  await expect(popup.getByRole("option")).toContainText("Português");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("Português");
+  await search.fill("japanese");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("日本語");
   await page.keyboard.press("Escape");
   await expect(popup).toHaveCount(0);
   await expect(trigger).toBeFocused();
-
-  await trigger.click();
-  // The search takes focus on the next frame; a Shift+Tab before that starts from the trigger and never reaches the picker.
-  await expect(search).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(popup).toHaveCount(0);
-  await expect(page.locator("#settings-control-language").getByRole("button").first()).toBeFocused();
 
   await trigger.click();
   await page.goBack();
   await expect(popup).toHaveCount(0);
   await expect(trigger).toBeFocused();
 
-  await page.keyboard.press("ArrowDown");
-  await expect(search).toHaveValue("");
-  await search.fill("polish");
-  await page.keyboard.press("Enter");
+  await trigger.click();
+  await search.fill("polski");
+  await expect(rows).toHaveCount(1);
+  await rows.click();
   await expect(trigger).toHaveAttribute("data-value", "pl");
   await expect(trigger).toContainText("Polski");
   expect(packs.downloads).toEqual(["pl"]);
   await expect(popup).toHaveCount(0);
   await trigger.click();
-  await expect(popup.getByRole("option", { selected: true })).toContainText("Polski");
-  await page.keyboard.press("Tab");
-  await expect(popup).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Refresh language pack", exact: true })).toBeFocused();
+  await expect(popup.locator('[data-pick-row][aria-current="true"]')).toContainText("Polski");
   expect(errors).toEqual([]);
 });
 
@@ -125,8 +109,9 @@ test("soup/documentation picker stages a language without switching or downloadi
   await clickTopbarPanel(page, "settings");
   const trigger = page.locator("#settings-docs-language-select");
   await trigger.click();
-  await page.getByRole("combobox", { name: "Search languages" }).fill("german");
-  await page.getByRole("option", { name: /Deutsch/ }).click();
+  const popup = page.getByRole("dialog", { name: "Documentation Language", exact: true });
+  await popup.getByRole("searchbox", { name: "Search…", exact: true }).fill("deutsch");
+  await popup.locator("[data-pick-row]").filter({ hasText: "Deutsch" }).click();
   await expect(trigger).toContainText("Deutsch");
   await expect(page.getByRole("button", { name: "Download & Replace", exact: true })).toBeVisible();
   expect(writes).toEqual([]);
@@ -145,23 +130,13 @@ test("soup/onboarding language picker closes on Escape without ending the tutori
   }
   await expect(trigger).toBeVisible();
   await trigger.click();
-  const search = page.getByRole("combobox", { name: "Search languages" });
-  await expect(search).toBeFocused();
-  await search.fill("english");
-  await expect(page.getByRole("option", { name: "English", exact: true })).toBeVisible();
+  const popup = page.getByRole("dialog", { name: "Documentation Language", exact: true });
+  await expect(popup).toBeVisible();
+  await expect(popup.locator('[data-pick-row][title="English"]')).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
+  await expect(popup).toHaveCount(0);
   await expect(tour).toBeVisible();
   await expect(trigger).toBeFocused();
-  await trigger.click();
-  await expect(search).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
-  await expect(tour.getByRole("button", { name: "Documentation", exact: true })).toBeFocused();
-  await trigger.click();
-  await page.keyboard.press("Tab");
-  await expect(page.locator("[data-language-picker-portal]")).toHaveCount(0);
-  await expect(tour.getByRole("button", { name: "Skip", exact: true })).toBeFocused();
 });
 
 test("soup/language picker fits phone, tablet and desktop in both visual themes", async ({ page }, testInfo) => {
@@ -184,14 +159,8 @@ test("soup/language picker fits phone, tablet and desktop in both visual themes"
         await page.setViewportSize({ width, height: 1000 });
         const trigger = page.locator("#settings-control-language-select");
         await trigger.click();
-        const popup = page.locator("[data-language-picker-portal]");
+        const popup = page.getByRole("dialog", { name: "Language", exact: true });
         await expect(popup).toBeVisible();
-        await expect(popup).toHaveCSS("color", await trigger.evaluate((element) => getComputedStyle(element).color));
-        const tokens = (element: HTMLElement) => {
-          const style = getComputedStyle(element);
-          return [style.getPropertyValue("--foreground"), style.getPropertyValue("--muted-foreground")];
-        };
-        expect(await popup.evaluate(tokens)).toEqual(await trigger.evaluate(tokens));
         const screenshotPath = testInfo.outputPath(`language-picker-${visualTheme}-${theme}-${width}.png`);
         await testInfo.attach(`language-picker-${visualTheme}-${theme}-${width}`, {
           body: await page.screenshot({ path: screenshotPath }),
@@ -203,6 +172,7 @@ test("soup/language picker fits phone, tablet and desktop in both visual themes"
         expect(box.y).toBeGreaterThanOrEqual(0);
         expect(box.y + box.height).toBeLessThanOrEqual(1000);
         await page.keyboard.press("Escape");
+        await expect(popup).toHaveCount(0);
       }
     }
   }

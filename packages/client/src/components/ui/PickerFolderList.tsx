@@ -36,8 +36,14 @@ export type PickerFolderItem = {
   group?: string;
 };
 
+// "portugues" finds "Português": both sides drop combining marks before matching.
+const foldAccents = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "");
+
 const matches = (item: PickerFolderItem, query: string) =>
-  includesTextForMatch(item.searchText ? item.label + " " + item.searchText : item.label, query);
+  includesTextForMatch(
+    foldAccents(item.searchText ? item.label + " " + item.searchText : item.label),
+    foldAccents(query),
+  );
 
 export type PickerFolderListProps = {
   /** Already in display order. */

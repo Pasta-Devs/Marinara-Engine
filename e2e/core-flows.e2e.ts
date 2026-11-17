@@ -16,7 +16,7 @@ import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
 import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
-import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
+import { mockUILanguagePacks, selectUILanguage, uiLanguageRow } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
 import { chooseOption } from "./select-field.js";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
@@ -14356,12 +14356,12 @@ test("UI language selection downloads packs on demand and persists across reload
   });
   await languageSelect.click();
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
-    await expect(page.locator(`[role="option"][id="settings-control-language-select-list-${locale}"]`)).toHaveCount(1);
+    await expect(uiLanguageRow(page, locale)).toHaveCount(1);
   }
 
   // The open picker moves focus to its search box on the next frame, and only the picker handles Escape. A slow
   // page (CI run 42029653525) took the key on the trigger instead, so the next trigger click closed the picker.
-  await expect(page.getByRole("combobox", { name: "Search languages", exact: true })).toBeFocused();
+  await expect(page.getByRole("searchbox", { name: "Search…", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(languageSelect).toHaveAttribute("aria-expanded", "false");
   await selectUILanguage(page, "pl");

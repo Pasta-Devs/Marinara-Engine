@@ -595,7 +595,7 @@ function OnboardingTutorialInner() {
     docsLanguageStatus?.configured || !uiMatchedDocsLanguage ? activeDocsLanguage : uiMatchedDocsLanguage;
   const effectiveDocsLanguagePick = docsLanguagePick ?? suggestedDocsLanguage;
 
-  useDialogFocusScope(!modal, cardRef, undefined, undefined, "[data-language-picker-portal]");
+  useDialogFocusScope(!modal, cardRef, undefined, undefined, "[data-chat-floating-panel]");
 
   /**
    * Commit the picked docs language when the tour completes via "Get Started".
@@ -717,6 +717,9 @@ function OnboardingTutorialInner() {
   const handleTutorialKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
       if (event.key !== "Escape" || event.defaultPrevented || useUIStore.getState().modal) return;
+      // A picker window opened from the card is portaled out of it (a phone sheet closes itself on Escape);
+      // its key must not end the tour.
+      if (event.target instanceof Node && !event.currentTarget.contains(event.target)) return;
       finish();
     },
     [finish],
