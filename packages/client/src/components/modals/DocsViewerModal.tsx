@@ -9,6 +9,7 @@ import { Modal } from "../ui/Modal";
 import { cn } from "../../lib/utils";
 import { renderMarkdownBlocks, applyInlineMarkdown } from "../../lib/markdown";
 import { useDocContent, useDocsIndex, useDocsSearch, type DocSummary } from "../../hooks/use-docs";
+import { GuideCardMount } from "../docs/GuideCard";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { docsLanguageDirection } from "@marinara-engine/shared";
 
@@ -414,6 +415,7 @@ export function DocsViewerModal({
   // the Modal shell renders null on its first frame while its enter animation
   // arms, and a cached doc means no later dep change would re-fire them.
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
   const restoreScrollRef = useRef(initialDoc === null && savedPlaceRef.current.doc !== null);
 
   useEffect(() => {
@@ -848,6 +850,7 @@ export function DocsViewerModal({
                     // (never reconciles) the subtree the highlight/copy effects
                     // mutate — see renderedKey above.
                     key={renderedKey}
+                    ref={setContentEl}
                     // Direction follows the SERVED doc, not the pack: an English
                     // fallback file inside an RTL pack must stay LTR.
                     dir={docsLanguageDirection(doc.language)}
@@ -861,6 +864,7 @@ export function DocsViewerModal({
                     {rendered}
                   </div>
                 )}
+                {doc ? <GuideCardMount container={contentEl} path={doc.path} revision={rendered} /> : null}
               </div>
             </>
           )}

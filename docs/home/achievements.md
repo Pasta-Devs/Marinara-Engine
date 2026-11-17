@@ -26,20 +26,20 @@ Your progress is saved in the profile you use. A different profile or a fresh in
 
 There are 24, in four categories: **Milestone**, **Community**, **Creation** and **Collection**. **Creation** and **Collection** achievements have three tiers, **I**, **II** and **III**, at 5, 25 and 100. A badge title can read **Hoarder II** once you reach the second tier.
 
-| Achievement | Category | How you unlock it |
-| --- | --- | --- |
-| **Diligent Student** | Milestone | Finish or skip the first-time tutorial. |
-| **Hello World** | Milestone | Send your first message to Professor Mari. |
-| **Please Handle With Care** | Milestone | Drag Professor Mari's picture around the screen. |
-| **One Of Us** | Community | Click the **Discord** bookmark, or the **Discord** link in the **Community** widget. |
-| **Based Backer** | Community | Click **Support** (it opens Ko-fi) in the bookmarks or the **Community** widget. |
-| **Backseat Appreciator** | Community | Click **Credits** in the bookmarks or the **Community** widget. |
-| **Who Needs IRL Friends** | Creation | Create Conversation chats (5, 25, 100). |
-| **They Feel Real To Me** | Creation | Create Roleplay chats (5, 25, 100). |
-| **I Have No Other Hobbies** | Creation | Create Game chats (5, 25, 100). |
-| **Hoarder** | Collection | Collect characters (5, 25, 100). |
-| **The World's A Stage** | Collection | Collect lorebooks (5, 25, 100). |
-| **I Am A Gamer** | Collection | Collect personas (5, 25, 100). |
+| Achievement                 | Category   | How you unlock it                                                                    |
+| --------------------------- | ---------- | ------------------------------------------------------------------------------------ |
+| **Diligent Student**        | Milestone  | Finish or skip the first-time tutorial.                                              |
+| **Hello World**             | Milestone  | Send your first message to Professor Mari.                                           |
+| **Please Handle With Care** | Milestone  | Drag Professor Mari's picture around the screen.                                     |
+| **One Of Us**               | Community  | Click the **Discord** bookmark, or the **Discord** link in the **Community** widget. |
+| **Based Backer**            | Community  | Click **Support** (it opens Ko-fi) in the bookmarks or the **Community** widget.     |
+| **Backseat Appreciator**    | Community  | Click **Credits** in the bookmarks or the **Community** widget.                      |
+| **Who Needs IRL Friends**   | Creation   | Create Conversation chats (5, 25, 100).                                              |
+| **They Feel Real To Me**    | Creation   | Create Roleplay chats (5, 25, 100).                                                  |
+| **I Have No Other Hobbies** | Creation   | Create Game chats (5, 25, 100).                                                      |
+| **Hoarder**                 | Collection | Collect characters (5, 25, 100).                                                     |
+| **The World's A Stage**     | Collection | Collect lorebooks (5, 25, 100).                                                      |
+| **I Am A Gamer**            | Collection | Collect personas (5, 25, 100).                                                       |
 
 - A persona is the character card that stands for you in a chat. A lorebook is a set of world facts the AI reads when their keywords come up.
 - **Collection** counts everything of that type in your library, including imported and downloaded items. For **Hoarder**, the built-in Professor Mari character never counts.
@@ -48,6 +48,8 @@ There are 24, in four categories: **Milestone**, **Community**, **Creation** and
 ## Explorer achievements
 
 Finishing every task in a **Things to try** trail unlocks that trail's achievement, in the **Explorer** category. There is one per trail: **Fresh Out Of The Oven** for Core, then **Cast Of Thousands**, **Shutterbug**, **Chronically Online**, **Set Dresser**, **Keeper Of Lore**, **Plot Armor**, **Roll For Initiative**, **Prompt Whisperer**, **Interior Decorator** and **Bells And Whistles**. In the new layout, also **Tab Hoarder**, **Neat Freak**, **Storm Chaser** and **Dress To Impress**. Skipped tasks don't count, so tick a task instead if you've done it. See [Getting Started](welcome.md#things-to-try).
+
+The **AI basics** tour and each group of **Deep dives** have one too: **Training Wheels Off** for AI basics, then **Read Receipts** (Conversation), **Method Actor** (Roleplay), **Rules Lawyer** (Game), **Knob Twiddler** (Any mode), **Card Shark** (Characters and cards), **Footnote Fanatic** (Lorebook tricks), **Macro Magician** (Prompt and macro tricks), **Secret Keeper** (Message tricks), **Puppet Master** (Agents and connections), **Sound And Vision** (Voice, pictures and music) and **Under The Hood** (Themes and extending).
 
 ## Achievements from agents
 

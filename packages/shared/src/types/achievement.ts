@@ -105,4 +105,5 @@ export type AchievementEvent =
   | "prof_mari_dragged"
   | "chat_created"
   | "library_changed"
-  | import("../constants/discovery-trails.js").ExplorerAchievementEvent;
+  | import("../constants/discovery-trails.js").ExplorerAchievementEvent
+  | import("../constants/discovery-trails.js").GuideQuestAchievementEvent;

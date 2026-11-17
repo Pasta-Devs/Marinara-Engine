@@ -41,7 +41,18 @@ import {
 import { skipThing, tickThing, unskipThing, untickThing } from "../../lib/things-to-try-progress";
 import { useRunFeatureStep } from "../../hooks/use-feature-show";
 import { useThingsToTry } from "../../hooks/use-things-to-try";
+import { useGuideQuests } from "../../hooks/use-guide-quests";
+import { AI_BASICS_QUESTS, type GuideQuest } from "../../lib/guide-quests";
+import { markGuideQuestDone, skipGuideQuest } from "../../lib/guide-quests-progress";
+import { startGuideQuest } from "../../stores/guide-card.store";
 import { useUIStore } from "../../stores/ui.store";
+import {
+  AI_BASICS_ICON,
+  AiBasicsList,
+  DEEP_DIVE_GROUP_ICONS,
+  DeepDiveList,
+  useGuideQuestText,
+} from "./HomeGuideQuests";
 
 export const THINGS_TO_TRY_TRAIL_ICONS: Record<DiscoveryTrailId, ComponentType<LucideProps>> = {
   core: Sparkles,
@@ -83,13 +94,47 @@ function useShowTask(beforeRun?: () => void) {
 const iconButton =
   "mari-things-to-try__icon-button grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent,var(--marinara-app-accent-solid))] pointer-coarse:h-9 pointer-coarse:w-9";
 
+type WidgetRow = { kind: "task"; task: ThingsToTryTask } | { kind: "quest"; quest: GuideQuest };
+
+/**
+ * The widget's rows. An AI basics tour that was started and not finished leads. Once Things to try's
+ * Core trail is done, one deep dive (most relevant first) takes the last row, and deep dives fill any
+ * rows Things to try has run out of.
+ */
+function useWidgetRows(): { ready: boolean; rows: WidgetRow[] } {
+  const things = useThingsToTry();
+  const quests = useGuideQuests();
+  const rows: WidgetRow[] = [];
+  if (quests.state.offer === "taught") {
+    const basics = AI_BASICS_QUESTS.find((quest) => !quests.done.has(quest.id));
+    if (basics) rows.push({ kind: "quest", quest: basics });
+  }
+  const deep = quests.coreDone ? quests.nextDeep : [];
+  const taskRoom = 3 - rows.length - (deep.length && things.next.length >= 3 - rows.length ? 1 : 0);
+  rows.push(...things.next.slice(0, Math.max(0, taskRoom)).map((task): WidgetRow => ({ kind: "task", task })));
+  if (rows.length < 3 && quests.coreDone) {
+    // pickDeepDives order: one per group, most relevant group first.
+    for (const quest of quests.nextDeepMany) {
+      if (rows.length >= 3) break;
+      rows.push({ kind: "quest", quest });
+    }
+  }
+  return { ready: things.ready, rows };
+}
+
+const rowButton =
+  "mari-home-widget-shortcut flex h-full min-h-0 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]";
+const rowIcon =
+  "mari-things-to-try__trail-icon grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--home-module-accent)_14%,transparent)] text-[var(--home-module-accent-text,var(--home-module-accent))]";
+
 /** The widget body: three rows, each one Show me, with Done and Skip beside it. */
 export function ThingsToTryWidget({ fallback }: { fallback: ReactNode }) {
   const { t, title, trail } = useTaskText();
-  const things = useThingsToTry();
+  const questText = useGuideQuestText();
+  const { ready, rows } = useWidgetRows();
   const showTask = useShowTask();
 
-  if (!things.ready) {
+  if (!ready) {
     return (
       <div className="grid h-full grid-rows-3 gap-1" aria-busy="true">
         {[0, 1, 2].map((index) => (
@@ -99,14 +144,69 @@ export function ThingsToTryWidget({ fallback }: { fallback: ReactNode }) {
     );
   }
   // Everything done or skipped: the widget goes back to the guide links.
-  if (!things.next.length) return <>{fallback}</>;
+  if (!rows.length) return <>{fallback}</>;
 
   return (
     <div
       className="mari-home-widget-shortcut-list mari-things-to-try grid h-full grid-rows-3 gap-1"
       data-component="HomeThingsToTry.Widget"
     >
-      {things.next.map((task) => {
+      {rows.map((row) => {
+        if (row.kind === "quest") {
+          const quest = row.quest;
+          const basics = quest.set === "basics";
+          const Icon = basics
+            ? AI_BASICS_ICON
+            : DEEP_DIVE_GROUP_ICONS[quest.group as keyof typeof DEEP_DIVE_GROUP_ICONS];
+          const label = questText.title(quest);
+          return (
+            <div key={quest.id} className="flex min-h-0 items-center gap-1" data-guide-quest={quest.id}>
+              <button
+                type="button"
+                onClick={() => startGuideQuest(quest.id)}
+                title={t("guideQuests.openHint", "Open the guide at this passage")}
+                className={rowButton}
+              >
+                <span className={rowIcon}>
+                  <Icon size="0.95rem" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="mari-home-widget-shortcut__title line-clamp-1 text-xs font-bold">{label}</span>
+                  <span className="mari-home-widget-shortcut__description line-clamp-1 text-[0.65rem] text-[var(--muted-foreground)]">
+                    {basics
+                      ? t("guideQuests.tabBasics", "AI basics")
+                      : t("guideQuests.card.deepEyebrow", "Deep dive · {{group}}", {
+                          group: questText.group(quest.group as Parameters<typeof questText.group>[0]),
+                        })}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={iconButton}
+                onClick={() => markGuideQuestDone(quest.id)}
+                aria-label={t("thingsToTry.markDoneNamed", "Mark done: {{task}}", { task: label })}
+                title={t("thingsToTry.markDone", "Mark done")}
+              >
+                <Check size="0.9rem" aria-hidden="true" />
+              </button>
+              {basics ? (
+                <span aria-hidden="true" className="h-7 w-7 shrink-0 pointer-coarse:h-9 pointer-coarse:w-9" />
+              ) : (
+                <button
+                  type="button"
+                  className={iconButton}
+                  onClick={() => skipGuideQuest(quest.id)}
+                  aria-label={t("thingsToTry.skipNamed", "Skip: {{task}}", { task: label })}
+                  title={t("thingsToTry.skip", "Skip, don't show again")}
+                >
+                  <X size="0.9rem" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          );
+        }
+        const task = row.task;
         const Icon = THINGS_TO_TRY_TRAIL_ICONS[task.trail];
         return (
           <div key={task.id} className="flex min-h-0 items-center gap-1" data-things-to-try-task={task.id}>
@@ -114,9 +214,9 @@ export function ThingsToTryWidget({ fallback }: { fallback: ReactNode }) {
               type="button"
               onClick={() => showTask(task)}
               title={t("thingsToTry.showMeHint", "Show me where")}
-              className="mari-home-widget-shortcut flex h-full min-h-0 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+              className={rowButton}
             >
-              <span className="mari-things-to-try__trail-icon grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--home-module-accent)_14%,transparent)] text-[var(--home-module-accent-text,var(--home-module-accent))]">
+              <span className={rowIcon}>
                 <Icon size="0.95rem" aria-hidden="true" />
               </span>
               <span className="min-w-0">
@@ -284,8 +384,58 @@ function TaskRow({
   );
 }
 
-/** See all: every trail with its tasks, Engine trails first, then the ones only this layout has. */
+type SeeAllTab = "things" | "basics" | "deep";
+
+/** See all: Things to try by trail, then AI basics and Deep dives as their own tabs. */
 export function ThingsToTryList({ onClose, links }: { onClose: () => void; links: ReactNode }) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<SeeAllTab>("things");
+  const tabs: { id: SeeAllTab; label: string }[] = [
+    { id: "things", label: t("guideQuests.tabThings", "Things to try") },
+    { id: "basics", label: t("guideQuests.tabBasics", "AI basics") },
+    { id: "deep", label: t("guideQuests.tabDeep", "Deep dives") },
+  ];
+  return (
+    <div className="space-y-4" data-component="HomeThingsToTry.SeeAll">
+      <div
+        role="tablist"
+        aria-label={t("thingsToTry.windowTitle", "Things to try")}
+        className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1"
+      >
+        {tabs.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === entry.id}
+            data-see-all-tab={entry.id}
+            onClick={() => setTab(entry.id)}
+            className={cn(
+              "min-h-8 flex-1 rounded-lg px-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] pointer-coarse:min-h-10",
+              tab === entry.id
+                ? "bg-[var(--marinara-app-accent-solid,var(--primary))] text-[var(--primary-foreground)]"
+                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+            )}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel">
+        {tab === "things" ? (
+          <ThingsToTryTrails onClose={onClose} links={links} />
+        ) : tab === "basics" ? (
+          <AiBasicsList onClose={onClose} />
+        ) : (
+          <DeepDiveList onClose={onClose} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Things to try tab: every trail with its tasks, Engine trails first, then the ones only this layout has. */
+function ThingsToTryTrails({ onClose, links }: { onClose: () => void; links: ReactNode }) {
   const { t, trail } = useTaskText();
   const things = useThingsToTry();
   const showTask = useShowTask(onClose);

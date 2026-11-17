@@ -437,6 +437,8 @@ for (const shot of SHOTS) {
       "marinara-overhaul-layout",
       JSON.stringify({ state: { enabled: true, tabs: [], docsTabs: {} }, version: 3 }),
     );
+    // The one-time AI basics offer would cover the shot.
+    localStorage.setItem("marinara:guide-quests:v1", JSON.stringify({ offer: "skipped" }));
   });
   const page = await context.newPage();
   await page.goto(BASE);

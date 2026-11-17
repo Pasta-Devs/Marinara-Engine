@@ -37,6 +37,7 @@ import { ServerRestartModal } from "./components/modals/ServerRestartModal";
 import { useRestartSheetFromOtherTabs } from "./hooks/use-server-restart";
 import { StorageMigrationNoticeModal } from "./components/modals/StorageMigrationNoticeModal";
 import { SeasonalGreetingModal } from "./components/modals/SeasonalGreetingModal";
+import { AiBasicsOffer } from "./components/onboarding/AiBasicsOffer";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
 import { AppBannerHost } from "./components/layout/AppBannerHost";
@@ -614,6 +615,7 @@ export function App() {
   const [chatWindowIntroOpen, setChatWindowIntroOpen] = useState(false);
   const seasonal = useSeasonalTheme();
   const [seasonalGreetingOpen, setSeasonalGreetingOpen] = useState(false);
+  const [aiBasicsOfferOpen, setAiBasicsOfferOpen] = useState(false);
   const handleWhatsNewResolved = useCallback(() => setWhatsNewResolved(true), []);
   // Shares the modal's query via the cache; gating the prompter on the QUERY
   // (pending or a notice still waiting) instead of the modal's open state
@@ -1491,6 +1493,7 @@ export function App() {
             agentUpdatesResolved &&
             !agentUpdateOpen &&
             !seasonalGreetingOpen &&
+            !aiBasicsOfferOpen &&
             (isLite || !showDownloadModal)
           }
           onChatWindowIntroOpenChange={setChatWindowIntroOpen}
@@ -1540,6 +1543,23 @@ export function App() {
               agentUpdatesResolved &&
               !agentUpdateOpen &&
               !chatWindowIntroOpen &&
+              !aiBasicsOfferOpen &&
+              (isLite || !showDownloadModal)
+            }
+          />
+          <AiBasicsOffer
+            onOpenChange={setAiBasicsOfferOpen}
+            presentationAllowed={
+              whatsNewResolved &&
+              !hasModalOpen &&
+              !hasAppDialogOpen &&
+              !whatsNewOpen &&
+              !migrationNoticePending &&
+              !migrationNotice &&
+              agentUpdatesResolved &&
+              !agentUpdateOpen &&
+              !chatWindowIntroOpen &&
+              !seasonalGreetingOpen &&
               (isLite || !showDownloadModal)
             }
           />

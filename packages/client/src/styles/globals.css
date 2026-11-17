@@ -9593,3 +9593,145 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
     height: 1.5rem;
   }
 }
+
+/* Guide cards (components/docs/GuideCard.tsx): AI basics and Deep dive quests in the docs viewer. The
+   passage gets a soft accent band; the card sits right under it. Themes restyle the card through
+   [data-mari-part="guide-card"]. */
+@layer components {
+  .mari-guide-passage,
+  .mari-guide-quote {
+    scroll-margin-top: 4.5rem;
+  }
+  .mari-guide-quote {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    color: inherit;
+    border-radius: 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .mari-guide-passage {
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+  .mari-guide-card-host {
+    display: block;
+    margin: 0.85rem 0 0.25rem;
+    white-space: normal;
+  }
+  .mari-guide-card {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.75rem 0.85rem 0.8rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 34%, transparent);
+    background: color-mix(in srgb, var(--primary) 8%, var(--card));
+    color: var(--foreground);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    box-shadow: 0 6px 20px -12px color-mix(in srgb, var(--primary) 60%, transparent);
+  }
+  .mari-guide-card p {
+    margin: 0;
+  }
+  .mari-guide-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .mari-guide-card__face {
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    border-radius: 999px;
+    object-fit: cover;
+  }
+  .mari-guide-card__titles {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .mari-guide-card .mari-guide-card__eyebrow {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+  .mari-guide-card .mari-guide-card__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .mari-guide-card__close {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--muted-foreground);
+  }
+  .mari-guide-card .mari-guide-card__more {
+    color: var(--muted-foreground);
+  }
+  .mari-guide-card .mari-guide-card__more strong {
+    color: var(--foreground);
+    font-weight: 650;
+  }
+  .mari-guide-card .mari-guide-card__status {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .mari-guide-card .mari-guide-card__status.is-warning {
+    color: var(--muted-foreground);
+  }
+  .mari-guide-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.4rem;
+  }
+  .mari-guide-card__button {
+    min-height: 2rem;
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    transition: background-color 0.15s ease;
+  }
+  .mari-guide-card__button.is-primary {
+    border-color: transparent;
+    background: var(--marinara-app-accent-solid, var(--primary));
+    color: var(--primary-foreground);
+  }
+  @media (hover: hover) {
+    .mari-guide-card__button:not(.is-primary):hover,
+    .mari-guide-card__close:hover {
+      background: color-mix(in srgb, var(--primary) 14%, transparent);
+    }
+    .mari-guide-card__button.is-primary:hover {
+      filter: brightness(1.08);
+    }
+  }
+  .mari-guide-card__button:focus-visible,
+  .mari-guide-card__close:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  @media (pointer: coarse) {
+    .mari-guide-card__button {
+      min-height: 2.75rem;
+      padding-inline: 1rem;
+    }
+    .mari-guide-card__close {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+}

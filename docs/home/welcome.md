@@ -60,18 +60,18 @@ Professor Mari can make a personal widget for you if you ask her. Installed agen
 
 ## Reference: built-in widgets
 
-| Widget | What it does | Shown at first |
-| --- | --- | --- |
-| **Professor Mari** | **Ask Professor Mari** opens her chat. | Yes |
-| **Recent chats** | Your latest chats. Click one to reopen it. Empty: **Your chats will show here**. | Yes |
-| **Things to try** | The next three small things to try, one feature each. When you've tried them all, or turn tips off, it shows **Documentation**, **Replay tutorial** and **Read FAQ** instead. See [Things to try](#things-to-try). | Yes |
-| **What's New** | **See what's new** and **Read release notes**. | Yes |
-| **Community** | Links to **Discord**, **Support** and **Credits**. | Yes |
-| **Character Library** | A fresh selection of your characters each day. | No |
-| **Discovery desk** | Agents you have not installed. **Browse agents** opens the catalog. | No |
-| **Character of the Day** | One character from your library, with **Start a chat** and **View character**. | No |
-| **Clock & calendar** | Today's date and time. | No |
-| **Achievements** | Your latest and closest achievements. Needs the Achievements setting on. | No |
+| Widget                   | What it does                                                                                                                                                                                                       | Shown at first |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| **Professor Mari**       | **Ask Professor Mari** opens her chat.                                                                                                                                                                             | Yes            |
+| **Recent chats**         | Your latest chats. Click one to reopen it. Empty: **Your chats will show here**.                                                                                                                                   | Yes            |
+| **Things to try**        | The next three small things to try, one feature each. When you've tried them all, or turn tips off, it shows **Documentation**, **Replay tutorial** and **Read FAQ** instead. See [Things to try](#things-to-try). | Yes            |
+| **What's New**           | **See what's new** and **Read release notes**.                                                                                                                                                                     | Yes            |
+| **Community**            | Links to **Discord**, **Support** and **Credits**.                                                                                                                                                                 | Yes            |
+| **Character Library**    | A fresh selection of your characters each day.                                                                                                                                                                     | No             |
+| **Discovery desk**       | Agents you have not installed. **Browse agents** opens the catalog.                                                                                                                                                | No             |
+| **Character of the Day** | One character from your library, with **Start a chat** and **View character**.                                                                                                                                     | No             |
+| **Clock & calendar**     | Today's date and time.                                                                                                                                                                                             | No             |
+| **Achievements**         | Your latest and closest achievements. Needs the Achievements setting on.                                                                                                                                           | No             |
 
 ## Things to try
 
@@ -84,6 +84,15 @@ The **Things to try** widget suggests the next three features to try. Each task 
 - Finishing a trail unlocks its **Explorer** achievement.
 
 The widget follows **Feature tips** in **Settings > General > Confirmations & Help**. With tips off, it shows the guide links. Progress is saved in this browser.
+
+### AI basics and Deep dives
+
+**See all** has two more tabs:
+
+- **AI basics**: a short tour for people new to AI. It explains what a model is, the kinds Marinara uses, tokens and context, and helps you set up a model if you want to (you can skip that step). It ends with Professor Mari. It's offered once, in a small window after the welcome tutorial. See [AI Basics](ai-basics.md).
+- **Deep dives**: settings where the choice isn't obvious, and features few people find, such as CSS in a card's Creator's Notes. Groups you use most are listed first.
+
+Each one opens its guide at the passage that matters, highlighted, with a card under it that explains it in plain words. Click **Got it** to tick it; in AI basics this opens the next stop. Once you finish the Core trail, the widget's last row suggests a deep dive. Finishing AI basics or a group of deep dives unlocks an **Explorer** achievement. The offer window also follows **Feature tips**.
 
 ## Where to get help
 
