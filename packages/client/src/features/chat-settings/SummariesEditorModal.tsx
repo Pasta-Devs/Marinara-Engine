@@ -276,6 +276,7 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
       labelledBy="summaries-editor-title"
       open={open}
       onClose={onClose}
+      pullToClose={false}
       title={localizeUi("ui.chat.chatsettingsdrawer.automaticSummarization")}
       titleSlot={
         <div className="flex items-center gap-2">

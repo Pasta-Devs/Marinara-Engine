@@ -561,7 +561,7 @@ export function AgentCatalogView() {
     <SearchInput
       value={query}
       onChange={setQuery}
-      resultCount={results?.length}
+      resultCount={catalog.isLoading || catalog.isError ? undefined : results?.length}
       slashShortcut
       label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
       placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}

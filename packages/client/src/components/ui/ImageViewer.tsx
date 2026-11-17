@@ -219,6 +219,8 @@ interface ImageViewerProps {
   /** Names the dialog for screen readers. */
   title: string;
   onClose: () => void;
+  /** The X button; defaults to `onClose`. Lets Escape step back out of a sub-panel while the X still closes the viewer. */
+  onCloseButton?: () => void;
   /** Blocks every way of closing (Escape, back, tap outside, the X) while work runs. */
   closeDisabled?: boolean;
   /** Label of the close button; defaults to "Close image". */
@@ -246,6 +248,7 @@ interface ImageViewerProps {
 export function ImageViewer({
   title,
   onClose,
+  onCloseButton,
   closeDisabled = false,
   closeLabel,
   overMari = false,
@@ -367,7 +370,7 @@ export function ImageViewer({
           <button
             type="button"
             ref={closeRef}
-            onClick={onClose}
+            onClick={onCloseButton ?? onClose}
             disabled={closeDisabled}
             aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
             className={VIEWER_BUTTON_CLASS}

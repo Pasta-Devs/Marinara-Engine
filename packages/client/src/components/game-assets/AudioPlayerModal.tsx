@@ -27,6 +27,7 @@ export function AudioPlayerModal({ path, name, onClose }: { path: string; name: 
     <Modal
       open
       onClose={onClose}
+      pullToClose={false}
       title={localizeUi("ui.gameAssets.audioplayermodal.audioPlayerValue1", { value1: name })}
       titleSlot={<span className="truncate">{name}</span>}
       width="max-w-md"

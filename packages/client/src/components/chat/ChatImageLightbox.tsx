@@ -112,13 +112,21 @@ export function ChatImageLightbox({
       title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
       // Escape, back and outside taps first leave the regenerate panel, then the viewer.
       onClose={() => (editing ? setEditing(false) : onClose())}
+      onCloseButton={onClose}
       closeDisabled={busy}
       closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
       closeButtonRef={closeButtonRef}
       overMari={overMari}
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-      items={images && galleryIndex >= 0 && !editing && !busy ? images : undefined}
+      items={
+        images && galleryIndex >= 0 && !editing && !busy
+          ? images.map((item) => ({
+              url: item.url,
+              alt: item.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"),
+            }))
+          : undefined
+      }
       index={galleryIndex}
       onIndexChange={(next) => images && setImage(images[next]!)}
       actions={

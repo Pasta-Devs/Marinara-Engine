@@ -157,7 +157,7 @@ export function Tabs<T extends string>({
             {...item.buttonProps}
             data-tab-id={item.id}
             id={idPrefix ? `${idPrefix}-tab-${item.id}` : undefined}
-            aria-controls={idPrefix ? `${idPrefix}-panel-${item.id}` : undefined}
+            aria-controls={idPrefix && active ? `${idPrefix}-panel-${item.id}` : undefined}
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             title={item.title}
