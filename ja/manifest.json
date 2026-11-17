@@ -299,8 +299,8 @@
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "122be3d47cd2a5a87cfec8c1611add110c7e1b9f3cec010eef0cfe26f0fa07e9",
-      "bytes": 11480
+      "sha256": "6d97d5284935459382b25033a7ec9a67bba393fba52684538f68f7ab54844847",
+      "bytes": 16384
     },
     {
       "path": "data/clearing-data.md",

@@ -73,15 +73,50 @@ Marinara 可以在运行它的电脑上按计划自动创建完整备份。
 1. 打开 **Settings → Imports**。
 2. 在 **Profile & Marinara** 中点击 **Import Profile (JSON/ZIP)**。
 3. 选择 `marinara-profile.json`、`marinara-profile.zip` 或备份用的 `.zip`。按钮会显示 **Scanning Profile...**。
-4. 阅读 **Import Profile** 窗口。窗口列出 Marinara 找到的内容，并提示导入无法撤销。
-5. 点击 **Import** 开始导入，或点击 **Cancel** 停止。按钮会显示 **Importing Profile...**，并随之出现进度条。完成后，会有一条提示说明档案已导入。
+4. 阅读 **Import Profile** 窗口。窗口列出 Marinara 找到的内容。Marinara 里已有的项目会被文件中的版本替换，除非你选择[只添加缺少的内容](#only-add-whats-missing)。
+5. 点击 **Import** 开始导入，或点击 **Cancel** 停止。按钮会显示 **Importing Profile...**。Marinara 会先为你的数据保存一份安全副本，然后出现进度条。完成后，会有一条提示说明档案已导入。
 
 如果没有成功：
 
 - 除非你通过 `localhost`、`127.0.0.1` 或 `[::1]` 打开 Marinara，否则导入档案需要 HTTPS。错误信息是 “Profile import requires HTTPS outside local development.” 请通过 HTTPS 地址打开 Marinara。
 - 如果 `.zip` 缺少部分媒体文件，导入仍会完成。警告会列出缺失的文件，其余内容照常导入。
+- 如果磁盘空间不足，无法保存安全副本，就什么都不会导入。错误信息以 “Nothing was imported, because a safety copy could not be saved first.” 开头。请腾出大约一份完整备份所需的空间，然后重新导入。
 
 同一份档案导入两次时，Marinara 会更新已有项目，不会重复复制。较旧版本导出的档案可能会产生重复项。
+
+<a id="only-add-whats-missing"></a>
+### 只添加缺少的内容
+
+想找回删掉的内容，又不想丢掉之后做的改动，就开启 **Import Profile (JSON/ZIP)** 上方的 **Keep my current versions, only add what's missing**(保留我当前的版本，只添加缺少的内容)，然后按上文的步骤导入。Marinara 里已有的每个项目和文件都保持原样，只添加 Marinara 没有的内容。这包括文件保存之后你删掉的所有内容，例如单条消息或世界书条目，而不只是你想找回的那一项。长期记忆算作一个项目：如果 Marinara 里已经有长期记忆，就不会添加文件中的长期记忆。
+
+这种方式不会替换任何内容，所以 Marinara 不会保存安全副本，**Undo Last Import**(撤销上次导入) 撤销的仍然是这次之前的那次导入。
+
+较旧版本导出的档案做不到这一点：它们总是把自己的项目添加在你已有的项目旁边，**Import Profile** 窗口也会说明这一点。
+
+### 撤销导入
+
+每次会替换项目的导入开始之前，Marinara 都会把你的数据完整复制一份，保存在数据文件夹的 `backups/` 文件夹里，文件名以 `marinara-before-import-` 开头，后面跟着日期和时间。导入完成后，上一次导入留下的副本会被删除，所以只保留最新的一份。
+
+1. 打开 **Settings → Imports**。
+2. 在 **Profile & Marinara** 中点击 **Undo Last Import**。按钮下方的一行显示安全副本的保存时间。
+3. 在窗口中点击 **Undo Last Import** 确认。
+
+撤销会把上次导入替换掉的项目和文件恢复成你原来的版本。如果你在导入之后改动过其中某个项目，这个改动会丢失。其他内容都保持原样，包括导入添加的项目。每次导入只能撤销一次，之后安全副本会被删除。
+
+导入出于安全考虑关闭的内容，撤销不会重新开启。请手动重新开启这些内容：
+
+- 你当前启用的主题；
+- Personal Extensions(在 **Settings → Addons** 里重新审核)；
+- 运行脚本或 webhook 的自定义工具；
+- Professor Mari 的记忆。
+
+如果导入清空了某个连接的 API 密钥，请重新填写（见[恢复之后：重新填写密钥](#enter-your-keys-again)）。如果这个连接原本是你的默认连接或备用连接，也请重新这样设置。
+
+被导入替换的分支聊天，仍然与它们分出来的那个聊天断开关联。导入时已经移除了这层关联，撤销也无法恢复。
+
+较旧版本导出的档案只会添加项目，所以 Marinara 不会为它们保存安全副本，也没有可撤销的内容。
+
+安全副本占用的空间和一份完整备份一样大。如果想腾出这些空间又不撤销导入，在 **Profile & Marinara** 中点击 **Delete Safety Copy**(删除安全副本)，然后确认。你的数据保持原样，但你将无法再撤销那次导入。如果某次导入被中断，**Delete Safety Copy** 可能会单独出现；这时这份副本不能用于撤销，但你仍然可以删除它。
 
 <a id="enter-your-keys-again"></a>
 ## 恢复之后：重新填写密钥
