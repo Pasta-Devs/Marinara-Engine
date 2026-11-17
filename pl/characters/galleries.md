@@ -1,6 +1,6 @@
 # Galerie postaci i person
 
-Sekcja **Gallery** (galeria) w zakładce **Images** (obrazy) edytorów postaci i persony przechowuje obrazy i wideo przypisane do postaci albo persony, więc zostają one nawet po usunięciu czatów. Używaj jej do arkuszy referencyjnych, wariantów strojów i zaimportowanych paczek obrazów. Obraz z galerii da się też oznaczyć jako własne emoji albo naklejkę.
+Sekcja **Gallery** (galeria) w zakładce **Images** (obrazy) edytorów postaci i persony przechowuje obrazy i wideo przypisane do postaci albo persony, więc zostają one nawet po usunięciu czatów. Używaj jej do arkuszy referencyjnych, wariantów strojów i zaimportowanych paczek obrazów. Można też tworzyć nowe obrazy za pomocą AI i oznaczać obrazy z galerii jako własne emoji albo naklejki.
 
 ## Gdzie znaleźć galerię
 
@@ -28,6 +28,39 @@ Kliknij obraz, żeby zobaczyć go w powiększeniu. Każdy kafelek ma przycisk po
 3. Poczekaj na koniec wgrywania.
 
 Obsługiwane formaty to MP4, WebM i MOV. Najnowsze wideo są na początku listy. To, które wideo ze scen i klipy pojawiają się u której postaci, opisuje sekcja [Które wideo są wymieniane](#which-videos-are-listed).
+
+## Tworzenie obrazów za pomocą AI
+
+Przycisk **Utwórz z AI** w galerii tworzy nowe obrazy dla tej postaci lub persony za pomocą połączenia do generowania obrazów. W polu **Typ** wybierz, co chcesz utworzyć:
+
+| Typ                                 | Co otrzymasz                                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Arkusz postaci**                  | Arkusz referencyjny zapisywany tak samo jak w sekcji **Arkusz postaci**.                                                    |
+| **Tło**                             | Szeroki obraz miejsca, którego punktem wyjścia jest scenariusz karty. Jest zapisywany w galerii i oznaczany jako tło czatu. |
+| **Sticker sheet** (arkusz naklejek) | Jeden obraz z kilkoma naklejkami, dzielony na osobne obrazy z jedną naklejką na każdym.                                     |
+| **Emoji sheet** (arkusz emoji)      | To samo, ale w postaci małych emoji z twarzami.                                                                             |
+
+Zanim zaczniesz: dodaj połączenie do generowania obrazów.
+
+1. Otwórz **Obrazy → Galeria** i kliknij **Utwórz z AI**.
+2. Wybierz **Typ** i zmień prompt, jeśli chcesz uzyskać inny wygląd lub miejsce.
+3. Dla arkusza naklejek lub emoji wpisz nazwy w polu **Stickers to draw** (naklejki do narysowania) lub **Emoji to draw** (emoji do narysowania), oddzielając je przecinkami. Na jednym arkuszu mieści się ich do 16.
+4. Kliknij **Generuj**.
+5. Kliknij **Save as Background** (zapisanie jako tło), **Save Stickers** (zapisanie naklejek), **Save Emoji** (zapisanie emoji) albo **Zapisz jako arkusz postaci**.
+
+### Poprawianie podziału arkusza
+
+Po wygenerowaniu arkusza naklejek lub emoji każda naklejka jest wykrywana na podstawie obrysu, jej zielone tło jest usuwane, a ona sama pojawia się jako osobny kafelek z nazwą. Zapisane naklejki mają najwyżej 512 na 512 pikseli, a emoji – najwyżej 256 na 256. Każde z nich jest oznaczone swoją nazwą.
+
+- Kliknij kafelek, żeby go zachować lub pominąć. Pominięte kafelki nie są zapisywane.
+- Zmień nazwę pod kafelkiem, żeby nadać mu inną nazwę.
+- Kliknij **Recut with a box** (ponowne wycięcie prostokątem) na kafelku, żeby umieścić prostokąt na całym arkuszu. Przeciągnij prostokąt, pociągnij jego narożniki lub narysuj nowy wokół naklejki, a potem kliknij **Use this box** (użycie tego prostokąta).
+- Kliknij **Add a sticker** (dodanie naklejki) lub **Add an emoji** (dodanie emoji), żeby wyciąć pominięty element.
+- Kliknij **Cut again** (ponowny podział), żeby rozpocząć podział od nowa i cofnąć własne prostokąty.
+
+### Samodzielne pisanie całego promptu
+
+Prompt wysyłany do modelu obrazów powstaje na podstawie pól w oknie. Żeby zmienić go w całości, na przykład poprosić o naklejki z rzeczami, które postać lubi, a nie tylko z samą postacią, kliknij **Edit full prompt** (edycja całego promptu). Prompt jest wysyłany dokładnie w takiej postaci, w jakiej go wpiszesz. Zmiany w pozostałych polach są uwzględniane dopiero po kliknięciu **Rebuild** (ponowne zbudowanie promptu), co zastępuje też twoje poprawki. Kliknij przycisk zamknięcia obok **Rebuild**, żeby wrócić do promptu tworzonego z pól.
 
 ## Oznaczanie obrazu z galerii jako własne emoji lub naklejka
 

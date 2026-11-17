@@ -1,6 +1,6 @@
 # Galerias de personagem e de persona
 
-A seção **Gallery** (galeria) da aba **Images** (imagens) dos editores de personagem e de persona, guarda imagens e vídeos presos a um personagem ou a uma persona, e eles continuam lá mesmo se você excluir chats. Use a aba para fichas de referência, variações de roupa e pacotes de imagens importados. Você também pode marcar uma imagem da galeria como emoji ou sticker (figurinha) personalizado.
+A seção **Gallery** (galeria) da aba **Images** (imagens) dos editores de personagem e de persona, guarda imagens e vídeos presos a um personagem ou a uma persona, e eles continuam lá mesmo se você excluir chats. Use a aba para fichas de referência, variações de roupa e pacotes de imagens importados. Você também pode criar novas imagens com IA e marcar uma imagem da galeria como emoji ou sticker (figurinha) personalizado.
 
 ## Encontre a galeria
 
@@ -28,6 +28,39 @@ Clique em uma imagem para vê-la maior. Cada miniatura tem um controle de downlo
 3. Espere o upload terminar.
 
 Os tipos compatíveis são MP4, WebM e MOV. Os vídeos mais recentes aparecem primeiro. Para ver quais vídeos de cena e trechos aparecem para cada personagem, veja [Quais vídeos aparecem na lista](#which-videos-are-listed).
+
+## Criar imagens com IA
+
+**Criar com IA** na Galeria cria novas imagens para este personagem ou esta persona com a sua conexão de geração de imagens. Escolha o que criar em **Tipo**:
+
+| Tipo                                  | O que você recebe                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Ficha de personagem**               | Uma ficha de referência, salva do mesmo jeito que na seção **Ficha de personagem**.                                             |
+| **Plano de fundo**                    | Uma imagem ampla de um lugar, criada a partir do cenário do card. Ela é salva na Galeria e marcada como plano de fundo de chat. |
+| **Sticker sheet** (folha de stickers) | Uma imagem com vários stickers, recortada para deixar um sticker por imagem.                                                    |
+| **Emoji sheet** (folha de emojis)     | O mesmo, com pequenos emojis de rosto.                                                                                          |
+
+Antes de começar: adicione uma conexão de geração de imagens.
+
+1. Abra **Imagens → Galeria** e clique em **Criar com IA**.
+2. Escolha um **Tipo** e edite o prompt se quiser uma aparência ou um lugar diferente.
+3. Para uma folha de stickers ou emojis, liste os nomes em **Stickers to draw** (stickers para desenhar) ou **Emoji to draw** (emojis para desenhar), separados por vírgulas. Cabem até 16 em uma folha.
+4. Clique em **Gerar**.
+5. Clique em **Save as Background** (salvar como plano de fundo), **Save Stickers** (salvar stickers) ou **Save Emoji** (salvar emojis), ou em **Salvar como ficha de personagem**.
+
+### Corrigir o recorte de uma folha
+
+Depois que uma folha de stickers ou emojis é gerada, cada sticker é identificado pelo contorno, o fundo verde é removido e ele aparece em sua própria miniatura com o nome. Os stickers salvos têm no máximo 512 por 512 pixels e os emojis, no máximo 256 por 256, e cada um é marcado com o próprio nome.
+
+- Clique em uma miniatura para mantê-la ou ignorá-la. As miniaturas ignoradas não são salvas.
+- Edite o nome abaixo de uma miniatura para renomeá-la.
+- Clique em **Recut with a box** (recortar com um retângulo) em uma miniatura para colocar um retângulo na folha inteira. Arraste o retângulo, puxe os cantos ou desenhe um novo retângulo ao redor do sticker e clique em **Use this box** (usar este retângulo).
+- Clique em **Add a sticker** (adicionar um sticker) ou **Add an emoji** (adicionar um emoji) para recortar um que não foi identificado.
+- Clique em **Cut again** (recortar novamente) para reiniciar o recorte e desfazer os seus retângulos.
+
+### Escrever o prompt inteiro
+
+O prompt enviado ao modelo de imagem é montado a partir dos campos da caixa de diálogo. Para mudar todo o prompt, por exemplo, para pedir stickers de coisas de que o personagem gosta, e não só do personagem, clique em **Edit full prompt** (editar o prompt completo). Ele é enviado exatamente como você o escreve. As mudanças nos outros campos só são incluídas quando você clica em **Rebuild** (reconstruir), que também substitui as suas edições. Clique no botão de fechar ao lado de **Rebuild** para voltar ao prompt montado.
 
 ## Marcar uma imagem da galeria como emoji ou sticker personalizado
 

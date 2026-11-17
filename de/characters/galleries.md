@@ -1,6 +1,6 @@
 # Galerien für Charaktere und Personas
 
-Der Bereich **Gallery** (Galerie) im Tab **Images** (Bilder) der Editoren für Charaktere und Personas bewahrt Bilder und Videos auf, die an einem Charakter oder einer Persona hängen. So bleiben sie erhalten, auch wenn du Chats löschst. Nutze ihn für Referenzbögen, Outfit-Varianten und importierte Bildpakete. Außerdem kannst du ein Galerie-Bild als eigenes Emoji oder als Sticker markieren.
+Der Bereich **Gallery** (Galerie) im Tab **Images** (Bilder) der Editoren für Charaktere und Personas bewahrt Bilder und Videos auf, die an einem Charakter oder einer Persona hängen. So bleiben sie erhalten, auch wenn du Chats löschst. Nutze ihn für Referenzbögen, Outfit-Varianten und importierte Bildpakete. Außerdem kannst du mit KI neue Bilder erstellen und ein Galerie-Bild als eigenes Emoji oder als Sticker markieren.
 
 ## Die Galerie finden
 
@@ -28,6 +28,39 @@ Klick auf ein Bild, um es größer zu sehen. Jede Kachel hat ein Bedienelement z
 3. Warte, bis der Upload abgeschlossen ist.
 
 Unterstützt werden MP4, WebM und MOV. Die neuesten Videos stehen oben. Welche Szenenvideos und Clips bei welchem Charakter erscheinen, steht unter [Welche Videos aufgelistet werden](#which-videos-are-listed).
+
+## Bilder mit KI erstellen
+
+Über **Mit KI erstellen** in der Galerie erstellst du über deine Verbindung zur Bildgenerierung neue Bilder für diesen Charakter oder diese Persona. Wähl unter **Typ**, was du erstellen möchtest:
+
+| Typ                | Was du bekommst                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Charakterbogen** | Einen Referenzbogen, der genauso gespeichert wird wie im Abschnitt **Charakterbogen**.                                                      |
+| **Hintergrund**    | Ein breites Bild eines Ortes, ausgehend vom Szenario der Karte. Es wird in der Galerie gespeichert und als Chat-Hintergrund gekennzeichnet. |
+| **Sticker sheet**  | Ein Bild mit mehreren Stickern, das in einzelne Bilder mit je einem Sticker geschnitten wird.                                               |
+| **Emoji sheet**    | Dasselbe, mit kleinen Gesichts-Emojis.                                                                                                      |
+
+Bevor du anfängst: Füge eine Verbindung zur Bildgenerierung hinzu.
+
+1. Öffne **Bilder → Galerie** und klick auf **Mit KI erstellen**.
+2. Wähle einen **Typ** und bearbeite den Prompt, wenn du ein anderes Aussehen oder einen anderen Ort möchtest.
+3. Gib für einen Sticker- oder Emoji-Bogen die Namen unter **Stickers to draw** oder **Emoji to draw** ein, durch Kommas getrennt. Auf einen Bogen passen bis zu 16.
+4. Klick auf **Generieren**.
+5. Klick auf **Save as Background**, **Save Stickers** oder **Save Emoji** oder auf **Als Charakterbogen speichern**.
+
+### Den Zuschnitt eines Bogens korrigieren
+
+Nach dem Generieren eines Sticker- oder Emoji-Bogens wird jeder Sticker anhand seines Umrisses erkannt und sein grüner Hintergrund entfernt. Er erscheint dann als eigene Kachel mit seinem Namen. Gespeicherte Sticker sind höchstens 512 mal 512 Pixel groß, Emojis höchstens 256 mal 256. Jedes Bild wird mit seinem Namen markiert.
+
+- Klick auf eine Kachel, um sie zu behalten oder zu überspringen. Übersprungene Kacheln werden nicht gespeichert.
+- Bearbeite den Namen unter einer Kachel, um sie umzubenennen.
+- Klick bei einer Kachel auf **Recut with a box**, um auf dem gesamten Bogen einen Rahmen zu platzieren. Verschiebe den Rahmen, zieh an seinen Ecken oder zeichne einen neuen Rahmen um den Sticker. Klick dann auf **Use this box**.
+- Klick auf **Add a sticker** oder **Add an emoji**, um einen übersehenen Sticker oder ein übersehenes Emoji auszuschneiden.
+- Klick auf **Cut again**, um den Zuschnitt neu zu starten und deine Rahmen zu verwerfen.
+
+### Den gesamten Prompt selbst schreiben
+
+Der Prompt für das Bildmodell wird aus den Feldern im Dialogfenster zusammengesetzt. Wenn du ihn vollständig ändern möchtest, klick auf **Edit full prompt** – etwa, um Sticker von Dingen anzufordern, die der Charakter mag, statt nur vom Charakter selbst. Der Prompt wird genau so gesendet, wie du ihn schreibst. Änderungen an den anderen Feldern werden erst übernommen, wenn du auf **Rebuild** klickst. Dabei werden auch deine Bearbeitungen ersetzt. Klick auf die Schließen-Schaltfläche neben **Rebuild**, um zum zusammengesetzten Prompt zurückzukehren.
 
 ## Ein Galerie-Bild als eigenes Emoji oder Sticker markieren
 
