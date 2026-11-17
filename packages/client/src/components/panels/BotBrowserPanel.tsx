@@ -9,6 +9,7 @@ import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { Search, User, Bot, Trash2, ArrowUpDown } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { Select } from "../ui/Select";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -165,12 +166,13 @@ export function BotBrowserPanel() {
             className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
             label={localizeUi("ui.panels.botbrowserpanel.sortImportedCharacters")}
-            options={[
-              { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
-              { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
-              { value: "newest", label: localizeUi("ui.panels.backgroundpicker.newest") },
-              { value: "oldest", label: localizeUi("ui.panels.backgroundpicker.oldest") },
-            ]}
+            searchable={false}
+            options={librarySortOptions<ResourcePanelSort>(localizeUi, {
+              az: "name-asc",
+              za: "name-desc",
+              newest: "newest",
+              oldest: "oldest",
+            })}
           />
           <ArrowUpDown
             size="0.625rem"

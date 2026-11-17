@@ -3109,6 +3109,7 @@ export function LorebookEditor() {
                           label={localizeUi("ui.lorebooks.lorebookeditor.sortEntries")}
                           className="mari-editor-field h-full py-2.5 pl-8 pr-6 text-xs [&>svg]:hidden"
                           options={SORT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                          searchable={false}
                         />
                       </div>
                       <button

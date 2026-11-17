@@ -29,6 +29,7 @@ import {
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLoadMoreWhenNear } from "../panels/PanelLoadMoreBar";
@@ -628,17 +629,16 @@ export function CharacterLibraryView() {
                   libraryToolbarFieldClass,
                   "mari-chrome-sort-field mari-accent-animated !w-full pl-2.5 pr-7 [&>svg]:hidden",
                 )}
-                options={[
-                  { value: "name-asc", label: localizeUi("ui.characters.characterlibraryview.nameAZ") },
-                  { value: "name-desc", label: localizeUi("ui.characters.characterlibraryview.nameZA") },
-                  { value: "newest", label: localizeUi("ui.characters.characterlibraryview.newest") },
-                  { value: "oldest", label: localizeUi("ui.characters.characterlibraryview.oldest") },
-                  ...(config.hasFavorites
-                    ? [{ value: "favorites", label: localizeUi("ui.characters.characterlibraryview.favoritesFirst") }]
-                    : []),
-                  { value: "tokens-desc", label: localizeUi("ui.panels.librarysort.mostTokens") },
-                  { value: "tokens-asc", label: localizeUi("ui.panels.librarysort.fewestTokens") },
-                ]}
+                searchable={false}
+                options={librarySortOptions(localizeUi, {
+                  az: "name-asc",
+                  za: "name-desc",
+                  newest: "newest",
+                  oldest: "oldest",
+                  ...(config.hasFavorites ? { favorites: "favorites" } : {}),
+                  mostTokens: "tokens-desc",
+                  fewestTokens: "tokens-asc",
+                })}
               />
               <ArrowUpDown
                 size="0.6875rem"

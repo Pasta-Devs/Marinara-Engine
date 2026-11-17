@@ -2,6 +2,7 @@ import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowUpDown, Check, Download, FolderPlus, Plus, Search, Upload, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { Select } from "./Select";
 
 /** Which panel's gradient the create button uses (`mari-panel-gradient--<tone>`). */
@@ -215,19 +216,19 @@ export function LibraryToolbar({
                   label: localizeUi("dragDrop.manualOrder"),
                   description: localizeUi("dragDrop.manualOrderHelp"),
                 },
-                { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
-                { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
-                { value: "newest", label: localizeUi("ui.panels.backgroundpicker.newest") },
-                { value: "oldest", label: localizeUi("ui.panels.backgroundpicker.oldest") },
+                ...librarySortOptions(localizeUi, {
+                  az: "name-asc",
+                  za: "name-desc",
+                  newest: "newest",
+                  oldest: "oldest",
+                }),
                 ...(sort.extraOptions ?? []).map((option) => ({ value: option.value, label: option.label })),
                 ...(sort.tokenSort
-                  ? [
-                      { value: "tokens-desc", label: localizeUi("ui.panels.librarysort.mostTokens") },
-                      { value: "tokens-asc", label: localizeUi("ui.panels.librarysort.fewestTokens") },
-                    ]
+                  ? librarySortOptions(localizeUi, { mostTokens: "tokens-desc", fewestTokens: "tokens-asc" })
                   : []),
               ]}
               onChange={sort.onChange}
+              searchable={false}
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
               label={sort.label}
             />

@@ -3,6 +3,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChevronLeft, Search, X } from "lucide-react";
 
 import { type MariPanelSortMode } from "../../stores/ui.store";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { Select } from "../ui/Select";
 
 /**
@@ -31,8 +32,6 @@ export function compareMariPanelItems(
   }
 }
 
-const MARI_PANEL_SORT_OPTIONS: MariPanelSortMode[] = ["az", "za", "newest", "oldest"];
-
 export function MariPanelSortSelect({
   value,
   onChange,
@@ -41,16 +40,16 @@ export function MariPanelSortSelect({
   onChange: (mode: MariPanelSortMode) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const labels: Record<MariPanelSortMode, string> = {
-    az: localizeUi("ui.chat.homeprofessormarichat.sortAToZ"),
-    za: localizeUi("ui.chat.homeprofessormarichat.sortZToA"),
-    newest: localizeUi("ui.chat.homeprofessormarichat.sortNewest"),
-    oldest: localizeUi("ui.chat.homeprofessormarichat.sortOldest"),
-  };
   return (
     <Select<MariPanelSortMode>
       value={value}
-      options={MARI_PANEL_SORT_OPTIONS.map((mode) => ({ value: mode, label: labels[mode] }))}
+      options={librarySortOptions<MariPanelSortMode>(localizeUi, {
+        az: "az",
+        za: "za",
+        newest: "newest",
+        oldest: "oldest",
+      })}
+      searchable={false}
       onChange={onChange}
       label={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}
       title={localizeUi("ui.chat.homeprofessormarichat.sortLabel")}

@@ -52,6 +52,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { librarySortOption, type LibrarySortKey } from "../../lib/library-sort-options";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { createConnectionExportEnvelope, type ConnectionTransferRow } from "../../lib/connection-transfer";
@@ -1044,7 +1045,18 @@ export function ConnectionsPanel() {
             onChange={(next) => setSort(next as ConnectionPanelSort)}
             label={t("ui.panels.connectionspanel.sortConnections")}
             className="mari-chrome-field mari-chrome-sort-field h-full py-0 ps-2 pe-7 text-xs [&>svg]:hidden"
-            options={SORT_OPTIONS.map(([value, key]) => ({ value, label: t(key) }))}
+            searchable={false}
+            options={SORT_OPTIONS.map(([value, key]) =>
+              value === "custom"
+                ? { value, label: t(key) }
+                : librarySortOption(
+                    t,
+                    { "name-asc": "az", "name-desc": "za", newest: "newest", oldest: "oldest" }[
+                      value
+                    ] as LibrarySortKey,
+                    value,
+                  ),
+            )}
           />
           <ArrowUpDown
             aria-hidden

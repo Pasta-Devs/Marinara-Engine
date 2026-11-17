@@ -2875,6 +2875,7 @@ export function BotBrowserView() {
                     setPage(1);
                   }}
                   label={localizeUi("ui.botBrowser.botbrowserview.sortBy")}
+                  searchable={false}
                   className="mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"
                   options={sortGroups.flatMap((group) =>
                     group.options.map((opt) => ({
@@ -3072,6 +3073,7 @@ export function BotBrowserView() {
                               setPage(1);
                             }}
                             label={localizeUi("ui.botBrowser.botbrowserview.sortDirection")}
+                            searchable={false}
                             className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
                             options={[
                               { value: "desc", label: localizeUi("ui.botBrowser.botbrowserview.descending") },

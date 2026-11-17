@@ -807,6 +807,7 @@ export function ConnectionModelPicker({
                     )}
                     <Select
                       label={t("connections.modelPicker.sort")}
+                      searchable={false}
                       value={sort}
                       onChange={(next) => setSort(next as ModelSort)}
                       className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"

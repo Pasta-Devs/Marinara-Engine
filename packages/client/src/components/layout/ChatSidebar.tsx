@@ -1,4 +1,5 @@
 import { insertLibraryItems } from "../../lib/library-order";
+import { librarySortOptions } from "../../lib/library-sort-options";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
@@ -1718,11 +1719,14 @@ export function ChatSidebar() {
                   description: localizeUi("dragDrop.manualOrderHelp"),
                 },
                 { value: "recent", label: localizeUi("ui.layout.chatsidebar.recent") },
-                { value: "newest", label: localize("Newest") },
-                { value: "oldest", label: localize("Oldest") },
-                { value: "name-asc", label: localizeUi("ui.panels.backgroundpicker.aZ") },
-                { value: "name-desc", label: localizeUi("ui.panels.backgroundpicker.zA") },
+                ...librarySortOptions<ChatSortOption>(localizeUi, {
+                  newest: "newest",
+                  oldest: "oldest",
+                  az: "name-asc",
+                  za: "name-desc",
+                }),
               ]}
+              searchable={false}
               onChange={(value) => {
                 manualOrder.setActive(value === "manual");
                 if (value !== "manual") setSort(value);
