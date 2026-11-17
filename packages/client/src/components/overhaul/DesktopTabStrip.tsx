@@ -5,8 +5,9 @@
 // (nothing is closed for lack of room). Tabs can be grouped Vivaldi-style:
 // a group shows as one tab with a count, and when you're on one of its tabs
 // a second row lists the group's tabs. Dragging a tab reorders it (a caret marks
-// the spot); hold Shift while dropping onto another tab to group them, or use
-// the right-click menu.
+// the spot); pausing over the middle of another tab (Vivaldi-style, about half a
+// second) lights it up and dropping then groups them. Shift groups at once, and the
+// right-click menu has Add to group too.
 // ──────────────────────────────────────────────
 import { editorLeaveKeyForTab } from "../../lib/editor-leave";
 import { useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
@@ -51,6 +52,8 @@ type MenuTarget = { kind: "tab"; entry: Placed } | { kind: "group"; id: string }
 type Menu = MenuTarget & { x: number; y: number };
 
 const DRAG_MIME = "application/x-marinara-tab";
+/** How long a dragged tab rests on another tab before dropping groups them. */
+const GROUP_DWELL_MS = 450;
 
 function placeIndex(spot: DropSpot, items: StripItem[]) {
   const item = items.find((entry) => entry.itemKey === spot.itemKey);
@@ -291,6 +294,12 @@ export function DesktopTabStrip({
     // leave that menu floating (Nov 14 finding).
     heldMenuAt.current = null;
     setMenu(null);
+    // The press may land on the tab's inner (draggable) button: show the whole tab under the pointer either way.
+    const whole = event.currentTarget as HTMLElement;
+    if (event.target !== whole) {
+      const box = whole.getBoundingClientRect();
+      event.dataTransfer.setDragImage(whole, event.clientX - box.left, event.clientY - box.top);
+    }
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(DRAG_MIME, "1");
     event.dataTransfer.setData("text/plain", value.kind === "tab" ? value.key : value.id);
@@ -304,12 +313,37 @@ export function DesktopTabStrip({
       }
     }
   };
+  // Pausing over the middle of another tab or group arms grouping (Vivaldi-style). A quick drop still only
+  // reorders, so passing over tabs on the way never groups them by accident (Nov 7 panel finding).
+  const dwell = useRef<{ itemKey: string; ready: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const clearDwell = () => {
+    if (dwell.current) clearTimeout(dwell.current.timer);
+    dwell.current = null;
+  };
+  useEffect(() => clearDwell, []);
+  // While Shift is held, presses go straight to the tab's buttons (not the label or dots inside them), so a drag
+  // that starts with Shift already down still begins. Tooltips inside the tab come back when Shift is let go.
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = (event: KeyboardEvent) => root.toggleAttribute("data-ov-shift", event.shiftKey);
+    const clear = () => root.removeAttribute("data-ov-shift");
+    window.addEventListener("keydown", sync, true);
+    window.addEventListener("keyup", sync, true);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", sync, true);
+      window.removeEventListener("keyup", sync, true);
+      window.removeEventListener("blur", clear);
+      clear();
+    };
+  }, []);
   const endDrag = () => {
+    clearDwell();
     setDrag(null);
     setDrop(null);
     endSplitDrag();
   };
-  /** Over a strip item: before/after by the pointer's half; with Shift, the middle groups (tabs only). */
+  /** Over a strip item: before/after by the pointer's half; pausing on the middle (or Shift) groups (tabs only). */
   const overStripItem = (event: DragEvent, item: StripItem) => {
     if (!drag) return;
     event.preventDefault();
@@ -317,10 +351,25 @@ export function DesktopTabStrip({
     const self = drag.kind === "tab" ? drag.key === item.itemKey : item.itemKey === `group:${drag.id}`;
     const box = event.currentTarget.getBoundingClientRect();
     const x = (event.clientX - box.left) / box.width;
-    // Plain drops reorder; Shift over the middle of a tab or group stacks (groups) instead.
-    const where =
-      event.shiftKey && drag.kind === "tab" && !self && x >= 0.25 && x <= 0.75 ? "stack" : x < 0.5 ? "before" : "after";
-    setDrop({ itemKey: item.itemKey, where });
+    const middle = drag.kind === "tab" && !self && x >= 0.25 && x <= 0.75;
+    const half = x < 0.5 ? "before" : "after";
+    if (!middle) clearDwell();
+    else if (dwell.current?.itemKey !== item.itemKey) {
+      clearDwell();
+      const armed = {
+        itemKey: item.itemKey,
+        ready: false,
+        timer: setTimeout(() => {
+          armed.ready = true;
+          setDrop((spot) => (spot?.itemKey === item.itemKey ? { itemKey: item.itemKey, where: "stack" } : spot));
+        }, GROUP_DWELL_MS),
+      };
+      dwell.current = armed;
+    }
+    const where = middle && (event.shiftKey || dwell.current?.ready) ? "stack" : half;
+    setDrop((spot) =>
+      spot?.itemKey === item.itemKey && spot.where === where ? spot : { itemKey: item.itemKey, where },
+    );
   };
   /** Over a group-row tab or an overflow row: before/after along `axis`. */
   const overEntry = (event: DragEvent, entry: Placed, axis: "x" | "y") => {
@@ -374,8 +423,11 @@ export function DesktopTabStrip({
 
   const tabButton = (entry: Placed, extra?: { compact?: boolean }) => (
     <>
+      {/* Draggable too: Chromium won't start a drag from a Shift-press on a non-draggable child (it extends the
+          text selection instead), so Shift held before pressing the tab would never drag. See also data-ov-shift. */}
       <button
         type="button"
+        draggable
         className="ov-tab__main"
         aria-current={entry.key === currentKey ? "page" : undefined}
         onClick={() => {
@@ -393,6 +445,7 @@ export function DesktopTabStrip({
       </button>
       <button
         type="button"
+        draggable
         className="ov-tab__close"
         aria-label={localize("Close tab")}
         title={localize("Close tab")}
@@ -499,6 +552,7 @@ export function DesktopTabStrip({
                 )}
                 draggable
                 onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+                onDragEnter={(event) => overStripItem(event, item)}
                 onDragOver={(event) => overStripItem(event, item)}
                 onDrop={(event) => dropOnStripItem(event, item)}
                 onDragEnd={endDrag}
@@ -523,6 +577,7 @@ export function DesktopTabStrip({
               )}
               draggable={renaming !== item.id}
               onDragStart={(event) => startDrag(event, { kind: "group", id: item.id })}
+              onDragEnter={(event) => overStripItem(event, item)}
               onDragOver={(event) => overStripItem(event, item)}
               onDrop={(event) => dropOnStripItem(event, item)}
               onDragEnd={endDrag}

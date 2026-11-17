@@ -8447,6 +8447,11 @@ input.ov-edhead__title:focus {
 .ov-tab.is-clipped {
   visibility: hidden;
 }
+/* Shift held: presses land on the tab's own (draggable) buttons, so Shift-then-drag starts a drag (Chromium
+   extends the text selection instead when the press lands on a label inside). */
+:root[data-ov-shift] .ov-tab button[draggable="true"] > * {
+  pointer-events: none;
+}
 .ov-tab.is-drop-stack {
   box-shadow: inset 0 0 0 2px var(--ov-accent);
   background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
