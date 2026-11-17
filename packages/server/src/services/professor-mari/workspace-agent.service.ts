@@ -2780,7 +2780,7 @@ export function mariPermissionsModePrompt(mode: MariPermissionsMode): string | n
   ];
   if (mode === "manual") {
     lines.push(
-      "Manual - always ask before making changes. For any mutating command, describe the exact change in say and include the commands in the SAME response; Marinara will hold those commands and show an Accept action. After the user approves, resend the commands with an empty say - the server only executes silent command frames in the run right after an approval. Never apply a change the user has not just approved.",
+      "Manual - always ask before making changes. For any mutating command, describe the exact change in say and include the commands in the SAME response; Marinara will hold those commands and show an Accept action. After the user chooses Accept, resend the commands with an empty say - the server only executes silent command frames in the run right after Accept. If they approve in words instead, show the same change again so they can choose Accept. Never apply a change the user has not just approved.",
     );
   } else if (mode === "plan") {
     lines.push(
@@ -5230,13 +5230,18 @@ export class ProfessorMariWorkspaceService {
     const allMessages = await chatStorage.listMessages(chatId);
     const history = allMessages.slice(-MAX_HISTORY_MESSAGES);
     // #5725 Manual mode: arm silent command frames only when Mari's last
-    // persisted turn was a deferral (the user's new message answers it). The
+    // persisted turn was a deferral and the user answered it with Accept. The
     // deferral is a flag on the message's extra - persisted content is only
     // the visible say text, never the JSON envelope.
     const lastAssistant = [...history].reverse().find((row) => row.role === "assistant");
     const lastExtra = parseExtra(lastAssistant?.extra);
-    // A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing.
-    const manualApprovalArmed = lastExtra.mariDeferredMutations === true && history.at(-1)?.role === "user";
+    // Any other reply (a new request, Don't apply, a typed "yes") arms nothing, so a change she sends then is held
+    // on a new card. A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing either.
+    const lastRow = history.at(-1);
+    const manualApprovalArmed =
+      lastExtra.mariDeferredMutations === true &&
+      lastRow?.role === "user" &&
+      lastRow.content.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt;
     // Stored held calls: a fresh id each, only mutating ones, anything malformed counts as none.
     const heldCalls: WorkspaceCommandCall[] = Array.isArray(lastExtra.mariHeldCalls)
       ? lastExtra.mariHeldCalls.flatMap((raw): WorkspaceCommandCall[] =>
