@@ -89,10 +89,7 @@ for (const theme of ["dark", "light"] as const) {
       await chooseConnection(page, toolModel(), planner.id);
       await expect(tools()).toBeEnabled();
       await expect(lore()).toBeEnabled();
-      await section
-        .locator("label")
-        .filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) })
-        .click();
+      await lore().click();
       await expect.poll(async () => (await metadata()).gameLorebookSearch).toBe(true);
       expect((await metadata()).enableTools).toBe(false);
       expect((await metadata()).gameGmToolConnectionId).toBe(planner.id);
@@ -110,9 +107,13 @@ for (const theme of ["dark", "light"] as const) {
         .filter({ has: page.getByLabel("Enable Tool Use", { exact: true }) })
         .click();
       await expect.poll(async () => (await metadata()).enableTools).toBe(true);
+      const toolPicker = page.getByRole("dialog", { name: /^Add Functions/ });
+      const loreSearchRow = toolPicker.locator("[data-pick-row]").filter({ hasText: "search_lorebook" });
       await section.getByRole("button", { name: "Add Functions", exact: true }).click();
-      await section.getByRole("button", { name: /^search_lorebook / }).click();
-      await section.getByRole("button", { name: "Add 1 Function", exact: true }).click();
+      await loreSearchRow.click();
+      await expect(loreSearchRow).toHaveAttribute("aria-pressed", "true");
+      await page.keyboard.press("Escape");
+      await expect(toolPicker).toHaveCount(0);
       await section
         .locator("label")
         .filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) })
@@ -123,13 +124,18 @@ for (const theme of ["dark", "light"] as const) {
       ).toHaveCount(2);
       await section.getByRole("button", { name: "Remove from chat", exact: true }).click();
       await section.getByRole("button", { name: "Add Functions", exact: true }).click();
-      await expect(section.getByRole("button", { name: /^search_lorebook / })).toHaveCount(0);
+      await expect(toolPicker).toBeVisible();
+      await expect(loreSearchRow).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(toolPicker).toHaveCount(0);
       await section
         .locator("label")
         .filter({ has: page.getByLabel("Let the GM search lore", { exact: true }) })
         .click();
       await section.getByRole("button", { name: "Add Functions", exact: true }).click();
-      await expect(section.getByRole("button", { name: /^search_lorebook / })).toBeVisible();
+      await expect(loreSearchRow).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(toolPicker).toHaveCount(0);
       const agents = page.locator('[data-chat-settings-section="game-agents"]');
       await agents.locator('[role="button"][aria-expanded]').click();
       await expect(agents.getByText("No agents downloaded yet.", { exact: true })).toBeVisible();
