@@ -26,6 +26,8 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
   };
   const blockAgents = useUIStore((state) => state.impersonateBlockAgents);
   const setBlockAgents = useUIStore((state) => state.setImpersonateBlockAgents);
+  const publicFaces = useUIStore((state) => state.impersonatePublicFaces);
+  const setPublicFaces = useUIStore((state) => state.setImpersonatePublicFaces);
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const setSettingsTargetControlId = useUIStore((state) => state.setSettingsTargetControlId);
 
@@ -101,6 +103,18 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
               helpPosition="label"
               checked={blockAgents}
               onChange={setBlockAgents}
+              labelPosition="start"
+              className="justify-between rounded-md px-2 py-1.5 text-left"
+              labelClassName="text-xs font-semibold"
+            />
+
+            <SettingsSwitch
+              label={localizeUi("ui.chatSettings.impersonatesection.sendPublicFaces")}
+              help={localizeUi("ui.chatSettings.impersonatesection.sendPublicFacesHelp")}
+              description={localizeUi("ui.chatSettings.impersonatesection.sendPublicFacesDescription")}
+              helpPosition="label"
+              checked={publicFaces}
+              onChange={setPublicFaces}
               labelPosition="start"
               className="justify-between rounded-md px-2 py-1.5 text-left"
               labelClassName="text-xs font-semibold"
