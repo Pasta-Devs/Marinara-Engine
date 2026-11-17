@@ -65,7 +65,7 @@ export const CUSTOM_EMOJI_SELECTION_DEFAULTS: CustomEmojiSelectionPrefs = {
   toolConnectionId: null,
   visionMode: "off",
   visionRecentCount: 6,
-  visionOfferedCount: 20,
+  visionOfferedCount: 6,
 };
 
 function clampWhole(value: unknown, min: number, max: number, fallback: number): number {

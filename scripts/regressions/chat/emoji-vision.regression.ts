@@ -10,6 +10,7 @@ import {
   createConversationAssetVisionCatalog,
   extractCustomAssetNames,
   insertConversationEmojiVisionLegend,
+  rewriteStickerNamesWrittenAsEmojis,
 } from "../../../packages/server/src/services/generation/conversation-emoji-vision.js";
 import { listAdvertisedAssetNames } from "../../../packages/server/src/routes/generate/conversation-custom-assets.js";
 import { getSharp } from "../../../packages/server/src/utils/sharp.js";
@@ -18,6 +19,16 @@ import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 const history = (role: string, content: string) => ({ role, content, contextKind: "history" });
 
 const cases: RegressionCase[] = [
+  {
+    name: "a sticker name written as an emoji becomes the sticker, unless an emoji owns the name",
+    run: () => {
+      const stickers = new Set(["hug", "wave"]);
+      const emojis = new Set(["wave"]);
+      const fixed = rewriteStickerNamesWrittenAsEmojis("aww :hug: :wave: sticker:hug: at 10:hug:", stickers, emojis);
+      assert.deepEqual(fixed, { text: "aww sticker:hug: :wave: sticker:hug: at 10:hug:", changed: true });
+      assert.equal(rewriteStickerNamesWrittenAsEmojis("plain :cat:", stickers, emojis).changed, false);
+    },
+  },
   {
     name: "emoji vision reads emoji and sticker tokens newest first, without counting a sticker as an emoji",
     run: () => {
