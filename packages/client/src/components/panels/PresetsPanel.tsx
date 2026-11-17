@@ -1,9 +1,19 @@
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
+import { PanelVirtualList } from "./PanelVirtualList";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 // ──────────────────────────────────────────────
 // Panel: Presets (overhauled — search, assign, edit, duplicate)
 // ──────────────────────────────────────────────
-import { useState, useMemo, useCallback, useRef, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  type ChangeEvent,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { toast } from "sonner";
 import {
   usePresets,
@@ -286,6 +296,36 @@ function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
     minDepth: parseNullableNumber(entry.minDepth),
     maxDepth: parseNullableNumber(entry.maxDepth),
   };
+}
+
+// ponytail: rows are pinned only for the dragged id; ceiling = one dragged row
+function VirtualRows<T extends { id: string }>({
+  listKey,
+  items,
+  dragId,
+  gap,
+  estimate,
+  render,
+}: {
+  listKey: string;
+  items: T[];
+  dragId: string | null;
+  gap: number;
+  estimate: number;
+  render: (item: T, index: number) => ReactNode;
+}) {
+  const dragged = dragId ? items.findIndex((item) => item.id === dragId) : -1;
+  return (
+    <PanelVirtualList
+      listKey={listKey}
+      count={items.length}
+      getItemKey={(index) => items[index]!.id}
+      renderRow={(index) => render(items[index]!, index)}
+      estimateSize={estimate}
+      gap={gap}
+      pinnedIndex={dragged >= 0 ? dragged : undefined}
+    />
+  );
 }
 
 export function PresetsPanel() {
@@ -1471,7 +1511,14 @@ export function PresetsPanel() {
                         {localizeUi("ui.panels.presetspanel.dropPresetsHere")}
                       </p>
                     ) : (
-                      folderItems.map((preset) => renderPresetRow(preset))
+                      <VirtualRows
+                        listKey={`presets:folder:${folder.id}`}
+                        items={folderItems}
+                        dragId={draggedPresetId}
+                        gap={2}
+                        estimate={64}
+                        render={renderPresetRow}
+                      />
                     )}
                   </SmoothFolderContent>
                 </div>
@@ -1522,7 +1569,14 @@ export function PresetsPanel() {
         )}
 
         <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
-          {otherRootPresets.map(renderPresetRow)}
+          <VirtualRows
+            listKey="presets:list"
+            items={otherRootPresets}
+            dragId={draggedPresetId}
+            gap={4}
+            estimate={64}
+            render={renderPresetRow}
+          />
         </div>
 
         {activeChat && !selectionMode && (
@@ -2095,7 +2149,14 @@ function RegexSection({
         ) : (
           <div data-preset-regex-root className="flex flex-col gap-0.5">
             {flat ? (
-              visibleScripts.map(renderScript)
+              <VirtualRows
+                listKey="presets:regex:flat"
+                items={visibleScripts}
+                dragId={draggedRegexId}
+                gap={2}
+                estimate={72}
+                render={renderScript}
+              />
             ) : (
               <>
                 {folders.map((folder) => {
@@ -2121,7 +2182,14 @@ function RegexSection({
                       searching={searching}
                     >
                       {scripts.length > 0 ? (
-                        scripts.map(renderScript)
+                        <VirtualRows
+                          listKey={`presets:regex:${folder.id}`}
+                          items={scripts}
+                          dragId={draggedRegexId}
+                          gap={2}
+                          estimate={72}
+                          render={renderScript}
+                        />
                       ) : (
                         <p className="mari-chrome-text-muted px-2 py-1 text-[0.625rem]">
                           {localizeUi("regex.library.emptyFolder")}
@@ -2130,7 +2198,14 @@ function RegexSection({
                     </PausableLibraryFolder>
                   );
                 })}
-                {rowsByFolder.get(null)?.map(renderScript)}
+                <VirtualRows
+                  listKey="presets:regex:root"
+                  items={rowsByFolder.get(null) ?? []}
+                  dragId={draggedRegexId}
+                  gap={2}
+                  estimate={72}
+                  render={renderScript}
+                />
               </>
             )}
           </div>
@@ -2680,7 +2755,14 @@ function FunctionsSection({
         ) : (
           <div data-preset-functions-root className="flex flex-col gap-0.5">
             {flat ? (
-              visibleTools.map(renderTool)
+              <VirtualRows
+                listKey="presets:tools:flat"
+                items={visibleTools}
+                dragId={draggedFunctionId}
+                gap={2}
+                estimate={72}
+                render={renderTool}
+              />
             ) : (
               <>
                 {folders.map((folder) => {
@@ -2706,7 +2788,14 @@ function FunctionsSection({
                       searching={searching}
                     >
                       {tools.length > 0 ? (
-                        tools.map(renderTool)
+                        <VirtualRows
+                          listKey={`presets:tools:${folder.id}`}
+                          items={tools}
+                          dragId={draggedFunctionId}
+                          gap={2}
+                          estimate={72}
+                          render={renderTool}
+                        />
                       ) : (
                         <p className="mari-chrome-text-muted px-2 py-1 text-[0.625rem]">
                           {localizeUi("functions.library.emptyFolder")}
@@ -2715,7 +2804,14 @@ function FunctionsSection({
                     </PausableLibraryFolder>
                   );
                 })}
-                {rowsByFolder.get(null)?.map(renderTool)}
+                <VirtualRows
+                  listKey="presets:tools:root"
+                  items={rowsByFolder.get(null) ?? []}
+                  dragId={draggedFunctionId}
+                  gap={2}
+                  estimate={72}
+                  render={renderTool}
+                />
               </>
             )}
           </div>

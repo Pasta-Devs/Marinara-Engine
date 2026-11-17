@@ -7,6 +7,7 @@ import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../..
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
@@ -316,139 +317,149 @@ export function SpriteFolderGrid({
       /* Ignore foreign or malformed drag data. */
     }
   }
-  const grid = (sprites: SpriteInfo[]) => (
-    <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @xl:grid-cols-4">
-      {sprites.map((sprite) => (
-        <div
-          key={sprite.expression}
-          data-sprite-expression={sprite.expression}
-          data-drag-kind="sprite"
-          data-drag-id={sprite.expression}
-          onPointerDown={(event) => {
-            touchInput.current = event.pointerType === "touch" && window.matchMedia("(max-width: 767px)").matches;
-          }}
-          onTouchStart={(event) => {
-            if (window.matchMedia("(max-width: 767px)").matches) {
-              touchInput.current = true;
-              if (!disabled) startTouchDrag(event, sprite.expression, { sourceElement: event.currentTarget });
-            }
-          }}
-          onContextMenu={(event) => {
-            if (touchInput.current) event.preventDefault();
-          }}
-          onClickCapture={(event) => {
-            if (suppressClick.current) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          }}
-          draggable={!disabled}
-          className={cn(
-            "max-md:touch-pan-y max-md:select-none max-md:[-webkit-touch-callout:none] max-md:[&_*]:[-webkit-touch-callout:none] max-md:[&_img]:[-webkit-user-drag:none] max-md:[&_img]:select-none",
-            draggedExpressions.includes(sprite.expression) && "opacity-50",
-          )}
-          onDragStart={(e) => {
-            if (disabled || touchInput.current) {
-              e.preventDefault();
-              return;
-            }
-            e.dataTransfer.effectAllowed = "move";
-            const source = e.currentTarget;
-            const expressions = library.selected.includes(sprite.expression) ? library.selected : [sprite.expression];
-            const bounds = source.getBoundingClientRect();
-            dragOffset.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
-            dragPreview.current?.remove();
-            const visualProperties = [
-              "color",
-              "background-color",
-              "background-image",
-              "border-top-color",
-              "border-right-color",
-              "border-bottom-color",
-              "border-left-color",
-              "box-shadow",
-              "opacity",
-              "filter",
-              "font-family",
-              "font-size",
-              "font-weight",
-              "line-height",
-              "letter-spacing",
-            ];
-            function cloneTile(tile: HTMLElement) {
-              const clone = tile.cloneNode(true) as HTMLElement;
-              const originals = [tile, ...tile.querySelectorAll<HTMLElement | SVGElement>("*")];
-              const copies = [clone, ...clone.querySelectorAll<HTMLElement | SVGElement>("*")];
-              originals.forEach((original, index) => {
-                const style = getComputedStyle(original);
-                for (const property of visualProperties)
-                  copies[index]?.style.setProperty(property, style.getPropertyValue(property));
-              });
-              return clone;
-            }
-            const preview = cloneTile(source);
-            preview.dataset.spriteDragPreview = "";
-            preview.setAttribute("aria-hidden", "true");
-            preview.inert = true;
-            const sourceStyle = getComputedStyle(source);
-            for (const property of sourceStyle) {
-              if (property.startsWith("--"))
-                preview.style.setProperty(property, sourceStyle.getPropertyValue(property));
-            }
-            const otherSources = Array.from(
-              source.closest("[data-sprite-library]")?.querySelectorAll<HTMLElement>("[data-sprite-expression]") ?? [],
-            ).filter((element) => element !== source && expressions.includes(element.dataset.spriteExpression ?? ""));
-            otherSources.forEach((other, index) => {
-              const copy = cloneTile(other);
-              Object.assign(copy.style, {
-                position: "absolute",
-                left: `${((index + 1) % 4) * (bounds.width + 8)}px`,
-                top: `${Math.floor((index + 1) / 4) * (bounds.height + 8)}px`,
-                width: `${bounds.width}px`,
-                opacity: "1",
-              });
-              preview.appendChild(copy);
-            });
-            Object.assign(preview.style, {
-              position: "fixed",
-              left: `${bounds.left}px`,
-              top: `${bounds.top}px`,
-              width: `${bounds.width}px`,
-              height: `${bounds.height}px`,
-              pointerEvents: "none",
-              zIndex: TOUCH_DRAG_PREVIEW_Z_INDEX,
-              opacity: "1",
-              margin: "0",
-              backgroundColor: sourceStyle.getPropertyValue("--background").trim(),
-              borderRadius: source.firstElementChild ? getComputedStyle(source.firstElementChild).borderRadius : "",
-            });
-            document.body.appendChild(preview);
-            dragPreview.current = preview;
-            const transparent = document.createElement("canvas");
-            transparent.width = 1;
-            transparent.height = 1;
-            e.dataTransfer.setDragImage(transparent, 0, 0);
-            e.dataTransfer.setData(
-              dragType,
-              JSON.stringify({
-                ownerId: library.ownerId,
-                expressions,
-              }),
-            );
-            setDraggedExpressions(expressions);
-          }}
-          onDragEnd={() => {
-            dragPreview.current?.remove();
-            dragPreview.current = null;
-            setDraggedExpressions([]);
-            setTarget(undefined);
-          }}
-        >
-          {renderSprite(sprite)}
-        </div>
-      ))}
+  const tile = (sprite: SpriteInfo) => (
+    <div
+      key={sprite.expression}
+      data-sprite-expression={sprite.expression}
+      data-drag-kind="sprite"
+      data-drag-id={sprite.expression}
+      onPointerDown={(event) => {
+        touchInput.current = event.pointerType === "touch" && window.matchMedia("(max-width: 767px)").matches;
+      }}
+      onTouchStart={(event) => {
+        if (window.matchMedia("(max-width: 767px)").matches) {
+          touchInput.current = true;
+          if (!disabled) startTouchDrag(event, sprite.expression, { sourceElement: event.currentTarget });
+        }
+      }}
+      onContextMenu={(event) => {
+        if (touchInput.current) event.preventDefault();
+      }}
+      onClickCapture={(event) => {
+        if (suppressClick.current) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      draggable={!disabled}
+      className={cn(
+        "max-md:touch-pan-y max-md:select-none max-md:[-webkit-touch-callout:none] max-md:[&_*]:[-webkit-touch-callout:none] max-md:[&_img]:[-webkit-user-drag:none] max-md:[&_img]:select-none",
+        draggedExpressions.includes(sprite.expression) && "opacity-50",
+      )}
+      onDragStart={(e) => {
+        if (disabled || touchInput.current) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.effectAllowed = "move";
+        const source = e.currentTarget;
+        const expressions = library.selected.includes(sprite.expression) ? library.selected : [sprite.expression];
+        const bounds = source.getBoundingClientRect();
+        dragOffset.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
+        dragPreview.current?.remove();
+        const visualProperties = [
+          "color",
+          "background-color",
+          "background-image",
+          "border-top-color",
+          "border-right-color",
+          "border-bottom-color",
+          "border-left-color",
+          "box-shadow",
+          "opacity",
+          "filter",
+          "font-family",
+          "font-size",
+          "font-weight",
+          "line-height",
+          "letter-spacing",
+        ];
+        function cloneTile(tile: HTMLElement) {
+          const clone = tile.cloneNode(true) as HTMLElement;
+          const originals = [tile, ...tile.querySelectorAll<HTMLElement | SVGElement>("*")];
+          const copies = [clone, ...clone.querySelectorAll<HTMLElement | SVGElement>("*")];
+          originals.forEach((original, index) => {
+            const style = getComputedStyle(original);
+            for (const property of visualProperties)
+              copies[index]?.style.setProperty(property, style.getPropertyValue(property));
+          });
+          return clone;
+        }
+        const preview = cloneTile(source);
+        preview.dataset.spriteDragPreview = "";
+        preview.setAttribute("aria-hidden", "true");
+        preview.inert = true;
+        const sourceStyle = getComputedStyle(source);
+        for (const property of sourceStyle) {
+          if (property.startsWith("--")) preview.style.setProperty(property, sourceStyle.getPropertyValue(property));
+        }
+        const otherSources = Array.from(
+          source.closest("[data-sprite-library]")?.querySelectorAll<HTMLElement>("[data-sprite-expression]") ?? [],
+        ).filter((element) => element !== source && expressions.includes(element.dataset.spriteExpression ?? ""));
+        otherSources.forEach((other, index) => {
+          const copy = cloneTile(other);
+          Object.assign(copy.style, {
+            position: "absolute",
+            left: `${((index + 1) % 4) * (bounds.width + 8)}px`,
+            top: `${Math.floor((index + 1) / 4) * (bounds.height + 8)}px`,
+            width: `${bounds.width}px`,
+            opacity: "1",
+          });
+          preview.appendChild(copy);
+        });
+        Object.assign(preview.style, {
+          position: "fixed",
+          left: `${bounds.left}px`,
+          top: `${bounds.top}px`,
+          width: `${bounds.width}px`,
+          height: `${bounds.height}px`,
+          pointerEvents: "none",
+          zIndex: TOUCH_DRAG_PREVIEW_Z_INDEX,
+          opacity: "1",
+          margin: "0",
+          backgroundColor: sourceStyle.getPropertyValue("--background").trim(),
+          borderRadius: source.firstElementChild ? getComputedStyle(source.firstElementChild).borderRadius : "",
+        });
+        document.body.appendChild(preview);
+        dragPreview.current = preview;
+        const transparent = document.createElement("canvas");
+        transparent.width = 1;
+        transparent.height = 1;
+        e.dataTransfer.setDragImage(transparent, 0, 0);
+        e.dataTransfer.setData(
+          dragType,
+          JSON.stringify({
+            ownerId: library.ownerId,
+            expressions,
+          }),
+        );
+        setDraggedExpressions(expressions);
+      }}
+      onDragEnd={() => {
+        dragPreview.current?.remove();
+        dragPreview.current = null;
+        setDraggedExpressions([]);
+        setTarget(undefined);
+      }}
+    >
+      {renderSprite(sprite)}
     </div>
   );
+  const grid = (key: string, sprites: SpriteInfo[]) => {
+    const dragged = sprites.findIndex((sprite) => draggedExpressions.includes(sprite.expression));
+    return (
+      <PanelVirtualList
+        listKey={`sprites:${library.ownerId}:${library.category}:${key}`}
+        count={sprites.length}
+        getItemKey={(index) => sprites[index]!.expression}
+        renderRow={(index) => tile(sprites[index]!)}
+        estimateSize={180}
+        gap={8}
+        columns={(width) => (width >= 576 ? 4 : width >= 448 ? 3 : 2)}
+        pinnedIndex={dragged >= 0 ? dragged : undefined}
+      />
+    );
+  };
   const zone = (id: string | null) => ({
     onDragOver: (e: DragEvent) => {
       if (accepts(e)) {
@@ -482,7 +493,10 @@ export function SpriteFolderGrid({
                 zone={zone(folder.id)}
                 folderDragBindings={folderDrag.bind(folder.id)}
               >
-                {grid(library.visible.filter((sprite) => sprite.folderId === folder.id))}
+                {grid(
+                  folder.id,
+                  library.visible.filter((sprite) => sprite.folderId === folder.id),
+                )}
               </SpriteInlineFolder>
             ))}
         </div>
@@ -509,7 +523,10 @@ export function SpriteFolderGrid({
         )}
         {library.visible.some((sprite) => !sprite.folderId) && (
           <div className={cn("p-3", showMoveOutTarget && "pt-0")}>
-            {grid(library.visible.filter((sprite) => !sprite.folderId))}
+            {grid(
+              "loose",
+              library.visible.filter((sprite) => !sprite.folderId),
+            )}
           </div>
         )}
       </div>
