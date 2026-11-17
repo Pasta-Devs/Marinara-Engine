@@ -13668,3 +13668,316 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul] .ovm-action-sheet__group > button.is-danger {
   color: var(--ov-danger, #e5484d);
 }
+
+/* ─── Message buttons picked in Settings > Chatting > Message buttons ───
+   Roleplay: the shared message buttons (Bookmark, Hide from AI, Delete, Translate) take the bars' own size and
+   colour. Conversation: what asks the AI (Speak, Translate, Regenerate) hangs under the message's bottom-right,
+   mirroring the top bar. Phones and tablets ("Show on phones and tablets"): the newest reply and a tapped message
+   show their bars without hover. */
+.ov-rpf .mari-chat-message-action,
+.ov-rpf .ov-marks-row {
+  display: inline-grid;
+  width: 1.75rem;
+  min-width: 0;
+  height: 1.5rem;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border-radius: 0.375rem;
+  color: inherit;
+  font-size: 0.875rem;
+}
+.ov-rpf .ov-marks-row svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.ov-rpf .ov-marks-row.is-on {
+  color: var(--ov-accent-text);
+}
+@media (hover: hover) {
+  .ov-rpf .mari-chat-message-action:hover,
+  .ov-rpf .ov-marks-row:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: var(--ov-text);
+  }
+}
+/* The under-message pill: themes that move the top pill (Dewglass: top on your own balloons) must not stretch
+   this one between both edges. */
+.ov-cvh.ov-cvh--bottom {
+  top: auto !important;
+  bottom: -1rem;
+}
+.ov-rpmsg__touch-bottom .ov-rpf__count {
+  white-space: nowrap;
+}
+.ov-cvh.is-touch {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Touch: the top pill sits just above the message, so it never covers this message's name and time. */
+.ov-cvh.is-touch:not(.ov-cvh--bottom) {
+  top: -1.75rem;
+}
+[data-message-id]:has(.ov-cvh.is-touch) {
+  position: relative;
+}
+/* ...and the message makes room for its pills, so they never cover the messages around it. */
+[data-message-id]:has(.ov-cvh.is-touch:not(.ov-cvh--bottom)) {
+  margin-top: 1.75rem;
+}
+[data-message-id]:has(.ov-cvh.is-touch.ov-cvh--bottom) {
+  margin-bottom: 1.25rem;
+}
+.ov-rpmsg__touch-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.375rem -0.375rem 0.25rem 0;
+}
+.ov-rpmsg__touch-bottom {
+  display: flex;
+  justify-content: flex-end;
+}
+.ov-rpmsg__touch-bottom:empty {
+  display: none;
+}
+.ov-rpmsg__touch-tools .ov-rpf,
+.ov-rpmsg__touch-bottom .ov-rpf {
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 1;
+}
+/* Touch: finger-sized buttons. */
+.ov-rpmsg__touch-tools :is(.ov-rpf__btn, .mari-chat-message-action, .ov-marks-row),
+.ov-rpmsg__touch-bottom :is(.ov-rpf__btn, .mari-chat-message-action, .ov-rpf__swipes > button:not(.ov-rpf__count)),
+.ov-cvh.is-touch > button,
+.ov-cvh.is-touch .mari-message-action,
+.ov-cvh.is-touch .mari-chat-message-action {
+  width: 2.25rem;
+  height: 2rem;
+}
+
+/* Library pages: the Folders switch (folders, or everything together). */
+.ov-kit-folderview {
+  flex: none;
+}
+
+/* Settings > Chatting > Message buttons: mode switch and quick picks, a sample message, then the two lists. */
+.ov-mbs {
+  display: grid;
+  gap: 0.625rem;
+}
+.ov-mbs__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-mbs__spacer {
+  flex: 1;
+}
+.ov-mbs__tools .ov-btn:disabled {
+  opacity: 0.45;
+}
+.ov-mbs__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.5rem 1rem;
+}
+.ov-mbs__group {
+  display: grid;
+  align-content: start;
+  gap: 0.0625rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ov-mbs__group legend {
+  display: grid;
+  gap: 0.0625rem;
+  margin-bottom: 0.25rem;
+  padding: 0;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ov-mbs__group legend span {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+.ov-mbs__group[data-bar="bottom"] legend span {
+  color: var(--ov-accent-text);
+}
+.ov-mbs__row {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.375rem;
+  border-radius: 0.375rem;
+  color: var(--ov-text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .ov-mbs__row:hover {
+    background: var(--ov-hover);
+  }
+}
+.ov-mbs__icon {
+  display: inline-grid;
+  color: var(--ov-muted);
+}
+/* The sample message: drawn with the chat's own colours, both bars always showing. */
+.ov-mbp {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.125rem 0.875rem 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.625rem;
+  background: var(--background);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-mbp__avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f0a35e, #b0457b);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.ov-mbp__rp {
+  display: flex;
+  gap: 0.625rem;
+}
+.ov-mbp__rp-col {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ov-mbp__bubble {
+  padding: 0.625rem 0.875rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--ov-text) 8%, transparent);
+  border-radius: 0.25rem 1rem 1rem 1rem;
+  background: var(--mari-rp-bubble-bg, var(--card));
+}
+.ov-mbp__head {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-text) 14%, transparent);
+  font-size: 0.75rem;
+}
+.ov-mbp__time {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+}
+.ov-mbp__grow {
+  flex: 1;
+}
+.ov-mbp__text {
+  margin: 0;
+  font-style: italic;
+  line-height: 1.5;
+}
+.ov-mbp__under {
+  display: flex;
+  min-height: 1.75rem;
+  justify-content: flex-end;
+  padding-top: 0.125rem;
+}
+.ov-mbp__bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  color: var(--mari-message-actions, color-mix(in srgb, var(--ov-text) 62%, transparent));
+}
+.ov-mbp__btn,
+.ov-mbp__swipes,
+.ov-mbp__react {
+  display: inline-flex;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+}
+.ov-mbp__btn {
+  width: 1.75rem;
+}
+.ov-mbp__btn.is-accent {
+  color: var(--ov-accent-text);
+}
+.ov-mbp__swipes {
+  gap: 0.125rem;
+  padding: 0 0.25rem;
+  color: var(--mari-swipe-counter, color-mix(in srgb, var(--ov-text) 82%, transparent));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.ov-mbp__react {
+  gap: 0.25rem;
+  margin-right: 0.125rem;
+  padding: 0 0.375rem 0 0.25rem;
+  border-right: 1px solid var(--ov-line);
+  border-radius: 0;
+  font-size: 0.875rem;
+}
+/* Conversation: Discord-style pills over the top-right and bottom-right corners. */
+.ov-mbp__cv {
+  position: relative;
+  display: flex;
+  gap: 0.625rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--ov-text) 4%, transparent);
+}
+.ov-mbp__cv-col {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+}
+.ov-mbp__cv .ov-mbp__text {
+  font-style: normal;
+}
+.ov-mbp__cv-top,
+.ov-mbp__cv-bottom {
+  position: absolute;
+  right: 0.75rem;
+}
+.ov-mbp__cv-top {
+  top: -0.875rem;
+}
+.ov-mbp__cv-bottom {
+  bottom: -0.875rem;
+}
+.ov-mbp__cv .ov-mbp__bar {
+  padding: 0.125rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: var(--card);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
+  color: var(--ov-muted);
+}
+.ov-mbp__menu {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+}

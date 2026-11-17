@@ -43,6 +43,7 @@ import {
 } from "./ConversationMessageShared";
 import { MessageReplyPreview } from "./MessageReplyPreview";
 import { ConversationMessageActions } from "./ConversationMessageActions";
+import { useMessageButtonsOnTouch } from "../overhaul/message-buttons";
 import { messageHooks } from "../../lib/message-hooks";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
@@ -191,6 +192,8 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [editValue, setEditValue] = useState(message.content);
   const [showActions, setShowActions] = useState(false);
   const overhaulMobile = useOverhaulTouchMessages();
+  // Settings > Chatting > Message buttons: on phones and tablets, a tap shows the message's buttons.
+  const touchButtons = useMessageButtonsOnTouch() && overhaulMobile;
   const overhaulDesktopShell = useOverhaulActive();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const openMobileSheet = useCallback(() => setMobileSheetOpen(true), []);
@@ -812,9 +815,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         return;
       }
       if (!matchMedia("(pointer: coarse)").matches) return;
-      if (!overhaulMobile) setShowActions((v) => !v);
+      if (!overhaulMobile || touchButtons) setShowActions((v) => !v);
     },
-    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile],
+    [isSelected, message.id, messageOrderIndex, multiSelectMode, onToggleSelect, overhaulMobile, touchButtons],
   );
   const longPress = useLongPress(openMobileSheet, overhaulMobile && !multiSelectMode && !editing);
 

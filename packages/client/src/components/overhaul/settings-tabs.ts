@@ -23,7 +23,15 @@ export const OVERHAUL_SETTINGS_TABS: {
     id: "chatting",
     label: "Chatting",
     blurb: "Replies, the message box, editing and swipes, thinking, formatting and message info",
-    sections: ["responses", "input-editing", "editing-swipes", "thinking", "text-rules", "message-tools"],
+    sections: [
+      "responses",
+      "input-editing",
+      "editing-swipes",
+      "thinking",
+      "text-rules",
+      "message-tools",
+      "message-buttons",
+    ],
   },
   {
     id: "appearance",

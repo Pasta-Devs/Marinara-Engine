@@ -11,6 +11,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { SplitPage } from "../lib/split-view-env";
+import type { MessageButtonId, MessageButtonMode } from "../components/overhaul/message-buttons";
 
 export type OverhaulTabKind =
   | "chat"
@@ -68,6 +69,15 @@ export function overhaulTabKey(tab: OverhaulTab) {
 interface OverhaulState {
   /** Card size in the Characters / Personas galleries (this device). */
   galleryCardSize: GalleryCardSize;
+  /** Library pages showing everything together instead of in folders ("characters", "lorebooks", ...). */
+  libraryFlatPages: string[];
+  setLibraryFlat: (page: string, flat: boolean) => void;
+  /** Buttons shown on messages per chat mode (null: the defaults); the rest wait in the ⋯ menu. */
+  messageButtons: Partial<Record<MessageButtonMode, MessageButtonId[]>> | null;
+  setMessageButtons: (mode: MessageButtonMode, ids: MessageButtonId[] | null) => void;
+  /** Phones and tablets: also show the picked buttons on the newest reply and on a tapped message. */
+  messageButtonsOnTouch: boolean;
+  setMessageButtonsOnTouch: (on: boolean) => void;
   /** The one sidebar (right side): which view it shows, Chats or the Library sections. */
   sidePane: OverhaulSidePane;
   setSidePane: (sidePane: OverhaulSidePane) => void;
@@ -391,6 +401,22 @@ export const useOverhaulStore = create<OverhaulState>()(
       setSplitDrag: (splitDrag) => set({ splitDrag }),
       galleryCardSize: "medium",
       setGalleryCardSize: (galleryCardSize) => set({ galleryCardSize }),
+      libraryFlatPages: [],
+      setLibraryFlat: (page, flat) =>
+        set((state) => {
+          const rest = state.libraryFlatPages.filter((item) => item !== page);
+          return { libraryFlatPages: flat ? [...rest, page] : rest };
+        }),
+      messageButtons: null,
+      setMessageButtons: (mode, ids) =>
+        set((state) => {
+          const next = { ...(state.messageButtons ?? {}) };
+          if (ids) next[mode] = ids;
+          else delete next[mode];
+          return { messageButtons: Object.keys(next).length ? next : null };
+        }),
+      messageButtonsOnTouch: false,
+      setMessageButtonsOnTouch: (messageButtonsOnTouch) => set({ messageButtonsOnTouch }),
       sidePane: "chats",
       setSidePane: (sidePane) => set({ sidePane }),
       mobileSidePageOpen: false,
@@ -421,6 +447,9 @@ export const useOverhaulStore = create<OverhaulState>()(
         gamePaneOpen: state.gamePaneOpen,
         gamePaneTab: state.gamePaneTab,
         galleryCardSize: state.galleryCardSize,
+        libraryFlatPages: state.libraryFlatPages,
+        messageButtons: state.messageButtons,
+        messageButtonsOnTouch: state.messageButtonsOnTouch,
         sidePane: state.sidePane,
         split: state.split,
       }),

@@ -41,6 +41,7 @@ import {
   KitBulkBar,
   KitCheck,
   KitFolderHead,
+  KitFolderViewToggle,
   KitMoreButton,
   KitNewFolderButton,
   KitSelectButton,
@@ -53,6 +54,7 @@ import {
   useKitMenu,
   useKitRowDrag,
   useKitSelection,
+  useLibraryFolderView,
   useSuppressClick,
   type KitAction,
 } from "./LibraryKit";
@@ -77,6 +79,8 @@ export type GalleryCard = {
 // "Recently edited" is a sort, as on Lorebooks and Presets, not a filter (audit C16).
 type QuickFilter = "favorites" | null;
 type SortKey = "name-asc" | "name-desc" | "recent" | "newest" | "oldest" | "tokens-desc" | "tokens-asc" | "custom";
+/** Sorts the server can apply when it loads the cards, so a large library loads the newest (or largest) first. */
+const SERVER_SORTS = new Set<string>(["name-asc", "name-desc", "newest", "oldest", "tokens-desc", "tokens-asc"]);
 
 /** A stable, pleasant gradient for cards without a picture. */
 function placeholderGradient(id: string) {
@@ -103,6 +107,8 @@ export function CardGallery({
   onImport,
   onBrowse,
   extraHeader,
+  serverSort,
+  onServerSort,
 }: {
   kind: "characters" | "personas";
   title: string;
@@ -117,6 +123,10 @@ export function CardGallery({
   /** Characters: open the online card browser (ChubAI and others). */
   onBrowse?: () => void;
   extraHeader?: ReactNode;
+  /** The sort the cards load in (saved); the page starts on it. */
+  serverSort?: string;
+  /** Load the cards in this order (only the sorts the server knows). */
+  onServerSort?: (sort: string) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -129,7 +139,9 @@ export function CardGallery({
   // The tag selector beside search (several tags narrow to cards with all of them).
   const [pickedTags, setPickedTags] = useState<string[]>([]);
   const tagCounts = useMemo(() => countItemTags(cards), [cards]);
-  const [baseSort, setBaseSort] = useState<SortKey>("name-asc");
+  const [baseSort, setBaseSort] = useState<SortKey>(() =>
+    serverSort && SERVER_SORTS.has(serverSort) ? (serverSort as SortKey) : "name-asc",
+  );
   const singular = kind === "characters" ? "character" : "persona";
   // My order: drag cards into your own order (shared with the classic panel's manual order).
   const order = useLibraryOrder(singular);
@@ -139,6 +151,8 @@ export function CardGallery({
     else {
       if (order.active) order.setActive(false);
       setBaseSort(next);
+      // Pages load from the server in this order, so Newest shows the newest cards even before "Load more".
+      if (SERVER_SORTS.has(next) && next !== serverSort) onServerSort?.(next);
     }
   };
 
@@ -183,6 +197,8 @@ export function CardGallery({
   const selection = useKitSelection(visible.map((card) => card.id));
   const menu = useKitMenu();
   const folders = useCardFolders(kind, localize(isCharacters ? "Characters" : "Personas"));
+  // Folders, or every card together (so Newest or Recent reaches across folders).
+  const folderView = useLibraryFolderView(kind);
   const suppress = useSuppressClick();
   const duplicateCharacter = useDuplicateCharacter();
   const duplicatePersona = useDuplicatePersona();
@@ -265,7 +281,7 @@ export function CardGallery({
     if (selection.on) selection.toggle(card.id);
     else onOpen(card.id);
   };
-  const { groups, loose } = groupByFolder(visible, folders, filtering);
+  const { groups, loose } = groupByFolder(visible, folderView.flat ? null : folders, filtering);
 
   const renderCard = (card: GalleryCard, folderId: string | null) => (
     <div
@@ -372,7 +388,7 @@ export function CardGallery({
       <header className="ov-gallery__head">
         <h1 data-mari-part="page-title">{title}</h1>
         {extraHeader}
-        <KitNewFolderButton folders={folders} />
+        <KitNewFolderButton folders={folders} onCreate={() => folderView.setFlat(false)} />
         <KitSelectButton selection={selection} />
         {mobile ? null : browseButton}
         <button type="button" className="ov-btn" onClick={onImport}>
@@ -416,6 +432,7 @@ export function CardGallery({
           </button>
         ) : null}
         <span className="ov-gallery__spacer" />
+        <KitFolderViewToggle folders={folders} view={folderView} />
         <select
           className="ov-select"
           value={sort}

@@ -161,6 +161,7 @@ import { ChatImageLightbox } from "./ChatImageLightbox";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
+import { useMessageButtons, useMessageButtonsOnTouch } from "../overhaul/message-buttons";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
@@ -1119,10 +1120,12 @@ function useThinkingToggle(
   keepExpanded: boolean,
   durationMs: number | null,
   short = false,
+  /** Start closed even while streaming (the Thinking button picked in Settings > Chatting > Message buttons). */
+  startCollapsed = false,
 ) {
   const { t } = useTranslation();
   const startedAtRef = useRef(Date.now());
-  const [expanded, setExpanded] = useState(isStreaming || keepExpanded);
+  const [expanded, setExpanded] = useState(!startCollapsed && (isStreaming || keepExpanded));
   const [liveDurationMs, setLiveDurationMs] = useState(0);
   const [capturedReasoningDurationMs, setCapturedReasoningDurationMs] = useState<number | null>(null);
 
@@ -2178,6 +2181,10 @@ export const ChatMessage = memo(function ChatMessage({
   const overhaulActive = useOverhaulActive();
   // Phones and tablets with the overhaul: no action row on messages; long-press opens the action sheet.
   const overhaulMobile = useOverhaulTouchMessages();
+  // Settings > Chatting > Message buttons: which buttons sit on the message (the rest wait in ⋯).
+  const rpShownButtons = useMessageButtons("roleplay");
+  // Phones and tablets: show those buttons on the newest reply and on a tapped message too.
+  const touchButtons = useMessageButtonsOnTouch() && overhaulMobile && isRoleplay;
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -2631,7 +2638,7 @@ export const ChatMessage = memo(function ChatMessage({
           return;
         }
       }
-      if (!overhaulMobile) setShowActions((v) => !v);
+      if (!overhaulMobile || touchButtons) setShowActions((v) => !v);
     },
     [
       isRoleplay,
@@ -2641,6 +2648,7 @@ export const ChatMessage = memo(function ChatMessage({
       multiSelectMode,
       onToggleSelect,
       overhaulMobile,
+      touchButtons,
       startQuickEdit,
     ],
   );
@@ -2673,14 +2681,19 @@ export const ChatMessage = memo(function ChatMessage({
   // A user turn has reasoning only when a model wrote it (impersonation or a rewrite), so it shows it like a reply (#8682).
   const showInlineThinking = isRoleplay && showRoleplayThinkingInMessages && hasReasoning;
   const showThinkingAction = hasReasoning && !showInlineThinking;
-  const ovThinkingInHeader = overhaulActive && showInlineThinking;
+  // The Thinking button picked to show on Roleplay messages: the same "Thought for Ns" toggle in the header, closed
+  // until clicked, and it fills in live while the reply streams.
+  const thinkingButtonPicked = isRoleplay && hasReasoning && rpShownButtons.includes("thinking");
+  const ovThinkingPickedOnly = overhaulActive && !showInlineThinking && thinkingButtonPicked;
+  const ovThinkingInHeader = overhaulActive && (showInlineThinking || thinkingButtonPicked);
   const ovThinkingId = useId();
   const ovThinking = useThinkingToggle(
     !!isStreaming && ovThinkingInHeader,
     streamingOutputStarted,
-    keepRoleplayThinkingExpanded,
+    keepRoleplayThinkingExpanded && !ovThinkingPickedOnly,
     readPositiveNumber(extra.generationInfo?.reasoningDurationMs),
     true,
+    ovThinkingPickedOnly,
   );
   const ovThinkingButton = ovThinkingInHeader ? (
     <OvThinkingToggle
@@ -4588,11 +4601,67 @@ export const ChatMessage = memo(function ChatMessage({
         )}
       </button>
     );
+    // Picked extra buttons for the bars (the same buttons the ⋯ menu lists).
+    const rpShows = (id: (typeof rpShownButtons)[number]) => rpShownButtons.includes(id);
+    // Phone layout (no header toggle): the picked Thinking button opens the reasoning window, which fills in live.
+    const rpThinkingButton =
+      thinkingButtonPicked && showThinkingAction && !ovThinkingInHeader ? (
+        <ActionBtn
+          icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
+          onClick={() => setShowThinking(true)}
+          title={t(reasoningSummaryUnavailable ? "chat.message.thoughts.unavailable.view" : "chat.message.thoughts.view")}
+          thinkingAction
+          buttonRef={thinkingButtonRef}
+        />
+      ) : null;
+    const rpToolsExtra =
+      rpThinkingButton ||
+      rpShows("marks") ||
+      (rpShows("hide") && onToggleHiddenFromAI) ||
+      (rpShows("delete") && onDelete) ? (
+        <>
+          {rpThinkingButton}
+          {rpShows("marks") ? (
+            <MessageMarksAction message={message} align="right" noteSharing={noteSharing} stopPropagation />
+          ) : null}
+          {rpShows("hide") && onToggleHiddenFromAI ? (
+            <HideFromAIAction
+              messageId={message.id}
+              hiddenFromAll={isHiddenFromAllAI}
+              hiddenCharacterIds={hiddenFromAICharacterIds}
+              characters={isRoleplay ? aiVisibilityCharacters : []}
+              onToggle={onToggleHiddenFromAI}
+              align="right"
+            />
+          ) : null}
+          {rpShows("delete") && onDelete ? (
+            <ActionBtn
+              icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+              onClick={() => onDelete(message.id)}
+              title={localizeUi("lorebook.editor.batch.delete")}
+            />
+          ) : null}
+        </>
+      ) : null;
+    const rpGenerateExtra = rpShows("translate") ? (
+      <ActionBtn
+        icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+        onClick={() => translate(message.id, message.content, message.chatId)}
+        title={
+          translatedText ? localizeUi("ui.chat.chatmessage.hideTranslation") : localizeUi("ui.chat.chatmessage.translate")
+        }
+      />
+    ) : null;
+    // Phones and tablets (when picked in Settings): the newest reply and a tapped message show their bars.
+    const touchBarsOn = touchButtons && !editing && ((isLastAssistantMessage && !isUser) || showActions);
     const rpActions = (part: "tools" | "generate") =>
-      overhaulActive && !editing ? (
+      (overhaulActive || touchBarsOn) && !editing && (!touchButtons || touchBarsOn) ? (
         <OvRpMessageFooter
           part={part}
-          placement={part === "generate" ? "below" : "footer"}
+          placement={part === "generate" && overhaulActive ? "below" : "footer"}
+          shown={rpShownButtons}
+          toolsExtra={rpToolsExtra}
+          generateExtra={rpGenerateExtra}
           chatId={message.chatId}
           messageId={message.id}
           pinned={Boolean(isLastAssistantMessage && !isUser)}
@@ -4606,7 +4675,7 @@ export const ChatMessage = memo(function ChatMessage({
           onCopy={handleCopy}
           onBranch={onBranch ? () => onBranch(message.id) : undefined}
           more={rpActionsRow}
-          speak={!isUser && ttsEnabled ? ovSpeakButton : undefined}
+          speak={!isUser && ttsEnabled && rpShows("speak") ? ovSpeakButton : undefined}
           marksPanel={({ back, done }) => (
             <OvMessageMarksPanel message={message} noteSharing={noteSharing} onBack={back} onDone={done} />
           )}
@@ -4616,17 +4685,23 @@ export const ChatMessage = memo(function ChatMessage({
     /** New layout: name, time and the message tools inside the bubble, above a divider line. */
     const ovRpHead = overhaulActive ? (
       isGrouped ? (
-        overhaulMobile ? null : (
+        overhaulMobile && !touchBarsOn ? null : (
           <div className="ov-rpmsg__tools-float">{rpActions("tools")}</div>
         )
       ) : (
         <div className="ov-rpmsg__head" data-mari-part="header" data-placement="inside">
           {rpNameMeta}
           <span className="ov-rpmsg__grow" />
-          {/* Touch screens: the tools live in the long-press menu. */}
-          {overhaulMobile ? null : rpActions("tools")}
+          {/* Touch screens: the tools live in the long-press menu (unless picked to show in Settings). */}
+          {overhaulMobile && !touchBarsOn ? null : rpActions("tools")}
         </div>
       )
+    ) : touchBarsOn ? (
+      // Phone layout (name outside the bubble): the top bar sits at the top of the bubble.
+      <div className="ov-rpmsg__touch-tools">{rpActions("tools")}</div>
+    ) : isStreaming && rpThinkingButton ? (
+      // A reply still streaming shows its picked Thinking button even with the bars off.
+      <div className="ov-rpmsg__touch-tools">{rpThinkingButton}</div>
     ) : null;
     return (
       <>
@@ -4999,7 +5074,11 @@ export const ChatMessage = memo(function ChatMessage({
             {/* New layout: Regenerate and swipes (anything that costs an API call) hang under the message's
                 bottom-right without taking space, so hovering moves nothing. After the bubble in the DOM, so
                 Tab reaches the header tools first (audit H11). */}
-            {rpGenerateActions}
+            {touchBarsOn && !overhaulActive && rpGenerateActions ? (
+              <div className="ov-rpmsg__touch-bottom">{rpGenerateActions}</div>
+            ) : (
+              rpGenerateActions
+            )}
             {roleplayAttachments}
 
             {!editing && !isUser && (storyboard || storyboardGenerating) ? (
@@ -5035,7 +5114,12 @@ export const ChatMessage = memo(function ChatMessage({
               />
             )}
 
-            {overhaulMobile && !overhaulActive && isLastAssistantMessage && !isUser && !editing ? (
+            {overhaulMobile &&
+            !overhaulActive &&
+            isLastAssistantMessage &&
+            !isUser &&
+            !editing &&
+            !(touchBarsOn && rpShows("swipes")) ? (
               <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} />
             ) : null}
 

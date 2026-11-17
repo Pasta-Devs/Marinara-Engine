@@ -26,6 +26,7 @@ import {
   Folder,
   FolderInput,
   FolderPlus,
+  FolderTree,
   MoreHorizontal,
   Pencil,
   Square,
@@ -39,6 +40,7 @@ import { RowActionSheet } from "./RowActionSheet";
 import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
@@ -543,7 +545,7 @@ export function folderActions(folders: KitFolders, folder: KitFolder): KitAction
   ];
 }
 
-export function KitNewFolderButton({ folders }: { folders: KitFolders }) {
+export function KitNewFolderButton({ folders, onCreate }: { folders: KitFolders; onCreate?: () => void }) {
   const localize = useLocalizedUiText();
   return (
     <button
@@ -551,9 +553,51 @@ export function KitNewFolderButton({ folders }: { folders: KitFolders }) {
       className="ov-btn ov-btn--icon"
       aria-label={localize("New folder")}
       title={localize("New folder")}
-      onClick={folders.create}
+      onClick={() => {
+        onCreate?.();
+        folders.create();
+      }}
     >
       <FolderPlus size={15} aria-hidden="true" />
+    </button>
+  );
+}
+
+/**
+ * Folders or everything together, per Library page and remembered on this device: with folders off, the page
+ * lists every item in one run, so a sort such as Newest reaches across folders.
+ */
+export function useLibraryFolderView(page: string) {
+  const flat = useOverhaulStore((state) => state.libraryFlatPages.includes(page));
+  const setFlat = useOverhaulStore((state) => state.setLibraryFlat);
+  return { flat, setFlat: (next: boolean) => setFlat(page, next) };
+}
+
+/** The "Folders" switch on a Library page's toolbar; only shown while the page has folders. */
+export function KitFolderViewToggle({
+  folders,
+  view,
+}: {
+  folders: KitFolders | null | undefined;
+  view: ReturnType<typeof useLibraryFolderView>;
+}) {
+  const localize = useLocalizedUiText();
+  const mobile = useOverhaulMobile();
+  if (!folders || !folders.folders.some((folder) => !folder.virtual)) return null;
+  const on = !view.flat;
+  const title = localize(on ? "Showing folders. Turn off to list everything together" : "Show folders");
+  return (
+    <button
+      type="button"
+      className={cn("ov-btn ov-kit-folderview", on && "is-on", mobile && "ov-btn--icon")}
+      aria-pressed={on}
+      aria-label={localize("Folders")}
+      title={title}
+      data-folder-view={on ? "folders" : "all"}
+      onClick={() => view.setFlat(on)}
+    >
+      <FolderTree size={14} aria-hidden="true" />
+      {mobile ? null : localize("Folders")}
     </button>
   );
 }
