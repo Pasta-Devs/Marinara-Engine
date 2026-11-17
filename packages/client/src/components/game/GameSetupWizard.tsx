@@ -2979,6 +2979,7 @@ export function GameSetupWizard({
                                       <Select
                                         label={localizeUi("ui.game.gamesetupwizard.playlist")}
                                         value={gameSpotifyPlaylistId}
+                                        placeholder={localizeUi("ui.game.gamesetupwizard.choosePlaylist")}
                                         onChange={(next) => {
                                           const playlist = spotifyPlaylistsQuery.data?.playlists.find(
                                             (entry) => entry.id === next,
@@ -2989,6 +2990,18 @@ export function GameSetupWizard({
                                         className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
                                         options={[
                                           { value: "", label: localizeUi("ui.game.gamesetupwizard.choosePlaylist") },
+                                          // A saved playlist outside the fetched page still shows as the pick.
+                                          ...(gameSpotifyPlaylistId &&
+                                          !spotifyPlaylistsQuery.data.playlists.some(
+                                            (entry) => entry.id === gameSpotifyPlaylistId,
+                                          )
+                                            ? [
+                                                {
+                                                  value: gameSpotifyPlaylistId,
+                                                  label: gameSpotifyPlaylistName || gameSpotifyPlaylistId,
+                                                },
+                                              ]
+                                            : []),
                                           ...spotifyPlaylistsQuery.data.playlists.map((playlist) => {
                                             const suffix =
                                               typeof playlist.trackCount === "number"

@@ -196,6 +196,7 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
               <div key={index} className="flex items-center gap-1.5">
                 <Select
                   value={rename.from}
+                  placeholder={t("characters.bulkTags.renameFrom")}
                   onChange={(next) =>
                     setRenames((current) => current.map((item, i) => (i === index ? { ...item, from: next } : item)))
                   }
