@@ -40,6 +40,7 @@ function commonExtensions(source: AuthoredPersona | CharacterExtensions) {
   return {
     backstory: source.backstory,
     appearance: source.appearance,
+    publicFace: source.publicFace,
     versioningEnabled: source.versioningEnabled !== false,
     cardFieldAlternatives: source.cardFieldAlternatives,
     imageAppearance: source.imageAppearance,

@@ -98,6 +98,8 @@ export const characterExtensionsSchema = z
     cardFieldAlternatives: cardFieldAlternativesSchema.optional(),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
+    /** Marinara Engine: the card minus its private parts. Optional, so existing cards gain no key. */
+    publicFace: z.string().optional(),
     /** Marinara Engine: use `imageAppearance` instead of `appearance` in image prompts. */
     imageAppearanceEnabled: z.boolean().optional(),
     /** Marinara Engine: appearance text used for image prompts when the override is enabled. */

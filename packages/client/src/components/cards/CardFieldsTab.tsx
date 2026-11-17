@@ -115,6 +115,7 @@ export function CardFieldsTab({
         onGenerate={() => void generation.generate(field.key)}
         disabled={!entityId || generation.isPending}
         loading={generation.pendingField === field.key}
+        field={field.key}
       />
     );
     const footer = (

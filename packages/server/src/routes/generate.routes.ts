@@ -2757,6 +2757,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         scenario?: string;
         backstory?: string;
         appearance?: string;
+        publicFace?: string;
       } = {};
       let persona: Awaited<ReturnType<typeof resolveChatUserIdentity>> = null;
       // ── Game mode: apply segment edit overlays to message content ──
@@ -2812,6 +2813,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           scenario: cardPromptText(identity.scenario),
           backstory: cardPromptText(identity.backstory),
           appearance: cardPromptText(identity.appearance),
+          publicFace: cardPromptText(identity.publicFace),
         };
       }
       const userIdentityId = identity?.id ?? null;

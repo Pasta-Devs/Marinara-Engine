@@ -214,6 +214,7 @@ const PERSONA_CARD_SECTIONS = [
   { id: "persona-card-backstory", field: "backstory" },
   { id: "persona-card-appearance", field: "appearance" },
   { id: "persona-card-scenario", field: "scenario" },
+  { id: "persona-card-public-face", field: "publicFace" },
   { id: "persona-card-dialogue", field: "mes_example" },
 ] as const;
 
@@ -265,6 +266,7 @@ interface PersonaFormData {
   scenario: string;
   backstory: string;
   appearance: string;
+  publicFace: string;
   /** Mirrors the card's image-prompt override: `imageAppearance` is used instead of
    *  `appearance` in image prompts while `imageAppearanceEnabled` is on. */
   imageAppearanceEnabled: boolean;
@@ -306,7 +308,14 @@ function appendNewTags(existingTags: string[], rawInput: string) {
   return additions.length > 0 ? [...existingTags, ...additions] : existingTags;
 }
 
-const PERSONA_QUOTE_FIELD_KEYS = new Set<string>(["description", "personality", "scenario", "backstory", "appearance"]);
+const PERSONA_QUOTE_FIELD_KEYS = new Set<string>([
+  "description",
+  "personality",
+  "scenario",
+  "backstory",
+  "appearance",
+  "publicFace",
+]);
 
 function formatPersonaFieldValue<K extends keyof PersonaFormData>(
   key: K,
@@ -385,6 +394,7 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
+    publicFace: persona.publicFace ?? "",
     imageAppearanceEnabled: persona.imageAppearanceEnabled === true,
     imageAppearance: persona.imageAppearance ?? "",
     characterSheetImageId: persona.characterSheetImageId ?? null,
@@ -3831,6 +3841,7 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "scenario", label: "Scenario" },
   { key: "backstory", label: "Backstory" },
   { key: "appearance", label: "Appearance" },
+  { key: "publicFace", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { key: "imageAppearance", label: "Image Appearance Override" },
   { key: "imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "characterSheetImageId", label: "Character Sheet" },
@@ -3862,6 +3873,7 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     scenario: formData.scenario,
     backstory: formData.backstory,
     appearance: formData.appearance,
+    publicFace: formData.publicFace,
     imageAppearanceEnabled: String(formData.imageAppearanceEnabled),
     imageAppearance: formData.imageAppearance,
     characterSheetImageId: formData.characterSheetImageId ?? "",
@@ -4354,6 +4366,15 @@ function PersonaCardTab({
         localizeUi("ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact") +
         " " +
         seedHint,
+      rows: 8,
+    },
+    {
+      key: "publicFace",
+      sectionId: "persona-card-public-face",
+      title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
+      subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
+      helpText: localizeUi("ui.cardFields.publicFace.help"),
+      placeholder: localizeUi("ui.cardFields.publicFace.placeholder"),
       rows: 8,
     },
     {
