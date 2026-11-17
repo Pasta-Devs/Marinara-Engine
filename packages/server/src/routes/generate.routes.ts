@@ -7478,7 +7478,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(allTextRewriteAgents.map((a) => a.id));
-        const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
+        let lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
         let pipelineAgents = resolvedAgents.filter(
           (a) =>
             !textRewriteAgentIds.has(a.id) &&
@@ -12689,6 +12689,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }
           for (let index = pipelineAgents.length - 1; index >= 0; index--) {
             if (inactivePostProcessingAgentIds.has(pipelineAgents[index]!.id)) pipelineAgents.splice(index, 1);
+          }
+          // Lorebook Keeper runs outside the pipeline, from a reference taken before gating.
+          if (lorebookKeeperAgent && inactivePostProcessingAgentIds.has(lorebookKeeperAgent.id)) {
+            lorebookKeeperAgent = null;
           }
         }
         const activatedTextRewriteRunAgents = activeTextRewriteRunAgents(
