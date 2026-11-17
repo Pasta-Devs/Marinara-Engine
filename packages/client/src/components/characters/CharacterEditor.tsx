@@ -3407,15 +3407,18 @@ function DialogueTab({
   const [rawGreeting, setRawGreeting] = useState(false);
   const [greetingQuery, setGreetingQuery] = useState("");
   const [greetingFilter, setGreetingFilter] = useState<string[]>([]);
-  // Brackets are tags once two greetings open with them, as in the picker, or once the user tags one here;
-  // a lone `[OOC]` opener stays text.
-  const [taggingGreetings, setTaggingGreetings] = useState(false);
-  const greetingTagsOn =
-    taggingGreetings ||
-    parseGreetings([formData.first_mes, ...formData.alternate_greetings]).some((entry) => entry.tags.length > 0);
+  // Brackets are tags once two greetings open with them, as in the picker. A greeting the user tags here also
+  // reads its own brackets as tags; every other lone `[OOC]` opener stays text.
+  const [taggedGreetingKeys, setTaggedGreetingKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const cardTagged = parseGreetings([formData.first_mes, ...formData.alternate_greetings]).some(
+    (entry) => entry.tags.length > 0,
+  );
   const greetingHeaders = useMemo(
-    () => formData.alternate_greetings.map((greeting) => splitGreetingHeader(greeting, greetingTagsOn)),
-    [formData.alternate_greetings, greetingTagsOn],
+    () =>
+      formData.alternate_greetings.map((greeting, index) =>
+        splitGreetingHeader(greeting, cardTagged || taggedGreetingKeys.has(greetingKeysRef.current[index] ?? "")),
+      ),
+    [formData.alternate_greetings, cardTagged, taggedGreetingKeys],
   );
   const greetingTagOptions = useMemo(
     () =>
@@ -3568,13 +3571,14 @@ function DialogueTab({
               )}
               {formData.alternate_greetings.map((g, i) => {
                 const greetingKey = greetingKeysRef.current[i] ?? String(i);
+                const tagsOn = cardTagged || taggedGreetingKeys.has(greetingKey);
                 if (greetingList && greetingKey !== openGreeting) {
                   return greetingShown(i) ? (
                     <GreetingRow
                       key={greetingKey}
                       number={i + 2}
                       text={g}
-                      allowTags={greetingTagsOn}
+                      allowTags={tagsOn}
                       onOpen={() => {
                         setOpenGreeting(greetingKey);
                         setRawGreeting(false);
@@ -3673,8 +3677,8 @@ function DialogueTab({
                         tags={header.tags}
                         tagOptions={greetingTagOptions}
                         onChange={(tags, title) => {
-                          if (tags.length) setTaggingGreetings(true);
-                          updateGreeting(i, setGreetingHeader(g, tags, title, greetingTagsOn));
+                          if (tags.length) setTaggedGreetingKeys((keys) => new Set(keys).add(greetingKey));
+                          updateGreeting(i, setGreetingHeader(g, tags, title, tagsOn));
                         }}
                       />
                     )}
