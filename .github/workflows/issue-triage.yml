@@ -24,15 +24,23 @@ jobs:
               ['[feature]', 'enhancement'],
               ['[docs-i18n]', 'docs'],
             ];
+            const labelFor = (title) =>
+              prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
             const issue = context.payload.issue;
-            const title = issue.title.trim().toLowerCase();
-            const match = prefixLabels.find(([prefix]) => title.startsWith(prefix));
-            if (!match || issue.labels.some((label) => label.name === match[1])) {
+            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number };
+            const has = (name) => issue.labels.some((label) => label.name === name);
+            const label = labelFor(issue.title);
+            const previousTitle = context.payload.changes?.title?.from;
+            const previous = previousTitle === undefined ? undefined : labelFor(previousTitle);
+            // On an edit only a changed prefix counts, so a label a maintainer removed stays removed.
+            // A title switched to another prefix is a correction, so the old prefix's label goes.
+            // A prefix removed from the title leaves the labels alone.
+            if (!label || previous === label) {
               return;
             }
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              labels: [match[1]],
-            });
+            if (previous && has(previous)) {
+              await github.rest.issues.removeLabel({ ...target, name: previous });
+            }
+            if (!has(label)) {
+              await github.rest.issues.addLabels({ ...target, labels: [label] });
+            }

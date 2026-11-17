@@ -291,12 +291,14 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 
 Workflows add most labels. Only people with triage access can set labels by hand, so for everyone else the title is how an issue gets its label.
 
-- **Issues:** start the title with the prefix the issue forms use. The issue gets its type label when it is opened or when its title changes, whether it was filed through the form, `gh issue create` or the API:
+- **Issues:** start the title with the prefix the issue forms use. `.github/workflows/issue-triage.yml` adds the type label when the issue is opened or its title gets a new prefix, whether it was filed through the form, `gh issue create` or the API:
   - `[Issue]:` or `[Bug]:` gets `bug`.
   - `[Feature]:` gets `enhancement`.
   - `[docs-i18n]` gets `docs`.
-- **Pull requests:** a title that starts with `fix` or a `fix/` branch gets `bugfix`, and a title that starts with `feat` or a `feat/` branch gets `feature`. Area labels such as `client`, `server`, `android` and `docs` follow the changed files, as listed in `.github/labeler.yml`.
-- **Linked issues:** an issue named on a pull request's `Closes #N` line gets `in-pr` while the pull request is open, and `fixed-in-staging` once it merges into `staging`.
+
+  Changing the title to another of these prefixes swaps the label. Removing the prefix leaves the labels as they are.
+- **Pull requests:** `.github/workflows/pull-request-triage.yml` adds `bugfix` to a title that starts with `fix` or a `fix/` branch, and `feature` to a title that starts with `feat` or a `feat/` branch. Area labels such as `client`, `server`, `android` and `docs` follow the changed files, as listed in `.github/labeler.yml`.
+- **Linked issues:** `.github/workflows/issue-status-from-prs.yml` adds `in-pr` to an issue named on a pull request's `Closes #N` line while the pull request is open, and `fixed-in-staging` once it merges into `staging`.
 - Maintainers add the rest by hand, such as `regression`, `qol`, the scope labels (`normal-scope`, `scope-risk`, `feature-creep`) and `needs-codeowner-decision`.
 
 ## Documentation Rules
