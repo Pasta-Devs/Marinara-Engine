@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
+  isChatProvider,
   speaksOpenAIChat,
   type ChatModelChoice,
   type ConnectionPickerKind,
@@ -313,6 +314,27 @@ function ModelPickerSlot({
     }
   };
 
+  // Decision assignments use a separate tested row; highlight the matching provider model in the shared list.
+  const assigned = (rows as ConnectionModelRow[] | undefined)?.find((row) => row.id === value);
+  const decisionPeers =
+    decision && assigned?.accountId
+      ? (rows as ConnectionModelRow[] | undefined)?.filter(
+          (row) => row.accountId === assigned.accountId && isChatProvider(row.provider),
+        )
+      : undefined;
+  const decisionAnchor = decisionPeers?.find((row) => row.model === assigned?.model) ?? decisionPeers?.[0];
+  const currentChoice =
+    decisionAnchor && assigned?.model
+      ? {
+          connectionId: decisionAnchor.id,
+          ...(decisionAnchor.model !== assigned.model
+            ? { model: assigned.model, name: assigned.name || assigned.model }
+            : {}),
+        }
+      : !decision && value && !extraOptions.some((extra) => extra.value === value)
+        ? { connectionId: value }
+        : null;
+
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
     openAddConnection(jobKey ? { job: jobKey, assign: onChangeRef.current, previous: value } : undefined);
@@ -336,6 +358,7 @@ function ModelPickerSlot({
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
         catalogBrowse
+        showUnstarred
         accountFilter={
           mediaKind ? (account) => mediaSources(account.provider, kind as MediaKind).length > 0 : undefined
         }
@@ -344,12 +367,10 @@ function ModelPickerSlot({
             ? (account, all) => all.find((row) => row.accountId === account.id && row.provider === account.provider)
             : undefined
         }
-        current={
-          !decision && value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null
-        }
+        current={currentChoice}
         onApply={decision ? applyDecision : embedding ? applyEmbedding : mediaKind ? applyMedia : apply}
         onDone={onClose}
-        confirmCurrent={confirmCurrent}
+        confirmCurrent={confirmCurrent || decision}
         showLocalModel={includeLocalSidecar}
         followDefault={
           includeDefault
