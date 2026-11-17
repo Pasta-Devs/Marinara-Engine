@@ -339,7 +339,14 @@ type PersonaContext = {
   identitySource: "persona" | "character" | null;
   personaName: string;
   personaDescription: string;
-  personaFields: { example?: string; personality?: string; scenario?: string; backstory?: string; appearance?: string };
+  personaFields: {
+    example?: string;
+    personality?: string;
+    scenario?: string;
+    backstory?: string;
+    appearance?: string;
+    publicFace?: string;
+  };
   /** Image-prompt appearance override (#7053); empty when the user has none. */
   imageAppearanceOverride: string;
   personaAvatarPath?: string | null;
@@ -839,6 +846,7 @@ async function resolvePersonaContext(
     scenario: cardPromptText(persona.scenario),
     backstory: cardPromptText(persona.backstory),
     appearance: cardPromptText(persona.appearance),
+    publicFace: cardPromptText(persona.publicFace),
   };
 
   if (persona.personaStats) {
@@ -1061,6 +1069,7 @@ async function buildRetryAgentContext(args: {
       systemPrompt: cardPromptText(charData.system_prompt) || undefined,
       backstory: cardPromptText(extensions.backstory ?? charData.backstory) || undefined,
       appearance: cardPromptText(extensions.appearance ?? charData.appearance) || undefined,
+      publicFace: cardPromptText(extensions.publicFace) || undefined,
       mesExample: cardPromptText(charData.mes_example) || undefined,
       firstMes: cardPromptText(charData.first_mes) || undefined,
       postHistoryInstructions: cardPromptText(charData.post_history_instructions) || undefined,

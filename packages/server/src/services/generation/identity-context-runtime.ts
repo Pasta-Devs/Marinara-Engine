@@ -20,6 +20,7 @@ export function buildRetryAgentPersona(
     backstory?: string;
     appearance?: string;
     scenario?: string;
+    publicFace?: string;
     personaStats?: NonNullable<AgentContext["persona"]>["personaStats"];
     rpgStats?: NonNullable<AgentContext["persona"]>["rpgStats"];
   },
@@ -33,6 +34,7 @@ export function buildRetryAgentPersona(
     backstory: resolveText(identity.backstory) || undefined,
     appearance: resolveText(identity.appearance) || undefined,
     scenario: resolveText(identity.scenario) || undefined,
+    publicFace: resolveText(identity.publicFace) || undefined,
     ...(identity.personaStats ? { personaStats: identity.personaStats } : {}),
     ...(identity.rpgStats ? { rpgStats: identity.rpgStats } : {}),
   };

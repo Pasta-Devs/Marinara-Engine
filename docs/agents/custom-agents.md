@@ -128,6 +128,7 @@ When someone adds the agent to a chat, a **Prompt Mode** dropdown lists your opt
 - **Model override**: use a different model for this agent, for example a cheaper one. Leave it empty to use the chat's model. The agent sends the generation parameters saved on that connection. See [Parameters for agents](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget**: **Context Size** is how many recent messages the agent reads (default 5). **Max Output Tokens** is the output room reserved (default 4096, from 128 to 32768).
 - **Add as Prompt Section**: exposes the agent's latest output as a section you can place in a prompt preset.
+- **Context Sources**: what the agent reads besides its instructions. **Characters** and **Persona** each have three choices: **Off**, **Full card** or **Public Face**. **Public Face** sends only the name and the card's **Public Face** field. If that field is empty, only the name is sent. To write one, see [Card tab](../characters/creating-and-editing-characters.md#card-tab). When several agents share one request, each source uses the widest choice among them: **Full card**, then **Public Face**, then **Off**.
 
 Macros such as `{{user}}` and `{{char}}` work in the **Prompt Template**. See [Macros](../prompts/macros.md).
 

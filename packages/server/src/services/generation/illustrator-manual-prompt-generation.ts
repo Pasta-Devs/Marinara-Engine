@@ -1,5 +1,6 @@
 import {
   DEFAULT_GENERATION_PARAMS,
+  getAgentCardContextMode,
   getAgentContextSources,
   type AgentContext,
   type CustomAgentContextSources,
@@ -140,12 +141,19 @@ function escapeContextAttribute(value: string): string {
     .replace(/>/gu, "&gt;");
 }
 
-function buildCharacterPersonaContext(context: AgentContext): string {
+/** Follows the Illustrator's Characters and Persona sources, as an automatic run does (#9426). */
+function buildCharacterPersonaContext(context: AgentContext, sources: CustomAgentContextSources): string {
   const parts: string[] = ["<visual_identity_context>"];
-  if (context.characters.length > 0) {
+  const charactersMode = getAgentCardContextMode(sources, "characters");
+  if (charactersMode !== "off" && context.characters.length > 0) {
     parts.push("<characters>");
     for (const character of context.characters) {
       parts.push(`<character name="${escapeContextAttribute(character.name)}">`);
+      if (charactersMode === "publicFace") {
+        appendContextField(parts, "Public Face", character.publicFace, 2_000);
+        parts.push("</character>");
+        continue;
+      }
       appendContextField(parts, "Description", character.description, 2_000);
       appendContextField(parts, "Appearance", character.appearance, 1_500);
       appendContextField(parts, "Personality", character.personality, 1_000);
@@ -155,7 +163,13 @@ function buildCharacterPersonaContext(context: AgentContext): string {
     }
     parts.push("</characters>");
   }
-  if (context.persona) {
+  const personaMode = getAgentCardContextMode(sources, "persona");
+  if (personaMode === "publicFace" && context.persona) {
+    parts.push("<user_persona>");
+    appendContextField(parts, "Name", context.persona.name, 120);
+    appendContextField(parts, "Public Face", context.persona.publicFace, 2_000);
+    parts.push("</user_persona>");
+  } else if (personaMode === "full" && context.persona) {
     parts.push("<user_persona>");
     appendContextField(parts, "Name", context.persona.name, 120);
     appendContextField(parts, "Description", context.persona.description, 2_000);
@@ -240,10 +254,11 @@ export function buildManualIllustratorPromptMessages(args: {
   // Custom prompts may mix visual instructions with schemas or generation conditions.
   // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
   const promptModeInstruction = args.selectedPromptTemplate?.trim();
-  // The current location, lorebook entries, summary and author notes follow the Illustrator's
-  // Context Sources, exactly as in an automatic Illustrator run (#8246, #8251).
-  const currentLocation = buildAgentCurrentLocationBlock(args.context, args.contextSources);
-  const referenceContext = buildAgentReferenceContextBlock(args.context, args.contextSources);
+  // Characters, persona, the current location, lorebook entries, summary and author notes follow
+  // the Illustrator's Context Sources, exactly as in an automatic Illustrator run (#8246, #8251, #9426).
+  const contextSources = args.contextSources ?? getAgentContextSources({ settings: {} });
+  const currentLocation = buildAgentCurrentLocationBlock(args.context, contextSources);
+  const referenceContext = buildAgentReferenceContextBlock(args.context, contextSources);
   const systemPrompt = [
     promptModeInstruction
       ? [
@@ -258,7 +273,7 @@ export function buildManualIllustratorPromptMessages(args: {
       ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements. Express it as words for the image model; never copy its sentences into the JSON fields.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     args.characterPromptInstruction?.trim() ?? "",
-    buildCharacterPersonaContext(args.context),
+    buildCharacterPersonaContext(args.context, contextSources),
     ...(currentLocation ? [currentLocation] : []),
     ...(referenceContext ? [referenceContext] : []),
   ].join("\n\n");
