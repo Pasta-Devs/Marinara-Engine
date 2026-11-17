@@ -295,8 +295,9 @@ Workflows add most labels. Only people with triage access can set labels by hand
   - `[Issue]:` or `[Bug]:` gets `bug`.
   - `[Feature]:` gets `enhancement`.
   - `[docs-i18n]` gets `docs`.
+  - `[Tracking]:` gets `tracking`. Use it for an umbrella issue that a series of pull requests works through, each linking back with "Part of #N".
 
-  The type label follows the prefix: of `bug`, `enhancement` and `docs`, the issue keeps only the one its prefix names, so change the prefix to change the type. A title without one of these prefixes keeps its labels.
+  The type label follows the prefix: of `bug`, `enhancement`, `docs` and `tracking`, the issue keeps only the one its prefix names, so change the prefix to change the type. A title without one of these prefixes keeps its labels. `fix:` and `feat:` are pull request prefixes, and an issue titled that way gets no label, so a bug report starts with `[Issue]:` even when it already proposes the fix.
 - **Pull requests:** `.github/workflows/pull-request-triage.yml` adds `bugfix` to a title that starts with `fix` or a `fix/` branch, and `feature` to a title that starts with `feat` or a `feat/` branch. Area labels such as `client`, `server`, `android` and `docs` follow the changed files, as listed in `.github/labeler.yml`.
 - **Linked issues:** `.github/workflows/issue-status-from-prs.yml` adds `in-pr` to an issue named on a pull request's `Closes #N` line while the pull request is open, and `fixed-in-staging` once it merges into `staging`.
 - Maintainers add the rest by hand, such as `regression`, `qol`, the scope labels (`normal-scope`, `scope-risk`, `feature-creep`) and `needs-codeowner-decision`.
