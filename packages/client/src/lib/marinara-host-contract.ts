@@ -146,6 +146,9 @@ export interface MarinaraHostV1 {
     readonly Spinner: typeof import("../components/ui/Spinner").Spinner;
     /** Capability API 1.830. The same confirm dialog as `services.dialogs.showConfirmDialog`, kept here so a package finds it next to the components. */
     readonly showConfirmDialog: typeof import("./app-dialogs").showConfirmDialog;
+    /** Capability API 1.831. The shared dropdown: `value`, `options` ({ value, label, description?, group?,
+     *  disabledReason? }), `onChange`, `label`; a popover on desktop and a sheet on phones. */
+    readonly Select: typeof import("../components/ui/Select").Select;
   };
   readonly data: { readonly emojiCatalog: typeof import("./emoji-catalog.generated") };
   /** The module namespace of lib/api-client.ts (api, ApiError, getApiErrorMessage, ...). */
