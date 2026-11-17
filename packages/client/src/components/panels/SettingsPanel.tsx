@@ -8,6 +8,7 @@ import {
   useUIStore,
   SHARED_SIDEBAR_WIDTH_MIN,
   SHARED_SIDEBAR_WIDTH_MAX,
+  normalizeSidebarSide,
   selectSharedSidebarWidth,
   getDefaultAppAccentColor,
   getDefaultChatChromeTextColor,
@@ -3844,7 +3845,8 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                       key={side}
                       type="button"
                       onClick={() => setSidebarSide(side)}
-                      aria-pressed={sidebarSide === side}
+                      // An unknown synced value shows as Right, which is how the shell treats it.
+                      aria-pressed={normalizeSidebarSide(sidebarSide) === side}
                       className={SETTINGS_BUTTON_CLASS}
                     >
                       {localizeUi(

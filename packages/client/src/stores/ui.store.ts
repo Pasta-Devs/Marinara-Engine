@@ -1725,7 +1725,7 @@ function getMobileDetailReturnState(state: UIState) {
 function restoreMobileDetailReturnPanel(panel: Panel | null) {
   return {
     detailReturnRightPanel: null,
-    ...(panel && { rightPanelOpen: true, rightPanel: panel }),
+    ...(panel && { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false }),
   };
 }
 
@@ -2860,10 +2860,12 @@ export const useUIStore = create<UIState>()(
             dismissChatFloatingUiForMobilePanel(true);
             return { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false, sidebarHiddenForFight: false };
           }),
-        closeRightPanel: () => set({ rightPanelOpen: false }),
+        // Chats and a panel share the sidebar, so closing the panel closes it, even when a synced sidebarOpen from an
+        // older client or another device arrived beside the panel.
+        closeRightPanel: () => set((s) => (s.rightPanelOpen ? { rightPanelOpen: false, sidebarOpen: false } : {})),
         toggleRightPanel: (panel) =>
           set((s) => {
-            if (s.rightPanelOpen && s.rightPanel === panel) return { rightPanelOpen: false };
+            if (s.rightPanelOpen && s.rightPanel === panel) return { rightPanelOpen: false, sidebarOpen: false };
             dismissChatFloatingUiForMobilePanel(true);
             return { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false, sidebarHiddenForFight: false };
           }),

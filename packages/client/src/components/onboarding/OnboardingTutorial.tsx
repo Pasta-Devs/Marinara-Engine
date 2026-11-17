@@ -310,6 +310,19 @@ interface TourSidebar {
   width: number;
 }
 
+/**
+ * Mari points toward what the step shows. Point-up unflipped points up-left and point-middle left. The top-bar buttons
+ * are on the sidebar's side and the card hangs from them toward the chat; the mode tabs are inside the docked sidebar
+ * and the card sits beside it. Without a docked sidebar (a tablet's sheet) each step keeps its own flip.
+ */
+function spriteFlipFor(step: TourStep, sidebar: TourSidebar | null): boolean {
+  const flip = step.sprite?.flip ?? false;
+  if (!sidebar) return flip;
+  if (isTopbarTourTarget(step.target)) return sidebar.side !== "left";
+  if (isChatModeTourTarget(step.target)) return sidebar.side === "right";
+  return flip;
+}
+
 function computeTooltipStyle(rect: Rect, step: TourStep, sidebar: TourSidebar | null = null): React.CSSProperties {
   const vw = getViewportWidth();
   const vh = getViewportHeight();
@@ -461,12 +474,15 @@ function TourCardContent({
   onNext,
   onSkip,
   pickerSlot,
+  flipSprite,
 }: {
   step: number;
   currentStep: TourStep;
   isLast: boolean;
   onNext: () => void;
   onSkip: () => void;
+  /** Mari faces what the step shows (spriteFlipFor). */
+  flipSprite: boolean;
   /** Extra interactive content rendered between the body and the progress dots */
   pickerSlot?: React.ReactNode;
 }) {
@@ -490,7 +506,7 @@ function TourCardContent({
             {...mariImgLoading(MARI_ASSET_TIER.poses[currentStep.sprite.pose])}
             alt={localizeUi("ui.onboarding.tourcardcontent.professorMari")}
             className="h-32 max-h-[15vh] w-auto object-contain drop-shadow-lg [image-rendering:pixelated]"
-            style={currentStep.sprite.flip ? { transform: "scaleX(-1)" } : undefined}
+            style={flipSprite ? { transform: "scaleX(-1)" } : undefined}
             draggable={false}
           />
         </div>
@@ -830,6 +846,7 @@ function OnboardingTutorialInner() {
                 onNext={next}
                 onSkip={finish}
                 pickerSlot={pickerSlot}
+                flipSprite={spriteFlipFor(currentStep, tourSidebar)}
               />
             </motion.div>
           </AnimatePresence>
@@ -857,6 +874,7 @@ function OnboardingTutorialInner() {
               onNext={next}
               onSkip={finish}
               pickerSlot={pickerSlot}
+              flipSprite={spriteFlipFor(currentStep, tourSidebar)}
             />
           </motion.div>
         </AnimatePresence>

@@ -475,6 +475,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     <header
       ref={headerRef}
       data-component="TopBar"
+      data-sidebar-side={sidebarOnLeft ? "left" : undefined}
       {...pull.handlers}
       onPointerLeave={clearTopbarHover}
       onPointerOver={handleTopbarPointerOver}

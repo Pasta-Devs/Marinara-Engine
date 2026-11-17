@@ -78,10 +78,19 @@ Object.defineProperty(globalThis, "localStorage", { configurable: true, value: s
     assert.equal(ui().rightPanelOpen, true, `${where}: closing Chats keeps Agents open`);
     assert.equal(ui().rightPanel, "agents");
 
-    // 3. A stale pair (a synced sidebarOpen arriving beside an open panel) draws the panel, never both.
-    useUIStore.setState({ sidebarOpen: true, rightPanelOpen: true });
+    // 3. A stale pair (a synced sidebarOpen arriving beside an open panel) draws the panel, never both, and closing
+    //    the panel, by its button or otherwise, closes the sidebar instead of showing Chats.
+    useUIStore.setState({ sidebarOpen: true, rightPanelOpen: true, rightPanel: "characters" });
     assert.equal(selectSidebarShown(ui()), false, `${where}: an open panel is drawn in Chats' place`);
     assert.equal(selectOneSidebarOpen(ui()), true);
+    ui().closeRightPanel();
+    assert.equal(selectOneSidebarOpen(ui()), false, `${where}: closing the panel closes the sidebar`);
+    useUIStore.setState({ sidebarOpen: true, rightPanelOpen: true, rightPanel: "characters" });
+    ui().toggleRightPanel("characters");
+    assert.equal(selectOneSidebarOpen(ui()), false, `${where}: the panel's own button closes the sidebar`);
+    ui().setSidebarOpen(true);
+    ui().closeRightPanel();
+    assert.equal(selectSidebarShown(ui()), true, `${where}: closing a panel that is not open leaves Chats open`);
   }
 
   // 4. The side: Right by default, saved and synced, unknown values fall back to Right, Reset Appearance restores it.

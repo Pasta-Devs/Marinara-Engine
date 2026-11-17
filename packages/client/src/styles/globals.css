@@ -5441,6 +5441,13 @@ strong {
   right: 0;
 }
 
+/* The mirrored top bar (desktop sidebar on the left) has the music players next to Home, on the right: the YouTube
+   video opens under them, away from the sidebar. */
+.mari-topbar[data-sidebar-side="left"] [data-component="YouTubeVideoPanel"][data-video-shown] {
+  left: auto;
+  right: max(0.5rem, var(--mari-safe-area-inset-right));
+}
+
 .mari-shell-panel-slot {
   transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
   contain: layout paint;
