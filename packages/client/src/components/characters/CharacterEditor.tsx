@@ -159,6 +159,7 @@ import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import {
   GREETING_LIST_MIN,
   parseGreeting,
+  parseGreetings,
   setGreetingHeader,
   splitGreetingHeader,
 } from "../../lib/character-greetings";
@@ -3406,9 +3407,15 @@ function DialogueTab({
   const [rawGreeting, setRawGreeting] = useState(false);
   const [greetingQuery, setGreetingQuery] = useState("");
   const [greetingFilter, setGreetingFilter] = useState<string[]>([]);
+  // Brackets are tags once two greetings open with them, as in the picker, or once the user tags one here;
+  // a lone `[OOC]` opener stays text.
+  const [taggingGreetings, setTaggingGreetings] = useState(false);
+  const greetingTagsOn =
+    taggingGreetings ||
+    parseGreetings([formData.first_mes, ...formData.alternate_greetings]).some((entry) => entry.tags.length > 0);
   const greetingHeaders = useMemo(
-    () => formData.alternate_greetings.map((greeting) => splitGreetingHeader(greeting)),
-    [formData.alternate_greetings],
+    () => formData.alternate_greetings.map((greeting) => splitGreetingHeader(greeting, greetingTagsOn)),
+    [formData.alternate_greetings, greetingTagsOn],
   );
   const greetingTagOptions = useMemo(
     () =>
@@ -3427,15 +3434,19 @@ function DialogueTab({
     const token = "{{" + name + "}}";
     const textarea = greetingFieldRefs.current[target];
     const alternateIndex = greetingKeysRef.current.indexOf(target);
-    // Text boxes report positions with plain line breaks, so count in that form.
-    const current = (
-      target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "")
-    ).replace(/\r\n/g, "\n");
+    const raw = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
+    // Text boxes report positions with plain line breaks: count in that form, then map back so CRLF stays.
+    const current = raw.replace(/\r\n/g, "\n");
+    const toRaw = (position: number) => {
+      let index = 0;
+      for (let seen = 0; seen < position && index < raw.length; seen++) index += raw.startsWith("\r\n", index) ? 2 : 1;
+      return index;
+    };
     // The list's text box can hold only the text under the title and tags, which is the end of the greeting.
     const offset = textarea ? current.length - textarea.value.length : 0;
     const start = offset + (textarea?.selectionStart ?? current.length);
     const end = offset + (textarea?.selectionEnd ?? current.length);
-    const next = current.slice(0, start) + token + current.slice(end);
+    const next = raw.slice(0, toRaw(start)) + token + raw.slice(toRaw(end));
     // Without quote normalisation, as on the Card tab: inserting one tag must not
     // rewrite every quote already in the author's text.
     updateFormData((data) =>
@@ -3563,6 +3574,7 @@ function DialogueTab({
                       key={greetingKey}
                       number={i + 2}
                       text={g}
+                      allowTags={greetingTagsOn}
                       onOpen={() => {
                         setOpenGreeting(greetingKey);
                         setRawGreeting(false);
@@ -3660,7 +3672,10 @@ function DialogueTab({
                         titlePlaceholder={parseGreeting(g).title}
                         tags={header.tags}
                         tagOptions={greetingTagOptions}
-                        onChange={(tags, title) => updateGreeting(i, setGreetingHeader(g, tags, title))}
+                        onChange={(tags, title) => {
+                          if (tags.length) setTaggingGreetings(true);
+                          updateGreeting(i, setGreetingHeader(g, tags, title, greetingTagsOn));
+                        }}
                       />
                     )}
                     <MacroTextarea
@@ -3668,7 +3683,16 @@ function DialogueTab({
                       showTokenCount
                       value={greetingText}
                       onChange={(value) =>
-                        updateGreeting(i, fields ? header.tagText + header.titleText + value : value)
+                        updateGreeting(
+                          i,
+                          fields
+                            ? // A title line needs its line break before any text can follow it.
+                              header.tagText +
+                                header.titleText +
+                                (value && header.titleText && !header.titleText.endsWith("\n") ? "\n" : "") +
+                                value
+                            : value,
+                        )
                       }
                       textareaRef={(element) => {
                         const key = greetingKeysRef.current[i];

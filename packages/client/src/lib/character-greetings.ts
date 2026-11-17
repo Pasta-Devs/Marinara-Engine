@@ -36,8 +36,8 @@ export function parseGreeting(text: string, allowTags = true): GreetingEntry {
 export const GREETING_LIST_MIN = 8;
 
 /** A greeting's tag group and title line as written, so `tagText + titleText + rest` is the exact text. */
-export function splitGreetingHeader(text: string) {
-  const match = GREETING_TAG_PREFIX.exec(text);
+export function splitGreetingHeader(text: string, allowTags = true) {
+  const match = allowTags ? GREETING_TAG_PREFIX.exec(text) : null;
   const tagText = match?.[0] ?? "";
   const after = text.slice(tagText.length);
   const named = GREETING_TITLE_PREFIX.exec(after);
@@ -52,8 +52,8 @@ export function splitGreetingHeader(text: string) {
 }
 
 /** Writes new tags and a new title into a greeting; keeps the author's header form and the text under it. */
-export function setGreetingHeader(text: string, tags: readonly string[], title: string) {
-  const header = splitGreetingHeader(text);
+export function setGreetingHeader(text: string, tags: readonly string[], title: string, allowTags = true) {
+  const header = splitGreetingHeader(text, allowTags);
   const gap = header.tagText ? /\s*$/.exec(header.tagText)![0] : " ";
   const tagText = tags.length ? `${tags.map((tag) => `[${tag}]`).join("")}${gap}` : "";
   if (!title.trim()) return tagText + header.rest;

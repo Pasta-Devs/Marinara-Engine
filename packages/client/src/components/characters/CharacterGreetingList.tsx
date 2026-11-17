@@ -99,9 +99,19 @@ export function GreetingListFilter({
 }
 
 /** A folded greeting: number, title, tags and one line of text. */
-export function GreetingRow({ number, text, onOpen }: { number: number; text: string; onOpen: () => void }) {
+export function GreetingRow({
+  number,
+  text,
+  allowTags,
+  onOpen,
+}: {
+  number: number;
+  text: string;
+  allowTags: boolean;
+  onOpen: () => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
-  const entry = parseGreeting(text);
+  const entry = parseGreeting(text, allowTags);
   return (
     <button
       type="button"
