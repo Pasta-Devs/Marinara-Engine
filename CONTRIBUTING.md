@@ -296,7 +296,7 @@ Workflows add most labels. Only people with triage access can set labels by hand
   - `[Feature]:` gets `enhancement`.
   - `[docs-i18n]` gets `docs`.
 
-  Changing the title to another of these prefixes swaps the label. Removing the prefix leaves the labels as they are.
+  Changing the title to another of these prefixes replaces the type label: of `bug`, `enhancement` and `docs`, the issue keeps only the one that matches the new prefix. Removing the prefix leaves the labels as they are.
 - **Pull requests:** `.github/workflows/pull-request-triage.yml` adds `bugfix` to a title that starts with `fix` or a `fix/` branch, and `feature` to a title that starts with `feat` or a `feat/` branch. Area labels such as `client`, `server`, `android` and `docs` follow the changed files, as listed in `.github/labeler.yml`.
 - **Linked issues:** `.github/workflows/issue-status-from-prs.yml` adds `in-pr` to an issue named on a pull request's `Closes #N` line while the pull request is open, and `fixed-in-staging` once it merges into `staging`.
 - Maintainers add the rest by hand, such as `regression`, `qol`, the scope labels (`normal-scope`, `scope-risk`, `feature-creep`) and `needs-codeowner-decision`.

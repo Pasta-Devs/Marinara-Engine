@@ -30,23 +30,28 @@ jobs:
             ];
             const labelFor = (title) =>
               prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
-            const issue = context.payload.issue;
-            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number };
-            const label = labelFor(issue.title);
-            const previousTitle = context.payload.changes?.title?.from;
-            const previous = previousTitle === undefined ? undefined : labelFor(previousTitle);
+            const { payload } = context;
+            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: payload.issue.number };
+            const edited = payload.action === 'edited';
             // On an edit only a changed prefix counts, so a label a maintainer removed stays removed.
-            // A title switched to another prefix is a correction, so the old prefix's label goes.
-            // A prefix removed from the title leaves the labels alone.
-            if (!label || previous === label) {
+            if (edited && labelFor(payload.changes.title.from) === labelFor(payload.issue.title)) {
               return;
             }
-            // The event's label list is a snapshot from delivery time; read the issue's labels now.
-            const { data: current } = await github.rest.issues.listLabelsOnIssue({ ...target, per_page: 100 });
-            const has = (name) => current.some((existing) => existing.name === name);
-            if (previous && has(previous)) {
+            // Read the issue now. The event is a snapshot from delivery time, and during quick retitles
+            // GitHub can drop a queued run, so only the current title and labels can be trusted.
+            const { data: issue } = await github.rest.issues.get(target);
+            const label = labelFor(issue.title);
+            // A prefix removed from the title leaves the labels alone.
+            if (!label) {
+              return;
+            }
+            const current = issue.labels.map((existing) => existing.name);
+            // A title switched to another prefix is a correction, so the other type labels go.
+            const typeLabels = [...new Set(prefixLabels.map(([, name]) => name))];
+            const stale = edited ? typeLabels.filter((name) => name !== label && current.includes(name)) : [];
+            for (const name of stale) {
               try {
-                await github.rest.issues.removeLabel({ ...target, name: previous });
+                await github.rest.issues.removeLabel({ ...target, name });
               } catch (error) {
                 // Someone removed it since the read above.
                 if (error.status !== 404) {
@@ -54,6 +59,6 @@ jobs:
                 }
               }
             }
-            if (!has(label)) {
+            if (!current.includes(label)) {
               await github.rest.issues.addLabels({ ...target, labels: [label] });
             }
