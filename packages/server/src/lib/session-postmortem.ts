@@ -188,7 +188,7 @@ function historyPath(): string {
 
 /**
  * Atomic write: a kill mid-write must never corrupt the previous beat. The
- * scratch name carries the pid, so an overlapping writer (a restart's
+ * scratch name is unique per write, so an overlapping writer (a restart's
  * detached child and its still-exiting parent) cannot truncate the other's
  * scratch file and rename a partial record into place. No fsync - a per-beat
  * flush would tax phone flash every 30s to protect only against whole-device

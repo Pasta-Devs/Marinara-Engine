@@ -1,14 +1,14 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { renameSync, rmSync, writeFileSync } from "node:fs";
 import { rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 type AtomicWriteOptions = { mode?: number };
 
-// A hidden, unique name beside the target: same filesystem for the rename, and
-// listings that skip dotfiles or `.tmp` never show a half-written file.
+// A hidden, unique name beside the target ("wx" refuses a clash): same filesystem
+// for the rename, and listings that skip dotfiles or `.tmp` never show a half-written file.
 function tempPathFor(path: string): string {
-  return join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  return join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
 }
 
 /**
