@@ -256,6 +256,7 @@ try {
         "google/gemini-4-argon:online",
         "google/gemini-4-carbon",
         "google/gemini-4-hydrogen",
+        "google/gemini-4-neon",
         "google/gemini-3.8-flash",
       ],
       make: registry("openrouter", `${base}/openrouter.ai/api/v1`),
@@ -349,6 +350,7 @@ try {
         "gemini-4-argon",
         "gemini-4-carbon",
         "gemini-4-hydrogen",
+        "gemini-4-neon",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
         "gemini-2.0-flash",
@@ -365,6 +367,7 @@ try {
         "gemini-3-pro-preview",
         "gemini-4-argon",
         "gemini-4-carbon",
+        "gemini-4-neon",
         "gemini-3.8-flash",
         "gemini-unknown",
       ],
@@ -706,11 +709,14 @@ try {
   assert.equal(miniMaxOff.generation.reasoning?.reasoningEffort, "low");
   assert.ok(withThinkingHeadroom(4096, miniMaxOff.generation, miniMaxOff.enabledParameters) > 4096);
 
-  // Hydrogen cannot turn thinking off either. Its default is high and it adds xhigh, so the panel offers four levels,
-  // a saved Off or no level sends high, and Max or Maximum sends xhigh. It is on the Gemini API only.
-  {
-    const provider = "google";
-    const model = "gemini-4-hydrogen";
+  // Hydrogen and Neon cannot turn thinking off either. Their default is high and they add xhigh, so the panel offers four
+  // levels, a saved Off or no level sends high, and Max or Maximum sends xhigh. Hydrogen is on the Gemini API only; Neon
+  // is on Vertex too.
+  for (const [provider, model] of [
+    ["google", "gemini-4-hydrogen"],
+    ["google", "gemini-4-neon"],
+    ["google_vertex", "gemini-4-neon"],
+  ] as const) {
     assert.deepEqual(
       reasoningEffortChoices({ provider, model }).map(({ value, label }) => [value, label]),
       [
@@ -719,14 +725,14 @@ try {
         ["high", "high"],
         ["xhigh", "xhigh"],
       ],
-      `${provider} Hydrogen offers no Off and adds xhigh`,
+      `${provider} ${model} offers no Off and adds xhigh`,
     );
     assert.deepEqual(
       [null, undefined, "none", "low", "medium", "high", "xhigh", "max", "maximum"].map((reasoningEffort) =>
         resolveProviderReasoningEffort({ provider, model, reasoningEffort: reasoningEffort as never }),
       ),
       ["high", "high", "high", "low", "medium", "high", "xhigh", "xhigh", "xhigh"],
-      `${provider} Hydrogen levels`,
+      `${provider} ${model} levels`,
     );
   }
 
@@ -823,24 +829,26 @@ try {
   }
   // Aggregators list google/gemini-4-argon and -carbon too; the request leaves out what they ignore or reject (#7534).
   for (const provider of ["openrouter", "nanogpt"]) {
-    for (const model of ["google/gemini-4-argon", "google/gemini-4-carbon"]) {
+    for (const model of ["google/gemini-4-argon", "google/gemini-4-carbon", "google/gemini-4-neon"]) {
       const shown = relevantGenerationParameters({ provider, model, reasoningEffort: "high" });
       for (const key of ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"] as const) {
         assert.ok(!shown.has(key), `${provider} ${model} must not offer ${key}`);
       }
     }
   }
-  // New Google and Vertex connections start on the first listed model; Argon and Carbon need a paid key and a global
-  // location. Carbon is listed, so it can be picked.
+  // New Google and Vertex connections start on the first listed model; Argon, Carbon and Neon need a paid key and a
+  // global location. Carbon and Neon are listed, so they can be picked.
   for (const provider of ["google", "google_vertex"] as const) {
     assert.ok(
-      !isGeminiArgonOrCarbonModel(MODEL_LISTS[provider][0]!.id),
-      `${provider} new connections must not start on Argon or Carbon`,
+      !isGeminiArgonOrCarbonModel(MODEL_LISTS[provider][0]!.id) && MODEL_LISTS[provider][0]!.id !== "gemini-4-neon",
+      `${provider} new connections must not start on Argon, Carbon or Neon`,
     );
-    assert.ok(
-      MODEL_LISTS[provider].some((known) => known.id === "gemini-4-carbon"),
-      `${provider} lists Gemini 4 Carbon`,
-    );
+    for (const id of ["gemini-4-carbon", "gemini-4-neon"]) {
+      assert.ok(
+        MODEL_LISTS[provider].some((known) => known.id === id),
+        `${provider} lists ${id}`,
+      );
+    }
   }
   assert.deepEqual(
     verbosityChoices({

@@ -80,6 +80,12 @@ On Android, this setting is on by default when you do not set it.
 
 The same model can answer decision questions, such as agent activation checks, without loading a second copy. Click **⋯** on the model in the panel and choose **Use for…** → **Decision**. It shows for an OpenAI-compatible model that has a model name. See [Decision Models](decision-models.md#on-a-server-you-already-run).
 
+## Requests go in task order
+
+A Custom connection to a server on your own computer or home network gets two requests at a time from Marinara, in task order: agents that run before the reply, then the reply, then agents beside or after it, then everything else. One of the two is kept free for the reply, so a tracker or a memory helper never makes the reply wait behind it.
+
+If your server runs a different number of requests at once (for example `OLLAMA_NUM_PARALLEL` in Ollama, or the parallel setting in LM Studio or KoboldCpp), open **Edit account** → **More options** and set **Parallel requests** to the same number. With two or more, trackers and background work leave one free for the reply. With 1, everything goes strictly one at a time, so a reply can wait for a running tracker to finish.
+
 ## Treat as local/custom endpoint
 
 In **Edit model**, a toggle named **Treat as local/custom endpoint** sits under **Local / custom endpoint**. It is off by default. It shows only for older models that are not tied to an account. Models you add now never show it.

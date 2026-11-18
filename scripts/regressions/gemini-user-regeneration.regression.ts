@@ -93,6 +93,7 @@ try {
     ["google", "google", "gemini-4-argon", true],
     ["google", "google", "gemini-4-carbon", true],
     ["google", "google", "gemini-4-hydrogen", true],
+    ["google", "google", "gemini-4-neon", true],
     ["google", "google", "gemini-3.5-flash", true],
     ["openrouter", "openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct", false],
   ] as const) {

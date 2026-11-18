@@ -282,12 +282,13 @@ try {
     assert.equal(requests.at(-1)!.max_tokens, expected, `${model} test budget`);
   }
 
-  // Gemini 4 Argon and Carbon think at medium even with no level saved, and Hydrogen at high, so they get the same
-  // room (#9037).
+  // Gemini 4 Argon and Carbon think at medium even with no level saved, and Hydrogen and Neon at high, so they get the
+  // same room (#9037).
   for (const [model, level] of [
     ["gemini-4-argon", "medium"],
     ["gemini-4-carbon", "medium"],
     ["gemini-4-hydrogen", "high"],
+    ["gemini-4-neon", "high"],
   ] as const) {
     const gemini = await storage.create({
       name: "Gemini test fixture",

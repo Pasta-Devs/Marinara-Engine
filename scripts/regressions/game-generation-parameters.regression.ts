@@ -81,13 +81,14 @@ const noReasoning = gameGenOptions("gpt-5.5", {}, { reasoningEffort: null, verbo
 assert.equal(noReasoning.reasoningEffort, "none");
 assert.equal(noReasoning.enableThinking, false);
 assert.equal(noReasoning.verbosity, undefined);
-// Gemini 4 Argon and Carbon think at medium with nothing saved, and Hydrogen at high: their helpers send it, think
-// with it and keep room for it, while another model's helper keeps its budget.
+// Gemini 4 Argon and Carbon think at medium with nothing saved, and Hydrogen and Neon at high: their helpers send it,
+// think with it and keep room for it, while another model's helper keeps its budget.
 for (const provider of ["google", "google_vertex"]) {
   // Hydrogen is on the Gemini API only (Vertex does not list it).
   for (const [model, level] of [
     ["gemini-4-argon", "medium"],
     ["gemini-4-carbon", "medium"],
+    ["gemini-4-neon", "high"],
     ...(provider === "google" ? ([["gemini-4-hydrogen", "high"]] as const) : []),
   ] as const) {
     const unsaved = gameGenOptions(model, { maxTokens: 1200, enableThinking: false }, null, provider);

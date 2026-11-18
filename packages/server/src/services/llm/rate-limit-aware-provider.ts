@@ -301,7 +301,7 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
       // pacing. Unthrottled and uncapped, both return synchronously, so the first attempt still
       // starts the wrapped provider in the same microtask (keeping admission-slot acquisition
       // synchronous).
-      let release = acquireAccountSlot(this.connectionId, options.signal);
+      let release = acquireAccountSlot(this.connectionId, options.signal, options.localPriority);
       if (typeof release !== "function") release = await release;
       try {
         const throttleWait = reservePacing(this.connectionId, options);
@@ -343,7 +343,7 @@ export class RateLimitAwareProvider extends BaseLLMProvider {
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     const counts: RetryCounts = { rate_limit: 0, transient: 0 };
     for (;;) {
-      let release = acquireAccountSlot(this.connectionId, options.signal);
+      let release = acquireAccountSlot(this.connectionId, options.signal, options.localPriority);
       if (typeof release !== "function") release = await release;
       try {
         const throttleWait = reservePacing(this.connectionId, options);
