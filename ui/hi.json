@@ -1685,6 +1685,7 @@
   "commandCenter.values.unknown": "अनजान",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "बंद करें",
+  "connections.accounts.editor.selfHostedOrder": "आपके अपने सर्वर पर रिक्वेस्ट काम के क्रम में जाती हैं: पहले जवाब से पहले चलने वाले एजेंट, फिर जवाब, फिर उसके साथ या बाद में चलने वाले एजेंट, और फिर बाकी सब। जब तक आप कोई संख्या सेट नहीं करते, Marinara एक साथ दो रिक्वेस्ट भेजता है और उनमें से एक की जगह जवाब के लिए खाली रखता है। अगर आपका सर्वर एक साथ अलग संख्या में रिक्वेस्ट चलाता है (जैसे Ollama में OLLAMA_NUM_PARALLEL), तो यहाँ भी वही संख्या सेट करें।",
   "connections.add.device.builtIn": "बिल्ट-इन मॉडल",
   "connections.audioGeneration.callbackHelp": "SunoAPI संगीत के लिए सार्वजनिक HTTPS कॉलबैक URL ज़रूरी है, पोलिंग करते समय भी।",
   "connections.audioGeneration.callbackUrl": "SunoAPI संगीत का कॉलबैक URL",

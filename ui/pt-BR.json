@@ -1685,6 +1685,7 @@
   "commandCenter.values.unknown": "Desconhecido",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "Fechar",
+  "connections.accounts.editor.selfHostedOrder": "As requisições ao seu próprio servidor seguem a ordem das tarefas: agentes que executam antes da resposta, depois a resposta, depois agentes que executam em paralelo ou após ela e, por fim, todo o resto. Marinara envia duas por vez, a menos que você defina outro número, e mantém uma vaga livre para a resposta. Se o servidor executa um número diferente de requisições ao mesmo tempo (como OLLAMA_NUM_PARALLEL no Ollama), defina o mesmo número aqui.",
   "connections.add.device.builtIn": "Modelo integrado",
   "connections.audioGeneration.callbackHelp": "A música do SunoAPI exige uma URL pública de callback HTTPS, mesmo ao consultar o andamento periodicamente.",
   "connections.audioGeneration.callbackUrl": "URL de callback de música do SunoAPI",

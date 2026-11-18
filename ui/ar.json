@@ -1697,6 +1697,7 @@
   "commandCenter.values.unknown": "غير معروف",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "إغلاق",
+  "connections.accounts.editor.selfHostedOrder": "ترسل الطلبات إلى خادمك حسب ترتيب المهام: الوكلاء الذين يعملون قبل الرد، ثم الرد، ثم الوكلاء الذين يعملون بالتوازي معه أو بعده، ثم كل ما تبقى. يرسل Marinara طلبين في وقت واحد ما لم تحدد عددا آخر، ويحجز مكانا لأحدهما للرد. إذا كان خادمك يشغل عددا مختلفا من الطلبات في وقت واحد (مثل إعداد `OLLAMA_NUM_PARALLEL` في Ollama)، فحدد العدد نفسه هنا.",
   "connections.add.device.builtIn": "النموذج المدمج",
   "connections.audioGeneration.callbackHelp": "تتطلب موسيقى SunoAPI عنوان URL عاما لاستدعاء HTTPS الراجع، حتى عند الاستقصاء.",
   "connections.audioGeneration.callbackUrl": "عنوان URL للاستدعاء الراجع لموسيقى SunoAPI",
