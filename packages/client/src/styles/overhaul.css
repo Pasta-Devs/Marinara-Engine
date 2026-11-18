@@ -1442,6 +1442,9 @@
   font-variant-numeric: tabular-nums;
 }
 .ov-thumb {
+  /* Positioned so a cropped avatar (its img is absolutely placed by getAvatarCropStyle) stays inside the
+     thumb; without this the Characters / Personas list view showed the picture over the whole page (Nov 18). */
+  position: relative;
   display: inline-block;
   width: 1.75rem;
   height: 1.75rem;
@@ -14203,6 +14206,7 @@ input.ov-edhead__title:not(#ov-x) {
   grid-row: span 2;
 }
 .ov-folder-tile__peek-cell {
+  position: relative; /* keeps a cropped member picture inside its cell, as .ov-thumb */
   display: grid;
   min-width: 0;
   min-height: 0;
