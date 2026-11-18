@@ -37,6 +37,12 @@ export const GLOBAL_GALLERY_FILE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const;
 
+/** Status pages poll about once a second during a download or start; sized for a few tabs or devices at once. */
+export const STATUS_POLL_RATE_LIMIT = {
+  max: 600,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Connection probes can submit credentials and call a paid provider. */
 export const CONNECTION_TEST_RATE_LIMIT = {
   max: 30,
