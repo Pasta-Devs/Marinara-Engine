@@ -41,6 +41,8 @@ If it did not work: read the red message next to the file. The other files in th
 
 Imported items keep their own name and description. To find everything you imported, pick **Imported** in the **Tags** filter next to search. Every Library import window (Characters, Personas, Lorebooks, Presets) and the chat import has the same two **Import tags** boxes. The [Bot Browser](bot-browser.md) uses the site's name as the source, for example **Chub**.
 
+An imported character's **Created** date is when the card was made: the date saved in the card if it has one, otherwise the file's date on your computer. **Updated** is when you imported it. Updating a character from a newer card keeps its **Created** date. Sorting by **Newest** or **Oldest** uses **Created**.
+
 Regex scripts are small text-replacement rules. Keep **Character only** unless you want the rules everywhere. The split leaves narrator, world and multi-character cards as they are.
 
 ### Cards with a built-in lorebook
