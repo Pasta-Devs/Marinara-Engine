@@ -1,28 +1,28 @@
 // Effects that an agent result has after an agent runs, shared by normal generation (`routes/generate.routes.ts`) and
 // the retry-agents route (`routes/generate/retry-agents-route.ts`). Both routes used to carry their own copy of each
 // effect, so every change had to be made twice and the copies drifted (#9508).
+//
+// One file per family of result types; this file only routes a result to its handler and records coverage.
 import type { AgentResult, AgentResultType } from "@marinara-engine/shared";
-import { logger } from "../../lib/logger.js";
-import type { createChatsStorage } from "../storage/chats.storage.js";
+import { applyCyoaChoicesResult } from "./cyoa-choices.js";
+import {
+  applyCustomTrackerResult,
+  applyInventoryTrackerResult,
+  applyPersonaStatsResult,
+  applyQuestResult,
+} from "./trackers.js";
+import type { AgentResultEffect, AgentResultEffectDeps } from "./types.js";
 
-export type AgentResultEffectOrigin = "generate" | "retry";
-
-export interface AgentResultEffectDeps {
-  origin: AgentResultEffectOrigin;
-  chatId: string;
-  /** The assistant message the agents ran for. */
-  messageId: string | null;
-  swipeIndex: number;
-  chats: Pick<ReturnType<typeof createChatsStorage>, "updateMessageExtraForSwipe">;
-  /** Stops the effect when the run was cancelled (retry passes its abort signal). */
-  signal?: AbortSignal;
-}
-
-type AgentResultEffect = (result: AgentResult, deps: AgentResultEffectDeps) => Promise<void>;
+export type {
+  AgentResultEffectDeps,
+  AgentResultEffectOrigin,
+  TrackerEffectTarget,
+  TrackerSnapshotRow,
+} from "./types.js";
 
 /**
  * How each result type is applied today.
- * - `shared`: one handler below, called by both routes.
+ * - `shared`: one handler in this folder, called by both routes.
  * - `not_shared_yet`: each route still applies it on its own, or not at all (#9508 moves them one family per PR).
  *
  * ponytail: two states until the first type needs a recorded difference between the routes; then add
@@ -34,7 +34,7 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
   text_rewrite: "not_shared_yet",
   sprite_change: "not_shared_yet",
   echo_message: "not_shared_yet",
-  quest_update: "not_shared_yet",
+  quest_update: "shared",
   image_prompt: "not_shared_yet",
   context_injection: "not_shared_yet",
   continuity_check: "not_shared_yet",
@@ -44,9 +44,9 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
   character_card_create: "not_shared_yet",
   background_change: "not_shared_yet",
   character_tracker_update: "not_shared_yet",
-  persona_stats_update: "not_shared_yet",
-  custom_tracker_update: "not_shared_yet",
-  inventory_tracker_update: "not_shared_yet",
+  persona_stats_update: "shared",
+  custom_tracker_update: "shared",
+  inventory_tracker_update: "shared",
   spotify_control: "not_shared_yet",
   youtube_control: "not_shared_yet",
   local_music_control: "not_shared_yet",
@@ -64,42 +64,12 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
   memory_nag: "not_shared_yet",
 };
 
-/** Saves the choice buttons on the message's active swipe, so they survive a page refresh. */
-async function applyCyoaChoicesResult(result: AgentResult, deps: AgentResultEffectDeps): Promise<void> {
-  const cyoaData = result.data as { choices?: Array<{ label: string; text: string }> };
-  if (!deps.messageId || !cyoaData.choices || cyoaData.choices.length === 0) return;
-  try {
-    deps.signal?.throwIfAborted();
-    const updated = await deps.chats.updateMessageExtraForSwipe(deps.messageId, deps.swipeIndex, {
-      cyoaChoices: cyoaData.choices,
-    });
-    deps.signal?.throwIfAborted();
-    // A null return means the message or swipe is gone (the reply was deleted meanwhile), which is ordinary.
-    logger.debug(
-      updated === null
-        ? "[agent-effects] CYOA choices not saved, message or swipe not found origin=%s chatId=%s messageId=%s swipeIndex=%d choiceCount=%d"
-        : "[agent-effects] CYOA choices saved origin=%s chatId=%s messageId=%s swipeIndex=%d choiceCount=%d",
-      deps.origin,
-      deps.chatId,
-      deps.messageId,
-      deps.swipeIndex,
-      cyoaData.choices.length,
-    );
-  } catch (err) {
-    deps.signal?.throwIfAborted();
-    logger.warn(
-      err,
-      "[agent-effects] Could not save CYOA choices origin=%s chatId=%s messageId=%s swipeIndex=%d",
-      deps.origin,
-      deps.chatId,
-      deps.messageId,
-      deps.swipeIndex,
-    );
-  }
-}
-
 const SHARED_AGENT_RESULT_EFFECTS: Partial<Record<AgentResultType, AgentResultEffect>> = {
   cyoa_choices: applyCyoaChoicesResult,
+  persona_stats_update: applyPersonaStatsResult,
+  inventory_tracker_update: applyInventoryTrackerResult,
+  custom_tracker_update: applyCustomTrackerResult,
+  quest_update: applyQuestResult,
 };
 
 export const SHARED_AGENT_RESULT_EFFECT_TYPES = Object.keys(SHARED_AGENT_RESULT_EFFECTS) as AgentResultType[];

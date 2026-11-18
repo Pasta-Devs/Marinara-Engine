@@ -6,7 +6,6 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
-  applyQuestUpdatesToPlayerStats,
   applyTrackerFieldLocksToGameStatePatch,
   getCustomAgentResultCapability,
   customAgentHasCapability,
@@ -46,7 +45,6 @@ import {
   resolveIllustratorChatReasoning,
   type AgentReasoningOptions,
 } from "../../services/generation/agent-generation-parameters.js";
-import { and, eq } from "../../db/file-query.js";
 import { listCharacterSprites } from "../../services/game/sprite.service.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
@@ -204,20 +202,15 @@ import {
   projectGameSnapshotLocation,
   resolveOwnerSpatialProjection,
 } from "../../services/spatial-context/projection.js";
-import { gameStateSnapshots as gameStateSnapshotsTable } from "../../db/schema/index.js";
 import {
-  buildLockedPlayerStatsArrayPatch,
-  buildLockedInventoryTrackerPatch,
   resolveTrackerGroupUpdate,
   buildWorldCustomFieldsStreamValue,
-  buildLockedPersonaTrackerPatch,
   applyTrackerCharacterCardIdentity,
   collectLatestTrackerCharacterHistory,
   isMessageHiddenFromAI,
   parseExtra,
   parseGameStateRow,
   parseJsonField,
-  parseSnapshotPlayerStats,
   preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
   resolveCharacterNameMap,
@@ -327,7 +320,10 @@ import {
   resolveEffectiveAgentSettings,
 } from "../../services/generation/agent-resolution.js";
 import { resolveAgentGenerationTools } from "../../services/generation/tool-resolution-runtime.js";
-import { applyAgentResultEffect } from "../../services/generation/agent-result-effects.js";
+import {
+  applyAgentResultEffect,
+  type TrackerEffectTarget,
+} from "../../services/generation/agent-result-effects/index.js";
 import {
   buildRetryAgentPersona,
   resolveIdentityCharacterScopes,
@@ -3383,6 +3379,12 @@ async function applyRetryResultEffects(args: {
     return updated;
   };
 
+  const retryTrackerEffects: TrackerEffectTarget = {
+    db: app.db,
+    canEditTrackers: (trackerResult) => customAgentCanApplyRetryResult(trackerResult, resolvedAgents, "edit_trackers"),
+    loadSnapshot: loadRetryTargetGameStateSnapshot,
+    emitGameStatePatch: (patch) => sendSseEvent(reply, { type: "game_state_patch", data: patch }),
+  };
   // A game reply's scenes shown as written (worldgen W10), which no rewrite may change.
   const engineScenes =
     chat?.mode === "game"
@@ -3636,49 +3638,6 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    if (
-      result.success &&
-      result.type === "persona_stats_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const psData = result.data as Record<string, unknown>;
-        const hasStats = Array.isArray(psData.stats);
-        const hasStatus = typeof psData.status === "string";
-        const bars = hasStats ? (psData.stats as any[]) : [];
-        const status = hasStatus ? (psData.status as string) : "";
-        const latest = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        const personaPatch = buildLockedPersonaTrackerPatch({
-          stats: bars,
-          status,
-          hasStats,
-          hasStatus,
-          snapshot: latest,
-          lockState: latest ? parseGameStateRow(latest as Record<string, unknown>) : null,
-        });
-        if (latest) {
-          if (Object.keys(personaPatch.updates).length > 0) {
-            assertRetryActive();
-            await app.db
-              .update(gameStateSnapshotsTable)
-              .set(personaPatch.updates)
-              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, latest.id)));
-            assertRetryActive();
-          }
-        }
-        if (personaPatch.changed) {
-          assertRetryActive();
-          sendSseEvent(reply, { type: "game_state_patch", data: personaPatch.patch });
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply persona-stats tracker update");
-      }
-    }
-
     if (result.success && result.type === "secret_plot" && result.data && typeof result.data === "object") {
       try {
         const plotData = result.data as Record<string, unknown>;
@@ -3769,142 +3728,16 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    if (
-      result.success &&
-      result.type === "quest_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const qData = result.data as Record<string, unknown>;
-        const updates = Array.isArray(qData.updates) ? qData.updates : [];
-        logger.debug(
-          "[retry-agents] Quest agent result — updates: %d, data keys: %s %s",
-          updates.length,
-          Object.keys(qData).join(","),
-          JSON.stringify(qData).slice(0, 500),
-        );
-        if (updates.length > 0) {
-          const snap = await loadRetryTargetGameStateSnapshot();
-          assertRetryActive();
-          const existingPS = parseSnapshotPlayerStats(snap);
-          const questMerge = applyQuestUpdatesToPlayerStats(existingPS, updates, {
-            autoRemoveFullyCompleted: true,
-          });
-          const questTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
-            field: "activeQuests",
-            values: questMerge.quests,
-            snapshot: snap,
-            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-            basePlayerStats: questMerge.playerStats,
-          });
-          if (questMerge.changed && questTrackerPatch.changed) {
-            if (snap) {
-              assertRetryActive();
-              await app.db
-                .update(gameStateSnapshotsTable)
-                .set({ playerStats: JSON.stringify(questTrackerPatch.playerStats) })
-                .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-              assertRetryActive();
-            }
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_state_patch", data: questTrackerPatch.patch });
-          }
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.warn(err, "[retry-agents] Quest tracker persistence failed");
-      }
-    }
-
-    // Effects shared with normal generation (CYOA choices so far, #9508)
+    // Effects shared with normal generation (CYOA choices and the player-stats trackers so far, #9508)
     await applyAgentResultEffect(result, {
       origin: "retry",
       chatId,
       messageId: retryMessageId,
       swipeIndex: retrySwipeIndex,
       chats,
+      trackers: retryTrackerEffects,
       signal,
     });
-
-    if (
-      result.success &&
-      result.type === "inventory_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const snap = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
-          data: result.data as Record<string, unknown>,
-          snapshot: snap,
-          lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-        });
-        if (snap && inventoryTrackerPatch.changed) {
-          assertRetryActive();
-          await app.db
-            .update(gameStateSnapshotsTable)
-            .set({ playerStats: JSON.stringify(inventoryTrackerPatch.playerStats) })
-            .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-          assertRetryActive();
-        }
-        if (inventoryTrackerPatch.changed) {
-          assertRetryActive();
-          sendSseEvent(reply, { type: "game_state_patch", data: inventoryTrackerPatch.patch });
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply inventory tracker update");
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "custom_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const ctData = result.data as Record<string, unknown>;
-        const hasFields = Array.isArray(ctData.fields) || isTrackerRowsUpdate(ctData.fields);
-        if (hasFields) {
-          const snap = await loadRetryTargetGameStateSnapshot();
-          assertRetryActive();
-          const rawFields =
-            resolveTrackerGroupUpdate(
-              ctData.fields,
-              parseSnapshotPlayerStats(snap).customTrackerFields ?? [],
-              snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-              "customTrackerFields",
-            ) ?? [];
-          const customTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
-            field: "customTrackerFields",
-            values: rawFields,
-            snapshot: snap,
-            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-          });
-          if (snap && customTrackerPatch.changed) {
-            assertRetryActive();
-            await app.db
-              .update(gameStateSnapshotsTable)
-              .set({ playerStats: JSON.stringify(customTrackerPatch.playerStats) })
-              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-            assertRetryActive();
-          }
-          if (customTrackerPatch.changed) {
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_state_patch", data: customTrackerPatch.patch });
-          }
-        }
-      } catch {
-        assertRetryActive();
-        // Non-critical patching failure.
-      }
-    }
 
     // ── ILLUSTRATOR: generate image from agent prompt ──
     if (
