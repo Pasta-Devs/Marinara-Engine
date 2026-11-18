@@ -71,6 +71,7 @@ import {
   isDebugAgentsEnabled,
 } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import { failureLevel } from "../../lib/log-context.js";
 import { repairJsonText } from "../../lib/json-repair.js";
 import { LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
@@ -755,7 +756,7 @@ function debugMessages(messages: ChatMessage[]): AgentCallDebugEvent["messages"]
   return messages.map((message) => {
     const next: NonNullable<AgentCallDebugEvent["messages"]>[number] = {
       role: message.role,
-      content: message.content,
+      content: messageTextWithImagesForLog(message.content, message.images),
     };
     const name = (message as { name?: unknown }).name;
     if (typeof name === "string" && name.trim()) next.name = name;
@@ -949,7 +950,7 @@ export async function executeAgent(
     // Call LLM (streaming to avoid proxy timeouts, no tools)
     logger.info(`[agent] ${config.type} (${config.name}) — ${model}`);
     for (const msg of messages) {
-      logger.debug(`[agent] [${msg.role}] ${msg.content}`);
+      logger.debug(`[agent] [${msg.role}] ${messageTextWithImagesForLog(msg.content, msg.images)}`);
     }
     logger.debug(
       `[agent] ═══ END PROMPT — temperature=${temperature} maxTokens=${maxTokens} reasoning=${requestOptions.reasoningEffort ?? "default"} ═══\n`,

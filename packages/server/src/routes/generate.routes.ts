@@ -31,17 +31,14 @@ import {
 import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
 import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
 import {
-  WRITER_REFERENCE_MAX_PICTURES,
   WRITER_REFERENCE_MEMORY_KEY,
   WRITER_REFERENCE_NAMES_MEMORY_KEY,
-  prepareWriterReferencePicture,
-  writerRejectsPictures,
+  collectWriterReferencePictures,
+  imageModelGetsReferencePictures,
+  readWriterReferenceNames,
   writerVisionKey,
   type WriterReferencePayload,
-  type WriterReferencePicture,
 } from "../services/image/writer-reference-pictures.js";
-import { imageConnectionTakesReferencePicture } from "../services/image/image-generation.js";
-import { avatarImageService } from "../services/avatars/generation/generation-context.js";
 import { withLorebookImageCompatibility } from "../services/llm/lorebook-image-provider.js";
 import {
   buildConversationEmojiVisionLegend,
@@ -206,9 +203,6 @@ import {
   isOpenAIGpt6Model,
   LOCAL_SIDECAR_CONNECTION_ID,
   modelReadsImages,
-  readWriterReferenceSettings,
-  resolveReferencePictureTarget,
-  routeReferencePictures,
   normalizeCustomEmojiSelection,
   normalizeImagePromptInstructions,
   normalizeVideoPromptInstructions,
@@ -7681,80 +7675,33 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // Writer reference pictures (experiment, V-102 Fallback A): when the image connection drops reference
         // pictures, the Illustrator's prompt writer sees them instead. [illustrate: characters="…"] names its cards
         // up front; an automatic run takes the active cast, since the writer is what decides who is in the scene.
-        const collectWriterReferencePictures = async (
+        const writerReferencePicturesFor = async (
           agent: AgentExecConfig,
           memory: Record<string, unknown>,
-          imageConnection: Parameters<typeof avatarImageService>[0],
+          imageConnection: Parameters<typeof collectWriterReferencePictures>[0]["imageConnection"],
         ): Promise<WriterReferencePayload | null> => {
-          // Follows the effective "Send avatar references" (images): the chat override wins, then the agent's.
-          const avatarReferencesOn =
-            typeof chatMeta.illustratorUseAvatarReferences === "boolean"
-              ? chatMeta.illustratorUseAvatarReferences
-              : agent.settings?.useAvatarReferences === true;
-          if (!avatarReferencesOn) return null;
-          const writerSettings = readWriterReferenceSettings(agent.settings);
-          const target = resolveReferencePictureTarget(chatMeta.illustratorReferencePictureTarget, agent.settings);
-          const takesReferences = imageConnectionTakesReferencePicture(avatarImageService(imageConnection));
-          if (!routeReferencePictures(target, takesReferences).toWriter) {
-            if (target === "auto") {
-              logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
-            }
-            return null;
-          }
           const writerConnection = agent.connectionId ? await connections.getById(agent.connectionId) : conn;
-          const visionKey = writerVisionKey(agent.connectionId, (agent as { model?: string }).model ?? "");
-          const readsImages = modelReadsImages({
-            id: agent.connectionId ?? connId,
-            imageInput: (writerConnection as { imageInput?: string | null } | null)?.imageInput,
+          return collectWriterReferencePictures({
+            agentSettings: agent.settings,
+            chatMeta,
+            imageConnection,
+            writer: {
+              visionKey: writerVisionKey(agent.connectionId, (agent as { model?: string }).model ?? ""),
+              connectionId: agent.connectionId ?? connId ?? "",
+              imageInput: (writerConnection as { imageInput?: string | null } | null)?.imageInput,
+            },
+            namedCards: readWriterReferenceNames(memory),
+            cast: illustratorCast(),
+            references: {
+              charactersStore: chars,
+              chatScope:
+                requestChatMode === "roleplay"
+                  ? { chatId: input.chatId, characterIds: allCharacterIds, getById: chars.getById }
+                  : undefined,
+              characterGallery,
+              personaGallery,
+            },
           });
-          if (readsImages === false || writerRejectsPictures(visionKey)) {
-            logger.info("[writer-references] Skipped: the Illustrator's writer (%s) does not read images", visionKey);
-            return null;
-          }
-          const namedCards = Array.isArray(memory[WRITER_REFERENCE_NAMES_MEMORY_KEY])
-            ? (memory[WRITER_REFERENCE_NAMES_MEMORY_KEY] as unknown[]).filter(
-                (name): name is string => typeof name === "string" && name.trim().length > 0,
-              )
-            : [];
-          const cast = illustratorCast();
-          const inactiveIds = new Set(
-            Array.isArray(chatMeta.inactiveCharacterIds) ? chatMeta.inactiveCharacterIds : [],
-          );
-          const activeCharacters = cast.chatCharacters.filter((character) => !inactiveIds.has(character.id));
-          const requestedNames = namedCards.length
-            ? namedCards
-            : [...activeCharacters.map((character) => character.name), ...(cast.persona ? [cast.persona.name] : [])];
-          const resolution = await resolveIllustratorCharacterReferences({
-            charactersStore: chars,
-            chatScope:
-              requestChatMode === "roleplay"
-                ? { chatId: input.chatId, characterIds: allCharacterIds, getById: chars.getById }
-                : undefined,
-            characterGallery,
-            personaGallery,
-            chatCharacters: activeCharacters,
-            persona: cast.persona,
-            requestedNames,
-            promptText: "",
-            fallbackToChatCharacters: false,
-            includeReferenceImages: true,
-            includePersonaWhenMentionedInPrompt: false,
-            maxReferences: WRITER_REFERENCE_MAX_PICTURES,
-          });
-          const pictures: WriterReferencePicture[] = [];
-          for (const [index, image] of resolution.referenceImages.entries()) {
-            if (pictures.length >= WRITER_REFERENCE_MAX_PICTURES) break;
-            const dataUrl = await prepareWriterReferencePicture(image);
-            if (dataUrl) pictures.push({ label: resolution.referenceNames[index] ?? "reference", dataUrl });
-          }
-          if (pictures.length === 0) {
-            logger.info(
-              "[writer-references] Skipped: no reference pictures for %s",
-              requestedNames.join(", ") || "the cast",
-            );
-            return null;
-          }
-          return { instruction: writerSettings.instruction, pictures };
         };
         const resolveAgentContext = async (agent: AgentExecConfig, context: AgentContext): Promise<AgentContext> => {
           const resolvedContext = customLorebookReadBehindTargets.get(agent.id)?.context ?? context;
@@ -7797,7 +7744,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           if (videoOffer) memory._generatedVideos = videoOffer;
           delete memory[WRITER_REFERENCE_MEMORY_KEY];
           if (agent.type === "illustrator" && imageConnection) {
-            const writerReferences = await collectWriterReferencePictures(agent, memory, imageConnection);
+            const writerReferences = await writerReferencePicturesFor(agent, memory, imageConnection);
             if (writerReferences) memory[WRITER_REFERENCE_MEMORY_KEY] = writerReferences;
           }
           return { ...trackerContext, memory };
@@ -15457,17 +15404,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                           ? chatMeta.illustratorUseAvatarReferences
                           : imagePromptAgent?.settings?.useAvatarReferences === true;
-                      // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them (the writer has them).
+                      // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
                       const useAvatarRefs =
                         avatarReferencesOn &&
                         (!usesChatIllustratorSettings ||
-                          routeReferencePictures(
-                            resolveReferencePictureTarget(
-                              chatMeta.illustratorReferencePictureTarget,
-                              imagePromptAgent?.settings,
-                            ),
-                            imageConnectionTakesReferencePicture(avatarImageService(imgConnFull)),
-                          ).toImageModel);
+                          imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.settings, imgConnFull));
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&
                         typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"

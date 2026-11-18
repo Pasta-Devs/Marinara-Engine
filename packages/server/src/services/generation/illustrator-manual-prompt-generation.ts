@@ -12,6 +12,7 @@ import {
   readIllustratorImageAppearanceOverride,
 } from "../image/character-prompts.js";
 import { debugJson, logger } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import {
   agentRequestOptions,
   buildAgentCurrentLocationBlock,
@@ -357,7 +358,9 @@ export async function writeManualIllustratorPromptPlan(args: {
   if (writerReferences) logWriterReferenceAttach("[illustrate]", writerReferences);
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",
-    messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
+    messages
+      .map((message) => `${message.role}:\n${messageTextWithImagesForLog(message.content, message.images)}`)
+      .join("\n\n"),
   );
 
   const maxContext =

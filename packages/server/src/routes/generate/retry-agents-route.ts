@@ -159,6 +159,14 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
+  WRITER_REFERENCE_MEMORY_KEY,
+  collectWriterReferencePictures,
+  imageModelGetsReferencePictures,
+  readWriterReferenceNames,
+  writerVisionKey,
+  type WriterReferencePayload,
+} from "../../services/image/writer-reference-pictures.js";
+import {
   buildUncaptionedCharacterAppearanceBlock,
   IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY,
   personaEntityId,
@@ -658,6 +666,7 @@ async function executeManualIllustratorPromptRequest(args: {
   illustratorEntry: ResolvedRetryAgent;
   agentContext: AgentContext;
   debugMode: boolean;
+  writerReferences: RetryWriterReferences;
 }): Promise<AgentResult> {
   const startedAt = Date.now();
   try {
@@ -694,9 +703,15 @@ async function executeManualIllustratorPromptRequest(args: {
       characterPromptInstruction,
       manualAttachCardAppearance,
     );
+    const writerReferences = await args.writerReferences(args.illustratorEntry, imageConnection);
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
-      context: args.agentContext,
+      context: writerReferences
+        ? {
+            ...args.agentContext,
+            memory: { ...args.agentContext.memory, [WRITER_REFERENCE_MEMORY_KEY]: writerReferences },
+          }
+        : args.agentContext,
       styleInstruction,
       characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
@@ -743,6 +758,54 @@ async function executeManualIllustratorPromptRequest(args: {
  * Who a re-run Illustrator can show, for its picture references and its clips alike: the chat's characters, a
  * character used as the user, and the persona, read from the agent context.
  */
+type ImageConnectionArg = Parameters<typeof collectWriterReferencePictures>[0]["imageConnection"];
+type RetryWriterReferences = (
+  entry: ResolvedRetryAgent,
+  imageConnection: ImageConnectionArg | null,
+) => Promise<WriterReferencePayload | null>;
+
+/** The Illustrator writer's reference pictures for a retry or a Gallery illustration, routed like a chat run. */
+function retryWriterReferences(args: {
+  app: FastifyInstance;
+  chat: any;
+  chatId: string;
+  chatMeta: Record<string, unknown>;
+  conns: ReturnType<typeof createConnectionsStorage>;
+  chars: ReturnType<typeof createCharactersStorage>;
+  agentContext: AgentContext;
+}): RetryWriterReferences {
+  return async (entry, imageConnection) => {
+    if (entry.resolved.type !== "illustrator" || !imageConnection) return null;
+    const connectionId = entry.resolved.connectionId;
+    const writerConnection = connectionId ? await args.conns.getById(connectionId).catch(() => null) : null;
+    return collectWriterReferencePictures({
+      agentSettings: entry.resolved.settings,
+      chatMeta: args.chatMeta,
+      imageConnection,
+      writer: {
+        visionKey: writerVisionKey(connectionId, entry.agentModel),
+        connectionId: connectionId ?? "",
+        imageInput: (writerConnection as { imageInput?: string | null } | null)?.imageInput,
+      },
+      namedCards: readWriterReferenceNames(args.agentContext.memory),
+      cast: await retryIllustratorClipCast(args.agentContext, args.chars, args.chatId),
+      references: {
+        charactersStore: args.chars,
+        chatScope:
+          args.chat.mode === "roleplay"
+            ? {
+                chatId: args.chatId,
+                characterIds: parseJsonField<string[]>(args.chat.characterIds, []),
+                getById: args.chars.getById,
+              }
+            : undefined,
+        characterGallery: createCharacterGalleryStorage(args.app.db),
+        personaGallery: createPersonaGalleryStorage(args.app.db),
+      },
+    });
+  };
+}
+
 async function retryIllustratorClipCast(
   agentContext: AgentContext,
   chars: ReturnType<typeof createCharactersStorage>,
@@ -2684,9 +2747,11 @@ async function resolveRetryImagePromptContext(args: {
   conns?: ReturnType<typeof createConnectionsStorage>;
   chatMode?: ChatMode;
   chatMeta?: Record<string, unknown>;
+  writerReferences?: RetryWriterReferences;
 }): Promise<AgentContext> {
   const memory = { ...args.context.memory };
   delete memory._imagePromptInstructions;
+  delete memory[WRITER_REFERENCE_MEMORY_KEY];
 
   if (!args.conns || !args.chatMode || !args.chatMeta) {
     return { ...args.context, memory };
@@ -2706,6 +2771,8 @@ async function resolveRetryImagePromptContext(args: {
   imageConnection ??= await args.conns.getDefaultForImageGeneration().catch(() => null);
   const imagePromptInstructions = normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions);
   if (imagePromptInstructions) memory._imagePromptInstructions = imagePromptInstructions;
+  const writerReferences = await args.writerReferences?.(args.entry, imageConnection);
+  if (writerReferences) memory[WRITER_REFERENCE_MEMORY_KEY] = writerReferences;
   return { ...args.context, memory };
 }
 
@@ -2745,6 +2812,7 @@ async function executeRetryBatches(
   preparedCapabilityContexts: Map<string, AgentContext> = new Map(),
   agentMainResponse?: string,
   engineScenes: readonly string[] | null = null,
+  writerReferences?: RetryWriterReferences,
 ) {
   const retryAgents = mergeRetryPairedBuiltInRewriteAgents(resolvedAgents);
   const effectiveChatMode: ChatMode = chatMode ?? (agentContext.chatMode as ChatMode);
@@ -2909,6 +2977,7 @@ async function executeRetryBatches(
           conns,
           chatMode,
           chatMeta,
+          writerReferences,
         });
         groupResults.push(
           await runProviderJob(() =>
@@ -2919,7 +2988,14 @@ async function executeRetryBatches(
 
       for (const entry of toolAgents) {
         const toolContext = isImagePromptRetryAgent(entry)
-          ? await resolveRetryImagePromptContext({ entry, context: preparedGroupContext, conns, chatMode, chatMeta })
+          ? await resolveRetryImagePromptContext({
+              entry,
+              context: preparedGroupContext,
+              conns,
+              chatMode,
+              chatMeta,
+              writerReferences,
+            })
           : preparedGroupContext;
         const result = await runProviderJob(() =>
           executeAgent(entry.resolved, toolContext, group.provider, group.model, entry.resolved.toolContext),
@@ -4077,7 +4153,10 @@ async function applyRetryResultEffects(args: {
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true);
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true) &&
+              // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+              (!usesChatIllustratorSettings ||
+                imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.resolved.settings, imgConnFull));
             const includeCharacterAppearance =
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -5778,6 +5857,7 @@ export async function registerRetryAgentsRoute(
                   illustratorEntry: nonLorebookAgents[0]!,
                   agentContext,
                   debugMode,
+                  writerReferences: retryWriterReferences({ app, chat, chatId, chatMeta, conns, chars, agentContext }),
                 }),
               ]
             : nonLorebookAgents.length > 0
@@ -5797,6 +5877,7 @@ export async function registerRetryAgentsRoute(
                   chatMode === "game"
                     ? storyScenesOf(retryMessageId ? (await chats.getMessage(retryMessageId))?.extra : null)
                     : null,
+                  retryWriterReferences({ app, chat, chatId, chatMeta, conns, chars, agentContext }),
                 )
               : [];
       if (abortController.signal.aborted) return;
