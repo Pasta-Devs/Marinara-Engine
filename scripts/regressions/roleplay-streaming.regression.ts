@@ -472,10 +472,11 @@ const personalExtensionsHookSource = readSourceText(
   "utf8",
 );
 // Roleplay/Game Agents and the agent-card renderers it uses moved out of ChatSettingsDrawer.tsx.
-const roleplayAgentsSectionSource = readSourceText(
-  new URL("../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx", import.meta.url),
-  "utf8",
-);
+const roleplayAgentsSectionSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+  .map((name) =>
+    readSourceText(new URL(`../../packages/client/src/features/chat-settings/agents/${name}`, import.meta.url), "utf8"),
+  )
+  .join("\n");
 const agentSettingsRenderersSource = readSourceText(
   new URL("../../packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx", import.meta.url),
   "utf8",

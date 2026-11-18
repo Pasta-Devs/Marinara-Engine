@@ -119,22 +119,23 @@ const cases: RegressionCase[] = [
       assert.match(retryRouteSource, /chatMeta\?\.attachLorebooksToTrackers === true/u);
       assert.match(retryRouteSource, /getTrackerAgentTypes\(\)/u);
 
-      const chatSettingsSource = readFileSync(
-        new URL(
-          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
-          import.meta.url,
-        ),
-        "utf8",
-      );
+      const chatSettingsSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+        .map((name) =>
+          readFileSync(
+            new URL(`../../../packages/client/src/features/chat-settings/agents/${name}`, import.meta.url),
+            "utf8",
+          ),
+        )
+        .join("\n");
       const trackerControlsComment = chatSettingsSource.indexOf(
         "{/* Manual trackers run only in roleplay-style chats. */}",
       );
       const trackerControlsStart = chatSettingsSource.indexOf(
-        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        "{metadata.enableAgents && activeTrackerAgents.length > 0 && (",
         trackerControlsComment,
       );
       const trackerControlsEnd = chatSettingsSource.indexOf(
-        "{metadata.enableAgents && isRoleplayMode && activeTrackerAgents.length > 0 && (",
+        "{metadata.enableAgents && activeTrackerAgents.length > 0 && (",
         trackerControlsStart + 1,
       );
       assert.notEqual(trackerControlsComment, -1);

@@ -859,13 +859,14 @@ const cases: RegressionCase[] = [
         }
       }
 
-      const roleplayAgentsSource = readFileSync(
-        new URL(
-          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
-          import.meta.url,
-        ),
-        "utf8",
-      );
+      const roleplayAgentsSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+        .map((name) =>
+          readFileSync(
+            new URL(`../../../packages/client/src/features/chat-settings/agents/${name}`, import.meta.url),
+            "utf8",
+          ),
+        )
+        .join("\n");
       const executorSource = readFileSync(
         new URL("../../../packages/server/src/services/agents/agent-executor.ts", import.meta.url),
         "utf8",

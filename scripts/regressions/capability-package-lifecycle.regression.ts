@@ -782,10 +782,11 @@ try {
     "Capability model calls must not discard an explicit reasoning disable request",
   );
 
-  const roleplayAgentsSource = readFileSync(
-    join(repositoryRoot, "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx"),
-    "utf8",
-  );
+  const roleplayAgentsSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+    .map((name) =>
+      readFileSync(join(repositoryRoot, `packages/client/src/features/chat-settings/agents/${name}`), "utf8"),
+    )
+    .join("\n");
   assert.match(
     roleplayAgentsSource,
     /gameAgentPool\.map\(\(agent\)[\s\S]{0,7000}agent\.id === "long-term-memory" && ltmPackage[\s\S]{0,2500}<LongTermMemoryCapabilitySettings/u,

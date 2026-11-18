@@ -22,7 +22,9 @@ const trackerHeader = readSource("packages/client/src/features/tracker-panel/com
 const uiStore = readSource("packages/client/src/stores/ui.store.ts");
 const chatGallery = readSource("packages/client/src/components/chat/ChatGallery.tsx");
 const chatSettingsDrawer = readSource("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
-const roleplayAgentsSection = readSource("packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx");
+const roleplayAgentsSection = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+  .map((name) => readSource(`packages/client/src/features/chat-settings/agents/${name}`))
+  .join("\n");
 const agentSettingsRenderers = readSource(
   "packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx",
 );

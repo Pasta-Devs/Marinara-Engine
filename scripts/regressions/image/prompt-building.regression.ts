@@ -71,13 +71,14 @@ const cases: RegressionCase[] = [
       );
       assert.equal(resolveGameSetupArtStylePrompt({ useCampaignArtStyle: true }), "");
 
-      const roleplayAgentsSource = readFileSync(
-        new URL(
-          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
-          import.meta.url,
-        ),
-        "utf8",
-      );
+      const roleplayAgentsSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+        .map((name) =>
+          readFileSync(
+            new URL(`../../../packages/client/src/features/chat-settings/agents/${name}`, import.meta.url),
+            "utf8",
+          ),
+        )
+        .join("\n");
       const gameSurfaceSource = readFileSync(
         new URL("../../../packages/client/src/components/game/GameSurface.tsx", import.meta.url),
         "utf8",

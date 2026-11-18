@@ -33,7 +33,7 @@ interface ConversationAgentsSectionProps {
   textConnectionsList: ChatConnectionOption[];
   requestClose: () => Promise<boolean>;
   rememberSettingsReturn: () => void;
-  /** The render helpers both faces of Agents use. */
+  /** The render helpers the faces of Agents share. */
   renderers: AgentSettingsRenderers;
 }
 

@@ -93,6 +93,7 @@ const chatSettingsMapsSource = [
   "ChatSettingsDrawer.tsx",
   "agents/use-chat-agents.ts",
   "agents/RoleplayAgentsSection.tsx",
+  "agents/GameAgentsSection.tsx",
   "agents/agent-settings-renderers.tsx",
 ]
   .map((path) => read(`features/chat-settings/${path}`))

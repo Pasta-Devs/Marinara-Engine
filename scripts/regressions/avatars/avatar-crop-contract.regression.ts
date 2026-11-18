@@ -312,6 +312,8 @@ const chatSettingsDir = join(repoRoot, "packages/client/src/features/chat-settin
 const drawerSource = [
   join(chatSettingsDir, "ChatSettingsDrawer.tsx"),
   join(chatSettingsDir, "agents/RoleplayAgentsSection.tsx"),
+  join(chatSettingsDir, "agents/GameAgentsSection.tsx"),
+  join(chatSettingsDir, "agents/agents-section-parts.tsx"),
   join(chatSettingsDir, "agents/agent-settings-renderers.tsx"),
   ...readdirSync(join(chatSettingsDir, "sections")).map((name) => join(chatSettingsDir, "sections", name)),
 ]

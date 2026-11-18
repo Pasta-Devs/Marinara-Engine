@@ -241,7 +241,7 @@ export type ChatAgents = ReturnType<typeof useChatAgents>;
 
 /**
  * Agents' state, effects and handlers for Chat Settings. The drawer calls it once, before its guarded close, and
- * draws both faces of Agents from the result.
+ * draws the faces of Agents (Conversation, Roleplay, Game) from the result.
  */
 export function useChatAgents({
   chat,

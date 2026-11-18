@@ -1,4 +1,4 @@
-// The pieces both faces of Agents in Chat Settings draw: agent cards, the Illustrator and prompt pickers, the custom
+// The pieces the faces of Agents in Chat Settings share: agent cards, the Illustrator and prompt pickers, the custom
 // agent and Haptic cards and the custom music library. Plain render functions over the Agents hook's result, called on
 // each render as they were inside the drawer, so no input in them remounts.
 import { Suspense, lazy } from "react";

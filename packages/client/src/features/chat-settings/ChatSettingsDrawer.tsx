@@ -54,6 +54,7 @@ import { PersonaSection } from "./sections/PersonaSection";
 import { CharactersSection } from "./sections/CharactersSection";
 import { GamePartySection } from "./sections/GamePartySection";
 import { ConversationAgentsSection } from "./agents/ConversationAgentsSection";
+import { GameAgentsSection } from "./agents/GameAgentsSection";
 import { RoleplayAgentsSection } from "./agents/RoleplayAgentsSection";
 import { createAgentSettingsRenderers } from "./agents/agent-settings-renderers";
 import { ConversationNotesSection } from "./sections/ConversationNotesSection";
@@ -2118,39 +2119,54 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Agents */}
-          {modeSettingsSurfaces.agentSettingsSurface === "generation" && (
-            <RoleplayAgentsSection
-              agents={chatAgents}
-              renderers={agentRenderers}
-              chat={chat}
-              metadata={metadata}
-              chatMode={chatMode}
-              isGame={isGame}
-              isRoleplayMode={isRoleplayMode}
-              activeAgentIds={activeAgentIds}
-              availableAgents={availableAgents}
-              activeTrackerAgents={activeTrackerAgents}
-              chatCharacters={chatCharacters}
-              charName={charName}
-              charTitle={charTitle}
-              closeForSurface={closeForSurface}
-              gameLorebookKeeperEnabled={gameLorebookKeeperEnabled}
-              gameSetupConfig={gameSetupConfig}
-              lorebooks={lorebooks}
-              spriteCharacterIds={spriteCharacterIds}
-              updateMeta={updateMeta}
-              onSpriteVisualSettingsChange={onSpriteVisualSettingsChange}
-              connections={connections}
-              activeManualTrackerTypes={activeManualTrackerTypes}
-              getCharacterInfo={getCharacterInfo}
-              initialAgentId={initialAgentId}
-              spriteArrangeMode={spriteArrangeMode}
-              onToggleSpriteArrange={onToggleSpriteArrange}
-              requestClose={requestClose}
-              rememberSettingsReturn={rememberSettingsReturn}
-              setShowAgentSuiteModal={setShowAgentSuiteModal}
-            />
-          )}
+          {modeSettingsSurfaces.agentSettingsSurface === "generation" &&
+            (isGame ? (
+              <GameAgentsSection
+                agents={chatAgents}
+                renderers={agentRenderers}
+                chat={chat}
+                metadata={metadata}
+                chatMode={chatMode}
+                activeAgentIds={activeAgentIds}
+                availableAgents={availableAgents}
+                closeForSurface={closeForSurface}
+                gameLorebookKeeperEnabled={gameLorebookKeeperEnabled}
+                gameSetupConfig={gameSetupConfig}
+                lorebooks={lorebooks}
+                updateMeta={updateMeta}
+                connections={connections}
+                initialAgentId={initialAgentId}
+                requestClose={requestClose}
+                rememberSettingsReturn={rememberSettingsReturn}
+                setShowAgentSuiteModal={setShowAgentSuiteModal}
+              />
+            ) : (
+              <RoleplayAgentsSection
+                agents={chatAgents}
+                renderers={agentRenderers}
+                chat={chat}
+                metadata={metadata}
+                chatMode={chatMode}
+                activeAgentIds={activeAgentIds}
+                availableAgents={availableAgents}
+                activeTrackerAgents={activeTrackerAgents}
+                chatCharacters={chatCharacters}
+                charName={charName}
+                charTitle={charTitle}
+                closeForSurface={closeForSurface}
+                lorebooks={lorebooks}
+                spriteCharacterIds={spriteCharacterIds}
+                updateMeta={updateMeta}
+                onSpriteVisualSettingsChange={onSpriteVisualSettingsChange}
+                connections={connections}
+                activeManualTrackerTypes={activeManualTrackerTypes}
+                getCharacterInfo={getCharacterInfo}
+                initialAgentId={initialAgentId}
+                spriteArrangeMode={spriteArrangeMode}
+                onToggleSpriteArrange={onToggleSpriteArrange}
+                setShowAgentSuiteModal={setShowAgentSuiteModal}
+              />
+            ))}
 
           {/* Agent activity: its own section right below Agents, while agents or Advanced Memory run. */}
           {chatTools &&

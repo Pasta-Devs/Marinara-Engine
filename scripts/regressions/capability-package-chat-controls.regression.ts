@@ -7,7 +7,9 @@ import { readFileSync } from "node:fs";
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 const drawer = read("packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx");
-const roleplayAgents = read("packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx");
+const roleplayAgents = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+  .map((name) => read(`packages/client/src/features/chat-settings/agents/${name}`))
+  .join("\n");
 const agentRenderers = read("packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx");
 const connectedChats = read("packages/client/src/features/chat-settings/sections/ConnectedChatsSection.tsx");
 const convoFields = read("packages/client/src/components/characters/ConvoProfileFields.tsx");
