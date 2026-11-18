@@ -31,8 +31,16 @@ export interface CardUpdateMatch {
  */
 export type CreatorNotesUpdate = "merge" | "card" | "mine";
 
-/** "new" adds the card as a new character, "skip" leaves it out, anything else is the id of the character to update. */
-export type CardUpdateDecision = "new" | "skip" | string;
+/**
+ * "new" adds the card as a new character, "skip" leaves it out, "pick" waits for a character to be chosen under
+ * "Update another character…", anything else is the id of the character to update.
+ */
+export type CardUpdateDecision = "new" | "skip" | "pick" | string;
+
+/** "Update another character…" is chosen but no character yet: Continue waits. */
+export function isCardUpdatePending(decision: CardUpdateDecision | undefined): boolean {
+  return decision === "pick";
+}
 
 export interface CardUpdateRow {
   key: string;
@@ -51,7 +59,7 @@ export function defaultCardUpdateDecision(matches: readonly CardUpdateMatch[]): 
 }
 
 export function isCardUpdate(decision: CardUpdateDecision | undefined): decision is string {
-  return !!decision && decision !== "new" && decision !== "skip";
+  return !!decision && decision !== "new" && decision !== "skip" && decision !== "pick";
 }
 
 export async function findCardUpdateMatches(card: {
@@ -90,7 +98,7 @@ function CardUpdateChoice({
   const { t } = useTranslation();
   const matched = row.matches.some((match) => match.id === value);
   const [other, setOther] = useState(() => !!row.pickOther || (isCardUpdate(value) && !matched));
-  const otherMode = other || (isCardUpdate(value) && !matched);
+  const otherMode = other || isCardUpdatePending(value) || (isCardUpdate(value) && !matched);
   const { data: characterRows } = useCharacterListRows({ enabled: otherMode });
   const items = useMemo(
     () =>
@@ -121,7 +129,7 @@ function CardUpdateChoice({
             const next = event.target.value;
             if (next === OTHER) {
               setOther(true);
-              onChange("skip");
+              onChange("pick");
               return;
             }
             setOther(false);
@@ -144,7 +152,7 @@ function CardUpdateChoice({
             ariaLabel={t("ui.cardUpdate.characterToUpdate")}
             missingLabel={t("ui.cardUpdate.chooseCharacter")}
             triggerClassName="ov-select ov-cupd__other"
-            onChange={(id) => onChange(id || "skip")}
+            onChange={(id) => onChange(id || "pick")}
             searchLabel={t("chat.wizard.select.search")}
             emptyLabel={t("ui.cardUpdate.noCharacters")}
             noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
@@ -170,6 +178,7 @@ export function CardUpdateChoices({
   creatorNotes,
   onCreatorNotesChange,
   allowNew = true,
+  notice,
   className,
 }: {
   rows: readonly CardUpdateRow[];
@@ -181,6 +190,8 @@ export function CardUpdateChoices({
   onCreatorNotesChange: (value: CreatorNotesUpdate) => void;
   /** False in the editor's "Update from card file…", which only updates. */
   allowNew?: boolean;
+  /** A warning above the choices, such as a library check that could not run. */
+  notice?: string;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -188,6 +199,11 @@ export function CardUpdateChoices({
   return (
     <div className={cn("ov-cupd", className)} data-component="CardUpdateChoices">
       <p className="ov-cupd__intro">{t("ui.cardUpdate.intro")}</p>
+      {notice ? (
+        <p className="ov-cupd__notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       <div className="ov-cupd__rows">
         {rows.map((row) => (
           <CardUpdateChoice

@@ -23,6 +23,8 @@ import {
   inspectCharX,
   getExistingCharacterTagKeys,
   findMatchingCharacters,
+  loadCharacterMatchCandidates,
+  type CharacterMatchCandidates,
   IMPORT_BODY_LIMIT_BYTES,
   type CharacterImportMatch,
   type CreatorNotesUpdate,
@@ -466,9 +468,17 @@ function readCreatorNotesUpdate(value: unknown): CreatorNotesUpdate {
   return value === "card" || value === "mine" ? value : "merge";
 }
 
-/** Parse the `updateTargets` field: `[{ name: filename, characterId, useCardPicture }]`, one per file to update. */
-function readCharacterUpdateTargets(value: unknown): Map<string, CharacterUpdateTarget[]> {
-  const targets = new Map<string, CharacterUpdateTarget[]>();
+type CharacterUpdateTargets = {
+  byIndex: Map<number, CharacterUpdateTarget>;
+  byName: Map<string, CharacterUpdateTarget[]>;
+};
+
+/**
+ * Parse the `updateTargets` field: `[{ index, name: filename, characterId, useCardPicture, creatorNotes }]`, one per
+ * file to update. `index` is the file's position in the upload; entries without one are matched by filename.
+ */
+function readCharacterUpdateTargets(value: unknown): CharacterUpdateTargets {
+  const targets: CharacterUpdateTargets = { byIndex: new Map(), byName: new Map() };
   let parsed: unknown;
   try {
     parsed = JSON.parse(String(value ?? "[]"));
@@ -478,17 +488,27 @@ function readCharacterUpdateTargets(value: unknown): Map<string, CharacterUpdate
   if (!Array.isArray(parsed)) return targets;
   for (const entry of parsed) {
     if (!entry || typeof entry !== "object") continue;
-    const { name, characterId, useCardPicture, creatorNotes } = entry as Record<string, unknown>;
-    if (typeof name !== "string" || typeof characterId !== "string" || !characterId) continue;
-    const queue = targets.get(name) ?? [];
-    queue.push({
+    const { index, name, characterId, useCardPicture, creatorNotes } = entry as Record<string, unknown>;
+    if (typeof characterId !== "string" || !characterId) continue;
+    const target: CharacterUpdateTarget = {
       characterId,
       useCardPicture: useCardPicture !== false,
       creatorNotes: readCreatorNotesUpdate(creatorNotes),
-    });
-    targets.set(name, queue);
+    };
+    if (typeof index === "number" && Number.isInteger(index) && index >= 0) {
+      targets.byIndex.set(index, target);
+      continue;
+    }
+    if (typeof name !== "string") continue;
+    const queue = targets.byName.get(name) ?? [];
+    queue.push(target);
+    targets.byName.set(name, queue);
   }
   return targets;
+}
+
+function takeCharacterUpdateTarget(targets: CharacterUpdateTargets, index: number, filename: string) {
+  return targets.byIndex.get(index) ?? targets.byName.get(filename)?.shift();
 }
 
 async function importCharacterBuffer(
@@ -981,6 +1001,8 @@ export async function importRoutes(app: FastifyInstance) {
     });
     let totalBytes = 0;
     const results: Array<{ filename: string; matches?: CharacterImportMatch[] } & STCharacterImportPreview> = [];
+    // The library is read once for every file in the request.
+    let candidates: CharacterMatchCandidates | null = null;
 
     for await (const part of parts) {
       if (part.type !== "file") continue;
@@ -995,7 +1017,11 @@ export async function importRoutes(app: FastifyInstance) {
       }
       try {
         const result = await inspectCharacterBuffer(part.filename ?? "character", buffer);
-        const matches = result.success ? await findMatchingCharacters(app.db, result) : [];
+        let matches: CharacterImportMatch[] = [];
+        if (result.success) {
+          candidates ??= await loadCharacterMatchCandidates(app.db);
+          matches = await findMatchingCharacters(app.db, result, candidates);
+        }
         results.push({ filename: part.filename ?? "character", ...result, matches });
       } catch (error) {
         results.push({
@@ -1029,7 +1055,7 @@ export async function importRoutes(app: FastifyInstance) {
     let invalidRegexScriptScope = false;
     let splitDescription: boolean | undefined;
     let importTags = readImportTagOptions(undefined);
-    let updateTargets = new Map<string, CharacterUpdateTarget[]>();
+    let updateTargets: CharacterUpdateTargets = { byIndex: new Map(), byName: new Map() };
 
     for await (const part of parts) {
       if (part.type === "file") {
@@ -1105,7 +1131,7 @@ export async function importRoutes(app: FastifyInstance) {
     const results = [];
     const existingTagKeys =
       tagImportMode === "existing" && files.length > 0 ? await getExistingCharacterTagKeys(app.db) : undefined;
-    for (const file of files) {
+    for (const [fileIndex, file] of files.entries()) {
       const timestampEntry = timestampsByName.get(file.filename)?.shift();
       const timestampOverrides = normalizeTimestampOverrides({
         createdAt: timestampEntry?.lastModified,
@@ -1123,7 +1149,7 @@ export async function importRoutes(app: FastifyInstance) {
           regexScriptScope,
           splitDescription,
           importTags,
-          updateTargets.get(file.filename)?.shift(),
+          takeCharacterUpdateTarget(updateTargets, fileIndex, file.filename),
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {

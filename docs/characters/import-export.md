@@ -50,6 +50,10 @@ A lorebook is a set of background facts the AI looks up during a chat. If a card
 - **Import Lorebook** also creates a standalone Marinara lorebook linked to the character.
 - **No Import** keeps the lorebook only inside the card.
 
+### Import a whole SillyTavern folder
+
+To move a whole SillyTavern install, use the bulk importer in **Settings** on the **Imports** tab. It brings over characters, chats, presets and lorebooks together. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
+
 ## Update a character you already have
 
 When a card's author releases a newer version, you can update your copy in place instead of adding a second one. The character keeps its chats, memories, gallery, sprites, folder, favorite star, colors and your own tags. Its current card is saved to **Version history** first (even with automatic versioning off), so you can go back.
@@ -90,10 +94,6 @@ Cards imported before this feature don't remember their original notes, so the f
 ### Undo an update
 
 Open the character, find **Version history** on the **Metadata** tab and restore the version from before the update. See [Version history](creating-and-editing-characters.md#version-history).
-
-### Import a whole SillyTavern folder
-
-To move a whole SillyTavern install, use the bulk importer in **Settings → Data → SillyTavern Import**. It brings over characters, chats, presets and lorebooks together. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
 ## Export a character
 

@@ -178,10 +178,107 @@ try {
   assert.equal(versionsAfter.length, countBefore + 1);
   assert.ok(versionsAfter.some((version) => !version.isCurrent && version.data.description === "New description"));
 
+  // Regex scripts follow the newer card: a changed script is updated in place (and stays off if you turned it off),
+  // a new one is added, one the card dropped is removed, and a script you made yourself is left alone.
+  const scriptsFor = async () =>
+    rows(await get("/api/regex-scripts")).filter((script: { targetCharacterIds: unknown }) =>
+      String(script.targetCharacterIds).includes(id),
+    );
+  const trim = (await scriptsFor()).find((script: { name: string }) => script.name === "Trim");
+  assert.ok(trim, "the card's script is attached to the character");
+  await send("PATCH", `/api/regex-scripts/${trim.id}`, { enabled: false });
+  const mine = await post("/api/regex-scripts", {
+    name: "My own rule",
+    findRegex: "/x/g",
+    replaceString: "y",
+    placement: ["ai_output"],
+    targetCharacterIds: [id],
+  });
+  await post("/api/import/st-character", {
+    ...card("1.4", "Newest description", ["New lore"], {
+      regex_scripts: [
+        { scriptName: "Trim", findRegex: "/foo/g", replaceString: "baz", placement: [2] },
+        { scriptName: "Extra", findRegex: "/a/g", replaceString: "b", placement: [2] },
+      ],
+    }),
+    updateCharacterId: id,
+  });
+  let attached = await scriptsFor();
+  const trimAfter = attached.filter((script: { name: string }) => script.name === "Trim");
+  assert.equal(trimAfter.length, 1, JSON.stringify(attached.map((script: { name: string }) => script.name)));
+  assert.equal(trimAfter[0].id, trim.id, "updated in place");
+  assert.equal(trimAfter[0].replaceString, "baz");
+  assert.equal(String(trimAfter[0].enabled), "false", "still off");
+  assert.ok(attached.some((script: { name: string }) => script.name === "Extra"));
+  await post("/api/import/st-character", {
+    ...card("1.5", "Newest description", ["New lore"], {
+      regex_scripts: [{ scriptName: "Extra", findRegex: "/a/g", replaceString: "b", placement: [2] }],
+    }),
+    updateCharacterId: id,
+  });
+  attached = await scriptsFor();
+  assert.deepEqual(attached.map((script: { name: string }) => script.name).sort(), ["Extra", "My own rule"]);
+  assert.ok(attached.some((script: { id: string }) => script.id === (mine.id ?? mine.script?.id)));
+
+  // Two scripts with one name are each updated in place, and the rule's targets (here global) are left as they were.
+  const twins = (first: string, second: string) => [
+    { scriptName: "Twin", findRegex: "/one/g", replaceString: first, placement: [2] },
+    { scriptName: "Twin", findRegex: "/two/g", replaceString: second, placement: [2] },
+  ];
+  const twinCard = await post("/api/import/st-character", {
+    ...card("1.0", "Twin card", [], { regex_scripts: twins("a", "b") }),
+    data: { ...card("1.0", "Twin card", [], { regex_scripts: twins("a", "b") }).data, name: "Twin Holder" },
+    regexScriptScope: "global",
+  });
+  const twinId = twinCard.characterId as string;
+  const twinScripts = async () =>
+    rows(await get("/api/regex-scripts")).filter((script: { name: string }) => script.name === "Twin");
+  const twinIds = (await twinScripts()).map((script: { id: string }) => script.id).sort();
+  assert.equal(twinIds.length, 2);
+  await post("/api/import/st-character", {
+    ...card("1.1", "Twin card", [], { regex_scripts: twins("c", "d") }),
+    data: { ...card("1.1", "Twin card", [], { regex_scripts: twins("c", "d") }).data, name: "Twin Holder" },
+    updateCharacterId: twinId,
+  });
+  const twinsAfter = await twinScripts();
+  assert.deepEqual(
+    twinsAfter.map((script: { id: string }) => script.id).sort(),
+    twinIds,
+    "updated in place, no copies",
+  );
+  assert.deepEqual(twinsAfter.map((script: { replaceString: string }) => script.replaceString).sort(), ["c", "d"]);
+  for (const script of twinsAfter) assert.equal(String(script.targetCharacterIds), "[]", "still global");
+  await post("/api/import/st-character", {
+    ...card("1.2", "Twin card", [], { regex_scripts: twins("e", "f").slice(0, 1) }),
+    data: { ...card("1.2", "Twin card", [], { regex_scripts: twins("e", "f").slice(0, 1) }).data, name: "Twin Holder" },
+    updateCharacterId: twinId,
+  });
+  assert.equal((await twinScripts()).length, 1, "the twin the card dropped is removed");
+
+  // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
+  const before = rows(await get("/api/characters")).length;
+  const form = new FormData();
+  const file = (version: string) =>
+    new Blob([JSON.stringify(card(version, `Batch ${version}`, []))], { type: "application/json" });
+  form.append("files", file("9.0"), "wren.json");
+  form.append("files", file("9.1"), "wren.json");
+  form.append("updateTargets", JSON.stringify([{ index: 1, name: "wren.json", characterId: id }]));
+  const request = new Request("http://localhost/", { method: "POST", body: form });
+  const batch = await app.inject({
+    method: "POST",
+    url: "/api/import/st-character/batch",
+    payload: Buffer.from(await request.arrayBuffer()),
+    headers: { "content-type": request.headers.get("content-type")! },
+  });
+  assert.equal(batch.statusCode, 200, batch.body);
+  assert.equal(rows(await get("/api/characters")).length, before + 1, "the first file is added as new");
+  assert.equal(JSON.parse((await get(`/api/characters/${id}`)).data).description, "Batch 9.1");
+
   // A character that is gone is reported, and nothing new is created.
+  const countBeforeMissing = rows(await get("/api/characters")).length;
   const missing = await post("/api/import/st-character", { ...card("2.0", "x", []), updateCharacterId: "nope" });
   assert.equal(missing.success, false);
-  assert.equal(rows(await get("/api/characters")).length, 1);
+  assert.equal(rows(await get("/api/characters")).length, countBeforeMissing);
 } finally {
   await app.close();
   await closeDB();
