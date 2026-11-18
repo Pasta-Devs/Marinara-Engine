@@ -101,6 +101,7 @@ import {
   getOpenAIChatGPTAuth,
 } from "../llm/openai-chatgpt-auth.js";
 import { isRecord } from "../../utils/large-json.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
 // Lazy-load so the server boots even when sharp is missing. The Draw Things img2img
@@ -560,7 +561,6 @@ export function removeSavedImageFromDisk(filePath: string): void {
 }
 
 import type { StagedGalleryImage } from "@marinara-engine/shared";
-import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 export type { StagedGalleryImage } from "@marinara-engine/shared";
 
 /**
