@@ -1610,8 +1610,10 @@ export function ChatSidebar() {
 
       {/* Tabs */}
       <div className="px-3 pt-3">
+        {/* Icon before the label, so the row keeps the height of the other panels' Download | Open Library. */}
         <Tabs
           variant="pill"
+          inlineIcons
           label={t("navigation.chatSidebar.mode")}
           value={activeTab}
           onChange={setActiveTab}
@@ -1625,7 +1627,7 @@ export function ChatSidebar() {
               icon: cfg.icon,
               badge:
                 tabUnread > 0 && activeTab !== tab ? (
-                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
+                  <span className="absolute -right-0.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
                     {tabUnread > 99 ? "99+" : tabUnread}
                   </span>
                 ) : undefined,

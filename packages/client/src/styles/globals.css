@@ -2132,9 +2132,7 @@
   color: var(--mari-panel-gradient-start);
 }
 
-.mari-topbar-chat-gradient-icon svg,
-.mari-topbar-chat-gradient-hover:hover svg,
-.mari-topbar-chat-gradient-hover:focus-visible svg {
+.mari-topbar-chat-gradient-icon svg {
   color: var(--mari-logo-cyan);
   stroke: url(#mari-topbar-chats-gradient);
 }

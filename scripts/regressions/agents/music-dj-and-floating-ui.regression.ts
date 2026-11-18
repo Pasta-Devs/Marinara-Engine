@@ -60,13 +60,13 @@ assert.doesNotMatch(
 
 assert.match(
   topBarSource,
-  /!mobileTopbarNavigation && "mari-topbar-chat-gradient-icon"/u,
+  /!chatsBesideHome && "mari-topbar-chat-gradient-icon"/u,
   "Mobile Chats must not apply the desktop gradient to the icon",
 );
-assert.match(
-  topBarSource,
-  /!mobileTopbarNavigation && "mari-topbar-chat-gradient-hover"/u,
-  "Mobile Chats must not retain a sticky gradient hover class",
+assert.doesNotMatch(
+  topBarSource + globalsSource,
+  /mari-topbar-chat-gradient-hover/u,
+  "Hovering Chats lights the button like the other icons, without the gradient",
 );
 assert.match(
   topBarSource,
