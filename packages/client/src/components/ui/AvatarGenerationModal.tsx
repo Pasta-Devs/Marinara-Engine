@@ -1,16 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Camera,
-  ChevronDown,
-  IdCard,
-  ImageIcon,
-  ImagePlus,
-  PencilLine,
-  RotateCcw,
-  Sticker,
-  Wand2,
-  X,
-} from "lucide-react";
+import { Camera, IdCard, ImageIcon, ImagePlus, PencilLine, RotateCcw, Sticker, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
@@ -55,6 +44,7 @@ const GALLERY_KIND_LABEL_KEY: Record<GalleryCreateKind, string> = {
   "emoji-sheet": "ui.ui.avatargenerationmodal.kindEmojiSheet",
 };
 import { Spinner } from "./Spinner";
+import { Select } from "./Select";
 import { Checkbox } from "./Checkbox";
 
 type AvatarGenerationModalProps = {
@@ -474,31 +464,24 @@ export function AvatarGenerationModal({
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
             <div className="space-y-4">
               {galleryCreate && (
-                <label className="block space-y-1.5">
+                <div className="block space-y-1.5">
                   <span className="block text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.ui.avatargenerationmodal.createType")}
                   </span>
                   <span className="relative block">
-                    <select
+                    <Select
+                      label={localizeUi("ui.ui.avatargenerationmodal.createType")}
                       value={galleryKind}
-                      onChange={(event) => switchGalleryKind(event.target.value as GalleryCreateKind)}
+                      onChange={(next) => switchGalleryKind(next as GalleryCreateKind)}
                       disabled={generating || saving}
-                      data-gallery-create-kind=""
-                      className="mari-chrome-field h-9 w-full appearance-none rounded-lg py-0 pl-3 pr-8 text-xs max-sm:min-h-11 max-sm:text-[13px] [@media(pointer:coarse)]:min-h-11"
-                    >
-                      {GALLERY_CREATE_KINDS.map((kind) => (
-                        <option key={kind} value={kind}>
-                          {localizeUi(GALLERY_KIND_LABEL_KEY[kind])}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size="0.875rem"
-                      aria-hidden="true"
-                      className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                      className="mari-chrome-field h-9 w-full rounded-lg py-0 pl-3 pr-3 text-xs max-sm:min-h-11 max-sm:text-[13px] [@media(pointer:coarse)]:min-h-11"
+                      options={GALLERY_CREATE_KINDS.map((kind) => ({
+                        value: kind,
+                        label: localizeUi(GALLERY_KIND_LABEL_KEY[kind]),
+                      }))}
                     />
                   </span>
-                </label>
+                </div>
               )}
               <label className="block space-y-1.5">
                 <span className="block text-xs font-medium text-[var(--foreground)]">

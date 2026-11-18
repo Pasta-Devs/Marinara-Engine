@@ -14,6 +14,7 @@ import { agentsRoutes } from "./agents.routes.js";
 import { customToolsRoutes } from "./custom-tools.routes.js";
 import { generateRoutes, type GenerationRunner } from "./generate.routes.js";
 import { utilitySidecarRoutes } from "./utility-sidecar.routes.js";
+import { builtinEmbeddingRoutes } from "./builtin-embedding.routes.js";
 import { decisionRoutes } from "./decision.routes.js";
 import { importRoutes } from "./import.routes.js";
 import { backgroundsRoutes } from "./backgrounds.routes.js";
@@ -30,6 +31,7 @@ import { encounterRoutes } from "./encounter.routes.js";
 import { sceneRoutes } from "./scene.routes.js";
 import { fontsRoutes } from "./fonts.routes.js";
 import { galleryRoutes } from "./gallery.routes.js";
+import { galleryDescriptionsRoutes } from "./gallery-descriptions.routes.js";
 import { globalGalleryRoutes } from "./global-gallery.routes.js";
 import { spotifyAuthRoutes } from "./spotify-auth.routes.js";
 import { youtubeRoutes } from "./youtube.routes.js";
@@ -121,6 +123,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });
   await app.register(agentsRoutes, { prefix: "/api/agents" });
   await app.register(utilitySidecarRoutes, { prefix: "/api/utility-sidecar" });
+  await app.register(builtinEmbeddingRoutes, { prefix: "/api/builtin-embedding" });
   await app.register(customToolsRoutes, { prefix: "/api/custom-tools" });
   await app.register(generateRoutes, {
     prefix: "/api/generate",
@@ -142,6 +145,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(fontsRoutes, { prefix: "/api/fonts" });
   await app.register(galleryRoutes, { prefix: "/api/gallery" });
   await app.register(globalGalleryRoutes, { prefix: "/api/global-gallery" });
+  await app.register(galleryDescriptionsRoutes, { prefix: "/api/gallery-descriptions" });
   await app.register(spotifyAuthRoutes, { prefix: "/api/spotify" });
   await app.register(youtubeRoutes, { prefix: "/api/youtube" });
   await app.register(knowledgeSourcesRoutes, { prefix: "/api/knowledge-sources" });

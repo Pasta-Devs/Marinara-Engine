@@ -71,6 +71,7 @@ import {
 } from "../../hooks/use-knowledge-sources";
 import { cn } from "../../lib/utils";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { Select } from "../ui/Select";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { StoryboardAgentSettingsPanel } from "./StoryboardAgentSettingsPanel";
 import {
@@ -2688,26 +2689,27 @@ export function AgentEditor() {
                         markDirty();
                       }}
                     />
-                    <label className="flex items-center gap-2 text-xs">
-                      {localizeUi("ui.agents.agenteditor.homeWidgetSize")}
-                      <select
+                    <div className="flex items-center gap-2 text-xs">
+                      <label htmlFor={`home-widget-size-${widget.id}`}>
+                        {localizeUi("ui.agents.agenteditor.homeWidgetSize")}
+                      </label>
+                      <Select
+                        id={`home-widget-size-${widget.id}`}
+                        label={localizeUi("ui.agents.agenteditor.homeWidgetSize")}
                         value={widget.size}
-                        onChange={(event) => {
+                        onChange={(next) => {
                           setLocalHomeWidgets((widgets) =>
-                            widgets.map((item) =>
-                              item.id === widget.id
-                                ? { ...item, size: event.target.value as "compact" | "large" }
-                                : item,
-                            ),
+                            widgets.map((item) => (item.id === widget.id ? { ...item, size: next } : item)),
                           );
                           markDirty();
                         }}
-                        className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
-                      >
-                        <option value="compact">{localizeUi("ui.agents.agenteditor.homeWidgetCompact")}</option>
-                        <option value="large">{localizeUi("ui.agents.agenteditor.homeWidgetLarge")}</option>
-                      </select>
-                    </label>
+                        className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-1"
+                        options={[
+                          { value: "compact", label: localizeUi("ui.agents.agenteditor.homeWidgetCompact") },
+                          { value: "large", label: localizeUi("ui.agents.agenteditor.homeWidgetLarge") },
+                        ]}
+                      />
+                    </div>
                     <span className="sr-only">{index + 1}</span>
                   </div>
                 ))}
@@ -2974,30 +2976,37 @@ export function AgentEditor() {
 
                 {(canConfigureLorebookTarget || canConfigureLorebookReadBehind) && (
                   <>
-                    <label className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-                      <span className="font-medium text-[var(--foreground)]">
+                    <div className="flex min-w-0 flex-col gap-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      <label
+                        htmlFor={`${growingOrderDescriptionId}-field`}
+                        className="font-medium text-[var(--foreground)]"
+                      >
                         {localizeUi("ui.agents.agenteditor.newLorebookEntryOrder")}
-                      </span>
-                      <select
+                      </label>
+                      <Select
+                        id={`${growingOrderDescriptionId}-field`}
+                        label={localizeUi("ui.agents.agenteditor.newLorebookEntryOrder")}
                         value={localLorebookOrderMode}
                         aria-describedby={localLorebookOrderMode === "growing" ? growingOrderDescriptionId : undefined}
-                        onChange={(event) => {
-                          const mode = event.target.value;
+                        onChange={(mode) => {
                           if (mode !== "fixed" && mode !== "growing" && mode !== "legacy") return;
                           setLocalLorebookOrderMode(mode);
                           markDirty();
                         }}
                         className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                      >
-                        <option value="fixed">{localizeUi("ui.agents.agenteditor.lorebookOrderFixed")}</option>
-                        <option value="growing">{localizeUi("ui.agents.agenteditor.lorebookOrderGrowing")}</option>
-                        <option value="legacy">
-                          {localResultType === "lorebook_update"
-                            ? localizeUi("ui.agents.agenteditor.lorebookOrderAgentSupplied")
-                            : localizeUi("ui.agents.agenteditor.lorebookOrderDefault")}
-                        </option>
-                      </select>
-                    </label>
+                        options={[
+                          { value: "fixed", label: localizeUi("ui.agents.agenteditor.lorebookOrderFixed") },
+                          { value: "growing", label: localizeUi("ui.agents.agenteditor.lorebookOrderGrowing") },
+                          {
+                            value: "legacy",
+                            label:
+                              localResultType === "lorebook_update"
+                                ? localizeUi("ui.agents.agenteditor.lorebookOrderAgentSupplied")
+                                : localizeUi("ui.agents.agenteditor.lorebookOrderDefault"),
+                          },
+                        ]}
+                      />
+                    </div>
                     {localLorebookOrderMode === "growing" && (
                       <p
                         id={growingOrderDescriptionId}
@@ -3253,28 +3262,27 @@ export function AgentEditor() {
                   description={localizeUi("ui.agents.agenteditor.addsOnlyMatchedVisibleNamesAsLinesLikeName")}
                 />
                 {isIllustratorAgent && localUseAvatarReferences && (
-                  <label className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
+                  <div className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
                     <span className="text-xs font-medium text-[var(--foreground)]">
                       {localizeUi("ui.agents.agenteditor.referencePictureTarget")}
                     </span>
                     <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                       {localizeUi(`ui.agents.agenteditor.referencePictureTargetHelp.${localReferencePictureTarget}`)}
                     </span>
-                    <select
+                    <Select<ReferencePictureTarget>
+                      label={localizeUi("ui.agents.agenteditor.referencePictureTarget")}
                       value={localReferencePictureTarget}
-                      onChange={(event) => {
-                        setLocalReferencePictureTarget(event.target.value as ReferencePictureTarget);
+                      onChange={(target) => {
+                        setLocalReferencePictureTarget(target);
                         markDirty();
                       }}
+                      options={REFERENCE_PICTURE_TARGETS.map((target) => ({
+                        value: target,
+                        label: localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`),
+                      }))}
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                    >
-                      {REFERENCE_PICTURE_TARGETS.map((target) => (
-                        <option key={target} value={target}>
-                          {localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
                 )}
               </div>
               {isIllustratorAgent && localUseAvatarReferences && localReferencePictureTarget !== "image" && (

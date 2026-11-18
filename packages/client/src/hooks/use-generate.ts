@@ -95,6 +95,8 @@ type RetryAgentsOptions = {
   /** Told the Gallery id of each picture the Illustrator draws in this run. */
   onIllustration?: (galleryImageId: string) => void;
   illustratorMessageRange?: [string, string];
+  /** Scene guidance from /illustrate template=…, for that Prompt Mode's prompt writer. */
+  illustratorRequest?: string;
   /** Force image generation for the retried custom image agents' results (snapshot button, #4682). */
   forceImageGeneration?: boolean;
 };
@@ -4001,6 +4003,7 @@ export function useGenerate() {
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
             ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
+            ...(options?.illustratorRequest ? { illustratorRequest: options.illustratorRequest } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,

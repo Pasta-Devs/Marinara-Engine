@@ -37,3 +37,16 @@ export function typeAheadSelectOption<T extends string>(
   }
   return undefined;
 }
+
+/** Consecutive options sharing a `group` (or none), in order: the list shows a header per grouped run. */
+export function groupSelectOptions<T extends { group?: string }>(
+  options: readonly T[],
+): { group: string | undefined; options: T[] }[] {
+  const runs: { group: string | undefined; options: T[] }[] = [];
+  for (const option of options) {
+    const last = runs[runs.length - 1];
+    if (last && last.group === option.group) last.options.push(option);
+    else runs.push({ group: option.group, options: [option] });
+  }
+  return runs;
+}

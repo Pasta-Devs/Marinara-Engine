@@ -20,6 +20,7 @@ import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-
 import { api } from "../../lib/api-client";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const PREVIEW_LIMIT = 200;
@@ -169,15 +170,16 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
           {fileName ? (
             <span className="min-w-0 truncate text-xs text-[var(--muted-foreground)]">{fileName}</span>
           ) : null}
-          <select
+          <Select
             value={format}
-            onChange={(event) => setFormat(event.target.value as LorebookTextFormat)}
-            aria-label={t("lorebook.textImport.format")}
+            onChange={(next) => setFormat(next as LorebookTextFormat)}
+            label={t("lorebook.textImport.format")}
             className="mari-editor-field ml-auto px-2 py-1.5 text-xs max-sm:text-base"
-          >
-            <option value="markdown">{t("lorebook.textImport.formatMarkdown")}</option>
-            <option value="csv">{t("lorebook.textImport.formatCsv")}</option>
-          </select>
+            options={[
+              { value: "markdown", label: t("lorebook.textImport.formatMarkdown") },
+              { value: "csv", label: t("lorebook.textImport.formatCsv") },
+            ]}
+          />
           <input
             ref={fileRef}
             type="file"
@@ -303,18 +305,20 @@ export function LorebookTextImportDialog({ open, onClose, lorebookId }: Props) {
               />
             ) : null}
           </div>
-          <label className="block space-y-1.5">
+          <div className="block space-y-1.5">
             <span className="text-xs font-medium">{t("lorebook.textImport.duplicates")}</span>
-            <select
+            <Select
               value={duplicateMode}
-              onChange={(event) => setDuplicateMode(event.target.value as LorebookTextDuplicateMode)}
+              onChange={(next) => setDuplicateMode(next as LorebookTextDuplicateMode)}
+              label={t("lorebook.textImport.duplicates")}
               className="mari-editor-field w-full px-3 py-1.5 text-xs max-sm:text-base"
-            >
-              <option value="skip">{t("lorebook.textImport.duplicateSkip")}</option>
-              <option value="rename">{t("lorebook.textImport.duplicateRename")}</option>
-              <option value="overwrite">{t("lorebook.textImport.duplicateOverwrite")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "skip", label: t("lorebook.textImport.duplicateSkip") },
+                { value: "rename", label: t("lorebook.textImport.duplicateRename") },
+                { value: "overwrite", label: t("lorebook.textImport.duplicateOverwrite") },
+              ]}
+            />
+          </div>
         </div>
       </div>
     </Modal>

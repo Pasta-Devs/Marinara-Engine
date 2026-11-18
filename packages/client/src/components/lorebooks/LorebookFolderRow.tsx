@@ -21,6 +21,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { ChevronDown, CheckSquare2, Copy, GripVertical, Square, Trash2 } from "lucide-react";
+import { Select } from "../ui/Select";
 import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete } from "../../lib/app-dialogs";
 import { useUpdateLorebookFolder, useDeleteLorebookFolder, useCloneLorebookFolder } from "../../hooks/use-lorebooks";
@@ -336,21 +337,22 @@ export function LorebookFolderRow({
 
         {/* Parent folder picker — nest this folder under another (cycle-safe options) */}
         {parentOptions.length > 0 && (
-          <select
-            value={localParentId ?? ""}
-            onChange={(e) => handleParentChange(e.target.value || null)}
-            onClick={(e) => e.stopPropagation()}
-            title={localizeUi("ui.lorebooks.lorebookfolderrow.nestThisFolderUnderAnotherFolder")}
-            aria-label={localizeUi("ui.lorebooks.lorebookfolderrow.parentFolder")}
-            className="mari-editor-field shrink-0 max-w-[4.75rem] truncate px-1 py-0.5 text-[0.625rem] text-[var(--marinara-editor-muted)] sm:max-w-[7rem] sm:px-1.5"
-          >
-            <option value="">{localizeUi("ui.lorebooks.lorebookfolderrow.topLevel")}</option>
-            {parentOptions.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.name.trim() || "Untitled folder"}
-              </option>
-            ))}
-          </select>
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Select
+              value={localParentId ?? ""}
+              onChange={(next) => handleParentChange(next || null)}
+              title={localizeUi("ui.lorebooks.lorebookfolderrow.nestThisFolderUnderAnotherFolder")}
+              label={localizeUi("ui.lorebooks.lorebookfolderrow.parentFolder")}
+              className="mari-editor-field max-w-[4.75rem] truncate px-1 py-0.5 text-[0.625rem] text-[var(--marinara-editor-muted)] sm:max-w-[7rem] sm:px-1.5"
+              options={[
+                { value: "", label: localizeUi("ui.lorebooks.lorebookfolderrow.topLevel") },
+                ...parentOptions.map((candidate) => ({
+                  value: candidate.id,
+                  label: candidate.name.trim() || localizeUi("ui.lorebooks.lorebookfolderrow.untitledFolder"),
+                })),
+              ]}
+            />
+          </div>
         )}
 
         {/* Entry count badge */}

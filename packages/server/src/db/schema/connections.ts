@@ -77,6 +77,12 @@ export const apiConnections = fileTable("api_connections", {
   fallbackForAgents: text("fallback_for_agents").notNull().default("false"),
   /** Model to use for embedding generation (e.g. text-embedding-3-small) */
   embeddingModel: text("embedding_model"),
+  /**
+   * Optional: this Model's own address on its Connection's server (e.g. `/proxy/openai` beside a Connection set
+   * to `/proxy/google-ai`). Empty = the Connection's address. Used only while it is on the same origin as the
+   * row's address, so the shared key never goes to another server.
+   */
+  modelBaseUrl: text("model_base_url"),
   /** Optional: separate base URL for the embedding backend (e.g. a second llama.cpp instance) */
   embeddingBaseUrl: text("embedding_base_url"),
   /** Optional: use a different connection for embeddings */

@@ -59,9 +59,11 @@ import {
   isLocalAuthProvider,
   isChatProvider,
   isGeminiArgonOrCarbonModel,
+  isGeminiHydrogenModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
@@ -78,6 +80,7 @@ import {
 import {
   connectionSavesModelList,
   createConnectionsStorage,
+  ownModelBaseUrl,
   withoutSavedModels,
 } from "../services/storage/connections.storage.js";
 import { accountBlocksRows, createConnectionAccountsStorage } from "../services/storage/connection-accounts.storage.js";
@@ -159,6 +162,7 @@ const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
 
 /** Store an uploaded picture (`{ image: dataUrl }`) of a Model or Connection; returns its served path. */
+
 export async function saveConnectionImage(
   _id: string,
   body: unknown,
@@ -793,6 +797,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const merged = { ...current, ...data };
     const validationError = nanoGptVideoConnectionError(merged) || (await generativeAudioConnectionError(merged));
     if (validationError) return reply.status(400).send({ error: validationError });
+    // A Model's own address on another server than the row's is refused by storage.update (400).
     return withLongTermMemoryEmbeddingChange(app.db, reply, async () => {
       const updated = await storage.update(req.params.id, data);
       await migrateLegacyAudio(updated?.provider);
@@ -1898,7 +1903,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
       if (cfg.connectionUnavailable) return reply.status(409).send({ error: TTS_CONNECTION_UNAVAILABLE });
       if (cfg.source === "elevenlabs") return fetchProviderModels(cfg);
     }
-    const savesList = connectionSavesModelList(conn.provider);
+    // A Model with its own address lists that address live; the Connection's saved catalog is another address's.
+    const savesList =
+      connectionSavesModelList(conn.provider) && !ownModelBaseUrl((await storage.getById(conn.id)) ?? {});
     if (savesList && req.query.refresh !== "true") {
       const saved = await storage.readCatalog(conn);
       if (saved) return withCosts(conn, saved);
@@ -2249,15 +2256,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const source = await resolveConnectionTestEmbeddingSource(app.db, conn);
     if (!source) {
       const via = conn.embeddingConnectionId;
-      const lender = via && via !== LOCAL_SIDECAR_CONNECTION_ID ? await storage.getWithKey(via) : null;
+      const lender =
+        via && via !== LOCAL_SIDECAR_CONNECTION_ID && via !== BUILTIN_EMBEDDING_CONNECTION_ID
+          ? await storage.getWithKey(via)
+          : null;
       // A model with no address to send it to is a missing endpoint, not a missing model.
       const hasModel = !!(conn.embeddingModel?.trim() || lender?.embeddingModel?.trim());
       const message =
         via === LOCAL_SIDECAR_CONNECTION_ID
           ? "The built-in model makes embeddings only with an enabled llama.cpp model."
-          : hasModel
-            ? "No embedding endpoint set. Add an Embedding endpoint URL or a Base URL."
-            : "No embedding model set.";
+          : via === BUILTIN_EMBEDDING_CONNECTION_ID
+            ? "Download the built-in embedding model first (Connections, On this device)."
+            : hasModel
+              ? "No embedding endpoint set. Add an Embedding endpoint URL or a Base URL."
+              : "No embedding model set.";
       return { success: false, message, latencyMs: 0 };
     }
     const { model, endpoint } = source;
@@ -2579,12 +2591,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, model);
       // Reasoning models (GLM 5.3, Mistral reasoning models, Gemini 4 Argon and Carbon, which
-      // think at medium with no level saved) spend one output budget on thinking and on text.
+      // think at medium with no level saved, and Hydrogen, at high) spend one output budget on thinking and on text.
       // At 200 tokens the whole budget is thinking and the test reports success with nothing to
       // show, so give them room for a one-line answer.
       const reasoningTest =
         isGlm53MandatoryReasoningModel(model) ||
         isGeminiArgonOrCarbonModel(model) ||
+        isGeminiHydrogenModel(model) ||
         (conn.provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model)));
       const maxTokens = resolveStoredMaxTokens(conn.defaultParameters, reasoningTest ? 1024 : 200);
       let fullResponse = "";

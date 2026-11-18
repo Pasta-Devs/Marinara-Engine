@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { useTranslation } from "react-i18next";
 import { includesTextForMatch } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { groupSelectOptions } from "../../lib/select-options";
 import type { LibraryFolder } from "../../hooks/use-library-folders";
 import {
   FolderToggle,
@@ -31,10 +32,18 @@ export type PickerFolderItem = {
   searchText?: string;
   /** A small mark after the label (such as "OFF"). */
   badge?: ReactNode;
+  /** Consecutive rows with the same group sit under a header (flat lists only, such as a Select's). */
+  group?: string;
 };
 
+// "portugues" finds "Português": both sides drop combining marks before matching.
+const foldAccents = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "");
+
 const matches = (item: PickerFolderItem, query: string) =>
-  includesTextForMatch(item.searchText ? item.label + " " + item.searchText : item.label, query);
+  includesTextForMatch(
+    foldAccents(item.searchText ? item.label + " " + item.searchText : item.label),
+    foldAccents(query),
+  );
 
 export type PickerFolderListProps = {
   /** Already in display order. */
@@ -154,6 +163,25 @@ export function PickerFolderList({
     />
   );
 
+  // Flat rows, with a header over each run that has a group. Grouped after the search, so a header
+  // shows only while one of its rows matches.
+  const flatRows = (rows: readonly PickerFolderItem[]) =>
+    groupSelectOptions(rows).map((run, index) =>
+      run.group === undefined ? (
+        run.options.map((item) => itemRow(item, false))
+      ) : (
+        <div key={`${index}:${run.group}`} role="group" aria-label={run.group}>
+          <div
+            aria-hidden="true"
+            className="px-2 pb-0.5 pt-2 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45"
+          >
+            {run.group}
+          </div>
+          {run.options.map((item) => itemRow(item, false))}
+        </div>
+      ),
+    );
+
   const groupBlock = (group: Group) => {
     const open = expanded.has(group.id);
     const addable =
@@ -219,7 +247,7 @@ export function PickerFolderList({
         ) : query !== "" || groups.length === 0 ? (
           <>
             {visibleLeading.map((item) => itemRow(item, false))}
-            {visibleItems.map((item) => itemRow(item, false))}
+            {flatRows(visibleItems)}
           </>
         ) : (
           <>

@@ -10,6 +10,7 @@ import {
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { AgentSettingsCard } from "../../../components/chat/AgentSettingsControls";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
+import { Select } from "../../../components/ui/Select";
 import { cn } from "../../../lib/utils";
 import { normalizeRollOutcomeToneMode } from "../../../components/dice/dice-tone";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
@@ -132,16 +133,18 @@ export function RoleplayCommandsSettings({
                     {checked && (key === "roll" || key === "combat" || key === "document" || key === "whisper") && (
                       <div className="flex flex-col gap-1.5 text-xs">
                         <label htmlFor={`${chat.id}:${key}-audience`}>{t(`roleplay.commands.${key}.audience`)}</label>
-                        <select
+                        <Select
                           id={`${chat.id}:${key}-audience`}
                           aria-describedby={showAudienceWarning ? `${chat.id}:${key}-audience-status` : undefined}
+                          label={t(`roleplay.commands.${key}.audience`)}
                           value={metadata[audienceKey] ?? "all"}
-                          onChange={(event) => update.mutate({ id: chat.id, [audienceKey]: event.target.value })}
+                          options={[
+                            { value: "all", label: t("roleplay.commands.audience.all") },
+                            { value: "narrator", label: t("roleplay.commands.audience.narrator") },
+                          ]}
+                          onChange={(value) => update.mutate({ id: chat.id, [audienceKey]: value })}
                           className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
-                        >
-                          <option value="all">{t("roleplay.commands.audience.all")}</option>
-                          <option value="narrator">{t("roleplay.commands.audience.narrator")}</option>
-                        </select>
+                        />
                         {showAudienceWarning && (
                           <span
                             id={`${chat.id}:${key}-audience-status`}
@@ -160,20 +163,18 @@ export function RoleplayCommandsSettings({
                             <label htmlFor={`${chat.id}:roll-outcome-tone`}>
                               {t("roleplay.commands.roll.outcomeTone.label")}
                             </label>
-                            <select
+                            <Select
                               id={`${chat.id}:roll-outcome-tone`}
+                              label={t("roleplay.commands.roll.outcomeTone.label")}
                               value={normalizeRollOutcomeToneMode(metadata.roleplayRollOutcomeTone)}
-                              onChange={(event) =>
-                                update.mutate({ id: chat.id, roleplayRollOutcomeTone: event.target.value })
-                              }
+                              options={[
+                                { value: "off", label: t("roleplay.commands.roll.outcomeTone.off") },
+                                { value: "outcome", label: t("roleplay.commands.roll.outcomeTone.outcome") },
+                                { value: "outcome-crits", label: t("roleplay.commands.roll.outcomeTone.outcomeCrits") },
+                              ]}
+                              onChange={(value) => update.mutate({ id: chat.id, roleplayRollOutcomeTone: value })}
                               className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
-                            >
-                              <option value="off">{t("roleplay.commands.roll.outcomeTone.off")}</option>
-                              <option value="outcome">{t("roleplay.commands.roll.outcomeTone.outcome")}</option>
-                              <option value="outcome-crits">
-                                {t("roleplay.commands.roll.outcomeTone.outcomeCrits")}
-                              </option>
-                            </select>
+                            />
                           </>
                         )}
                       </div>
@@ -187,26 +188,22 @@ export function RoleplayCommandsSettings({
                 <label htmlFor={`${chat.id}:command-narrator`} className="font-medium">
                   {t("roleplay.commands.narrator.label")}
                 </label>
-                <select
+                <Select
                   id={`${chat.id}:command-narrator`}
                   aria-describedby={`${chat.id}:command-narrator-description`}
+                  label={t("roleplay.commands.narrator.label")}
                   value={
                     characters.some((character) => character.id === metadata.roleplayCommandNarratorId)
                       ? (metadata.roleplayCommandNarratorId ?? "")
                       : ""
                   }
-                  onChange={(event) =>
-                    update.mutate({ id: chat.id, roleplayCommandNarratorId: event.target.value || null })
-                  }
+                  options={[
+                    { value: "", label: t("roleplay.commands.narrator.none") },
+                    ...characters.map((character) => ({ value: character.id, label: character.name })),
+                  ]}
+                  onChange={(value) => update.mutate({ id: chat.id, roleplayCommandNarratorId: value || null })}
                   className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 focus-visible:outline focus-visible:outline-[var(--primary)]"
-                >
-                  <option value="">{t("roleplay.commands.narrator.none")}</option>
-                  {characters.map((character) => (
-                    <option key={character.id} value={character.id}>
-                      {character.name}
-                    </option>
-                  ))}
-                </select>
+                />
                 <span
                   id={`${chat.id}:command-narrator-description`}
                   className="text-[0.6875rem] text-[var(--muted-foreground)]"

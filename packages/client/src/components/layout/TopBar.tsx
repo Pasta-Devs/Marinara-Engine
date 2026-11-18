@@ -30,7 +30,8 @@ import {
 import { createPortal } from "react-dom";
 import { preloadRightPanel } from "./right-panel-panels";
 import { useTranslation } from "react-i18next";
-import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
@@ -136,6 +137,8 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  // Desktop only: with the sidebar docked on the left, the bar mirrors (panel buttons left, Home right).
+  const sidebarOnLeft = useUIStore((s) => s.sidebarSide === "left") && !mobileTopbarNavigation;
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -288,7 +291,11 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
 
   const clearTopbarHover = useCallback(() => setHoveredTopbarKey(null), []);
 
-  const chatsActive = sidebarOpen && (!mobileTopbarNavigation || !rightPanelOpen);
+  // Chats shares the one sidebar with the panels, so it is shown only while no panel is open.
+  const chatsActive = sidebarOpen;
+  // Phones and touch tablets keep Chats beside Home. A desktop window too narrow for the sidebar also gets the
+  // sheet (isMobileShellViewport's width check) but keeps the desktop bar, so Chats stays with the panel buttons.
+  const chatsBesideHome = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
   const overflowItems: TopbarOverflowItem[] = [
     {
       key: "chats",
@@ -406,18 +413,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
       data-tour="sidebar-toggle"
       data-topbar-hover-key="chats"
       className={cn(
-        TOPBAR_BUTTON_CLASS,
+        // On desktop Chats is the first of the panel buttons, since it opens in the same sidebar.
+        chatsBesideHome ? TOPBAR_BUTTON_CLASS : TOPBAR_PANEL_BUTTON_CLASS,
         // On a phone, Chats is the first row of the menu instead (overflowItems), beside the other panels.
         PHONE_OVERFLOW_HIDDEN_CLASS,
+        // Hover lights the button like the other icons; only the open Chats wears the gradient.
         chatsActive
-          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !mobileTopbarNavigation && "mari-topbar-chat-gradient-icon")
-          : cn(
-              "text-[var(--muted-foreground)]",
-              !mobileTopbarNavigation && "mari-topbar-chat-gradient-hover",
-              !mobileTopbarNavigation &&
-                isTopbarHovered("chats") &&
-                cn(TOPBAR_FORCE_HOVER_CLASS, "mari-topbar-chat-gradient-icon"),
-            ),
+          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !chatsBesideHome && "mari-topbar-chat-gradient-icon")
+          : cn("text-[var(--muted-foreground)]", isTopbarHovered("chats") && TOPBAR_FORCE_HOVER_CLASS),
       )}
       title={localize("Chats")}
       aria-label={localize("Chats")}
@@ -471,12 +474,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
     <header
       ref={headerRef}
       data-component="TopBar"
+      data-sidebar-side={sidebarOnLeft ? "left" : undefined}
       {...pull.handlers}
       onPointerLeave={clearTopbarHover}
       onPointerOver={handleTopbarPointerOver}
       className={cn(
         "mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--marinara-topbar-surface)] px-3 backdrop-blur-sm",
         mobileTopbarNavigation ? "touch-none" : "select-none",
+        sidebarOnLeft && "flex-row-reverse",
         // A Home package in fullscreen takes the whole screen (HomeBrowserHub).
         homeBrowserFullscreen && "hidden",
       )}
@@ -493,13 +498,15 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         />
       ) : null}
 
-      {/* Left section: window controls + chat info */}
-      <div className="mari-topbar-left flex min-w-0 flex-1 items-center gap-2">
+      {/* Home side (left, or right when the sidebar is docked left): Home + chat info */}
+      <div
+        className={cn("mari-topbar-left flex min-w-0 flex-1 items-center gap-2", sidebarOnLeft && "flex-row-reverse")}
+      >
         <div
           ref={leftControlsRef}
           className="mari-topbar-left-controls mari-rgb-icon-scope flex shrink-0 items-center gap-2"
         >
-          {mobileTopbarNavigation ? [homeButton, chatsButton] : [chatsButton, homeButton]}
+          {chatsBesideHome ? [homeButton, chatsButton] : homeButton}
         </div>
         {musicDjInstalled ? (
           <>
@@ -512,13 +519,14 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         <CombatTopbarControls />
       </div>
 
-      {/* Right section - Panel toggles */}
+      {/* Panel side: Chats and the panel toggles, on the sidebar's side */}
       <nav
         ref={rightNavRef}
         data-tour="panel-buttons"
         aria-label={localize("Panel navigation")}
         className="mari-topbar-panel-nav mari-rgb-icon-scope flex shrink-0 items-center justify-end gap-0.5 rounded-xl p-1 max-sm:gap-0 max-sm:p-0.5"
       >
+        {chatsBesideHome ? null : chatsButton}
         <button
           onClick={() => handleRightPanelClick("characters")}
           aria-pressed={isCharactersPanelActive}

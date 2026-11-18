@@ -24,6 +24,7 @@ export type ChatPictureToAssign = {
   height: number | null;
   customKind?: string | null;
   customName?: string | null;
+  description?: string | null;
 };
 
 export type AssignChatPictureResult =
@@ -67,6 +68,7 @@ export async function assignChatPictureToGallery(input: {
         height: image.height ?? undefined,
         customKind: label.customKind,
         customName: label.customName,
+        description: image.description ?? null,
       };
       // Assigning the same picture again only refreshes its label. An unlabeled chat picture leaves
       // the gallery's own label (for example an emoji set in the character's gallery) as it is.

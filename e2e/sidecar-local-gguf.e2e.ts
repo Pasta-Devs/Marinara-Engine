@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { SIDECAR_DEFAULT_CONFIG } from "@marinara-engine/shared";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -54,7 +55,7 @@ test("local GGUF settings show runtime allocations and persist cache choices", a
   await expect(dialog.getByText("GPU allocations reported by llama.cpp", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Reported total", { exact: true })).toBeVisible();
   await expect(dialog.getByText("1.3 GB", { exact: true })).toBeVisible();
-  await dialog.getByRole("combobox", { name: "KV cache type" }).selectOption("q4_0");
+  await chooseOption(page, dialog.getByRole("combobox", { name: "KV cache type" }), "q4_0");
   await expect.poll(() => config.kvCacheType).toBe("q4_0");
   await page.screenshot({ path: info.outputPath("sidecar-memory.png") });
   await dialog.getByRole("button", { name: "Back" }).click();

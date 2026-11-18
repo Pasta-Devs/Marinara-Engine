@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { useChatPersonaAttributions, useReassignMessagePersonas } from "../../../hooks/use-chats";
 import { PickerDropdown } from "../PickerDropdown";
+import { Select } from "../../../components/ui/Select";
 import { Spinner } from "../../../components/ui/Spinner";
 
 interface PersonaHistoryReassignDropdownProps {
@@ -120,20 +121,16 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
                   {scope === "persona" && currentSourceIdentity?.count}
                 </label>
                 {scope === "persona" && identities.length > 0 && (
-                  <select
+                  <Select
+                    label={localizeUi("ui.chat.chatsettingsdrawer.messagesSentAs")}
                     value={activeSourceKey}
-                    onChange={(event) => setSelectedSourceKey(event.target.value)}
+                    options={identities.map((identity) => ({
+                      value: `${identity.source}:${identity.personaId}`,
+                      label: `${identity.name} (${identity.count})`,
+                    }))}
+                    onChange={setSelectedSourceKey}
                     className="mt-2 w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
-                  >
-                    {identities.map((identity) => (
-                      <option
-                        key={`${identity.source}:${identity.personaId}`}
-                        value={`${identity.source}:${identity.personaId}`}
-                      >
-                        {identity.name} ({identity.count})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 )}
               </div>
               <label className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--accent)]">

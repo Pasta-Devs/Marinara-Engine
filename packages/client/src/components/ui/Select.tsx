@@ -4,7 +4,7 @@
 // options as pick rows, and a search box only for longer lists. On the closed field the arrow keys
 // step through the options and a letter jumps to the next one starting with it, like a native select.
 // ──────────────────────────────────────────────
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { SELECT_SEARCH_MIN, stepSelectOption, typeAheadSelectOption } from "../../lib/select-options";
@@ -20,6 +20,8 @@ export type SelectOption<T extends string = string> = {
   icon?: ReactNode;
   /** Greys the option out, with this as its second line. */
   disabledReason?: string;
+  /** Consecutive options with the same group sit under a header; the header is not an option. */
+  group?: string;
 };
 
 export type SelectProps<T extends string> = {
@@ -35,8 +37,14 @@ export type SelectProps<T extends string> = {
   className?: string;
   disabled?: boolean;
   id?: string;
+  /** Hover text on the trigger. */
+  title?: string;
+  /** Id of the element that describes the field, set on the trigger. */
+  "aria-describedby"?: string;
   /** A search box above the options. Defaults to on from SELECT_SEARCH_MIN options. */
   searchable?: boolean;
+  /** Receives the trigger button, e.g. for a Modal's initialFocusRef. */
+  buttonRef?: RefObject<HTMLButtonElement | null>;
 };
 
 export function Select<T extends string>({
@@ -48,7 +56,10 @@ export function Select<T extends string>({
   className,
   disabled,
   id,
+  title,
+  "aria-describedby": ariaDescribedBy,
   searchable,
+  buttonRef,
 }: SelectProps<T>) {
   const { t } = useTranslation();
   const { open, triggerRef, close, toggle } = useFieldWindow(disabled);
@@ -74,11 +85,16 @@ export function Select<T extends string>({
   return (
     <>
       <button
-        ref={triggerRef}
+        ref={(node) => {
+          triggerRef.current = node;
+          if (buttonRef) buttonRef.current = node;
+        }}
         id={id}
         type="button"
         role="combobox"
         aria-label={label}
+        aria-describedby={ariaDescribedBy}
+        title={title}
         aria-haspopup="dialog"
         aria-expanded={open}
         data-value={value ?? ""}
@@ -99,8 +115,11 @@ export function Select<T extends string>({
               id: option.value,
               label: option.label,
               subtitle: option.description,
+              // The search also finds an option by its description (a language by its English name).
+              searchText: option.description,
               icon: option.icon,
               disabledReason: option.disabledReason,
+              group: option.group,
             }))}
             folders={[]}
             selectedIds={value === null ? [] : [value]}

@@ -15,6 +15,8 @@ import {
 } from "../../hooks/use-custom-emojis";
 import { useConversationCustomEmojis, type ConversationCustomEmoji } from "../../hooks/use-conversation-custom-emojis";
 import { CustomEmojiSelectionSettings } from "./CustomEmojiSelectionSettings";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { PoolDescriptionButton } from "../ui/PoolDescriptionButton";
 import {
   filterCustomEmojisByName,
   readImageDimensions,
@@ -207,6 +209,14 @@ export function CustomEmojiTab({
                     {localizeUi("ui.characters.spritestab.export")}
                   </button>
                 )}
+                {list.length > 0 && (
+                  <GalleryDescribeButton
+                    images={list}
+                    target={{ scope: "emoji" }}
+                    queryKey={["custom-emojis"]}
+                    className="inline-flex items-center gap-1 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90 disabled:cursor-wait disabled:opacity-60"
+                  />
+                )}
               </>
             )}
           </div>
@@ -307,6 +317,7 @@ export function CustomEmojiTab({
                         <Trash2 size="0.625rem" />
                       </button>
                     )}
+                    {editing && <PoolDescriptionButton kind="emoji" item={emoji} />}
                   </div>
                 ))}
               </div>

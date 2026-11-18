@@ -20,6 +20,8 @@ export interface ChatImage {
   /** Gallery label (emoji, sticker or background); assigning the picture carries it along. */
   customKind?: GalleryTagKind | null;
   customName?: string | null;
+  /** What the picture shows, written by hand or by the Image reading model. */
+  description?: string | null;
   createdAt: string;
   url: string;
 }

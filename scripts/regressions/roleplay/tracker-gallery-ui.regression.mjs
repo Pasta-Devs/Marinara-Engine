@@ -175,7 +175,7 @@ assert.doesNotMatch(
 );
 assert.match(
   chatGallery,
-  /className="mari-chrome-field h-10 w-full !rounded-md pl-9 pr-10 text-xs"/u,
+  /<SearchInput\b/u,
   "the shared Gallery search must reuse the standard chat field",
 );
 assert.match(

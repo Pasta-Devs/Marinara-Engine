@@ -17,6 +17,7 @@ export const createCustomStickerSchema = z.object({
   filePath: z.string().min(1),
   width: z.number().int().positive().nullable().default(null),
   height: z.number().int().positive().nullable().default(null),
+  description: z.string().nullable().optional(),
 });
 
 export const updateCustomStickerSchema = z.object({

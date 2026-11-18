@@ -143,7 +143,7 @@ export interface FloatingWindowProps {
  * adds PHONE_FULL_SHEET_CLASS, which pins the bottom too, so it gets a bounded height to scroll in.
  */
 export const PHONE_SHEET_CLASS =
-  "fixed inset-x-2 top-[calc(3.5rem+env(safe-area-inset-top))] z-[70] max-h-[calc(100dvh-4.25rem-env(safe-area-inset-top)-var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] overflow-hidden";
+  "fixed inset-x-2 top-[calc(var(--mari-visual-viewport-offset-top,0px)+3.5rem+env(safe-area-inset-top))] z-[70] max-h-[calc(var(--mari-visual-viewport-height,100dvh)-4.25rem-env(safe-area-inset-top)-var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] overflow-hidden";
 export const PHONE_FULL_SHEET_CLASS =
   "bottom-[calc(0.75rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]";
 

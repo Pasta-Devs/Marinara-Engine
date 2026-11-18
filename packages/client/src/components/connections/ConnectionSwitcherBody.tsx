@@ -80,7 +80,8 @@ import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { modelRoleLabels } from "./ModelRow";
-import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -195,6 +196,9 @@ function entryOfRow(row: SwitcherRow, group: SwitcherGroup | undefined, choice?:
 
 const unavailableOf = (group: SwitcherGroup | undefined) =>
   group?.account && group.account.state !== "ok" ? group.account.state : null;
+
+/** A Model's own address on its Connection's server, if it has one (its model list is that path's). */
+const ownAddressOf = (row: SwitcherRow) => !!(row as { modelBaseUrl?: string | null }).modelBaseUrl?.trim();
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
 const rowLabel = (row: SwitcherRow) => row.name || row.model || row.id;
@@ -510,7 +514,10 @@ export function ConnectionSwitcherBody({
    */
   confirmCurrent?: boolean;
   /** A pick that is being tried or was turned down, shown on its row. */
-  rowState?: (accountId: string, model: string) => { label: string; state: "off" | "needs_key" } | null;
+  rowState?: (
+    accountId: string,
+    model: string,
+  ) => { label: string; state: "off" | "needs_key"; detail?: string } | null;
   /** Lists only the catalog models this accepts (Embeddings); a provider with none is left out. */
   modelFilter?: (model: string) => boolean;
   /** Catalog-only filter; saved rows remain selectable by their own kind. */
@@ -660,6 +667,8 @@ export function ConnectionSwitcherBody({
             (row) =>
               !hiddenIds.has(row.id) &&
               row.accountId === group.account!.id &&
+              // A Model with its own address lists another path's models, not the Connection's.
+              !ownAddressOf(row) &&
               row.provider &&
               (kind === "chat"
                 ? isChatProvider(row.provider)
@@ -671,7 +680,7 @@ export function ConnectionSwitcherBody({
     catalogBrowse
       ? groups.map((group, index) => [
           ...(catalogAnchors[index] ? [catalogAnchors[index]!] : []),
-          ...group.rows.map((row) => row.id),
+          ...group.rows.filter((row) => !group.account || !ownAddressOf(row)).map((row) => row.id),
         ])
       : [],
   );
@@ -1271,7 +1280,7 @@ export function ConnectionSwitcherBody({
         roles={roleLabels}
         status={
           rowStateOf
-            ? { label: rowStateOf.label, state: rowStateOf.state }
+            ? { label: rowStateOf.label, state: rowStateOf.state, detail: rowStateOf.detail }
             : stateLabel
               ? { label: stateLabel, state: unavailable ?? undefined }
               : limitReached(group, facts?.cost)
@@ -1423,7 +1432,7 @@ export function ConnectionSwitcherBody({
   );
 
   const searchBox = (
-    <ListSearch
+    <SearchInput
       className="mx-2 my-2 shrink-0"
       inputRef={searchRef}
       data-switcher-search

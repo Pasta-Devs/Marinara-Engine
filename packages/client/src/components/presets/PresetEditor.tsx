@@ -80,6 +80,7 @@ import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { Select } from "../ui/Select";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { api } from "../../lib/api-client";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
@@ -877,18 +878,20 @@ function PresetRegexTab({
   return (
     <div className="space-y-6" data-preset-regex>
       <div className="mari-editor-panel space-y-3 p-4">
-        <label className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
           {t("presets.regex.defaultMode")}
-          <select
+          <Select
+            label={t("presets.regex.defaultMode")}
             className="mari-editor-input px-3 py-2 text-sm"
             value={mode}
-            onChange={(event) => onModeChange(event.target.value as ScopedRegexMode)}
-          >
-            <option value="disabled">{t("ui.agents.agenteditor.disabled")}</option>
-            <option value="exclusive">{t("ui.chat.chatsettingsdrawer.exclusive")}</option>
-            <option value="chat">{t("ui.chat.chatsettingsdrawer.chat")}</option>
-          </select>
-        </label>
+            onChange={(next) => onModeChange(next as ScopedRegexMode)}
+            options={[
+              { value: "disabled", label: t("ui.agents.agenteditor.disabled") },
+              { value: "exclusive", label: t("ui.chat.chatsettingsdrawer.exclusive") },
+              { value: "chat", label: t("ui.chat.chatsettingsdrawer.chat") },
+            ]}
+          />
+        </div>
         <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.defaultHelp")}</p>
       </div>
       <div className="mari-editor-panel space-y-3 p-4">
@@ -898,25 +901,19 @@ function PresetRegexTab({
           <Plus size="1rem" />
           {t("ui.characters.characterregexsection.createRegex")}
         </button>
-        <label className="flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           {t("presets.regex.addExisting")}
-          <select
-            value=""
+          <Select
+            label={t("presets.regex.addExisting")}
+            value={null}
+            placeholder={t("presets.regex.chooseScript")}
             className="mari-editor-input min-w-0 max-w-full px-3 py-2 text-sm"
-            onChange={(event) => {
-              if (event.target.value) void openScript(event.target.value);
-            }}
-          >
-            <option value="">{t("presets.regex.chooseScript")}</option>
-            {(scripts ?? [])
+            onChange={(next) => void openScript(next)}
+            options={(scripts ?? [])
               .filter((script) => !linkedScripts.includes(script))
-              .map((script) => (
-                <option key={script.id} value={script.id}>
-                  {script.name}
-                </option>
-              ))}
-          </select>
-        </label>
+              .map((script) => ({ value: script.id, label: script.name }))}
+          />
+        </div>
         {linkedScripts.length === 0 && (
           <p className="text-xs text-[var(--marinara-editor-muted)]">{t("presets.regex.noScripts")}</p>
         )}
@@ -1939,25 +1936,27 @@ function SectionsTab({
                 <label className={cn("text-[var(--muted-foreground)]", compact && "max-sm:text-[0.625rem]")}>
                   {localizeUi("ui.presets.sectionstab.position")}
                 </label>
-                <select
+                <Select
+                  id={`preset-section-position-${section.id}`}
+                  label={localizeUi("ui.presets.sectionstab.positionField")}
                   value={section.injectionPosition ?? "ordered"}
-                  onChange={(e) =>
+                  onChange={(next) =>
                     onUpdateSection.mutate({
                       presetId,
                       sectionId: section.id,
-                      injectionPosition: e.target.value,
+                      injectionPosition: next,
                     })
                   }
-                  data-preset-section-position
                   className={cn(
                     "mari-editor-field px-2 py-1 text-xs",
                     compact &&
                       "max-sm:h-7 max-sm:min-w-0 max-sm:max-w-[12rem] max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
                   )}
-                >
-                  <option value="ordered">{localizeUi("ui.presets.sectionstab.orderedInSequence")}</option>
-                  <option value="depth">{localizeUi("ui.presets.sectionstab.depthFromEndOfChat")}</option>
-                </select>
+                  options={[
+                    { value: "ordered", label: localizeUi("ui.presets.sectionstab.orderedInSequence") },
+                    { value: "depth", label: localizeUi("ui.presets.sectionstab.depthFromEndOfChat") },
+                  ]}
+                />
                 {section.injectionPosition === "depth" && (
                   <>
                     <label className={cn("text-[var(--muted-foreground)]", compact && "max-sm:text-[0.625rem]")}>
@@ -2227,26 +2226,28 @@ function SectionsTab({
                             })
                           }
                         />
-                        <select
+                        <Select
+                          id={`preset-section-role-${section.id}`}
+                          label={localizeUi("ui.presets.sectionstab.roleField")}
                           value={role}
-                          onChange={(e) =>
+                          onChange={(next) =>
                             onUpdateSection.mutate({
                               presetId,
                               sectionId: section.id,
-                              role: e.target.value,
+                              role: next,
                             })
                           }
-                          data-preset-section-role
                           className={cn(
                             "mari-editor-field px-2 py-1.5 text-xs",
                             compact &&
                               "max-sm:h-7 max-sm:w-fit max-sm:max-w-full max-sm:self-start max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
                           )}
-                        >
-                          <option value="system">{localizeUi("ui.presets.sectionstab.system")}</option>
-                          <option value="user">{localizeUi("ui.presets.sectionstab.user")}</option>
-                          <option value="assistant">{localizeUi("ui.presets.sectionstab.assistant")}</option>
-                        </select>
+                          options={[
+                            { value: "system", label: localizeUi("ui.presets.sectionstab.system") },
+                            { value: "user", label: localizeUi("ui.presets.sectionstab.user") },
+                            { value: "assistant", label: localizeUi("ui.presets.sectionstab.assistant") },
+                          ]}
+                        />
                       </div>
 
                       {/* Content (not for markers) */}
@@ -2347,29 +2348,30 @@ function SectionsTab({
                         <label className={cn("text-[var(--muted-foreground)]", compact && "max-sm:text-[0.625rem]")}>
                           {localizeUi("ui.presets.sectionstab.group")}
                         </label>
-                        <select
+                        <Select
+                          id={`preset-section-group-${section.id}`}
+                          label={localizeUi("ui.presets.sectionstab.groupField")}
                           value={section.groupId ?? ""}
-                          onChange={(e) =>
+                          onChange={(next) =>
                             onUpdateSection.mutate({
                               presetId,
                               sectionId: section.id,
-                              groupId: e.target.value || null,
+                              groupId: next || null,
                             })
                           }
-                          data-preset-section-group
                           className={cn(
                             "mari-editor-field px-2 py-1 text-xs",
                             compact &&
                               "max-sm:h-7 max-sm:min-w-0 max-sm:max-w-[12rem] max-sm:px-1.5 max-sm:py-1 max-sm:text-[0.6875rem]",
                           )}
-                        >
-                          <option value="">{localizeUi("ui.presets.sectionstab.noGroup")}</option>
-                          {[...groupMap.values()].map((g: any) => (
-                            <option key={g.id} value={g.id}>
-                              {g.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: "", label: localizeUi("ui.presets.sectionstab.noGroup") },
+                            ...[...groupMap.values()].map((g: any) => ({
+                              value: g.id as string,
+                              label: g.name as string,
+                            })),
+                          ]}
+                        />
                         {groupMap.size === 0 && (
                           <span
                             className={cn(

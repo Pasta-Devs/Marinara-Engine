@@ -13,10 +13,20 @@ export type ConversationAssetVisionCatalog = {
   stickerPaths: Map<string, string>;
   offeredEmojis: string[];
   offeredStickers: string[];
+  /** Short descriptions by name, shown for pictures the offered list does not already describe. */
+  emojiDescriptions: Map<string, string>;
+  stickerDescriptions: Map<string, string>;
 };
 
 export function createConversationAssetVisionCatalog(): ConversationAssetVisionCatalog {
-  return { emojiPaths: new Map(), stickerPaths: new Map(), offeredEmojis: [], offeredStickers: [] };
+  return {
+    emojiPaths: new Map(),
+    stickerPaths: new Map(),
+    offeredEmojis: [],
+    offeredStickers: [],
+    emojiDescriptions: new Map(),
+    stickerDescriptions: new Map(),
+  };
 }
 
 /** Keep the first path recorded for a name: callers record the responder's own, then the persona's, then global. */
@@ -30,14 +40,15 @@ const EMOJI_TOKEN = /:([a-z0-9_]{1,32}):/g;
 
 /**
  * Models often write a sticker as an emoji (`:hug:` for `sticker:hug:`). Rewrite a bare `:name:` into a sticker token
- * when the name is a sticker the responders can see and no custom emoji has that name, so it shows as the sticker.
+ * when the name is a sticker the responders can see and no custom emoji has that name, so it shows as the sticker, and
+ * the reverse: `sticker:name:` for a custom emoji with no sticker of that name becomes `:name:`.
  */
 export function rewriteStickerNamesWrittenAsEmojis(
   text: string,
   stickerNames: ReadonlySet<string> | Map<string, unknown>,
   emojiNames: ReadonlySet<string> | Map<string, unknown>,
 ): { text: string; changed: boolean } {
-  if (stickerNames.size === 0 || !text.includes(":")) return { text, changed: false };
+  if ((stickerNames.size === 0 && emojiNames.size === 0) || !text.includes(":")) return { text, changed: false };
   // A sticker the reply already sends is not sent twice: its bare `:name:` copy is dropped instead.
   const alreadySent = new Set([...text.matchAll(STICKER_TOKEN)].map((match) => match[1]!));
   let out = "";
@@ -45,10 +56,18 @@ export function rewriteStickerNamesWrittenAsEmojis(
   for (const match of text.matchAll(/(sticker)?:([a-z0-9_]{1,32}):/g)) {
     const [whole, prefix, name] = match;
     const start = match.index!;
-    if (prefix || !stickerNames.has(name!) || emojiNames.has(name!)) continue;
     // Leave word-joined colons alone ("a:hug:b"), which are not emoji tokens.
     if (start > 0 && /[a-z0-9_]/i.test(text[start - 1]!)) continue;
     const end = start + whole.length;
+    if (prefix) {
+      // The mirror case: an emoji's name sent as a sticker (`sticker:oof:` with no sticker of that name) shows the emoji.
+      if (!stickerNames.has(name!) && emojiNames.has(name!)) {
+        out += `${text.slice(cursor, start)}:${name}:`;
+        cursor = end;
+      }
+      continue;
+    }
+    if (!stickerNames.has(name!) || emojiNames.has(name!)) continue;
     if (!alreadySent.has(name!)) {
       alreadySent.add(name!);
       out += `${text.slice(cursor, start)}sticker:${name}:`;
@@ -140,9 +159,11 @@ function pickSheetEntries(
   return entries;
 }
 
-function describeEntry(number: number, token: string, entry: SheetEntry): string {
+function describeEntry(number: number, token: string, entry: SheetEntry, description?: string): string {
   const tags = [entry.seen ? "in the chat" : null, entry.offered ? "you may use it" : null].filter(Boolean);
-  return `${number} = ${token} (${tags.join(", ")})`;
+  // An offered one is already described in the list of ones it may use; the rest get theirs here.
+  const note = description && !entry.offered ? `: ${description}` : "";
+  return `${number} = ${token} (${tags.join(", ")})${note}`;
 }
 
 export type ConversationEmojiVisionLegend = {
@@ -197,7 +218,9 @@ export async function buildConversationEmojiVisionLegend(
     const drawn = new Set(emojiSheet.numbers);
     lines.push(`Picture ${images.length}, custom emojis:`);
     emojiEntries.forEach((entry, index) => {
-      if (drawn.has(index + 1)) lines.push(describeEntry(index + 1, `:${entry.name}:`, entry));
+      if (drawn.has(index + 1)) {
+        lines.push(describeEntry(index + 1, `:${entry.name}:`, entry, catalog.emojiDescriptions.get(entry.name)));
+      }
     });
   }
   if (stickerSheet) {
@@ -206,7 +229,9 @@ export async function buildConversationEmojiVisionLegend(
     lines.push(`Picture ${images.length}, stickers:`);
     stickerEntries.forEach((entry, index) => {
       const number = emojiEntries.length + index + 1;
-      if (drawn.has(number)) lines.push(describeEntry(number, `sticker:${entry.name}:`, entry));
+      if (drawn.has(number)) {
+        lines.push(describeEntry(number, `sticker:${entry.name}:`, entry, catalog.stickerDescriptions.get(entry.name)));
+      }
     });
   }
   if (images.length === 0) return null;

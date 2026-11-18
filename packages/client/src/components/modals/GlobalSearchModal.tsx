@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { GlobalChatSearchResult } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { SearchInput } from "../ui/SearchInput";
 import { cn } from "../../lib/utils";
 import { useChats } from "../../hooks/use-chats";
 import { useCharacterSummaries } from "../../hooks/use-characters";
@@ -10,6 +11,7 @@ import { useGlobalChatSearch, type GlobalChatSearchFilters } from "../../hooks/u
 import { useDebouncedValue } from "../../hooks/use-debounced-value";
 import { openChatAtMessage } from "../../lib/chat-insights";
 import { localDateInputToIso, splitSnippet } from "../../lib/chat-insights-display";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const FIELD_CLASS =
@@ -158,21 +160,17 @@ export function GlobalSearchModal({
       <div className="flex min-h-0 flex-col gap-3">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              ref={inputRef}
-              type="search"
+            <SearchInput
+              inputRef={inputRef}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={setQuery}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && results[0] && !waiting) openResult(results[0]);
               }}
               placeholder={t("chatInsights.search.placeholder")}
-              aria-label={t("chatInsights.search.inputLabel")}
-              className={cn(FIELD_CLASS, "h-10 pl-9 text-sm")}
+              label={t("chatInsights.search.inputLabel")}
+              resultCount={query.trim() ? results.length : undefined}
+              busy={waiting}
             />
           </div>
           <button
@@ -197,39 +195,49 @@ export function GlobalSearchModal({
 
         {filtersOpen && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <label className="flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <div className="flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("chatInsights.search.filterMode")}
-              <select value={mode} onChange={(event) => setMode(event.target.value)} className={FIELD_CLASS}>
-                <option value="">{t("chatInsights.search.anyMode")}</option>
-                <option value="conversation">{t("chatInsights.mode.conversation")}</option>
-                <option value="roleplay">{t("chatInsights.mode.roleplay")}</option>
-                <option value="game">{t("chatInsights.mode.game")}</option>
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-              {t("chatInsights.search.filterRole")}
-              <select value={role} onChange={(event) => setRole(event.target.value)} className={FIELD_CLASS}>
-                <option value="">{t("chatInsights.search.anyRole")}</option>
-                <option value="user">{t("chatInsights.search.speaker.user")}</option>
-                <option value="assistant">{t("chatInsights.search.roleCharacters")}</option>
-                <option value="narrator">{t("chatInsights.search.speaker.narrator")}</option>
-              </select>
-            </label>
-            <label className="col-span-2 flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)] sm:col-span-1">
-              {t("chatInsights.search.filterCharacter")}
-              <select
-                value={characterId}
-                onChange={(event) => setCharacterId(event.target.value)}
+              <Select
+                value={mode}
+                onChange={(next) => setMode(next)}
+                label={t("chatInsights.search.filterMode")}
                 className={FIELD_CLASS}
-              >
-                <option value="">{t("chatInsights.search.anyCharacter")}</option>
-                {characterOptions.map((character) => (
-                  <option key={character.id} value={character.id}>
-                    {character.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={[
+                  { value: "", label: t("chatInsights.search.anyMode") },
+                  { value: "conversation", label: t("chatInsights.mode.conversation") },
+                  { value: "roleplay", label: t("chatInsights.mode.roleplay") },
+                  { value: "game", label: t("chatInsights.mode.game") },
+                ]}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("chatInsights.search.filterRole")}
+              <Select
+                value={role}
+                onChange={(next) => setRole(next)}
+                label={t("chatInsights.search.filterRole")}
+                className={FIELD_CLASS}
+                options={[
+                  { value: "", label: t("chatInsights.search.anyRole") },
+                  { value: "user", label: t("chatInsights.search.speaker.user") },
+                  { value: "assistant", label: t("chatInsights.search.roleCharacters") },
+                  { value: "narrator", label: t("chatInsights.search.speaker.narrator") },
+                ]}
+              />
+            </div>
+            <div className="col-span-2 flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)] sm:col-span-1">
+              {t("chatInsights.search.filterCharacter")}
+              <Select
+                value={characterId}
+                onChange={(next) => setCharacterId(next)}
+                label={t("chatInsights.search.filterCharacter")}
+                className={FIELD_CLASS}
+                options={[
+                  { value: "", label: t("chatInsights.search.anyCharacter") },
+                  ...characterOptions.map((character) => ({ value: character.id, label: character.name })),
+                ]}
+              />
+            </div>
             <label className="flex min-w-0 flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               {t("chatInsights.search.filterFrom")}
               <input

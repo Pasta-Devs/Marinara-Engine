@@ -21,6 +21,7 @@ import { CapabilityElement } from "../../../components/capabilities/CapabilityEl
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { NeedsModelChip, agentModelNeed } from "../../../components/connections/NeedsModelChip";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
+import { Select } from "../../../components/ui/Select";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
@@ -403,21 +404,21 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
         onUnlink={() => void saveCustomMusicExternalFolder("character", "")}
       />
       {musicFolderTarget === "default" && (
-        <label className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
           </span>
-          <select
+          <Select<CustomMusicSource>
+            label={localizeUi("ui.chat.chatsettingsdrawer.customMusicSource")}
             value={customMusicSource}
-            onChange={(event) =>
-              void updateCustomMusicLibrary({ customMusicSource: event.target.value as CustomMusicSource })
-            }
+            options={[
+              { value: "game-assets", label: localizeUi("game.toolbar.assets") },
+              { value: "folder", label: localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice") },
+            ]}
+            onChange={(value) => void updateCustomMusicLibrary({ customMusicSource: value })}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-          >
-            <option value="game-assets">{localizeUi("game.toolbar.assets")}</option>
-            <option value="folder">{localizeUi("ui.chat.musicdjsetupfields.folderOnThisDevice")}</option>
-          </select>
-        </label>
+          />
+        </div>
       )}
 
       {musicFolderTarget !== "default" || customMusicSource === "folder" ? (
@@ -718,24 +719,24 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
                     <span className="mt-1 text-[0.625rem] font-medium text-[var(--foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
                     </span>
-                    <select
-                      aria-label={localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
+                    <Select
+                      label={localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
                       value={agentImageStyleProfileId}
-                      onChange={(event) => updateCustomAgentImageStyle(agent.id, event.target.value)}
+                      options={[
+                        { value: "", label: localizeUi("ui.chat.chatsettingsdrawer.chatDefault") },
+                        ...(agentImageStyleProfileMissing
+                          ? [
+                              {
+                                value: agentImageStyleProfileId,
+                                label: localizeUi("ui.chat.chatsettingsdrawer.missingStyleProfile"),
+                              },
+                            ]
+                          : []),
+                        ...imageStyleProfiles.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+                      ]}
+                      onChange={(value) => updateCustomAgentImageStyle(agent.id, value)}
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-                    >
-                      <option value="">{localizeUi("ui.chat.chatsettingsdrawer.chatDefault")}</option>
-                      {agentImageStyleProfileMissing && (
-                        <option value={agentImageStyleProfileId}>
-                          {localizeUi("ui.chat.chatsettingsdrawer.missingStyleProfile")}
-                        </option>
-                      )}
-                      {imageStyleProfiles.profiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     <AgentDefaultStatus
                       overridden={agentImageStyleProfileId.length > 0 && !agentImageStyleProfileMissing}
                       onReset={() => updateCustomAgentImageStyle(agent.id, "")}

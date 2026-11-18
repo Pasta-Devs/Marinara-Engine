@@ -32,11 +32,14 @@ import {
   useDeleteGalleryImage,
   useTagGalleryImage,
   useAssignGalleryImage,
+  galleryKeys,
   type ChatAssetBrowserItem,
   type ChatImage,
   type GalleryAssignTarget,
 } from "../../hooks/use-gallery";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { ContextMenu } from "../ui/ContextMenu";
 import { BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { ChatImagePreview } from "./ChatImagePreview";
@@ -54,7 +57,10 @@ import {
   getSceneVideoDownloadName,
 } from "./ChatImageLightbox";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { SearchInput } from "../ui/SearchInput";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
+import { Tabs } from "../ui/Tabs";
 
 interface ChatGalleryProps {
   chatId: string;
@@ -125,6 +131,7 @@ export function ChatGallery({
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
   const tagImage = useTagGalleryImage(chatId);
+  const saveDescription = useSaveGalleryDescription({ scope: "chat", ownerId: chatId }, galleryKeys.chat(chatId));
   const assignImage = useAssignGalleryImage(chatId);
   const [assignMenu, setAssignMenu] = useState<{ image: ChatImage; x: number; y: number } | null>(null);
   const deleteVideo = useDeleteSceneVideo(chatId);
@@ -606,19 +613,14 @@ export function ChatGallery({
   // Who sends a selfie or a video message: one picker, shown under Selfie, or under Video when selfies are off.
   const renderCharacterPicker = () =>
     selfieCharacters.length > 1 ? (
-      <select
+      <Select
         value={selectedSelfieCharacterId}
-        onChange={(event) => setSelectedSelfieCharacterId(event.target.value)}
+        options={selfieCharacters.map((character) => ({ value: character.id, label: character.name }))}
+        onChange={setSelectedSelfieCharacterId}
         disabled={isGeneratingSelfie || isGeneratingVideo}
         className="min-w-0 rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] disabled:cursor-wait disabled:opacity-70"
-        aria-label={localizeUi("ui.chat.chatgallery.messageCharacter")}
-      >
-        {selfieCharacters.map((character) => (
-          <option key={character.id} value={character.id}>
-            {character.name}
-          </option>
-        ))}
-      </select>
+        label={localizeUi("ui.chat.chatgallery.messageCharacter")}
+      />
     ) : null;
 
   return (
@@ -782,30 +784,13 @@ export function ChatGallery({
         )}
 
         <div className="flex flex-col gap-2 @md:flex-row @md:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              size="0.875rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              type="search"
-              value={assetSearch}
-              onChange={(event) => setAssetSearch(event.target.value)}
-              placeholder={localizeUi("ui.chat.chatgallery.searchChatCharacterPersonaAndSpriteImages")}
-              aria-label={localizeUi("ui.chat.chatgallery.searchGalleryImages")}
-              className="mari-chrome-field h-10 w-full !rounded-md pl-9 pr-10 text-xs"
-            />
-            {assetSearch && (
-              <button
-                type="button"
-                onClick={() => setAssetSearch("")}
-                aria-label={localizeUi("ui.chat.chatgallery.clearGallerySearch")}
-                className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-              >
-                <X size="0.875rem" />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            className="min-w-0 flex-1"
+            value={assetSearch}
+            onChange={setAssetSearch}
+            label={localizeUi("ui.chat.chatgallery.searchGalleryImages")}
+            placeholder={localizeUi("ui.chat.chatgallery.searchChatCharacterPersonaAndSpriteImages")}
+          />
           <div className="grid shrink-0 grid-cols-2 gap-2 @md:flex">
             <button
               type="button"
@@ -845,7 +830,13 @@ export function ChatGallery({
             <span className="px-1 text-xs font-semibold text-[var(--muted-foreground)]">
               {localizeUi("ui.gallery.batch.selected", { count: selectedImages.length })}
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <GalleryDescribeButton
+                images={selectedImages}
+                target={{ scope: "chat", ownerId: chatId }}
+                ownerOf={(image) => (image as ChatImage).chatId ?? chatId}
+                queryKey={galleryKeys.chat(chatId)}
+              />
               <button
                 type="button"
                 disabled={selectedImages.length === 0 || batchOperationPending}
@@ -987,57 +978,31 @@ export function ChatGallery({
           </section>
         )}
 
-        <div
-          className={cn(
-            "grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 p-1",
-            assetSearchActive && "hidden",
-          )}
-          role="tablist"
-          aria-label={localizeUi("ui.chat.chatgallery.galleryMediaType")}
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "images"}
-            onClick={() => setActiveTab("images")}
-            className={cn(
-              "flex min-w-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors",
-              activeTab === "images"
-                ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Image size="0.875rem" className="shrink-0" />
-            <span className="truncate">{localizeUi("ui.panels.connectiondefaultssection.images")}</span>
-            <span className="rounded-md bg-[var(--muted)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-              {imageCount}
-            </span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "videos"}
-            onClick={() => {
-              leaveImageSelection();
-              setActiveTab("videos");
-            }}
-            disabled={!sceneVideosEnabled}
-            className={cn(
-              "flex min-w-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors",
-              !sceneVideosEnabled
-                ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-50"
-                : activeTab === "videos"
-                  ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Film size="0.875rem" className="shrink-0" />
-            <span className="truncate">{localizeUi("ui.panels.connectiondefaultssection.videos")}</span>
-            <span className="rounded-md bg-[var(--muted)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-              {videoCount}
-            </span>
-          </button>
-        </div>
+        <Tabs
+          variant="pill"
+          className={cn(assetSearchActive && "hidden")}
+          label={localizeUi("ui.chat.chatgallery.galleryMediaType")}
+          value={activeTab}
+          onChange={(id) => {
+            if (id === "videos") leaveImageSelection();
+            setActiveTab(id);
+          }}
+          items={[
+            {
+              id: "images",
+              label: localizeUi("ui.panels.connectiondefaultssection.images"),
+              icon: <Image size="0.875rem" />,
+              count: imageCount,
+            },
+            {
+              id: "videos",
+              label: localizeUi("ui.panels.connectiondefaultssection.videos"),
+              icon: <Film size="0.875rem" />,
+              count: videoCount,
+              disabled: !sceneVideosEnabled,
+            },
+          ]}
+        />
 
         {!assetSearchActive && activeTab === "images" && (
           <>
@@ -1126,6 +1091,9 @@ export function ChatGallery({
                             { image: img, patch },
                             { onError: () => toast.error(localizeUi("ui.chat.chatgallery.couldNotTag")) },
                           )
+                        }
+                        onDescribe={(description) =>
+                          saveDescription.mutate({ imageId: img.id, description, ownerId: img.chatId })
                         }
                       />
                     )}
@@ -1387,7 +1355,13 @@ export function ChatGallery({
 
       {/* Lightbox */}
       {lightbox && (
-        <ChatImageLightbox image={lightbox} regenerate={{}} onPin={handlePinImage} onClose={() => setLightbox(null)} />
+        <ChatImageLightbox
+          image={lightbox}
+          images={images}
+          regenerate={{}}
+          onPin={handlePinImage}
+          onClose={() => setLightbox(null)}
+        />
       )}
       {sceneVideosEnabled && videoLightbox && (
         <ChatVideoLightbox video={videoLightbox} onPin={handlePinVideo} onClose={() => setVideoLightbox(null)} />

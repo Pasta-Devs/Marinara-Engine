@@ -6,10 +6,10 @@ import {
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
   QUICK_REPLIES_SETTINGS_CONTROL_ID,
   useUIStore,
-  SIDEBAR_WIDTH_MIN,
-  SIDEBAR_WIDTH_MAX,
-  RIGHT_PANEL_WIDTH_MIN,
-  RIGHT_PANEL_WIDTH_MAX,
+  SHARED_SIDEBAR_WIDTH_MIN,
+  SHARED_SIDEBAR_WIDTH_MAX,
+  normalizeSidebarSide,
+  selectSharedSidebarWidth,
   getDefaultAppAccentColor,
   getDefaultChatChromeTextColor,
   getDefaultChatTextColor,
@@ -22,6 +22,7 @@ import {
   type ChatListBackgroundMode,
   type RoleplayAvatarStyle,
   type RoleplayChatPosition,
+  type SidebarSide,
   type TrackerDataPanelSection,
   type TrackerPanelSizeProfile,
   type TrackerStatDisplayMode,
@@ -31,6 +32,7 @@ import {
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -186,7 +188,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useDocsLanguage, useFixDocsLanguage, useSetDocsLanguage } from "../../hooks/use-docs-language";
 import { HelpTooltip } from "../ui/HelpTooltip";
-import { ColorPicker } from "../ui/ColorPicker";
+import { ColorField, ColorPicker } from "../ui/ColorPicker";
 import { getChatWidgetColorRoles, getChatWidgetColorStyle, type ChatWidgetColors } from "../../lib/chat-widget-colors";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
@@ -526,6 +528,7 @@ function formatStorageBytes(bytes: number): string {
 }
 
 const ROLEPLAY_CHAT_POSITIONS: RoleplayChatPosition[] = ["left", "center", "right"];
+const SIDEBAR_SIDES: SidebarSide[] = ["left", "right"];
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
@@ -1626,53 +1629,20 @@ export function SettingsPanel() {
       </div>
 
       <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
-        <div
-          role="tablist"
-          aria-label={localize("Settings categories")}
-          className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
-        >
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = settingsTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`settings-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={settingsTab === tab.id}
-                aria-controls={`settings-panel-${tab.id}`}
-                tabIndex={settingsTab === tab.id ? 0 : -1}
-                onClick={() => setSettingsTab(tab.id)}
-                className={cn(
-                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
-                  active
-                    ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
-                    : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-                )}
-                title={t(tab.descriptionKey)}
-              >
-                {active && (
-                  <>
-                    <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
-                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
-                  </>
-                )}
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
-                      : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <Icon size="0.6875rem" />
-                </span>
-                <span className="w-full min-w-0 break-words px-0.5">{t(tab.labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          items={TABS.map((tab) => ({
+            id: tab.id,
+            label: t(tab.labelKey),
+            title: t(tab.descriptionKey),
+            icon: <tab.icon size="0.875rem" />,
+          }))}
+          value={settingsTab}
+          onChange={setSettingsTab}
+          variant="pill"
+          columns={3}
+          idPrefix="settings"
+          label={localize("Settings categories")}
+        />
 
         {activeSections.length > 1 && (
           <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
@@ -3410,10 +3380,11 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const { t: localizeUi } = useUiTranslation();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const sharedSidebarWidth = useUIStore(selectSharedSidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
-  const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
+  const sidebarSide = useUIStore((state) => state.sidebarSide);
+  const setSidebarSide = useUIStore((state) => state.setSidebarSide);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
@@ -3521,8 +3492,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
   const setConvoGradientField = useUIStore((s) => s.setConvoGradientField);
   const [activeGradientScheme, setActiveGradientScheme] = useState<"dark" | "light">(theme);
   const currentGradient = convoGradient[activeGradientScheme];
-  const [draftFrom, setDraftFrom] = useState(currentGradient.from);
-  const [draftTo, setDraftTo] = useState(currentGradient.to);
   const pendingGradientChangeRef = useRef<{
     scheme: "dark" | "light";
     field: "from" | "to";
@@ -3587,17 +3556,9 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
     [activeGradientScheme, commitConvoGradientField],
   );
 
-  // Sync draft inputs when switching between scheme tabs so the text fields
-  // always reflect the stored value for the active scheme.
-  useEffect(() => {
-    setDraftFrom(currentGradient.from);
-    setDraftTo(currentGradient.to);
-  }, [activeGradientScheme, currentGradient.from, currentGradient.to]);
   const handleResetAppearance = useCallback(() => {
     resetAppearanceSettings();
     setActiveGradientScheme("dark");
-    setDraftFrom("#0a0a0e");
-    setDraftTo("#1c2133");
     document.getElementById("marinara-css-editor-preview")?.remove();
     if (activeChatId) {
       updateMeta.mutate({ id: activeChatId, background: chatBackgroundUrlToMetadata(null) });
@@ -3795,16 +3756,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   {localizeUi("settings.appearance.sidebarWidth")}
                 </label>
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("settings.appearance.sidebarWidthHelp")}
+                  {localizeUi("settings.appearance.oneSidebarWidthHelp")}
                 </span>
                 <span className="flex min-w-0 items-center gap-2">
                   <input
                     id="desktop-sidebar-width"
                     type="range"
-                    min={Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN)}
-                    max={Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX)}
+                    min={SHARED_SIDEBAR_WIDTH_MIN}
+                    max={SHARED_SIDEBAR_WIDTH_MAX}
                     step={8}
-                    value={rightPanelWidth || sidebarWidth}
+                    value={sharedSidebarWidth}
                     onChange={(event) => {
                       const width = Number(event.target.value);
                       setSidebarWidth(width);
@@ -3813,7 +3774,7 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     className="min-w-0 flex-1 accent-[var(--primary)]"
                   />
                   <output className="shrink-0 text-xs tabular-nums">
-                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: rightPanelWidth || sidebarWidth })}
+                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: sharedSidebarWidth })}
                   </output>
                   <button
                     type="button"
@@ -3826,6 +3787,34 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                     {localizeUi("settings.appearance.resetSidebarWidth")}
                   </button>
                 </span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-2" id={getSettingsControlAnchorId("desktop-sidebar-side")}>
+                <span className="text-xs font-medium">{localizeUi("settings.appearance.sidebarSide")}</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("settings.appearance.sidebarSideHelp")}
+                </span>
+                <div
+                  role="group"
+                  aria-label={localizeUi("settings.appearance.sidebarSide")}
+                  className="grid grid-cols-2 gap-1"
+                >
+                  {SIDEBAR_SIDES.map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      onClick={() => setSidebarSide(side)}
+                      // An unknown synced value shows as Right, which is how the shell treats it.
+                      aria-pressed={normalizeSidebarSide(sidebarSide) === side}
+                      className={SETTINGS_BUTTON_CLASS}
+                    >
+                      {localizeUi(
+                        side === "left"
+                          ? "settings.appearance.sidebarSideLeft"
+                          : "settings.appearance.sidebarSideRight",
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div id={getSettingsControlAnchorId("visual-theme")} className="flex scroll-mt-3 flex-col gap-2">
                 <div className="flex items-center gap-1.5">
@@ -4703,56 +4692,16 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                   style={{ background: `linear-gradient(135deg, ${currentGradient.from}, ${currentGradient.to})` }}
                 />
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={currentGradient.from}
-                        onInput={(e) => handleGradientColorInput("from", e.currentTarget.value)}
-                        onChange={(e) => handleGradientColorInput("from", e.currentTarget.value)}
-                        onBlur={flushPendingGradientChange}
-                        onPointerUp={flushPendingGradientChange}
-                        onKeyUp={flushPendingGradientChange}
-                        className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={draftFrom}
-                        onChange={(e) => {
-                          setDraftFrom(e.target.value);
-                          if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
-                            commitConvoGradientField(activeGradientScheme, "from", e.target.value);
-                        }}
-                        onBlur={() => setDraftFrom(currentGradient.from)}
-                        className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                      />
-                    </div>
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={currentGradient.to}
-                        onInput={(e) => handleGradientColorInput("to", e.currentTarget.value)}
-                        onChange={(e) => handleGradientColorInput("to", e.currentTarget.value)}
-                        onBlur={flushPendingGradientChange}
-                        onPointerUp={flushPendingGradientChange}
-                        onKeyUp={flushPendingGradientChange}
-                        className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={draftTo}
-                        onChange={(e) => {
-                          setDraftTo(e.target.value);
-                          if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
-                            commitConvoGradientField(activeGradientScheme, "to", e.target.value);
-                        }}
-                        onBlur={() => setDraftTo(currentGradient.to)}
-                        className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                      />
-                    </div>
-                  </label>
+                  <ColorField
+                    value={currentGradient.from}
+                    onChange={(color) => handleGradientColorInput("from", color)}
+                    label={localizeUi("ui.ui.colorpicker.editColorStop", { index: 1 })}
+                  />
+                  <ColorField
+                    value={currentGradient.to}
+                    onChange={(color) => handleGradientColorInput("to", color)}
+                    label={localizeUi("ui.ui.colorpicker.editColorStop", { index: 2 })}
+                  />
                 </div>
                 <button
                   type="button"
@@ -4763,8 +4712,6 @@ function AppearanceSettings({ group = "app" }: { group?: AppearanceGroup }) {
                         : { from: "#f2eff7", to: "#eae6f0" };
                     commitConvoGradientField(activeGradientScheme, "from", defaults.from);
                     commitConvoGradientField(activeGradientScheme, "to", defaults.to);
-                    setDraftFrom(defaults.from);
-                    setDraftTo(defaults.to);
                   }}
                   className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
@@ -8275,7 +8222,8 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("selected")}
               disabled={selectedScopes.length === 0 || isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              // Accent, not red: these only open the confirm step below, whose Confirm Delete stays red.
+              className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearSelectedData")}
@@ -8284,7 +8232,7 @@ function AdvancedSettings() {
               type="button"
               onClick={() => setConfirmAction("all")}
               disabled={isClearing}
-              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "w-full")}
             >
               <Trash2 size="0.75rem" />
               {localizeUi("ui.panels.advancedsettings.clearAllData")}

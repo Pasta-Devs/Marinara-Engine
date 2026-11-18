@@ -14,7 +14,7 @@ Before you start, get an API key from a service you want to use. The **Add accou
 
 Most services ask you to sign up, and some ask you to add credit, before a key works. For other services, see [Supported AI Providers](providers-reference.md). To use a model on your own computer with no key, see [Built-in Model Setup](local-model.md).
 
-1. Click **Connections** in the top bar. The panel opens on the right. If you have no accounts yet, it asks **Where do your models come from?** and shows a few services. Click a service (not **Built-in model**). The **Add account** window opens on the key step. Go to step 4.
+1. Click **Connections** in the top bar. The panel opens in the sidebar. If you have no accounts yet, it asks **Where do your models come from?** and shows a few services. Click a service (not **Built-in model**). The **Add account** window opens on the key step. Go to step 4.
 2. Click **Add**. The **Add account** window opens with one list of services.
 3. Click the service you want. Type in the box labeled **Search providers** to find it, or click **Text**, **Image**, **Video** or **Voice** to show only services that make that type. Each tile lists the types its service offers.
 4. Click **API key** and paste your key. Click the eye button to check that you pasted all of it.

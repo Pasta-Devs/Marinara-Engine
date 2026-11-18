@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createDefaultVideoGenerationProfile } from "../packages/shared/src/constants/video-generation-defaults.js";
 import { seedUIState } from "./ui-state-fixture.js";
+import { pickerLabels } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
 
@@ -129,10 +130,10 @@ for (const theme of ["dark", "light"] as const) {
         await pickModel(model.id);
         const resolution = page.getByRole("combobox", { name: "Resolution", exact: true });
         if (!(await resolution.count())) await page.getByRole("button", { name: /OpenRouter Video setup/ }).click();
-        await expect(resolution).toHaveValue(model.resolution);
-        await expect(resolution.locator("option")).toHaveText(model.resolutions);
+        await expect(resolution).toHaveAttribute("data-value", model.resolution);
+        expect(await pickerLabels(page, resolution)).toEqual(model.resolutions);
         await page.getByRole("button", { name: "Reset", exact: true }).click();
-        await expect(resolution).toHaveValue(model.resolution);
+        await expect(resolution).toHaveAttribute("data-value", model.resolution);
         const duration = page.getByRole("spinbutton", { name: "Duration (seconds)", exact: true });
         await duration.fill(model.duration);
         await duration.blur();
@@ -157,15 +158,15 @@ for (const theme of ["dark", "light"] as const) {
           });
         await page.reload();
         await open();
-        await expect(resolution).toHaveValue(model.resolution);
+        await expect(resolution).toHaveAttribute("data-value", model.resolution);
         await expect(duration).toHaveValue(model.duration);
         await resolution.scrollIntoViewIfNeeded();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: info.outputPath(`${model.id.split("/")[1]}-saved.png`), animations: "disabled" });
         if (model.resolution === "768p") {
           await pickModel("google/veo-3.1");
-          await expect(resolution).toHaveValue("720p");
-          await expect(resolution.locator('option[value="768p"]')).toHaveCount(0);
+          await expect(resolution).toHaveAttribute("data-value", "720p");
+          expect(await pickerLabels(page, resolution)).not.toContain("768p");
           await page.getByRole("button", { name: "Save", exact: true }).click();
         }
       } finally {

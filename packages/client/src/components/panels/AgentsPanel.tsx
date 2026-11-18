@@ -157,6 +157,7 @@ import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
@@ -2475,23 +2476,24 @@ function TilePacksSection() {
       {families.map((family) => (
         <div key={family} className="flex items-center gap-2.5 rounded-xl p-2">
           <span className="min-w-0 flex-1 truncate text-sm">{familyLabel(family)}</span>
-          <select
+          <Select
+            label={t("game.tilePacks.chooseFor", { family: familyLabel(family) })}
             value={library.selection[family] ?? ""}
-            onChange={(event) => choose.mutate({ family, packId: event.target.value || null })}
-            className="mari-chrome-field h-8 max-w-[55%] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem]"
-            aria-label={t("game.tilePacks.chooseFor", { family: familyLabel(family) })}
-          >
-            <option value="">
-              {library.builtIn.includes(family) ? t("game.tilePacks.builtIn") : t("game.tilePacks.plain")}
-            </option>
-            {library.packs
-              .filter((pack) => pack.family === family)
-              .map((pack) => (
-                <option key={pack.id} value={pack.id}>
-                  {t("game.tilePacks.packVersion", { name: pack.name, version: pack.version })}
-                </option>
-              ))}
-          </select>
+            onChange={(next) => choose.mutate({ family, packId: next || null })}
+            className="mari-chrome-field h-8 max-w-[55%] py-0 pl-2.5 pr-7 text-[0.6875rem]"
+            options={[
+              {
+                value: "",
+                label: library.builtIn.includes(family) ? t("game.tilePacks.builtIn") : t("game.tilePacks.plain"),
+              },
+              ...library.packs
+                .filter((pack) => pack.family === family)
+                .map((pack) => ({
+                  value: pack.id,
+                  label: t("game.tilePacks.packVersion", { name: pack.name, version: pack.version }),
+                })),
+            ]}
+          />
         </div>
       ))}
       {library.packs.map((pack) => (

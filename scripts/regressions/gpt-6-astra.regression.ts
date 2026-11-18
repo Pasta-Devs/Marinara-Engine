@@ -16,6 +16,8 @@ import { OpenAIProvider } from "../../packages/server/src/services/llm/providers
 // https://developers.openai.com/api/docs/models/gpt-6-sol and /gpt-6-luna
 // https://developers.openai.com/api/docs/models/gpt-6.1-sol (effort low through max; no "none" or "minimal")
 // and https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra (family migration).
+// https://developers.openai.com/api/docs/models/gpt-6.2-sol and /gpt-6.2-astra (1,050,000 context, 128,000 output;
+// "The API rejects requests that set reasoning effort to `none`.")
 assert.deepEqual(findKnownModel("openai", "gpt-6-astra"), {
   id: "gpt-6-astra",
   name: "gpt-6-astra",
@@ -68,6 +70,23 @@ for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-solstice", "gpt-6.10-so
   assert.equal(isOpenAIGpt6AlwaysReasoningModel(model), false, model);
 }
 assert.equal(isOpenAIGpt6Model("gpt-6.1-solstice"), false);
+
+for (const model of ["gpt-6.2-sol", "gpt-6.2-astra"]) {
+  for (const provider of ["openai", "custom", "openrouter"] as const) {
+    const id = provider === "openrouter" ? `openai/${model}` : model;
+    assert.equal(findKnownModel(provider, id)?.context, 1_050_000, id);
+    assert.equal(findKnownModel(provider, id)?.maxOutput, 128_000, id);
+    assert.equal(shouldSuppressUnknownModelParameters(provider, id), false, id);
+    assert.equal(resolveProviderReasoningEffort({ provider, model: id, reasoningEffort: "maximum" }), "max");
+    assert.equal(resolveProviderReasoningEffort({ provider, model: id, reasoningEffort: "xhigh" }), "xhigh");
+  }
+  assert.equal(isOpenAIGpt6Model(model.toUpperCase()), true, model);
+  assert.equal(isOpenAIGpt6AlwaysReasoningModel(model), true, model);
+}
+for (const model of ["gpt-6.2-solstice", "gpt-6.2-astral", "gpt-6.20-sol", "gpt-6.2-luna"]) {
+  assert.equal(isOpenAIGpt6Model(model), false, model);
+  assert.equal(isOpenAIGpt6AlwaysReasoningModel(model), false, model);
+}
 
 const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
 const toolCall = {
@@ -126,8 +145,8 @@ try {
     { role: "system", content: "Keep <scene> verbatim." },
     { role: "user", content: "Describe this scene.", images: ["data:image/png;base64,aW1hZ2U="] },
   ];
-  for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
-    const canDisable = model !== "gpt-6-astra" && model !== "gpt-6.1-sol";
+  for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"]) {
+    const canDisable = model === "gpt-6-sol" || model === "gpt-6-luna";
     const storedOptions = resolveStoredChatOptions({ reasoningEffort: "maximum" }, "openai", model);
     assert.equal(storedOptions.reasoningEffort, "max", "connection Maximum must reach the provider as max");
 

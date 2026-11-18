@@ -17,3 +17,16 @@ export async function chooseOption(page: Page, trigger: Locator, label: string) 
     .click();
   await expect(picker).toHaveCount(0);
 }
+
+/** Open a shared Select, read its option labels in order, and close it again (a native select's `option` list). */
+export async function pickerLabels(page: Page, trigger: Locator): Promise<string[]> {
+  const title = await trigger.getAttribute("aria-label");
+  await trigger.click();
+  const picker = page.getByRole("dialog", { name: title ?? undefined, exact: true });
+  const rows = picker.locator("[data-pick-row]");
+  await expect(rows.first()).toBeVisible();
+  const labels = (await rows.allInnerTexts()).map((label) => label.trim());
+  await page.keyboard.press("Escape");
+  await expect(picker).toHaveCount(0);
+  return labels;
+}

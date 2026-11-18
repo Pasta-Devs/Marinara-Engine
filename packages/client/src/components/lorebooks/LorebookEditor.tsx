@@ -9,6 +9,7 @@
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
 import { estimateTextTokens } from "@marinara-engine/shared";
+import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
   useState,
   useEffect,
@@ -92,6 +93,7 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { api } from "../../lib/api-client";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   LIMITS,
   includesTextForMatch,
@@ -129,6 +131,8 @@ import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { SHEET_BUTTON_QUIET, SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { Select } from "../ui/Select";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Spinner } from "../ui/Spinner";
 
 // ──────────────────────────────────────────────
@@ -2255,23 +2259,18 @@ export function LorebookEditor() {
                   { count: selectedEntryIds.size },
                 )}
               </p>
-              <label className="block space-y-1.5">
+              <div className="block space-y-1.5">
                 <span className="text-xs font-medium text-[var(--foreground)]">
                   {t("lorebook.editor.batch.transfer.destination")}
                 </span>
-                <select
+                <Select
                   value={entryTransferTargetId}
-                  onChange={(event) => setEntryTransferTargetId(event.target.value)}
-                  aria-label={t("lorebook.editor.batch.transfer.destination")}
+                  onChange={(next) => setEntryTransferTargetId(next)}
+                  label={t("lorebook.editor.batch.transfer.destination")}
                   className="mari-editor-field w-full px-3 py-2 text-sm max-sm:text-base"
-                >
-                  {transferTargetLorebooks.map((book) => (
-                    <option key={book.id} value={book.id}>
-                      {book.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  options={transferTargetLorebooks.map((book) => ({ value: book.id, label: book.name }))}
+                />
+              </div>
             </div>
           </Modal>
 
@@ -2552,28 +2551,20 @@ export function LorebookEditor() {
 
                     {/* Category */}
                     <div className="mari-editor-panel p-3">
-                      <label htmlFor="lorebook-editor-category" className="mb-1.5 block text-xs font-medium">
+                      <div className="mb-1.5 block text-xs font-medium">
                         {localizeUi("ui.lorebooks.lorebookeditor.category")}
-                      </label>
+                      </div>
                       <div className="relative md:hidden">
-                        <select
+                        <Select
                           id="lorebook-editor-category"
                           value={formCategory}
-                          onChange={(event) => {
-                            setFormCategory(event.target.value as LorebookCategory);
+                          onChange={(next) => {
+                            setFormCategory(next as LorebookCategory);
                             markLorebookDirty();
                           }}
-                          className="mari-editor-field h-10 w-full min-w-0 appearance-none truncate px-3 py-0 pr-9 text-xs"
-                        >
-                          {CATEGORY_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size="0.75rem"
-                          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--marinara-editor-muted)]"
+                          label={localizeUi("ui.lorebooks.lorebookeditor.category")}
+                          className="mari-editor-field h-10 w-full min-w-0 px-3 py-0 text-xs"
+                          options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
                         />
                       </div>
                       <div className="hidden gap-2 md:flex">
@@ -3114,17 +3105,14 @@ export function LorebookEditor() {
                           size="0.8125rem"
                           className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
                         />
-                        <select
+                        <Select
                           value={entrySort}
-                          onChange={(e) => setEntrySort(e.target.value as EntrySortKey)}
-                          className="mari-editor-field h-full appearance-none py-2.5 pl-8 pr-6 text-xs"
-                        >
-                          {SORT_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(next) => setEntrySort(next as EntrySortKey)}
+                          label={localizeUi("ui.lorebooks.lorebookeditor.sortEntries")}
+                          className="mari-editor-field h-full py-2.5 pl-8 pr-6 text-xs [&>svg]:hidden"
+                          options={SORT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                          searchable={false}
+                        />
                       </div>
                       <button
                         onClick={() => {
@@ -3586,15 +3574,26 @@ function VectorizeSection({
       },
     ];
   }, [sidecarModelDownloaded, sidecarModelDisplayName]);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
+  // Held while it is the selection, so removing the model shows it as not downloaded instead of forgetting it.
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption(selectedConnectionId);
   const embeddingConnections = useMemo(
     () => [
+      ...(builtinEmbeddingOption
+        ? [
+            {
+              id: BUILTIN_EMBEDDING_CONNECTION_ID,
+              name: builtinEmbeddingOption.label,
+              embeddingModel: builtinEmbeddingOption.subtitle?.split(" · ")[0] ?? "",
+            },
+          ]
+        : []),
       ...sidecarEmbeddingConnections,
       // A connection can also get its embedding model from its Embedding Connection; the server resolves it.
       ...connections.filter((c) => c.embeddingModel?.trim() || c.embeddingConnectionId?.trim()),
     ],
-    [connections, sidecarEmbeddingConnections],
+    [builtinEmbeddingOption, connections, sidecarEmbeddingConnections],
   );
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizingMode, setVectorizingMode] = useState<"missing" | "all" | null>(null);
   const vectorizeInFlightRef = useRef(false);
   const [clearingVectors, setClearingVectors] = useState(false);
@@ -3625,7 +3624,12 @@ function VectorizeSection({
   }, [fetchSidecarStatus]);
 
   useEffect(() => {
-    if (selectedConnectionId && !embeddingConnections.some((connection) => connection.id === selectedConnectionId)) {
+    // A deleted saved connection is forgotten; the built-in embedding model can come back with a download.
+    if (
+      selectedConnectionId &&
+      selectedConnectionId !== BUILTIN_EMBEDDING_CONNECTION_ID &&
+      !embeddingConnections.some((connection) => connection.id === selectedConnectionId)
+    ) {
       setSelectedConnectionId("");
       try {
         window.localStorage.removeItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
@@ -3638,7 +3642,11 @@ function VectorizeSection({
     try {
       const storedConnectionId = window.localStorage.getItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
       if (storedConnectionId === LOREBOOK_VECTORIZE_NONE) return;
-      if (storedConnectionId && embeddingConnections.some((connection) => connection.id === storedConnectionId)) {
+      if (
+        storedConnectionId &&
+        (storedConnectionId === BUILTIN_EMBEDDING_CONNECTION_ID ||
+          embeddingConnections.some((connection) => connection.id === storedConnectionId))
+      ) {
         setSelectedConnectionId(storedConnectionId);
         return;
       }
@@ -3869,19 +3877,18 @@ function VectorizeSection({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedConnectionId}
-              onChange={(e) => handleConnectionChange(e.target.value)}
-              className="mari-editor-field min-w-44 flex-1 px-2.5 py-1.5 text-xs"
-            >
-              <option value="">{localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}</option>
-              {embeddingConnections.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.embeddingModel?.trim() ? <> ({c.embeddingModel})</> : null}
-                </option>
-              ))}
-            </select>
+            <div className="min-w-44 flex-1">
+              <ConnectionSelect
+                kind="chat"
+                aria-label={localizeUi("ui.lorebooks.vectorizesection.embeddingConnection")}
+                value={selectedConnectionId || null}
+                onChange={(next) => handleConnectionChange(next ?? "")}
+                defaultLabel={localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}
+                includeLocalSidecar={sidecarEmbeddingConnections.length > 0}
+                rowFilter={(row) => embeddingConnections.some((connection) => connection.id === row.id)}
+                extraOptions={builtinEmbeddingOption ? [builtinEmbeddingOption] : []}
+              />
+            </div>
             <button
               onClick={() => handleVectorize(primaryVectorizeMode)}
               disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}

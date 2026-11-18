@@ -1,19 +1,18 @@
 // #5073: Chat-history picker for Professor Mari. Pick one of the user's chats (searchable,
 // most-recent first), choose ALL / a RANGE / the LAST N messages, and attach the selected messages
-// as a JSON reference-context item Mari can read. Self-contained modal (createPortal), like
+// as a JSON reference-context item Mari can read. Uses the shared Modal, like
 // MariPromptPreviewModal.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { estimateTextTokens, type Chat, type Character, type Message } from "@marinara-engine/shared";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useChats } from "../../hooks/use-chats";
 import { useCharacters } from "../../hooks/use-characters";
 import { useAddMariWorkspaceContext } from "../../hooks/use-mari-workspace-context";
-import { useModalFocusTrap } from "../../hooks/use-modal-focus-trap";
+import { Modal } from "../ui/Modal";
 import { Spinner } from "../ui/Spinner";
 
 // Server cap (MAX_CONTEXT_ITEM_CONTENT_LENGTH). Warn + block before the request when a selection
@@ -81,7 +80,6 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
   // Monotonic token bumped on every selection / Back / open / close. A fetch whose token is stale is
   // ignored — including re-selecting the SAME chat (which a chat-id check alone would not catch).
   const requestTokenRef = useRef(0);
-  const dialogRef = useModalFocusTrap<HTMLDivElement>(open, onClose);
 
   // Reset transient state whenever the modal is (re)opened, and discard any in-flight /messages fetch
   // when it closes so a late response can't touch hidden state and flash a stale selection on reopen.
@@ -225,198 +223,188 @@ export function MariChatHistoryPicker({ open, onClose, workspaceChatId }: Props)
     onClose,
   ]);
 
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[calc(var(--mari-layer-omnibar)+1)] flex items-center justify-center bg-black/60 p-4"
-      role="dialog"
-      aria-modal
-      aria-label={localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTitle")}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl outline-none"
-      >
-        <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
-          {selected && (
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={selected ? selected.name : localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTitle")}
+      titleSlot={
+        selected ? (
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 setSelected(null);
                 requestTokenRef.current += 1;
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               aria-label={localizeUi("navigation.common.back")}
             >
               <ArrowLeft size="1rem" />
             </button>
-          )}
-          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--foreground)]">
-            {selected ? selected.name : localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTitle")}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            aria-label={localizeUi("navigation.common.close")}
-          >
-            <X size="1rem" />
-          </button>
-        </div>
-
-        {!selected ? (
+            <span className="min-w-0 truncate">{selected.name}</span>
+          </div>
+        ) : undefined
+      }
+      width="max-w-lg"
+      layer="omnibar"
+      backdrop="dark"
+      contentClassName="!p-0"
+      footer={
+        selected ? (
           <>
-            <div className="border-b border-[var(--border)] p-3">
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5">
-                <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={localizeUi("ui.chat.homeprofessormarichat.attachChatHistorySearch")}
-                  className="w-full bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
-                />
+            <button
+              type="button"
+              onClick={() => void handleAttach()}
+              disabled={selectedRows.length === 0 || overCap || addContext.isPending}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-all active:scale-95",
+                (selectedRows.length === 0 || overCap || addContext.isPending) && "cursor-not-allowed opacity-50",
+              )}
+            >
+              {addContext.isPending && <Spinner size="sm" />}
+              {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryAttach")}
+            </button>
+            <div className="mr-auto flex min-w-0 flex-col gap-1">
+              <div className="flex items-center justify-between gap-3 text-xs text-[var(--muted-foreground)]">
+                <span>
+                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistorySelectedCount", {
+                    count: selectedRows.length,
+                  })}
+                </span>
+                <span className={cn(overCap && "font-semibold text-[var(--destructive)]")}>
+                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTokenEstimate", {
+                    count: tokenEstimate,
+                  })}
+                </span>
               </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              {sortedChats.length === 0 ? (
-                <p className="px-2 py-6 text-center text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryNoChats")}
+              {overCap && (
+                <p className="text-xs text-[var(--destructive)]">
+                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTooLarge")}
                 </p>
-              ) : (
-                sortedChats.map((chat) => {
-                  const names = chatCharacterNames(chat);
-                  return (
-                    <button
-                      key={chat.id}
-                      type="button"
-                      onClick={() => void selectChat(chat)}
-                      className="flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
-                    >
-                      <span className="truncate text-sm font-medium text-[var(--foreground)]">{chat.name}</span>
-                      {names && <span className="truncate text-xs text-[var(--muted-foreground)]">{names}</span>}
-                    </button>
-                  );
-                })
               )}
             </div>
           </>
-        ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {loadingMessages ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--muted-foreground)]">
-                <Spinner size="md" />
-                {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLoading")}
-              </div>
-            ) : total === 0 ? (
-              <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryEmpty")}
+        ) : undefined
+      }
+    >
+      {!selected ? (
+        <>
+          <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-3">
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5">
+              <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={localizeUi("ui.chat.homeprofessormarichat.attachChatHistorySearch")}
+                className="w-full bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+              />
+            </div>
+          </div>
+          <div className="p-2">
+            {sortedChats.length === 0 ? (
+              <p className="px-2 py-6 text-center text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryNoChats")}
               </p>
             ) : (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryMessageCount", { count: total })}
-                </p>
-                <div className="flex flex-col gap-2">
-                  {(["all", "last", "range"] as SelectionMode[]).map((option) => (
-                    <label
-                      key={option}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
-                        mode === option
-                          ? "border-[var(--primary)]/60 bg-[var(--primary)]/10 text-[var(--foreground)]"
-                          : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="mari-chat-history-mode"
-                        checked={mode === option}
-                        onChange={() => setMode(option)}
-                        className="accent-[var(--primary)]"
-                      />
-                      {option === "all" && localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryAll")}
-                      {option === "last" && (
-                        <span className="flex items-center gap-1.5">
-                          {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLastPrefix")}
-                          <input
-                            type="number"
-                            min={1}
-                            max={total}
-                            value={lastN}
-                            onFocus={() => setMode("last")}
-                            onChange={(event) => setLastN(Math.max(1, Number(event.target.value) || 1))}
-                            className="w-16 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
-                          />
-                          {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLastSuffix")}
-                        </span>
-                      )}
-                      {option === "range" && (
-                        <span className="flex items-center gap-1.5">
-                          {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryRangePrefix")}
-                          <input
-                            type="number"
-                            min={1}
-                            max={total}
-                            value={rangeFrom}
-                            onFocus={() => setMode("range")}
-                            onChange={(event) => setRangeFrom(Math.max(1, Number(event.target.value) || 1))}
-                            className="w-14 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
-                          />
-                          {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryRangeTo")}
-                          <input
-                            type="number"
-                            min={1}
-                            max={total}
-                            value={rangeTo}
-                            onFocus={() => setMode("range")}
-                            onChange={(event) => setRangeTo(Math.max(1, Number(event.target.value) || 1))}
-                            className="w-14 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
-                          />
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
-                  <span>
-                    {localizeUi("ui.chat.homeprofessormarichat.attachChatHistorySelectedCount", {
-                      count: selectedRows.length,
-                    })}
-                  </span>
-                  <span className={cn(overCap && "font-semibold text-[var(--destructive)]")}>
-                    {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTokenEstimate", {
-                      count: tokenEstimate,
-                    })}
-                  </span>
-                </div>
-                {overCap && (
-                  <p className="text-xs text-[var(--destructive)]">
-                    {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryTooLarge")}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => void handleAttach()}
-                  disabled={selectedRows.length === 0 || overCap || addContext.isPending}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-all active:scale-95",
-                    (selectedRows.length === 0 || overCap || addContext.isPending) && "cursor-not-allowed opacity-50",
-                  )}
-                >
-                  {addContext.isPending && <Spinner size="sm" />}
-                  {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryAttach")}
-                </button>
-              </div>
+              sortedChats.map((chat) => {
+                const names = chatCharacterNames(chat);
+                return (
+                  <button
+                    key={chat.id}
+                    type="button"
+                    onClick={() => void selectChat(chat)}
+                    className="flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]"
+                  >
+                    <span className="truncate text-sm font-medium text-[var(--foreground)]">{chat.name}</span>
+                    {names && <span className="truncate text-xs text-[var(--muted-foreground)]">{names}</span>}
+                  </button>
+                );
+              })
             )}
           </div>
-        )}
-      </div>
-    </div>,
-    document.body,
+        </>
+      ) : (
+        <div className="p-4">
+          {loadingMessages ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--muted-foreground)]">
+              <Spinner size="md" />
+              {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLoading")}
+            </div>
+          ) : total === 0 ? (
+            <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryEmpty")}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryMessageCount", { count: total })}
+              </p>
+              <div className="flex flex-col gap-2">
+                {(["all", "last", "range"] as SelectionMode[]).map((option) => (
+                  <label
+                    key={option}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      mode === option
+                        ? "border-[var(--primary)]/60 bg-[var(--primary)]/10 text-[var(--foreground)]"
+                        : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="mari-chat-history-mode"
+                      checked={mode === option}
+                      onChange={() => setMode(option)}
+                      className="accent-[var(--primary)]"
+                    />
+                    {option === "all" && localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryAll")}
+                    {option === "last" && (
+                      <span className="flex items-center gap-1.5">
+                        {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLastPrefix")}
+                        <input
+                          type="number"
+                          min={1}
+                          max={total}
+                          value={lastN}
+                          onFocus={() => setMode("last")}
+                          onChange={(event) => setLastN(Math.max(1, Number(event.target.value) || 1))}
+                          className="w-16 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
+                        />
+                        {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryLastSuffix")}
+                      </span>
+                    )}
+                    {option === "range" && (
+                      <span className="flex items-center gap-1.5">
+                        {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryRangePrefix")}
+                        <input
+                          type="number"
+                          min={1}
+                          max={total}
+                          value={rangeFrom}
+                          onFocus={() => setMode("range")}
+                          onChange={(event) => setRangeFrom(Math.max(1, Number(event.target.value) || 1))}
+                          className="w-14 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
+                        />
+                        {localizeUi("ui.chat.homeprofessormarichat.attachChatHistoryRangeTo")}
+                        <input
+                          type="number"
+                          min={1}
+                          max={total}
+                          value={rangeTo}
+                          onFocus={() => setMode("range")}
+                          onChange={(event) => setRangeTo(Math.max(1, Number(event.target.value) || 1))}
+                          className="w-14 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-center text-sm text-[var(--foreground)] outline-none"
+                        />
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }

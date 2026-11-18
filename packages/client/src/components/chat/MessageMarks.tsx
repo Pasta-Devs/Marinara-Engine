@@ -20,6 +20,7 @@ import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { ApiError } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { Select } from "../ui/Select";
 import { MESSAGE_ACTION_ICON_SIZE, MessageActionButton, useMessageActionMenu } from "./MessageActionButton";
 
 type MarkableMessage = { id: string; chatId: string; extra?: unknown };
@@ -233,23 +234,18 @@ export function MessageMarksAction({
                       <label htmlFor={recipientSelectId} className="sr-only">
                         {localizeUi("ui.chat.messagemarks.noteRecipient")}
                       </label>
-                      <select
+                      <Select
                         id={recipientSelectId}
-                        value={recipientListed ? recipientId : ""}
-                        onChange={(event) => save({ privateNoteRecipientId: event.target.value || null })}
+                        label={localizeUi("ui.chat.messagemarks.noteRecipient")}
+                        value={recipientListed ? recipientId : null}
+                        placeholder={localizeUi("ui.chat.messagemarks.chooseNoteRecipient")}
+                        options={noteSharing.characters.map((character) => ({
+                          value: character.id,
+                          label: character.name,
+                        }))}
+                        onChange={(value) => save({ privateNoteRecipientId: value || null })}
                         className={cn(FIELD_CLASS, "h-8")}
-                      >
-                        {!recipientListed && (
-                          <option value="" disabled>
-                            {localizeUi("ui.chat.messagemarks.chooseNoteRecipient")}
-                          </option>
-                        )}
-                        {noteSharing.characters.map((character) => (
-                          <option key={character.id} value={character.id}>
-                            {character.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   )}
                 </div>

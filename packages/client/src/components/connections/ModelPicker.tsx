@@ -2,6 +2,7 @@
 // The body is the chat switcher's, so every picker lists, stars and searches alike; only the title differs.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,7 +12,6 @@ import {
   type ChatModelChoice,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
-import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import {
@@ -33,13 +33,14 @@ import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-sourc
 import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
+import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
 
-type Extra = { value: string; label: string };
+type Extra = ConnectionExtraOption;
 
 /** The catalogs do not mark embedding models, so the id decides ("text-embedding-3-small", "bge-m3-embed"…). */
-/** A reason that fits on a row. */
-const short = (text: string) => (text.length > 38 ? `${text.slice(0, 36)}…` : text);
+/** What a tried model's line shows: a short pill, with the full reason one tap away (`detail`). */
+type TriedState = { label: string; state: "off" | "needs_key"; detail?: string };
 
 const isEmbeddingModel = (model: string) => /embed/i.test(model);
 
@@ -111,7 +112,12 @@ function ModelPickerSlot({
       .map((row) => `${row.accountId}|${row.model}`),
   );
   // `accountId|model` → what the Decision test said; a model being tried or turned down shows it on its row.
-  const [tried, setTried] = useState<Record<string, { label: string; state: "off" | "needs_key" }>>({});
+  const [tried, setTried] = useState<Record<string, TriedState>>({});
+  // A failed try's pill: "Error 404" when the reason carries a status code; the whole reason opens from it.
+  const failLabel = (message: string) => {
+    const code = /\((\d{3})\)/.exec(message)?.[1];
+    return { label: code ? t("connections.error.pillCode", { code }) : t("connections.error.pill") };
+  };
   const known = useRef<Set<string> | null>(null);
   // Undo runs later, so it must reach the host's latest setter, not the one this render saw.
   const onChangeRef = useRef(onChange);
@@ -187,7 +193,7 @@ function ModelPickerSlot({
     const model = choice.model ?? anchor?.model;
     if (!account || !model) return false;
     const key = `${account.id}|${model}`;
-    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+    const mark = (next: TriedState | null) =>
       setTried((all) => {
         const { [key]: _drop, ...rest } = all;
         return next ? { ...rest, [key]: next } : rest;
@@ -228,19 +234,26 @@ function ModelPickerSlot({
       const noLogprobs = result.success && result.logprobs === false;
       if (!result.success || noLogprobs) {
         if (!existing) await deleteRow.mutateAsync(id);
+        const message = noLogprobs
+          ? t("connections.decision.noLogprobs")
+          : decisionConnectionTestMessage(t, result).message;
         mark({
-          label: noLogprobs
-            ? t("connections.decision.noLogprobs")
-            : short(decisionConnectionTestMessage(t, result).message),
+          ...(noLogprobs ? { label: message } : failLabel(message)),
           state: "needs_key",
+          detail: message,
         });
         return false;
       }
       mark(null);
       commit(id, choice.name ?? model);
-    } catch {
+    } catch (error) {
       if (!existing && id) await deleteRow.mutateAsync(id).catch(() => undefined);
-      mark({ label: t("connections.decision.errors.network"), state: "needs_key" });
+      const message = error instanceof Error && error.message ? error.message : "";
+      mark({
+        label: t("connections.decision.errors.network"),
+        state: "needs_key",
+        ...(message ? { detail: message } : {}),
+      });
       return false;
     }
   };
@@ -278,10 +291,13 @@ function ModelPickerSlot({
     };
     const all = rows as EmbeddingRow[] | undefined;
     const row = all?.find((item) => item.id === choice.connectionId);
-    const model = choice.model ?? row?.embeddingModel ?? row?.model;
+    // A saved Model keeps "" when it has no embedding model of its own: it then embeds with its own model id.
+    const model = choice.model ?? (row?.embeddingModel?.trim() || row?.model?.trim());
     if (!row || !model) return false;
-    const key = row.accountId ? `${row.accountId}|${model}` : model;
-    const mark = (next: { label: string; state: "off" | "needs_key" } | null) =>
+    // The row's line is keyed by the model it shows: the catalog pick, or the saved Model's own id.
+    const shown = choice.model ?? row.model ?? model;
+    const key = row.accountId ? `${row.accountId}|${shown}` : shown;
+    const mark = (next: TriedState | null) =>
       setTried((tries) => {
         const { [key]: _drop, ...rest } = tries;
         return next ? { ...rest, [key]: next } : rest;
@@ -289,6 +305,8 @@ function ModelPickerSlot({
     mark({ label: t("connections.decision.testing"), state: "off" });
     let id = row.id;
     let before: string | null = row.embeddingModel ?? null;
+    // A catalog pick saves a new Model first; one that cannot embed is removed again, so a failed try adds nothing.
+    let created = false;
     try {
       if (choice.model && row.accountId) {
         const saved = await pickModel.mutateAsync({
@@ -297,19 +315,29 @@ function ModelPickerSlot({
           ...(choice.name ? { name: choice.name } : {}),
         });
         id = saved.connectionId;
-        before = all?.find((item) => item.id === id)?.embeddingModel ?? null;
+        const existing = all?.find((item) => item.id === id);
+        created = !existing;
+        before = existing?.embeddingModel ?? null;
       }
       await updateRow.mutateAsync({ id, embeddingModel: model });
       const result = await testEmbedding.mutateAsync(id);
       if (!result.success) {
-        await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
-        mark({ label: short(result.message) || t("connections.embeddingDefault.failed"), state: "needs_key" });
+        if (created) await deleteRow.mutateAsync(id).catch(() => undefined);
+        else await updateRow.mutateAsync({ id, embeddingModel: before ?? "" });
+        const message = result.message?.trim() || t("connections.embeddingDefault.failed");
+        mark({ ...failLabel(message), state: "needs_key", detail: message });
         return false;
       }
       mark(null);
       commit(id, choice.name ?? model);
-    } catch {
-      mark({ label: t("connections.embeddingDefault.failed"), state: "needs_key" });
+    } catch (error) {
+      if (created) await deleteRow.mutateAsync(id).catch(() => undefined);
+      const message = error instanceof Error && error.message ? error.message : "";
+      mark({
+        label: t("connections.embeddingDefault.failed"),
+        state: "needs_key",
+        ...(message ? { detail: message } : {}),
+      });
       return false;
     }
   };
@@ -347,7 +375,7 @@ function ModelPickerSlot({
       title={title}
       width="max-w-2xl"
       opaque
-      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(100dvh-1.5rem))]"
+      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(var(--mari-visual-viewport-height,100dvh)-1.5rem))]"
       closeButtonClassName="!min-h-11 !min-w-11"
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
@@ -505,23 +533,25 @@ export function ModelPicker({
           }
         : {})}
       header={
-        <div role="tablist" className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-[var(--border)]/40 p-2">
-          {slots.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              role="tab"
-              aria-selected={slot === entry.key}
-              onClick={() => setSlot(entry.key)}
-              className={cn(
-                "flex min-h-11 min-w-0 flex-col items-start justify-center rounded-lg px-3 py-1 text-left transition-colors",
-                slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
-              )}
-            >
-              <span className="text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">{entry.label}</span>
-              <span className="w-full truncate text-xs font-medium">{entry.value}</span>
-            </button>
-          ))}
+        // The header bar pads a wrapper: the tab cells must touch the track's edge (ui/Tabs).
+        <div className="border-b border-[var(--border)]/40 p-2">
+          <Tabs
+            items={slots.map((entry) => ({
+              id: entry.key,
+              label: (
+                <>
+                  <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                    {entry.label}
+                  </span>
+                  <span className="block truncate text-xs font-medium">{entry.value}</span>
+                </>
+              ),
+            }))}
+            value={slot}
+            onChange={setSlot}
+            variant="pill"
+            label={t("connections.picker.slots")}
+          />
         </div>
       }
     />

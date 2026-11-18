@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { inventoryButton } from "./game-inventory-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -131,13 +132,13 @@ test("starting gear is taken into the bag on the player's word, with its choices
     await dialog.getByRole("radio", { name: /^A second weapon( \d+)?$/ }).check();
     await expect(take).toBeDisabled();
     const pick = dialog.getByRole("combobox", { name: "Pick one", exact: true });
-    await pick.selectOption({ label: "Boar spear" });
+    await chooseOption(page, pick, "Boar spear");
     // Another option's lists are its own: switching away and back clears the pick.
     await dialog.getByRole("radio", { name: /^A leather coat( \d+)?$/ }).check();
     await dialog.getByRole("radio", { name: /^A second weapon( \d+)?$/ }).check();
-    await expect(pick).toHaveValue("");
+    await expect(pick).toHaveAttribute("data-value", "");
     await expect(take).toBeDisabled();
-    await pick.selectOption({ label: "Boar spear" });
+    await chooseOption(page, pick, "Boar spear");
     // What it weighs, against what the player can still carry.
     await expect(dialog.getByText(/^Weighs 6\.05; .* can carry 12 more\.$/)).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("starting-gear-dialog.png") });

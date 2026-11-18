@@ -33,6 +33,7 @@ import { formatFirstApiValidationIssue } from "../../lib/api-client";
 import { buildCustomToolPatch } from "../../lib/custom-tool-transfer";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { Select } from "../ui/Select";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { createFolderEntry } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -496,22 +497,24 @@ export function ToolEditor() {
                         placeholder={localizeUi("ui.agents.tooleditor.paramName")}
                         className="w-32 rounded-lg bg-[var(--secondary)] px-2 py-1.5 font-mono text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
                       />
-                      <select
+                      <Select
+                        label={localizeUi("ui.agents.tooleditor.paramType")}
                         value={param.type}
-                        onChange={(e) => {
-                          const next = [...localParams];
-                          next[idx] = { ...next[idx], type: e.target.value, raw: undefined };
-                          setLocalParams(next);
+                        onChange={(next) => {
+                          const nextParams = [...localParams];
+                          nextParams[idx] = { ...nextParams[idx], type: next, raw: undefined };
+                          setLocalParams(nextParams);
                           markDirty();
                         }}
                         className="rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
-                      >
-                        <option value="string">{localizeUi("ui.agents.tooleditor.string")}</option>
-                        <option value="number">{localizeUi("ui.agents.tooleditor.number")}</option>
-                        <option value="boolean">{localizeUi("ui.agents.tooleditor.boolean")}</option>
-                        <option value="array">{localizeUi("ui.agents.tooleditor.array")}</option>
-                        <option value="object">{localizeUi("ui.agents.tooleditor.object")}</option>
-                      </select>
+                        options={[
+                          { value: "string", label: localizeUi("ui.agents.tooleditor.string") },
+                          { value: "number", label: localizeUi("ui.agents.tooleditor.number") },
+                          { value: "boolean", label: localizeUi("ui.agents.tooleditor.boolean") },
+                          { value: "array", label: localizeUi("ui.agents.tooleditor.array") },
+                          { value: "object", label: localizeUi("ui.agents.tooleditor.object") },
+                        ]}
+                      />
                       <SettingsSwitch
                         label={localizeUi("ui.agents.tooleditor.required")}
                         checked={param.required}

@@ -577,6 +577,7 @@
     "scripts/regressions/chat-message-css-security.regression.ts",
     "scripts/regressions/chat-window-icons.regression.ts",
     "scripts/regressions/chat/chat-gallery-actions.regression.ts",
+    "scripts/regressions/chat/chat-settings-drawer.regression.ts",
     "scripts/regressions/chat/chat-summary-controls.regression.ts",
     "scripts/regressions/chat/context-usage-placement.regression.ts",
     "scripts/regressions/chat/conversation-prompts.regression.ts",

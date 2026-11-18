@@ -75,8 +75,19 @@ import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import {
+  CardUpdateChoices,
+  defaultCardUpdateDecision,
+  findCardUpdateMatches,
+  isCardUpdate,
+  isCardUpdatePending,
+  type CardUpdateDecision,
+  type CardUpdateRow,
+  type CreatorNotesUpdate,
+} from "../characters/CardUpdateChoices";
 
 // ════════════════════════════════════════════════
 // Types
@@ -259,7 +270,20 @@ interface PendingBrowserCardImport {
   card: BrowseCard;
   target?: BrowserCardImportTarget;
   prepared?: PreparedBrowserCardImport;
+  /** A card you may already have: the choice to update that character, add a new one or skip. */
+  update?: {
+    row: CardUpdateRow;
+    decision: CardUpdateDecision;
+    useCardPicture: boolean;
+    creatorNotes: CreatorNotesUpdate;
+    /** Continue was pressed; the embedded-lorebook question may follow. */
+    confirmed: boolean;
+    /** The library check failed, so it is not known whether this card is already there. */
+    lookupFailed?: boolean;
+  };
 }
+
+type BrowserCardUpdate = { characterId: string; useCardPicture: boolean; creatorNotes: CreatorNotesUpdate };
 
 function hasJannyCharacterDefinition(detail: CardDetail | null | undefined): boolean {
   return Boolean(
@@ -2215,6 +2239,7 @@ export function BotBrowserView() {
     prepared: PreparedBrowserCardImport,
     target: BrowserCardImportTarget,
     importEmbeddedLorebook: boolean,
+    update?: BrowserCardUpdate,
   ) => {
     if (target === "character") {
       const response = await fetch("/api/import/st-character", {
@@ -2225,6 +2250,13 @@ export function BotBrowserView() {
           importEmbeddedLorebook,
           tagImportMode,
           splitDescription,
+          ...(update
+            ? {
+                updateCharacterId: update.characterId,
+                useCardPicture: update.useCardPicture,
+                creatorNotes: update.creatorNotes,
+              }
+            : {}),
         }),
       });
       const data = (await response.json()) as {
@@ -2232,24 +2264,33 @@ export function BotBrowserView() {
         characterId?: string;
         name?: string;
         error?: string;
+        updated?: boolean;
+        lorebookError?: string;
         lorebook?: unknown;
         descriptionSplit?: DescriptionSplitResult;
       };
       if (!response.ok || !data.success)
         throw new Error(data.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
 
-      toast.success(
-        localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", {
-          value1: data.name ?? prepared.card.name,
-        }),
-      );
+      if (data.updated) {
+        const name = data.name ?? prepared.card.name;
+        if (data.lorebookError)
+          toast.warning(localizeUi("ui.cardUpdate.updatedLorebookFailed", { name, error: data.lorebookError }));
+        else toast.success(localizeUi("ui.cardUpdate.updatedName", { name }));
+      } else
+        toast.success(
+          localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", {
+            value1: data.name ?? prepared.card.name,
+          }),
+        );
       if (data.descriptionSplit) {
         showSplitSummary({
           result: data.descriptionSplit,
           character: data.characterId ? { id: data.characterId, name: data.name ?? prepared.card.name } : undefined,
         });
       }
-      void qc.invalidateQueries({ queryKey: characterKeys.list() });
+      // An update changes an existing character's card, versions and lorebook link, not only the list.
+      void qc.invalidateQueries({ queryKey: data.updated ? characterKeys.all : characterKeys.list() });
       if (data.lorebook) void qc.invalidateQueries({ queryKey: lorebookKeys.all });
       return;
     }
@@ -2399,6 +2440,47 @@ export function BotBrowserView() {
     }
   };
 
+  // "Check for update" in a character's editor: switch to its source, search its name, and open its page when the
+  // source can open a card by id (Chub). Import then finds the character by this page and offers to update it.
+  const cardLookup = useUIStore((s) => s.botBrowserCardLookup);
+  const [lookupCard, setLookupCard] = useState<BrowseCard | null>(null);
+  useEffect(() => {
+    if (!cardLookup || !botBrowserOpen) return;
+    useUIStore.getState().clearBotBrowserCardLookup();
+    const target = ALL_PROVIDERS.find((entry) => entry.id === cardLookup.source);
+    if (!target || providerKind(target) !== "cards") return;
+    if (target.id !== sourceIdRef.current) performSwitch(target.id);
+    setQuery(cardLookup.name);
+    if (target.id !== chubProvider.id) return;
+    setLookupCard({
+      id: cardLookup.id,
+      name: cardLookup.name,
+      creator: cardLookup.id.split("/")[0] ?? "",
+      tagline: "",
+      tags: [],
+      avatarUrl: `/api/bot-browser/chub/avatar/${encodeProxyPath(cardLookup.id)}`,
+      stat1: 0,
+      stat1Label: "Downloads",
+      stat1Icon: "download",
+      stat2: 0,
+      stat2Label: "Chats",
+      stat2Icon: "message",
+      stat3: 0,
+      stat3Label: "Tokens",
+      stat3Icon: "hash",
+      nsfw: false,
+      externalUrl: `https://chub.ai/characters/${cardLookup.id}`,
+      _raw: null,
+    });
+  }, [cardLookup, botBrowserOpen, performSwitch]);
+  useEffect(() => {
+    if (!lookupCard || provider.id !== chubProvider.id) return;
+    setLookupCard(null);
+    void openDetail(lookupCard);
+    // openDetail reads the current provider, which this waits for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookupCard, provider]);
+
   const handleImport = (card: BrowseCard) => {
     setSourceOpen(false);
     if (providerKind(provider) === "lorebooks") {
@@ -2408,13 +2490,66 @@ export function BotBrowserView() {
     setPendingImport({ card });
   };
 
-  const chooseImportTarget = async (target: BrowserCardImportTarget) => {
+  // The update the person chose for this card, or undefined to add it as a new character.
+  const chosenUpdate = (pending: PendingBrowserCardImport): BrowserCardUpdate | undefined =>
+    pending.update && isCardUpdate(pending.update.decision)
+      ? {
+          characterId: pending.update.decision,
+          useCardPicture: pending.update.useCardPicture,
+          creatorNotes: pending.update.creatorNotes,
+        }
+      : undefined;
+
+  const chooseImportTarget = async (target: BrowserCardImportTarget, options: { pickOther?: boolean } = {}) => {
     if (!pendingImport) return;
     const { card } = pendingImport;
     setPendingImport({ card, target });
     setImporting(true);
     try {
       const prepared = await prepareCardImport(card);
+      if (target === "character") {
+        // A newer release of a card you have (same page, or same name and creator) can update that character.
+        const cardData = readCharacterCardData(prepared.payload);
+        const botBrowserSource = String(prepared.payload._botBrowserSource ?? "");
+        // If the library check fails, ask anyway rather than quietly adding a second copy.
+        let lookupFailed = false;
+        const matches = await findCardUpdateMatches({
+          name: cardData.name ?? card.name,
+          creator: cardData.creator ?? card.creator,
+          botBrowserSource,
+        }).catch(() => {
+          lookupFailed = true;
+          return [];
+        });
+        if (matches.length > 0 || options.pickOther || lookupFailed) {
+          const row: CardUpdateRow = {
+            key: botBrowserSource || card.id,
+            name: optionalString(cardData.name) ?? card.name,
+            version: optionalString(cardData.character_version),
+            matches,
+            pickOther: options.pickOther && matches.length === 0,
+          };
+          const decision: CardUpdateDecision = row.pickOther
+            ? "pick"
+            : lookupFailed
+              ? "new"
+              : defaultCardUpdateDecision(matches);
+          setPendingImport({
+            card,
+            target,
+            prepared,
+            update: {
+              row,
+              decision,
+              lookupFailed,
+              useCardPicture: true,
+              creatorNotes: "merge",
+              confirmed: false,
+            },
+          });
+          return;
+        }
+      }
       if (hasLorebookEntries(prepared.embeddedLorebook)) {
         setPendingImport({ card, target, prepared });
         return;
@@ -2431,11 +2566,30 @@ export function BotBrowserView() {
     }
   };
 
+  const confirmCardUpdate = async () => {
+    if (!pendingImport?.target || !pendingImport.prepared || !pendingImport.update) return;
+    if (isCardUpdatePending(pendingImport.update.decision)) return;
+    if (pendingImport.update.decision === "skip") {
+      setPendingImport(null);
+      return;
+    }
+    if (hasLorebookEntries(pendingImport.prepared.embeddedLorebook)) {
+      setPendingImport({ ...pendingImport, update: { ...pendingImport.update, confirmed: true } });
+      return;
+    }
+    await finishImport(false);
+  };
+
   const finishImport = async (importEmbeddedLorebook: boolean) => {
     if (!pendingImport?.target || !pendingImport.prepared) return;
     setImporting(true);
     try {
-      await importPreparedCard(pendingImport.prepared, pendingImport.target, importEmbeddedLorebook);
+      await importPreparedCard(
+        pendingImport.prepared,
+        pendingImport.target,
+        importEmbeddedLorebook,
+        chosenUpdate(pendingImport),
+      );
       setPendingImport(null);
     } catch (error) {
       if (error instanceof PygmalionSessionExpiredError) expirePygmalionSession();
@@ -2867,32 +3021,23 @@ export function BotBrowserView() {
                   )}
                 </div>
 
-                <select
+                <Select
                   value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value);
+                  onChange={(next) => {
+                    setSort(next);
                     setPage(1);
                   }}
+                  label={localizeUi("ui.botBrowser.botbrowserview.sortBy")}
+                  searchable={false}
                   className="mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"
-                >
-                  {sortGroups.map((group) =>
-                    group.label ? (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.labelKey ? localizeUi(opt.labelKey) : opt.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : (
-                      group.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.labelKey ? localizeUi(opt.labelKey) : opt.label}
-                        </option>
-                      ))
-                    ),
+                  options={sortGroups.flatMap((group) =>
+                    group.options.map((opt) => ({
+                      value: opt.value,
+                      label: (opt.labelKey ? localizeUi(opt.labelKey) : opt.label) ?? "",
+                      group: group.label || undefined,
+                    })),
                   )}
-                </select>
+                />
 
                 <button
                   onClick={() => setShowTagPanel((v) => !v)}
@@ -3074,17 +3219,20 @@ export function BotBrowserView() {
                           <label className="mari-chrome-text-muted w-24 text-xs">
                             {localizeUi("ui.botBrowser.botbrowserview.sortDirection")}
                           </label>
-                          <select
+                          <Select
                             value={sortAsc ? "asc" : "desc"}
-                            onChange={(e) => {
-                              setSortAsc(e.target.value === "asc");
+                            onChange={(next) => {
+                              setSortAsc(next === "asc");
                               setPage(1);
                             }}
+                            label={localizeUi("ui.botBrowser.botbrowserview.sortDirection")}
+                            searchable={false}
                             className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
-                          >
-                            <option value="desc">{localizeUi("ui.botBrowser.botbrowserview.descending")}</option>
-                            <option value="asc">{localizeUi("ui.botBrowser.botbrowserview.ascending")}</option>
-                          </select>
+                            options={[
+                              { value: "desc", label: localizeUi("ui.botBrowser.botbrowserview.descending") },
+                              { value: "asc", label: localizeUi("ui.botBrowser.botbrowserview.ascending") },
+                            ]}
+                          />
                         </div>
                       )}
                       {provider.hasTokenFilters && (
@@ -3165,22 +3313,20 @@ export function BotBrowserView() {
                         {localizeUi("ui.botBrowser.botbrowserview.previous")}
                       </button>
                       {hasMore === undefined && totalPages > 1 && totalPages < 9000 ? (
-                        <label className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                        <div className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
                           {localizeUi("ui.botBrowser.botbrowserview.page")}
-                          <select
-                            aria-label={localizeUi("ui.botBrowser.botbrowserview.page")}
-                            value={page}
-                            onChange={(event) => setPage(Number(event.target.value))}
+                          <Select
+                            label={localizeUi("ui.botBrowser.botbrowserview.page")}
+                            value={String(page)}
+                            onChange={(next) => setPage(Number(next))}
                             className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
-                          >
-                            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                              <option key={pageNumber} value={pageNumber}>
-                                {pageNumber}
-                              </option>
-                            ))}
-                          </select>
+                            options={Array.from({ length: totalPages }, (_, index) => ({
+                              value: String(index + 1),
+                              label: String(index + 1),
+                            }))}
+                          />
                           {localizeUi("ui.botBrowser.botbrowserview.ofValue1", { value1: totalPages })}
-                        </label>
+                        </div>
                       ) : (
                         <span className="text-xs text-[var(--muted-foreground)]">
                           {localizeUi("ui.botBrowser.botbrowserview.page")} {page}
@@ -3211,7 +3357,29 @@ export function BotBrowserView() {
         width="max-w-lg"
         closeDisabled={importing}
         footer={
-          pendingImport?.target && pendingImport.prepared ? (
+          pendingImport?.target && pendingImport.prepared && pendingImport.update && !pendingImport.update.confirmed ? (
+            <>
+              <button
+                type="button"
+                disabled={importing || isCardUpdatePending(pendingImport.update.decision)}
+                data-card-update-continue
+                onClick={() => void confirmCardUpdate()}
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {importing ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
+                {localizeUi("ui.cardUpdate.continue")}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => setPendingImport({ card: pendingImport.card })}
+                className={SHEET_BUTTON_QUIET}
+              >
+                <ArrowLeft size="0.75rem" />
+                {localizeUi("ui.botBrowser.importDialog.back")}
+              </button>
+            </>
+          ) : pendingImport?.target && pendingImport.prepared ? (
             <>
               <button
                 type="button"
@@ -3315,6 +3483,15 @@ export function BotBrowserView() {
                     </span>
                   </button>
                 </div>
+                <button
+                  type="button"
+                  data-import-target="update"
+                  onClick={() => void chooseImportTarget("character", { pickOther: true })}
+                  className="inline-flex items-center gap-1.5 self-start text-xs font-medium text-[var(--marinara-chat-chrome-accent)] hover:underline"
+                >
+                  <RefreshCw size="0.75rem" aria-hidden="true" />
+                  {localizeUi("ui.cardUpdate.updateExisting")}
+                </button>
                 <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
                   <Checkbox
                     checked={splitDescription}
@@ -3331,6 +3508,36 @@ export function BotBrowserView() {
                   </span>
                 </label>
               </>
+            ) : pendingImport.prepared && pendingImport.update && !pendingImport.update.confirmed ? (
+              <div data-browser-card-update>
+                <p className="mb-2 text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                  {localizeUi(
+                    pendingImport.update.row.matches.length > 0 ? "ui.cardUpdate.title" : "ui.cardUpdate.linkTitle",
+                  )}
+                </p>
+                <CardUpdateChoices
+                  rows={[pendingImport.update.row]}
+                  notice={pendingImport.update.lookupFailed ? localizeUi("ui.cardUpdate.lookupFailed") : undefined}
+                  decisions={{ [pendingImport.update.row.key]: pendingImport.update.decision }}
+                  onDecisionChange={(_key, decision) =>
+                    setPendingImport((current) =>
+                      current?.update ? { ...current, update: { ...current.update, decision } } : current,
+                    )
+                  }
+                  useCardPicture={pendingImport.update.useCardPicture}
+                  onUseCardPictureChange={(value) =>
+                    setPendingImport((current) =>
+                      current?.update ? { ...current, update: { ...current.update, useCardPicture: value } } : current,
+                    )
+                  }
+                  creatorNotes={pendingImport.update.creatorNotes}
+                  onCreatorNotesChange={(value) =>
+                    setPendingImport((current) =>
+                      current?.update ? { ...current, update: { ...current.update, creatorNotes: value } } : current,
+                    )
+                  }
+                />
+              </div>
             ) : !pendingImport.prepared ? (
               <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
                 <Spinner size="md" className="text-[var(--marinara-chat-chrome-accent)]" />

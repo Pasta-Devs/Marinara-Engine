@@ -7,6 +7,8 @@ import {
   usePersonalExtensionContributions,
 } from "../../lib/personal-extension-contributions";
 import { Checkbox } from "../ui/Checkbox";
+import { ColorField } from "../ui/ColorPicker";
+import { Select } from "../ui/Select";
 
 type InteractiveElement = Extract<PersonalExtensionUiElement, { id: string }>;
 
@@ -134,23 +136,17 @@ export function PersonalExtensionPanel() {
           }
           if (element.kind === "select") {
             return (
-              <label key={key} className="flex flex-col gap-1.5 text-xs font-semibold text-[var(--foreground)]">
-                {element.label && <span>{element.label}</span>}
-                <select
-                  aria-label={element.label ? undefined : element.id}
+              <div key={key} className="flex flex-col gap-1.5 text-xs font-semibold text-[var(--foreground)]">
+                {element.label && <label htmlFor={`extension-field-${element.id}`}>{element.label}</label>}
+                <Select
+                  id={`extension-field-${element.id}`}
+                  label={element.label || element.id}
                   value={values[element.id] ?? element.options[0]?.value ?? ""}
-                  onChange={(event) =>
-                    setValues((current) => ({ ...current, [element.id]: event.currentTarget.value }))
-                  }
+                  onChange={(next) => setValues((current) => ({ ...current, [element.id]: next }))}
                   className="min-h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/25"
-                >
-                  {element.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  options={element.options.map((option) => ({ value: option.value, label: option.label }))}
+                />
+              </div>
             );
           }
           if (element.kind === "toggle") {
@@ -193,20 +189,17 @@ export function PersonalExtensionPanel() {
           }
           if (element.kind === "color") {
             return (
-              <label
+              <div
                 key={key}
                 className="flex min-h-10 items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
               >
                 <span>{element.label}</span>
-                <input
-                  type="color"
+                <ColorField
                   value={values[element.id] ?? "#808080"}
-                  onChange={(event) =>
-                    setValues((current) => ({ ...current, [element.id]: event.currentTarget.value }))
-                  }
-                  className="h-8 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent p-0.5"
+                  onChange={(color) => setValues((current) => ({ ...current, [element.id]: color }))}
+                  label={element.label ?? element.id}
                 />
-              </label>
+              </div>
             );
           }
           if (element.kind === "button") {

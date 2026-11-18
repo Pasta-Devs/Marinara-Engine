@@ -16,6 +16,7 @@ export interface GlobalGalleryImage {
   height: number | null;
   customKind: CustomKind | null;
   customName: string | null;
+  description?: string | null;
   createdAt: string;
   url: string;
 }

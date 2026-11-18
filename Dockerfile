@@ -12,6 +12,8 @@ COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
+# The client's local file: dependency (lightningcss on x86_64 Android) must exist for a frozen install.
+COPY packages/client/fallbacks/ packages/client/fallbacks/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
 COPY scripts/ensure-native-deps.mjs scripts/ensure-native-deps.mjs
 COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs
@@ -63,6 +65,8 @@ COPY patches/ patches/
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
+# The client's local file: dependency (lightningcss on x86_64 Android) must exist for a frozen install.
+COPY packages/client/fallbacks/ packages/client/fallbacks/
 COPY scripts/clean-stale-client-artifacts.mjs scripts/clean-stale-client-artifacts.mjs
 COPY scripts/ensure-native-deps.mjs scripts/ensure-native-deps.mjs
 COPY scripts/pnpm-runner.mjs scripts/pnpm-runner.mjs

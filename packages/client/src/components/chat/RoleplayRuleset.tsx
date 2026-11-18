@@ -28,6 +28,7 @@ import { api } from "../../lib/api-client";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
+import { Select } from "../ui/Select";
 
 // The builder's form loads when it opens, so Chat Settings and the tracker panel do not carry it.
 const RulesetBuilderModal = lazy(() =>
@@ -187,20 +188,17 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
       <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
         {localizeUi("chat.settings.ruleset.description")}
       </p>
-      <select
+      <Select
         value={pinnedId ?? ""}
         disabled={busy || installed.isLoading}
-        onChange={(event) => void pin(event.target.value || null)}
-        aria-label={localizeUi("chat.settings.ruleset.label")}
+        options={[
+          { value: "", label: localizeUi("chat.settings.ruleset.none") },
+          ...(installed.data ?? []).map((entry) => ({ value: entry.definition.id, label: entry.definition.name })),
+        ]}
+        onChange={(value) => void pin(value || null)}
+        label={localizeUi("chat.settings.ruleset.label")}
         className="w-full rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
-      >
-        <option value="">{localizeUi("chat.settings.ruleset.none")}</option>
-        {(installed.data ?? []).map((entry) => (
-          <option key={`${entry.packageId ?? "local"}:${entry.definition.id}`} value={entry.definition.id}>
-            {entry.definition.name}
-          </option>
-        ))}
-      </select>
+      />
       {resolved.status === "unavailable" && (
         <p className="text-[0.6875rem] text-[var(--destructive)]">{localizeUi("chat.settings.ruleset.unavailable")}</p>
       )}

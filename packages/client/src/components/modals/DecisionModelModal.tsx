@@ -26,6 +26,7 @@ import {
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore } from "../../stores/ui.store";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
 
@@ -378,28 +379,27 @@ export function DecisionModelModal() {
           <div className="mt-3 flex flex-col gap-5">
             {/* Only with more than one card: with one there is nothing to choose. */}
             {data && data.devices.length > 1 && (
-              <label className="flex flex-col gap-1 text-xs">
+              <div className="flex flex-col gap-1 text-xs">
                 <span className="font-medium">{localizeUi("ui.modals.decisionmodelmodal.gpu")}</span>
-                <select
+                <Select
                   value={String(data.cudaDevice)}
                   disabled={busy}
-                  onChange={(event) => device.mutate(Number(event.target.value), { onError: report })}
+                  onChange={(next) => device.mutate(Number(next), { onError: report })}
+                  label={localizeUi("ui.modals.decisionmodelmodal.gpu")}
                   className="mari-chrome-field h-11 w-full px-3 text-xs max-sm:text-base md:h-9"
-                >
-                  {data.devices.map((entry) => (
-                    <option key={entry.index} value={String(entry.index)}>
-                      {localizeUi("ui.modals.decisionmodelmodal.gpuOption", {
-                        index: entry.index,
-                        name: entry.name,
-                        memory: formatBytes(entry.totalBytes),
-                      })}
-                    </option>
-                  ))}
-                </select>
+                  options={data.devices.map((entry) => ({
+                    value: String(entry.index),
+                    label: localizeUi("ui.modals.decisionmodelmodal.gpuOption", {
+                      index: entry.index,
+                      name: entry.name,
+                      memory: formatBytes(entry.totalBytes),
+                    }),
+                  }))}
+                />
                 <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                   {localizeUi("ui.modals.decisionmodelmodal.gpuHelp")}
                 </span>
-              </label>
+              </div>
             )}
             <button
               type="button"

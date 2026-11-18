@@ -5,7 +5,7 @@ import {
   MariWorkspaceStatus,
 } from "@marinara-engine/shared";
 import type { MariWorkspacePendingApproval, Message } from "@marinara-engine/shared";
-import { RefObject, ReactElement, ReactNode, Dispatch, SetStateAction, useState } from "react";
+import { RefObject, ReactElement, ReactNode, Dispatch, SetStateAction, memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CharacterPreviewModel } from "../../../lib/character-preview";
 import { LorebookPreviewModel } from "../../../lib/lorebook-preview";
@@ -97,7 +97,8 @@ type MariTranscriptProps = {
   workspaceToolsIssue: string | null;
 };
 
-export function MariTranscript({
+// #9340: memoized, and every prop is stable while you type, so a keystroke in her composer re-renders none of it.
+export const MariTranscript = memo(function MariTranscript({
   activeRunError,
   activeTurnMessages,
   activeTurnRef,
@@ -385,4 +386,4 @@ export function MariTranscript({
       </div>
     </div>
   );
-}
+});

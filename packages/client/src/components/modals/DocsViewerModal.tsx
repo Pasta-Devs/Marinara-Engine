@@ -3,7 +3,8 @@ import { useCodeBlockCopy } from "../../hooks/use-code-block-copy";
 // DocsViewerModal: Browse the guides shipped in docs/
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BookOpen, FileText, Search, X } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText } from "lucide-react";
+import { SearchInput } from "../ui/SearchInput";
 import { Modal } from "../ui/Modal";
 import { cn } from "../../lib/utils";
 import { renderMarkdownBlocks, applyInlineMarkdown } from "../../lib/markdown";
@@ -621,28 +622,14 @@ export function DocsViewerModal({
         <aside
           className={cn("flex w-full min-w-0 flex-col sm:w-64 sm:shrink-0", selected !== null && "hidden sm:flex")}
         >
-          <div className="mb-2 flex shrink-0 items-center gap-2 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/70 px-3 py-2">
-            <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            <input
-              type="search"
-              dir="auto"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={localizeUi("ui.modals.docsviewermodal.searchAllGuides")}
-              aria-label={localizeUi("ui.modals.docsviewermodal.searchDocumentation")}
-              className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]/65 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                aria-label={localizeUi("ui.modals.docsviewermodal.clearDocumentationSearch")}
-              >
-                <X size="0.6875rem" />
-              </button>
-            ) : null}
-          </div>
+          <SearchInput
+            dir="auto"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            label={localizeUi("ui.modals.docsviewermodal.searchDocumentation")}
+            placeholder={localizeUi("ui.modals.docsviewermodal.searchAllGuides")}
+            className="mb-2 shrink-0"
+          />
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pe-1">
             {indexLoading ? (

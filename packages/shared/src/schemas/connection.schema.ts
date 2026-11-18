@@ -154,6 +154,8 @@ export const createConnectionSchema = z.object({
   cachingAtDepth: z.number().int().min(0).default(5),
   embeddingModel: z.string().default(""),
   embeddingBaseUrl: z.string().url().or(z.literal("")).default(""),
+  /** This Model's own address on its Connection's server; "" = the Connection's address. */
+  modelBaseUrl: z.string().trim().url().or(z.literal("")).default(""),
   embeddingConnectionId: z.string().nullable().default(null),
   openrouterProvider: z.string().nullable().default(null),
   imageGenerationSource: z.string().nullable().default(null),

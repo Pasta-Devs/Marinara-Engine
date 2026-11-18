@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -70,7 +71,7 @@ for (const theme of ["dark", "light"] as const) {
         .first()
         .click();
       await expect(upload).toBeChecked();
-      await expiry.selectOption("1h");
+      await chooseOption(page, expiry, "1 hour");
       await save();
       expect(await storedDefaults()).toMatchObject({
         durationSeconds: 9,
@@ -80,7 +81,7 @@ for (const theme of ["dark", "light"] as const) {
       // This remount uses React Query's cached connection, unlike the initial fetch.
       await reopenConnection(page, id);
       await expect(upload).toBeChecked();
-      await expect(expiry).toHaveValue("1h");
+      await expect(expiry).toHaveAttribute("data-value", "1h");
       await expect(duration).toHaveValue("9");
       await upload.scrollIntoViewIfNeeded();
       const screenshot = testInfo.outputPath(`seedance-reference-enabled-${theme}.png`);
@@ -90,7 +91,7 @@ for (const theme of ["dark", "light"] as const) {
       await page.reload();
       await openConnection(page, id);
       await expect(upload).toBeChecked();
-      await expect(expiry).toHaveValue("1h");
+      await expect(expiry).toHaveAttribute("data-value", "1h");
       await expect(duration).toHaveValue("9");
       await editor
         .locator(`label[for="${await upload.getAttribute("id")}"]`)

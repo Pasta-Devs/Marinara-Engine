@@ -11,6 +11,7 @@ import type {
   AtlasCloudModelOptionValue,
 } from "@marinara-engine/shared";
 import { useAtlasCloudVideoModelSchema } from "../../hooks/use-atlas-cloud-model-schema";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const LABEL_CLASS = "text-[0.625rem] font-medium text-[var(--muted-foreground)]";
@@ -186,40 +187,40 @@ function OptionField({
   const defaultLabel = providerDefault
     ? t("connections.mediaSources.atlas.modelOptions.modelDefaultValue", { value: providerDefault })
     : t("connections.mediaSources.atlas.modelOptions.modelDefault");
+  // A label around a Select would open it from a tap on the help text.
+  const Wrapper = field.type === "boolean" || field.enum ? "div" : "label";
   const wide = field.type === "json" || (field.type === "string" && !field.enum);
 
   let control;
   if (field.type === "boolean") {
     control = (
-      <select
+      <Select
+        label={field.name}
         value={typeof value === "boolean" ? String(value) : MODEL_DEFAULT}
-        onChange={(event) => onChange(event.target.value === MODEL_DEFAULT ? undefined : event.target.value === "true")}
+        onChange={(next) => onChange(next === MODEL_DEFAULT ? undefined : next === "true")}
+        options={[
+          { value: MODEL_DEFAULT, label: defaultLabel },
+          { value: "true", label: t("connections.mediaSources.atlas.modelOptions.on") },
+          { value: "false", label: t("connections.mediaSources.atlas.modelOptions.off") },
+        ]}
         className={INPUT_CLASS}
-      >
-        <option value={MODEL_DEFAULT}>{defaultLabel}</option>
-        <option value="true">{t("connections.mediaSources.atlas.modelOptions.on")}</option>
-        <option value="false">{t("connections.mediaSources.atlas.modelOptions.off")}</option>
-      </select>
+      />
     );
   } else if (field.enum) {
     const choices = field.enum;
     // Options are addressed by position so choices such as 1 and "1" stay distinct and keep their type.
     const selectedIndex = choices.findIndex((choice) => Object.is(choice, value));
     control = (
-      <select
+      <Select
+        label={field.name}
         value={selectedIndex >= 0 ? String(selectedIndex) : MODEL_DEFAULT}
-        onChange={(event) =>
-          onChange(event.target.value === MODEL_DEFAULT ? undefined : choices[Number(event.target.value)])
-        }
+        onChange={(next) => onChange(next === MODEL_DEFAULT ? undefined : choices[Number(next)])}
+        options={[
+          { value: MODEL_DEFAULT, label: defaultLabel },
+          ...choices.map((choice, index) => ({ value: String(index), label: String(choice) })),
+        ]}
         className={INPUT_CLASS}
-      >
-        <option value={MODEL_DEFAULT}>{defaultLabel}</option>
-        {choices.map((choice, index) => (
-          <option key={`${typeof choice}:${choice}`} value={String(index)}>
-            {String(choice)}
-          </option>
-        ))}
-      </select>
+      />
     );
   } else if (field.type === "number" || field.type === "integer") {
     control = <NumberOption field={field} value={value} placeholder={defaultLabel} onChange={onChange} />;
@@ -230,7 +231,7 @@ function OptionField({
   }
 
   return (
-    <label className={wide ? "block sm:col-span-2" : "block"}>
+    <Wrapper className={wide ? "block sm:col-span-2" : "block"}>
       <span className={LABEL_CLASS}>
         <code className="text-[var(--foreground)]">{field.name}</code>
         {field.required && (
@@ -241,7 +242,7 @@ function OptionField({
       {field.description && (
         <span className="mt-0.5 block text-[0.55rem] text-[var(--muted-foreground)]">{field.description}</span>
       )}
-    </label>
+    </Wrapper>
   );
 }
 
