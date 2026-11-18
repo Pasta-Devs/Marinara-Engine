@@ -108,7 +108,7 @@ import {
   type ImageGenerationDefaultsProfile,
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import {
   sendValidatedMediaFile,
   validateImageAssetBuffer,
@@ -1643,7 +1643,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       if (!SPRITE_FILE_RE.test(`.${ext}`) || !validateImageAssetBuffer(image, `sprite.${ext}`, { allowSvg: true }))
         return reply.code(400).send({ error: "Unsupported sprite image" });
 
-      const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
+      const dir = resolveInside(SPRITES_ROOT, characterId);
       await mkdir(dir, { recursive: true });
 
       const catalog = readSpriteCatalog(characterId);
@@ -1674,12 +1674,11 @@ export async function spritesRoutes(app: FastifyInstance) {
       const filename = basename(
         previous && extname(previous.filename).toLowerCase() === `.${ext}` ? previous.filename : `${expression}.${ext}`,
       );
-      const filepath = assertInsideDir(dir, join(dir, filename));
+      const filepath = resolveInside(dir, filename);
       if (lstatSync(filepath, { throwIfNoEntry: false })?.isSymbolicLink())
         return reply.code(400).send({ error: "Linked sprite file refused" });
       await writeFile(filepath, image);
-      if (previous && previous.filename !== filename)
-        await unlink(assertInsideDir(dir, join(dir, basename(previous.filename))));
+      if (previous && previous.filename !== filename) await unlink(resolveInside(dir, basename(previous.filename)));
       catalog.sprites[expression] = {
         label: previous?.label ?? label,
         folderId: previous ? previous.folderId : (body.folderId ?? null),
@@ -1966,7 +1965,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (nextExpression.length > 160)
           return reply.code(400).send({ error: "Expression label must be at most 160 characters" });
 
-        const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
+        const dir = resolveInside(SPRITES_ROOT, characterId);
         if (!existsSync(dir)) return notFound(reply, "No sprites found");
 
         const files = readdirSync(dir);
@@ -2011,7 +2010,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       }
       const characterId = basename(req.params.characterId);
       return withSpriteCatalogLock(characterId, async () => {
-        const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
+        const dir = resolveInside(SPRITES_ROOT, characterId);
         if (!existsSync(dir)) return notFound(reply, "No sprites found");
         const match = readdirSync(dir).find(
           (file) => SPRITE_FILE_RE.test(file) && file.slice(0, -extname(file).length) === expression,
@@ -2019,7 +2018,7 @@ export async function spritesRoutes(app: FastifyInstance) {
         if (!match) return notFound(reply, "Expression not found");
         const catalog = readSpriteCatalog(characterId);
         delete catalog.sprites[expression];
-        await unlink(assertInsideDir(dir, join(dir, basename(match))));
+        await unlink(resolveInside(dir, basename(match)));
         await writeSpriteCatalog(characterId, catalog);
         return reply.status(204).send();
       });
@@ -2045,7 +2044,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid path" });
     }
 
-    const filePath = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId, filename));
+    const filePath = resolveInside(SPRITES_ROOT, characterId, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }

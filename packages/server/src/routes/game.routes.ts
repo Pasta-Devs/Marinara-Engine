@@ -635,7 +635,7 @@ import { loadGameVideoPrompt } from "../services/video/game-video-prompt.js";
 import { resolveSceneVideoPrompt, SceneVideoPromptReviewError } from "../services/video/scene-video-prompt-review.js";
 import { now } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir } from "../utils/security.js";
+import { resolveInside } from "../utils/security.js";
 import { sendValidatedMediaFile, validateVideoAssetFile } from "../utils/media-file-security.js";
 import {
   buildGameSpotifySceneQuery,
@@ -15179,7 +15179,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const matchingRow = videos.find((video) => video.filePath.replace(/\\/g, "/") === normalizedFilePath);
       if (!matchingRow) return notFound(reply, "Scene video not found");
 
-      const filePath = assertInsideDir(GAME_SCENE_VIDEOS_ROOT, join(GAME_SCENE_VIDEOS_ROOT, chatId, filename));
+      const filePath = resolveInside(GAME_SCENE_VIDEOS_ROOT, chatId, filename);
       if (!existsSync(filePath)) return reply.status(404).send({ error: "Scene video file not found" });
       const video = await validateVideoAssetFile(filePath, filename);
       if (!video) return notFound(reply, "Scene video file not found");

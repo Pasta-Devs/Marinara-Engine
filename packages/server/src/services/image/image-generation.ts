@@ -5,6 +5,7 @@
 // based on a user's configured image_generation connection.
 
 import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
+import { sleep } from "../../utils/sleep.js";
 import { createHash, createHmac, randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -56,9 +57,10 @@ import {
   assertInsideDir,
   normalizeLoopbackUrl,
   parseImageDataUrl,
+  resolveInside,
   safeFetch,
-  validateOutboundUrl,
   type SafeFetchOptions,
+  validateOutboundUrl,
 } from "../../utils/security.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
@@ -99,6 +101,7 @@ import {
   getOpenAIChatGPTAuth,
 } from "../llm/openai-chatgpt-auth.js";
 import { isRecord } from "../../utils/large-json.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
 // Lazy-load so the server boots even when sharp is missing. The Draw Things img2img
@@ -538,29 +541,18 @@ export function saveImageToDisk(
   options: SaveImageToDiskOptions = {},
 ): string {
   const ownerDir = options.shared ? "shared" : chatId;
-  const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ownerDir));
+  const dir = resolveInside(GALLERY_DIR, ownerDir);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const detectedMime = detectImageMimeType(base64);
   const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
   const filename = `${newId()}.${effectiveExt}`;
   const filePath = assertInsideDir(GALLERY_DIR, join(dir, filename));
-  const tempPath = assertInsideDir(GALLERY_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
-  try {
-    writeFileSync(tempPath, Buffer.from(base64, "base64"));
-    renameSync(tempPath, filePath);
-  } catch (error) {
-    try {
-      if (existsSync(tempPath)) unlinkSync(tempPath);
-    } catch {
-      /* best-effort cleanup */
-    }
-    throw error;
-  }
+  writeFileAtomicSync(filePath, Buffer.from(base64, "base64"));
   return `${ownerDir}/${filename}`;
 }
 
 export function removeSavedImageFromDisk(filePath: string): void {
-  const fullPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, filePath));
+  const fullPath = resolveInside(GALLERY_DIR, filePath);
   try {
     unlinkSync(fullPath);
   } catch (error) {
@@ -577,13 +569,13 @@ export type { StagedGalleryImage } from "@marinara-engine/shared";
  * startup sweep reclaims the space.
  */
 export function sweepStagedImages(): number {
-  const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
+  const stagingDir = resolveInside(GALLERY_DIR, ".staging", "noodle");
   let removed = 0;
   try {
     for (const entry of readdirSync(stagingDir)) {
       if (!entry.endsWith(".tmp")) continue;
       try {
-        unlinkSync(assertInsideDir(stagingDir, join(stagingDir, entry)));
+        unlinkSync(resolveInside(stagingDir, entry));
         removed += 1;
       } catch {
         /* best-effort sweep */
@@ -601,9 +593,9 @@ export function stageImageToDisk(chatId: string, base64: string, ext: string): S
   const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
   const filename = `${newId()}.${effectiveExt}`;
   const relativePath = `${chatId}/${filename}`;
-  const finalPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
-  const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
-  const stagedPath = assertInsideDir(stagingDir, join(stagingDir, `${filename}.${process.pid}.${Date.now()}.tmp`));
+  const finalPath = resolveInside(GALLERY_DIR, relativePath);
+  const stagingDir = resolveInside(GALLERY_DIR, ".staging", "noodle");
+  const stagedPath = resolveInside(stagingDir, `${filename}.${process.pid}.${Date.now()}.tmp`);
   mkdirSync(stagingDir, { recursive: true });
   try {
     writeFileSync(stagedPath, Buffer.from(base64, "base64"));
@@ -2273,7 +2265,7 @@ async function generateHorde(baseUrl: string, apiKey: string, request: ImageGenR
       completed = true;
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
   }
 
   if (!completed) {

@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { spriteCatalogSchema, type SpriteCatalog, type CharacterSpriteCatalog } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 const IMAGE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/iu;
 const queues = new Map<string, Promise<unknown>>();
@@ -82,9 +83,7 @@ export async function writeSpriteCatalog(ownerId: string, value: SpriteCatalog):
   const catalog = separateSpriteFolders(spriteCatalogSchema.parse(value));
   const directory = spriteDirectory(ownerId);
   await mkdir(directory, { recursive: true });
-  const temporary = join(directory, `catalog-${randomUUID()}.tmp`);
-  await writeFile(temporary, JSON.stringify(catalog, null, 2) + "\n", { flag: "wx" });
-  await rename(temporary, join(directory, "catalog.json"));
+  await writeFileAtomic(join(directory, "catalog.json"), JSON.stringify(catalog, null, 2) + "\n");
 }
 
 export async function withSpriteCatalogLock<T>(ownerId: string, action: () => Promise<T>): Promise<T> {

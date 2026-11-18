@@ -58,6 +58,7 @@ import {
 } from "../services/capability-packages/package-manager.service.js";
 import { readRulesetPackageFile } from "../services/game/ruleset-package-file.js";
 import { notFound } from "../utils/not-found.js";
+import { parseBody } from "../utils/parse-body.js";
 
 /** The file text, verbatim. The byte ceiling is checked below, against bytes rather than
  *  characters, so a file of multi-byte text is measured the way the store measures it. */
@@ -262,11 +263,9 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
   // A game moved onto a newer stored version of its imported ruleset, from the Journal. The game's
   // own choice, as its other settings are: not an administrative gate.
   app.post("/game-version", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
-    const parsed = gameVersionRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid request", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const moved = await moveGameRulesetVersion(app.db, parsed.data);
+    const input = parseBody(gameVersionRequestSchema, req.body, reply, "Invalid request");
+    if (!input) return reply;
+    const moved = await moveGameRulesetVersion(app.db, input);
     if (!moved.ok) return reply.status(moved.status).send({ error: moved.error });
     return { version: moved.version };
   });
@@ -274,11 +273,9 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
   // The party's shared sheet (1.163), saved on the revision it was opened at.
   // A party member's save, like a character sheet's: behind the server's own access, not an administrative gate.
   app.post("/party-sheet", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
-    const parsed = partySheetRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid party sheet", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const saved = await saveGamePartySheet(app.db, { ...parsed.data, sheet: parsed.data.sheet });
+    const input = parseBody(partySheetRequestSchema, req.body, reply, "Invalid party sheet");
+    if (!input) return reply;
+    const saved = await saveGamePartySheet(app.db, { ...input, sheet: input.sheet });
     if (!saved.ok) {
       const { ok: _ok, status, ...refused } = saved;
       return reply.status(status).send(refused);
@@ -290,11 +287,9 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
   // game's own settings, the chat's choice rather than an administrative gate. Pinning the ruleset the
   // chat already plays gives any member without one a sheet card.
   app.post("/roleplay-pin", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
-    const parsed = roleplayPinRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid request", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const pinned = await pinRoleplayRuleset(app.db, parsed.data);
+    const input = parseBody(roleplayPinRequestSchema, req.body, reply, "Invalid request");
+    if (!input) return reply;
+    const pinned = await pinRoleplayRuleset(app.db, input);
     if (!pinned.ok) return reply.status(pinned.status).send({ error: pinned.error, code: pinned.code });
     return { gameRuleset: pinned.gameRuleset, cards: pinned.cards, added: pinned.added };
   });

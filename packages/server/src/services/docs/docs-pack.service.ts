@@ -23,7 +23,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { getDataDir, getMonorepoRoot } from "../../config/runtime-config.js";
-import { assertInsideDir, safeFetch } from "../../utils/security.js";
+import { resolveInside, safeFetch } from "../../utils/security.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -367,7 +367,7 @@ async function performInstall(language: string, progress: DocsPackInstallProgres
       Array.from({ length: Math.min(FILE_FETCH_CONCURRENCY, queue.length) }, async () => {
         for (let file = queue.shift(); file; file = queue.shift()) {
           const buffer = await fetchPackFile(`${pinnedBase}/${language}/${file.path}`, file);
-          const target = assertInsideDir(temporary, join(temporary, ...file.path.split("/")));
+          const target = resolveInside(temporary, ...file.path.split("/"));
           await mkdir(dirname(target), { recursive: true });
           await writeFile(target, buffer);
           progress.filesDone++;

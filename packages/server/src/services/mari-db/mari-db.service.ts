@@ -143,6 +143,7 @@ import {
 } from "../personas/persona-card-storage.js";
 import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
 import { parseJsonArray, parseJsonRecord, isRecord } from "../../utils/large-json.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -10618,14 +10619,11 @@ export class MariDbService {
     const finalPath = this.pendingSidecarPath(record.id);
     // Write to a temp file then atomically rename into place, so a crash mid-write can't leave a
     // partial .json that hydration would discard (losing the undo while the change stays applied).
-    // The .tmp suffix keeps an interrupted write out of the .json hydration set.
-    const tempPath = `${finalPath}.${process.pid}.tmp`;
+    // The helper's temp name ends in .tmp, which keeps an interrupted write out of the .json hydration set.
     try {
       await mkdir(this.pendingDir(), { recursive: true });
-      await writeFile(tempPath, JSON.stringify(record), "utf8");
-      renameSync(tempPath, finalPath);
+      await writeFileAtomic(finalPath, JSON.stringify(record));
     } catch (err) {
-      this.safeRm(tempPath);
       logger.warn(err, "[mari-db] failed to persist pending review %s", record.id);
       throw err;
     }

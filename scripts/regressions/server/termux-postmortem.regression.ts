@@ -178,7 +178,7 @@ assert.equal(
 // The heartbeat never keeps the process alive, and beats are written
 // atomically so a mid-write kill cannot corrupt the previous beat.
 assert.match(postmortemFlat, /heartbeatTimer\.unref\(\);/u);
-assert.match(postmortemFlat, /writeFileSync\(tmp, JSON\.stringify\(value\)\); renameSync\(tmp, path\);/u);
+assert.match(postmortemFlat, /writeFileAtomicSync\(path, JSON\.stringify\(value\)\);/u);
 // "unknown" is never collapsed into a clean shutdown.
 assert.match(postmortemFlat, /return \{ status: "unknown", reason: "no readable record of a previous session" \};/u);
 assert.match(postmortemFlat, /return \{ status: "unknown", reason: "another server instance is using this data/u);

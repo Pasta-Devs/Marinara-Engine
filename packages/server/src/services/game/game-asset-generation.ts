@@ -8,7 +8,7 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 // `enableSpriteGeneration` is active.
 // ──────────────────────────────────────────────
 
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
 import { basename, extname, join } from "path";
@@ -40,6 +40,7 @@ import type { ImageGenerationSize } from "../image/image-generation-settings.js"
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import { loadGameStoryboardImagePrompt } from "../image/game-storyboard-image-prompt.js";
 import { SPATIAL_LOCATION_REFERENCE_PROMPT_LINE } from "../image/spatial-location-reference.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 
 const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
 const CHAT_BACKGROUND_DIR = join(DATA_DIR, "backgrounds");
@@ -105,25 +106,6 @@ type GameBackgroundImage = {
 };
 
 type ChatBackgroundMeta = Record<string, { tags: string[] }>;
-
-function atomicWriteBuffer(filePath: string, buffer: Buffer): void {
-  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-  try {
-    writeFileSync(tmpPath, buffer);
-    renameSync(tmpPath, filePath);
-  } catch (err) {
-    try {
-      if (existsSync(tmpPath)) unlinkSync(tmpPath);
-    } catch {
-      /* best-effort cleanup */
-    }
-    throw err;
-  }
-}
-
-function atomicWriteText(filePath: string, value: string): void {
-  atomicWriteBuffer(filePath, Buffer.from(value, "utf-8"));
-}
 
 function normalizeSceneIllustrationImageSource(value: string | null | undefined): string {
   const normalized = (value ?? "").trim().toLowerCase();
@@ -322,7 +304,7 @@ function readChatBackgroundMeta(): ChatBackgroundMeta {
 
 function writeChatBackgroundMeta(meta: ChatBackgroundMeta): void {
   if (!existsSync(CHAT_BACKGROUND_DIR)) mkdirSync(CHAT_BACKGROUND_DIR, { recursive: true });
-  atomicWriteText(CHAT_BACKGROUND_META_PATH, JSON.stringify(meta, null, 2));
+  writeFileAtomicSync(CHAT_BACKGROUND_META_PATH, JSON.stringify(meta, null, 2));
 }
 
 export function chatBackgroundTags(req: ChatBackgroundGenRequest, slug: string): string[] {
@@ -807,7 +789,7 @@ export async function generateNpcPortrait(req: NpcPortraitRequest): Promise<stri
     const avatarBuffer = Buffer.from(result.base64, "base64");
     const ext = normalizeGeneratedImageExt(result, avatarBuffer);
     const avatarPath = join(avatarDir, `${slug}.${ext}`);
-    atomicWriteBuffer(avatarPath, avatarBuffer);
+    writeFileAtomicSync(avatarPath, avatarBuffer);
 
     const url = `/api/avatars/npc/${req.chatId}/${slug}.${ext}`;
     req.debugLog?.(
@@ -1304,7 +1286,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
     if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
     const image = await gameBackgroundImage(result, size);
     const targetPath = generatedBackgroundPath(targetDir, slug, image.ext);
-    atomicWriteBuffer(targetPath, image.buffer);
+    writeFileAtomicSync(targetPath, image.buffer);
     removeOtherGeneratedBackgroundFormats(targetDir, slug, image.ext);
 
     // Rebuild manifest so the new tag is available immediately
@@ -1376,7 +1358,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
 
     const image = await gameBackgroundImage(result, size);
     const filename = `${slug}.${image.ext}`;
-    atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
+    writeFileAtomicSync(join(CHAT_BACKGROUND_DIR, filename), image.buffer);
 
     const replaced = removeOtherGeneratedBackgroundFormats(CHAT_BACKGROUND_DIR, slug, image.ext);
     const meta = readChatBackgroundMeta();
@@ -1459,7 +1441,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
     if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true });
     const image = await gameBackgroundImage(result, size);
     const targetPath = generatedBackgroundPath(targetDir, slug, image.ext);
-    atomicWriteBuffer(targetPath, image.buffer);
+    writeFileAtomicSync(targetPath, image.buffer);
     buildAssetManifest();
 
     logger.info('[game-asset-gen] Generated scene illustration "%s" -> tag: %s', slug, tag);

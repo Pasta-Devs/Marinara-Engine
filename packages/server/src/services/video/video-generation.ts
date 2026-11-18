@@ -1,10 +1,10 @@
-import { mkdir, rename, unlink, writeFile } from "fs/promises";
+import { mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
 import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
-import { assertInsideDir, safeFetch } from "../../utils/security.js";
+import { assertInsideDir, resolveInside, safeFetch } from "../../utils/security.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
   mediaProviderLaneKey,
@@ -34,6 +34,7 @@ import type {
   VideoGenerationRequest,
   VideoGenerationResult,
 } from "@marinara-engine/shared";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 export type {
   VideoReferenceImage,
   VideoReferencePublicUploadExpiry,
@@ -252,25 +253,18 @@ export function resolveVideoRequestDuration(
 }
 
 export async function saveVideoToDisk(chatId: string, base64: string): Promise<string> {
-  const dir = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(GAME_SCENE_VIDEOS_DIR, chatId));
+  const dir = resolveInside(GAME_SCENE_VIDEOS_DIR, chatId);
   await mkdir(dir, { recursive: true });
   const filename = `${newId()}.mp4`;
   const filePath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(dir, filename));
-  const tempPath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
-  try {
-    const buffer = Buffer.from(base64, "base64");
-    if (!isMp4Buffer(buffer)) throw new Error("Provider returned data that is not a valid MP4 file");
-    await writeFile(tempPath, buffer);
-    await rename(tempPath, filePath);
-  } catch (error) {
-    await unlink(tempPath).catch(() => undefined);
-    throw error;
-  }
+  const buffer = Buffer.from(base64, "base64");
+  if (!isMp4Buffer(buffer)) throw new Error("Provider returned data that is not a valid MP4 file");
+  await writeFileAtomic(filePath, buffer);
   return `${chatId}/${filename}`;
 }
 
 export async function removeSavedVideoFromDisk(filePath: string): Promise<void> {
-  const fullPath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(GAME_SCENE_VIDEOS_DIR, filePath));
+  const fullPath = resolveInside(GAME_SCENE_VIDEOS_DIR, filePath);
   await unlink(fullPath).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "ENOENT") throw error;
   });

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import {
@@ -41,6 +41,7 @@ import {
   PACKAGE_ARCHIVE_BUDGET,
   validatePackageArchiveEntries,
 } from "../capability-packages/package-manager.service.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 const REGISTRY_FILE = join(DATA_DIR, "agents", "custom-repositories.json");
 const MAX_ARCHIVE_BYTES = 10 * 1024 * 1024;
@@ -351,9 +352,7 @@ async function readRegistry() {
 
 async function writeRegistry(repositories: CustomAgentRepository[]) {
   await mkdir(dirname(REGISTRY_FILE), { recursive: true });
-  const temporary = `${REGISTRY_FILE}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, repositories }, null, 2), { mode: 0o600 });
-  await rename(temporary, REGISTRY_FILE);
+  await writeFileAtomic(REGISTRY_FILE, JSON.stringify({ schemaVersion: 1, repositories }, null, 2), { mode: 0o600 });
 }
 
 function sourceFor(settings: unknown) {

@@ -4,6 +4,7 @@
 //
 // Marinara stores user data as JSON table snapshots under DATA_DIR/storage.
 // This in-memory table store persists dirty tables back to those files.
+import { sleep } from "../utils/sleep.js";
 import {
   chmodSync,
   copyFileSync,
@@ -3036,7 +3037,7 @@ class FileTableStore {
       } catch (err) {
         if (err instanceof WriterLeasePendingError) {
           if (attempt < 9) {
-            await new Promise((resolve) => setTimeout(resolve, WRITER_LEASE_RETRY_DELAY_MS));
+            await sleep(WRITER_LEASE_RETRY_DELAY_MS);
             continue;
           }
           throw invalidWriterLeaseError(path, err);

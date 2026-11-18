@@ -34,7 +34,7 @@ import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import AdmZip from "adm-zip";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { notFound } from "../utils/not-found.js";
@@ -71,7 +71,7 @@ function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } 
 function getSafePromptImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(PROMPT_IMAGES_DIR, join(PROMPT_IMAGES_DIR, filename));
+    return resolveInside(PROMPT_IMAGES_DIR, filename);
   } catch {
     return null;
   }
@@ -223,7 +223,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     await mkdir(PROMPT_IMAGES_DIR, { recursive: true });
     const safeId = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "-");
     const filename = `preset-${safeId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(PROMPT_IMAGES_DIR, join(PROMPT_IMAGES_DIR, filename));
+    const filepath = resolveInside(PROMPT_IMAGES_DIR, filename);
     await writeFile(filepath, buffer);
 
     const nextImagePath = `${PROMPT_IMAGE_URL_PREFIX}${filename}`;

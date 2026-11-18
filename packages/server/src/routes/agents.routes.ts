@@ -38,7 +38,7 @@ import { applyIllustratorChatRunInterval } from "../services/generation/agent-ca
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { notFound } from "../utils/not-found.js";
 import { z } from "zod";
 
@@ -214,7 +214,7 @@ async function allowsMusicDjFolderPaths(
 function getSafeAgentImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+    return resolveInside(AGENT_IMAGES_DIR, filename);
   } catch {
     return null;
   }
@@ -562,7 +562,7 @@ export async function agentsRoutes(app: FastifyInstance) {
     const filename = `agent-${config.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+    const filepath = resolveInside(AGENT_IMAGES_DIR, filename);
     await writeFile(filepath, buffer);
 
     const updated = await storage.update(config.id, { imagePath: `/api/agents/images/file/${filename}` });

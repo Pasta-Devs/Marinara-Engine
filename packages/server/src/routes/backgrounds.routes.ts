@@ -19,7 +19,7 @@ import {
   writeBackgroundLibraryOrganization,
   type BackgroundLibraryOrganization,
 } from "../services/background-library-organization.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { assertInsideDir, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -371,7 +371,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     // Use the original filename (sanitised) instead of a UUID
     const sanitized = sanitizeFilename(basename(data.filename));
     const safeName = sanitized ? uniqueFilename(sanitized) : uniqueFilename(`background${ext}`);
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, safeName));
+    const filePath = resolveInside(BG_DIR, safeName);
     let buffer: Buffer;
     try {
       buffer = await data.toBuffer();
@@ -586,7 +586,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }
@@ -625,7 +625,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }
@@ -648,7 +648,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     }
 
     const newFilename = uniqueFilename(desired);
-    const newPath = assertInsideDir(BG_DIR, join(BG_DIR, newFilename));
+    const newPath = resolveInside(BG_DIR, newFilename);
 
     renameSync(filePath, newPath);
 
@@ -685,7 +685,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    let filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    let filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
       // A background regenerated in another format replaced this file, so older references show the new image.
       const replacement = replacedGeneratedChatBackgroundPath(filename);
@@ -717,7 +717,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }

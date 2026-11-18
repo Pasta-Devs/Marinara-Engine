@@ -2,6 +2,7 @@
 // Spotify Game Music — deterministic shortlist + playback
 // ──────────────────────────────────────────────
 import { createHash } from "node:crypto";
+import { sleep } from "../../utils/sleep.js";
 import type {
   GameSpotifySourceType,
   SceneSpotifyTrackCandidate,
@@ -129,10 +130,6 @@ function clampCount(value: unknown, fallback: number, min: number, max: number):
   const num = Number(value ?? fallback);
   if (!Number.isFinite(num)) return fallback;
   return Math.max(min, Math.min(max, Math.round(num)));
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function hashFraction(value: string): number {
@@ -647,7 +644,7 @@ async function setSpotifyRepeat(
 ): Promise<"off" | "track" | "context" | null> {
   for (let i = 0; i < attempts; i++) {
     const delay = SPOTIFY_REPEAT_RETRY_DELAYS_MS[Math.min(i, SPOTIFY_REPEAT_RETRY_DELAYS_MS.length - 1)] ?? 0;
-    if (delay > 0) await wait(delay);
+    if (delay > 0) await sleep(delay);
     const params = new URLSearchParams({ state });
     if (deviceId) params.set("device_id", deviceId);
     const res = await fetchSpotifyApi(credentials, `/me/player/repeat?${params.toString()}`, {
@@ -722,7 +719,7 @@ export async function playGameSpotifyTrack(args: {
     spotifyError(res.status, `Spotify play failed (${res.status}): ${body.slice(0, 200)}`);
   }
 
-  await wait(SPOTIFY_PLAYBACK_SETTLE_MS);
+  await sleep(SPOTIFY_PLAYBACK_SETTLE_MS);
   let repeatState = await setSpotifyRepeat(credentials, "track", targetDeviceId, 3);
   let current = await readPlaybackSnapshot(credentials);
   if (current?.trackUri === args.track.uri && current.repeatState !== "track") {

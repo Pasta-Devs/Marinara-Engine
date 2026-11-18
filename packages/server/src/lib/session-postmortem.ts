@@ -28,10 +28,11 @@
 // postmortem is one startup line, and the record rides /api/health into
 // Support Diagnostics so pasted reports carry it automatically.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { logger } from "./logger.js";
 import { getDataDir } from "../config/runtime-config.js";
+import { writeFileAtomicSync } from "../utils/atomic-write.js";
 
 export const HEARTBEAT_INTERVAL_MS = 30_000;
 const UNCLEAN_EXIT_HISTORY_LIMIT = 10;
@@ -187,7 +188,7 @@ function historyPath(): string {
 
 /**
  * Atomic write: a kill mid-write must never corrupt the previous beat. The
- * scratch name carries the pid, so an overlapping writer (a restart's
+ * scratch name is unique per write, so an overlapping writer (a restart's
  * detached child and its still-exiting parent) cannot truncate the other's
  * scratch file and rename a partial record into place. No fsync - a per-beat
  * flush would tax phone flash every 30s to protect only against whole-device
@@ -196,9 +197,7 @@ function historyPath(): string {
  * classification.
  */
 function writeJsonAtomic(path: string, value: unknown) {
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(value));
-  renameSync(tmp, path);
+  writeFileAtomicSync(path, JSON.stringify(value));
 }
 
 function readJson<T>(path: string): T | null {
