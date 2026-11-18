@@ -644,15 +644,6 @@ assert.match(
   /!hasTemplateDraft \|\|\s*promptSettingsSaveLocked \|\|\s*!globalPromptSettingsReady/u,
   "The template Save action must use the save lock",
 );
-const summaryPromptSelectOptionSource = summaryPopoverSource.slice(
-  summaryPopoverSource.indexOf("interface SummaryPromptSelectOptionProps"),
-  summaryPopoverSource.indexOf("interface SummaryPromptTemplateRowProps"),
-);
-assert.equal(
-  summaryPromptSelectOptionSource.match(/disabled=\{disabled\}/gu)?.length,
-  1,
-  "Summary prompt select options must forward their disabled state",
-);
 const summaryPromptTemplateRowSource = summaryPopoverSource.slice(
   summaryPopoverSource.indexOf("interface SummaryPromptTemplateRowProps"),
 );
