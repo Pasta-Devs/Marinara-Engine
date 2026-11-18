@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
   resolveProviderReasoningEffort,
@@ -26,7 +27,10 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
-import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
+import {
+  resolveMemoryRecallEmbeddingSource,
+  resolvePseudoEmbeddingSource,
+} from "../../services/memory-recall-embedding.js";
 import {
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
@@ -457,22 +461,31 @@ export async function registerRawRoute(app: FastifyInstance) {
       const embeddings =
         body.connectionId === LOCAL_SIDECAR_CONNECTION_ID
           ? await getLocalSidecarProvider().embed(texts, LOCAL_SIDECAR_MODEL, abortController.signal)
-          : await (async () => {
-              const activeConnection = await connections.getWithKey(body.connectionId);
-              if (!activeConnection) {
-                throw new Error("Connection not found");
-              }
-              const source = await resolveMemoryRecallEmbeddingSource(app.db, {
-                connectionId: body.connectionId,
-                activeConnection,
-              });
-              if (!source) {
-                throw new Error("Connection does not have an embedding model/source configured");
-              }
-              const vectors = await source.embed(texts, abortController.signal);
-              if (!vectors) throw new Error("Embedding source failed");
-              return vectors;
-            })();
+          : body.connectionId === BUILTIN_EMBEDDING_CONNECTION_ID
+            ? await (async () => {
+                // Through the embedding source, so the texts get the model's document prefix like every other caller's.
+                const source = resolvePseudoEmbeddingSource(BUILTIN_EMBEDDING_CONNECTION_ID, true);
+                if (!source) throw new Error("Download the built-in embedding model first");
+                const vectors = await source.embed(texts, abortController.signal, "document");
+                if (!vectors) throw new Error("The built-in embedding model returned no embeddings");
+                return vectors;
+              })()
+            : await (async () => {
+                const activeConnection = await connections.getWithKey(body.connectionId);
+                if (!activeConnection) {
+                  throw new Error("Connection not found");
+                }
+                const source = await resolveMemoryRecallEmbeddingSource(app.db, {
+                  connectionId: body.connectionId,
+                  activeConnection,
+                });
+                if (!source) {
+                  throw new Error("Connection does not have an embedding model/source configured");
+                }
+                const vectors = await source.embed(texts, abortController.signal);
+                if (!vectors) throw new Error("Embedding source failed");
+                return vectors;
+              })();
 
       if (embeddings.length !== texts.length || embeddings.some((embedding) => embedding.length === 0)) {
         return reply.status(502).send({

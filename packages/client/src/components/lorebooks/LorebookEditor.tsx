@@ -9,6 +9,7 @@
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
 import { estimateTextTokens } from "@marinara-engine/shared";
+import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
   useState,
   useEffect,
@@ -92,6 +93,7 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { api } from "../../lib/api-client";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   LIMITS,
   includesTextForMatch,
@@ -3572,15 +3574,26 @@ function VectorizeSection({
       },
     ];
   }, [sidecarModelDownloaded, sidecarModelDisplayName]);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
+  // Held while it is the selection, so removing the model shows it as not downloaded instead of forgetting it.
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption(selectedConnectionId);
   const embeddingConnections = useMemo(
     () => [
+      ...(builtinEmbeddingOption
+        ? [
+            {
+              id: BUILTIN_EMBEDDING_CONNECTION_ID,
+              name: builtinEmbeddingOption.label,
+              embeddingModel: builtinEmbeddingOption.subtitle?.split(" · ")[0] ?? "",
+            },
+          ]
+        : []),
       ...sidecarEmbeddingConnections,
       // A connection can also get its embedding model from its Embedding Connection; the server resolves it.
       ...connections.filter((c) => c.embeddingModel?.trim() || c.embeddingConnectionId?.trim()),
     ],
-    [connections, sidecarEmbeddingConnections],
+    [builtinEmbeddingOption, connections, sidecarEmbeddingConnections],
   );
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizingMode, setVectorizingMode] = useState<"missing" | "all" | null>(null);
   const vectorizeInFlightRef = useRef(false);
   const [clearingVectors, setClearingVectors] = useState(false);
@@ -3611,7 +3624,12 @@ function VectorizeSection({
   }, [fetchSidecarStatus]);
 
   useEffect(() => {
-    if (selectedConnectionId && !embeddingConnections.some((connection) => connection.id === selectedConnectionId)) {
+    // A deleted saved connection is forgotten; the built-in embedding model can come back with a download.
+    if (
+      selectedConnectionId &&
+      selectedConnectionId !== BUILTIN_EMBEDDING_CONNECTION_ID &&
+      !embeddingConnections.some((connection) => connection.id === selectedConnectionId)
+    ) {
       setSelectedConnectionId("");
       try {
         window.localStorage.removeItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
@@ -3624,7 +3642,11 @@ function VectorizeSection({
     try {
       const storedConnectionId = window.localStorage.getItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
       if (storedConnectionId === LOREBOOK_VECTORIZE_NONE) return;
-      if (storedConnectionId && embeddingConnections.some((connection) => connection.id === storedConnectionId)) {
+      if (
+        storedConnectionId &&
+        (storedConnectionId === BUILTIN_EMBEDDING_CONNECTION_ID ||
+          embeddingConnections.some((connection) => connection.id === storedConnectionId))
+      ) {
         setSelectedConnectionId(storedConnectionId);
         return;
       }
@@ -3864,6 +3886,7 @@ function VectorizeSection({
                 defaultLabel={localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}
                 includeLocalSidecar={sidecarEmbeddingConnections.length > 0}
                 rowFilter={(row) => embeddingConnections.some((connection) => connection.id === row.id)}
+                extraOptions={builtinEmbeddingOption ? [builtinEmbeddingOption] : []}
               />
             </div>
             <button
