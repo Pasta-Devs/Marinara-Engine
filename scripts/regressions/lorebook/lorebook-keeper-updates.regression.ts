@@ -1,5 +1,6 @@
 // Lorebook Keeper's updates: approval text when entry content has Markdown headings, merging an update into an
-// entry, and custom lorebook writers working from a stable earlier reply.
+// entry, and custom lorebook writers working from a stable earlier reply. Also an update's order, a stop during
+// saving, and routing an update to a named book.
 import assert from "node:assert/strict";
 import {
   formatLorebookWriteApprovalText,
@@ -12,6 +13,9 @@ import {
   getCustomLorebookReadBehindMessages,
   getLorebookKeeperAutomaticTarget,
   mergeLorebookKeeperUpdateContent,
+  persistLorebookKeeperUpdates,
+  readLorebookKeeperUpdateOrder,
+  resolveLorebookKeeperTarget,
   tryClaimCustomLorebookReadBehindRun,
 } from "../../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
 
@@ -172,5 +176,162 @@ assert.equal(
   assert.deepEqual(
     context?.recentMessages.map((message) => message.content),
     ["First turn", "First reply", "Second turn"],
+  );
+}
+
+// #5225: an update's whole-number order survives automatic and approval-gated writes, a stop during saving writes nothing, and updates route to a named book or a naming-scheme alias.
+{
+  assert.equal(readLorebookKeeperUpdateOrder({ order: 200 }), 200);
+  assert.equal(readLorebookKeeperUpdateOrder({ entry: { order: -10 } }), -10);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: "200" }), undefined);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: 1.5 }), undefined);
+  assert.equal(readLorebookKeeperUpdateOrder({ order: Number.MAX_SAFE_INTEGER + 1 }), undefined);
+
+  const approvalText = formatLorebookWriteApprovalText([
+    {
+      name: "Ordered Memory",
+      keys: ["memory"],
+      tag: "event",
+      targetLorebook: "world",
+      order: 200,
+      content: "A durable memory.",
+    },
+  ]);
+  assert.match(approvalText, /\nOrder: 200\n/u);
+  assert.match(approvalText, /\nLorebook: world\n/u);
+  assert.deepEqual(parseLorebookWriteApprovalText(approvalText), [
+    {
+      action: "append",
+      name: "Ordered Memory",
+      keys: ["memory"],
+      tag: "event",
+      targetLorebook: "world",
+      order: 200,
+      content: "A durable memory.",
+    },
+  ]);
+  assert.equal(
+    parseLorebookWriteApprovalText(
+      ["### Signed Order", "Keys: signed", "Tag:", "Order: +200", "", "Keep the sign."].join("\n"),
+    )[0]?.order,
+    200,
+    "Approval edits must accept an explicit leading plus sign on integer orders",
+  );
+
+  const updatedEntries: Array<{ id: string; changes: Record<string, unknown> }> = [];
+  const createdEntries: Array<Record<string, unknown>> = [];
+  const lorebooksStore = {
+    listEntries: async () => [
+      {
+        id: "existing-entry",
+        name: "Existing Memory",
+        content: "Existing fact.",
+        keys: ["existing"],
+        tag: "event",
+        locked: false,
+        order: 100,
+      },
+    ],
+    updateEntry: async (id: string, changes: Record<string, unknown>) => {
+      updatedEntries.push({ id, changes });
+      return { id, name: "Existing Memory", ...changes };
+    },
+    createEntry: async (input: Record<string, unknown>) => {
+      createdEntries.push(input);
+      return { id: `created-${createdEntries.length}`, ...input };
+    },
+  };
+  await persistLorebookKeeperUpdates({
+    lorebooksStore: lorebooksStore as any,
+    chatId: "chat-5225",
+    chatName: "Order proof",
+    preferredTargetLorebookId: "lorebook-5225",
+    writableLorebookIds: ["lorebook-5225"],
+    updates: [
+      { entryName: "Existing Memory", newFacts: ["New fact."], order: 200 },
+      { entryName: "New Memory", content: "Created fact.", order: 300 },
+      { entryName: "Default Memory", content: "Uses storage default.", order: "400" },
+    ],
+  });
+  assert.equal(updatedEntries[0]?.id, "existing-entry");
+  assert.equal(updatedEntries[0]?.changes.order, 200);
+  assert.equal(createdEntries[0]?.order, 300);
+  assert.equal(Object.hasOwn(createdEntries[1] ?? {}, "order"), false);
+
+  const cancelledPersistence = new AbortController();
+  let cancelledEntryWrites = 0;
+  await assert.rejects(
+    persistLorebookKeeperUpdates({
+      lorebooksStore: {
+        listEntries: async () => {
+          cancelledPersistence.abort();
+          return [];
+        },
+        createEntry: async () => {
+          cancelledEntryWrites += 1;
+          return null;
+        },
+      } as any,
+      chatId: "chat-cancelled",
+      chatName: "Cancelled proof",
+      preferredTargetLorebookId: "book-cancelled",
+      writableLorebookIds: ["book-cancelled"],
+      updates: [{ entryName: "Must not persist", content: "Cancelled fact." }],
+      signal: cancelledPersistence.signal,
+    }),
+    /aborted/iu,
+  );
+  assert.equal(cancelledEntryWrites, 0, "Cancellation after an awaited read must stop the following lorebook write");
+
+  const routedEntries: Array<Record<string, unknown>> = [];
+  const createdBooks: Array<Record<string, unknown>> = [];
+  const routedBooks: Array<Record<string, unknown>> = [{ id: "book-world", name: "My World — World Lore" }];
+  const routedStore = {
+    list: async () => routedBooks,
+    create: async (input: Record<string, unknown>) => {
+      createdBooks.push(input);
+      const created = { id: "book-scene", ...input };
+      routedBooks.push(created);
+      return created;
+    },
+    listEntries: async () => [],
+    createEntry: async (input: Record<string, unknown>) => {
+      routedEntries.push(input);
+      return { id: `routed-${routedEntries.length}`, ...input };
+    },
+    updateEntry: async () => null,
+  };
+  await persistLorebookKeeperUpdates({
+    lorebooksStore: routedStore as any,
+    chatId: "chat-439",
+    chatName: "Campaign",
+    preferredTargetLorebookId: "book-world",
+    writableLorebookIds: ["book-world"],
+    writableLorebooks: [{ id: "book-world", name: "My World — World Lore" }],
+    lorebookNamingScheme: { scene: "[WorldName] — Scene Log" },
+    worldName: "Campaign",
+    updates: [
+      { targetLorebook: "My World — World Lore", entryName: "Magic", content: "World fact." },
+      { targetLorebook: "scene", entryName: "Tavern", content: "Scene fact." },
+      { entryName: "Fallback", content: "Default-book fact." },
+    ],
+  });
+  assert.deepEqual(
+    routedEntries.map((entry) => entry.lorebookId),
+    ["book-world", "book-scene", "book-world"],
+    "exact names and aliases route independently while omitted targets retain the default book",
+  );
+  assert.equal(createdBooks[0]?.name, "Campaign — Scene Log", "a missing configured alias creates its named book");
+  assert.equal(createdBooks[0]?.chatId, "chat-439", "auto-created routing books link to the active chat");
+  const nextRunTarget = await resolveLorebookKeeperTarget({
+    lorebooksStore: routedStore as any,
+    chatId: "chat-439",
+    characterIds: [],
+    activeLorebookIds: [],
+    preferredTargetLorebookId: "book-world",
+  });
+  assert.ok(
+    nextRunTarget.writableLorebookIds.includes("book-scene"),
+    "a routing book created for one run must remain writable on the next run instead of being duplicated",
   );
 }

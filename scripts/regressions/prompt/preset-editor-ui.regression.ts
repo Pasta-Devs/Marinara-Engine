@@ -36,3 +36,16 @@ assert.match(
   /presentedOptions\.length === 1[\s\S]*<SettingsSwitch[\s\S]*labelPosition="start"/u,
   "Single-option preset variables must use the standard accessible settings switch",
 );
+
+// #4237-#4240: the preset editor's agent section choices line up with its other add-section choices.
+{
+  const presetEditorSource = readFileSync(
+    new URL("../../../packages/client/src/components/presets/PresetEditor.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    presetEditorSource,
+    /injectableAgents\.map[\s\S]{0,700}justify-start[\s\S]{0,120}text-left/u,
+    "Agent section choices must align with the preset editor's other add-section choices",
+  );
+}

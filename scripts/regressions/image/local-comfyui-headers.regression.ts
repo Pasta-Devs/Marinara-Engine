@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { normalizeImageGenerationProfile } from "../../../packages/shared/src/constants/image-generation-defaults.js";
 import { normalizeVideoGenerationProfile } from "../../../packages/shared/src/constants/video-generation-defaults.js";
@@ -132,5 +133,34 @@ try {
   }
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+}
+
+// #4237-#4240: an older ComfyUI video profile keeps the 16 FPS it always had, a set FPS is kept, and a local ComfyUI video's history is read with the size limit for large replies.
+{
+  assert.equal(
+    normalizeVideoGenerationProfile({
+      service: "comfyui",
+      comfyui: { durationSeconds: 6, aspectRatio: "16:9", resolution: "720p" },
+    }).profile.comfyui.fps,
+    16,
+    "Legacy ComfyUI video profiles must retain the historical 16 FPS default",
+  );
+  assert.equal(
+    normalizeVideoGenerationProfile({
+      service: "comfyui",
+      comfyui: { durationSeconds: 6, fps: 24, aspectRatio: "16:9", resolution: "720p" },
+    }).profile.comfyui.fps,
+    24,
+    "ComfyUI video profiles must preserve a configured FPS",
+  );
+  const videoGenerationSource = readFileSync(
+    new URL("../../../packages/server/src/services/video/video-generation.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    videoGenerationSource,
+    /comfyUiVideoFetch\(\s*`\$\{base\}\/history\/\$\{encodeURIComponent\(promptId\)\}`,[\s\S]{0,120}MAX_VIDEO_JSON_RESPONSE_BYTES/u,
+    "Local ComfyUI video history must use the bounded large JSON response cap",
+  );
 }
 console.info("Local ComfyUI requests carry API-key Authorization plus validated custom headers.");
