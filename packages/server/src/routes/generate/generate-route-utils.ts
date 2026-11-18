@@ -2130,7 +2130,8 @@ export function assignTrackerCharacterIds(
   const npcIdOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
   const mintId = options.mintId ?? (() => `${TRACKER_NPC_ID_PREFIX}${newId()}`);
 
-  const previous = options.previousCharacters.filter((row) => isNpcRow(row) && npcIdOf(row));
+  // Stored rows without an id stay candidates: their locks are keyed by name, and matching them keeps it that way.
+  const previous = options.previousCharacters.filter(isNpcRow);
   const claimed = new Set<number>();
   const pending = characters.filter(isNpcRow);
   const assigned = new Map<Record<string, unknown>, string>();
@@ -2145,7 +2146,9 @@ export function assignTrackerCharacterIds(
   for (const row of pending) {
     const id = npcIdOf(row).toLowerCase();
     if (!id) continue;
-    const index = previous.findIndex((stored, i) => available(stored, i) && npcIdOf(stored).toLowerCase() === id);
+    const index = previous.findIndex(
+      (stored, i) => available(stored, i) && !!npcIdOf(stored) && npcIdOf(stored).toLowerCase() === id,
+    );
     if (index >= 0) claim(row, index);
   }
   // 2. Drifted ids.
@@ -2154,18 +2157,27 @@ export function assignTrackerCharacterIds(
     const index = findTrackerCharacterRowByDriftedId(previous, row.characterId, row.name, available);
     if (index >= 0) claim(row, index);
   }
-  // 3. No id: an unambiguous name, in the stored list, then in earlier turns (which may hold other swipes).
-  const usedIds = new Set(characters.map((row) => (assigned.get(row) ?? npcIdOf(row)).toLowerCase()).filter(Boolean));
-  for (const row of unassigned()) {
-    if (npcIdOf(row)) continue;
+  // 3. No id: an unambiguous name in the stored list. A stored row by that name always wins over history, even
+  // when it's taken, so history can't hand out an id that bypasses that row's locks.
+  const nameOnly = unassigned().filter((row) => !npcIdOf(row) && trackerCharacterNameKey(row));
+  const storedNamesakes = new Set<Record<string, unknown>>();
+  for (const row of nameOnly) {
     const name = trackerCharacterNameKey(row);
-    if (!name) continue;
     const named = previous.flatMap((stored, i) => (trackerCharacterNameKey(stored) === name ? [i] : []));
-    if (named.length > 0) {
-      // A stored row by that name exists: never reach past it into history, even when it's taken.
-      if (named.length === 1 && available(previous[named[0]!]!, named[0]!)) claim(row, named[0]!);
-      continue;
-    }
+    if (named.length === 0) continue;
+    storedNamesakes.add(row);
+    if (named.length === 1 && available(previous[named[0]!]!, named[0]!)) claim(row, named[0]!);
+  }
+  // ...then in earlier turns (which may hold other swipes), never reusing an id a stored or current row has: a
+  // renamed NPC can be in history under its old name while the stored list has it under the new one.
+  const usedIds = new Set(
+    [...previous.map(npcIdOf), ...characters.map((row) => assigned.get(row) ?? npcIdOf(row))]
+      .map((id) => id.toLowerCase())
+      .filter(Boolean),
+  );
+  for (const row of nameOnly) {
+    if (assigned.has(row) || storedNamesakes.has(row)) continue;
+    const name = trackerCharacterNameKey(row);
     const fromHistory = (options.history ?? []).filter(
       (stored) => isNpcRow(stored) && npcIdOf(stored) && trackerCharacterNameKey(stored) === name,
     );
@@ -2179,7 +2191,11 @@ export function assignTrackerCharacterIds(
   // 4. Everyone left is someone new.
   for (const row of unassigned()) assigned.set(row, mintId());
 
-  for (const [row, id] of assigned) row.characterId = id;
+  for (const [row, id] of assigned) {
+    if (id) row.characterId = id;
+    // Matched a stored row that never had an id: stay without one, so its name-keyed locks keep matching.
+    else delete row.characterId;
+  }
 }
 
 export function preserveTrackerCharacterUiFields(

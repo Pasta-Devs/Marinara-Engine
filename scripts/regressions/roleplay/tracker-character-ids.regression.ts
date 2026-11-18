@@ -25,10 +25,10 @@ const cards = [
   { id: "card-flagon", name: "The Gilded Flagon" },
 ];
 
-function minter() {
-  let next = 0;
-  return () => `npc-test${++next}`;
-}
+// One counter for the whole file, so a row that should keep its id can't pass by being minted the same id again.
+let minted = 0;
+const mintTestId = () => `npc-test${++minted}`;
+const isMinted = (id: unknown) => typeof id === "string" && id.startsWith("npc-test");
 
 /** One tracker result applied like the Character Tracker effect applies it. */
 function applyTurn(
@@ -44,7 +44,7 @@ function applyTurn(
     previousCharacters: previous,
     history: options.history,
     cardIds: cards.map((card) => card.id),
-    mintId: options.mintId ?? minter(),
+    mintId: options.mintId ?? mintTestId,
   });
   preserveTrackerCharacterUiFields(characters, previous);
   const state = { presentCharacters: previous, fieldLocks: options.fieldLocks ?? {} } as unknown as GameState;
@@ -58,14 +58,15 @@ await runNamedCases([
     name: "a new NPC gets a server id, and keeps it when the model writes the id differently",
     run: () => {
       const first = applyTurn([{ characterId: "Garrick Thum", name: "Garrick Thum", mood: "calm" }], []);
-      assert.deepEqual(idsOf(first), ["npc-test1"]);
-      for (const drifted of ["garrick_thum", "Garrick-Thum", "GARRICK THUM", "npc-test1"]) {
+      const id = first[0]!.characterId;
+      assert.ok(isMinted(id));
+      for (const drifted of ["garrick_thum", "Garrick-Thum", "GARRICK THUM", String(id)]) {
         const next = applyTurn([{ characterId: drifted, name: "Garrick Thum", mood: "angry" }], first);
-        assert.deepEqual(idsOf(next), ["npc-test1"], drifted);
+        assert.deepEqual(idsOf(next), [id], drifted);
         assert.equal(next[0]!.mood, "angry", drifted);
       }
       const nameOnly = applyTurn([{ name: "Garrick Thum", mood: "tired" }], first);
-      assert.deepEqual(idsOf(nameOnly), ["npc-test1"]);
+      assert.deepEqual(idsOf(nameOnly), [id]);
     },
   },
   {
@@ -84,6 +85,23 @@ await runNamedCases([
     },
   },
   {
+    name: "a stored NPC without an id stays without one, so its name-keyed locks keep matching",
+    run: () => {
+      const stored = [{ name: "Old Tom", mood: "calm" }];
+      const moodKey = characterTrackerLockKey(stored[0] as never, 0, "mood");
+      assert.equal(moodKey, "characters.name:Old%20Tom.mood");
+      for (const reported of [
+        { name: "Old Tom", mood: "angry" },
+        { characterId: "old_tom", name: "Old Tom", mood: "angry" },
+      ]) {
+        const next = applyTurn([reported], stored, { fieldLocks: { [moodKey]: true } });
+        assert.equal(next.length, 1, JSON.stringify(reported));
+        assert.equal(next[0]!.characterId, undefined, JSON.stringify(reported));
+        assert.equal(next[0]!.mood, "calm", JSON.stringify(reported));
+      }
+    },
+  },
+  {
     name: "two NPCs with the same name get two ids and keep their own avatars",
     run: () => {
       const first = applyTurn(
@@ -93,15 +111,16 @@ await runNamedCases([
         ],
         [],
       );
-      assert.deepEqual(idsOf(first), ["npc-test1", "npc-test2"]);
+      const [a, b] = idsOf(first);
+      assert.ok(isMinted(a) && isMinted(b) && a !== b);
       const next = applyTurn(
         [
-          { characterId: "npc-test2", name: "Guard" },
-          { characterId: "npc-test1", name: "Guard" },
+          { characterId: b, name: "Guard" },
+          { characterId: a, name: "Guard" },
         ],
         first,
       );
-      assert.deepEqual(idsOf(next), ["npc-test2", "npc-test1"]);
+      assert.deepEqual(idsOf(next), [b, a]);
       assert.equal(next[0]!.avatarPath, "/api/avatars/npc/c/guard-b.png");
       assert.equal(next[1]!.avatarPath, "/api/avatars/npc/c/guard-a.png");
     },
@@ -117,7 +136,8 @@ await runNamedCases([
         ],
         stored,
       );
-      assert.deepEqual(idsOf(next), ["Guard", "npc-test1"]);
+      assert.equal(next[0]!.characterId, "Guard");
+      assert.ok(isMinted(next[1]!.characterId));
     },
   },
   {
@@ -136,7 +156,7 @@ await runNamedCases([
     run: () => {
       const next = applyTurn([{ characterId: "guard_2", name: "Guard" }], [{ characterId: "npc-a", name: "Guard" }]);
       assert.equal(next.find((row) => row.characterId === "npc-a")?.name, undefined);
-      assert.equal(next[0]!.characterId, "npc-test1");
+      assert.ok(isMinted(next[0]!.characterId));
     },
   },
   {
@@ -164,7 +184,18 @@ await runNamedCases([
       assert.deepEqual(idsOf(applyTurn([{ name: "Mira" }], current, { history })), ["npc-now"]);
       // Two history Miras with different ids are ambiguous: a new id.
       const twoMiras = [...history, { characterId: "npc-other", name: "Mira" }];
-      assert.deepEqual(idsOf(applyTurn([{ name: "Mira" }], [], { history: twoMiras })), ["npc-test1"]);
+      assert.ok(isMinted(applyTurn([{ name: "Mira" }], [], { history: twoMiras })[0]!.characterId));
+      // A renamed NPC: history knows npc-old as "Mira", the stored list has it as "Mira Vale". The new "Mira" must
+      // not take npc-old, or two rows would share one id.
+      const renamed = applyTurn(
+        [{ name: "Mira" }, { name: "Mira Vale" }],
+        [{ characterId: "npc-old", name: "Mira Vale" }],
+        {
+          history,
+        },
+      );
+      assert.ok(isMinted(renamed[0]!.characterId));
+      assert.equal(renamed[1]!.characterId, "npc-old");
     },
   },
   {
