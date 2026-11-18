@@ -9,6 +9,8 @@ import { ListSearch, ListStatus } from "../../connections/ListFrame";
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { useDeviceEngines } from "../../connections/DeviceDetail";
 import { useBuiltinEmbeddingState } from "../../connections/BuiltinEmbeddingDetail";
+import { recommendedBuiltinTtsModel } from "@marinara-engine/shared";
+import { useBuiltinTts } from "../../../hooks/use-builtin-tts";
 import { DECISION_DEVICE_ID, EMBEDDING_DEVICE_ID, useDecisionEngine } from "../../overhaul/decision-engine";
 import {
   DECISION_BUILTIN,
@@ -95,7 +97,7 @@ function OnDeviceList({ onBack }: { onBack: () => void }) {
     // The same order as the On this device rows in Connections.
     local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
     ...engines
-      .filter((entry) => entry.item === "tts" || entry.item === "stt")
+      .filter((entry) => entry.item !== "local-model")
       .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
     decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
     embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
@@ -142,8 +144,9 @@ export function ServiceListStep({
   kind,
   compact = false,
 }: ServiceListStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localize = useLocalizedUiText();
+  const builtinTts = useBuiltinTts(compact);
   // The compact menu has no "All" tab: it opens on Text, the usual reason to add an account.
   const [type, setType] = useState<ModelType | "all" | "decision">(
     kind === "chat"
@@ -188,10 +191,31 @@ export function ServiceListStep({
   const decision = useDecisionSidecar(kind === "decision" && !compact);
   // The family name: the menu row that lists every model on this device.
   const builtInName = t("connections.add.device.builtIn");
+  // The built-in voice model leads the Voice tab: free, offline, nothing to host. Its tag names the model that
+  // suits the Engine's language (Supertonic 3 for Korean, Japanese, German, Polish and Russian).
+  const ttsName = t("connections.builtinTts.name");
+  if (compact && builtinTts.data?.supported && matches(`${ttsName} kokoro supertonic voice tts speech offline`)) {
+    const model = recommendedBuiltinTtsModel(i18n.language);
+    tiles.push({
+      id: "device:builtin-tts",
+      name: ttsName,
+      tag: builtinTts.data.models.find((entry) => entry.id === model)?.label ?? null,
+      good: true,
+      icon: <ProviderIcon provider="builtin-tts" size="add" />,
+      open: () => {
+        useUIStore.getState().closeModal();
+        useUIStore.getState().openConnectionDetail("device:builtin-tts");
+      },
+      types: ["voice"],
+      group: "popular",
+    });
+  }
   // The new layout's menu has one Built-in model row for every type that runs here; it opens their list.
   if (
     compact &&
-    matches(`${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation`)
+    matches(
+      `${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation kokoro supertonic emotions mood avatar`,
+    )
   ) {
     tiles.push({
       id: ON_DEVICE,

@@ -116,6 +116,12 @@ const TTS_SOURCE_DEFAULTS: Record<TTSSource, { label: string; baseUrl: string; m
     model: "grok-tts",
     voice: "eve",
   },
+  builtin: {
+    label: "Built-in model (TTS)",
+    baseUrl: "",
+    model: "kokoro-82m",
+    voice: "af_heart",
+  },
 };
 
 /** A new Audio connection profile starts from the connection's own default voice. */

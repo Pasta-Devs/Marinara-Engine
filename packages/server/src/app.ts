@@ -48,6 +48,7 @@ import { decisionProcessService } from "./services/sidecar/decision-process.serv
 import { sidecarProcessService } from "./services/sidecar/sidecar-process.service.js";
 import { utilitySidecarService } from "./services/utility-sidecar/utility-sidecar.service.js";
 import { builtinEmbeddingService } from "./services/sidecar/builtin-embedding.service.js";
+import { builtinTtsService } from "./services/sidecar/builtin-tts.service.js";
 import { startServerAutonomousScheduler } from "./services/conversation/server-autonomous-scheduler.service.js";
 import { createMultiplayerAutonomyAdapter, type MultiplayerAutonomyService } from "./services/multiplayer/autonomy.js";
 import { preparePersonalExtensionTrust } from "./services/setup/personal-extension-trust.js";
@@ -175,6 +176,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
         { name: "decisionSidecar", run: () => decisionProcessService.stop() },
         { name: "utilitySidecar", run: () => utilitySidecarService.stop() },
         { name: "builtinEmbedding", run: () => builtinEmbeddingService.stop() },
+        { name: "builtinTts", run: () => builtinTtsService.unload() },
         { name: "lorebookActivationStats", run: () => flushLorebookActivationStats() },
       ]);
       for (const { name, reason, elapsedMs } of failed) {
