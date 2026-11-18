@@ -175,7 +175,6 @@ import {
   DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE,
   parseDeferredConditionalPayload,
   selectConditionalPayloadBranch,
-  coerceGameStateTextValue,
   appendChatSummaryEntryToMetadata,
   isAgentAvailableInChatMode,
   isAgentConfigDeleted,
@@ -186,7 +185,6 @@ import {
   normalizeThinkingTagPairs,
   applyTrackerFieldLocksToGameStatePatch,
   normalizeWorldCustomFields,
-  isTrackerRowsUpdate,
   normalizeTrackerFieldLocksForState,
   customAgentHasCapability,
   parseLorebookWriterOrder,
@@ -651,7 +649,6 @@ import {
   extractFileAttachmentInputs,
   buildGenerationGuideInstruction,
   buildUserMessageRegenerationPromptFromSource,
-  buildWorldCustomFieldsStreamValue,
   canonicalizeGamePartySpeakerLabels,
   collectLatestTrackerCharacterHistory,
   createLocalSidecarGenerationConnection,
@@ -937,8 +934,6 @@ import {
   resolveLorebookTokenBudget,
 } from "../services/generation/lorebook-generation-runtime.js";
 import { createAgentLorebookTriggerResolver } from "../services/generation/agent-lorebook-triggers.js";
-import { addLocationEntry } from "../services/game/journal.service.js";
-import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import {
   buildGmFormatReminder,
   buildRulesetRoleplayReminder,
@@ -990,9 +985,7 @@ import { createGameDicePoolsStorage } from "../services/storage/game-dice-pools.
 import type { GameDiceTurnNotice, GenerationFallbackNotice, GenerationInfo } from "@marinara-engine/shared";
 import {
   applyMapUpdateCommand,
-  getGameMapsFromMeta,
   parseMapUpdateCommands,
-  syncGameMapMetaPartyPosition,
   withActiveGameMapMeta,
 } from "../services/game/map-position.service.js";
 import { applyAllSegmentEdits } from "../services/game/segment-edits.js";
@@ -13957,6 +13950,92 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     onFallback,
                   }),
               },
+              world: {
+                loadPrevious: async () =>
+                  trackerBaseGameStateSnapshot ??
+                  (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null),
+                // In a Game whose spatial map owns the location, the agent's location only guides a transition.
+                resolveAuthoritativeLocation: async (guidance) => {
+                  let effectiveSpatialProjection = ownerSpatialProjection;
+                  if (hierarchicalMapsEnabledForChat && messageId) {
+                    effectiveSpatialProjection = await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta);
+                    if (
+                      guidance &&
+                      effectiveSpatialProjection?.ownerMode === "game" &&
+                      !shouldSuppressAssistantSpatialMutation(input)
+                    ) {
+                      const previousSpatialLocationId = effectiveSpatialProjection?.currentLocationId ?? null;
+                      const previousSpatialRevision = effectiveSpatialProjection?.definitionRevision ?? 0;
+                      const guidedSpatialSnapshot = await materializeAssistantSpatialState(
+                        {
+                          chatId: input.chatId,
+                          messageId,
+                          swipeIndex: targetSwipeIndex,
+                          regenerate: Boolean(input.regenerateMessageId),
+                          continuation: Boolean(input.continueMessageId),
+                          locationGuidance: guidance,
+                        },
+                        chatMeta,
+                      );
+                      if (
+                        guidedSpatialSnapshot?.transitionCommandId &&
+                        (guidedSpatialSnapshot.currentLocationId !== previousSpatialLocationId ||
+                          guidedSpatialSnapshot.definitionRevision !== previousSpatialRevision)
+                      ) {
+                        sendSseEvent(reply, {
+                          type: "spatial_transition_committed",
+                          data: {
+                            chatId: input.chatId,
+                            commandId: guidedSpatialSnapshot.transitionCommandId,
+                            currentLocationId: guidedSpatialSnapshot.currentLocationId,
+                            definitionRevision: guidedSpatialSnapshot.definitionRevision,
+                          },
+                        });
+                        effectiveSpatialProjection = await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta);
+                      }
+                    }
+                  }
+                  return effectiveSpatialProjection?.ownerMode === "game"
+                    ? formatOwnerSpatialBreadcrumb(effectiveSpatialProjection)
+                    : null;
+                },
+                patchScope: "full",
+                // Every swipe gets its own row. The world-state agent can mix in other agents' fields (characters,
+                // stats) in batch mode, so those always come from the previous row; their own trackers update them.
+                save: (fields, { previous, recentEvents }) => {
+                  const lockState = previous ? parseGameStateRow(previous as Record<string, unknown>) : null;
+                  const presentCharacters = parseJsonField<any[]>(previous?.presentCharacters, []);
+                  const personaStats = parseJsonField<any[] | null>(previous?.personaStats, null);
+                  logger.info(
+                    `[generate] world-state snapshot: chars=${presentCharacters.length} (prev), personaStats=${personaStats ? "present" : "null"} (prev)`,
+                  );
+                  return gameStateStore.create(
+                    {
+                      chatId: input.chatId,
+                      messageId,
+                      swipeIndex: targetSwipeIndex,
+                      date: fields.date as string | null,
+                      time: fields.time as string | null,
+                      location: fields.location as string | null,
+                      weather: fields.weather as string | null,
+                      temperature: fields.temperature as string | null,
+                      worldCustomFields: normalizeWorldCustomFields(fields.worldCustomFields),
+                      presentCharacters,
+                      recentEvents: (recentEvents as string[] | undefined) ?? [],
+                      playerStats: parseJsonField<PlayerStats | null>(previous?.playerStats, null),
+                      personaStats,
+                      fieldLocks: normalizeTrackerFieldLocksForState(lockState?.fieldLocks, lockState),
+                      hiddenTrackerFields: lockState?.hiddenTrackerFields,
+                    },
+                    null, // never copy the base's edit record; a rewritten row keeps its own
+                    // The stats above are the turn before's; this turn's inventory tags already wrote its own.
+                    { keepReplacedInventory: true },
+                  );
+                },
+                chatMeta,
+                mapOwnedBySpatial: ownerSpatialProjection?.ownerMode === "game",
+                emitGameMapUpdate: (map) => sendSseEvent(reply, { type: "game_map_update", data: map }),
+              },
             };
           };
           for (const result of sortedResults) {
@@ -14166,7 +14245,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             }
 
-            // Effects shared with the retry-agents route (CYOA choices and the trackers so far, #9508)
+            // Effects shared with the retry-agents route (CYOA choices, World State and the trackers so far, #9508)
             await applyAgentResultEffect(result, {
               origin: "generate",
               chatId: input.chatId,
@@ -14175,214 +14254,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               chats,
               trackers: generateTrackerEffects(messageId, targetSwipeIndex),
             });
-
-            // Persist game state snapshots from world-state agent
-            if (
-              result.success &&
-              result.type === "game_state_update" &&
-              result.agentType !== "combat" &&
-              result.data &&
-              typeof result.data === "object" &&
-              customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
-            ) {
-              try {
-                const gs = result.data as Record<string, unknown>;
-
-                // Tracker Panel edits live on the snapshot the user edited. A new message
-                // starts from that snapshot and a regeneration lays the edits over its base
-                // (see getForGeneration), so the agent reads them as the prevSnap values.
-                // They are NOT copied into the new snapshot's edit record: the agent's
-                // output replaces them.
-                const prevSnap =
-                  trackerBaseGameStateSnapshot ??
-                  (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null);
-
-                // Build the new snapshot from agent output, falling back to previous snapshot.
-                let newDate = coerceGameStateTextValue(gs.date) ?? coerceGameStateTextValue(prevSnap?.date);
-                let newTime = coerceGameStateTextValue(gs.time) ?? coerceGameStateTextValue(prevSnap?.time);
-                const trackerLocationGuidance = coerceGameStateTextValue(gs.location);
-                let effectiveSpatialProjection = ownerSpatialProjection;
-                if (hierarchicalMapsEnabledForChat && messageId) {
-                  effectiveSpatialProjection = await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta);
-                  if (
-                    trackerLocationGuidance &&
-                    effectiveSpatialProjection?.ownerMode === "game" &&
-                    !shouldSuppressAssistantSpatialMutation(input)
-                  ) {
-                    const previousSpatialLocationId = effectiveSpatialProjection?.currentLocationId ?? null;
-                    const previousSpatialRevision = effectiveSpatialProjection?.definitionRevision ?? 0;
-                    const guidedSpatialSnapshot = await materializeAssistantSpatialState(
-                      {
-                        chatId: input.chatId,
-                        messageId,
-                        swipeIndex: targetSwipeIndex,
-                        regenerate: Boolean(input.regenerateMessageId),
-                        continuation: Boolean(input.continueMessageId),
-                        locationGuidance: trackerLocationGuidance,
-                      },
-                      chatMeta,
-                    );
-                    if (
-                      guidedSpatialSnapshot?.transitionCommandId &&
-                      (guidedSpatialSnapshot.currentLocationId !== previousSpatialLocationId ||
-                        guidedSpatialSnapshot.definitionRevision !== previousSpatialRevision)
-                    ) {
-                      sendSseEvent(reply, {
-                        type: "spatial_transition_committed",
-                        data: {
-                          chatId: input.chatId,
-                          commandId: guidedSpatialSnapshot.transitionCommandId,
-                          currentLocationId: guidedSpatialSnapshot.currentLocationId,
-                          definitionRevision: guidedSpatialSnapshot.definitionRevision,
-                        },
-                      });
-                      effectiveSpatialProjection = await resolveOwnerSpatialProjection(input.chatId, {}, chatMeta);
-                    }
-                  }
-                }
-                const authoritativeGameLocation =
-                  effectiveSpatialProjection?.ownerMode === "game"
-                    ? formatOwnerSpatialBreadcrumb(effectiveSpatialProjection)
-                    : null;
-                let newLocation =
-                  authoritativeGameLocation ??
-                  coerceGameStateTextValue(gs.location) ??
-                  coerceGameStateTextValue(prevSnap?.location);
-                let newWeather = coerceGameStateTextValue(gs.weather) ?? coerceGameStateTextValue(prevSnap?.weather);
-                let newTemperature =
-                  coerceGameStateTextValue(gs.temperature) ?? coerceGameStateTextValue(prevSnap?.temperature);
-
-                // The world-state agent produces date/time/location/weather/temperature,
-                // user-defined world fields, and optionally recentEvents. In batch mode the model often cross-
-                // contaminates the world-state result with fields from other agent task
-                // schemas (presentCharacters, personaStats, playerStats).  Even a partial
-                // cross-contaminated playerStats (e.g. { status: "...", activeQuests: [] })
-                // would clobber the real data and break downstream handlers (quest, persona-
-                // stats) that read from this snapshot.  Therefore we ALWAYS carry forward
-                // these fields from the previous snapshot — the dedicated tracker agents
-                // (character-tracker, persona-stats, quest, custom-tracker) will update
-                // them with authoritative data in their own handler blocks below.
-                const snapshotChars = parseJsonField<any[]>(prevSnap?.presentCharacters, []);
-                const snapshotWorldCustomFields = normalizeWorldCustomFields(
-                  parseJsonField<unknown[]>(prevSnap?.worldCustomFields, []),
-                );
-                const snapshotPersonaStats = parseJsonField<any[] | null>(prevSnap?.personaStats, null);
-                const snapshotPlayerStats = parseJsonField<PlayerStats | null>(prevSnap?.playerStats, null);
-                const currentGameStateForLocks = prevSnap
-                  ? parseGameStateRow(prevSnap as Record<string, unknown>)
-                  : null;
-                const nextWorldCustomFields =
-                  gs.worldCustomFields !== undefined
-                    ? isTrackerRowsUpdate(gs.worldCustomFields)
-                      ? gs.worldCustomFields
-                      : normalizeWorldCustomFields(gs.worldCustomFields)
-                    : snapshotWorldCustomFields;
-                const lockedWorldStatePatch = applyTrackerFieldLocksToGameStatePatch(
-                  {
-                    date: newDate,
-                    time: newTime,
-                    location: newLocation,
-                    weather: newWeather,
-                    temperature: newTemperature,
-                    worldCustomFields: nextWorldCustomFields,
-                  },
-                  currentGameStateForLocks,
-                );
-                newDate = coerceGameStateTextValue(lockedWorldStatePatch.date);
-                newTime = coerceGameStateTextValue(lockedWorldStatePatch.time);
-                newLocation = authoritativeGameLocation ?? coerceGameStateTextValue(lockedWorldStatePatch.location);
-                newWeather = coerceGameStateTextValue(lockedWorldStatePatch.weather);
-                newTemperature = coerceGameStateTextValue(lockedWorldStatePatch.temperature);
-                const newWorldCustomFields = normalizeWorldCustomFields(lockedWorldStatePatch.worldCustomFields);
-                logger.info(
-                  `[generate] world-state snapshot: chars=${snapshotChars.length} (prev), personaStats=${snapshotPersonaStats ? "present" : "null"} (prev)`,
-                );
-                await gameStateStore.create(
-                  {
-                    chatId: input.chatId,
-                    messageId,
-                    swipeIndex: targetSwipeIndex,
-                    date: newDate,
-                    time: newTime,
-                    location: newLocation,
-                    weather: newWeather,
-                    temperature: newTemperature,
-                    worldCustomFields: newWorldCustomFields,
-                    presentCharacters: snapshotChars,
-                    recentEvents: (gs.recentEvents as string[]) ?? [],
-                    playerStats: snapshotPlayerStats,
-                    personaStats: snapshotPersonaStats,
-                    fieldLocks: normalizeTrackerFieldLocksForState(
-                      currentGameStateForLocks?.fieldLocks,
-                      currentGameStateForLocks,
-                    ),
-                    hiddenTrackerFields: currentGameStateForLocks?.hiddenTrackerFields,
-                  },
-                  null, // never copy the base's edit record; a rewritten row keeps its own
-                  // The stats above are the turn before's; this turn's inventory tags already wrote its own.
-                  { keepReplacedInventory: true },
-                );
-                // Send game state to client so HUD updates live
-                // ONLY send the fields world-state actually produces.
-                // Do NOT spread the whole `gs` — in batch mode the model may cross-contaminate
-                // fields like presentCharacters:[] from other agent tasks, clobbering the HUD.
-                const worldStatePatch = {
-                  date: newDate,
-                  time: newTime,
-                  location: newLocation,
-                  weather: newWeather,
-                  temperature: newTemperature,
-                  ...(gs.worldCustomFields !== undefined
-                    ? {
-                        worldCustomFields: buildWorldCustomFieldsStreamValue(
-                          gs.worldCustomFields,
-                          snapshotWorldCustomFields,
-                          newWorldCustomFields,
-                        ),
-                      }
-                    : {}),
-                };
-                logger.debug("[game_state_patch] world-state: %j", worldStatePatch);
-                sendSseEvent(reply, { type: "game_state_patch", data: worldStatePatch });
-
-                const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
-                const syncedMeta =
-                  ownerSpatialProjection?.ownerMode === "game"
-                    ? chatMeta
-                    : syncGameMapMetaPartyPosition(chatMeta, newLocation);
-                const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-                if (syncedGameMap && syncedGameMap !== existingGameMap) {
-                  Object.assign(chatMeta, syncedMeta);
-                  // Re-fetch fresh metadata before write so we don't clobber concurrent updates
-                  // (e.g. /game/start flipping gameSessionStatus from "ready" to "active").
-                  const freshChat = await chats.getById(input.chatId);
-                  const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
-                  await chats.updateMetadata(input.chatId, {
-                    ...freshMeta,
-                    gameMap: syncedMeta.gameMap,
-                    gameMaps: syncedMeta.gameMaps,
-                    activeGameMapId: syncedMeta.activeGameMapId,
-                  });
-                  sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
-                } else if (getGameMapsFromMeta(syncedMeta).length > 0) {
-                  Object.assign(chatMeta, syncedMeta);
-                }
-
-                // Auto-populate journal: location change
-                const prevLocation = prevSnap?.location as string | null;
-                if (newLocation && newLocation !== prevLocation) {
-                  updateJournal(app.db, input.chatId, (j) =>
-                    addLocationEntry(
-                      j,
-                      newLocation,
-                      `Arrived at ${newLocation}${newWeather ? ` (${newWeather})` : ""}`,
-                    ),
-                  );
-                }
-              } catch (err) {
-                logger.error(err, "[generate] Failed to apply world-state tracker update");
-              }
-            }
 
             // Lorebook Keeper agent → persist new/updated entries to the database
             if (result.success && result.type === "lorebook_update" && result.data && typeof result.data === "object") {
