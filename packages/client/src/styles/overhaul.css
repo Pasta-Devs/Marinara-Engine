@@ -6713,6 +6713,13 @@ input.ov-edhead__title:focus {
   min-height: 0;
   flex: 1;
 }
+/* The pane itself never scrolls (its overflow is hidden so an editor can keep its header and Save
+   in view), so whatever page opens in it scrolls by default. An editor that runs its own scroll body
+   (.ov-ed) keeps its own overflow rule: :where() leaves this one with no weight to beat it. */
+:where(.ov-vw__main) > * {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 /* The viewer's header row: the open item's editor header (portaled into the slot) or, with
    nothing open, the section's own title. */
 .ov-vw__head {
@@ -11446,8 +11453,11 @@ input.ov-edhead__title:focus {
    Model editor beside it; actions are small controls, warnings a thin accent line. */
 .ov-vw__main > .ov-devpage {
   padding: 1rem 1.5rem 2rem;
-  max-width: 48rem;
   font-size: 0.8125rem;
+}
+/* The page scrolls across the whole pane (scroll bar at the pane's edge); its content keeps the width. */
+.ov-vw__main > .ov-devpage > * {
+  max-width: 45rem;
 }
 .ov-devpage .mari-chrome-control {
   font-size: 0.75rem;
@@ -11572,8 +11582,10 @@ input.ov-edhead__title:focus {
 /* An account's page in the Connections viewer: the editor that used to be a window, at page density. */
 .ov-vw__main > .ov-acctpage {
   padding: 1rem 1.5rem 2rem;
-  max-width: 44rem;
   font-size: 0.8125rem;
+}
+.ov-vw__main > .ov-acctpage > * {
+  max-width: 41rem;
 }
 .ov-acctpage__head {
   display: flex;
