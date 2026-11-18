@@ -592,8 +592,9 @@ exec sleep 30
     "crashed at start (illegal instruction): its build needs a processor with AVX-512",
   );
   assert.equal(describeEarlyExit(catalogEntry("winnow-e4b"), { code: 1, signal: null }), null);
-  // A card of another generation is refused for the card, which no library fixes.
-  const older = { ...catalogEntry("winnow-e4b"), onlyComputeCapabilities: ["9.0"] };
+  // A card of another generation is refused for the card, which no library fixes. The processor
+  // requirement is dropped here: on a runner without AVX-512 it would be refused for that first.
+  const older = { ...catalogEntry("winnow-e4b"), requiredCpuFlags: [], onlyComputeCapabilities: ["9.0"] };
   assert.match((await preflightDecisionModel(older, { fresh: true })).reason ?? "", /compute capability 9\.0/u);
   // Valen's runtime is a Linux x64 build: a Mac is refused before the download, while
   // JevK5 on the chat model's llama.cpp is offered there.
