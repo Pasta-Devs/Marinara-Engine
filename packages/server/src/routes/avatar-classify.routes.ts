@@ -22,6 +22,7 @@ import {
   avatarEmotionModelStatus,
   classifyAvatarEmotions,
   prepareAvatarEmotionModel,
+  isAvatarEmotionModelLoading,
   removeAvatarEmotionModel,
 } from "../services/avatars/emotion-classifier.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
@@ -78,6 +79,9 @@ export async function avatarClassifyRoutes(app: FastifyInstance, options: Avatar
 
   app.post("/model/remove", { config: { rateLimit: AVATAR_CLASSIFY_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Built-in emotion model removal" })) return;
+    if (isAvatarEmotionModelLoading()) {
+      return reply.status(409).send({ error: "Wait until the emotion model has finished downloading or starting" });
+    }
     await removeAvatarEmotionModel();
     return avatarEmotionModelStatus();
   });

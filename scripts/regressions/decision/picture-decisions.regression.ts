@@ -15,9 +15,8 @@ process.env.NODE_ENV = "test";
 process.env.MARINARA_LITE = "true";
 process.env.LOG_LEVEL = "silent";
 
-const { parseLorebookDecisionActivation, createLorebookEntrySchema } = await import(
-  "../../../packages/shared/dist/index.js"
-);
+const { parseLorebookDecisionActivation, createLorebookEntrySchema } =
+  await import("../../../packages/shared/dist/index.js");
 const pictures = await import("../../../packages/server/src/services/decision/picture-decisions.js");
 const { decisionMediaOf, loadDecisionMedia } = await import(
   "../../../packages/server/src/services/decision/decision-media.js"
@@ -29,8 +28,7 @@ const { libraryBackgroundCandidatesForLocation } = await import(
   "../../../packages/server/src/services/generation/location-background-pins.js"
 );
 
-const PIXEL =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 type Asked = { state: unknown; questions: Array<{ id: string; instructions: string }> };
 
@@ -167,6 +165,37 @@ assert.equal(pictures.normalizePictureCheckMode("sometimes"), "off");
     label: "test",
   });
   assert.deepEqual([kept.result, kept.attempts, made], [1, 2, 2]);
+}
+for (const mode of ["retry", "best_of_two"] as const) {
+  // Two lines: the first picture misses one by a hair yet scores higher; the second
+  // passes both. Passing every line wins over the score.
+  const answers: Record<string, [number, number]> = { "A lighthouse": [0.45, 0.62], "A red door": [0.99, 0.68] };
+  const { backend } = visionBackend((statement, call) => answers[statement]![call === 1 ? 0 : 1]);
+  let made = 0;
+  const kept = await pictures.generateCheckedPicture({
+    mode,
+    backend,
+    generate: async () => ++made,
+    toDataUrl: () => `data:image/png;base64,${PIXEL}`,
+    lines: [{ statement: "A lighthouse" }, { statement: "A red door" }],
+    label: "test",
+  });
+  assert.deepEqual([kept.result, kept.check?.passed], [2, true], `${mode}: the picture that passes every line is kept`);
+}
+{
+  // Both miss the same number of lines: the higher score wins.
+  const answers: Record<string, [number, number]> = { "A lighthouse": [0.1, 0.4], "A red door": [0.9, 0.9] };
+  const { backend } = visionBackend((statement, call) => answers[statement]![call === 1 ? 0 : 1]);
+  let made = 0;
+  const kept = await pictures.generateCheckedPicture({
+    mode: "best_of_two",
+    backend,
+    generate: async () => ++made,
+    toDataUrl: () => `data:image/png;base64,${PIXEL}`,
+    lines: [{ statement: "A lighthouse" }, { statement: "A red door" }],
+    label: "test",
+  });
+  assert.equal(kept.result, 2);
 }
 {
   // A second attempt that fails to generate keeps the first.

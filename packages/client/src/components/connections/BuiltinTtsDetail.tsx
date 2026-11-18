@@ -13,6 +13,7 @@ import {
   BUILTIN_TTS_SOURCE,
   BUILTIN_TTS_SUPERTONIC_LANGUAGES,
   recommendedBuiltinTtsModel,
+  type BuiltinTtsBlend,
   type BuiltinTtsModelId,
   type BuiltinTtsModelInfo,
   type BuiltinTtsReadingLanguage,
@@ -197,12 +198,15 @@ function VoiceSelect({
   onChange,
   label,
   disabled,
+  mixes = [],
 }: {
   voices: readonly BuiltinTtsVoice[];
   value: string;
   onChange: (id: string) => void;
   label: string;
   disabled?: boolean;
+  /** Saved mixes, listed after the voices so the one the Voice job uses can be shown. */
+  mixes?: readonly BuiltinTtsBlend[];
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -240,6 +244,15 @@ function VoiceSelect({
               ))}
             </optgroup>
           ))}
+      {mixes.length > 0 && (
+        <optgroup label={t("connections.builtinTts.savedMixes")}>
+          {mixes.map((mix) => (
+            <option key={mix.id} value={mix.id}>
+              {mix.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }
@@ -437,13 +450,21 @@ export function BuiltinTtsDetail() {
     () => (data && active ? data.voices.filter((entry) => entry.model === active.id) : []),
     [active, data],
   );
-  // The voice the Voice job saved, when it is one of this model's; otherwise the model's first.
-  const savedVoice = inUse && tts?.voice && activeVoices.some((entry) => entry.id === tts.voice) ? tts.voice : null;
+  const activeMixes = useMemo(
+    () => (data && active ? data.blends.filter((blend) => blend.model === active.id) : []),
+    [active, data],
+  );
+  const known = (id: string) =>
+    activeVoices.some((entry) => entry.id === id) || activeMixes.some((mix) => mix.id === id);
+  // The voice or saved mix the Voice job uses, when it is one of this model's; otherwise the model's first.
+  const savedVoice = inUse && tts?.voice && known(tts.voice) ? tts.voice : null;
   const chosenVoice =
-    voice && activeVoices.some((entry) => entry.id === voice)
-      ? voice
-      : (savedVoice ?? (active ? BUILTIN_TTS_DEFAULT_VOICE[active.id] : ""));
-  const chosen = activeVoices.find((entry) => entry.id === chosenVoice);
+    voice && known(voice) ? voice : (savedVoice ?? (active ? BUILTIN_TTS_DEFAULT_VOICE[active.id] : ""));
+  // A mix reads with the language of the first voice in it.
+  const chosen =
+    activeVoices.find((entry) => entry.id === chosenVoice) ??
+    activeVoices.find((entry) => entry.id === chosenVoice.split(":")[0]);
+  const chosenName = activeMixes.find((mix) => mix.id === chosenVoice)?.name ?? chosen?.name ?? chosenVoice;
   // The preview line follows the voice's language (Kokoro) or the reading language (Supertonic).
   const sampleLanguage = (() => {
     if (!data || !active) return "en";
@@ -480,7 +501,9 @@ export function BuiltinTtsDetail() {
     active ??
     data.models.find((model) => model.id === recommended) ??
     data.models[0]!;
-  const shown = active ?? choice;
+  // While a picked model downloads, the page shows it: it becomes the model in use when done.
+  const pickedDownload = downloading && downloading.modelId === picked ? choice : null;
+  const shown = pickedDownload ?? active ?? choice;
   const busy =
     download.isPending ||
     useModel.isPending ||
@@ -525,7 +548,7 @@ export function BuiltinTtsDetail() {
     });
     if (!confirmed) return;
     setPicked(model.id);
-    download.mutate(model.id, { onError: report });
+    download.mutate({ modelId: model.id, use: true }, { onError: report });
   };
 
   const pickModel = async (model: BuiltinTtsModelInfo) => {
@@ -561,9 +584,11 @@ export function BuiltinTtsDetail() {
       });
   };
 
-  const useForVoice = () => {
-    modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}${BUILTIN_TTS_SOURCE}`);
-    toast.success(t("connections.builtinTts.nowVoice"));
+  const useForVoice = async () => {
+    // The button waits for the TTS settings to load, so a save that returns has happened;
+    // a failed one shows its own error.
+    const saved = await modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}${BUILTIN_TTS_SOURCE}`);
+    if (saved === true) toast.success(t("connections.builtinTts.nowVoice"));
   };
 
   const makeDefaultVoice = () => {
@@ -571,8 +596,7 @@ export function BuiltinTtsDetail() {
     updateTts.mutate(
       { ...tts, voice: chosenVoice },
       {
-        onSuccess: () =>
-          toast.success(t("connections.builtinTts.defaultVoiceSet", { voice: chosen?.name ?? chosenVoice })),
+        onSuccess: () => toast.success(t("connections.builtinTts.defaultVoiceSet", { voice: chosenName })),
         onError: report,
       },
     );
@@ -588,7 +612,7 @@ export function BuiltinTtsDetail() {
       {active && (
         <div className="flex flex-wrap gap-1.5">
           {!inUse && (
-            <button type="button" onClick={useForVoice} className={SMALL_ACTION}>
+            <button type="button" onClick={() => void useForVoice()} disabled={!tts} className={SMALL_ACTION}>
               {t("connections.device.useForVoice")}
             </button>
           )}
@@ -775,6 +799,7 @@ export function BuiltinTtsDetail() {
               <div className="min-w-0 w-[18rem] max-w-full max-sm:w-auto max-sm:flex-1">
                 <VoiceSelect
                   voices={activeVoices}
+                  mixes={activeMixes}
                   value={chosenVoice}
                   onChange={setVoice}
                   label={t("connections.builtinTts.voice")}
@@ -785,7 +810,7 @@ export function BuiltinTtsDetail() {
                 player={player}
                 voice={chosenVoice}
                 text={sampleText}
-                label={t("connections.builtinTts.playNamed", { name: chosen?.name ?? chosenVoice })}
+                label={t("connections.builtinTts.playNamed", { name: chosenName })}
               />
               {inUse &&
                 tts?.voice !== chosenVoice &&

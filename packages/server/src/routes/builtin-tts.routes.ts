@@ -19,6 +19,8 @@ const rateLimit = { config: { rateLimit: UTILITY_SIDECAR_RATE_LIMIT } };
 const modelBody = z.object({
   modelId: z.enum(BUILTIN_TTS_MODELS.map((model) => model.id) as [BuiltinTtsModelId]),
 });
+/** `use`: the person picked this model, so it becomes the one in use once it is downloaded. */
+const downloadBody = modelBody.extend({ use: z.boolean().optional() });
 const PREVIEW_MAX_CHARS = 300;
 
 function message(error: unknown): string {
@@ -31,9 +33,9 @@ export async function builtinTtsRoutes(app: FastifyInstance) {
 
   app.post("/download", rateLimit, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Built-in voice model download" })) return;
-    const { modelId } = modelBody.parse(req.body);
+    const { modelId, use } = downloadBody.parse(req.body);
     try {
-      builtinTtsService.startDownload(modelId);
+      builtinTtsService.startDownload(modelId, { use });
     } catch (error) {
       return reply.status(409).send({ error: message(error) });
     }

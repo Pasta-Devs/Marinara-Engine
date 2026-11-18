@@ -21,6 +21,11 @@ import {
   loadDecisionMedia,
   type DecisionMediaRef,
 } from "../../../packages/server/src/services/decision/decision-media.js";
+import {
+  answerPromptDecisions,
+  cachedPromptDecisionAnswers,
+  PromptDecisionTurnCache,
+} from "../../../packages/server/src/services/decision/prompt-decisions.js";
 import { askNoulQuestions } from "../../../packages/server/src/services/decision/system-one.client.js";
 import { pickProjectorFile } from "../../../packages/server/src/services/sidecar/decision-gguf.js";
 import { ggufLaunch } from "../../../packages/server/src/services/sidecar/decision-process.service.js";
@@ -228,5 +233,51 @@ assert.deepEqual(
   { path: "mmproj-m-Q8_0.gguf", size: 2 },
 );
 assert.equal(pickProjectorFile([{ path: "m-Q4_K_M.gguf", size: 10 }]), null);
+
+// A statement asked on text alone does not answer the same words asked with a picture:
+// the turn's cache keeps the two apart, and Peek Prompt reads back the same keys.
+const sent: number[] = [];
+const seeing = {
+  maxStateTokens: 3500,
+  mediaTokens: { picture: 10, clip: 10 },
+  calibration: { defaultThreshold: 0.5, questionShape: "text" as const },
+  deferPreGeneration: false,
+  ask: async () => null,
+  askMixed: async (askedState: Record<string, unknown>, questions: Array<{ id: string }>) => {
+    sent.push(Math.min(1, decisionMediaOf(askedState).filter((ref) => ref.kind === "image").length));
+    return { answers: new Map(questions.map((q) => [q.id, sent.length === 1 ? 0.1 : 0.9])), choices: new Map() };
+  },
+};
+const turnCache = new PromptDecisionTurnCache();
+const sea = { kind: "noul" as const, key: "The picture shows the sea", options: [] };
+const textPlan = { decisions: [{ ...sea }], dropped: [] };
+const picturePlan = { decisions: [{ ...sea, pictures: 1 }], dropped: [] };
+const first = await answerPromptDecisions({
+  plan: textPlan,
+  backend: seeing as never,
+  messages: chat,
+  cacheKey: "m",
+  cache: turnCache,
+});
+const second = await answerPromptDecisions({
+  plan: picturePlan,
+  backend: seeing as never,
+  messages: chat,
+  cacheKey: "m",
+  cache: turnCache,
+});
+assert.deepEqual(sent, [0, 1], "the occurrence that wants a picture is asked again, with the picture");
+assert.equal(first.answers?.get(sea.key), false);
+assert.equal(second.answers?.get(sea.key), true);
+assert.equal(cachedPromptDecisionAnswers(textPlan, "m", turnCache).answers?.get(sea.key), false);
+assert.equal(cachedPromptDecisionAnswers(picturePlan, "m", turnCache).answers?.get(sea.key), true);
+await answerPromptDecisions({
+  plan: picturePlan,
+  backend: seeing as never,
+  messages: chat,
+  cacheKey: "m",
+  cache: turnCache,
+});
+assert.equal(sent.length, 2, "the same want is not asked twice in a turn");
 
 console.log("decision media regression passed");

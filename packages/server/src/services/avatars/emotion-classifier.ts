@@ -359,8 +359,18 @@ export async function classifyAvatarEmotions(
   return { results, tier, model: model ? AVATAR_EMOTION_MODEL_ID : null, latencyMs };
 }
 
-/** Unloads the model and deletes its files; avatars use keywords until it is downloaded again. */
+/** True while the model downloads or starts: its files are being written or read. */
+export function isAvatarEmotionModelLoading(): boolean {
+  return modelState.status === "loading";
+}
+
+/**
+ * Unloads the model and deletes its files; avatars use keywords until it is downloaded again.
+ * Refused while a download or load is running (the route answers 409): nothing stops that
+ * download, and it would write the files back after they were deleted.
+ */
 export async function removeAvatarEmotionModel(): Promise<void> {
+  if (isAvatarEmotionModelLoading()) throw new Error("The emotion model is downloading or starting");
   if (idleTimer) clearTimeout(idleTimer);
   idleTimer = null;
   const ready = modelState.status === "ready" ? modelState.model : null;

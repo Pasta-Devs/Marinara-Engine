@@ -387,6 +387,8 @@ assert.deepEqual([progress.unsupported, progress.state, progress.downloadedBytes
 assert.ok(progress.totalBytes > 300_000_000, "the pinned files are about 300 MB");
 await app.inject({ method: "POST", url: modelUrl, payload: { chatId: "rp-on" } });
 assert.equal(downloads, 1, "one download at a time");
+await assert.rejects(classifier.removeAvatarEmotionModel(), "Remove waits until the download has finished");
+assert.equal((await app.inject({ method: "GET", url: modelUrl })).json().state, "downloading");
 finishDownload();
 await new Promise((resolve) => setImmediate(resolve));
 assert.equal((await app.inject({ method: "GET", url: modelUrl })).json().state, "downloaded");

@@ -278,8 +278,11 @@ class BuiltinTtsService {
     };
   }
 
-  /** Starts the download in the background; /status shows progress. It becomes the model in use when none is. */
-  startDownload(id: BuiltinTtsModelId): void {
+  /**
+   * Starts the download in the background; /status shows progress. It becomes the model
+   * in use when none is, or when `use` says the person picked it.
+   */
+  startDownload(id: BuiltinTtsModelId, options: { use?: boolean } = {}): void {
     if (!this.isSupported()) throw new Error("The built-in voice model cannot run on this machine.");
     if (this.downloadAbort) throw new Error("A built-in voice model is already downloading.");
     const info = modelInfo(id);
@@ -319,7 +322,7 @@ class BuiltinTtsService {
         done += file.bytes;
         report(done);
       }
-      if (!this.stored.activeModelId || !isInstalled(this.stored.activeModelId)) {
+      if (options.use || !this.stored.activeModelId || !isInstalled(this.stored.activeModelId)) {
         await this.useModel(id);
       }
     })()

@@ -42,7 +42,9 @@ function useBuiltinTtsAction<TInput>(run: (input: TInput) => Promise<BuiltinTtsS
 }
 
 export const useDownloadBuiltinTts = () =>
-  useBuiltinTtsAction((modelId: BuiltinTtsModelId) => api.post<BuiltinTtsStatus>(`${BASE}/download`, { modelId }));
+  useBuiltinTtsAction((body: { modelId: BuiltinTtsModelId; use?: boolean }) =>
+    api.post<BuiltinTtsStatus>(`${BASE}/download`, body),
+  );
 export const useCancelBuiltinTtsDownload = () =>
   useBuiltinTtsAction(() => api.post<BuiltinTtsStatus>(`${BASE}/download/cancel`, {}));
 export const useUseBuiltinTtsModel = () =>

@@ -247,7 +247,13 @@ export async function generateCheckedPicture<T>(args: {
     return { result: first, check: firstCheck, attempts: 2 };
   }
   const secondCheck = await judge(second);
-  if (!secondCheck || secondCheck.score <= firstCheck.score) return { result: first, check: firstCheck, attempts: 2 };
+  // Fewer lines missed wins; the score only breaks a tie. A line missed by a hair still
+  // adds almost a full point to the score, so the score alone could keep a picture that fails one.
+  const better =
+    secondCheck !== null &&
+    (secondCheck.failed.length < firstCheck.failed.length ||
+      (secondCheck.failed.length === firstCheck.failed.length && secondCheck.score > firstCheck.score));
+  if (!better) return { result: first, check: firstCheck, attempts: 2 };
   return { result: second, check: secondCheck, attempts: 2 };
 }
 

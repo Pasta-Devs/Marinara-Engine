@@ -81,4 +81,15 @@ assert.equal(normalizeBuiltinTtsVoice("st_F1", "kokoro-82m"), null);
 assert.equal(normalizeBuiltinTtsVoice("af_bella:60+am_puck:40", "kokoro-82m"), "af_bella:60+am_puck:40");
 assert.equal(normalizeBuiltinTtsVoice("af_heart", "supertonic-3"), null);
 
+// Kokoro's English clean-up is for English voices: eSpeak reads digits and money in its other languages itself.
+const { prepareKokoroText } = await import("../../../packages/server/src/services/sidecar/tts-g2p/kokoro-text.js");
+for (const language of ["es", "fr", "hi", "pt-br"]) {
+  const prepared = prepareKokoroText("Cuesta $5, unos 1.5 en 1999.", language);
+  assert.equal(prepared, "Cuesta $5, unos 1.5 en 1999.", `${language}: digits and money are left for eSpeak`);
+}
+const english = prepareKokoroText("It costs $5, about 1.5 in 1999.", "en-us");
+assert.match(english, /5 dollars/);
+assert.match(english, /1 point 5/);
+assert.match(english, /19 99/);
+
 console.log("builtin-tts-readers: ok");

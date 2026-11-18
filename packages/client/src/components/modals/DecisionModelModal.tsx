@@ -150,12 +150,27 @@ export function DecisionModelModal() {
    */
   /** Every mutation here reports its own failure; a silent no-op reads as a bug. */
   const report = (error: unknown) => {
-    if (installCancelled.current) {
-      installCancelled.current = false;
-      toast(localizeUi("ui.modals.decisionmodelmodal.progress.cancelled"));
-      return;
-    }
     toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+  };
+  /** An install's failure: "cancelled" only when Cancel stopped this install, never a later failure. */
+  const reportInstall = (error: unknown) => {
+    if (!installCancelled.current) return report(error);
+    installCancelled.current = false;
+    toast(localizeUi("ui.modals.decisionmodelmodal.progress.cancelled"));
+  };
+  /** Runs one install; a Cancel pressed for an earlier one cannot relabel this one's failure. */
+  const runInstall = async (start: () => Promise<unknown>) => {
+    installCancelled.current = false;
+    try {
+      await start();
+      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
+      return true;
+    } catch (error) {
+      reportInstall(error);
+      return false;
+    } finally {
+      installCancelled.current = false;
+    }
   };
 
   const handleEnable = async (next: boolean): Promise<boolean> => {
@@ -226,14 +241,7 @@ export function DecisionModelModal() {
       ...(warning ? { tone: "destructive" as const } : {}),
     });
     if (!confirmed) return false;
-    try {
-      await install.mutateAsync(selected.id);
-      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
-      return true;
-    } catch (error) {
-      report(error);
-      return false;
-    }
+    return runInstall(() => install.mutateAsync(selected.id));
   };
 
   const handleReinstall = async () => {
@@ -245,15 +253,13 @@ export function DecisionModelModal() {
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.reinstall"),
     });
     if (!confirmed) return;
-    try {
-      // A pasted model has no catalog id: it goes back through the repository route at the commit it was
-      // installed from, which the server inspects again.
-      if (installedId) await install.mutateAsync(installedId);
-      else await installRepo.mutateAsync({ repoId: checkpoint!.repoId, revision: checkpoint!.revision });
-      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
-    } catch (error) {
-      report(error);
-    }
+    // A pasted model has no catalog id: it goes back through the repository route at the commit it was
+    // installed from, which the server inspects again.
+    await runInstall(() =>
+      installedId
+        ? install.mutateAsync(installedId)
+        : installRepo.mutateAsync({ repoId: checkpoint!.repoId, revision: checkpoint!.revision }),
+    );
   };
 
   const handleInstallRepo = async () => {
@@ -288,17 +294,14 @@ export function DecisionModelModal() {
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
     });
     if (!confirmed) return;
-    try {
-      await installRepo.mutateAsync({
+    await runInstall(() =>
+      installRepo.mutateAsync({
         repoId: repo,
         // The commit the confirmation described, so a branch moving in between
         // cannot substitute different weights.
         ...(inspect.data?.revision ? { revision: inspect.data.revision } : {}),
-      });
-      toast.success(localizeUi("ui.modals.decisionmodelmodal.installed"));
-    } catch (error) {
-      report(error);
-    }
+      }),
+    );
   };
 
   /** How much memory a model takes, and which kind it is weighed against. */

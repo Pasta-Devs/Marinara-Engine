@@ -617,7 +617,14 @@ export function useJobModels(connectionsList: ConnectionRowData[]) {
       // A built-in source only speaks while no Audio connection is the default; off keeps the row for effects.
       if (source) setRole(role.flag, rows.find((row) => isConnectionFlagTrue(row[role.flag])) ?? null, null);
       else if (id) setRole(role.flag, current, id);
-      void followVoiceJob(source ? null : id, source).catch(() => toast.error(t("connections.defaults.saveFailed")));
+      // Resolves true once the Voice job is saved, so a caller can wait before saying so.
+      return followVoiceJob(source ? null : id, source).then(
+        () => true,
+        () => {
+          toast.error(t("connections.defaults.saveFailed"));
+          return false;
+        },
+      );
     };
     return {
       kind: role.kind,

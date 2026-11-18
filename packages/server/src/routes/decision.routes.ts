@@ -147,6 +147,8 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
  * polls this instead of watching a spinner it cannot tell from a stuck one.
  */
 let installProgress: DecisionInstallProgress | null = null;
+/** The install a Cancel was pressed for; it stops before its next phase. */
+let cancelledInstall: string | null = null;
 
 function trackInstall(modelId: string, label: string) {
   // A second click joins the install already running (the download is shared), so its
@@ -388,21 +390,28 @@ export async function decisionRoutes(app: FastifyInstance) {
     const preflight = await preflightDecisionModel(model);
     if (!preflight.installable)
       return reply.status(409).send({ error: preflight.reason ?? "This machine cannot run that model" });
+    // One install at a time: a second model is refused before it can replace the
+    // progress the page is following for the first.
+    if (installProgress && installProgress.modelId !== model.id)
+      return reply.status(409).send({ error: `${installProgress.label} is still installing` });
+    if (!installProgress) cancelledInstall = null;
     try {
       // Open-Jev needs its Python environment; every other runtime is one server program,
       // and JevK5's is the chat model's own, installed only if it is not already here.
       const onProgress = trackInstall(model.id, model.label);
       if (model.runtime === "open_jev_torch") await decisionRuntimeService.ensureInstalled(onProgress);
       else await decisionServerRuntimeService.ensureInstalled(model.runtime, onProgress);
+      // A Cancel during the server program's download stops here, before the weights.
+      if (cancelledInstall === model.id) throw new Error("The install was cancelled");
       await decisionRuntimeService.downloadModel(model, onProgress);
     } catch (error) {
-      installProgress = null;
+      if (installProgress?.modelId === model.id) installProgress = null;
       // Logged as well as returned: an install takes long enough that the page which
       // asked may be gone by the time it fails, and the reason would otherwise vanish.
       logger.warn(error, "[decision-sidecar] Install of %s failed", model.id);
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
-    installProgress = null;
+    if (installProgress?.modelId === model.id) installProgress = null;
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
@@ -457,7 +466,12 @@ export async function decisionRoutes(app: FastifyInstance) {
   /** Stops a model download in progress and deletes what it had fetched. */
   app.post("/sidecar/cancel-install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    // Both phases: the server program's download and the weights'. A chat runtime that
+    // JevK5 shares with the built-in chat model is left to finish; the install stops after it.
+    if (installProgress) cancelledInstall = installProgress.modelId;
     decisionRuntimeService.cancel();
+    decisionServerRuntimeService.cancel();
+    installProgress = null;
     return { cancelled: true };
   });
 

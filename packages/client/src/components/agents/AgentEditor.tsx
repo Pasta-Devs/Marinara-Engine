@@ -1604,14 +1604,6 @@ export function AgentEditor() {
               ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
                 ? { activationMediaWithin: localActivationMediaWithin }
                 : {}),
-              ...(localActivationPictures > 0 ? { activationPictures: localActivationPictures } : {}),
-              ...(localActivationClips > 0 ? { activationClips: localActivationClips } : {}),
-              ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
-                ? { activationMediaWithin: localActivationMediaWithin }
-                : {}),
-              ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
-                ? { activationMediaWithin: localActivationMediaWithin }
-                : {}),
             }
           : {}),
         ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
