@@ -19,6 +19,7 @@ import {
   isGamePartyNpcId,
   normalizeTextForMatch,
   TRACKER_NPC_ID_PREFIX,
+  withTrackerIdAlias,
   type CharacterCardCastSource,
   type CharacterMacroProfile,
   normalizeSummaryTailMessages,
@@ -2138,10 +2139,15 @@ export function assignTrackerCharacterIds(
   const previous = options.previousCharacters.filter(isNpcRow);
   const claimed = new Set<number>();
   const pending = characters.filter(isNpcRow);
+  // The id each row arrived with, before it's replaced: it becomes one of the row's aliases.
+  const modelIds = new Map(pending.map((row) => [row, npcIdOf(row)]));
   const assigned = new Map<Record<string, unknown>, string>();
+  // The stored row each incoming row turned out to be, whose aliases it inherits.
+  const matchedRows = new Map<Record<string, unknown>, Record<string, unknown>>();
   const claim = (row: Record<string, unknown>, index: number) => {
     claimed.add(index);
     assigned.set(row, npcIdOf(previous[index]!));
+    matchedRows.set(row, previous[index]!);
   };
   const unassigned = () => pending.filter((row) => !assigned.has(row));
   const available = (_row: Record<string, unknown>, index: number) => !claimed.has(index);
@@ -2189,16 +2195,31 @@ export function assignTrackerCharacterIds(
     const [historyId] = historyIds;
     if (historyIds.size === 1 && historyId && !usedIds.has(historyId)) {
       assigned.set(row, npcIdOf(fromHistory[0]!));
+      matchedRows.set(row, fromHistory[0]!);
       usedIds.add(historyId);
     }
   }
   // 4. Everyone left is someone new.
   for (const row of unassigned()) assigned.set(row, mintId());
+  // Card and cast rows have ids of their own: an alias carried over from an NPC row it replaced means nothing there.
+  for (const row of characters) if (!isNpcRow(row)) delete row.idAliases;
 
   for (const [row, id] of assigned) {
     if (id) row.characterId = id;
     // Matched a stored row that never had an id: stay without one, so its name-keyed locks keep matching.
     else delete row.characterId;
+    // A matched row keeps the stored row's aliases (and any the incremental merge already added); a new one starts
+    // with only the id the model gave it.
+    const stored = matchedRows.get(row);
+    const known = stored
+      ? [
+          ...(Array.isArray(row.idAliases) ? row.idAliases : []),
+          ...(Array.isArray(stored.idAliases) ? stored.idAliases : []),
+        ]
+      : [];
+    const aliases = withTrackerIdAlias(known, modelIds.get(row), id);
+    if (aliases) row.idAliases = aliases;
+    else delete row.idAliases;
   }
 }
 

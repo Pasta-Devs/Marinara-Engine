@@ -223,7 +223,10 @@ await runNamedCases([
         stored,
         "characterId",
       )!;
-      assert.deepEqual(updated, [{ characterId: "Garrick Thum", name: "Garrick Thum", mood: "angry" }]);
+      assert.deepEqual(updated, [
+        // A stored id from before #9541 isn't server-minted, so it collects no aliases.
+        { characterId: "Garrick Thum", name: "Garrick Thum", mood: "angry" },
+      ]);
       // The namesake guard holds: an unrelated id with a known name changes nobody.
       const guarded = resolveTrackerRowsUpdate(
         { updates: [{ characterId: "guard_2", name: "Mira", mood: "angry" }] },
@@ -231,6 +234,122 @@ await runNamedCases([
         "characterId",
       )!;
       assert.deepEqual(guarded, stored);
+    },
+  },
+  {
+    name: "an NPC is found again through an id the model keeps re-using, e.g. from its previous output",
+    run: () => {
+      const first = applyTurn([{ characterId: "mara_v", name: "Mara Vex", mood: "wary" }], []);
+      const id = first[0]!.characterId;
+      assert.ok(isMinted(id));
+      assert.deepEqual(first[0]!.idAliases, ["mara_v"]);
+      // The same odd id again, and again under a changed name: an alias is an id, so the name doesn't matter.
+      const second = applyTurn([{ characterId: "mara_v", name: "Mara Vex", mood: "grim" }], first);
+      assert.deepEqual(idsOf(second), [id]);
+      const third = applyTurn([{ characterId: "mara_v", name: "Mara the barkeep" }], second);
+      assert.deepEqual(idsOf(third), [id]);
+      assert.deepEqual(third[0]!.idAliases, ["mara_v"]);
+      // Echoing the real id adds nothing.
+      assert.deepEqual(applyTurn([{ characterId: String(id), name: "Mara Vex" }], third)[0]!.idAliases, ["mara_v"]);
+    },
+  },
+  {
+    name: "aliases keep the newest five, never the row's own id, without duplicates",
+    run: () => {
+      let rows = applyTurn([{ characterId: "a1", name: "Wren" }], []);
+      const id = rows[0]!.characterId;
+      // "A1" repeats "a1" in another case; the rest all fold to the name, so they are drift, not a new Wren.
+      for (const alias of ["A1", "wren", "WREN_", "w-ren", "w ren", "w.ren", "wr-en"]) {
+        rows = applyTurn([{ characterId: alias, name: "Wren" }], rows);
+        assert.equal(rows[0]!.characterId, id, alias);
+      }
+      assert.deepEqual(rows[0]!.idAliases, ["wr-en", "w.ren", "w ren", "w-ren", "WREN_"]);
+    },
+  },
+  {
+    name: "incremental updates find a row through its alias and remember a new one",
+    run: () => {
+      const stored = [{ characterId: "npc-x", name: "Mara Vex", mood: "calm", idAliases: ["mara_v"] }];
+      const viaAlias = resolveTrackerRowsUpdate(
+        { updates: [{ characterId: "mara_v", mood: "grim" }] },
+        stored,
+        "characterId",
+      )!;
+      assert.deepEqual(viaAlias, [{ characterId: "npc-x", name: "Mara Vex", mood: "grim", idAliases: ["mara_v"] }]);
+      const viaName = resolveTrackerRowsUpdate(
+        { updates: [{ characterId: "Mara Vex", mood: "sly" }] },
+        stored,
+        "characterId",
+      )!;
+      assert.deepEqual(viaName[0]!.idAliases, ["Mara Vex", "mara_v"]);
+      // And the effect keeps that alias when the row goes through the id assignment.
+      const characters = structuredClone(viaName);
+      assignTrackerCharacterIds(characters, { previousCharacters: stored, cardIds: [], mintId: mintTestId });
+      assert.deepEqual(characters[0]!.idAliases, ["Mara Vex", "mara_v"]);
+    },
+  },
+  {
+    name: "an id beats an alias, and an alias beats a name, so a reused id never ties two rows",
+    run: () => {
+      const stored = [
+        { characterId: "npc-a", name: "Ash", idAliases: ["garrick"] },
+        { characterId: "npc-b", name: "Garrick" },
+        { characterId: "garrick", name: "Old Garrick" },
+      ];
+      const update = (raw: Row, rows: Row[] = stored) =>
+        resolveTrackerRowsUpdate({ updates: [raw] }, rows, "characterId")!;
+      // The id itself names the third row.
+      assert.equal(update({ characterId: "garrick", mood: "x" })[2]!.mood, "x");
+      // Without it, the alias wins over Garrick's name...
+      const withoutId = stored.slice(0, 2);
+      assert.equal(update({ characterId: "garrick", mood: "x" }, withoutId)[0]!.mood, "x");
+      // ...unless the update names the other row: then it is that row's name, not Ash's alias.
+      const named = update({ characterId: "garrick", name: "Garrick", mood: "x" }, withoutId);
+      assert.deepEqual(
+        named.map((row) => [row.characterId, row.name, row.mood]),
+        [
+          ["npc-a", "Ash", undefined],
+          ["npc-b", "Garrick", "x"],
+        ],
+      );
+    },
+  },
+  {
+    name: "only server-minted NPC rows remember aliases, and never an overlong id",
+    run: () => {
+      const stored = [
+        { characterId: "manual-1", name: "Hand Made" },
+        { characterId: "npc:wren", name: "Wren" },
+        { characterId: "npc-x", name: "Mara Vex" },
+      ];
+      const rows = resolveTrackerRowsUpdate(
+        {
+          updates: [
+            { characterId: "hand_made", mood: "a" },
+            { characterId: "npc_wren", name: "Wren", mood: "b" },
+            { characterId: "mara_vex_" + "x".repeat(90), name: "Mara Vex", mood: "c" },
+            { characterId: "mara-vex", mood: "d" },
+          ],
+        },
+        stored,
+        "characterId",
+      )!;
+      assert.deepEqual(
+        rows.map((row) => [row.characterId, row.mood, row.idAliases]),
+        [
+          ["manual-1", "a", undefined],
+          ["npc:wren", "b", undefined],
+          ["npc-x", "d", ["mara-vex"]],
+        ],
+      );
+      // A new NPC whose model id is overlong gets a server id and no alias.
+      const nova = applyTurn([{ characterId: "nova_" + "x".repeat(90), name: "Nova" }], []);
+      assert.ok(isMinted(nova[0]!.characterId));
+      assert.equal(nova[0]!.idAliases, undefined);
+      // A card row that replaced an NPC row in the effect drops the NPC's aliases.
+      const card = [{ characterId: "card-alice", name: "Alice", idAliases: ["alice_1"] }];
+      assignTrackerCharacterIds(card, { previousCharacters: [], cardIds: ["card-alice"], mintId: mintTestId });
+      assert.equal(card[0]!.idAliases, undefined);
     },
   },
 ]);
