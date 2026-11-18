@@ -14,6 +14,10 @@ import { sidecarRuntimeService, type SidecarRuntimeInstall } from "./sidecar-run
 import { assertSupportedLlamaCppModelPath } from "./sidecar-model-files.js";
 import { resolveSidecarRequestModel } from "./sidecar-request-model.js";
 import { SidecarGpuMemoryReporter } from "./sidecar-gpu-memory.js";
+import { getGpuProbe, resolveSharedDevice } from "./sidecar-footprint.js";
+import { localModelManager, type LocalModelPlacement } from "./local-model-manager.js";
+import { LocalModelTurns } from "./local-model-priority.js";
+import { kvCacheBytes, pickAutoParallel } from "./sidecar-parallel.js";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,6 +97,14 @@ class SidecarProcessService {
   private unexpectedCrashWindowStartedAt = 0;
   private starting = false;
   private manuallyUnloaded = false;
+  /** Stopped because nobody used it for a while; the next request starts it again. */
+  private idleUnloaded = false;
+  /** The slot count and GPU layers the running llama-server was started with. */
+  private launchedParallelJobs: number | null = null;
+  private launchedParallelReason: string | null = null;
+  private launchedGpuLayers: number | null = null;
+  /** Requests to the running model take turns here, highest priority first. */
+  readonly turns = new LocalModelTurns(() => this.getEffectiveParallelJobs());
   private syncLock: Promise<void> = Promise.resolve();
   private childErrors = new WeakMap<ChildProcess, Error>();
   private gpuMemory = new SidecarGpuMemoryReporter();
@@ -126,7 +138,8 @@ class SidecarProcessService {
   }
 
   async ensureReady(options: EnsureReadyOptions = {}): Promise<string> {
-    const forceStart = options.forceStart ?? false;
+    // A model unloaded for being unused comes back on its next request, whatever started it before.
+    const forceStart = (options.forceStart ?? false) || this.idleUnloaded;
     const allowRuntimeInstall = options.allowRuntimeInstall ?? false;
     await this.syncForCurrentConfig({
       suppressKnownFailure: !forceStart,
@@ -156,6 +169,7 @@ class SidecarProcessService {
     return this.withLock(async () => {
       this.clearStopRequest(stopRequestId);
       this.manuallyUnloaded = false;
+      this.idleUnloaded = false;
       this.clearStartupFailure();
       this.unexpectedCrashCount = 0;
       this.unexpectedCrashWindowStartedAt = 0;
@@ -223,11 +237,83 @@ class SidecarProcessService {
     return this.withLock(async () => {
       try {
         this.manuallyUnloaded = true;
+        this.idleUnloaded = false;
         await this.stopAndUpdateStatusUnlocked();
       } finally {
         this.clearStopRequest(stopRequestId);
       }
     });
+  }
+
+  /**
+   * Stop the model to free memory without turning it off: unlike `unload`, the next
+   * request starts it again. Used when it went unused and when another built-in model
+   * needs the room. Never stops a model that is answering something.
+   */
+  async unloadToFreeMemory(): Promise<void> {
+    return this.withLock(async () => {
+      if (!this.child || this.starting || this.turns.busy()) return;
+      this.idleUnloaded = true;
+      await this.stopAndUpdateStatusUnlocked();
+    });
+  }
+
+  isIdleUnloaded(): boolean {
+    return this.idleUnloaded && !this.child;
+  }
+
+  /**
+   * Requests the model works on at once: what the running process was started with, or
+   * what it would start with now.
+   */
+  getEffectiveParallelJobs(): number {
+    if (this.child && this.launchedParallelJobs) return this.launchedParallelJobs;
+    return this.pickParallel().jobs;
+  }
+
+  /** What the running model was started with, or what it would start with now. */
+  resolveParallel(): { jobs: number; reason: string | null } {
+    if (this.child && this.launchedParallelJobs) {
+      return { jobs: this.launchedParallelJobs, reason: this.launchedParallelReason };
+    }
+    return this.pickParallel();
+  }
+
+  private pickParallel(): { jobs: number; reason: string | null } {
+    const config = sidecarModelService.getConfig();
+    if (config.maxParallelJobs >= 1) return { jobs: config.maxParallelJobs, reason: null };
+    const placement = this.placement();
+    const device = placement === "gpu" ? resolveSharedDevice(getGpuProbe().devices, null) : null;
+    return pickAutoParallel({
+      modelBytes: sidecarModelService.getCachedModelSize(),
+      contextSize: config.contextSize,
+      kvCacheType: config.kvCacheType,
+      placement,
+      gpuTotalBytes: device?.totalBytes ?? null,
+    });
+  }
+
+  /** Where the model's weights are (or would be): on a graphics card or on the CPU. */
+  placement(): LocalModelPlacement {
+    const config = sidecarModelService.getConfig();
+    if (sidecarModelService.getResolvedBackend() === "mlx") return "gpu";
+    if (this.child && this.launchedGpuLayers !== null) return this.launchedGpuLayers === 0 ? "cpu" : "gpu";
+    if (config.gpuLayers === 0) return "cpu";
+    const runtime = sidecarRuntimeService.getStatus(config.runtimePreference);
+    return runtime.variant && sidecarRuntimeService.isGpuVariant(runtime.variant) ? "gpu" : "cpu";
+  }
+
+  /** Memory the model holds while running (measured when llama.cpp reported it), or is expected to want. */
+  footprintBytes(): number | null {
+    const config = sidecarModelService.getConfig();
+    const measured = this.ready ? this.gpuMemory.report() : null;
+    const measuredBytes = measured
+      ? (measured.weightsBytes ?? 0) + (measured.kvCacheBytes ?? 0) + (measured.buffersBytes ?? 0)
+      : null;
+    const modelBytes = sidecarModelService.getCachedModelSize();
+    if (measuredBytes) return measuredBytes;
+    if (!modelBytes) return null;
+    return modelBytes + kvCacheBytes(config.contextSize * this.getEffectiveParallelJobs(), config.kvCacheType);
   }
 
   async stop(): Promise<void> {
@@ -368,6 +454,16 @@ class SidecarProcessService {
       return;
     }
 
+    if (options.forceStart) {
+      this.idleUnloaded = false;
+    } else if (this.idleUnloaded) {
+      // Unloaded for being unused: it waits for the next request rather than a settings change.
+      await this.stopUnlocked();
+      this.clearStartupFailure();
+      sidecarModelService.setStatus("downloaded");
+      return;
+    }
+
     if (!options.forceStart && !sidecarModelService.isEnabled()) {
       await this.stopUnlocked();
       this.clearStartupFailure();
@@ -397,6 +493,8 @@ class SidecarProcessService {
 
     sidecarModelService.setStatus("starting_server");
     await this.stopUnlocked();
+    // Make room first: other built-in models that are not working on anything step aside.
+    await localModelManager.prepareToLoad("main", this.footprintBytes(), this.placement());
     await this.startUnlocked(runtime, modelRef);
   }
 
@@ -460,6 +558,11 @@ class SidecarProcessService {
 
   private buildLlamaArgs(modelPath: string, gpuLayers: number, port: number, runtime: SidecarRuntimeInstall): string[] {
     const config = sidecarModelService.getConfig();
+    const picked = this.pickParallel();
+    const parallel = picked.jobs;
+    this.launchedParallelJobs = parallel;
+    this.launchedParallelReason = picked.reason;
+    this.launchedGpuLayers = gpuLayers;
     return buildLlamaArgs({
       modelPath,
       gpuLayers,
@@ -469,7 +572,7 @@ class SidecarProcessService {
       enableNativeToolCalls: config.enableNativeToolCalls,
       embeddingPooling: config.embeddingPooling,
       embeddingBatchSize: config.embeddingBatchSize,
-      maxParallelJobs: config.maxParallelJobs,
+      maxParallelJobs: parallel,
       kvCacheType: config.kvCacheType,
     });
   }
@@ -809,9 +912,11 @@ class SidecarProcessService {
 
   private markReady(): void {
     this.ready = true;
+    this.idleUnloaded = false;
     this.clearStartupFailure();
     sidecarModelService.setStatus("ready");
     sidecarModelService.clearLegacyRuntimeStamp();
+    localModelManager.noteLoaded("main");
   }
 
   private async waitForReady(baseUrl: string, child: ChildProcess, backend: SidecarBackend): Promise<void> {
@@ -912,6 +1017,7 @@ class SidecarProcessService {
     this.ready = false;
     this.baseUrl = null;
     this.currentSignature = null;
+    localModelManager.noteStopped("main");
     if (this.logStream) {
       this.logStream.end();
       this.logStream = null;
@@ -971,3 +1077,12 @@ class SidecarProcessService {
 }
 
 export const sidecarProcessService = new SidecarProcessService();
+
+localModelManager.register({
+  id: "main",
+  label: () => "The built-in model",
+  isLoaded: () => sidecarProcessService.getProcessId() !== null,
+  footprintBytes: () => sidecarProcessService.footprintBytes(),
+  placement: () => sidecarProcessService.placement(),
+  unload: () => sidecarProcessService.unloadToFreeMemory(),
+});

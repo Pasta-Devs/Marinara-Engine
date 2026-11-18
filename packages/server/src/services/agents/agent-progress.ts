@@ -41,6 +41,8 @@ export async function completeAgentCall(
       (signal) => {
         callSignal = signal;
         return provider.chatComplete(messages, {
+          // Before-reply agents go ahead of the reply on the built-in model; the rest go after it.
+          localPriority: agents.some((agent) => agent.phase === "pre_generation") ? "prepare" : "turn",
           ...requestOptions,
           // Keep upstream thinking/pings flowing even when the UI wants only a final answer.
           stream: true,

@@ -38,6 +38,7 @@ import {
   type EngineTone,
 } from "../connections/DeviceDetail";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "../connections/LocalModelShared";
 import { useUIStore } from "../../stores/ui.store";
 import { Spinner } from "../ui/Spinner";
 
@@ -387,6 +388,7 @@ export function DecisionModelModal() {
           <div className="text-[var(--muted-foreground)] [overflow-wrap:anywhere]">{processError}</div>
         </div>
       )}
+      {hasInstall && <LocalModelSlotNote slot="decision" />}
 
       {data?.supported && !nothingRuns && (
         <section className={DETAIL_CARD_CLASS}>
@@ -470,6 +472,7 @@ export function DecisionModelModal() {
               <option value="with_marinara">{localizeUi("connections.decisionDevice.startWithMarinara")}</option>
             </select>
           </FactRow>
+          {hasInstall && <UnloadWhenUnusedRow />}
         </section>
       )}
 

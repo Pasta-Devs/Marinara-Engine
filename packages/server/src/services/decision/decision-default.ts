@@ -23,6 +23,7 @@ import { decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.j
 import { askSidecarNoulQuestions, connectionChatTarget, type ChatDecisionTarget } from "./sidecar-decision.backend.js";
 import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
 import { whenDecisionServerFree } from "./decision-server-queue.js";
+import { localModelManager } from "../sidecar/local-model-manager.js";
 import { askNoulQuestions, DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
 
 /**
@@ -251,26 +252,29 @@ export async function resolveDecisionBackend(
         // Its server answers one request at a time, so a request's clock starts once it
         // reaches the model, not while another request is still being answered.
         whenDecisionServerFree(resolved.baseUrl, resolved.serverSlots, signal, () =>
-          askNoulQuestions({
-            connection: {
-              protocol: "system_one",
-              endpoint: `${resolved.baseUrl}/v1/systemone`,
-              apiKey: "",
-              model: resolved.model,
-              maxStateTokens,
-            },
-            state,
-            questions,
-            timeoutMs: perStatementLimitMs(
-              answersAskedFor(questions),
-              DECISION_TIMEOUT_MS.sidecar,
-              resolved.perQuestionMs ?? DECISION_TIMEOUT_MS.sidecar,
-            ),
-            signal,
-            questionShape: calibration.questionShape,
-            debugMode: deps.debugMode,
-            inspection: deps.inspection,
-          }),
+          // Counts as use, so the decision model is not unloaded for being idle mid-question.
+          localModelManager.track("decision", () =>
+            askNoulQuestions({
+              connection: {
+                protocol: "system_one",
+                endpoint: `${resolved.baseUrl}/v1/systemone`,
+                apiKey: "",
+                model: resolved.model,
+                maxStateTokens,
+              },
+              state,
+              questions,
+              timeoutMs: perStatementLimitMs(
+                answersAskedFor(questions),
+                DECISION_TIMEOUT_MS.sidecar,
+                resolved.perQuestionMs ?? DECISION_TIMEOUT_MS.sidecar,
+              ),
+              signal,
+              questionShape: calibration.questionShape,
+              debugMode: deps.debugMode,
+              inspection: deps.inspection,
+            }),
+          ),
         );
       return {
         model: resolved.model,

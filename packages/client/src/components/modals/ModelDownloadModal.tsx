@@ -38,6 +38,7 @@ import type { TFunction } from "i18next";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { api } from "../../lib/api-client.js";
 import { Spinner } from "../ui/Spinner";
+import { useLocalModels } from "../../hooks/use-local-models";
 
 interface Props {
   open: boolean;
@@ -275,6 +276,7 @@ function EmbeddedShell({ children }: ComponentProps<typeof Modal>) {
 
 export function ModelDownloadModal({ open, onClose, embedded }: Props) {
   const { t: localizeUi } = useUiTranslation();
+  const { data: localModels } = useLocalModels(open);
   const {
     status,
     config,
@@ -576,7 +578,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
       parsedTopK < 0 ||
       parsedTopK > 500 ||
       !Number.isFinite(parsedMaxParallelJobs) ||
-      parsedMaxParallelJobs < 1 ||
+      parsedMaxParallelJobs < 0 ||
       parsedMaxParallelJobs > 16
     ) {
       return;
@@ -617,7 +619,7 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
     parsedTopK >= 0 &&
     parsedTopK <= 500 &&
     Number.isFinite(parsedMaxParallelJobs) &&
-    parsedMaxParallelJobs >= 1 &&
+    parsedMaxParallelJobs >= 0 &&
     parsedMaxParallelJobs <= 16;
   const generationSettingsDirty =
     contextSizeInput !== String(config.contextSize) ||
@@ -1438,15 +1440,32 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
                 </p>
               )}
             </div>
-            <Field label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
-              <div className="w-28">
-                {numberInput(
-                  localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs"),
-                  maxParallelJobsInput,
-                  setMaxParallelJobsInput,
-                  "2",
-                )}
-              </div>
+            <Field label={localizeUi("connections.localModels.atOnce")}>
+              {/* Auto (0) is the default: two where the second slot's context fits in memory, otherwise one. */}
+              <select
+                value={maxParallelJobsInput}
+                onChange={(event) => setMaxParallelJobsInput(event.target.value)}
+                aria-label={localizeUi("connections.localModels.atOnce")}
+                className="mari-editor-field w-full max-w-[14rem] px-3 py-2 text-sm max-sm:max-w-none"
+              >
+                <option value="0">
+                  {localizeUi("connections.localModels.atOnceAuto", { count: localModels?.parallel?.effective ?? 2 })}
+                </option>
+                {[1, 2, 3, 4, 6, 8].map((count) => (
+                  <option key={count} value={String(count)}>
+                    {count}
+                  </option>
+                ))}
+                {!["0", "1", "2", "3", "4", "6", "8"].includes(maxParallelJobsInput) && maxParallelJobsInput ? (
+                  <option value={maxParallelJobsInput}>{maxParallelJobsInput}</option>
+                ) : null}
+              </select>
+              <p className={HINT}>
+                {maxParallelJobsInput === "0" && localModels?.parallel?.reason
+                  ? `${localizeUi("connections.localModels.atOnceReason", { reason: localModels.parallel.reason })} `
+                  : ""}
+                {localizeUi("connections.localModels.atOnceHint")}
+              </p>
             </Field>
             {activeBackend !== "mlx" && (
               <Field label={localizeUi("ui.modals.modeldownloadmodal.embeddingEndpoint")}>

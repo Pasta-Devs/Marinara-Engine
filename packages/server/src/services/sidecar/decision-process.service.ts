@@ -26,6 +26,8 @@ import {
   inheritedEnv,
 } from "./decision-runtime.service.js";
 import { configuredCudaIndex, preflightDecisionModel } from "./decision-preflight.js";
+import { getMeasuredProcessBytes } from "./sidecar-footprint.js";
+import { localModelManager } from "./local-model-manager.js";
 
 const LOG_PATH = join(getDataDir(), "sidecar-runtime", "decision", "server.log");
 /** Loading 4.5 GB of weights and building the LoRA takes a while on a cold cache. */
@@ -66,6 +68,8 @@ class DecisionProcessService {
   private generation = 0;
   /** Cancels the warm-up of the start in progress, so a stop never waits it out. */
   private warmUpAbort: AbortController | null = null;
+  /** The catalog's measured footprint of the model that is running. */
+  private runningVramBytes: number | null = null;
 
   getStatus(): DecisionProcessStatus {
     return {
@@ -155,6 +159,11 @@ class DecisionProcessService {
     // about to start. Restarting the same model would then look like running two of
     // them and could be refused on a card that fits it comfortably.
     await this.terminate();
+    if (stopped()) return null;
+
+    // Other built-in models that are not working on anything step aside if the card is
+    // short, before the recheck below weighs what is free.
+    await localModelManager.prepareToLoad("decision", model.vramBytes, "gpu");
     if (stopped()) return null;
 
     // Conditions change after an install: a bigger sidecar model, a longer context, a
@@ -305,7 +314,18 @@ class DecisionProcessService {
       return null;
     }
     this.baseUrl = baseUrl;
+    this.runningVramBytes = model.vramBytes;
+    localModelManager.noteLoaded("decision");
     return baseUrl;
+  }
+
+  isLoaded(): boolean {
+    return !!this.child && !!this.baseUrl;
+  }
+
+  footprintBytes(): number | null {
+    if (!this.isLoaded()) return null;
+    return getMeasuredProcessBytes(this.child?.pid) ?? this.runningVramBytes;
   }
 
   /**
@@ -371,6 +391,7 @@ class DecisionProcessService {
     const child = this.child;
     this.child = null;
     this.baseUrl = null;
+    localModelManager.noteStopped("decision");
     if (!child) return;
     await new Promise<void>((resolve) => {
       const done = setTimeout(() => {
@@ -396,3 +417,13 @@ class DecisionProcessService {
 }
 
 export const decisionProcessService = new DecisionProcessService();
+
+localModelManager.register({
+  id: "decision",
+  label: () => "The decision model",
+  isLoaded: () => decisionProcessService.isLoaded(),
+  footprintBytes: () => decisionProcessService.footprintBytes(),
+  // It runs on an NVIDIA card through CUDA.
+  placement: () => "gpu",
+  unload: () => decisionProcessService.stop(),
+});
