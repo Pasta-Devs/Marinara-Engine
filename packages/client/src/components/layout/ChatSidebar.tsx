@@ -69,6 +69,7 @@ import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { PanelErrorState, PanelListSkeleton } from "../ui/PanelStates";
 import { Select } from "../ui/Select";
 import { Tabs } from "../ui/Tabs";
+import { ACTION_BUTTON_LAYOUT, ActionContent, useActionIconsFit } from "../ui/LibraryToolbar";
 import { toast } from "sonner";
 import {
   BACKGROUND_THUMBNAIL_WIDTH,
@@ -338,6 +339,7 @@ export function ChatSidebar() {
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const [isRootDropTarget, setIsRootDropTarget] = useState(false);
   const chatImportInputRef = useRef<HTMLInputElement>(null);
+  const chatActionsRef = useRef<HTMLDivElement>(null);
   const suppressTouchDragClickRef = useRef(false);
 
   // Multi-select state
@@ -847,6 +849,14 @@ export function ChatSidebar() {
   );
 
   const activeModeConfig = MODE_CONFIG[activeTab] ?? MODE_CONFIG.conversation;
+  const chatActionIcons = useActionIconsFit(
+    chatActionsRef,
+    [
+      localizeUi("ui.librarytoolbar.add"),
+      localizeUi("ui.librarytoolbar.import"),
+      localizeUi("ui.librarytoolbar.select"),
+    ].join("\n"),
+  );
   const activeModeHasChats = modeChats.length > 0;
 
   // ── Folder handlers ──
@@ -1586,7 +1596,8 @@ export function ChatSidebar() {
         />
       </div>
 
-      <div className="flex gap-2 px-3 pt-2">
+      {/* New, Import and Select, labelled as in the other sidebars (LibraryToolbar's action row). */}
+      <div ref={chatActionsRef} className="flex gap-2 px-3 pt-2">
         <input
           ref={chatImportInputRef}
           type="file"
@@ -1598,34 +1609,41 @@ export function ChatSidebar() {
           onClick={handleNewChatFromTab}
           disabled={createChat.isPending}
           className={cn(
-            "mari-chrome-control mari-chrome-control--primary mari-chat-mode-action flex-1 text-xs",
+            "mari-chrome-control mari-chrome-control--primary mari-chat-mode-action",
+            ACTION_BUTTON_LAYOUT,
             activeModeConfig.logoModeClass,
           )}
           title={t(`navigation.chatSidebar.new.${activeTab}`)}
           aria-label={t(`navigation.chatSidebar.new.${activeTab}`)}
         >
-          <Plus size="0.8125rem" className="mari-rgb-static-icon" />
+          <ActionContent
+            icon={Plus}
+            label={localizeUi("ui.librarytoolbar.add")}
+            showIcon={chatActionIcons}
+            iconClassName="mari-rgb-static-icon"
+          />
         </button>
         <button
           onClick={() => chatImportInputRef.current?.click()}
           disabled={isImportingChat}
-          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          className={cn("mari-chrome-control mari-chrome-control--primary", ACTION_BUTTON_LAYOUT)}
           title={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
           aria-label={localize(isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL")}
         >
-          <Download size="0.8125rem" />
+          <ActionContent icon={Download} label={localizeUi("ui.librarytoolbar.import")} showIcon={chatActionIcons} />
         </button>
         <button
           onClick={() => (multiSelectMode ? exitMultiSelect() : setMultiSelectMode(true))}
           disabled={displayChats.length === 0}
           className={cn(
-            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
+            "mari-chrome-control mari-chrome-control--primary",
+            ACTION_BUTTON_LAYOUT,
             multiSelectMode && "mari-chrome-control--selected",
           )}
           title={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
           aria-label={localize(multiSelectMode ? "Cancel selection" : "Select chats")}
         >
-          <Check size="0.8125rem" />
+          <ActionContent icon={Check} label={localizeUi("ui.librarytoolbar.select")} showIcon={chatActionIcons} />
         </button>
       </div>
 
