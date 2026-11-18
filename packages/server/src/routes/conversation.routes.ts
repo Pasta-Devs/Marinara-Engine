@@ -60,6 +60,7 @@ import {
   type MessageIntent,
 } from "../services/conversation/intent.service.js";
 import { parseConversationStatusOverrides } from "../services/generation/conversation-context-utils.js";
+import { notFound } from "../utils/not-found.js";
 
 function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string {
   if (connection.baseUrl) return connection.baseUrl;
@@ -693,7 +694,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const userSchedulePreferences = typeof rawPrefs === "string" ? rawPrefs.trim() : "";
 
     const chat = chatId ? await chats.getById(chatId) : null;
-    if (chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chatId && !chat) return notFound(reply, "Chat not found");
     if (chat && chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
     const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
     if (req.body.timeZone != null && !requestedTimeZone) {
@@ -875,7 +876,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     Params: { chatId: string };
   }>("/status/:chatId", async (req, reply) => {
     const chat = await chats.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const [presence, lastContactMap] = await Promise.all([
       chats.resolveConversationPresenceState(req.params.chatId),
@@ -1011,7 +1012,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       recordAutonomousClientPresence(chatId, userStatus);
     }
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const promptTimeZone = resolveConversationTimeZone(meta);
@@ -1251,7 +1252,7 @@ export async function conversationRoutes(app: FastifyInstance) {
   }>("/busy-delay", async (req, reply) => {
     const { chatId, characterId } = req.body;
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const { schedules, statusOverrides } = await chats.resolveConversationPresenceState(chatId);
     const schedule = schedules[characterId];
@@ -1284,7 +1285,7 @@ export async function conversationRoutes(app: FastifyInstance) {
   }>("/autonomous/exchange", async (req, reply) => {
     const { chatId, lastSpeakerCharId } = req.body;
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const characterIds: string[] =

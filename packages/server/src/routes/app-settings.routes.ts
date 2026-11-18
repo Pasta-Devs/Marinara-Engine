@@ -57,6 +57,7 @@ import { readFeatureModelConnections } from "../services/storage/feature-model-c
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
 import { loadMediaQueueUiSettings } from "../services/image/image-generation-queue.js";
 import { loadGeneratedImageFormatUiSettings } from "../services/image/generated-image-format.js";
+import { notFound } from "../utils/not-found.js";
 
 const ALLOWED_KEYS = new Set([
   "ui",
@@ -217,7 +218,7 @@ export async function appSettingsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { key: string } }>("/:key", async (req, reply) => {
     if (!isAllowedSettingsKey(req.params.key)) {
-      return reply.status(404).send({ error: "Unknown settings key" });
+      return notFound(reply, "Unknown settings key");
     }
     const value = await storage.get(req.params.key);
     // The translator defaults can hold a DeepL key: the response only says one is saved.
@@ -227,7 +228,7 @@ export async function appSettingsRoutes(app: FastifyInstance) {
 
   app.put<{ Params: { key: string }; Querystring: { fromChatId?: string } }>("/:key", async (req, reply) => {
     if (!isAllowedSettingsKey(req.params.key)) {
-      return reply.status(404).send({ error: "Unknown settings key" });
+      return notFound(reply, "Unknown settings key");
     }
     const input = appSettingsUpdateSchema.parse(req.body);
     if (req.params.key.startsWith("chat-window-default-")) {

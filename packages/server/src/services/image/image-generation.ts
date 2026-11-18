@@ -98,6 +98,7 @@ import {
   buildOpenAIChatGPTHeaders,
   getOpenAIChatGPTAuth,
 } from "../llm/openai-chatgpt-auth.js";
+import { isRecord } from "../../utils/large-json.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
 // Lazy-load so the server boots even when sharp is missing. The Draw Things img2img
@@ -3804,10 +3805,6 @@ interface ComfyUiNodeOutput {
 interface ComfyUiHistoryEntry {
   outputs?: Record<string, ComfyUiNodeOutput>;
   status?: Record<string, unknown>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function collectComfyUiErrorFragments(value: unknown, fragments: string[] = []): string[] {

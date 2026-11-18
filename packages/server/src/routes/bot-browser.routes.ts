@@ -4,6 +4,7 @@
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import { fetchBotBrowserJson, type BotBrowserJsonFetchOptions } from "../services/bot-browser/fetch-json.js";
 import { resolveValidatedImage, safeFetch } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 
 const CHUB_API_BASE = "https://api.chub.ai";
 const CHUB_AVATARS = "https://avatars.charhub.io";
@@ -259,7 +260,7 @@ export async function botBrowserRoutes(app: FastifyInstance, options: BotBrowser
       const image =
         primary ??
         (await fetchAvatarImage(`${CHUB_AVATARS}/avatars/${encodeURI(fullPath)}/${sources[1]}`, controller.signal));
-      if (!image) return reply.status(404).send({ error: "Avatar not found" });
+      if (!image) return notFound(reply, "Avatar not found");
       return reply
         .header("Content-Type", image.mimeType)
         .header("Cache-Control", "public, max-age=86400")

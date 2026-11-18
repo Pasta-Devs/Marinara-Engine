@@ -26,6 +26,7 @@ import {
 } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
+import { parseJsonRecord } from "../../utils/large-json.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
   const normalized = normalizeTimestampOverrides(overrides);
@@ -34,19 +35,6 @@ function resolveTimestamps(overrides?: TimestampOverrides | null) {
     createdAt,
     updatedAt: normalized?.updatedAt ?? createdAt,
   };
-}
-
-function parseJsonRecord(raw: unknown): Record<string, unknown> {
-  if (!raw) return {};
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 }
 
 function parseGenerationParameters(raw: unknown): Record<string, unknown> {

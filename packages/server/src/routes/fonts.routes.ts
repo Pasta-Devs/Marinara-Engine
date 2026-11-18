@@ -9,6 +9,7 @@ import { join, extname, basename } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
+import { notFound } from "../utils/not-found.js";
 
 const FONTS_DIR = join(DATA_DIR, "fonts");
 const FONT_METADATA_FILE = join(FONTS_DIR, "font-metadata.json");
@@ -360,7 +361,7 @@ export async function fontsRoutes(app: FastifyInstance) {
 
     const filePath = join(FONTS_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const stream = createReadStream(filePath);
@@ -412,9 +413,10 @@ export async function fontsRoutes(app: FastifyInstance) {
         if (!reachedGoogle) {
           return reply.status(502).send({ error: "Could not reach Google Fonts. Check your internet connection." });
         }
-        return reply
-          .status(404)
-          .send({ error: `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available` });
+        return notFound(
+          reply,
+          `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available`,
+        );
       }
 
       const metadata = await readFontMetadata();

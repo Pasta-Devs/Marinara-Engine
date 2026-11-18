@@ -32,14 +32,13 @@ import {
   normalizeAssistantPresetIdentifier,
   normalizeAssistantPresetOptionId,
   normalizeAssistantPresetVariableName,
-  parseMariJsonArray,
-  parseMariJsonRecord,
   resolveAssistantPresetInjectionPosition,
   resolveAssistantPresetRole,
   resolveAssistantPresetWrapFormat,
   truncateMariFetchedText,
 } from "./assistant-preset-utils.js";
 import { parseExtra } from "../../routes/generate/generate-route-utils.js";
+import { parseJsonArray, parseJsonRecord } from "../../utils/large-json.js";
 
 const PROFESSOR_MARI_COMMAND_TYPES = new Set([
   "create_persona",
@@ -945,8 +944,8 @@ async function fetchPresetContent(
   const groups = (await args.stores.presets.listGroups(found.id)) as any[];
   const choiceBlocks = (await args.stores.presets.listChoiceBlocksForPreset(found.id)) as any[];
   const groupById = new Map<string, any>(groups.map((group: any) => [group.id, group]));
-  const parameters = parseMariJsonRecord(found.parameters);
-  const defaultChoices = parseMariJsonRecord(found.defaultChoices);
+  const parameters = parseJsonRecord(found.parameters);
+  const defaultChoices = parseJsonRecord(found.defaultChoices);
   const parts = [`Preset: ${found.name}`, `ID: ${found.id}`];
   if (found.description) parts.push(`Description: ${found.description}`);
   if (found.author) parts.push(`Author: ${found.author}`);
@@ -987,9 +986,9 @@ async function fetchPresetContent(
   if (choiceBlocks.length > 0) {
     parts.push(`Choice Blocks (${choiceBlocks.length}):`);
     for (const block of choiceBlocks) {
-      const options = parseMariJsonArray(block.options)
+      const options = parseJsonArray(block.options)
         .map((option) => {
-          const data = parseMariJsonRecord(option);
+          const data = parseJsonRecord(option);
           return `${data.label ?? "Option"} => ${truncateMariFetchedText(data.value, 500)}`;
         })
         .join(" | ");

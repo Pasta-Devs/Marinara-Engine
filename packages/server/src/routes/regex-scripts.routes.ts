@@ -10,6 +10,7 @@ import {
   updateRegexScriptSchema,
 } from "@marinara-engine/shared";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function regexScriptsRoutes(app: FastifyInstance) {
   const storage = createRegexScriptsStorage(app.db);
@@ -26,7 +27,7 @@ export async function regexScriptsRoutes(app: FastifyInstance) {
   app.put("/enabled", async (req, reply) => {
     const { scriptIds, enabled } = bulkSetRegexEnabledSchema.parse(req.body);
     if (!(await storage.setEnabled(scriptIds, enabled))) {
-      return reply.status(404).send({ error: "One or more regex scripts were not found" });
+      return notFound(reply, "One or more regex scripts were not found");
     }
     return reply.status(204).send();
   });
@@ -41,7 +42,7 @@ export async function regexScriptsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const script = await storage.getById(req.params.id);
-    if (!script) return reply.status(404).send({ error: "Regex script not found" });
+    if (!script) return notFound(reply, "Regex script not found");
     return script;
   });
 

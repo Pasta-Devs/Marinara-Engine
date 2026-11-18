@@ -250,18 +250,11 @@ import {
   rulesetCombatantFlying,
   withRulesetSheetEvaluationCache,
   type RulesetSheetBuild,
+  RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { combatDirectorView, type CombatDirectorState } from "./combat-director.service.js";
-
-/** How many events a session keeps. A screen prints the tail and asks for nothing older, so the
- *  ledger row stays small however long a fight runs.
- *  ponytail: a fixed window. A fight that needs its whole history on screen wants the events in
- *  their own paged store, which is the upgrade path. Enough for a long fight whole (laptop playtest
- *  2026-10-25: a ten-round fight kept only its last seven rounds at 200). */
-export const RULESET_COMBAT_EVENT_LIMIT = 600;
-/** How many of the AI's reasons a session keeps beside them, newest first. */
-export const RULESET_COMBAT_REASON_LIMIT = 60;
 
 /** How many lines the opponents' own build is allowed to leave behind. */
 const RULESET_ADJUSTMENT_LIMIT = 60;

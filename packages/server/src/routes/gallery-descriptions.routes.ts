@@ -23,6 +23,7 @@ import {
 } from "../services/image/gallery-descriptions.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
+import { notFound } from "../utils/not-found.js";
 
 const OWNED_SCOPES: ReadonlySet<GalleryDescriptionScope> = new Set(["chat", "character", "persona"]);
 
@@ -50,7 +51,7 @@ export async function galleryDescriptionsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "description is too long" });
     }
     const pictures = await loadDescribablePictures(app.db, scope, owner, [imageId]);
-    if (!pictures.has(imageId)) return reply.status(404).send({ error: "Not found" });
+    if (!pictures.has(imageId)) return notFound(reply, "Not found");
     const description = normalizeGalleryDescription(raw);
     await saveGalleryDescription(app.db, scope, imageId, description);
     return { id: imageId, description };

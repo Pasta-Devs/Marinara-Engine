@@ -10,6 +10,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { InjectOptions } from "fastify";
 import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../../middleware/privileged-gate.js";
+import { notFound } from "../../utils/not-found.js";
 
 type Cleanup = () => void;
 type RouteMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
@@ -187,7 +188,7 @@ export async function registerCapabilityPrivilegedRoutes(
       slots.set(definition.key, slot);
       ownedSlots.push(slot);
       const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
-        if (!slot.active) return reply.status(404).send({ error: "Capability routes are not active" });
+        if (!slot.active) return notFound(reply, "Capability routes are not active");
         if (carriesInternalRouteToken(request, slot.internalRouteState)) return;
         // Installing a package needs admin rights, so its routes are trusted code:
         // a browser signed in with the login may use them without the admin secret.

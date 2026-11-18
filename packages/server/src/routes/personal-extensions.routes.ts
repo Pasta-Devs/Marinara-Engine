@@ -40,6 +40,7 @@ import {
   isExternalPersonalExtensionSource,
   setExternalExtensionsEnabled,
 } from "../services/extensions/personal-extension-policy.service.js";
+import { notFound } from "../utils/not-found.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const CONTEXT_MAX_ID_LENGTH = 256;
@@ -1458,10 +1459,10 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    if (!ID_PATTERN.test(req.params.id)) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!ID_PATTERN.test(req.params.id)) return notFound(reply, "Personal Extension not found");
     const input = updatePersonalExtensionSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!existing) return notFound(reply, "Personal Extension not found");
     const updated =
       input.enabled === false ? await storage.disable(req.params.id) : await storage.update(req.params.id, input);
     if (existing.runtime === "server" || updated?.runtime === "server") {
@@ -1472,10 +1473,10 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/approve", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    if (!ID_PATTERN.test(req.params.id)) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!ID_PATTERN.test(req.params.id)) return notFound(reply, "Personal Extension not found");
     const input = approvePersonalExtensionSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!existing) return notFound(reply, "Personal Extension not found");
     const policy = await getPersonalExtensionPolicy(app.db);
     if (isExternalPersonalExtensionSource(existing.source) && !policy.externalExtensionsEnabled) {
       return reply.status(403).send({ error: "External Extensions are locked by the two-step safety gate." });
@@ -1489,17 +1490,17 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Full page access must be explicitly acknowledged." });
     }
     const approved = await storage.approve(req.params.id, input.contentHash);
-    if (!approved) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!approved) return notFound(reply, "Personal Extension not found");
     if (approved.runtime === "server") await personalServerExtensionRuntime.reloadExtension(approved.id);
     return personalServerExtensionRuntime.withRuntimeStatus(approved);
   });
 
   app.post<{ Params: { id: string } }>("/:id/rollback", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    if (!ID_PATTERN.test(req.params.id)) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!ID_PATTERN.test(req.params.id)) return notFound(reply, "Personal Extension not found");
     const input = rollbackPersonalExtensionSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!existing) return notFound(reply, "Personal Extension not found");
     const rolledBack = await storage.rollback(req.params.id, input.contentHash);
     if (existing.runtime === "server" || rolledBack?.runtime === "server") {
       await personalServerExtensionRuntime.reloadExtension(req.params.id);
@@ -1523,27 +1524,27 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/storage", async (req, reply) => {
     const extension = await browserStorageExtension(req.params.id);
-    if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!extension) return notFound(reply, "Personal Extension not found");
     return { value: await settings.get(extension.id) };
   });
 
   app.patch<{ Params: { id: string } }>("/:id/storage", async (req, reply) => {
     const extension = await browserStorageExtension(req.params.id);
-    if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!extension) return notFound(reply, "Personal Extension not found");
     const patch = personalExtensionStoragePatchSchema.parse(req.body ?? {});
     return { value: await settings.patch(extension.id, patch) };
   });
 
   app.delete<{ Params: { id: string } }>("/:id/storage", async (req, reply) => {
     const extension = await browserStorageExtension(req.params.id);
-    if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!extension) return notFound(reply, "Personal Extension not found");
     await settings.remove(extension.id);
     return { value: {} };
   });
 
   app.post<{ Params: { id: string }; Body: { chatId?: unknown } }>("/:id/context", async (req, reply) => {
     const extension = await browserStorageExtension(req.params.id);
-    if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!extension) return notFound(reply, "Personal Extension not found");
     const chatId = typeof req.body?.chatId === "string" && ID_PATTERN.test(req.body.chatId) ? req.body.chatId : null;
     if (!chatId) return { characters: [], persona: null };
     const chat = await chatsStorage.getById(chatId);
@@ -1583,9 +1584,9 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    if (!ID_PATTERN.test(req.params.id)) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!ID_PATTERN.test(req.params.id)) return notFound(reply, "Personal Extension not found");
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Personal Extension not found" });
+    if (!existing) return notFound(reply, "Personal Extension not found");
     await settings.remove(existing.id);
     await storage.remove(existing.id);
     if (existing.runtime === "server") await personalServerExtensionRuntime.unloadExtension(existing.id);

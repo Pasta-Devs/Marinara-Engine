@@ -1,3 +1,4 @@
+import type { ChatMode } from "@marinara-engine/shared";
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
@@ -5,8 +6,6 @@ import { useChatStore } from "../stores/chat.store";
 import { chatKeys, useCreateChat } from "./use-chats";
 import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
 import { addSilentGreetingSwipes } from "../lib/message-swipes";
-
-type ChatMode = "roleplay" | "conversation" | "game";
 
 interface StartChatFromCharacterOptions {
   characterId: string;

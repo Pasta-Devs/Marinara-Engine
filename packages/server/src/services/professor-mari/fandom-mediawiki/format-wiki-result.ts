@@ -1,4 +1,5 @@
 import type { ProfessorMariWikiPayload, WikiTruncation } from "./types.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 const ACRONYMS = new Set(["api", "html", "id", "url"]);
 
@@ -12,10 +13,6 @@ function humanizeKey(key: string) {
       ACRONYMS.has(part.toLowerCase()) ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`,
     )
     .join(" ");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function primitive(value: unknown) {

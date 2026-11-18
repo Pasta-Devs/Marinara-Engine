@@ -147,6 +147,7 @@ import {
   mutateAvatarReferencesAndCleanup,
   removeUnattachedAvatarFile,
 } from "../services/image/avatar-file-lifecycle.js";
+import { notFound } from "../utils/not-found.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
 const PERSONA_GALLERY_ROOT = join(DATA_DIR, "gallery", "personas");
@@ -807,7 +808,7 @@ async function restoreCleanUpOriginal(input: {
   save: (patch: { filePath: string; width: number | null; height: number | null }) => Promise<unknown>;
 }) {
   const original = await readCleanUpOriginal(input.dir, input.image.id);
-  if (!original) return input.reply.status(404).send({ error: "No earlier picture is kept for this image" });
+  if (!original) return notFound(input.reply, "No earlier picture is kept for this image");
   const originalsDir = cleanUpOriginalsDir(input.dir);
   const filename = `${newId()}${extname(original.filename).toLowerCase()}`;
   const filePath = join(input.dir, filename);
@@ -1457,8 +1458,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         const entity =
           kind === "persona" ? await storage.getPersona(req.params.id) : await storage.getById(req.params.id);
         controller.signal.throwIfAborted();
-        if (!entity)
-          return reply.status(404).send({ error: kind === "persona" ? "Persona not found" : "Character not found" });
+        if (!entity) return notFound(reply, kind === "persona" ? "Persona not found" : "Character not found");
         const defaultConnection = await connections.getDefault();
         const connection = await resolveChatSummaryConnection({
           chatMetadata: {},
@@ -1503,7 +1503,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     };
   }>("/:id/summary/generate", async (req, reply) => {
     const character = await storage.getById(req.params.id);
-    if (!character) return reply.status(404).send({ error: "Character not found" });
+    if (!character) return notFound(reply, "Character not found");
 
     const data = parseCharacterDataRecord(character.data) as Partial<CharacterData>;
     const draft = req.body?.draft;
@@ -1587,7 +1587,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     };
   }>("/:id/convo-profile/generate", async (req, reply) => {
     const character = await storage.getById(req.params.id);
-    if (!character) return reply.status(404).send({ error: "Character not found" });
+    if (!character) return notFound(reply, "Character not found");
     if (req.body?.target !== "aboutMe" && req.body?.target !== "behavior") {
       return reply.status(400).send({ error: "Invalid Conversation profile target" });
     }
@@ -1834,48 +1834,48 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
     return char;
   });
 
   app.get<{ Params: { id: string } }>("/:id/versions", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
     return storage.listVersions(req.params.id);
   });
 
   app.post<{ Params: { id: string; versionId: string } }>("/:id/versions/:versionId/restore", async (req, reply) => {
     const restored = await storage.restoreVersion(req.params.id, req.params.versionId);
-    if (!restored) return reply.status(404).send({ error: "Character version not found" });
+    if (!restored) return notFound(reply, "Character version not found");
     return restored;
   });
 
   app.delete<{ Params: { id: string; versionId: string } }>("/:id/versions/:versionId", async (req, reply) => {
     const deleted = await storage.deleteVersion(req.params.id, req.params.versionId);
-    if (!deleted) return reply.status(404).send({ error: "Character version not found" });
+    if (!deleted) return notFound(reply, "Character version not found");
     return reply.status(204).send();
   });
 
   app.patch<{ Params: { id: string; versionId: string } }>("/:id/versions/:versionId", async (req, reply) => {
     const { version } = renameCardVersionSchema.parse(req.body);
     const renamed = await storage.renameVersion(req.params.id, req.params.versionId, version);
-    if (!renamed) return reply.status(404).send({ error: "Character version not found" });
+    if (!renamed) return notFound(reply, "Character version not found");
     return renamed;
   });
 
   app.post<{ Params: { id: string } }>("/:id/versions/reset", async (req, reply) => {
     const reset = await withCharacterUpdateQueue(req.params.id, () => storage.resetVersions(req.params.id));
-    if (!reset) return reply.status(404).send({ error: "Character not found" });
+    if (!reset) return notFound(reply, "Character not found");
     return reset;
   });
 
   app.get<{ Params: { id: string } }>("/:id/card-field-chats", async (req, reply) => {
-    if (!(await storage.getById(req.params.id))) return reply.status(404).send({ error: "Character not found" });
+    if (!(await storage.getById(req.params.id))) return notFound(reply, "Character not found");
     return storage.listCardFieldChats("character", req.params.id);
   });
 
   app.get<{ Params: { id: string } }>("/personas/:id/card-field-chats", async (req, reply) => {
-    if (!(await storage.getPersona(req.params.id))) return reply.status(404).send({ error: "Persona not found" });
+    if (!(await storage.getPersona(req.params.id))) return notFound(reply, "Persona not found");
     return storage.listCardFieldChats("persona", req.params.id);
   });
 
@@ -1963,7 +1963,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         mergeExtensions: true,
       });
     });
-    if (!updated) return reply.status(404).send({ error: "Character not found" });
+    if (!updated) return notFound(reply, "Character not found");
     return updated;
   });
 
@@ -2024,7 +2024,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/gallery", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const images = await characterGallery.listByCharacterId(req.params.id);
     const kept = isUnsafePathSegment(req.params.id)
@@ -2039,7 +2039,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/gallery/clips", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const characterName = readCharacterDisplayName(char.data, "Character");
     const callManifest = await getConversationCallCharacterVideoManifest({
@@ -2140,7 +2140,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/gallery/clips/upload", async (req, reply) => {
     const { id } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
@@ -2197,7 +2197,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string; clipId: string } }>("/:id/gallery/clips/:clipId/trim", async (req, reply) => {
     const { id, clipId } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const characterName = readCharacterDisplayName(char.data, "Character");
     const body = parseRouteRecord(req.body);
@@ -2236,7 +2236,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       }
     } catch (error) {
       if (error instanceof ConversationCallVideoClipNotFoundError) {
-        return reply.status(404).send({ error: error.message });
+        return notFound(reply, error.message);
       }
       if (error instanceof ConversationCallVideoClipTrimError) {
         return reply.status(400).send({ error: error.message });
@@ -2256,7 +2256,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string; clipId: string } }>("/:id/gallery/clips/:clipId", async (req, reply) => {
     const { id, clipId } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const characterName = readCharacterDisplayName(char.data, "Character");
 
@@ -2299,7 +2299,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
         throw error;
       }
-      if (!deleted) return reply.status(404).send({ error: "Clip not found" });
+      if (!deleted) return notFound(reply, "Clip not found");
       return { success: true };
     }
 
@@ -2311,11 +2311,11 @@ export async function charactersRoutes(app: FastifyInstance) {
       const sceneVideos = createGameSceneVideosStorage(app.db);
       // Id-only lookup: the owning chat is only known after the read (permanent-lease risk accepted, #5611).
       const video = await sceneVideos.getById(sceneVideoId);
-      if (!video) return reply.status(404).send({ error: "Clip not found" });
+      if (!video) return notFound(reply, "Clip not found");
 
       const chat = await chatsStorage.getById(video.chatId);
       if (!chat || !parseCharacterIdList(chat.characterIds).includes(id)) {
-        return reply.status(404).send({ error: "Clip not found" });
+        return notFound(reply, "Clip not found");
       }
 
       await removeSavedVideoFromDisk(video.filePath);
@@ -2325,7 +2325,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     if (clipId.startsWith("uploaded:")) {
       const deleted = await removeGalleryVideoClip(CHARACTER_GALLERY_VIDEO_ROOT, id, clipId);
-      if (!deleted) return reply.status(404).send({ error: "Clip not found" });
+      if (!deleted) return notFound(reply, "Clip not found");
       return { success: true };
     }
 
@@ -2335,7 +2335,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/gallery/videos/upload", async (req, reply) => {
     const { id } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
@@ -2389,11 +2389,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const dir = ensureGalleryVideoDir(CHARACTER_GALLERY_VIDEO_ROOT, id);
     const filePath = assertInsideDir(dir, join(dir, filename));
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const video = await validateVideoAssetFile(filePath, filename);
-    if (!video) return reply.status(404).send({ error: "Not found" });
+    if (!video) return notFound(reply, "Not found");
 
     return sendValidatedMediaFile(reply, video, { method: req.method, rangeHeader: req.headers.range });
   });
@@ -2401,7 +2401,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/gallery/upload", async (req, reply) => {
     const { id } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
@@ -2453,7 +2453,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { urls, bakedImages } = bakeGreetingImagesSchema.parse(req.body ?? {});
       const char = await storage.getById(req.params.id);
-      if (!char) return reply.status(404).send({ error: "Character not found" });
+      if (!char) return notFound(reply, "Character not found");
       // Paths use the stored id, never the raw route parameter.
       const id = char.id;
 
@@ -2518,11 +2518,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const image = findGalleryRowByFilename(await characterGallery.listByCharacterId(id), filename);
     const storedFile = image ? resolveStoredGalleryFile(image.filePath) : null;
     if (!storedFile || !existsSync(storedFile.absolutePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
-    if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+    if (!validatedImage) return notFound(reply, "Not found");
 
     return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
   });
@@ -2531,7 +2531,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await characterGallery.getById(imageId);
     if (!image || image.characterId !== id) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     await characterGallery.remove(imageId);
@@ -2560,7 +2560,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await characterGallery.getById(imageId);
     if (!image || image.characterId !== id) {
-      return reply.status(404).send({ error: "Gallery image not found" });
+      return notFound(reply, "Gallery image not found");
     }
 
     let avatarPath: string | null = null;
@@ -2569,7 +2569,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       const updated = await storage.updateAvatar(id, avatarPath);
       if (!updated) {
         await removeUnattachedAvatarFile({ avatarPath });
-        return reply.status(404).send({ error: "Character not found" });
+        return notFound(reply, "Character not found");
       }
       return updated;
     } catch (error) {
@@ -2586,7 +2586,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await characterGallery.getById(imageId);
     if (!image || image.characterId !== id) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
     const tag = readGalleryTagPayload(req.body, { allowBackground: true });
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
@@ -2596,7 +2596,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string; imageId: string } }>("/:id/gallery/:imageId/replace", async (req, reply) => {
     const { id, imageId } = req.params;
     const image = await characterGallery.getById(imageId);
-    if (!image || image.characterId !== id) return reply.status(404).send({ error: "Not found" });
+    if (!image || image.characterId !== id) return notFound(reply, "Not found");
     return replaceGalleryImageFile({
       req,
       reply,
@@ -2614,7 +2614,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id, imageId } = req.params;
       const image = await characterGallery.getById(imageId);
-      if (!image || image.characterId !== id) return reply.status(404).send({ error: "Not found" });
+      if (!image || image.characterId !== id) return notFound(reply, "Not found");
       return restoreCleanUpOriginal({
         reply,
         db: app.db,
@@ -2630,7 +2630,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   // ── Duplicate ──
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const result = await storage.duplicateCharacter(req.params.id);
-    if (!result) return reply.status(404).send({ error: "Character not found" });
+    if (!result) return notFound(reply, "Character not found");
     return result;
   });
 
@@ -2638,7 +2638,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string }; Querystring: { format?: ExportFormat } }>("/:id/export", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
     const charData = await embedCharacterBookImages(JSON.parse(char.data));
     const compatible = req.query.format === "compatible";
     reply.header(
@@ -2662,7 +2662,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (char) chars.push(char);
     }
     if (chars.length === 0) {
-      return reply.status(404).send({ error: "No characters found for the provided ids" });
+      return notFound(reply, "No characters found for the provided ids");
     }
 
     // Each file, and each image inside it, is read only as the ZIP is sent (#7115).
@@ -2692,7 +2692,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/embedded-lorebook/import", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const charData = JSON.parse(char.data) as Record<string, unknown>;
     const book = charData.character_book as { entries?: unknown[] } | null | undefined;
@@ -2757,7 +2757,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   // inverse of embed/import; the linked standalone lorebook (if any) is kept.
   app.delete<{ Params: { id: string } }>("/:id/embedded-lorebook", async (req, reply) => {
     const cleared = await clearEmbeddedLorebookFromCharacter(app.db, req.params.id);
-    if (!cleared) return reply.status(404).send({ error: "Character not found" });
+    if (!cleared) return notFound(reply, "Character not found");
     return { success: true };
   });
 
@@ -2772,10 +2772,10 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (!lorebookId) return reply.status(400).send({ error: "lorebookId is required" });
 
       const char = await storage.getById(req.params.id);
-      if (!char) return reply.status(404).send({ error: "Character not found" });
+      if (!char) return notFound(reply, "Character not found");
 
       const lorebook = (await lorebooksStorage.getById(lorebookId)) as Record<string, unknown> | null;
-      if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+      if (!lorebook) return notFound(reply, "Lorebook not found");
 
       // A character card only carries a character-scoped book. Persona
       // lorebooks are identified by persona links and have no card slot.
@@ -2839,7 +2839,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/export-png", async (req, reply) => {
     const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const charData = await embedCharacterBookImages(JSON.parse(char.data));
     const sprites = await readSpritesForId(char.id, true);
@@ -2897,7 +2897,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const id = PATH_SAFE_ID_RE.exec(req.params.id)?.[0];
     if (!id) return reply.status(400).send({ error: "Invalid character ID" });
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const body = req.body as { avatar?: string; filename?: string; data?: unknown };
     if (!body.avatar) {
@@ -2938,7 +2938,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       });
       if (!updated) {
         await removeUnattachedAvatarFile({ avatarPath });
-        return reply.status(404).send({ error: "Character not found" });
+        return notFound(reply, "Character not found");
       }
       return updated;
     } catch (error) {
@@ -2950,10 +2950,10 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>("/:id/avatar", async (req, reply) => {
     const { id } = req.params;
     const char = await storage.getById(id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
+    if (!char) return notFound(reply, "Character not found");
 
     const updated = await storage.updateAvatar(id, null);
-    return updated ?? reply.status(404).send({ error: "Character not found" });
+    return updated ?? notFound(reply, "Character not found");
   });
 
   // ── Personas ──
@@ -2980,13 +2980,13 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
     return projectPersona(persona);
   });
 
   app.get<{ Params: { id: string } }>("/personas/:id/versions", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
     return storage.listPersonaVersions(req.params.id);
   });
 
@@ -2994,21 +2994,21 @@ export async function charactersRoutes(app: FastifyInstance) {
     "/personas/:id/versions/:versionId/restore",
     async (req, reply) => {
       const restored = await storage.restorePersonaVersion(req.params.id, req.params.versionId);
-      if (!restored) return reply.status(404).send({ error: "Persona version not found" });
+      if (!restored) return notFound(reply, "Persona version not found");
       return projectPersona(restored);
     },
   );
 
   app.delete<{ Params: { id: string; versionId: string } }>("/personas/:id/versions/:versionId", async (req, reply) => {
     const deleted = await storage.deletePersonaVersion(req.params.id, req.params.versionId);
-    if (!deleted) return reply.status(404).send({ error: "Persona version not found" });
+    if (!deleted) return notFound(reply, "Persona version not found");
     return reply.status(204).send();
   });
 
   app.patch<{ Params: { id: string; versionId: string } }>("/personas/:id/versions/:versionId", async (req, reply) => {
     const { version } = renameCardVersionSchema.parse(req.body);
     const renamed = await storage.renamePersonaVersion(req.params.id, req.params.versionId, version);
-    if (!renamed) return reply.status(404).send({ error: "Persona version not found" });
+    if (!renamed) return notFound(reply, "Persona version not found");
     return renamed;
   });
 
@@ -3016,7 +3016,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const reset = await enqueueUpdate(personaUpdateQueues, req.params.id, () =>
       storage.resetPersonaVersions(req.params.id),
     );
-    if (!reset) return reply.status(404).send({ error: "Persona not found" });
+    if (!reset) return notFound(reply, "Persona not found");
     return projectPersona(reset);
   });
 
@@ -3070,7 +3070,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     };
     if (Object.keys(body).length === 0 && !hasCharacterSheetImageId && !hasUseCharacterSheetAsReference) {
       const current = await storage.getPersona(req.params.id);
-      if (!current) return reply.status(404).send({ error: "Persona not found" });
+      if (!current) return notFound(reply, "Persona not found");
       return projectPersona(current);
     }
 
@@ -3101,7 +3101,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         versionOptions,
       );
     });
-    if (!updated) return reply.status(404).send({ error: "Persona not found" });
+    if (!updated) return notFound(reply, "Persona not found");
     return projectPersona(updated);
   });
 
@@ -3155,7 +3155,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         { skipVersionSnapshot: true },
       );
     });
-    if (!updated) return reply.status(404).send({ error: "Persona not found" });
+    if (!updated) return notFound(reply, "Persona not found");
     return projectPersona(updated);
   });
 
@@ -3173,7 +3173,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageInfo = isAllowedImageBuffer(imageBuffer, hintedExt);
     if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
     if (!(await storage.getPersona(req.params.id))) {
-      return reply.status(404).send({ error: "Persona not found" });
+      return notFound(reply, "Persona not found");
     }
     const filename = `persona-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${imageInfo.ext}`;
     const avatarsDir = join(DATA_DIR, "avatars");
@@ -3187,7 +3187,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       );
       if (!updated) {
         await removeUnattachedAvatarFile({ avatarPath });
-        return reply.status(404).send({ error: "Persona not found" });
+        return notFound(reply, "Persona not found");
       }
       return projectPersona(updated);
     } catch (error) {
@@ -3202,7 +3202,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, () =>
       storage.updatePersona(req.params.id, { avatarPath: null, avatarCrop: "" }, { versionReason: "Avatar removal" }),
     );
-    if (!updated) return reply.status(404).send({ error: "Persona not found" });
+    if (!updated) return notFound(reply, "Persona not found");
     return projectPersona(updated);
   });
 
@@ -3218,7 +3218,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid persona id" });
     }
     const persona = await storage.getPersona(id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const galleryImages = await personaGallery.listByPersonaId(id);
     await mutateAvatarReferencesAndCleanup({
@@ -3251,7 +3251,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/personas/:id/gallery", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const images = await personaGallery.listByPersonaId(req.params.id);
     const kept = isUnsafePathSegment(req.params.id)
@@ -3266,7 +3266,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/personas/:id/gallery/clips", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const personaName = typeof persona.name === "string" && persona.name.trim() ? persona.name.trim() : "Persona";
     const callManifest = await getConversationCallCharacterVideoManifest({
@@ -3371,7 +3371,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id, clipId } = req.params;
       const persona = await storage.getPersona(id);
-      if (!persona) return reply.status(404).send({ error: "Persona not found" });
+      if (!persona) return notFound(reply, "Persona not found");
 
       const body = parseRouteRecord(req.body);
       const { trimStartSeconds, trimEndSeconds } = body;
@@ -3410,7 +3410,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       } catch (error) {
         if (error instanceof ConversationCallVideoClipNotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return notFound(reply, error.message);
         }
         if (error instanceof ConversationCallVideoClipTrimError) {
           return reply.status(400).send({ error: error.message });
@@ -3431,7 +3431,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string; clipId: string } }>("/personas/:id/gallery/clips/:clipId", async (req, reply) => {
     const { id, clipId } = req.params;
     const persona = await storage.getPersona(id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     if (clipId.startsWith("call:")) {
       const kind = parseConversationCallClipKind(clipId.slice("call:".length));
@@ -3473,14 +3473,14 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
         throw error;
       }
-      if (!deleted) return reply.status(404).send({ error: "Clip not found" });
+      if (!deleted) return notFound(reply, "Clip not found");
       return { success: true };
     }
 
     if (!clipId.startsWith("scene:")) {
       if (clipId.startsWith("uploaded:")) {
         const deleted = await removeGalleryVideoClip(PERSONA_GALLERY_VIDEO_ROOT, id, clipId);
-        if (!deleted) return reply.status(404).send({ error: "Clip not found" });
+        if (!deleted) return notFound(reply, "Clip not found");
         return { success: true };
       }
       return reply.status(400).send({ error: "Unsupported clip type" });
@@ -3492,11 +3492,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const chatsStorage = createChatsStorage(app.db);
     const sceneVideos = createGameSceneVideosStorage(app.db);
     const video = await sceneVideos.getById(sceneVideoId);
-    if (!video) return reply.status(404).send({ error: "Clip not found" });
+    if (!video) return notFound(reply, "Clip not found");
 
     const chat = await chatsStorage.getById(video.chatId);
     if (!chat || chat.personaId !== id) {
-      return reply.status(404).send({ error: "Clip not found" });
+      return notFound(reply, "Clip not found");
     }
 
     await removeSavedVideoFromDisk(video.filePath);
@@ -3507,7 +3507,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/personas/:id/gallery/videos/upload", async (req, reply) => {
     const { id } = req.params;
     const persona = await storage.getPersona(id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
@@ -3563,11 +3563,11 @@ export async function charactersRoutes(app: FastifyInstance) {
       const dir = ensureGalleryVideoDir(PERSONA_GALLERY_VIDEO_ROOT, id);
       const filePath = assertInsideDir(dir, join(dir, filename));
       if (!existsSync(filePath)) {
-        return reply.status(404).send({ error: "Not found" });
+        return notFound(reply, "Not found");
       }
 
       const video = await validateVideoAssetFile(filePath, filename);
-      if (!video) return reply.status(404).send({ error: "Not found" });
+      if (!video) return notFound(reply, "Not found");
 
       return sendValidatedMediaFile(reply, video, { method: req.method, rangeHeader: req.headers.range });
     },
@@ -3576,7 +3576,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/personas/:id/gallery/clips/upload", async (req, reply) => {
     const { id } = req.params;
     const persona = await storage.getPersona(id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
@@ -3632,7 +3632,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/personas/:id/gallery/upload", async (req, reply) => {
     const { id } = req.params;
     const persona = await storage.getPersona(id);
-    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    if (!persona) return notFound(reply, "Persona not found");
 
     const data = await req.file();
     if (!data) {
@@ -3692,11 +3692,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const image = findGalleryRowByFilename(await personaGallery.listByPersonaId(id), filename);
     const storedFile = image ? resolveStoredGalleryFile(image.filePath) : null;
     if (!storedFile || !existsSync(storedFile.absolutePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
-    if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+    if (!validatedImage) return notFound(reply, "Not found");
 
     return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
   });
@@ -3705,7 +3705,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await personaGallery.getById(imageId);
     if (!image || image.personaId !== id) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     await personaGallery.remove(imageId);
@@ -3728,7 +3728,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await personaGallery.getById(imageId);
     if (!image || image.personaId !== id) {
-      return reply.status(404).send({ error: "Gallery image not found" });
+      return notFound(reply, "Gallery image not found");
     }
 
     let avatarPath: string | null = null;
@@ -3741,7 +3741,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       );
       if (!updated) {
         await removeUnattachedAvatarFile({ avatarPath });
-        return reply.status(404).send({ error: "Persona not found" });
+        return notFound(reply, "Persona not found");
       }
       return projectPersona(updated);
     } catch (error) {
@@ -3758,7 +3758,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const { id, imageId } = req.params;
     const image = await personaGallery.getById(imageId);
     if (!image || image.personaId !== id) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
     const tag = readGalleryTagPayload(req.body, { allowBackground: true });
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
@@ -3770,7 +3770,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id, imageId } = req.params;
       const image = await personaGallery.getById(imageId);
-      if (!image || image.personaId !== id) return reply.status(404).send({ error: "Not found" });
+      if (!image || image.personaId !== id) return notFound(reply, "Not found");
       return replaceGalleryImageFile({
         req,
         reply,
@@ -3789,7 +3789,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id, imageId } = req.params;
       const image = await personaGallery.getById(imageId);
-      if (!image || image.personaId !== id) return reply.status(404).send({ error: "Not found" });
+      if (!image || image.personaId !== id) return notFound(reply, "Not found");
       return restoreCleanUpOriginal({
         reply,
         db: app.db,
@@ -3805,7 +3805,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   // ── Persona Duplicate ──
   app.post<{ Params: { id: string } }>("/personas/:id/duplicate", async (req, reply) => {
     const result = await storage.duplicatePersona(req.params.id);
-    if (!result) return reply.status(404).send({ error: "Persona not found" });
+    if (!result) return notFound(reply, "Persona not found");
     return projectPersona(result);
   });
 
@@ -3815,7 +3815,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     "/personas/:id/export",
     async (req, reply) => {
       const persona = await storage.getPersona(req.params.id);
-      if (!persona) return reply.status(404).send({ error: "Persona not found" });
+      if (!persona) return notFound(reply, "Persona not found");
       const compatible = req.query.format === "compatible";
       const canonical = canonicalizePersonaForExport(persona as Record<string, unknown>);
       reply.header(
@@ -3840,7 +3840,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (persona) personas.push(persona);
     }
     if (personas.length === 0) {
-      return reply.status(404).send({ error: "No personas found for the provided ids" });
+      return notFound(reply, "No personas found for the provided ids");
     }
 
     // Each file, and each image inside it, is read only as the ZIP is sent (#7115).
@@ -3878,7 +3878,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/groups/:id", async (req, reply) => {
     const group = await storage.getGroupById(req.params.id);
-    if (!group) return reply.status(404).send({ error: "Group not found" });
+    if (!group) return notFound(reply, "Group not found");
     return group;
   });
 
@@ -3905,7 +3905,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/persona-groups/:id", async (req, reply) => {
     const group = await storage.getPersonaGroupById(req.params.id);
-    if (!group) return reply.status(404).send({ error: "Persona group not found" });
+    if (!group) return notFound(reply, "Persona group not found");
     return group;
   });
 

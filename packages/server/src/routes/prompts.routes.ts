@@ -37,6 +37,7 @@ import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { forwardPromptPreview } from "./generate/prompt-preview.js";
+import { notFound } from "../utils/not-found.js";
 
 const PROMPT_IMAGES_DIR = join(DATA_DIR, "prompts", "images");
 const PROMPT_IMAGE_URL_PREFIX = "/api/prompts/images/file/";
@@ -148,19 +149,19 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { filename: string } }>("/images/file/:filename", async (req, reply) => {
     const filepath = getSafePromptImagePath(req.params.filename);
-    if (!filepath) return reply.status(404).send({ error: "Image not found" });
+    if (!filepath) return notFound(reply, "Image not found");
 
     let buffer: Buffer;
     try {
       buffer = await readFile(filepath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return reply.status(404).send({ error: "Image not found" });
+        return notFound(reply, "Image not found");
       }
       throw error;
     }
     const imageInfo = isAllowedImageBuffer(buffer, extname(req.params.filename));
-    if (!imageInfo) return reply.status(404).send({ error: "Image not found" });
+    if (!imageInfo) return notFound(reply, "Image not found");
 
     return reply
       .header("Content-Type", imageInfo.mimeType)
@@ -170,14 +171,14 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Preset not found" });
+    if (!preset) return notFound(reply, "Preset not found");
     return preset;
   });
 
   /** Get a full preset with all its sections, groups, and choice blocks. */
   app.get<{ Params: { id: string } }>("/:id/full", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Preset not found" });
+    if (!preset) return notFound(reply, "Preset not found");
     const [sections, groups, choiceBlocks] = await Promise.all([
       storage.listSections(req.params.id),
       storage.listGroups(req.params.id),
@@ -206,7 +207,7 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Preset not found" });
+    if (!preset) return notFound(reply, "Preset not found");
     if (isStockMarinaraUniversalPreset(preset)) {
       return reply.status(409).send({ error: STOCK_PRESET_READ_ONLY_ERROR });
     }
@@ -229,7 +230,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     const updated = await storage.update(req.params.id, { imagePath: nextImagePath });
     if (!updated) {
       await removePromptImageIfUnreferenced(storage, nextImagePath);
-      return reply.status(404).send({ error: "Preset not found" });
+      return notFound(reply, "Preset not found");
     }
     await removePromptImageIfUnreferenced(storage, preset.imagePath);
     return updated;
@@ -247,13 +248,13 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const result = await storage.duplicate(req.params.id);
-    if (!result) return reply.status(404).send({ error: "Preset not found" });
+    if (!result) return notFound(reply, "Preset not found");
     return result;
   });
 
   app.post<{ Params: { id: string } }>("/:id/set-default", async (req, reply) => {
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Preset not found" });
+    if (!existing) return notFound(reply, "Preset not found");
     const updated = await storage.setDefault(req.params.id);
     return updated;
   });
@@ -262,7 +263,7 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
     const result = await buildPresetExportEnvelope(storage, req.params.id);
-    if (!result) return reply.status(404).send({ error: "Preset not found" });
+    if (!result) return notFound(reply, "Preset not found");
     const originalFilename = `${result.preset.name || "preset"}.marinara.json`;
     const fallbackFilename = `${safeAsciiDownloadName(result.preset.name || "preset")}.marinara.json`;
     return reply
@@ -298,7 +299,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     }
 
     if (exportedCount === 0) {
-      return reply.status(404).send({ error: "No presets found for the provided ids" });
+      return notFound(reply, "No presets found for the provided ids");
     }
 
     return reply
@@ -327,7 +328,7 @@ export async function promptsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { presetId: string; groupId: string } }>("/:presetId/groups/:groupId", async (req, reply) => {
     const group = await storage.getGroup(req.params.groupId);
     if (!group || group.presetId !== req.params.presetId) {
-      return reply.status(404).send({ error: "Prompt group not found" });
+      return notFound(reply, "Prompt group not found");
     }
     if (await rejectStockPresetMutation(storage, group.presetId, reply)) return;
     const input = updatePromptGroupSchema.parse(req.body);
@@ -337,7 +338,7 @@ export async function promptsRoutes(app: FastifyInstance) {
   app.delete<{ Params: { presetId: string; groupId: string } }>("/:presetId/groups/:groupId", async (req, reply) => {
     const group = await storage.getGroup(req.params.groupId);
     if (!group || group.presetId !== req.params.presetId) {
-      return reply.status(404).send({ error: "Prompt group not found" });
+      return notFound(reply, "Prompt group not found");
     }
     if (await rejectStockPresetMutation(storage, group.presetId, reply)) return;
     await storage.removeGroup(group.id);
@@ -377,7 +378,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const section = await storage.getSection(req.params.sectionId);
       if (!section || section.presetId !== req.params.presetId) {
-        return reply.status(404).send({ error: "Prompt section not found" });
+        return notFound(reply, "Prompt section not found");
       }
       if (await rejectStockPresetMutation(storage, section.presetId, reply)) return;
       const input = updatePromptSectionSchema.parse(req.body);
@@ -390,7 +391,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const section = await storage.getSection(req.params.sectionId);
       if (!section || section.presetId !== req.params.presetId) {
-        return reply.status(404).send({ error: "Prompt section not found" });
+        return notFound(reply, "Prompt section not found");
       }
       if (await rejectStockPresetMutation(storage, section.presetId, reply)) return;
       await storage.removeSection(section.id);
@@ -431,7 +432,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const variable = await storage.getChoiceBlock(req.params.variableId);
       if (!variable || variable.presetId !== req.params.presetId) {
-        return reply.status(404).send({ error: "Preset variable not found" });
+        return notFound(reply, "Preset variable not found");
       }
       if (await rejectStockPresetMutation(storage, variable.presetId, reply)) return;
       const input = updateChoiceBlockSchema.parse(req.body);
@@ -444,7 +445,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const variable = await storage.getChoiceBlock(req.params.variableId);
       if (!variable || variable.presetId !== req.params.presetId) {
-        return reply.status(404).send({ error: "Preset variable not found" });
+        return notFound(reply, "Preset variable not found");
       }
       if (await rejectStockPresetMutation(storage, variable.presetId, reply)) return;
       await storage.removeChoiceBlock(variable.id);
@@ -470,11 +471,11 @@ export async function promptsRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/preview", async (req, reply) => {
     const { chatId, choices } = req.body as { chatId: string; choices?: Record<string, string> };
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Preset not found" });
+    if (!preset) return notFound(reply, "Preset not found");
 
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const characterIds: string[] = JSON.parse(chat.characterIds as string);
     let lorebookCharacterIds = characterIds;

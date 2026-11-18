@@ -16,6 +16,7 @@
 
 import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
+import { isRecord } from "../../utils/large-json.js";
 
 /** The usage endpoint host for management tokens (no `api.` prefix). */
 const NANOGPT_MANAGEMENT_USAGE_URL = "https://nano-gpt.com/api/management/v1/subscription/usage";
@@ -61,10 +62,6 @@ export interface NanoGptSubscriptionUsage {
    * rather than from its own name for NanoGPT.
    */
   provider: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 export interface NanoGptModelSubscriptionMetadata {

@@ -57,6 +57,7 @@ import {
   getCapabilityPackageInstallIssue,
 } from "../services/capability-packages/package-manager.service.js";
 import { readRulesetPackageFile } from "../services/game/ruleset-package-file.js";
+import { notFound } from "../utils/not-found.js";
 
 /** The file text, verbatim. The byte ceiling is checked below, against bytes rather than
  *  characters, so a file of multi-byte text is measured the way the store measures it. */
@@ -484,7 +485,7 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
     try {
       text = await readFile(join(getMonorepoRoot(), "docs", "extending", "ruleset.schema.json"), "utf8");
     } catch {
-      return reply.status(404).send({ error: "This install has no ruleset schema" });
+      return notFound(reply, "This install has no ruleset schema");
     }
     return reply.type("application/json; charset=utf-8").send(text);
   });
@@ -496,7 +497,7 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
     if (isCommunityRulesetId(rulesetId)) {
       const store = createGameRulesetsStorage(app.db);
       const row = await store.get(rulesetId, version);
-      if (!row) return reply.status(404).send({ error: "No such ruleset version is installed" });
+      if (!row) return notFound(reply, "No such ruleset version is installed");
       const catalogs: Record<string, string> = {};
       for (const id of Object.keys(row.catalogs ? (JSON.parse(row.catalogs) as Record<string, string>) : {})) {
         const stored = await store.catalogText(rulesetId, version, id);
@@ -531,7 +532,7 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
       }
       return { rulesetId, version, packageId: source.packageId, ruleset: text, catalogs };
     }
-    return reply.status(404).send({ error: "No such ruleset version is installed" });
+    return notFound(reply, "No such ruleset version is installed");
   });
 
   // Every stored version at once: a ruleset is one thing to the user, and leaving older versions
@@ -563,8 +564,7 @@ export async function gameRulesetsRoutes(app: FastifyInstance) {
 
     const store = createGameRulesetsStorage(app.db);
     if (version !== undefined) {
-      if (!(await store.get(rulesetId, version)))
-        return reply.status(404).send({ error: "No such ruleset version is installed" });
+      if (!(await store.get(rulesetId, version))) return notFound(reply, "No such ruleset version is installed");
       await store.remove(rulesetId, version);
       logger.info("[game/rulesets] Removed version %d of %s, pinned by %d game(s)", version, rulesetId, games);
       return { removed: 1, games };

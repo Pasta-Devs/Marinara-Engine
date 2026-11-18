@@ -11,6 +11,7 @@ import {
   resolveScopedRegexMode,
   type RegexPlacement,
   type ScopedRegexMode,
+  type RegexApplyMode,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
 import { useChatStore } from "../stores/chat.store";
@@ -18,8 +19,6 @@ import { usePresets } from "./use-presets";
 
 /** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
 export type { ScopedRegexMode } from "@marinara-engine/shared";
-type RegexApplyMode = "prompt" | "display" | "both";
-
 function getApplyMode(row: RegexScriptRow): RegexApplyMode {
   return row.applyMode === "prompt" || row.applyMode === "display" || row.applyMode === "both"
     ? row.applyMode

@@ -102,6 +102,7 @@ import {
   parseAutomaticBackupRetentionCount,
   pruneAutomaticBackupFiles,
 } from "../services/backup/automatic-backup-retention.js";
+import { notFound } from "../utils/not-found.js";
 
 /** Directories inside DATA_DIR that should be included in every backup. */
 const BACKUP_DIRS = [
@@ -4142,7 +4143,7 @@ export async function backupRoutes(app: FastifyInstance) {
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
       const job = backupDownloadJobs.get(req.params.jobId);
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       return reply.send({
         status: job.status,
         filename: `${job.backupName}.zip`,
@@ -4168,7 +4169,7 @@ export async function backupRoutes(app: FastifyInstance) {
         ? isPreparedBackupDownloadTokenValid(job.downloadToken, req.query.token)
         : false;
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download", oneTimeCapabilityAuthorized })) return;
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
       if (job.status !== "ready" || job.size === undefined) {
         return reply.status(409).send({ error: "Backup is still being prepared" });
@@ -4214,7 +4215,7 @@ export async function backupRoutes(app: FastifyInstance) {
     const backupDir = join(backupsRoot, name);
 
     if (!existsSync(backupDir)) {
-      return reply.status(404).send({ error: "Backup not found" });
+      return notFound(reply, "Backup not found");
     }
 
     // Remove recursively

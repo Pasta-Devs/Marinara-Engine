@@ -167,7 +167,7 @@ assert.match(
 
 const routes = readSource("packages/server/src/routes/professor-mari-workspace.routes.ts");
 assert.match(
-  routes,
+  readSource("packages/shared/src/schemas/professor-mari-workspace.schema.ts"),
   /z\.enum\(MARI_PERMISSIONS_MODES\)\.nullable\(\)/u,
   "the PUT must validate against the shared enum (nullable clears a chat override)",
 );

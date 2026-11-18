@@ -35,6 +35,7 @@ import { cardPromptText } from "../prompt/card-text.js";
 import { buildPartyNpcId, isPartyNpcId } from "./game-party-utils.js";
 import { loadRulesetCatalogEntries } from "../game/ruleset-catalog.service.js";
 import { logger } from "../../lib/logger.js";
+import { parseJsonOrNull } from "../../utils/large-json.js";
 
 /** The bestiaries read for a turn's hint, by ruleset and package, the latest few kept. */
 const turnBestiaries = new Map<string, Promise<RulesetCatalogEntriesById>>();
@@ -118,15 +119,6 @@ function parseExtra(extra: unknown): Record<string, unknown> {
     return typeof extra === "string" ? JSON.parse(extra) : (extra as Record<string, unknown>);
   } catch {
     return {};
-  }
-}
-
-function parseMaybeJson(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
   }
 }
 
@@ -284,7 +276,7 @@ export async function injectGameGmPromptRuntime(args: {
     try {
       const gmChar = await args.chars.getById(gmCharId, args.chatId);
       if (gmChar) {
-        const gmData = parseMaybeJson(gmChar.data) as any;
+        const gmData = parseJsonOrNull(gmChar.data) as any;
         const { parts } = buildLibraryCardParts(gmData);
         gmCharacterCard = parts.join("\n");
       }
@@ -312,7 +304,7 @@ export async function injectGameGmPromptRuntime(args: {
     try {
       const pc = await args.chars.getById(pcId, args.chatId);
       if (pc) {
-        const pcData = parseMaybeJson(pc.data) as any;
+        const pcData = parseJsonOrNull(pc.data) as any;
         const { name, parts } = buildLibraryCardParts(pcData);
         partyNames.push(name);
         partyIdNamePairs.push({ id: pcId, name });
@@ -441,14 +433,14 @@ export async function injectGameGmPromptRuntime(args: {
   let perceptionHintsBlock: string | undefined;
   try {
     const latestSnapshot = await args.selectedGameStateSnapshotPromise;
-    const parsedPlayerStats = latestSnapshot?.playerStats ? parseMaybeJson(latestSnapshot.playerStats) : null;
+    const parsedPlayerStats = latestSnapshot?.playerStats ? parseJsonOrNull(latestSnapshot.playerStats) : null;
     const playerStats =
       parsedPlayerStats && typeof parsedPlayerStats === "object" && !Array.isArray(parsedPlayerStats)
         ? (parsedPlayerStats as Record<string, any>)
         : null;
     if (playerStats) {
       const parsedPresentCharacters = latestSnapshot?.presentCharacters
-        ? parseMaybeJson(latestSnapshot.presentCharacters)
+        ? parseJsonOrNull(latestSnapshot.presentCharacters)
         : null;
       const presentNpcs = Array.isArray(parsedPresentCharacters)
         ? parsedPresentCharacters

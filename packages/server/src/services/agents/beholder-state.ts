@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger.js";
+import { parseJsonOrNull, isRecord } from "../../utils/large-json.js";
 
 export const BEHOLDER_BODY_SLOTS = [
   "head",
@@ -89,19 +90,6 @@ type BeholderAgentsStore = {
     options?: { excludeMessageId?: string | null },
   ): Promise<{ resultData?: unknown } | null>;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function parseMaybeJson(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
 
 function cleanText(value: unknown, maxLength = 320): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -296,7 +284,7 @@ export function parseBeholderLanePrompts(template: unknown): Record<BeholderPass
  * all-lanes-failed guard.
  */
 export function isBeholderLaneResponse(value: unknown): boolean {
-  const parsed = parseMaybeJson(value);
+  const parsed = parseJsonOrNull(value);
   if (!isRecord(parsed)) return false;
   if (parsed.changed === false) return true;
   return parsed.changed === true && isRecord(parsed.delta);
@@ -326,7 +314,7 @@ export function mergeBeholderLaneDeltas(responses: readonly unknown[]): {
   let changed = false;
 
   for (const response of responses) {
-    const parsed = parseMaybeJson(response);
+    const parsed = parseJsonOrNull(response);
     if (!isRecord(parsed) || parsed.changed !== true || !isRecord(parsed.delta)) continue;
 
     for (const [charName, rawCharacter] of Object.entries(parsed.delta)) {
@@ -465,7 +453,7 @@ function mergeSlotDelta(
 
 /** Normalize untrusted Agent output before it is displayed or reused as prompt context. */
 export function normalizeBeholderState(value: unknown): BeholderState | null {
-  const parsed = parseMaybeJson(value);
+  const parsed = parseJsonOrNull(value);
   if (!isRecord(parsed) || !Array.isArray(parsed.characters)) return null;
 
   const characters: BeholderCharacterState[] = [];
@@ -707,7 +695,7 @@ export function resolveBeholderStateResponse(
   personaName: string | null | undefined,
 ): BeholderStateResolution {
   const prior = normalizedPriorState(priorValue);
-  const parsed = parseMaybeJson(value);
+  const parsed = parseJsonOrNull(value);
   if (!isRecord(parsed)) {
     return { state: prior, valid: false, error: "Beholder returned an invalid state object." };
   }

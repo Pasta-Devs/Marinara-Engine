@@ -1,7 +1,6 @@
 import { createGameStateStorage, parseStoredRulesetLive } from "../services/storage/game-state.storage.js";
 import {
   normalizeGameDifficulty,
-  COMBAT_START_PLACES,
   COMBAT_ADJECTIVES,
   DECISION_TIMEOUT_MS,
   combatWeatherSchema,
@@ -21,6 +20,17 @@ import {
   gameWorldBattlefields,
   worldSceneLike,
   type CombatItemEffect,
+  combatDirectorDirectedCombatantSchema,
+  combatDirectorStartSchema,
+  combatDirectorMarinaraProgressionSchema,
+  combatDirectorStateSchema,
+  combatDirectorCommandBodySchema,
+  combatDirectorClassicActionSchema,
+  combatDirectorKeySchema,
+  combatDirectorNumSchema,
+  combatDirectorTacticalActionSchema,
+  RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
 } from "@marinara-engine/shared";
 import {
   applyGameInventoryChangeHeld,
@@ -40,13 +50,10 @@ import {
   assignCombatTactics,
   TERRAIN_DATA,
   tacticalOutsideValid,
-  combatBossSchema,
-  combatInterruptFields,
   combatOrdersSchema,
   type CombatOrders,
   normalizeCharacterLookupName,
   marinaraLearnedSkills,
-  MARINARA_DAMAGE_TYPES,
   marinaraLearnAffinities,
   marinaraOwnedAmmo,
   marinaraRecallAffinities,
@@ -68,13 +75,9 @@ import {
   createMarinaraCardProgression,
   gameCardTemperament,
   partyTemperamentFallback,
-  MARINARA_ARCHETYPES,
-  type MarinaraArchetype,
   type MarinaraCardClassic,
   type MarinaraCardProgression,
   type MarinaraPartyTemperament,
-  combatTacticsSchema,
-  combatAiHintsSchema,
   rulesetBestiarySheetCatalogIds,
   rulesetCardHolder,
   rulesetCardItems,
@@ -130,8 +133,6 @@ import {
   rulesetReturningFoeMarked,
   rulesetReturningFoeReworded,
   syncRulesetCombatants,
-  RULESET_COMBAT_EVENT_LIMIT,
-  RULESET_COMBAT_REASON_LIMIT,
   type RulesetFightState,
   type RulesetReturningFoe,
 } from "../services/game/ruleset-combat-director.service.js";
@@ -193,258 +194,7 @@ function rememberedControllers(meta: Record<string, unknown>): Record<string, "m
 // Host-owned Experience namespace: existing branch/checkpoint/export paths preserve these rows,
 // while turn-game readers and resets already exclude the entire experience: prefix.
 export const COMBAT_DIRECTOR_NAMESPACE = "experience:marinara-engine.combat";
-/** The most rounds anything in a fight counts down from. */
-const COMBAT_DIRECTOR_MOST_ROUNDS = 100;
-/** The most power an item's effect is read at. */
-const COMBAT_DIRECTOR_MOST_POWER = 100;
-const key = z
-  .string()
-  .min(1)
-  .max(256)
-  .refine((v) => !["__proto__", "constructor", "prototype"].includes(v));
-const num = z.number().finite().min(0).max(1000000);
-/** A count of rounds carried in from the story: a potion that lasts an hour is 600 of them. More than
- *  a fight's most is the rest of the fight, never a reason to refuse the fight. */
-const rounds = z
-  .number()
-  .int()
-  .min(0)
-  .transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_ROUNDS));
-const slots = z.record(z.string().regex(/^[1-9]$/), z.number().int().min(0).max(100));
-const skill = z.object({
-  id: key,
-  name: z.string().min(1).max(200),
-  // A word the Engine has none of is an attack, never a refused fight (laptop playtest 2026-10-25).
-  type: z.enum(["attack", "heal", "buff", "debuff"]).catch("attack"),
-  mpCost: num,
-  power: num.max(20),
-  cooldown: rounds.optional(),
-  description: z.string().max(3000).optional(),
-  element: z.string().max(100).optional(),
-  statusEffect: z.string().max(200).optional(),
-  ...combatInterruptFields,
-});
-const directedCombatantFields = z.object({
-  id: key,
-  name: z.string().min(1).max(200),
-  side: z.enum(["player", "enemy"]),
-  /** Caught unaware as the fight begins: a ruleset fight reads it (1.237), and elsewhere an opponent caught so checks its morale first (combat AI E1). */
-  surprised: z.boolean().optional(),
-  /** Fights in its own lair (1.315): read by a ruleset fight only. */
-  inLair: z.boolean().optional(),
-  /** Where the Game Master starts it on the board (2026-10-24): read by a ruleset fight only. */
-  start: z.enum(COMBAT_START_PLACES).optional().catch(undefined),
-  /** What it set up before the fight, standing as it begins (1.462): read by a ruleset fight only. */
-  standing: z
-    .array(
-      z
-        .object({
-          entry: z.string().min(1).max(200),
-          at: z.enum(["self", "between"]).optional().catch(undefined),
-          stores: z.string().min(1).max(200).optional(),
-          on: z.array(z.string().min(1).max(200)).max(12).optional(),
-          kind: z.string().min(1).max(80).optional(),
-          mode: z.string().min(1).max(200).optional(),
-          into: z.string().min(1).max(200).optional(),
-          spares: z.array(z.string().min(1).max(80)).max(8).optional(),
-          tag: z.string().min(1).max(80).optional(),
-          kinds: z.array(z.string().min(1).max(80)).max(16).optional(),
-        })
-        .strict(),
-    )
-    .max(6)
-    .optional(),
-  hp: num,
-  maxHp: num.min(1),
-  mp: num.optional(),
-  maxMp: num.optional(),
-  attack: num,
-  defense: num,
-  speed: num,
-  level: num.min(1),
-  boss: combatBossSchema.optional(),
-  spellSlots: slots.optional(),
-  skills: z.array(skill).max(64).optional(),
-  tactics: combatTacticsSchema.optional(),
-  aiHints: combatAiHintsSchema.optional(),
-  controller: z.enum(["manual", "ai"]).optional().catch(undefined),
-  orders: combatOrdersSchema.optional(),
-  skillCooldowns: z.record(z.string(), rounds).optional(),
-  statusEffects: z
-    .array(
-      z.object({
-        name: z.string().max(200),
-        modifier: z.number().finite().min(-100000).max(100000),
-        stat: z.enum(["hp", "attack", "defense", "speed"]).catch("attack"),
-        turnsLeft: rounds,
-      }),
-    )
-    .max(64)
-    .optional(),
-  projectile: z.boolean().optional(),
-  requiresSight: z.boolean().optional(),
-  combatClass: z.string().max(100).optional(),
-  movementMode: z.enum(["walk", "fly", "teleport"]).optional().catch(undefined),
-  // Classic Marinara (combat overhaul): what the fight's setup said of a foe (a bestiary family, a
-  // tier), or on a saved unit what its screen shows. Read only by a game with Classic Marinara classes.
-  marinara: z
-    .object({
-      family: z
-        .object({
-          familyId: z.string().min(1).max(80),
-          tier: z.enum(["minion", "standard", "elite", "boss"]).optional().catch(undefined),
-          level: z.number().int().min(1).max(30).optional().catch(undefined),
-        })
-        .optional()
-        .catch(undefined),
-      tier: z.enum(["minion", "standard", "elite", "boss"]).optional().catch(undefined),
-    })
-    .passthrough()
-    .optional()
-    .catch(undefined),
-  element: z.string().max(100).optional(),
-  sprite: z.string().max(3000).optional(),
-});
-const resourcePools = (v: { hp: number; maxHp: number; mp?: number; maxMp?: number }) =>
-  v.hp <= v.maxHp && (v.mp ?? 0) <= (v.maxMp ?? v.mp ?? 0);
-export const directedCombatantSchema = directedCombatantFields.refine(resourcePools, "Invalid resource pool.");
-/** An opponent of a ruleset fight. The Engine's own numbers still ride along, because the recap,
- *  the journal and the client's own end-of-battle path read them; what the fight is RESOLVED by is
- *  the creature, the tier or the proposal beside them, and the server decides which. */
-const rulesetOpponentSchema = directedCombatantFields
-  .extend({
-    creature: z.string().min(1).max(200).optional(),
-    /** What an invented one is, by the ruleset's creature type id. */
-    creatureType: z.string().min(1).max(80).optional(),
-    tier: key.optional(),
-    /** A stat block in the shared creature form. Checked when the fight is built, so a malformed
-     *  one costs its opponent its proposal rather than costing the whole battle. */
-    proposed: z.unknown().optional(),
-    /** What the Game Master gave it to have on it (1.795): the ruleset's items, one a line, by name
-     *  or reference; read when the fight is built, and one it has no such item of is told. */
-    carrying: z.array(z.string().min(1).max(200)).max(16).optional(),
-  })
-  .refine(resourcePools, "Invalid resource pool.");
-const coord = z.object({ x: z.number().int().min(0).max(63), y: z.number().int().min(0).max(63) });
-const itemEffect = z.object({
-  name: key,
-  target: z.enum(["self", "ally", "enemy", "any"]).catch("any"),
-  type: z.enum(["heal", "damage", "buff", "debuff", "status", "utility"]).catch("utility"),
-  description: z.string().max(3000),
-  // An item's power past the most a fight reads is that most, as a long duration is.
-  power: num.transform((value) => Math.min(value, COMBAT_DIRECTOR_MOST_POWER)).optional(),
-  element: z.string().max(100).optional(),
-  consumes: z.boolean().optional(),
-  status: z
-    .object({
-      name: key,
-      emoji: z.string().max(30),
-      // A status carried in from the story may have run down to 0 turns; it is applied for the
-      // default length, as a missing one is.
-      duration: rounds,
-      modifier: z.number().finite().min(-100000).max(100000).optional(),
-      stat: z.enum(["hp", "attack", "defense", "speed"]).optional().catch(undefined),
-    })
-    .optional(),
-});
-const classicAction = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("item"), itemId: key, targetId: key.optional() }),
-  z.object({ type: z.literal("attack"), targetId: key }),
-  z.object({ type: z.literal("skill"), skillId: key, targetId: key }),
-  z.object({ type: z.literal("defend") }),
-  z.object({ type: z.literal("flee") }),
-]);
-const tacticalAction = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("attack"), unitId: key, targetId: key, to: coord.optional() }),
-  z.object({
-    type: z.literal("skill"),
-    unitId: key,
-    skillName: z.string().max(200),
-    targetId: key,
-    to: coord.optional(),
-  }),
-  z.object({ type: z.literal("item"), unitId: key, itemName: key, targetId: key, to: coord.optional() }),
-  z.object({ type: z.literal("move"), unitId: key, to: coord }),
-  z.object({ type: z.literal("defend"), unitId: key, to: coord.optional() }),
-  z.object({ type: z.literal("wait"), unitId: key, to: coord.optional() }),
-  z.object({ type: z.literal("endTurn") }),
-  z.object({ type: z.literal("flee") }),
-]);
-const command = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("begin"), unitId: key }),
-  z.object({ type: z.literal("classic"), action: classicAction }),
-  z.object({ type: z.literal("tactical"), action: tacticalAction }),
-  z.object({
-    type: z.literal("ruleset"),
-    optionId: key,
-    targetIds: z.array(key).max(20),
-    payWith: key.optional(),
-    style: key.optional(),
-    /** The weapon's mode, checked against the menu by the resolver. */
-    mode: key.optional(),
-    /** Where the `move` option walks to, and the cell a shape is aimed at. Both are checked against
-     *  the menu by the resolver; this only bounds them to a board's own size. */
-    to: coord.optional(),
-    at: coord.optional(),
-    /** How a wall is laid (1.177) and where further copies go (1.178), checked by the resolver. */
-    toward: coord.optional(),
-    side: z.enum(["near", "far"]).optional(),
-    ring: z.boolean().optional(),
-    also: z.array(coord).max(9).optional(),
-    /** A wall's section struck at instead of a creature (1.200), checked by the resolver. */
-    wall: coord.optional(),
-    /** A lasting area ended instead of a creature (1.427), checked by the resolver. */
-    dispel: z.object({ casterId: key, actionId: key }).strict().optional(),
-    /** A condition struck at to cut it away (1.531), checked against the menu by the resolver. */
-    cut: z.object({ holderId: key, condition: key }).strict().optional(),
-    /** Which of its target's conditions it ends (1.427), checked by the resolver. */
-    ends: z.array(key).max(16).optional(),
-    /** Who goes along on a teleport (1.276), checked against the menu by the resolver. */
-    carries: z.array(key).max(8).optional(),
-    /** Whom a layered wall spares (1.492), checked against the menu by the resolver. */
-    designates: z.array(key).max(20).optional(),
-    /** The kinds its zone strikes (1.753), checked against the menu by the resolver. */
-    kinds: z.array(key).max(40).optional(),
-    /** Stored instead of done (1.524), in a place the menu offers, checked by the resolver. */
-    storesIn: z
-      .object({ holderId: key, item: z.number().int().min(0).max(500).optional() })
-      .strict()
-      .optional(),
-    /** How many uses it spends (1.251), checked against the menu by the resolver. */
-    amount: z.number().int().min(1).max(1000).optional(),
-    /** How many levels up a target moved to `to` is lifted (1.565), checked by the resolver. */
-    rises: z.number().int().min(0).max(100).optional(),
-    /** The alterations it is used with (1.253), checked against the action by the resolver. */
-    alters: z.array(z.string().min(1).max(200)).max(8).optional(),
-    /** Who of its user's side it spares (1.254), checked against the alterations by the resolver. */
-    spares: z.array(z.string().min(1).max(200)).max(20).optional(),
-    /** Who it heightens (1.255), checked against the alterations by the resolver. */
-    heightens: z.string().min(1).max(200).optional(),
-  }),
-  z.object({ type: z.literal("choose"), candidateId: key }),
-  z.object({ type: z.literal("deploy"), unitId: key, to: coord }),
-  z.object({ type: z.literal("deployed") }),
-  z.object({ type: z.literal("continue") }),
-  z.object({ type: z.literal("fallback") }),
-  z.object({ type: z.literal("flee") }),
-  z.object({ type: z.literal("mercy"), choice: z.enum(["spare", "finish"]) }),
-  z.object({ type: z.literal("loadAmmo"), unitId: key, ammo: z.enum(MARINARA_DAMAGE_TYPES) }),
-  z.object({ type: z.literal("channelElement"), unitId: key, element: z.enum(MARINARA_DAMAGE_TYPES) }),
-  z.object({ type: z.literal("yield") }),
-  z.object({ type: z.literal("control"), unitId: key, controller: z.enum(["manual", "ai"]) }),
-  z.object({ type: z.literal("controlCompanions"), controller: z.enum(["manual", "ai"]) }),
-  /** A carried weapon or shield taken in hand, and the stack a weapon shoots first (2026-10-26), by
-   *  places in the party member's items: checked against what they carry by the resolver. */
-  z.object({ type: z.literal("draw"), unitId: key, item: z.number().int().min(0).max(10000) }),
-  z.object({
-    type: z.literal("ammo"),
-    unitId: key,
-    weapon: z.number().int().min(0).max(10000),
-    stack: z.number().int().min(0).max(10000),
-  }),
-  z.object({ type: z.literal("orders"), unitId: key, orders: combatOrdersSchema.nullable() }),
-  z.object({ type: z.literal("spends"), choose: z.boolean() }),
-]);
+
 const queues = new Map<string, Promise<unknown>>();
 async function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const previous = queues.get(key) ?? Promise.resolve();
@@ -634,59 +384,63 @@ export async function combatDirectorRoutes(
       throw new Error("Unsupported combat save.");
     // Saved blobs can arrive through imports as well as this route. Bound structural data before resuming.
     z.object({
-      id: key,
+      id: combatDirectorKeySchema,
       revision: z.number().int().min(0),
       style: z.enum(["classic", "tactical", "ruleset"]),
       weather: combatWeatherSchema.optional(),
       // The setting's elements (worldgen W6c), checked like the rest a save may bring back.
       elements: worldElementSetSchema.optional(),
       round: z.number().int().min(1),
-      party: z.array(directedCombatantSchema).min(1).max(20),
+      party: z.array(combatDirectorDirectedCombatantSchema).min(1).max(20),
       // A won fight can end with every foe gone (surrendered or fled): nobody left is fine once it's over.
       enemies: z
-        .array(directedCombatantSchema)
+        .array(combatDirectorDirectedCombatantSchema)
         .min(state.outcome ? 0 : 1)
         .max(20),
       budgets: z.record(
-        key,
+        combatDirectorKeySchema,
         z.object({ legendary: z.number().int().min(0).max(6), reaction: z.number().int().min(0).max(1) }),
       ),
-      pending: z.record(key, z.unknown()).refine((v) => Object.keys(v).length <= 41),
+      pending: z.record(combatDirectorKeySchema, z.unknown()).refine((v) => Object.keys(v).length <= 41),
       choices: z
         .array(
           z
             .object({
-              id: key,
-              actorId: key,
+              id: combatDirectorKeySchema,
+              actorId: combatDirectorKeySchema,
               kind: z.enum(["attack", "skill", "move", "defend", "wait", "pass"]),
-              mpCost: num,
+              mpCost: combatDirectorNumSchema,
               legendaryCost: z.number().int().min(0).max(6),
               action: z
-                .object({ unitId: key, classic: classicAction.optional(), tactical: tacticalAction.optional() })
+                .object({
+                  unitId: combatDirectorKeySchema,
+                  classic: combatDirectorClassicActionSchema.optional(),
+                  tactical: combatDirectorTacticalActionSchema.optional(),
+                })
                 .optional(),
               // What a ruleset fight's candidate carries. Bounded like the rest, because a save can
               // arrive through an import as well as through this route.
-              optionId: key.optional(),
-              targetIds: z.array(key).max(40).optional(),
+              optionId: combatDirectorKeySchema.optional(),
+              targetIds: z.array(combatDirectorKeySchema).max(40).optional(),
               label: z.string().max(1000).optional(),
             })
             .passthrough(),
         )
         .max(256),
       tasks: z.array(z.unknown()).max(4000),
-      requests: z.array(key).max(256),
+      requests: z.array(combatDirectorKeySchema).max(256),
       // Totals per item, which a player's stacks together may take well past one stack's bound.
       inventory: z
         .array(
           z.object({
-            name: key,
+            name: combatDirectorKeySchema,
             quantity: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-            ownName: key.optional(),
+            ownName: combatDirectorKeySchema.optional(),
           }),
         )
         .max(200),
-      itemSpends: z.record(key, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)),
-      itemDraws: z.record(key, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)).optional(),
+      itemSpends: z.record(combatDirectorKeySchema, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)),
+      itemDraws: z.record(combatDirectorKeySchema, z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)).optional(),
       gmCalls: z.number().int().min(0).max(12),
       // The ruleset fight itself. Its numbers are the ruleset's own and are checked by the resolver
       // that reads them; what is bounded here is the SHAPE and the size, the way the rest is.
@@ -695,13 +449,15 @@ export async function combatDirectorRoutes(
           encounter: z
             .object({
               v: z.literal(1),
-              ruleset: z.object({ id: key, version: z.number().int().min(1) }),
+              ruleset: z.object({ id: combatDirectorKeySchema, version: z.number().int().min(1) }),
               seed: z.number().int().min(0).max(0xffffffff),
               cursor: z.number().int().min(0).max(1000000),
               round: z.number().int().min(1).max(10000),
               turn: z.number().int().min(0).max(40),
-              order: z.array(key).max(40),
-              combatants: z.array(z.object({ id: key, name: z.string().min(1).max(200) }).passthrough()).max(40),
+              order: z.array(combatDirectorKeySchema).max(40),
+              combatants: z
+                .array(z.object({ id: combatDirectorKeySchema, name: z.string().min(1).max(200) }).passthrough())
+                .max(40),
               opening: z.array(z.unknown()).max(RULESET_COMBAT_EVENT_LIMIT),
               // The board, bounded exactly as the tactical style's own is: the same size cap, the
               // same terrain table, and every position inside the grid (checked below, where the
@@ -723,9 +479,9 @@ export async function combatDirectorRoutes(
             .array(z.object({ seq: z.number().int().min(0), event: z.unknown().optional() }))
             // The fight's own and the AI's reasons beside them, each kept to its own window.
             .max(RULESET_COMBAT_EVENT_LIMIT + RULESET_COMBAT_REASON_LIMIT),
-          controllers: z.record(key, z.enum(["manual", "ai"])),
-          bosses: z.array(key).max(40),
-          thinkers: z.array(key).max(40).optional(),
+          controllers: z.record(combatDirectorKeySchema, z.enum(["manual", "ai"])),
+          bosses: z.array(combatDirectorKeySchema).max(40),
+          thinkers: z.array(combatDirectorKeySchema).max(40).optional(),
           adjustments: z.array(z.string().max(1000)).max(200),
         })
         .optional(),
@@ -814,7 +570,7 @@ export async function combatDirectorRoutes(
       if (!Array.isArray(state.tactical.units) || state.tactical.units.length > 40)
         throw new Error("Invalid saved units.");
       for (const u of state.tactical.units) {
-        directedCombatantSchema.parse({ ...u, side: u.side === "party" ? "player" : u.side });
+        combatDirectorDirectedCombatantSchema.parse({ ...u, side: u.side === "party" ? "player" : u.side });
         if (
           !Number.isInteger(u.x) ||
           !Number.isInteger(u.y) ||
@@ -1210,61 +966,7 @@ export async function combatDirectorRoutes(
     };
   };
   app.post("/start", async (req, reply) => {
-    const parsed = z
-      .object({
-        chatId: key,
-        anchor: key,
-        style: z.enum(["classic", "tactical", "ruleset"]),
-        party: z.array(directedCombatantSchema).min(1, "This fight has nobody on the party's side.").max(20),
-        enemies: z.array(rulesetOpponentSchema).min(1, "This fight has nobody to fight.").max(20),
-        environment: z.string().max(80).optional(),
-        formation: z.string().max(80).optional(),
-        battlefield: z.unknown().optional(),
-        /** The board pack a ruleset fight is drawn with (1.333), by library id. */
-        boardPack: z.string().max(80).optional(),
-        /** Whether a ruleset fight is fought on a board, which is what the game's Tactical combat
-         *  preference asks for. The ruleset still has to say what a cell is worth. */
-        positioned: z.boolean().optional(),
-        mechanics: z
-          .array(
-            z.object({
-              name: key,
-              description: z.string().max(3000),
-              ownerName: z.string().max(200).optional(),
-              // A trigger the Engine has none of ("charge") goes off as an attack does, never refusing the
-              // fight (laptop playtest 2026-10-25).
-              trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]).catch("on_attack"),
-              // 0 for a mechanic no interval drives (an hp_threshold one's `interval: 0` refused the
-              // whole fight), which every reader takes as none.
-              interval: rounds.optional(),
-              hpThreshold: z.number().min(0).max(100).optional(),
-              counterplay: z.string().max(3000).optional(),
-              effectType: z
-                .enum(["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"])
-                .optional()
-                .catch(undefined),
-              power: num.max(20).optional(),
-              element: z.string().max(100).optional(),
-              status: itemEffect.shape.status,
-            }),
-          )
-          .max(32)
-          .default([]),
-        itemEffects: z.array(itemEffect).max(200).default([]),
-        /** A Classic Marinara fight's own difficulty for bestiary foes (easy to deadly). */
-        encounterDifficulty: z.enum(["easy", "normal", "hard", "deadly"]).optional(),
-        inventory: z
-          .array(
-            z.object({
-              name: z.string().max(200),
-              quantity: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-              description: z.string().max(2000).optional(),
-            }),
-          )
-          .max(200)
-          .default([]),
-      })
-      .safeParse(req.body);
+    const parsed = combatDirectorStartSchema.safeParse(req.body);
     if (!parsed.success) {
       // Where it went wrong, so a refused fight can be traced to the one value ("Number must be
       // greater than or equal to 1" alone names nothing).
@@ -1856,30 +1558,7 @@ export async function combatDirectorRoutes(
    * overhaul). A fight already going keeps the fighter it started with; the change shows from the next.
    */
   app.post("/marinara/progression", async (req, reply) => {
-    const parsed = z
-      .object({
-        chatId: key,
-        name: z.string().min(1).max(200),
-        classId: z.string().max(80).optional(),
-        /** Their primary tree: picked before their first fight, or changed while they have not grown yet. */
-        primary: z.enum(MARINARA_ARCHETYPES as unknown as [MarinaraArchetype, ...MarinaraArchetype[]]).optional(),
-        /** Their Classic row; null goes back to their class's own row. */
-        row: z.enum(["front", "back"]).nullable().optional(),
-        carried: z.array(z.string().max(80)).max(8).optional(),
-        /** Tracker companions (Alyssa 23:31): the one made active, or the one let go; outside fights only. */
-        activeCompanion: z.string().min(1).max(200).optional(),
-        releaseCompanion: z.string().min(1).max(200).optional(),
-        /** What they wear (marinara-items.ts ids), from what the party's bags hold. */
-        equipment: z
-          .object({
-            weapon: z.string().max(80).optional(),
-            armor: z.string().max(80).optional(),
-            accessories: z.array(z.string().max(80)).max(4).optional(),
-          })
-          .strict()
-          .optional(),
-      })
-      .safeParse(req.body);
+    const parsed = combatDirectorMarinaraProgressionSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
     const input = parsed.data;
     let refusal: string | null = null;
@@ -2037,7 +1716,7 @@ export async function combatDirectorRoutes(
     return { progression, dropped };
   });
   app.get("/state", async (req, reply) => {
-    const parsed = z.object({ chatId: key, anchor: key }).safeParse(req.query);
+    const parsed = combatDirectorStateSchema.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
     const { chatId, anchor } = parsed.data;
     try {
@@ -2080,21 +1759,12 @@ export async function combatDirectorRoutes(
     if (!released) return save(rowId, chatId, s, session);
     return keepHeldGroundReleasedWhile(app.db, chatId, released, () => save(rowId, chatId, s, session));
   };
-  const commandBody = z.object({
-    chatId: key,
-    anchor: key,
-    id: key,
-    instanceId: key,
-    revision: z.number().int().min(0),
-    requestId: key,
-    command,
-    debugMode: z.boolean().optional(),
-  });
+
   type CommandAnswer = { code: 200 | 400; body: Record<string, unknown> };
   /** One command, from the host's screen or (2026-10-27) a room player's through the room, checked
    *  against whose party member it moves. */
   const runCommand = async (
-    input: z.infer<typeof commandBody>,
+    input: z.infer<typeof combatDirectorCommandBodySchema>,
     commander: RulesetFightCommander,
   ): Promise<CommandAnswer> => {
     // Who the player hands to the Engine, or takes back, is kept for the chat's next fights too
@@ -2326,7 +1996,7 @@ export async function combatDirectorRoutes(
     }
   };
   app.post("/command", async (req, reply) => {
-    const parsed = commandBody.safeParse(req.body);
+    const parsed = combatDirectorCommandBodySchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message });
     const answer = await runCommand(parsed.data, RULESET_ROOM_HOST);
     return answer.code === 200 ? answer.body : reply.code(400).send(answer.body);
@@ -2351,7 +2021,7 @@ export async function combatDirectorRoutes(
           ?.aim?.find((cell) => cell.x === at.x && cell.y === at.y);
         if (aim) command = { ...command, targetIds: aim.targetIds.slice(0, 20) };
       }
-      const parsed = commandBody.safeParse({ chatId, ...input, command, requestId: randomUUID() });
+      const parsed = combatDirectorCommandBodySchema.safeParse({ chatId, ...input, command, requestId: randomUUID() });
       if (!parsed.success) return { ok: false, stale: false };
       const answer = await runCommand(parsed.data, viewer);
       if (answer.code !== 200) return { ok: false, stale: false };

@@ -61,6 +61,9 @@ export * from "./types/chat-insights.js";
 
 // Schemas
 export * from "./schemas/multiplayer.schema.js";
+export * from "./schemas/professor-mari-workspace.schema.js";
+export * from "./schemas/game-routes.schema.js";
+export * from "./schemas/combat-director.schema.js";
 export * from "./schemas/chat.schema.js";
 export * from "./schemas/chat-preset.schema.js";
 export * from "./schemas/character.schema.js";

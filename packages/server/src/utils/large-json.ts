@@ -72,3 +72,39 @@ function parseRange(bytes: Buffer, start: number, end: number, maxPieceBytes: nu
   }
   return result;
 }
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Reads a stored JSON object: an object passes through, JSON text is parsed, anything else becomes `{}`. */
+export function parseJsonRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string") return isRecord(value) ? value : {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Reads a stored JSON array: an array passes through, JSON text is parsed, anything else becomes `[]`. */
+export function parseJsonArray(value: unknown): unknown[] {
+  if (typeof value !== "string") return Array.isArray(value) ? value : [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Parses JSON text; a value that is not a string passes through, and text that is not JSON becomes `null`. */
+export function parseJsonOrNull(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}

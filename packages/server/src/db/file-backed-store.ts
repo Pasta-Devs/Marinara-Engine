@@ -61,6 +61,7 @@ import {
   type AnyFileTable,
   type FileColumnValue,
 } from "./file-schema.js";
+import { parseJsonRecord } from "../utils/large-json.js";
 
 type Row = any;
 type Table = AnyFileTable;
@@ -2597,17 +2598,6 @@ function matchesLike(value: unknown, pattern: unknown) {
     .replace(/%/g, "[\\s\\S]*")
     .replace(/_/g, "[\\s\\S]");
   return new RegExp(`^${escaped}$`, "i").test(String(value ?? ""));
-}
-
-function parseJsonRecord(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
 }
 
 /**

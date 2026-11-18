@@ -1,3 +1,4 @@
+import { isRecord } from "../../utils/large-json.js";
 // SpicyAPI runs images as asynchronous tasks: POST /api/v1/jobs/createTask, then
 // GET /api/v1/jobs/recordInfo until data.state is terminal. Each model declares its
 // own input JSON Schema, so requests are fitted to the fields that model accepts.
@@ -16,10 +17,6 @@ export interface SpicyApiTask {
   /** True while a result is still being stored, even after the task succeeded. */
   pending: boolean;
   error: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readString(value: unknown): string | null {

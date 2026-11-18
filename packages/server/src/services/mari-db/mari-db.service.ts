@@ -142,6 +142,7 @@ import {
   type StoredPersonaRow,
 } from "../personas/persona-card-storage.js";
 import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
+import { parseJsonArray, parseJsonRecord, isRecord } from "../../utils/large-json.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -584,10 +585,6 @@ const TABLE_METAS = buildTableMetas();
 const AGENT_PHASES = new Set(["pre_generation", "parallel", "post_processing"]);
 const TOOL_EXECUTION_TYPES = new Set(["webhook", "static", "script"]);
 const BOOLEAN_TEXT_VALUES = new Set(["true", "false"]);
-
-function isRecord(value: unknown): value is Row {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -1842,7 +1839,7 @@ function boolText(value: boolean): string {
 function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   const name = firstString(input, ["name"]) ?? (typeof existing?.name === "string" ? existing.name : "");
   const settings = deepMerge(
-    isRecord(existing?.settings) ? existing.settings : parseJsonRecordValue(existing?.settings),
+    isRecord(existing?.settings) ? existing.settings : parseJsonRecord(existing?.settings),
     isRecord(input.settings) ? input.settings : {},
   ) as Row;
   // Match the editor's clear behavior without wiping unrelated package settings.
@@ -2021,7 +2018,7 @@ function refuseQuotedSectionIds(action: string, payload: Row): void {
   const sections = [payload.sections, payload.promptSections].flatMap((value) => (Array.isArray(value) ? value : []));
   const ids = [
     ...sections.map((section) => (isRecord(section) ? firstString(section, ["id", "sectionId"]) : undefined)),
-    ...parseJsonArrayValue(payload.sectionOrder ?? payload.section_order),
+    ...parseJsonArray(payload.sectionOrder ?? payload.section_order),
   ];
   const quoted = ids.find((id) => typeof id === "string" && /["']/.test(id));
   if (quoted === undefined) return;
@@ -2799,25 +2796,15 @@ function summarizeLorebookEntryRow(row: Row): Row {
   };
 }
 
-function parseJsonArrayValue(value: unknown): unknown[] {
-  const parsed = typeof value === "string" ? parseJsonMaybe(value) : value;
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-function parseJsonRecordValue(value: unknown): Row {
-  const parsed = typeof value === "string" ? parseJsonMaybe(value) : value;
-  return isRecord(parsed) ? parsed : {};
-}
-
 function parsePromptPresetRow(row: Row): Row {
   return {
     ...row,
-    sectionOrder: parseJsonArrayValue(row.sectionOrder),
-    groupOrder: parseJsonArrayValue(row.groupOrder),
-    variableGroups: parseJsonArrayValue(row.variableGroups),
-    variableValues: parseJsonRecordValue(row.variableValues),
-    parameters: parseJsonRecordValue(row.parameters),
-    defaultChoices: parseJsonRecordValue(row.defaultChoices),
+    sectionOrder: parseJsonArray(row.sectionOrder),
+    groupOrder: parseJsonArray(row.groupOrder),
+    variableGroups: parseJsonArray(row.variableGroups),
+    variableValues: parseJsonRecord(row.variableValues),
+    parameters: parseJsonRecord(row.parameters),
+    defaultChoices: parseJsonRecord(row.defaultChoices),
     isDefault: row.isDefault === "true",
   };
 }
@@ -2833,7 +2820,7 @@ function summarizePromptPresetRow(row: Row): Row {
     author: parsed.author ?? "",
     sectionCount: Array.isArray(parsed.sectionOrder) ? parsed.sectionOrder.length : 0,
     groupCount: Array.isArray(parsed.groupOrder) ? parsed.groupOrder.length : 0,
-    choiceDefaults: Object.keys(parseJsonRecordValue(row.defaultChoices)).length,
+    choiceDefaults: Object.keys(parseJsonRecord(row.defaultChoices)).length,
     createdAt: parsed.createdAt,
     updatedAt: parsed.updatedAt,
   };
@@ -2879,14 +2866,14 @@ function summarizeChoiceBlockRow(row: Row): Row {
     presetId: parsed.presetId,
     variableName: parsed.variableName,
     question: typeof parsed.question === "string" ? truncateStr(parsed.question, 160) : "",
-    optionCount: parseJsonArrayValue(parsed.options).length,
+    optionCount: parseJsonArray(parsed.options).length,
     multiSelect: parsed.multiSelect,
     sortOrder: parsed.sortOrder,
   };
 }
 
 function summarizeAgentConfigRow(row: Row): Row {
-  const settings = parseJsonRecordValue(row.settings);
+  const settings = parseJsonRecord(row.settings);
   return {
     id: row.id,
     type: row.type,
@@ -2909,7 +2896,7 @@ function summarizeAgentConfigRow(row: Row): Row {
  *  configured) and a type present only in `agent_configs` (a custom agent) both surface here. */
 // Exported for the regression lane (L1: a registry-only type must still surface in `agent.list`).
 export function summarizeMergedAgentRow(manifest: BuiltInAgentManifest | undefined, configRow: Row | undefined): Row {
-  const configSettings = parseJsonRecordValue(configRow?.settings);
+  const configSettings = parseJsonRecord(configRow?.settings);
   const settingKeys = Object.keys(
     Object.keys(configSettings).length > 0 ? configSettings : (manifest?.defaultSettings ?? {}),
   );
@@ -6034,7 +6021,7 @@ export class MariDbService {
         if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const sectionId = firstString(args, ["sectionId"]);
         const orderIndex = new Map(
-          parseJsonArrayValue(preset.sectionOrder).map((id, index) => [String(id), index] as const),
+          parseJsonArray(preset.sectionOrder).map((id, index) => [String(id), index] as const),
         );
         const sections = (await this.rawRows("prompt_sections"))
           .filter((section) => section.presetId === presetId)
@@ -6061,9 +6048,7 @@ export class MariDbService {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
         if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
-        const orderIndex = new Map(
-          parseJsonArrayValue(preset.groupOrder).map((id, index) => [String(id), index] as const),
-        );
+        const orderIndex = new Map(parseJsonArray(preset.groupOrder).map((id, index) => [String(id), index] as const));
         const groups = (await this.rawRows("prompt_groups"))
           .filter((group) => group.presetId === presetId)
           .sort(
@@ -6312,7 +6297,7 @@ export class MariDbService {
             throw new Error(`Group ${data.groupId} is not a group in this preset.`);
           }
         }
-        const sectionOrder = parseJsonArrayValue(preset.sectionOrder).map(String);
+        const sectionOrder = parseJsonArray(preset.sectionOrder).map(String);
         const sectionId = newId();
         const presetSections = (await this.rawRows("prompt_sections")).filter(
           (section) => section.presetId === presetId,
@@ -6364,7 +6349,7 @@ export class MariDbService {
             throw new Error(`Parent group ${data.parentGroupId} is not a group in this preset.`);
           }
         }
-        const groupOrder = parseJsonArrayValue(preset.groupOrder).map(String);
+        const groupOrder = parseJsonArray(preset.groupOrder).map(String);
         const groupId = newId();
         const row = buildPromptGroupInsertRow(data, presetId, groupId, (groupOrder.length + 1) * 100);
         return this.executeMutation(
@@ -9342,8 +9327,8 @@ export class MariDbService {
     for (const change of changes) {
       if (change.table !== "chats" || !change.afterRaw) continue;
       if (
-        stableJson(parseJsonRecordValue(change.afterRaw.metadata)[MARI_DECISION_STATE_KEY]) !==
-        stableJson(parseJsonRecordValue(change.beforeRaw?.metadata)[MARI_DECISION_STATE_KEY])
+        stableJson(parseJsonRecord(change.afterRaw.metadata)[MARI_DECISION_STATE_KEY]) !==
+        stableJson(parseJsonRecord(change.beforeRaw?.metadata)[MARI_DECISION_STATE_KEY])
       ) {
         issues.push({
           level: "error",
@@ -9496,10 +9481,10 @@ export class MariDbService {
     // default and character folders sit in its agent settings and get the same check (#8901).
     const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
       if (!row) return {};
-      if (change.table === "chats") return parseJsonRecordValue(row.metadata);
-      if (change.table === "chat_presets") return parseJsonRecordValue(parseJsonRecordValue(row.settings).metadata);
+      if (change.table === "chats") return parseJsonRecord(row.metadata);
+      if (change.table === "chat_presets") return parseJsonRecord(parseJsonRecord(row.settings).metadata);
       if (change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY) {
-        return parseJsonRecordValue(row.value);
+        return parseJsonRecord(row.value);
       }
       return {};
     };
@@ -9516,7 +9501,7 @@ export class MariDbService {
               ? "value"
               : null;
       if (!column) continue;
-      const root = parseJsonRecordValue(change.afterRaw[column]);
+      const root = parseJsonRecord(change.afterRaw[column]);
       const holder = change.table === "chat_presets" ? root.metadata : root;
       if (!isRecord(holder) || !hasChatMetadataSecretMask(holder)) continue;
       resolveChatMetadataSecretPlaceholders(holder, localDestinations(change, change.beforeRaw));
@@ -9759,7 +9744,7 @@ export class MariDbService {
     const preset = await this.getRawById(presetMeta, String(section.presetId));
     if (preset) {
       const parsed = parseRow(presetMeta.name, preset);
-      const currentOrder = parseJsonArrayValue(parsed.sectionOrder).map(String);
+      const currentOrder = parseJsonArray(parsed.sectionOrder).map(String);
       const nextOrder = currentOrder.filter((id) => id !== sectionId);
       if (nextOrder.length !== currentOrder.length) {
         const afterRaw = serializeRow(presetMeta.name, { ...parsed, sectionOrder: nextOrder, updatedAt: timestamp });
@@ -9803,7 +9788,7 @@ export class MariDbService {
     const preset = await this.getRawById(presetMeta, presetId);
     if (preset) {
       const parsed = parseRow(presetMeta.name, preset);
-      const currentOrder = parseJsonArrayValue(parsed.groupOrder).map(String);
+      const currentOrder = parseJsonArray(parsed.groupOrder).map(String);
       const nextOrder = currentOrder.filter((id) => id !== groupId);
       if (nextOrder.length !== currentOrder.length) {
         const afterRaw = serializeRow(presetMeta.name, { ...parsed, groupOrder: nextOrder, updatedAt: timestamp });
@@ -10221,7 +10206,7 @@ export class MariDbService {
       const removedIds = removing.get(String(folder.scope));
       if (!removedIds) continue;
       const parsed = parseRow(folderMeta.name, folder);
-      const itemIds = parseJsonArrayValue(parsed.itemIds).map(String);
+      const itemIds = parseJsonArray(parsed.itemIds).map(String);
       const nextIds = itemIds.filter((id) => !removedIds.has(id));
       if (nextIds.length === itemIds.length) continue;
       const afterRaw = serializeRow(folderMeta.name, { ...parsed, itemIds: nextIds, updatedAt: timestamp });
