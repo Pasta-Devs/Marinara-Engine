@@ -74,6 +74,7 @@ function fakeDeps(
   const patches: Array<Record<string, unknown>> = [];
   const portraitCalls: string[] = [];
   const mapUpdates: unknown[] = [];
+  const metadataWrites = { count: 0 };
   let backgroundSaved: (characters: Array<Record<string, unknown>>) => void = () => {};
   const backgroundSave = new Promise<Array<Record<string, unknown>>>((resolve) => (backgroundSaved = resolve));
   const chatId = options.chatId ?? "chat-1";
@@ -88,7 +89,10 @@ function fakeDeps(
         writes.push({ id, swipeIndex, partial });
         return null as never;
       },
-      patchMetadata: (id, patch, patchOptions) => chatsStore.patchMetadata(id, patch, patchOptions),
+      patchMetadata: (id, patch, patchOptions) => {
+        metadataWrites.count += 1;
+        return chatsStore.patchMetadata(id, patch, patchOptions);
+      },
     },
     trackers: {
       db,
@@ -134,7 +138,7 @@ function fakeDeps(
     },
     ...overrides,
   };
-  return { deps, writes, patches, portraitCalls, backgroundSave, mapUpdates };
+  return { deps, writes, patches, portraitCalls, backgroundSave, mapUpdates, metadataWrites };
 }
 
 /** A chat whose msg-1 row holds the given world fields (and locks), for the World State cases. */
@@ -554,6 +558,8 @@ try {
         await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
         await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
         assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);
+        // No game map in this chat, so the party-marker sync never touches the chat's metadata.
+        assert.equal(run.metadataWrites.count, 0);
       },
     },
     {
@@ -603,6 +609,10 @@ try {
         );
         assert.equal((chatMeta.gameMap as { partyPosition: string }).partyPosition, "market");
         assert.equal(run.mapUpdates.length, 1);
+        assert.equal(run.metadataWrites.count, 1);
+        // Back at the Market again: the marker is already there, so nothing is written.
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        assert.deepEqual([run.metadataWrites.count, run.mapUpdates.length], [1, 1]);
         assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);
       },
     },

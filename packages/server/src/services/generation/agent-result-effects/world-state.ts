@@ -123,24 +123,27 @@ async function syncPartyPosition(deps: AgentResultEffectDeps, location: string |
   const world = deps.trackers.world;
   const chatMeta = world.chatMeta;
   if (world.mapOwnedBySpatial) return;
-  let moved: { gameMap: GameMap; keys: Record<string, unknown> } | null = null;
+  // The route's copy decides whether to write at all: most turns move nothing, and patchMetadata always rewrites the
+  // row (and the chat's updatedAt), even for an empty patch.
+  const syncedCopy = syncGameMapMetaPartyPosition(chatMeta, location);
+  const copyMap = (syncedCopy.gameMap as GameMap | null) ?? null;
+  if (!copyMap || copyMap === chatMeta.gameMap) {
+    if (getGameMapsFromMeta(syncedCopy).length > 0) Object.assign(chatMeta, syncedCopy);
+    return;
+  }
+  let stored: { keys: Record<string, unknown>; moved: boolean } | null = null;
   deps.signal?.throwIfAborted();
   await deps.chats.patchMetadata(deps.chatId, (current) => {
     const synced = syncGameMapMetaPartyPosition(current, location);
-    const gameMap = (synced.gameMap as GameMap | null) ?? null;
-    if (!gameMap || isDeepStrictEqual(gameMap, current.gameMap)) return {};
-    const keys = { gameMap, gameMaps: synced.gameMaps, activeGameMapId: synced.activeGameMapId };
-    moved = { gameMap, keys };
-    return keys;
+    const keys = { gameMap: synced.gameMap, gameMaps: synced.gameMaps, activeGameMapId: synced.activeGameMapId };
+    const moved = Boolean(synced.gameMap) && !isDeepStrictEqual(synced.gameMap, current.gameMap);
+    stored = { keys, moved };
+    return moved ? keys : {};
   });
   deps.signal?.throwIfAborted();
-  // The route's copy is read again later in the same request, so it takes the stored map too.
-  const result = moved as { gameMap: GameMap; keys: Record<string, unknown> } | null;
-  if (result) {
-    Object.assign(chatMeta, result.keys);
-    world.emitGameMapUpdate(result.gameMap);
-  } else {
-    const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, location);
-    if (getGameMapsFromMeta(syncedMeta).length > 0) Object.assign(chatMeta, syncedMeta);
-  }
+  // The route's copy is read again later in the same request, so it takes the stored map.
+  const result = stored as { keys: Record<string, unknown>; moved: boolean } | null;
+  if (!result) return;
+  Object.assign(chatMeta, result.keys);
+  if (result.moved) world.emitGameMapUpdate(result.keys.gameMap as GameMap);
 }
