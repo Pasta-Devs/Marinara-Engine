@@ -2404,19 +2404,16 @@ async function generateStability(baseUrl: string, apiKey: string, request: Image
   const hasReference = Boolean(request.referenceImage || request.referenceImages?.length);
   const aspectRatio = stabilityAspectRatio(request.width, request.height);
   if (aspectRatio && !hasReference) formData.append("aspect_ratio", aspectRatio);
-  if (request.referenceImage) {
+  const reference = request.referenceImage || request.referenceImages?.[0];
+  if (reference) {
+    // A reference arrives as a data URL (packages send `data:image/png;base64,…`) or as bare base64. Decoding the
+    // whole data URL as base64 turned its `data:…;base64,` header into garbage bytes, so Stability got a broken
+    // picture instead of the reference.
+    const decoded = decodeReferenceImage(reference);
     formData.append(
       "image",
-      new Blob([Buffer.from(request.referenceImage, "base64")], { type: "image/png" }),
-      "reference.png",
-    );
-    formData.append("strength", "0.5");
-    formData.append("mode", "image-to-image");
-  } else if (request.referenceImages?.length) {
-    formData.append(
-      "image",
-      new Blob([Buffer.from(request.referenceImages[0]!, "base64")], { type: "image/png" }),
-      "reference.png",
+      new Blob([Buffer.from(decoded.base64, "base64")], { type: decoded.mimeType }),
+      `reference.${decoded.ext}`,
     );
     formData.append("strength", "0.5");
     formData.append("mode", "image-to-image");
