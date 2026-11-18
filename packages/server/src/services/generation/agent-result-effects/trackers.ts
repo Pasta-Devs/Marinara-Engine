@@ -130,6 +130,9 @@ export async function applyInventoryTrackerResult(result: AgentResult, deps: Age
         fieldLocks: serializeMigratedTrackerLocks(lockState),
       });
     }
+    // Sent before the journal write, so a cancelled retry still shows what it already saved.
+    logger.debug("[game_state_patch] inventory-tracker origin=%s: %j", deps.origin, inventoryPatch.values);
+    emitPatch(deps, inventoryPatch.patch);
     // Compared against this snapshot, so re-running the agent on the same reply logs only items it didn't have yet.
     const acquisitions = findInventoryTrackerAcquisitions(previousPlayerStats, inventoryPatch.playerStats);
     if (acquisitions.length > 0) {
@@ -140,8 +143,6 @@ export async function applyInventoryTrackerResult(result: AgentResult, deps: Age
         ),
       );
     }
-    logger.debug("[game_state_patch] inventory-tracker origin=%s: %j", deps.origin, inventoryPatch.values);
-    emitPatch(deps, inventoryPatch.patch);
   } catch (err) {
     logFailure(err, deps, "inventory tracker update");
   }
