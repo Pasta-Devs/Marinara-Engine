@@ -56,6 +56,9 @@ const ALL_EXPUNGE_SCOPES: ExpungeScope[] = [
 
 /** Rows deleted per step: small enough that one step loads little, large enough that flushes stay few. */
 const EXPUNGE_CHAT_CHUNK = 25;
+// Once every message is already in memory (a backup just ran), each chunk costs a pass over all of them whatever
+// its size, so fewer, bigger chunks finish far sooner and load nothing new.
+const EXPUNGE_RESIDENT_CHAT_CHUNK = 250;
 const EXPUNGE_ROW_CHUNK = 250;
 /** Parallel unlinks while clearing media folders. */
 const EXPUNGE_FILE_CONCURRENCY = 8;
@@ -290,7 +293,9 @@ export async function adminRoutes(app: FastifyInstance) {
       beginStep("chats", chatIds.length);
       // Chat by chat, not table by table: deleting a chat cascades to its messages, swipes, images,
       // memories and game state while only that chat's files are loaded.
-      for (const chunk of chunked(chatIds, EXPUNGE_CHAT_CHUNK)) {
+      const residentTables = db._fileStore.getFullyResidentLazyTables();
+      const chatsResident = residentTables.has("messages") && residentTables.has("message_swipes");
+      for (const chunk of chunked(chatIds, chatsResident ? EXPUNGE_RESIDENT_CHAT_CHUNK : EXPUNGE_CHAT_CHUNK)) {
         await runDelete("chats", () => db.delete(schema.chats).where(inArray(schema.chats.id, chunk)).run());
         tablesCleared.chats = (tablesCleared.chats ?? 0) + chunk.length;
         await checkpoint();
