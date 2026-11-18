@@ -423,6 +423,8 @@ export interface ChatMetadata {
   illustratorIncludeCharacterAppearance?: boolean;
   /** Whether Illustrator should send matching character/persona avatar references to image providers. */
   illustratorUseAvatarReferences?: boolean;
+  /** Where image avatar references go: the image model, the prompt writer, both, or automatic. Missing = the agent's. */
+  illustratorReferencePictureTarget?: "auto" | "image" | "writer" | "both";
   /** Whether Roleplay video prompts get matched character appearance lines, like images with the setting above. */
   illustratorVideoIncludeCharacterAppearance?: boolean;
   /** Send Avatar References for Roleplay videos: a Prompt only clip starts from the character's avatar or sprite. */

@@ -18,6 +18,13 @@ import {
   type LLMToolCall,
   type LLMUsage,
 } from "../llm/base-provider.js";
+import {
+  attachWriterReferencePictures,
+  logWriterReferenceAttach,
+  readWriterReferencePayload,
+  withWriterReferenceFallback,
+  writerVisionKey,
+} from "../image/writer-reference-pictures.js";
 import { withThinkingHeadroom, type AgentGenerationParameters } from "../generation/agent-generation-parameters.js";
 import type {
   AgentResult,
@@ -64,6 +71,7 @@ import {
   isDebugAgentsEnabled,
 } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import { failureLevel } from "../../lib/log-context.js";
 import { repairJsonText } from "../../lib/json-repair.js";
 import { LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
@@ -748,7 +756,7 @@ function debugMessages(messages: ChatMessage[]): AgentCallDebugEvent["messages"]
   return messages.map((message) => {
     const next: NonNullable<AgentCallDebugEvent["messages"]>[number] = {
       role: message.role,
-      content: message.content,
+      content: messageTextWithImagesForLog(message.content, message.images),
     };
     const name = (message as { name?: unknown }).name;
     if (typeof name === "string" && name.trim()) next.name = name;
@@ -870,7 +878,7 @@ export async function executeAgent(
       return makeError(config, "No prompt template configured", startTime);
     }
 
-    const messages = prepareAgentProviderMessages(
+    let messages = prepareAgentProviderMessages(
       config.type === "expression"
         ? buildExpressionAgentMessages(config, template, context)
         : config.type === "knowledge-retrieval"
@@ -881,6 +889,13 @@ export async function executeAgent(
               ? buildBeholderMessages(config, template, context)
               : buildStandardAgentMessages(config, template, context),
     );
+    // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
+    const writerReferences = config.type === "illustrator" ? readWriterReferencePayload(context.memory) : null;
+    if (writerReferences) {
+      messages = attachWriterReferencePictures(messages, writerReferences);
+      provider = withWriterReferenceFallback(provider, writerReferences, writerVisionKey(config.connectionId, model));
+      logWriterReferenceAttach("Illustrator", writerReferences);
+    }
 
     const temperature = resolveAgentTemperature(config);
     const maxTokens = resolveAgentCallMaxTokens(provider, config, normalizeAgentMaxTokens(config.settings.maxTokens), {
@@ -935,7 +950,7 @@ export async function executeAgent(
     // Call LLM (streaming to avoid proxy timeouts, no tools)
     logger.info(`[agent] ${config.type} (${config.name}) — ${model}`);
     for (const msg of messages) {
-      logger.debug(`[agent] [${msg.role}] ${msg.content}`);
+      logger.debug(`[agent] [${msg.role}] ${messageTextWithImagesForLog(msg.content, msg.images)}`);
     }
     logger.debug(
       `[agent] ═══ END PROMPT — temperature=${temperature} maxTokens=${maxTokens} reasoning=${requestOptions.reasoningEffort ?? "default"} ═══\n`,

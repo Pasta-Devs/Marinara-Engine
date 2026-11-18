@@ -30,6 +30,15 @@ import {
 } from "../services/multiplayer/generation-policy.js";
 import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
 import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
+import {
+  WRITER_REFERENCE_MEMORY_KEY,
+  WRITER_REFERENCE_NAMES_MEMORY_KEY,
+  collectWriterReferencePictures,
+  imageModelGetsReferencePictures,
+  readWriterReferenceNames,
+  writerVisionKey,
+  type WriterReferencePayload,
+} from "../services/image/writer-reference-pictures.js";
 import { withLorebookImageCompatibility } from "../services/llm/lorebook-image-provider.js";
 import {
   buildConversationEmojiVisionLegend,
@@ -7663,6 +7672,37 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         agentContext.memory._mainPromptPreview = promptPreviewForAgents(
           roleplayAgentPrompt(sharedPromptForAgents(finalMessages), roleplayTimeline, agentWhisperNames),
         );
+        // Writer reference pictures (experiment, V-102 Fallback A): when the image connection drops reference
+        // pictures, the Illustrator's prompt writer sees them instead. [illustrate: characters="…"] names its cards
+        // up front; an automatic run takes the active cast, since the writer is what decides who is in the scene.
+        const writerReferencePicturesFor = async (
+          agent: AgentExecConfig,
+          memory: Record<string, unknown>,
+          imageConnection: Parameters<typeof collectWriterReferencePictures>[0]["imageConnection"],
+        ): Promise<WriterReferencePayload | null> => {
+          const writerConnection = agent.connectionId ? await connections.getById(agent.connectionId) : conn;
+          return collectWriterReferencePictures({
+            agentSettings: agent.settings,
+            chatMeta,
+            imageConnection,
+            writer: {
+              visionKey: writerVisionKey(agent.connectionId, (agent as { model?: string }).model ?? ""),
+              connectionId: agent.connectionId ?? connId ?? "",
+              imageInput: (writerConnection as { imageInput?: string | null } | null)?.imageInput,
+            },
+            namedCards: readWriterReferenceNames(memory),
+            cast: illustratorCast(),
+            references: {
+              charactersStore: chars,
+              chatScope:
+                requestChatMode === "roleplay"
+                  ? { chatId: input.chatId, characterIds: allCharacterIds, getById: chars.getById }
+                  : undefined,
+              characterGallery,
+              personaGallery,
+            },
+          });
+        };
         const resolveAgentContext = async (agent: AgentExecConfig, context: AgentContext): Promise<AgentContext> => {
           const resolvedContext = customLorebookReadBehindTargets.get(agent.id)?.context ?? context;
           const trackerContext = applyTrackerLorebookContextPolicy({
@@ -7702,6 +7742,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             ? await resolveIllustratorVideoOffer(chatMode, chatMeta, connections)
             : null;
           if (videoOffer) memory._generatedVideos = videoOffer;
+          delete memory[WRITER_REFERENCE_MEMORY_KEY];
+          if (agent.type === "illustrator" && imageConnection) {
+            const writerReferences = await writerReferencePicturesFor(agent, memory, imageConnection);
+            if (writerReferences) memory[WRITER_REFERENCE_MEMORY_KEY] = writerReferences;
+          }
           return { ...trackerContext, memory };
         };
         // Decision statements in agent prompt templates (#6569), planned from the agents
@@ -13671,6 +13716,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : undefined;
             const context = await resolveAgentContext(agent, {
               ...postAgentContext,
+              // [illustrate: characters="…"]: the writer gets exactly these cards' reference pictures.
+              memory: pictureCommand
+                ? { ...postAgentContext.memory, [WRITER_REFERENCE_NAMES_MEMORY_KEY]: command.characters ?? [] }
+                : postAgentContext.memory,
               mainResponse: `${sourceName ? `${sourceName}: ` : ""}${sourceMessage ? roleplayAgentText(sourceMessage.content, sourceMessage, agentWhisperNames) : agentCompletedResponse}\n\nExplicit scene request: ${pictureCommand ? `${command.subject}${command.characters?.length ? `\nInvolved characters: ${command.characters.join(", ")}. Depict these participants.` : ""}` : command.type === "combat" ? "Combat starts now. Establish and track the encounter from the current scene." : command.mood}`,
             });
             try {
@@ -15351,10 +15400,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       // portraits for references, then fall back to full-body sprites.
                       // Illustrate commands follow the same reference switch as automatic and manual
                       // illustrations; naming characters only narrows whose references are sent.
-                      const useAvatarRefs =
+                      const avatarReferencesOn =
                         usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                           ? chatMeta.illustratorUseAvatarReferences
                           : imagePromptAgent?.settings?.useAvatarReferences === true;
+                      // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+                      const useAvatarRefs =
+                        avatarReferencesOn &&
+                        (!usesChatIllustratorSettings ||
+                          imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.settings, imgConnFull));
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&
                         typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"

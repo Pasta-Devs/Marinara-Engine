@@ -11,6 +11,7 @@ import {
   type Lorebook,
   normalizeIllustratorVideoMode,
   normalizeVideoFirstFrame,
+  REFERENCE_PICTURE_TARGETS,
   ROLEPLAY_DEFAULT_VIDEO_FIRST_FRAME,
   STORYBOARD_AGENT_ID,
   VIDEO_FIRST_FRAMES,
@@ -37,6 +38,7 @@ import {
 } from "lucide-react";
 import {
   AgentCategorySection,
+  AgentChoiceSelect,
   AgentSettingsActionButton,
   AgentSettingsCard,
   AgentSettingsSegmentedControl,
@@ -221,6 +223,7 @@ export function RoleplayAgentsSection({
     illustratorIncludeCharacterAppearance,
     illustratorInstalled,
     illustratorUseAvatarReferences,
+    illustratorReferencePictureTarget,
     knowledgeRetrievalActive,
     knowledgeRetrievalAgentMeta,
     knowledgeRouterActive,
@@ -1094,6 +1097,25 @@ export function RoleplayAgentsSection({
                     }
                     onReset={resetIllustratorAvatarReferences}
                   />
+                  {illustratorUseAvatarReferences && (
+                    <AgentChoiceSelect
+                      label={localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                      description={localizeUi(
+                        `ui.agents.agenteditor.referencePictureTargetHelp.${illustratorReferencePictureTarget}`,
+                      )}
+                      value={illustratorReferencePictureTarget}
+                      options={REFERENCE_PICTURE_TARGETS.map((target) => ({
+                        value: target,
+                        label: localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`),
+                      }))}
+                      active
+                      onChange={(target) =>
+                        updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: target })
+                      }
+                      overridden={typeof metadata.illustratorReferencePictureTarget === "string"}
+                      onReset={() => updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: null })}
+                    />
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
                     <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                       {localizeUi("ui.chat.chatsettingsdrawer.promptModeControlsHowIllustratorWritesImagePromptsFor")}

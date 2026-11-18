@@ -346,6 +346,52 @@ export function AgentSettingsToggle({
   );
 }
 
+/** A labelled select card for a chat agent setting, with the "agent default / chat override" line under it. */
+export function AgentChoiceSelect<T extends string>({
+  label,
+  description,
+  value,
+  options,
+  active,
+  onChange,
+  overridden = false,
+  onReset,
+}: {
+  label: string;
+  description: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  /** Tints the card like an enabled toggle. */
+  active: boolean;
+  onChange: (next: T) => void;
+  overridden?: boolean;
+  onReset?: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col gap-1">
+      <div
+        className={cn(
+          "flex flex-1 flex-col gap-1.5 rounded-md px-3 py-2.5",
+          active
+            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+            : "bg-[var(--background)]/75 ring-1 ring-[var(--border)]",
+        )}
+      >
+        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
+        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{description}</span>
+        <Select<T>
+          label={label}
+          value={value}
+          options={options}
+          onChange={onChange}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+        />
+      </div>
+      {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
+    </div>
+  );
+}
+
 type MediaScope = "off" | "images" | "videos" | "both";
 
 /** Whether a reference setting applies to image prompts, video prompts, both, or neither. */
@@ -369,32 +415,21 @@ export function MediaScopeSelect({
   const { t: localizeUi } = useUiTranslation();
   const value: MediaScope = images ? (videos ? "both" : "images") : videos ? "videos" : "off";
   return (
-    <div className="flex h-full flex-col gap-1">
-      <div
-        className={cn(
-          "flex flex-1 flex-col gap-1.5 rounded-md px-3 py-2.5",
-          value === "off"
-            ? "bg-[var(--background)]/75 ring-1 ring-[var(--border)]"
-            : "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
-        )}
-      >
-        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
-        <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{description}</span>
-        <Select<MediaScope>
-          label={label}
-          value={value}
-          options={(["off", "images", "videos", "both"] as const).map((option) => ({
-            value: option,
-            label: localizeUi(`ui.chat.mediascopeselect.${option}`),
-          }))}
-          onChange={(next) => {
-            onChange({ images: next === "images" || next === "both", videos: next === "videos" || next === "both" });
-          }}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-        />
-      </div>
-      {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
-    </div>
+    <AgentChoiceSelect
+      label={label}
+      description={description}
+      value={value}
+      options={(["off", "images", "videos", "both"] as const).map((option) => ({
+        value: option,
+        label: localizeUi(`ui.chat.mediascopeselect.${option}`),
+      }))}
+      active={value !== "off"}
+      onChange={(next) =>
+        onChange({ images: next === "images" || next === "both", videos: next === "videos" || next === "both" })
+      }
+      overridden={overridden}
+      onReset={onReset}
+    />
   );
 }
 

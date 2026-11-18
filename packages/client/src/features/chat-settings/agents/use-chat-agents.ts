@@ -4,7 +4,12 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { type CastCharacter } from "../sections/cast-shared";
 import { type ChatConnectionOption } from "../sections/ConnectionSection";
-import { AVATAR_AGENT_IDS, BUILT_IN_AGENTS, estimateTextTokens } from "@marinara-engine/shared";
+import {
+  AVATAR_AGENT_IDS,
+  BUILT_IN_AGENTS,
+  estimateTextTokens,
+  resolveReferencePictureTarget,
+} from "@marinara-engine/shared";
 import { showAlertDialog, showConfirmDialog } from "../../../lib/app-dialogs";
 import { type AvatarLayoutControls } from "../../../components/chat/AvatarLayoutSettings";
 import { useCharacters, usePersonas, type SpriteInfo } from "../../../hooks/use-characters";
@@ -891,6 +896,11 @@ export function useChatAgents({
     typeof metadata.illustratorUseAvatarReferences === "boolean"
       ? metadata.illustratorUseAvatarReferences
       : illustratorDefaults.useAvatarReferences === true;
+  // Where those references go (image model, prompt writer, both, automatic): this chat's pick, else the agent's.
+  const illustratorReferencePictureTarget = resolveReferencePictureTarget(
+    metadata.illustratorReferencePictureTarget,
+    illustratorDefaults,
+  );
   const illustratorPromptConnectionId =
     typeof metadata.illustratorPromptConnectionId === "string" ? metadata.illustratorPromptConnectionId : "";
   const illustratorImageConnectionId =
@@ -2456,6 +2466,7 @@ export function useChatAgents({
     secretPlotMessages,
     illustratorIncludeCharacterAppearance,
     illustratorUseAvatarReferences,
+    illustratorReferencePictureTarget,
     illustratorPromptConnectionId,
     illustratorImageConnectionId,
     illustratorImagesPerGeneration,
