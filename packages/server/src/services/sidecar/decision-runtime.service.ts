@@ -160,6 +160,21 @@ export function artifactSnapshotPath(artifact: DecisionModelArtifact): string {
   return join(HF_HOME, "hub", `models--${artifact.repoId.replace(/\//g, "--")}`, "snapshots", artifact.revision);
 }
 
+/**
+ * Deletes the files a cancelled download fetched, and takes them out of their
+ * snapshot's receipt, so a later install fetches them again instead of trusting it.
+ * The partial file in flight is already removed by the downloader.
+ */
+function removeWritten(written: Array<{ snapshot: string; path: string; destination: string }>): void {
+  for (const entry of written) rmSync(entry.destination, { force: true });
+  for (const snapshot of new Set(written.map((entry) => entry.snapshot))) {
+    const receipt = readReceipt(snapshot);
+    if (!receipt) continue;
+    for (const entry of written) if (entry.snapshot === snapshot) delete receipt[entry.path];
+    writeFileSync(join(snapshot, DOWNLOAD_RECEIPT), JSON.stringify(receipt), "utf-8");
+  }
+}
+
 /** The files a completed download recorded in a snapshot, or null when there is no receipt. */
 function readReceipt(snapshot: string): Record<string, number> | null {
   try {
@@ -335,6 +350,23 @@ export class DecisionRuntimeService {
         downloaded: doneBytes + progress.downloaded,
         total: Math.max(model.downloadSizeBytes, doneBytes + progress.downloaded),
       });
+    // What this run fetched, so Cancel can take it back. Files that were already here
+    // are left alone: they may belong to another model in the same repository.
+    const written: Array<{ snapshot: string; path: string; destination: string }> = [];
+    try {
+      await this.downloadArtifacts(model, overall, written, (bytes) => (doneBytes += bytes));
+    } catch (error) {
+      if (this.cancelRequested) removeWritten(written);
+      throw error;
+    }
+  }
+
+  private async downloadArtifacts(
+    model: SidecarDecisionModelInfo,
+    overall: (progress: SidecarDownloadProgress) => void,
+    written: Array<{ snapshot: string; path: string; destination: string }>,
+    addDone: (bytes: number) => void,
+  ): Promise<void> {
     for (const artifact of model.artifacts) {
       const files = await this.listArtifactFiles(artifact);
       const snapshot = artifactSnapshotPath(artifact);
@@ -353,7 +385,7 @@ export class DecisionRuntimeService {
         }
         mkdirSync(dirname(destination), { recursive: true });
         if (await alreadyDownloaded(destination, file)) {
-          doneBytes += file.size;
+          addDone(file.size);
           continue;
         }
         const abort = new AbortController();
@@ -382,7 +414,8 @@ export class DecisionRuntimeService {
         } finally {
           this.activeFetchAbort = null;
         }
-        doneBytes += file.size;
+        written.push({ snapshot, path: file.path, destination });
+        addDone(file.size);
       }
       // Written last, so its presence is the signal that this artifact completed.
       // Merged with what is already recorded: two GGUF entries can share one repository

@@ -16015,7 +16015,7 @@
   "ui.modals.decisionmodelmodal.options": "Options",
   "ui.modals.decisionmodelmodal.optionToDownload": "{{model}} ({{size}} download)",
   "ui.modals.decisionmodelmodal.pastedLicenses": "Licenses: {{licenses}}",
-  "ui.modals.decisionmodelmodal.progress.cancelled": "Download cancelled. Files that had finished are kept.",
+  "ui.modals.decisionmodelmodal.progress.cancelled": "Download cancelled. What it had downloaded was deleted.",
   "ui.modals.decisionmodelmodal.progress.minutesLeft_one": "about {{count}} min left",
   "ui.modals.decisionmodelmodal.progress.minutesLeft_other": "about {{count}} min left",
   "ui.modals.decisionmodelmodal.progress.model": "Downloading {{model}}: {{done}} of {{total}} ({{percent}}%)",

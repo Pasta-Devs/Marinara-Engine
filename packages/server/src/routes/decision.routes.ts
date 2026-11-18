@@ -454,7 +454,7 @@ export async function decisionRoutes(app: FastifyInstance) {
     };
   });
 
-  /** Stops a model download in progress. Files already finished are kept. */
+  /** Stops a model download in progress and deletes what it had fetched. */
   app.post("/sidecar/cancel-install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
     decisionRuntimeService.cancel();
