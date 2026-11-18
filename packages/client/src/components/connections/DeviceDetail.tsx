@@ -19,6 +19,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  BUILTIN_TTS_SOURCE,
   LOCAL_SIDECAR_CONNECTION_ID,
   getDefaultAgentPrompt,
   type SidecarQuantization,
@@ -44,6 +45,9 @@ import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { BuiltinEmbeddingDetail } from "./BuiltinEmbeddingDetail";
+import { BuiltinDictationDetail } from "./BuiltinDictationDetail";
+import { BuiltinEmotionDetail, useBuiltinEmotionState } from "./BuiltinEmotionDetail";
+import { BuiltinTtsDetail, useBuiltinTtsState } from "./BuiltinTtsDetail";
 import { ModelDownloadModal } from "../modals/ModelDownloadModal";
 import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 import { hostOf } from "../modals/create-connection/shared";
@@ -68,7 +72,7 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function describeSpeechRuntimeUnavailable(
+export function describeSpeechRuntimeUnavailable(
   runtime: SidecarSpeechRuntimeDiagnostics | null,
   localizeUi: TFunction,
 ): string {
@@ -189,6 +193,8 @@ export function useDeviceEngines(): DeviceEngine[] {
   const speechDownloading = useSidecarStore((s) => s.speechDownloadProgress?.status === "downloading");
   const { data: tts } = useTTSConfig();
   const modelFor = useJobModels((useConnections().data ?? []) as ConnectionRowData[]);
+  const builtinTts = useBuiltinTtsState();
+  const emotions = useBuiltinEmotionState();
   const whisperAvailable = setup.stt.available;
   useEffect(() => {
     if (whisperAvailable) void useSidecarStore.getState().fetchSpeechStatus();
@@ -242,13 +248,14 @@ export function useDeviceEngines(): DeviceEngine[] {
       });
     }
   }
+  // The voice model the Engine runs itself, beside the voice servers people host.
+  if (builtinTts) engines.push({ item: "builtin-tts", ...builtinTts });
   if (whisperAvailable) {
-    const dictation = t(jobLabelKey(JOB.stt));
     const first = speechModels[0]?.id;
     engines.push({
       item: "stt",
-      name: "Whisper",
-      detail: dictation,
+      name: t("connections.builtinDictation.name"),
+      detail: "Whisper",
       ...(speechDownloaded
         ? { tone: "ok" as const, state: t("connections.device.whisper.ready") }
         : speechDownloading
@@ -272,7 +279,8 @@ export function useDeviceEngines(): DeviceEngine[] {
   // A voice server the user hosts runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row.
   // Local PocketTTS always has a row, so the card shows the Voice engine even when voice is off or cloud.
   const localVoice = setup.tts.setUp && !!tts?.local;
-  if (localVoice && tts.source !== "pockettts") {
+  // The built-in voice model has a row of its own above.
+  if (localVoice && tts.source !== "pockettts" && tts.source !== BUILTIN_TTS_SOURCE) {
     engines.push({
       item: "tts",
       name: t(`connections.device.ttsSource.${tts.source}`),
@@ -286,7 +294,7 @@ export function useDeviceEngines(): DeviceEngine[] {
       item: "tts",
       name: t("connections.device.ttsSource.pockettts"),
       detail: t(jobLabelKey(JOB.voice)),
-      ...(localVoice
+      ...(localVoice && tts.source === "pockettts"
         ? { tone: "ok" as const, state: t("connections.device.state.inUse") }
         : {
             tone: "off" as const,
@@ -301,6 +309,7 @@ export function useDeviceEngines(): DeviceEngine[] {
           }),
     });
   }
+  if (emotions) engines.push({ item: "emotions", ...emotions });
   return engines;
 }
 
@@ -877,6 +886,9 @@ export function DeviceDetail({ item }: { item: DeviceItem }) {
     (entry) => entry.status !== "error" && entry.manifest.kind.includes("conversation-calls"),
   );
   if (item === "local-model") return isLite ? null : <LocalModelDetail />;
+  if (item === "builtin-tts") return <BuiltinTtsDetail />;
+  if (item === "emotions") return <BuiltinEmotionDetail />;
+  if (item === "stt" && callsInstalled && !isLite) return <BuiltinDictationDetail engine={engine} />;
   const job = item === "tts" ? "voice" : "stt";
   const inUse = engine?.tone === "ok";
   // The same frame as the other models on this device: hero, one row of actions, then the facts card.
@@ -915,7 +927,6 @@ export function DeviceDetail({ item }: { item: DeviceItem }) {
           {inUse ? t(jobLabelKey(item === "tts" ? JOB.voice : JOB.stt)) : t("connections.device.usedBy.none")}
         </FactRow>
       </section>
-      {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
     </div>
   );
 }
