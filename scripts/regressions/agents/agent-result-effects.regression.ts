@@ -341,6 +341,15 @@ try {
           ["Alice", "Mira", "Ghost"],
         );
         assert.equal(patches.length, 1);
+
+        const unparseable = await trackerChat();
+        const run = fakeDeps({ origin: "retry" }, { chatId: unparseable.chatId });
+        run.deps.trackers.characters.loadBaseline = async () => ({ id: "row-x", presentCharacters: "[{ not json" });
+        await applyAgentResultEffect(characterResult, run.deps);
+        assert.deepEqual(
+          (await presentCharactersOf(unparseable)).map((character) => character.name),
+          ["Alice", "Mira", "Ghost"],
+        );
       },
     },
     {

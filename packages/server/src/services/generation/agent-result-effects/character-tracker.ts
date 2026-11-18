@@ -18,7 +18,6 @@ import {
   applyTrackerCharacterCardIdentity,
   isManualTrackerCharacterId,
   parseGameStateRow,
-  parseJsonField,
   preserveTrackerCharacterUiFields,
   resolveTrackerGroupUpdate,
 } from "../../../routes/generate/generate-route-utils.js";
@@ -85,12 +84,14 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     deps.signal?.throwIfAborted();
     const previousSnapshot = await target.loadBaseline();
     deps.signal?.throwIfAborted();
-    // A damaged row can hold something other than a list; merge onto an empty one rather than fail the run.
-    const storedCharacters = parseJsonField<unknown>(previousSnapshot?.presentCharacters, []);
-    const previousCharacters = Array.isArray(storedCharacters) ? (storedCharacters as TrackedCharacter[]) : [];
-    if (!Array.isArray(storedCharacters)) {
+    const stored = readStoredCharacters(previousSnapshot?.presentCharacters);
+    const previousCharacters = stored.characters;
+    if (stored.damage) {
+      // A damaged row merges onto an empty list rather than failing the run; say so, without logging its contents.
       logger.warn(
-        "[agent-effects] character-tracker found a stored character list that is not a list; starting from an empty one origin=%s chatId=%s messageId=%s swipeIndex=%d",
+        "[agent-effects] character-tracker found a damaged stored character list (%s, stored as %s); starting from an empty one origin=%s chatId=%s messageId=%s swipeIndex=%d",
+        stored.damage,
+        typeof previousSnapshot?.presentCharacters,
         deps.origin,
         deps.chatId,
         deps.messageId,
@@ -139,6 +140,27 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
       deps.swipeIndex,
     );
   }
+}
+
+/** The stored character list, and what was wrong with it when it could not be used. Missing or empty is not damage. */
+function readStoredCharacters(raw: unknown): {
+  characters: TrackedCharacter[];
+  damage: "unparseable" | "not_a_list" | null;
+} {
+  if (raw === null || raw === undefined || (typeof raw === "string" && raw.trim() === "")) {
+    return { characters: [], damage: null };
+  }
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { characters: [], damage: "unparseable" };
+    }
+  }
+  return Array.isArray(parsed)
+    ? { characters: parsed as TrackedCharacter[], damage: null }
+    : { characters: [], damage: "not_a_list" };
 }
 
 /** Avatar for each non-card character: chat card by name, then the character library, then a stored NPC portrait. */
