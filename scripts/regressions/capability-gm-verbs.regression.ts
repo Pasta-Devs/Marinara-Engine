@@ -840,9 +840,12 @@ assert.deepEqual(
 // The Video Run Interval claim (agent-cadence.ts claimAutomaticVideoRun) adds one audited updater write: it
 // checks the interval inside the serialized metadata write and commits only lastAutomaticVideoMessageId, under
 // the already reserved `last` namespace (staging's own count was 22 before it).
+// The shared World State effect (#9508) removes one: retry-agents-route.ts no longer writes its whole stale
+// `chatMeta` back after moving the party marker; the shared handler patches only gameMap, gameMaps and
+// activeGameMapId through the queued patchMetadata.
 assert.equal(
   unreadableWriteCalls,
-  23,
+  22,
   `chat-metadata writes this sweep cannot read statically changed: expected 22, found ${unreadableWriteCalls}. ` +
     "This count is a boundary marker, not a budget, so do not simply edit the number to match. Read the " +
     "call this added by hand — the sites are listed below — and decide what it writes: if it commits a key " +
