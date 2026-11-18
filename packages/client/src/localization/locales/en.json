@@ -17639,6 +17639,7 @@
   "ui.rulesets.sheets.unreadable": "Cannot be edited here",
   "ui.rulesets.sheets.unreadableHint": "This sheet is stored in a form this version of Marinara cannot read, so it is kept as it is. It still travels with exports. Remove it only if you want to start a new sheet.",
   "ui.rulesets.typed.pick": "Choose {{count}} ({{picked}} picked)",
+  "ui.select.chooseOptions": "Choose options",
   "ui.select.empty": "Nothing to choose from yet.",
   "ui.select.noMatches": "No matches.",
   "ui.select.search": "Search…",
