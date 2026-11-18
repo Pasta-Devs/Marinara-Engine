@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
 // React Query: the avatar agents' local emotion model (lane: director)
 // ──────────────────────────────────────────────
-// The server downloads the model when a Roleplay chat with 2D or 3D Avatars on opens; the agents' pages follow it.
-import { useQuery } from "@tanstack/react-query";
+// The server downloads the model when a Roleplay chat with 2D or 3D Avatars on opens, or when Download is pressed on
+// the Built-in model (emotions) page; the agents' pages follow it.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AVATAR_API_PREFIXES } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 
@@ -31,3 +32,15 @@ export function useAvatarEmotionModelStatus() {
     staleTime: 2_000,
   });
 }
+
+/** The Built-in model (emotions) page's Download and Remove files (privileged on the server). */
+function useEmotionModelAction(path: "download" | "remove") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<AvatarEmotionModelStatus>(`${AVATAR_API_PREFIXES.classify}/model/${path}`, {}),
+    onSuccess: (status) => qc.setQueryData(avatarEmotionModelKeys.status, status),
+    onSettled: () => void qc.invalidateQueries({ queryKey: avatarEmotionModelKeys.status }),
+  });
+}
+export const useDownloadAvatarEmotionModel = () => useEmotionModelAction("download");
+export const useRemoveAvatarEmotionModel = () => useEmotionModelAction("remove");

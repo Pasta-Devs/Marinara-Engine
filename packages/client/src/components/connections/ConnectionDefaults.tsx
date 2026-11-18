@@ -32,6 +32,7 @@ import {
 } from "../../hooks/use-connection-accounts";
 import { useAgentConfigs, useUpdateAgent } from "../../hooks/use-agents";
 import { useBuiltinEmbedding } from "../../hooks/use-builtin-embedding";
+import { useBuiltinTts } from "../../hooks/use-builtin-tts";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useFollowVoiceJob, useMigrateVoiceJob, useTTSConfig } from "../../hooks/use-tts";
@@ -498,6 +499,7 @@ type RoleField = (typeof FLAG_JOBS)[number]["flag"] | (typeof FLAG_JOBS)[number]
 export function useJobModels(connectionsList: ConnectionRowData[]) {
   const { t } = useTranslation();
   const { data: tts } = useTTSConfig();
+  const builtinTts = useBuiltinTts();
   const followVoiceJob = useFollowVoiceJob();
   const updateConnection = useUpdateConnection();
   const sidecarAsAgentsDefault = useSidecarStore((s) => s.config.useAsAgentsDefault);
@@ -578,7 +580,14 @@ export function useJobModels(connectionsList: ConnectionRowData[]) {
     const isVoice = job.key === "voice";
     // The Voice job is the text to speech switch: no Model while it is off; a built-in source has no connection.
     const voiceValue = !tts?.enabled ? null : (primary?.id ?? `${DEVICE_VOICE}${tts.source}`);
-    const sources = !tts ? [] : [...new Set([...voiceSources(tts), ...(voiceValue && !primary ? [tts.source] : [])])];
+    const sources = !tts
+      ? []
+      : [
+          ...new Set([
+            ...voiceSources(tts, !!builtinTts.data?.activeModelId),
+            ...(voiceValue && !primary ? [tts.source] : []),
+          ]),
+        ];
     const set = (currentId: string | null, id: string | null) => {
       const current = currentId ? { id: currentId } : null;
       if (isAgents) return setAgentsDefault(current, id);

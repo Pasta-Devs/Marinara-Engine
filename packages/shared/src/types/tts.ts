@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 
-export const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai"]);
+export const ttsSourceSchema = z.enum(["openai", "elevenlabs", "pockettts", "xai", "builtin"]);
 export type TTSSource = z.infer<typeof ttsSourceSchema>;
 
 export const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }> = {
@@ -23,8 +23,13 @@ export const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: st
     baseUrl: "https://api.x.ai/v1",
     model: "grok-tts",
   },
+  // The built-in voice model (Kokoro-82M) runs inside Marinara: no address, key or model to set.
+  builtin: {
+    baseUrl: "",
+    model: "kokoro-82m",
+  },
 };
-export const TTS_SOURCES: readonly TTSSource[] = ["openai", "elevenlabs", "pockettts", "xai"];
+export const TTS_SOURCES: readonly TTSSource[] = ["openai", "elevenlabs", "pockettts", "xai", "builtin"];
 
 export const ttsAudioFormatSchema = z.enum(["mp3", "wav", "pcm"]);
 export type TTSAudioFormat = z.infer<typeof ttsAudioFormatSchema>;
@@ -270,6 +275,7 @@ export const ttsSourceProfilesSchema = z
     elevenlabs: ttsSourceProfileSchema.optional(),
     pockettts: ttsSourceProfileSchema.optional(),
     xai: ttsSourceProfileSchema.optional(),
+    builtin: ttsSourceProfileSchema.optional(),
   })
   .prefault({});
 export type TTSSourceProfiles = z.infer<typeof ttsSourceProfilesSchema>;

@@ -13,6 +13,8 @@ import {
   Scale,
   ScanSearch,
   Server,
+  Smile,
+  Speech,
   Volume2,
   type LucideIcon,
 } from "lucide-react";
@@ -226,6 +228,8 @@ const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
   audio_generation: Music,
   decision: Scale,
   "builtin-embedding": ScanSearch,
+  "builtin-tts": Speech,
+  emotions: Smile,
 };
 
 // The small tiles keep a fixed radius: a theme's large --radius turns them into blobs.

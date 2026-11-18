@@ -5,6 +5,9 @@ import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decisi
 import { useUIStore } from "../../../stores/ui.store";
 import { ListStatus } from "../../connections/ListFrame";
 import { SearchInput } from "../../ui/SearchInput";
+import { ProviderIcon } from "../../connections/ProviderIcon";
+import { recommendedBuiltinTtsModel } from "@marinara-engine/shared";
+import { useBuiltinTts } from "../../../hooks/use-builtin-tts";
 import {
   DECISION_BUILTIN,
   isDevice,
@@ -70,7 +73,8 @@ export function ServiceListStep({
   serviceName,
   kind,
 }: ServiceListStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const builtinTts = useBuiltinTts(true);
   const [type, setType] = useState<ModelType | "all">(
     kind === "chat" ? "text" : kind === "decision" || !kind ? "all" : kind,
   );
@@ -99,6 +103,21 @@ export function ServiceListStep({
   // The Decision job can also run on this machine; the tile opens the built-in model's page, where it installs.
   const decision = useDecisionSidecar(kind === "decision");
   const builtInName = t("connections.add.device.local_model");
+  // The built-in voice model runs inside Marinara: free, offline, nothing to host. Its tag names the model that
+  // suits the Engine's language (Supertonic 3 for Korean, Japanese, German, Polish and Russian).
+  const ttsName = t("connections.builtinTts.name");
+  if (builtinTts.data?.supported && matches(`${ttsName} kokoro supertonic voice tts speech offline`)) {
+    const model = recommendedBuiltinTtsModel(i18n.language);
+    tiles.push({
+      id: "device:builtin-tts",
+      name: ttsName,
+      tag: builtinTts.data.models.find((entry) => entry.id === model)?.label ?? null,
+      good: true,
+      icon: <ProviderIcon provider="builtin-tts" size="add" />,
+      open: () => useUIStore.getState().openModal("device-detail", { item: "builtin-tts" }),
+      types: ["voice"],
+    });
+  }
   if (kind === "decision" && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
     tiles.push({
       id: DECISION_BUILTIN,
