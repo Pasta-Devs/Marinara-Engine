@@ -1,4 +1,5 @@
 // The scene analyzer's prompt: narration that doesn't fit a local model's context drops its earliest beats first.
+// Generated game audio is opt-in, and the analyzer asks for sound effects as text but never for music.
 import assert from "node:assert/strict";
 import {
   sceneAnalysisRequestSchema,
@@ -8,6 +9,8 @@ import {
   buildSceneAnalyzerUserPrompt,
   fitSceneAnalyzerNarrationBeats,
 } from "../../../packages/server/src/services/sidecar/scene-analyzer.js";
+import { postProcessSceneResult } from "../../../packages/server/src/services/sidecar/scene-postprocess.js";
+import { ttsConfigSchema } from "../../../packages/shared/src/types/tts.js";
 
 const longSceneNarration = Array.from(
   { length: 100 },
@@ -57,3 +60,104 @@ const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
 assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
 assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
 assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
+
+// #4120: generated ElevenLabs game audio is off until turned on, and scene analysis asks for sound effects as short free text, never for music (#5161 moved music to context tracks).
+{
+  const ttsDefaults = ttsConfigSchema.parse({});
+  assert.equal(ttsDefaults.elevenLabsGameSoundEffects, false);
+  assert.equal(ttsDefaults.elevenLabsGameMusic, false);
+  const enabled = ttsConfigSchema.parse({
+    source: "elevenlabs",
+    elevenLabsGameSoundEffects: true,
+    elevenLabsGameMusic: true,
+  });
+  assert.equal(enabled.elevenLabsGameSoundEffects, true);
+  assert.equal(enabled.elevenLabsGameMusic, true);
+
+  const generatedAudioContext = {
+    currentState: "exploration" as const,
+    turnNumber: 2,
+    availableBackgrounds: ["backgrounds:fantasy:forest"],
+    availableSfx: [],
+    activeWidgets: [],
+    trackedNpcs: [],
+    characterNames: [],
+    currentBackground: "backgrounds:fantasy:forest",
+    currentMusic: null,
+    currentWeather: null,
+    currentTimeOfDay: null,
+    generateSoundEffects: true,
+    generateMusic: true,
+  };
+  const prompt = buildSceneAnalyzerUserPrompt("Boots cross the wet stones.", undefined, generatedAudioContext);
+  assert.match(prompt, /short sound description/u);
+  assert.match(prompt, /"sfxLoopCount": <1-5>/u);
+  assert.doesNotMatch(prompt, /"(?:sfxLoopCount|directions|background)"[^\n]*\/\//u);
+  // #5161: music free-text prompts are retired — even with generateMusic on,
+  // the analyzer is asked for genre/intensity hints, never a music prompt.
+  assert.doesNotMatch(prompt, /concise instrumental scene music prompt/u);
+  assert.match(prompt, /musicGenre/u);
+  assert.match(prompt, /musicIntensity/u);
+
+  const processed = postProcessSceneResult(
+    {
+      background: null,
+      music: " tense strings <then> a hopeful transition ",
+      ambient: null,
+      weather: null,
+      timeOfDay: null,
+      reputationChanges: [],
+      segmentEffects: [
+        { segment: 0, sfx: [" quiet footsteps <on> wet stone "], sfxLoopCount: 9, music: "low suspense pulse" },
+      ],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: true,
+      generateMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  // #5161: free-text music never survives postprocess — scoring fills music
+  // downstream from the library (context tracks included). SFX unchanged.
+  assert.equal(processed.music, null);
+  assert.deepEqual(processed.segmentEffects?.[0]?.sfx, ["quiet footsteps on wet stone"]);
+  assert.equal(processed.segmentEffects?.[0]?.sfxLoopCount, 5);
+  assert.equal(processed.segmentEffects?.[0]?.music, undefined);
+
+  const lowerBoundProcessed = postProcessSceneResult(
+    {
+      ...processed,
+      segmentEffects: [{ segment: 0, sfx: ["footsteps"], sfxLoopCount: 0 }],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: true,
+      generateMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  assert.equal(lowerBoundProcessed.segmentEffects?.[0]?.sfxLoopCount, 1);
+
+  const spotifyProcessed = postProcessSceneResult(
+    {
+      ...processed,
+      segmentEffects: [{ segment: 0, music: "generated music prompt" }],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: false,
+      generateMusic: true,
+      useSpotifyMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  assert.equal(spotifyProcessed.music, null);
+  assert.equal(spotifyProcessed.segmentEffects?.[0]?.music, undefined);
+}

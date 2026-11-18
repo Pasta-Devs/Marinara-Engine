@@ -1,5 +1,6 @@
 // The Game surface: a reroll resets the narration when the active swipe changes, and the GM's SFX loop count reaches
-// the audio manager. Also Journal edits, the Session window's layout, and a closed story ending staying closed.
+// the audio manager, and generated game audio has a time limit. Also Journal edits, the Session window's layout, a
+// closed story ending staying closed, and the minimap's accent colour.
 // Reads component source until a test can drive these; most need browser tests.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -44,3 +45,25 @@ assert.match(
 assert.match(gameSurfaceSource, /localStorage\.setItem\(`story-ending-closed:\$\{storyEndingKey\}`, "1"\)/u);
 assert.match(gameSurfaceSource, /readIntroPresentedFlag\(`story-ending-closed:\$\{storyEndingKey\}`\)/u);
 assert.match(gameSurfaceSource, /storyEndingKey !== storyEndingClosed &&\s*!storyEndingClosedBefore &&/u);
+
+// #4120: a generated game audio request has a time limit, so it can't leave the scene waiting.
+{
+  assert.match(
+    gameSurfaceSource,
+    /withTimeout\(\s*\(signal\) =>\s*api\.post<\{ tag: string; path: string \}>\(\s*"\/tts\/game-audio"[\s\S]{0,400}GAME_AUDIO_GENERATION_TIMEOUT_MS/u,
+    "Generated game audio must not leave scene preparation waiting indefinitely",
+  );
+}
+
+// #4940-#4942: the minimap's zoom controls take the chosen accent colour.
+{
+  const gameMapSource = readFileSync(
+    new URL("../../../packages/client/src/components/game/GameMap.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    gameMapSource,
+    /GAME_MAP_ACTION_ITEM_CLASS\s*=\s*\n\s*"text-\[var\(--primary\)\]/u,
+    "Minimap zoom controls must inherit the selected accent color",
+  );
+}
