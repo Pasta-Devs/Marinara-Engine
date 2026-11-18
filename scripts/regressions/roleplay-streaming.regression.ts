@@ -2048,9 +2048,22 @@ assert.equal(
     new URL("../../packages/client/src/hooks/use-chats.ts", import.meta.url),
     "utf8",
   );
+  // Every path that replaces cached messages keeps a recent edit: the transcript fetch, the rows a generation brings
+  // in, and the cache after a generation's refresh. Check the calls, not the helper's own definition.
   assert.match(
     chatsHookSource,
-    /recentMessageContentEdits[\s\S]+preserveRecentMessageContentEdit/u,
+    /\.then\(\(messages\) => messages\.map\(\(message\) => preserveRecentMessageContentEdit\(chatId, message\)\)\)/u,
+    "A transcript fetch must keep the user's recent edits",
+  );
+  assert.equal(
+    generateHookSource.match(/incoming\.map\(\(message\) => preserveRecentMessageContentEdit\(chatId, message\)\)/gu)
+      ?.length,
+    2,
+    "Messages a generation brings in must keep the user's recent edits",
+  );
+  assert.match(
+    generateHookSource,
+    /^\s+preserveRecentMessageContentEditsInCache\(qc, chatId\);$/mu,
     "Recent user edits must survive authoritative generation refreshes",
   );
   assert.match(

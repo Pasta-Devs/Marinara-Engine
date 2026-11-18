@@ -101,6 +101,12 @@ assert.deepEqual(
   ["game"],
   "The chat-help seen modes must be server-synced",
 );
+// Game text effects a user turned off stay off after synced settings are restored on another device.
+assert.equal(
+  pickSyncedSettings({ ...projectionState, gameTextEffectsEnabled: false }).gameTextEffectsEnabled,
+  false,
+  "Game text effects must remain off after synced settings are restored",
+);
 const localProjection = useUIStore.persist.getOptions().partialize(projectionState) as Record<string, unknown>;
 const syncedSettingsMissingFromLocalPersistence = Object.keys(pickSyncedSettings(projectionState)).filter(
   (key) => !Object.prototype.hasOwnProperty.call(localProjection, key),

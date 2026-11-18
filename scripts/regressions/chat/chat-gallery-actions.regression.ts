@@ -101,13 +101,33 @@ try {
   );
   assert.match(
     chatAreaSource,
-    /const handleIllustrateWithAgent = useCallback\([\s\S]*?forceImageGeneration: true[\s\S]*?<ChatConversationSurface[\s\S]*?onIllustrateWithAgent=\{handleIllustrateWithAgent\}/u,
+    /const handleIllustrateWithAgent = useCallback\([\s\S]*?forceImageGeneration: true/u,
+    "Illustrate with an agent must force the image",
+  );
+  // Look inside the Conversation surface's element only: the Roleplay surface below it takes the same prop.
+  const conversationSurfaceStart = chatAreaSource.indexOf("<ChatConversationSurface");
+  const roleplaySurfaceStart = chatAreaSource.indexOf("<ChatRoleplaySurface", conversationSurfaceStart);
+  assert.ok(
+    conversationSurfaceStart >= 0 && roleplaySurfaceStart > conversationSurfaceStart,
+    "ChatArea must render the Conversation surface before the Roleplay surface",
+  );
+  assert.match(
+    chatAreaSource.slice(conversationSurfaceStart, roleplaySurfaceStart),
+    /onIllustrateWithAgent=\{handleIllustrateWithAgent\}/u,
     "Conversation Gallery must forward custom image-agent illustration requests",
   );
-  // The Gallery drawer in Chat Settings reads the actions the conversation surface provides.
+  // The Gallery drawer in Chat Settings reads the actions the conversation surface provides, so the action must be in
+  // the actions it hands over, not only in its props. End at the object's close, before the dependency list.
+  const galleryActionsStart = conversationSurfaceSource.indexOf("const galleryActions = useMemo(");
+  const galleryActionsEnd = conversationSurfaceSource.indexOf("\n    }),\n", galleryActionsStart);
+  assert.ok(
+    galleryActionsStart >= 0 && galleryActionsEnd > galleryActionsStart,
+    "Conversation's Gallery actions object must be found",
+  );
   assert.match(
-    conversationSurfaceSource,
-    /onIllustrateWithAgent,[\s\S]*?useProvideChatGalleryActions\(activeChatId, galleryActions\)/u,
+    conversationSurfaceSource.slice(galleryActionsStart, galleryActionsEnd),
+    /\(\) => \(\{[\s\S]*?\bonIllustrateWithAgent,/u,
+    "Conversation's Gallery actions must include illustrate with an agent",
   );
 }
 console.info("Chat gallery actions and the scene-video delete route passed.");

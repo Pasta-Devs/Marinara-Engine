@@ -8,9 +8,8 @@
 // - Roleplay shows Stop while a reply generates, Long-Term Memory uses one settings surface in every mode, a member's
 //   name opens their card after the guarded close, and Memory Recall's switch reports its state.
 // Reads component source; replacing these needs browser tests. The write queue itself is run directly. The drawer's
-// sections per mode, its close guard and
-// the Secret Plot interval are covered in e2e/chat-settings-sections.e2e.ts, e2e/chat-settings-agent-cards.e2e.ts and
-// e2e/core-flows.e2e.ts.
+// sections per mode, its close guard and the Secret Plot interval are covered in e2e/chat-settings-sections.e2e.ts,
+// e2e/chat-settings-agent-cards.e2e.ts and e2e/core-flows.e2e.ts.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { createSerializedMutationQueue } from "../../../packages/client/src/lib/serialized-mutation-queue.js";
