@@ -863,8 +863,6 @@ export const gameRouteJournalEntriesBodySchema = z.object({
   content: z.string().max(20_000),
 });
 
-export const gameRouteEntryIndex2Schema = z.coerce.number().int().nonnegative();
-
 export const gameRouteNotesBodySchema = z.object({ notes: z.string().max(10000) });
 
 export const gameRouteExperienceStateBodySchema = z.object({

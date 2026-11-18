@@ -29,6 +29,8 @@ import {
   combatDirectorKeySchema,
   combatDirectorNumSchema,
   combatDirectorTacticalActionSchema,
+  RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
 } from "@marinara-engine/shared";
 import {
   applyGameInventoryChangeHeld,
@@ -43,7 +45,6 @@ import { rollDieSecurely } from "../services/game/dice-rng.js";
 import { rollGameFightItemGate } from "../services/game/game-item-use.service.js";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
-import { RULESET_COMBAT_EVENT_LIMIT, RULESET_COMBAT_REASON_LIMIT } from "@marinara-engine/shared";
 import { z } from "zod";
 import {
   assignCombatTactics,

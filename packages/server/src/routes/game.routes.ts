@@ -73,7 +73,6 @@ import {
   gameRouteOverworldWalkBodySchema,
   gameRouteEntryIndexSchema,
   gameRouteJournalEntriesBodySchema,
-  gameRouteEntryIndex2Schema,
   gameRouteNotesBodySchema,
   gameRouteExperienceStateBodySchema,
   gameRouteExperienceStateImportSchema,
@@ -12247,7 +12246,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.delete<{ Params: { chatId: string; entryIndex: string } }>(
     "/:chatId/journal/entries/:entryIndex",
     async (req, reply) => {
-      const entryIndex = gameRouteEntryIndex2Schema.parse(req.params.entryIndex);
+      const entryIndex = gameRouteEntryIndexSchema.parse(req.params.entryIndex);
       const chats = createChatsStorage(app.db);
       let nextJournal: Journal | null = null;
       const updated = await chats.patchMetadata(req.params.chatId, (current) => {
