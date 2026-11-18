@@ -88,6 +88,8 @@ export function SegmentedButtons({
   /** Names the row as a group of tabs. */
   groupLabel?: string;
 }) {
+  // Narrower cells (the Presets panel's four tabs) get a smaller icon and tighter spacing so the label still fits.
+  const compact = buttons.length > 2;
   return (
     <div
       className={cn("mari-chrome-segmented", buttons.length === 2 && "mari-chrome-segmented--two")}
@@ -102,18 +104,20 @@ export function SegmentedButtons({
           key={label}
           type="button"
           onClick={onClick}
-          className={SEGMENTED_BUTTON}
+          // `!`: the unlayered .mari-chrome-segmented__button gap beats a plain gap utility.
+          className={cn(SEGMENTED_BUTTON, compact && "@container !gap-0.5 px-1")}
           title={title ?? label}
           aria-pressed={pressed}
         >
           {Icon ? (
-            <span className="shrink-0 leading-none">
-              <Icon size="0.875rem" />
+            // In the narrowest sidebar a compact cell has no room for both, so the icon steps aside for the label.
+            // ponytail: the cut-off is sized for the English labels, so a longer translation truncates its label
+            // beside the icon; measuring each label would let every language drop the icon at its own width.
+            <span className={cn("shrink-0 leading-none", compact && "@max-[3.625rem]:hidden")}>
+              <Icon size={compact ? "0.75rem" : "0.875rem"} />
             </span>
           ) : null}
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
-            {label}
-          </span>
+          <span className="min-w-0 truncate pb-px leading-normal">{label}</span>
         </button>
       ))}
     </div>

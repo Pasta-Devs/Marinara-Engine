@@ -30,7 +30,8 @@ import {
 import { createPortal } from "react-dom";
 import { preloadRightPanel } from "./right-panel-panels";
 import { useTranslation } from "react-i18next";
-import { selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { MOBILE_SHELL_MEDIA_QUERY, selectSidebarShown, useUIStore } from "../../stores/ui.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
@@ -292,6 +293,9 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
 
   // Chats shares the one sidebar with the panels, so it is shown only while no panel is open.
   const chatsActive = sidebarOpen;
+  // Phones and touch tablets keep Chats beside Home. A desktop window too narrow for the sidebar also gets the
+  // sheet (isMobileShellViewport's width check) but keeps the desktop bar, so Chats stays with the panel buttons.
+  const chatsBesideHome = useMatchMedia(MOBILE_SHELL_MEDIA_QUERY);
   const overflowItems: TopbarOverflowItem[] = [
     {
       key: "chats",
@@ -410,18 +414,13 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
       data-topbar-hover-key="chats"
       className={cn(
         // On desktop Chats is the first of the panel buttons, since it opens in the same sidebar.
-        mobileTopbarNavigation ? TOPBAR_BUTTON_CLASS : TOPBAR_PANEL_BUTTON_CLASS,
+        chatsBesideHome ? TOPBAR_BUTTON_CLASS : TOPBAR_PANEL_BUTTON_CLASS,
         // On a phone, Chats is the first row of the menu instead (overflowItems), beside the other panels.
         PHONE_OVERFLOW_HIDDEN_CLASS,
+        // Hover lights the button like the other icons; only the open Chats wears the gradient.
         chatsActive
-          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !mobileTopbarNavigation && "mari-topbar-chat-gradient-icon")
-          : cn(
-              "text-[var(--muted-foreground)]",
-              !mobileTopbarNavigation && "mari-topbar-chat-gradient-hover",
-              !mobileTopbarNavigation &&
-                isTopbarHovered("chats") &&
-                cn(TOPBAR_FORCE_HOVER_CLASS, "mari-topbar-chat-gradient-icon"),
-            ),
+          ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, !chatsBesideHome && "mari-topbar-chat-gradient-icon")
+          : cn("text-[var(--muted-foreground)]", isTopbarHovered("chats") && TOPBAR_FORCE_HOVER_CLASS),
       )}
       title={localize("Chats")}
       aria-label={localize("Chats")}
@@ -507,7 +506,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
           ref={leftControlsRef}
           className="mari-topbar-left-controls mari-rgb-icon-scope flex shrink-0 items-center gap-2"
         >
-          {mobileTopbarNavigation ? [homeButton, chatsButton] : homeButton}
+          {chatsBesideHome ? [homeButton, chatsButton] : homeButton}
         </div>
         {musicDjInstalled ? (
           <>
@@ -527,7 +526,7 @@ export function TopBar({ mobileTopbarNavigation }: { mobileTopbarNavigation: boo
         aria-label={localize("Panel navigation")}
         className="mari-topbar-panel-nav mari-rgb-icon-scope flex shrink-0 items-center justify-end gap-0.5 rounded-xl p-1 max-sm:gap-0 max-sm:p-0.5"
       >
-        {mobileTopbarNavigation ? null : chatsButton}
+        {chatsBesideHome ? null : chatsButton}
         <button
           onClick={() => handleRightPanelClick("characters")}
           aria-pressed={isCharactersPanelActive}

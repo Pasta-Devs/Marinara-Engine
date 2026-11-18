@@ -38,8 +38,41 @@ interface TabsProps<T extends string> {
   idPrefix?: string;
   /** Pill only: cells per row; more items wrap. Defaults to one row. */
   columns?: number;
+  /** Pill only: the icon sits before the label on one line, as in the Download | Open Library row, not above it. */
+  inlineIcons?: boolean;
   className?: string;
   tabClassName?: string;
+}
+
+const SEGMENT_RADIUS = "calc(0.75rem - 1px)";
+const SEGMENT_DIVIDER = "1px solid var(--marinara-chat-chrome-button-border)";
+
+/**
+ * A pill row, or a grid of rows, reads as one button split into cells: only the outer corners are round, a line
+ * parts the cells of a row and another the rows, and the first cell of a row has none on the outer edge. The sides
+ * are logical, so a right-to-left language mirrors them with the grid (inline styles skip the build's CSS lowering).
+ */
+function segmentCorners(index: number, count: number, columns: number): CSSProperties {
+  const column = index % columns;
+  const firstRow = index < columns;
+  const lastRow = Math.floor(index / columns) === Math.floor((count - 1) / columns);
+  const rowEnd = column === columns - 1 || index === count - 1;
+  const round = (outer: boolean) => (outer ? SEGMENT_RADIUS : "0");
+  return {
+    borderStartStartRadius: round(firstRow && column === 0),
+    borderStartEndRadius: round(firstRow && rowEnd),
+    borderEndEndRadius: round(lastRow && rowEnd),
+    borderEndStartRadius: round(lastRow && column === 0),
+  };
+}
+
+function segmentCellStyle(index: number, count: number, columns: number): CSSProperties {
+  return {
+    ...segmentCorners(index, count, columns),
+    borderInlineStart: index % columns === 0 ? "1px solid transparent" : SEGMENT_DIVIDER,
+    borderInlineEnd: "0",
+    borderTop: index < columns ? undefined : SEGMENT_DIVIDER,
+  };
 }
 
 /**
@@ -55,11 +88,13 @@ export function Tabs<T extends string>({
   label,
   idPrefix,
   columns,
+  inlineIcons,
   className,
   tabClassName,
 }: TabsProps<T>) {
   const listRef = useRef<HTMLDivElement>(null);
   const pill = variant === "pill";
+  const cellsPerRow = columns ?? items.length;
   const [indicator, setIndicator] = useState<CSSProperties | null>(null);
   const [overflow, setOverflow] = useState({ back: false, forward: false });
 
@@ -132,22 +167,34 @@ export function Tabs<T extends string>({
           : "flex min-w-0 gap-4 overflow-x-auto border-b border-[var(--border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         pill && className,
       )}
-      style={pill ? { gridTemplateColumns: `repeat(${columns ?? items.length}, minmax(0, 1fr))` } : undefined}
+      style={pill ? { gridTemplateColumns: `repeat(${cellsPerRow}, minmax(0, 1fr))` } : undefined}
     >
       {indicator && (
         <span
           aria-hidden="true"
-          style={indicator}
+          // The highlight takes its cell's corners: round only where the cell meets the outer edge.
+          style={
+            pill
+              ? {
+                  ...indicator,
+                  ...segmentCorners(
+                    items.findIndex((item) => item.id === value),
+                    items.length,
+                    cellsPerRow,
+                  ),
+                }
+              : indicator
+          }
           className={cn(
             "pointer-events-none absolute left-0 top-0",
             slide,
             pill
-              ? "rounded-[calc(0.75rem-1px)] bg-[var(--marinara-chat-chrome-button-bg-active)] shadow-[inset_0_0_0_1px_var(--marinara-chat-chrome-focus-ring)]"
+              ? "bg-[var(--marinara-chat-chrome-button-bg-active)] shadow-[inset_0_0_0_1px_var(--marinara-chat-chrome-focus-ring)]"
               : "top-auto bottom-0 h-0.5 rounded-full bg-[var(--primary)]",
           )}
         />
       )}
-      {items.map((item) => {
+      {items.map((item, index) => {
         const active = item.id === value;
         return (
           <button
@@ -163,6 +210,7 @@ export function Tabs<T extends string>({
             title={item.title}
             disabled={item.disabled}
             onClick={() => onChange(item.id)}
+            style={pill ? segmentCellStyle(index, items.length, cellsPerRow) : undefined}
             className={cn(
               "relative",
               pill
@@ -170,10 +218,10 @@ export function Tabs<T extends string>({
                     "mari-chrome-segmented__button min-w-0 px-1.5 py-2 text-[0.625rem] leading-normal",
                     // The sliding highlight paints the selected cell once it is measured.
                     indicator && "!bg-transparent !shadow-none",
-                    item.icon && "flex-col gap-0.5",
+                    item.icon && !inlineIcons && "flex-col gap-0.5",
                   )
                 : cn(
-                    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-0.5 py-2 text-xs font-semibold transition-colors",
+                    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-0.5 py-2 text-xs font-semibold transition-colors",
                     active
                       ? "text-[var(--foreground)]"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
@@ -181,7 +229,7 @@ export function Tabs<T extends string>({
                       active &&
                       "after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-[var(--primary)]",
                   ),
-              "rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card)] disabled:cursor-not-allowed disabled:opacity-50",
               tabClassName,
             )}
           >
@@ -190,7 +238,9 @@ export function Tabs<T extends string>({
                 {item.icon}
               </span>
             )}
-            <span className={cn("min-w-0", pill ? "line-clamp-2 break-words" : "truncate")}>{item.label}</span>
+            <span className={cn("min-w-0", pill && !inlineIcons ? "line-clamp-2 break-words" : "truncate")}>
+              {item.label}
+            </span>
             {item.count !== undefined && (
               <span
                 className={cn(
