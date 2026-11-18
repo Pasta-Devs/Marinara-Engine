@@ -531,6 +531,7 @@ async function importCharacterBuffer(
   splitDescription?: boolean,
   importTags?: ImportTagOptions,
   update?: CharacterUpdateTarget,
+  hideEmbeddedLorebook?: boolean,
 ) {
   const updateOptions = update
     ? {
@@ -555,6 +556,7 @@ async function importCharacterBuffer(
         await importSTCharacter(charData, db, {
           timestampOverrides,
           importEmbeddedLorebook,
+          hideEmbeddedLorebook,
           tagImportMode,
           existingTagKeys,
           regexScriptScope,
@@ -573,6 +575,7 @@ async function importCharacterBuffer(
     return importCharX(buffer, db, {
       timestampOverrides,
       importEmbeddedLorebook,
+      hideEmbeddedLorebook,
       tagImportMode,
       existingTagKeys,
       regexScriptScope,
@@ -597,6 +600,7 @@ async function importCharacterBuffer(
       await importSTCharacter(json, db, {
         timestampOverrides,
         importEmbeddedLorebook,
+        hideEmbeddedLorebook,
         tagImportMode,
         existingTagKeys,
         regexScriptScope,
@@ -936,7 +940,7 @@ export async function importRoutes(app: FastifyInstance) {
     // Handle multipart file upload (PNG character cards)
     if (contentType.includes("multipart/form-data")) {
       const file = await req.file({
-        limits: { fields: 8, parts: 9, files: 1, fieldSize: 64 * 1024, fileSize: IMPORT_BODY_LIMIT_BYTES },
+        limits: { fields: 9, parts: 10, files: 1, fieldSize: 64 * 1024, fileSize: IMPORT_BODY_LIMIT_BYTES },
       });
       if (!file) return { success: false, error: "No file uploaded" };
       const timestampOverrides = readTimestampOverridesFromMultipart(file as any);
@@ -965,12 +969,15 @@ export async function importRoutes(app: FastifyInstance) {
         regexScriptScope,
         splitDescription,
         readMultipartImportTags(file as any),
+        undefined,
+        readMultipartBooleanField(file as any, "hideEmbeddedLorebook"),
       );
     }
 
     // Standard JSON body
     const body = { ...(req.body as Record<string, unknown>) };
     const importEmbeddedLorebook = readBooleanOption(body.importEmbeddedLorebook);
+    const hideEmbeddedLorebook = readBooleanOption(body.hideEmbeddedLorebook);
     const rawTagImportMode = body.tagImportMode;
     const tagImportMode = readTagImportMode(rawTagImportMode);
     if (rawTagImportMode !== undefined && tagImportMode === undefined) return invalidTagImportModeResponse();
@@ -983,6 +990,7 @@ export async function importRoutes(app: FastifyInstance) {
     const useCardPicture = body.useCardPicture !== false;
     const creatorNotes = readCreatorNotesUpdate(body.creatorNotes);
     delete body.importEmbeddedLorebook;
+    delete body.hideEmbeddedLorebook;
     delete body.tagImportMode;
     delete body.regexScriptScope;
     delete body.splitDescription;
@@ -993,6 +1001,7 @@ export async function importRoutes(app: FastifyInstance) {
       return await importSTCharacter(body, app.db, {
         timestampOverrides: readTimestampOverridesFromBody(body),
         importEmbeddedLorebook,
+        hideEmbeddedLorebook,
         tagImportMode,
         regexScriptScope,
         splitDescription,
@@ -1073,6 +1082,7 @@ export async function importRoutes(app: FastifyInstance) {
     let totalBytes = 0;
     const timestampEntries: Array<{ name?: string; lastModified?: number | string }> = [];
     let importEmbeddedLorebook: boolean | undefined;
+    let hideEmbeddedLorebook: boolean | undefined;
     let tagImportMode: STCharacterTagImportMode | undefined;
     let invalidTagImportMode = false;
     let regexScriptScope: "character" | "global" | undefined;
@@ -1112,6 +1122,10 @@ export async function importRoutes(app: FastifyInstance) {
 
       if (part.fieldname === "importEmbeddedLorebook") {
         importEmbeddedLorebook = readBooleanOption(part.value);
+      }
+
+      if (part.fieldname === "hideEmbeddedLorebook") {
+        hideEmbeddedLorebook = readBooleanOption(part.value);
       }
 
       if (part.fieldname === "tagImportMode") {
@@ -1174,6 +1188,7 @@ export async function importRoutes(app: FastifyInstance) {
           splitDescription,
           importTags,
           takeCharacterUpdateTarget(updateTargets, fileIndex, file.filename),
+          hideEmbeddedLorebook,
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {
@@ -1258,6 +1273,11 @@ export async function importRoutes(app: FastifyInstance) {
     }
     if (bulkRegexScriptScope) options.regexScriptScope = bulkRegexScriptScope;
     options.importTags = readImportTagOptions((req.body as { options?: { importTags?: unknown } }).options?.importTags);
+    const bulkLorebookOptions = req.body as {
+      options?: { importEmbeddedLorebook?: unknown; hideEmbeddedLorebook?: unknown };
+    };
+    options.importEmbeddedLorebook = readBooleanOption(bulkLorebookOptions.options?.importEmbeddedLorebook);
+    options.hideEmbeddedLorebook = readBooleanOption(bulkLorebookOptions.options?.hideEmbeddedLorebook);
 
     if (stBulkImportJob?.running) {
       return reply.status(409).send({

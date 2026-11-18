@@ -528,6 +528,10 @@ export interface STBulkImportOptions {
   personas: STBulkImportSelection;
   characterTagImportMode?: STCharacterTagImportMode;
   regexScriptScope?: "character" | "global";
+  /** Import each card's embedded lorebook (on unless false). */
+  importEmbeddedLorebook?: boolean;
+  /** Import embedded lorebooks hidden from the Lorebook library (still linked to their character). */
+  hideEmbeddedLorebook?: boolean;
   /** The "Tag imported" / "Tag source" checkboxes; everything imported is tagged "Imported" and "ST". */
   importTags?: ImportTagOptions;
   /**
@@ -665,6 +669,8 @@ export async function runSTBulkImport(
   const selectedPersonas = resolveSelectedItems(scanResult.personas, options.personas);
   const tagImportMode = options.characterTagImportMode ?? "all";
   const regexScriptScope = options.regexScriptScope ?? "character";
+  const importEmbeddedLorebook = options.importEmbeddedLorebook !== false;
+  const hideEmbeddedLorebook = options.hideEmbeddedLorebook === true;
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
@@ -718,6 +724,8 @@ export async function runSTBulkImport(
               existingTagKeys,
               regexScriptScope,
               importTags,
+              importEmbeddedLorebook,
+              hideEmbeddedLorebook,
             });
             imported.characters++;
           }
@@ -733,6 +741,8 @@ export async function runSTBulkImport(
             existingTagKeys,
             regexScriptScope,
             importTags,
+            importEmbeddedLorebook,
+            hideEmbeddedLorebook,
           });
           imported.characters++;
         }

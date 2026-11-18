@@ -433,6 +433,8 @@ export async function importSTLorebook(
     fallbackName?: string;
     timestampOverrides?: TimestampOverrides | null;
     existingLorebookId?: string | null;
+    /** Hide a newly made lorebook from the Lorebook library (a card's embedded book); a reimport keeps its visibility. */
+    hiddenFromLibrary?: boolean;
     allowLocalImagePaths?: boolean;
     /** The "Tag imported" / "Tag source" checkboxes. Left out, the book gets no import tags. */
     importTags?: ImportTagOptions;
@@ -496,6 +498,7 @@ export async function importSTLorebook(
             ? { tags: importTags }
             : {}),
         ...(options?.characterId ? { characterIds: [options.characterId] } : {}),
+        ...(options?.hiddenFromLibrary ? { hiddenFromLibrary: true } : {}),
       };
 
       const existingLorebookId = options?.existingLorebookId ?? null;

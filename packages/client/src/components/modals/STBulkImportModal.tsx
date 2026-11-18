@@ -100,6 +100,26 @@ const REGEX_SCOPE_OPTIONS: Array<{ value: "character" | "global"; label: string;
   { value: "global", label: "Global", description: "Add to Presets → Regexes for every chat." },
 ];
 
+type EmbeddedLorebookChoice = "all" | "hidden" | "none";
+
+const EMBEDDED_LOREBOOK_OPTIONS: Array<{ value: EmbeddedLorebookChoice; label: string; description: string }> = [
+  {
+    value: "all",
+    label: "ui.modals.importcharactermodal.ovLorebooksAll",
+    description: "ui.modals.importcharactermodal.lorebooksAllHint",
+  },
+  {
+    value: "hidden",
+    label: "ui.modals.importcharactermodal.ovLorebooksHidden",
+    description: "ui.modals.importcharactermodal.lorebooksHiddenHint",
+  },
+  {
+    value: "none",
+    label: "ui.modals.importcharactermodal.ovLorebooksNone",
+    description: "ui.modals.importcharactermodal.lorebooksNoneHint",
+  },
+];
+
 type ApiErrorPayload = {
   error?: unknown;
   message?: unknown;
@@ -169,6 +189,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [error, setError] = useState("");
   const [characterTagImportMode, setCharacterTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<"character" | "global">("character");
+  const [embeddedLorebooks, setEmbeddedLorebooks] = useState<EmbeddedLorebookChoice>("all");
   const [skipAlreadyImported, setSkipAlreadyImported] = useState(true);
   const followingRef = useRef(false);
   const importTags = useImportTagChoice();
@@ -192,6 +213,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setError("");
     setCharacterTagImportMode("all");
     setRegexScriptScope("character");
+    setEmbeddedLorebooks("all");
     setSkipAlreadyImported(true);
   }, []);
 
@@ -379,6 +401,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
             ...selection,
             characterTagImportMode,
             regexScriptScope,
+            importEmbeddedLorebook: embeddedLorebooks !== "none",
+            hideEmbeddedLorebook: embeddedLorebooks === "hidden",
             importTags: importTags.choice,
             skipAlreadyImported,
           },
@@ -468,6 +492,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   }, [
     characterTagImportMode,
     regexScriptScope,
+    embeddedLorebooks,
     folderPath,
     folderToken,
     qc,
@@ -746,6 +771,44 @@ export function STBulkImportModal({ open, onClose }: Props) {
                         <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
                         <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
                           {option.description}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {scanResult.characters.length > 0 && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+                  <p className="text-xs font-medium text-[var(--foreground)]">
+                    {localizeUi("ui.modals.importcharactermodal.embeddedLorebooks")}
+                  </p>
+                  <p className="mt-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.modals.stbulkimportmodal.embeddedLorebooksHint")}
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    {EMBEDDED_LOREBOOK_OPTIONS.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                          embeddedLorebooks === option.value
+                            ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                            : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bulkEmbeddedLorebooks"
+                          value={option.value}
+                          checked={embeddedLorebooks === option.value}
+                          onChange={() => setEmbeddedLorebooks(option.value)}
+                          className="sr-only"
+                        />
+                        <span className="block text-xs font-medium text-[var(--foreground)]">
+                          {localizeUi(option.label)}
+                        </span>
+                        <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-snug text-[var(--muted-foreground)]">
+                          {localizeUi(option.description)}
                         </span>
                       </label>
                     ))}
