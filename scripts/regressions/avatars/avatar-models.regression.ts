@@ -459,7 +459,7 @@ try {
   );
   assert.match(
     source("routes/admin.routes.ts"),
-    /filesDeleted\.avatarModels = clearDirectory\(join\(DATA_DIR, "avatar-models"\)\)/u,
+    /\["avatarModels", "avatar-models"\]/u,
   );
   const { stageProfileImportAssets } =
     await import("../../../packages/server/src/services/import/profile-import-assets.js");

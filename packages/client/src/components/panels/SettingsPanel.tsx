@@ -223,6 +223,7 @@ import {
   useChat,
   useClearAllData,
   useExpungeData,
+  useExpungeStatus,
   useUpdateChatMetadata,
   type ExpungeScope,
 } from "../../hooks/use-chats";
@@ -8126,8 +8127,11 @@ function AdvancedSettings() {
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
+  const expungeStatus = useExpungeStatus();
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>([]);
   const [confirmAction, setConfirmAction] = useState<"selected" | "all" | null>(null);
+  const [backupBeforeExpunge, setBackupBeforeExpunge] = useState(true);
+  const [backingUpBeforeExpunge, setBackingUpBeforeExpunge] = useState(false);
   const [exportingProfile, setExportingProfile] = useState(false);
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
   const [refreshingSpa, setRefreshingSpa] = useState(false);
@@ -8653,8 +8657,15 @@ function AdvancedSettings() {
           : applyUnavailableReason === "disabled"
             ? "This install can check for updates, but applying them from the browser is disabled. Update manually with the command below. Advanced git installs can enable server-side apply with UPDATES_APPLY_ENABLED=true."
             : "This install can check for updates, but it cannot apply them from the browser. Relaunch the app if you use the launcher, or update manually for your install type.";
-  const isClearing = clearAllData.isPending || expungeData.isPending;
+  const expungeJob = expungeStatus.job;
+  const expungeRunning = expungeJob?.state === "running";
+  const isClearing = clearAllData.isPending || expungeData.isPending || backingUpBeforeExpunge || expungeRunning;
   const isAllScopesSelected = selectedScopes.length === EXPUNGE_SCOPE_OPTIONS.length;
+  const interruptedExpunge = expungeStatus.status?.interrupted ?? null;
+  const expungeStepLabel = (step: ExpungeScope | "finishing") =>
+    step === "finishing"
+      ? localizeUi("ui.panels.advancedsettings.expungeStepFinishing")
+      : (EXPUNGE_SCOPE_OPTIONS.find((scope) => scope.id === step)?.label ?? step);
 
   const toggleScope = (scope: ExpungeScope) => {
     setSelectedScopes((current) =>
@@ -8662,23 +8673,52 @@ function AdvancedSettings() {
     );
   };
 
-  const runExpunge = (mode: "selected" | "all") => {
-    if (mode === "all") {
-      clearAllData.mutate(undefined, {
-        onSuccess: () =>
-          toast.success(localizeUi("ui.panels.advancedsettings.allSelectedDataWasClearedRuntimeCachesWereReset")),
-        onError: () => toast.error(localizeUi("ui.panels.advancedsettings.failedToClearAllData")),
-        onSettled: () => setConfirmAction(null),
-      });
-      return;
+  // The clear runs on the server; this page only watches it. Report the end once.
+  const finishedExpunge = expungeStatus.finished;
+  const clearFinishedExpunge = expungeStatus.clearFinished;
+  useEffect(() => {
+    if (!finishedExpunge) return;
+    if (finishedExpunge.state === "done") {
+      toast.success(localizeUi("ui.panels.advancedsettings.selectedDataWasClearedRuntimeCachesWereResetImmediately"));
+    } else {
+      toast.error(
+        localizeUi("ui.panels.advancedsettings.expungeFailedPartway", {
+          error: finishedExpunge.error ?? "",
+        }),
+      );
     }
+    setConfirmAction(null);
+    clearFinishedExpunge();
+  }, [finishedExpunge, clearFinishedExpunge, localizeUi]);
 
-    expungeData.mutate(selectedScopes, {
-      onSuccess: () =>
-        toast.success(localizeUi("ui.panels.advancedsettings.selectedDataWasClearedRuntimeCachesWereResetImmediately")),
-      onError: () => toast.error(localizeUi("ui.panels.advancedsettings.failedToClearSelectedData")),
-      onSettled: () => setConfirmAction(null),
-    });
+  const runExpunge = async (mode: "selected" | "all") => {
+    if (backupBeforeExpunge) {
+      setBackingUpBeforeExpunge(true);
+      try {
+        await api.post("/backup", {});
+        toast.success(localizeUi("ui.panels.advancedsettings.expungeBackupSaved"));
+      } catch (error) {
+        // Never delete without the backup the person asked for.
+        toast.error(
+          localizeUi("ui.panels.advancedsettings.expungeBackupFailed", {
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        return;
+      } finally {
+        setBackingUpBeforeExpunge(false);
+      }
+    }
+    const onError = () =>
+      toast.error(
+        localizeUi(
+          mode === "all"
+            ? "ui.panels.advancedsettings.failedToClearAllData"
+            : "ui.panels.advancedsettings.failedToClearSelectedData",
+        ),
+      );
+    if (mode === "all") clearAllData.mutate(undefined, { onError });
+    else expungeData.mutate(selectedScopes, { onError });
   };
 
   return (
@@ -9478,7 +9518,7 @@ function AdvancedSettings() {
               {localizeUi("ui.panels.advancedsettings.clearAllData")}
             </button>
           </div>
-          {confirmAction && (
+          {confirmAction && !isClearing && (
             <div className="flex flex-col gap-2 rounded-lg bg-[var(--background)]/55 p-2.5 ring-1 ring-[var(--border)]">
               <div className="flex items-start gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
                 <AlertTriangle
@@ -9502,7 +9542,7 @@ function AdvancedSettings() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => runExpunge(confirmAction)}
+                  onClick={() => void runExpunge(confirmAction)}
                   disabled={isClearing}
                   className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
                 >
@@ -9510,6 +9550,88 @@ function AdvancedSettings() {
                   {localizeUi("ui.panels.advancedsettings.confirmDelete")}
                 </button>
               </div>
+              <label className="flex cursor-pointer items-start gap-2 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-text)]">
+                <Checkbox
+                  checked={backupBeforeExpunge}
+                  disabled={isClearing}
+                  onChange={() => setBackupBeforeExpunge((current) => !current)}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block font-medium">
+                    {localizeUi("ui.panels.advancedsettings.expungeBackupFirst")}
+                  </span>
+                  <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.advancedsettings.expungeBackupFirstDescription")}
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+          {(backingUpBeforeExpunge || expungeRunning) && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/55 p-2.5 ring-1 ring-[var(--border)]"
+            >
+              <div className="flex items-center gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
+                <Spinner size="sm" />
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                  {backingUpBeforeExpunge || !expungeJob
+                    ? localizeUi("ui.panels.advancedsettings.expungeBackingUp")
+                    : expungeJob.total > 0
+                      ? localizeUi("ui.panels.advancedsettings.expungeProgressCounted", {
+                          step: expungeStepLabel(expungeJob.step),
+                          done: expungeJob.done.toLocaleString(),
+                          total: expungeJob.total.toLocaleString(),
+                        })
+                      : localizeUi("ui.panels.advancedsettings.expungeProgress", {
+                          step: expungeStepLabel(expungeJob.step),
+                        })}
+                </span>
+              </div>
+              {expungeJob && !backingUpBeforeExpunge && (
+                <div className="h-1 overflow-hidden rounded-full bg-[var(--border)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
+                    style={{
+                      width: `${Math.round(
+                        ((expungeJob.stepIndex +
+                          (expungeJob.total > 0 ? Math.min(1, expungeJob.done / expungeJob.total) : 0)) /
+                          Math.max(1, expungeJob.stepCount)) *
+                          100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              )}
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.advancedsettings.expungeKeepsRunning")}
+              </span>
+            </div>
+          )}
+          {!isClearing && interruptedExpunge && (
+            <div className="flex flex-col gap-2 rounded-lg bg-[var(--background)]/55 p-2.5 ring-1 ring-[var(--border)]">
+              <div className="flex items-start gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
+                <AlertTriangle
+                  size="0.875rem"
+                  className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]"
+                />
+                {localizeUi("ui.panels.advancedsettings.expungeInterrupted", {
+                  scopes: interruptedExpunge.scopes.map((scope) => expungeStepLabel(scope)).join(", "),
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedScopes(interruptedExpunge.scopes);
+                  setConfirmAction("selected");
+                }}
+                className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+              >
+                <Trash2 size="0.75rem" />
+                {localizeUi("ui.panels.advancedsettings.expungeFinishClearing")}
+              </button>
             </div>
           )}
         </div>
