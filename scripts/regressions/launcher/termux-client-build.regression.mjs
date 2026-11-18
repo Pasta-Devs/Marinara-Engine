@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -148,7 +149,11 @@ try {
   for (const script of ["build.mjs", "build-heap.mjs"]) {
     write(`scripts/${script}`, readFileSync(join(repositoryRoot, "packages/client/scripts", script), "utf8"));
   }
-  write("android.mjs", 'Object.defineProperty(process, "platform", { value: "android" });');
+  // An arm64 phone, whatever this machine is (x86_64 Android is covered further down).
+  write(
+    "android.mjs",
+    'Object.defineProperty(process, "platform", { value: "android" });\nObject.defineProperty(process, "arch", { value: "arm64" });',
+  );
   write("node_modules/typescript/package.json", '{"name":"typescript"}');
   // Exits as V8 does on Windows when it runs out of heap, when the fixture asks it to.
   write(
@@ -281,3 +286,160 @@ try {
 } finally {
   rmSync(fixture, { recursive: true, force: true });
 }
+
+// #9482: x86_64 Android (Chromebooks, BlueStacks and other Android on PCs) has no native build of three packages the
+// client build loads, so each falls back to WebAssembly there: rolldown (Vite's bundler) and Tailwind's oxide load
+// their WASI bindings on their own; lightningcss requires `lightningcss-android-x64`, which the client provides by
+// handing it lightningcss's WebAssembly build. The client installs both missing pieces at their packages' versions.
+const clientRequire = createRequire(join(repositoryRoot, "packages/client/package.json"));
+const rolldownEntry = createRequire(clientRequire.resolve("vite")).resolve("rolldown");
+const tailwindNodeRequire = createRequire(
+  createRequire(clientRequire.resolve("@tailwindcss/vite")).resolve("@tailwindcss/node"),
+);
+const lightningcssEntry = tailwindNodeRequire.resolve("lightningcss");
+const oxideEntry = tailwindNodeRequire.resolve("@tailwindcss/oxide");
+// A package's version, read from the package.json above its entry (some packages don't export package.json).
+const versionFrom = (from, name) => {
+  for (let dir = dirname(createRequire(from).resolve(name)); ; dir = dirname(dir)) {
+    const manifest = join(dir, "package.json");
+    if (existsSync(manifest) && JSON.parse(readFileSync(manifest, "utf8")).name === name) {
+      return JSON.parse(readFileSync(manifest, "utf8")).version;
+    }
+    assert.notEqual(dirname(dir), dir, `no package.json for ${name}`);
+  }
+};
+assert.equal(
+  versionFrom(rolldownEntry, "@rolldown/binding-wasm32-wasi"),
+  versionFrom(rolldownEntry, "rolldown"),
+  "the rolldown WebAssembly binding the client installs must match the rolldown Vite uses",
+);
+assert.equal(
+  versionFrom(createRequire(lightningcssEntry).resolve("lightningcss-android-x64"), "lightningcss-wasm"),
+  versionFrom(lightningcssEntry, "lightningcss"),
+  "the lightningcss WebAssembly build behind lightningcss-android-x64 must match the lightningcss Tailwind uses",
+);
+// Runs each package the way x86_64 Termux does: Node reports android/x64, so no native build loads.
+const x64Fixture = mkdtempSync(join(tmpdir(), "marinara-android-x64-"));
+try {
+  writeFileSync(
+    join(x64Fixture, "android-x64.mjs"),
+    'Object.defineProperty(process, "platform", { value: "android" });\nObject.defineProperty(process, "arch", { value: "x64" });\n',
+  );
+  writeFileSync(join(x64Fixture, "dep.js"), "export const answer = 6 * 7;\n");
+  writeFileSync(join(x64Fixture, "entry.js"), 'import { answer } from "./dep.js";\nconsole.log(answer);\n');
+  // One process per tool: each loads its WebAssembly as it does inside the build. Their WebAssembly reaches only files
+  // under the folder they start in, as build.mjs arranges below.
+  const asX64Android = (label, script) => {
+    const result = spawnSync(
+      process.execPath,
+      [`--import=${pathToFileURL(join(x64Fixture, "android-x64.mjs")).href}`, "-"],
+      {
+        // CommonJS, as a build calls these from its plugins: oxide's WebAssembly scanner deadlocks when an ES module
+        // calls it while still being evaluated, before its worker threads have started.
+        input: `(async () => {\n${script}\n})().catch((error) => {\n  console.error(error);\n  process.exit(1);\n});`,
+        cwd: x64Fixture,
+        encoding: "utf8",
+        timeout: 60_000,
+        killSignal: "SIGKILL",
+      },
+    );
+    assert.equal(result.status, 0, `${label} did not run as on x86_64 Android:\n${result.stderr}`);
+    return result.stdout;
+  };
+  const bundled = asX64Android(
+    "rolldown",
+    `const { rolldown } = await import(${JSON.stringify(pathToFileURL(rolldownEntry).href)});
+    const bundle = await rolldown({ input: ${JSON.stringify(join(x64Fixture, "entry.js"))}, logLevel: "silent" });
+    const { output } = await bundle.generate({ format: "esm" });
+    await bundle.close();
+    process.stdout.write(output[0].code);`,
+  );
+  // rolldown resolves the import and folds dep.js's 6 * 7 into the entry.
+  assert.match(bundled, /console\.log\(42\)/u, "rolldown bundles with its WebAssembly binding");
+  const minified = asX64Android(
+    "lightningcss",
+    `const { code } = require(${JSON.stringify(lightningcssEntry)}).transform({
+      filename: "fixture.css",
+      code: Buffer.from(".a {\\n  color: #ff0000;\\n}\\n"),
+      minify: true,
+    });
+    process.stdout.write(Buffer.from(code).toString());`,
+  );
+  assert.equal(minified, ".a{color:red}", "lightningcss minifies with its WebAssembly build");
+  const candidates = JSON.parse(
+    asX64Android(
+      "Tailwind's oxide",
+      `const { Scanner } = require(${JSON.stringify(oxideEntry)});
+      const found = new Scanner({}).getCandidatesWithPositions({ content: '<div class="flex p-4">', extension: "html" });
+      process.stdout.write(JSON.stringify(found.map((candidate) => candidate.candidate)));`,
+    ),
+  );
+  assert.deepEqual(
+    candidates.filter((candidate) => ["flex", "p-4"].includes(candidate)).sort(),
+    ["flex", "p-4"],
+    "Tailwind's oxide finds class names with its WebAssembly binding",
+  );
+} finally {
+  rmSync(x64Fixture, { recursive: true, force: true });
+}
+
+// Which is why build.mjs starts Vite and the guest build from the workspace root on x86_64 Android, where the client's
+// dependencies (the workspace's .pnpm folder) are inside, and from the package everywhere else.
+const workspace = mkdtempSync(join(tmpdir(), "marinara-build-cwd-"));
+try {
+  const client = join(workspace, "packages/client");
+  const put = (path, content) => {
+    mkdirSync(dirname(join(client, path)), { recursive: true });
+    writeFileSync(join(client, path), content);
+  };
+  put("package.json", '{"type":"module"}');
+  for (const script of ["build.mjs", "build-heap.mjs"]) {
+    put(`scripts/${script}`, readFileSync(join(repositoryRoot, "packages/client/scripts", script), "utf8"));
+  }
+  put("node_modules/typescript/package.json", '{"name":"typescript"}');
+  put("node_modules/typescript/bin/tsc", "");
+  put("node_modules/vite/package.json", '{"name":"vite"}');
+  // Each child records where it started and what it was given.
+  const record = (name) =>
+    `require("node:fs").appendFileSync(process.env.FIXTURE_RECORD, JSON.stringify({ name: ${JSON.stringify(name)}, cwd: process.cwd(), args: process.argv.slice(2) }) + "\\n");`;
+  put("node_modules/vite/bin/vite.js", record("vite"));
+  put(
+    "scripts/build-multiplayer-guest.mjs",
+    `import { createRequire } from "node:module"; const require = createRequire(import.meta.url); ${record("guest")}`,
+  );
+  const runAs = (arch) => {
+    const preload = join(workspace, `android-${arch}.mjs`);
+    writeFileSync(
+      preload,
+      `Object.defineProperty(process, "platform", { value: "android" });\nObject.defineProperty(process, "arch", { value: ${JSON.stringify(arch)} });\n`,
+    );
+    const recordFile = join(workspace, `record-${arch}`);
+    writeFileSync(recordFile, "");
+    const env = { ...process.env, FIXTURE_RECORD: recordFile, NODE_OPTIONS: `--import=${pathToFileURL(preload).href}` };
+    for (const name of ["SKIP_PWA", "MARINARA_EXPLICIT_NODE_HEAP", "MARINARA_CLIENT_BUILD_SCRIPT"]) delete env[name];
+    const built = spawnSync(process.execPath, [join(client, "scripts/build.mjs")], {
+      cwd: client,
+      env,
+      encoding: "utf8",
+    });
+    assert.equal(built.status, 0, `${arch}: ${built.stdout}${built.stderr}`);
+    return readFileSync(recordFile, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+  };
+  const sameDir = (actual, expected) => assert.equal(realpathSync(actual), realpathSync(expected));
+  const [x64Vite, x64Guest] = runAs("x64");
+  assert.deepEqual([x64Vite.name, x64Guest.name], ["vite", "guest"]);
+  sameDir(x64Vite.cwd, workspace);
+  sameDir(x64Guest.cwd, workspace);
+  assert.equal(x64Vite.args[0], "build");
+  sameDir(x64Vite.args[1], client);
+  const [armVite, armGuest] = runAs("arm64");
+  sameDir(armVite.cwd, client);
+  sameDir(armGuest.cwd, client);
+  sameDir(armVite.args[1], client);
+} finally {
+  rmSync(workspace, { recursive: true, force: true });
+}
+console.info("x86_64 Android client build tools regression passed.");

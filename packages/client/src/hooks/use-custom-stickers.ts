@@ -10,6 +10,7 @@ export interface CustomSticker {
   filePath: string;
   width: number | null;
   height: number | null;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Served image URL (computed by the route). */

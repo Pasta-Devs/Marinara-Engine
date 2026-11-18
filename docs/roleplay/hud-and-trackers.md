@@ -107,7 +107,7 @@ The **Tracker Panel** is a larger side panel with the same data. It also shows c
 2. Click the **Tracker Panel** button (the die) in its title bar, next to pin and lock. It stays highlighted while the panel is on.
 3. Click it again to hide the panel. On a computer, the trackers then show in the Trackers window.
 
-On a computer, the panel fits beside your messages, up to the width set by **Desktop size**. When the window is too narrow for both, such as with the chats sidebar open, your messages and message box narrow a little. On a phone or tablet, turning it on adds a draggable Tracker Panel button. Tap it to open the panel, and tap again to close it. While the panel or another screen covers the chat, the chat's movable buttons are hidden and come back in the same places.
+On a computer, the panel fits beside your messages, up to the width set by **Desktop size**. When the window is too narrow for both, such as with the sidebar open, your messages and message box narrow a little. On a phone or tablet, turning it on adds a draggable Tracker Panel button. Tap it to open the panel, and tap again to close it. While the panel or another screen covers the chat, the chat's movable buttons are hidden and come back in the same places.
 
 ### Customize tracker fields
 

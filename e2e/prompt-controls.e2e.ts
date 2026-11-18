@@ -312,15 +312,23 @@ test("prompt controls persist and preview preserves the selected history shape",
     await headers.fill('{"X-Provider":"second"}');
     await headers.blur();
     await editor.getByRole("button", { name: "Priority", exact: true }).click();
+    // The editor saves its defaults first, with the real header value in the body.
+    const defaultsRequest = page.waitForRequest(
+      (req) =>
+        req.method() === "PUT" &&
+        new URL(req.url()).pathname === `/api/connections/${connection.id}/default-parameters`,
+    );
     await editor.getByRole("button", { name: "Save", exact: true }).click();
+    expect((await defaultsRequest).postDataJSON().customHeaders).toEqual({ "X-Provider": "second" });
+    // Header values are stored encrypted and read back masked; the header name stays visible.
     await expect
       .poll(async () => {
         const row = await (await request.get(`/api/connections/${connection.id}`)).json();
-        return JSON.parse(row.defaultParameters).customHeaders;
+        return JSON.parse(row.defaultParameters).serviceTier;
       })
-      .toEqual({ "X-Provider": "second" });
+      .toBe("priority");
     const stored = await (await request.get(`/api/connections/${connection.id}`)).json();
-    expect(JSON.parse(stored.defaultParameters).serviceTier).toBe("priority");
+    expect(JSON.parse(stored.defaultParameters).customHeaders).toEqual({ "X-Provider": "••••••••" });
     await testInfo.attach("connection-header-controls", { body: await page.screenshot(), contentType: "image/png" });
 
     const received = await page.evaluate(async (chatId) => {

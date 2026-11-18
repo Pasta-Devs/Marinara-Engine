@@ -9,8 +9,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { createPortal } from "react-dom";
-import { BookOpen, Eye, Maximize2, Pencil, X } from "lucide-react";
+import { BookOpen, Eye, Maximize2, Pencil } from "lucide-react";
 import { estimateTextTokens, SUPPORTED_MACROS } from "@marinara-engine/shared";
 
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
@@ -20,6 +19,7 @@ import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { DecisionStatementNote } from "./DecisionStatementNote";
+import { Modal } from "./Modal";
 import { MacroCompletionGhost, useMacroCompletion } from "./MacroCompletionGhost";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
 
@@ -51,18 +51,6 @@ const EDITOR_MODAL_SURFACE_VARIABLES = [
   "[--ring:var(--marinara-editor-focus-ring)]",
   "[--secondary:var(--marinara-editor-control-bg)]",
 ].join(" ");
-
-interface MacroModalPortalProps {
-  children: ReactNode;
-}
-
-function MacroModalPortal({ children }: MacroModalPortalProps) {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(children, document.body);
-}
 
 interface ExpandedMacroEditorProps {
   open: boolean;
@@ -120,22 +108,26 @@ function ExpandedMacroEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // A browser extension's card (Grammarly's) closes on Escape; that Escape must not close this editor too.
+  const extensionEscapeRef = useRef(false);
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Escape in a browser extension's card (Grammarly's) closes that card, not this editor.
-      if (event.key === "Escape" && !isBrowserExtensionUi(event.target)) {
-        if (!readOnly) onChange(localValue);
-        onClose();
-      }
+    if (!open) return;
+    const markExtensionEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !isBrowserExtensionUi(event.target)) return;
+      extensionEscapeRef.current = true;
+      setTimeout(() => {
+        extensionEscapeRef.current = false;
+      }, 0);
     };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [localValue, onChange, onClose, open, readOnly]);
+    document.addEventListener("keydown", markExtensionEscape, true);
+    return () => document.removeEventListener("keydown", markExtensionEscape, true);
+  }, [open]);
+  // Escape, outside tap and the close button all keep the typed text.
+  const handleClose = () => {
+    if (extensionEscapeRef.current) return;
+    if (!readOnly) onChange(localValue);
+    onClose();
+  };
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -155,72 +147,59 @@ function ExpandedMacroEditor({
     [acceptCompletion],
   );
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <MacroModalPortal>
-      <div
-        data-component="ExpandedMacroEditor"
-        data-macro-modal="true"
-        className={cn(
-          "fixed inset-0 z-(--mari-layer-omnibar) flex items-center justify-center bg-black/70 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]",
-          EDITOR_MODAL_SURFACE_VARIABLES,
-        )}
-      >
-        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full min-w-0 max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--sidebar)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h3 title={title} className="truncate text-sm font-semibold text-[var(--foreground)]">
-                {title}
-              </h3>
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
-              </p>
-            </div>
-            {showTokenCount && (
-              <span className="mr-3 shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
-                {formatEstimatedTokens(estimateTextTokens(localValue), localizeUi)}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                if (!readOnly) onChange(localValue);
-                onClose();
-              }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-              aria-label={localizeUi("ui.ui.expandedmacroeditor.closeExpandedEditor")}
-              title={localizeUi("capabilities.actions.close")}
-            >
-              <X className="h-4 w-4" />
-            </button>
+    <Modal
+      dataComponent="ExpandedMacroEditor"
+      open={open}
+      onClose={handleClose}
+      title={title}
+      titleSlot={
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 title={title} className="truncate text-sm font-semibold text-[var(--foreground)]">
+              {title}
+            </h3>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
+            </p>
           </div>
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            <textarea
-              ref={textareaRef}
-              value={localValue}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onSelect={refreshCompletion}
-              onScroll={refreshCompletion}
-              onFocus={refreshCompletion}
-              onBlur={clearCompletion}
-              placeholder={placeholder}
-              readOnly={readOnly}
-              maxLength={maxLength}
-              className={cn(
-                "min-h-0 flex-1 resize-none bg-[var(--sidebar)] p-4 text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]",
-                fontClassName,
-              )}
-              spellCheck={false}
-            />
-            <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
-          </div>
+          {showTokenCount && (
+            <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">
+              {formatEstimatedTokens(estimateTextTokens(localValue), localizeUi)}
+            </span>
+          )}
         </div>
+      }
+      width="max-w-5xl"
+      layer="omnibar"
+      backdrop="dark"
+      mobileFullscreen
+      chatFloatingPanel
+      panelClassName={cn("sm:h-[min(90dvh,52rem)]", EDITOR_MODAL_SURFACE_VARIABLES)}
+      contentClassName="flex flex-col !overflow-hidden !p-0"
+    >
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <textarea
+          ref={textareaRef}
+          value={localValue}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onSelect={refreshCompletion}
+          onScroll={refreshCompletion}
+          onFocus={refreshCompletion}
+          onBlur={clearCompletion}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          maxLength={maxLength}
+          className={cn(
+            "min-h-0 flex-1 resize-none bg-[var(--sidebar)] p-4 text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]",
+            fontClassName,
+          )}
+          spellCheck={false}
+        />
+        <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
       </div>
-    </MacroModalPortal>
+    </Modal>
   );
 }
 
@@ -231,117 +210,86 @@ interface MacrosReferenceModalProps {
 
 function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
   const { t: localizeUi } = useUiTranslation();
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, open]);
-
-  if (!open) {
-    return null;
-  }
 
   return (
-    <MacroModalPortal>
-      <div
-        data-component="MacroReference"
-        data-macro-modal="true"
-        className={cn(
-          "fixed inset-0 z-(--mari-layer-omnibar) flex items-center justify-center bg-black/70 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]",
-          EDITOR_MODAL_SURFACE_VARIABLES,
-        )}
-      >
-        <div className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:max-h-[88dvh]">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">
-                {localizeUi("ui.ui.macrosreferencemodal.macroReference")}
-              </h3>
-              <p className="text-xs text-[var(--muted-foreground)]">
-                {localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2 text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-              aria-label={localizeUi("ui.ui.macrosreferencemodal.closeMacroReference")}
-              title={localizeUi("capabilities.actions.close")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="max-h-[calc(88vh-4rem)] space-y-4 overflow-y-auto p-4 supports-[height:100dvh]:max-h-[calc(88dvh-4rem)]">
-            <section className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]">
-              <p>
-                <Trans
-                  i18nKey="ui.ui.macrosreferencemodal.macroUsageGuidance"
-                  values={{ macroExample: "{{macro}}" }}
-                  components={{
-                    macroCode: <code className="text-[var(--foreground)]" />,
-                    or: <code className="text-[var(--foreground)]" />,
-                    and: <code className="text-[var(--foreground)]" />,
-                  }}
-                />
-              </p>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
-                  <p className="font-semibold text-[var(--foreground)]">
-                    {localizeUi("ui.ui.macrosreferencemodal.conditionalBlock")}
-                  </p>
-                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
-                    {
-                      '{{#if character == "Dottore"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}'
-                    }
-                  </code>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
-                  <p className="font-semibold text-[var(--foreground)]">
-                    {localizeUi("ui.ui.macrosreferencemodal.comparisonsAndLogic")}
-                  </p>
-                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
-                    {
-                      '{{#if character == "Maukie" || "Pantalone"}}\n...\n{{/if}}\n{{#if scenario && user contains "Mari"}}\n...\n{{/if}}'
-                    }
-                  </code>
-                </div>
-              </div>
-            </section>
-            {MACRO_REFERENCE.map(([category, macros]) => (
-              <section key={category} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  {category}
-                </h4>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {macros.map((macro) => (
-                    <div
-                      key={macro.syntax}
-                      className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2"
-                    >
-                      <code className="text-xs font-semibold text-[var(--foreground)]">{macro.syntax}</code>
-                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                        {macro.descriptionKey
-                          ? localizeUi(macro.descriptionKey, { defaultValue: macro.description })
-                          : macro.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+    <Modal
+      dataComponent="MacroReference"
+      open={open}
+      onClose={onClose}
+      title={localizeUi("ui.ui.macrosreferencemodal.macroReference")}
+      titleSlot={
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">
+            {localizeUi("ui.ui.macrosreferencemodal.macroReference")}
+          </h3>
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}
+          </p>
         </div>
+      }
+      width="max-w-4xl"
+      layer="omnibar"
+      backdrop="dark"
+      chatFloatingPanel
+      panelClassName={EDITOR_MODAL_SURFACE_VARIABLES}
+    >
+      <div className="space-y-4">
+        <section className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]">
+          <p>
+            <Trans
+              i18nKey="ui.ui.macrosreferencemodal.macroUsageGuidance"
+              values={{ macroExample: "{{macro}}" }}
+              components={{
+                macroCode: <code className="text-[var(--foreground)]" />,
+                or: <code className="text-[var(--foreground)]" />,
+                and: <code className="text-[var(--foreground)]" />,
+              }}
+            />
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
+              <p className="font-semibold text-[var(--foreground)]">
+                {localizeUi("ui.ui.macrosreferencemodal.conditionalBlock")}
+              </p>
+              <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
+                {
+                  '{{#if character == "Dottore"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}'
+                }
+              </code>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
+              <p className="font-semibold text-[var(--foreground)]">
+                {localizeUi("ui.ui.macrosreferencemodal.comparisonsAndLogic")}
+              </p>
+              <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
+                {
+                  '{{#if character == "Maukie" || "Pantalone"}}\n...\n{{/if}}\n{{#if scenario && user contains "Mari"}}\n...\n{{/if}}'
+                }
+              </code>
+            </div>
+          </div>
+        </section>
+        {MACRO_REFERENCE.map(([category, macros]) => (
+          <section key={category} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+              {category}
+            </h4>
+            <div className="grid gap-2 md:grid-cols-2">
+              {macros.map((macro) => (
+                <div key={macro.syntax} className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
+                  <code className="text-xs font-semibold text-[var(--foreground)]">{macro.syntax}</code>
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {macro.descriptionKey
+                      ? localizeUi(macro.descriptionKey, { defaultValue: macro.description })
+                      : macro.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
-    </MacroModalPortal>
+    </Modal>
   );
 }
 

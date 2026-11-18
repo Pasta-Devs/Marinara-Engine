@@ -73,7 +73,9 @@ import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { DraftTextarea } from "../ui/DraftTextarea";
 import { Checkbox } from "../ui/Checkbox";
+import { SearchInput } from "../ui/SearchInput";
 import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 
 const cardClass = "rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5";
 
@@ -223,6 +225,8 @@ function useSheetRulesetText(definition: RulesetDefinition): RulesetText {
 
 /** How many conditions the "Add condition" search offers at once: it narrows as more is typed. */
 const CONDITION_MATCHES_SHOWN = 12;
+/** Tab id for the no-tab overview; ruleset tab names never use this form. */
+const OVERVIEW_TAB = "::overview";
 
 /**
  * The conditions on the character, as chips, and the rest behind a search. A ruleset may name
@@ -294,13 +298,12 @@ function RulesetSheetConditions({
       )}
       {editable && pickable.length > 0 && (
         <div className="space-y-1">
-          <input
-            type="search"
+          <SearchInput
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={setQuery}
+            label={localizeUi("game.ruleset.sheet.addConditionAria", { who: cardName })}
             placeholder={localizeUi("game.ruleset.sheet.addCondition")}
-            aria-label={localizeUi("game.ruleset.sheet.addConditionAria", { who: cardName })}
-            className="w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs text-[var(--foreground)]"
+            size="compact"
           />
           {matches.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -972,24 +975,17 @@ export function GameRulesetSheet({
       ) : (
         <>
           {tabs.length > 0 && (
-            <div role="tablist" className="flex flex-wrap gap-1.5">
-              {[null, ...tabs].map((one) => (
-                <button
-                  key={one ?? "overview"}
-                  type="button"
-                  role="tab"
-                  aria-selected={shownTab === one}
-                  onClick={() => setTab(one)}
-                  className={`${chipClass} ${
-                    shownTab === one
-                      ? "border-[var(--primary)] bg-[var(--accent)] text-[var(--foreground)]"
-                      : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                  }`}
-                >
-                  {one === null ? localizeUi("game.ruleset.sheet.overview") : text(one)}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              variant="pill"
+              label={localizeUi("game.ruleset.sheet.tabs")}
+              columns={Math.min(tabs.length + 1, 3)}
+              value={shownTab ?? OVERVIEW_TAB}
+              onChange={(id) => setTab(id === OVERVIEW_TAB ? null : id)}
+              items={[OVERVIEW_TAB, ...tabs].map((one) => ({
+                id: one,
+                label: one === OVERVIEW_TAB ? localizeUi("game.ruleset.sheet.overview") : text(one),
+              }))}
+            />
           )}
           {shownTab !== null &&
             definition.sheet.lists

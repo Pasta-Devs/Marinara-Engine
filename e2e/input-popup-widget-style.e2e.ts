@@ -301,7 +301,8 @@ for (const [preset, theme] of [
             await mediaTrigger.click();
             const media = page.locator('[data-chat-input-popup="media"]:visible');
             await check(media);
-            await media.getByRole("button", { name: "Tools", exact: true }).click();
+            // #9399: the media types are the shared Tabs, so Tools is a tab.
+            await media.getByRole("tab", { name: "Tools", exact: true }).click();
             await expect(media.getByRole("button", { name: /Post only/ })).toBeVisible();
             const path = info.outputPath(`input-popup-${preset}-media-${gradients ? "gradient" : "preset"}.png`);
             await page.screenshot({ path, animations: "disabled" });

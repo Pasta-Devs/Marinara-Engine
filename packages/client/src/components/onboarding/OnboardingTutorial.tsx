@@ -4,7 +4,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { MOBILE_SHELL_MEDIA_QUERY, useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
+import {
+  isMobileShellViewport,
+  MOBILE_SHELL_MEDIA_QUERY,
+  selectSharedSidebarWidth,
+  useUIStore,
+  type ChatModeShortcut,
+} from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
@@ -70,6 +76,38 @@ const STEPS: TourStep[] = [
     sprite: { pose: "wave" },
   },
   {
+    target: "sidebar-toggle",
+    title: "Chats",
+    body: "Let's start with Chats. This is where your Conversations, Roleplays, and Games live. You can create new chats, switch between them, and manage them here. Chats and the panels I'll show you next all open in the same sidebar, and on a computer you can dock it on the left in Settings, under Appearance.",
+    side: "bottom",
+    openSidebar: true,
+    sprite: { pose: "point-up", flip: true },
+  },
+  {
+    target: "chat-mode-conversation",
+    title: "Conversation Mode",
+    body: "Conversation mode is like chatting via DMs or groups on Discord. Use it for general texting with your characters. Mind that they have their lives, can trade selfies with you and even message you on their own!",
+    side: "right",
+    chatMode: "conversation",
+    sprite: { pose: "point-middle" },
+  },
+  {
+    target: "chat-mode-roleplay",
+    title: "Roleplay Mode",
+    body: "Roleplay mode is for roleplaying scenes and immersive stories. It supports richer narration, lorebooks, agents, long-time memory systems, author's notes, trackers, and co-writing controls.",
+    side: "right",
+    chatMode: "roleplay",
+    sprite: { pose: "point-middle" },
+  },
+  {
+    target: "chat-mode-game",
+    title: "Game Mode",
+    body: "Game mode turns the chat into a cinematic RPG-style adventure with an AI Game Master. Sit back and enjoy the game, having party members, goals, maps, dice rolls, session history, journals, combat, and custom HUD widgets.",
+    side: "right",
+    chatMode: "game",
+    sprite: { pose: "point-middle" },
+  },
+  {
     target: "panel-characters",
     title: "Characters",
     body: "Characters are who your AI is going to play or speak as. Create them, edit their descriptions, dialogue examples, organize them into folders, or make them pretty (I can also create those for you).",
@@ -125,38 +163,6 @@ const STEPS: TourStep[] = [
     openPanel: "settings",
     settingsTab: "general",
     sprite: { pose: "point-up", flip: true },
-  },
-  {
-    target: "sidebar-toggle",
-    title: "Chats",
-    body: "Now let's open the Chats tab. This is where your Conversations, Roleplays, and Games live. You can create new chats, switch between them, and manage them here.",
-    side: "right",
-    openSidebar: true,
-    sprite: { pose: "point-middle" },
-  },
-  {
-    target: "chat-mode-conversation",
-    title: "Conversation Mode",
-    body: "Conversation mode is like chatting via DMs or groups on Discord. Use it for general texting with your characters. Mind that they have their lives, can trade selfies with you and even message you on their own!",
-    side: "right",
-    chatMode: "conversation",
-    sprite: { pose: "point-middle" },
-  },
-  {
-    target: "chat-mode-roleplay",
-    title: "Roleplay Mode",
-    body: "Roleplay mode is for roleplaying scenes and immersive stories. It supports richer narration, lorebooks, agents, long-time memory systems, author's notes, trackers, and co-writing controls.",
-    side: "right",
-    chatMode: "roleplay",
-    sprite: { pose: "point-middle" },
-  },
-  {
-    target: "chat-mode-game",
-    title: "Game Mode",
-    body: "Game mode turns the chat into a cinematic RPG-style adventure with an AI Game Master. Sit back and enjoy the game, having party members, goals, maps, dice rolls, session history, journals, combat, and custom HUD widgets.",
-    side: "right",
-    chatMode: "game",
-    sprite: { pose: "point-middle" },
   },
   {
     target: "home-hub",
@@ -298,7 +304,26 @@ function isChatModeTourTarget(target: string | null): boolean {
 
 // ─── Tooltip position ─────────────────────────
 
-function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
+/** The docked desktop sidebar the card stays clear of: its side and width (none on a phone or tablet sheet). */
+interface TourSidebar {
+  side: "left" | "right";
+  width: number;
+}
+
+/**
+ * Mari points toward what the step shows. Point-up unflipped points up-left and point-middle left. The top-bar buttons
+ * are on the sidebar's side and the card hangs from them toward the chat; the mode tabs are inside the docked sidebar
+ * and the card sits beside it. Without a docked sidebar (a tablet's sheet) each step keeps its own flip.
+ */
+function spriteFlipFor(step: TourStep, sidebar: TourSidebar | null): boolean {
+  const flip = step.sprite?.flip ?? false;
+  if (!sidebar) return flip;
+  if (isTopbarTourTarget(step.target)) return sidebar.side !== "left";
+  if (isChatModeTourTarget(step.target)) return sidebar.side === "right";
+  return flip;
+}
+
+function computeTooltipStyle(rect: Rect, step: TourStep, sidebar: TourSidebar | null = null): React.CSSProperties {
   const vw = getViewportWidth();
   const vh = getViewportHeight();
   const isMobile = vw < MOBILE_BREAKPOINT;
@@ -331,9 +356,15 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     };
   }
 
-  if (isPanelTourTarget(step.target)) {
+  // Chats and the panel buttons sit on the sidebar's side of the top bar: the card hangs under the button toward
+  // the chat, so it never covers the sidebar the step opens.
+  if (isTopbarTourTarget(step.target)) {
     const top = Math.max(topOffset, rect.top + rect.height + GAP);
-    const left = clampNumber(rect.left + rect.width - TOOLTIP_W, VIEWPORT_MARGIN, vw - TOOLTIP_W - VIEWPORT_MARGIN);
+    const left = clampNumber(
+      sidebar?.side === "left" ? rect.left : rect.left + rect.width - TOOLTIP_W,
+      VIEWPORT_MARGIN,
+      vw - TOOLTIP_W - VIEWPORT_MARGIN,
+    );
     return {
       position: "fixed",
       top,
@@ -346,24 +377,15 @@ function computeTooltipStyle(rect: Rect, step: TourStep): React.CSSProperties {
     };
   }
 
-  if (isTopbarTourTarget(step.target)) {
-    const top = topOffset;
-    const left = clampNumber(rect.left + rect.width + GAP, VIEWPORT_MARGIN, vw - TOOLTIP_W - VIEWPORT_MARGIN);
-    return {
-      position: "fixed",
-      top,
-      left,
-      width: TOOLTIP_W,
-      maxHeight: `${availableViewportHeight}px`,
-      overflowY: "auto",
-      overflowX: "hidden",
-      overscrollBehavior: "contain",
-    };
-  }
-
+  // The mode tabs are inside Chats: the card sits beside the docked sidebar, on the chat's side.
   if (isChatModeTourTarget(step.target)) {
     const top = Math.max(topOffset, rect.top);
-    const left = clampNumber(rect.left + rect.width + GAP, VIEWPORT_MARGIN, vw - TOOLTIP_W - VIEWPORT_MARGIN);
+    const besideSidebar = !sidebar
+      ? rect.left + rect.width + GAP
+      : sidebar.side === "left"
+        ? sidebar.width + GAP
+        : vw - sidebar.width - GAP - TOOLTIP_W;
+    const left = clampNumber(besideSidebar, VIEWPORT_MARGIN, vw - TOOLTIP_W - VIEWPORT_MARGIN);
     return {
       position: "fixed",
       top,
@@ -452,12 +474,15 @@ function TourCardContent({
   onNext,
   onSkip,
   pickerSlot,
+  flipSprite,
 }: {
   step: number;
   currentStep: TourStep;
   isLast: boolean;
   onNext: () => void;
   onSkip: () => void;
+  /** Mari faces what the step shows (spriteFlipFor). */
+  flipSprite: boolean;
   /** Extra interactive content rendered between the body and the progress dots */
   pickerSlot?: React.ReactNode;
 }) {
@@ -481,7 +506,7 @@ function TourCardContent({
             {...mariImgLoading(MARI_ASSET_TIER.poses[currentStep.sprite.pose])}
             alt={localizeUi("ui.onboarding.tourcardcontent.professorMari")}
             className="h-32 max-h-[15vh] w-auto object-contain drop-shadow-lg [image-rendering:pixelated]"
-            style={currentStep.sprite.flip ? { transform: "scaleX(-1)" } : undefined}
+            style={flipSprite ? { transform: "scaleX(-1)" } : undefined}
             draggable={false}
           />
         </div>
@@ -573,6 +598,11 @@ function OnboardingTutorialInner() {
 
   const currentStep = STEPS[step];
   const isLast = step === STEPS.length - 1;
+  const sidebarSide = useUIStore((s) => s.sidebarSide);
+  const sharedSidebarWidth = useUIStore(selectSharedSidebarWidth);
+  const tourSidebar: TourSidebar | null = isMobileShellViewport()
+    ? null
+    : { side: sidebarSide, width: sharedSidebarWidth };
   const targetRect = spotlightRects.find((rect) => rect.target === currentStep.target) ?? null;
 
   // ── Documentation-language picker (final step) ──
@@ -816,6 +846,7 @@ function OnboardingTutorialInner() {
                 onNext={next}
                 onSkip={finish}
                 pickerSlot={pickerSlot}
+                flipSprite={spriteFlipFor(currentStep, tourSidebar)}
               />
             </motion.div>
           </AnimatePresence>
@@ -834,7 +865,7 @@ function OnboardingTutorialInner() {
             onKeyDown={handleTutorialKeyDown}
             aria-label={dialogLabel}
             data-component="OnboardingTutorial.Card"
-            style={computeTooltipStyle(targetRect!, currentStep)}
+            style={computeTooltipStyle(targetRect!, currentStep, tourSidebar)}
           >
             <TourCardContent
               step={step}
@@ -843,6 +874,7 @@ function OnboardingTutorialInner() {
               onNext={next}
               onSkip={finish}
               pickerSlot={pickerSlot}
+              flipSprite={spriteFlipFor(currentStep, tourSidebar)}
             />
           </motion.div>
         </AnimatePresence>

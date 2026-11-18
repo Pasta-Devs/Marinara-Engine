@@ -67,6 +67,7 @@ import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { usePanelKeyboardFocus } from "./use-panel-keyboard-focus";
 import { PanelErrorState, PanelListSkeleton } from "../ui/PanelStates";
 import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 import { toast } from "sonner";
 import {
   BACKGROUND_THUMBNAIL_WIDTH,
@@ -1592,7 +1593,7 @@ export function ChatSidebar() {
           <PersonalExtensionContributionSlot surface="chats" position="header" className="max-w-28" />
           <button
             onClick={() => setSidebarOpen(false)}
-            className="mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
+            className="mari-chrome-control mari-chrome-control--small mari-accent-animated shrink-0 p-1.5 active:scale-90 max-md:h-9 max-md:w-9 [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
             title={localize("Close")}
             aria-label={localize("Close chats")}
           >
@@ -1609,37 +1610,31 @@ export function ChatSidebar() {
 
       {/* Tabs */}
       <div className="px-3 pt-3">
-        <div className="mari-chrome-segmented">
-          {(["conversation", "roleplay", "game"] as const).map((tab) => {
+        {/* Icon before the label, so the row keeps the height of the other panels' Download | Open Library. */}
+        <Tabs
+          variant="pill"
+          inlineIcons
+          label={t("navigation.chatSidebar.mode")}
+          value={activeTab}
+          onChange={setActiveTab}
+          items={(["conversation", "roleplay", "game"] as const).map((tab) => {
             const cfg = MODE_CONFIG[tab];
-            const isActive = activeTab === tab;
             const tabUnread =
               chats?.filter((c) => c.mode === tab).reduce((sum, c) => sum + (unreadCounts.get(c.id) || 0), 0) ?? 0;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                aria-pressed={isActive}
-                data-chat-mode-tab={tab}
-                data-tour={`chat-mode-${tab}`}
-                className={cn(
-                  "mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal",
-                  isActive && "mari-chrome-segmented__button--selected",
-                )}
-              >
-                <span className="shrink-0 leading-none">{cfg.icon}</span>
-                <span className="inline-flex min-h-[1rem] items-center whitespace-nowrap pb-px leading-normal">
-                  {localize(cfg.shortLabel)}
-                </span>
-                {tabUnread > 0 && !isActive && (
-                  <span className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
+            return {
+              id: tab,
+              label: localize(cfg.shortLabel),
+              icon: cfg.icon,
+              badge:
+                tabUnread > 0 && activeTab !== tab ? (
+                  <span className="absolute -right-0.5 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
                     {tabUnread > 99 ? "99+" : tabUnread}
                   </span>
-                )}
-              </button>
-            );
+                ) : undefined,
+              buttonProps: { "data-chat-mode-tab": tab, "data-tour": `chat-mode-${tab}` },
+            };
           })}
-        </div>
+        />
       </div>
 
       <div className="flex gap-2 px-3 pt-2">

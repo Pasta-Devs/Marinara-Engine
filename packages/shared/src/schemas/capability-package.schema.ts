@@ -1630,7 +1630,10 @@ const capabilityPackageManifestBaseSchema = z
 // Not a soft seam: an older Engine leaves them undefined, so a package that uses one declares it. No permission.
 // 1.831: the host's `components` gain the shared Select (the app's dropdown: a popover on desktop, a sheet on
 //        phones). Not a soft seam, as 1.830. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 831 } as const);
+// 1.832: the host's `components` gain the shared Tabs (`pill` and `underline`) and SearchInput.
+//        Not a soft seam: an older Engine leaves it undefined, so a package that uses it
+//        declares it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 832 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

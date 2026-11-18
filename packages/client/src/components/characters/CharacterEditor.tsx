@@ -109,6 +109,8 @@ import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { GalleryCleanUpButton } from "../ui/GalleryCleanUpButton";
+import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
+import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { CharacterRegexSection } from "./CharacterRegexSection";
 import { CharacterVoicePicker } from "./CharacterVoicePicker";
 import { NameAliasesSection } from "../ui/NameAliasesSection";
@@ -187,10 +189,12 @@ import { api } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
+import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
+import { useCharacterCardUpdate } from "./useCharacterCardUpdate";
 import {
   SHEET_BUTTON_DESTRUCTIVE,
   SHEET_BUTTON_PRIMARY,
@@ -1284,6 +1288,13 @@ export function CharacterEditor() {
     updateField("tags", []);
   };
 
+  const cardUpdate = useCharacterCardUpdate({
+    characterId,
+    name: formData?.name ?? "",
+    botBrowserSource: formData?.extensions.botBrowserSource,
+    dirty,
+  });
+
   if (isLoading || !formData) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -1358,6 +1369,7 @@ export function CharacterEditor() {
       icon: <Upload size="0.75rem" />,
       onSelect: () => setExportDialogOpen(true),
     },
+    ...cardUpdate.menuItems,
     {
       label: localizeUi("ui.characters.charactereditor.importCharacterAsPersona"),
       icon: <UserPlus size="0.75rem" />,
@@ -1388,6 +1400,7 @@ export function CharacterEditor() {
   return (
     <MariFieldReviewProvider value={mariReview.value}>
       <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
+        {cardUpdate.element}
         <ExportFormatDialog
           open={exportDialogOpen}
           title={localizeUi("ui.characters.charactereditor.exportCharacter_cdcda78")}
@@ -4241,11 +4254,13 @@ function CharacterGalleryTab({
   const remove = useDeleteCharacterGalleryImage(characterId);
   const setAvatar = useSetCharacterGalleryImageAsAvatar(characterId);
   const tag = useTagCharacterGalleryImage(characterId);
+  const saveDescription = useSaveGalleryDescription(
+    { scope: "character", ownerId: characterId },
+    characterKeys.gallery(characterId),
+  );
   const {
     lightbox,
     setLightbox,
-    lightboxRef,
-    lightboxCloseRef,
     selectingImages,
     setSelectingImages,
     selectedImageIds,
@@ -4254,6 +4269,7 @@ function CharacterGalleryTab({
     leaveImageSelection,
     toggleImageSelection,
   } = useCardGallerySelection(images);
+  const lightboxIndex = images?.findIndex((item) => item.id === lightbox?.id) ?? -1;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -4460,11 +4476,18 @@ function CharacterGalleryTab({
                 </span>
               ) : null}
               {selectingImages ? (
-                <GalleryCleanUpButton
-                  images={selectedImages}
-                  replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
-                  queryKey={characterKeys.gallery(characterId)}
-                />
+                <>
+                  <GalleryDescribeButton
+                    images={selectedImages}
+                    target={{ scope: "character", ownerId: characterId }}
+                    queryKey={characterKeys.gallery(characterId)}
+                  />
+                  <GalleryCleanUpButton
+                    images={selectedImages}
+                    replacePath={(imageId) => `/characters/${characterId}/gallery/${imageId}/replace`}
+                    queryKey={characterKeys.gallery(characterId)}
+                  />
+                </>
               ) : null}
             </div>
             <button
@@ -4514,6 +4537,7 @@ function CharacterGalleryTab({
                       image={image}
                       allowBackground
                       onApply={(patch) => tag.mutate({ imageId: image.id, patch })}
+                      onDescribe={(description) => saveDescription.mutate({ imageId: image.id, description })}
                     />
                   ) : (
                     <button
@@ -4634,33 +4658,23 @@ function CharacterGalleryTab({
       )}
 
       {lightbox && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
-          ref={lightboxRef}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              setLightbox(null);
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
-          onClick={() => setLightbox(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={lightbox.url}
-              alt={lightbox.prompt || characterName || "Character image"}
-              className="max-h-[85vh] w-full rounded-lg object-contain shadow-2xl"
-            />
-            <div className="absolute right-2 top-2 flex gap-2">
+        <ImageViewer
+          title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+          onClose={() => setLightbox(null)}
+          src={lightbox.url}
+          alt={lightbox.prompt || characterName || "Character image"}
+          items={
+            images && lightboxIndex >= 0 ? images.map((item) => ({ url: item.url, alt: item.prompt || "" })) : undefined
+          }
+          index={lightboxIndex}
+          onIndexChange={(next) => images && setLightbox(images[next]!)}
+          actions={
+            <>
               <button
                 type="button"
                 onClick={() => void handleSetAvatar(lightbox)}
                 disabled={setAvatar.isPending}
-                className="inline-flex items-center justify-center rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
               >
                 {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
@@ -4672,24 +4686,15 @@ function CharacterGalleryTab({
               <button
                 type="button"
                 onClick={() => void handleDelete(lightbox)}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("lorebook.editor.batch.delete")}
                 aria-label={localizeUi("lorebook.editor.batch.delete")}
               >
                 <Trash2 size="0.875rem" />
               </button>
-              <button
-                type="button"
-                ref={lightboxCloseRef}
-                onClick={() => setLightbox(null)}
-                aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-              >
-                <X size="0.875rem" />
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
     </div>
   );

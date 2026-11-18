@@ -172,8 +172,8 @@ export function startProxy(appUrl, port = PROXY_PORT) {
 }
 
 // ── WebDriver client ──
-async function wd(method, path, body) {
-  const response = await fetch(DRIVER + path, {
+export async function wd(method, path, body, driver = DRIVER) {
+  const response = await fetch(driver + path, {
     method,
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -233,7 +233,21 @@ export async function openDevice(
   await run("localStorage.setItem('marinara-tap-timings', '1')");
   await wd("POST", `${s}/url`, { url: base + path });
 
-  const page = {
+  const page = makePage({ sessionId, device });
+  await page.ready();
+  if (!keepIntro) await page.closeIntro();
+  return page;
+}
+
+/**
+ * The page helpers shared by the WebKit driver and the Android one (android-qc.mjs).
+ * touch: tap with a W3C touch pointer (real touchstart/touchend in Android Chrome) instead of an element click.
+ */
+export function makePage({ sessionId, device, driver = DRIVER, touch = false }) {
+  const s = `/session/${sessionId}`;
+  const call = (method, path, body) => wd(method, path, body, driver);
+  const run = (script, args = []) => call("POST", `${s}/execute/sync`, { script, args });
+  return {
     sessionId,
     device,
     run,
@@ -249,6 +263,23 @@ export async function openDevice(
       }
       throw new Error("App didn't finish loading (no tap timings box). Is the server running?");
     },
+    /** Close the first-run tour and "What's New?" (the server remembers). A script click adds no tap timings row. */
+    async closeIntro() {
+      // Both can appear a moment late (after settings sync).
+      const skipped = () =>
+        run(`
+          const skip = [...document.querySelectorAll("button")].find(
+            (b) => b.offsetParent && /^(Skip Tutorial|Got it)$/.test(b.textContent.trim()),
+          );
+          skip?.click();
+          return !!skip;
+        `);
+      let quietSince = Date.now();
+      for (const end = Date.now() + 5000; Date.now() < end && Date.now() - quietSince < 2000;) {
+        if (await skipped()) quietSince = Date.now();
+        await sleep(250);
+      }
+    },
     /** Find the first visible element: CSS selector, or text=Label. */
     async find(target, timeoutMs = 10000) {
       const query = target.startsWith("text=")
@@ -259,19 +290,41 @@ export async function openDevice(
         : { using: "css selector", value: target };
       const end = Date.now() + timeoutMs;
       while (Date.now() < end) {
-        const found = await wd("POST", `${s}/elements`, query).catch(() => []);
+        const found = await call("POST", `${s}/elements`, query).catch(() => []);
         for (const element of found) {
           const id = element[ELEMENT];
-          if (await wd("GET", `${s}/element/${id}/displayed`).catch(() => false)) return id;
+          if (await call("GET", `${s}/element/${id}/displayed`).catch(() => false)) return id;
         }
         await sleep(200);
       }
       throw new Error(`Nothing visible matches ${target}`);
     },
-    /** A real click (pointerdown/up from WebKit itself), which is what the tap timings box measures. */
+    /** A real tap (pointer events from the browser itself), which is what the tap timings box measures. */
     async tap(target, { settle = true } = {}) {
       const id = await this.find(target);
-      await wd("POST", `${s}/element/${id}/click`, {});
+      if (touch) {
+        const origin = { [ELEMENT]: id };
+        // A pointer action doesn't scroll; an element click would, but it would also tap it a second time.
+        await run("arguments[0].scrollIntoView({ block: 'nearest' })", [origin]);
+        await call("POST", `${s}/actions`, {
+          actions: [
+            {
+              type: "pointer",
+              id: "finger",
+              parameters: { pointerType: "touch" },
+              actions: [
+                { type: "pointerMove", duration: 0, origin, x: 0, y: 0 },
+                { type: "pointerDown", button: 0 },
+                { type: "pause", duration: 60 },
+                { type: "pointerUp", button: 0 },
+              ],
+            },
+          ],
+        });
+        await call("DELETE", `${s}/actions`).catch(() => {});
+      } else {
+        await call("POST", `${s}/element/${id}/click`, {});
+      }
       if (settle) await this.settled();
     },
     /** Wait until the newest tap timings row is final (no "…"). */
@@ -302,34 +355,15 @@ export async function openDevice(
       });
     },
     async screenshot(file) {
-      const png = await wd("GET", `${s}/screenshot`);
+      const png = await call("GET", `${s}/screenshot`);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, Buffer.from(png, "base64"));
       return file;
     },
     async close() {
-      await wd("DELETE", s).catch(() => {});
+      await call("DELETE", s).catch(() => {});
     },
   };
-  await page.ready();
-  if (!keepIntro) {
-    // A fresh data folder opens with the tour over Home, and "What's New?" can follow it. Both can appear a moment
-    // late (after settings sync). A script click doesn't add a tap timings row.
-    const skipped = () =>
-      run(`
-        const skip = [...document.querySelectorAll("button")].find(
-          (b) => b.offsetParent && /^(Skip Tutorial|Got it)$/.test(b.textContent.trim()),
-        );
-        skip?.click();
-        return !!skip;
-      `);
-    let quietSince = Date.now();
-    for (const end = Date.now() + 5000; Date.now() < end && Date.now() - quietSince < 2000;) {
-      if (await skipped()) quietSince = Date.now();
-      await sleep(250);
-    }
-  }
-  return page;
 }
 
 function xpathString(text) {
@@ -348,10 +382,19 @@ export function formatTimings(rows) {
     .join("\n");
 }
 
+/**
+ * Open the side pane: Library in the new layout, Chats in the classic one (on a phone the classic layout keeps Chats
+ * in the top bar's More menu).
+ */
+export async function tapSidePane(page) {
+  const direct = await page.find('[aria-label="Library"], [aria-label="Chats"]', 3000).catch(() => null);
+  if (direct) return page.tap('[aria-label="Library"], [aria-label="Chats"]');
+  await page.tap('button[aria-haspopup="menu"][aria-label="More"]');
+  await page.tap('[role="menuitem"][data-topbar-panel="chats"]');
+}
+
 // ── CLI ──
 async function smoke(appUrl, outDir) {
-  // The new layout opens its side pane with Library; the classic layout has a Chats button. Both have Home.
-  const sidePane = '[aria-label="Library"], [aria-label="Chats"]';
   const home = '[aria-label="Home"]';
   let failed = false;
   for (const device of ["phone", "tablet"]) {
@@ -369,7 +412,7 @@ async function smoke(appUrl, outDir) {
         );
       }
       const shot1 = await page.screenshot(join(outDir, `${device}-home.png`));
-      await page.tap(sidePane);
+      await tapSidePane(page);
       const shot2 = await page.screenshot(join(outDir, `${device}-side-pane.png`));
       await page.tap(home);
       const rows = await page.settled();

@@ -32,6 +32,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
+import { BuiltinEmbeddingDetail } from "./BuiltinEmbeddingDetail";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
@@ -139,9 +140,15 @@ export function DetailHero({
   );
 }
 
-function FactRow({ label, children }: { label: string; children: ReactNode }) {
+/** `stack` puts the label above on a phone, for a dropdown that needs the whole width to show its choice. */
+export function FactRow({ label, children, stack }: { label: string; children: ReactNode; stack?: boolean }) {
   return (
-    <div className="flex min-h-9 items-center gap-3 text-xs">
+    <div
+      className={cn(
+        "flex min-h-9 items-center gap-3 text-xs",
+        stack && "max-sm:flex-col max-sm:items-stretch max-sm:gap-1",
+      )}
+    >
       <span className="w-20 shrink-0 text-[var(--muted-foreground)]">{label}</span>
       <span className="min-w-0 flex-1">{children}</span>
     </div>
@@ -610,6 +617,10 @@ function LocalModelDetail() {
           Picking it for Decision is the Decision job's; this is where it is installed and run. */}
       <section className={DETAIL_CARD_CLASS}>
         <DecisionModelModal />
+      </section>
+      {/* The built-in embedding model is its own process too, installed and run from here. */}
+      <section className={DETAIL_CARD_CLASS}>
+        <BuiltinEmbeddingDetail />
       </section>
     </div>
   );

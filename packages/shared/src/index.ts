@@ -39,6 +39,7 @@ export * from "./types/game.js";
 export * from "./types/sidecar.js";
 export * from "./types/sidecar-footprint.js";
 export * from "./types/utility-sidecar.js";
+export * from "./types/builtin-embedding.js";
 export * from "./types/decision.js";
 export * from "./types/decision-debug.js";
 export * from "./types/decision-catalog.js";
@@ -330,6 +331,7 @@ export * from "./utils/message-marks.js";
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
 export * from "./utils/gallery-tags.js";
+export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 
 export * from "./utils/zod-input.js";

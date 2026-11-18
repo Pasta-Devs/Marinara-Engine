@@ -49,7 +49,8 @@ import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
-import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
@@ -720,7 +721,7 @@ export function ConnectionModelPicker({
             className="flex-1"
             search={
               <div className="flex min-w-0 items-center gap-1.5 px-3 pb-2.5">
-                <ListSearch
+                <SearchInput
                   className="flex-1"
                   inputRef={searchRef}
                   data-model-search

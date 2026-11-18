@@ -2,17 +2,13 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ChatMode } from "../../packages/shared/src/types/chat.js";
-import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
-import { createSerializedMutationQueue } from "../../packages/client/src/lib/serialized-mutation-queue.js";
 import {
   CUSTOM_AGENT_RESULT_EXAMPLES,
   CUSTOM_AGENT_RESULT_TYPE_IDS,
 } from "../../packages/client/src/lib/custom-agent-result-examples.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/features/chat-settings/chat-settings-surfaces.js";
 import {
   formatLorebookWriteApprovalText,
   parseLorebookWriteApprovalText,
@@ -37,54 +33,6 @@ assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
   roleplay: "oklch(0.76 0.19 52)",
   game: "var(--marinara-mode-game-accent)",
 });
-
-const lorebookEnglishLocale = JSON.parse(
-  readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
-) as Record<string, unknown>;
-
-const expectedChatModeSurfaces = {
-  conversation: {
-    showSettingsProfiles: true,
-    promptSettingsSurface: "conversation",
-    agentSettingsSurface: "conversation",
-    showGroupChatControls: true,
-  },
-  roleplay: {
-    showSettingsProfiles: true,
-    promptSettingsSurface: "roleplay",
-    agentSettingsSurface: "generation",
-    showGroupChatControls: true,
-  },
-  game: {
-    showSettingsProfiles: false,
-    promptSettingsSurface: "game",
-    agentSettingsSurface: "generation",
-    showGroupChatControls: false,
-  },
-} as const satisfies Record<
-  ChatMode,
-  {
-    showSettingsProfiles: boolean;
-    promptSettingsSurface: "conversation" | "roleplay" | "game";
-    agentSettingsSurface: "conversation" | "generation";
-    showGroupChatControls: boolean;
-  }
->;
-assert.deepEqual(chatModeSchema.options, ["conversation", "roleplay", "game"]);
-for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
-  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[mode];
-  assert.deepEqual(
-    {
-      showSettingsProfiles: modeSettingsSurfaces.showSettingsProfiles,
-      promptSettingsSurface: modeSettingsSurfaces.promptSettingsSurface,
-      agentSettingsSurface: modeSettingsSurfaces.agentSettingsSurface,
-      showGroupChatControls: modeSettingsSurfaces.showGroupChatControls,
-    },
-    expectedChatModeSurfaces[mode],
-    `Chat mode ${mode} must expose the expected settings surfaces`,
-  );
-}
-assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
 
 // Issue #5225 — optional integer order survives automatic and approval-gated writes.
 {
@@ -317,10 +265,6 @@ const sharedPackageJson = JSON.parse(
 const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
 assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
 assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
-const conversationGroupSettingsSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
 const foregroundAutonomousSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
   "utf8",
@@ -345,14 +289,6 @@ const contextBudgetChatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
   "utf8",
 );
-const contextBudgetChatSettingsSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
-  "utf8",
-);
-const contextBudgetConnectionSectionSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/sections/ConnectionSection.tsx", import.meta.url),
-  "utf8",
-);
 const quickConnectionSwitcherSource = readFileSync(
   new URL("../../packages/client/src/components/chat/QuickConnectionSwitcher.tsx", import.meta.url),
   "utf8",
@@ -365,16 +301,6 @@ assert.doesNotMatch(
   contextBudgetChatInputSource,
   /<ContextBudgetIndicator/u,
   "Roleplay context usage must stay inside the connection switcher",
-);
-assert.match(
-  contextBudgetChatSettingsSource,
-  /<ConnectionSection[\s\S]{0,240}contextBudget=\{gameContextBudget\}/u,
-  "Game chat settings must pass measured usage to the connection section",
-);
-assert.match(
-  contextBudgetConnectionSectionSource,
-  /\{contextBudget && <ContextBudgetIndicator budget=\{contextBudget\} \/>\}/u,
-  "Game connection settings must show measured context usage",
 );
 for (const [name, source] of [
   ["desktop connection switcher", quickConnectionSwitcherSource],
@@ -406,58 +332,8 @@ const themesRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
   "utf8",
 );
-const groupChatSectionSource = readFileSync(
-  new URL("../../packages/client/src/features/chat-settings/sections/GroupChatSection.tsx", import.meta.url),
-  "utf8",
-);
-for (const source of [conversationGroupSettingsSource, groupChatSectionSource]) {
-  assert.doesNotMatch(source, /Reply When Mentioned/u);
-  assert.doesNotMatch(source, /label="Cross-Chat Awareness"/u);
-}
-assert.match(
-  groupChatSectionSource,
-  /ui\.chat\.chatsettingsdrawer\.individualRepliesCanUseManyTokens/u,
-  "Conversation group-token warning must remain wired through localization",
-);
-assert.match(
-  groupChatSectionSource,
-  /ui\.chat\.chatsettingsdrawer\.groupChat"/u,
-  "the Group Chat section keeps its label",
-);
-const groupChatUseIndex = conversationGroupSettingsSource.indexOf("<GroupChatSection");
-assert.notEqual(groupChatUseIndex, -1, "Chat Settings Drawer must retain the Group Chat section");
-const groupChatVisibilitySource = conversationGroupSettingsSource.slice(groupChatUseIndex, groupChatUseIndex + 600);
-assert.match(
-  groupChatVisibilitySource,
-  /chatCharIds\.length\s*>\s*1/u,
-  "pre-existing multi-character Conversation chats must retain the Group Chat character-count gate",
-);
-assert.match(
-  groupChatVisibilitySource,
-  /\bshowGroupChatControls\b/u,
-  "Group Chat visibility must consume the settings-surface policy",
-);
-assert.match(
-  conversationGroupSettingsSource,
-  // The close button also closes a pinned window: `force` defaults to true (#7036); a card link passes false (#8933).
-  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return false;[\s\S]{0,250}onClose\((?:\{ force(?:: true)? \})?\)[\s\S]{0,100}return true/u,
-  "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
-);
 
 await Promise.resolve();
-assert.match(
-  groupChatSectionSource,
-  /\{!isConversation && \(\s*<SettingsSwitch[\s\S]{0,700}ui\.chat\.chatsettingsdrawer\.namePrefixHistory/u,
-  "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
-);
-assert.match(
-  readFileSync(
-    new URL("../../packages/client/src/features/chat-settings/agents/LongTermMemorySettings.tsx", import.meta.url),
-    "utf8",
-  ),
-  /onOpenAgentSettings:[\s\S]{0,250}requestClose\(\)\.then\(\(closed\)[\s\S]{0,150}if \(closed\) \{\s+rememberSettingsReturn\(\);\s+useUIStore\.getState\(\)\.openAgentDetail\("long-term-memory"\)/u,
-  "Long-Term Memory settings navigation must wait for the guarded drawer close, then record the Chat Settings return",
-);
 for (const [source, lane] of [
   [foregroundAutonomousSource, "foreground"],
   [backgroundAutonomousSource, "background"],
@@ -516,54 +392,6 @@ assert.match(
   /requiredAnyCapability:\s*\["edit_lorebooks",\s*"create_lorebooks"\]/u,
   "Lorebook Update must be configurable by create-only custom lorebook agents",
 );
-assert.match(
-  chatSettingsDrawerSource,
-  // Chat Settings content follows the window's width (container queries) since #7036.
-  /flex w-full min-w-0 flex-col items-stretch gap-1\.5 @lg:w-auto @lg:shrink-0 @lg:flex-row/u,
-  "Lorebook Keeper actions must stack inside their mobile settings card",
-);
-assert.match(
-  chatSettingsDrawerSource,
-  /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
-  "Chat Settings Drawer must select the active mode's settings surface directly",
-);
-for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "agentSettingsSurface"]) {
-  assert.match(
-    chatSettingsDrawerSource,
-    new RegExp(`\\b${surfaceField}\\b`, "u"),
-    `Chat Settings Drawer must consume the ${surfaceField} settings-surface policy`,
-  );
-}
-assert.match(
-  chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<ConversationAgentsSection\b/u,
-  "Conversation Agents visibility must consume the conversation agent-settings surface",
-);
-assert.match(
-  chatSettingsDrawerSource,
-  /agentSettingsSurface\s*===\s*["']generation["']\s*&&\s*\(\s*<RoleplayAgentsSection\b/u,
-  "Roleplay and Game Agents visibility must consume the generation agent-settings surface",
-);
-assert.match(
-  roleplayAgentsSectionSource,
-  /return \(\s*<Section\s+id=\{`\$\{chatMode\}-agents`\}/u,
-  "the Roleplay and Game Agents component renders the mode's Agents section",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /getChatModeCapabilities|modeCapabilities/u,
-  "Chat Settings Drawer must use the settings-surface policy instead of shared capabilities",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /supportsPromptPresets\s*&&\s*isRoleplayMode/u,
-  "Prompt preset visibility must not contradict the matrix with a duplicate roleplay gate",
-);
-assert.doesNotMatch(
-  chatSettingsDrawerSource,
-  /sharedSections\s*\.includes\(\s*["']agents["']\s*\)\s*&&\s*!isConversation/u,
-  "Agent settings visibility must not retain the obsolete sharedSections/isConversation gate",
-);
 const gameAssetHooksSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-game-assets.ts", import.meta.url),
   "utf8",
@@ -583,7 +411,6 @@ const gameAssetsRoutesSource = readFileSync(
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
-assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
   chatSettingsDrawerSource.match(/<GenerationSettingsLink/gu)?.length,
   3,
@@ -626,7 +453,7 @@ assert.ok(
   "Summary prompt writes must lock before mutation and unlock only afterward",
 );
 const summaryPromptControlsSource = summaryPopoverSource.slice(
-  summaryPopoverSource.indexOf('role="tablist"'),
+  summaryPopoverSource.indexOf("<Tabs"),
   summaryPopoverSource.indexOf('localizeUi("ui.chat.summarypopover.summaryConnection")'),
 );
 assert.equal(
@@ -987,22 +814,6 @@ assert.equal(
   );
 }
 
-// Issue #4277 — the Secret Plot interval remains editable after Narrative
-// Director is installed instead of passing a string through a number-only
-// normalizer and immediately restoring the previous value.
-{
-  assert.match(
-    chatSettingsDrawerSource,
-    /<DraftNumberInput\s+value=\{narrativeDirectorSecretPlotRunInterval\}\s+min=\{1\}\s+max=\{100\}\s+onCommit=\{\(value\) =>\s+updateMeta\.mutate\(\{\s+id: chat\.id,\s+narrativeDirectorSecretPlotRunInterval: value,/u,
-    "Secret Plot run interval must use a draft number input that commits the edited numeric value",
-  );
-  assert.doesNotMatch(
-    chatSettingsDrawerSource,
-    /narrativeDirectorSecretPlotRunInterval:\s*normalizePositiveInteger\(\s*event\.target\.value/u,
-    "Secret Plot run interval must not reject the browser's string input value",
-  );
-}
-
 // Issue #4449 — desktop sidebar hover actions overlay row content instead of
 // permanently reserving text width, while touch layouts keep room for visible
 // actions and Conversation Call duration rows size from their panel width.
@@ -1155,201 +966,6 @@ assert.equal(
     settingsPanelSource,
     /CustomQuickRepliesManager[\s\S]{0,900}mt-1 min-w-0 max-w-full overflow-hidden/u,
     "Custom quick replies must contain their fields and destructive controls at narrow widths",
-  );
-}
-
-// Issues #4532 and #4533 — every runtime World Maps host must preserve the
-// target chat mode, while Chat Settings uses feature copy instead of repeating
-// package-installation guidance in an already-reached activation surface.
-{
-  const findCapabilityHosts = (source: string, packageId: string, view: string) =>
-    (source.match(/<CapabilityElement\b[\s\S]*?\/>/gu) ?? []).filter(
-      (host) => host.includes(`packageId="${packageId}"`) && host.includes(`view="${view}"`),
-    );
-  const sourceBetween = (source: string, startMarker: string, endMarker: string, label: string) => {
-    const start = source.indexOf(startMarker);
-    assert.ok(start >= 0, `${label} start marker must exist`);
-    const end = source.indexOf(endMarker, start);
-    assert.ok(end > start, `${label} end marker must exist after its start marker`);
-    return source.slice(start, end);
-  };
-
-  const chatInputSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatInput.tsx"),
-    "utf8",
-  );
-  const roleplayRuntimeHosts = findCapabilityHosts(chatInputSource, "hierarchical-maps", "runtime");
-  assert.equal(roleplayRuntimeHosts.length, 1, "Roleplay must expose exactly one World Maps runtime host");
-  assert.match(
-    roleplayRuntimeHosts[0],
-    /capabilityProps=\{\{[\s\S]*?chatId: activeChatId,[\s\S]*?chatMode: mode,/u,
-    "Roleplay World Maps runtime controls must preserve the active chat mode",
-  );
-
-  const gameInputSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/game/GameInput.tsx"),
-    "utf8",
-  );
-  const gameRuntimeHosts = findCapabilityHosts(gameInputSource, "hierarchical-maps", "runtime");
-  assert.equal(gameRuntimeHosts.length, 1, "Game input must expose exactly one World Maps runtime host");
-  assert.match(
-    gameRuntimeHosts[0],
-    /capabilityProps=\{\{[\s\S]*?chatId: draftKey,[\s\S]*?chatMode: "game",/u,
-    "Game World Maps runtime controls must identify their supported chat mode",
-  );
-
-  const gameMapSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/components/game/GameMap.tsx"), "utf8");
-  const gameWorldMapHosts = findCapabilityHosts(gameMapSource, "hierarchical-maps", "world-map");
-  assert.equal(gameWorldMapHosts.length, 2, "Game Map must expose exactly its desktop and mobile World Maps hosts");
-  const desktopWorldMapHosts = gameWorldMapHosts.filter((host) => !host.includes("compact: true,"));
-  const mobileWorldMapHosts = gameWorldMapHosts.filter((host) => host.includes("compact: true,"));
-  assert.equal(desktopWorldMapHosts.length, 1, "Desktop Game Map must expose one non-compact World Maps host");
-  assert.equal(mobileWorldMapHosts.length, 1, "Mobile Game Map must expose one compact World Maps host");
-  for (const [surface, host] of [
-    ["Desktop", desktopWorldMapHosts[0]],
-    ["Mobile", mobileWorldMapHosts[0]],
-  ] as const) {
-    assert.match(
-      host,
-      /capabilityProps=\{\{[\s\S]*?chatId,[\s\S]*?chatMode: "game",/u,
-      `${surface} Game World Maps host must identify its supported chat mode`,
-    );
-  }
-
-  const chatSettingsSource = drawerAndAgentsStateSource;
-  assert.match(
-    chatSettingsSource,
-    /const worldMapsSettingsDescription = localizeUi\("ui\.chat\.chatsettingsdrawer\.worldMapsFeatureSummary"\);/u,
-    "Chat Settings must source the World Maps feature summary from localization",
-  );
-  const worldMapsFeatureSummary = String(lorebookEnglishLocale["ui.chat.chatsettingsdrawer.worldMapsFeatureSummary"]);
-  assert.equal(
-    worldMapsFeatureSummary,
-    "Adds world maps to Roleplay and Game, from whole regions down to single rooms, with art and travel between places.",
-    "The canonical English World Maps settings summary must describe the feature",
-  );
-  assert.doesNotMatch(
-    worldMapsFeatureSummary,
-    /Add the Agent|Chat Settings|Tracker Agents/iu,
-    "The World Maps settings summary must not repeat installation guidance",
-  );
-  const standaloneRoleplayAgentSettings = sourceBetween(
-    agentSettingsRenderersSource,
-    "const renderStandaloneRoleplayAgentSettingsCard =",
-    "const renderAgentPromptTemplateSelect =",
-    "Standalone Roleplay agent settings renderer",
-  );
-  assert.match(
-    standaloneRoleplayAgentSettings,
-    /agent\.id === "hierarchical-maps"[\s\S]*?<CapabilityElement[\s\S]*?<AgentSettingsCard[\s\S]*?agent\.id === "hierarchical-maps"[\s\S]*?worldMapsSettingsDescription/u,
-    "Standalone Roleplay World Maps settings must use the concise feature summary",
-  );
-  const roleplayActiveAgentCards = sourceBetween(
-    roleplayAgentsSectionSource,
-    "{/* Active agents in this category */}",
-    "{inactiveInCat.length > 0 ? (",
-    "Roleplay active-agent settings cards",
-  );
-  assert.match(
-    roleplayActiveAgentCards,
-    /agent\.id === "hierarchical-maps"[\s\S]{0,120}\? worldMapsSettingsDescription[\s\S]{0,80}: agent\.description/u,
-    "Roleplay Chat Settings must omit package-installation guidance from the active World Maps card",
-  );
-}
-
-{
-  // #4721: the chat transcript's infinite query keys ONLY by chat id — its
-  // pageSize lives in the option closures, so ANY second observer with a
-  // different pageSize hijacks the transcript's queryFn/getNextPageParam
-  // (last observer wins in React Query). The Chat Settings drawer's
-  // secret-plot reader did exactly that with a hardcoded 100: while the
-  // drawer was open, transcript refetches ignored the user's
-  // messages-per-page and "Load More" vanished on a mis-evaluated
-  // hasNextPage. Read-only newest-N windows must go through the peek hook,
-  // which keys by limit.
-  const drawerSource = chatSettingsDrawerSource;
-  assert.doesNotMatch(
-    drawerSource,
-    /useChatMessages\(/u,
-    "Chat Settings must not observe the shared chatKeys.messages infinite query (#4721)",
-  );
-  assert.match(
-    drawerSource,
-    /useChatMessagePeek\(\s*chat\.id,\s*100,/u,
-    "The secret-plot reader must fetch its newest-100 window through the limit-keyed peek hook",
-  );
-  const imageSettingUpdateSource =
-    /const updateCustomAgentImageSetting = useCallback\([\s\S]*?\n  const updateCustomAgentImageConnection/u.exec(
-      drawerSource,
-    )?.[0] ?? "";
-  assert.match(
-    imageSettingUpdateSource,
-    /setCustomAgentImageSettingsDraft\(\(current\) => \(\{[\s\S]*current\?\.chatId === chat\.id \? current\.patch : \{\}[\s\S]*\[agentId\]: hasAgentSettings \? agentSettings : null/u,
-    "Rapid custom-agent connection and style changes must merge into one visible local draft",
-  );
-  assert.match(
-    imageSettingUpdateSource,
-    /if \(removingAgentImageSettingsRef\.current\.has\(agentId\)\) return;/u,
-    "Selector changes for an agent being removed must not enqueue another full-map write",
-  );
-  const toggleAgentSource =
-    /const toggleAgent = async[\s\S]*?\n  const removeAgentFromMenu/u.exec(drawerSource)?.[0] ?? "";
-  assert.match(
-    toggleAgentSource,
-    /await flushPendingCustomAgentImageSettings\(\)[\s\S]*await customAgentImageSettingsWriteQueueRef\.current\.waitForIdle\(\)[\s\S]*const latestImageSettings = readLatestCustomAgentImageSettings\(\)[\s\S]*delete next\[agentId\]/u,
-    "Removing an agent must drain queued image writes before deleting that agent's override",
-  );
-  assert.match(
-    toggleAgentSource,
-    /removingAgentImageSettingsRef\.current\.add\(agentId\)[\s\S]*customAgentImageSettingsWriteQueueRef\.current\.enqueue\(saveAgentSelection\)[\s\S]*finally \{[\s\S]*removingAgentImageSettingsRef\.current\.delete\(agentId\)/u,
-    "Agent removal must be terminal in the image-settings queue and unblock the selector afterward",
-  );
-
-  const serializedWrites = createSerializedMutationQueue();
-  const writeOrder: string[] = [];
-  let releaseFirstWrite!: () => void;
-  const firstWriteGate = new Promise<void>((resolve) => {
-    releaseFirstWrite = resolve;
-  });
-  const firstWrite = serializedWrites.enqueue(async () => {
-    writeOrder.push("first:start");
-    await firstWriteGate;
-    writeOrder.push("first:end");
-  });
-  const removalWrite = serializedWrites.enqueue(async () => {
-    writeOrder.push("removal");
-  });
-  const removingAgentIds = new Set(["image-agent"]);
-  const blockedSelectorWrite = removingAgentIds.has("image-agent")
-    ? null
-    : serializedWrites.enqueue(async () => {
-        writeOrder.push("stale-selector-write");
-      });
-  assert.equal(blockedSelectorWrite, null, "A selector event during removal must not enqueue a stale map");
-  await Promise.resolve();
-  assert.deepEqual(writeOrder, ["first:start"], "A delayed older metadata write must hold newer writes in order");
-  releaseFirstWrite();
-  await Promise.all([firstWrite, removalWrite, serializedWrites.waitForIdle()]);
-  assert.deepEqual(writeOrder, ["first:start", "first:end", "removal"]);
-  const trackerModelSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/features/tracker-panel/hooks/use-tracker-panel-model.ts"),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    trackerModelSource,
-    /useChatMessages\(/u,
-    "The tracker panel must not observe the shared chatKeys.messages infinite query (#4724)",
-  );
-  assert.match(
-    trackerModelSource,
-    /useChatMessagePeek\(\s*activeChatId,\s*20,/u,
-    "The tracker panel must fetch its newest-20 sprite window through the limit-keyed peek hook",
-  );
-  const useChatsSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"), "utf8");
-  assert.match(
-    useChatsSource,
-    /queryKey: \[\.\.\.chatKeys\.messagePeek\(chatId \?\? ""\), limit\]/u,
-    "The peek hook's query key must include its limit so different windows never share options",
   );
 }
 

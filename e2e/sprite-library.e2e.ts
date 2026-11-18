@@ -739,9 +739,18 @@ test("sprite details, folders and bulk tools keep their intended scope", async (
           { intervals: [300], timeout: 15000 },
         )
         .toBe(true);
-      await frontSection
-        .getByRole("button", { name: "Preview idle", exact: true })
-        .dragTo(library.locator("[data-sprite-loose]"));
+      // The loose area sits below the fold. dragTo would press, then scroll to it mid-gesture, and Chromium never
+      // starts the drag; bring it into view first and drag in steps like the checks above.
+      const looseDrop = library.locator("[data-sprite-loose]");
+      await looseDrop.scrollIntoViewIfNeeded();
+      const idleSource = frontSection.getByRole("button", { name: "Preview idle", exact: true });
+      await expect(idleSource).toBeInViewport({ ratio: 0.5 });
+      const idleFrom = (await idleSource.boundingBox())!;
+      const looseTo = (await looseDrop.boundingBox())!;
+      await page.mouse.move(idleFrom.x + idleFrom.width / 2, idleFrom.y + idleFrom.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(looseTo.x + looseTo.width / 2, looseTo.y + looseTo.height / 2, { steps: 10 });
+      await page.mouse.up();
       await expectFolder("full_idle", null);
       await expect(
         library

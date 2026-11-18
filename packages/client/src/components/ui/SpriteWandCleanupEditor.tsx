@@ -43,6 +43,7 @@ import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styl
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "./Spinner";
 import { Checkbox } from "./Checkbox";
+import { ColorField } from "./ColorPicker";
 
 interface SpriteWandCleanupEditorProps {
   imageUrl: string;
@@ -1126,16 +1127,14 @@ export function SpriteWandCleanupEditor({
                     <span className="shrink-0 whitespace-nowrap font-medium text-[var(--foreground)]">
                       {localizeUi("ui.ui.spritewandcleanupeditor.color")}
                     </span>
-                    <input
-                      type="color"
+                    <ColorField
                       value={brushColor}
-                      onChange={(event) => {
-                        setBrushColor(event.target.value);
+                      onChange={(color) => {
+                        setBrushColor(color);
                         setPickingBrushColor(false);
                       }}
                       disabled={loading || applying}
-                      className="h-7 w-9 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5 disabled:opacity-45"
-                      aria-label={localizeUi("ui.ui.spritewandcleanupeditor.brushColor")}
+                      label={localizeUi("ui.ui.spritewandcleanupeditor.brushColor")}
                     />
                     <span className="font-mono text-[0.6875rem] uppercase text-[var(--muted-foreground)]">
                       {brushColor}

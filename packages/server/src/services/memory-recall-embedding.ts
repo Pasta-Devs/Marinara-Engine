@@ -1,4 +1,5 @@
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   DEFAULT_EMBEDDING_CONNECTION_SETTINGS_KEY,
   generationParametersSchema,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -13,6 +14,7 @@ import { isLocalEmbedderAvailable } from "./local-embedder.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "./llm/local-sidecar.js";
 import { createLLMProvider } from "./llm/provider-registry.js";
 import type { MemoryRecallEmbeddingInputType, MemoryRecallEmbeddingSource } from "./memory-recall.js";
+import { builtinEmbeddingService } from "./sidecar/builtin-embedding.service.js";
 import { sidecarModelService } from "./sidecar/sidecar-model.service.js";
 import { createAppSettingsStorage } from "./storage/app-settings.storage.js";
 import { createConnectionsStorage } from "./storage/connections.storage.js";
@@ -116,6 +118,22 @@ export function resolveMemoryRecallEmbeddingInputProfile(model: string): MemoryR
   if (/(^|[/_.-])e5([/_.-]|$)/u.test(normalized)) {
     return { id: "e5", queryPrefix: "query: ", documentPrefix: "passage: " };
   }
+  if (normalized.includes("qwen3-embedding")) {
+    // Qwen3-Embedding wants a one-line task instruction on queries only; documents go in as they are.
+    return {
+      id: "qwen3-embedding",
+      queryPrefix:
+        "Instruct: Given the latest messages of a roleplay chat, retrieve the memories and lore that are relevant to them\nQuery:",
+      documentPrefix: "",
+    };
+  }
+  if (normalized.includes("embeddinggemma")) {
+    return {
+      id: "embeddinggemma",
+      queryPrefix: "task: search result | query: ",
+      documentPrefix: "title: none | text: ",
+    };
+  }
   if (normalized.includes("nomic-embed-text")) {
     return { id: "nomic-embed-text", queryPrefix: "search_query: ", documentPrefix: "search_document: " };
   }
@@ -210,6 +228,49 @@ function createLocalSidecarEmbeddingSource(throwErrors = false): MemoryRecallEmb
   };
 }
 
+/** The built-in embedding model (its own llama-server); null until a model is downloaded. */
+function createBuiltinEmbeddingSource(throwErrors = false): MemoryRecallEmbeddingSource | null {
+  const model = builtinEmbeddingService.getActiveModel();
+  if (!model) {
+    logger.warn("[memory-recall] The built-in embedding model was selected, but no model is downloaded");
+    return null;
+  }
+  const label = `Built-in embedding model (${model.label})`;
+  return {
+    spaceId: createMemoryRecallEmbeddingSpaceId("builtin-embedding", model.label, model.repo, model.file),
+    label,
+    model: model.label,
+    async embed(texts: string[], signal?: AbortSignal, inputType: MemoryRecallEmbeddingInputType = "document") {
+      try {
+        return await builtinEmbeddingService.embed(
+          formatMemoryRecallEmbeddingTexts(texts, model.label, inputType),
+          signal,
+          model.id,
+        );
+      } catch (err) {
+        if (throwErrors) throw err;
+        logger.warn(err, "[memory-recall] Configured embedding source %s failed", label);
+        return null;
+      }
+    },
+  };
+}
+
+/** The source behind a pseudo-connection id (built-in model or built-in embedding model); undefined for real ids. */
+export function resolvePseudoEmbeddingSource(
+  id: string | null | undefined,
+  throwErrors = false,
+): MemoryRecallEmbeddingSource | null | undefined {
+  if (id === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource(throwErrors);
+  if (id === BUILTIN_EMBEDDING_CONNECTION_ID) return createBuiltinEmbeddingSource(throwErrors);
+  return undefined;
+}
+
+/** Ids that name an embedding source without a stored connection row. */
+export function isPseudoEmbeddingConnectionId(id: string | null | undefined): boolean {
+  return id === LOCAL_SIDECAR_CONNECTION_ID || id === BUILTIN_EMBEDDING_CONNECTION_ID;
+}
+
 type EmbeddingSourceOptions = {
   chatMetadata?: unknown;
   connectionId?: string | null;
@@ -225,7 +286,7 @@ export async function readDefaultEmbeddingConnectionId(db: DB): Promise<string |
 async function resolveDefaultEmbeddingSource(db: DB): Promise<MemoryRecallEmbeddingSource | null> {
   const defaultId = await readDefaultEmbeddingConnectionId(db);
   if (!defaultId) return null;
-  if (defaultId === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource();
+  if (isPseudoEmbeddingConnectionId(defaultId)) return resolvePseudoEmbeddingSource(defaultId) ?? null;
   return resolveEmbeddingSource(db, { connectionId: defaultId }, false);
 }
 
@@ -235,7 +296,7 @@ async function resolveFallbackEmbeddingSource(
   chatMetadata: unknown,
 ): Promise<MemoryRecallEmbeddingSource | null> {
   const chatOverride = nonEmptyString(parseMetadata(chatMetadata).embeddingConnectionId);
-  if (chatOverride === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource();
+  if (isPseudoEmbeddingConnectionId(chatOverride)) return resolvePseudoEmbeddingSource(chatOverride) ?? null;
   if (chatOverride) {
     const source = await resolveEmbeddingSource(db, { connectionId: chatOverride }, false);
     if (source) return source;
@@ -270,6 +331,8 @@ async function resolveEmbeddingSource(
   useDefault: boolean,
   throwErrors = false,
 ): Promise<MemoryRecallEmbeddingSource | null> {
+  // The built-in embedding model is an embedding source, never a chat connection, so its id resolves straight to it.
+  if (options.connectionId === BUILTIN_EMBEDDING_CONNECTION_ID) return createBuiltinEmbeddingSource(throwErrors);
   const connections = createConnectionsStorage(db);
   if (options.connectionId === "random") {
     // A random chat stores a sentinel rather than a persisted connection id.
@@ -309,7 +372,8 @@ async function resolveEmbeddingSource(
     return resolveDefaultEmbeddingSource(db);
   }
 
-  if (embeddingConnId === LOCAL_SIDECAR_CONNECTION_ID) return createLocalSidecarEmbeddingSource(throwErrors);
+  if (isPseudoEmbeddingConnectionId(embeddingConnId))
+    return resolvePseudoEmbeddingSource(embeddingConnId, throwErrors) ?? null;
 
   let embeddingConnection = activeConnection;
   let embeddingBaseUrl = options.activeBaseUrl ?? null;

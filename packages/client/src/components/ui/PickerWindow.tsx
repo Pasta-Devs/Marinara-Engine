@@ -101,6 +101,17 @@ export function PickerWindow({
   const panelRef = useRef<HTMLDivElement>(null);
   // Opened from the omnibar (its settings), the popover takes the omnibar's layer, as a Modal does, or it opens beneath it.
   const [overOmnibar] = useState(() => useUIStore.getState().omnibarOpen);
+  // Inside a Modal on the omnibar layer or above it, the popover and the phone sheet join that layer.
+  const [hostLayer] = useState<"omnibar" | "top" | undefined>(() => {
+    const host = anchorRef.current?.closest<HTMLElement>(".mari-modal");
+    if (!host) return undefined;
+    const hostZ = Number.parseInt(getComputedStyle(host).zIndex, 10);
+    const omnibarZ = Number.parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue("--mari-layer-omnibar"),
+      10,
+    );
+    return hostZ > omnibarZ ? "top" : hostZ === omnibarZ ? "omnibar" : undefined;
+  });
   const [pos, setPos] = useState<Placement | null>(null);
   const widthRef = useRef<number | null>(null);
   // The scroll listener below is set up once per open; it reads the latest onClose from here.
@@ -183,6 +194,7 @@ export function PickerWindow({
         <Modal
           open
           onClose={onClose}
+          layer={hostLayer}
           title={title}
           width="max-w-md"
           restoreFocusRef={anchorRef}
@@ -218,7 +230,11 @@ export function PickerWindow({
         // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
         // like the wizard's footer divider, don't show through.
         "fixed flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
-        overOmnibar ? "z-(--mari-layer-omnibar)" : "z-[10050]",
+        hostLayer === "top"
+          ? "z-[calc(var(--mari-layer-omnibar)+2)]"
+          : hostLayer || overOmnibar
+            ? "z-(--mari-layer-omnibar)"
+            : "z-[10050]",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}

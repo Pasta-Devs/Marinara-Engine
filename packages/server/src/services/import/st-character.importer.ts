@@ -5,7 +5,7 @@ import { syncCharacterBookFromLorebook } from "../lorebook/character-book-sync.j
 import type { DB } from "../../db/connection.js";
 import { characters as charactersTable } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
-import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createCharactersStorage, withCharacterUpdateQueue } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
@@ -116,6 +116,8 @@ async function rollbackImportedCharacter(db: DB, characterId: string | undefined
 export interface STCharacterImportPreview {
   success: boolean;
   name?: string;
+  creator?: string;
+  version?: string;
   hasEmbeddedLorebook: boolean;
   embeddedLorebookEntries: number;
   error?: string;
@@ -130,6 +132,72 @@ export interface STCharacterImportOptions {
   regexScriptScope?: "character" | "global";
   /** Split a labelled description into personality, appearance, backstory and the other card fields. */
   splitDescription?: boolean;
+  /**
+   * Update this existing character with the card instead of adding a new one (a newer release of a card you already
+   * have). The character keeps its id, so its chats, memories, gallery, sprites, folder and favorite stay with it.
+   */
+  updateCharacterId?: string;
+  /** With updateCharacterId: use the card's picture (default) or keep the current one. */
+  useCardPicture?: boolean;
+  /**
+   * With updateCharacterId, what happens to Creator's Notes, which people edit (custom CSS, the library blurb):
+   * "merge" (default) keeps yours and brings in the author's changes, "card" takes the card's, "mine" keeps yours.
+   */
+  creatorNotes?: CreatorNotesUpdate;
+}
+
+/** A character in the library that an imported card may be a newer release of. */
+export interface CharacterImportMatch {
+  id: string;
+  name: string;
+  creator: string;
+  version: string;
+  avatarPath: string | null;
+  updatedAt: string;
+  /** "browser": downloaded from the same Card Browser page. "name": same name and creator. */
+  reason: "browser" | "name";
+}
+
+export type CreatorNotesUpdate = "merge" | "card" | "mine";
+
+const STYLE_START = /<style[\s>]/i;
+
+/**
+ * Bring the author's changes to Creator's Notes into notes you edited, line by line. `base` is the notes the card
+ * came with last time (unknown for imports made before it was remembered). Lines the author added go in before
+ * your first style block, so your CSS stays last; lines the author removed are dropped if you still have them as
+ * they were. Unedited notes simply become the card's.
+ */
+export function mergeCreatorNotes(base: string | null, mine: string, theirs: string): string {
+  if (base !== null && mine === base) return theirs;
+  if (mine === theirs || !theirs.trim()) return mine;
+  if (!mine.trim()) return theirs;
+  const key = (line: string) => line.trim();
+  const baseKeys = new Set((base ?? "").split("\n").map(key));
+  const theirLines = theirs.split("\n");
+  const theirKeys = new Set(theirLines.map(key));
+  const removed = new Set(base === null ? [] : [...baseKeys].filter((line) => line && !theirKeys.has(line)));
+  const kept = mine.split("\n").filter((line) => !removed.has(key(line)));
+  const keptKeys = new Set(kept.map(key));
+  const added = theirLines.filter((line) => key(line) && !baseKeys.has(key(line)) && !keptKeys.has(key(line)));
+  if (added.length === 0) return tidyBlankLines(kept);
+  const styleAt = kept.findIndex((line) => STYLE_START.test(line));
+  const insertAt = styleAt === -1 ? kept.length : styleAt;
+  const before = kept.slice(0, insertAt);
+  // A blank line between your text and the new lines, unless one is already there.
+  const gap = before.length > 0 && key(before[before.length - 1]!) ? [""] : [];
+  return tidyBlankLines([...before, ...gap, ...added, ...(styleAt === -1 ? [] : ["", ...kept.slice(insertAt)])]);
+}
+
+/** Lines dropped from the middle of your notes leave no stack of empty lines behind, nor any at the ends. */
+function tidyBlankLines(lines: string[]): string {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (!line.trim() && (out.length === 0 || !out[out.length - 1]!.trim())) continue;
+    out.push(line);
+  }
+  while (out.length > 0 && !out[out.length - 1]!.trim()) out.pop();
+  return out.join("\n");
 }
 
 // SillyTavern regex placement ids → our placement strings (1 = user input, 2 = AI output).
@@ -274,6 +342,8 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   void _staleLorebookId;
   data.extensions[IMPORT_METADATA_KEY] = {
     ...existingImportMetadata,
+    // The notes as the card came, so a later update can merge the author's changes into notes you edited.
+    importedCreatorNotes: data.creator_notes ?? "",
     ...(cardSpecMetadata ? { card: cardSpecMetadata } : {}),
     embeddedLorebook: {
       ...sanitizedEmbeddedLorebook,
@@ -300,28 +370,32 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     }
   }
 
+  if (options?.updateCharacterId) {
+    return updateCharacterFromCard({
+      db,
+      characterId: options.updateCharacterId,
+      raw,
+      data,
+      rawEmbeddedLorebook,
+      avatarPath,
+      useCardPicture: options.useCardPicture !== false,
+      shouldImportEmbeddedLorebook,
+      hasEmbeddedLorebook,
+      embeddedLorebookEntries,
+      embeddedMarinaraSprites,
+      embeddedSpriteCatalog,
+      split,
+      options,
+    });
+  }
+
   const character = await storage.create(data, avatarPath, normalizedTimestamps);
   const charId = (character as { id?: string } | null)?.id;
 
   // Extract character_book into a standalone lorebook linked to this character
   let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
   if (shouldImportEmbeddedLorebook && data.character_book && charId) {
-    const bookRaw = rawEmbeddedLorebook as unknown as Record<string, unknown>;
-    // ST character_book uses the same shape as World Info
-    const wiData: Record<string, unknown> = {
-      name: `${data.name}'s Lorebook`,
-      entries: bookRaw.entries ?? {},
-      description: bookRaw.description,
-      scan_depth: bookRaw.scan_depth,
-      scanDepth: bookRaw.scanDepth,
-      token_budget: bookRaw.token_budget,
-      tokenBudget: bookRaw.tokenBudget,
-      recursive_scanning: bookRaw.recursive_scanning,
-      recursiveScanning: bookRaw.recursiveScanning,
-      max_recursion_depth: bookRaw.max_recursion_depth,
-      maxRecursionDepth: bookRaw.maxRecursionDepth,
-      extensions: bookRaw.extensions ?? {},
-    };
+    const wiData = embeddedBookAsWorldInfo(data.name, rawEmbeddedLorebook);
 
     try {
       const result = await importSTLorebook(wiData, db, {
@@ -364,31 +438,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   }
 
   // Import any regex scripts embedded in the ST card, scoped to this character.
-  if (charId) {
-    const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-    const cardExtensions =
-      cardData.extensions && typeof cardData.extensions === "object"
-        ? (cardData.extensions as Record<string, unknown>)
-        : {};
-    const importedRegex = convertStRegexScripts(
-      cardExtensions.regex_scripts,
-      charId,
-      options?.regexScriptScope ?? "character",
-    );
-    if (importedRegex.length > 0) {
-      const regexStorage = createRegexScriptsStorage(db);
-      let created = 0;
-      for (const input of importedRegex) {
-        try {
-          await regexStorage.create(input);
-          created += 1;
-        } catch (err) {
-          logger.warn(err, "Failed to import an embedded regex script");
-        }
-      }
-      if (created > 0) logger.info("Imported %d embedded regex script(s) for character %s", created, charId);
-    }
-  }
+  if (charId) await importEmbeddedRegexScripts(db, raw, charId, options?.regexScriptScope);
 
   if (charId && embeddedMarinaraSprites !== undefined) {
     try {
@@ -434,6 +484,493 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   };
 }
 
+// ST character_book uses the same shape as World Info.
+function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unknown): Record<string, unknown> {
+  const bookRaw = rawEmbeddedLorebook as Record<string, unknown>;
+  return {
+    name: `${characterName}'s Lorebook`,
+    entries: bookRaw.entries ?? {},
+    description: bookRaw.description,
+    scan_depth: bookRaw.scan_depth,
+    scanDepth: bookRaw.scanDepth,
+    token_budget: bookRaw.token_budget,
+    tokenBudget: bookRaw.tokenBudget,
+    recursive_scanning: bookRaw.recursive_scanning,
+    recursiveScanning: bookRaw.recursiveScanning,
+    max_recursion_depth: bookRaw.max_recursion_depth,
+    maxRecursionDepth: bookRaw.maxRecursionDepth,
+    extensions: bookRaw.extensions ?? {},
+  };
+}
+
+// RisuAI cards keep some extensions as top-level fields, which win over their `extensions` (see convertRisuToV2).
+const RISU_TOP_LEVEL_EXTENSIONS = [
+  "depth_prompt",
+  "talkativeness",
+  "regex_scripts",
+  "backstory",
+  "appearance",
+  "fav",
+  "world",
+] as const;
+
+/**
+ * Extension fields some exporters write beside a card's `extensions` instead of inside it. The card's own
+ * `extensions` wins where both are set (callers spread it on top).
+ */
+function cardTopLevelExtensions(card: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ["depth_prompt", "talkativeness", "regex_scripts", "backstory", "appearance"]) {
+    if (card[key] !== undefined) picked[key] = card[key];
+  }
+  if (picked.depth_prompt === undefined && card.depthPrompt !== undefined) picked.depth_prompt = card.depthPrompt;
+  if (picked.regex_scripts === undefined && card.regexScripts !== undefined) picked.regex_scripts = card.regexScripts;
+  return picked;
+}
+
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+/** The extensions a card file itself carries, read the way normalizeCharacterData reads that format. */
+function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.type === "character" && raw.data && !(raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3")) {
+    const merged = { ...raw, ...recordOrEmpty(raw.data) };
+    const extensions: Record<string, unknown> = { ...recordOrEmpty(merged.extensions) };
+    for (const key of RISU_TOP_LEVEL_EXTENSIONS) {
+      if (merged[key] !== undefined) extensions[key] = merged[key];
+    }
+    if (extensions.depth_prompt === undefined && merged.depthPrompt !== undefined) {
+      extensions.depth_prompt = merged.depthPrompt;
+    }
+    if (extensions.regex_scripts === undefined && merged.regexScripts !== undefined) {
+      extensions.regex_scripts = merged.regexScripts;
+    }
+    return extensions;
+  }
+  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+  const extensions = { ...cardTopLevelExtensions(cardData), ...recordOrEmpty(cardData.extensions) };
+  // Some exporters put regex scripts at the card's root even when it has a `data` block; the nearer copy wins.
+  if (extensions.regex_scripts === undefined && cardData !== raw) {
+    const rootScripts = raw.regex_scripts ?? raw.regexScripts;
+    if (rootScripts !== undefined) extensions.regex_scripts = rootScripts;
+  }
+  return extensions;
+}
+
+/**
+ * Import the regex scripts embedded in a card and remember their ids on the character (importMetadata.regexScriptIds),
+ * so a later update can bring them in line with the newer card. On update the remembered scripts are updated by name
+ * (keeping whether you turned them off), the card's new scripts are added, and remembered scripts the card no longer
+ * has are removed. Scripts you made yourself are never touched. A character imported before ids were remembered
+ * skips scripts it already has, as an exact copy.
+ */
+async function importEmbeddedRegexScripts(
+  db: DB,
+  raw: Record<string, unknown>,
+  charId: string,
+  scope: "character" | "global" | undefined,
+  update?: { recordedIds: string[] | null },
+) {
+  const importedRegex = convertStRegexScripts(rawCardExtensions(raw).regex_scripts, charId, scope ?? "character");
+  const regexStorage = createRegexScriptsStorage(db);
+  const scriptKey = (script: { name: string; findRegex: string; replaceString?: string | null }) =>
+    JSON.stringify([script.name, script.findRegex, script.replaceString ?? ""]);
+  const keptIds: string[] = [];
+  // Recorded ids per name, in order: a card may carry several scripts with one name.
+  const recordedByName = new Map<string, string[]>();
+  const recordedIds = new Set(update?.recordedIds ?? []);
+  const existingKeys = new Map<string, string>();
+  if (update) {
+    for (const script of await regexStorage.list()) {
+      if (recordedIds.has(script.id)) {
+        const queue = recordedByName.get(script.name) ?? [];
+        queue.push(script.id);
+        recordedByName.set(script.name, queue);
+        continue;
+      }
+      if (update.recordedIds) continue;
+      const targets = parseStringArray(script.targetCharacterIds);
+      if (targets.length === 0 || targets.includes(charId)) existingKeys.set(scriptKey(script), script.id);
+    }
+  }
+  let created = 0;
+  for (const input of importedRegex) {
+    try {
+      const recordedId = recordedByName.get(input.name)?.shift();
+      if (recordedId) {
+        // Remembered even if the edit below fails, so the script is never left untracked.
+        keptIds.push(recordedId);
+        // Only the card's own rule changes. Whether it is on, its place, and which characters and presets it
+        // applies to are yours.
+        const {
+          enabled: _enabled,
+          order: _order,
+          targetCharacterIds: _targetCharacterIds,
+          targetPromptPresetIds: _targetPromptPresetIds,
+          ...fields
+        } = input;
+        void _enabled;
+        void _order;
+        void _targetCharacterIds;
+        void _targetPromptPresetIds;
+        await regexStorage.update(recordedId, fields);
+        continue;
+      }
+      const existingId = existingKeys.get(scriptKey(input));
+      if (existingId) {
+        keptIds.push(existingId);
+        continue;
+      }
+      const script = await regexStorage.create(input);
+      if (script?.id) keptIds.push(script.id);
+      created += 1;
+    } catch (err) {
+      logger.warn(err, "Failed to import an embedded regex script");
+    }
+  }
+  // Scripts from the previous release that the newer card dropped.
+  for (const staleId of [...recordedByName.values()].flat()) {
+    try {
+      await regexStorage.remove(staleId);
+    } catch (err) {
+      keptIds.push(staleId);
+      logger.warn(err, "Failed to remove a regex script the newer card dropped");
+    }
+  }
+  if (created > 0) logger.info("Imported %d embedded regex script(s) for character %s", created, charId);
+  if (keptIds.length === 0 && !update?.recordedIds) return;
+  try {
+    await withCharacterUpdateQueue(charId, () =>
+      createCharactersStorage(db).update(
+        charId,
+        { extensions: { [IMPORT_METADATA_KEY]: { regexScriptIds: keptIds } } },
+        undefined,
+        { skipVersionSnapshot: true },
+      ),
+    );
+  } catch (err) {
+    logger.warn(err, "Could not remember the regex scripts imported for character %s", charId);
+  }
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value !== "string") return [];
+  try {
+    return parseStringArray(JSON.parse(value));
+  } catch {
+    return [];
+  }
+}
+
+function matchKey(value: unknown): string {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").toLocaleLowerCase() : "";
+}
+
+/** The library's characters, read once, for matching several cards against (see findMatchingCharacters). */
+export type CharacterMatchCandidates = Array<{
+  id: string;
+  data: Record<string, unknown>;
+  avatarPath: string | null;
+  updatedAt: string;
+}>;
+
+export async function loadCharacterMatchCandidates(db: DB): Promise<CharacterMatchCandidates> {
+  const rows = await db
+    .select({
+      id: charactersTable.id,
+      data: charactersTable.data,
+      avatarPath: charactersTable.avatarPath,
+      updatedAt: charactersTable.updatedAt,
+    })
+    .from(charactersTable);
+  const candidates: CharacterMatchCandidates = [];
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.data) as unknown;
+      if (!data || typeof data !== "object") continue;
+      candidates.push({
+        id: row.id,
+        data: data as Record<string, unknown>,
+        avatarPath: row.avatarPath ?? null,
+        updatedAt: String(row.updatedAt ?? ""),
+      });
+    } catch {
+      continue;
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Characters an imported card may be a newer release of: the one downloaded from the same Card Browser page, or one
+ * with the same name whose creator matches (or is blank on either side, as cards passed through other apps often are).
+ * Pass `candidates` from loadCharacterMatchCandidates to match many cards against one read of the library.
+ */
+export async function findMatchingCharacters(
+  db: DB,
+  card: {
+    name?: string | null;
+    creator?: string | null;
+    botBrowserSource?: string | null;
+    characterId?: string | null;
+  },
+  candidates?: CharacterMatchCandidates,
+): Promise<CharacterImportMatch[]> {
+  const name = matchKey(card.name);
+  const creator = matchKey(card.creator);
+  const source = typeof card.botBrowserSource === "string" ? card.botBrowserSource.trim() : "";
+  // A chosen character ("Update from card file…" in its editor) is the only match, whatever the card is called.
+  const characterId = typeof card.characterId === "string" ? card.characterId : "";
+  if (!name && !source && !characterId) return [];
+  const rows = candidates ?? (await loadCharacterMatchCandidates(db));
+  const matches: CharacterImportMatch[] = [];
+  for (const row of rows) {
+    const data = row.data;
+    const extensions =
+      data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
+    const sameSource = !!source && extensions.botBrowserSource === source;
+    const rowCreator = matchKey(data.creator);
+    const sameName = !!name && matchKey(data.name) === name && (!creator || !rowCreator || creator === rowCreator);
+    if (characterId ? row.id !== characterId : !sameSource && !sameName) continue;
+    matches.push({
+      id: row.id,
+      name: typeof data.name === "string" ? data.name : "",
+      creator: typeof data.creator === "string" ? data.creator : "",
+      version: typeof data.character_version === "string" ? data.character_version : "",
+      avatarPath: row.avatarPath,
+      updatedAt: row.updatedAt,
+      reason: sameSource ? "browser" : "name",
+    });
+  }
+  // The Card Browser link first, then the most recently changed.
+  return matches
+    .sort((a, b) => (a.reason === b.reason ? b.updatedAt.localeCompare(a.updatedAt) : a.reason === "browser" ? -1 : 1))
+    .slice(0, 5);
+}
+
+// Extension keys that belong to the user's copy, not to the card: an update never takes them from the new card.
+const USER_OWNED_EXTENSION_KEYS = new Set([
+  "fav",
+  "world",
+  "versioningEnabled",
+  "avatarCrop",
+  "nameColor",
+  "dialogueColor",
+  "boxColor",
+  "cardFieldAlternatives",
+  "characterSheetImageId",
+  "useCharacterSheetAsReference",
+  "conversationStatus",
+  "conversationStatusOverride",
+  "conversationSchedule",
+  "conversationScheduleAutoRenew",
+  "phoneticName",
+  "combatIcon",
+  "rulesetSheets",
+  "trackerCustomFieldDefaults",
+  IMPORT_METADATA_KEY,
+  "botBrowserSource",
+]);
+// Card text Marinara keeps in extensions. A new card without them clears the old text (it stays in Version history),
+// so a card whose description now holds everything does not repeat it in Appearance and Backstory.
+const CARD_TEXT_EXTENSION_KEYS = ["appearance", "backstory"] as const;
+
+async function updateCharacterFromCard(input: {
+  db: DB;
+  characterId: string;
+  raw: Record<string, unknown>;
+  data: CharacterData;
+  rawEmbeddedLorebook: unknown;
+  avatarPath: string | undefined;
+  useCardPicture: boolean;
+  shouldImportEmbeddedLorebook: boolean;
+  hasEmbeddedLorebook: boolean;
+  embeddedLorebookEntries: number;
+  embeddedMarinaraSprites: unknown;
+  embeddedSpriteCatalog: unknown;
+  split: DescriptionSplitResult | null;
+  options: STCharacterImportOptions;
+}) {
+  const { db, characterId, data } = input;
+  const storage = createCharactersStorage(db);
+  const keepPicture = !input.useCardPicture || !input.avatarPath;
+  const discardNewPicture = () => (keepPicture ? removeImportedAvatarFile(input.avatarPath) : Promise.resolve());
+  const existing = await storage.getById(characterId);
+  if (!existing) {
+    await removeImportedAvatarFile(input.avatarPath);
+    return { success: false, error: "The character to update no longer exists" };
+  }
+  const current = JSON.parse(existing.data) as CharacterData;
+  const currentExtensions = (current.extensions ?? {}) as Record<string, unknown>;
+  const cardExtensionKeys = new Set(Object.keys(rawCardExtensions(input.raw)));
+
+  const extensions: Record<string, unknown> = { ...currentExtensions };
+  for (const [key, value] of Object.entries(data.extensions)) {
+    if (USER_OWNED_EXTENSION_KEYS.has(key)) continue;
+    if (cardExtensionKeys.has(key)) extensions[key] = value;
+  }
+  for (const key of CARD_TEXT_EXTENSION_KEYS) extensions[key] = data.extensions[key] ?? "";
+  // The new picture needs its own framing.
+  if (!keepPicture) delete extensions.avatarCrop;
+  const newBrowserSource = data.extensions.botBrowserSource;
+  if (typeof newBrowserSource === "string" && newBrowserSource) extensions.botBrowserSource = newBrowserSource;
+  const currentImportMetadata =
+    currentExtensions[IMPORT_METADATA_KEY] && typeof currentExtensions[IMPORT_METADATA_KEY] === "object"
+      ? (currentExtensions[IMPORT_METADATA_KEY] as Record<string, unknown>)
+      : {};
+  const newImportMetadata = data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>;
+  const currentEmbedded =
+    currentImportMetadata.embeddedLorebook && typeof currentImportMetadata.embeddedLorebook === "object"
+      ? (currentImportMetadata.embeddedLorebook as Record<string, unknown>)
+      : {};
+  extensions[IMPORT_METADATA_KEY] = {
+    ...currentImportMetadata,
+    ...newImportMetadata,
+    embeddedLorebook: { ...currentEmbedded, hasEmbeddedLorebook: input.hasEmbeddedLorebook },
+  };
+
+  const { tags: cardTags, extensions: _cardExtensions, ...cardFields } = data;
+  void _cardExtensions;
+  const notesChoice = input.options.creatorNotes ?? "merge";
+  if (notesChoice !== "card") {
+    const mine = typeof current.creator_notes === "string" ? current.creator_notes : "";
+    const base =
+      typeof currentImportMetadata.importedCreatorNotes === "string"
+        ? currentImportMetadata.importedCreatorNotes
+        : null;
+    cardFields.creator_notes =
+      notesChoice === "mine" ? mine : mergeCreatorNotes(base, mine, cardFields.creator_notes ?? "");
+  }
+  const tags = [...(Array.isArray(current.tags) ? current.tags : [])];
+  const tagKeys = new Set(tags.map(tagKey));
+  for (const tag of cardTags) {
+    if (!tagKeys.has(tagKey(tag))) {
+      tags.push(tag);
+      tagKeys.add(tagKey(tag));
+    }
+  }
+  const versionReason = "Updated from a newer card";
+  // Version history keeps the card as it was, even with Automatic versioning off, so the update can be undone.
+  if (currentExtensions.versioningEnabled === false) {
+    await storage.createVersionSnapshot(characterId, { source: "card-update", reason: versionReason });
+  }
+  let updated;
+  try {
+    updated = await withCharacterUpdateQueue(characterId, () =>
+      storage.update(
+        characterId,
+        { ...cardFields, tags, extensions } as CharacterData,
+        keepPicture ? undefined : input.avatarPath,
+        {
+          mergeExtensions: false,
+          versionSource: "card-update",
+          versionReason,
+        },
+      ),
+    );
+  } catch (err) {
+    await removeImportedAvatarFile(input.avatarPath);
+    throw err;
+  }
+  await discardNewPicture();
+  if (!updated) return { success: false, error: "The character to update no longer exists" };
+
+  // The card's lorebook replaces the entries of the lorebook made from it before, or becomes a new linked one.
+  let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
+  let lorebookError: string | undefined;
+  if (input.shouldImportEmbeddedLorebook && data.character_book) {
+    const existingLorebookId = typeof currentEmbedded.lorebookId === "string" ? currentEmbedded.lorebookId : null;
+    try {
+      const result = await importSTLorebook(embeddedBookAsWorldInfo(data.name, input.rawEmbeddedLorebook), db, {
+        characterId,
+        namePrefix: data.name,
+        existingLorebookId,
+        beforeCommit: async (tx, result) => {
+          const latest = await createCharactersStorage(tx).getById(characterId);
+          const latestData = latest ? (JSON.parse(latest.data) as CharacterData) : null;
+          const latestMetadata = (latestData?.extensions?.[IMPORT_METADATA_KEY] ?? {}) as Record<string, unknown>;
+          await createCharactersStorage(tx).update(
+            characterId,
+            {
+              extensions: {
+                [IMPORT_METADATA_KEY]: {
+                  ...latestMetadata,
+                  embeddedLorebook: {
+                    ...((latestMetadata.embeddedLorebook as Record<string, unknown> | undefined) ?? {}),
+                    hasEmbeddedLorebook: true,
+                    lorebookId: result.lorebookId,
+                  },
+                },
+              },
+            },
+            undefined,
+            { skipVersionSnapshot: true },
+          );
+          await syncCharacterBookFromLorebook(tx, result.lorebookId, { throwOnError: true });
+        },
+      });
+      lorebookResult = { lorebookId: result.lorebookId, entriesImported: result.entriesImported };
+    } catch (err) {
+      logger.warn(err, "Updated character %s but not its lorebook", characterId);
+      lorebookError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  const recordedRegexIds = Array.isArray(currentImportMetadata.regexScriptIds)
+    ? currentImportMetadata.regexScriptIds.filter((id): id is string => typeof id === "string")
+    : null;
+  await importEmbeddedRegexScripts(db, input.raw, characterId, input.options.regexScriptScope, {
+    recordedIds: recordedRegexIds,
+  });
+
+  if (input.embeddedMarinaraSprites !== undefined) {
+    try {
+      await restoreSprites(input.embeddedMarinaraSprites, characterId, input.embeddedSpriteCatalog);
+    } catch (err) {
+      logger.warn(err, "Skipped optional embedded sprite restore for %s", characterId);
+    }
+  }
+
+  let descriptionSplit: DescriptionSplitResult | null = input.split;
+  if (input.split?.status === "changed") {
+    const { appearance, backstory, ...fields } = input.split.after;
+    try {
+      await storage.update(characterId, { ...fields, extensions: { appearance, backstory } }, undefined, {
+        versionSource: DESCRIPTION_SPLIT_VERSION.source,
+        versionReason: DESCRIPTION_SPLIT_VERSION.reason,
+      });
+    } catch (err) {
+      logger.warn(err, "Updated %s without splitting its description", characterId);
+      descriptionSplit = {
+        ...input.split,
+        status: "skipped",
+        reason: "the split could not be saved",
+        after: { ...input.split.before },
+        changed: [],
+        keywordSorted: false,
+      };
+    }
+  }
+
+  return {
+    success: true,
+    updated: true,
+    characterId,
+    name: data.name,
+    embeddedLorebook: {
+      hasEmbeddedLorebook: input.hasEmbeddedLorebook,
+      entries: input.embeddedLorebookEntries,
+      imported: !!lorebookResult,
+      skipped: input.hasEmbeddedLorebook && !input.shouldImportEmbeddedLorebook,
+    },
+    ...(lorebookResult ? { lorebook: lorebookResult } : {}),
+    ...(lorebookError ? { lorebookError } : {}),
+    ...(descriptionSplit ? { descriptionSplit } : {}),
+  };
+}
+
 export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImportPreview {
   try {
     const data = normalizeCharacterData(raw);
@@ -441,6 +978,8 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
     return {
       success: true,
       name: data.name,
+      creator: data.creator ?? "",
+      version: data.character_version ?? "",
       hasEmbeddedLorebook: embeddedLorebookEntries > 0,
       embeddedLorebookEntries,
     };
@@ -748,7 +1287,10 @@ function resolveCharXAsset(zip: ZipArchive, uri: string, ext?: string): string |
 function normalizeV2(raw: Record<string, unknown>): CharacterData {
   // Ruleset sheets travel dormant under their key; only one the boundary would refuse is dropped.
   // The raw key is taken out of the spread below, so a value that is not a sheet map leaves nothing.
-  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = optionalRecord(raw.extensions);
+  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = {
+    ...cardTopLevelExtensions(raw),
+    ...optionalRecord(raw.extensions),
+  };
   const onboardingImport = dropUnreadableOnboarding(extensionsWithOnboarding);
   const rawExtensions = onboardingImport.extensions;
   if (onboardingImport.dropped)
@@ -877,7 +1419,7 @@ function convertV1toV2(raw: Record<string, unknown>): CharacterData {
     creator: raw.creator ?? "",
     character_version: raw.character_version ?? "",
     alternate_greetings: raw.alternate_greetings ?? [],
-    extensions: raw.extensions ?? {},
+    extensions: { ...cardTopLevelExtensions(raw), ...optionalRecord(raw.extensions) },
     character_book: raw.character_book ?? null,
   });
 }

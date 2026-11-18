@@ -519,6 +519,8 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
 
   const videoPanel = (
     <div
+      data-component="YouTubeVideoPanel"
+      data-video-shown={active && hasPlayerContent && showVideo ? "true" : undefined}
       className={cn(
         "fixed top-14 z-40 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
         MUSIC_NEUTRAL_SHELL_BORDER_CLASS,

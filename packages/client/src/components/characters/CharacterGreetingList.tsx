@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { parseGreeting } from "../../lib/character-greetings";
 import { cn } from "../../lib/utils";
+import { SearchInput } from "../ui/SearchInput";
 
 const fieldBox =
   "grid gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 focus-within:border-[var(--primary)]/40 focus-within:ring-1 focus-within:ring-[var(--primary)]/20";
@@ -33,23 +34,12 @@ export function GreetingListFilter({
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="grid gap-2">
-      <div className="relative">
-        <Search
-          size="0.875rem"
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-        />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          aria-label={localizeUi("ui.chat.swipepicker.searchLabel")}
-          placeholder={localizeUi("ui.chat.swipepicker.searchPlaceholder")}
-          autoComplete="off"
-          spellCheck={false}
-          className="h-9 w-full rounded-lg max-md:h-11 border border-[var(--border)] bg-[var(--secondary)] pl-9 pr-3 text-sm outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 max-sm:text-base"
-        />
-      </div>
+      <SearchInput
+        value={query}
+        onChange={onQuery}
+        label={localizeUi("ui.chat.swipepicker.searchLabel")}
+        placeholder={localizeUi("ui.chat.swipepicker.searchPlaceholder")}
+      />
       {(tags.length > 0 || picked.length > 0) && (
         <div
           role="group"

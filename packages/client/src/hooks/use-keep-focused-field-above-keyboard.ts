@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect } from "react";
 import {
   CHAT_VISUAL_VIEWPORT_CHANGE_EVENT,
   type ChatVisualViewportChangeDetail,
@@ -48,11 +48,12 @@ function revealFieldAboveKeyboard(field: HTMLElement, root: HTMLElement): void {
 }
 
 /**
- * Keep the text field being edited inside `rootRef` (a panel, dialog or window) visible when the
- * on-screen keyboard opens or grows and shrinks the space around it. Scrolling the panel
- * yourself afterwards is left alone.
+ * Keep whichever text field is being edited visible when the on-screen
+ * keyboard opens or grows and shrinks the space around it. Mounted once by
+ * AppShell, so every panel, dialog and window gets it without opting in.
+ * Scrolling a panel yourself afterwards is left alone.
  */
-export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement | null>): void {
+export function useKeepFocusedFieldAboveKeyboard(): void {
   useEffect(() => {
     let revealedField: Element | null = null;
     let revealedHeight = Number.POSITIVE_INFINITY;
@@ -62,8 +63,8 @@ export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement 
     const handleViewportChange = (event: Event) => {
       const detail = (event as CustomEvent<ChatVisualViewportChangeDetail>).detail;
       const field = document.activeElement;
-      const panel = rootRef.current;
-      if (!detail?.keyboardOpen || !acceptsText(field) || !panel?.contains(field)) {
+      // Inline message editors are aligned by useKeepLatestChatMessageVisible, under the floating chat controls.
+      if (!detail?.keyboardOpen || !acceptsText(field) || field.closest("[data-chat-message-editor]")) {
         revealedField = null;
         revealedHeight = Number.POSITIVE_INFINITY;
         return;
@@ -72,8 +73,7 @@ export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement 
       revealedField = field;
       revealedHeight = detail.height;
       const reveal = () => {
-        const root = rootRef.current;
-        if (root && document.activeElement === field) revealFieldAboveKeyboard(field, root);
+        if (document.activeElement === field) revealFieldAboveKeyboard(field, document.body);
       };
       cancelAnimationFrame(frame);
       cancelAnimationFrame(settleFrame);
@@ -90,5 +90,5 @@ export function useKeepFocusedFieldAboveKeyboard(rootRef: RefObject<HTMLElement 
       cancelAnimationFrame(settleFrame);
       window.removeEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, handleViewportChange);
     };
-  }, [rootRef]);
+  }, []);
 }

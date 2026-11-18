@@ -962,6 +962,7 @@ async function* galleryExportEntries(
       height: img.height ?? null,
       // Gallery labels (custom emoji, sticker, background + place names) travel with the picture.
       ...(img.customKind ? { customKind: img.customKind, customName: img.customName ?? null } : {}),
+      ...(img.description ? { description: img.description } : {}),
       ...(img.id === characterSheetImageId ? { isCharacterSheet: true } : {}),
     };
   }

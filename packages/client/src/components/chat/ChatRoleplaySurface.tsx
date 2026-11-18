@@ -1241,9 +1241,7 @@ export function ChatRoleplaySurface({
     const timer = window.setInterval(() => {
       if (
         document.hidden ||
-        document.querySelector(
-          '[data-component="Modal"], [data-component="ExpandedTextarea"], [data-macro-modal], textarea:focus, input:focus',
-        )
+        document.querySelector('.mari-modal, [data-component="ExpandedTextarea"], textarea:focus, input:focus')
       )
         return;
       setVnParagraphIndex(currentParagraphIndex + 1);

@@ -1,0 +1,166 @@
+name: Android QC
+
+# A branch checked the way Android users run it.
+#   termux:  real Termux (arm64, like phones) in Docker on an ARM runner, in two jobs: "install" runs this branch's
+#            start-termux.sh until the server answers; "update" installs the latest release, gives it a character and
+#            lets that release's start-termux.sh update it to this branch, then checks the new build runs and the
+#            character survived. Updates are where most Termux reports come from.
+#   android: real Chrome on an Android emulator (phone + tablet screens) against a normal build of the branch, with
+#            Show tap timings; screenshots and readings are attached to the run.
+# Pull requests that touch the install or update path run the termux jobs on their own; the manual run (pick the branch
+# under "Use workflow from") can run either or both, optionally with a phone-sized memory cap.
+# The same scripts run locally: scripts/perf/setup-termux.sh and scripts/perf/setup-android.sh (see scripts/perf/README.md).
+on:
+  workflow_dispatch:
+    inputs:
+      checks:
+        description: "Which checks to run"
+        required: true
+        default: both
+        type: choice
+        options: [both, termux, android]
+      memory:
+        description: "Termux memory cap, like a phone's RAM (for example 4g); empty for none"
+        required: false
+        default: ""
+        type: string
+  pull_request:
+    branches: [staging, main]
+    # What start-termux.sh runs when it installs or updates.
+    paths:
+      - start-termux.sh
+      - .npmrc
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - storage-format.json
+      - packages/*/package.json
+      - packages/*/tsconfig.json
+      - packages/client/vite.config.ts
+      - scripts/build-heap.mjs
+      - scripts/check-client-build.mjs
+      - scripts/check-launcher-update.mjs
+      - scripts/check-workspace-install.mjs
+      - scripts/protect-launcher-data.mjs
+      - scripts/read-launcher-env.mjs
+      - scripts/run-server.mjs
+      - scripts/perf/setup-termux.sh
+      - .github/workflows/android-qc.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-qc-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # Explicit bash adds pipefail, so a failing script piped into tee fails the step.
+    shell: bash
+
+env:
+  # Nothing here needs onnxruntime-node's CUDA add-on (see playwright.yml).
+  ONNXRUNTIME_NODE_INSTALL: skip
+
+jobs:
+  termux:
+    name: termux-arm64 (${{ matrix.mode }})
+    if: inputs.checks != 'android'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [install, update]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Marinara in Termux (${{ matrix.mode }})
+        env:
+          TERMUX_QC_TIMEOUT_MIN: "25"
+          MODE: ${{ matrix.mode }}
+          MEMORY: ${{ inputs.memory }}
+        run: |
+          args=(--arch aarch64 --port 7861)
+          [ "$MODE" = update ] && args+=(--from latest)
+          [ -n "$MEMORY" ] && args+=(--memory "$MEMORY")
+          scripts/perf/setup-termux.sh "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          curl -fsS http://127.0.0.1:7861/api/health | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the launcher logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: termux-arm64-${{ matrix.mode }}-logs
+          path: /tmp/termux-qc/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  android:
+    name: android-chrome
+    # Pull requests run only the termux jobs; the emulator check is manual.
+    if: github.event_name == 'workflow_dispatch' && inputs.checks != 'termux'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Start the server
+        run: |
+          mkdir -p "$RUNNER_TEMP/marinara-data"
+          DATA_DIR="$RUNNER_TEMP/marinara-data" PORT=7860 HOST=127.0.0.1 AUTO_OPEN_BROWSER=false \
+            nohup pnpm start >"$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 90); do curl -fs -o /dev/null http://127.0.0.1:7860/api/health && exit 0; sleep 2; done
+          tail -50 "$RUNNER_TEMP/server.log"; exit 1
+
+      - name: Boot the emulator and smoke test phone + tablet
+        run: |
+          scripts/perf/setup-android.sh http://localhost:7860 | tee "$RUNNER_TEMP/android-smoke.txt"
+          { echo '```'; cat "$RUNNER_TEMP/android-smoke.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect the server log
+        if: always()
+        run: |
+          mkdir -p /tmp/android-qc
+          cp "$RUNNER_TEMP"/server.log "$RUNNER_TEMP"/android-smoke.txt /tmp/android-qc/ 2>/dev/null || true
+
+      - name: Upload Android QC results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-chrome-qc
+          path: |
+            /tmp/android-qc/smoke/
+            /tmp/android-qc/*.log
+            /tmp/android-qc/*.txt
+          if-no-files-found: ignore
+          retention-days: 14

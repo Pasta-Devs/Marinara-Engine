@@ -234,6 +234,8 @@ try {
         "gpt-6-sol",
         "gpt-6-luna",
         "gpt-6.1-sol",
+        "gpt-6.2-sol",
+        "gpt-6.2-astra",
         "some-unknown-model",
       ],
       make: registry("openai", `${base}/v1`),
@@ -253,6 +255,7 @@ try {
         "google/gemini-4-argon",
         "google/gemini-4-argon:online",
         "google/gemini-4-carbon",
+        "google/gemini-4-hydrogen",
         "google/gemini-3.8-flash",
       ],
       make: registry("openrouter", `${base}/openrouter.ai/api/v1`),
@@ -345,6 +348,7 @@ try {
         "gemini-3-pro-preview",
         "gemini-4-argon",
         "gemini-4-carbon",
+        "gemini-4-hydrogen",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
         "gemini-2.0-flash",
@@ -369,7 +373,17 @@ try {
     {
       provider: "openai_chatgpt",
       baseUrl: `${base}/v1`,
-      models: ["gpt-6.1-sol", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-6-astra", "gpt-5.5", "gpt-4o", "some-future-model"],
+      models: [
+        "gpt-6.2-sol",
+        "gpt-6.2-astra",
+        "gpt-6.1-sol",
+        "gpt-5.6-sol",
+        "gpt-5.6-luna",
+        "gpt-6-astra",
+        "gpt-5.5",
+        "gpt-4o",
+        "some-future-model",
+      ],
       make: () => new OpenAIChatGPTProvider(`${base}/v1`, "test"),
     },
     {
@@ -589,11 +603,13 @@ try {
     "an unrecognized DeepSeek model id suppresses the sampled controls",
   );
   assert.deepEqual(
-    [...relevantGenerationParameters({
-      provider: "deepseek",
-      model: "some-unknown-deepseek-model",
-      reasoningEffort: "high",
-    })]
+    [
+      ...relevantGenerationParameters({
+        provider: "deepseek",
+        model: "some-unknown-deepseek-model",
+        reasoningEffort: "high",
+      }),
+    ]
       .filter((key) => PROBED.includes(key))
       .sort(),
     ["maxTokens"],
@@ -624,7 +640,10 @@ try {
         customParameters: custom,
       });
       await request.next().catch(() => undefined);
-      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<string, unknown>;
+      const body = JSON.parse(requireRequestCapture(firstBody, "deepseek", "deepseek-flash")) as Record<
+        string,
+        unknown
+      >;
       return { temperature: "temperature" in body, topP: "top_p" in body, effort: body.reasoning_effort };
     };
 
@@ -686,6 +705,30 @@ try {
   const miniMaxOff = resolveAgentConnectionParameters({ ...miniMax, defaultParameters: { reasoningEffort: null } });
   assert.equal(miniMaxOff.generation.reasoning?.reasoningEffort, "low");
   assert.ok(withThinkingHeadroom(4096, miniMaxOff.generation, miniMaxOff.enabledParameters) > 4096);
+
+  // Hydrogen cannot turn thinking off either. Its default is high and it adds xhigh, so the panel offers four levels,
+  // a saved Off or no level sends high, and Max or Maximum sends xhigh. It is on the Gemini API only.
+  {
+    const provider = "google";
+    const model = "gemini-4-hydrogen";
+    assert.deepEqual(
+      reasoningEffortChoices({ provider, model }).map(({ value, label }) => [value, label]),
+      [
+        ["low", "low"],
+        ["medium", "medium"],
+        ["high", "high"],
+        ["xhigh", "xhigh"],
+      ],
+      `${provider} Hydrogen offers no Off and adds xhigh`,
+    );
+    assert.deepEqual(
+      [null, undefined, "none", "low", "medium", "high", "xhigh", "max", "maximum"].map((reasoningEffort) =>
+        resolveProviderReasoningEffort({ provider, model, reasoningEffort: reasoningEffort as never }),
+      ),
+      ["high", "high", "high", "low", "medium", "high", "xhigh", "xhigh", "xhigh"],
+      `${provider} Hydrogen levels`,
+    );
+  }
 
   // Argon and Carbon cannot turn thinking off. A saved Off or no level sends their default, medium, everywhere: in the
   // request, in the agent's thinking room and in the panel, so the panel offers only their three levels.

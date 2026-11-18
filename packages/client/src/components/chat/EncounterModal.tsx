@@ -3,7 +3,6 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useMemo, Component, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import {
   Swords,
   Shield,
@@ -28,8 +27,8 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import type { CombatPartyMember, CombatEnemy, CombatAttack, NarrativeStyle, Lorebook } from "@marinara-engine/shared";
 import { Translation, useTranslation as useUiTranslation } from "react-i18next";
-import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { LorebookPickerField } from "../ui/LibraryPickers";
+import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
@@ -175,123 +174,96 @@ interface TargetSelectionProps {
 
 function TargetSelection({ attackType, enemies, party, onSelect, onCancel }: TargetSelectionProps) {
   const { t: localizeUi } = useUiTranslation();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocusScope(true, dialogRef);
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
-  const backdropDismiss = useBackdropDismiss(onCancel);
   return (
-    <motion.div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      {...backdropDismiss}
-    >
-      <motion.div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="encounter-target-title"
-        data-encounter-nested-dialog
-        className="w-80 max-w-[90vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 shadow-2xl"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3
-          id="encounter-target-title"
-          className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--foreground)]"
-        >
+    <Modal
+      open
+      onClose={onCancel}
+      title={localizeUi("ui.chat.targetselection.selectTarget")}
+      titleSlot={
+        <span className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
           <Crosshair size="1rem" className="text-red-400" />
           {localizeUi("ui.chat.targetselection.selectTarget")}
-        </h3>
-
-        <div className="flex flex-col gap-2">
-          {/* AoE option */}
-          {(attackType === "AoE" || attackType === "both") && (
-            <button
-              onClick={() => onSelect("all-enemies")}
-              className="flex items-center gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 p-3 text-left transition-all hover:border-orange-500/40 hover:bg-orange-500/20"
-            >
-              <span className="text-lg">💥</span>
-              <div>
-                <div className="text-xs font-bold text-[var(--foreground)]">
-                  {localizeUi("ui.chat.targetselection.allEnemies")}
-                </div>
-                <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-                  {localizeUi("ui.chat.targetselection.areaOfEffect")}
-                </div>
-              </div>
-            </button>
-          )}
-
-          {attackType === "both" && (
-            <div className="py-1 text-center text-[0.625rem] font-bold uppercase tracking-wider text-[var(--muted-foreground)]/40">
-              {localizeUi("ui.noodle.noodlehome.or")}
-            </div>
-          )}
-
-          {/* Individual enemies */}
-          {attackType !== "AoE" &&
-            enemies
-              .filter((e) => e.hp > 0)
-              .map((enemy, i) => (
-                <button
-                  key={i}
-                  onClick={() => onSelect(enemy.name)}
-                  className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-left transition-all hover:border-red-500/40 hover:bg-red-500/15"
-                >
-                  <span className="text-lg">{enemy.sprite || "👹"}</span>
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-[var(--foreground)]">{enemy.name}</div>
-                    <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-                      {enemy.hp}/{enemy.maxHp} {localizeUi("ui.chat.targetselection.hp")}
-                    </div>
-                  </div>
-                </button>
-              ))}
-
-          {/* Party members (for heals/buffs) */}
-          {attackType !== "AoE" &&
-            party
-              .filter((m) => m.hp > 0)
-              .map((member, i) => (
-                <button
-                  key={`party-${i}`}
-                  onClick={() => onSelect(member.name)}
-                  className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left transition-all hover:border-emerald-500/40 hover:bg-emerald-500/15"
-                >
-                  <span className="text-lg">✨</span>
-                  <div className="flex-1">
-                    <div className="text-xs font-bold text-[var(--foreground)]">
-                      {member.name} {member.isPlayer && "(You)"}
-                    </div>
-                    <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
-                      {member.hp}/{member.maxHp} {localizeUi("ui.chat.targetselection.hp")}
-                    </div>
-                  </div>
-                </button>
-              ))}
-        </div>
-
+        </span>
+      }
+      width="max-w-xs"
+      backdrop="dark"
+      footer={
         <button
           onClick={onCancel}
           className="mt-3 w-full rounded-xl border border-[var(--marinara-chat-chrome-button-border)] py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
         >
           {localizeUi("chat.delete.dialog.cancel")}
         </button>
-      </motion.div>
-    </motion.div>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        {/* AoE option */}
+        {(attackType === "AoE" || attackType === "both") && (
+          <button
+            onClick={() => onSelect("all-enemies")}
+            className="flex items-center gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 p-3 text-left transition-all hover:border-orange-500/40 hover:bg-orange-500/20"
+          >
+            <span className="text-lg">💥</span>
+            <div>
+              <div className="text-xs font-bold text-[var(--foreground)]">
+                {localizeUi("ui.chat.targetselection.allEnemies")}
+              </div>
+              <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
+                {localizeUi("ui.chat.targetselection.areaOfEffect")}
+              </div>
+            </div>
+          </button>
+        )}
+
+        {attackType === "both" && (
+          <div className="py-1 text-center text-[0.625rem] font-bold uppercase tracking-wider text-[var(--muted-foreground)]/40">
+            {localizeUi("ui.noodle.noodlehome.or")}
+          </div>
+        )}
+
+        {/* Individual enemies */}
+        {attackType !== "AoE" &&
+          enemies
+            .filter((e) => e.hp > 0)
+            .map((enemy, i) => (
+              <button
+                key={i}
+                onClick={() => onSelect(enemy.name)}
+                className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-left transition-all hover:border-red-500/40 hover:bg-red-500/15"
+              >
+                <span className="text-lg">{enemy.sprite || "👹"}</span>
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-[var(--foreground)]">{enemy.name}</div>
+                  <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
+                    {enemy.hp}/{enemy.maxHp} {localizeUi("ui.chat.targetselection.hp")}
+                  </div>
+                </div>
+              </button>
+            ))}
+
+        {/* Party members (for heals/buffs) */}
+        {attackType !== "AoE" &&
+          party
+            .filter((m) => m.hp > 0)
+            .map((member, i) => (
+              <button
+                key={`party-${i}`}
+                onClick={() => onSelect(member.name)}
+                className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left transition-all hover:border-emerald-500/40 hover:bg-emerald-500/15"
+              >
+                <span className="text-lg">✨</span>
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-[var(--foreground)]">
+                    {member.name} {member.isPlayer && "(You)"}
+                  </div>
+                  <div className="text-[0.625rem] text-[var(--muted-foreground)]/70">
+                    {member.hp}/{member.maxHp} {localizeUi("ui.chat.targetselection.hp")}
+                  </div>
+                </div>
+              </button>
+            ))}
+      </div>
+    </Modal>
   );
 }
 
@@ -363,90 +335,23 @@ function EncounterConfig() {
   const spellbookId = useEncounterStore((s) => s.spellbookId);
   const setSpellbookId = useEncounterStore((s) => s.setSpellbookId);
   const { initEncounter } = useEncounter();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocusScope(true, dialogRef);
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeConfigModal();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [closeConfigModal]);
-
   const { data: lorebooks } = useLorebooks("spellbook");
   const spellbooks = (lorebooks ?? []) as Lorebook[];
-  const backdropDismiss = useBackdropDismiss(closeConfigModal);
-
   return (
-    <motion.div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      {...backdropDismiss}
-    >
-      <motion.div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="encounter-config-title"
-        data-encounter-nested-dialog
-        className="w-[26.25rem] max-w-[95vw] rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] p-5 sm:p-6 shadow-2xl"
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2
-          id="encounter-config-title"
-          className="mb-5 flex items-center gap-2 text-base font-bold text-[var(--foreground)]"
-        >
+    <Modal
+      open
+      onClose={closeConfigModal}
+      title={localizeUi("ui.chat.encounterconfig.configureCombatNarrative")}
+      titleSlot={
+        <span className="flex items-center gap-2 text-base font-bold text-[var(--foreground)]">
           <Swords size="1.125rem" className="text-red-400" />
           {localizeUi("ui.chat.encounterconfig.configureCombatNarrative")}
-        </h2>
-
-        <div className="space-y-5">
-          <NarrativeSelect
-            label={localizeUi("ui.chat.encounterconfig.combatNarration")}
-            value={settings.combatNarrative}
-            onChange={(v) => updateSettings({ combatNarrative: v })}
-          />
-
-          <NarrativeSelect
-            label={localizeUi("ui.chat.encounterconfig.summaryNarration")}
-            value={settings.summaryNarrative}
-            onChange={(v) => updateSettings({ summaryNarrative: v })}
-          />
-
-          {/* Spellbook selection */}
-          <div className="space-y-2">
-            <h4 className="flex items-center gap-1.5 text-xs font-bold text-[var(--muted-foreground)]">
-              <Wand2 size="0.75rem" className="text-indigo-400" />
-              {localizeUi("ui.chat.encounterconfig.spellbook")}
-            </h4>
-            <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/70">
-              {localizeUi("ui.chat.encounterconfig.attachASpellbookSoTheAiKnowsWhichSpells")}
-            </p>
-            <LorebookPickerField
-              value={spellbookId ?? ""}
-              lorebooks={spellbooks}
-              ariaLabel={localizeUi("ui.chat.encounterconfig.spellbook")}
-              onChange={(id) => setSpellbookId(id || null)}
-              triggerClassName="w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={closeConfigModal}
-            className="flex-1 rounded-xl border border-[var(--marinara-chat-chrome-button-border)] py-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-          >
-            {localizeUi("chat.delete.dialog.cancel")}
-          </button>
+        </span>
+      }
+      width="max-w-[26.25rem]"
+      backdrop="dark"
+      footer={
+        <>
           <button
             onClick={() => initEncounter(settings)}
             className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-orange-500 py-2.5 text-xs font-bold text-foreground shadow-lg shadow-red-500/20 transition-all hover:shadow-xl hover:shadow-red-500/30 active:scale-95"
@@ -454,9 +359,47 @@ function EncounterConfig() {
             <Swords size="0.875rem" className="mr-1.5 inline" />
             {localizeUi("ui.chat.encounterconfig.beginCombat")}
           </button>
+          <button
+            onClick={closeConfigModal}
+            className="flex-1 rounded-xl border border-[var(--marinara-chat-chrome-button-border)] py-2.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+          >
+            {localizeUi("chat.delete.dialog.cancel")}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <NarrativeSelect
+          label={localizeUi("ui.chat.encounterconfig.combatNarration")}
+          value={settings.combatNarrative}
+          onChange={(v) => updateSettings({ combatNarrative: v })}
+        />
+
+        <NarrativeSelect
+          label={localizeUi("ui.chat.encounterconfig.summaryNarration")}
+          value={settings.summaryNarrative}
+          onChange={(v) => updateSettings({ summaryNarrative: v })}
+        />
+
+        {/* Spellbook selection */}
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold text-[var(--muted-foreground)]">
+            <Wand2 size="0.75rem" className="text-indigo-400" />
+            {localizeUi("ui.chat.encounterconfig.spellbook")}
+          </h4>
+          <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]/70">
+            {localizeUi("ui.chat.encounterconfig.attachASpellbookSoTheAiKnowsWhichSpells")}
+          </p>
+          <LorebookPickerField
+            value={spellbookId ?? ""}
+            lorebooks={spellbooks}
+            ariaLabel={localizeUi("ui.chat.encounterconfig.spellbook")}
+            onChange={(id) => setSpellbookId(id || null)}
+            triggerClassName="w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--muted)]/30 px-2 py-1.5 text-xs text-[var(--foreground)]"
+          />
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </Modal>
   );
 }
 
@@ -677,17 +620,15 @@ function PlayerControls({ onAction }: { onAction: (text: string) => void }) {
       </div>
 
       {/* Target selection overlay */}
-      <AnimatePresence>
-        {targetSelection && (
-          <TargetSelection
-            attackType={targetSelection.attackType}
-            enemies={enemies}
-            party={party}
-            onSelect={handleTargetSelected}
-            onCancel={() => setTargetSelection(null)}
-          />
-        )}
-      </AnimatePresence>
+      {targetSelection && (
+        <TargetSelection
+          attackType={targetSelection.attackType}
+          enemies={enemies}
+          party={party}
+          onSelect={handleTargetSelected}
+          onCancel={() => setTargetSelection(null)}
+        />
+      )}
     </>
   );
 }
@@ -776,9 +717,7 @@ function EncounterModalInner() {
   const combatResult = useEncounterStore((s) => s.combatResult);
   const { sendAction, concludeEncounter, closeEncounter, initEncounter } = useEncounter();
   const settings = useEncounterStore((s) => s.settings);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const closeRequestPendingRef = useRef(false);
-  useDialogFocusScope(active && !showConfigModal, dialogRef);
 
   const requestCloseEncounter = useCallback(async () => {
     if (closeRequestPendingRef.current) return;
@@ -798,22 +737,6 @@ function EncounterModalInner() {
       closeRequestPendingRef.current = false;
     }
   }, [closeEncounter, localizeUi]);
-
-  useEffect(() => {
-    if (!active) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === "Escape" &&
-        !event.defaultPrevented &&
-        !showConfigModal &&
-        !document.querySelector("[data-encounter-nested-dialog]")
-      ) {
-        void requestCloseEncounter();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [active, requestCloseEncounter, showConfigModal]);
 
   const handleAction = useCallback(
     (text: string) => {
@@ -851,174 +774,158 @@ function EncounterModalInner() {
   }, [styleNotes]);
 
   return (
-    <AnimatePresence>
+    <>
       {/* Config Modal */}
       {showConfigModal && <EncounterConfig />}
 
       {/* Main Combat Modal */}
-      {active && (
-        <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center max-md:pt-[env(safe-area-inset-top)]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-          {/* Modal */}
-          <motion.div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="encounter-title"
-            className={cn(
-              "relative flex h-[85dvh] w-[37.5rem] max-w-[95vw] flex-col overflow-hidden rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-gradient-to-b shadow-2xl",
-              envGradient,
+      <Modal
+        open={active}
+        onClose={() => void requestCloseEncounter()}
+        title={localizeUi("ui.chat.encountermodalinner.combatEncounter")}
+        hideHeader
+        width="max-w-[37.5rem]"
+        mobileFullscreen
+        backdrop="dark"
+        panelClassName={cn("bg-gradient-to-b sm:h-[85dvh]", envGradient)}
+        contentClassName="flex flex-col !overflow-hidden !p-0"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-black/30 px-5 py-3">
+          <h2 id="encounter-title" className="flex items-center gap-2 text-sm font-bold text-foreground/90">
+            <Swords size="1rem" className="text-red-400" />
+            {localizeUi("ui.chat.encountermodalinner.combatEncounter")}
+          </h2>
+          <div className="flex items-center gap-2">
+            {initialized && !combatResult && (
+              <button
+                onClick={async () => {
+                  if (
+                    await showConfirmDialog({
+                      title: localizeUi("ui.chat.encountermodalinner.concludeEncounter"),
+                      message: localizeUi("ui.chat.encountermodalinner.concludeThisEncounterEarly"),
+                      confirmLabel: localizeUi("ui.chat.encountermodalinner.conclude"),
+                      tone: "destructive",
+                    })
+                  ) {
+                    concludeEncounter();
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] px-3 py-1.5 text-[0.6875rem] text-foreground/50 transition-all hover:bg-foreground/10"
+              >
+                <Flag size="0.75rem" />
+                {localizeUi("ui.chat.encountermodalinner.conclude")}
+              </button>
             )}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: "spring", bounce: 0.2 }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-black/30 px-5 py-3">
-              <h2 id="encounter-title" className="flex items-center gap-2 text-sm font-bold text-foreground/90">
-                <Swords size="1rem" className="text-red-400" />
-                {localizeUi("ui.chat.encountermodalinner.combatEncounter")}
-              </h2>
-              <div className="flex items-center gap-2">
-                {initialized && !combatResult && (
-                  <button
-                    onClick={async () => {
-                      if (
-                        await showConfirmDialog({
-                          title: localizeUi("ui.chat.encountermodalinner.concludeEncounter"),
-                          message: localizeUi("ui.chat.encountermodalinner.concludeThisEncounterEarly"),
-                          confirmLabel: localizeUi("ui.chat.encountermodalinner.conclude"),
-                          tone: "destructive",
-                        })
-                      ) {
-                        concludeEncounter();
-                      }
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] px-3 py-1.5 text-[0.6875rem] text-foreground/50 transition-all hover:bg-foreground/10"
-                  >
-                    <Flag size="0.75rem" />
-                    {localizeUi("ui.chat.encountermodalinner.conclude")}
-                  </button>
-                )}
+            <button
+              onClick={() => void requestCloseEncounter()}
+              className="rounded-lg p-1.5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/80"
+            >
+              <X size="1rem" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-4">
+          {/* Loading state */}
+          {isLoading && !initialized && (
+            <div className="flex flex-col items-center justify-center gap-3 py-20">
+              <Spinner size="lg" className="text-red-400 h-[2rem] w-[2rem]" />
+              <p className="text-sm text-foreground/50">
+                {localizeUi("ui.chat.encountermodalinner.initializingCombatEncounter")}
+              </p>
+            </div>
+          )}
+
+          {/* Error state */}
+          {error && !initialized && (
+            <div className="flex flex-col items-center justify-center gap-3 py-20">
+              <AlertTriangle size="2rem" className="text-red-400" />
+              <p className="max-w-sm text-center text-sm text-red-300">{error}</p>
+              <div className="flex gap-2">
                 <button
-                  onClick={() => void requestCloseEncounter()}
-                  className="rounded-lg p-1.5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/80"
+                  onClick={() => initEncounter(settings)}
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)]"
                 >
-                  <X size="1rem" />
+                  <RefreshCw size="0.75rem" />
+                  {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                </button>
+                <button
+                  onClick={closeEncounter}
+                  className="rounded-xl border border-[var(--marinara-chat-chrome-button-border)] px-4 py-2 text-xs text-foreground/50 hover:bg-foreground/5"
+                >
+                  {localizeUi("capabilities.actions.close")}
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Content */}
-            <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-4">
-              {/* Loading state */}
-              {isLoading && !initialized && (
-                <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <Spinner size="lg" className="text-red-400 h-[2rem] w-[2rem]" />
-                  <p className="text-sm text-foreground/50">
-                    {localizeUi("ui.chat.encountermodalinner.initializingCombatEncounter")}
-                  </p>
+          {/* Combat end screen */}
+          {combatResult && <CombatEndScreen />}
+
+          {/* Active combat */}
+          {initialized && !combatResult && (
+            <div className="space-y-4">
+              {/* Environment */}
+              <div className="rounded-xl bg-foreground/5 p-3 text-center text-xs text-foreground/50">
+                🏔️ {environment || "Battle Arena"}
+              </div>
+
+              {/* Enemies */}
+              <div>
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-red-400">
+                  <Skull size="0.875rem" />
+                  {localizeUi("ui.chat.encountermodalinner.enemies")}
+                </h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {Array.isArray(enemies) &&
+                    enemies.map((enemy, i) => <EnemyCard key={i} enemy={enemy} index={i} isDead={enemy.hp <= 0} />)}
+                </div>
+              </div>
+
+              {/* Party */}
+              <div>
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-400">
+                  <Shield size="0.875rem" />
+                  {localizeUi("ui.chat.chatsettingsdrawer.party")}
+                </h3>
+                <div className="space-y-2">
+                  {Array.isArray(party) && party.map((member, i) => <PartyCard key={i} member={member} />)}
+                </div>
+              </div>
+
+              {/* Combat Log */}
+              <div>
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground/50">
+                  <Sparkles size="0.875rem" />
+                  {localizeUi("ui.chat.encountermodalinner.combatLog")}
+                </h3>
+                <CombatLog />
+              </div>
+
+              {/* Processing indicator */}
+              {isProcessing && (
+                <div className="flex items-center justify-center gap-2 py-2 text-xs text-foreground/40">
+                  <Spinner size="sm" />
+                  {localizeUi("ui.chat.encountermodalinner.processingAction")}
                 </div>
               )}
 
-              {/* Error state */}
-              {error && !initialized && (
-                <div className="flex flex-col items-center justify-center gap-3 py-20">
-                  <AlertTriangle size="2rem" className="text-red-400" />
-                  <p className="max-w-sm text-center text-sm text-red-300">{error}</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => initEncounter(settings)}
-                      className="flex items-center gap-1.5 rounded-xl bg-[var(--marinara-app-accent-static)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)]"
-                    >
-                      <RefreshCw size="0.75rem" />
-                      {localizeUi("ui.game.gamesurfacecomponent.retry")}
-                    </button>
-                    <button
-                      onClick={closeEncounter}
-                      className="rounded-xl border border-[var(--marinara-chat-chrome-button-border)] px-4 py-2 text-xs text-foreground/50 hover:bg-foreground/5"
-                    >
-                      {localizeUi("capabilities.actions.close")}
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Player Controls */}
+              {!isProcessing && <PlayerControls onAction={handleAction} />}
 
-              {/* Combat end screen */}
-              {combatResult && <CombatEndScreen />}
-
-              {/* Active combat */}
-              {initialized && !combatResult && (
-                <div className="space-y-4">
-                  {/* Environment */}
-                  <div className="rounded-xl bg-foreground/5 p-3 text-center text-xs text-foreground/50">
-                    🏔️ {environment || "Battle Arena"}
-                  </div>
-
-                  {/* Enemies */}
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-red-400">
-                      <Skull size="0.875rem" />
-                      {localizeUi("ui.chat.encountermodalinner.enemies")}
-                    </h3>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {Array.isArray(enemies) &&
-                        enemies.map((enemy, i) => <EnemyCard key={i} enemy={enemy} index={i} isDead={enemy.hp <= 0} />)}
-                    </div>
-                  </div>
-
-                  {/* Party */}
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-400">
-                      <Shield size="0.875rem" />
-                      {localizeUi("ui.chat.chatsettingsdrawer.party")}
-                    </h3>
-                    <div className="space-y-2">
-                      {Array.isArray(party) && party.map((member, i) => <PartyCard key={i} member={member} />)}
-                    </div>
-                  </div>
-
-                  {/* Combat Log */}
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground/50">
-                      <Sparkles size="0.875rem" />
-                      {localizeUi("ui.chat.encountermodalinner.combatLog")}
-                    </h3>
-                    <CombatLog />
-                  </div>
-
-                  {/* Processing indicator */}
-                  {isProcessing && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-xs text-foreground/40">
-                      <Spinner size="sm" />
-                      {localizeUi("ui.chat.encountermodalinner.processingAction")}
-                    </div>
-                  )}
-
-                  {/* Player Controls */}
-                  {!isProcessing && <PlayerControls onAction={handleAction} />}
-
-                  {/* Error during combat */}
-                  {error && initialized && (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-center text-xs text-red-300">
-                      {error}
-                    </div>
-                  )}
+              {/* Error during combat */}
+              {error && initialized && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-center text-xs text-red-300">
+                  {error}
                 </div>
               )}
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          )}
+        </div>
+      </Modal>
+    </>
   );
 }
 
@@ -1030,30 +937,30 @@ class EncounterErrorBoundary extends Component<{ children: ReactNode; onReset: (
     return { hasError: true };
   }
 
+  reset = () => {
+    this.setState({ hasError: false });
+    this.props.onReset();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
         <Translation>
           {(t) => (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center max-md:pt-[env(safe-area-inset-top)]">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-              <div className="relative flex max-w-md flex-col items-center gap-4 rounded-2xl border border-red-500/20 bg-gray-950 p-8 shadow-2xl">
+            <Modal open onClose={this.reset} title={t("ui.chat.encountererrorboundary.title")} width="max-w-md">
+              <div className="flex flex-col items-center gap-4 py-4">
                 <AlertTriangle size="2.5rem" className="text-red-400" />
-                <h3 className="text-sm font-bold text-foreground/90">{t("ui.chat.encountererrorboundary.title")}</h3>
                 <p className="text-center text-xs text-foreground/50">
                   {t("ui.chat.encountererrorboundary.description")}
                 </p>
                 <button
-                  onClick={() => {
-                    this.setState({ hasError: false });
-                    this.props.onReset();
-                  }}
+                  onClick={this.reset}
                   className="rounded-xl bg-[var(--marinara-app-accent-static)] px-6 py-2.5 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:bg-[var(--marinara-app-accent-static)]"
                 >
                   {t("ui.chat.encountererrorboundary.close")}
                 </button>
               </div>
-            </div>
+            </Modal>
           )}
         </Translation>
       );

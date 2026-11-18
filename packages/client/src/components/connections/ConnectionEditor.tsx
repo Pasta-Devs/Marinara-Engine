@@ -13,7 +13,6 @@ import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
@@ -82,6 +81,7 @@ import { useModelStar } from "../../hooks/use-model-star";
 import { ConnectionModelPicker } from "./ConnectionModelPicker";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
+import { useBuiltinEmbeddingOption } from "./BuiltinEmbeddingDetail";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
 import { priceBadge } from "./CostBadge";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -98,6 +98,7 @@ import {
 import {
   PROVIDERS,
   createConnectionSchema,
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   IMAGE_GENERATION_SOURCES,
@@ -440,8 +441,6 @@ export function ConnectionEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   // The window's own body is what scrolls, so the keyboard check reaches it, not just the content inside it.
-  const scrollBodyRef = useRef<HTMLDivElement>(null);
-  useKeepFocusedFieldAboveKeyboard(scrollBodyRef);
   // The unsaved and save-error banners sit at the top of the scrolling body; bring them into view when they appear.
   useEffect(() => {
     if (showUnsavedWarning || saveError) contentRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -1885,9 +1884,11 @@ export function ConnectionEditor({
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   // The server embeds with the Embedding Connection's own model when it has one, else with the one typed here.
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption(localEmbeddingConnectionId);
   const canTestEmbedding =
     !!localEmbeddingModel.trim() ||
     localEmbeddingConnectionId === LOCAL_SIDECAR_CONNECTION_ID ||
+    localEmbeddingConnectionId === BUILTIN_EMBEDDING_CONNECTION_ID ||
     !!((allConnections ?? []) as Array<{ id: string; embeddingModel?: string | null }>)
       .find((row) => row.id === localEmbeddingConnectionId)
       ?.embeddingModel?.trim();
@@ -2550,6 +2551,7 @@ export function ConnectionEditor({
               includeLocalSidecar={import.meta.env.VITE_MARINARA_LITE !== "true"}
               rowFilter={(row) => row.id !== connectionDetailId && isChatProvider(row.provider)}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              extraOptions={builtinEmbeddingOption ? [builtinEmbeddingOption] : []}
             />
           </div>
 
@@ -2624,7 +2626,6 @@ export function ConnectionEditor({
       title={localName || localModel}
       width="max-w-lg"
       panelClassName="mari-editor-shell"
-      contentRef={scrollBodyRef}
       closeDisabled={editorBusy}
       titleSlot={
         <div className="flex min-w-0 items-center gap-2.5">

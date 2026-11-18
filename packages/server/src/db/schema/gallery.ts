@@ -28,6 +28,8 @@ export const chatImages = fileTable("chat_images", {
   customKind: text("custom_kind"),
   /** Emoji/sticker slug, or a background's place names. */
   customName: text("custom_name"),
+  /** What the picture shows, written by hand or by the Image reading model. Null when none. */
+  description: text("description"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -54,6 +56,8 @@ export const characterImages = fileTable("character_images", {
   customKind: text("custom_kind"),
   /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
+  /** What the picture shows, written by hand or by the Image reading model. Null when none. */
+  description: text("description"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -80,6 +84,8 @@ export const personaImages = fileTable("persona_images", {
   customKind: text("custom_kind"),
   /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
+  /** What the picture shows, written by hand or by the Image reading model. Null when none. */
+  description: text("description"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -113,5 +119,7 @@ export const globalImages = fileTable("global_images", {
   customKind: text("custom_kind"),
   /** Slugified custom emoji/sticker name, a background's place names, or null when untagged */
   customName: text("custom_name"),
+  /** What the picture shows, written by hand or by the Image reading model. Null when none. */
+  description: text("description"),
   createdAt: text("created_at").notNull(),
 });

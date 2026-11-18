@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Drawer } from "../../components/ui/Drawer";
 import { useUIStore } from "../../stores/ui.store";
 
@@ -9,7 +9,6 @@ interface ChatSettingsSectionProps {
   icon?: ReactNode;
   count?: number;
   help?: string;
-  style?: CSSProperties;
   initialOpen?: boolean;
   forceOpen?: boolean;
   contentClassName?: string;
@@ -28,7 +27,6 @@ export function ChatSettingsSection({
   icon,
   count,
   help,
-  style,
   initialOpen = false,
   forceOpen = false,
   contentClassName,
@@ -65,7 +63,6 @@ export function ChatSettingsSection({
       help={help}
       open={open}
       onOpenChange={setOpenRemembered}
-      style={style}
       bodyClassName={contentClassName}
       fill={fill}
       actions={actions}

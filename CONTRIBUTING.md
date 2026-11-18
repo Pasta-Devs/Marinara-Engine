@@ -291,7 +291,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 
 Workflows add most labels. Only people with triage access can set labels by hand, so for everyone else the title is how an issue or pull request gets its type label.
 
-- **Issues:** start the title with the prefix the issue forms use. `.github/workflows/issue-triage.yml` sets the type label when the issue is opened or its title changes, whether it was filed through the form, `gh issue create` or the API:
+- **Issues:** start the title with the prefix the issue forms use. `.github/workflows/issue-triage.yml` sets the type label when the issue is opened or its title changes, whether it was filed through the form, `gh issue create` or the API. GitHub runs it from `main`, so a change to it takes effect at the next promotion. With triage access, also pass the label when you file with `gh issue create`, as in `--label bug`, using the label each prefix gets:
   - `[Issue]:` or `[Bug]:` gets `bug`.
   - `[Feature]:` gets `enhancement`.
   - `[docs-i18n]` gets `docs`.

@@ -331,6 +331,12 @@ html[data-marinara-effects-paused="true"] .mari-workspace-glow-band::after {
   white-space: nowrap;
 }
 
+/* The mirrored top bar (desktop sidebar on the left): Home's side is on the right, so the pill keeps to the panel
+   side and the gap opens between it and the players, as it does on the other side. */
+.mari-topbar[data-sidebar-side="left"] .mari-topbar-status {
+  margin-inline: 0 auto;
+}
+
 .mari-topbar-status[data-state="working"] {
   --mari-pill-a: var(--mari-logo-cyan);
   --mari-pill-b: oklch(0.68 0.16 280);

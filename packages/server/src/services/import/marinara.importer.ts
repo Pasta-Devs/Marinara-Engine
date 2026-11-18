@@ -7,7 +7,7 @@ import {
 // ──────────────────────────────────────────────
 // Import: Marinara Engine native format (.marinara.json)
 // ──────────────────────────────────────────────
-import type { GalleryTagKind } from "@marinara-engine/shared";
+import { normalizeGalleryDescription, type GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { readGalleryTagPayload } from "../image/gallery-tag-payload.js";
 import { inArray } from "../../db/file-query.js";
@@ -289,6 +289,7 @@ async function restoreOwnerGallery(
     height?: number;
     customKind?: GalleryTagKind;
     customName?: string | null;
+    description?: string | null;
   }) => Promise<{ id: string } | null>,
 ): Promise<string | null> {
   if (!Array.isArray(gallery) || gallery.length === 0) return null;
@@ -350,6 +351,7 @@ async function restoreOwnerGallery(
         width: typeof entry.width === "number" ? entry.width : undefined,
         height: typeof entry.height === "number" ? entry.height : undefined,
         ...restoredGalleryTag(entry),
+        description: normalizeGalleryDescription(entry.description),
       });
       if (entry.isCharacterSheet === true && restored) characterSheetImageId = restored.id;
     } catch {

@@ -144,6 +144,10 @@ export interface MarinaraHostV1 {
     readonly Checkbox: typeof import("../components/ui/Checkbox").Checkbox;
     /** Capability API 1.830. The shared loading ring; pass `label` to announce it. */
     readonly Spinner: typeof import("../components/ui/Spinner").Spinner;
+    /** Capability API 1.832. The shared tab bar (`pill` or `underline`) with arrow-key focus. */
+    readonly Tabs: typeof import("../components/ui/Tabs").Tabs;
+    /** Capability API 1.832. The shared search field: clear button, Escape clears, optional result count and "/" shortcut. */
+    readonly SearchInput: typeof import("../components/ui/SearchInput").SearchInput;
     /** Capability API 1.830. The same confirm dialog as `services.dialogs.showConfirmDialog`, kept here so a package finds it next to the components. */
     readonly showConfirmDialog: typeof import("./app-dialogs").showConfirmDialog;
     /** Capability API 1.831. The shared dropdown: `value`, `options` ({ value, label, description?, group?,

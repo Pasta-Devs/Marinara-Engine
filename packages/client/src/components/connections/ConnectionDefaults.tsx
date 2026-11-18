@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon 
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
   isAgentConfigDeleted,
   isChatProvider,
@@ -30,6 +31,7 @@ import {
   useUpdateConnectionAccount,
 } from "../../hooks/use-connection-accounts";
 import { useAgentConfigs, useUpdateAgent } from "../../hooks/use-agents";
+import { useBuiltinEmbedding } from "../../hooks/use-builtin-embedding";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useFollowVoiceJob, useMigrateVoiceJob, useTTSConfig } from "../../hooks/use-tts";
@@ -119,6 +121,9 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const sidecarModelDisplayName = useSidecarStore((s) => s.modelDisplayName);
   const sidecarAsAgentsDefault = useSidecarStore((s) => s.config.useAsAgentsDefault);
   const embeddingDefault = useDefaultEmbeddingConnection();
+  const builtinEmbedding = useBuiltinEmbedding();
+  const builtinEmbeddingActive =
+    builtinEmbedding.data?.models.find((model) => model.id === builtinEmbedding.data?.activeModelId) ?? null;
   const decisionOptions = useDecisionOptions();
   const deviceSetup = useDeviceSetup();
   const { data: tts } = useTTSConfig();
@@ -284,7 +289,25 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   };
   if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID)
     Object.assign(embeddings, { ...sidecarModel, muted: false, warning: builtInWarning });
-  else if (embeddingRow) {
+  else if (embeddingId === BUILTIN_EMBEDDING_CONNECTION_ID) {
+    const name = t("connections.builtinEmbedding.name");
+    Object.assign(embeddings, {
+      // The model's own name says enough; "Built-in model (embeddings)" before it would push it out of the cell.
+      value: builtinEmbeddingActive?.label ?? name,
+      source: { id: BUILTIN_EMBEDDING_CONNECTION_ID, name, provider: "builtin-embedding" } as ConnectionRowData,
+      muted: false,
+      warning: builtinEmbeddingActive
+        ? null
+        : {
+            text: t("connections.defaults.warning.notDownloaded", { model: name }),
+            short: t("connections.defaults.notDownloadedShort"),
+            fix: {
+              label: t("connections.defaults.setUp"),
+              run: () => useUIStore.getState().openConnectionDetail("device:local-model"),
+            },
+          },
+    });
+  } else if (embeddingRow) {
     const account = embeddingRow.accountId ? accountById.get(embeddingRow.accountId) : undefined;
     Object.assign(embeddings, {
       value: embeddingRow.embeddingModel?.trim() || embeddingRow.name,
@@ -451,7 +474,14 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         ? connectionsList.filter((row) => !listed.has(row.accountId ?? "") && matchesKind(row, kind))
         : [];
     const names = saved.map((row) => accountOf(row)?.name ?? row.name);
-    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])], unknown };
+    // A downloaded built-in embedding model is a choice for Embeddings with no account: Pick it, never Add one.
+    if (job.key === "embeddings" && builtinEmbeddingActive) names.push(t("connections.builtinEmbedding.name"));
+    const builtin = job.key === "embeddings" && builtinEmbeddingActive ? 1 : 0;
+    return {
+      count: found.count + saved.length + builtin,
+      accounts: [...new Set([...found.accounts, ...names])],
+      unknown,
+    };
   };
   return all.map((tile) => (isEmpty(tile) ? { ...tile, find: findFor(JOB[tile.key]) } : tile));
 }

@@ -348,13 +348,11 @@ test("regex library folders pause chat display and bulk toggles keep each script
     expect((await scriptState()).map((row) => row?.[1])).toEqual(originalOrders);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true }).click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
     await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
-    await expect(
-      folder.getByRole("checkbox", { name: "Run Pack format (paused by folder)", exact: true }),
-    ).toBeChecked();
-    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack format (paused by folder)", exact: true })).toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await expect(message).toContainText("PACK_RAW and outside formatted");
     await page.screenshot({ path: info.outputPath("regex-folders-paused.png") });
     const orderView = page.getByRole("button", { name: "Execution order", exact: true });
@@ -365,7 +363,7 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await page.reload();
     await expect(message).toContainText("PACK_RAW and outside formatted");
     await openRegexes();
-    await expect(folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true })).not.toBeChecked();
     await selectRegex.click();
     await folder.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
     await folder.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();
@@ -388,11 +386,11 @@ test("regex library folders pause chat display and bulk toggles keep each script
     expect(rejected.status()).toBe(404);
     expect((await scriptState())[0]?.[0]).toBe("false");
     await exitSelection.click();
-    await folder.getByRole("checkbox", { name: "Run Pack format", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run Pack format", exact: true }).click();
     await expect(message).toContainText("PACK_RAW and outside formatted");
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true }).click();
     await expect(message).toContainText("pack formatted and outside formatted");
-    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await page.getByRole("button", { name: "Execution order", exact: true }).click();
     await expect(folder).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pack format", exact: false }).first()).toBeVisible();
@@ -471,10 +469,10 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     await expect(folder.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true })).toBeChecked();
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Offer tools in Test tools", exact: true }).click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
     await expect(
-      folder.getByRole("checkbox", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
+      folder.getByRole("switch", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
     ).toBeChecked();
     await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
     await expect.poll(toolState).toEqual([
@@ -507,7 +505,7 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     expect((await toolState())[0]?.[0]).toBe(false);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Offer tools in Test tools", exact: true }).click();
     await expect.poll(toolState).toEqual([
       [false, false],
       [false, false],
