@@ -70,10 +70,15 @@ async function applyCyoaChoicesResult(result: AgentResult, deps: AgentResultEffe
   if (!deps.messageId || !cyoaData.choices || cyoaData.choices.length === 0) return;
   try {
     deps.signal?.throwIfAborted();
-    await deps.chats.updateMessageExtraForSwipe(deps.messageId, deps.swipeIndex, { cyoaChoices: cyoaData.choices });
+    const updated = await deps.chats.updateMessageExtraForSwipe(deps.messageId, deps.swipeIndex, {
+      cyoaChoices: cyoaData.choices,
+    });
     deps.signal?.throwIfAborted();
+    // A null return means the message or swipe is gone (the reply was deleted meanwhile), which is ordinary.
     logger.debug(
-      "[agent-effects] CYOA choices saved origin=%s chatId=%s messageId=%s swipeIndex=%d choiceCount=%d",
+      updated === null
+        ? "[agent-effects] CYOA choices not saved, message or swipe not found origin=%s chatId=%s messageId=%s swipeIndex=%d choiceCount=%d"
+        : "[agent-effects] CYOA choices saved origin=%s chatId=%s messageId=%s swipeIndex=%d choiceCount=%d",
       deps.origin,
       deps.chatId,
       deps.messageId,
@@ -84,10 +89,11 @@ async function applyCyoaChoicesResult(result: AgentResult, deps: AgentResultEffe
     deps.signal?.throwIfAborted();
     logger.warn(
       err,
-      "[agent-effects] Could not save CYOA choices origin=%s chatId=%s messageId=%s",
+      "[agent-effects] Could not save CYOA choices origin=%s chatId=%s messageId=%s swipeIndex=%d",
       deps.origin,
       deps.chatId,
       deps.messageId,
+      deps.swipeIndex,
     );
   }
 }
