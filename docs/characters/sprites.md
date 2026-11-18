@@ -102,7 +102,8 @@ Before you start: add an image-generation connection. For animated sprites you a
 5. Write an **Appearance Description**. It is required.
 6. Optionally turn on **Transparent sprite background**. Marinara makes the background see-through. If the service cannot do that, Marinara draws a plain green, magenta or cyan background that differs from your **Appearance Description** colors, then removes it.
 7. Set **Expression Count** (or **Pose Count** for full-body) and pick which expressions or poses to make.
-8. Click **Generate**.
+8. Optional, for expressions: tick **Flag faces that don't match their expression**. A [decision model that reads pictures](../connections/decision-models.md#features-that-look-at-pictures) looks at each face after it is drawn and marks any that may not show its expression with **Check**, so you can untick or redraw it. Each face takes a moment. Without such a model the box is greyed out.
+9. Click **Generate**.
 
 When the images arrive, turn each one on or off, rename it and crop it. Then save the selected images into the character's sprites. If exactly one saved sprite in that category has the generated label, saving replaces its image and keeps its folder and handle. A sprite you renamed away from that label is kept. With duplicate labels in different folders, replace the sprite you mean by hand.
 

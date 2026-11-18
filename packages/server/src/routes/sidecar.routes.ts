@@ -125,7 +125,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     temperature: z.number().min(0).max(2).optional(),
     topP: z.number().gt(0).max(1).optional(),
     topK: z.number().int().min(0).max(500).optional(),
-    maxParallelJobs: z.number().int().min(1).max(16).optional(),
+    maxParallelJobs: z.number().int().min(0).max(16).optional(),
     gpuLayers: z.number().int().min(-1).max(1024).optional(),
     kvCacheType: z.enum(["f16", "q8_0", "q4_0"]).optional(),
     enableNativeToolCalls: z.boolean().optional(),

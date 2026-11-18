@@ -12,6 +12,7 @@ import { sidecarModelService } from "./sidecar-model.service.js";
 import { sidecarProcessService } from "./sidecar-process.service.js";
 import { resolveSidecarRequestModel } from "./sidecar-request-model.js";
 import { isRecord } from "../../utils/large-json.js";
+import { runOnMainModel } from "./main-model-turns.js";
 
 let activeRequests = 0;
 
@@ -221,12 +222,19 @@ function getRuntimeGenerationSettings() {
   };
 }
 
-async function streamChatCompletion(options: {
+type StreamChatCompletionOptions = {
   messages: SidecarMessage[];
   maxTokens: number;
   responseFormat?: Record<string, unknown>;
   signal?: AbortSignal;
-}): Promise<string> {
+};
+
+/** Waits its turn on the model first; the caller's context decides the priority. */
+function streamChatCompletion(options: StreamChatCompletionOptions): Promise<string> {
+  return runOnMainModel(undefined, options.signal, () => streamChatCompletionNow(options));
+}
+
+async function streamChatCompletionNow(options: StreamChatCompletionOptions): Promise<string> {
   const baseUrl = await sidecarProcessService.ensureReady();
   const backend = sidecarModelService.getResolvedBackend();
   const generation = getRuntimeGenerationSettings();
@@ -397,7 +405,12 @@ async function streamChatCompletion(options: {
 }
 
 export async function runTestMessage(): Promise<SidecarTestMessageOutput> {
-  return withRequestTracking(async () => {
+  // Someone pressed Test and is waiting, so it ranks with a reply.
+  return withRequestTracking(() => runOnMainModel("reply", undefined, () => runTestMessageNow()));
+}
+
+async function runTestMessageNow(): Promise<SidecarTestMessageOutput> {
+  {
     if (!sidecarModelService.getConfiguredModelRef()) {
       throw new Error("Download or select a local model before running a test message.");
     }
@@ -485,7 +498,7 @@ Line 2: one short sentence confirming that the local sidecar test succeeded.`,
         await sidecarProcessService.stop().catch(() => {});
       }
     }
-  });
+  }
 }
 
 export async function unloadModel(): Promise<void> {
@@ -695,6 +708,8 @@ export async function isInferenceAvailable(): Promise<boolean> {
   if (!sidecarModelService.getConfiguredModelRef() || !sidecarModelService.isEnabled()) {
     return false;
   }
+  // Unloaded for being unused: the next request starts it again.
+  if (sidecarProcessService.isIdleUnloaded()) return true;
 
   try {
     await sidecarProcessService.syncForCurrentConfig({ suppressKnownFailure: true, allowRuntimeInstall: false });

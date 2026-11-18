@@ -1,10 +1,63 @@
 # Decision Models
 
-A decision model is a small model that answers yes-or-no questions for Marinara, such as "Does the latest message move the scene to a new place?". Lorebooks, custom agents, prompts, and group chats use it. It is optional. Without one, chats still work and each feature uses the fallback described in [Where Marinara uses it](#where-marinara-uses-it).
+A decision model is a small model that answers short questions about your chat for Marinara, such as "Does the latest message move the scene to a new place?" or "What is Kaelen's mood: angry, sad or calm?". Some can also look at the chat's pictures and clips. Lorebooks, custom agents, prompts, group chats and the Illustrator use it. It is optional. Without one, chats still work and each feature uses the fallback described in [Where Marinara uses it](#where-marinara-uses-it).
 
-Its answers control what Marinara does and are never posted in the chat. It scores a statement from 0 to 1. Marinara compares that number with a threshold and treats the result as yes or no. It can also pick one answer from a short list, such as "angry", "sad", or "none of these".
+Its answers control what Marinara does and are never posted in the chat. See [What a decision model can answer](#what-a-decision-model-can-answer) for the kinds of questions and examples.
 
 Our advice: leave it on **None** if you are unsure. If you want decisions, use the Built-in model you may already have, or a chat model on a server you already run. Both cost nothing extra.
+
+## What a decision model can answer
+
+Every answer comes back as a number from 0 to 1: how sure the model is. Marinara turns that number into the answer a feature needs.
+
+### Yes or no
+
+The model reads a statement and says how likely it is to be true. Marinara compares that with a [threshold](#thresholds): at or above it counts as yes. This is the most common kind, used by activation questions, lorebook **Decision** fields, `{{#if decision:"..."}}` and the Illustrator's checks.
+
+| Statement | What it could switch |
+| --- | --- |
+| `In the latest message, the characters move to a different location` | A tracker updates the location only on turns where it changed. |
+| `In the latest message, a dragon is physically present` | A lorebook entry about dragons joins the prompt. |
+| `{{user}} asked a question that {{char}} has not answered yet` | A prompt line reminds the model to answer it. |
+| `The latest message describes a fight` | A combat agent runs on this turn only. |
+
+### One of several answers
+
+The model picks the best fit from a short list you write. Marinara asks about every option and keeps the one with the highest score, so you get one answer, not several. Use `{{#if decision_choice:"..." == "..."}}`:
+
+```text
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}
+Kaelen speaks in short, clipped sentences.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "sad"}}
+Kaelen speaks quietly and avoids eye contact.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "calm"}}
+Kaelen speaks normally.
+{{/if}}
+```
+
+Other lists that work well: the kind of scene (`combat`, `dialogue`, `exploration`, `rest`), the time of day (`morning`, `afternoon`, `evening`, `night`), or which room of a house the scene is in. Keep the options distinct, and add one such as `none of these` when nothing may fit. Agents use the same thing to pick one of several instruction sets, and the Illustrator uses it to pick the kind of weather.
+
+### A score
+
+Some features use the number itself instead of a yes or no. [Smart response order](../chats/group-chats.md#response-order-individual-only) scores how likely each character is to speak next and picks the highest. [Advanced Memory](../agents/memory.md#optional-decision-model) scores how relevant each past scene is. Peek Prompt's **Test decisions** shows the score of every statement, which helps you choose a threshold. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
+
+### Pictures and clips
+
+A built-in decision model that reads pictures can answer the same kinds of questions about the chat's pictures, such as `The picture shows the character at the beach`. Liquid d1, Valen and Winnow read pictures, and Valen's full release also reads short clips. Other models, and every hosted or server account, read text only and are never sent pictures.
+
+Pictures are never sent unless you ask for them, because each one makes the answer slower:
+
+- In a statement, add `pictures:1` (up to 3) or `clips:1`. Add `media_within:2` to ask only when one of the newest 2 messages has a picture. See [Pictures and clips](../prompts/conditional-prompts.md#pictures-and-clips).
+- On a lorebook entry, set **Show the decision model** under its **Decision** field. See [Decision activation](../lorebooks/entries.md#decision-activation).
+- On a custom agent's activation question, set **Show the decision model**. See [Activation questions](../agents/custom-agents.md#activation-questions).
+- Marinara's own picture features: see [Features that look at pictures](#features-that-look-at-pictures).
+
+### What a model page lists
+
+The page of each built-in decision model shows two lines:
+
+- **Answers** lists what the model was built to answer: **Yes/no**, **Weighted choice**, **Score on a scale**, and for some, **Boxes on a picture** (where something is in a picture). Marinara asks yes-or-no and choice questions and reads their scores. It does not ask for boxes yet, so that line only describes the model.
+- **Reads** lists **Text**, **Pictures** and **Video**. A kind that only another release of the model reads is named after the others, for example "Video in its full release".
 
 ## Choose a decision model
 
@@ -31,15 +84,15 @@ Entries that cannot answer right now stay in the list, gray, with the reason. Ch
 - **A model you already run in the Built-in model.** Costs nothing extra. Best for most people who use the Built-in model.
 - **A chat model on your own server** (Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server). Costs nothing extra. Good when your model runs outside Marinara, so it is not loaded twice.
 - **A hosted decision model** (TypeSafe, OpenRouter, NanoGPT, or Google Gemini). Billed per request, and one turn can make several. A NanoGPT subscription includes some decision models, and OpenRouter lists some free ones. Good for phones and computers that run no local model.
-- **The Built-in decision model.** Uses separate disk and GPU memory. Needs Linux x86-64 and a supported NVIDIA GPU. For a separate decision model beside your chat model.
+- **The Built-in decision model.** A purpose-built decision model that Marinara downloads and runs beside your chat model, with its own disk space and memory. Most of them run on almost any computer, some on the processor alone. The only choice that can look at pictures and clips. See [Let Marinara install a decision model](#let-marinara-install-a-decision-model).
 
 If you already run a local model, try it first, and test turns from your own chats. Wording matters a lot. See [Writing statements](../prompts/conditional-prompts.md#writing-statements).
 
 Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available directly or through OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) is a separately published model built on Qwen, which Marinara can run locally. The Open-Jev tests do not measure hosted Jev.
 
-On Android (Termux), the **Built-in decision model** cannot run, and a small local model on a phone's processor can be too slow. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision account](#set-up-a-decision-account).
+On Android (Termux), only JevK5 and Liquid d1 are offered as the **Built-in decision model**, and a phone's processor can be too slow for them. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision account](#set-up-a-decision-account).
 
-Write presets, cards, and agents for "a decision model", never "requires Jev". They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and Agent Organizer installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
+Write presets, cards, and agents for "a decision model", never "requires Jev". A statement that asks for pictures still works with a model that reads only text: it gets the text alone. They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and Agent Organizer installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
 
 ## Use the Built-in model
 
@@ -138,7 +191,23 @@ Deleting an account whose key is used for decisions shows a warning. The Decisio
 - [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only) asks who is in the scene before each reply in a Merged Roleplay group, if set to **Decision model**. Without an answer: if no character gets an answer, it uses the Character Tracker's last scene, or keeps the list.
 - [Advanced Memory Recall](../agents/memory.md#optional-decision-model) can use its own decision model for Roleplay scene boundaries and memory selection. Turn on **Use Decision model** in that chat's Advanced Memory settings. Without an answer: failed decisions fall back to ordinary recall or scene checks. Summaries still use the Helper model.
 
+- [Features that look at pictures](#features-that-look-at-pictures) check new pictures, skip repeats, reuse backgrounds and flag sprite faces, if turned on. They need a decision model that reads pictures.
+
 An activation question decides whether an agent runs. A decision statement inside its prompt decides what that running agent is told. Use `{{#if decision:"..."}}` for yes-or-no conditions and `{{#if decision_choice:"..." == "..."}}` for a choice among answers.
+
+### Features that look at pictures
+
+These need a built-in decision model that reads pictures (Liquid d1, Valen or Winnow). They are all off until you turn them on. Without such a model they are greyed out, with an ⓘ that says why. One you turned on earlier can still be turned off.
+
+| Feature | Where | What it does |
+| --- | --- | --- |
+| **Picture check** | **Chat Settings → Agents → Illustrator** | Looks at each new Illustrator picture and selfie, and checks that it shows what was asked. A selfie is also compared with the character's avatar. **Make another if it doesn't match** draws once more after a miss. **Always make two, keep the better** draws two and keeps the one that matches better. Each extra picture costs another image generation. |
+| **Also check** | Under **Picture check** | Your own checks, one per line, up to 6, such as `Kaelen has short red hair`. Start a line with `not:` for something the picture must not show, such as `not: The picture has writing or a watermark`. |
+| **Skip a picture the newest one already shows** | Illustrator card | Before drawing, compares the newest picture in the chat with what is about to be drawn, and skips it when it would show the same scene again. Pictures you ask for are always made. |
+| **Reuse a library background that looks like the place** | Illustrator card | When no background in your library is named for a new place, looks at up to 4 that share words with it and shows one that matches, instead of painting a new one. See [Check pictures with a decision model](../media/illustrator-agent.md#check-pictures-with-a-decision-model). |
+| **Flag faces that don't match their expression** | **Generate Sprites** window, expressions only | Looks at each face after it is drawn and marks any that may not show its expression, so you can untick or redraw it. See [Generate sprites with AI](../characters/sprites.md#generate-sprites-with-ai). |
+
+A check that cannot run, because the model is off, slow or fails, counts as a pass: the picture is kept as it was made.
 
 ## What the model sees
 
@@ -165,7 +234,7 @@ Probabilities are not comparable between models. The same example can score 0.99
 
 - **Built-in model, or an OpenAI-compatible chat model account:** 0.5
 - **TypeSafe, OpenRouter, NanoGPT, Google Gemini, or Custom System One account:** 0.5
-- **Built-in decision model:** The model manifest's recommendation: 0.1 for the Open-Jev 2B and 9B
+- **Built-in decision model:** The model's own recommendation, measured on roleplay turns where we could: 0.3 for JevK5, Liquid d1 and Valen-Decision 1.5 4B; 0.5 for Valen's full release and Winnow (not yet measured); 0.1 for Open-Jev 2B and 9B
 
 An agent's **Run when probability is at least** overrides this. The editor offers to restore the model's recommendation when the saved value differs. Check it whenever you switch models. Prompt statements and lorebook Decision fields use the model's default, and an agent's threshold does not change theirs.
 
@@ -179,7 +248,7 @@ A decision that does not arrive in time gives no answer, and generation continue
 - **NanoGPT decision model:** 4 seconds, or your **Time limit**. It answered in 0.4 to 2.5 seconds when measured.
 - **OpenAI-compatible chat model account:** 4 seconds, or your **Time limit**. A model that must think first gets at least 20 seconds.
 - **Built-in model:** 4 seconds. A model that must think first gets 20 seconds.
-- **Built-in decision model:** 4 seconds for the first statement. Each further one gets the model's measured time: 0.35 seconds for Open-Jev 2B and 0.8 seconds for Open-Jev 9B. A model you installed from a repository gets 4 seconds for each.
+- **Built-in decision model:** Open-Jev gets 4 seconds for the first statement, and each further one gets its measured time: 0.35 seconds for 2B and 0.8 seconds for 9B. The other models time their reading speed each time they start, and their limits follow it, so a slow processor gets more time. Each picture or clip a statement asks for adds time on top. Until the model has started once, it gets 4 seconds for each statement and 30 seconds for each picture and 60 for each clip.
 
 Decision requests stop when you cancel a generation.
 
@@ -208,37 +277,56 @@ Any model can answer wrongly, and correct yes answers can sit close to the thres
 - **An agent with an activation question runs every turn.** No decision model is set or it is not answering, so the agent runs as if it had no question. Run a test.
 - **A decision branch in a prompt never appears.** See [When a decision branch never appears](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **Smart response order still makes its usual AI call.** The switch is off, or the decision model did not answer on that turn.
+- **Picture settings are greyed out with an ⓘ.** The selected decision model reads text only, or no decision model is set. Pick Liquid d1, Valen or Winnow as the **Built-in decision model**. See [Which built-in decision model](#which-built-in-decision-model).
+- **A statement with `pictures:` reads as no.** With `media_within:`, none of the newest messages had a picture. Otherwise the picture made the answer slower than its time limit. The model page's **On this computer** line shows how long a picture takes.
+- **A model says it cannot run here.** The reason under the list names what is missing, such as a processor feature, a graphics card generation or a library. Pick another model; Liquid d1 and JevK5 run on almost any computer.
 - **Automate active characters follows the Character Tracker.** The model did not answer for every character, it thinks first and **Also gate agents that run before the reply** is off, or the cast is too big for the model's input even by name.
 
 To see decision scores and outputs during generation, turn on Debug Mode or set the log level to debug. See [Logging levels](../CONFIGURATION.md#logging-levels). To test your own statements without generating a reply, open **Peek Prompt → Decision diagnostics → Test decisions**. Explicit tests call the selected model and can cost money on a hosted service. See [Testing decision statements](../chats/peek-prompt.md#testing-decision-statements).
 
 ## Let Marinara install a decision model
 
-The **Built-in decision model** is an experimental, purpose-built decision model that Marinara downloads and runs as its own local process, beside your chat model. It adds its memory use to your chat model's. If you already have a local model, try its decisions first.
+The **Built-in decision model** is a purpose-built decision model that Marinara downloads and runs on your computer, beside your chat model. Nothing leaves your computer. It adds its memory use to your chat model's. If you already run a local model, try its decisions first.
 
-The Open-Jev models need Linux **x86-64**, an NVIDIA GPU of compute capability 7.5 or newer (Turing, the RTX 20 series, or later), and driver 580 or newer. Linux ARM and older cards are not supported. Where a model cannot run, the option stays visible, says why, and offers **Set up a Decision provider instead**.
+### Which built-in decision model
 
-| Model | Model download | Disk with runtime | GPU memory |
-| --- | --- | --- | --- |
-| Open-Jev 2B | About 4.6 GB | About 10 GB | About 4.8 GB (4.5 GiB) |
-| Open-Jev 9B | About 19.4 GB | About 25.3 GB | About 23.6 GB (22 GiB) |
+| Model | Download | Reads | Languages | Runs on |
+| --- | --- | --- | --- | --- |
+| **JevK5 4B** | About 2.7 GB | Text | English | Almost any computer: NVIDIA, AMD, Intel or Apple graphics, or the processor alone. Uses the same runtime as the Built-in model. |
+| **JevK5 2B** | About 2 GB | Text | English | Same as 4B. Faster on a processor or a small graphics card, a little less accurate. |
+| **Liquid d1 3B** | About 2.3 GB | Text, pictures | 16, including Japanese, Chinese, Korean, German, Spanish and Russian | Almost any computer. The pick for chats that are not in English. Free for people and for companies under $10 million a year in revenue. |
+| **Valen-Decision 1.5 4B** | About 5.8 GB | Text, pictures | 8 checked | Linux on a 64-bit Intel or AMD processor, on the processor only. |
+| **Valen-Decision 1.5 2B (full release)** | About 6.4 GB | Text, pictures, clips | Not stated | Windows, macOS on Apple silicon, and Linux, on the processor. Needs about 6 GB of memory. |
+| **Valen-Decision 1.5 4B (full release)** | About 11.8 GB | Text, pictures, clips | 8 checked | Same as 2B. Needs about 12 GB of memory, and is slower but more accurate. |
+| **Winnow E4B** | About 9 GB | Text, pictures | Not stated | Only Linux with an NVIDIA RTX 50-series card, the CUDA 13 libraries, and a processor with AVX-512 (such as AMD Ryzen 7000 or 9000; current Intel laptop and desktop chips lack it). Needs about 11 GB of graphics memory. |
+| **Open-Jev 2B** | About 4.6 GB | Text | English | Linux with an NVIDIA card from the RTX 20 series or newer and driver 580 or newer. Uses about 4.8 GB of graphics memory and 10 GB of disk. |
+| **Open-Jev 9B** | About 19.4 GB | Text | English | Same as 2B. Uses about 23.6 GB of graphics memory, so on a 24 GB card nothing else fits beside it. |
 
-These are the catalog's estimates. The 9B model leaves little headroom on a 24 GB GPU. Check the installer's verdict for your card.
+On 20 roleplay turns in 8 languages, JevK5 4B, Liquid d1 and Valen-Decision 1.5 4B answered all 20 correctly. Pick Liquid d1 if you are unsure, or Valen's full release if you want clips read.
 
-1. Click **Add** in the **Connections** panel and click **Built-in model (decisions)** under **Decisions**. A window titled **Built-in decision model** opens. You can also open it from the **Built-in model** card's page.
-2. Read the warning, then turn on **Use the built-in decision model**. A dialog titled **Turn on the built-in decision model?** shows the verdict for your computer. Click **Enable**, or **Enable anyway** when the verdict is a warning.
-3. Under **Available decision models**, pick **Open-Jev 2B** or **Open-Jev 9B**. Click **Download and install** and confirm the size, hardware verdict, and licenses. Nothing downloads before that.
-4. Click the **Decision** row under **Behind the scenes** and pick **Built-in model (decisions)**.
+Before anything downloads, Marinara checks that your computer can run the model: the system, the processor's features, the graphics card and its libraries, and the free memory. A model that cannot run stays in the list, marked **(cannot run here)**, and says why.
 
-Other controls in the window:
+### Install one
 
-- **Install from a repository** takes a HuggingFace decision model as `owner/model-name`. Click **Check**. Marinara reads the repository's own manifest, checks that it maps to a runtime this build ships, and shows the base weights and total size. A repository it cannot vouch for is refused with the reason. Then click **Download and install this one**.
-- **GPU** picks the card on a computer with several NVIDIA GPUs. Changing it stops the model, which starts again on the new card.
-- **Start this model when Marinara starts** is optional. Off means it starts the first time an agent needs it.
-- **Remove files** deletes the model and its runtime. Turning the model off stops the process and keeps the files.
-- **Reinstall** appears when the installed model cannot start because its files or its runtime are missing or out of date, usually after an update. The model is marked **Needs reinstall**, and the **Decision** row shows **Not set up**. Reinstalling keeps the files that are already downloaded and whole, so usually only the runtime's Python packages download again.
+1. Click **Connections** in the top bar. Under **On this device**, click **Built-in model (decisions)**. You can also click **Add** in the **Connections** panel and click **Built-in model (decisions)** under **Decisions**.
+2. Pick a model in the **Model** list. Under it you see its description, then **Answers** and **Reads** (see [What a model page lists](#what-a-model-page-lists)), its languages and licenses.
+3. Click **Download** with the model's name and size. Confirm the size, hardware verdict and licenses. Nothing downloads before that.
+4. Click **Use for Decision**, or click the **Decision** row under **Behind the scenes** in the **Jobs** box and pick **Built-in model (decisions)**.
 
-A model's first answer after it starts is slower, so Marinara asks one warm-up question while it loads. If that fails, the model still starts and the first real question pays the delay. A turn with many statements on a long chat takes longer. Open-Jev 2B takes about a quarter of a second per statement on a long chat.
+Once a model has run, its page also shows **On this computer** with how long it took there: a few turns of chat, a picture, and a clip for models that read them. These times come from your own computer, so they tell you how much slower a statement gets when it asks for a picture.
+
+To switch, pick another model in the list. A model you downloaded before is marked **(downloaded)**, and **Use this model** switches to it without downloading again.
+
+Other controls on the page:
+
+- **Turn off** stops the model and keeps its files. **Turn on** starts it again.
+- **Runs on** picks the card on a computer with several NVIDIA cards. Changing it stops the model, which starts again on the new card.
+- **Starts** is **When an agent first needs it** by default, or **With Marinara**.
+- **Install from a repository** takes a decision model on Hugging Face as `owner/model-name`: an Open-Jev checkpoint, a GGUF that declares itself a decision model, or a Valen GGUF package. Add `:Q8_0` after the name to pick one size of a GGUF. Click **Check**. Marinara reads what the files say about themselves and shows the size and licenses. A repository it cannot vouch for is refused with the reason. Then click **Download and install this one**.
+- **Remove files** deletes the model and its runtime.
+- **Reinstall** appears when the installed model cannot start because its files or its runtime are missing or out of date, usually after an update. The model is marked **Needs reinstall**. Reinstalling keeps the files that are already downloaded and whole, so usually only the runtime downloads again.
+
+A model's first answer after it starts is slower, so Marinara asks one warm-up question while it loads. If that fails, the model still starts and the first real question pays the delay. If the model stops right after starting, the page says why, for example that the processor lacks a feature it needs.
 
 ### Run Strands decider yourself
 

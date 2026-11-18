@@ -38,6 +38,7 @@ import {
   downloadLocalEmotionModel,
   isLocalEmotionModelDownloaded,
   localEmotionModelUnsupportedReason,
+  removeLocalEmotionModel,
   startLocalEmotionModel,
   type AvatarEmotionModel,
 } from "./classifier/local-emotion-model.js";
@@ -173,16 +174,17 @@ function scheduleIdleUnload() {
 }
 
 /** Downloads the local model when it is missing, starts it in its worker, and resolves once it is ready (or null
- *  when this server cannot run it, or a failed attempt is waiting to retry). Only the classify route's prepare
- *  request calls this, for a Roleplay chat with an avatar agent on, so nothing else downloads the model. */
-export function prepareAvatarEmotionModel(): Promise<AvatarEmotionModel | null> {
+ *  when this server cannot run it, or a failed attempt is waiting to retry). The classify route's prepare request
+ *  calls this for a Roleplay chat with an avatar agent on, and the Built-in model (emotions) page when the user
+ *  presses Download; a classify request itself never does. `force` retries a failed attempt at once. */
+export function prepareAvatarEmotionModel(force = false): Promise<AvatarEmotionModel | null> {
   if (!isAvatarEmotionModelSupported()) return Promise.resolve(null);
   if (modelState.status === "ready") {
     scheduleIdleUnload();
     return Promise.resolve(modelState.model);
   }
   if (modelState.status === "loading") return modelState.promise;
-  if (modelState.status === "failed" && Date.now() < modelState.retryAt) return Promise.resolve(null);
+  if (modelState.status === "failed" && !force && Date.now() < modelState.retryAt) return Promise.resolve(null);
   const startedAt = Date.now();
   logger.info("[avatar-classify] Preparing the local emotion model %s", AVATAR_EMOTION_MODEL_ID);
   // A load that was reset meanwhile (setAvatarEmotionModelLoaderForTests) must not overwrite the newer state.
@@ -355,6 +357,29 @@ export async function classifyAvatarEmotions(
   );
   logger.debug({ texts: request.texts }, "[avatar-classify] Classified texts");
   return { results, tier, model: model ? AVATAR_EMOTION_MODEL_ID : null, latencyMs };
+}
+
+/** True while the model downloads or starts: its files are being written or read. */
+export function isAvatarEmotionModelLoading(): boolean {
+  return modelState.status === "loading";
+}
+
+/**
+ * Unloads the model and deletes its files; avatars use keywords until it is downloaded again.
+ * Refused while a download or load is running (the route answers 409): nothing stops that
+ * download, and it would write the files back after they were deleted.
+ */
+export async function removeAvatarEmotionModel(): Promise<void> {
+  if (isAvatarEmotionModelLoading()) throw new Error("The emotion model is downloading or starting");
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = null;
+  const ready = modelState.status === "ready" ? modelState.model : null;
+  modelState = { status: "idle" };
+  loadAttempt += 1;
+  downloading = false;
+  downloadedBytes = 0;
+  if (ready) await ready.dispose().catch(() => {});
+  if (!testLoader) removeLocalEmotionModel();
 }
 
 /** Regression hook: swaps the model loader (null restores the real one) and forgets the loaded model and cache. */

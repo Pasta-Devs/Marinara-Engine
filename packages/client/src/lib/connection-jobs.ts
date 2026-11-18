@@ -269,9 +269,11 @@ export function voiceJobMigration(
 }
 
 /** Built-in sources the Voice job offers: Local PocketTTS, and each direct source with its own key or server. */
-export function voiceSources(config: TTSConfig): TTSSource[] {
+export function voiceSources(config: TTSConfig, builtinInstalled = false): TTSSource[] {
   return TTS_SOURCES.filter((source) => {
     if (source === "pockettts") return true;
+    // The built-in voice model is offered once one of its models is downloaded.
+    if (source === "builtin") return builtinInstalled;
     const profile = source === config.source && !config.connectionId.trim() ? config : config.sourceProfiles?.[source];
     return !!profile?.apiKey || (!!profile?.baseUrl && profile.baseUrl !== TTS_SOURCE_DEFAULTS[source].baseUrl);
   });

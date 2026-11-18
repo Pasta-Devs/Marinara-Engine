@@ -470,11 +470,11 @@ export async function generateIllustratorSceneBackground(
     promptOverride?: string;
     negativePromptOverride?: string;
     /** After the plan is written: a library picture to show instead of painting one (null paints). */
-    reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null;
+    reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null | Promise<string | null>;
   },
 ): Promise<GeneratedIllustratorBackground> {
   const { plan, request } = await prepareIllustratorSceneBackground(args, args.planOverride);
-  const existing = args.reuseExisting?.(plan);
+  const existing = await args.reuseExisting?.(plan);
   if (existing) {
     return { ...plan, filename: existing, url: `/api/backgrounds/file/${encodeURIComponent(existing)}`, reused: true };
   }

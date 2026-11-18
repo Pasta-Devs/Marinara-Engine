@@ -40,6 +40,14 @@ export function useHasDecisionModel(): boolean {
 }
 
 /**
+ * True when the selected decision model reads pictures. Every setting that shows a
+ * decision model pictures is greyed out without one, with a note saying why.
+ */
+export function useDecisionReadsPictures(): boolean {
+  return useDecisionOptions().data?.reads?.includes("image") ?? false;
+}
+
+/**
  * The selected model's operating point, for seeding a new question's threshold.
  *
  * Falls back to the documented default until the options load, so the editor never

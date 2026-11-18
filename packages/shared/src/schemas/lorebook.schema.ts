@@ -5,6 +5,7 @@ import { z } from "zod";
 import { partialInput } from "../utils/zod-input.js";
 import { LIMITS } from "../constants/defaults.js";
 import { avatarCropSchema } from "./avatar-crop.schema.js";
+import { MAX_DECISION_MEDIA_WITHIN, MAX_DECISION_PICTURES } from "../constants/agent-activation.js";
 
 export const LOREBOOK_CATEGORY_VALUES = ["world", "character", "npc", "spellbook", "uncategorized"] as const;
 export type LorebookCategoryValue = (typeof LOREBOOK_CATEGORY_VALUES)[number];
@@ -32,14 +33,35 @@ export const lorebookDecisionModeSchema = z.enum(["off", "require", "trigger"]);
  * An entry's decision activation (#6570) from any source: a stored row, an import or a
  * copy. An unknown mode is `off`, and the statement keeps the 500-character limit.
  */
-export function parseLorebookDecisionActivation(value: { decisionStatement?: unknown; decisionMode?: unknown }): {
+export function parseLorebookDecisionActivation(value: {
+  decisionStatement?: unknown;
+  decisionMode?: unknown;
+  decisionPictures?: unknown;
+  decisionMediaWithin?: unknown;
+}): {
   decisionStatement: string;
   decisionMode: z.infer<typeof lorebookDecisionModeSchema>;
+  decisionPictures: number;
+  decisionMediaWithin: number | null;
 } {
   const mode = lorebookDecisionModeSchema.safeParse(value.decisionMode);
+  const pictures = Number(value.decisionPictures);
+  const within = Number(value.decisionMediaWithin);
   return {
     decisionStatement: typeof value.decisionStatement === "string" ? value.decisionStatement.slice(0, 500) : "",
     decisionMode: mode.success ? mode.data : "off",
+    /** Newest chat pictures the statement is read with, for a decision model that reads pictures. */
+    decisionPictures: Number.isFinite(pictures)
+      ? Math.max(0, Math.min(MAX_DECISION_PICTURES, Math.round(pictures)))
+      : 0,
+    /** Ask only when a picture is in the newest N messages; null asks every time. */
+    decisionMediaWithin:
+      value.decisionMediaWithin !== null &&
+      value.decisionMediaWithin !== undefined &&
+      Number.isFinite(within) &&
+      within >= 1
+        ? Math.min(MAX_DECISION_MEDIA_WITHIN, Math.round(within))
+        : null,
   };
 }
 
@@ -242,6 +264,8 @@ export const createLorebookEntrySchema = z.object({
   /** Decision activation (#6570): the statement, as long as an agent activation question. */
   decisionStatement: z.string().max(500).default(""),
   decisionMode: lorebookDecisionModeSchema.default("off"),
+  decisionPictures: z.number().int().min(0).max(MAX_DECISION_PICTURES).default(0),
+  decisionMediaWithin: z.number().int().min(1).max(MAX_DECISION_MEDIA_WITHIN).nullable().default(null),
 });
 
 export const updateLorebookEntrySchema = partialInput(createLorebookEntrySchema.omit({ lorebookId: true }));

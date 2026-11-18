@@ -140,7 +140,12 @@ for (const limits of [
   assert.equal(provider.calls[0]!.messages, baseMessages, "the existing tracker prompt must remain untouched");
   const { signal, ...requestOptions } = provider.calls[0]!.options;
   assert.ok(signal instanceof AbortSignal, "ordinary tracker calls receive their inactivity cancellation signal");
-  assert.deepEqual(requestOptions, options, "skipped checks must preserve the original generation options");
+  // A tracker also carries its turn on the built-in model (after the reply); other providers ignore it.
+  assert.deepEqual(
+    requestOptions,
+    { ...options, localPriority: "turn" },
+    "skipped checks must preserve the original generation options",
+  );
   assert.deepEqual(pending.sceneCheck, originalSceneCheck, "skipped checks must neither claim nor advance the scene");
   assert.deepEqual(JSON.parse(result.content!), { location: "Road" });
 

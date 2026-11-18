@@ -182,7 +182,13 @@ export const DECISION_AUTO_THINKING_FAILURES = 2;
 
 /** Why an entry in the Decision model dropdown cannot serve right now. */
 export type DecisionUnavailableReason =
-  "no_model" | "not_enabled" | "not_installed" | "unsupported_platform" | "needs_relinking" | "stopped";
+  | "no_model"
+  | "not_enabled"
+  | "not_installed"
+  | "needs_update"
+  | "unsupported_platform"
+  | "needs_relinking"
+  | "stopped";
 
 /** One row of the Decision model dropdown. Unavailable entries are shown, never hidden. */
 export interface DecisionModelOption {
@@ -221,6 +227,12 @@ export interface DecisionModelOptions {
    * model keeps whatever the author chose; this only supplies the starting value.
    */
   calibration: DecisionCalibration;
+  /**
+   * What the selected model reads: always text, and pictures or clips for a built-in
+   * decision model that reads them. Settings that show a model pictures only work, and
+   * are only offered, when this has "image".
+   */
+  reads?: Array<"text" | "image" | "video">;
 }
 
 /**

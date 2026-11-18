@@ -455,6 +455,20 @@ export interface ChatMetadata {
   illustratorVideoMode?: IllustratorVideoMode | null;
   /** Whether Roleplay Illustrator may generate and activate a reusable background after a scene-location change. */
   illustratorAutoBackgroundsEnabled?: boolean;
+  /**
+   * A decision model that reads pictures checks each Illustrator picture, selfie and weather version:
+   * "retry" makes another when it does not match, "best_of_two" always makes two and keeps the better.
+   */
+  pictureCheck?: "off" | "retry" | "best_of_two" | null;
+  /** Extra statements the picture check asks, one per line; a line starting "not:" should be false. */
+  pictureCheckLines?: string | null;
+  /** Illustrator skips a picture the chat's newest picture already shows (decision model that reads pictures). */
+  illustratorSkipShownScene?: boolean;
+  /**
+   * Before painting a new place whose name matches no library background, a decision model that reads
+   * pictures looks at a few library backgrounds with words in common and reuses one that shows the place.
+   */
+  illustratorReuseByLooking?: boolean;
   /** Whether Conversation selfie commands should send the matching character avatar as a reference image. */
   selfieUseAvatarReferences?: boolean;
   /** Whether Conversation selfie commands should append matched character card appearance text to image prompts. */

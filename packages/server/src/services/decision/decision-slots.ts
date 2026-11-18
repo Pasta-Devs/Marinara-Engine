@@ -11,11 +11,14 @@
  * `openai.provider.ts` drops `logprobs` and `top_logprobs` unless a caller sets them
  * explicitly, and the whole method depends on those two fields arriving intact.
  */
+import { DECISION_TIMEOUT_MS } from "@marinara-engine/shared";
 import {
   DECISION_SIDECAR_DEFAULT_SETTINGS,
   findDecisionModel,
   normalizeDecisionThinking,
   type DecisionCalibration,
+  type DecisionInputKind,
+  type DecisionRuntimeKind,
   type DecisionSidecarSettings,
   type SidecarDecisionModelInfo,
   type DecisionLocalSlot,
@@ -30,10 +33,12 @@ import { resolveSidecarRequestModel } from "../sidecar/sidecar-request-model.js"
 import { decisionProcessService } from "../sidecar/decision-process.service.js";
 import {
   decisionRuntimeInstalled,
+  decisionRuntimeNeedsUpdate,
   decisionRuntimeService,
   isDecisionRuntimeSupported,
 } from "../sidecar/decision-runtime.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
+import { decisionServerInstall } from "../sidecar/decision-server-runtimes.js";
 
 /** A slot that is ready to answer, with everything a request needs. */
 export interface ResolvedDecisionSlot {
@@ -64,6 +69,11 @@ export interface ResolvedDecisionSlot {
   /** Measured extra time per question, for a model that answers them one at a time. */
   perQuestionMs?: number;
   /**
+   * The limit for a request's first answer, when this machine's measured speed calls
+   * for more than the fixed default (a model running on the processor).
+   */
+  firstAnswerMs?: number;
+  /**
    * The input limit this model was launched with.
    *
    * A decision model has its own `--max-length` and rejects anything longer with a
@@ -76,6 +86,12 @@ export interface ResolvedDecisionSlot {
    * limit is for answering it, not for waiting behind the others.
    */
   serverSlots: number;
+  /** For Marinara's own decision model: which runtime serves it, and so how media are sent. */
+  runtime?: DecisionRuntimeKind;
+  /** What it reads. Chat pictures and clips go only to a model whose list names them. */
+  inputs?: DecisionInputKind[];
+  /** Extra time a request gets for each picture and each clip it carries. */
+  mediaMs?: { image: number; video: number };
 }
 
 export type DecisionSlotFailure = { slot: DecisionLocalSlot; reason: DecisionUnavailableReason; detail?: string };
@@ -118,16 +134,27 @@ export function describeDecisionSlot(
   }
   // The decision sidecar. Each reason is different and each has a different fix, so
   // they are never collapsed into one "unavailable".
-  if (!isDecisionRuntimeSupported())
-    return {
-      available: false,
-      reason: "unsupported_platform",
-      detail: "Requires Linux with an NVIDIA GPU",
-    };
   const settings = decisionSidecarSettings();
-  if (!settings.enabled) return { available: false, reason: "not_enabled" };
   const model = installedDecisionModel(settings);
-  if (!model || !decisionRuntimeInstalled() || !decisionRuntimeService.modelDownloaded(model))
+  // Open-Jev's Python runtime is Linux x64 only, but the llama.cpp models run nearly
+  // everywhere, so with nothing installed the entry is offered on every platform and
+  // each model's own install is refused where it cannot run. A runtime other than
+  // Open-Jev was refused at install on a machine without a build for it.
+  if (!settings.enabled) return { available: false, reason: "not_enabled" };
+  if (model?.runtime === "open_jev_torch" && !isDecisionRuntimeSupported())
+    return { available: false, reason: "unsupported_platform", detail: "Requires Linux with an NVIDIA GPU" };
+  if (
+    model?.runtime === "open_jev_torch" &&
+    decisionRuntimeNeedsUpdate() &&
+    decisionRuntimeService.modelDownloaded(model)
+  )
+    return { available: false, reason: "needs_update" };
+  const runtimeHere = model
+    ? model.runtime === "open_jev_torch"
+      ? decisionRuntimeInstalled()
+      : decisionServerInstall(model.runtime) !== null
+    : false;
+  if (!model || !runtimeHere || !decisionRuntimeService.modelDownloaded(model))
     return { available: false, reason: "not_installed" };
   return { available: true, label: model.label };
 }
@@ -237,7 +264,7 @@ export async function resolveDecisionSlot(
         label: description.label,
         thinking: primaryThinking(),
         protocol: "chat_logprobs",
-        serverSlots: sidecarModelService.getConfig().maxParallelJobs,
+        serverSlots: sidecarProcessService.getEffectiveParallelJobs(),
       },
     };
   }
@@ -264,7 +291,9 @@ export async function resolveDecisionSlot(
         label: model.label,
         protocol: "system_one",
         calibration: model.calibration,
-        perQuestionMs: model.perQuestionMs,
+        ...decisionTiming(model),
+        runtime: model.runtime,
+        inputs: model.inputs ?? ["text"],
         maxLengthTokens: model.maxLengthTokens,
         // A purpose-built decision model never reasons: it scores candidates in one
         // forward pass and has no text to think in.
@@ -334,4 +363,47 @@ export function setDecisionSlotThinking(slot: DecisionLocalSlot, thinking: Decis
   // which is a real bug this had once already.
   if (slot === "utility") utilitySidecarService.setDecisionThinking(thinking);
   else if (slot === "primary") sidecarModelService.setDecisionThinking(thinking);
+}
+
+/**
+ * Request limits that follow this machine's measured speed.
+ *
+ * Open-Jev runs on an NVIDIA card and answers in tens of milliseconds, so it keeps the
+ * fixed limit and its curated per-question cost. A GGUF model may be on the processor,
+ * where reading a long scene takes a minute, and a fixed four-second limit would time
+ * out every gate. Its limits come from the reading speed the process timed at start:
+ * the first answer reads the whole scene, up to the model's input limit; later ones
+ * reuse most of it from the prompt cache.
+ */
+export function decisionTiming(model: SidecarDecisionModelInfo): {
+  perQuestionMs?: number;
+  firstAnswerMs?: number;
+  mediaMs?: { image: number; video: number };
+} {
+  if (model.runtime === "open_jev_torch") return model.perQuestionMs ? { perQuestionMs: model.perQuestionMs } : {};
+  const msPerToken = decisionProcessService.measuredMsPerToken();
+  const reads = model.inputs ?? [];
+  const clamp = (value: number, low: number, high: number) => Math.round(Math.min(high, Math.max(low, value)));
+  // A picture scaled to 512 px read as about 550 tokens on d1 and 180 on Valen; a clip's
+  // four frames about 460 on Valen, plus decoding. Generous on both, as the first
+  // answer is: a gate that times out reads as "no".
+  const mediaMs =
+    reads.includes("image") || reads.includes("video")
+      ? msPerToken === null
+        ? { image: 30_000, video: 60_000 }
+        : {
+            image: clamp(msPerToken * 700 * 1.5 + 2_000, 4_000, 120_000),
+            video: clamp(msPerToken * 1_200 * 1.5 + 5_000, 8_000, 180_000),
+          }
+      : undefined;
+  if (msPerToken === null)
+    return { ...(model.perQuestionMs ? { perQuestionMs: model.perQuestionMs } : {}), ...(mediaMs ? { mediaMs } : {}) };
+  return {
+    ...(mediaMs ? { mediaMs } : {}),
+    firstAnswerMs: clamp(msPerToken * model.maxLengthTokens * 1.25 + 2_000, DECISION_TIMEOUT_MS.sidecar, 180_000),
+    // A model with recurrent layers (JevK5, d1) rewinds its cache to the last saved
+    // checkpoint rather than to the exact end of the scene, so each further question
+    // re-reads a few hundred tokens: about 520 on JevK5 4B, measured 2026-11-18.
+    perQuestionMs: model.perQuestionMs ?? clamp(msPerToken * 800 + 500, 250, 30_000),
+  };
 }

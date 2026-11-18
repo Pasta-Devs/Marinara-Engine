@@ -313,6 +313,10 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
   "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves
+  "pictureCheck", // Illustrator and selfies: a decision model that reads pictures checks each one
+  "pictureCheckLines", // Illustrator and selfies: what else the picture check asks
+  "illustratorSkipShownScene", // Illustrator: skip a picture the newest one already shows
+  "illustratorReuseByLooking", // Illustrator: reuse a library background that looks like the place
   "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval

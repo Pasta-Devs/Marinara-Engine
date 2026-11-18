@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
 // React Query: the managed decision sidecar
 // ──────────────────────────────────────────────
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DecisionSidecarSettings, SidecarLoadAssessment } from "@marinara-engine/shared";
+import type { DecisionInstallProgress, DecisionSidecarSettings, SidecarLoadAssessment } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { decisionKeys } from "./use-decision-model";
 
@@ -13,6 +14,18 @@ export interface DecisionSidecarModel {
   downloadSizeBytes: number;
   diskBytes: number;
   vramBytes: number;
+  /** What `vramBytes` is weighed against: an NVIDIA card, system memory, or either (llama.cpp). */
+  memory?: "nvidia" | "cpu" | "llama";
+  runtime?: string;
+  /** Plain words for the languages it was checked on, when known. */
+  languages?: string | null;
+  /** System One question types it answers: noul, choice, score, bbox. */
+  questionTypes?: string[];
+  /** What it reads here (text, image, video), and what its other release adds. */
+  inputs?: string[];
+  extraInputs?: string[];
+  /** Seconds, from the speed it was timed at on this computer; null before it has run here. */
+  speed?: { sceneSeconds: number; pictureSeconds?: number; clipSeconds?: number } | null;
   licenses: string[];
   downloaded: boolean;
   preflight: {
@@ -29,6 +42,8 @@ export interface DecisionSidecarStatus {
   unsupportedReason: string | null;
   settings: DecisionSidecarSettings;
   runtimeInstalled: boolean;
+  /** On disk and was working, but an engine update changed its uv, Python or lock. */
+  runtimeNeedsUpdate?: boolean;
   /** Whether the installed model's weights are on disk and whole; null with no model installed. */
   installedModelDownloaded: boolean | null;
   process: { running: boolean; baseUrl: string | null; modelId: string | null; error: string | null };
@@ -64,6 +79,9 @@ export function useDecisionSidecar(enabled = true) {
 }
 
 /** Anything that changes the sidecar also changes what the model dropdown offers. */
+/** Not under the sidecar key: invalidating that after every change would restart its polling needlessly. */
+const decisionInstallProgressKey = ["decision", "install-progress"] as const;
+
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: decisionSidecarKey });
   void qc.invalidateQueries({ queryKey: decisionKeys.options() });
@@ -83,6 +101,43 @@ export function useInstallDecisionModel() {
   return useMutation({
     mutationFn: (modelId: string) =>
       api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/install", { modelId }),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+/**
+ * What an install is downloading right now. Read once when the page opens, so a
+ * download started earlier still shows its bar, then every 1.5 s while one runs.
+ */
+export function useDecisionInstallProgress(installing: boolean) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: decisionInstallProgressKey,
+    queryFn: () => api.get<{ progress: DecisionInstallProgress | null }>("/decision/install-progress"),
+    refetchInterval: (state) => (installing || state.state.data?.progress ? 1500 : false),
+  });
+  // When a download this page did not start finishes, nothing else re-reads the model
+  // list, and the page would still offer to download what is now installed.
+  const active = !!query.data?.progress;
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (wasActive.current && !active) invalidate(qc);
+    wasActive.current = active;
+  }, [active, qc]);
+  return query;
+}
+
+export function useCancelDecisionInstall() {
+  return useMutation({
+    mutationFn: () => api.post<{ cancelled: boolean }>("/decision/sidecar/cancel-install", {}),
+  });
+}
+
+/** Rebuild a runtime an engine update left behind; the downloaded model stays. */
+export function useUpdateDecisionRuntime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ updated: boolean }>("/decision/sidecar/update-runtime", {}),
     onSuccess: () => invalidate(qc),
   });
 }
@@ -108,7 +163,11 @@ export function useInspectDecisionRepo() {
           downloadSizeBytes: number;
           diskBytes: number;
           vramBytes: number;
+          memory?: "nvidia" | "cpu" | "llama";
           licenses: string[];
+          questionTypes?: string[];
+          inputs?: string[];
+          extraInputs?: string[];
           artifacts: Array<{ repoId: string; revision: string }>;
         };
         preflight?: DecisionSidecarModel["preflight"];

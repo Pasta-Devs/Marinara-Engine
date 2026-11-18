@@ -122,6 +122,19 @@ A clip with no picture of its own describes everyone it names, including your pe
 
 Re-running Illustrator from a message's **Illustrate** button follows **Illustrator makes** and **First frame** too.
 
+## Check pictures with a decision model
+
+With a built-in [decision model that reads pictures](../connections/decision-models.md#features-that-look-at-pictures) (Liquid d1, Valen or Winnow), the Illustrator card offers three more settings. All are off by default, and greyed out with an ⓘ without such a model.
+
+- **Picture check** looks at each new picture and selfie, and checks that it shows what was asked. A selfie is also compared with the character's avatar. **Make another if it doesn't match** draws once more after a miss. **Always make two, keep the better** draws two and keeps the better one. Each extra picture is another image generation.
+- **Also check** (under **Picture check**) adds your own checks, one per line, up to 6, such as `Kaelen has short red hair`. Start a line with `not:` for something the picture must not show, such as `not: The picture has writing or a watermark`.
+- **Skip a picture the newest one already shows** compares the newest picture in the chat with what is about to be drawn, and skips a repeat. Pictures you ask for are always made.
+- **Reuse a library background that looks like the place** helps **Generate Scene Backgrounds**: when no library background is named after a new place, the decision model looks at up to 4 library backgrounds that share a word with the place and shows one that matches instead of painting a new one.
+
+In a Conversation chat, **Picture check** is on the Illustrator card for selfies.
+
+A check that cannot run counts as a pass, so the picture is kept.
+
 ## Multiple characters on NovelAI
 
 When the Illustrator's image model is NovelAI on a V4, V4.5 or V5 model, the prompt writer adds one caption per visible character. Each caption has that character's appearance, expression, pose and rough position in the frame. Marinara checks the captions against the scene's character list, drops any it cannot match, and sends the rest to NovelAI as native character prompts next to the main prompt. This keeps hair, clothes and other traits from mixing between characters. Images from **Illustrate** and from a character's `[illustrate]` command get the same captions.

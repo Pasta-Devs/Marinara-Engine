@@ -283,6 +283,7 @@ A condition can also ask your Decision model about the scene, for example `{{#if
 - `sticky:3 cooldown:5` keeps a yes for three turns, then rests it for five. See [Sticky and cooldown](conditional-prompts.md#sticky-and-cooldown).
 - `until:"..."` or `while:"..."` keeps a yes for as long as a second statement allows. See [Until and while](conditional-prompts.md#until-and-while).
 - `every:3` asks a statement only every three turns. See [Checking every few turns](conditional-prompts.md#checking-every-few-turns).
+- `pictures:1`, `clips:1` and `media_within:3` let a built-in model that reads them look at the chat's newest pictures and clips, and wait for one. See [Pictures and clips](conditional-prompts.md#pictures-and-clips).
 - `priority:high` or `priority:low` chooses which statements fit within a prompt plan. See [Priority](conditional-prompts.md#priority) and [Limits and cost](conditional-prompts.md#limits-and-cost).
 
 ## Common mistakes

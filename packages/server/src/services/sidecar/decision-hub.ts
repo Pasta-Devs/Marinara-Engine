@@ -77,14 +77,15 @@ export async function listHubFiles(repoId: string, revision: string, signal?: Ab
 }
 
 /** Formats the runtime's loaders read as data, never as code. */
-const LOADABLE_EXTENSIONS = new Set([".safetensors", ".json", ".txt", ".jinja", ".md", ".model", ".tiktoken"]);
+const LOADABLE_EXTENSIONS = new Set([".safetensors", ".gguf", ".json", ".txt", ".jinja", ".md", ".model", ".tiktoken"]);
 const LOADABLE_NAMES = /^(?:LICENSE[\w.-]*|NOTICE[\w.-]*|\.gitattributes)$/u;
 
 /**
  * Would the runtime load this file as data?
  *
  * An allowlist, because the file set of a pasted repository is chosen by whoever
- * published it, and the loader hands every file it finds to `from_pretrained`. Weights
+ * published it, and the loader hands every file it finds to `from_pretrained`. GGUF is
+ * the llama.cpp runtimes' format: tensors and metadata, parsed, never executed. Weights
  * in pickle formats (`.bin`, `.pt`, `.pkl`) and any Python are refused rather than
  * downloaded. The one exception is the scalar decision head, `package/checkpoint/head.pt`,
  * which the pinned loader reads with `torch.load(..., weights_only=True)`: the mode
@@ -92,6 +93,10 @@ const LOADABLE_NAMES = /^(?:LICENSE[\w.-]*|NOTICE[\w.-]*|\.gitattributes)$/u;
  */
 export function isLoadableArtifactFile(path: string): boolean {
   if (path === "package/checkpoint/head.pt") return true;
+  // Valen's full release: ONNX graphs and their external weights, read by ONNX Runtime
+  // as data. Only in the package's own `onnx/` folder, and only the curated entries
+  // install with that runtime; a pasted repository cannot choose it.
+  if (/^onnx\/[A-Za-z0-9._-]+\.(?:onnx|data)$/u.test(path)) return true;
   const name = path.slice(path.lastIndexOf("/") + 1);
   if (LOADABLE_NAMES.test(name)) return true;
   const dot = name.lastIndexOf(".");

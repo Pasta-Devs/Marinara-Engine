@@ -31,6 +31,8 @@ import {
   recordThinkingAnswer,
 } from "./decision-thinking-cache.js";
 import { whenDecisionServerFree } from "./decision-server-queue.js";
+import { runOnMainModel } from "../sidecar/main-model-turns.js";
+import { localModelManager } from "../sidecar/local-model-manager.js";
 import { type ResolvedDecisionSlot } from "./decision-slots.js";
 import { isDirectAnswer, readLogprobAnswer, readWordAnswer, type TopLogprob } from "./logprob-answer.js";
 import { isRefusedFetch, postDecisionRequest, type NoulQuestion } from "./system-one.client.js";
@@ -93,6 +95,18 @@ export function connectionChatTarget(id: string, label: string, connection: Deci
 }
 
 /** Every caller asking the same server shares its queue. */
+/**
+ * A question to one of Marinara's own models takes its turn there (the built-in model
+ * ranks it by the caller's context) and counts as use, so the model is not unloaded for
+ * being idle mid-question. A chat connection is left alone.
+ */
+function onLocalSlot<T>(slot: ChatDecisionTarget, signal: AbortSignal | undefined, work: () => Promise<T>): Promise<T> {
+  if (slot.connection) return work();
+  if (slot.modelIdentity.startsWith("primary:")) return runOnMainModel(undefined, signal, work);
+  if (slot.modelIdentity.startsWith("utility:")) return localModelManager.track("utility", work);
+  return work();
+}
+
 function serverKey(slot: ChatDecisionTarget): string {
   return slot.connection?.endpoint ?? slot.baseUrl;
 }
@@ -294,7 +308,7 @@ export async function askSidecarNoulQuestions(
       // Each statement's time limit starts once the server can work on it, not while it
       // waits behind the others for one of llama-server's slots.
       const probability = await whenDecisionServerFree(serverKey(args.slot), args.slot.serverSlots, args.signal, () =>
-        askQuestion(args.slot, args.state, question, args.signal, args),
+        onLocalSlot(args.slot, args.signal, () => askQuestion(args.slot, args.state, question, args.signal, args)),
       );
       if (probability !== null) answers.set(question.id, probability);
     }),
@@ -316,7 +330,9 @@ export async function probeDecisionSlot(
 }> {
   // Timed from when the server can take it, so a Test clicked during a busy turn
   // reports how long the model takes to answer, not how long it queued.
-  return whenDecisionServerFree(serverKey(slot), slot.serverSlots, signal, () => probeOnce(slot, signal));
+  return whenDecisionServerFree(serverKey(slot), slot.serverSlots, signal, () =>
+    onLocalSlot(slot, signal, () => probeOnce(slot, signal)),
+  );
 }
 
 async function probeOnce(slot: ChatDecisionTarget, signal: AbortSignal | undefined) {

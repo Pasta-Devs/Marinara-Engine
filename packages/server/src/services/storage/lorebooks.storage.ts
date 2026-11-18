@@ -1185,6 +1185,10 @@ export function createLorebooksStorage(db: DB) {
       if (input.decisionStatement !== undefined)
         updates.decisionStatement = parseLorebookDecisionActivation(input).decisionStatement;
       if (input.decisionMode !== undefined) updates.decisionMode = parseLorebookDecisionActivation(input).decisionMode;
+      if (input.decisionPictures !== undefined)
+        updates.decisionPictures = parseLorebookDecisionActivation(input).decisionPictures;
+      if (input.decisionMediaWithin !== undefined)
+        updates.decisionMediaWithin = parseLorebookDecisionActivation(input).decisionMediaWithin;
       if (shouldClearEmbedding) {
         updates.embedding = null;
         updates.embeddingSpaceId = null;

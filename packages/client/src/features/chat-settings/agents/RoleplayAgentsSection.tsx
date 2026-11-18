@@ -52,6 +52,7 @@ import { Select } from "../../../components/ui/Select";
 import type { MusicProvider } from "../../../components/chat/AgentAddSetupFields";
 import { NeedsModelChip } from "../../../components/connections/NeedsModelChip";
 import { RoleplayCommandsSettings } from "./RoleplayCommandsSettings";
+import { PictureCheckFields } from "../PictureCheckFields";
 import { ChatSettingsSection as Section } from "../ChatSettingsSection";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { cn } from "../../../lib/utils";
@@ -742,6 +743,7 @@ export function RoleplayAgentsSection({
                   enabled={illustratorAutoBackgroundsEnabled}
                   onToggle={toggleIllustratorAutoBackgrounds}
                 />
+                <PictureCheckFields chatId={chat.id} metadata={metadata} illustrator />
                 <div className="flex flex-col gap-1">
                   <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                     {localizeUi("ui.chat.chatsettingsdrawer.illustratorMakes")}
