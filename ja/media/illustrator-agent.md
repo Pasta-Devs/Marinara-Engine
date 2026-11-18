@@ -76,6 +76,15 @@ Game Modeには、**Prompt Mode**と**Prompt Model**の項目がありません�
 
 **Send Avatar References**(アバターを参照画像として送信)は、キャラクターとペルソナのアバター、またはそのスプライトを参照画像として画像サービスに送り、モデルが顔立ちや衣装を真似できるようにします。参照画像を受け付けないサービスもあります。Roleplayのチャットでは、**Attach Card Appearance**と同じような一覧になります。動画を含めると、**First frame**(開始フレーム)が**Prompt only**のクリップはキャラクターのアバターかスプライトから始まり、選択肢の表示は**Prompt only (avatar from Send Avatar References)**になります。
 
+画像の**Send Avatar References**がオンの場合、**Reference pictures go to**(参照画像の送信先)で画像を送る相手を選びます。
+
+- **Automatic**(自動、デフォルト): 画像モデルの接続が参照画像を受け付けるなら画像モデルへ、そうでなければプロンプトを書くモデルへ送ります。
+- **Image model**(画像モデル): 画像モデルだけに送ります。参照画像を受け付けない接続には送りません。
+- **Prompt writer**(プロンプトを書くモデル): Illustratorのプロンプトを書くモデルだけに送ります。そのモデルが画像を見て、読み取った内容を画像プロンプトに記述します。
+- **Both**(両方): 画像モデルとプロンプトを書くモデルに送ります。
+
+NovelAI V5のように参照画像を使わない画像モデルでも、プロンプトを書くモデルを通すことで対応できます。書き手には画像を読み取れるモデルが必要です。書き手が画像を拒否した場合は、画像なしでリクエストを送り直し、サーバーを再起動するまで、その書き手には画像を送りません。書き手の接続が画像を読み取れないとされている場合も、画像は送りません。書き手への画像送信は、実行するたびにトークンを消費します。送る画像は最大4枚で、`[illustrate: characters="…"]`で指定したカード、指定がなければチャットのアクティブなキャラクターとペルソナの画像です。**What to carry over from the pictures**(画像から引き継ぐ内容)では、画風は引き継がず見た目だけにするなど、書き手が何を写し取るかを指定します。Roleplayのチャットでは、**Send Avatar References**の下にある**Reference pictures go to**を個別に設定できます。
+
 ## 絵を描く頻度を調整する
 
 Illustratorのカードには、全体の設定画面を開く**Open Setup**(設定を開く)ボタンがあります。そこで、実行間隔のデフォルトを設定したり、専用の画像モデルを指定したりします。
@@ -114,6 +123,19 @@ Roleplayのチャットでは、**Chat Settings → Agents → Illustrator**(チ
 独自の画像がないクリップは、ペルソナを含め、名前を挙げた全員を記述します。アバターの開始フレームは、最初に名前が挙がった人物から始まります。
 
 メッセージの**Illustrate**ボタンからIllustratorを再実行するときも、**Illustrator makes**と**First frame**に従います。
+
+## 判定モデルで画像を確認する
+
+内蔵の[画像を読み取れる判定モデル](../connections/decision-models.md#features-that-look-at-pictures)(Liquid d1、Valen、Winnow)があると、Illustratorのカードに3つの設定が追加されます。すべてデフォルトではオフで、対応するモデルがない場合はⓘ付きのグレー表示になります。
+
+- **Picture check**(画像の確認)は、新しい画像や自撮り写真を1枚ずつ見て、依頼した内容が描かれているかを確認します。自撮り写真はキャラクターのアバターとも比較します。**Make another if it doesn't match**(合っていなければ別の画像を作る)は、不一致の場合にもう1枚描きます。**Always make two, keep the better**(常に2枚作り、良い方を残す)は、2枚描いて良いほうを残します。画像を追加するたびに、もう1回の画像生成が必要です。
+- **Also check**(追加の確認項目、**Picture check**の下)では、`Kaelen has short red hair`のような独自の確認項目を1行に1つ、最大6つ追加できます。画像に含めたくないものは、行頭に`not:`を付けて、`not: The picture has writing or a watermark`のように書いてください。
+- **Skip a picture the newest one already shows**(最新の画像にすでに描かれている内容は描かない)は、チャットの最新の画像とこれから描く内容を比較し、同じ内容の繰り返しを省きます。手動で依頼した画像は必ず作成します。
+- **Reuse a library background that looks like the place**(場所の見た目に合う背景をライブラリーから再利用)は、**Generate Scene Backgrounds**(シーンの背景を生成)を補助します。新しい場所と同じ名前の背景がライブラリーにない場合、判定モデルが、その場所と名前に共通の単語を含む背景を最大4枚確認し、合うものがあれば、新しく描かずにその背景を表示します。
+
+Conversationのチャットでは、自撮り写真用の**Picture check**がIllustratorのカードにあります。
+
+実行できない確認は合格として扱われるため、画像は残ります。
 
 ## NovelAIで複数のキャラクターを描く
 

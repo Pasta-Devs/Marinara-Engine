@@ -54,8 +54,8 @@
     },
     {
       "path": "agents/custom-agents.md",
-      "sha256": "0207e38e37ae153e3ad39cbebd30c76d1469c99f95095596292095f15477abdc",
-      "bytes": 17808
+      "sha256": "5290678b1f16f9d942389ac9e2f6d9c4833b37501b754a113db49ee45e32dcef",
+      "bytes": 19370
     },
     {
       "path": "agents/hierarchical-maps.md",
@@ -154,8 +154,8 @@
     },
     {
       "path": "characters/sprites.md",
-      "sha256": "840ec0f0994c1912bdff87655dd7c9537870f2815f8551537a25eef6a309dd05",
-      "bytes": 14797
+      "sha256": "4e355d1c78ec0de9288656101e5a251b3624949e91d2b96123f73355886b41ba",
+      "bytes": 15251
     },
     {
       "path": "chats/branches.md",
@@ -229,8 +229,8 @@
     },
     {
       "path": "connections/decision-models.md",
-      "sha256": "4b6f153562443638545799864aaf3b9273a13049f7041ca6f1657167bca483a0",
-      "bytes": 30654
+      "sha256": "32c57cbcaec535c57b6321fd935eaaa1f41f8ae679936c0fca5232ba0ac7e034",
+      "bytes": 40817
     },
     {
       "path": "connections/local-model.md",
@@ -614,8 +614,8 @@
     },
     {
       "path": "lorebooks/entries.md",
-      "sha256": "9064b0042ffb6654c0ee4c316fcf13eeff9962c89da86c2ed6119fddea0a841c",
-      "bytes": 19714
+      "sha256": "e9d8b4932124b629e9d9672ac212a3916e2baf5336beb26ebd3ebdf0cc75ab78",
+      "bytes": 20760
     },
     {
       "path": "lorebooks/import-export.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "ec6691b37445322dfa5d97c28d6c16b3dcd1825fb9f1c4db4905e445907ca73d",
-      "bytes": 13918
+      "sha256": "7d0a7cd004bc4ece64425ff006a1a6b64e198ffd1c32dc79837b917bee8f86b1",
+      "bytes": 17095
     },
     {
       "path": "media/image-providers.md",
@@ -689,8 +689,8 @@
     },
     {
       "path": "prompts/conditional-prompts.md",
-      "sha256": "44900f8c9ae038cfd83b5d62e940e2123070cbee1d99b185c46174883f4bf78b",
-      "bytes": 19743
+      "sha256": "c9b59df2cedead06cb39816d64c8df92edc752a08633a0f061bfce03de423a61",
+      "bytes": 21225
     },
     {
       "path": "prompts/generation-parameters.md",
@@ -699,8 +699,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "2f974f59a278ba46e282d071f6a1e0e7ab314c71bff26be956088abf0323c1b8",
-      "bytes": 23694
+      "sha256": "0e35049e15ceca222d627dd6e9d7841822a62eddddae74d5b5ec68dc31556ec3",
+      "bytes": 24138
     },
     {
       "path": "prompts/preset-variables.md",

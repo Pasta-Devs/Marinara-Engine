@@ -106,7 +106,8 @@ Expression Engine 既能看到表情（`happy`），也能看到完整名称（`
 5. 填写 **Appearance Description**(外观描述)。这一项必填。
 6. 可以开启 **Transparent sprite background**(透明立绘背景)。Marinara 会让背景透明。如果服务做不到，Marinara 会画一层和 **Appearance Description** 里的颜色都不同的纯绿色、洋红或青色背景，然后再把它去掉。
 7. 设置 **Expression Count**(表情数量)（全身图则是 **Pose Count**(姿势数量)），并挑选要生成哪些表情或姿势。
-8. 点击 **Generate**(生成)。
+8. 可选，仅限表情：勾选 **Flag faces that don't match their expression**(标记不符合指定表情的面部图片)。[能读取图片的判定模型](../connections/decision-models.md#features-that-look-at-pictures)会在每张脸画好后查看它，用 **Check**(检查) 标记可能没有体现指定表情的图片，方便取消勾选或重新绘制。每张脸需要一点时间。没有这类模型时，复选框会显示为灰色。
+9. 点击 **Generate**(生成)。
 
 图片返回后，可以逐张开启或关闭、改名和裁剪。然后把选中的图片存进这个角色的立绘。如果这个分类里恰好只有一张已保存的立绘使用生成出来的标签，保存时会替换它的图片，并保留它的文件夹和句柄。已经改名、不再用这个标签的立绘会被保留。不同文件夹里有重复标签时，要手动替换你想替换的那张立绘。
 

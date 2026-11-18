@@ -8,7 +8,7 @@ Quand Marinara construit le texte qu'il envoie à l'IA, il remplace chaque `{{ta
 
 Tu peux saisir des macros à ces endroits :
 
-- Les champs de personnage dans l'éditeur **Character Editor** (éditeur de personnage) : Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, et le champ **Depth Prompt**.
+- Les champs de personnage dans l'éditeur **Character Editor** (éditeur de personnage) : Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions, et le champ **Depth Prompt**.
 - Les champs de persona dans l'éditeur **Persona Editor** (éditeur de persona) – les mêmes champs de fiche.
 - Les champs Description et Content d'une entrée de lorebook.
 - Les sections d'un preset de prompt dans l'éditeur **Preset Editor** (éditeur de presets).
@@ -35,12 +35,13 @@ Ces macros récupèrent les noms et les champs de fiche de celui qui parle et du
 | `{{charNamePhonetic}}` | Le champ Phonetic name du personnage, ou `{{char}}` s'il est vide. |
 | `{{characters}}` | Tous les personnages du chat, y compris les personnages inactifs, séparés par des virgules. Cette macro ajoute uniquement les noms ; elle n'ajoute pas les fiches des personnages inactifs au prompt. |
 | `{{group}}` | Tous les autres personnages actifs du chat de groupe, sauf celui qui répond. Le persona ne figure pas dans cette liste de personnages. |
-| `{{persona}}` | Les champs Description, Personality, Backstory, Appearance et Scenario de ton persona, séparés par des retours à la ligne. |
+| `{{persona}}` | Les champs Description, Personality, Backstory, Appearance et Scenario de ton persona, séparés par des retours à la ligne. Public Face n'est pas inclus. |
 | `{{personaDescription}}` | Le champ Description de ton persona. |
 | `{{personaPersonality}}` | Le champ Personality de ton persona. |
 | `{{personaBackstory}}` | Le champ Backstory de ton persona. |
 | `{{personaAppearance}}` | Le champ Appearance de ton persona. |
 | `{{personaScenario}}` | Le champ Scenario de ton persona. |
+| `{{personaPublicFace}}` | Le champ Public Face de ton persona : ce que les autres pourraient savoir de toi. |
 
 Les macros de champ de personnage lisent la fiche du personnage en cours :
 
@@ -51,6 +52,7 @@ Les macros de champ de personnage lisent la fiche du personnage en cours :
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Une condition peut aussi interroger ton Decision model (modèle de décision) su
 - `sticky:3 cooldown:5` maintient un oui pendant trois tours, puis le met en pause pendant cinq. Voir [Sticky et cooldown](conditional-prompts.md#sticky-and-cooldown).
 - `until:"..."` ou `while:"..."` maintient un oui aussi longtemps qu'un second énoncé le permet. Voir [Until et while](conditional-prompts.md#until-and-while).
 - `every:3` n'interroge un énoncé que tous les trois tours. Voir [Vérifier tous les quelques tours](conditional-prompts.md#checking-every-few-turns).
+- `pictures:1`, `clips:1` et `media_within:3` permettent à un modèle intégré qui les lit d'examiner les dernières images et les derniers clips du chat, et d'attendre leur présence. Voir [Images et clips](conditional-prompts.md#pictures-and-clips).
 - `priority:high` ou `priority:low` choisit les énoncés qui tiennent dans un plan de prompt. Voir [Priorité](conditional-prompts.md#priority) et [Limites et coût](conditional-prompts.md#limits-and-cost).
 
 ## Erreurs fréquentes

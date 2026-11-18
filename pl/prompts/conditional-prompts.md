@@ -142,6 +142,8 @@ Warunek może zapytać model decyzyjny o to, co dzieje się na czacie. Model dec
 
 Zanim zaczniesz: wybierz model decyzyjny w **Decision model** (model decyzyjny) w panelu **Connections** (Połączenia). Czym on jest i jak go wybrać, wyjaśnia przewodnik [Modele decyzyjne](../connections/decision-models.md). Aby zdecydować, czy aktywuje się cały wpis lorebooka, użyj zamiast tego pola [Decision](../lorebooks/entries.md#decision-activation) wpisu.
 
+Może odpowiadać tak lub nie (`decision:`) albo wybierać jedną z kilku odpowiedzi (`decision_choice:`), a model wbudowany odczytujący obrazy może też oglądać obrazy i klipy z czatu. Rodzaje odpowiedzi i więcej przykładów znajdziesz w sekcji [Na co może odpowiedzieć model decyzyjny](../connections/decision-models.md#what-a-decision-model-can-answer).
+
 Pomysły: opisz nowe miejsce tylko wtedy, gdy scena się przeniosła, dołączaj zasady tempa walki tylko podczas walki, wstrzymaj eskalację w presecie powolnego rozwoju relacji albo w bloku grupowym każ odpowiadać bezpośrednio tylko tej postaci, do której ktoś się zwrócił.
 
 ### Tak lub nie: `decision:`
@@ -254,6 +256,20 @@ Gdy plan promptu zawiera więcej stwierdzeń, niż pozwala limit **Decision stat
 - Stwierdzenia ponad limit oznaczają nie, począwszy od najniższego priorytetu, a Peek Prompt je wymienia.
 - Stwierdzenie zapisane w kilku miejscach używa najwyższego priorytetu.
 - Najpierw planowane są własne stwierdzenia promptu (preset, karty, persona, notatki autora). Stwierdzenia lorebooków wykorzystują miejsca, które zostały, niezależnie od priorytetu.
+
+### Obrazy i klipy
+
+Wbudowany model decyzyjny odczytujący obrazy (Liquid d1, Valen, Winnow) może też oglądać obrazy i klipy z czatu. Robi to tylko na żądanie stwierdzenia: `pictures:N` wysyła N najnowszych obrazów (do 3), a `clips:1` wysyła najnowszy klip (tylko pełna wersja Valen). Bez tych modyfikatorów wysyłany jest tylko tekst.
+
+```text
+{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}
+{{#if decision:"The clip ends somewhere new" clips:1 media_within:2}}...{{/if}}
+```
+
+- Obrazy to przesłane pliki, selfie z galerii i ilustracje; klipy to wygenerowane wideo scen. Każdy obraz i klip jest najpierw pomniejszany.
+- Każdy obraz lub klip spowalnia ocenę stwierdzenia. Po pierwszym uruchomieniu modelu na twoim komputerze jego szczegóły pokazują, ile czasu zajmuje przetworzenie jednego obrazu lub klipu.
+- `media_within:N` zadaje stwierdzenie tylko wtedy, gdy w jednej z N najnowszych wiadomości jest obraz (albo klip, przy `clips:`). W pozostałych turach jest ono odczytywane jako nie i nie jest zadawane.
+- Stwierdzenia proszące o te same obrazy współdzielą jedno żądanie. Model odczytujący tylko tekst ani hostowane połączenie decyzyjne nigdy nie otrzymują obrazów.
 
 Wszystkie modyfikatory można łączyć w dowolnej kolejności: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
 

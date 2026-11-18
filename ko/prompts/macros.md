@@ -8,7 +8,7 @@ Marinara는 AI에 보낼 텍스트를 만들 때 각 `{{tag}}`를 현재 값으�
 
 다음 위치에서 매크로를 입력할 수 있습니다.
 
-- **Character Editor**(캐릭터 편집기)의 캐릭터 필드: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, 그리고 **Depth Prompt**(깊이 주입 프롬프트).
+- **Character Editor**(캐릭터 편집기)의 캐릭터 필드: Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions, 그리고 **Depth Prompt**(깊이 주입 프롬프트).
 - **Persona Editor**(페르소나 편집기)의 페르소나 필드(카드 필드가 같습니다).
 - 로어북 항목의 Description 및 Content 필드.
 - **Preset Editor**(프리셋 편집기)의 프롬프트 프리셋 섹션.
@@ -35,12 +35,13 @@ Marinara는 AI에 보낼 텍스트를 만들 때 각 `{{tag}}`를 현재 값으�
 | `{{charNamePhonetic}}` | 캐릭터의 Phonetic 이름. 비어 있으면 `{{char}}`입니다. |
 | `{{characters}}` | 비활성화한 캐릭터를 포함해 채팅에 있는 모든 캐릭터를 쉼표로 이어 붙입니다. 이 매크로는 이름만 추가하며, 비활성화한 캐릭터 카드를 프롬프트에 추가하지 않습니다. |
 | `{{group}}` | 그룹 채팅에서 지금 응답 중인 캐릭터를 뺀 나머지 활성 캐릭터 전부. 페르소나는 이 캐릭터 명단에 포함되지 않습니다. |
-| `{{persona}}` | 페르소나의 Description, Personality, Backstory, Appearance, Scenario를 줄바꿈으로 이어 붙입니다. |
+| `{{persona}}` | 페르소나의 Description, Personality, Backstory, Appearance, Scenario를 줄바꿈으로 이어 붙입니다. Public Face는 포함하지 않습니다. |
 | `{{personaDescription}}` | 페르소나의 Description 필드. |
 | `{{personaPersonality}}` | 페르소나의 Personality 필드. |
 | `{{personaBackstory}}` | 페르소나의 Backstory 필드. |
 | `{{personaAppearance}}` | 페르소나의 Appearance 필드. |
 | `{{personaScenario}}` | 페르소나의 Scenario 필드. |
+| `{{personaPublicFace}}` | 페르소나의 Public Face 필드. 다른 사람이 나에 대해 알 수 있는 정보입니다. |
 
 다음 캐릭터 필드 매크로는 현재 캐릭터의 카드를 읽습니다.
 
@@ -51,6 +52,7 @@ Marinara는 AI에 보낼 텍스트를 만들 때 각 `{{tag}}`를 현재 값으�
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Outlet 매크로는 Conversation, Roleplay, Game 모드의 프롬프트 섹션�
 - `sticky:3 cooldown:5`는 예를 3턴 동안 유지한 뒤 5턴 동안 쉽니다. [Sticky와 Cooldown](conditional-prompts.md#sticky-and-cooldown)을 참고하세요.
 - `until:"..."`이나 `while:"..."`은 두 번째 문장이 허용하는 동안 예를 유지합니다. [Until과 While](conditional-prompts.md#until-and-while)을 참고하세요.
 - `every:3`은 3턴마다 한 번만 문장을 묻습니다. [몇 턴마다 확인하기](conditional-prompts.md#checking-every-few-turns)를 참고하세요.
+- `pictures:1`, `clips:1`, `media_within:3`을 쓰면 이를 읽는 내장 모델이 채팅의 최신 이미지와 클립을 보고, 이미지나 클립이 나올 때까지 기다릴 수 있습니다. [이미지와 클립](conditional-prompts.md#pictures-and-clips)을 참고하세요.
 - `priority:high`나 `priority:low`는 프롬프트 계획에 들어갈 문장을 고릅니다. [우선순위](conditional-prompts.md#priority)와 [제한과 비용](conditional-prompts.md#limits-and-cost)을 참고하세요.
 
 ## 자주 하는 실수

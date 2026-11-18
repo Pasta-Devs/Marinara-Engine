@@ -76,6 +76,15 @@ Com essa opção ativada, um card ou uma persona com **Image Appearance Override
 
 **Send Avatar References** (enviar avatares como referência) envia ao serviço de imagens os avatares de personagens e personas, ou os sprites deles, como imagens de referência, para que o modelo possa copiar um rosto ou uma roupa. Nem todo serviço aceita essas imagens. Em um chat de Roleplay, é uma lista como **Attach Card Appearance**. Com vídeos incluídos, um clipe cujo **First frame** (primeiro quadro) é **Prompt only** começa com o avatar ou o sprite do personagem, e a opção aparece como **Prompt only (avatar from Send Avatar References)**.
 
+Com **Send Avatar References** ativado para imagens, **Reference pictures go to** (destino das imagens de referência) escolhe quem as recebe:
+
+- **Automatic** (automático), o padrão: o modelo de imagem quando a conexão aceita imagens de referência; caso contrário, o redator do prompt.
+- **Image model** (modelo de imagem): apenas o modelo de imagem. Uma conexão que não aceita essas imagens não recebe nenhuma.
+- **Prompt writer** (redator do prompt): apenas o redator de prompts do Illustrator, que analisa as imagens e descreve o que vê no prompt de imagem.
+- **Both** (ambos): o modelo de imagem e o redator do prompt.
+
+O redator do prompt é a alternativa para modelos de imagem que descartam imagens de referência, como o NovelAI V5. Ele precisa ser um modelo que lê imagens. Se o redator recusar as imagens, a solicitação é enviada de novo sem elas, e esse redator não recebe mais nenhuma até o servidor reiniciar. Um redator cuja conexão está marcada como incapaz de ler imagens não recebe nenhuma. Enviar imagens ao redator custa tokens a cada execução. São enviadas até quatro imagens: as dos cards nomeados em `[illustrate: characters="…"]`, ou, na ausência deles, as dos personagens ativos e da persona do chat. **What to carry over from the pictures** (o que aproveitar das imagens) define o que o redator copia, como apenas a aparência, sem o estilo artístico. Um chat de Roleplay pode definir seu próprio **Reference pictures go to** em **Send Avatar References**.
+
 ## Controle a frequência das imagens
 
 O cartão do Illustrator tem um botão **Open Setup**, que abre a tela completa de configuração. Lá você define o intervalo de execução padrão e dá ao agente um modelo de imagem próprio.
@@ -114,6 +123,19 @@ Os clipes usam o modelo de vídeo de **Scene Videos** (vídeos de cena), e cada 
 Um clipe sem imagem própria descreve todos que cita, incluindo a sua persona. O quadro inicial de avatar parte de quem for citado primeiro.
 
 Executar o Illustrator de novo pelo botão **Illustrate** de uma mensagem também segue **Illustrator makes** e **First frame**.
+
+## Verificar imagens com um modelo de decisão
+
+Com um [modelo de decisão embutido que lê imagens](../connections/decision-models.md#features-that-look-at-pictures) (Liquid d1, Valen ou Winnow), o cartão do Illustrator oferece mais três configurações. Todas começam desligadas e ficam desativadas com um ⓘ sem um modelo assim.
+
+- **Picture check** (verificação de imagens) analisa cada nova imagem e selfie e verifica se mostra o que foi pedido. Uma selfie também é comparada com o avatar do personagem. **Make another if it doesn't match** (criar outra se não corresponder) desenha mais uma vez quando não corresponde. **Always make two, keep the better** (sempre criar duas e manter a melhor) desenha duas e mantém a melhor. Cada imagem extra é mais uma geração de imagem.
+- **Also check** (verificar também), abaixo de **Picture check**, adiciona suas próprias verificações, uma por linha, até 6, como `Kaelen has short red hair`. Comece uma linha com `not:` para algo que a imagem não deve mostrar, como `not: The picture has writing or a watermark`.
+- **Skip a picture the newest one already shows** (pular uma imagem se a mais recente já mostra o mesmo) compara a imagem mais recente do chat com o que está prestes a ser desenhado e pula uma repetição. As imagens que você pede são sempre criadas.
+- **Reuse a library background that looks like the place** (reutilizar um plano de fundo da biblioteca parecido com o local) ajuda **Generate Scene Backgrounds**: quando nenhum plano de fundo da biblioteca tem o nome de um novo local, o modelo de decisão analisa até 4 planos de fundo da biblioteca que compartilham uma palavra com o local e mostra um que corresponda, em vez de pintar um novo.
+
+Em um chat de Conversation, **Picture check** fica no cartão do Illustrator para selfies.
+
+Uma verificação que não consegue rodar conta como aprovada, então a imagem é mantida.
 
 ## Vários personagens na NovelAI
 

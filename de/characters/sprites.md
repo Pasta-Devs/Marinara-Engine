@@ -106,7 +106,8 @@ Bevor du anfängst: Füg eine Verbindung zur Bildgenerierung hinzu. Für animier
 5. Schreib eine **Appearance Description** (Aussehensbeschreibung). Sie ist Pflicht.
 6. Schalte optional **Transparent sprite background** (transparenter Sprite-Hintergrund) ein. Marinara macht den Hintergrund durchsichtig. Kann der Dienst das nicht, zeichnet Marinara einen einfarbigen grünen, magentafarbenen oder cyanfarbenen Hintergrund, der sich von den Farben deiner **Appearance Description** abhebt, und entfernt ihn danach.
 7. Leg **Expression Count** (bei Ganzkörperbildern **Pose Count**) fest und wähl aus, welche Gesichtsausdrücke oder Posen entstehen sollen.
-8. Klick auf **Generate** (Generieren).
+8. Optional für Gesichtsausdrücke: Hak **Gesichter markieren, die nicht zum Ausdruck passen** an. Ein [Decision-Modell, das Bilder liest](../connections/decision-models.md#features-that-look-at-pictures), sieht sich jedes gezeichnete Gesicht an und markiert diejenigen, die ihren Ausdruck möglicherweise nicht zeigen, mit **Prüfen**. So kannst du sie abwählen oder neu zeichnen lassen. Jedes Gesicht braucht einen Moment. Ohne ein solches Modell ist das Kästchen ausgegraut.
+9. Klick auf **Generate** (Generieren).
 
 Sind die Bilder da, schaltest du jedes ein oder aus, benennst es um und schneidest es zu. Danach speicherst du die ausgewählten Bilder in die Sprites des Charakters. Hat genau ein gespeichertes Sprite dieser Kategorie den generierten Namen, ersetzt das Speichern sein Bild und behält seinen Ordner und sein Handle. Ein Sprite, das du von diesem Namen weg umbenannt hast, bleibt erhalten. Kommt derselbe Name in verschiedenen Ordnern mehrfach vor, ersetz das gemeinte Sprite von Hand.
 

@@ -8,7 +8,7 @@
 
 Писать макросы можно в этих местах:
 
-- Поля персонажа в панели **Character Editor** (редактор персонажа): Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions и поле **Depth Prompt**.
+- Поля персонажа в панели **Character Editor** (редактор персонажа): Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions и поле **Depth Prompt**.
 - Поля персоны в панели **Persona Editor** (редактор персоны) – те же поля карточки.
 - Поля Description и Content в записи лорбука.
 - Разделы промпта в панели **Preset Editor** (редактор пресетов).
@@ -35,12 +35,13 @@
 | `{{charNamePhonetic}}` | Поле Phonetic name у персонажа, а если оно пустое – `{{char}}`. |
 | `{{characters}}` | Все персонажи чата, включая неактивных, через запятую. Этот макрос добавляет только имена; он не добавляет в промпт карточки неактивных персонажей. |
 | `{{group}}` | Все остальные активные персонажи группового чата, кроме того, кто отвечает сейчас. Персона в этот список персонажей не входит. |
-| `{{persona}}` | Поля Description, Personality, Backstory, Appearance и Scenario вашей персоны, каждое с новой строки. |
+| `{{persona}}` | Поля Description, Personality, Backstory, Appearance и Scenario вашей персоны, каждое с новой строки. Public Face не включается. |
 | `{{personaDescription}}` | Поле Description вашей персоны. |
 | `{{personaPersonality}}` | Поле Personality вашей персоны. |
 | `{{personaBackstory}}` | Поле Backstory вашей персоны. |
 | `{{personaAppearance}}` | Поле Appearance вашей персоны. |
 | `{{personaScenario}}` | Поле Scenario вашей персоны. |
+| `{{personaPublicFace}}` | Поле Public Face вашей персоны: что другие могут знать о вас. |
 
 Макросы полей персонажа читают карточку текущего персонажа:
 
@@ -51,6 +52,7 @@
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@
 - `sticky:3 cooldown:5` сохраняет ответ да на три сообщения, а затем делает паузу на пять. См. [Sticky и cooldown](conditional-prompts.md#sticky-and-cooldown).
 - `until:"..."` или `while:"..."` сохраняет ответ да, пока это позволяет второе утверждение. См. [Until и while](conditional-prompts.md#until-and-while).
 - `every:3` спрашивает утверждение только раз в три сообщения. См. [Проверка через несколько сообщений](conditional-prompts.md#checking-every-few-turns).
+- `pictures:1`, `clips:1` и `media_within:3` позволяют встроенной модели, которая их понимает, просматривать последние изображения и клипы из чата и ждать их появления. См. [Изображения и клипы](conditional-prompts.md#pictures-and-clips).
 - `priority:high` или `priority:low` выбирает, какие утверждения поместятся в план промпта. См. [Приоритет](conditional-prompts.md#priority) и [Ограничения и стоимость](conditional-prompts.md#limits-and-cost).
 
 ## Частые ошибки

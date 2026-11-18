@@ -102,6 +102,8 @@ De forma predeterminada, un agente se ejecuta con su cadencia normal (la frecuen
 
 Entonces el agente solo se ejecuta cuando una palabra clave aparece en esos mensajes. Deja el cuadro vacío para desactivar el filtro. La cadencia y cualquier pregunta de activación siguen aplicándose.
 
+Los agentes descargables tienen la misma sección. Consulta [Palabras clave y preguntas de activación](built-in-agents.md#activation-keywords-and-questions).
+
 ## Adjuntar herramientas
 
 Un agente puede llamar a herramientas: funciones que la IA ejecuta para obtener o cambiar algo, y cuyo resultado luego lee. Esto también se llama function calling.
@@ -128,6 +130,7 @@ Cuando alguien añade el agente a un chat, un menú desplegable **Prompt Mode** 
 - **Model override** (Modelo alternativo): usa un modelo distinto para este agente, por ejemplo uno más barato. Déjalo vacío para usar el modelo del chat. El agente envía los parámetros de generación guardados en esa conexión. Consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget**: **Context Size** es cuántos mensajes recientes lee el agente (5 de forma predeterminada). **Max Output Tokens** es el espacio de salida reservado (4096 de forma predeterminada, de 128 a 32768).
 - **Add as Prompt Section**: expone la salida más reciente del agente como una sección que puedes colocar en un preset (ajuste guardado) de prompt.
+- **Context Sources** (Fuentes de contexto): lo que lee el agente además de sus instrucciones. **Characters** (Personajes) y **Persona** tienen tres opciones cada uno: **Off** (Desactivado), **Full card** (Tarjeta completa) o **Public Face** (Imagen pública). **Public Face** envía solo el nombre y el campo **Public Face** de la tarjeta. Si ese campo está vacío, solo se envía el nombre. Para escribir uno, consulta [Pestaña Card](../characters/creating-and-editing-characters.md#card-tab). Cuando varios agentes comparten una solicitud, cada fuente usa la opción más amplia entre ellos: **Full card**, luego **Public Face** y después **Off**.
 
 Las macros como `{{user}}` y `{{char}}` funcionan en **Prompt Template**. Consulta [Macros](../prompts/macros.md).
 
@@ -180,8 +183,9 @@ Una pregunta de activación pregunta si la escena reciente necesita tu agente. D
 
 1. Abre el agente personalizado.
 2. Escribe una **Question** (Pregunta) de hasta 500 caracteres. Las macros `{{user}}` y `{{char}}` funcionan en ella.
-3. Establece **Run when probability is at least** (Ejecutar cuando la probabilidad sea al menos) en el umbral de este agente. El agente se ejecuta cuando la probabilidad de "sí" lo alcanza, así que los valores más altos omiten más ejecuciones. El editor muestra un valor recomendado para tu modelo: 0,5 para modelos de chat locales y cuentas Decision, o 0,1 para los modelos Open-Jev integrados. Compruébalo con tus propios chats después de cambiar de modelo. Consulta [Umbrales](../connections/decision-models.md#thresholds).
-4. Opcional: establece **Bypass the question after this many messages without a successful run** (Omitir la pregunta después de esta cantidad de mensajes sin una ejecución correcta). Después de esa cantidad de mensajes se omite la pregunta, así que un modelo que sigue respondiendo "no" no puede silenciar al agente para siempre. Las palabras clave y la cadencia siguen aplicándose.
+3. Establece **Run when probability is at least** (Ejecutar cuando la probabilidad sea al menos) en el umbral de este agente. El agente se ejecuta cuando la probabilidad de "sí" lo alcanza, así que los valores más altos omiten más ejecuciones. El editor muestra un valor recomendado para tu modelo: 0,5 para modelos de chat locales y cuentas Decision, 0,3 o 0,5 para la mayoría de los modelos de decisión integrados, o 0,1 para los modelos Open-Jev integrados. Compruébalo con tus propios chats después de cambiar de modelo. Consulta [Umbrales](../connections/decision-models.md#thresholds).
+4. Opcional: en **Show the decision model** (Mostrar al modelo de decisión), elige **Pictures** (Imágenes: las últimas 1 a 3) o **Clips** para que la pregunta los examine, y **Ask only when a picture or clip is in** (Preguntar solo cuando haya una imagen o un clip en) los mensajes más recientes. Esto necesita un modelo de decisión integrado que los lea (Liquid d1, Valen o Winnow, y la versión completa de Valen para clips); de lo contrario, aparece en gris. Con una ventana definida, se omite el agente en los turnos sin una imagen o un clip en ella. Cada imagen o clip hace que la pregunta tarde más. Consulta [Imágenes y clips](../connections/decision-models.md#pictures-and-clips).
+5. Opcional: establece **Bypass the question after this many messages without a successful run** (Omitir la pregunta después de esta cantidad de mensajes sin una ejecución correcta). Después de esa cantidad de mensajes se omite la pregunta, así que un modelo que sigue respondiendo "no" no puede silenciar al agente para siempre. Las palabras clave y la cadencia siguen aplicándose.
 
 Escribe la pregunta como una declaración sobre el último mensaje, como `The latest message moves the scene to a new place.` Un modelo pequeño respondió a esto con más fiabilidad que a `Did the scene change?` Consulta [Redactar declaraciones](../prompts/conditional-prompts.md#writing-statements).
 
@@ -193,7 +197,7 @@ Cómo se ejecuta:
 - Un tiempo de espera agotado, un modelo no disponible o una respuesta inválida permiten que el agente se ejecute normalmente. El límite de tiempo depende del tipo de modelo y de si el modelo tiene que razonar primero. Consulta [Límites de tiempo](../connections/decision-models.md#time-limits).
 - Los agentes importados con una pregunta de activación o declaraciones de decisión muestran un aviso que enlaza a la guía de modelos de decisión. Sin un Decision model, el agente se ejecuta siempre que lo permitan las palabras clave y **Trigger Cadence**, y las declaraciones del prompt se interpretan como no.
 
-Las preguntas de activación solo se aplican a agentes personalizados.
+Las preguntas de activación funcionan igual para los agentes descargables, salvo los que se enumeran en [Palabras clave y preguntas de activación](built-in-agents.md#activation-keywords-and-questions).
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

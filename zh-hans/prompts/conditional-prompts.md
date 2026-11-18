@@ -142,6 +142,8 @@ Before replying, write your plan inside <plan></plan> tags.
 
 开始之前：先在 **Connections**(连接) 面板的 **Decision model**(判定模型) 下选好一个 Decision 模型。它是什么、怎么挑，见 [Decision 模型](../connections/decision-models.md)。要决定整个世界书条目是否激活，改用条目的 [Decision](../lorebooks/entries.md#decision-activation) 字段。
 
+它可以回答是或否（`decision:`），也可以从几个答案中选一个（`decision_choice:`）；能读取图片的内置模型还可以查看聊天里的图片和视频片段。各种答案类型和更多示例，见[判定模型能回答什么](../connections/decision-models.md#what-a-decision-model-can-answer)。
+
 可以这样用：只在场景转移时才描述新地点，只在战斗期间载入战斗节奏规则，在慢热预设里暂缓升级，或者在分组块里只让被搭话的角色直接回答。
 
 ### 是或否：`decision:`
@@ -254,6 +256,20 @@ Describe the new weather in a sentence.
 - 超出限制的陈述按否处理，从最低优先级开始，并列在 Peek Prompt 里。
 - 同一陈述写在多处时，使用最高的优先级。
 - 先规划提示词自身的陈述（预设、角色卡、用户角色、作者注）。世界书陈述无论优先级如何，都只能用剩下的名额。
+
+### 图片和视频片段
+
+能读取图片的内置判定模型（Liquid d1、Valen、Winnow）也可以查看聊天里的图片和视频片段。只有陈述明确要求时才会发送：`pictures:N` 发送最新的 N 张图片（最多 3 张），`clips:1` 发送最新的视频片段（仅限 Valen 完整版）。不写这些修饰符时，只发送文本。
+
+```text
+{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}
+{{#if decision:"The clip ends somewhere new" clips:1 media_within:2}}...{{/if}}
+```
+
+- 图片包括上传的图片、图库自拍和插图；视频片段是生成的场景视频。发送前都会缩小。
+- 每张图片或每个视频片段都会让陈述的判定变慢。模型在你的电脑上运行过后，详情里会显示处理一张图片或一个视频片段需要多久。
+- `media_within:N` 只在最新的 N 条消息中有图片（或使用 `clips:` 时有视频片段）时询问陈述。其他回合按否处理，不会询问模型。
+- 请求相同图片的陈述共用一个请求。只读取文本的模型或托管的 Decision 连接从不会收到图片或视频片段。
 
 所有修饰符都可以按任意顺序组合：`decision:"..." priority:high sticky:3 cooldown:5 every:2`。
 

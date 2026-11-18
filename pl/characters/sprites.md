@@ -106,7 +106,8 @@ Zanim zaczniesz: dodaj połączenie do generowania obrazów. Do animowanych spri
 5. Wpisz **Appearance Description** (opis wyglądu). To pole jest wymagane.
 6. Opcjonalnie włącz **Transparent sprite background** (przezroczyste tło sprite'a). Marinara robi tło przezroczyste. Jeśli usługa tego nie potrafi, Marinara rysuje jednolite tło zielone, magentowe albo cyjanowe, które różni się od kolorów z pola **Appearance Description**, a potem je usuwa.
 7. Ustaw **Expression Count** (liczba wyrazów twarzy) albo, przy całych sylwetkach, **Pose Count** (liczba póz) i wybierz, które wyrazy twarzy albo pozy mają powstać.
-8. Kliknij **Generate** (generuj).
+8. Opcjonalnie, dla wyrazów twarzy: zaznacz **Oznacz twarze, które nie pasują do przypisanej miny**. [Model decyzyjny odczytujący obrazy](../connections/decision-models.md#features-that-look-at-pictures) ogląda każdą twarz po narysowaniu i oznacza te, które mogą nie oddawać przypisanego wyrazu twarzy, etykietą **Sprawdź**, żeby można było je odznaczyć lub narysować ponownie. Każda twarz zajmuje chwilę. Bez takiego modelu pole jest wyszarzone.
+9. Kliknij **Generate**.
 
 Gdy obrazy dotrą, każdy z nich możesz włączyć albo wyłączyć, zmienić mu nazwę i wykadrować. Potem zapisz zaznaczone obrazy w sprite'ach postaci. Jeśli dokładnie jeden zapisany sprite w tej kategorii ma wygenerowaną etykietę, zapis zastępuje jego obraz i zachowuje jego folder oraz uchwyt. Sprite, któremu zmieniono nazwę na inną niż ta etykieta, zostaje zachowany. Przy powtarzających się etykietach w różnych folderach zastąp właściwy sprite ręcznie.
 

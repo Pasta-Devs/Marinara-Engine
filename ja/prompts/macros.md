@@ -8,7 +8,7 @@ MarinaraはAIに送るテキストを組み立てるときに、`{{tag}}`を1つ
 
 マクロは次の場所で入力できます。
 
-- **Character Editor**(キャラクターエディター)のキャラクターの各欄: Description、Personality、Backstory、Appearance、Scenario、Example Dialogue、System Prompt、Post-History Instructions、そして**Depth Prompt**。
+- **Character Editor**(キャラクターエディター)のキャラクターの各欄: Description、Personality、Backstory、Appearance、Scenario、Public Face、Example Dialogue、System Prompt、Post-History Instructions、そして**Depth Prompt**。
 - **Persona Editor**(ペルソナエディター)のペルソナの各欄(カードの同じ欄)。
 - ロアブックのエントリーのDescription欄とContent欄。
 - **Preset Editor**(プリセットエディター)のプロンプトプリセットのセクション。
@@ -35,12 +35,13 @@ MarinaraはAIに送るテキストを組み立てるときに、`{{tag}}`を1つ
 | `{{charNamePhonetic}}` | キャラクターのPhonetic name。空のときは`{{char}}`と同じです。 |
 | `{{characters}}` | 無効にしたキャラクターも含め、チャット内のすべてのキャラクターをカンマ区切りで並べます。このマクロが追加するのは名前だけで、無効なキャラクターのカードをプロンプトに追加することはありません。 |
 | `{{group}}` | グループチャットで有効なキャラクターのうち、今返事をしているキャラクターを除いた全員。ペルソナはこの一覧に入りません。 |
-| `{{persona}}` | ペルソナのDescription、Personality、Backstory、Appearance、Scenarioを改行でつないだもの。 |
+| `{{persona}}` | ペルソナのDescription、Personality、Backstory、Appearance、Scenarioを改行でつないだもの。Public Faceは含まれません。 |
 | `{{personaDescription}}` | ペルソナのDescription欄。 |
 | `{{personaPersonality}}` | ペルソナのPersonality欄。 |
 | `{{personaBackstory}}` | ペルソナのBackstory欄。 |
 | `{{personaAppearance}}` | ペルソナのAppearance欄。 |
 | `{{personaScenario}}` | ペルソナのScenario欄。 |
+| `{{personaPublicFace}}` | ペルソナのPublic Face欄。周囲の人がそのペルソナについて知り得る情報です。 |
 
 次のマクロは、現在のキャラクターのカードから内容を読み取ります。
 
@@ -51,6 +52,7 @@ MarinaraはAIに送るテキストを組み立てるときに、`{{tag}}`を1つ
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Outletマクロは、Conversation、Roleplay、Game Modeのプロンプトのセ
 - `sticky:3 cooldown:5`は、はいを3ターン保ち、その後5ターン休ませます。[StickyとCooldown](conditional-prompts.md#sticky-and-cooldown)を参照してください。
 - `until:"..."`または`while:"..."`は、2つ目の文が許す限り、はいを保ちます。[UntilとWhile](conditional-prompts.md#until-and-while)を参照してください。
 - `every:3`は、3ターンごとにだけ文を尋ねます。[数ターンごとの確認](conditional-prompts.md#checking-every-few-turns)を参照してください。
+- `pictures:1`、`clips:1`、`media_within:3`を使うと、対応する内蔵モデルにチャットの最新の画像やクリップを見せたり、それらが届くまで待たせたりできます。[画像とクリップ](conditional-prompts.md#pictures-and-clips)を参照してください。
 - `priority:high`または`priority:low`は、プロンプトの計画に収める文を選びます。[優先順位](conditional-prompts.md#priority)と[制限と費用](conditional-prompts.md#limits-and-cost)を参照してください。
 
 ## よくある失敗

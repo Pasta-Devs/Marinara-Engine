@@ -153,6 +153,15 @@ Decision 陈述会增加模型请求，并且共用 **Decision statements per tu
 - Decision 激活只适用于聊天回合。Game 设置，以及智能体为自己执行的扫描，都把 Decision 条目读作否。
 - 条目内容里的 `{{#if decision:"..."}}` 是另一回事。它裁减的是已经激活的条目的文本。
 
+### 让判定模型查看图片
+
+使用能读取图片的内置判定模型（Liquid d1、Valen 或 Winnow）时，陈述可以针对聊天里的图片，例如 `The newest picture shows a dragon`。**Decision** 字段下的 **Show the decision model**(向决策模型展示) 有两个列表：
+
+- **Pictures**(图片)：**No pictures**(不含图片)（默认），或聊天里最新的 1 到 3 张图片。每张图片都会让陈述的判定变慢。
+- **Ask only when a picture is in**(仅在以下消息中有图片时询问)：**Any message (ask every time)**(任意消息（每次都询问）)，或最新的 1 到 20 条消息。如果范围内没有图片，陈述就按否处理，不会询问模型。
+
+没有能读取图片的模型时，这些选项会显示为灰色，旁边的 ⓘ 会说明原因，陈述只会收到文本。多个条目共用同一条陈述时，只询问一次，发送的图片数量取这些条目要求的最大值。见[判定模型能回答什么](../connections/decision-models.md#pictures-and-clips)。
+
 ## 分组、筛选与其他选项
 
 展开的抽屉面板里还有更多字段。
