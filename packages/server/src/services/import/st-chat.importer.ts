@@ -102,6 +102,8 @@ export interface ImportSTChatOptions {
   promptPresetId?: string | null;
   /** Source file timestamps to preserve when trustworthy */
   timestampOverrides?: TimestampOverrides | null;
+  /** Fingerprint of the source file, kept in metadata so importing the same file again can be skipped. */
+  sourceFingerprint?: string;
 }
 
 function normalizeTranscriptTimestamps(
@@ -464,7 +466,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   if (!chat) return { error: "Failed to create chat" };
 
   // Preserve an imported branch/file label separately from the main thread/chat name.
-  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName) {
+  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName || opts?.sourceFingerprint) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
       marinaraMetadata,
@@ -505,6 +507,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         ...existingMetadata,
         ...importedMetadata,
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
+        ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },
       { touchUpdatedAt: false },
     );
@@ -523,7 +526,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         : [],
     ),
   );
-  await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
+  // Only Marinara exports carry interruption receipts. Skipping the remap for chats without any keeps a big
+  // SillyTavern import from re-reading every message and swipe already in memory once per chat.
+  if (msgInputs.some(carriesInterruptionReceipt)) {
+    await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
+  }
   if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
     const existing = await storage.getById(chat.id);
     const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};
@@ -624,4 +631,18 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     userName,
     messagesImported: msgInputs.length,
   };
+}
+
+/** Whether a message's stored extras could hold a roleplay interruption receipt (see readRoleplayInterruption). */
+function carriesInterruptionReceipt(input: {
+  extra?: unknown;
+  swipeExtra?: unknown;
+  swipes?: Array<{ extra?: unknown }>;
+}) {
+  const extras = [input.extra, input.swipeExtra, ...(input.swipes ?? []).map((swipe) => swipe.extra)];
+  return extras.some((extra) => {
+    if (extra === undefined || extra === null) return false;
+    const text = typeof extra === "string" ? extra : JSON.stringify(extra);
+    return typeof text === "string" && text.includes("targetMessageId");
+  });
 }

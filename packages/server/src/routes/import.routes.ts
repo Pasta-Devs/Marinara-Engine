@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { execFile } from "child_process";
+import { randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
@@ -27,7 +28,13 @@ import {
 import { importSTPreset } from "../services/import/st-prompt.importer.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { importMarinara } from "../services/import/marinara.importer.js";
-import { scanSTFolder, runSTBulkImport, type STBulkImportOptions } from "../services/import/st-bulk.importer.js";
+import {
+  scanSTFolder,
+  runSTBulkImport,
+  type ImportProgress as STBulkImportProgress,
+  type STBulkImportOptions,
+  type STBulkImportResult,
+} from "../services/import/st-bulk.importer.js";
 import { characters as charactersTable } from "../db/schema/index.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { newId } from "../utils/id-generator.js";
@@ -612,6 +619,22 @@ async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
   }
 }
 
+type STBulkImportJob = {
+  id: string;
+  running: boolean;
+  startedAt: string;
+  finishedAt?: string;
+  progress: STBulkImportProgress | null;
+  result: STBulkImportResult | null;
+};
+
+/** One SillyTavern import at a time; a second start would import everything twice. */
+let stBulkImportJob: STBulkImportJob | null = null;
+
+function emptyImportCounts(): STBulkImportResult["imported"] {
+  return { characters: 0, chats: 0, groupChats: 0, presets: 0, lorebooks: 0, backgrounds: 0, personas: 0 };
+}
+
 export async function importRoutes(app: FastifyInstance) {
   /** Import a SillyTavern JSONL chat file. */
   app.post("/st-chat", async (req) => {
@@ -1184,6 +1207,22 @@ export async function importRoutes(app: FastifyInstance) {
     }
     if (bulkRegexScriptScope) options.regexScriptScope = bulkRegexScriptScope;
 
+    if (stBulkImportJob?.running) {
+      return reply.status(409).send({
+        success: false,
+        code: "import-running",
+        error: "A SillyTavern import is already running. Its progress is shown here until it finishes.",
+      });
+    }
+    const job: STBulkImportJob = {
+      id: randomUUID(),
+      running: true,
+      startedAt: new Date().toISOString(),
+      progress: null,
+      result: null,
+    };
+    stBulkImportJob = job;
+
     // Set up SSE headers
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -1191,19 +1230,42 @@ export async function importRoutes(app: FastifyInstance) {
       Connection: "keep-alive",
     });
 
+    // The import keeps going when the page goes away (tab closed, laptop asleep, dropped
+    // connection): it is the server's work, and stopping halfway would leave half a library.
+    // GET /st-bulk/status lets a reopened page pick the progress back up.
     const sendEvent = (event: string, data: unknown) => {
+      if (reply.raw.destroyed || reply.raw.writableEnded) return;
       reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
+    // A heartbeat keeps proxies and browsers from closing a quiet stream during one long item.
+    const heartbeat = setInterval(() => {
+      if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(": keep-alive\n\n");
+    }, 15_000);
+    heartbeat.unref();
 
     try {
       const result = await runSTBulkImport(resolved.path, options, app.db, (progress) => {
+        job.progress = progress;
         sendEvent("progress", progress);
       });
+      job.result = result;
       sendEvent("done", result);
     } catch (err) {
-      sendEvent("done", { success: false, error: (err as Error).message, imported: {}, errors: [] });
+      job.result = { success: false, error: (err as Error).message, imported: emptyImportCounts(), errors: [] };
+      sendEvent("done", job.result);
+    } finally {
+      clearInterval(heartbeat);
+      job.running = false;
+      job.finishedAt = new Date().toISOString();
     }
-    reply.raw.end();
+    if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end();
+  });
+
+  /** The running or last SillyTavern import, for a page that lost or never had its progress stream. */
+  app.get("/st-bulk/status", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "SillyTavern bulk import" })) return;
+    reply.header("Cache-Control", "no-store");
+    return { job: stBulkImportJob };
   });
 
   /** Open a native OS folder picker dialog and return the selected path. */
