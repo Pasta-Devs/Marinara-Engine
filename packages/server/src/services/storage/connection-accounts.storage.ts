@@ -31,6 +31,8 @@ import {
   inferVideoSource,
   isChatProvider,
   isLocalAuthProvider,
+  isLocalServerAddress,
+  LOCAL_SERVER_DEFAULT_PARALLEL,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   takesBalanceToken,
@@ -311,9 +313,14 @@ export async function syncAccountBudget(db: DB, row: { id: string; accountId?: s
     setConnectionBudgetScope(row.id, null);
     return;
   }
+  // A server on this computer or the home network (Ollama, LM Studio...), or one marked self-hosted,
+  // takes one request at a time unless the account says otherwise, so its requests go in task order
+  // (account-budget.ts).
+  const selfHosted = account.treatAsLocalEndpoint || isLocalServerAddress(account.baseUrl);
+  const parallel = account.maxParallelJobs || (selfHosted ? LOCAL_SERVER_DEFAULT_PARALLEL : null);
   setAccountRateLimit(account.id, account.maxRequestsPerMinute);
-  setAccountParallelLimit(account.id, account.maxParallelJobs);
-  setConnectionBudgetScope(row.id, account.maxRequestsPerMinute || account.maxParallelJobs ? account.id : null);
+  setAccountParallelLimit(account.id, parallel);
+  setConnectionBudgetScope(row.id, account.maxRequestsPerMinute || parallel ? account.id : null);
 }
 
 /** Copy a value onto the other rows of the same account and provider (pins, saved model list). */

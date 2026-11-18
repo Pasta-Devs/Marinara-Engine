@@ -136,6 +136,22 @@ export class LocalModelTurns {
     }
   }
 
+  /**
+   * A slot right now if this level may start and nobody of the same or a higher level waits,
+   * else null. Keeps the free path synchronous: a reply walks past a waiting tracker.
+   */
+  tryAcquire(level: LocalModelPriority): (() => void) | null {
+    if (!this.mayStart(level) || this.waiting.some((waiter) => RANK[waiter.level] <= RANK[level])) return null;
+    this.running[level] += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.running[level] = Math.max(0, this.running[level] - 1);
+      this.pump();
+    };
+  }
+
   /** Hold a slot for a stream: the returned release must be called exactly once. */
   async acquire(level: LocalModelPriority, signal: AbortSignal | undefined): Promise<() => void> {
     let release!: () => void;
