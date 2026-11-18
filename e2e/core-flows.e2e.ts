@@ -12453,6 +12453,8 @@ test("ElevenLabs exposes scrollable account voices for the shared voice and each
     await allCharactersVoicePicker.click();
     const voiceWindow = page.getByRole("dialog", { name: /^Shared voice$/iu });
     const voiceList = voiceWindow.locator("[data-picker-list]");
+    // The 48 account voices and the "none" row.
+    await expect(voiceWindow.locator("[data-pick-row]")).toHaveCount(49);
     await expect(voiceWindow.getByText("Custom Voice 48 (voice-48)", { exact: true })).toBeAttached();
     expect(await voiceList.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
     // Long lists get the search box, which also finds a voice by the metadata it doesn't show.

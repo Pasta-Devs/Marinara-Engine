@@ -432,6 +432,8 @@ test("Chat Summary range fields fit long message numbers in a quiet box", async 
     const choices = page.getByRole("dialog", { name: "Summary prompt template", exact: true });
     await expect(choices).toBeVisible();
     await expect(choices.locator("[data-pick-row]").first()).toHaveAttribute("aria-current", "true");
+    // Focus moves into the window (its search box, or the list that takes the arrow keys).
+    await expect.poll(() => choices.evaluate((window) => window.contains(document.activeElement))).toBe(true);
     await page.keyboard.press("Escape");
     await expect(choices).toHaveCount(0);
     await expect(panel).toBeVisible();

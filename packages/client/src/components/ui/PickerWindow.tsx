@@ -126,7 +126,8 @@ export function PickerWindow({
       const anchor = anchorRef.current;
       if (!anchor) return;
       if (widthRef.current === null && panelRef.current) widthRef.current = fitWidth(anchor, panelRef.current);
-      setPos(place(anchor, widthRef.current ?? 352));
+      // The measured width stays; a narrower window since then still caps it.
+      setPos(place(anchor, Math.min(widthRef.current ?? 352, window.innerWidth - 16)));
     };
     update();
     const boxes = anchorRef.current ? clippingBoxes(anchorRef.current) : [];
