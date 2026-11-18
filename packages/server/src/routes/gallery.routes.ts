@@ -2873,9 +2873,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const image = await storage.getById(imageId, chatId);
     if (!image || image.chatId !== chatId) return notFound(reply, "Not found");
     if (targetType === "character" ? !(await characters.getById(targetId)) : !(await characters.getPersona(targetId))) {
-      return reply
-        .status(404)
-        .send({ error: targetType === "character" ? "Character not found" : "Persona not found" });
+      return notFound(reply, targetType === "character" ? "Character not found" : "Persona not found");
     }
     const result = await assignChatPictureToGallery({
       image,

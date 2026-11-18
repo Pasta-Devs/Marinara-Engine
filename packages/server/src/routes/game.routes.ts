@@ -14912,9 +14912,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
       const message = await chats.getMessage(input.messageId);
       if (!message || message.chatId !== input.chatId) {
-        return reply
-          .status(404)
-          .send({ error: ownerMode === "game" ? "GM message not found" : "Assistant message not found" });
+        return notFound(reply, ownerMode === "game" ? "GM message not found" : "Assistant message not found");
       }
       if (message.role !== "assistant" && message.role !== "narrator") {
         return reply.status(400).send({

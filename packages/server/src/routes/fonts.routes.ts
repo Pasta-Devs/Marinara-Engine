@@ -413,9 +413,10 @@ export async function fontsRoutes(app: FastifyInstance) {
         if (!reachedGoogle) {
           return reply.status(502).send({ error: "Could not reach Google Fonts. Check your internet connection." });
         }
-        return reply
-          .status(404)
-          .send({ error: `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available` });
+        return notFound(
+          reply,
+          `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available`,
+        );
       }
 
       const metadata = await readFontMetadata();

@@ -1458,8 +1458,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         const entity =
           kind === "persona" ? await storage.getPersona(req.params.id) : await storage.getById(req.params.id);
         controller.signal.throwIfAborted();
-        if (!entity)
-          return reply.status(404).send({ error: kind === "persona" ? "Persona not found" : "Character not found" });
+        if (!entity) return notFound(reply, kind === "persona" ? "Persona not found" : "Character not found");
         const defaultConnection = await connections.getDefault();
         const connection = await resolveChatSummaryConnection({
           chatMetadata: {},
@@ -2237,7 +2236,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       }
     } catch (error) {
       if (error instanceof ConversationCallVideoClipNotFoundError) {
-        return reply.status(404).send({ error: error.message });
+        return notFound(reply, error.message);
       }
       if (error instanceof ConversationCallVideoClipTrimError) {
         return reply.status(400).send({ error: error.message });
@@ -3411,7 +3410,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       } catch (error) {
         if (error instanceof ConversationCallVideoClipNotFoundError) {
-          return reply.status(404).send({ error: error.message });
+          return notFound(reply, error.message);
         }
         if (error instanceof ConversationCallVideoClipTrimError) {
           return reply.status(400).send({ error: error.message });
