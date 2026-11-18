@@ -741,19 +741,3 @@ function OverhaulSettingsDesktop() {
 }
 
 /** The Extensions page: Personal Extensions (moved here from Settings > Addons). */
-export function OverhaulExtensionsPage() {
-  const localize = useLocalizedUiText();
-  return (
-    <section className="ov-settings ov-settings--extensions" data-component="OverhaulExtensionsPage">
-      <header className="ov-settings__head">
-        <h1 data-mari-part="page-title">{localize("Extensions")}</h1>
-        <p>{localize("Personal Extensions: drafts Professor Mari writes for you, and packages you import")}</p>
-      </header>
-      <div className="ov-settings__scroll">
-        <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
-          <OverhaulSettingsSections sectionIds={["personal-extensions"]} />
-        </Suspense>
-      </div>
-    </section>
-  );
-}

@@ -135,7 +135,7 @@ export type OvViewerKit = {
   blocked?: () => boolean;
 };
 
-function OvViewer({
+export function OvViewer({
   title,
   meta,
   tools,
@@ -147,6 +147,10 @@ function OvViewer({
   newLabel,
   onNew,
   newAnchor,
+  newIcon: NewIcon = Plus,
+  newShortLabel,
+  emptyText,
+  className,
   groups,
   selectedId,
   onSelect,
@@ -171,6 +175,14 @@ function OvViewer({
   onNew: () => void;
   /** Marks the New button so a menu can drop down under it (data-ov-anchor). */
   newAnchor?: string;
+  /** The New button's icon (Extensions' "Ask Professor Mari" isn't a plain +). */
+  newIcon?: typeof Plus;
+  /** A shorter New label for the list's own tool row, where space is tight (an item is open). */
+  newShortLabel?: string;
+  /** A line under the empty state's title. */
+  emptyText?: string;
+  /** Extra class on the viewer (Extensions: ov-vw--drill, list then item as separate pages on phones). */
+  className?: string;
   groups: OvViewerGroup[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -198,13 +210,26 @@ function OvViewer({
   // open, its editor header takes the top and the list keeps Import / + New (audit D7).
   const landing = !selectedId;
   const newButton = (
-    <button type="button" className="ov-btn ov-btn--primary" data-ov-anchor={newAnchor} onClick={onNew}>
-      <Plus size={14} aria-hidden="true" />
-      {newLabel}
+    <button
+      type="button"
+      className="ov-btn ov-btn--primary"
+      data-ov-anchor={newAnchor}
+      onClick={onNew}
+      aria-label={newLabel}
+    >
+      <NewIcon size={14} aria-hidden="true" />
+      {newShortLabel ? (
+        <>
+          <span className="ov-vw__new-full">{newLabel}</span>
+          <span className="ov-vw__new-short">{newShortLabel}</span>
+        </>
+      ) : (
+        newLabel
+      )}
     </button>
   );
   return (
-    <div className={cn("ov-vw", landing && total === 0 && !search && "is-empty")}>
+    <div className={cn("ov-vw", className, !landing && "has-item", landing && total === 0 && !search && "is-empty")}>
       {/* The open item's editor puts its own header here (OvEditorHead), so Regex, Connections and
           Agents read like every other editor: Library › Section › Item, the item's name, Save. */}
       <div className="ov-vw__head">
@@ -216,9 +241,9 @@ function OvViewer({
           {landing ? (
             <div className="ov-vw__actions">
               {tools.map(({ label, icon: Icon, onClick }) => (
-                <button key={label} type="button" className="ov-btn" onClick={onClick}>
+                <button key={label} type="button" className="ov-btn" onClick={onClick} aria-label={label} title={label}>
                   {Icon ? <Icon size={14} aria-hidden="true" /> : null}
-                  {label}
+                  <span className="ov-vw__tool-text">{label}</span>
                 </button>
               ))}
               {/* With nothing yet, + New sits in the empty state instead (one button, not two). */}
@@ -250,9 +275,15 @@ function OvViewer({
                 </button>
               ))}
           {landing ? null : (
-            <button type="button" className="is-new" data-ov-anchor={newAnchor} onClick={onNew}>
-              <Plus size={13} aria-hidden="true" />
-              {newLabel}
+            <button
+              type="button"
+              className="is-new"
+              data-ov-anchor={newAnchor}
+              onClick={onNew}
+              title={newShortLabel ? newLabel : undefined}
+            >
+              <NewIcon size={13} aria-hidden="true" />
+              {newShortLabel ?? newLabel}
             </button>
           )}
           {kit ? (
@@ -409,7 +440,7 @@ function OvViewer({
           {landing ? (
             total === 0 && !search ? (
               <div className="ov-vw__pick">
-                <KitEmpty title={emptyList} action={newButton} />
+                <KitEmpty title={emptyList} text={emptyText} action={newButton} />
               </div>
             ) : (
               <p className="ov-vw__pick">{emptyDetail}</p>
