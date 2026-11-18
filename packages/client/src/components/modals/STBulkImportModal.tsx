@@ -27,6 +27,7 @@ import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ImportTagChecks, useImportTagChoice } from "./ImportTagChecks";
 import { useOverhaulLook } from "../../stores/overhaul.store";
+import { ImportOptionPicker } from "./ImportOptionPicker";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
 
@@ -120,6 +121,42 @@ const EMBEDDED_LOREBOOK_OPTIONS: Array<{ value: EmbeddedLorebookChoice; label: s
   },
 ];
 
+/** The new layout's pickers: the same short labels and hints as the Import character window. */
+const OV_TAG_OPTIONS: Array<{ value: TagImportMode; short: string; description: string }> = [
+  {
+    value: "all",
+    short: "ui.modals.importcharactermodal.ovTagsAll",
+    description: "ui.modals.importcharactermodal.tagsAllHint",
+  },
+  {
+    value: "none",
+    short: "ui.modals.importcharactermodal.ovTagsNone",
+    description: "ui.modals.importcharactermodal.tagsNoneHint",
+  },
+  {
+    value: "existing",
+    short: "ui.modals.importcharactermodal.ovTagsExisting",
+    description: "ui.modals.importcharactermodal.tagsExistingHint",
+  },
+];
+const OV_REGEX_OPTIONS: Array<{ value: "character" | "global"; short: string; description: string }> = [
+  {
+    value: "character",
+    short: "ui.modals.stbulkimportmodal.ovScopeEachCharacter",
+    description: "ui.modals.stbulkimportmodal.scopeEachCharacterHint",
+  },
+  {
+    value: "global",
+    short: "ui.modals.importcharactermodal.ovScopeGlobal",
+    description: "ui.modals.importcharactermodal.scopeGlobalHint",
+  },
+];
+const OV_LOREBOOK_OPTIONS = EMBEDDED_LOREBOOK_OPTIONS.map(({ value, label, description }) => ({
+  value,
+  short: label,
+  description,
+}));
+
 type ApiErrorPayload = {
   error?: unknown;
   message?: unknown;
@@ -194,6 +231,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const followingRef = useRef(false);
   const importTags = useImportTagChoice();
   const qc = useQueryClient();
+  const overhaulActive = useOverhaulLook();
 
   const reset = useCallback(() => {
     setPhase("input");
@@ -516,15 +554,19 @@ export function STBulkImportModal({ open, onClose }: Props) {
       <div className="flex flex-col gap-4">
         {(phase === "input" || phase === "scanning") && (
           <>
-            <p className="text-xs text-[var(--muted-foreground)]">
+            <p className={overhaulActive ? "ov-stimp__intro" : "text-xs text-[var(--muted-foreground)]"}>
               {localizeUi("ui.modals.stbulkimportmodal.selectOrEnterThePathToYourSillytavernInstallation")}
             </p>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium">
-                {localizeUi("ui.modals.stbulkimportmodal.sillytavernFolderPath")}
+            <div className={overhaulActive ? "ov-imp__pick" : "flex flex-col gap-1.5"}>
+              <label className={overhaulActive ? "ov-imp__label" : "text-xs font-medium"}>
+                {localizeUi(
+                  overhaulActive
+                    ? "ui.modals.stbulkimportmodal.ovFolder"
+                    : "ui.modals.stbulkimportmodal.sillytavernFolderPath",
+                )}
               </label>
-              <div className="flex gap-2 max-sm:flex-col">
+              <div className={overhaulActive ? "ov-stimp__pathrow" : "flex gap-2 max-sm:flex-col"}>
                 <input
                   type="text"
                   value={folderPath}
@@ -534,7 +576,11 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   }}
                   placeholder={localizeUi("ui.modals.stbulkimportmodal.pathToSillytavern")}
                   disabled={phase === "scanning"}
-                  className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs max-sm:text-base outline-none ring-1 ring-transparent placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+                  className={
+                    overhaulActive
+                      ? "ov-stimp__path"
+                      : "flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs max-sm:text-base outline-none ring-1 ring-transparent placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleScan();
                   }}
@@ -542,7 +588,11 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <button
                   onClick={handleBrowse}
                   disabled={phase === "scanning" || picking}
-                  className="flex items-center justify-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium max-sm:min-h-11 max-sm:text-sm transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
+                  className={
+                    overhaulActive
+                      ? "ov-btn"
+                      : "flex items-center justify-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium max-sm:min-h-11 max-sm:text-sm transition-all hover:bg-[var(--secondary)] active:scale-95 disabled:opacity-50"
+                  }
                   title={localizeUi("ui.modals.stbulkimportmodal.browseForFolder")}
                 >
                   {picking ? <Spinner size="sm" /> : <FolderOpen size="0.875rem" />}
@@ -612,12 +662,16 @@ export function STBulkImportModal({ open, onClose }: Props) {
             <button
               onClick={handleScan}
               disabled={!folderPath.trim() || phase === "scanning"}
-              className={cn(
-                "ov-stscan flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-all",
-                folderPath.trim() && phase !== "scanning"
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 active:scale-95"
-                  : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-50",
-              )}
+              className={
+                overhaulActive
+                  ? "ov-btn ov-btn--primary ov-stscan"
+                  : cn(
+                      "flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-all",
+                      folderPath.trim() && phase !== "scanning"
+                        ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 active:scale-95"
+                        : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-50",
+                    )
+              }
             >
               {phase === "scanning" ? <Spinner size="sm" /> : <FolderSearch size="0.875rem" />}
               {phase === "scanning"
@@ -632,7 +686,13 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <div
+              className={
+                overhaulActive
+                  ? "ov-stimp__tip"
+                  : "rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+              }
+            >
               <strong>{localizeUi("ui.panels.themessettings.tip")}</strong>{" "}
               {localizeUi("ui.modals.stbulkimportmodal.thisIsTheMainSillytavernFolderUsuallyTheOne")}{" "}
               <code className="rounded bg-[var(--secondary)] px-1">data/</code> {localizeUi("ui.noodle.noodlehome.or")}{" "}
@@ -649,11 +709,21 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 <span>{error}</span>
               </div>
             )}
-            <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 p-2.5 text-xs text-emerald-400">
+            <div
+              className={
+                overhaulActive
+                  ? "ov-stimp__found"
+                  : "flex items-start gap-2 rounded-lg bg-emerald-500/10 p-2.5 text-xs text-emerald-400"
+              }
+            >
               <CheckCircle size="0.875rem" className="mt-0.5 shrink-0" />
               <span>
                 {localizeUi("ui.modals.stbulkimportmodal.foundSillytavernDataIn")}{" "}
-                <code className="rounded bg-[var(--secondary)] px-1 text-[0.625rem] max-sm:text-[13px]">
+                <code
+                  className={
+                    overhaulActive ? undefined : "rounded bg-[var(--secondary)] px-1 text-[0.625rem] max-sm:text-[13px]"
+                  }
+                >
                   {scanResult.dataDir}
                 </code>
               </span>
@@ -670,12 +740,18 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium">
+            <div className={overhaulActive ? "ov-stimp__cats" : "space-y-3"}>
+              <div className={overhaulActive ? "ov-stimp__catshead" : "flex items-center justify-between gap-2"}>
+                <span className={overhaulActive ? undefined : "text-xs font-medium"}>
                   {localizeUi("ui.modals.stbulkimportmodal.chooseExactlyWhatToImport")}
                 </span>
-                <span className="text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                <span
+                  className={
+                    overhaulActive
+                      ? "ov-stimp__count"
+                      : "text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]"
+                  }
+                >
                   {localizeUi("ui.modals.stbulkimportmodal.selectedItems", {
                     count: Object.values(selection).reduce((sum, ids) => sum + ids.length, 0),
                   })}
@@ -706,7 +782,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 }}
               />
 
-              {scanResult.characters.length > 0 && (
+              {!overhaulActive && scanResult.characters.length > 0 && (
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
                   <p className="text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.modals.stbulkimportmodal.importedCharacterTags")}
@@ -742,7 +818,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 </div>
               )}
 
-              {scanResult.characters.length > 0 && (
+              {!overhaulActive && scanResult.characters.length > 0 && (
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
                   <p className="text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.modals.importcharactermodal.importedRegexScripts")}
@@ -778,7 +854,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 </div>
               )}
 
-              {scanResult.characters.length > 0 && (
+              {!overhaulActive && scanResult.characters.length > 0 && (
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
                   <p className="text-xs font-medium text-[var(--foreground)]">
                     {localizeUi("ui.modals.importcharactermodal.embeddedLorebooks")}
@@ -975,6 +1051,29 @@ export function STBulkImportModal({ open, onClose }: Props) {
               />
             </div>
 
+            {overhaulActive && scanResult.characters.length > 0 && (
+              <>
+                <ImportOptionPicker
+                  label={localizeUi("ui.modals.importcharactermodal.ovCardTags")}
+                  options={OV_TAG_OPTIONS}
+                  value={characterTagImportMode}
+                  onChange={setCharacterTagImportMode}
+                />
+                <ImportOptionPicker
+                  label={localizeUi("ui.modals.importcharactermodal.ovRegexScripts")}
+                  options={OV_REGEX_OPTIONS}
+                  value={regexScriptScope}
+                  onChange={setRegexScriptScope}
+                />
+                <ImportOptionPicker
+                  label={localizeUi("ui.modals.importcharactermodal.ovLorebooks")}
+                  options={OV_LOREBOOK_OPTIONS}
+                  value={embeddedLorebooks}
+                  onChange={setEmbeddedLorebooks}
+                />
+              </>
+            )}
+
             <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST"]} />
 
             <SkipAlreadyImportedCheck value={skipAlreadyImported} onChange={setSkipAlreadyImported} />
@@ -986,22 +1085,30 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <div className="flex items-center gap-2 max-sm:flex-col">
+            <div className={overhaulActive ? "ov-stimp__actions" : "flex items-center gap-2 max-sm:flex-col"}>
               <button
                 onClick={reset}
-                className="flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--secondary)] active:scale-95"
+                className={
+                  overhaulActive
+                    ? "ov-btn"
+                    : "flex-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--secondary)] active:scale-95"
+                }
               >
                 {localizeUi("ui.noodle.noodlerframe.back")}
               </button>
               <button
                 onClick={handleImport}
                 disabled={!hasAnySelected}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all active:scale-95",
-                  hasAnySelected
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
-                    : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60",
-                )}
+                className={
+                  overhaulActive
+                    ? "ov-btn ov-btn--primary"
+                    : cn(
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all active:scale-95",
+                        hasAnySelected
+                          ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
+                          : "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60",
+                      )
+                }
               >
                 <Import size="0.875rem" />
                 {localizeUi("ui.modals.stbulkimportmodal.importSelected")}
@@ -1178,12 +1285,18 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </div>
             )}
 
-            <button
-              onClick={handleClose}
-              className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
-            >
-              {localizeUi("lorebook.editor.batch.done")}
-            </button>
+            <div className={overhaulActive ? "ov-stimp__actions" : "contents"}>
+              <button
+                onClick={handleClose}
+                className={
+                  overhaulActive
+                    ? "ov-btn ov-btn--primary"
+                    : "rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95"
+                }
+              >
+                {localizeUi("lorebook.editor.batch.done")}
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -1215,8 +1328,63 @@ function SelectableImportCategory<T extends ScanItemBase>({
   renderBadge?: (item: T) => React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulActive = useOverhaulLook();
   const [expanded, setExpanded] = useState(items.length <= 8 && items.length > 0);
   const selectedSet = new Set(selectedIds);
+
+  if (overhaulActive) {
+    return (
+      <div className={cn("ov-stcat", items.length === 0 && "is-empty")}>
+        <div className="ov-stcat__head">
+          <span className="ov-stcat__icon">{icon}</span>
+          <span className="ov-stcat__name">{label}</span>
+          <span className="ov-stcat__count">
+            {selectedIds.length}/{items.length}
+          </span>
+          {items.length > 0 && (
+            <span className="ov-stcat__tools">
+              <button type="button" onClick={onSelectAll}>
+                {localizeUi("ui.noodle.stageprofilesourcepicker.all")}
+              </button>
+              <button type="button" onClick={onSelectNone}>
+                {localizeUi("ui.game.gamesurfacecomponent.none")}
+              </button>
+              <button
+                type="button"
+                className="ov-stcat__toggle"
+                aria-expanded={expanded}
+                aria-label={
+                  expanded
+                    ? localizeUi("ui.noodle.stageprofileview.hide")
+                    : localizeUi("ui.modals.selectableimportcategory.show")
+                }
+                onClick={() => setExpanded((prev) => !prev)}
+              >
+                <ChevronRight size="0.875rem" />
+              </button>
+            </span>
+          )}
+        </div>
+        {expanded && items.length > 0 && (
+          <div className="ov-stcat__items">
+            {items.map((item) => (
+              <label key={item.id} className="ov-stcat__item">
+                <input
+                  type="checkbox"
+                  checked={selectedSet.has(item.id)}
+                  onChange={(e) => onToggleItem(item.id, e.target.checked)}
+                  className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                />
+                <span className="ov-stcat__itemname">{getItemLabel ? getItemLabel(item) : item.name}</span>
+                {renderBadge?.(item)}
+                {renderDetails && <span className="ov-stcat__itemdetail">{renderDetails(item)}</span>}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-[var(--border)]">

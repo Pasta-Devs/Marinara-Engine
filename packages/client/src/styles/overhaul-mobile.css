@@ -3013,6 +3013,60 @@
 :root[data-overhaul="mobile"] .ov-imp__checks .ov-imp__checkrow {
   min-height: 2.25rem;
 }
+:root[data-overhaul="mobile"] .ov-stimp__intro,
+:root[data-overhaul="mobile"] .ov-stimp__found,
+:root[data-overhaul="mobile"] .ov-stimp__catshead,
+:root[data-overhaul="mobile"] .ov-stcat__head,
+:root[data-overhaul="mobile"] .ov-stcat__item {
+  font-size: 0.9375rem;
+}
+:root[data-overhaul="mobile"] .ov-stimp__path {
+  height: 2.75rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-stimp__pathrow .ov-btn,
+:root[data-overhaul="mobile"] .ov-stimp__actions .ov-btn,
+:root[data-overhaul="mobile"] .ov-stscan {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-stscan,
+:root[data-overhaul="mobile"] .ov-stimp__tip {
+  margin-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-stimp__tip,
+:root[data-overhaul="mobile"] .ov-stcat__count,
+:root[data-overhaul="mobile"] .ov-stimp__count,
+:root[data-overhaul="mobile"] .ov-stcat__itemdetail {
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-stcat__head {
+  min-height: 3rem;
+}
+:root[data-overhaul="mobile"] .ov-stcat__tools button {
+  min-height: 2.5rem;
+  padding: 0 0.625rem;
+  font-size: 0.875rem;
+}
+/* Phones: an item's details go under its name. */
+:root[data-overhaul="mobile"] .ov-stcat__items {
+  padding-left: 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-stcat__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.625rem;
+  min-height: 2.75rem;
+}
+:root[data-overhaul="mobile"] .ov-stcat__itemdetail {
+  grid-column: 2;
+  margin-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-stimp__actions .ov-btn {
+  flex: 1;
+  justify-content: center;
+}
 
 /* Library landing pages on phones: title and + New (just "New": the title names the item) on top; Import, the filter dropdown and the
    List / Gallery switch on the next line; search and sort share one line; galleries show at

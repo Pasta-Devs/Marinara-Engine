@@ -35,6 +35,7 @@ import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { appendImportTags, ImportTagChecks, importTagsBody, useImportTagChoice } from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { ImportOptionPicker } from "./ImportOptionPicker";
 
 interface Props {
   open: boolean;
@@ -125,44 +126,6 @@ const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; short
     description: "ui.modals.importcharactermodal.scopeGlobalHint",
   },
 ];
-
-/** New layout: a label-left segmented picker with the chosen option's description underneath. */
-function OvImportPicker<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: Array<{ value: T; short: string; description: string }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const current = options.find((option) => option.value === value);
-  return (
-    <div className="ov-imp__pick">
-      <span className="ov-imp__label">{label}</span>
-      <div className="ov-imp__choice">
-        <div className="ov-seg" role="radiogroup" aria-label={label}>
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={option.value === value}
-              className={cn(option.value === value && "is-on")}
-              onClick={() => onChange(option.value)}
-            >
-              {localizeUi(option.short)}
-            </button>
-          ))}
-        </div>
-        {current ? <p className="ov-imp__desc">{localizeUi(current.description)}</p> : null}
-      </div>
-    </div>
-  );
-}
 
 export function ImportCharacterModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
@@ -707,19 +670,19 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                 {localizeUi("ui.modals.importcharactermodal.ovBrowse")}
               </button>
             </div>
-            <OvImportPicker
+            <ImportOptionPicker
               label={localizeUi("ui.modals.importcharactermodal.ovCardTags")}
               options={TAG_IMPORT_OPTIONS}
               value={tagImportMode}
               onChange={setTagImportMode}
             />
-            <OvImportPicker
+            <ImportOptionPicker
               label={localizeUi("ui.modals.importcharactermodal.ovRegexScripts")}
               options={REGEX_SCOPE_OPTIONS}
               value={regexScriptScope}
               onChange={setRegexScriptScope}
             />
-            <OvImportPicker
+            <ImportOptionPicker
               label={localizeUi("ui.modals.importcharactermodal.ovLorebooks")}
               options={EMBEDDED_LOREBOOK_OPTIONS}
               value={embeddedLorebookMode}
