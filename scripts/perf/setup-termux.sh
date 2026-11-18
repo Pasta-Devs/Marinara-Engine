@@ -120,9 +120,13 @@ fi
 
 # 2. The container (Termux's home lives in a volume so dependencies survive restarts).
 [ "$FRESH" = 1 ] && { docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$VOLUME" >/dev/null 2>&1 || true; }
-# The memory cap and the hard-link filter are set when the container is created, so a different --memory, or a
-# container from before the filter, needs a new container.
-CONFIG="memory=$MEMORY links=refused"
+# Android doesn't let apps create hard links (SELinux answers EACCES, "Permission denied"); Linux does. This syscall
+# filter refuses them the same way. It replaces Docker's default filter, which is fine for a throwaway container that
+# runs only this checkout and Termux.
+SECCOMP='{"defaultAction":"SCMP_ACT_ALLOW","syscalls":[{"names":["link","linkat"],"action":"SCMP_ACT_ERRNO","errnoRet":13}]}'
+# The memory cap and the filter are set when the container is created, so a different --memory or filter (including
+# a container from before the filter) needs a new container.
+CONFIG="memory=$MEMORY seccomp=$SECCOMP"
 if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] &&
   [ "$(docker inspect -f '{{index .Config.Labels "termux-qc-config"}}' "$NAME" 2>/dev/null)" != "$CONFIG" ]; then
   log "recreating the container (--memory ${MEMORY:-none}, hard links refused); the Termux home volume stays"
@@ -132,11 +136,7 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; 
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   CA_FILE="${TERMUX_QC_CA_FILE:-${NODE_EXTRA_CA_CERTS:-${SSL_CERT_FILE:-}}}"
   args=(-d --name "$NAME" --network host -v "$VOLUME:$HOME_DIR" --label "termux-qc-config=$CONFIG")
-  # Android doesn't let apps create hard links (SELinux answers EACCES, "Permission denied"); Linux does. This
-  # syscall filter refuses them the same way. It replaces Docker's default filter, which is fine for a throwaway
-  # container that runs only this checkout and Termux.
-  printf '%s\n' '{"defaultAction":"SCMP_ACT_ALLOW","syscalls":[{"names":["link","linkat"],"action":"SCMP_ACT_ERRNO","errnoRet":13}]}' \
-    >"$STATE/android-seccomp.json"
+  printf '%s\n' "$SECCOMP" >"$STATE/android-seccomp.json"
   args+=(--security-opt "seccomp=$STATE/android-seccomp.json")
   [ "$native" = 0 ] && args+=(--platform "linux/$([ "$ARCH" = aarch64 ] && echo arm64 || echo "$ARCH")")
   for var in HTTPS_PROXY https_proxy HTTP_PROXY http_proxy NO_PROXY no_proxy; do
