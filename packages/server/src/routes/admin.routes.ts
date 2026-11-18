@@ -19,6 +19,7 @@ import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import {
   ADMIN_EXPUNGE_RATE_LIMIT,
+  STATUS_POLL_RATE_LIMIT,
   ADMIN_RESTART_RATE_LIMIT,
   AVATAR_STORAGE_RATE_LIMIT,
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
@@ -601,7 +602,7 @@ export async function adminRoutes(app: FastifyInstance) {
     };
   };
 
-  app.get("/expunge/status", async (req, reply) => {
+  app.get("/expunge/status", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Admin data expunge" })) return;
     reply.header("Cache-Control", "no-store");
     return {
