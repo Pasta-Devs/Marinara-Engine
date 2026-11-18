@@ -115,7 +115,20 @@ type Column<T> = {
   label: string;
   className?: string;
   render: (row: T) => ReactNode;
+  /** Full text for the hover tooltip when the cell is cut short. Long plain-text cells get one by themselves. */
+  title?: (row: T) => string | undefined;
 };
+
+/** A long name must not stretch its column: the cell text is cut with "…" and the whole of it shows on hover. */
+function tableCell<T>(column: Column<T>, row: T) {
+  const content = column.render(row);
+  const title = column.title?.(row) ?? (typeof content === "string" && content.length > 24 ? content : undefined);
+  return (
+    <td key={column.key} className={column.className} title={title}>
+      <span className="ov-table__clip">{content}</span>
+    </td>
+  );
+}
 
 type Chip = { id: string; label: string };
 
@@ -335,11 +348,7 @@ function ListPage<T extends { id: string }>({
         </td>
       ) : null}
       {leading ? <td className="ov-table__lead">{leading(row)}</td> : null}
-      {columns.map((column) => (
-        <td key={column.key} className={column.className}>
-          {column.render(row)}
-        </td>
-      ))}
+      {columns.map((column) => tableCell(column, row))}
       {kit ? (
         <td className="ov-table__more">
           <KitMoreButton
@@ -863,6 +872,7 @@ export function LorebooksLanding() {
           key: "name",
           label: "Lorebook",
           className: "ov-table__name",
+          title: (book) => book.name,
           render: (book) => (
             <span className="ov-table__title">
               <Thumb id={book.id} src={book.imagePath} crop={book.imageCrop} />
@@ -1066,6 +1076,7 @@ export function PresetsLanding() {
           key: "name",
           label: "Preset",
           className: "ov-table__name",
+          title: (preset) => preset.name,
           render: (preset) => (
             <span className="ov-table__title">
               <Thumb id={preset.id} src={resolvePresetArtwork(preset)} />

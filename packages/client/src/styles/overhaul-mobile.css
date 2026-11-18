@@ -3712,6 +3712,10 @@
   display: flex;
   flex-shrink: 0;
 }
+/* A very long account name gives up its room before the status does ("Ready" was squeezed to "R", Nov 18). */
+:root[data-overhaul="mobile"] .ov-conn__account > td:nth-child(4):not(#ovm-x) {
+  flex-shrink: 0;
+}
 :root[data-overhaul="mobile"] .ov-conn__account.is-open {
   background: color-mix(in srgb, var(--ov-text) 3%, transparent);
 }

@@ -618,7 +618,7 @@ export function ConnectionsLanding() {
               >
                 <Star size={13} aria-hidden="true" />
               </button>
-              <b>{row.name || row.model}</b>
+              <b title={row.name || row.model}>{row.name || row.model}</b>
               {row.name && row.model && row.name !== row.model ? (
                 <span className="ov-conn__dim">{row.model}</span>
               ) : loadedModel ? (
@@ -733,7 +733,7 @@ export function ConnectionsLanding() {
             <td colSpan={2}>
               <span className="ov-conn__acct">
                 <Folder size={15} aria-hidden="true" />
-                <b>{section.name}</b>
+                <b title={section.name}>{section.name}</b>
               </span>
             </td>
             <td className="ov-conn__num">{section.rows.length}</td>
@@ -925,7 +925,7 @@ export function ConnectionsLanding() {
                                 size="sm"
                                 dim={account.state !== "ok"}
                               />
-                              <b>{account.name}</b>
+                              <b title={account.name}>{account.name}</b>
                               {host && !account.name.includes(host) ? (
                                 <span className="ov-conn__dim">{host}</span>
                               ) : null}

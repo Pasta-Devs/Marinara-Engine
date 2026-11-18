@@ -497,7 +497,7 @@ export function CardGallery({
           )}
         </span>
       </td>
-      <td className="ov-table__name ov-cl__name">
+      <td className="ov-table__name ov-cl__name" title={card.name}>
         <span className="ov-cl__title">
           <span className="ov-cl__name-text">{card.name}</span>
           {card.hasLorebook ? lorebookMark : null}
@@ -516,7 +516,7 @@ export function CardGallery({
         <td className="ov-table__desc ov-cl__notes">{notesPreview(card).replace(/\n/g, " ") || "—"}</td>
       ) : null}
       <td className={cn("ov-cl__tags", !isCharacters && "ov-table__desc")} title={card.tags.join(", ") || undefined}>
-        {card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : "—"}
+        <span className="ov-table__clip">{card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : "—"}</span>
       </td>
       <td className="ov-table__num">{card.tokens}</td>
       <td className="ov-cl__updated">{formatRelativeContact(card.updatedAt) ?? "—"}</td>
@@ -647,7 +647,7 @@ export function CardGallery({
                 <th className="ov-table__lead" aria-hidden="true" />
                 <th className="ov-table__name">{localize(isCharacters ? "Character" : "Persona")}</th>
                 {isCharacters ? <th className="ov-table__desc">{localize("Creator's Notes")}</th> : null}
-                <th className={cn(!isCharacters && "ov-table__desc")}>{localize("Tags")}</th>
+                <th className={cn("ov-cl__tags", !isCharacters && "ov-table__desc")}>{localize("Tags")}</th>
                 <th className="ov-table__num">{localize("Tokens")}</th>
                 <th>{localize("Updated")}</th>
                 <th className="ov-table__more" aria-hidden="true" />

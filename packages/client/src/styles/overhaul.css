@@ -1514,6 +1514,58 @@
   width: 100%;
   max-width: 0;
 }
+/* No column grows past its share of the table: a preset with a very long name (or one unbroken word) made its
+   column wider than the page and the rest of the row went off the side (Nov 18). The text is cut with "…" and the
+   whole of it shows on hover. The shares follow the table's own width (cqi), so split view and tablets keep every
+   column in the frame too. */
+.ov-table-wrap {
+  container: ov-table / inline-size;
+}
+.ov-table__clip {
+  display: block;
+  max-width: min(12rem, 16cqi);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-table__name > .ov-table__clip {
+  max-width: min(22rem, 26cqi);
+}
+.ov-table__desc > .ov-table__clip {
+  max-width: none;
+}
+.ov-table__clip > .ov-table__title {
+  display: flex;
+  min-width: 0;
+}
+.ov-table__title > .ov-thumb {
+  flex-shrink: 0;
+}
+.ov-table__title > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A narrow table keeps every column: long text gets a smaller share and the long-text column's heading may be cut
+   with "…", rather than any column going away. Below this, presets' seven columns ran past the frame even with
+   short names. */
+@container mari-main (min-width: 44.01rem) {
+  @container ov-table (max-width: 50rem) {
+    .ov-table:not(.ov-conn__table) .ov-table__name > .ov-table__clip {
+      max-width: 22cqi;
+    }
+    .ov-table:not(.ov-conn__table) th.ov-table__desc {
+      max-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ov-table-wrap.ov-cl :is(th, td).ov-table__name {
+      width: 22cqi;
+      min-width: 0;
+      max-width: 22cqi;
+    }
+  }
+}
 .ov-gallery__tools {
   flex-wrap: wrap;
 }
@@ -13270,6 +13322,10 @@ input.ov-edhead__title:not(#ov-x) {
     display: flex;
     min-width: 0;
   }
+  /* The name is the only column left, so it gets the whole row before it is cut. */
+  .ov-table td.ov-table__name > .ov-table__clip {
+    max-width: none;
+  }
   .ov-table td.ov-table__name .ov-table__title > span:last-child {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -14556,6 +14612,9 @@ input.ov-edhead__title:not(#ov-x) {
   max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ov-cl td.ov-cl__tags:not(.ov-table__desc) > .ov-table__clip {
+  max-width: min(14rem, 14cqi);
 }
 .ov-cl td.ov-table__desc {
   width: 100%;

@@ -31,6 +31,27 @@ async function clippedBoxes(page: Page, scope: string) {
   }, scope);
 }
 
+/**
+ * A List view column never grows past its share: a very long name (or one unbroken word) is cut with "…", so no table
+ * scrolls sideways and the columns after the name keep their room.
+ */
+async function wideTables(page: Page, scope: string) {
+  return page.evaluate((selector) => {
+    const found: string[] = [];
+    for (const wrap of document.querySelectorAll<HTMLElement>(`${selector} .ov-table-wrap`)) {
+      if (!wrap.getClientRects().length) continue;
+      if (wrap.scrollWidth - wrap.clientWidth > 2)
+        found.push(`table is ${wrap.scrollWidth}px wide in ${wrap.clientWidth}px`);
+    }
+    if (document.documentElement.scrollWidth > innerWidth + 1) found.push("the page scrolls sideways");
+    return found;
+  }, scope);
+}
+
+const LONG_NAME =
+  "A Ridiculously Long Name That Goes On And On Because Nobody Could Decide What To Call It v12 FINAL final2";
+const UNBROKEN_NAME = "Supercalifragilistic_OneUnbrokenWordWithNoSpacesAtAllThatKeepsGoingAndGoingAndGoing_v3";
+
 test.describe("Library pages reach their last row", () => {
   test.beforeEach(({}, info) => {
     test.skip(info.project.name !== "desktop-chromium", "The side-by-side viewers are the desktop layout");
@@ -40,7 +61,7 @@ test.describe("Library pages reach their last row", () => {
     const response = await request.post("/api/connection-accounts", {
       data: {
         provider: "openai",
-        name: `Reach the end ${info.project.name}`,
+        name: `Reach the end ${info.project.name} ${LONG_NAME}`,
         apiKey: "fixture-not-a-real-key",
         baseUrl: "http://127.0.0.1:9/v1",
         model: "gpt-5.5",
@@ -48,6 +69,21 @@ test.describe("Library pages reach their last row", () => {
     });
     expect(response.ok()).toBeTruthy();
     const created = (await response.json()) as { account: { id: string }; connectionId: string };
+    // Long names on every List view, with one unbroken word too.
+    const longItems: string[] = [];
+    const make = async (path: string, data: Record<string, unknown>) => {
+      const made = await request.post(path, { data });
+      expect(made.ok(), `${path} ${await made.text()}`).toBeTruthy();
+      longItems.push(`${path}/${((await made.json()) as { id: string }).id}`);
+    };
+    await make("/api/prompts", { name: LONG_NAME, author: UNBROKEN_NAME });
+    await make("/api/prompts", { name: UNBROKEN_NAME });
+    await make("/api/lorebooks", { name: LONG_NAME });
+    await make("/api/lorebooks", { name: UNBROKEN_NAME });
+    await make("/api/characters", { data: { name: LONG_NAME, tags: [UNBROKEN_NAME] } });
+    await make("/api/characters", { data: { name: UNBROKEN_NAME } });
+    await make("/api/characters/personas", { name: UNBROKEN_NAME });
+    await make("/api/regex-scripts", { name: LONG_NAME, findRegex: UNBROKEN_NAME, placement: ["ai_output"] });
     try {
       await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
       await seedUIState(page, { hasCompletedOnboarding: true, rightPanelOpen: true, theme: "dark" });
@@ -67,6 +103,12 @@ test.describe("Library pages reach their last row", () => {
         await nav.getByText(section, { exact: true }).click();
         await expect(page.locator('main.mari-main [data-mari-part="page"] h1').first()).toContainText(section);
         expect(await clippedBoxes(page, "main.mari-main"), `${section} page`).toEqual([]);
+        const listView = page
+          .locator("main.mari-main")
+          .getByRole("button", { name: "List", exact: true })
+          .filter({ visible: true });
+        if (await listView.count()) await listView.first().click();
+        expect(await wideTables(page, "main.mari-main"), `${section} list`).toEqual([]);
       }
 
       // Connections: open the viewer, then every account, model and built-in model page beside the list.
@@ -83,6 +125,7 @@ test.describe("Library pages reach their last row", () => {
         await expect.poll(() => clippedBoxes(page, ".ov-vw__main"), { message: `Connections › ${name}` }).toEqual([]);
       }
     } finally {
+      for (const path of longItems) await request.delete(path).catch(() => undefined);
       // An account keeps its models until they are removed.
       await request.delete(`/api/connections/${created.connectionId}`).catch(() => undefined);
       await request.delete(`/api/connection-accounts/${created.account.id}`).catch(() => undefined);
