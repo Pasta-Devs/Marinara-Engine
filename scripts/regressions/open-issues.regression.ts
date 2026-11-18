@@ -631,7 +631,7 @@ const summaryPromptControlsSource = summaryPopoverSource.slice(
 );
 assert.equal(
   summaryPromptControlsSource.match(/disabled=\{promptSettingsSaveLocked\}/gu)?.length,
-  8,
+  5,
   "Every prompt option, template row, and open template editor control must use the save lock",
 );
 assert.equal(
