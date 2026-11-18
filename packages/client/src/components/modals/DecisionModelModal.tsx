@@ -26,6 +26,7 @@ import {
   type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "../connections/LocalModelShared";
 import { useUIStore } from "../../stores/ui.store";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
@@ -374,6 +375,8 @@ export function DecisionModelModal() {
         )}
       </div>
 
+      {hasInstall && <LocalModelSlotNote slot="decision" />}
+
       {data && !data.supported ? (
         // Greyed out, never hidden: people who read about this elsewhere need to see
         // why it is not offered, and what does work instead.
@@ -386,6 +389,7 @@ export function DecisionModelModal() {
             {localizeUi("ui.modals.decisionmodelmodal.options")}
           </summary>
           <div className="mt-3 flex flex-col gap-5">
+            {hasInstall && <UnloadWhenUnusedRow variant="field" />}
             {/* Only with more than one card: with one there is nothing to choose. */}
             {data && data.devices.length > 1 && (
               <label className="flex flex-col gap-1 text-xs">

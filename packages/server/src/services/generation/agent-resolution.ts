@@ -21,6 +21,7 @@ import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
+import { sidecarProcessService } from "../sidecar/sidecar-process.service.js";
 import { utilitySidecarService } from "../utility-sidecar/utility-sidecar.service.js";
 import { buildUtilitySidecarEntry } from "../utility-sidecar/utility-sidecar.provider.js";
 import { UTILITY_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
@@ -447,7 +448,7 @@ export async function resolveAgentPipelineAgents({
       enabledParameters: { temperature: true },
       suppressModelParameters: false,
       maxOutputTokens: null,
-      maxParallelJobs: sidecarModelService.getConfig().maxParallelJobs,
+      maxParallelJobs: sidecarProcessService.getEffectiveParallelJobs(),
       enableCaching: false,
       anthropicExtendedCacheTtl: false,
       cachingAtDepth: 5,

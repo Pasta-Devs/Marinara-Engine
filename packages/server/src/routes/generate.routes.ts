@@ -1,5 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  lowerLocalModelPriorityAfterReply,
+  runWithLocalModelPriority,
+} from "../services/sidecar/local-model-priority.js";
+import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   type LocationBackgroundPin,
   applyClockCommandTags,
@@ -9748,6 +9752,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const textChatOptions: ChatOptions = {
             ...(advancedMemoryEnabled ? { preserveContext: true } : {}),
+            localPriority: "reply",
             model: conn.model,
             temperature,
             maxTokens: effectiveMaxTokensForSend,
@@ -9824,6 +9829,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 requestOptions: () => {
                   replyThinking = "";
                   return {
+                    localPriority: "reply",
                     model: conn.model,
                     preserveContext: advancedMemoryEnabled,
                     temperature,
@@ -13289,6 +13295,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         }
 
         await finalizeLorebookWrites();
+        // The reply is written: what this generation still sends the built-in model ranks below the next reply.
+        lowerLocalModelPriorityAfterReply();
         const hasPostProcessingAgents = resolvedAgents.some((a) => a.phase === "post_processing");
         // A continued reply's segment is only the added text, so it reads only the whispers written with it.
         agentContext.mainResponseSegments = shouldPrefixGroupHistorySpeakers
@@ -16935,7 +16943,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     } catch (error) {
       return rejectGenerationOutput(output, 409, { error: (error as Error).message, code: "room_generation_required" });
     }
-    return runWithRoomGeneration(policy, () => executeGeneration(input, output));
+    // Built-in model requests made while this reply is prepared rank above everything else;
+    // the context drops a level once the reply is written (see local-model-priority.ts).
+    return runWithLocalModelPriority("prepare", () =>
+      runWithRoomGeneration(policy, () => executeGeneration(input, output)),
+    );
   };
 
   app.post("/", async (req, reply) => runGeneration(generateRequestSchema.parse(req.body), reply));

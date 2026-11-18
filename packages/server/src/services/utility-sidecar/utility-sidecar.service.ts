@@ -31,6 +31,8 @@ import { getDataDir } from "../../utils/data-dir.js";
 import { buildLlamaArgs, buildLlamaStartupPlans } from "../sidecar/sidecar-launch-plan.js";
 import { downloadFileWithProgress, fetchJson } from "../sidecar/sidecar-download.js";
 import { sidecarRuntimeService } from "../sidecar/sidecar-runtime.service.js";
+import { estimateSlotBytes, getMeasuredProcessBytes } from "../sidecar/sidecar-footprint.js";
+import { localModelManager } from "../sidecar/local-model-manager.js";
 import type { SidecarDownloadProgress } from "@marinara-engine/shared";
 
 /** Own directory. Never data/models itself, which the main slot owns. */
@@ -133,6 +135,8 @@ export class UtilitySidecarService {
   private child: ChildProcess | null = null;
   /** Which model the running child actually loaded, so a stale one is never reused. */
   private runningModelId: string | null = null;
+  /** GPU layers the running process was started with. */
+  private runningGpuLayers: number | null = null;
   private port: number | null = null;
   private ready = false;
   private startupError: string | null = null;
@@ -167,6 +171,29 @@ export class UtilitySidecarService {
 
   getConfig(): UtilitySidecarConfig {
     return { ...this.config, models: { ...this.config.models } };
+  }
+
+  /** Up and serving; a process still starting is not counted, so it is never unloaded mid-start. */
+  isLoaded(): boolean {
+    return this.ready && !!this.child;
+  }
+
+  placement(): "gpu" | "cpu" {
+    if (this.child && this.runningGpuLayers !== null) return this.runningGpuLayers === 0 ? "cpu" : "gpu";
+    if (this.config.gpuLayers === 0) return "cpu";
+    const runtime = sidecarRuntimeService.getCurrentInstall();
+    return runtime && sidecarRuntimeService.isGpuVariant(runtime.variant) ? "gpu" : "cpu";
+  }
+
+  /** Memory it holds while running (measured on NVIDIA), or what the active model is expected to want. */
+  footprintBytes(): number | null {
+    const measured = this.ready && this.placement() === "gpu" ? getMeasuredProcessBytes(this.child?.pid) : null;
+    const active = this.config.activeModelId ? this.config.models[this.config.activeModelId] : undefined;
+    return estimateSlotBytes({
+      fileBytes: active?.bytes ?? null,
+      contextSize: this.config.contextSize * Math.max(1, this.config.maxParallelJobs),
+      measuredBytes: measured,
+    });
   }
 
   /** This slot's llama-server process id, for measured rather than estimated memory. */
@@ -464,6 +491,9 @@ export class UtilitySidecarService {
       return;
     }
 
+    // Make room first: other built-in models that are not working on anything step aside.
+    await localModelManager.prepareToLoad("utility", this.footprintBytes(), this.placement());
+
     // -1 means "all layers on the GPU, and fall back to CPU if that start fails" — the
     // same convention the main sidecar uses. Passing it straight to llama-server would
     // send `-ngl -1`, which is not what it means.
@@ -492,6 +522,7 @@ export class UtilitySidecarService {
       this.child = child;
       this.port = port;
       this.runningModelId = modelId;
+      this.runningGpuLayers = plan.gpuLayers;
       child.on("exit", (code) => {
         logger.info(`[utility-sidecar] llama-server exited (${code})`);
         if (this.child === child) {
@@ -499,6 +530,7 @@ export class UtilitySidecarService {
           this.port = null;
           this.ready = false;
           this.runningModelId = null;
+          localModelManager.noteStopped("utility");
         }
       });
       child.on("error", (error) => {
@@ -510,6 +542,7 @@ export class UtilitySidecarService {
       await this.waitUntilAnswering(port);
       if (this.ready) {
         logger.info(`[utility-sidecar] Started with ${plan.label}`);
+        localModelManager.noteLoaded("utility");
         return;
       }
 
@@ -565,6 +598,7 @@ export class UtilitySidecarService {
     this.ready = false;
     this.port = null;
     this.runningModelId = null;
+    localModelManager.noteStopped("utility");
     if (!child || child.exitCode !== null || child.signalCode !== null) return;
 
     this.stopping = (async () => {
@@ -610,3 +644,12 @@ export class UtilitySidecarService {
 }
 
 export const utilitySidecarService = new UtilitySidecarService();
+
+localModelManager.register({
+  id: "utility",
+  label: () => "The utility model",
+  isLoaded: () => utilitySidecarService.isLoaded(),
+  footprintBytes: () => utilitySidecarService.footprintBytes(),
+  placement: () => utilitySidecarService.placement(),
+  unload: () => utilitySidecarService.stop(),
+});

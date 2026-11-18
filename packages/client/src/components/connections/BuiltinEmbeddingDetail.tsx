@@ -39,6 +39,7 @@ import {
 } from "./DeviceDetail";
 import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { ProviderIcon } from "./ProviderIcon";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 
 const FIELD = "mari-chrome-field h-8 w-full max-w-[18rem] px-2 text-xs max-md:h-11 max-sm:text-base";
 
@@ -260,6 +261,8 @@ export function BuiltinEmbeddingDetail() {
         </div>
       )}
 
+      {active && <LocalModelSlotNote slot="embedding" />}
+
       <section className={DETAIL_CARD_CLASS}>
         <FactRow label={t("connections.device.fact.model")} stack>
           {/* A dropdown, not chips: a phone has room for the name on one line and little more. */}
@@ -295,9 +298,6 @@ export function BuiltinEmbeddingDetail() {
                 max: formatBytes((active ?? choice).ramBytes),
               })
             : t("connections.builtinEmbedding.memoryUpTo", { max: formatBytes((active ?? choice).ramBytes) })}
-          <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("connections.builtinEmbedding.stopsWhenIdle")}
-          </span>
         </FactRow>
         <FactRow label={t("connections.device.fact.usedBy")}>
           {isDefault ? t(jobLabelKey(JOB.embeddings)) : t("connections.device.usedBy.none")}
@@ -319,6 +319,7 @@ export function BuiltinEmbeddingDetail() {
             </span>
           )}
         </FactRow>
+        {active && <UnloadWhenUnusedRow />}
       </section>
 
       {downloading ? (

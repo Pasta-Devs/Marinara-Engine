@@ -2,6 +2,7 @@ import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 
 import { LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
+import { sidecarProcessService } from "../sidecar/sidecar-process.service.js";
 
 export type LocalSidecarGenerationConnection = {
   id: typeof LOCAL_SIDECAR_CONNECTION_ID;
@@ -74,7 +75,7 @@ export function createLocalSidecarGenerationConnection(): LocalSidecarGeneration
     defaultParameters: null,
     promptPresetId: null,
     maxTokensOverride: null,
-    maxParallelJobs: config.maxParallelJobs,
+    maxParallelJobs: sidecarProcessService.getEffectiveParallelJobs(),
     treatAsLocalEndpoint: "true",
     claudeFastMode: "false",
     folderId: null,

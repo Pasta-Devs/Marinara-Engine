@@ -45,6 +45,7 @@ import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { BuiltinEmbeddingDetail } from "./BuiltinEmbeddingDetail";
 import { ModelDownloadModal } from "../modals/ModelDownloadModal";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
@@ -160,7 +161,7 @@ export function FactRow({ label, children, stack }: { label: string; children: R
         stack && "max-sm:flex-col max-sm:items-stretch max-sm:gap-1",
       )}
     >
-      <span className="w-20 shrink-0 text-[var(--muted-foreground)]">{label}</span>
+      <span className={cn("w-24 shrink-0 text-[var(--muted-foreground)]", stack && "max-sm:w-auto")}>{label}</span>
       <span className="min-w-0 flex-1">{children}</span>
     </div>
   );
@@ -566,6 +567,8 @@ function LocalModelDetail() {
         </div>
       )}
 
+      {isDownloaded && !failed && <LocalModelSlotNote slot="main" />}
+
       <section className={DETAIL_CARD_CLASS}>
         <FactRow label={localizeUi("connections.device.fact.model")}>
           <span className="block">{modelDisplayName ?? localizeUi("connections.device.state.notDownloaded")}</span>
@@ -609,6 +612,7 @@ function LocalModelDetail() {
             </span>
           </span>
         </FactRow>
+        {isDownloaded && <UnloadWhenUnusedRow />}
       </section>
 
       {isDownloaded ? (
