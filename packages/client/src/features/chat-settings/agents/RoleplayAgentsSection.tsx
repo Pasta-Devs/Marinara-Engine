@@ -166,9 +166,8 @@ export function RoleplayAgentsSection({
     activeGeneration,
     agentLoadCost,
     agentProcessing,
+    builtInAgentCards,
     campaignArtStyleDraft,
-    cardEvolutionAuditorActive,
-    cardEvolutionAuditorAgentMeta,
     changeMusicDjProvider,
     chatSettingsPackageByAgentId,
     chatSpriteChoicesLoading,
@@ -178,17 +177,9 @@ export function RoleplayAgentsSection({
     commitCampaignArtStyle,
     commitGameImagePromptInstructions,
     commitProseGuardianSettings,
-    continuityActive,
-    continuityAgentMeta,
     debugMode,
-    directorActive,
-    directorAgentMeta,
-    echoChamberActive,
-    echoChamberAgentMeta,
     editedSpritePosition,
     effectiveCustomMusicSource,
-    expressionActive,
-    expressionAgentMeta,
     expressionAvatarsEnabled,
     expressionSpriteOpacityPercent,
     expressionSpriteScalePercent,
@@ -215,27 +206,16 @@ export function RoleplayAgentsSection({
     handleLorebookKeeperBackfill,
     handleStopActiveGeneration,
     hasCustomSpritePlacements,
-    htmlActive,
-    htmlAgentMeta,
-    illustratorActive,
-    illustratorAgentMeta,
     illustratorAutoBackgroundsEnabled,
     illustratorIncludeCharacterAppearance,
     illustratorInstalled,
     illustratorUseAvatarReferences,
     illustratorReferencePictureTarget,
-    knowledgeRetrievalActive,
-    knowledgeRetrievalAgentMeta,
-    knowledgeRouterActive,
-    knowledgeRouterAgentMeta,
-    lorebookKeeperActive,
-    lorebookKeeperAgentMeta,
     lorebookKeeperReadBehindMessages,
     lorebookKeeperTargetLorebookId,
     ltmPackage,
     mapsPackage,
     mapsPackageEnabledForChat,
-    musicDjAgentMeta,
     musicPlayerSource,
     narrativeDirectorSecretPlotEnabled,
     narrativeDirectorSecretPlotRunInterval,
@@ -244,8 +224,6 @@ export function RoleplayAgentsSection({
     openGenerationSettings,
     openLorebookFromSettings,
     pendingAgentMenuTargetId,
-    proseGuardianActive,
-    proseGuardianAgentMeta,
     proseGuardianAvoidDraft,
     proseGuardianAvoidInstructions,
     proseGuardianBannedDraft,
@@ -281,7 +259,6 @@ export function RoleplayAgentsSection({
     setSelectedSpriteLayoutCharacterId,
     setSpotifyArtistDraft,
     setSpriteSide,
-    spotifyActive,
     spotifyArtistDraft,
     spotifyPlaylistId,
     spotifyPlaylistsQuery,
@@ -607,8 +584,8 @@ export function RoleplayAgentsSection({
           {isGame && (
             <AgentSettingsCard
               icon={<BookOpen size="0.75rem" className="mt-0.5 text-[var(--primary)]" />}
-              title={lorebookKeeperAgentMeta.name}
-              description={lorebookKeeperAgentMeta.description}
+              title={builtInAgentCards["lorebook-keeper"].name}
+              description={builtInAgentCards["lorebook-keeper"].description}
             >
               <AgentSettingsToggle
                 label={localizeUi("ui.chat.chatsettingsdrawer.gameSessionKeeper")}
@@ -628,8 +605,8 @@ export function RoleplayAgentsSection({
           {isGame && (
             <AgentSettingsCard
               icon={<Music2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />}
-              title={musicDjAgentMeta.name}
-              description={musicDjAgentMeta.description}
+              title={builtInAgentCards.spotify.name}
+              description={builtInAgentCards.spotify.description}
             >
               <AgentSettingsToggle
                 label={localizeUi("ui.chat.chatsettingsdrawer.musicDj")}
@@ -673,14 +650,17 @@ export function RoleplayAgentsSection({
 
           {!isGame && (
             <div className="flex flex-col gap-2">
-              {metadata.enableAgents && !isGame && lorebookKeeperActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards["lorebook-keeper"].active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "lorebook-keeper")}
                   icon={renderRoleplayAgentMenuIcon("lorebook-keeper")}
-                  title={lorebookKeeperAgentMeta.name}
-                  description={lorebookKeeperAgentMeta.description}
+                  title={builtInAgentCards["lorebook-keeper"].name}
+                  description={builtInAgentCards["lorebook-keeper"].description}
                   order={getRoleplayAgentSettingsOrder("lorebook-keeper")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("lorebook-keeper", lorebookKeeperAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler(
+                    "lorebook-keeper",
+                    builtInAgentCards["lorebook-keeper"].name,
+                  )}
                 >
                   {renderAgentLorebookAttachment("lorebook-keeper")}
                   <LorebookKeeperSettings
@@ -695,16 +675,16 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && !isGame && cardEvolutionAuditorActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards["card-evolution-auditor"].active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "card-evolution-auditor")}
                   icon={renderRoleplayAgentMenuIcon("card-evolution-auditor")}
-                  title={cardEvolutionAuditorAgentMeta.name}
-                  description={cardEvolutionAuditorAgentMeta.description}
+                  title={builtInAgentCards["card-evolution-auditor"].name}
+                  description={builtInAgentCards["card-evolution-auditor"].description}
                   order={getRoleplayAgentSettingsOrder("card-evolution-auditor")}
                   onRemove={getRoleplayAgentMenuRemoveHandler(
                     "card-evolution-auditor",
-                    cardEvolutionAuditorAgentMeta.name,
+                    builtInAgentCards["card-evolution-auditor"].name,
                   )}
                 >
                   {renderAgentLorebookAttachment("card-evolution-auditor")}
@@ -712,14 +692,17 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && !isGame && proseGuardianActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards["prose-guardian"].active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "prose-guardian")}
                   icon={renderRoleplayAgentMenuIcon("prose-guardian")}
-                  title={proseGuardianAgentMeta.name}
-                  description={proseGuardianAgentMeta.description}
+                  title={builtInAgentCards["prose-guardian"].name}
+                  description={builtInAgentCards["prose-guardian"].description}
                   order={getRoleplayAgentSettingsOrder("prose-guardian")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("prose-guardian", proseGuardianAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler(
+                    "prose-guardian",
+                    builtInAgentCards["prose-guardian"].name,
+                  )}
                 >
                   {renderAgentLorebookAttachment("prose-guardian")}
                   <AgentSettingsTextarea
@@ -773,14 +756,14 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && !isGame && directorActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards.director.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "director")}
                   icon={renderRoleplayAgentMenuIcon("director")}
-                  title={directorAgentMeta.name}
-                  description={directorAgentMeta.description}
+                  title={builtInAgentCards.director.name}
+                  description={builtInAgentCards.director.description}
                   order={getRoleplayAgentSettingsOrder("director")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("director", directorAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("director", builtInAgentCards.director.name)}
                 >
                   {renderAgentLorebookAttachment("director")}
                   <DirectorSettings
@@ -794,14 +777,14 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && !isGame && continuityActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards.continuity.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "continuity")}
                   icon={renderRoleplayAgentMenuIcon("continuity")}
-                  title={continuityAgentMeta.name}
-                  description={continuityAgentMeta.description}
+                  title={builtInAgentCards.continuity.name}
+                  description={builtInAgentCards.continuity.description}
                   order={getRoleplayAgentSettingsOrder("continuity")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("continuity", continuityAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("continuity", builtInAgentCards.continuity.name)}
                 >
                   {renderAgentLorebookAttachment("continuity")}
                   <HoldForRewriteToggle
@@ -813,14 +796,14 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && !isGame && htmlActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards.html.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "html")}
                   icon={renderRoleplayAgentMenuIcon("html")}
-                  title={htmlAgentMeta.name}
-                  description={htmlAgentMeta.description}
+                  title={builtInAgentCards.html.name}
+                  description={builtInAgentCards.html.description}
                   order={getRoleplayAgentSettingsOrder("html")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("html", htmlAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("html", builtInAgentCards.html.name)}
                 >
                   {renderAgentLorebookAttachment("html")}
                   <HoldForRewriteToggle
@@ -832,46 +815,52 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && isRoleplayMode && knowledgeRetrievalActive && (
+              {metadata.enableAgents && isRoleplayMode && builtInAgentCards["knowledge-retrieval"].active && (
                 <KnowledgeAgentSettingsCard
                   attachment={renderAgentLorebookAttachment("knowledge-retrieval")}
                   id={getAgentSettingsMenuId(chat.id, "knowledge-retrieval")}
                   agentType="knowledge-retrieval"
-                  title={knowledgeRetrievalAgentMeta.name}
-                  description={knowledgeRetrievalAgentMeta.description}
+                  title={builtInAgentCards["knowledge-retrieval"].name}
+                  description={builtInAgentCards["knowledge-retrieval"].description}
                   lorebooks={(lorebooks ?? []) as Lorebook[]}
                   settings={getKnowledgeAgentSourceSettings("knowledge-retrieval")}
                   order={getRoleplayAgentSettingsOrder("knowledge-retrieval")}
                   onChange={(patch) => updateKnowledgeAgentSourceSettings("knowledge-retrieval", patch)}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("knowledge-retrieval", knowledgeRetrievalAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler(
+                    "knowledge-retrieval",
+                    builtInAgentCards["knowledge-retrieval"].name,
+                  )}
                 />
               )}
 
-              {metadata.enableAgents && isRoleplayMode && knowledgeRouterActive && (
+              {metadata.enableAgents && isRoleplayMode && builtInAgentCards["knowledge-router"].active && (
                 <KnowledgeAgentSettingsCard
                   attachment={renderAgentLorebookAttachment("knowledge-router")}
                   id={getAgentSettingsMenuId(chat.id, "knowledge-router")}
                   agentType="knowledge-router"
-                  title={knowledgeRouterAgentMeta.name}
-                  description={knowledgeRouterAgentMeta.description}
+                  title={builtInAgentCards["knowledge-router"].name}
+                  description={builtInAgentCards["knowledge-router"].description}
                   lorebooks={(lorebooks ?? []) as Lorebook[]}
                   settings={getKnowledgeAgentSourceSettings("knowledge-router")}
                   order={getRoleplayAgentSettingsOrder("knowledge-router")}
                   onChange={(patch) => updateKnowledgeAgentSourceSettings("knowledge-router", patch)}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("knowledge-router", knowledgeRouterAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler(
+                    "knowledge-router",
+                    builtInAgentCards["knowledge-router"].name,
+                  )}
                 />
               )}
 
               {standaloneRoleplayAgents.map(renderStandaloneRoleplayAgentSettingsCard)}
 
-              {metadata.enableAgents && !isGame && expressionActive && (
+              {metadata.enableAgents && !isGame && builtInAgentCards.expression.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "expression")}
                   icon={renderRoleplayAgentMenuIcon("expression")}
-                  title={expressionAgentMeta.name}
-                  description={expressionAgentMeta.description}
+                  title={builtInAgentCards.expression.name}
+                  description={builtInAgentCards.expression.description}
                   order={getRoleplayAgentSettingsOrder("expression")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("expression", expressionAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("expression", builtInAgentCards.expression.name)}
                   badge={
                     spriteCharacterIds.length > 0 ? (
                       <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]">
@@ -956,14 +945,14 @@ export function RoleplayAgentsSection({
 
               {avatarLayoutCard}
 
-              {metadata.enableAgents && isRoleplayMode && echoChamberActive && (
+              {metadata.enableAgents && isRoleplayMode && builtInAgentCards["echo-chamber"].active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "echo-chamber")}
                   icon={renderRoleplayAgentMenuIcon("echo-chamber")}
-                  title={echoChamberAgentMeta.name}
-                  description={echoChamberAgentMeta.description}
+                  title={builtInAgentCards["echo-chamber"].name}
+                  description={builtInAgentCards["echo-chamber"].description}
                   order={getRoleplayAgentSettingsOrder("echo-chamber")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("echo-chamber", echoChamberAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("echo-chamber", builtInAgentCards["echo-chamber"].name)}
                 >
                   {renderAgentLorebookAttachment("echo-chamber")}
                   <EchoChamberSettings
@@ -973,14 +962,14 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && isRoleplayMode && illustratorActive && (
+              {metadata.enableAgents && isRoleplayMode && builtInAgentCards.illustrator.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "illustrator")}
                   icon={renderRoleplayAgentMenuIcon("illustrator")}
-                  title={illustratorAgentMeta.name}
-                  description={illustratorAgentMeta.description}
+                  title={builtInAgentCards.illustrator.name}
+                  description={builtInAgentCards.illustrator.description}
                   order={getRoleplayAgentSettingsOrder("illustrator")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("illustrator", illustratorAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("illustrator", builtInAgentCards.illustrator.name)}
                 >
                   {renderAgentLorebookAttachment("illustrator")}
                   {renderAgentPromptTemplateSelect("illustrator")}
@@ -1163,14 +1152,14 @@ export function RoleplayAgentsSection({
                 </AgentSettingsCard>
               )}
 
-              {metadata.enableAgents && isRoleplayMode && spotifyActive && (
+              {metadata.enableAgents && isRoleplayMode && builtInAgentCards.spotify.active && (
                 <AgentSettingsCard
                   id={getAgentSettingsMenuId(chat.id, "spotify")}
                   icon={renderRoleplayAgentMenuIcon("spotify")}
-                  title={musicDjAgentMeta.name}
-                  description={musicDjAgentMeta.description}
+                  title={builtInAgentCards.spotify.name}
+                  description={builtInAgentCards.spotify.description}
                   order={getRoleplayAgentSettingsOrder("spotify")}
-                  onRemove={getRoleplayAgentMenuRemoveHandler("spotify", musicDjAgentMeta.name)}
+                  onRemove={getRoleplayAgentMenuRemoveHandler("spotify", builtInAgentCards.spotify.name)}
                 >
                   {renderAgentLorebookAttachment("spotify")}
                   <p className="text-[0.55rem] text-[var(--muted-foreground)]/80">

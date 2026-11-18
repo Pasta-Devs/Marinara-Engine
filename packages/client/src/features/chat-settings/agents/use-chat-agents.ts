@@ -101,6 +101,7 @@ import {
 import { CHAT_RESOURCE_AGENT_SETUP_EVENT, takePendingChatAgentSetupIds } from "../../../lib/chat-resource-drag";
 import { isRecord } from "../lib/is-record";
 import { type KnowledgeAgentType, normalizeKnowledgeAgentSourceSettings } from "./knowledge-agent-settings";
+import { BUILT_IN_AGENT_CARDS, type BuiltInAgentCard, type BuiltInAgentCardId } from "./built-in-agent-cards";
 import {
   normalizeGameVideoPromptTemplates,
   getGameVideoPromptTemplateOptions,
@@ -737,58 +738,14 @@ export function useChatAgents({
     },
     [agentConfigsByType, availableAgents, installedAgentManifests],
   );
-  const lorebookKeeperAgentMeta = getAgentDisplayMeta("lorebook-keeper", {
-    name: "Lorebook Keeper",
-    description: "Saves important story facts to the chat's lorebook as you play.",
-  });
-  const cardEvolutionAuditorAgentMeta = getAgentDisplayMeta("card-evolution-auditor", {
-    name: "Card Evolution Auditor",
-    description: "Suggests character card updates when the story changes a character, for you to approve.",
-  });
-  const proseGuardianAgentMeta = getAgentDisplayMeta("prose-guardian", {
-    name: "Prose Guardian",
-    description: "Cleans up repetitive or unwanted writing habits in AI messages.",
-  });
-  const continuityAgentMeta = getAgentDisplayMeta("continuity", {
-    name: "Continuity Checker",
-    description: "Fixes mistakes about places, time, and physical details in AI messages.",
-  });
-  const htmlAgentMeta = getAgentDisplayMeta("html", {
-    name: "Immersive HTML",
-    description: "Adds HTML/CSS/JS visual effects to AI messages.",
-  });
-  const directorAgentMeta = getAgentDisplayMeta("director", {
-    name: "Narrative Director",
-    description: "Gives the story a push in a new direction when you ask for it.",
-  });
-  const expressionAgentMeta = getAgentDisplayMeta("expression", {
-    name: "Expression Engine",
-    description: "Changes character sprites to match how they feel.",
-  });
-  const illustratorAgentMeta = getAgentDisplayMeta("illustrator", {
-    name: "Illustrator",
-    description: "Creates images and videos for your chats.",
-  });
-  const echoChamberAgentMeta = getAgentDisplayMeta("echo-chamber", {
-    name: "Echo Chamber",
-    description: "Shows a live stream-style chat reacting to your roleplay.",
-  });
-  const musicDjAgentMeta = getAgentDisplayMeta("spotify", {
-    name: "Music DJ",
-    description: "Plays music that fits the mood of the story, from Spotify, YouTube, or your own Game Assets music.",
-  });
-  const knowledgeRetrievalAgentMeta = getAgentDisplayMeta("knowledge-retrieval", {
-    name: "Knowledge Retrieval",
-    description: "Finds facts in your lorebooks and files that matter for the current scene.",
-  });
-  const knowledgeRouterAgentMeta = getAgentDisplayMeta("knowledge-router", {
-    name: "Knowledge Router",
-    description: "Picks the lorebook entries that fit the scene and gives them to the AI.",
-  });
-  const hapticAgentMeta = getAgentDisplayMeta("haptic", {
-    name: "Haptic Feedback",
-    description: "Controls connected intimate toys to match what happens in the story.",
-  });
+  // Each built-in agent card's name, description and on/off state, keyed by agent id.
+  const builtInAgentCards = useMemo(() => {
+    const cards = {} as Record<BuiltInAgentCardId, BuiltInAgentCard>;
+    for (const card of BUILT_IN_AGENT_CARDS) {
+      cards[card.id] = { ...getAgentDisplayMeta(card.id, card), active: activeAgentIds.includes(card.id) };
+    }
+    return cards;
+  }, [activeAgentIds, getAgentDisplayMeta]);
 
   // Estimate the per-turn cost of the active agent loadout — feeds the readout
   // in the agents picker header and the per-row token badges. Approximate; see
@@ -823,25 +780,13 @@ export function useChatAgents({
     };
   }, [activeAgentIds, agentConfigsByType, agentPromptTemplateSelections, availableAgents, chat.connectionId]);
 
-  const lorebookKeeperActive = activeAgentIds.includes("lorebook-keeper");
-  const cardEvolutionAuditorActive = activeAgentIds.includes("card-evolution-auditor");
-  const expressionActive = activeAgentIds.includes("expression");
   // One drawer for the 2D and 3D Avatars agents, in chats whose stage can show avatars.
   const avatarLayoutActive =
     metadata.enableAgents === true &&
     Boolean(avatarLayout) &&
     AVATAR_AGENT_IDS.some((id) => activeAgentIds.includes(id));
   const avatarSettingsOrder = Math.min(...AVATAR_AGENT_IDS.map(getRoleplayAgentSettingsOrder));
-  const illustratorActive = activeAgentIds.includes("illustrator");
-  const echoChamberActive = activeAgentIds.includes("echo-chamber");
-  const proseGuardianActive = activeAgentIds.includes("prose-guardian");
-  const continuityActive = activeAgentIds.includes("continuity");
-  const htmlActive = activeAgentIds.includes("html");
-  const directorActive = activeAgentIds.includes("director");
-  const hapticActive = activeAgentIds.includes("haptic");
   const agentWriteApprovalRequired = metadata.agentWriteApprovalRequired === true;
-  const knowledgeRetrievalActive = activeAgentIds.includes("knowledge-retrieval");
-  const knowledgeRouterActive = activeAgentIds.includes("knowledge-router");
   const illustratorConfig = agentConfigsByType.get("illustrator");
   const proseGuardianConfig = agentConfigsByType.get("prose-guardian");
   const continuityConfig = agentConfigsByType.get("continuity");
@@ -882,7 +827,10 @@ export function useChatAgents({
   const secretPlotMessagesQuery = useChatMessagePeek(
     chat.id,
     100,
-    open && directorActive && supportsNarrativeDirectorSecretPlot && narrativeDirectorSecretPlotEnabled,
+    open &&
+      builtInAgentCards.director.active &&
+      supportsNarrativeDirectorSecretPlot &&
+      narrativeDirectorSecretPlotEnabled,
   );
   const secretPlotMessages = useMemo<Message[]>(
     () => secretPlotMessagesQuery.data ?? [],
@@ -1001,9 +949,9 @@ export function useChatAgents({
   const proseGuardianHoldForRewrite =
     typeof metadata.proseGuardianHoldForRewrite === "boolean"
       ? metadata.proseGuardianHoldForRewrite
-      : (proseGuardianActive && proseGuardianDefaults.holdForRewrite !== false) ||
-        (continuityActive && continuityDefaults.holdForRewrite !== false) ||
-        (htmlActive && htmlDefaults.holdForRewrite !== false);
+      : (builtInAgentCards["prose-guardian"].active && proseGuardianDefaults.holdForRewrite !== false) ||
+        (builtInAgentCards.continuity.active && continuityDefaults.holdForRewrite !== false) ||
+        (builtInAgentCards.html.active && htmlDefaults.holdForRewrite !== false);
   const [proseGuardianBannedDraft, setProseGuardianBannedDraft] = useState(proseGuardianBannedWords);
   const [proseGuardianAvoidDraft, setProseGuardianAvoidDraft] = useState(proseGuardianAvoidInstructions);
   const [proseGuardianStyleDraft, setProseGuardianStyleDraft] = useState(proseGuardianStyleInstructions);
@@ -1199,19 +1147,9 @@ export function useChatAgents({
         order: getRoleplayAgentSettingsOrder(agentId),
       });
     };
-    addLink("lorebook-keeper", lorebookKeeperActive, lorebookKeeperAgentMeta.name);
-    addLink("card-evolution-auditor", cardEvolutionAuditorActive, cardEvolutionAuditorAgentMeta.name);
-    addLink("prose-guardian", proseGuardianActive, proseGuardianAgentMeta.name);
-    addLink("director", directorActive, directorAgentMeta.name);
-    addLink("continuity", continuityActive, continuityAgentMeta.name);
-    addLink("html", htmlActive, htmlAgentMeta.name);
-    addLink("knowledge-retrieval", knowledgeRetrievalActive, knowledgeRetrievalAgentMeta.name);
-    addLink("knowledge-router", knowledgeRouterActive, knowledgeRouterAgentMeta.name);
-    addLink("expression", expressionActive, expressionAgentMeta.name);
-    addLink("echo-chamber", echoChamberActive, echoChamberAgentMeta.name);
-    addLink("illustrator", illustratorActive, illustratorAgentMeta.name);
-    addLink("spotify", spotifyActive, musicDjAgentMeta.name);
-    addLink("haptic", hapticActive, hapticAgentMeta.name);
+    for (const { id } of BUILT_IN_AGENT_CARDS) {
+      addLink(id, builtInAgentCards[id].active, builtInAgentCards[id].name);
+    }
     if (ltmAgent && ltmPackage) {
       addLink(ltmPackage.id, metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id), ltmAgent.name);
     }
@@ -1256,45 +1194,20 @@ export function useChatAgents({
     avatarLayoutActive,
     avatarSettingsOrder,
     beholderAgent,
-    cardEvolutionAuditorActive,
-    cardEvolutionAuditorAgentMeta.name,
+    builtInAgentCards,
     chatSettingsPackageByAgentId,
     chat.id,
-    continuityActive,
-    continuityAgentMeta.name,
     customAgentSettingsOrder,
-    directorActive,
-    directorAgentMeta.name,
-    echoChamberActive,
-    echoChamberAgentMeta.name,
-    expressionActive,
-    expressionAgentMeta.name,
-    hapticActive,
-    hapticAgentMeta.name,
-    htmlActive,
-    htmlAgentMeta.name,
-    illustratorActive,
-    illustratorAgentMeta.name,
     isGame,
     isRoleplayMode,
     getRoleplayAgentSettingsOrder,
     localizeUi,
-    knowledgeRetrievalActive,
-    knowledgeRetrievalAgentMeta.name,
-    knowledgeRouterActive,
-    knowledgeRouterAgentMeta.name,
     ltmAgent,
     ltmPackage,
-    lorebookKeeperActive,
-    lorebookKeeperAgentMeta.name,
     mapsAgent,
     mapsPackage,
     mapsPackageEnabledForChat,
     metadata.enableAgents,
-    musicDjAgentMeta.name,
-    proseGuardianActive,
-    proseGuardianAgentMeta.name,
-    spotifyActive,
     storyboardAgent,
   ]);
   const focusAgentMenu = useCallback((targetId: string) => {
@@ -2396,7 +2309,6 @@ export function useChatAgents({
     readLatestActiveAgentIds,
     setMapsEnabledForChat,
     setLtmEnabledForChat,
-    spotifyActive,
     gameLorebookKeeperLorebook,
     spotifySourceType,
     spotifyPlaylistId,
@@ -2431,35 +2343,11 @@ export function useChatAgents({
     visibleActiveAgentIds,
     toggleManualTrackerAgent,
     agentSuiteAgents,
-    lorebookKeeperAgentMeta,
-    cardEvolutionAuditorAgentMeta,
-    proseGuardianAgentMeta,
-    continuityAgentMeta,
-    htmlAgentMeta,
-    directorAgentMeta,
-    expressionAgentMeta,
-    illustratorAgentMeta,
-    echoChamberAgentMeta,
-    musicDjAgentMeta,
-    knowledgeRetrievalAgentMeta,
-    knowledgeRouterAgentMeta,
-    hapticAgentMeta,
+    builtInAgentCards,
     agentLoadCost,
-    lorebookKeeperActive,
-    cardEvolutionAuditorActive,
-    expressionActive,
     avatarLayoutActive,
     avatarSettingsOrder,
-    illustratorActive,
-    echoChamberActive,
-    proseGuardianActive,
-    continuityActive,
-    htmlActive,
-    directorActive,
-    hapticActive,
     agentWriteApprovalRequired,
-    knowledgeRetrievalActive,
-    knowledgeRouterActive,
     illustratorConfig,
     narrativeDirectorSecretPlotEnabled,
     narrativeDirectorSecretPlotRunInterval,

@@ -124,6 +124,7 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
     agentWriteApprovalRequired,
     avatarLayoutActive,
     avatarSettingsOrder,
+    builtInAgentCards,
     characterMusicFolder,
     chatCustomMusicFolder,
     chatMusicFolder,
@@ -142,8 +143,6 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
     handleBackfillCustomAgent,
     handleRerunCustomAgent,
     handleSnapshotCustomAgent,
-    hapticActive,
-    hapticAgentMeta,
     illustratorChatRunInterval,
     illustratorChatVideoRunInterval,
     illustratorConfig,
@@ -752,16 +751,16 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
   };
 
   const renderHapticSettingsCard = () => {
-    if (!metadata.enableAgents || !hapticActive) return null;
+    if (!metadata.enableAgents || !builtInAgentCards.haptic.active) return null;
 
     return (
       <AgentSettingsCard
         id={getAgentSettingsMenuId(chat.id, "haptic")}
         icon={renderRoleplayAgentMenuIcon("haptic")}
-        title={hapticAgentMeta.name}
-        description={hapticAgentMeta.description}
+        title={builtInAgentCards.haptic.name}
+        description={builtInAgentCards.haptic.description}
         order={getRoleplayAgentSettingsOrder("haptic")}
-        onRemove={getRoleplayAgentMenuRemoveHandler("haptic", hapticAgentMeta.name)}
+        onRemove={getRoleplayAgentMenuRemoveHandler("haptic", builtInAgentCards.haptic.name)}
       >
         {renderAgentLorebookAttachment("haptic")}
         <HapticSettings chat={chat} metadata={metadata} />
