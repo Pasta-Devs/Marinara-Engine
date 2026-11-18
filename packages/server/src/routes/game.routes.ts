@@ -15991,7 +15991,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       if (!matchingRow) return notFound(reply, "Scene video not found");
 
       const filePath = assertInsideDir(GAME_SCENE_VIDEOS_ROOT, join(GAME_SCENE_VIDEOS_ROOT, chatId, filename));
-      if (!existsSync(filePath)) return notFound(reply, "Scene video file not found");
+      if (!existsSync(filePath)) return reply.status(404).send({ error: "Scene video file not found" });
       const video = await validateVideoAssetFile(filePath, filename);
       if (!video) return notFound(reply, "Scene video file not found");
 
