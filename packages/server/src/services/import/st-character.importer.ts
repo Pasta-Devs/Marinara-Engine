@@ -549,7 +549,13 @@ function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown
     return extensions;
   }
   const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-  return { ...cardTopLevelExtensions(cardData), ...recordOrEmpty(cardData.extensions) };
+  const extensions = { ...cardTopLevelExtensions(cardData), ...recordOrEmpty(cardData.extensions) };
+  // Some exporters put regex scripts at the card's root even when it has a `data` block; the nearer copy wins.
+  if (extensions.regex_scripts === undefined && cardData !== raw) {
+    const rootScripts = raw.regex_scripts ?? raw.regexScripts;
+    if (rootScripts !== undefined) extensions.regex_scripts = rootScripts;
+  }
+  return extensions;
 }
 
 /**

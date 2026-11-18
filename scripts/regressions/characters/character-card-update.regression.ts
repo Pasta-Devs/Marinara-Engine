@@ -315,6 +315,40 @@ try {
   assert.equal(v2TopUpdate.success, true, JSON.stringify(v2TopUpdate));
   assert.equal((await storedExtensions(v2Top.characterId)).talkativeness, 0.9);
 
+  // Regex scripts at the root of a card that also has a `data` block: imported, updated in place, and never
+  // preferred over the card's own `data.regex_scripts`.
+  const rootScriptCard = (name: string, find: string) => ({
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Rooted Wren", description: "d", first_mes: "hi", extensions: {} },
+    regex_scripts: [{ ...risuScript(name), findRegex: find }],
+  });
+  const rooted = await post("/api/import/st-character", rootScriptCard("Root beside data", "/a/g"));
+  assert.equal(rooted.success, true, JSON.stringify(rooted));
+  const rootedScripts = async () =>
+    rows(await get("/api/regex-scripts")).filter((script: { targetCharacterIds: unknown }) =>
+      String(script.targetCharacterIds).includes(rooted.characterId),
+    ) as Array<{ id: string; name: string; findRegex: string }>;
+  const [rootedFirst] = await rootedScripts();
+  assert.equal(rootedFirst?.name, "Root beside data");
+  const rootedUpdate = await post("/api/import/st-character", {
+    ...rootScriptCard("Root beside data", "/b/g"),
+    updateCharacterId: rooted.characterId,
+  });
+  assert.equal(rootedUpdate.success, true, JSON.stringify(rootedUpdate));
+  const rootedAfter = await rootedScripts();
+  assert.equal(rootedAfter.length, 1);
+  assert.equal(rootedAfter[0].id, rootedFirst.id, "the root-level script is updated in place");
+  assert.equal(rootedAfter[0].findRegex, "b");
+  const both = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Both Wren", description: "d", first_mes: "hi", regex_scripts: [risuScript("Data copy")] },
+    regex_scripts: [risuScript("Root copy")],
+  });
+  assert.equal(both.success, true, JSON.stringify(both));
+  assert.deepEqual(await topScriptsFor(both.characterId), ["Data copy"]);
+
   // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
   const before = rows(await get("/api/characters")).length;
   const form = new FormData();
