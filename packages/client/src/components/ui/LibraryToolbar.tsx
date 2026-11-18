@@ -60,7 +60,13 @@ interface LibraryToolbarProps {
   children?: ReactNode;
 }
 
-const SECONDARY_BUTTON = "mari-chrome-control mari-chrome-control--primary flex-1 text-xs";
+// The action row (Add, Import, Export, Select): each labelled button takes its content's width plus a share of what is
+// left, and they all shrink alike when even the words alone do not fit. `!`: the unlayered .mari-chrome-control sets
+// flex-shrink 0 (which .mari-panel-gradient-button does not, so Add alone would shrink) and the unlayered
+// .mari-chrome-control--primary and .mari-panel-gradient-button padding beat plain utilities.
+export const ACTION_BUTTON_LAYOUT = "min-w-0 flex-auto !shrink !px-2 text-xs";
+const ACTION_CONTROL = "mari-chrome-control mari-chrome-control--primary";
+const SECONDARY_BUTTON = `${ACTION_CONTROL} ${ACTION_BUTTON_LAYOUT}`;
 const FOLDER_BUTTON = "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]";
 const SEGMENTED_BUTTON =
   "mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal";
@@ -77,39 +83,104 @@ interface SegmentedButton {
 /** A compact cell's icon and the gap after it, in rem (the Presets panel's four tabs). */
 const COMPACT_ICON_REM = 0.75;
 const COMPACT_GAP_REM = 0.125;
+/** An action button's icon (0.8125rem) and the .mari-chrome-control gap after it (0.375rem). */
+const ACTION_ICON_REM = 0.8125;
+const ACTION_BESIDE_REM = ACTION_ICON_REM + 0.375;
+
+const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
 /**
- * Whether every label of a compact row still shows whole with its icon beside it. The font (the system's, or the
- * one picked in Appearance) and the language set the labels' widths, so this measures the text instead of guessing
- * a cut-off width. It reads the room as if the icons were there, so hiding them never changes the answer.
+ * Whether every label (`[data-fit-label]`) in a row still shows whole with an icon of `besideRem` (the icon and its
+ * gap) before it. The font (the system's, or the one picked in Appearance) and the language set the labels' widths,
+ * so this measures the text instead of guessing a cut-off width. It reads the room as if the icons were there, so
+ * hiding them never changes the answer.
+ * - `cells`: the row is a grid of equal cells, and each label must fit its own cell.
+ * - `content`: the row is a flex row of buttons sized to their content, and the labelled buttons together, with the
+ *   other buttons and the gaps between them, must fit the row's width.
  */
-function useIconsFit(rowRef: RefObject<HTMLDivElement | null>, enabled: boolean, labels: string) {
+export function useIconsFit(
+  rowRef: RefObject<HTMLElement | null>,
+  {
+    enabled,
+    labels,
+    besideRem,
+    layout,
+  }: { enabled: boolean; labels: string; besideRem: number; layout: "cells" | "content" },
+) {
   const [fit, setFit] = useState(true);
   useLayoutEffect(() => {
     const row = rowRef.current;
     if (!enabled || !row) return;
+    const range = document.createRange();
+    const textWidth = (label: Element) => {
+      range.selectNodeContents(label);
+      return range.getBoundingClientRect().width;
+    };
     const check = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const beside = rem * (COMPACT_ICON_REM + COMPACT_GAP_REM);
-      const text = document.createRange();
-      setFit(
-        Array.from(row.querySelectorAll<HTMLElement>("[data-segment-label]")).every((label) => {
-          const cell = label.parentElement!;
-          const padding = getComputedStyle(cell);
-          const room = cell.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight) - beside;
-          text.selectNodeContents(label);
-          return text.getBoundingClientRect().width <= room + 0.5;
+      const beside = rem * besideRem;
+      if (layout === "cells") {
+        setFit(
+          Array.from(row.querySelectorAll("[data-fit-label]")).every((label) => {
+            const cell = label.parentElement!;
+            const style = getComputedStyle(cell);
+            const room = cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - beside;
+            return textWidth(label) <= room + 0.5;
+          }),
+        );
+        return;
+      }
+      // Hidden children (the file inputs) take no room.
+      const items = Array.from(row.children).filter((child) => child.getClientRects().length > 0);
+      const needed = sum(
+        items.map((item) => {
+          const label = item.querySelector("[data-fit-label]");
+          if (!label) return item.getBoundingClientRect().width;
+          const style = getComputedStyle(item);
+          const frame = ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"] as const;
+          return textWidth(label) + beside + sum(frame.map((side) => parseFloat(style[side]) || 0));
         }),
       );
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      setFit(needed + gap * Math.max(0, items.length - 1) <= row.clientWidth + 0.5);
     };
     check();
     const observer = new ResizeObserver(check);
     observer.observe(row);
+    // A font picked in Appearance changes the labels' sizes even when the row keeps its own.
+    row.querySelectorAll("[data-fit-label]").forEach((label) => observer.observe(label));
     // A web font that arrives late changes the labels' widths.
     void document.fonts?.ready.then(check);
     return () => observer.disconnect();
-  }, [rowRef, enabled, labels]);
+  }, [rowRef, enabled, labels, besideRem, layout]);
   return fit;
+}
+
+/** Whether an action row's icons fit beside their labels (see useIconsFit); Chats' row and LibraryToolbar's share it. */
+export function useActionIconsFit(rowRef: RefObject<HTMLElement | null>, labels: string) {
+  return useIconsFit(rowRef, { enabled: true, labels, besideRem: ACTION_BESIDE_REM, layout: "content" });
+}
+
+/** An action button's content: its icon, while the row has room for it (useActionIconsFit), and its short label. */
+export function ActionContent({
+  icon: Icon,
+  label,
+  showIcon,
+  iconClassName,
+}: {
+  icon: LucideIcon;
+  label: string;
+  showIcon: boolean;
+  iconClassName?: string;
+}) {
+  return (
+    <>
+      {showIcon ? <Icon size={`${ACTION_ICON_REM}rem`} className={cn("shrink-0", iconClassName)} /> : null}
+      <span data-fit-label="" className="min-w-0 truncate">
+        {label}
+      </span>
+    </>
+  );
 }
 
 /**
@@ -130,11 +201,12 @@ export function SegmentedButtons({
   // be cut short beside its icon, every icon of the row steps aside, so the labels always show whole.
   const compact = buttons.length > 2;
   const rowRef = useRef<HTMLDivElement>(null);
-  const iconsFit = useIconsFit(
-    rowRef,
-    compact && buttons.some((button) => button.icon),
-    buttons.map((button) => button.label).join("\n"),
-  );
+  const iconsFit = useIconsFit(rowRef, {
+    enabled: compact && buttons.some((button) => button.icon),
+    labels: buttons.map((button) => button.label).join("\n"),
+    besideRem: COMPACT_ICON_REM + COMPACT_GAP_REM,
+    layout: "cells",
+  });
   return (
     <div
       ref={rowRef}
@@ -160,7 +232,7 @@ export function SegmentedButtons({
               <Icon size={compact ? `${COMPACT_ICON_REM}rem` : "0.875rem"} />
             </span>
           ) : null}
-          <span data-segment-label="" className="min-w-0 truncate pb-px leading-normal">
+          <span data-fit-label="" className="min-w-0 truncate pb-px leading-normal">
             {label}
           </span>
         </button>
@@ -189,6 +261,18 @@ export function LibraryToolbar({
   const { t: localizeUi } = useUiTranslation();
   const importInputRef = useRef<HTMLInputElement>(null);
   const importBlocked = Boolean(importAction.disabledReason);
+  const actionRowRef = useRef<HTMLDivElement>(null);
+  const actionLabels = {
+    add: localizeUi("ui.librarytoolbar.add"),
+    import: localizeUi("ui.librarytoolbar.import"),
+    select: localizeUi("ui.librarytoolbar.select"),
+  };
+  // The second argument only tells the fit check when to measure again: when a word changes (the language) or a
+  // button comes or goes. The words themselves are read from the row.
+  const showIcons = useActionIconsFit(
+    actionRowRef,
+    [actionLabels.add, actionLabels.import, select ? actionLabels.select : "", exportAction ? "export" : ""].join("\n"),
+  );
 
   return (
     <>
@@ -213,15 +297,17 @@ export function LibraryToolbar({
           </button>
         ))}
 
-      <div className="flex gap-2">
+      {/* Add, Import, Export and Select. Each labelled button shows a short word, and its icon while every word of
+          the row still fits beside one; Export keeps only its icon. */}
+      <div ref={actionRowRef} className="flex gap-2">
         <button
           type="button"
           onClick={create.onClick}
-          className={`mari-panel-gradient-button mari-panel-gradient--${tone} flex-1 text-xs`}
+          className={`mari-panel-gradient-button mari-panel-gradient--${tone} ${ACTION_BUTTON_LAYOUT}`}
           aria-label={create.label}
           title={create.title}
         >
-          <Plus size="0.8125rem" />
+          <ActionContent icon={Plus} label={actionLabels.add} showIcon={showIcons} />
         </button>
         <button
           type="button"
@@ -236,7 +322,7 @@ export function LibraryToolbar({
           aria-disabled={importBlocked || undefined}
           title={importAction.disabledReason ?? importAction.title}
         >
-          <Download size="0.8125rem" />
+          <ActionContent icon={Download} label={actionLabels.import} showIcon={showIcons} />
         </button>
         {"onChange" in importAction && (
           <input
@@ -254,11 +340,12 @@ export function LibraryToolbar({
             type="button"
             onClick={exportAction.onClick}
             disabled={exportAction.disabled}
-            className={SECONDARY_BUTTON}
+            // Icon only, at its own width, so the labelled buttons get the room.
+            className={`${ACTION_CONTROL} flex-none !px-3 text-xs`}
             aria-label={exportAction.label}
             title={exportAction.label}
           >
-            <Upload size="0.8125rem" />
+            <Upload size={`${ACTION_ICON_REM}rem`} />
           </button>
         )}
         {select && (
@@ -271,7 +358,7 @@ export function LibraryToolbar({
             aria-pressed={select.active}
             title={select.title}
           >
-            <Check size="0.8125rem" />
+            <ActionContent icon={Check} label={actionLabels.select} showIcon={showIcons} />
           </button>
         )}
       </div>
