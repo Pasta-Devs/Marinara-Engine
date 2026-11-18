@@ -88,6 +88,15 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     // A damaged row can hold something other than a list; merge onto an empty one rather than fail the run.
     const storedCharacters = parseJsonField<unknown>(previousSnapshot?.presentCharacters, []);
     const previousCharacters = Array.isArray(storedCharacters) ? (storedCharacters as TrackedCharacter[]) : [];
+    if (!Array.isArray(storedCharacters)) {
+      logger.warn(
+        "[agent-effects] character-tracker found a stored character list that is not a list; starting from an empty one origin=%s chatId=%s messageId=%s swipeIndex=%d",
+        deps.origin,
+        deps.chatId,
+        deps.messageId,
+        deps.swipeIndex,
+      );
+    }
     const lockState = previousSnapshot
       ? parseGameStateRow({ ...previousSnapshot, presentCharacters: previousCharacters })
       : null;
