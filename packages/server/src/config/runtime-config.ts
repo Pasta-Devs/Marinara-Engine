@@ -697,6 +697,12 @@ export function platformDefaultMaxResidentChatUnits(constrained = constrainedPla
  */
 let lastInvalidMaxResidentChats: string | null = null;
 
+/** True when MARINARA_MAX_RESIDENT_CHATS is set to 0 on purpose: nothing may evict chat units. */
+export function residentChatEvictionDisabledByConfig() {
+  const raw = normalizeEnvValue(process.env.MARINARA_MAX_RESIDENT_CHATS);
+  return !!raw && /^0+$/.test(raw);
+}
+
 export function getMaxResidentChatUnits() {
   const raw = normalizeEnvValue(process.env.MARINARA_MAX_RESIDENT_CHATS);
   if (!raw) {
