@@ -547,7 +547,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         : [],
     ),
   );
-  await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
+  // Only Marinara exports carry interruption receipts. Skipping the remap for chats without any keeps a big
+  // SillyTavern import from re-reading every message and swipe already in memory once per chat.
+  if (msgInputs.some(carriesInterruptionReceipt)) {
+    await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
+  }
   if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
     const existing = await storage.getById(chat.id);
     const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};
@@ -648,4 +652,14 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     userName,
     messagesImported: msgInputs.length,
   };
+}
+
+/** Whether a message's stored extras could hold a roleplay interruption receipt (see readRoleplayInterruption). */
+function carriesInterruptionReceipt(input: { extra?: unknown; swipeExtra?: unknown; swipes?: Array<{ extra?: unknown }> }) {
+  const extras = [input.extra, input.swipeExtra, ...(input.swipes ?? []).map((swipe) => swipe.extra)];
+  return extras.some((extra) => {
+    if (extra === undefined || extra === null) return false;
+    const text = typeof extra === "string" ? extra : JSON.stringify(extra);
+    return typeof text === "string" && text.includes("targetMessageId");
+  });
 }
