@@ -12,7 +12,7 @@ import {
   type BuiltinTtsModelId,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { STATUS_POLL_RATE_LIMIT, UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { builtinTtsService } from "../services/sidecar/builtin-tts.service.js";
 
 const rateLimit = { config: { rateLimit: UTILITY_SIDECAR_RATE_LIMIT } };
@@ -28,8 +28,8 @@ function message(error: unknown): string {
 }
 
 export async function builtinTtsRoutes(app: FastifyInstance) {
-  // No route limit of its own: the page polls this once a second during a download, so the default rule applies.
-  app.get("/status", async () => builtinTtsService.getStatus());
+  // The page polls this once a second during a download, so the status-poll budget.
+  app.get("/status", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async () => builtinTtsService.getStatus());
 
   app.post("/download", rateLimit, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Built-in voice model download" })) return;

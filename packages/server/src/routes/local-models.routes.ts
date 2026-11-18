@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { LOCAL_MODEL_IDLE_UNLOAD_CHOICES, type LocalModelsStatus } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { STATUS_POLL_RATE_LIMIT, UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { localModelManager } from "../services/sidecar/local-model-manager.js";
 import { sidecarModelService } from "../services/sidecar/sidecar-model.service.js";
 import { sidecarProcessService } from "../services/sidecar/sidecar-process.service.js";
@@ -34,9 +35,10 @@ function status(): LocalModelsStatus {
 }
 
 export async function localModelsRoutes(app: FastifyInstance) {
-  app.get("/", async () => status());
+  // Polled by the built-in model pages, so the status-poll budget.
+  app.get("/", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async () => status());
 
-  app.patch("/settings", async (req, reply) => {
+  app.patch("/settings", { config: { rateLimit: UTILITY_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Built-in model settings" })) return;
     const parsed = settingsBody.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: "Pick one of the listed times" });
