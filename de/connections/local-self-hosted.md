@@ -73,6 +73,12 @@ Unter Android ist diese Einstellung standardmäßig an, solange du sie nicht set
 
 Dasselbe Modell kann auch Entscheidungsfragen beantworten, etwa Aktivierungsprüfungen für Agenten, ohne dass eine zweite Kopie geladen wird. Klick im Panel am Modell auf **⋯** und wähl **Use this model for decisions** (dieses Modell für Entscheidungen verwenden). Die Option erscheint bei einem OpenAI-kompatiblen Modell mit Modellnamen. Siehe [Decision-Modelle](decision-models.md#on-a-server-you-already-run).
 
+## Anfragen kommen nach Aufgaben geordnet an die Reihe
+
+Bei einer Custom-Verbindung zu einem Server auf deinem eigenen Rechner oder im Heimnetzwerk sendet Marinara zwei Anfragen gleichzeitig, nach Aufgaben geordnet: zuerst Agenten, die vor der Antwort laufen, dann die Antwort, dann Agenten, die parallel dazu oder danach laufen, und zuletzt alles andere. Einer der beiden Plätze bleibt für die Antwort frei, damit sie nie auf einen Tracker oder einen Gedächtnishelfer warten muss.
+
+Verarbeitet dein Server eine andere Anzahl an Anfragen gleichzeitig (zum Beispiel über `OLLAMA_NUM_PARALLEL` in Ollama oder die Einstellung für parallele Anfragen in LM Studio oder KoboldCpp), öffne **Edit account** (Konto bearbeiten) → **More options** (Weitere Optionen) und setz **Parallel requests** (parallele Anfragen) auf dieselbe Zahl. Bei zwei oder mehr lassen Tracker und Aufgaben im Hintergrund einen Platz für die Antwort frei. Bei 1 läuft alles strikt nacheinander, sodass eine Antwort warten kann, bis ein laufender Tracker fertig ist.
+
 ## Der Schalter Treat as local/custom endpoint
 
 In **Edit model** sitzt unter **Local / custom endpoint** ein Schalter namens **Treat as local/custom endpoint** (als lokalen/eigenen Endpunkt behandeln). Er ist standardmäßig aus. Er erscheint nur bei älteren Modellen, die an kein Konto gebunden sind. Bei Modellen, die du jetzt hinzufügst, erscheint er nie.

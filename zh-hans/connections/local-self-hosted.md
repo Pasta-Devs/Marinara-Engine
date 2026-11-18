@@ -73,6 +73,12 @@ PROVIDER_LOCAL_URLS_ENABLED=true
 
 同一个模型也能回答判定问题，例如智能体激活检查，不需要再加载一份。在面板里点击这个模型上的 **⋯**，选择 **Use this model for decisions**(将此模型用于判定)。有模型名称的 OpenAI 兼容模型才会显示这一项。见 [Decision 模型](decision-models.md#on-a-server-you-already-run)。
 
+## 请求按任务顺序处理
+
+通过 Custom 连接访问自己电脑或家庭网络上的服务器时，Marinara 会同时发送两个请求，并按任务顺序处理：先是回复前运行的智能体，再是回复，然后是与回复同时运行或在回复后运行的智能体，最后是其他任务。其中一个空位会留给回复，所以追踪器或记忆辅助智能体不会让回复排在它们后面等待。
+
+如果服务器同时处理的请求数不同（例如 Ollama 的 `OLLAMA_NUM_PARALLEL`，或 LM Studio、KoboldCpp 的并行设置），打开 **Edit account**(编辑账号) → **More options**(更多选项)，把 **Parallel requests**(并行请求数) 设为相同的数量。设为 2 或更多时，追踪器和后台任务会为回复留出一个空位。设为 1 时，所有请求都严格逐个运行，所以回复可能要等正在运行的追踪器完成。
+
 ## Treat as local/custom endpoint 开关
 
 在 **Edit model** 里，**Local / custom endpoint**(本地 / 自定义端点) 下面有一个名为 **Treat as local/custom endpoint**(按本地/自定义端点处理) 的开关，默认关闭。它只对没有绑定账号的旧模型显示。现在添加的模型永远不会显示它。

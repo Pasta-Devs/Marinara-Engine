@@ -224,8 +224,8 @@
     },
     {
       "path": "connections/connecting-to-a-provider.md",
-      "sha256": "017ecf5ff07e61bda6767d0d7e9303f4b91feeff0e961a684225b31db3052bf6",
-      "bytes": 11446
+      "sha256": "02495d88be0dfa8413486f7776548956f069614e497607fa968b7f4c9ea5c583",
+      "bytes": 11853
     },
     {
       "path": "connections/decision-models.md",
@@ -239,8 +239,8 @@
     },
     {
       "path": "connections/local-self-hosted.md",
-      "sha256": "859fe8f66fbff2f3d613eb8b493699e38af8002f78f7cd1318f36088afd55d3f",
-      "bytes": 6679
+      "sha256": "93be68eacb372c21ec618e93724ebf5fa5f7ef0afadb29ac267909528fe32e04",
+      "bytes": 7581
     },
     {
       "path": "connections/organizing-connections.md",

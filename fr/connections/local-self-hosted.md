@@ -73,6 +73,12 @@ Sur Android, ce réglage est activé par défaut tant que tu ne le définis pas.
 
 Le même modèle peut répondre aux questions de décision, comme les vérifications d'activation des agents, sans charger une seconde copie. Clique sur **⋯** sur le modèle dans le panneau et choisis **Use this model for decisions** (utiliser ce modèle pour les décisions). Cette option s'affiche pour un modèle compatible OpenAI qui a un nom de modèle. Voir [Modèles de décision](decision-models.md#on-a-server-you-already-run).
 
+## Les requêtes suivent l'ordre des tâches
+
+Une connexion Custom à un serveur sur ton propre ordinateur ou ton réseau domestique reçoit deux requêtes à la fois de Marinara, dans l'ordre des tâches : les agents qui s'exécutent avant la réponse, puis la réponse, puis les agents qui s'exécutent en parallèle ou après elle, puis tout le reste. L'une des deux places reste libre pour la réponse, pour qu'un tracker ou un assistant de mémoire ne la fasse jamais attendre derrière lui.
+
+Si ton serveur exécute un nombre différent de requêtes à la fois (par exemple avec `OLLAMA_NUM_PARALLEL` dans Ollama, ou le réglage de parallélisme dans LM Studio ou KoboldCpp), ouvre **Edit account** (modifier le compte) → **More options** (plus d'options) et règle **Parallel requests** (requêtes en parallèle) sur le même nombre. Avec deux ou plus, les trackers et les tâches en arrière-plan laissent une place libre pour la réponse. Avec 1, tout s'exécute strictement un par un : une réponse peut donc attendre qu'un tracker en cours ait terminé.
+
 ## L'interrupteur Treat as local/custom endpoint
 
 Dans **Edit model**, un interrupteur nommé **Treat as local/custom endpoint** (traiter comme un point d'accès local ou personnalisé) se trouve sous **Local / custom endpoint** (point d'accès local ou personnalisé). Il est désactivé par défaut. Il ne s'affiche que pour les anciens modèles qui ne sont pas liés à un compte. Les modèles que tu ajoutes aujourd'hui ne l'affichent jamais.
