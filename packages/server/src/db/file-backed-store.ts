@@ -214,6 +214,12 @@ export type FileNativeStoreController = {
   /** Chat units currently resident under lazy loading (#5592) — diagnostics and regression introspection. */
   getResidentChatUnits: () => ReadonlySet<string>;
   /**
+   * Flushes, then keeps at most `keep` clean chat units resident (least recently used go first).
+   * For long write-only runs such as a bulk import, which otherwise keep every chat they wrote in
+   * memory until the process exits. A no-op for tables already fully resident.
+   */
+  trimResidentChatUnits: (keep: number) => Promise<void>;
+  /**
    * Lazy tables that an unscopable query permanently converted to fully resident
    * (#5611) — diagnostics and regression introspection. Empty is the healthy state.
    */
@@ -5007,6 +5013,17 @@ class FileTableStore {
   // ── Unit eviction (#5592 Phase 2 PR-B) ────────────────────────────────
 
   /**
+   * Same safety argument as the flush-tail sweep: it runs right after a successful flush, and the
+   * sweep itself still skips units with pending marks and bails while a flush or transaction is
+   * active. A configured cap below `keep` wins.
+   */
+  async trimResidentChatUnits(keep: number) {
+    await this.flush(true, true);
+    const configured = getMaxResidentChatUnits();
+    this.maybeEvictUnits(Math.max(2, configured > 0 ? Math.min(configured, keep) : keep));
+  }
+
+  /**
    * Unit key of a row WITHOUT shardKeyForRow's orphan-marker side effect —
    * the eviction sweep must never inject orphan marks while bucketing.
    */
@@ -5043,9 +5060,8 @@ class FileTableStore {
    * steps — that degrades to a reload (their write conditions carry a
    * scope-resolvable conjunct), never to data loss.
    */
-  private maybeEvictUnits() {
+  private maybeEvictUnits(cap = getMaxResidentChatUnits()) {
     if (LAZY_UNIT_TABLES.size === 0 || this.writesClosed) return;
-    const cap = getMaxResidentChatUnits();
     if (cap === 0) return;
     if (this.activeFlush || this.activeTransactionCount > 0 || this.txContext.getStore()) return;
     const evictable = [...this.loadedUnits].filter((key) => !this.pinnedUnits.has(key));
@@ -6184,6 +6200,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
     getTableWriteGeneration: (table) => store.getTableWriteGeneration(table),
     registerTables: (tables) => store.registerTables(tables),
     getResidentChatUnits: () => store.getResidentChatUnits(),
+    trimResidentChatUnits: (keep) => store.trimResidentChatUnits(keep),
     getFullyResidentLazyTables: () => store.getFullyResidentLazyTables(),
     getResidentLazyRows: (table) => store.getResidentLazyRows(table),
     getStorageStats: () => store.getStorageStats(),

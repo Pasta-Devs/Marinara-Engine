@@ -4,6 +4,8 @@
 //    batches, and an id freed by a delete must be insertable again.
 // 2. Settings > Data clears in the background, chat by chat, with progress at /expunge/status,
 //    and a clear that never finished is reported so it can be run again.
+// 3. A bulk import lets the chats it wrote go back to disk as it goes: keeping all 3000 in memory
+//    ran a 2 GB Node heap out of memory.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -163,6 +165,58 @@ try {
     interrupted: { scopes: string[] } | null;
   };
   assert.deepEqual(leftover.interrupted?.scopes, ["media"], "finishing part of an interrupted clear keeps the rest");
+
+  // ── 3. Import memory ──
+  const { runSTBulkImport } = await import("../../../packages/server/src/services/import/st-bulk.importer.js");
+  const stUser = join(dataDir, "st", "data", "default-user");
+  mkdirSync(join(stUser, "characters"), { recursive: true });
+  mkdirSync(join(stUser, "chats", "Ava"), { recursive: true });
+  writeFileSync(
+    join(stUser, "characters", "Ava.json"),
+    JSON.stringify({
+      spec: "chara_card_v2",
+      spec_version: "2.0",
+      data: { name: "Ava", description: "", first_mes: "Hi" },
+    }),
+  );
+  const chatFileCount = 60;
+  for (let i = 0; i < chatFileCount; i++) {
+    const lines = [{ user_name: "You", character_name: "Ava", chat_metadata: {} }];
+    for (let m = 0; m < 4; m++) {
+      lines.push({
+        name: m % 2 ? "Ava" : "You",
+        is_user: m % 2 === 0,
+        mes: `chat ${i} line ${m}`,
+        send_date: now,
+      } as never);
+    }
+    writeFileSync(
+      join(stUser, "chats", "Ava", `Ava - ${i}.jsonl`),
+      lines.map((line) => JSON.stringify(line)).join("\n"),
+    );
+  }
+  const importResult = await runSTBulkImport(
+    join(dataDir, "st"),
+    {
+      characters: true,
+      chats: true,
+      groupChats: true,
+      presets: false,
+      lorebooks: false,
+      backgrounds: false,
+      personas: false,
+    },
+    db,
+  );
+  assert.equal(importResult.imported.chats, chatFileCount, JSON.stringify(importResult.errors));
+  const resident = db._fileStore.getResidentChatUnits().size;
+  assert.ok(resident < chatFileCount / 2, `imported chats go back to disk (${resident} of ${chatFileCount} resident)`);
+  const importedChats = await db.select({ id: schema.chats.id }).from(schema.chats);
+  let importedMessages = 0;
+  for (const chat of importedChats) {
+    importedMessages += (await db.select().from(schema.messages).where(eq(schema.messages.chatId, chat.id))).length;
+  }
+  assert.equal(importedMessages, chatFileCount * 4, "chats that went back to disk still read in full");
 
   console.info("Bulk data scale regressions passed.");
 } finally {
