@@ -523,9 +523,14 @@ function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown
       if (source[field] !== undefined && extensions[key] === undefined) extensions[key] = source[field];
     }
   }
-  return cardData.extensions && typeof cardData.extensions === "object"
-    ? { ...extensions, ...(cardData.extensions as Record<string, unknown>) }
-    : extensions;
+  // As convertRisuToV2 reads { ...raw, ...data }: data's extensions, else a RisuAI card's top-level ones.
+  const own =
+    cardData.extensions && typeof cardData.extensions === "object"
+      ? cardData.extensions
+      : raw.type === "character" && raw.extensions && typeof raw.extensions === "object"
+        ? raw.extensions
+        : null;
+  return own ? { ...extensions, ...(own as Record<string, unknown>) } : extensions;
 }
 
 /**
@@ -547,13 +552,16 @@ async function importEmbeddedRegexScripts(
   const scriptKey = (script: { name: string; findRegex: string; replaceString?: string | null }) =>
     JSON.stringify([script.name, script.findRegex, script.replaceString ?? ""]);
   const keptIds: string[] = [];
-  const recordedByName = new Map<string, string>();
+  // Recorded ids per name, in order: a card may carry several scripts with one name.
+  const recordedByName = new Map<string, string[]>();
   const recordedIds = new Set(update?.recordedIds ?? []);
   const existingKeys = new Map<string, string>();
   if (update) {
     for (const script of await regexStorage.list()) {
       if (recordedIds.has(script.id)) {
-        if (!recordedByName.has(script.name)) recordedByName.set(script.name, script.id);
+        const queue = recordedByName.get(script.name) ?? [];
+        queue.push(script.id);
+        recordedByName.set(script.name, queue);
         continue;
       }
       if (update.recordedIds) continue;
@@ -564,14 +572,24 @@ async function importEmbeddedRegexScripts(
   let created = 0;
   for (const input of importedRegex) {
     try {
-      const recordedId = recordedByName.get(input.name);
+      const recordedId = recordedByName.get(input.name)?.shift();
       if (recordedId) {
-        recordedByName.delete(input.name);
-        const { enabled: _enabled, order: _order, ...fields } = input;
+        // Remembered even if the edit below fails, so the script is never left untracked.
+        keptIds.push(recordedId);
+        // Only the card's own rule changes. Whether it is on, its place, and which characters and presets it
+        // applies to are yours.
+        const {
+          enabled: _enabled,
+          order: _order,
+          targetCharacterIds: _targetCharacterIds,
+          targetPromptPresetIds: _targetPromptPresetIds,
+          ...fields
+        } = input;
         void _enabled;
         void _order;
+        void _targetCharacterIds;
+        void _targetPromptPresetIds;
         await regexStorage.update(recordedId, fields);
-        keptIds.push(recordedId);
         continue;
       }
       const existingId = existingKeys.get(scriptKey(input));
@@ -587,10 +605,11 @@ async function importEmbeddedRegexScripts(
     }
   }
   // Scripts from the previous release that the newer card dropped.
-  for (const staleId of recordedByName.values()) {
+  for (const staleId of [...recordedByName.values()].flat()) {
     try {
       await regexStorage.remove(staleId);
     } catch (err) {
+      keptIds.push(staleId);
       logger.warn(err, "Failed to remove a regex script the newer card dropped");
     }
   }
