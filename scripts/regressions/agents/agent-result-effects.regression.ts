@@ -7,6 +7,7 @@ import { AGENT_RESULT_TYPE_VALUES, type AgentResult } from "../../../packages/sh
 import type {
   AgentResultEffectDeps,
   TrackerSnapshotRow,
+  WorldStateTarget,
 } from "../../../packages/server/src/services/generation/agent-result-effects/index.js";
 import { runNamedCases } from "../fixtures/named-cases.js";
 
@@ -66,11 +67,14 @@ function fakeDeps(
     canEditTrackers?: boolean;
     portraitSettings?: Record<string, unknown> | null;
     drawPortrait?: (name: string) => Promise<string>;
+    world?: Partial<WorldStateTarget>;
   } = {},
 ) {
   const writes: Write[] = [];
   const patches: Array<Record<string, unknown>> = [];
   const portraitCalls: string[] = [];
+  const mapUpdates: unknown[] = [];
+  const metadataWrites = { count: 0 };
   let backgroundSaved: (characters: Array<Record<string, unknown>>) => void = () => {};
   const backgroundSave = new Promise<Array<Record<string, unknown>>>((resolve) => (backgroundSaved = resolve));
   const chatId = options.chatId ?? "chat-1";
@@ -84,6 +88,10 @@ function fakeDeps(
         if (options.fail) throw new Error("disk full");
         writes.push({ id, swipeIndex, partial });
         return null as never;
+      },
+      patchMetadata: (id, patch, patchOptions) => {
+        metadataWrites.count += 1;
+        return chatsStore.patchMetadata(id, patch, patchOptions);
       },
     },
     trackers: {
@@ -113,10 +121,66 @@ function fakeDeps(
             : `/api/avatars/npc/${chatId}/${character.name}.png`;
         },
       },
+      // Retry's shape by default: patch this row with the agent's fields only.
+      world: {
+        loadPrevious: async () =>
+          (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+        resolveAuthoritativeLocation: async () => null,
+        patchScope: "sent",
+        save: async (fields) => {
+          if (Object.keys(fields).length > 0) await gameStates.updateByMessage("msg-1", 0, chatId, fields as never);
+        },
+        chatMeta: {},
+        mapOwnedBySpatial: false,
+        emitGameMapUpdate: (map) => mapUpdates.push(map),
+        ...options.world,
+      },
     },
     ...overrides,
   };
-  return { deps, writes, patches, portraitCalls, backgroundSave };
+  return { deps, writes, patches, portraitCalls, backgroundSave, mapUpdates, metadataWrites };
+}
+
+/** A chat whose msg-1 row holds the given world fields (and locks), for the World State cases. */
+async function worldChat(fields: Record<string, string>, fieldLocks?: Record<string, boolean>) {
+  const tracker = await trackerChat();
+  await gameStates.updateByMessage("msg-1", 0, tracker.chatId, {
+    ...fields,
+    ...(fieldLocks ? { fieldLocks } : {}),
+  } as never);
+  const row = async () => (await tracker.snapshot()) as Record<string, unknown>;
+  const metadata = async () => {
+    const fresh = await chatsStore.getById(tracker.chatId);
+    return (typeof fresh?.metadata === "string" ? JSON.parse(fresh.metadata) : (fresh?.metadata ?? {})) as Record<
+      string,
+      unknown
+    >;
+  };
+  const locationEntries = async () =>
+    ((await tracker.journal())?.entries ?? [])
+      .filter((entry) => entry.type === "location")
+      .map((entry) => (entry as { title?: string }).title);
+  return { ...tracker, row, metadata, locationEntries };
+}
+
+function worldResult(data: Record<string, unknown>): AgentResult {
+  return result({ agentId: "agent-world", agentType: "world-state", type: "game_state_update", data });
+}
+
+/** A node map with the party at `at`. */
+function nodeMap(at: string, discovered: string[] = ["harbor"]) {
+  return {
+    id: "map-1",
+    type: "node" as const,
+    name: "Coast",
+    nodes: [
+      { id: "harbor", label: "Harbor", discovered: discovered.includes("harbor") },
+      { id: "market", label: "Market", discovered: discovered.includes("market") },
+      { id: "tower", label: "Tower", discovered: discovered.includes("tower") },
+    ],
+    edges: [],
+    partyPosition: at,
+  };
 }
 
 function result(overrides: Partial<AgentResult> = {}): AgentResult {
@@ -434,6 +498,149 @@ try {
         } finally {
           CHARACTER_TRACKER_STEPS.retry = saved;
         }
+      },
+    },
+    {
+      name: "World State from generate: every field, missing ones from the previous row, saved and sent to the HUD",
+      run: async () => {
+        const tracker = await worldChat({ location: "Harbor", weather: "rain", time: "dawn" });
+        const saved: Array<{ fields: Record<string, unknown>; recentEvents: unknown }> = [];
+        const run = fakeDeps(
+          {},
+          {
+            chatId: tracker.chatId,
+            world: {
+              patchScope: "full",
+              save: async (fields, context) => {
+                saved.push({ fields, recentEvents: context.recentEvents });
+              },
+            },
+          },
+        );
+        await applyAgentResultEffect(
+          worldResult({ date: "Day 2", location: "Market", recentEvents: ["Bought bread"] }),
+          run.deps,
+        );
+        const expected = {
+          date: "Day 2",
+          time: "dawn",
+          location: "Market",
+          weather: "rain",
+          temperature: null,
+          worldCustomFields: [],
+        };
+        assert.deepEqual(saved, [{ fields: expected, recentEvents: ["Bought bread"] }]);
+        const { worldCustomFields: _notSent, ...hud } = expected;
+        assert.deepEqual(run.patches, [hud]);
+        assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);
+      },
+    },
+    {
+      name: "World State from retry: only the agent's fields are patched and sent; an empty value clears nothing",
+      run: async () => {
+        const tracker = await worldChat({ location: "Harbor", weather: "rain", time: "dawn" });
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect(worldResult({ time: "noon", weather: "", date: 3 }), run.deps);
+        const row = await tracker.row();
+        assert.deepEqual([row.time, row.weather, row.date, row.location], ["noon", "rain", "3", "Harbor"]);
+        assert.deepEqual(run.patches, [{ time: "noon", date: "3" }]);
+        assert.deepEqual(await tracker.locationEntries(), []);
+      },
+    },
+    {
+      name: "World State keeps a locked field, and a retry journals a new location once, never the same one",
+      run: async () => {
+        const tracker = await worldChat({ location: "Harbor", weather: "rain" }, { "world.weather": true });
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect(worldResult({ weather: "sun", location: "Harbor" }), run.deps);
+        assert.equal((await tracker.row()).weather, "rain");
+        assert.deepEqual(await tracker.locationEntries(), []);
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);
+        // No game map in this chat, so the party-marker sync never touches the chat's metadata.
+        assert.equal(run.metadataWrites.count, 0);
+      },
+    },
+    {
+      name: "the spatial map's place wins over the agent's location, and its party marker is left alone",
+      run: async () => {
+        const tracker = await worldChat({ location: "Keep > Hall" });
+        const chatMeta = { gameMap: nodeMap("harbor") };
+        const run = fakeDeps(
+          { origin: "retry" },
+          {
+            chatId: tracker.chatId,
+            world: {
+              resolveAuthoritativeLocation: async () => "Keep > Hall",
+              chatMeta,
+              mapOwnedBySpatial: true,
+            },
+          },
+        );
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        assert.equal((await tracker.row()).location, "Keep > Hall");
+        assert.deepEqual(run.patches, [{ location: "Keep > Hall" }]);
+        assert.deepEqual([run.mapUpdates, chatMeta.gameMap.partyPosition], [[], "harbor"]);
+      },
+    },
+    {
+      name: "moving the party marker re-reads the chat's metadata, so it keeps a change made meanwhile",
+      run: async () => {
+        const tracker = await worldChat({ location: "Harbor" });
+        // The route's copy is stale: since it was read, the game was started and the Tower was discovered.
+        const chatMeta: Record<string, unknown> = { gameMap: nodeMap("harbor") };
+        await chatsStore.updateMetadata(tracker.chatId, {
+          gameMap: nodeMap("harbor", ["harbor", "tower"]),
+          gameSessionStatus: "active",
+        });
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, world: { chatMeta } });
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        const stored = await tracker.metadata();
+        assert.equal(stored.gameSessionStatus, "active");
+        const storedMap = stored.gameMap as {
+          partyPosition: string;
+          nodes: Array<{ id: string; discovered: boolean }>;
+        };
+        assert.equal(storedMap.partyPosition, "market");
+        assert.deepEqual(
+          storedMap.nodes.filter((node) => node.discovered).map((node) => node.id),
+          ["harbor", "market", "tower"],
+        );
+        assert.equal((chatMeta.gameMap as { partyPosition: string }).partyPosition, "market");
+        assert.equal(run.mapUpdates.length, 1);
+        assert.equal(run.metadataWrites.count, 1);
+        // Back at the Market again: the marker is already there, so nothing is written.
+        await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
+        assert.deepEqual([run.metadataWrites.count, run.mapUpdates.length], [1, 1]);
+        assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);
+      },
+    },
+    {
+      name: "World State skips combat results, and a cancelled retry stops before saving",
+      run: async () => {
+        const tracker = await worldChat({ location: "Harbor" });
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect({ ...worldResult({ location: "Arena" }), agentType: "combat" }, run.deps);
+        assert.deepEqual([(await tracker.row()).location, run.patches], ["Harbor", []]);
+
+        const controller = new AbortController();
+        const cancelled = fakeDeps(
+          { origin: "retry", signal: controller.signal },
+          {
+            chatId: tracker.chatId,
+            world: {
+              resolveAuthoritativeLocation: async () => {
+                controller.abort();
+                return null;
+              },
+            },
+          },
+        );
+        await assert.rejects(applyAgentResultEffect(worldResult({ location: "Market" }), cancelled.deps), {
+          name: "AbortError",
+        });
+        assert.deepEqual([(await tracker.row()).location, cancelled.patches], ["Harbor", []]);
       },
     },
     {

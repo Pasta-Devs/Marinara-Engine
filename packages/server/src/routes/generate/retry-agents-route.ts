@@ -6,7 +6,6 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
-  applyTrackerFieldLocksToGameStatePatch,
   getCustomAgentResultCapability,
   customAgentHasCapability,
   parseLorebookWriterOrder,
@@ -16,8 +15,6 @@ import {
   isBuiltInAgentRuntimeDisabled,
   isBuiltInAgentHostManaged,
   isRetiredBuiltInAgentId,
-  normalizeWorldCustomFields,
-  isTrackerRowsUpdate,
   normalizeAgentPhaseValue,
   normalizeAgentPromptTemplateSelectionMap,
   normalizeImagePromptInstructions,
@@ -32,7 +29,6 @@ import {
   type AgentResult,
   type APIProvider,
   type ChatMode,
-  type GameMap,
   type WrapFormat,
   type ManagedGenerationParameterDefinition,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
@@ -203,16 +199,13 @@ import type { GameStateForScanning } from "../../services/lorebook/keyword-scann
 import { filterRelevantLorebooks } from "../../services/lorebook/index.js";
 import { storedContentForTextlessScanEntries } from "../../services/lorebook/lorebook-scan-compaction.js";
 import { createCustomToolsStorage } from "../../services/storage/custom-tools.storage.js";
-import { syncGameMapMetaPartyPosition } from "../../services/game/map-position.service.js";
 import {
   agentCurrentLocationFromProjection,
   formatOwnerSpatialBreadcrumb,
-  omitAuthoritativeGameLocation,
   projectGameSnapshotLocation,
   resolveOwnerSpatialProjection,
 } from "../../services/spatial-context/projection.js";
 import {
-  buildWorldCustomFieldsStreamValue,
   collectLatestTrackerCharacterHistory,
   isMessageHiddenFromAI,
   parseExtra,
@@ -3422,6 +3415,23 @@ async function applyRetryResultEffects(args: {
           onFallback,
         }),
     },
+    world: {
+      loadPrevious: async () => (await loadRetryTargetGameStateSnapshot()) ?? (await loadRetryBaseGameStateSnapshot()),
+      // A retry never moves the party on the spatial map; the map's place just stays the stored location.
+      resolveAuthoritativeLocation: async (guidance) => {
+        if (retryCompatibilityLocation !== null && guidance !== null) {
+          logger.debug("[retry-agents] Ignoring generated Game location for spatially authoritative chat %s", chatId);
+        }
+        return retryCompatibilityLocation;
+      },
+      patchScope: "sent",
+      save: async (fields) => {
+        if (Object.keys(fields).length > 0) await updateRetryTargetGameStateSnapshot(fields);
+      },
+      chatMeta,
+      mapOwnedBySpatial: retryCompatibilityLocation !== null,
+      emitGameMapUpdate: (map) => sendSseEvent(reply, { type: "game_map_update", data: map }),
+    },
   };
   // A game reply's scenes shown as written (worldgen W10), which no rewrite may change.
   const engineScenes =
@@ -3486,78 +3496,6 @@ async function applyRetryResultEffects(args: {
       } catch (err) {
         assertRetryActive();
         logger.warn(err, "[retry-agents] Failed to apply text rewrite");
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "game_state_update" &&
-      result.agentType !== "combat" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const gs = result.data as Record<string, unknown>;
-        const proposedWorldStatePatch: Record<string, unknown> = {};
-        if (gs.date != null) proposedWorldStatePatch.date = gs.date as string;
-        if (gs.time != null) proposedWorldStatePatch.time = gs.time as string;
-        if (gs.location != null) proposedWorldStatePatch.location = gs.location as string;
-        if (gs.weather != null) proposedWorldStatePatch.weather = gs.weather as string;
-        if (gs.temperature != null) proposedWorldStatePatch.temperature = gs.temperature as string;
-        if (gs.worldCustomFields !== undefined)
-          proposedWorldStatePatch.worldCustomFields = isTrackerRowsUpdate(gs.worldCustomFields)
-            ? gs.worldCustomFields
-            : normalizeWorldCustomFields(gs.worldCustomFields);
-        if (retryCompatibilityLocation !== null && gs.location != null) {
-          logger.debug("[retry-agents] Ignoring generated Game location for spatially authoritative chat %s", chatId);
-        }
-        const worldStatePatch = omitAuthoritativeGameLocation(proposedWorldStatePatch, retryOwnerSpatialProjection);
-        const lockSnapshot = (await loadRetryTargetGameStateSnapshot()) ?? (await loadRetryBaseGameStateSnapshot());
-        assertRetryActive();
-        const worldLockState = lockSnapshot ? parseGameStateRow(lockSnapshot as Record<string, unknown>) : null;
-        const lockedWorldStatePatch = applyTrackerFieldLocksToGameStatePatch(worldStatePatch, worldLockState);
-        if (retryCompatibilityLocation !== null) {
-          lockedWorldStatePatch.location = retryCompatibilityLocation;
-        }
-        if (Object.keys(worldStatePatch).length > 0 || retryCompatibilityLocation !== null) {
-          await updateRetryTargetGameStateSnapshot(lockedWorldStatePatch);
-          assertRetryActive();
-        }
-
-        const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
-        if (retryCompatibilityLocation === null) {
-          const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
-          const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, nextLocation);
-          const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-          if (syncedGameMap && syncedGameMap !== existingGameMap) {
-            Object.assign(chatMeta, syncedMeta);
-            assertRetryActive();
-            await chats.updateMetadata(chatId, chatMeta);
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
-          }
-        }
-
-        assertRetryActive();
-        sendSseEvent(reply, {
-          type: "game_state_patch",
-          data: {
-            ...lockedWorldStatePatch,
-            ...(isTrackerRowsUpdate(gs.worldCustomFields)
-              ? {
-                  worldCustomFields: buildWorldCustomFieldsStreamValue(
-                    gs.worldCustomFields,
-                    worldLockState?.worldCustomFields,
-                    lockedWorldStatePatch.worldCustomFields,
-                  ),
-                }
-              : {}),
-          },
-        });
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply world-state tracker update");
       }
     }
 
