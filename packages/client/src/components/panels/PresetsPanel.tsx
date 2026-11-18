@@ -58,6 +58,7 @@ import {
   Wrench,
   ShieldCheck,
   Camera,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -1551,16 +1552,16 @@ export function PresetsPanel() {
       {/* One long button split by "|", the same height as the other panels' Download | Open Library. */}
       <SegmentedButtons
         groupLabel={localizeUi("navigation.topbar.presets")}
-        buttons={(["presets", "regex", "functions", "profiles"] as const).map((value) => ({
-          label: localizeUi(
-            value === "presets"
-              ? "ui.panels.presetspanel.prompts"
-              : value === "regex"
-                ? "ui.panels.regexsection.regexes"
-                : value === "functions"
-                  ? "ui.panels.functionssection.functions"
-                  : "ui.panels.profilessection.profiles",
-          ),
+        buttons={(
+          [
+            ["presets", FileText, "ui.panels.presetspanel.prompts"],
+            ["regex", Regex, "ui.panels.regexsection.regexes"],
+            ["functions", Wrench, "ui.panels.functionssection.functions"],
+            ["profiles", SlidersHorizontal, "ui.panels.profilessection.profiles"],
+          ] as const
+        ).map(([value, icon, labelKey]) => ({
+          icon,
+          label: localizeUi(labelKey),
           pressed: tab === value,
           onClick: () => setTab(value),
         }))}

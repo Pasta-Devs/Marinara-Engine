@@ -533,24 +533,26 @@ export function ModelPicker({
           }
         : {})}
       header={
-        <Tabs
-          items={slots.map((entry) => ({
-            id: entry.key,
-            label: (
-              <>
-                <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
-                  {entry.label}
-                </span>
-                <span className="block truncate text-xs font-medium">{entry.value}</span>
-              </>
-            ),
-          }))}
-          value={slot}
-          onChange={setSlot}
-          variant="pill"
-          className="border-b border-[var(--border)]/40 p-2"
-          label={t("connections.picker.slots")}
-        />
+        // The header bar pads a wrapper: the tab cells must touch the track's edge (ui/Tabs).
+        <div className="border-b border-[var(--border)]/40 p-2">
+          <Tabs
+            items={slots.map((entry) => ({
+              id: entry.key,
+              label: (
+                <>
+                  <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                    {entry.label}
+                  </span>
+                  <span className="block truncate text-xs font-medium">{entry.value}</span>
+                </>
+              ),
+            }))}
+            value={slot}
+            onChange={setSlot}
+            variant="pill"
+            label={t("connections.picker.slots")}
+          />
+        </div>
       }
     />
   );
