@@ -11,7 +11,11 @@ import {
   compareChatsByCreatedAtAsc,
   compareChatsByCreatedAtDesc,
 } from "../../../packages/client/src/lib/chat-recency.js";
-import { normalizeChatForResponse, pageChatList } from "../../../packages/server/src/routes/chats.routes.js";
+import {
+  chatListQueryError,
+  normalizeChatForResponse,
+  pageChatList,
+} from "../../../packages/server/src/routes/chats.routes.js";
 import { normalizeHydratedMessage } from "../../../packages/client/src/lib/message-hydration.js";
 
 assert.deepEqual(
@@ -123,4 +127,11 @@ assert.deepEqual(metadataSaveOrder, ["first", "second"]);
   const third = pageChatList(list, { limit: "2", before: second.at(-1)!.updatedAt });
   assert.deepEqual(ids(third), ["chat-5", "chat-6"], "the next page continues after the tie");
   assert.deepEqual(ids(pageChatList(list, { limit: "nope" })), ids(list), "a bad limit is ignored");
+  assert.equal(chatListQueryError({}), null, "no query is valid");
+  assert.equal(chatListQueryError({ limit: "40", before: "2026-08-04T00:00:00.000Z" }), null);
+  for (const limit of ["0", "-1", "abc", "10abc", "1e9", ""])
+    assert.ok(chatListQueryError({ limit }), `limit=${limit} is rejected`);
+  for (const before of ["2026", "Jan 1 2026", "2026-08-09T14:00:00+02:00", "nope"]) {
+    assert.ok(chatListQueryError({ before }), `before=${before} is rejected`);
+  }
 }

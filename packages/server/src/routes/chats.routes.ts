@@ -513,6 +513,16 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
  * on the previous page. A page never splits chats that share one `updatedAt` (bulk imports do), so
  * the next page cannot skip them; such a page can run past `limit`.
  */
+/** `before` must match the stored `updatedAt` form (ISO, UTC), since pages compare the strings. */
+export function chatListQueryError(query: { limit?: string; before?: string }): string | null {
+  if (query.limit !== undefined && !/^[1-9]\d{0,5}$/.test(query.limit)) return "limit must be a whole number from 1";
+  const { before } = query;
+  if (before !== undefined && (Number.isNaN(Date.parse(before)) || new Date(before).toISOString() !== before)) {
+    return "before must be an ISO timestamp";
+  }
+  return null;
+}
+
 export function pageChatList<T extends { updatedAt: string }>(
   chats: T[],
   query: { limit?: string; before?: string },
@@ -1096,9 +1106,8 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List all chats
   // No query: the whole list (what the app loads). `?limit=N&before=<updatedAt>` pages it.
   app.get<{ Querystring: { limit?: string; before?: string } }>("/", async (req, reply) => {
-    if (req.query.before !== undefined && Number.isNaN(Date.parse(req.query.before))) {
-      return reply.status(400).send({ error: "before must be a timestamp" });
-    }
+    const queryError = chatListQueryError(req.query);
+    if (queryError) return reply.status(400).send({ error: queryError });
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
     const response = pageChatList(
