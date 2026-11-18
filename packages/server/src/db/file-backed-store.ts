@@ -1897,7 +1897,8 @@ function probeWindowsPidOwner(record: StorageWriterLeaseRecord, leaseTime: numbe
     const name = output.slice(0, separator).trim().toLowerCase();
     const processTime = Date.parse(output.slice(separator + 1));
     if (separator > 0 && name && !WINDOWS_WRITER_PROGRAMS.has(name)) return "other-program" as const;
-    if (Number.isFinite(processTime) && processTime > leaseTime + 1_000) return "newer" as const;
+    if (Number.isFinite(leaseTime) && Number.isFinite(processTime) && processTime > leaseTime + 1_000)
+      return "newer" as const;
     return null;
   } catch {
     // CIM unavailable: fall back to the older probe, which still works for our own processes.
@@ -1906,40 +1907,49 @@ function probeWindowsPidOwner(record: StorageWriterLeaseRecord, leaseTime: numbe
     const processTime = Date.parse(
       run(`(Get-Process -Id ${record.pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`),
     );
-    return Number.isFinite(processTime) && processTime > leaseTime + 1_000 ? ("newer" as const) : null;
+    return Number.isFinite(leaseTime) && Number.isFinite(processTime) && processTime > leaseTime + 1_000
+      ? ("newer" as const)
+      : null;
   } catch {
     return null;
   }
 }
 
-function pidWasReused(record: StorageWriterLeaseRecord, options: { programOnly?: boolean } = {}) {
+/**
+ * Returns why the lease's PID no longer belongs to its writer, or null when that can't be shown.
+ * An unreadable acquiredAt only rules out the start-time comparison: the Windows program-name
+ * check doesn't depend on it.
+ */
+function pidWasReused(
+  record: StorageWriterLeaseRecord,
+  options: { programOnly?: boolean } = {},
+): "newer" | "other-program" | "gone" | null {
   const leaseTime = Date.parse(record.acquiredAt);
-  if (!Number.isFinite(leaseTime)) return false;
 
   if (process.platform === "win32") {
     const owner = probeWindowsPidOwner(record, leaseTime);
     // The program check holds even under the weaker Windows storage proof: a PID now running some
     // other program is not a Marinara writer, whatever else is uncertain.
-    if (options.programOnly) return owner === "other-program" || owner === "gone";
-    return owner !== null;
+    if (options.programOnly) return owner === "other-program" || owner === "gone" ? owner : null;
+    return owner;
   }
   // The program check is Windows-only; elsewhere programOnly callers keep the lease.
-  if (options.programOnly) return false;
+  if (options.programOnly || !Number.isFinite(leaseTime)) return null;
 
   if (process.platform === "linux" || process.platform === "android") {
     try {
       const stat = readFileSync(`/proc/${record.pid}/stat`, "utf8");
       const startTicks = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]);
       const bootTime = Number(readFileSync("/proc/stat", "utf8").match(/^btime (\d+)$/m)?.[1]);
-      if (!CURRENT_CLOCK_TICKS_PER_SECOND) return false;
+      if (!CURRENT_CLOCK_TICKS_PER_SECOND) return null;
       const processTime = linuxProcessStartTimeMs(startTicks, bootTime, CURRENT_CLOCK_TICKS_PER_SECOND);
-      return processTime !== null && processTime > leaseTime + 1_000;
+      return processTime !== null && processTime > leaseTime + 1_000 ? "newer" : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
-  return false;
+  return null;
 }
 
 function isTermuxPrivateHomeStorage(rootDir: string) {
@@ -2870,6 +2880,7 @@ class FileTableStore {
       }
 
       let staleReason: "boot" | "liveness" | "pid" | "pid-reused" | null = null;
+      let pidOwner: ReturnType<typeof pidWasReused> = null;
       // Same-host proof, in order of strength: the recorded machine ID matches
       // ours; the storage is Termux's app-private HOME; or one side could not
       // identify its machine (the writer left hostId null, #5744, or this
@@ -2931,8 +2942,10 @@ class FileTableStore {
         if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
         // On the Windows storage proof a live PID keeps the lease even if it
         // may have been reused (#7801), unless it now runs a different program.
-        else if (pidWasReused(existing.record, { programOnly: hostProof === "windows-local-storage" }))
-          staleReason = "pid-reused";
+        else {
+          pidOwner = pidWasReused(existing.record, { programOnly: hostProof === "windows-local-storage" });
+          if (pidOwner) staleReason = "pid-reused";
+        }
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(
@@ -2963,14 +2976,16 @@ class FileTableStore {
       }
       rmSync(stalePath, { recursive: true });
       logger.warn(
-        { previousPid: existing.record.pid, path, staleReason, hostProof },
+        { previousPid: existing.record.pid, path, staleReason, pidOwner, hostProof },
         staleReason === "boot"
           ? "[file-storage] Reclaimed the writer lease after detecting that the previous owner belonged to an earlier boot."
           : staleReason === "liveness"
             ? "[file-storage] Reclaimed the writer lease after confirming the previous owner was no longer listening."
-            : staleReason === "pid-reused"
+            : pidOwner === "newer"
               ? "[file-storage] Reclaimed the writer lease after confirming its recorded PID belongs to a newer process."
-              : "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
+              : pidOwner === "other-program"
+                ? "[file-storage] Reclaimed the writer lease after confirming its recorded PID now runs a different program."
+                : "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
       );
     }
     throw new StorageWriterLeaseError(`The storage writer lease at ${path} changed repeatedly; retry startup.`);
