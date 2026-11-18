@@ -146,9 +146,8 @@ import type { input as SchemaInput } from "zod";
 import { readChatMetadataSecret } from "../utils/stored-secrets.js";
 import { translateGeneratedMessage } from "../services/translation.service.js";
 import { randomInt, randomUUID } from "crypto";
-import { existsSync } from "fs";
 import { readFile } from "fs/promises";
-import { extname, join } from "path";
+import { extname } from "path";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
   parseDecisionPromptQuestionLimit,
@@ -578,12 +577,6 @@ import {
   pinnedBackgroundMetadataPatch,
   pinnedSceneBackground,
 } from "../services/generation/location-background-pins.js";
-import {
-  findCharAvatarFuzzy,
-  loadCharacterLibraryAvatarLookup,
-  npcAvatarSlug,
-  sanitizeGameNpcAvatarUrls,
-} from "../services/game/npc-avatar-utils.js";
 import { parseDirectMessageCommands, type CharacterCommand } from "../services/conversation/character-commands.js";
 import {
   suppressesReferencePromptLine,
@@ -642,9 +635,7 @@ import {
   extractFileAttachmentInputs,
   buildGenerationGuideInstruction,
   buildUserMessageRegenerationPromptFromSource,
-  resolveTrackerGroupUpdate,
   buildWorldCustomFieldsStreamValue,
-  applyTrackerCharacterCardIdentity,
   canonicalizeGamePartySpeakerLabels,
   collectLatestTrackerCharacterHistory,
   createLocalSidecarGenerationConnection,
@@ -658,7 +649,6 @@ import {
   injectIntoOutputFormatOrLastUser,
   getMessageConversationStartCharacterIds,
   getMessageHiddenFromAICharacterIds,
-  isManualTrackerCharacterId,
   isMessageHiddenFromAI,
   mergeCustomParameters,
   normalizePromptWrapFormat,
@@ -667,7 +657,6 @@ import {
   parseStoredGenerationParameters,
   parseGameStateRow,
   isRoleplaySummaryMode,
-  preserveTrackerCharacterUiFields,
   prefixGroupIndividualHistorySpeakers,
   readPersonaSnapshotName,
   resolveActiveCharacterIds,
@@ -843,7 +832,7 @@ import {
   shouldRunDirectorSecretPlotMaintenance,
 } from "../services/generation/director-secret-plot-runtime.js";
 import { applyPromptPatchOperations } from "../services/generation/prompt-patch-runtime.js";
-import { applyAgentResultEffect } from "../services/generation/agent-result-effects/index.js";
+import { applyAgentResultEffect, type TrackerEffectTarget } from "../services/generation/agent-result-effects/index.js";
 import {
   resolveGenerationProviderRuntime,
   resolveReasoningMacroValue,
@@ -932,7 +921,7 @@ import {
   resolveLorebookTokenBudget,
 } from "../services/generation/lorebook-generation-runtime.js";
 import { createAgentLorebookTriggerResolver } from "../services/generation/agent-lorebook-triggers.js";
-import { addLocationEntry, addNpcEntry } from "../services/game/journal.service.js";
+import { addLocationEntry } from "../services/game/journal.service.js";
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import {
   buildGmFormatReminder,
@@ -13865,6 +13854,63 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             };
           }
+          // How the shared tracker effects (#9508) reach this generation's snapshot for one message and swipe.
+          const characterTrackerSettings =
+            resolvedAgents.find((agent) => agent.type === "character-tracker")?.settings ?? null;
+          const generateTrackerEffects = (messageId: string, targetSwipeIndex: number): TrackerEffectTarget => {
+            const readTargetRow = () => gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
+            const saveCharacters = (presentCharacters: Array<Record<string, unknown>>) =>
+              gameStateStore.updateByMessage(
+                messageId,
+                targetSwipeIndex,
+                input.chatId,
+                { presentCharacters } as any,
+                undefined,
+                {
+                  baseSnapshot: trackerBaseGameStateSnapshot,
+                },
+              );
+            return {
+              db: app.db,
+              canEditTrackers: (trackerResult) =>
+                customAgentCanApplyResult(trackerResult, resolvedAgents, builtInAgentTypes, "edit_trackers"),
+              // A world-state run may not have made this swipe's snapshot; clone the generation baseline into one
+              // so the tracker never writes onto an older message's row.
+              loadSnapshot: async () => {
+                const existing = await readTargetRow();
+                if (existing) return existing;
+                await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, {}, undefined, {
+                  baseSnapshot: trackerBaseGameStateSnapshot,
+                });
+                return readTargetRow();
+              },
+              emitGameStatePatch: (patch) => sendSseEvent(reply, { type: "game_state_patch", data: patch }),
+              characters: {
+                cards: charInfo,
+                history: characterTrackerHistory,
+                gameNpcs: Array.isArray(chatMeta.gameNpcs) ? (chatMeta.gameNpcs as GameNpc[]) : [],
+                settings: characterTrackerSettings,
+                loadBaseline: async () =>
+                  (await readTargetRow()) ??
+                  trackerBaseGameStateSnapshot ??
+                  (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null),
+                save: saveCharacters,
+                loadForBackgroundSave: async () => (await readTargetRow()) ?? trackerBaseGameStateSnapshot,
+                saveInBackground: saveCharacters,
+                drawPortrait: (character, { connectionId, includeOutfit }) =>
+                  generateTrackerPortrait({
+                    db: app.db,
+                    connectionId,
+                    chatId: input.chatId,
+                    styleProfileId: trackerPortraitStyleProfileId(chatMeta),
+                    character,
+                    includeOutfit,
+                    debugMode: input.debugMode,
+                    onFallback,
+                  }),
+              },
+            };
+          };
           for (const result of sortedResults) {
             const commandTarget = roleplayMediaTargets.get(result);
             const messageId = commandTarget?.messageId ?? defaultResultMessageId;
@@ -14072,29 +14118,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             }
 
-            // Effects shared with the retry-agents route (CYOA choices and the player-stats trackers so far, #9508)
+            // Effects shared with the retry-agents route (CYOA choices and the trackers so far, #9508)
             await applyAgentResultEffect(result, {
               origin: "generate",
               chatId: input.chatId,
               messageId,
               swipeIndex: targetSwipeIndex,
               chats,
-              trackers: {
-                db: app.db,
-                canEditTrackers: (trackerResult) =>
-                  customAgentCanApplyResult(trackerResult, resolvedAgents, builtInAgentTypes, "edit_trackers"),
-                // A world-state run may not have made this swipe's snapshot; clone the generation baseline into one
-                // so the tracker never writes onto an older message's row.
-                loadSnapshot: async () => {
-                  const existing = await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
-                  if (existing) return existing;
-                  await gameStateStore.updateByMessage(messageId, targetSwipeIndex, input.chatId, {}, undefined, {
-                    baseSnapshot: trackerBaseGameStateSnapshot,
-                  });
-                  return gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
-                },
-                emitGameStatePatch: (patch) => sendSseEvent(reply, { type: "game_state_patch", data: patch }),
-              },
+              trackers: generateTrackerEffects(messageId, targetSwipeIndex),
             });
 
             // Persist game state snapshots from world-state agent
@@ -14302,256 +14333,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               } catch (err) {
                 logger.error(err, "[generate] Failed to apply world-state tracker update");
-              }
-            }
-
-            // Character Tracker agent → merge presentCharacters into latest game state
-            if (
-              result.success &&
-              result.type === "character_tracker_update" &&
-              result.data &&
-              typeof result.data === "object" &&
-              customAgentCanApplyResult(result, resolvedAgents, builtInAgentTypes, "edit_trackers")
-            ) {
-              try {
-                const ctData = result.data as Record<string, unknown>;
-                if (
-                  !isTrackerRowsUpdate(ctData.presentCharacters) &&
-                  (!Array.isArray(ctData.presentCharacters) || ctData.presentCharacters.length === 0)
-                ) {
-                  const resultKeys = Object.keys(ctData);
-                  // `{}` and an empty list are the prompt's no-change replies; any other shape is lost output (#7208).
-                  logger[resultKeys.length === 0 || Array.isArray(ctData.presentCharacters) ? "debug" : "warn"](
-                    "[generate] character-tracker emitted no presentCharacters (result keys: %s); keeping existing snapshot",
-                    resultKeys.join(", ") || "none",
-                  );
-                  continue;
-                }
-                const snapBeforeUpdate = await gameStateStore.getByChatAndMessage(
-                  input.chatId,
-                  messageId,
-                  targetSwipeIndex,
-                );
-                const previousCharacterSnapshot =
-                  snapBeforeUpdate ??
-                  trackerBaseGameStateSnapshot ??
-                  (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null);
-                const oldChars = parseJsonField<any[]>(previousCharacterSnapshot?.presentCharacters, []);
-                const characterLockState = previousCharacterSnapshot
-                  ? parseGameStateRow(previousCharacterSnapshot as Record<string, unknown>)
-                  : null;
-                let chars =
-                  resolveTrackerGroupUpdate(
-                    ctData.presentCharacters,
-                    oldChars,
-                    characterLockState,
-                    "presentCharacters",
-                  ) ?? oldChars;
-                const cardCharacterIds = applyTrackerCharacterCardIdentity(chars, charInfo, {
-                  previousCharacters: [...oldChars, ...characterTrackerHistory],
-                });
-                preserveTrackerCharacterUiFields(chars, oldChars);
-                preserveTrackerCharacterUiFields(chars, characterTrackerHistory);
-                const lockedCharacterPatch = applyTrackerFieldLocksToGameStatePatch(
-                  { presentCharacters: chars },
-                  characterLockState,
-                );
-                chars = Array.isArray(lockedCharacterPatch.presentCharacters)
-                  ? lockedCharacterPatch.presentCharacters
-                  : chars;
-
-                // ── Enrich with avatar paths ──
-                // 1. Match against character cards in the chat or library
-                // 2. Fall back to stored NPC avatars (per-chat generated/uploaded)
-                const NPC_AVATAR_DIR = join(DATA_DIR, "avatars", "npc");
-                const storedNpcAvatarByName = new Map<string, string>();
-                const libraryAvatarByName = await loadCharacterLibraryAvatarLookup(
-                  () => createCharactersStorage(app.db).list(),
-                  (error) => logger.warn(error, "[generate] Failed to load library characters for avatar enrichment"),
-                );
-                const gameNpcs = sanitizeGameNpcAvatarUrls((chatMeta.gameNpcs as GameNpc[]) ?? []);
-                if (gameNpcs !== chatMeta.gameNpcs) {
-                  chatMeta.gameNpcs = gameNpcs;
-                }
-                for (const npc of gameNpcs) {
-                  const name = normalizeTextForMatch(npc.name);
-                  if (name && npc.avatarUrl) storedNpcAvatarByName.set(name, npc.avatarUrl);
-                }
-
-                for (const char of chars) {
-                  if (isManualTrackerCharacterId(char.characterId)) continue;
-                  if (cardCharacterIds.has(String(char.characterId))) continue;
-                  const name = (char.name as string) ?? "";
-                  // Try matching against the chat's character cards (case-insensitive)
-                  const matched = charInfo.find((c) => normalizeTextForMatch(c.name) === normalizeTextForMatch(name));
-                  if (!char.avatarCrop && matched?.avatarCrop) {
-                    char.avatarCrop = matched.avatarCrop;
-                  }
-                  if (char.avatarPath) continue; // already set
-                  if (matched?.avatarPath) {
-                    char.avatarPath = matched.avatarPath;
-                    continue;
-                  }
-                  const libraryAvatar = findCharAvatarFuzzy(name, libraryAvatarByName);
-                  if (libraryAvatar) {
-                    char.avatarPath = libraryAvatar;
-                    continue;
-                  }
-                  const storedNpcAvatar = storedNpcAvatarByName.get(normalizeTextForMatch(name));
-                  if (storedNpcAvatar) {
-                    char.avatarPath = storedNpcAvatar;
-                    continue;
-                  }
-                  // Try loading a stored NPC avatar from disk
-                  const safeName = npcAvatarSlug(name);
-                  if (safeName) {
-                    const npcAvatarPath = join(NPC_AVATAR_DIR, input.chatId, `${safeName}.png`);
-                    if (existsSync(npcAvatarPath)) {
-                      char.avatarPath = `/api/avatars/npc/${input.chatId}/${safeName}.png`;
-                    }
-                  }
-                }
-
-                logger.info(
-                  `[generate] character-tracker: ${chars.length} characters to persist (msg=${messageId}, swipe=${targetSwipeIndex})`,
-                );
-
-                // ── Auto-generate NPC avatars if enabled ──
-                const charTrackerAgent = resolvedAgents.find((a) => a.type === "character-tracker");
-                const autoGenAvatars = !!charTrackerAgent?.settings?.autoGenerateAvatars;
-                const npcImgConnId = (charTrackerAgent?.settings?.imageConnectionId as string) ?? null;
-                if (autoGenAvatars && npcImgConnId) {
-                  const charsNeedingAvatars = chars.filter(
-                    (c: any) =>
-                      !c.avatarPath &&
-                      !isManualTrackerCharacterId(c.characterId) &&
-                      (c.name as string) &&
-                      (c.appearance as string),
-                  );
-                  if (charsNeedingAvatars.length > 0) {
-                    // Fire-and-forget: generate avatars in background so we don't block
-                    (async () => {
-                      try {
-                        const styleProfileId = trackerPortraitStyleProfileId(chatMeta);
-                        const includeOutfit = charTrackerAgent?.settings?.includeOutfitInAvatars !== false;
-                        const generatedAvatarPaths = new Map<string, string>();
-                        const avatarMatchKey = (character: Record<string, unknown>) =>
-                          String(character.characterId ?? character.name ?? "")
-                            .trim()
-                            .toLowerCase();
-
-                        for (const npc of charsNeedingAvatars) {
-                          try {
-                            const npcName = npc.name as string;
-                            // Update the character's avatarPath and stream to client
-                            npc.avatarPath = await generateTrackerPortrait({
-                              db: app.db,
-                              connectionId: npcImgConnId,
-                              chatId: input.chatId,
-                              styleProfileId,
-                              character: npc,
-                              includeOutfit,
-                              debugMode: input.debugMode,
-                              onFallback,
-                            });
-                            const key = avatarMatchKey(npc);
-                            if (key) generatedAvatarPaths.set(key, npc.avatarPath);
-                            logger.info(`[character-tracker] Generated avatar for NPC "${npcName}"`);
-                          } catch (err) {
-                            logger.warn(err, '[character-tracker] Failed to generate avatar for "%s"', npc.name);
-                          }
-                        }
-
-                        if (generatedAvatarPaths.size === 0) return;
-
-                        // Re-persist with avatar paths and notify client
-                        const latestAvatarSnapshot =
-                          (await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex)) ??
-                          trackerBaseGameStateSnapshot;
-                        const latestAvatarState = latestAvatarSnapshot
-                          ? parseGameStateRow(latestAvatarSnapshot as Record<string, unknown>)
-                          : null;
-                        const currentCharacters = Array.isArray(latestAvatarState?.presentCharacters)
-                          ? latestAvatarState.presentCharacters
-                          : chars;
-                        const mergedAvatarCharacters = currentCharacters.map((character: any) => {
-                          const avatarPath = generatedAvatarPaths.get(avatarMatchKey(character));
-                          return avatarPath ? { ...character, avatarPath } : character;
-                        });
-                        const lockedAvatarPatch = applyTrackerFieldLocksToGameStatePatch(
-                          { presentCharacters: mergedAvatarCharacters },
-                          latestAvatarState,
-                        );
-                        const presentCharacters = Array.isArray(lockedAvatarPatch.presentCharacters)
-                          ? lockedAvatarPatch.presentCharacters
-                          : mergedAvatarCharacters;
-
-                        await gameStateStore.updateByMessage(
-                          messageId,
-                          targetSwipeIndex,
-                          input.chatId,
-                          {
-                            presentCharacters,
-                          },
-                          undefined,
-                          { baseSnapshot: trackerBaseGameStateSnapshot },
-                        );
-                        logger.debug(
-                          "[game_state_patch] character-tracker (avatar update): %d chars",
-                          presentCharacters.length,
-                        );
-                        sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters } });
-                      } catch (err) {
-                        logger.warn(err, "[character-tracker] Avatar generation error");
-                      }
-                    })();
-                  }
-                }
-
-                const updated = await gameStateStore.updateByMessage(
-                  messageId,
-                  targetSwipeIndex,
-                  input.chatId,
-                  {
-                    presentCharacters: chars,
-                  },
-                  undefined,
-                  { baseSnapshot: trackerBaseGameStateSnapshot },
-                );
-                logger.info(
-                  `[generate] character-tracker: updateByMessage returned ${updated ? "ok" : "null (no snapshot)"}`,
-                );
-                // Merge into the game_state SSE event for the HUD
-                logger.debug("[game_state_patch] character-tracker: %s", chars.map((c: any) => c.name ?? c).join(", "));
-                sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters: chars } });
-
-                // Auto-populate journal: NPC encounters
-                try {
-                  const prevNames = new Set(oldChars.map((c: any) => normalizeTextForMatch(c.name)));
-                  for (const char of chars) {
-                    const name = (char.name as string) ?? "";
-                    if (!name || prevNames.has(normalizeTextForMatch(name))) continue;
-                    // Skip player-character cards — only track NPCs
-                    if (charInfo.some((c) => normalizeTextForMatch(c.name) === normalizeTextForMatch(name))) continue;
-                    const appearance = (char.appearance as string) || "";
-                    const mood = (char.mood as string) || "";
-                    const npc: GameNpc = {
-                      id: normalizeTextForMatch(name).replace(/[^\p{L}\p{N}]+/gu, "-") || newId(),
-                      name,
-                      emoji: "👤",
-                      description: appearance,
-                      location: "",
-                      reputation: 0,
-                      notes: [],
-                    };
-                    const interaction = mood ? `Encountered (${mood})` : "Encountered";
-                    updateJournal(app.db, input.chatId, (j) => addNpcEntry(j, npc, interaction));
-                  }
-                } catch {
-                  // Non-critical
-                }
-              } catch (err) {
-                logger.error(err, "[generate] character-tracker persistence error");
               }
             }
 

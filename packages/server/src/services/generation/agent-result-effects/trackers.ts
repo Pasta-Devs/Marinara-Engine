@@ -1,6 +1,5 @@
 // Tracker results that patch the player stats on the message's game-state snapshot: persona stats, inventory, custom
-// tracker fields and quests. The Character Tracker is not here yet: generate also fills avatars, draws NPC portraits
-// and writes the journal for it, and whether a retry should do that is still open (#9508).
+// tracker fields and quests. The Character Tracker has its own file (character-tracker.ts).
 import {
   applyQuestUpdatesToPlayerStats,
   buildQuestJournalData,

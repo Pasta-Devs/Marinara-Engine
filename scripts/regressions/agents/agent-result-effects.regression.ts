@@ -14,8 +14,12 @@ import { runNamedCases } from "../fixtures/named-cases.js";
 const directory = mkdtempSync(join(tmpdir(), "marinara-agent-result-effects-"));
 process.env.DATA_DIR = directory;
 
-const { AGENT_RESULT_EFFECT_COVERAGE, SHARED_AGENT_RESULT_EFFECT_TYPES, applyAgentResultEffect } =
-  await import("../../../packages/server/src/services/generation/agent-result-effects/index.js");
+const {
+  AGENT_RESULT_EFFECT_COVERAGE,
+  CHARACTER_TRACKER_STEPS,
+  SHARED_AGENT_RESULT_EFFECT_TYPES,
+  applyAgentResultEffect,
+} = await import("../../../packages/server/src/services/generation/agent-result-effects/index.js");
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
@@ -56,10 +60,19 @@ async function trackerChat() {
 
 function fakeDeps(
   overrides: Partial<AgentResultEffectDeps> = {},
-  options: { fail?: boolean; chatId?: string; canEditTrackers?: boolean } = {},
+  options: {
+    fail?: boolean;
+    chatId?: string;
+    canEditTrackers?: boolean;
+    portraitSettings?: Record<string, unknown> | null;
+    drawPortrait?: (name: string) => Promise<string>;
+  } = {},
 ) {
   const writes: Write[] = [];
   const patches: Array<Record<string, unknown>> = [];
+  const portraitCalls: string[] = [];
+  let backgroundSaved: (characters: Array<Record<string, unknown>>) => void = () => {};
+  const backgroundSave = new Promise<Array<Record<string, unknown>>>((resolve) => (backgroundSaved = resolve));
   const chatId = options.chatId ?? "chat-1";
   const deps: AgentResultEffectDeps = {
     origin: "generate",
@@ -79,10 +92,31 @@ function fakeDeps(
       loadSnapshot: async () =>
         (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
       emitGameStatePatch: (patch) => patches.push(patch),
+      characters: {
+        cards: [{ id: "card-alice", name: "Alice", avatarPath: "/api/avatars/alice.png" }] as never,
+        history: [],
+        gameNpcs: [],
+        settings: options.portraitSettings ?? null,
+        loadBaseline: async () =>
+          (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+        save: (presentCharacters) => gameStates.updateByMessage("msg-1", 0, chatId, { presentCharacters } as never),
+        loadForBackgroundSave: async () =>
+          (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+        saveInBackground: async (presentCharacters) => {
+          await gameStates.updateByMessage("msg-1", 0, chatId, { presentCharacters } as never);
+          backgroundSaved(presentCharacters);
+        },
+        drawPortrait: async (character) => {
+          portraitCalls.push(character.name);
+          return options.drawPortrait
+            ? options.drawPortrait(character.name)
+            : `/api/avatars/npc/${chatId}/${character.name}.png`;
+        },
+      },
     },
     ...overrides,
   };
-  return { deps, writes, patches };
+  return { deps, writes, patches, portraitCalls, backgroundSave };
 }
 
 function result(overrides: Partial<AgentResult> = {}): AgentResult {
@@ -120,6 +154,24 @@ const inventoryResult = result({
   type: "inventory_tracker_update",
   data: { inventory: [{ name: "Rope", qty: 1 }] },
 });
+
+const characterResult = result({
+  agentId: "agent-characters",
+  agentType: "character-tracker",
+  type: "character_tracker_update",
+  data: {
+    presentCharacters: [
+      { name: "Alice", appearance: "silver hair", mood: "calm" },
+      { name: "Mira", appearance: "red cloak", mood: "wary" },
+      { name: "Ghost", mood: "unseen" },
+    ],
+  },
+});
+const portraitsOn = { autoGenerateAvatars: true, imageConnectionId: "conn-image" };
+const presentCharactersOf = async (tracker: Awaited<ReturnType<typeof trackerChat>>) => {
+  const raw = (await tracker.snapshot()).presentCharacters;
+  return (typeof raw === "string" ? JSON.parse(raw) : raw) as Array<Record<string, unknown>>;
+};
 
 const playerStatsOf = (snapshot: TrackerSnapshotRow) =>
   typeof snapshot.playerStats === "string" ? JSON.parse(snapshot.playerStats) : snapshot.playerStats;
@@ -164,8 +216,8 @@ try {
       name: "types that are not shared yet are left to the route",
       run: async () => {
         const { deps, writes, patches } = fakeDeps();
-        const characterTracker = result({ type: "character_tracker_update", data: { presentCharacters: [] } });
-        assert.equal(await applyAgentResultEffect(characterTracker, deps), false);
+        const sprite = result({ type: "sprite_change", data: { expressions: [] } });
+        assert.equal(await applyAgentResultEffect(sprite, deps), false);
         assert.deepEqual([writes, patches], [[], []]);
       },
     },
@@ -257,6 +309,108 @@ try {
         );
         assert.deepEqual(playerStats.customTrackerFields, [{ name: "Clue", value: "north gate" }]);
         assert.equal(patches.length, 3);
+      },
+    },
+    {
+      name: "the character list is saved the same way from generate and retry, and a card keeps its card avatar",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const { deps, patches } = fakeDeps({ origin }, { chatId: tracker.chatId });
+          assert.equal(await applyAgentResultEffect(characterResult, deps), true);
+          const saved = await presentCharactersOf(tracker);
+          assert.deepEqual(
+            saved.map((character) => character.name),
+            ["Alice", "Mira", "Ghost"],
+            origin,
+          );
+          assert.equal(saved[0]!.avatarPath, "/api/avatars/alice.png", origin);
+          assert.equal(patches.length, 1, origin);
+        }
+      },
+    },
+    {
+      name: "re-running the character tracker writes each new NPC to the journal once and never a card character",
+      run: async () => {
+        const tracker = await trackerChat();
+        for (const origin of ["generate", "retry", "retry"] as const) {
+          await applyAgentResultEffect(characterResult, fakeDeps({ origin }, { chatId: tracker.chatId }).deps);
+        }
+        const journal = (await tracker.journal()) as unknown as { npcLog: Array<{ npcName: string }> };
+        assert.deepEqual(journal.npcLog.map((entry) => entry.npcName).sort(), ["Ghost", "Mira"]);
+      },
+    },
+    {
+      name: "missing NPC portraits are drawn in the background and saved, never for a card or an NPC with no looks",
+      run: async () => {
+        const tracker = await trackerChat();
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+        await applyAgentResultEffect(characterResult, run.deps);
+        const savedInBackground = await run.backgroundSave;
+        assert.deepEqual(run.portraitCalls, ["Mira"]);
+        const miraPortrait = `/api/avatars/npc/${tracker.chatId}/Mira.png`;
+        assert.equal(savedInBackground.find((character) => character.name === "Mira")?.avatarPath, miraPortrait);
+        const stored = await presentCharactersOf(tracker);
+        assert.equal(stored.find((character) => character.name === "Mira")?.avatarPath, miraPortrait);
+        assert.equal(run.patches.length, 2, "the list, then the list with the portrait");
+      },
+    },
+    {
+      name: "no portrait is drawn with the setting off, after a cancel, or while the same NPC is still being drawn",
+      run: async () => {
+        const off = fakeDeps({}, { chatId: (await trackerChat()).chatId });
+        await applyAgentResultEffect(characterResult, off.deps);
+        assert.deepEqual(off.portraitCalls, []);
+
+        const controller = new AbortController();
+        controller.abort();
+        const cancelled = fakeDeps(
+          { origin: "retry", signal: controller.signal },
+          { chatId: (await trackerChat()).chatId, portraitSettings: portraitsOn },
+        );
+        await assert.rejects(applyAgentResultEffect(characterResult, cancelled.deps), { name: "AbortError" });
+        assert.deepEqual(cancelled.portraitCalls, []);
+
+        const tracker = await trackerChat();
+        let finishDrawing: () => void = () => {};
+        const drawing = new Promise<void>((resolve) => (finishDrawing = resolve));
+        const slow = fakeDeps(
+          { origin: "retry" },
+          {
+            chatId: tracker.chatId,
+            portraitSettings: portraitsOn,
+            drawPortrait: async (name) => {
+              await drawing;
+              return `/slow/${name}.png`;
+            },
+          },
+        );
+        await applyAgentResultEffect(characterResult, slow.deps);
+        const second = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+        await applyAgentResultEffect(characterResult, second.deps);
+        assert.deepEqual([slow.portraitCalls, second.portraitCalls], [["Mira"], []]);
+        finishDrawing();
+        await slow.backgroundSave;
+      },
+    },
+    {
+      name: "the per-route step switches turn an extra off for that route only",
+      run: async () => {
+        const saved = { ...CHARACTER_TRACKER_STEPS.retry };
+        CHARACTER_TRACKER_STEPS.retry = { ...saved, drawPortraits: false, journal: false };
+        try {
+          const tracker = await trackerChat();
+          const retry = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+          await applyAgentResultEffect(characterResult, retry.deps);
+          assert.deepEqual(retry.portraitCalls, []);
+          assert.equal(await tracker.journal(), undefined);
+          const generate = fakeDeps({ origin: "generate" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+          await applyAgentResultEffect(characterResult, generate.deps);
+          assert.deepEqual(generate.portraitCalls, ["Mira"]);
+          await generate.backgroundSave;
+        } finally {
+          CHARACTER_TRACKER_STEPS.retry = saved;
+        }
       },
     },
     {

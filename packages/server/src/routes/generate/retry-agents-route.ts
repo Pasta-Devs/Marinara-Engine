@@ -203,15 +203,12 @@ import {
   resolveOwnerSpatialProjection,
 } from "../../services/spatial-context/projection.js";
 import {
-  resolveTrackerGroupUpdate,
   buildWorldCustomFieldsStreamValue,
-  applyTrackerCharacterCardIdentity,
   collectLatestTrackerCharacterHistory,
   isMessageHiddenFromAI,
   parseExtra,
   parseGameStateRow,
   parseJsonField,
-  preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
   resolveCharacterNameMap,
   resolveGroupGenerationMode,
@@ -320,6 +317,8 @@ import {
   resolveEffectiveAgentSettings,
 } from "../../services/generation/agent-resolution.js";
 import { resolveAgentGenerationTools } from "../../services/generation/tool-resolution-runtime.js";
+import { generateTrackerPortrait, trackerPortraitStyleProfileId } from "../../services/image/tracker-portrait.js";
+import type { GameNpc } from "@marinara-engine/shared";
 import {
   applyAgentResultEffect,
   type TrackerEffectTarget,
@@ -3226,6 +3225,7 @@ async function applyRetryResultEffects(args: {
   secretPlotRerollMode?: "full" | "turn_only";
   signal: AbortSignal;
   onLorebookEffectStatus?: (agentId: string, status: RetryLorebookEffectStatus) => void;
+  onFallback?: GenerationFallbackNotifier;
 }) {
   const {
     app,
@@ -3252,6 +3252,7 @@ async function applyRetryResultEffects(args: {
     secretPlotRerollMode,
     signal,
     onLorebookEffectStatus,
+    onFallback,
   } = args;
   const assertRetryActive = () => signal.throwIfAborted();
   assertRetryActive();
@@ -3384,6 +3385,34 @@ async function applyRetryResultEffects(args: {
     canEditTrackers: (trackerResult) => customAgentCanApplyRetryResult(trackerResult, resolvedAgents, "edit_trackers"),
     loadSnapshot: loadRetryTargetGameStateSnapshot,
     emitGameStatePatch: (patch) => sendSseEvent(reply, { type: "game_state_patch", data: patch }),
+    characters: {
+      cards: agentContext.characters,
+      history: (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
+      gameNpcs: Array.isArray(chatMeta.gameNpcs) ? (chatMeta.gameNpcs as GameNpc[]) : [],
+      settings: resolvedAgents.find((entry) => entry.resolved.type === "character-tracker")?.resolved.settings ?? null,
+      loadBaseline: loadRetryTargetGameStateSnapshot,
+      save: (presentCharacters) => updateRetryTargetGameStateSnapshot({ presentCharacters }),
+      // The portraits finish after this route has answered and its signal has fired, so these skip the abort checks.
+      loadForBackgroundSave: () =>
+        retryMessageId
+          ? gameStateStore.getByChatAndMessage(chatId, retryMessageId, retrySwipeIndex)
+          : gameStateStore.getLatest(chatId),
+      saveInBackground: (presentCharacters) =>
+        retryMessageId
+          ? gameStateStore.updateByMessage(retryMessageId, retrySwipeIndex, chatId, { presentCharacters } as any)
+          : gameStateStore.updateLatest(chatId, { presentCharacters } as any),
+      drawPortrait: (character, { connectionId, includeOutfit }) =>
+        generateTrackerPortrait({
+          db: app.db,
+          connectionId,
+          chatId,
+          styleProfileId: trackerPortraitStyleProfileId(chatMeta),
+          character,
+          includeOutfit,
+          debugMode,
+          onFallback,
+        }),
+    },
   };
   // A game reply's scenes shown as written (worldgen W10), which no rewrite may change.
   const engineScenes =
@@ -3569,75 +3598,6 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    if (
-      result.success &&
-      result.type === "character_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const ctData = result.data as Record<string, unknown>;
-        if (
-          !isTrackerRowsUpdate(ctData.presentCharacters) &&
-          (!Array.isArray(ctData.presentCharacters) || ctData.presentCharacters.length === 0)
-        ) {
-          const resultKeys = Object.keys(ctData);
-          // `{}` and an empty list are the prompt's no-change replies; any other shape is lost output (#7208).
-          logger[resultKeys.length === 0 || Array.isArray(ctData.presentCharacters) ? "debug" : "warn"](
-            "[retry-agents] character-tracker emitted no presentCharacters (result keys: %s); keeping existing snapshot",
-            resultKeys.join(", ") || "none",
-          );
-          continue;
-        }
-        const previousSnapshot = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        let previousCharacters: any[] = [];
-        if (previousSnapshot?.presentCharacters) {
-          try {
-            const parsed =
-              typeof previousSnapshot.presentCharacters === "string"
-                ? JSON.parse(previousSnapshot.presentCharacters)
-                : previousSnapshot.presentCharacters;
-            previousCharacters = Array.isArray(parsed) ? parsed : [];
-          } catch {
-            previousCharacters = [];
-          }
-        }
-        let presentCharacters =
-          resolveTrackerGroupUpdate(
-            ctData.presentCharacters,
-            previousCharacters,
-            previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,
-            "presentCharacters",
-          ) ?? previousCharacters;
-        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters, {
-          previousCharacters: [
-            ...previousCharacters,
-            ...((agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>),
-          ],
-        });
-        preserveTrackerCharacterUiFields(presentCharacters, previousCharacters);
-        preserveTrackerCharacterUiFields(
-          presentCharacters,
-          (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
-        );
-        const lockedCharacterPatch = applyTrackerFieldLocksToGameStatePatch(
-          { presentCharacters },
-          previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,
-        );
-        presentCharacters = Array.isArray(lockedCharacterPatch.presentCharacters)
-          ? lockedCharacterPatch.presentCharacters
-          : presentCharacters;
-        await updateRetryTargetGameStateSnapshot({ presentCharacters });
-        assertRetryActive();
-        sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters } });
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply character-tracker update");
-      }
-    }
-
     if (result.success && result.type === "secret_plot" && result.data && typeof result.data === "object") {
       try {
         const plotData = result.data as Record<string, unknown>;
@@ -3728,7 +3688,7 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    // Effects shared with normal generation (CYOA choices and the player-stats trackers so far, #9508)
+    // Effects shared with normal generation (CYOA choices and the trackers so far, #9508)
     await applyAgentResultEffect(result, {
       origin: "retry",
       chatId,
@@ -5962,6 +5922,7 @@ export async function registerRetryAgentsRoute(
         illustratorStillOnly,
         forceImageGeneration: forceImageGeneration === true,
         debugMode,
+        onFallback,
         secretPlotRerollMode,
         signal: abortController.signal,
         onLorebookEffectStatus: customLorebookBackfillTarget

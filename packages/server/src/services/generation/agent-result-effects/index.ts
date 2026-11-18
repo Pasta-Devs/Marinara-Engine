@@ -4,6 +4,7 @@
 //
 // One file per family of result types; this file only routes a result to its handler and records coverage.
 import type { AgentResult, AgentResultType } from "@marinara-engine/shared";
+import { applyCharacterTrackerResult } from "./character-tracker.js";
 import { applyCyoaChoicesResult } from "./cyoa-choices.js";
 import {
   applyCustomTrackerResult,
@@ -13,8 +14,10 @@ import {
 } from "./trackers.js";
 import type { AgentResultEffect, AgentResultEffectDeps } from "./types.js";
 
+export { CHARACTER_TRACKER_STEPS } from "./character-tracker.js";
 export type {
   AgentResultEffectDeps,
+  CharacterTrackerTarget,
   AgentResultEffectOrigin,
   TrackerEffectTarget,
   TrackerSnapshotRow,
@@ -43,7 +46,7 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
   character_card_update: "not_shared_yet",
   character_card_create: "not_shared_yet",
   background_change: "not_shared_yet",
-  character_tracker_update: "not_shared_yet",
+  character_tracker_update: "shared",
   persona_stats_update: "shared",
   custom_tracker_update: "shared",
   inventory_tracker_update: "shared",
@@ -66,6 +69,7 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
 
 const SHARED_AGENT_RESULT_EFFECTS: Partial<Record<AgentResultType, AgentResultEffect>> = {
   cyoa_choices: applyCyoaChoicesResult,
+  character_tracker_update: applyCharacterTrackerResult,
   persona_stats_update: applyPersonaStatsResult,
   inventory_tracker_update: applyInventoryTrackerResult,
   custom_tracker_update: applyCustomTrackerResult,

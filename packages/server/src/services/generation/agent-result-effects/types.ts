@@ -1,4 +1,5 @@
-import type { AgentResult } from "@marinara-engine/shared";
+import type { AgentResult, GameNpc } from "@marinara-engine/shared";
+import type { applyTrackerCharacterCardIdentity } from "../../../routes/generate/generate-route-utils.js";
 import type { DB } from "../../../db/connection.js";
 import type { createChatsStorage } from "../../storage/chats.storage.js";
 
@@ -23,6 +24,30 @@ export interface TrackerEffectTarget {
   loadSnapshot: () => Promise<TrackerSnapshotRow | null>;
   /** Sends a `game_state_patch` event so the HUD updates without a reload. */
   emitGameStatePatch: (patch: Record<string, unknown>) => void;
+  characters: CharacterTrackerTarget;
+}
+
+/** What the Character Tracker effect needs on top of the other trackers. */
+export interface CharacterTrackerTarget {
+  /** The chat's character cards; a tracked character matching one is a card character, not an NPC. */
+  cards: Parameters<typeof applyTrackerCharacterCardIdentity>[1];
+  /** Recent tracked characters from earlier turns, so names and UI fields carry over. */
+  history: Array<Record<string, unknown>>;
+  /** The chat's stored NPCs (their portraits are reused as avatars). */
+  gameNpcs: GameNpc[];
+  /** The Character Tracker agent's settings (auto-generate avatars, image connection, outfit). */
+  settings: Record<string, unknown> | null;
+  /** The snapshot the new character list merges onto. Reads only; `save` creates the row when needed. */
+  loadBaseline: () => Promise<TrackerSnapshotRow | null>;
+  save: (presentCharacters: Array<Record<string, unknown>>) => Promise<unknown>;
+  /** Re-reads this message's row after the portraits are drawn, when the route has already answered. */
+  loadForBackgroundSave: () => Promise<TrackerSnapshotRow | null>;
+  /** Saves the drawn portraits. Must not depend on the route's abort signal, which may have fired by then. */
+  saveInBackground: (presentCharacters: Array<Record<string, unknown>>) => Promise<unknown>;
+  drawPortrait: (
+    character: { name: string; appearance?: unknown; outfit?: unknown },
+    options: { connectionId: string; includeOutfit: boolean },
+  ) => Promise<string>;
 }
 
 export interface AgentResultEffectDeps {
