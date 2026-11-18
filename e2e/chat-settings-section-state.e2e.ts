@@ -385,6 +385,11 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     const conversationPicker = page.getByRole("dialog", { name: "Link to Roleplay or Game", exact: true });
     const search = conversationPicker.getByPlaceholder("Search roleplay or game chats");
     // The search narrows the list: the Game chat drops out while only the Roleplay chat's name matches.
+    // Escape closes the window and hands focus back to its button.
+    await page.keyboard.press("Escape");
+    await expect(conversationPicker).toHaveCount(0);
+    await expect(conversation.getByRole("button", { name: "Link to Roleplay or Game" })).toBeFocused();
+    await conversation.getByRole("button", { name: "Link to Roleplay or Game" }).click();
     await search.fill(`${stamp} Quest`);
     await expect(conversationPicker.getByRole("button", { name: `${stamp} Quest`, exact: true })).toBeVisible();
     await expect(conversationPicker.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toHaveCount(0);
@@ -462,7 +467,7 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
 test("Chat Settings applies the persona to earlier messages from the shared picker window", async ({
   page,
   request,
-}) => {
+}, info) => {
   const characterId = await createCharacter(request, "Reassign Ada");
   const chatId = await createChat(request, "roleplay", [characterId]);
   const personaResponse = await request.post("/api/characters/personas", { data: { name: "Reassign Hero" } });
@@ -478,7 +483,8 @@ test("Chat Settings applies the persona to earlier messages from the shared pick
     const settings = await openChatSettings(page);
     const persona = settings.locator('[data-drawer="roleplay-persona"]');
     await setOpen(persona, true);
-    await persona.getByRole("button", { name: "Apply persona to earlier messages…" }).click();
+    const reassign = persona.getByRole("button", { name: "Apply persona to earlier messages…" });
+    await reassign.click();
     // The shared picker window (#9468), not a dropdown drawn inside the drawer.
     const picker = page.getByRole("dialog", { name: "Messages to update", exact: true });
     await expect(picker).toBeVisible();
@@ -490,8 +496,10 @@ test("Chat Settings applies the persona to earlier messages from the shared pick
     await expect(all).toHaveAttribute("aria-current", "true");
     await picker.getByRole("button", { name: /^Update 2/u }).click();
     const confirm = page.getByRole("dialog", { name: "Apply persona to earlier messages?" });
+    await page.screenshot({ path: info.outputPath("persona-reassign-confirm.png") });
     await confirm.getByRole("button", { name: "Apply Persona", exact: true }).click();
     await expect(picker).toHaveCount(0);
+    await expect(reassign).toBeFocused();
     await expect
       .poll(async () => {
         const attributions = (await (
@@ -502,6 +510,23 @@ test("Chat Settings applies the persona to earlier messages from the shared pick
         return attributions.identities.map(({ personaId, count }) => [personaId, count]);
       })
       .toEqual([[personaId, 2]]);
+
+    // "Messages sent as" picks the persona in a Select inside the window; its own picker closes first on a pick.
+    await reassign.click();
+    await picker.locator("[data-pick-row]").filter({ hasText: "Messages sent as" }).click();
+    const sentAs = picker.getByRole("combobox", { name: "Messages sent as…", exact: true });
+    await expect(sentAs).toContainText("Reassign Hero (2)");
+    await sentAs.click();
+    const personas = page.getByRole("dialog", { name: "Messages sent as…", exact: true });
+    await personas.locator("[data-pick-row]").filter({ hasText: "Reassign Hero (2)" }).click();
+    await expect(personas).toHaveCount(0);
+    await expect(picker).toBeVisible();
+    await expect(picker.getByRole("button", { name: /^Update 2/u })).toBeEnabled();
+    await page.screenshot({ path: info.outputPath("persona-reassign-sent-as.png") });
+    // Escape closes the window and hands focus back to its button.
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(reassign).toBeFocused();
   } finally {
     await request.delete(`/api/chats/${chatId}`);
     await request.delete(`/api/characters/personas/${personaId}`);

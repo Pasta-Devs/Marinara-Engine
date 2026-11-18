@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { History } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { useChatPersonaAttributions, useReassignMessagePersonas } from "../../../hooks/use-chats";
+import { useFieldWindow } from "../../../components/ui/PickerField";
 import { PickRow } from "../../../components/ui/PickerParts";
 import { PickerWindow } from "../../../components/ui/PickerWindow";
 import { Select } from "../../../components/ui/Select";
@@ -16,8 +17,8 @@ interface PersonaHistoryReassignDropdownProps {
 
 export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHistoryReassignDropdownProps) {
   const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Closing hands focus back to the button, as every shared picker does.
+  const { open, triggerRef, close, toggle } = useFieldWindow(false);
   const [scope, setScope] = useState<"unassigned" | "persona" | "all">("unassigned");
   const [selectedSourceKey, setSelectedSourceKey] = useState("");
   const { data: attributions, isLoading } = useChatPersonaAttributions(chatId, open);
@@ -62,7 +63,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         sourcePersonaSource: scope === "persona" ? currentSourceIdentity?.source : undefined,
       });
       toast.success(localizeUi("ui.chat.chatsettingsdrawer.reassignedMessagesSuccess", { count: result.updatedCount }));
-      setOpen(false);
+      close();
     } catch (error) {
       toast.error(
         localizeUi("ui.chat.chatsettingsdrawer.failedToReassignMessages", {
@@ -70,7 +71,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         }),
       );
     }
-  }, [currentSourceIdentity, localizeUi, reassignMutation, scope, targetCount, targetName]);
+  }, [close, currentSourceIdentity, localizeUi, reassignMutation, scope, targetCount, targetName]);
 
   const count = (value: number | undefined) => (
     <span className="text-[0.6875rem] text-foreground/50">{value ?? 0}</span>
@@ -83,7 +84,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         disabled={!targetName}
         className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
       >
@@ -95,7 +96,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         <PickerWindow
           title={localizeUi("ui.chat.chatsettingsdrawer.messagesToUpdate")}
           anchorRef={triggerRef}
-          onClose={() => setOpen(false)}
+          onClose={close}
           hug
         >
           {isLoading ? (

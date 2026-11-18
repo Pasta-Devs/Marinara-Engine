@@ -1,6 +1,5 @@
 // Connected chats in every mode. A Conversation links to a Roleplay or Game chat; a Roleplay or Game chat shows the
 // Conversation linked to it, and only a Game chat can start the link from its own side.
-import { useRef, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowRightLeft, Link2, Plus, Unlink } from "lucide-react";
 import { isRoleplayCommandEnabled, type Chat, type ChatMode } from "@marinara-engine/shared";
@@ -10,6 +9,7 @@ import { cn } from "../../../lib/utils";
 import { ChatModeIcon } from "../../../components/chat/ChatModeIcon";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { useFieldWindow } from "../../../components/ui/PickerField";
 import { PickerFolderList } from "../../../components/ui/PickerFolderList";
 import { PickerWindow } from "../../../components/ui/PickerWindow";
 import { DiscordMirrorControls } from "./DiscordMirrorSection";
@@ -58,8 +58,8 @@ export function ConnectedChatsSection({
   const updateMeta = useUpdateChatMetadata();
   const connectChat = useConnectChat();
   const disconnectChat = useDisconnectChat();
-  const [showConnectionPicker, setShowConnectionPicker] = useState(false);
-  const connectButtonRef = useRef<HTMLButtonElement>(null);
+  // Closing hands focus back to the button, as every shared picker does.
+  const connectionPicker = useFieldWindow(false);
   // Package integrations only show while their package is installed and usable.
   const noodleTimelineContextEnabled = metadata.noodleTimelineContextEnabled === true;
   const slurp2ActivityContextEnabled = metadata.slurp2ActivityContextEnabled === true;
@@ -152,21 +152,21 @@ export function ConnectedChatsSection({
         ) : (
           <>
             <button
-              ref={connectButtonRef}
+              ref={connectionPicker.triggerRef}
               type="button"
               aria-haspopup="dialog"
-              aria-expanded={showConnectionPicker}
-              onClick={() => setShowConnectionPicker((open) => !open)}
+              aria-expanded={connectionPicker.open}
+              onClick={connectionPicker.toggle}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
             >
               <Plus size="0.75rem" /> {localizeUi(picker.label)}
             </button>
-            {showConnectionPicker && (
+            {connectionPicker.open && (
               // The shared picker window (#9468): a popover on desktop, a sheet on a phone, like every other picker.
               <PickerWindow
                 title={localizeUi(picker.label)}
-                anchorRef={connectButtonRef}
-                onClose={() => setShowConnectionPicker(false)}
+                anchorRef={connectionPicker.triggerRef}
+                onClose={connectionPicker.close}
               >
                 <PickerFolderList
                   items={((allChats ?? []) as Chat[])
@@ -186,7 +186,7 @@ export function ConnectedChatsSection({
                   selectedIds={[]}
                   onToggle={(targetChatId) => {
                     connectChat.mutate({ chatId: chat.id, targetChatId });
-                    setShowConnectionPicker(false);
+                    connectionPicker.close();
                   }}
                   searchLabel={localizeUi(picker.placeholder)}
                   emptyLabel={localizeUi("ui.select.empty")}
