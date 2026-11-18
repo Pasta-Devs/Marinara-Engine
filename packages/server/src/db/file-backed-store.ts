@@ -2431,6 +2431,55 @@ function compareRowOrder(a: Row, b: Row) {
   return String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? ""));
 }
 
+/**
+ * Where `row` goes in rows kept in compareRowOrder: after every row that sorts at or before it.
+ * Newest-last is the usual case and costs one comparison. Otherwise a binary search: the old scan
+ * walked back from the end, which made importing old chats (SillyTavern history with past dates)
+ * compare each new message against nearly every message already loaded.
+ */
+function upperBoundInRowOrder(rows: Row[], row: Row, low = 0): number {
+  let high = rows.length;
+  if (high === low || compareRowOrder(rows[high - 1]!, row) <= 0) return high;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compareRowOrder(rows[middle]!, row) <= 0) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+/**
+ * The same order as inserting `added` one at a time with upperBoundInRowOrder (ties keep existing
+ * rows first, then `added` in its own order), in one pass: one binary search per new row and one
+ * copy of the array, instead of a splice that moves the whole tail for every row.
+ */
+function mergeInCanonicalOrder(rows: Row[], added: Row[]): Row[] {
+  const sorted = added
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => compareRowOrder(a.row, b.row) || a.index - b.index)
+    .map((entry) => entry.row);
+  const last = rows[rows.length - 1];
+  if (last === undefined || compareRowOrder(last, sorted[0]!) <= 0) {
+    for (const row of sorted) rows.push(row);
+    return rows;
+  }
+  const segments: Row[][] = [];
+  let start = 0;
+  for (const row of sorted) {
+    const position = upperBoundInRowOrder(rows, row, start);
+    if (position > start) segments.push(rows.slice(start, position));
+    segments.push([row]);
+    start = position;
+  }
+  if (start < rows.length) segments.push(rows.slice(start));
+  // concat takes the segments as call arguments; keep each call well under the argument limit.
+  let merged: Row[] = [];
+  for (let index = 0; index < segments.length; index += 10_000) {
+    merged = merged.concat(...segments.slice(index, index + 10_000));
+  }
+  return merged;
+}
+
 function getMeta(table: Table | string) {
   const tableName = typeof table === "string" ? table : tableNameOf(table);
   // Downloaded capability bundles carry their own file-table instances.
@@ -3792,8 +3841,18 @@ class FileTableStore {
             // row — so sharing them between the old and new arrays is safe,
             // and the old O(rows) object-clone per insert was the largest
             // remaining per-write allocation spike on big tables (#4730).
-            const nextRows = target.slice();
+            let nextRows = target.slice();
             const affectedRows: Row[] = [];
+            // Lazy-table rows waiting to be merged into canonical order in one pass (see
+            // mergeInCanonicalOrder). Only used while the hash index answers uniqueness, since the
+            // scan fallback and conflict matching must see every row already placed.
+            const isLazyTable = LAZY_UNIT_TABLES.has(meta.name);
+            let pendingLazyRows: Row[] = [];
+            const placePendingLazyRows = () => {
+              if (pendingLazyRows.length === 0) return;
+              nextRows = mergeInCanonicalOrder(nextRows, pendingLazyRows);
+              pendingLazyRows = [];
+            };
             // Plain inserts check uniqueness through the hash index; upserts keep the scan, since a
             // conflict update rewrites an existing row's keys in place.
             let uniqueIndex = onConflict ? null : takeUniqueRowIndex(meta, target);
@@ -3818,25 +3877,24 @@ class FileTableStore {
               } else {
                 if (!uniqueIndex || !addToUniqueRowIndex(meta, uniqueIndex, row)) {
                   uniqueIndex = null;
+                  placePendingLazyRows();
                   assertUniqueRow(meta, nextRows, row);
                 }
                 affectedRows.push(row);
-                if (LAZY_UNIT_TABLES.has(meta.name)) {
+                if (isLazyTable && uniqueIndex) {
+                  pendingLazyRows.push(row);
+                } else if (isLazyTable) {
                   // Keep lazy tables in canonical order at insert time — an
                   // appended row would re-sort on the next unit reload, and
                   // orderBy-less queries must not change results with
-                  // residency history (#5592 PR-B). Scan from the end: new
-                  // rows are usually newest, making this O(1) in practice.
-                  let position = nextRows.length;
-                  while (position > 0 && compareRowOrder(nextRows[position - 1]!, row) > 0) {
-                    position -= 1;
-                  }
-                  nextRows.splice(position, 0, row);
+                  // residency history (#5592 PR-B).
+                  nextRows.splice(upperBoundInRowOrder(nextRows, row), 0, row);
                 } else {
                   nextRows.push(row);
                 }
               }
             }
+            placePendingLazyRows();
             this.recordTxMutation(meta.name);
             this.tables.set(meta.name, nextRows);
             if (uniqueIndex) cacheUniqueRowIndex(nextRows, uniqueIndex);
