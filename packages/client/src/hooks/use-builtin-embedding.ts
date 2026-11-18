@@ -12,9 +12,18 @@ const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
 /** Status; polled while a download or a start is in progress, and now and then while it runs (memory, idle stop). */
 export function useBuiltinEmbedding(enabled = true) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: builtinEmbeddingKey,
-    queryFn: () => api.get<BuiltinEmbeddingStatus>(`${BASE}/status`),
+    queryFn: async () => {
+      const before = qc.getQueryData<BuiltinEmbeddingStatus>(builtinEmbeddingKey);
+      const status = await api.get<BuiltinEmbeddingStatus>(`${BASE}/status`);
+      // A download that finishes on the server can make it the Embeddings default after the Download reply came back.
+      if (before && before.activeModelId !== status.activeModelId) {
+        void qc.invalidateQueries({ queryKey: connectionKeys.defaultEmbedding() });
+      }
+      return status;
+    },
     enabled: enabled && !isLite,
     staleTime: 5_000,
     refetchInterval: (query) => {
