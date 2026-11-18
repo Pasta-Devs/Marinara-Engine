@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 
 import { rollParsedDice } from "./dice-notation.js";
+import { MAX_DECISION_CLIPS, MAX_DECISION_MEDIA_WITHIN, MAX_DECISION_PICTURES } from "../constants/agent-activation.js";
 
 export interface MacroContext {
   user: string;
@@ -710,6 +711,18 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   },
   {
     category: "Formatting",
+    syntax: '{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}',
+    description:
+      "Also shows the decision model the chat's newest picture (up to 3 with pictures:3; clips:1 for the newest clip), when the model reads them. Without it, only the text is sent",
+  },
+  {
+    category: "Formatting",
+    syntax: '{{#if decision:"The picture shows the character at the beach" pictures:1 media_within:3}}...{{/if}}',
+    description:
+      "Asked only when one of the newest 3 messages has a picture (or a clip, with clips:); reads as no otherwise, without being asked",
+  },
+  {
+    category: "Formatting",
     syntax: '{{#if decision:"In the latest message, a character is badly hurt" priority:high}}...{{/if}}',
     description:
       "When a turn has more statements than its limit, priority:high is asked first and priority:low dropped first; unset is medium",
@@ -1131,6 +1144,18 @@ export interface DecisionStatementModifiers {
   every?: number;
   priority?: DecisionStatementPriority;
   lasts?: DecisionStatementLifetime;
+  /**
+   * `pictures:2 clips:1`: how many of the chat's newest pictures and clips a decision
+   * model that reads them looks at for this statement. None when unset.
+   */
+  pictures?: number;
+  clips?: number;
+  /**
+   * `media_within:5`: asked only when one of the newest 5 messages has a picture or clip
+   * (of the kind `pictures:` or `clips:` asks for, any when neither); reads as no
+   * otherwise, without being asked.
+   */
+  mediaWithin?: number;
 }
 
 /**
@@ -1200,6 +1225,9 @@ function statementAfterPrefix(
       if ((name === "sticky" || name === "cooldown" || name === "every") && turns > 0) timing[name] = turns;
       // Medium is the default, so it is not stored.
       else if (name === "priority" && (value === "high" || value === "low")) timing.priority = value;
+      else if (name === "pictures" && turns > 0) timing.pictures = Math.min(MAX_DECISION_PICTURES, turns);
+      else if (name === "clips" && turns > 0) timing.clips = Math.min(MAX_DECISION_CLIPS, turns);
+      else if (name === "media_within" && turns > 0) timing.mediaWithin = Math.min(MAX_DECISION_MEDIA_WITHIN, turns);
     }
     return { question, timing };
   }

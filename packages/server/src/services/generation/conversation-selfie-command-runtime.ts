@@ -1,5 +1,14 @@
 import type { DB } from "../../db/connection.js";
 import {
+  generateCheckedPicture,
+  normalizePictureCheckMode,
+  parsePictureCheckLines,
+  pictureDataUrl,
+  resolvePictureDecisionBackend,
+  sniffedPictureDataUrl,
+  type PictureCheckLine,
+} from "../decision/picture-decisions.js";
+import {
   buildChatImageGenerationRecord,
   extractLeadingThinkingBlocks,
   readImageAppearanceOverride,
@@ -407,11 +416,39 @@ async function generateSelfie(
       fallback: imageFallback,
       onFallback: reportFallback,
     });
+  // Optional: a decision model that reads pictures checks the selfie against its prompt and, with an avatar
+  // reference, that it shows the same character; another is made when it does not match.
+  const pictureCheckMode = normalizePictureCheckMode(args.chatMeta.pictureCheck);
+  const pictureCheckBackend =
+    pictureCheckMode === "off" ? null : await resolvePictureDecisionBackend(args.db, args.signal);
+  const selfieReference = sniffedPictureDataUrl(selfieReferenceImages?.[0]);
+  const selfieCheckLines: PictureCheckLine[] = [
+    ...(selfieReference ? [{ statement: `The second picture shows the same character as the first picture.` }] : []),
+    {
+      statement: `${selfieReference ? "The second picture" : "The picture"} is a selfie of ${args.charName}: ${finalSelfiePrompt.trim().slice(0, 240)}`,
+    },
+    ...parsePictureCheckLines(args.chatMeta.pictureCheckLines),
+  ];
+  const drawCheckedSelfie = async () =>
+    (
+      await generateCheckedPicture({
+        mode: pictureCheckMode,
+        backend: pictureCheckBackend,
+        lines: selfieCheckLines,
+        reference: selfieReference,
+        ...(selfieReference
+          ? { context: `The first picture is ${args.charName}'s reference; the second is a new selfie.` }
+          : {}),
+        label: "Selfie",
+        toDataUrl: (result) => pictureDataUrl(result.base64, result.ext),
+        generate: drawSelfie,
+      })
+    ).result;
   const imageResults = await generateIllustratorImageVariants({
     count: args.chatMeta.illustratorImagesPerGeneration,
     generate: () =>
       args.queue === undefined
-        ? drawSelfie()
+        ? drawCheckedSelfie()
         : runImageGenerationRequest({
             connectionKey: imgConnFull.id?.trim() || `${serviceHint || imgSource}:${imgBaseUrl}:${imgModel}`,
             queue: args.queue,
@@ -419,7 +456,7 @@ async function generateSelfie(
             // generateImage waits for a shared GPU turn before its own permit; a permit taken here would be held
             // through that wait.
             taskTakesPermit: true,
-            task: drawSelfie,
+            task: drawCheckedSelfie,
           }),
     onVariantError: (error, index) =>
       logger.warn(error, "[commands] Selfie variant %d failed for %s", index + 1, args.charName),

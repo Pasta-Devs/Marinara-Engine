@@ -6,6 +6,9 @@ import { partialInput } from "../utils/zod-input.js";
 import {
   MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH,
+  MAX_DECISION_CLIPS,
+  MAX_DECISION_MEDIA_WITHIN,
+  MAX_DECISION_PICTURES,
 } from "../constants/agent-activation.js";
 import { AGENT_RESULT_TYPE_VALUES, CUSTOM_AGENT_CAPABILITY_IDS } from "../types/agent.js";
 
@@ -19,6 +22,11 @@ export const customAgentActivationSettingsSchema = z.object({
   activationQuestion: z.string().trim().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_QUESTION_LENGTH).optional(),
   activationThreshold: z.number().min(0.05).max(0.95).optional(),
   activationMaxSkip: z.number().int().min(1).max(100).optional(),
+  /** How many of the chat's newest pictures and clips the question looks at. None when unset. */
+  activationPictures: z.number().int().min(0).max(MAX_DECISION_PICTURES).optional(),
+  activationClips: z.number().int().min(0).max(MAX_DECISION_CLIPS).optional(),
+  /** Ask only when one of the newest this-many messages has a picture or clip; otherwise the agent does not run. */
+  activationMediaWithin: z.number().int().min(1).max(MAX_DECISION_MEDIA_WITHIN).optional(),
 });
 
 export const homeAgentWidgetSchema = z

@@ -4,7 +4,7 @@
 // Generates a character expression sheet via image generation,
 // slices it into individual sprites, and lets the user label/save them.
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { X, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
+import { X, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film, AlertTriangle } from "lucide-react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
@@ -24,6 +24,8 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "./Spinner";
 import { Select } from "./Select";
 import { Checkbox } from "./Checkbox";
+import { VisionDecisionHint } from "./VisionDecisionHint";
+import { useDecisionReadsPictures } from "../../hooks/use-decision-model";
 
 // ── Types ──
 
@@ -63,6 +65,8 @@ interface SlicedCell {
   sourceSheetDataUrl?: string | null;
   sourceCellIndex?: number;
   sourceGrid?: SpriteGrid;
+  /** The decision model thought the face does not show this expression. */
+  mismatch?: boolean;
 }
 
 interface SpriteCleanupResult {
@@ -76,7 +80,7 @@ interface SpriteGrid {
 
 interface GenerateSheetResult {
   sheetBase64: string;
-  cells: Array<{ expression: string; base64: string; mimeType?: string }>;
+  cells: Array<{ expression: string; base64: string; mimeType?: string; mismatch?: boolean }>;
   failedExpressions?: Array<{ expression: string; error: string }>;
 }
 
@@ -494,6 +498,7 @@ function createGeneratedSpritesFromResult(
       sourceSheetDataUrl,
       sourceCellIndex: sourceSheetDataUrl ? index : undefined,
       sourceGrid: sourceSheetDataUrl ? grid : undefined,
+      ...(cell.mismatch ? { mismatch: true } : {}),
     })),
   };
 }
@@ -621,6 +626,9 @@ export function SpriteGenerationModal({
   );
   const [matchExistingExpressions, setMatchExistingExpressions] = useState(false);
   const [nativeTransparentPng, setNativeTransparentPng] = useState(true);
+  // Off unless asked: each face costs the decision model a moment.
+  const [checkExpressions, setCheckExpressions] = useState(false);
+  const decisionReadsPictures = useDecisionReadsPictures();
   const [noBackground, setNoBackground] = useState(true);
   const [cleanupStrength, setCleanupStrength] = useState(35);
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -1053,6 +1061,7 @@ export function SpriteGenerationModal({
             .map((sprite) => ({ expression: sprite.expression, image: sprite.url }))
         : undefined,
       ...(talkingHeadFaces ? { talkingHeadFaces: true } : {}),
+      ...(checkExpressions && decisionReadsPictures && spriteType === "expressions" ? { checkExpressions: true } : {}),
     }),
     [
       appearance,
@@ -1064,6 +1073,8 @@ export function SpriteGenerationModal({
       existingPortraitSprites,
       spriteType,
       talkingHeadFaces,
+      checkExpressions,
+      decisionReadsPictures,
     ],
   );
 
@@ -1914,7 +1925,7 @@ export function SpriteGenerationModal({
   }, []);
 
   const handleCellRename = useCallback((idx: number, name: string) => {
-    setCells((prev) => prev.map((c, i) => (i === idx ? { ...c, expression: name } : c)));
+    setCells((prev) => prev.map((c, i) => (i === idx ? { ...c, expression: name, mismatch: false } : c)));
   }, []);
 
   const handleCellRenameBlur = useCallback((idx: number) => {
@@ -2352,6 +2363,29 @@ export function SpriteGenerationModal({
                 )}
               </span>
             </label>
+
+            {spriteType === "expressions" && !animatedExpressionMode && (
+              <div className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
+                <label className={cn("flex min-w-0 flex-1 items-start gap-3", !decisionReadsPictures && "opacity-50")}>
+                  <Checkbox
+                    checked={checkExpressions && decisionReadsPictures}
+                    disabled={!decisionReadsPictures}
+                    onChange={(e) => setCheckExpressions(e.target.checked)}
+                    className="mt-0.5 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">
+                      {localizeUi("ui.spriteGeneration.checkExpressions.label")}
+                    </span>
+                    <span className="mt-0.5 block text-[0.625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
+                      {localizeUi("ui.spriteGeneration.checkExpressions.help")}
+                    </span>
+                  </span>
+                </label>
+                {/* Outside the greyed-out label so it can still be opened. */}
+                {!decisionReadsPictures && <VisionDecisionHint />}
+              </div>
+            )}
 
             {/* Preset and Expression Selection (Expressions mode) */}
             {spriteType === "expressions" && (
@@ -3024,6 +3058,21 @@ export function SpriteGenerationModal({
                           <img src={cell.dataUrl} alt={cell.expression} className="h-full w-full object-contain" />
                         </div>
                       </button>
+
+                      {cell.mismatch && (
+                        <div
+                          className="absolute left-1.5 top-1.5 flex h-5 items-center gap-1 rounded-full bg-amber-500/90 px-1.5 text-[0.625rem] font-medium text-black"
+                          title={localizeUi("ui.spriteGeneration.checkExpressions.mismatch", {
+                            expression: cell.expression.replace(/_/g, " "),
+                          })}
+                          aria-label={localizeUi("ui.spriteGeneration.checkExpressions.mismatch", {
+                            expression: cell.expression.replace(/_/g, " "),
+                          })}
+                        >
+                          <AlertTriangle size={11} />
+                          {localizeUi("ui.spriteGeneration.checkExpressions.badge")}
+                        </div>
+                      )}
 
                       {/* Selected indicator */}
                       <div

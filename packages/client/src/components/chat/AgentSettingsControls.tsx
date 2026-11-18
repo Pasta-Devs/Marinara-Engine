@@ -314,6 +314,8 @@ export function AgentSettingsToggle({
   overridden = false,
   onReset,
   surface = "card",
+  disabled = false,
+  endAction,
 }: {
   label: string;
   description: string;
@@ -322,6 +324,10 @@ export function AgentSettingsToggle({
   overridden?: boolean;
   onReset?: () => void;
   surface?: "card" | "secondary";
+  /** Greyed out and not switchable, such as a setting the selected model cannot use. */
+  disabled?: boolean;
+  /** Shown beside the switch, such as an ⓘ saying why it is unavailable. */
+  endAction?: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col gap-1">
@@ -330,6 +336,8 @@ export function AgentSettingsToggle({
         description={description}
         checked={enabled}
         onChange={() => onToggle()}
+        disabled={disabled}
+        endAction={endAction}
         labelPosition="start"
         className={cn(
           "flex-1 justify-between rounded-md px-3 py-2.5 text-left",

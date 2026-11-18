@@ -396,6 +396,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.32.2
         version: 1.32.2(zod@4.6.7)
+      '@valen-team/sdk':
+        specifier: 0.4.0
+        version: 0.4.0(@huggingface/jinja@0.5.10)(@huggingface/tokenizers@0.2.0)(@huggingface/transformers@4.3.1(@types/node@24.19.2))(onnxruntime-node@1.30.0(patch_hash=14ed7e6afb8fd6dd382042cd3bda0597d7de7a21c2a92dc5715b535ee218cd68))(onnxruntime-web@1.31.0-dev.20260914-8d85527a0)
       adm-zip:
         specifier: ^0.6.1
         version: 0.6.1
@@ -2509,6 +2512,30 @@ packages:
   '@typescript-eslint/visitor-keys@8.72.1':
     resolution: {integrity: sha512-SB8xqipSzZHUePCCLNeYxqnxq83X61/qzNhjQGbTfjxGZIeOEP7tBgWYX05Tcd6CgE02WdTJnh5b8kMZJ/+bnQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@valen-team/sdk@0.4.0':
+    resolution: {integrity: sha512-kU84uIRR+FU2N5dqhhQYH3b7h1yypHcg+hkV+74+/kJsVcwcaZ7ULtzDS49Xh+sZRPpqS2Q69TiTuRPe3HMq+w==}
+    engines: {node: '>=22.12'}
+    peerDependencies:
+      '@huggingface/jinja': 0.5.10
+      '@huggingface/tokenizers': 0.2.0
+      '@huggingface/transformers': 4.3.1
+      mediabunny: 1.62.1
+      onnxruntime-node: 1.30.0
+      onnxruntime-web: 1.31.0-dev.20260914-8d85527a0
+    peerDependenciesMeta:
+      '@huggingface/jinja':
+        optional: true
+      '@huggingface/tokenizers':
+        optional: true
+      '@huggingface/transformers':
+        optional: true
+      mediabunny:
+        optional: true
+      onnxruntime-node:
+        optional: true
+      onnxruntime-web:
+        optional: true
 
   '@vitejs/plugin-react@6.1.2':
     resolution: {integrity: sha512-fhJNGUdscQa4HkI0xFxwonWyhnVReCPDbXI7FH7jmzpnVCrFQI7PRrhWecO263610vOrs9tr2Y4xcf8uAdFxbw==}
@@ -6774,6 +6801,14 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.72.1
       eslint-visitor-keys: 5.0.1
+
+  '@valen-team/sdk@0.4.0(@huggingface/jinja@0.5.10)(@huggingface/tokenizers@0.2.0)(@huggingface/transformers@4.3.1(@types/node@24.19.2))(onnxruntime-node@1.30.0(patch_hash=14ed7e6afb8fd6dd382042cd3bda0597d7de7a21c2a92dc5715b535ee218cd68))(onnxruntime-web@1.31.0-dev.20260914-8d85527a0)':
+    optionalDependencies:
+      '@huggingface/jinja': 0.5.10
+      '@huggingface/tokenizers': 0.2.0
+      '@huggingface/transformers': 4.3.1(@types/node@24.19.2)
+      onnxruntime-node: 1.30.0(patch_hash=14ed7e6afb8fd6dd382042cd3bda0597d7de7a21c2a92dc5715b535ee218cd68)
+      onnxruntime-web: 1.31.0-dev.20260914-8d85527a0
 
   '@vitejs/plugin-react@6.1.2(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.2)(tsx@4.23.15)(yaml@2.9.0))':
     dependencies:

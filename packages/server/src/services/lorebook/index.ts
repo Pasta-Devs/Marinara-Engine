@@ -156,7 +156,16 @@ export type LorebookMatchType = "keyword" | "semantic" | "constant" | "sticky" |
 
 /** Answers entries' decision statements (#6570); see `resolveDecisions` on `processLorebooks`. */
 export interface LorebookDecisionResolver {
-  (requests: Array<{ entryId: string; statement: string }>): Promise<ReadonlyMap<string, boolean>>;
+  (
+    requests: Array<{
+      entryId: string;
+      statement: string;
+      /** Newest chat pictures read with the statement, for a decision model that reads pictures. */
+      pictures?: number;
+      /** Ask only when a picture or clip is in the newest N messages. */
+      mediaWithin?: number;
+    }>,
+  ): Promise<ReadonlyMap<string, boolean>>;
   /**
    * Asks the `{{#if decision}}` statements in the text of entries about to activate,
    * so they have answers before that text is resolved. Only activating entries are
@@ -1500,7 +1509,7 @@ export async function processLorebooks(
   };
 
   if ((usesDecisions && resolver) || contentDecisions) {
-    const statementsById = new Map(allEntries.map((entry) => [entry.id, entry.decisionStatement]));
+    const entriesById = new Map(allEntries.map((entry) => [entry.id, entry]));
     // Recursion reads each activated entry's macro-resolved text, so discovery does
     // too. With a planning resolver, only branches already settled are followed, so an
     // entry reached through an undecided branch waits for a later round and is never
@@ -1561,7 +1570,15 @@ export async function processLorebooks(
       if (toAsk.length > 0) {
         asked = true;
         const answers = await resolver!(
-          toAsk.map((entryId) => ({ entryId, statement: statementsById.get(entryId) ?? "" })),
+          toAsk.map((entryId) => {
+            const entry = entriesById.get(entryId);
+            return {
+              entryId,
+              statement: entry?.decisionStatement ?? "",
+              ...(entry?.decisionPictures ? { pictures: entry.decisionPictures } : {}),
+              ...(entry?.decisionMediaWithin ? { mediaWithin: entry.decisionMediaWithin } : {}),
+            };
+          }),
         );
         for (const entryId of toAsk) decisionAnswers.set(entryId, answers.get(entryId) === true);
       }

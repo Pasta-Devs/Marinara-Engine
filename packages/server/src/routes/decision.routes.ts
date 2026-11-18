@@ -35,21 +35,26 @@ import {
   type DecisionLocalSlot,
   type DecisionModelOption,
   type DecisionModelOptions,
+  type DecisionInstallProgress,
+  type SidecarDownloadProgress,
 } from "@marinara-engine/shared";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { DECISION_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
-import { decisionProcessService } from "../services/sidecar/decision-process.service.js";
+import { decisionProcessService, measuredDecisionSpeed } from "../services/sidecar/decision-process.service.js";
+import { decisionSpeedEstimate } from "../services/decision/decision-media.js";
 import { DECISION_TIMEOUT_MS } from "@marinara-engine/shared";
 import { askNoulQuestions } from "../services/decision/system-one.client.js";
 import { whenDecisionServerFree } from "../services/decision/decision-server-queue.js";
 import { inspectDecisionRepo } from "../services/sidecar/decision-byo.js";
+import { decisionServerInstall, decisionServerRuntimeService } from "../services/sidecar/decision-server-runtimes.js";
 import { configuredCudaIndex, preflightDecisionModel } from "../services/sidecar/decision-preflight.js";
 import { awaitGpuProbe } from "../services/sidecar/sidecar-footprint.js";
 import {
   decisionRuntimeInstalled,
+  decisionRuntimeNeedsUpdate,
   decisionRuntimeService,
   isDecisionRuntimeSupported,
 } from "../services/sidecar/decision-runtime.service.js";
@@ -137,6 +142,32 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
   };
 }
 
+/**
+ * What an install is doing right now, for the page's progress bar. An install answers
+ * only when it has finished, which on a slow connection is many minutes, so the page
+ * polls this instead of watching a spinner it cannot tell from a stuck one.
+ */
+let installProgress: DecisionInstallProgress | null = null;
+
+function trackInstall(modelId: string, label: string) {
+  // A second click joins the install already running (the download is shared), so its
+  // bar carries on rather than restarting at zero.
+  if (installProgress?.modelId !== modelId)
+    installProgress = { modelId, label, phase: "runtime", downloaded: 0, total: 0, speed: 0, startedAt: Date.now() };
+  return (progress: SidecarDownloadProgress) => {
+    logger.debug("[decision-sidecar] %s %s %s", progress.phase, progress.status, progress.label ?? "");
+    if (!installProgress || installProgress.modelId !== modelId) return;
+    installProgress = {
+      ...installProgress,
+      phase: progress.phase,
+      downloaded: progress.downloaded,
+      total: progress.total,
+      speed: progress.speed,
+      ...(progress.phase === "runtime" && progress.label ? { runtimeLabel: progress.label } : {}),
+    };
+  };
+}
+
 export async function decisionRoutes(app: FastifyInstance) {
   const settings = createAppSettingsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
@@ -192,6 +223,14 @@ export async function decisionRoutes(app: FastifyInstance) {
         downloadSizeBytes: model.downloadSizeBytes,
         diskBytes: model.diskBytes,
         vramBytes: model.vramBytes,
+        memory: model.memory ?? "nvidia",
+        runtime: model.runtime,
+        languages: model.languages ?? null,
+        questionTypes: model.questionTypes ?? ["noul"],
+        inputs: model.inputs ?? ["text"],
+        extraInputs: model.extraInputs ?? [],
+        // Only once it has run on this computer: a speed measured elsewhere misleads.
+        speed: decisionSpeedEstimate(model, measuredDecisionSpeed(model.id)),
         licenses: model.licenses,
         downloaded: decisionRuntimeService.modelDownloaded(model),
         preflight: await preflightDecisionModel(model),
@@ -199,13 +238,30 @@ export async function decisionRoutes(app: FastifyInstance) {
     );
     // Every preflight above waited for the probe, so this reads the same result.
     const probe = await awaitGpuProbe();
+    // The llama.cpp entries run nearly everywhere, so the section is usable whenever any
+    // entry is; each entry then carries its own verdict and refuses its own install.
+    const supported = models.some((model) => model.preflight.assessment.verdict !== "unsupported");
     return {
-      supported: isDecisionRuntimeSupported(),
+      supported,
       // Greyed out rather than hidden when nothing fits: hiding it produces "where is
       // the option" reports from people who were told the feature exists.
-      unsupportedReason: isDecisionRuntimeSupported() ? null : "Requires Linux with an NVIDIA GPU",
+      unsupportedReason: supported ? null : (models[0]?.preflight.reason ?? "No decision model runs on this computer"),
+      // Whether Open-Jev's Python environment specifically can be built here.
+      openJevSupported: isDecisionRuntimeSupported(),
       settings: sidecarSettings,
-      runtimeInstalled: decisionRuntimeInstalled(),
+      // About the runtime the installed model runs on: Open-Jev's Python environment, or
+      // the llama.cpp, Valen or Winnow server. With nothing installed, whether any is here.
+      runtimeInstalled: (() => {
+        const installed = installedDecisionModel(sidecarSettings);
+        if (!installed) return decisionRuntimeInstalled() || decisionServerRuntimeService.diskBytes() > 0;
+        return installed.runtime === "open_jev_torch"
+          ? decisionRuntimeInstalled()
+          : decisionServerInstall(installed.runtime) !== null;
+      })(),
+      // Only Open-Jev's environment is rebuilt by an engine update; a server build is a pinned download.
+      runtimeNeedsUpdate:
+        (installedDecisionModel(sidecarSettings)?.runtime ?? "open_jev_torch") === "open_jev_torch" &&
+        decisionRuntimeNeedsUpdate(),
       // Whether the installed model's weights are here and whole, or null with none installed. A pasted model
       // has no catalog row to carry `downloaded`, so the window reads it here.
       installedModelDownloaded: (() => {
@@ -261,10 +317,10 @@ export async function decisionRoutes(app: FastifyInstance) {
    * tell an informed choice from a surprise. Disabling stops the process and keeps the
    * download: removing the files is a separate, explicit action.
    */
-  app.post("/sidecar/enable", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+  app.post("/sidecar/enable", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req) => {
     const body = z.object({ enabled: z.boolean(), confirmedVerdict: z.string().max(64).optional() }).parse(req.body);
-    if (body.enabled && !isDecisionRuntimeSupported())
-      return reply.status(409).send({ error: "The decision sidecar is not supported on this machine" });
+    // Each model's install is refused on its own when this machine cannot run it, so
+    // turning the section on is not gated by any one runtime's platform.
     if (!body.enabled) await decisionProcessService.stop();
     return {
       settings: await writeSidecarSettings((current) => ({
@@ -287,6 +343,26 @@ export async function decisionRoutes(app: FastifyInstance) {
    * Refuses an entry this machine cannot run rather than letting a download start and
    * fail at load, which is the whole point of having a preflight.
    */
+  /**
+   * Rebuild a runtime an engine update left behind (new uv, Python or lock) without
+   * touching the downloaded model. The running process is stopped first: it still runs
+   * from the environment being replaced.
+   */
+  app.post("/sidecar/update-runtime", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    if (!decisionRuntimeNeedsUpdate()) return { updated: false };
+    try {
+      await decisionProcessService.stop();
+      await decisionRuntimeService.ensureInstalled((progress) =>
+        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
+      );
+    } catch (error) {
+      logger.warn(error, "[decision-sidecar] Runtime update failed");
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Update failed" });
+    }
+    return { updated: true };
+  });
+
   app.post("/sidecar/install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
     const body = z
@@ -314,18 +390,20 @@ export async function decisionRoutes(app: FastifyInstance) {
     if (!preflight.installable)
       return reply.status(409).send({ error: preflight.reason ?? "This machine cannot run that model" });
     try {
-      await decisionRuntimeService.ensureInstalled((progress) =>
-        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
-      );
-      await decisionRuntimeService.downloadModel(model, (progress) =>
-        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
-      );
+      // Open-Jev needs its Python environment; every other runtime is one server program,
+      // and JevK5's is the chat model's own, installed only if it is not already here.
+      const onProgress = trackInstall(model.id, model.label);
+      if (model.runtime === "open_jev_torch") await decisionRuntimeService.ensureInstalled(onProgress);
+      else await decisionServerRuntimeService.ensureInstalled(model.runtime, onProgress);
+      await decisionRuntimeService.downloadModel(model, onProgress);
     } catch (error) {
+      installProgress = null;
       // Logged as well as returned: an install takes long enough that the page which
       // asked may be gone by the time it fails, and the reason would otherwise vanish.
       logger.warn(error, "[decision-sidecar] Install of %s failed", model.id);
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
+    installProgress = null;
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
@@ -340,6 +418,8 @@ export async function decisionRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model removal" })) return;
     await decisionProcessService.stop();
     await decisionRuntimeService.remove();
+    // The decision servers only; the chat model's llama.cpp runtime stays.
+    await decisionServerRuntimeService.remove();
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
@@ -375,6 +455,17 @@ export async function decisionRoutes(app: FastifyInstance) {
     };
   });
 
+  /** Stops a model download in progress and deletes what it had fetched. */
+  app.post("/sidecar/cancel-install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    decisionRuntimeService.cancel();
+    return { cancelled: true };
+  });
+
+  // Outside /sidecar on purpose: that prefix shares one request budget, and the page
+  // polls this every second or two for as long as a download runs.
+  app.get("/install-progress", async () => ({ progress: installProgress }));
+
   app.post("/sidecar/stop", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async () => {
     await decisionProcessService.stop();
     return { process: decisionProcessService.getStatus() };
@@ -403,7 +494,10 @@ export async function decisionRoutes(app: FastifyInstance) {
     // every relevant turn while looking configured.
     const slot = decisionLocalSlotForId(selected);
     const calibration = slot ? localSlotCalibration(slot) : DEFAULT_DECISION_CALIBRATION;
-    return { selected, options, calibration };
+    // Only Marinara's own decision model reads pictures; a chat model or a connection is sent text.
+    const reads: DecisionModelOptions["reads"] =
+      slot === "decision_sidecar" ? (installedDecisionModel(decisionSidecarSettings())?.inputs ?? ["text"]) : ["text"];
+    return { selected, options, calibration, reads: [...(reads ?? ["text"])] };
   });
 
   /**
@@ -560,7 +654,8 @@ export async function decisionRoutes(app: FastifyInstance) {
           },
           state: { recent_messages: [{ role: "user", name: "User", content: "The door is open." }] },
           questions: [{ id: "test", instructions: "The door is open." }],
-          timeoutMs: DECISION_TIMEOUT_MS.sidecar,
+          // A model on the processor gets the limit its own warm-up measured.
+          timeoutMs: resolution.resolved.firstAnswerMs ?? DECISION_TIMEOUT_MS.sidecar,
           questionShape: resolution.resolved.calibration?.questionShape ?? "text",
         }),
       );

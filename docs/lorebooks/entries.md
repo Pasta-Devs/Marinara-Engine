@@ -149,6 +149,15 @@ More details:
 - Decision activation applies to chat turns only. Game setup and the scans that agents run for themselves read decision entries as no.
 - A `{{#if decision:"..."}}` inside the entry's content is different. It trims the text of an entry that already activated.
 
+### Let the decision model see pictures
+
+With a built-in decision model that reads pictures (Liquid d1, Valen or Winnow), the statement can be about the chat's pictures, such as `The newest picture shows a dragon`. Under the **Decision** field, **Show the decision model** has two lists:
+
+- **Pictures**: **No pictures** (the default), or the newest 1 to 3 pictures in the chat. Each picture makes the statement slower.
+- **Ask only when a picture is in**: **Any message (ask every time)**, or the newest 1 to 20 messages. Without a picture there, the statement reads as no and is not asked.
+
+Without a model that reads pictures, these are greyed out, with an ⓘ that says why, and the statement gets the text alone. When several entries share one statement, it is asked once with the most pictures any of them wants. See [What a decision model can answer](../connections/decision-models.md#pictures-and-clips).
+
 ## Groups, filters and other options
 
 The expanded drawer holds more fields.

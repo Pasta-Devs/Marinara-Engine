@@ -5,10 +5,19 @@
  * rather than when we curate it, so this exists to answer one question honestly: can
  * this engine run what that repository declares itself to be?
  *
- * Nothing here trusts a name. It reads the checkpoint's own `release-manifest.json`,
- * matches the artifact type against a runtime this engine ships, follows the base
- * model the manifest pins, and adds up what the whole thing will cost before anything
- * is downloaded. A repository it cannot vouch for is refused with the reason.
+ * Nothing here trusts a name. Three kinds of repository are recognised, each by what
+ * it declares about itself:
+ *
+ * - An Open-Jev checkpoint: its own `release-manifest.json`, matched against a runtime
+ *   this engine ships, with the base model the manifest pins.
+ * - A GGUF whose header declares a native decision type (`<arch>.decision.type`) that
+ *   the pinned llama.cpp build serves on `/v1/systemone`. Read from the first
+ *   megabytes of the file, before anything is downloaded.
+ * - A Valen GGUF package: a `MANIFEST.json` naming the exact runtime package Marinara
+ *   pins, by name and digest, and a GGUF whose architecture is `valen`.
+ *
+ * Everything else is refused with the reason, and what would be downloaded is added up
+ * before the user agrees to any of it.
  */
 import {
   decisionRuntimeDefaults,
@@ -18,7 +27,14 @@ import {
   type DecisionManifestRefusal,
   type SidecarDecisionModelInfo,
 } from "@marinara-engine/shared";
-import { hubRevisionUrl, isLoadableArtifactFile, listHubFiles } from "./decision-hub.js";
+import { hubRevisionUrl, isLoadableArtifactFile, listHubFiles, type HubFile } from "./decision-hub.js";
+import {
+  LLAMA_SYSTEMONE_DECISION_TYPES,
+  pickGgufFile,
+  pickProjectorFile,
+  readRemoteGgufHeader,
+} from "./decision-gguf.js";
+import { DECISION_SERVER_RUNTIMES } from "./decision-server-runtimes.js";
 
 export type ByoRefusal =
   | DecisionManifestRefusal
@@ -26,7 +42,14 @@ export type ByoRefusal =
   | "not_found"
   | "unresolvable_revision"
   | "unsupported_files"
-  | "listing_failed";
+  | "listing_failed"
+  // A GGUF repository, but no file says it is a decision model this engine can serve.
+  | "not_decision_gguf"
+  // A GGUF repository with several quantizations and none of the usual ones, or not
+  // the one asked for after the colon.
+  | "no_gguf_quant"
+  // A Valen package built for a runtime other than the one Marinara pins.
+  | "valen_runtime_mismatch";
 
 async function hubJson<T>(url: string): Promise<T | null> {
   try {
@@ -101,14 +124,30 @@ async function repoBytes(
  * wider GPU range than the wheels actually contain kernels for.
  */
 export async function inspectDecisionRepo(
-  repoId: string,
+  pasted: string,
   ref = "main",
 ): Promise<{ model: SidecarDecisionModelInfo } | { refusal: ByoRefusal }> {
+  // `owner/name:Q8_0` picks one quantization from a GGUF repository, the way llama.cpp
+  // and Ollama name them.
+  const colon = pasted.indexOf(":");
+  const repoId = colon === -1 ? pasted : pasted.slice(0, colon);
+  const quant = colon === -1 ? undefined : pasted.slice(colon + 1);
+  if (quant !== undefined && !/^[A-Za-z0-9_]{1,24}$/u.test(quant)) return { refusal: "invalid_repo" };
   // Both of these are interpolated into hub URLs, so neither is trusted by shape
   // alone: a dot-only segment collapses the path onto a different endpoint.
   if (!isSafeRepoId(repoId) || !isSafeGitRef(ref)) return { refusal: "invalid_repo" };
   const revision = await resolveRevision(repoId, ref);
   if (!revision) return { refusal: "unresolvable_revision" };
+
+  let files: HubFile[];
+  try {
+    files = await listHubFiles(repoId, revision);
+  } catch {
+    return { refusal: "listing_failed" };
+  }
+  if (files.some((file) => file.path.toLowerCase().endsWith(".gguf")))
+    return inspectGgufRepo(repoId, revision, files, quant);
+  if (quant !== undefined) return { refusal: "no_gguf_quant" };
 
   const manifest = await hubJson<Record<string, unknown>>(
     `https://huggingface.co/${repoId}/resolve/${revision}/release-manifest.json`,
@@ -158,6 +197,90 @@ export async function inspectDecisionRepo(
       licenses: [checkpointLicense, baseLicense],
       thirdParty: true,
       ...defaults,
+    },
+  };
+}
+
+/** The download URL of one file at a pinned revision, each path segment encoded. */
+function resolveUrl(repoId: string, revision: string, path: string): string {
+  return `https://huggingface.co/${repoId}/resolve/${revision}/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Licence files beside the weights, fetched with them so the install keeps them. */
+function licenceFiles(files: HubFile[]): HubFile[] {
+  return files.filter((file) => /^(?:LICENSE|NOTICE)[\w.-]*$/u.test(file.path) && file.size < 1_000_000);
+}
+
+/**
+ * A GGUF repository: a native decision model for the pinned llama.cpp, or a Valen package.
+ *
+ * Only the one chosen GGUF and the licence files are downloaded. A repository's other
+ * quantizations and its projector are left on the Hub.
+ */
+async function inspectGgufRepo(
+  repoId: string,
+  revision: string,
+  files: HubFile[],
+  quant: string | undefined,
+): Promise<{ model: SidecarDecisionModelInfo } | { refusal: ByoRefusal }> {
+  const chosen = pickGgufFile(files, quant);
+  if (!chosen) return { refusal: "no_gguf_quant" };
+  const header = await readRemoteGgufHeader(resolveUrl(repoId, revision, chosen.path));
+  if (!header) return { refusal: "listing_failed" };
+
+  let runtime: "llama_systemone" | "valen_gguf";
+  let declares: string;
+  if (header.architecture === "valen") {
+    // Valen's GGUFs only load in Valen's runtime, and its manifest names the exact
+    // package. One built for another runtime release is refused rather than guessed at.
+    const manifest = await hubJson<{ runtime?: { package?: unknown; package_sha256?: unknown; version?: unknown } }>(
+      resolveUrl(repoId, revision, "MANIFEST.json"),
+    );
+    const pinned = DECISION_SERVER_RUNTIMES.valen_gguf.assets[0]!;
+    if (manifest?.runtime?.package !== pinned.name || manifest.runtime.package_sha256 !== pinned.sha256)
+      return { refusal: "valen_runtime_mismatch" };
+    runtime = "valen_gguf";
+    declares = `a Valen decision model for runtime ${String(manifest.runtime.version)}`;
+  } else if (header.decisionType && LLAMA_SYSTEMONE_DECISION_TYPES.has(header.decisionType)) {
+    runtime = "llama_systemone";
+    declares = `decision type ${header.decisionType} (${header.architecture ?? "unknown architecture"})`;
+  } else {
+    return { refusal: "not_decision_gguf" };
+  }
+
+  const extras = licenceFiles(files);
+  // Its vision projector too, when it publishes one, so it reads the chat's pictures.
+  const projector = pickProjectorFile(files);
+  if (projector) extras.push(projector);
+  const paths = [chosen.path, ...extras.map((file) => file.path)];
+  if (paths.some((path) => !isLoadableArtifactFile(path))) return { refusal: "unsupported_files" };
+  const downloadSizeBytes = chosen.size + extras.reduce((sum, file) => sum + file.size, 0);
+  const defaults = decisionRuntimeDefaults(runtime)!;
+  const license = await declaredLicense(repoId, revision);
+  const name = chosen.path.slice(chosen.path.lastIndexOf("/") + 1);
+  return {
+    model: {
+      id: `byo:${repoId}@${revision.slice(0, 12)}:${name}`,
+      label: `${repoId} (${name.replace(/\.gguf$/iu, "")})`,
+      description: projector
+        ? `Pasted repository. Declares ${declares}. Installs ${name} and its vision projector.`
+        : `Pasted repository. Declares ${declares}. Installs ${name} only.`,
+      runtime,
+      artifacts: [{ repoId, revision, paths }],
+      modelFile: chosen.path,
+      downloadSizeBytes,
+      // The weights plus the runtime's own server build, which is under 200 MB unpacked.
+      diskBytes: downloadSizeBytes + 200_000_000,
+      // The weights plus a context's working memory. An estimate; the launch-time
+      // recheck is the backstop.
+      vramBytes: Math.round(chosen.size * 1.1 + (projector?.size ?? 0) + 600_000_000),
+      licenses: [license],
+      languages: "Not checked by Marinara",
+      thirdParty: true,
+      ...defaults,
+      ...(projector
+        ? { projectorFile: projector.path, inputs: [...new Set([...(defaults.inputs ?? ["text"]), "image" as const])] }
+        : {}),
     },
   };
 }

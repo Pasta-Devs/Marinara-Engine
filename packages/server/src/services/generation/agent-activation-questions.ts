@@ -8,6 +8,15 @@ import { normalizeAgentActivationScanDepth } from "../../routes/generate/agent-a
 import type { NoulQuestion } from "../decision/system-one.client.js";
 import { countMessagesSinceAgentRun } from "./agent-cadence.js";
 import { logRateLimited } from "../../lib/log-rate-limit.js";
+import {
+  attachDecisionMedia,
+  clampDecisionMediaWant,
+  decisionMediaKey,
+  NO_DECISION_MEDIA,
+  wantsDecisionMedia,
+  type DecisionMediaRef,
+  type DecisionMediaWant,
+} from "../decision/decision-media.js";
 
 export interface ActivationQuestionCandidate {
   agentId: string;
@@ -15,11 +24,15 @@ export interface ActivationQuestionCandidate {
   /** Undefined when the agent never chose one; the backend's default applies. */
   threshold: number | undefined;
   scanDepth: number;
+  /** How many of the chat's newest pictures and clips the question looks at. None by default. */
+  media?: DecisionMediaWant;
 }
 export interface DecisionMessage {
   role?: string | null;
   name?: string;
   content?: unknown;
+  /** Pictures and clips on the message, for a decision model that reads them. Never serialized. */
+  media?: DecisionMediaRef[];
 }
 
 /** A missing run or removed anchor is stale: bootstrap the agent instead of gating it forever. */
@@ -45,12 +58,42 @@ export function activationQuestionSettings(settings: Record<string, unknown>) {
     threshold: parsed.data.activationThreshold,
     maxSkip: parsed.data.activationMaxSkip,
     scanDepth: normalizeAgentActivationScanDepth(parsed.data.activationScanDepth),
+    media: clampDecisionMediaWant({
+      pictures: parsed.data.activationPictures,
+      clips: parsed.data.activationClips,
+    }),
+    /** Ask only when one of this many newest messages has a picture or clip; otherwise the agent does not run. */
+    mediaWithin: parsed.data.activationMediaWithin,
   };
 }
 
-/** Fit serialized state, including role/name wrappers. Keep the newest message's suffix. */
-export function buildDecisionState(messages: DecisionMessage[], depth: number, maxStateTokens: number) {
-  const recent_messages = messages.slice(-depth).map((message) => ({
+/** What one picture and one clip cost in a decision model's input, in tokens. */
+export interface DecisionMediaTokens {
+  picture: number;
+  clip: number;
+}
+
+/**
+ * Fit serialized state, including role/name wrappers. Keep the newest message's suffix.
+ *
+ * With `media`, the newest pictures and clips of the kept messages ride along for a
+ * decision model that reads them, and the scene leaves room for them in its budget.
+ * Without it, none do: a decision looks at pictures only when its author asked.
+ */
+export function buildDecisionState(
+  messages: DecisionMessage[],
+  depth: number,
+  maxStateTokens: number,
+  media: { want: DecisionMediaWant; tokens?: DecisionMediaTokens } = { want: NO_DECISION_MEDIA },
+) {
+  const want = clampDecisionMediaWant(media.want);
+  if (wantsDecisionMedia(want) && media.tokens)
+    maxStateTokens = Math.max(
+      Math.min(256, maxStateTokens),
+      maxStateTokens - want.pictures * media.tokens.picture - want.clips * media.tokens.clip,
+    );
+  const window = messages.slice(-depth);
+  const recent_messages = window.map((message) => ({
     role: message.role ?? "user",
     ...(message.name ? { name: message.name } : {}),
     content: typeof message.content === "string" ? message.content : "",
@@ -70,7 +113,13 @@ export function buildDecisionState(messages: DecisionMessage[], depth: number, m
       newest.content = sliceTextToTokenBudget(original, budget, true);
     }
   }
-  return state;
+  // The media of the messages that made it into the scene, in the chat's order. A model
+  // that reads them takes the newest of those asked for; every other backend never sees them.
+  return attachDecisionMedia(
+    state,
+    window.slice(window.length - recent_messages.length).flatMap((message) => message.media ?? []),
+    want,
+  );
 }
 
 export async function evaluateActivationQuestions(args: {
@@ -79,24 +128,33 @@ export async function evaluateActivationQuestions(args: {
   maxStateTokens: number;
   /** The selected model's operating point, for agents that never chose one. */
   defaultThreshold?: number;
+  /** What a picture and a clip cost the selected model, so a scene leaves room for them. */
+  mediaTokens?: DecisionMediaTokens;
   ask: (state: unknown, questions: NoulQuestion[]) => Promise<Map<string, number> | null>;
 }): Promise<{ skip: Set<string>; results: Map<string, number | "failed"> }> {
   const fallbackThreshold = args.defaultThreshold ?? DEFAULT_CUSTOM_AGENT_ACTIVATION_THRESHOLD;
-  const groups = new Map<number, ActivationQuestionCandidate[]>();
+  // One request per scan depth and media setting: questions that read the same scene
+  // with the same pictures share it.
+  const groups = new Map<
+    string,
+    { depth: number; media: DecisionMediaWant; candidates: ActivationQuestionCandidate[] }
+  >();
   for (const candidate of args.candidates) {
-    const group = groups.get(candidate.scanDepth) ?? [];
-    group.push(candidate);
-    groups.set(candidate.scanDepth, group);
+    const media = clampDecisionMediaWant(candidate.media);
+    const key = `${candidate.scanDepth}\u0000${decisionMediaKey(media)}`;
+    const group = groups.get(key) ?? { depth: candidate.scanDepth, media, candidates: [] };
+    group.candidates.push(candidate);
+    groups.set(key, group);
   }
   const skip = new Set<string>();
   const results = new Map<string, number | "failed">();
   await Promise.all(
-    [...groups].map(async ([depth, candidates]) => {
+    [...groups.values()].map(async ({ depth, media, candidates }) => {
       const questions = candidates.map((candidate) => ({ id: candidate.agentId, instructions: candidate.question }));
       // Reserve extra room for long/macro-expanded questions beyond the normal 500-token margin.
       const questionTokens = Math.max(...questions.map((question) => estimateTextTokens(question.instructions)));
       const budget = Math.max(1, args.maxStateTokens - Math.max(0, questionTokens - 250));
-      const state = buildDecisionState(args.messages, depth, budget);
+      const state = buildDecisionState(args.messages, depth, budget, { want: media, tokens: args.mediaTokens });
       let answers = new Map<string, number>();
       try {
         // Even the role/name wrappers may exceed a tiny user-selected budget.

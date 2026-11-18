@@ -140,6 +140,8 @@ A condition can ask your Decision model what is happening in the chat. The Decis
 
 Before you start: choose a Decision model under **Decision model** in the **Connections** panel. See [Decision Models](../connections/decision-models.md) for what it is and how to pick one. To decide whether a whole lorebook entry activates, use the entry's [Decision](../lorebooks/entries.md#decision-activation) field instead.
 
+It can answer yes or no (`decision:`) or pick one of several answers (`decision_choice:`), and a built-in model that reads pictures can also look at the chat's pictures and clips. For the kinds of answers with more examples, see [What a decision model can answer](../connections/decision-models.md#what-a-decision-model-can-answer).
+
 Ideas: describe a new place only when the scene moved, load combat pacing rules only during a fight, hold back escalation in a slow-burn preset, or make only the addressed character answer directly in a group block.
 
 ### Yes or no: `decision:`
@@ -244,6 +246,20 @@ When a prompt plan has more statements than the **Decision statements per turn**
 - Statements past the limit read as no, lowest priority first, and Peek Prompt lists them.
 - A statement written in several places uses the highest priority.
 - The prompt's own statements (preset, cards, persona, author's notes) are planned first. Lorebook statements use the slots that are left, whatever their priority.
+
+### Pictures and clips
+
+A built-in decision model that reads pictures (Liquid d1, Valen, Winnow) can also look at the chat's pictures and clips. It only does when the statement asks: `pictures:N` sends the newest N pictures (up to 3), and `clips:1` sends the newest clip (Valen's full release only). Without them, only the text is sent.
+
+```text
+{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}
+{{#if decision:"The clip ends somewhere new" clips:1 media_within:2}}...{{/if}}
+```
+
+- Pictures are uploads, gallery selfies and illustrations; clips are generated scene videos. Each is scaled down first.
+- Each picture or clip makes the statement slower. The model's details show how long one takes on your computer once it has run there.
+- `media_within:N` asks the statement only when one of the newest N messages has a picture (or a clip, with `clips:`). On other turns it reads as no and is not asked.
+- Statements that ask for the same pictures share one request. A model that reads only text, or a hosted Decision connection, is never sent any.
 
 You can combine all modifiers in any order: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
 

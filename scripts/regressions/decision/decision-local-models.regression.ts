@@ -19,6 +19,7 @@ import {
   DEFAULT_DECISION_CALIBRATION,
   findDecisionModel,
   isSafeGitRef,
+  isSafeModelFilePath,
   isSafeRepoId,
   normalizeDecisionThinking,
   parseDecisionSidecarSettings,
@@ -29,6 +30,11 @@ import {
   type GpuDevice,
 } from "../../../packages/shared/src/index.js";
 import { evaluateActivationQuestions } from "../../../packages/server/src/services/generation/agent-activation-questions.js";
+import {
+  LLAMA_SYSTEMONE_DECISION_TYPES,
+  parseGgufHeader,
+  pickGgufFile,
+} from "../../../packages/server/src/services/sidecar/decision-gguf.js";
 import {
   isDirectAnswer,
   normalizeAnswerToken,
@@ -157,16 +163,47 @@ assert.equal(DEFAULT_DECISION_CALIBRATION.defaultThreshold, 0.5, "hosted Jev kee
 assert.equal(DEFAULT_DECISION_CALIBRATION.questionShape, "text", "and its documented wire shape");
 // Every curated entry needs the constraints a preflight cannot guess.
 for (const model of SIDECAR_DECISION_MODELS) {
-  assert.ok(model.minComputeCapability, `${model.id} must state the compute capability its wheels support`);
+  // Open-Jev's wheels and Winnow's build need an NVIDIA card of a known generation.
+  if (model.runtime === "open_jev_torch")
+    assert.ok(model.minComputeCapability, `${model.id} must state the compute capability its wheels support`);
+  if (model.runtime === "winnow_cuda")
+    assert.ok(
+      model.onlyComputeCapabilities?.length,
+      `${model.id} must state the GPU generation its build has code for`,
+    );
   assert.ok(
-    model.platforms.every((p) => p.minDriver),
+    model.platforms.every((p) => p.gpuVendor !== "nvidia" || p.minDriver),
     `${model.id} must state a minimum driver`,
   );
   assert.ok(model.vramBytes > 0 && model.diskBytes > model.downloadSizeBytes, `${model.id} sizes look wrong`);
-  assert.ok(
-    Object.values(DECISION_ARTIFACT_RUNTIMES).includes(model.runtime),
-    `${model.id} names a runtime nothing can install it with`,
-  );
+  if (model.runtime === "open_jev_torch")
+    assert.ok(
+      Object.values(DECISION_ARTIFACT_RUNTIMES).includes(model.runtime),
+      `${model.id} names a runtime nothing can install it with`,
+    );
+  else if (model.runtime === "valen_onnx") {
+    // Valen's full release loads its package folder, marked by its own manifest, and
+    // only the processor files: never the CUDA or full-precision ones.
+    assert.equal(model.modelFile, "valen_onnx.json");
+    const paths = model.artifacts[0]?.paths ?? [];
+    assert.ok(paths.includes("valen_onnx.json") && paths.includes("onnx/decision-q8-mlp.onnx.data"));
+    assert.ok(!paths.some((path) => /cuda|backbone\.onnx\.data|^onnx\/decision\.onnx$/u.test(path)));
+    assert.equal(model.memory, "cpu");
+    assert.deepEqual(model.inputs, ["text", "image", "video"], `${model.id} reads video`);
+  } else {
+    // A GGUF entry loads one file, and that file must be one the download fetches.
+    assert.ok(isSafeModelFilePath(model.modelFile), `${model.id} must name a safe .gguf to load`);
+    assert.ok(model.artifacts[0]?.paths?.includes(model.modelFile!), `${model.id} must download the file it loads`);
+    assert.ok(model.memory, `${model.id} must say which memory it is weighed against`);
+    // A model that reads pictures downloads the projector that lets it.
+    if (model.inputs?.includes("image")) {
+      assert.ok(isSafeModelFilePath(model.projectorFile), `${model.id} reads pictures, so it needs a projector`);
+      assert.ok(model.artifacts[0]?.paths?.includes(model.projectorFile!), `${model.id} must download its projector`);
+    }
+  }
+  // Every entry says what it answers and reads, for the picker's details.
+  assert.ok(model.questionTypes?.includes("noul"), `${model.id} must list its question types`);
+  assert.ok(model.inputs?.includes("text"), `${model.id} must list what it reads`);
   assert.ok(
     model.artifacts.every((a) => /^[0-9a-f]{40}$/u.test(a.revision)),
     `${model.id} must pin exact commits`,
@@ -346,6 +383,88 @@ assert.equal(
   assert.equal(sanitizeCustomDecisionModel({ ...complete, vramBytes: 0 }), null);
   assert.equal(sanitizeCustomDecisionModel({ ...complete, diskBytes: -1 }), null);
   assert.equal(sanitizeCustomDecisionModel({ ...complete, downloadSizeBytes: Number.NaN }), null);
+}
+{
+  // A pasted GGUF, as the inspector writes it, with fields edited to reach further.
+  const gguf = {
+    id: "byo:a/b@0123456789ab:m-Q4_K_M.gguf",
+    label: "a/b (m-Q4_K_M)",
+    description: "Pasted repository.",
+    licenses: ["apache-2.0 (a/b)"],
+    runtime: "llama_systemone",
+    artifacts: [{ repoId: "a/b", revision: "0".repeat(40), paths: ["m-Q4_K_M.gguf"] }],
+    modelFile: "m-Q4_K_M.gguf",
+    downloadSizeBytes: 1_000_000_000,
+    diskBytes: 1_200_000_000,
+    vramBytes: 1_700_000_000,
+    letterReadout: { temperature: 9, knockoutTemperature: 9 },
+    platforms: [{ os: "linux", arch: "x64", gpuVendor: "any" }],
+  };
+  const stored = sanitizeCustomDecisionModel(gguf);
+  assert.ok(stored, "a pasted native decision GGUF is a usable record");
+  assert.equal(stored.letterReadout, undefined, "the letter readout belongs to curated entries only");
+  assert.equal(stored.memory, "llama", "the runtime decides which memory it is weighed against");
+  assert.equal(stored.calibration.defaultThreshold, 0.5, "an unmeasured model keeps the protocol's default");
+  // The file name is joined onto the download folder, so it is held to a safe shape.
+  for (const modelFile of ["../x.gguf", "/etc/x.gguf", "a/../x.gguf", "x.bin", "a\\x.gguf", undefined])
+    assert.equal(sanitizeCustomDecisionModel({ ...gguf, modelFile }), null, `refuses modelFile ${String(modelFile)}`);
+  // Curated-only runtimes cannot be reached by a stored record: their launchers were
+  // reviewed for the files the catalog names, not for whatever a record points at.
+  assert.equal(sanitizeCustomDecisionModel({ ...gguf, runtime: "llama_letters" }), null);
+  assert.equal(sanitizeCustomDecisionModel({ ...gguf, runtime: "winnow_cuda" }), null);
+  assert.ok(sanitizeCustomDecisionModel({ ...gguf, runtime: "valen_gguf" }));
+}
+{
+  // Which GGUF a pasted repository installs: a sensible quantization, never a vision
+  // projector or one part of a split model, and exactly the one named after a colon.
+  const files = [
+    { path: "d1-3B-BF16.gguf", size: 5 },
+    { path: "d1-3B-Q8_0.gguf", size: 3 },
+    { path: "d1-3B-Q4_K_M.gguf", size: 2 },
+    { path: "mmproj-d1-3B-Q8_0.gguf", size: 1 },
+    { path: "big-Q4_K_M-00001-of-00002.gguf", size: 1 },
+  ];
+  assert.equal(pickGgufFile(files)?.path, "d1-3B-Q4_K_M.gguf");
+  assert.equal(pickGgufFile(files, "Q8_0")?.path, "d1-3B-Q8_0.gguf");
+  assert.equal(pickGgufFile(files, "q8_0")?.path, "d1-3B-Q8_0.gguf", "case does not matter");
+  assert.equal(pickGgufFile(files, "F16"), null, "F16 is not BF16");
+  assert.equal(pickGgufFile(files, "Q3_K"), null);
+  assert.equal(pickGgufFile([{ path: "mmproj-x-F16.gguf", size: 1 }]), null);
+  assert.equal(pickGgufFile([{ path: "odd-name.gguf", size: 1 }])?.path, "odd-name.gguf", "a lone file is that file");
+}
+{
+  // A GGUF header written the way llama.cpp writes one: the decision type is read from
+  // the first bytes, and a prefix that ends before it asks for more instead of failing.
+  const parts: Buffer[] = [];
+  const u32 = (value: number) => {
+    const buffer = Buffer.alloc(4);
+    buffer.writeUInt32LE(value);
+    return buffer;
+  };
+  const u64 = (value: number) => {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64LE(BigInt(value));
+    return buffer;
+  };
+  const str = (value: string) => Buffer.concat([u64(Buffer.byteLength(value)), Buffer.from(value)]);
+  const kv: Array<[string, Buffer]> = [
+    ["general.architecture", Buffer.concat([u32(8), str("lfm2")])],
+    ["general.tags", Buffer.concat([u32(9), u32(8), u64(2), str("a"), str("b")])],
+    ["lfm2.block_count", Buffer.concat([u32(4), u32(16)])],
+    ["lfm2.context_length", Buffer.concat([u32(4), u32(32768)])],
+    ["lfm2.decision.type", Buffer.concat([u32(8), str("lfm2-d1")])],
+  ];
+  parts.push(Buffer.from("GGUF"), u32(3), u64(0), u64(kv.length));
+  for (const [key, value] of kv) parts.push(str(key), value);
+  const header = Buffer.concat(parts);
+  assert.deepEqual(parseGgufHeader(new Uint8Array(header)), {
+    architecture: "lfm2",
+    decisionType: "lfm2-d1",
+    contextLength: 32768,
+  });
+  assert.ok(LLAMA_SYSTEMONE_DECISION_TYPES.has("lfm2-d1"));
+  assert.throws(() => parseGgufHeader(new Uint8Array(header.subarray(0, header.length - 4))), /^(?!.*GGUF)/u);
+  assert.throws(() => parseGgufHeader(new Uint8Array(Buffer.from("NOPE0000"))), /Not a GGUF/u);
 }
 
 // ── the backend against a recorded llama-server ───────────────────────────────
@@ -716,7 +835,10 @@ assert.equal(hasThinkingSetting("decision_sidecar"), false);
     /selected\.thinking && \(\s*$/u,
     "the Thinking controls must render only for an entry that carries a Thinking value",
   );
-  const route = readFileSync(new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const route = readFileSync(
+    new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(route, /if \(!hasThinkingSetting\(slot\)\) return base;/u, "the options route leaves it off otherwise");
 }
 
@@ -724,7 +846,10 @@ assert.equal(hasThinkingSetting("decision_sidecar"), false);
 // /select sit above the line that clears the local slot, so a stale request cannot
 // answer with an error and silently drop the user to None, which stops every gate.
 {
-  const route = readFileSync(new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const route = readFileSync(
+    new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url),
+    "utf8",
+  );
   const body = route.slice(route.indexOf('app.post("/select"'), route.indexOf('app.post("/thinking"'));
   const clearAt = body.lastIndexOf("settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY)");
   const notFoundAt = body.indexOf("notFound(reply,");
@@ -771,7 +896,10 @@ assert.equal(resolveSharedDevice(devices, "RTX 3060"), devices[1]);
 // enforces anything. Both are checked: every sidecar route declares the limit, and the
 // hook actually applies it, including to a percent-encoded path.
 {
-  const source = readFileSync(new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../../../packages/server/src/routes/decision.routes.ts", import.meta.url),
+    "utf8",
+  );
   const sidecarRoutes = [...source.matchAll(/app\.(?:get|post)\("(\/sidecar[^"]*)",([^\n]*)/g)];
   assert.ok(sidecarRoutes.length >= 7, "every decision sidecar route is found");
   for (const [, path, rest] of sidecarRoutes)

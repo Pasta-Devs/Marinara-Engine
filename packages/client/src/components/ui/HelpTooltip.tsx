@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useLayoutEffect, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Info } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { localizeStringNode, useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -34,6 +34,8 @@ interface HelpTooltipProps {
   openSignal?: number;
   /** When set, a click runs this action instead of pinning the tip open; hover and focus still show the text. */
   onActivate?: () => void;
+  /** "info" shows ⓘ instead of ?, for a note on why something is unavailable rather than how it works. */
+  icon?: "help" | "info";
 }
 
 export function HelpTooltip({
@@ -47,6 +49,7 @@ export function HelpTooltip({
   wide,
   openSignal,
   onActivate,
+  icon = "help",
 }: HelpTooltipProps) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -212,7 +215,7 @@ export function HelpTooltip({
         }}
       >
         {localizedLabel && <span>{localizedLabel}</span>}
-        <HelpCircle size={size} />
+        {icon === "info" ? <Info size={size} /> : <HelpCircle size={size} />}
       </button>
       {show &&
         createPortal(

@@ -483,3 +483,19 @@ export const SIDECAR_MLX_MODELS: SidecarModelInfo[] = [
     ramBytes: 4_800_000_000,
   },
 ];
+
+/** A built-in decision model install in progress, for the page's progress bar. */
+export interface DecisionInstallProgress {
+  modelId: string;
+  /** The model's display name. */
+  label: string;
+  /** "runtime" while the program that runs it downloads, then "model" for its weights. */
+  phase: "runtime" | "model";
+  /** Bytes so far and in total: the runtime file in that phase, the whole model in the next. */
+  downloaded: number;
+  total: number;
+  /** Bytes per second. */
+  speed: number;
+  runtimeLabel?: string;
+  startedAt: number;
+}

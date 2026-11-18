@@ -100,6 +100,16 @@ export function decisionRuntimeInstalled(): boolean {
   return existsSync(VENV_PYTHON) && existsSync(join(SOURCE_DIR, "jev", "server.py")) && readStamp() === expectedStamp();
 }
 
+/**
+ * A runtime that is on disk and was working, but was built for an older manifest (an engine
+ * update moved the pinned uv, Python or dependency lock). It needs an update, not a fresh install.
+ */
+export function decisionRuntimeNeedsUpdate(): boolean {
+  if (!existsSync(VENV_PYTHON) || !existsSync(join(SOURCE_DIR, "jev", "server.py"))) return false;
+  const stamp = readStamp();
+  return stamp !== null && stamp !== expectedStamp();
+}
+
 function readStamp(): string | null {
   try {
     return existsSync(STAMP_PATH) ? readFileSync(STAMP_PATH, "utf-8").trim() || null : null;
@@ -148,6 +158,31 @@ async function alreadyDownloaded(path: string, file: { size: number; sha256?: st
 /** Where a downloaded artifact's files live, in HuggingFace's offline cache layout. */
 export function artifactSnapshotPath(artifact: DecisionModelArtifact): string {
   return join(HF_HOME, "hub", `models--${artifact.repoId.replace(/\//g, "--")}`, "snapshots", artifact.revision);
+}
+
+/**
+ * Deletes the files a cancelled download fetched, and takes them out of their
+ * snapshot's receipt, so a later install fetches them again instead of trusting it.
+ * The partial file in flight is already removed by the downloader.
+ */
+function removeWritten(written: Array<{ snapshot: string; path: string; destination: string }>): void {
+  for (const entry of written) rmSync(entry.destination, { force: true });
+  for (const snapshot of new Set(written.map((entry) => entry.snapshot))) {
+    const receipt = readReceipt(snapshot);
+    if (!receipt) continue;
+    for (const entry of written) if (entry.snapshot === snapshot) delete receipt[entry.path];
+    writeFileSync(join(snapshot, DOWNLOAD_RECEIPT), JSON.stringify(receipt), "utf-8");
+  }
+}
+
+/** The files a completed download recorded in a snapshot, or null when there is no receipt. */
+function readReceipt(snapshot: string): Record<string, number> | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(snapshot, DOWNLOAD_RECEIPT), "utf-8")) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, number>) : null;
+  } catch {
+    return null;
+  }
 }
 
 export class DecisionRuntimeService {
@@ -305,6 +340,33 @@ export class DecisionRuntimeService {
     onProgress?: (progress: SidecarDownloadProgress) => void,
   ): Promise<void> {
     this.cancelRequested = false;
+    // Reported as one download across every file, so the page can show one bar for the
+    // whole model rather than restarting at 0% for each file.
+    let doneBytes = 0;
+    const overall = (progress: SidecarDownloadProgress) =>
+      onProgress?.({
+        ...progress,
+        label: model.label,
+        downloaded: doneBytes + progress.downloaded,
+        total: Math.max(model.downloadSizeBytes, doneBytes + progress.downloaded),
+      });
+    // What this run fetched, so Cancel can take it back. Files that were already here
+    // are left alone: they may belong to another model in the same repository.
+    const written: Array<{ snapshot: string; path: string; destination: string }> = [];
+    try {
+      await this.downloadArtifacts(model, overall, written, (bytes) => (doneBytes += bytes));
+    } catch (error) {
+      if (this.cancelRequested) removeWritten(written);
+      throw error;
+    }
+  }
+
+  private async downloadArtifacts(
+    model: SidecarDecisionModelInfo,
+    overall: (progress: SidecarDownloadProgress) => void,
+    written: Array<{ snapshot: string; path: string; destination: string }>,
+    addDone: (bytes: number) => void,
+  ): Promise<void> {
     for (const artifact of model.artifacts) {
       const files = await this.listArtifactFiles(artifact);
       const snapshot = artifactSnapshotPath(artifact);
@@ -322,7 +384,10 @@ export class DecisionRuntimeService {
           throw new Error(`${artifact.repoId} lists a file outside its own directory: ${file.path}`);
         }
         mkdirSync(dirname(destination), { recursive: true });
-        if (await alreadyDownloaded(destination, file)) continue;
+        if (await alreadyDownloaded(destination, file)) {
+          addDone(file.size);
+          continue;
+        }
         const abort = new AbortController();
         this.activeFetchAbort = abort;
         try {
@@ -342,18 +407,25 @@ export class DecisionRuntimeService {
                 // are checked by size, which is what the hub itself exposes for them.
                 ...(file.sha256 ? { expectedSha256: file.sha256 } : {}),
                 progress: { phase: "model", label: `${model.label}: ${file.path}` },
-                onProgress,
+                onProgress: overall,
               }),
             { retries: 2, baseDelayMs: 1000, shouldRetry: (error) => !isAbortError(error) },
           );
         } finally {
           this.activeFetchAbort = null;
         }
+        written.push({ snapshot, path: file.path, destination });
+        addDone(file.size);
       }
       // Written last, so its presence is the signal that this artifact completed.
+      // Merged with what is already recorded: two GGUF entries can share one repository
+      // revision (JevK5 2B and 4B), and the second install must not erase the first's files.
       writeFileSync(
         join(snapshot, DOWNLOAD_RECEIPT),
-        JSON.stringify(Object.fromEntries(files.map((file) => [file.path, file.size]))),
+        JSON.stringify({
+          ...readReceipt(snapshot),
+          ...Object.fromEntries(files.map((file) => [file.path, file.size])),
+        }),
         "utf-8",
       );
     }
@@ -442,10 +514,16 @@ export class DecisionRuntimeService {
   modelDownloaded(model: SidecarDecisionModelInfo): boolean {
     return model.artifacts.every((artifact) => {
       const snapshot = artifactSnapshotPath(artifact);
-      const receipt = join(snapshot, DOWNLOAD_RECEIPT);
-      if (!existsSync(receipt)) return false;
+      const expected = readReceipt(snapshot);
+      if (!expected) return false;
+      // A GGUF entry's own file must be on the receipt, not only every file the receipt
+      // names: JevK5 2B and 4B share one snapshot, and the 2B's receipt says nothing
+      // about whether the 4B ever downloaded.
+      if (model.modelFile && artifact === model.artifacts[0] && !(model.modelFile in expected)) return false;
+      // The same for the vision projector: a model installed before it was added to the
+      // download is not whole until it arrives.
+      if (model.projectorFile && artifact === model.artifacts[0] && !(model.projectorFile in expected)) return false;
       try {
-        const expected = JSON.parse(readFileSync(receipt, "utf-8")) as Record<string, number>;
         return Object.entries(expected).every(([relative, size]) => {
           try {
             const file = assertInsideDir(snapshot, resolve(snapshot, relative));

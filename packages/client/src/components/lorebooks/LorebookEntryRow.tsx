@@ -56,6 +56,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { Select } from "../ui/Select";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { DecisionStatementNote } from "../ui/DecisionStatementNote";
+import { LorebookDecisionPictureFields } from "./LorebookDecisionPictureFields";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import type {
   LorebookEntry,
@@ -1362,6 +1363,8 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
     excludeFromVectorization: form.excludeFromVectorization,
     decisionStatement: form.decisionStatement,
     decisionMode: form.decisionMode,
+    decisionPictures: form.decisionPictures,
+    decisionMediaWithin: form.decisionMediaWithin,
   };
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)) as typeof payload;
 }
@@ -1799,6 +1802,12 @@ function ExpandedDrawer({
               <DecisionStatementNote
                 active={(form.decisionStatement ?? "").trim().length > 0}
                 message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+              />
+              <LorebookDecisionPictureFields
+                variant="classic"
+                pictures={form.decisionPictures ?? 0}
+                mediaWithin={form.decisionMediaWithin ?? null}
+                onChange={update}
               />
             </>
           )}
