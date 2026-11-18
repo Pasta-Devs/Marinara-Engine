@@ -97,6 +97,20 @@ try {
       }),
       /no usable prompt/,
     );
+    // A rewrite the player never switched on (a customized Illustrator prompt) must not cost the picture.
+    const optionalRewrite = Object.assign(
+      async () => {
+        throw new Error("text model unavailable");
+      },
+      { required: false },
+    );
+    const fallback = await buildBackgroundProviderPrompt({
+      ...common,
+      locationSlug: "garden",
+      sceneDescription: "A garden at dusk.",
+      dynamicPromptGenerator: optionalRewrite,
+    });
+    assert.ok(fallback.prompt.includes("garden at dusk"));
   });
 
   await check("all supplied scene appearance notes retain their complete text", async () => {
