@@ -327,6 +327,7 @@ import {
   resolveEffectiveAgentSettings,
 } from "../../services/generation/agent-resolution.js";
 import { resolveAgentGenerationTools } from "../../services/generation/tool-resolution-runtime.js";
+import { applyAgentResultEffect } from "../../services/generation/agent-result-effects.js";
 import {
   buildRetryAgentPersona,
   resolveIdentityCharacterScopes,
@@ -3817,33 +3818,15 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    // Persist re-rolled CYOA choices onto the last assistant message + active swipe
-    // so they survive a page refresh, and broadcast them to the client store.
-    if (result.success && result.type === "cyoa_choices" && result.data && typeof result.data === "object") {
-      try {
-        const cyoaData = result.data as { choices?: Array<{ label: string; text: string }> };
-        if (retryMessageId && cyoaData.choices && cyoaData.choices.length > 0) {
-          assertRetryActive();
-          await chats.updateMessageExtraForSwipe(retryMessageId, retrySwipeIndex, { cyoaChoices: cyoaData.choices });
-          assertRetryActive();
-          logger.info(
-            "[retry-agents] CYOA choices persisted chatId=%s messageId=%s swipeIndex=%d choiceCount=%d",
-            chatId,
-            retryMessageId,
-            retrySwipeIndex,
-            cyoaData.choices.length,
-          );
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.warn(
-          err,
-          "[retry-agents] CYOA choices persistence failed chatId=%s messageId=%s",
-          chatId,
-          retryMessageId,
-        );
-      }
-    }
+    // Effects shared with normal generation (CYOA choices so far, #9508)
+    await applyAgentResultEffect(result, {
+      origin: "retry",
+      chatId,
+      messageId: retryMessageId,
+      swipeIndex: retrySwipeIndex,
+      chats,
+      signal,
+    });
 
     if (
       result.success &&

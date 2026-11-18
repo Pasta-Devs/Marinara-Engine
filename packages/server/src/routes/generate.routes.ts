@@ -852,6 +852,7 @@ import {
   shouldRunDirectorSecretPlotMaintenance,
 } from "../services/generation/director-secret-plot-runtime.js";
 import { applyPromptPatchOperations } from "../services/generation/prompt-patch-runtime.js";
+import { applyAgentResultEffect } from "../services/generation/agent-result-effects.js";
 import {
   resolveGenerationProviderRuntime,
   resolveReasoningMacroValue,
@@ -14084,19 +14085,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             }
 
-            // Persist CYOA choices onto message/swipe extra so they survive page refresh
-            if (result.success && result.type === "cyoa_choices" && result.data && typeof result.data === "object") {
-              const cyoaData = result.data as { choices?: Array<{ label: string; text: string }> };
-              if (cyoaData.choices && cyoaData.choices.length > 0) {
-                try {
-                  await chats.updateMessageExtraForSwipe(messageId, targetSwipeIndex, {
-                    cyoaChoices: cyoaData.choices,
-                  });
-                } catch {
-                  /* non-critical */
-                }
-              }
-            }
+            // Effects shared with the retry-agents route (CYOA choices so far, #9508)
+            await applyAgentResultEffect(result, {
+              origin: "generate",
+              chatId: input.chatId,
+              messageId,
+              swipeIndex: targetSwipeIndex,
+              chats,
+            });
 
             // Persist game state snapshots from world-state agent
             if (
