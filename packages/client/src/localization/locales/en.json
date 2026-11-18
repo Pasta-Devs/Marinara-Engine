@@ -2921,7 +2921,7 @@
   "dialog.delete.namedContents": "Are you sure you want to delete {{name}}? Everything inside it will also be permanently deleted.",
   "dialog.delete.namedPermanent": "Are you sure you want to delete {{name}}? This cannot be undone.",
   "dragDrop.manualOrder": "Manual order",
-  "dragDrop.manualOrderHelp": "Drag to reorder, or press Alt+Up or Alt+Down on a focused item.",
+  "dragDrop.manualOrderHelp": "Drag to reorder.",
   "dragDrop.singleItemChat": "This chat setting accepts one item at a time, so move this stack to a folder.",
   "dragDrop.stackCount_one": "{{count}} item",
   "dragDrop.stackCount_other": "{{count}} items",

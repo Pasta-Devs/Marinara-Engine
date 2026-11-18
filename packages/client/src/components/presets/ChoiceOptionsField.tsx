@@ -93,8 +93,14 @@ export function ChoiceOptionsField({
   const presentedOptions = getPresentedOptions(variable);
   const listboxMode = shouldUseListbox(variable);
   const selectedKeys = Array.isArray(selection) ? selection : [];
+  // A multi-pick value follows the list it was picked from, not the order of clicks (the native select it replaced
+  // did too), and drops keys no option carries any more.
+  const inOptionOrder = (keys: readonly string[]) =>
+    presentedOptions.map(optionKey).filter((key) => keys.includes(key));
   const toggle = (key: string) =>
-    onChange(selectedKeys.includes(key) ? selectedKeys.filter((v) => v !== key) : [...selectedKeys, key]);
+    onChange(
+      inOptionOrder(selectedKeys.includes(key) ? selectedKeys.filter((v) => v !== key) : [...selectedKeys, key]),
+    );
 
   return (
     <div className="space-y-1.5">
@@ -110,7 +116,7 @@ export function ChoiceOptionsField({
           }))}
           selectedIds={selectedKeys}
           onToggle={toggle}
-          onAdd={(ids) => onChange([...selectedKeys, ...ids.filter((id) => !selectedKeys.includes(id))])}
+          onAdd={(ids) => onChange(inOptionOrder([...selectedKeys, ...ids]))}
           title={ariaLabel ?? ""}
           ariaLabel={ariaLabel}
           triggerLabel={t("ui.select.chooseOptions")}

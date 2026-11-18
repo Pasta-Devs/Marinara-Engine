@@ -104,6 +104,8 @@ test("picker/popover hugs short rows and wraps a row's hint to two lines", async
   const sorts = page.getByRole("dialog", { name: "Sort characters", exact: true });
   const manual = sorts.locator("[data-pick-row]").filter({ hasText: "Manual order" });
   await expect(manual).toBeVisible();
+  // The short hint keeps the sort popover narrow too; the keyboard shortcut lives in the docs.
+  expect((await sorts.boundingBox())!.width).toBeLessThan(352);
   const hint = manual.getByText("Drag to reorder", { exact: false });
   // The whole hint shows: it wraps instead of clipping.
   expect(

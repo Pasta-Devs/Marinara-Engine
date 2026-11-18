@@ -59,16 +59,18 @@ test("a multi-pick preset variable in list mode picks through the shared multi-p
     const field = modal.getByRole("button", { name: "Choose the toppings", exact: true });
     await field.click();
     const picker = page.getByRole("dialog", { name: /^Choose the toppings/u }).last();
-    await picker.locator("[data-pick-row]").filter({ hasText: "Basil" }).click();
-    await picker.locator("[data-pick-row]").filter({ hasText: "Pineapple" }).click();
-    await expect(picker.locator('[data-pick-row][aria-pressed="true"]')).toHaveCount(2);
+    // Picked out of order: the saved value still follows the list.
+    for (const topping of ["Pineapple", "Olives", "Basil"]) {
+      await picker.locator("[data-pick-row]").filter({ hasText: topping }).click();
+    }
+    await expect(picker.locator('[data-pick-row][aria-pressed="true"]')).toHaveCount(3);
     await page.screenshot({ path: testInfo.outputPath("choice-multi-pick-open.png") });
     await page.keyboard.press("Escape");
     await expect(field).toBeFocused();
     // The picks sit under the field, each removable.
     await expect(modal.getByRole("button", { name: "Remove Basil", exact: true })).toBeVisible();
-    await modal.getByRole("button", { name: "Remove Pineapple", exact: true }).click();
-    await expect(modal.getByRole("button", { name: "Remove Pineapple", exact: true })).toHaveCount(0);
+    await modal.getByRole("button", { name: "Remove Olives", exact: true }).click();
+    await expect(modal.getByRole("button", { name: "Remove Olives", exact: true })).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("choice-multi-pick-listed.png") });
     await modal.getByRole("button", { name: /Confirm/u }).click();
     await expect
@@ -79,7 +81,7 @@ test("a multi-pick preset variable in list mode picks through the shared multi-p
         };
         return metadata.presetChoices?.toppings;
       })
-      .toEqual(["basil"]);
+      .toEqual(["basil", "pineapple"]);
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
     await request.delete(`/api/prompts/${preset.id}`);

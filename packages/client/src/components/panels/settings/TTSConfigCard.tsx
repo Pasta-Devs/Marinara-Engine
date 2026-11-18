@@ -451,6 +451,9 @@ function TtsSearchableSelect({
             icon,
             disabledReason: option.disabled ? localizeUi("tts.assignments.alreadyHasVoice") : undefined,
           })),
+          // A saved value the list no longer offers (a deleted character, a list still loading) still shows as itself,
+          // as a saved voice does, instead of reading as unassigned.
+          ...(value && !options.some((option) => option.id === value) ? [{ value, label: value, icon }] : []),
         ]}
         onChange={(next) => onChange(next === TTS_NONE ? "" : next)}
         disabled={disabled}
