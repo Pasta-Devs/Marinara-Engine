@@ -147,6 +147,7 @@ export function ServiceListStep({
   const { t, i18n } = useTranslation();
   const localize = useLocalizedUiText();
   const builtinTts = useBuiltinTts(compact);
+  const decisionEngine = useDecisionEngine();
   // The compact menu has no "All" tab: it opens on Text, the usual reason to add an account.
   const [type, setType] = useState<ModelType | "all" | "decision">(
     kind === "chat"
@@ -191,6 +192,12 @@ export function ServiceListStep({
   const decision = useDecisionSidecar(kind === "decision" && !compact);
   // The family name: the menu row that lists every model on this device.
   const builtInName = t("connections.add.device.builtIn");
+  // Each tab of the new layout's menu offers the one built-in model for its type, opening that model's page.
+  const openDevice = (id: string) => {
+    useUIStore.getState().closeModal();
+    useUIStore.getState().openConnectionDetail(id);
+  };
+  const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
   // The built-in voice model leads the Voice tab: free, offline, nothing to host. Its tag names the model that
   // suits the Engine's language (Supertonic 3 for Korean, Japanese, German, Polish and Russian).
   const ttsName = t("connections.builtinTts.name");
@@ -202,17 +209,41 @@ export function ServiceListStep({
       tag: builtinTts.data.models.find((entry) => entry.id === model)?.label ?? null,
       good: true,
       icon: <ProviderIcon provider="builtin-tts" size="add" />,
-      open: () => {
-        useUIStore.getState().closeModal();
-        useUIStore.getState().openConnectionDetail("device:builtin-tts");
-      },
+      open: () => openDevice("device:builtin-tts"),
       types: ["voice"],
       group: "popular",
     });
   }
-  // The new layout's menu has one Built-in model row for every type that runs here; it opens their list.
+  const sidecarName = t("connections.add.device.local_model");
+  if (compact && !isLite && matches(`${sidecarName} local offline device sidecar gemma chat`)) {
+    tiles.push({
+      id: "device:local-model",
+      name: sidecarName,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ProviderIcon provider="local-model" size="add" />,
+      open: () => openDevice("device:local-model"),
+      types: ["text"],
+      group: "popular",
+    });
+  }
+  if (compact && decisionEngine && matches(`${decisionEngine.name} local offline device decision`)) {
+    tiles.push({
+      id: DECISION_DEVICE_ID,
+      name: decisionEngine.name,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ProviderIcon provider="decision" size="add" />,
+      open: () => openDevice(DECISION_DEVICE_ID),
+      types: ["decision"],
+      group: "popular",
+      decisionOnly: true,
+    });
+  }
+  // The family row lists every model on this device; it shows only in a search, where the tabs are hidden.
   if (
     compact &&
+    needle &&
     matches(
       `${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation kokoro supertonic emotions mood avatar`,
     )
@@ -224,8 +255,7 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => setOnDevice(true),
-      // Voice has its own Built-in model (TTS) row above, so the family row stays out of that tab.
-      types: ["text", "decision"],
+      types: [],
       group: "popular",
     });
   }
