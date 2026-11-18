@@ -1,7 +1,6 @@
 import { CardLibraryPreview } from "./CardLibraryPreview";
 import { AvatarImage } from "./AvatarImage";
 import {
-  Fragment,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -42,6 +41,7 @@ import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { Select } from "../ui/Select";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
 import { toast } from "sonner";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import {
   useCharacterLibrarySource,
   useLorebookLibrarySource,
@@ -298,6 +298,12 @@ function CardLibraryDetailCard({
 }
 
 /** The full-page Library for characters, personas and lorebooks; `cardLibraryKind` picks the collection. */
+/** The old grid's viewport breakpoints: 1 column, 2 from sm, 3 from xl, 4 from 2xl. */
+const libraryColumns = () => {
+  const width = window.innerWidth;
+  return width >= 1536 ? 4 : width >= 1280 ? 3 : width >= 640 ? 2 : 1;
+};
+
 export function CharacterLibraryView() {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -437,10 +443,13 @@ export function CharacterLibraryView() {
   );
 
   const initialTargetId = kind === "characters" ? initialCharacterId : null;
+  const initialTargetIndex = initialTargetId ? sortedCards.findIndex((card) => card.id === initialTargetId) : undefined;
   useLayoutEffect(() => {
     if (isLoading) return;
     const restoreScroll = () => {
-      if (initialTargetId && initialScrollHandled.current !== initialTargetId) {
+      // A target in the list owns the scroll until its row mounts; the stored offset must not pull it back.
+      if (initialScrollHandled.current === initialTargetId && initialTargetId) return;
+      if (initialTargetId) {
         const target = libraryRootScrollRef.current?.querySelector<HTMLElement>(
           `[data-card-library-card="${CSS.escape(initialTargetId)}"]`,
         );
@@ -450,6 +459,9 @@ export function CharacterLibraryView() {
           rememberLibraryScroll();
           return;
         }
+        // An unmounted card: the card list scrolls to it (scrollToIndex).
+        // Not marked handled: scrollToIndex reveals it, and the stored offset stays out of the way.
+        if (sortedCards.some((card) => card.id === initialTargetId)) return;
       }
       const scrollTop = useUIStore.getState()[config.store.scrollTop] as number;
       for (const node of [libraryRootScrollRef.current, libraryListScrollRef.current]) {
@@ -461,7 +473,7 @@ export function CharacterLibraryView() {
     restoreScroll();
     const frame = window.requestAnimationFrame(restoreScroll);
     return () => window.cancelAnimationFrame(frame);
-  }, [config.store.scrollTop, initialTargetId, isLoading, rememberLibraryScroll, sortedCards.length]);
+  }, [config.store.scrollTop, initialTargetId, isLoading, rememberLibraryScroll, sortedCards]);
 
   useLayoutEffect(
     () => () => {
@@ -684,27 +696,34 @@ export function CharacterLibraryView() {
           )}
 
           {!isLoading && sortedCards.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
-              {sortedCards.map((card) => {
+            <PanelVirtualList
+              listKey={`character-library:${kind}`}
+              count={sortedCards.length}
+              getItemKey={(index) => sortedCards[index]!.id}
+              estimateSize={220}
+              gap={12}
+              columns={libraryColumns}
+              scrollToIndex={initialTargetIndex}
+              renderRow={(index) => {
+                const card = sortedCards[index]!;
                 const isSelected = selectedId === card.id;
                 return (
-                  <Fragment key={card.id}>
+                  <>
                     <CardLibraryPreview
                       card={card}
                       kind={kind}
                       isSelected={isSelected}
                       onClick={() => setSelectedId(card.id)}
                     />
-
                     {isSelected && (
-                      <div className="col-span-full lg:hidden">
+                      <div className="col-span-full mt-3 lg:hidden">
                         <CardLibraryDetailCard card={card} kind={kind} actions={renderDetailActions(card)} />
                       </div>
                     )}
-                  </Fragment>
+                  </>
                 );
-              })}
-            </div>
+              }}
+            />
           )}
 
           {!isLoading && hasNextPage && <div ref={loadMoreSentinelRef} aria-hidden className="h-px" />}

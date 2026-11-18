@@ -121,6 +121,7 @@ function Capped<T extends { id: string }>({
   if (items.length < VIRTUAL_MIN) return <>{items.map(render)}</>;
   return (
     <PanelVirtualList
+      asList={false}
       listKey={`character-picker:${listKey}`}
       count={items.length}
       getItemKey={(index) => items[index]!.id}

@@ -104,6 +104,8 @@ export interface CommandCenterPresentableResult {
 export interface CommandCenterResultGroup<T extends CommandCenterPresentableResult> {
   id: CommandCenterResultGroupId;
   results: T[];
+  /** Rows in the whole group when `results` is capped behind a "Show more" row. */
+  total?: number;
 }
 
 export interface CommandCenterPresentation<T extends CommandCenterPresentableResult> {
@@ -158,6 +160,20 @@ interface CommandStorage {
 export const COMMAND_RANKING_STORAGE_KEY = "marinara:command-center:ranking:v1";
 export const COMMAND_CENTER_SESSION_STORAGE_KEY = "marinara:command-center:session:v1";
 export const COMMAND_CENTER_MAX_RESULTS = 75;
+/** Rows a search group shows before its "Show more" row. */
+export const COMMAND_CENTER_GROUP_LIMIT = 8;
+/** Groups whose length is set by code, not by the query. */
+const UNCAPPED_GROUPS: ReadonlySet<string> = new Set(["top-hit", "professor-suggested", "current-work"]);
+/** Id prefix of a group's "Show more" row; the rest is the group id. */
+export const SHOW_MORE_ID_PREFIX = "show-more::";
+/** The id also names the first hidden row, which takes the highlight once the group opens. */
+export const showMoreId = (groupId: string, firstHiddenId: string) =>
+  `${SHOW_MORE_ID_PREFIX}${groupId}::${firstHiddenId}`;
+export function readShowMoreId(id: string): { groupId: string; firstHiddenId: string } {
+  const rest = id.slice(SHOW_MORE_ID_PREFIX.length);
+  const at = rest.indexOf("::");
+  return { groupId: rest.slice(0, at), firstHiddenId: rest.slice(at + 2) };
+}
 export const COMMAND_CENTER_CATEGORY_FILTERS: readonly CommandCenterCategoryFilter[] = [
   "all",
   "chats",
@@ -648,6 +664,10 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
     query: string;
     filter?: CommandCenterCategoryFilter;
     rankingState?: CommandRankingState;
+    /** Groups the user opened with "Show more"; they list every row. */
+    expandedGroups?: ReadonlySet<string>;
+    /** Builds a group's "Show more" row from its hidden rows. Without it, groups are not capped. */
+    makeShowMoreRow?: (groupId: CommandCenterResultGroupId, hidden: T[]) => T;
   },
 ): CommandCenterPresentation<T> {
   const filter = options.filter ?? "all";
@@ -692,7 +712,8 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
     const groupOrder = groups.has("continue") ? COMMAND_CENTER_RETURNING_GROUP_ORDER : COMMAND_CENTER_EMPTY_GROUP_ORDER;
     const presentedGroups = groupOrder.flatMap((id) => {
       const groupResults = groups.get(id);
-      return groupResults ? [{ id, results: groupResults }] : [];
+      if (!groupResults) return [];
+      return [{ id, results: groupResults }];
     });
     return {
       filter,
@@ -719,7 +740,24 @@ export function presentCommandCenterResults<T extends CommandCenterPresentableRe
     : COMMAND_CENTER_SEARCH_GROUP_ORDER;
   const presentedGroups = groupOrder.flatMap((id) => {
     const groupResults = groups.get(id);
-    return groupResults ? [{ id, results: groupResults }] : [];
+    if (!groupResults) return [];
+    const { makeShowMoreRow } = options;
+    if (
+      !makeShowMoreRow ||
+      groupResults.length <= COMMAND_CENTER_GROUP_LIMIT ||
+      UNCAPPED_GROUPS.has(id) ||
+      options.expandedGroups?.has(id)
+    ) {
+      return [{ id, results: groupResults }];
+    }
+    const shown = groupResults.slice(0, COMMAND_CENTER_GROUP_LIMIT);
+    return [
+      {
+        id,
+        results: [...shown, makeShowMoreRow(id, groupResults.slice(COMMAND_CENTER_GROUP_LIMIT))],
+        total: groupResults.length,
+      },
+    ];
   });
   return {
     filter,

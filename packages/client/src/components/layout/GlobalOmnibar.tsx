@@ -59,6 +59,9 @@ import { isLanguageGenerationConnection } from "../../lib/connection-filters";
 import {
   COMMAND_CENTER_CATEGORY_FILTERS,
   presentCommandCenterResults,
+  readShowMoreId,
+  SHOW_MORE_ID_PREFIX,
+  showMoreId,
   rankCommandResults,
   readCommandCenterSessionState,
   readCommandRankingState,
@@ -874,14 +877,32 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       ranking,
     ).map(({ result }) => ({ ...sourceById.get(result.command.id)!, command: result.command }));
   }, [ranking, relevanceFilteredResults]);
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(() => new Set());
   const presentation = useMemo(
     () =>
       presentCommandCenterResults(rankedResults, {
         query: deferredQuery,
         filter,
         rankingState: ranking,
+        expandedGroups,
+        // A clone of the first hidden row keeps the row shape valid; id and title make it the "Show more" row.
+        makeShowMoreRow: (groupId, hidden) => ({
+          ...hidden[0],
+          id: showMoreId(groupId, hidden[0].id),
+          title: t("omnibar.showMore", { count: hidden.length }),
+          description: undefined,
+          snippet: undefined,
+          contextLabel: undefined,
+          meta: undefined,
+          metadata: undefined,
+          preview: undefined,
+          control: undefined,
+          chooseValue: undefined,
+          parentId: undefined,
+          now: undefined,
+        }),
       }),
-    [filter, deferredQuery, rankedResults, ranking],
+    [filter, deferredQuery, rankedResults, ranking, expandedGroups, t],
   );
   const idle = !query.trim() && presentation.groups.length === 0;
   const listVisible = pane !== "mari" && !idle;
@@ -916,6 +937,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     setExpandedChoiceId(null);
     setExpandedPreviewId(null);
+    setExpandedGroups(new Set());
   }, [deferredQuery, filter]);
   // Message and lorebook-entry hits arrive after the Ask row was promoted, so they
   // are checked here too: when the library already answers, no model is called.
@@ -1495,6 +1517,12 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     toast.success(label, { action: { label: t("ui.chat.chatresourcedropoverlay.undo", "Undo"), onClick: flip.undo } });
   };
   const selectResult = (result: RankedOmnibarResult) => {
+    if (result.id.startsWith(SHOW_MORE_ID_PREFIX)) {
+      const { groupId, firstHiddenId } = readShowMoreId(result.id);
+      setExpandedGroups((current) => new Set(current).add(groupId));
+      setActiveResultId(firstHiddenId);
+      return;
+    }
     if (chooseChoiceOption(result)) return;
     // A first tap opens the preview; a tap on the open row runs Enter, which the
     // preview no longer repeats as a chip.
