@@ -526,6 +526,20 @@ const RISU_TOP_LEVEL_EXTENSIONS = [
   "world",
 ] as const;
 
+/**
+ * Extension fields some exporters write beside a card's `extensions` instead of inside it. The card's own
+ * `extensions` wins where both are set (callers spread it on top).
+ */
+function cardTopLevelExtensions(card: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ["depth_prompt", "talkativeness", "regex_scripts", "backstory", "appearance"]) {
+    if (card[key] !== undefined) picked[key] = card[key];
+  }
+  if (picked.depth_prompt === undefined && card.depthPrompt !== undefined) picked.depth_prompt = card.depthPrompt;
+  if (picked.regex_scripts === undefined && card.regexScripts !== undefined) picked.regex_scripts = card.regexScripts;
+  return picked;
+}
+
 function recordOrEmpty(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -547,15 +561,7 @@ function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown
     return extensions;
   }
   const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-  return recordOrEmpty(cardData.extensions);
-}
-
-/** The regex scripts a card carries: its extensions first, then a top-level field some exporters write instead. */
-function cardRegexScripts(raw: Record<string, unknown>): unknown {
-  const fromExtensions = rawCardExtensions(raw).regex_scripts;
-  if (fromExtensions !== undefined) return fromExtensions;
-  const cardData = recordOrEmpty(raw.data && typeof raw.data === "object" ? raw.data : raw);
-  return cardData.regex_scripts ?? cardData.regexScripts ?? raw.regex_scripts ?? raw.regexScripts;
+  return { ...cardTopLevelExtensions(cardData), ...recordOrEmpty(cardData.extensions) };
 }
 
 /**
@@ -572,7 +578,7 @@ async function importEmbeddedRegexScripts(
   scope: "character" | "global" | undefined,
   update?: { recordedIds: string[] | null },
 ) {
-  const importedRegex = convertStRegexScripts(cardRegexScripts(raw), {
+  const importedRegex = convertStRegexScripts(rawCardExtensions(raw).regex_scripts, {
     characterIds: (scope ?? "character") === "global" ? [] : [charId],
   });
   const regexStorage = createRegexScriptsStorage(db);
@@ -1294,7 +1300,10 @@ function resolveCharXAsset(zip: ZipArchive, uri: string, ext?: string): string |
 function normalizeV2(raw: Record<string, unknown>): CharacterData {
   // Ruleset sheets travel dormant under their key; only one the boundary would refuse is dropped.
   // The raw key is taken out of the spread below, so a value that is not a sheet map leaves nothing.
-  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = optionalRecord(raw.extensions);
+  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = {
+    ...cardTopLevelExtensions(raw),
+    ...optionalRecord(raw.extensions),
+  };
   const onboardingImport = dropUnreadableOnboarding(extensionsWithOnboarding);
   const rawExtensions = onboardingImport.extensions;
   if (onboardingImport.dropped)
@@ -1423,7 +1432,7 @@ function convertV1toV2(raw: Record<string, unknown>): CharacterData {
     creator: raw.creator ?? "",
     character_version: raw.character_version ?? "",
     alternate_greetings: raw.alternate_greetings ?? [],
-    extensions: raw.extensions ?? {},
+    extensions: { ...cardTopLevelExtensions(raw), ...optionalRecord(raw.extensions) },
     character_book: raw.character_book ?? null,
   });
 }
