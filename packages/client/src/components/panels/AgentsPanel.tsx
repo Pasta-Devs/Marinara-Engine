@@ -1816,8 +1816,7 @@ export function AgentsPanel() {
               })()}
               renderRow={(index) => {
                 const agent = visibleCustomAgents[index]!;
-                return;
-                renderAgentCard({
+                return renderAgentCard({
                   needs: agentModelNeed(agent.type, agent.settings),
                   localizeUi,
                   id: agent.id,
