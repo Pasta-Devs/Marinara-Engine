@@ -1905,6 +1905,7 @@ async function createDynamicGameImagePromptGenerator(args: {
     // Only the player's own switch makes the rewrite required. A customized Illustrator prompt or
     // Prompt Director turns it on as well, but a failure there must not stop the picture being sent.
     generator.required = explicitlyEnabled;
+    generator.signal = args.signal;
     return generator;
   } catch (err) {
     logger.warn(err, "[game/dynamic-image-prompt] Failed to initialise dynamic prompt generation");
