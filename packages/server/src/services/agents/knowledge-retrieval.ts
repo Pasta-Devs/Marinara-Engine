@@ -15,14 +15,6 @@ import {
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 import { executeAgent, type AgentExecConfig } from "./agent-executor.js";
 
-/**
- * Rough token estimate: ~4 characters per token for English text.
- * We leave headroom for the system prompt + context block.
- */
-function estimateTokens(text: string): number {
-  return estimateTextTokens(text);
-}
-
 function normalizeSourceContextBudget(value: unknown, fallback = 6000): number {
   const parsed = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
   if (!Number.isFinite(parsed) || parsed < 256) return fallback;
@@ -58,7 +50,7 @@ function chunkText(text: string, maxTokens: number): string[] {
   let current = "";
 
   for (const entry of entries) {
-    if (estimateTokens(entry) > maxTokens) {
+    if (estimateTextTokens(entry) > maxTokens) {
       if (current.trim()) {
         chunks.push(current.trim());
         current = "";
@@ -68,7 +60,7 @@ function chunkText(text: string, maxTokens: number): string[] {
     }
 
     const combined = current ? current + "\n\n" + entry : entry;
-    if (estimateTokens(combined) > maxTokens && current) {
+    if (estimateTextTokens(combined) > maxTokens && current) {
       chunks.push(current.trim());
       current = entry;
     } else {
@@ -106,7 +98,7 @@ export async function executeKnowledgeRetrieval(
     : requestedContextBudget;
   const contextBudget = Math.min(requestedContextBudget, providerContextBudget);
 
-  const materialTokens = estimateTokens(sourceMaterial);
+  const materialTokens = estimateTextTokens(sourceMaterial);
 
   // ── Single-pass: material fits in one call ──
   if (materialTokens <= contextBudget) {
