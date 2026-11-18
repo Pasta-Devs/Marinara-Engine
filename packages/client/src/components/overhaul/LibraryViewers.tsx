@@ -877,7 +877,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       devices.push({
         id: DECISION_DEVICE_ID,
         name: decisionEngine.name,
-        sub: decisionEngine.state,
+        sub: [decisionEngine.state, decisionEngine.detail].filter(Boolean).join(" · "),
         lead: <ProviderIcon provider="decision" size="sm" dim={decisionEngine.tone !== "ok"} />,
       });
     if (embeddingEngine && (!needle || embeddingEngine.name.toLowerCase().includes(needle)))
@@ -929,21 +929,13 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
           onClose={closeConnectionDetail}
         />
       ) : selectedId === EMBEDDING_DEVICE_ID ? (
+        // Every model on this device fills the same page frame, so they line up when you switch between them.
         <div className="ov-devpage">
-          <div className="p-4">
-            <BuiltinEmbeddingDetail />
-          </div>
+          <BuiltinEmbeddingDetail />
         </div>
       ) : selectedId === DECISION_DEVICE_ID ? (
         <div className="ov-devpage">
-          <header className="ov-devpage__head">
-            <ProviderIcon provider="decision" size="sm" />
-            <h3>{decisionEngine?.name ?? localize("Built-in model (decisions)")}</h3>
-            {decisionEngine ? <span className="ov-conn__dim">{decisionEngine.state}</span> : null}
-          </header>
-          <div className="p-4">
-            <DecisionModelModal />
-          </div>
+          <DecisionModelModal />
         </div>
       ) : device ? (
         <div className="ov-devpage">
@@ -970,6 +962,7 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
   const closeConnectionDetail = useUIStore((s) => s.closeConnectionDetail);
   const decisionEngine = useDecisionEngine();
   const embeddingEngine = useBuiltinEmbeddingState();
+  const deviceEngines = useDeviceEngines();
   const splitCrumbs = useSplitTouchCrumbs();
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
     ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
@@ -985,7 +978,8 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
   const title = accountPage
     ? localize("Account")
     : device
-      ? t(`connections.add.device.${device === "local-model" ? "local_model" : device}`)
+      ? (deviceEngines.find((entry) => entry.item === device)?.name ??
+        t(`connections.add.device.${device === "local-model" ? "local_model" : device}`))
       : embeddingPage
         ? (embeddingEngine?.name ?? t("connections.builtinEmbedding.name"))
         : (decisionEngine?.name ?? localize("Built-in model (decisions)"));
@@ -1028,15 +1022,11 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
         </div>
       ) : embeddingPage ? (
         <div className="ov-devpage">
-          <div className="p-4">
-            <BuiltinEmbeddingDetail />
-          </div>
+          <BuiltinEmbeddingDetail />
         </div>
       ) : (
         <div className="ov-devpage">
-          <div className="p-4">
-            <DecisionModelModal />
-          </div>
+          <DecisionModelModal />
         </div>
       )}
     </section>

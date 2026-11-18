@@ -30,6 +30,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { Spinner } from "../ui/Spinner";
 import {
   DETAIL_CARD_CLASS,
+  DEVICE_FIELD,
   DetailHero,
   FactRow,
   formatBytes,
@@ -39,8 +40,6 @@ import {
 } from "./DeviceDetail";
 import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { ProviderIcon } from "./ProviderIcon";
-
-const FIELD = "mari-chrome-field h-8 w-full max-w-[18rem] px-2 text-xs max-md:h-11 max-sm:text-base";
 
 /** The page's state as one coloured word, shared with the On this device rows. */
 export function useBuiltinEmbeddingState(): { name: string; tone: EngineTone; state: string; detail: string } | null {
@@ -236,7 +235,7 @@ export function BuiltinEmbeddingDetail() {
       )}
 
       {!data.runtimeInstalled && (
-        <div className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5 text-[0.6875rem]">
+        <div className="mari-device-warn rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5 text-[0.6875rem]">
           <p className="text-[var(--foreground)]">{t("connections.builtinEmbedding.needsRuntime")}</p>
           <button
             type="button"
@@ -251,7 +250,7 @@ export function BuiltinEmbeddingDetail() {
       {data.error && !data.running && (
         <div
           role="alert"
-          className="rounded-lg border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/5 p-2.5 text-[0.6875rem]"
+          className="mari-device-warn rounded-lg border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/5 p-2.5 text-[0.6875rem]"
         >
           <div className="font-medium text-[var(--marinara-app-accent-static)]">
             {t("connections.builtinEmbedding.didNotStart")}
@@ -261,7 +260,7 @@ export function BuiltinEmbeddingDetail() {
       )}
 
       <section className={DETAIL_CARD_CLASS}>
-        <FactRow label={t("connections.device.fact.model")} stack>
+        <FactRow label={t("connections.device.fact.model")}>
           {/* A dropdown, not chips: a phone has room for the name on one line and little more. */}
           <select
             value={(active ?? choice).id}
@@ -271,7 +270,7 @@ export function BuiltinEmbeddingDetail() {
               if (model) void pickModel(model);
             }}
             aria-label={t("connections.device.fact.model")}
-            className={FIELD}
+            className={DEVICE_FIELD}
           >
             {data.models.map((model) => (
               <option key={model.id} value={model.id}>
@@ -302,13 +301,13 @@ export function BuiltinEmbeddingDetail() {
         <FactRow label={t("connections.device.fact.usedBy")}>
           {isDefault ? t(jobLabelKey(JOB.embeddings)) : t("connections.device.usedBy.none")}
         </FactRow>
-        <FactRow label={t("connections.builtinEmbedding.runsOn")} stack>
+        <FactRow label={t("connections.builtinEmbedding.runsOn")}>
           <select
             value={data.device}
             disabled={busy}
             onChange={(event) => setDevice.mutate(event.target.value as "auto" | "cpu", { onError: report })}
             aria-label={t("connections.builtinEmbedding.runsOn")}
-            className={FIELD}
+            className={DEVICE_FIELD}
           >
             <option value="auto">{t("connections.builtinEmbedding.device.auto")}</option>
             <option value="cpu">{t("connections.builtinEmbedding.device.cpu")}</option>

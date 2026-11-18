@@ -177,9 +177,7 @@
    label still reads over the art (theming round 4). --mari-top-bar-plate-active restyles it. */
 :root[data-mari-top-bar-art]
   [data-component="TopBar"]
-  :is([role="tab"], button, a, .ov-tab):is([aria-selected="true"], [aria-pressed="true"], .is-active):not(
-      .ov-tab > *
-    ) {
+  :is([role="tab"], button, a, .ov-tab):is([aria-selected="true"], [aria-pressed="true"], .is-active):not(.ov-tab > *) {
   background-color: var(
     --mari-top-bar-plate-active,
     color-mix(
@@ -596,7 +594,6 @@
 :root[data-mari-min-ui-text] .ov-classic__label,
 :root[data-mari-min-ui-text] .ov-classic__step-text small,
 :root[data-mari-min-ui-text] .connection-picker-dialog [data-switcher-accounts] .mari-chrome-control,
-:root[data-mari-min-ui-text] .mari-dm-row .text-xs,
 :root[data-mari-min-ui-text] .ov-swipe-chip,
 :root[data-mari-min-ui-text] .ovm-omni-cat {
   font-size: max(0.6875rem, var(--mari-min-ui-text));
@@ -614,8 +611,18 @@
 :root[data-mari-min-ui-text] .ov-tag,
 :root[data-mari-min-ui-text] .ov-ed .mari-editor-panel > .mb-4 :is(h2, h3),
 :root[data-mari-min-ui-text] .ov-card__tags,
-:root[data-mari-min-ui-text] [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:first-child,
-:root[data-mari-min-ui-text] [data-ov-settings-sections] section[id^="settings-section-"] > div:first-child > div:first-of-type > div:nth-child(2),
+:root[data-mari-min-ui-text]
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:first-child
+  > div:first-of-type
+  > div:first-child,
+:root[data-mari-min-ui-text]
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:first-child
+  > div:first-of-type
+  > div:nth-child(2),
 :root[data-mari-min-ui-text] .ov-sheet__eyebrow small,
 :root[data-mari-min-ui-text] .ov-attr__name,
 :root[data-mari-min-ui-text] .ov-sheet__color code,
@@ -655,16 +662,22 @@
 :root[data-mari-min-ui-text] .ov-gpane__bar,
 :root[data-mari-min-ui-text] .ov-gset__meta,
 :root[data-mari-min-ui-text] .ov-week__dh,
-:root[data-mari-min-ui-text] .ov-cs.ov-cs
+:root[data-mari-min-ui-text]
+  .ov-cs.ov-cs
   .mari-drawer__body
   :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), select),
 :root[data-mari-min-ui-text] .ov-cs.ov-cs .mari-drawer__body textarea,
 :root[data-mari-min-ui-text] .ov-cs.ov-cs .mari-drawer__body [role="tablist"] > [role="tab"],
-:root[data-mari-min-ui-text] .ov-cs.ov-cs
+:root[data-mari-min-ui-text]
+  .ov-cs.ov-cs
   .mari-drawer__body
   div:has(> label:first-child + :is(input:not([type="checkbox"]), select):last-child)
   > label,
-:root[data-mari-min-ui-text] .ov-cs.ov-cs .mari-drawer__body .justify-between:has(input[type="checkbox"]) > span:first-child,
+:root[data-mari-min-ui-text]
+  .ov-cs.ov-cs
+  .mari-drawer__body
+  .justify-between:has(input[type="checkbox"])
+  > span:first-child,
 :root[data-mari-min-ui-text] .ov-cs.ov-cs [data-chat-settings-model-field] > button > .flex-col > span:first-child,
 :root[data-mari-min-ui-text] .ov-vw__crumb,
 :root[data-mari-min-ui-text] .ov-vw__num,
@@ -714,9 +727,6 @@
 :root[data-mari-min-ui-text] .ov-classic__count,
 :root[data-mari-min-ui-text] .ov-classic__choice small,
 :root[data-mari-min-ui-text] .ov-classic__help,
-:root[data-mari-min-ui-text] .mari-dm-body > * > .mari-chrome-accent-surface.rounded-xl,
-:root[data-mari-min-ui-text] .mari-dm-body .flex-col > .mari-chrome-accent-surface.rounded-xl,
-:root[data-mari-min-ui-text] .mari-dm-warn p,
 :root[data-mari-min-ui-text] .ov-devpage .mari-chrome-control,
 :root[data-mari-min-ui-text] .mari-device-runtime > h4,
 :root[data-mari-min-ui-text] .mari-device-runtime [role="radiogroup"] button,
@@ -735,14 +745,16 @@
 :root[data-mari-min-ui-text] .ovm-cs-row__count,
 :root[data-mari-min-ui-text] .ovm-cs-group,
 :root[data-mari-min-ui-text] .ovm-drill-group,
-:root[data-mari-min-ui-text] :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
+:root[data-mari-min-ui-text]
+  :is(.ov-lv, .ovm-preset, .ov-ed, .ovm-settings)
   :is(.text-\[0\.5rem\], .text-\[0\.5625rem\], .text-\[0\.625rem\]):not(#ovm-x),
 :root[data-mari-min-ui-text] .ovm-chats-menu__label,
 :root[data-mari-min-ui-text] .ov-ed .mari-editor-action.h-7:not(#ovm-x),
 :root[data-mari-min-ui-text] .ov-add-sheet .ov-add-list__section,
 :root[data-mari-min-ui-text] .ov-add-sheet .ov-add-list__group,
 :root[data-mari-min-ui-text] .ov-add-sheet .ov-add-list__row > :first-child,
-:root[data-mari-min-ui-text] .ovm-settings
+:root[data-mari-min-ui-text]
+  .ovm-settings
   [data-ov-settings-sections]
   section[id^="settings-section-"]
   > div:first-child
@@ -788,7 +800,10 @@
 :root[data-mari-min-ui-text] .ov-table__mono,
 :root[data-mari-min-ui-text] .ov-settings__results button,
 :root[data-mari-min-ui-text] .ov-chip,
-:root[data-mari-min-ui-text] [data-ov-settings-sections] section[id^="settings-section-"] .text-xs:not(.mari-chrome-control),
+:root[data-mari-min-ui-text]
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  .text-xs:not(.mari-chrome-control),
 :root[data-mari-min-ui-text] .ov-sheet__off,
 :root[data-mari-min-ui-text] .ov-sheet__add,
 :root[data-mari-min-ui-text] .ov-sheet__foot span,
@@ -824,15 +839,22 @@
 :root[data-mari-min-ui-text] .ov-edbtn,
 :root[data-mari-min-ui-text] .ov-savestate,
 :root[data-mari-min-ui-text] .ov-row__label,
-:root[data-mari-min-ui-text] .ov-ed
+:root[data-mari-min-ui-text]
+  .ov-ed
   input:not([type="checkbox"]):not([type="range"]):not([type="color"]):not(.ov-edhead__title):not(.ov-chipbox input),
 :root[data-mari-min-ui-text] .ov-ed select,
 :root[data-mari-min-ui-text] .ov-ed textarea,
 :root[data-mari-min-ui-text] .ov-ed__link,
 :root[data-mari-min-ui-text] .ov-ed__banner,
-:root[data-mari-min-ui-text] .ov-coned .ov-cf__control input:not([type="checkbox"]):not([type="range"]):not([type="color"]),
+:root[data-mari-min-ui-text]
+  .ov-coned
+  .ov-cf__control
+  input:not([type="checkbox"]):not([type="range"]):not([type="color"]),
 :root[data-mari-min-ui-text] .ov-coned .ov-cf__control select,
-:root[data-mari-min-ui-text] .ov-agented .ov-cf__control input:not([type="checkbox"]):not([type="range"]):not([type="color"]):not([type="number"]),
+:root[data-mari-min-ui-text]
+  .ov-agented
+  .ov-cf__control
+  input:not([type="checkbox"]):not([type="range"]):not([type="color"]):not([type="number"]),
 :root[data-mari-min-ui-text] .ov-agented .ov-cf__control select,
 :root[data-mari-min-ui-text] :is(.ov-agented, .ov-coned) .ov-cf__control .grid > button[class*="rounded-xl"],
 :root[data-mari-min-ui-text] .ov-povw input,
@@ -843,11 +865,13 @@
 :root[data-mari-min-ui-text] .ov-cs-edit__hint,
 :root[data-mari-min-ui-text] .ov-cs-edit__panel,
 :root[data-mari-min-ui-text] .ov-cs .mari-drawer__body,
-:root[data-mari-min-ui-text] .ov-cs
+:root[data-mari-min-ui-text]
+  .ov-cs
   .mari-drawer__body
   :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select),
 :root[data-mari-min-ui-text] .ov-cs .mari-drawer__body textarea,
-:root[data-mari-min-ui-text] .ov-cs
+:root[data-mari-min-ui-text]
+  .ov-cs
   .mari-drawer__body
   button[class*="rounded"]:is([class*="ring-1"], [class*="bg-[var(--secondary)]"], [class*="border"]):not(
     [role="switch"]
@@ -864,8 +888,11 @@
 :root[data-mari-min-ui-text] .ov-sched__search input,
 :root[data-mari-min-ui-text] .ov-sched__row p,
 :root[data-mari-min-ui-text] .ov-schedEd,
-:root[data-mari-min-ui-text] .ov-schedEd :is(select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), textarea),
-:root[data-mari-min-ui-text] .ov-cs.ov-cs.ov-cs
+:root[data-mari-min-ui-text]
+  .ov-schedEd
+  :is(select, input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]), textarea),
+:root[data-mari-min-ui-text]
+  .ov-cs.ov-cs.ov-cs
   .mari-drawer[data-chat-settings-section="connection"]
   .mari-drawer__body
   [data-chat-settings-model-field]
@@ -887,14 +914,28 @@
 :root[data-mari-min-ui-text] .ov-lv-tools select,
 :root[data-mari-min-ui-text] :is(.ov-lv-tools__acts, .ov-po-tools) button.mari-editor-action,
 :root[data-mari-min-ui-text] .ov-vw__top small,
-:root[data-mari-min-ui-text] .marinara-chat-popover.mari-chat-action-panel
+:root[data-mari-min-ui-text]
+  .marinara-chat-popover.mari-chat-action-panel
   .mari-chat-style-control:not(.mari-chrome-control),
-:root[data-mari-min-ui-text] .marinara-chat-popover.mari-chat-action-panel
+:root[data-mari-min-ui-text]
+  .marinara-chat-popover.mari-chat-action-panel
   :is(textarea, select, input:not([type="checkbox"])),
 :root[data-mari-min-ui-text] .ov-mari .mari-link,
-:root[data-mari-min-ui-text] [data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] :is(section, .grid) > :is(div, button).min-h-12,
-:root[data-mari-min-ui-text] [data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .grid > button.min-h-11,
-:root[data-mari-min-ui-text] [data-overhaul="on"] [data-component="HomeBrowserHub.WidgetManager"] .min-h-12 > span.text-sm,
+:root[data-mari-min-ui-text]
+  [data-overhaul="on"]
+  [data-component="HomeBrowserHub.WidgetManager"]
+  :is(section, .grid)
+  > :is(div, button).min-h-12,
+:root[data-mari-min-ui-text]
+  [data-overhaul="on"]
+  [data-component="HomeBrowserHub.WidgetManager"]
+  .grid
+  > button.min-h-11,
+:root[data-mari-min-ui-text]
+  [data-overhaul="on"]
+  [data-component="HomeBrowserHub.WidgetManager"]
+  .min-h-12
+  > span.text-sm,
 :root[data-mari-min-ui-text] .ov-mari .mari-omnibar-header-menu__popover button,
 :root[data-mari-min-ui-text] .ov-mari-assist,
 :root[data-mari-min-ui-text] .ov-mref__search,
@@ -936,16 +977,9 @@
 :root[data-mari-min-ui-text] .ov-classic__tree-name span,
 :root[data-mari-min-ui-text] .ov-classic__identity p,
 :root[data-mari-min-ui-text] .mari-connection-scope .mari-builtin-option > span.flex-col > span:first-child,
-:root[data-mari-min-ui-text] .mari-dm-hero p:first-child,
-:root[data-mari-min-ui-text] .mari-dm-warn > div:first-child,
 :root[data-mari-min-ui-text] .mari-connection-scope .mari-tts-field .mari-chrome-field,
 :root[data-mari-min-ui-text] .connection-picker-dialog [data-switcher-accounts] strong,
-:root[data-mari-min-ui-text] .mari-dm-body,
-:root[data-mari-min-ui-text] .mari-dm-hero .text-sm,
-:root[data-mari-min-ui-text] .mari-dm-row .text-sm,
-:root[data-mari-min-ui-text] .mari-dm-body .rounded-xl.border:not(.mari-dm-warn):not(.mari-dm-row) .mari-chrome-field,
 :root[data-mari-min-ui-text] .ov-vw__main > .ov-devpage,
-:root[data-mari-min-ui-text] .mari-dm-body .rounded-xl.border:not(.mari-dm-warn):not(.mari-dm-row) input,
 :root[data-mari-min-ui-text] .mari-device-runtime select,
 :root[data-mari-min-ui-text] .mari-device-runtime input:not([type="checkbox"]):not([type="range"]),
 :root[data-mari-min-ui-text] .mari-device-runtime .text-sm,
@@ -1177,7 +1211,9 @@
                              the user's "Profile pictures on phones" setting is Mini
    --mari-mini-avatar-size   size of the mini picture by the name on phones ([data-mari-part="mini-avatar"],
                              data-role user|assistant); --mari-mini-avatar-ring is its box-shadow */
-:root[data-mari-message-measure] :is([data-chat-mode="roleplay"], [data-chat-mode="conversation"]) .mari-message-content {
+:root[data-mari-message-measure]
+  :is([data-chat-mode="roleplay"], [data-chat-mode="conversation"])
+  .mari-message-content {
   max-width: var(--mari-message-measure);
 }
 /* Roleplay text takes --mari-chat-line-height inline (ChatMessage); conversation lines keep their own

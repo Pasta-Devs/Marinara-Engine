@@ -56,6 +56,8 @@ import { Spinner } from "../ui/Spinner";
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
 
 export const SMALL_ACTION = "mari-chrome-control px-2.5";
+/** A dropdown or text field inside a facts row: the same size on every model's page. */
+export const DEVICE_FIELD = "mari-chrome-field h-8 w-full max-w-[18rem] px-2 text-xs max-md:h-11 max-sm:text-base";
 /** The facts and models card of a detail page, coloured from the Connections panel tokens. */
 export const DETAIL_CARD_CLASS =
   "mari-device-card mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
@@ -152,14 +154,11 @@ export function DetailHero({
 }
 
 /** `stack` puts the label above on a phone, for a dropdown that needs the whole width to show its choice. */
-export function FactRow({ label, children, stack }: { label: string; children: ReactNode; stack?: boolean }) {
+export function FactRow({ label, children }: { label: string; children: ReactNode }) {
+  // Label left on every screen size, so a page with a dropdown lines up with one without.
+  // On a phone values wrap to several lines, so the label sits on the first line, not the middle.
   return (
-    <div
-      className={cn(
-        "flex min-h-9 items-center gap-3 text-xs",
-        stack && "max-sm:flex-col max-sm:items-stretch max-sm:gap-1",
-      )}
-    >
+    <div className="flex min-h-9 items-center gap-3 text-xs max-sm:items-baseline max-sm:py-2">
       <span className="w-20 shrink-0 text-[var(--muted-foreground)]">{label}</span>
       <span className="min-w-0 flex-1">{children}</span>
     </div>
@@ -547,7 +546,7 @@ function LocalModelDetail() {
 
       {failed && (
         <div
-          className="rounded-lg border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/5 p-2.5"
+          className="mari-device-warn rounded-lg border border-[var(--marinara-app-accent-static)]/20 bg-[var(--marinara-app-accent-static)]/5 p-2.5"
           role="alert"
         >
           <div className="text-[0.6875rem] font-medium text-[var(--marinara-app-accent-static)]">
@@ -875,27 +874,44 @@ export function DeviceDetail({ item }: { item: DeviceItem }) {
     (entry) => entry.status !== "error" && entry.manifest.kind.includes("conversation-calls"),
   );
   if (item === "local-model") return isLite ? null : <LocalModelDetail />;
+  const job = item === "tts" ? "voice" : "stt";
+  const inUse = engine?.tone === "ok";
+  // The same frame as the other models on this device: hero, one row of actions, then the facts card.
   return (
     <div className="flex flex-col gap-3">
       <DetailHero
         icon={<ProviderIcon provider={item} size="lg" />}
-        title={t(item === "tts" ? "connections.add.device.tts" : "connections.add.device.stt")}
+        title={engine?.name ?? t(item === "tts" ? "connections.add.device.tts" : "connections.add.device.stt")}
       >
         {engine ? (
           <StateWord tone={engine.tone} label={engine.state} />
         ) : (
           <StateWord tone="off" label={t("connections.accounts.state.off")} />
         )}
-        <span>· {engine?.detail || t("connections.accounts.section.device")}</span>
+        <span>· {t("connections.accounts.section.device")}</span>
       </DetailHero>
-      {/* The Voice and Dictation settings live in their jobs; this page keeps the engine. */}
-      <button
-        type="button"
-        onClick={() => useUIStore.getState().openModal("job-settings", { job: item === "tts" ? "voice" : "stt" })}
-        className={cn(SMALL_ACTION, "self-start")}
-      >
-        {t("connections.device.openJobSettings")}
-      </button>
+      <div className="flex flex-wrap gap-1.5">
+        {engine?.fix && (
+          <button type="button" onClick={engine.fix.run} className={SMALL_ACTION}>
+            {engine.fix.label}
+          </button>
+        )}
+        {/* The Voice and Dictation settings live in their jobs; this page keeps the engine. */}
+        <button
+          type="button"
+          onClick={() => useUIStore.getState().openModal("job-settings", { job })}
+          className={SMALL_ACTION}
+        >
+          <Settings2 size="0.75rem" />
+          {t("connections.device.openJobSettings")}
+        </button>
+      </div>
+      <section className={DETAIL_CARD_CLASS}>
+        <FactRow label={t("connections.device.fact.model")}>{engine?.name ?? "—"}</FactRow>
+        <FactRow label={t("connections.device.fact.usedBy")}>
+          {inUse ? t(jobLabelKey(item === "tts" ? JOB.voice : JOB.stt)) : t("connections.device.usedBy.none")}
+        </FactRow>
+      </section>
       {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
     </div>
   );

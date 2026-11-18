@@ -243,7 +243,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
           {
             item: "decision" as DeviceItem,
             name: decision.name,
-            detail: "",
+            detail: decision.detail,
             tone: decision.tone,
             state: decision.state,
             fix: undefined as { label: string; run: () => void } | undefined,
@@ -623,7 +623,13 @@ export function ConnectionsLanding() {
               ) : null}
               {via ? <span className="ov-conn__dim">· {via}</span> : null}
               {ownPath ? (
-                <span className="ov-conn__dim" title={`${t("connections.ownAddress.label")}: ${ownAddress}`}>
+                <span
+                  className="ov-conn__dim"
+                  title={localizeUi("ui.chat.quickreplymenu.value1Value2", {
+                    value1: t("connections.ownAddress.label"),
+                    value2: ownAddress,
+                  })}
+                >
                   · {ownPath}
                 </span>
               ) : null}

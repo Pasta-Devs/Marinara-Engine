@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
 import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decision-sidecar";
 import { useUIStore } from "../../../stores/ui.store";
 import { ListSearch, ListStatus } from "../../connections/ListFrame";
+import { ProviderIcon } from "../../connections/ProviderIcon";
+import { useDeviceEngines } from "../../connections/DeviceDetail";
+import { useBuiltinEmbeddingState } from "../../connections/BuiltinEmbeddingDetail";
+import { DECISION_DEVICE_ID, EMBEDDING_DEVICE_ID, useDecisionEngine } from "../../overhaul/decision-engine";
 import {
   DECISION_BUILTIN,
   isDevice,
@@ -72,6 +76,62 @@ const GROUP_TITLES: Record<string, string> = {
   all: "Services A–Z",
 };
 
+/** The id that opens a model on this device in the Connections viewer. */
+const ON_DEVICE = "on_device";
+
+/**
+ * The models Marinara runs on this computer, one row each: the built-in model, decisions, embeddings, voice and
+ * dictation. Picking one closes the menu and opens that model's page, where it downloads and runs.
+ */
+function OnDeviceList({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
+  const localize = useLocalizedUiText();
+  const engines = useDeviceEngines();
+  const decision = useDecisionEngine();
+  const embedding = useBuiltinEmbeddingState();
+  const engine = (item: string) => engines.find((entry) => entry.item === item);
+  const local = engine("local-model");
+  const rows = [
+    // The same order as the On this device rows in Connections.
+    local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
+    ...engines
+      .filter((entry) => entry.item === "tts" || entry.item === "stt")
+      .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
+    decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
+    embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
+  ].filter((row): row is { id: string; icon: string; name: string; state: string } => !!row);
+  const open = (id: string) => {
+    useUIStore.getState().closeModal();
+    useUIStore.getState().openConnectionDetail(id);
+  };
+  return (
+    <div className="ov-add-list" data-add-connection-on-device>
+      <div className="ov-add-list__top">
+        <button type="button" className="ov-add-list__back" onClick={onBack}>
+          <ChevronLeft size={14} aria-hidden="true" />
+          {localize("Back")}
+        </button>
+      </div>
+      <div className="ov-add-list__body">
+        <h4 className="ov-add-list__group">{t("connections.accounts.section.device")}</h4>
+        {rows.map((row) => (
+          <button
+            key={row.id}
+            type="button"
+            className="ov-add-list__row"
+            data-add-connection-device={row.id}
+            onClick={() => open(row.id)}
+          >
+            <ProviderIcon provider={row.icon} size="sm" />
+            <span className="ov-add-list__name">{row.name}</span>
+            <span className="ov-add-list__tag">{row.state}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Step 1: one provider list, filtered by search and model type. Engines on this device live in the This device card. */
 export function ServiceListStep({
   query,
@@ -98,6 +158,7 @@ export function ServiceListStep({
             : "all"
           : kind,
   );
+  const [onDevice, setOnDevice] = useState(false);
   const needle = query.trim().toLowerCase();
   const matches = (name: string, key?: ServiceId) =>
     !needle || `${name} ${key ? (SEARCH_ALIASES[key] ?? "") : ""}`.toLowerCase().includes(needle);
@@ -124,9 +185,25 @@ export function ServiceListStep({
   };
   const tiles: Tile[] = [];
   // The Decision job can also run on this machine; the tile opens the built-in model's page, where it installs.
-  const decision = useDecisionSidecar(kind === "decision" || compact);
+  const decision = useDecisionSidecar(kind === "decision" && !compact);
   const builtInName = t("connections.add.device.local_model");
-  if ((kind === "decision" || compact) && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
+  // The new layout's menu has one Built-in model row for every type that runs here; it opens their list.
+  if (
+    compact &&
+    matches(`${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation`)
+  ) {
+    tiles.push({
+      id: ON_DEVICE,
+      name: builtInName,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ServiceTile service="local_model" />,
+      open: () => setOnDevice(true),
+      types: ["text", "voice", "decision"],
+      group: "popular",
+    });
+  }
+  if (kind === "decision" && !compact && decision.data && !decisionCannotRun(decision.data) && matches(builtInName)) {
     tiles.push({
       id: DECISION_BUILTIN,
       name: builtInName,
@@ -134,7 +211,7 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => useUIStore.getState().openModal("device-detail", { item: "local-model" }),
-      types: compact ? [] : ["text"],
+      types: ["text"],
       group: "popular",
       decisionOnly: true,
     });
@@ -183,6 +260,7 @@ export function ServiceListStep({
         : tile.types.includes(type)),
   );
 
+  if (compact && onDevice) return <OnDeviceList onBack={() => setOnDevice(false)} />;
   if (compact) {
     const groups = SERVICE_GROUPS.map((group) => ({
       id: group.id,
