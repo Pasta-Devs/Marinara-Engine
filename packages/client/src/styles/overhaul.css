@@ -14402,3 +14402,63 @@ input.ov-edhead__title:not(#ov-x) {
   font-weight: 400;
   text-overflow: ellipsis;
 }
+
+/* Library > Extensions: the open extension's notes and code boxes (the rest is the shared editor). */
+.ov-exted__note {
+  margin: 0 0 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.ov-exted__note.is-danger,
+.ov-exted__danger {
+  color: var(--destructive);
+}
+.ov-ed textarea.ov-exted__code {
+  min-height: 14rem;
+  font-size: 0.75rem;
+}
+.ov-ed textarea.ov-exted__code.is-tall {
+  min-height: 24rem;
+}
+.ov-exted__value {
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+/* A requested permission: its switch, then the name with what it shares under it. */
+.ov-exted__cap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--ov-line);
+}
+.ov-exted__cap > .ov-switch {
+  flex: none;
+  margin-top: 0.125rem;
+}
+.ov-exted__cap > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+.ov-exted__cap b {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.ov-exted__cap small {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+.ov-exted__cap.is-locked > .ov-switch {
+  opacity: 0.6;
+}
+.ov-ed textarea.ov-exted__code[readonly] {
+  color: var(--ov-muted);
+}
+.ov-vw__new-short {
+  display: none;
+}

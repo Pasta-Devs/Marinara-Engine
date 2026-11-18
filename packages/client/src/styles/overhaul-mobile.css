@@ -5467,3 +5467,57 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 0.25rem;
 }
+
+/* Library > Extensions on phones and tablets: the list and the open extension are separate pages, like
+   Regex scripts there (the list fills the screen; an extension opens full screen with its ‹ back). The
+   landing tools are icons on their own line under the title, with Ask Professor Mari at its end. */
+:root[data-overhaul="mobile"] .ov-vw--drill:not(#ovm-x) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+:root[data-overhaul="mobile"] .ov-vw--drill:not(.has-item):not(.is-empty) > .ov-vw__main:not(#ovm-x) {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill:not(.has-item) > .ov-vw__left:not(#ovm-x) {
+  border-bottom: 0;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill.has-item > .ov-vw__left:not(#ovm-x),
+:root[data-overhaul="mobile"] .ov-vw--drill.has-item .ov-vw__top:not(#ovm-x) {
+  display: none;
+}
+/* The tools sit in the title line's flow: title and Ask Mari share the first line, the icons wrap below. */
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__actions:not(#ovm-x) {
+  display: contents;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__top:not(#ovm-x) {
+  flex-wrap: wrap;
+  column-gap: 0.5rem;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__top > h1:not(#ovm-x) {
+  /* Leaves room for Ask Mari only, so the icons start the next line. */
+  flex: 1 1 calc(100% - 9rem);
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__actions > .ov-btn--primary:not(#ovm-x) {
+  order: 1;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__actions > .ov-btn:not(.ov-btn--primary):not(#ovm-x) {
+  order: 2;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__new-full:not(#ovm-x) {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__new-short:not(#ovm-x) {
+  display: inline;
+}
+:root[data-overhaul="mobile"] .ov-vw--drill .ov-vw__actions > .ov-btn:not(.ov-btn--primary):not(#ovm-x) {
+  width: 2.5rem;
+  justify-content: center;
+  padding: 0;
+}
+:root[data-overhaul="mobile"]
+  .ov-vw--drill
+  .ov-vw__actions
+  > .ov-btn:not(.ov-btn--primary)
+  .ov-vw__tool-text:not(#ovm-x) {
+  display: none;
+}
