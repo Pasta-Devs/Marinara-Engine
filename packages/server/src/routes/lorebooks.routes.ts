@@ -93,7 +93,7 @@ import { sidecarModelService } from "../services/sidecar/sidecar-model.service.j
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside, toSafeExportName } from "../utils/security.js";
 import { parseLibraryPageQuery } from "../utils/list-pagination.js";
 import { createSeededRandom } from "../services/lorebook/seeded-random.js";
 import { lorebookTextRoutes } from "./lorebook-text.routes.js";
@@ -112,14 +112,6 @@ function parseCsvQuery(value: unknown) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
 }
 
 type ExportFormat = "native" | "compatible";
@@ -141,7 +133,7 @@ function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } 
 function getSafeLorebookImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(LOREBOOK_IMAGES_DIR, join(LOREBOOK_IMAGES_DIR, filename));
+    return resolveInside(LOREBOOK_IMAGES_DIR, filename);
   } catch {
     return null;
   }
@@ -546,7 +538,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const ext = extensionFromImageMime(imageInfo.mimeType);
     await mkdir(LOREBOOK_IMAGES_DIR, { recursive: true });
     const filename = `lorebook-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(LOREBOOK_IMAGES_DIR, join(LOREBOOK_IMAGES_DIR, filename));
+    const filepath = resolveInside(LOREBOOK_IMAGES_DIR, filename);
     await writeFile(filepath, buffer);
 
     // A new picture starts uncropped.

@@ -57,9 +57,10 @@ import {
   normalizeLoopbackUrl,
   parseImageDataUrl,
   safeFetch,
-  validateOutboundUrl,
+  resolveInside,
   type SafeFetchOptions,
 } from "../../utils/security.js";
+  validateOutboundUrl,
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
   isConnectionAdmissionFailure,
@@ -538,7 +539,7 @@ export function saveImageToDisk(
   options: SaveImageToDiskOptions = {},
 ): string {
   const ownerDir = options.shared ? "shared" : chatId;
-  const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ownerDir));
+  const dir = resolveInside(GALLERY_DIR, ownerDir);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const detectedMime = detectImageMimeType(base64);
   const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
@@ -549,7 +550,7 @@ export function saveImageToDisk(
 }
 
 export function removeSavedImageFromDisk(filePath: string): void {
-  const fullPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, filePath));
+  const fullPath = resolveInside(GALLERY_DIR, filePath);
   try {
     unlinkSync(fullPath);
   } catch (error) {
@@ -567,13 +568,13 @@ import { writeFileAtomicSync } from "../../utils/atomic-write.js";
  * startup sweep reclaims the space.
  */
 export function sweepStagedImages(): number {
-  const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
+  const stagingDir = resolveInside(GALLERY_DIR, ".staging", "noodle");
   let removed = 0;
   try {
     for (const entry of readdirSync(stagingDir)) {
       if (!entry.endsWith(".tmp")) continue;
       try {
-        unlinkSync(assertInsideDir(stagingDir, join(stagingDir, entry)));
+        unlinkSync(resolveInside(stagingDir, entry));
         removed += 1;
       } catch {
         /* best-effort sweep */
@@ -591,9 +592,9 @@ export function stageImageToDisk(chatId: string, base64: string, ext: string): S
   const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
   const filename = `${newId()}.${effectiveExt}`;
   const relativePath = `${chatId}/${filename}`;
-  const finalPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
-  const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
-  const stagedPath = assertInsideDir(stagingDir, join(stagingDir, `${filename}.${process.pid}.${Date.now()}.tmp`));
+  const finalPath = resolveInside(GALLERY_DIR, relativePath);
+  const stagingDir = resolveInside(GALLERY_DIR, ".staging", "noodle");
+  const stagedPath = resolveInside(stagingDir, `${filename}.${process.pid}.${Date.now()}.tmp`);
   mkdirSync(stagingDir, { recursive: true });
   try {
     writeFileSync(stagedPath, Buffer.from(base64, "base64"));

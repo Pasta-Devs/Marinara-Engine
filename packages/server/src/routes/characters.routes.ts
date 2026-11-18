@@ -106,7 +106,13 @@ import {
 } from "../utils/export-stream.js";
 import { createWriteStream, existsSync, rmSync, unlinkSync } from "fs";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import {
+  assertInsideDir,
+  extensionFromImageMime,
+  isAllowedImageBuffer,
+  resolveInside,
+  toSafeExportName,
+} from "../utils/security.js";
 import {
   sendValidatedMediaFile,
   validateImageAssetFile,
@@ -298,7 +304,7 @@ async function ensureCharacterGalleryDir(characterId: string) {
   if (isUnsafePathSegment(characterId)) {
     throw new Error("Invalid character id");
   }
-  const dir = assertInsideDir(CHARACTER_GALLERY_ROOT, join(CHARACTER_GALLERY_ROOT, characterId));
+  const dir = resolveInside(CHARACTER_GALLERY_ROOT, characterId);
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -307,7 +313,7 @@ async function ensurePersonaGalleryDir(personaId: string) {
   if (isUnsafePathSegment(personaId)) {
     throw new Error("Invalid persona id");
   }
-  const dir = assertInsideDir(PERSONA_GALLERY_ROOT, join(PERSONA_GALLERY_ROOT, personaId));
+  const dir = resolveInside(PERSONA_GALLERY_ROOT, personaId);
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -316,7 +322,7 @@ function ensureGalleryVideoDir(root: string, entityId: string) {
   if (isUnsafePathSegment(entityId)) {
     throw new Error("Invalid gallery video id");
   }
-  return assertInsideDir(root, join(root, entityId));
+  return resolveInside(root, entityId);
 }
 
 function galleryVideoManifestPath(root: string, entityId: string) {
@@ -396,7 +402,7 @@ async function removeGalleryVideoClip(root: string, entityId: string, clipId: st
   const entry = manifest.videos.find((video) => video.id === videoId);
   if (!entry) return false;
   const dir = ensureGalleryVideoDir(root, entityId);
-  const filePath = assertInsideDir(dir, join(dir, entry.filename));
+  const filePath = resolveInside(dir, entry.filename);
   await unlink(filePath).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "ENOENT") throw error;
   });
@@ -472,14 +478,6 @@ function labelFromUploadedClipFilename(filename: string): string {
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
 }
 
 type AvatarGenerationPromptOverride = {
@@ -687,7 +685,7 @@ async function readImageAsDataUrl(rootDir: string, filename: string): Promise<Da
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   let filepath: string;
   try {
-    filepath = assertInsideDir(rootDir, join(rootDir, filename));
+    filepath = resolveInside(rootDir, filename);
   } catch {
     return null;
   }
@@ -734,7 +732,7 @@ const CLEAN_UP_ORIGINALS_FOLDER = ".clean-up-originals";
 type CleanUpOriginal = { filename: string; width: number | null; height: number | null };
 
 function cleanUpOriginalsDir(galleryDir: string) {
-  return assertInsideDir(galleryDir, join(galleryDir, CLEAN_UP_ORIGINALS_FOLDER));
+  return resolveInside(galleryDir, CLEAN_UP_ORIGINALS_FOLDER);
 }
 
 async function readCleanUpOriginal(galleryDir: string, imageId: string): Promise<CleanUpOriginal | null> {
@@ -742,10 +740,10 @@ async function readCleanUpOriginal(galleryDir: string, imageId: string): Promise
   const dir = cleanUpOriginalsDir(galleryDir);
   try {
     const record = JSON.parse(
-      await readFile(assertInsideDir(dir, join(dir, `${imageId}.json`)), "utf8"),
+      await readFile(resolveInside(dir, `${imageId}.json`), "utf8"),
     ) as Partial<CleanUpOriginal>;
     if (typeof record.filename !== "string" || isUnsafePathSegment(record.filename)) return null;
-    if (!existsSync(assertInsideDir(dir, join(dir, record.filename)))) return null;
+    if (!existsSync(resolveInside(dir, record.filename))) return null;
     return {
       filename: record.filename,
       width: typeof record.width === "number" ? record.width : null,
@@ -780,9 +778,9 @@ async function keepCleanUpOriginal(
   const dir = cleanUpOriginalsDir(galleryDir);
   await mkdir(dir, { recursive: true });
   const filename = `${image.id}${extname(stored.filename).toLowerCase()}`;
-  await copyFile(stored.absolutePath, assertInsideDir(dir, join(dir, filename)));
+  await copyFile(stored.absolutePath, resolveInside(dir, filename));
   const record: CleanUpOriginal = { filename, width: image.width ?? null, height: image.height ?? null };
-  await writeFile(assertInsideDir(dir, join(dir, `${image.id}.json`)), JSON.stringify(record));
+  await writeFile(resolveInside(dir, `${image.id}.json`), JSON.stringify(record));
 }
 
 async function removeCleanUpOriginal(galleryDir: string, imageId: string) {
@@ -790,8 +788,8 @@ async function removeCleanUpOriginal(galleryDir: string, imageId: string) {
   const dir = cleanUpOriginalsDir(galleryDir);
   const original = await readCleanUpOriginal(galleryDir, imageId);
   // The record goes first: a stop in between leaves a stray picture, never a record without one.
-  await unlink(assertInsideDir(dir, join(dir, `${imageId}.json`))).catch(() => undefined);
-  if (original) await unlink(assertInsideDir(dir, join(dir, original.filename))).catch(() => undefined);
+  await unlink(resolveInside(dir, `${imageId}.json`)).catch(() => undefined);
+  if (original) await unlink(resolveInside(dir, original.filename)).catch(() => undefined);
 }
 
 /**
@@ -812,7 +810,7 @@ async function restoreCleanUpOriginal(input: {
   const originalsDir = cleanUpOriginalsDir(input.dir);
   const filename = `${newId()}${extname(original.filename).toLowerCase()}`;
   const filePath = join(input.dir, filename);
-  await copyFile(assertInsideDir(originalsDir, join(originalsDir, original.filename)), filePath);
+  await copyFile(resolveInside(originalsDir, original.filename), filePath);
   if (!(await isValidUploadedGalleryImage(filePath, filename))) {
     return input.reply.status(400).send({ error: "The kept picture is not a valid image" });
   }
@@ -871,14 +869,14 @@ async function copyGalleryImageToAvatar(
   galleryFilePath: string,
 ): Promise<string> {
   const galleryRoot = join(DATA_DIR, "gallery");
-  const sourcePath = assertInsideDir(galleryRoot, join(galleryRoot, galleryFilePath));
+  const sourcePath = resolveInside(galleryRoot, galleryFilePath);
   const imageBuffer = await readFile(sourcePath);
   const imageInfo = isAllowedImageBuffer(imageBuffer, extname(sourcePath));
   if (!imageInfo) throw new Error("Unsupported or invalid gallery image");
 
   await mkdir(AVATAR_ROOT, { recursive: true });
   const filename = `${entityKind}-${entityId}-${newId()}.${imageInfo.ext}`;
-  const avatarFilePath = assertInsideDir(AVATAR_ROOT, join(AVATAR_ROOT, filename));
+  const avatarFilePath = resolveInside(AVATAR_ROOT, filename);
   try {
     await writeFile(avatarFilePath, imageBuffer);
   } catch (error) {
@@ -913,7 +911,7 @@ async function readSpritesForId(
   for (const entry of entries) {
     if (enforcePortableLimits) {
       try {
-        const fileSize = (await stat(assertInsideDir(dir, join(dir, entry)))).size;
+        const fileSize = (await stat(resolveInside(dir, entry))).size;
         if (fileSize > MAX_FILE_SIZES.SPRITE || totalBytes + fileSize > MAX_FILE_SIZES.CHARACTER_CARD) {
           return null;
         }
@@ -2002,7 +2000,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           .map((image) => galleryFileHasReferences(app.db, image.filePath)),
       )
     ).some(Boolean);
-    const galleryDir = assertInsideDir(CHARACTER_GALLERY_ROOT, join(CHARACTER_GALLERY_ROOT, id));
+    const galleryDir = resolveInside(CHARACTER_GALLERY_ROOT, id);
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
@@ -2351,7 +2349,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     await mkdir(dir, { recursive: true });
     const videoId = newId();
     const filename = `${videoId}${ext}`;
-    const filePath = assertInsideDir(dir, join(dir, filename));
+    const filePath = resolveInside(dir, filename);
     await pipeline(data.file, createWriteStream(filePath));
     if (isMultipartFileTruncated(data)) {
       await unlink(filePath).catch(() => undefined);
@@ -2387,7 +2385,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
 
     const dir = ensureGalleryVideoDir(CHARACTER_GALLERY_VIDEO_ROOT, id);
-    const filePath = assertInsideDir(dir, join(dir, filename));
+    const filePath = resolveInside(dir, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }
@@ -2921,7 +2919,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     const avatarsDir = join(DATA_DIR, "avatars");
     const filename = `character-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+    const filepath = resolveInside(avatarsDir, filename);
     const avatarPath = `/api/avatars/file/${filename}`;
     try {
       await mkdir(avatarsDir, { recursive: true });
@@ -3180,7 +3178,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const avatarPath = `/api/avatars/file/${filename}`;
     try {
       await mkdir(avatarsDir, { recursive: true });
-      const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+      const filepath = resolveInside(avatarsDir, filename);
       await writeFile(filepath, imageBuffer);
       const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, () =>
         storage.updatePersona(req.params.id, { avatarPath, avatarCrop: "" }, { versionReason: "Avatar update" }),
@@ -3240,7 +3238,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           .map((image) => galleryFileHasReferences(app.db, image.filePath)),
       )
     ).some(Boolean);
-    const galleryDir = assertInsideDir(PERSONA_GALLERY_ROOT, join(PERSONA_GALLERY_ROOT, id));
+    const galleryDir = resolveInside(PERSONA_GALLERY_ROOT, id);
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
@@ -3523,7 +3521,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     await mkdir(dir, { recursive: true });
     const videoId = newId();
     const filename = `${videoId}${ext}`;
-    const filePath = assertInsideDir(dir, join(dir, filename));
+    const filePath = resolveInside(dir, filename);
     await pipeline(data.file, createWriteStream(filePath));
     if (isMultipartFileTruncated(data)) {
       await unlink(filePath).catch(() => undefined);
@@ -3561,7 +3559,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       }
 
       const dir = ensureGalleryVideoDir(PERSONA_GALLERY_VIDEO_ROOT, id);
-      const filePath = assertInsideDir(dir, join(dir, filename));
+      const filePath = resolveInside(dir, filename);
       if (!existsSync(filePath)) {
         return notFound(reply, "Not found");
       }

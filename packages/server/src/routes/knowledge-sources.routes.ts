@@ -8,7 +8,7 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync } from "fs";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir } from "../utils/security.js";
+import { resolveInside } from "../utils/security.js";
 import { notFound } from "../utils/not-found.js";
 import { writeFileAtomic } from "../utils/atomic-write.js";
 
@@ -85,7 +85,7 @@ function resolveSourcePath(filename: unknown): string | null {
   if (basename(filename) !== filename || filename.includes("/") || filename.includes("\\")) return null;
   if (!ALLOWED_EXTS.has(extname(filename).toLowerCase())) return null;
   try {
-    return assertInsideDir(SOURCES_DIR, join(SOURCES_DIR, filename));
+    return resolveInside(SOURCES_DIR, filename);
   } catch {
     return null;
   }

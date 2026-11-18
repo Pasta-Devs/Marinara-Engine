@@ -62,3 +62,20 @@ try {
   await rm(scratch, { recursive: true, force: true });
 }
 
+// resolveInside keeps join() results inside the root, with POSIX and Windows separators.
+const { resolveInside, toSafeExportName } = await import("../../../packages/server/src/utils/security.js");
+const root = join(tmpdir(), "marinara-root");
+assert.equal(resolveInside(root, "a", "b.png"), join(root, "a", "b.png"));
+assert.equal(resolveInside(root, "a/../b.png"), join(root, "b.png"));
+assert.equal(resolveInside(root, "..foo"), join(root, "..foo"));
+for (const segments of [[".."], ["../x"], ["a", "../../x"], ["a/../../x"]]) {
+  assert.throws(() => resolveInside(root, ...segments), /escapes/, `resolveInside(root, ${segments.join(", ")})`);
+}
+assert.equal(resolveInside("C:\\data", "a\\b.png"), "C:\\data\\a\\b.png");
+for (const segment of ["..\\x", "a\\..\\..\\x", "..\\..\\Windows"]) {
+  assert.throws(() => resolveInside("C:\\data", segment), /escapes/, segment);
+}
+
+assert.equal(toSafeExportName('  a<b>:c"d/e\\f|g?h*i\u0001  j ', "x"), "a b c d e f g h i j");
+assert.equal(toSafeExportName(" /:* ", "fallback"), "fallback");
+

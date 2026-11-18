@@ -124,11 +124,11 @@ import { buildSpicyApiUrl, normalizeSpicyApiImageModels } from "../services/imag
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import {
-  assertInsideDir,
   extensionFromImageMime,
   isAllowedImageBuffer,
   normalizeLoopbackUrl,
   requestHeadersWithDefaultUserAgent,
+  resolveInside,
   safeFetch,
 } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -179,7 +179,7 @@ export async function saveConnectionImage(
   const ext = extensionFromImageMime(imageInfo.mimeType);
   await mkdir(CONNECTION_IMAGES_DIR, { recursive: true });
   const filename = `connection-${randomUUID()}.${ext}`;
-  const filepath = assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
+  const filepath = resolveInside(CONNECTION_IMAGES_DIR, filename);
   await writeFile(filepath, buffer);
   return { imagePath: `/api/connections/images/file/${filename}` };
 }
@@ -616,7 +616,7 @@ function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } 
 function getSafeConnectionImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(CONNECTION_IMAGES_DIR, join(CONNECTION_IMAGES_DIR, filename));
+    return resolveInside(CONNECTION_IMAGES_DIR, filename);
   } catch {
     return null;
   }

@@ -1,6 +1,6 @@
 import { promises as dns } from "node:dns";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { basename, extname, relative, resolve, sep, win32 } from "node:path";
+import { basename, extname, join, relative, resolve, sep, win32 } from "node:path";
 import { brotliDecompressSync, gunzipSync, zstdDecompressSync } from "node:zlib";
 import { Agent, Dispatcher1Wrapper, EnvHttpProxyAgent, type Dispatcher } from "undici";
 import { isLoopbackIp, isNonRoutableNetworkIp, isPrivateNetworkIp } from "../middleware/ip-allowlist.js";
@@ -100,6 +100,20 @@ export function assertInsideDir(rootDir: string, candidatePath: string): string 
     return candidate;
   }
   throw new Error("Path escapes the allowed directory");
+}
+
+/** `join(root, ...segments)`, or a throw when the result leaves `root`. */
+export function resolveInside(root: string, ...segments: string[]): string {
+  return assertInsideDir(root, join(root, ...segments));
+}
+
+/** A download/export file name without characters Windows, macOS or Linux reject. */
+export function toSafeExportName(name: string, fallback: string): string {
+  const sanitized = name
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return sanitized || fallback;
 }
 
 export function safeBasename(value: string, fallback = "file"): string {

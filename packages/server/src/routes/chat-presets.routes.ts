@@ -2,6 +2,7 @@
 // Routes: Chat settings profiles (legacy route/storage names use "chat preset")
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { toSafeExportName } from "../utils/security.js";
 import {
   chatModeSchema,
   createChatPresetSchema,
@@ -53,14 +54,6 @@ function parseMetadataRecord(raw: unknown): Record<string, unknown> | null {
   } catch {
     return null;
   }
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
 }
 
 interface ChatSettingsProfileExportPayload {

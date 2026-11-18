@@ -4,7 +4,7 @@ import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
 import { debugJson, logger, logDebugOverride } from "../../lib/logger.js";
-import { assertInsideDir, safeFetch } from "../../utils/security.js";
+import { assertInsideDir, resolveInside, safeFetch } from "../../utils/security.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
   mediaProviderLaneKey,
@@ -253,7 +253,7 @@ export function resolveVideoRequestDuration(
 }
 
 export async function saveVideoToDisk(chatId: string, base64: string): Promise<string> {
-  const dir = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(GAME_SCENE_VIDEOS_DIR, chatId));
+  const dir = resolveInside(GAME_SCENE_VIDEOS_DIR, chatId);
   await mkdir(dir, { recursive: true });
   const filename = `${newId()}.mp4`;
   const filePath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(dir, filename));
@@ -264,7 +264,7 @@ export async function saveVideoToDisk(chatId: string, base64: string): Promise<s
 }
 
 export async function removeSavedVideoFromDisk(filePath: string): Promise<void> {
-  const fullPath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(GAME_SCENE_VIDEOS_DIR, filePath));
+  const fullPath = resolveInside(GAME_SCENE_VIDEOS_DIR, filePath);
   await unlink(fullPath).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "ENOENT") throw error;
   });

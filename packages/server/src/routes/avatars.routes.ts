@@ -8,7 +8,7 @@ import { z } from "zod";
 import { parseAgentSettingsRecord } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
@@ -76,7 +76,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename));
+    const filePath = resolveInside(AVATAR_DIR, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }
@@ -107,7 +107,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid path" });
     }
 
-    const filePath = assertInsideDir(NPC_AVATAR_DIR, join(NPC_AVATAR_DIR, chatId, filename));
+    const filePath = resolveInside(NPC_AVATAR_DIR, chatId, filename);
     if (!existsSync(filePath)) {
       return notFound(reply, "Not found");
     }
@@ -155,7 +155,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
     }
     const filename = `${safeName}.${image.ext}`;
-    const filePath = assertInsideDir(npcDir, join(npcDir, filename));
+    const filePath = resolveInside(npcDir, filename);
     writeFileSync(filePath, imageBuffer);
 
     return reply.send({ avatarPath: `/api/avatars/npc/${chatId}/${filename}?v=${Date.now()}` });

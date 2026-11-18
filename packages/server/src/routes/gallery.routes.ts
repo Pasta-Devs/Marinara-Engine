@@ -137,7 +137,7 @@ import {
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { newId } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { assertInsideDir, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import {
   sendValidatedMediaFile,
   validateImageAssetFile,
@@ -1109,7 +1109,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       if (!isSafeAssetSegment(target)) return reply.status(400).send({ error: "Invalid sprite target" });
       const match = await findContextualSprite(chat, parts[1], target);
       if (!match) return notFound(reply, "Sprite not found");
-      const spritePath = assertInsideDir(SPRITES_DIR, join(SPRITES_DIR, match.ownerId, match.filename));
+      const spritePath = resolveInside(SPRITES_DIR, match.ownerId, match.filename);
       const validatedImage = await validateImageAssetFile(spritePath, match.filename, { allowSvg: true });
       if (!validatedImage) return notFound(reply, "Sprite not found");
       if (validatedImage.isSvg) reply.header("Content-Security-Policy", "sandbox; default-src 'none'");
@@ -1243,7 +1243,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       const matchingRow = videos.find((video) => video.filePath.replace(/\\/g, "/") === normalizedFilePath);
       if (!matchingRow) return notFound(reply, "Scene video not found");
 
-      const filePath = assertInsideDir(GAME_SCENE_VIDEOS_ROOT, join(GAME_SCENE_VIDEOS_ROOT, chatId, filename));
+      const filePath = resolveInside(GAME_SCENE_VIDEOS_ROOT, chatId, filename);
       if (!existsSync(filePath)) return reply.status(404).send({ error: "Scene video file not found" });
       const video = await validateVideoAssetFile(filePath, filename);
       if (!video) return notFound(reply, "Scene video file not found");

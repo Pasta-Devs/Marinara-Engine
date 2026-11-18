@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { mkdir, open, stat, unlink } from "fs/promises";
 import { extname, join } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir } from "../utils/security.js";
+import { resolveInside } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { notFound } from "../utils/not-found.js";
 import { writeFileAtomic } from "../utils/atomic-write.js";
@@ -66,7 +66,7 @@ export function detectNotificationSoundFormat(buffer: Buffer): NotificationSound
 }
 
 function soundPath(extension: NotificationSoundFormat["extension"]): string {
-  return assertInsideDir(NOTIFICATION_SOUNDS_DIR, join(NOTIFICATION_SOUNDS_DIR, `notification${extension}`));
+  return resolveInside(NOTIFICATION_SOUNDS_DIR, `notification${extension}`);
 }
 
 async function findStoredNotificationSound(): Promise<StoredNotificationSound | null> {
