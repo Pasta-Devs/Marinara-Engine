@@ -75,7 +75,10 @@ export function useCharacterCardUpdate({
         return;
       }
       const matches = await findCardUpdateMatches({ characterId });
-      if (matches.length === 0) return;
+      if (matches.length === 0) {
+        toast.error(t("ui.cardUpdate.characterGone"));
+        return;
+      }
       setDecision(characterId);
       setUseCardPicture(true);
       setCreatorNotes("merge");
@@ -101,7 +104,7 @@ export function useCharacterCardUpdate({
       form.append("files", pending.file);
       form.append(
         "updateTargets",
-        JSON.stringify([{ name: pending.file.name, characterId: decision, useCardPicture, creatorNotes }]),
+        JSON.stringify([{ index: 0, name: pending.file.name, characterId: decision, useCardPicture, creatorNotes }]),
       );
       const result = await api.upload<{
         results: Array<{ success: boolean; name?: string; error?: string; lorebookError?: string; lorebook?: unknown }>;

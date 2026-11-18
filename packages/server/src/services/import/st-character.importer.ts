@@ -503,44 +503,111 @@ function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unk
   };
 }
 
+// RisuAI cards keep some extensions as top-level fields (see convertRisuToV2).
+const RISU_TOP_LEVEL_EXTENSIONS: Array<[field: string, key: string]> = [
+  ["depth_prompt", "depth_prompt"],
+  ["depthPrompt", "depth_prompt"],
+  ["talkativeness", "talkativeness"],
+  ["regex_scripts", "regex_scripts"],
+  ["regexScripts", "regex_scripts"],
+  ["backstory", "backstory"],
+  ["appearance", "appearance"],
+];
+
+/** The extensions a card file itself carries, including RisuAI's top-level ones. */
 function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown> {
   const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+  const extensions: Record<string, unknown> = {};
+  for (const source of cardData === raw ? [raw] : [raw, cardData]) {
+    for (const [field, key] of RISU_TOP_LEVEL_EXTENSIONS) {
+      if (source[field] !== undefined && extensions[key] === undefined) extensions[key] = source[field];
+    }
+  }
   return cardData.extensions && typeof cardData.extensions === "object"
-    ? (cardData.extensions as Record<string, unknown>)
-    : {};
+    ? { ...extensions, ...(cardData.extensions as Record<string, unknown>) }
+    : extensions;
 }
 
-/** Import the regex scripts embedded in a card. An update skips scripts the library already has for the character. */
+/**
+ * Import the regex scripts embedded in a card and remember their ids on the character (importMetadata.regexScriptIds),
+ * so a later update can bring them in line with the newer card. On update the remembered scripts are updated by name
+ * (keeping whether you turned them off), the card's new scripts are added, and remembered scripts the card no longer
+ * has are removed. Scripts you made yourself are never touched. A character imported before ids were remembered
+ * skips scripts it already has, as an exact copy.
+ */
 async function importEmbeddedRegexScripts(
   db: DB,
   raw: Record<string, unknown>,
   charId: string,
   scope: "character" | "global" | undefined,
-  skipExisting = false,
+  update?: { recordedIds: string[] | null },
 ) {
   const importedRegex = convertStRegexScripts(rawCardExtensions(raw).regex_scripts, charId, scope ?? "character");
-  if (importedRegex.length === 0) return;
   const regexStorage = createRegexScriptsStorage(db);
   const scriptKey = (script: { name: string; findRegex: string; replaceString?: string | null }) =>
     JSON.stringify([script.name, script.findRegex, script.replaceString ?? ""]);
-  const existingKeys = new Set<string>();
-  if (skipExisting) {
+  const keptIds: string[] = [];
+  const recordedByName = new Map<string, string>();
+  const recordedIds = new Set(update?.recordedIds ?? []);
+  const existingKeys = new Map<string, string>();
+  if (update) {
     for (const script of await regexStorage.list()) {
+      if (recordedIds.has(script.id)) {
+        if (!recordedByName.has(script.name)) recordedByName.set(script.name, script.id);
+        continue;
+      }
+      if (update.recordedIds) continue;
       const targets = parseStringArray(script.targetCharacterIds);
-      if (targets.length === 0 || targets.includes(charId)) existingKeys.add(scriptKey(script));
+      if (targets.length === 0 || targets.includes(charId)) existingKeys.set(scriptKey(script), script.id);
     }
   }
   let created = 0;
   for (const input of importedRegex) {
-    if (existingKeys.has(scriptKey(input))) continue;
     try {
-      await regexStorage.create(input);
+      const recordedId = recordedByName.get(input.name);
+      if (recordedId) {
+        recordedByName.delete(input.name);
+        const { enabled: _enabled, order: _order, ...fields } = input;
+        void _enabled;
+        void _order;
+        await regexStorage.update(recordedId, fields);
+        keptIds.push(recordedId);
+        continue;
+      }
+      const existingId = existingKeys.get(scriptKey(input));
+      if (existingId) {
+        keptIds.push(existingId);
+        continue;
+      }
+      const script = await regexStorage.create(input);
+      if (script?.id) keptIds.push(script.id);
       created += 1;
     } catch (err) {
       logger.warn(err, "Failed to import an embedded regex script");
     }
   }
+  // Scripts from the previous release that the newer card dropped.
+  for (const staleId of recordedByName.values()) {
+    try {
+      await regexStorage.remove(staleId);
+    } catch (err) {
+      logger.warn(err, "Failed to remove a regex script the newer card dropped");
+    }
+  }
   if (created > 0) logger.info("Imported %d embedded regex script(s) for character %s", created, charId);
+  if (keptIds.length === 0 && !update?.recordedIds) return;
+  try {
+    await withCharacterUpdateQueue(charId, () =>
+      createCharactersStorage(db).update(
+        charId,
+        { extensions: { [IMPORT_METADATA_KEY]: { regexScriptIds: keptIds } } },
+        undefined,
+        { skipVersionSnapshot: true },
+      ),
+    );
+  } catch (err) {
+    logger.warn(err, "Could not remember the regex scripts imported for character %s", charId);
+  }
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -557,9 +624,45 @@ function matchKey(value: unknown): string {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").toLocaleLowerCase() : "";
 }
 
+/** The library's characters, read once, for matching several cards against (see findMatchingCharacters). */
+export type CharacterMatchCandidates = Array<{
+  id: string;
+  data: Record<string, unknown>;
+  avatarPath: string | null;
+  updatedAt: string;
+}>;
+
+export async function loadCharacterMatchCandidates(db: DB): Promise<CharacterMatchCandidates> {
+  const rows = await db
+    .select({
+      id: charactersTable.id,
+      data: charactersTable.data,
+      avatarPath: charactersTable.avatarPath,
+      updatedAt: charactersTable.updatedAt,
+    })
+    .from(charactersTable);
+  const candidates: CharacterMatchCandidates = [];
+  for (const row of rows) {
+    try {
+      const data = JSON.parse(row.data) as unknown;
+      if (!data || typeof data !== "object") continue;
+      candidates.push({
+        id: row.id,
+        data: data as Record<string, unknown>,
+        avatarPath: row.avatarPath ?? null,
+        updatedAt: String(row.updatedAt ?? ""),
+      });
+    } catch {
+      continue;
+    }
+  }
+  return candidates;
+}
+
 /**
  * Characters an imported card may be a newer release of: the one downloaded from the same Card Browser page, or one
  * with the same name whose creator matches (or is blank on either side, as cards passed through other apps often are).
+ * Pass `candidates` from loadCharacterMatchCandidates to match many cards against one read of the library.
  */
 export async function findMatchingCharacters(
   db: DB,
@@ -569,6 +672,7 @@ export async function findMatchingCharacters(
     botBrowserSource?: string | null;
     characterId?: string | null;
   },
+  candidates?: CharacterMatchCandidates,
 ): Promise<CharacterImportMatch[]> {
   const name = matchKey(card.name);
   const creator = matchKey(card.creator);
@@ -576,22 +680,10 @@ export async function findMatchingCharacters(
   // A chosen character ("Update from card file…" in its editor) is the only match, whatever the card is called.
   const characterId = typeof card.characterId === "string" ? card.characterId : "";
   if (!name && !source && !characterId) return [];
-  const rows = await db
-    .select({
-      id: charactersTable.id,
-      data: charactersTable.data,
-      avatarPath: charactersTable.avatarPath,
-      updatedAt: charactersTable.updatedAt,
-    })
-    .from(charactersTable);
+  const rows = candidates ?? (await loadCharacterMatchCandidates(db));
   const matches: CharacterImportMatch[] = [];
   for (const row of rows) {
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(row.data) as Record<string, unknown>;
-    } catch {
-      continue;
-    }
+    const data = row.data;
     const extensions =
       data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
     const sameSource = !!source && extensions.botBrowserSource === source;
@@ -603,7 +695,7 @@ export async function findMatchingCharacters(
       name: typeof data.name === "string" ? data.name : "",
       creator: typeof data.creator === "string" ? data.creator : "",
       version: typeof data.character_version === "string" ? data.character_version : "",
-      avatarPath: row.avatarPath ?? null,
+      avatarPath: row.avatarPath,
       updatedAt: row.updatedAt,
       reason: sameSource ? "browser" : "name",
     });
@@ -782,7 +874,12 @@ async function updateCharacterFromCard(input: {
     }
   }
 
-  await importEmbeddedRegexScripts(db, input.raw, characterId, input.options.regexScriptScope, true);
+  const recordedRegexIds = Array.isArray(currentImportMetadata.regexScriptIds)
+    ? currentImportMetadata.regexScriptIds.filter((id): id is string => typeof id === "string")
+    : null;
+  await importEmbeddedRegexScripts(db, input.raw, characterId, input.options.regexScriptScope, {
+    recordedIds: recordedRegexIds,
+  });
 
   if (input.embeddedMarinaraSprites !== undefined) {
     try {

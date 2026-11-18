@@ -83,6 +83,7 @@ import {
   defaultCardUpdateDecision,
   findCardUpdateMatches,
   isCardUpdate,
+  isCardUpdatePending,
   type CardUpdateDecision,
   type CardUpdateRow,
   type CreatorNotesUpdate,
@@ -277,6 +278,8 @@ interface PendingBrowserCardImport {
     creatorNotes: CreatorNotesUpdate;
     /** Continue was pressed; the embedded-lorebook question may follow. */
     confirmed: boolean;
+    /** The library check failed, so it is not known whether this card is already there. */
+    lookupFailed?: boolean;
   };
 }
 
@@ -2274,7 +2277,6 @@ export function BotBrowserView() {
         if (data.lorebookError)
           toast.warning(localizeUi("ui.cardUpdate.updatedLorebookFailed", { name, error: data.lorebookError }));
         else toast.success(localizeUi("ui.cardUpdate.updatedName", { name }));
-        void qc.invalidateQueries({ queryKey: characterKeys.all });
       } else
         toast.success(
           localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", {
@@ -2287,7 +2289,8 @@ export function BotBrowserView() {
           character: data.characterId ? { id: data.characterId, name: data.name ?? prepared.card.name } : undefined,
         });
       }
-      void qc.invalidateQueries({ queryKey: characterKeys.list() });
+      // An update changes an existing character's card, versions and lorebook link, not only the list.
+      void qc.invalidateQueries({ queryKey: data.updated ? characterKeys.all : characterKeys.list() });
       if (data.lorebook) void qc.invalidateQueries({ queryKey: lorebookKeys.all });
       return;
     }
@@ -2508,12 +2511,17 @@ export function BotBrowserView() {
         // A newer release of a card you have (same page, or same name and creator) can update that character.
         const cardData = readCharacterCardData(prepared.payload);
         const botBrowserSource = String(prepared.payload._botBrowserSource ?? "");
+        // If the library check fails, ask anyway rather than quietly adding a second copy.
+        let lookupFailed = false;
         const matches = await findCardUpdateMatches({
           name: cardData.name ?? card.name,
           creator: cardData.creator ?? card.creator,
           botBrowserSource,
-        }).catch(() => []);
-        if (matches.length > 0 || options.pickOther) {
+        }).catch(() => {
+          lookupFailed = true;
+          return [];
+        });
+        if (matches.length > 0 || options.pickOther || lookupFailed) {
           const row: CardUpdateRow = {
             key: botBrowserSource || card.id,
             name: optionalString(cardData.name) ?? card.name,
@@ -2521,13 +2529,19 @@ export function BotBrowserView() {
             matches,
             pickOther: options.pickOther && matches.length === 0,
           };
+          const decision: CardUpdateDecision = row.pickOther
+            ? "pick"
+            : lookupFailed
+              ? "new"
+              : defaultCardUpdateDecision(matches);
           setPendingImport({
             card,
             target,
             prepared,
             update: {
               row,
-              decision: row.pickOther ? "skip" : defaultCardUpdateDecision(matches),
+              decision,
+              lookupFailed,
               useCardPicture: true,
               creatorNotes: "merge",
               confirmed: false,
@@ -2554,6 +2568,7 @@ export function BotBrowserView() {
 
   const confirmCardUpdate = async () => {
     if (!pendingImport?.target || !pendingImport.prepared || !pendingImport.update) return;
+    if (isCardUpdatePending(pendingImport.update.decision)) return;
     if (pendingImport.update.decision === "skip") {
       setPendingImport(null);
       return;
@@ -3346,7 +3361,7 @@ export function BotBrowserView() {
             <>
               <button
                 type="button"
-                disabled={importing}
+                disabled={importing || isCardUpdatePending(pendingImport.update.decision)}
                 data-card-update-continue
                 onClick={() => void confirmCardUpdate()}
                 className={SHEET_BUTTON_PRIMARY}
@@ -3502,6 +3517,7 @@ export function BotBrowserView() {
                 </p>
                 <CardUpdateChoices
                   rows={[pendingImport.update.row]}
+                  notice={pendingImport.update.lookupFailed ? localizeUi("ui.cardUpdate.lookupFailed") : undefined}
                   decisions={{ [pendingImport.update.row.key]: pendingImport.update.decision }}
                   onDecisionChange={(_key, decision) =>
                     setPendingImport((current) =>

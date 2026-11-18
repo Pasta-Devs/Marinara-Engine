@@ -20,6 +20,7 @@ import {
   CardUpdateChoices,
   defaultCardUpdateDecision,
   isCardUpdate,
+  isCardUpdatePending,
   type CardUpdateDecision,
   type CardUpdateRow,
   type CreatorNotesUpdate,
@@ -225,11 +226,13 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       }
       const skippedFiles = stCharacterFiles.filter((file) => decisionFor(file) === "skip");
       const filesToImport = stCharacterFiles.filter((file) => decisionFor(file) !== "skip");
-      const updateTargets = filesToImport.flatMap((file) => {
+      // `index` is the file's place in the upload, so two files with the same name keep their own choice.
+      const updateTargets = filesToImport.flatMap((file, index) => {
         const decision = decisionFor(file);
         return isCardUpdate(decision)
           ? [
               {
+                index,
                 name: file.name,
                 characterId: decision,
                 useCardPicture: updatePlan?.useCardPicture !== false,
@@ -492,6 +495,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   </button>
                   <button
                     type="button"
+                    disabled={pendingUpdateChoice.rows.some((row) =>
+                      isCardUpdatePending(updateDecisions[row.key] ?? defaultCardUpdateDecision(row.matches)),
+                    )}
                     data-card-update-continue
                     onClick={() =>
                       void handleFiles(
