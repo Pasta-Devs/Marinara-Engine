@@ -61,9 +61,12 @@ interface LibraryToolbarProps {
 }
 
 // The action row (Add, Import, Export, Select): each labelled button takes its content's width plus a share of what is
-// left. `!px-2`: the unlayered .mari-chrome-control--primary and .mari-panel-gradient-button padding beat a plain utility.
-export const ACTION_BUTTON_LAYOUT = "min-w-0 flex-auto !px-2 text-xs";
-const SECONDARY_BUTTON = `mari-chrome-control mari-chrome-control--primary ${ACTION_BUTTON_LAYOUT}`;
+// left, and they all shrink alike when even the words alone do not fit. `!`: the unlayered .mari-chrome-control sets
+// flex-shrink 0 (which .mari-panel-gradient-button does not, so Add alone would shrink) and the unlayered
+// .mari-chrome-control--primary and .mari-panel-gradient-button padding beat plain utilities.
+export const ACTION_BUTTON_LAYOUT = "min-w-0 flex-auto !shrink !px-2 text-xs";
+const ACTION_CONTROL = "mari-chrome-control mari-chrome-control--primary";
+const SECONDARY_BUTTON = `${ACTION_CONTROL} ${ACTION_BUTTON_LAYOUT}`;
 const FOLDER_BUTTON = "mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]";
 const SEGMENTED_BUTTON =
   "mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal";
@@ -264,6 +267,8 @@ export function LibraryToolbar({
     import: localizeUi("ui.librarytoolbar.import"),
     select: localizeUi("ui.librarytoolbar.select"),
   };
+  // The second argument only tells the fit check when to measure again: when a word changes (the language) or a
+  // button comes or goes. The words themselves are read from the row.
   const showIcons = useActionIconsFit(
     actionRowRef,
     [actionLabels.add, actionLabels.import, select ? actionLabels.select : "", exportAction ? "export" : ""].join("\n"),
@@ -336,7 +341,7 @@ export function LibraryToolbar({
             onClick={exportAction.onClick}
             disabled={exportAction.disabled}
             // Icon only, at its own width, so the labelled buttons get the room.
-            className="mari-chrome-control mari-chrome-control--primary flex-none !px-3 text-xs"
+            className={`${ACTION_CONTROL} flex-none !px-3 text-xs`}
             aria-label={exportAction.label}
             title={exportAction.label}
           >
