@@ -767,7 +767,9 @@ async function maybeGenerateDynamicGameImagePrompt(
     if (!generated) throw new Error("Dynamic image prompt generation returned no usable prompt");
     return generated;
   } catch (err) {
-    if (generator.required !== false || generator.signal?.aborted) {
+    // A cancelled request is not a rewrite failure: it stops the request, and its caller reports it.
+    if (generator.signal?.aborted) throw err;
+    if (generator.required !== false) {
       logger.warn(err, "[game-asset-gen] Dynamic image prompt generation failed");
       throw err;
     }
