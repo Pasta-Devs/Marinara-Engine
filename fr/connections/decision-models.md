@@ -1,10 +1,63 @@
 # Modèles de décision
 
-Un modèle de décision est un petit modèle qui répond par oui ou par non aux questions de Marinara, par exemple "Does the latest message move the scene to a new place?". Les lorebooks, les agents personnalisés, les prompts et les chats de groupe s'en servent. Il est facultatif. Sans lui, les chats fonctionnent quand même et chaque fonctionnalité utilise le comportement de repli décrit dans [Où Marinara l'utilise](#where-marinara-uses-it).
+Un modèle de décision est un petit modèle qui répond pour Marinara à de courtes questions sur ton chat, par exemple "Does the latest message move the scene to a new place?" ou "What is Kaelen's mood: angry, sad or calm?". Certains peuvent aussi examiner les images et les clips du chat. Les lorebooks, les agents personnalisés, les prompts, les chats de groupe et Illustrator s'en servent. Il est facultatif. Sans lui, les chats fonctionnent quand même et chaque fonctionnalité utilise le comportement de repli décrit dans [Où Marinara l'utilise](#where-marinara-uses-it).
 
-Ses réponses contrôlent ce que fait Marinara et ne sont jamais publiées dans le chat. Il attribue à un énoncé un score de 0 à 1. Marinara compare ce nombre à un seuil et interprète le résultat comme oui ou non. Il peut aussi choisir une réponse dans une courte liste, par exemple "angry", "sad" ou "none of these".
+Ses réponses contrôlent ce que fait Marinara et ne sont jamais publiées dans le chat. Consulte [Ce qu'un modèle de décision peut répondre](#what-a-decision-model-can-answer) pour les types de questions et des exemples.
 
 Notre conseil : laisse-le sur **None** (aucun) si tu as un doute. Si tu veux des décisions, utilise le modèle intégré (Built-in model) que tu as peut-être déjà, ou un modèle de chat sur un serveur que tu fais déjà tourner. Les deux ne coûtent rien de plus.
+
+## Ce qu'un modèle de décision peut répondre
+
+Chaque réponse est un nombre de 0 à 1 : le degré de certitude du modèle. Marinara transforme ce nombre en la réponse dont une fonctionnalité a besoin.
+
+### Oui ou non
+
+Le modèle lit un énoncé et indique sa probabilité d'être vrai. Marinara la compare à un [seuil](#thresholds) : une valeur égale ou supérieure compte comme oui. C'est le type le plus courant, utilisé par les questions d'activation, les champs **Décision** des lorebooks, `{{#if decision:"..."}}` et les vérifications d'Illustrator.
+
+| Énoncé | Ce qu'il pourrait déclencher |
+| --- | --- |
+| `In the latest message, the characters move to a different location` | Un tracker met le lieu à jour uniquement aux tours où il a changé. |
+| `In the latest message, a dragon is physically present` | Une entrée de lorebook sur les dragons rejoint le prompt. |
+| `{{user}} asked a question that {{char}} has not answered yet` | Une ligne du prompt rappelle au modèle d'y répondre. |
+| `The latest message describes a fight` | Un agent de combat s'exécute uniquement à ce tour. |
+
+### Une réponse parmi plusieurs
+
+Le modèle choisit ce qui convient le mieux dans une courte liste que tu écris. Marinara l'interroge sur chaque option et garde celle qui obtient le meilleur score : tu obtiens donc une seule réponse, pas plusieurs. Utilise `{{#if decision_choice:"..." == "..."}}` :
+
+```text
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}
+Kaelen speaks in short, clipped sentences.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "sad"}}
+Kaelen speaks quietly and avoids eye contact.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "calm"}}
+Kaelen speaks normally.
+{{/if}}
+```
+
+D'autres listes fonctionnent bien : le type de scène (`combat`, `dialogue`, `exploration`, `rest`), le moment de la journée (`morning`, `afternoon`, `evening`, `night`), ou la pièce d'une maison où se déroule la scène. Garde des options distinctes et ajoute-en une comme `none of these` quand aucune ne convient forcément. Les agents utilisent le même mécanisme pour choisir un jeu d'instructions parmi plusieurs, et Illustrator s'en sert pour choisir le type de météo.
+
+### Un score
+
+Certaines fonctionnalités utilisent directement le nombre au lieu d'un oui ou d'un non. L'[ordre de réponse Smart](../chats/group-chats.md#response-order-individual-only) évalue la probabilité que chaque personnage parle ensuite et choisit le score le plus élevé. [Advanced Memory](../agents/memory.md#optional-decision-model) évalue la pertinence de chaque scène passée. Dans Peek Prompt, **Tester les décisions** affiche le score de chaque énoncé, ce qui t'aide à choisir un seuil. Consulte [Tester les énoncés de décision](../chats/peek-prompt.md#testing-decision-statements).
+
+### Images et clips
+
+Un modèle de décision intégré qui lit les images peut répondre aux mêmes types de questions sur les images du chat, par exemple `The picture shows the character at the beach`. Liquid d1, Valen et Winnow lisent les images, et la version complète de Valen lit aussi les courts clips. Les autres modèles, ainsi que tous les comptes hébergés ou sur serveur, lisent uniquement le texte et ne reçoivent jamais d'images.
+
+Les images ne sont jamais envoyées sans que tu le demandes, car chacune ralentit la réponse :
+
+- Dans un énoncé, ajoute `pictures:1` (au plus 3) ou `clips:1`. Ajoute `media_within:2` pour ne l'interroger que si l'un des 2 derniers messages contient une image. Consulte [Images et clips](../prompts/conditional-prompts.md#pictures-and-clips).
+- Dans une entrée de lorebook, règle **Montrer au modèle de décision** sous son champ **Décision**. Consulte [Activation par décision](../lorebooks/entries.md#decision-activation).
+- Dans la question d'activation d'un agent personnalisé, règle **Montrer au modèle de décision**. Consulte [Questions d'activation](../agents/custom-agents.md#activation-questions).
+- Pour les fonctionnalités d'image de Marinara, consulte [Fonctionnalités qui examinent les images](#features-that-look-at-pictures).
+
+### Ce qu'affiche la page d'un modèle
+
+La page de chaque modèle de décision intégré affiche deux lignes :
+
+- **Réponses** liste ce pour quoi le modèle a été conçu : **Oui/non**, **Choix pondéré**, **Score sur une échelle** et, pour certains, **Cadres sur une image** (où se trouve quelque chose dans une image). Marinara pose des questions oui/non et à choix, et lit leurs scores. Il ne demande pas encore de cadres : cette ligne décrit donc uniquement le modèle.
+- **Lit** liste **Texte**, **Images** et **Vidéo**. Un type que seule une autre version du modèle lit est nommé après les autres, par exemple "Vidéo dans sa version complète".
 
 ## Choisir un modèle de décision
 
@@ -33,15 +86,15 @@ Les entrées qui ne peuvent pas répondre pour l'instant restent dans la liste, 
 - **Un modèle que tu exécutes déjà dans le modèle intégré.** Ne coûte rien de plus. Le meilleur choix pour la plupart des personnes qui utilisent le modèle intégré.
 - **Un modèle de chat sur ton propre serveur** (Ollama, LM Studio, llama.cpp ou un autre serveur compatible OpenAI). Ne coûte rien de plus. Pratique quand ton modèle tourne hors de Marinara : il n'est pas chargé deux fois.
 - **Un modèle de décision hébergé** (TypeSafe, OpenRouter, NanoGPT ou Google Gemini). Facturé à la requête, et un tour peut en faire plusieurs. Un abonnement NanoGPT inclut certains modèles de décision, et OpenRouter en propose plusieurs gratuitement. Pratique pour les téléphones et les ordinateurs qui ne font tourner aucun modèle local.
-- **Le modèle de décision intégré.** Utilise de l'espace disque et de la mémoire GPU distincts. Nécessite Linux x86-64 et un GPU NVIDIA pris en charge. Pour un modèle de décision séparé, à côté de ton modèle de chat.
+- **Le modèle de décision intégré.** Un modèle conçu pour les décisions que Marinara télécharge et exécute à côté de ton modèle de chat, avec son propre espace disque et sa propre mémoire. La plupart fonctionnent sur presque tous les ordinateurs, certains sur le processeur seul. C'est le seul choix qui peut examiner les images et les clips. Consulte [Laisser Marinara installer un modèle de décision](#let-marinara-install-a-decision-model).
 
 Si tu fais déjà tourner un modèle local, essaie-le d'abord, et teste des tours tirés de tes propres chats. La formulation compte beaucoup. Consulte [Rédiger les énoncés](../prompts/conditional-prompts.md#writing-statements).
 
 Jev et Open-Jev sont des modèles différents. Jev est le modèle hébergé de TypeSafe, disponible directement ou via OpenRouter. [Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B) est un modèle publié séparément, construit sur Qwen, que Marinara peut exécuter localement. Les tests d'Open-Jev ne mesurent pas Jev hébergé.
 
-Sur Android (Termux), le **Built-in decision model** (modèle de décision intégré) ne peut pas fonctionner, et un petit modèle local sur le processeur d'un téléphone peut être trop lent. Un compte hébergé est le choix pratique, par exemple Jev via OpenRouter. Consulte [Configurer une connexion Decision](#set-up-a-decision-connection).
+Sur Android (Termux), seuls JevK5 et Liquid d1 sont proposés comme **Built-in decision model** (modèle de décision intégré), et le processeur d'un téléphone peut être trop lent pour eux. Un compte hébergé est le choix pratique, par exemple Jev via OpenRouter. Consulte [Configurer un compte Decision](#set-up-a-decision-account).
 
-Écris les presets, les fiches et les agents pour "un modèle de décision", jamais avec "nécessite Jev". Ils utilisent la même syntaxe d'énoncés avec n'importe quel modèle, mais les modèles peuvent donner des réponses différentes. Quand tu importes du contenu qui utilise des décisions, y compris des agents personnalisés et des installations depuis Agent Organizer, Marinara affiche un avis avec un lien vers ce guide. La restauration d'un profil complet depuis un ZIP ne l'affiche pas.
+Écris les presets, les fiches et les agents pour "un modèle de décision", jamais avec "nécessite Jev". Un énoncé qui demande des images fonctionne aussi avec un modèle qui lit uniquement le texte : il reçoit seulement le texte. Ils utilisent la même syntaxe d'énoncés avec n'importe quel modèle, mais les modèles peuvent donner des réponses différentes. Quand tu importes du contenu qui utilise des décisions, y compris des agents personnalisés et des installations depuis Agent Organizer, Marinara affiche un avis avec un lien vers ce guide. La restauration d'un profil complet depuis un ZIP ne l'affiche pas.
 
 ## Utiliser le modèle intégré
 
@@ -71,10 +124,8 @@ Les probabilités oui/non d'un modèle de chat généraliste fonctionnent avec u
 
 Si ton modèle de chat tourne dans Ollama, LM Studio, llama.cpp ou un autre serveur compatible OpenAI, il peut répondre aux décisions sans que Marinara en charge une seconde copie.
 
-1. Clique sur **⋯** sur ce modèle dans le panneau **Connections** et choisis **Use this model for decisions** (utiliser ce modèle pour les décisions). La fenêtre **Add account** (ajouter un compte) s'ouvre sur l'étape de décision, avec la même adresse, le même modèle et la même clé.
-2. Choisis le modèle, puis clique sur **Test decision** (tester la décision). Un test réussi indique si le serveur a renvoyé des log-probabilités et si le modèle a dû raisonner d'abord. Clique sur **Done** (terminé).
-3. Clique sur la ligne **Decision** sous **Behind the scenes** et choisis le nouveau modèle.
-
+1. Clique sur la ligne **Décision** sous **Behind the scenes**, dans l'encadré **Jobs**. Le sélecteur liste les modèles de tous les comptes, y compris ton modèle de chat. Tu peux aussi cliquer sur **⋯** sur le modèle et choisir **Use for…** (utiliser pour…) → **Décision**.
+2. Clique sur l'engrenage de la ligne **Décision**, puis sur **Test**. Un test réussi indique si le serveur a renvoyé des log-probabilités et si le modèle a dû raisonner d'abord. Clique sur **Done** (terminé).
 Tu peux aussi le créer toi-même. Utilise un compte Decision avec la source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, la même adresse que ton compte de chat (par exemple `http://localhost:11434/v1` pour Ollama) et le nom de modèle qu'utilise le serveur.
 
 Il est interrogé comme le modèle intégré : un mot oui/non par énoncé. Les énoncés partent un par un, car Marinara ne peut pas savoir combien de requêtes ton serveur traite à la fois. **Thinking** est toujours sur **Auto** pour un compte. Un serveur sur un autre ordinateur nécessite `PROVIDER_LOCAL_URLS_ENABLED`. Consulte [Connecter un modèle local ou auto-hébergé](local-self-hosted.md).
@@ -107,10 +158,6 @@ L'éditeur Decision (**Edit model** sur un modèle de décision) contient ces ch
 
 TypeSafe envoie ses requêtes à `https://api.typesafe.ai`. Tu peux remplacer son champ **Base URL** (URL de base) par un autre serveur qui exécute l'API de TypeSafe, sans `/v1/systemone`. Le compte a toujours besoin de ta clé TypeSafe, qui est envoyée à ce serveur. La source **Custom System One endpoint** accepte un serveur System One que tu fais tourner, comme Open-Jev ou [Strands decider](#run-strands-decider-yourself). Saisis son adresse sans `/v1/systemone`. Un serveur de modèles de chat comme Ollama ne parle pas System One. Pour celui-ci, utilise **OpenAI-compatible chat model** (modèle de chat compatible OpenAI).
 
-Certains services hébergés répondent parfois en plus de 1,5 seconde, ce qui donne l'impression que les décisions tombent en panne au hasard. Teste plusieurs fois et règle le délai au-dessus de la réponse la plus lente. Les énoncés posés avant la réponse, comme les décisions d'un preset ou la question d'activation d'un agent exécuté avant la réponse, peuvent chacun retarder la réponse jusqu'à cette durée.
-
-Supprimer un compte dont la clé sert aux décisions affiche un avertissement. Le compte Decision doit alors être relié de nouveau, et d'ici là les décisions ne donnent aucune réponse. Les fichiers de connexion importés ne contiennent jamais de clés API ni de liens vers des comptes empruntés : restaure-les à la main.
-
 <a id="through-nanogpt"></a>
 
 ### Via NanoGPT
@@ -141,6 +188,10 @@ Un compte ajouté avant cette version peut n'afficher aucun **Decision models** 
 
 Un compte de décision **OpenRouter** autonome créé dans **Add** reste utilisable. Il interroge la même API avec sa propre clé.
 
+Certains services hébergés répondent parfois en plus de 1,5 seconde, ce qui donne l'impression que les décisions tombent en panne au hasard. Teste plusieurs fois et règle le délai au-dessus de la réponse la plus lente. Les énoncés posés avant la réponse, comme les décisions d'un preset ou la question d'activation d'un agent exécuté avant la réponse, peuvent chacun retarder la réponse jusqu'à cette durée.
+
+Supprimer un compte dont la clé sert aux décisions affiche un avertissement. Le compte Decision doit alors être relié de nouveau, et d'ici là les décisions ne donnent aucune réponse. Les fichiers de connexion importés ne contiennent jamais de clés API ni de liens vers des comptes empruntés : restaure-les à la main.
+
 <a id="where-marinara-uses-it"></a>
 
 ## Où Marinara l'utilise
@@ -152,7 +203,23 @@ Un compte de décision **OpenRouter** autonome créé dans **Add** reste utilisa
 - [Automate active characters](../chats/group-chats.md#automate-active-characters-merged-only) demande qui est dans la scène avant chaque réponse dans un groupe Roleplay Merged, s'il est réglé sur **Decision model** (modèle de décision). Sans réponse : si aucun personnage n'obtient de réponse, il utilise la dernière scène de Character Tracker, ou conserve la liste.
 - [Advanced Memory Recall](../agents/memory.md#optional-decision-model) peut utiliser son propre modèle de décision pour les limites de scène et la sélection des souvenirs en Roleplay. Active **Use Decision model** (utiliser le modèle de décision) dans les réglages Advanced Memory de ce chat. Sans réponse : les décisions échouées reviennent au rappel ou aux vérifications de scène habituels. Les résumés utilisent toujours le modèle auxiliaire.
 
+- Les [fonctionnalités qui examinent les images](#features-that-look-at-pictures) vérifient les nouvelles images, évitent les répétitions, réutilisent les arrière-plans et signalent les visages des sprites, si elles sont activées. Elles nécessitent un modèle de décision qui lit les images.
+
 Une question d'activation décide si un agent s'exécute. Un énoncé de décision dans son prompt décide de ce qui est dit à cet agent pendant son exécution. Utilise `{{#if decision:"..."}}` pour les conditions oui/non et `{{#if decision_choice:"..." == "..."}}` pour un choix entre plusieurs réponses.
+
+### Fonctionnalités qui examinent les images
+
+Elles nécessitent un modèle de décision intégré qui lit les images (Liquid d1, Valen ou Winnow). Elles sont toutes désactivées tant que tu ne les actives pas. Sans un tel modèle, elles sont grisées, avec un ⓘ qui explique pourquoi. Tu peux toujours désactiver une option que tu avais activée auparavant.
+
+| Fonctionnalité | Emplacement | Ce qu'elle fait |
+| --- | --- | --- |
+| **Vérification des images** | **Réglages du chat → Agents → Illustrator** | Examine chaque nouvelle image d'Illustrator et chaque nouveau selfie, et vérifie qu'ils montrent ce qui a été demandé. Un selfie est aussi comparé à l'avatar du personnage. **En créer une autre si elle ne correspond pas** dessine une nouvelle image après un échec. **Toujours en créer deux et garder la meilleure** dessine deux images et garde celle qui correspond le mieux. Chaque image supplémentaire coûte une autre génération d'image. |
+| **Vérifier aussi** | Sous **Vérification des images** | Tes propres vérifications, une par ligne, au plus 6, par exemple `Kaelen has short red hair`. Commence une ligne par `not:` pour indiquer ce que l'image ne doit pas montrer, par exemple `not: The picture has writing or a watermark`. |
+| **Ne pas créer d'image si la dernière montre déjà la scène** | Carte Illustrator | Avant de dessiner, compare la dernière image du chat à ce qui va être dessiné et évite de recréer la même scène. Les images que tu demandes sont toujours créées. |
+| **Réutiliser un arrière-plan de la bibliothèque qui ressemble au lieu** | Carte Illustrator | Quand aucun arrière-plan de ta bibliothèque ne porte le nom d'un nouveau lieu, en examine au plus 4 dont le nom partage des mots avec le lieu et en affiche un qui convient, au lieu d'en peindre un nouveau. Consulte [Vérifier les images avec un modèle de décision](../media/illustrator-agent.md#check-pictures-with-a-decision-model). |
+| **Signaler les visages qui ne correspondent pas à leur expression** | Fenêtre **Générer les sprites**, expressions uniquement | Examine chaque visage après sa création et signale ceux qui pourraient ne pas correspondre à leur expression, pour que tu puisses les décocher ou les redessiner. Consulte [Générer des sprites avec l'IA](../characters/sprites.md#generate-sprites-with-ai). |
+
+Une vérification qui ne peut pas s'exécuter parce que le modèle est désactivé, lent ou échoue compte comme réussie : l'image est conservée telle qu'elle a été créée.
 
 <a id="what-the-model-sees"></a>
 
@@ -183,7 +250,7 @@ Les probabilités ne sont pas comparables d'un modèle à l'autre. Le même exem
 
 - **Modèle intégré, ou compte de modèle de chat compatible OpenAI** : 0,5
 - **Compte TypeSafe, OpenRouter, NanoGPT, Google Gemini ou Custom System One** : 0,5
-- **Modèle de décision intégré** : la recommandation du manifeste du modèle, soit 0,1 pour les Open-Jev 2B et 9B
+- **Modèle de décision intégré** : la recommandation propre au modèle, mesurée sur des tours de Roleplay quand c'était possible : 0,3 pour JevK5, Liquid d1 et Valen-Decision 1.5 4B ; 0,5 pour la version complète de Valen et Winnow (pas encore mesurés) ; 0,1 pour Open-Jev 2B et 9B
 
 Le réglage **Run when probability is at least** (exécuter si la probabilité atteint au moins) d'un agent remplace cette valeur. L'éditeur propose de restaurer la recommandation du modèle quand la valeur enregistrée diffère. Vérifie-le chaque fois que tu changes de modèle. Les énoncés des prompts et les champs Decision des lorebooks utilisent la valeur par défaut du modèle, et le seuil d'un agent ne change pas le leur.
 
@@ -199,7 +266,7 @@ Une décision qui n'arrive pas à temps ne donne aucune réponse, et la généra
 - **Modèle de décision NanoGPT** : 4 secondes, ou ton **Time limit**. Il a répondu en 0,4 à 2,5 secondes lors des mesures.
 - **Compte de modèle de chat compatible OpenAI** : 4 secondes, ou ton **Time limit**. Un modèle qui doit raisonner d'abord dispose d'au moins 20 secondes.
 - **Modèle intégré** : 4 secondes. Un modèle qui doit raisonner d'abord dispose de 20 secondes.
-- **Modèle de décision intégré** : 4 secondes pour le premier énoncé. Chaque énoncé suivant reçoit le temps mesuré du modèle : 0,35 seconde pour Open-Jev 2B et 0,8 seconde pour Open-Jev 9B. Un modèle que tu as installé depuis un dépôt reçoit 4 secondes pour chacun.
+- **Modèle de décision intégré** : Open-Jev dispose de 4 secondes pour le premier énoncé, puis chaque énoncé suivant reçoit son temps mesuré : 0,35 seconde pour 2B et 0,8 seconde pour 9B. Les autres modèles mesurent leur vitesse de lecture à chaque démarrage, et leurs délais s'y adaptent : un processeur lent reçoit donc plus de temps. Chaque image ou clip demandé par un énoncé ajoute du temps. Tant que le modèle n'a pas démarré une première fois, il dispose de 4 secondes par énoncé, de 30 secondes par image et de 60 par clip.
 
 Les requêtes de décision s'arrêtent quand tu annules une génération.
 
@@ -224,45 +291,64 @@ Tout modèle peut se tromper, et des "oui" corrects peuvent se situer tout près
 ## Résolution des problèmes
 
 - **Le test échoue.** Le message explique pourquoi : la clé a été refusée, le service limite les requêtes, le modèle intégré ne tourne pas, le modèle de décision n'est pas installé, le modèle n'a pas répondu par oui ou non, ou le délai a été dépassé.
+- **Un compte n'affiche aucun modèle de décision dans le sélecteur.** Sa liste de modèles enregistrée est antérieure à ses modèles de décision. Clique sur le bouton d'actualisation à côté du nom du compte dans le sélecteur.
 - **Le serveur n'a pas ce point d'accès.** La source Decision ne correspond pas au serveur. Ollama, LM Studio et les autres serveurs de modèles de chat nécessitent **OpenAI-compatible chat model**. La source **Custom System One endpoint** est réservée aux serveurs System One comme Open-Jev.
 - **La réponse a dépassé le délai, ou les décisions ne fonctionnent que parfois.** Le service est parfois plus lent que le **Time limit**. Teste plusieurs fois et augmente le délai au-dessus de la réponse la plus lente.
 - **Un agent avec une question d'activation s'exécute à chaque tour.** Aucun modèle de décision n'est défini, ou il ne répond pas : l'agent s'exécute donc comme s'il n'avait aucune question. Lance un test.
 - **Une branche de décision n'apparaît jamais dans un prompt.** Consulte [Quand une branche de décision n'apparaît jamais](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears).
 - **L'ordre de réponse Smart fait toujours son appel IA habituel.** L'interrupteur est désactivé, ou le modèle de décision n'a pas répondu à ce tour.
+- **Les réglages d'image sont grisés avec un ⓘ.** Le modèle de décision sélectionné lit uniquement le texte, ou aucun modèle de décision n'est défini. Choisis Liquid d1, Valen ou Winnow comme **Built-in decision model**. Consulte [Quel modèle de décision intégré choisir](#which-built-in-decision-model).
+- **Un énoncé avec `pictures:` vaut non.** Avec `media_within:`, aucun des derniers messages ne contenait d'image. Sinon, l'image a ralenti la réponse au-delà de son délai. La ligne **Sur cet ordinateur** de la page du modèle indique le temps nécessaire pour une image.
+- **Un modèle indique qu'il ne peut pas s'exécuter ici.** La raison sous la liste précise ce qui manque, par exemple une fonctionnalité du processeur, une génération de carte graphique ou une bibliothèque. Choisis un autre modèle ; Liquid d1 et JevK5 fonctionnent sur presque tous les ordinateurs.
 - **Automate active characters suit Character Tracker.** Le modèle n'a pas répondu pour chaque personnage, il raisonne d'abord et **Also gate agents that run before the reply** est désactivé, ou le casting est trop grand pour l'entrée du modèle, même avec les seuls noms.
 
 Pour voir les scores et les sorties des décisions pendant la génération, active Debug Mode ou règle le niveau de log sur debug. Consulte [Niveaux de log](../CONFIGURATION.md#logging-levels). Pour tester tes propres énoncés sans générer de réponse, ouvre **Peek Prompt → Decision diagnostics → Test decisions** (Peek Prompt → diagnostic des décisions → tester les décisions). Les tests explicites appellent le modèle sélectionné et peuvent coûter de l'argent avec un service hébergé. Consulte [Tester les énoncés de décision](../chats/peek-prompt.md#testing-decision-statements).
-- **Un compte n'affiche aucun modèle de décision dans le sélecteur.** Sa liste de modèles enregistrée est antérieure à ses modèles de décision. Clique sur le bouton d'actualisation à côté du nom du compte dans le sélecteur.
 
 <a id="let-marinara-install-a-decision-model"></a>
 
 ## Laisser Marinara installer un modèle de décision
 
-Le **Built-in decision model** est un modèle expérimental conçu pour les décisions, que Marinara télécharge et exécute dans son propre processus local, à côté de ton modèle de chat. Sa consommation de mémoire s'ajoute à celle de ton modèle de chat. Si tu as déjà un modèle local, essaie d'abord ses décisions.
+Le **Built-in decision model** est un modèle conçu pour les décisions que Marinara télécharge et exécute sur ton ordinateur, à côté de ton modèle de chat. Rien ne quitte ton ordinateur. Sa consommation de mémoire s'ajoute à celle de ton modèle de chat. Si tu fais déjà tourner un modèle local, essaie d'abord ses décisions.
 
-Les modèles Open-Jev nécessitent Linux **x86-64**, un GPU NVIDIA de capacité de calcul 7.5 ou supérieure (Turing, série RTX 20 ou ultérieure) et un pilote 580 ou plus récent. Linux ARM et les cartes plus anciennes ne sont pas pris en charge. Si un modèle ne peut pas fonctionner, l'option reste visible, explique pourquoi et propose **Set up a Decision provider instead** (configurer plutôt un fournisseur Decision).
+### Quel modèle de décision intégré choisir
 
-| Modèle | Téléchargement du modèle | Disque avec l'environnement d'exécution | Mémoire GPU |
-| --- | --- | --- | --- |
-| Open-Jev 2B | Environ 4,6 Go | Environ 10 Go | Environ 4,8 Go (4,5 Gio) |
-| Open-Jev 9B | Environ 19,4 Go | Environ 25,3 Go | Environ 23,6 Go (22 Gio) |
+| Modèle | Téléchargement | Lit | Langues | Fonctionne sur |
+| --- | --- | --- | --- | --- |
+| **JevK5 4B** | Environ 2,7 Go | Texte | Anglais | Presque tous les ordinateurs : carte graphique NVIDIA, AMD, Intel ou Apple, ou processeur seul. Utilise le même environnement d'exécution que le modèle intégré. |
+| **JevK5 2B** | Environ 2 Go | Texte | Anglais | Comme 4B. Plus rapide sur un processeur ou une petite carte graphique, un peu moins précis. |
+| **Liquid d1 3B** | Environ 2,3 Go | Texte, images | 16, dont le japonais, le chinois, le coréen, l'allemand, l'espagnol et le russe | Presque tous les ordinateurs. Le choix pour les chats qui ne sont pas en anglais. Gratuit pour les particuliers et les entreprises dont le chiffre d'affaires annuel est inférieur à 10 millions de dollars. |
+| **Valen-Decision 1.5 4B** | Environ 5,8 Go | Texte, images | 8 vérifiées | Linux sur un processeur Intel ou AMD 64 bits, sur le processeur uniquement. |
+| **Valen-Decision 1.5 2B (full release)** | Environ 6,4 Go | Texte, images, clips | Non indiqué | Windows, macOS sur Apple silicon et Linux, sur le processeur. Nécessite environ 6 Go de mémoire. |
+| **Valen-Decision 1.5 4B (full release)** | Environ 11,8 Go | Texte, images, clips | 8 vérifiées | Comme 2B. Nécessite environ 12 Go de mémoire ; plus lent mais plus précis. |
+| **Winnow E4B** | Environ 9 Go | Texte, images | Non indiqué | Uniquement Linux avec une carte NVIDIA de la série RTX 50, les bibliothèques CUDA 13 et un processeur avec AVX-512 (comme les AMD Ryzen 7000 ou 9000 ; les puces Intel actuelles pour ordinateurs portables et de bureau n'en disposent pas). Nécessite environ 11 Go de mémoire graphique. |
+| **Open-Jev 2B** | Environ 4,6 Go | Texte | Anglais | Linux avec une carte NVIDIA de la série RTX 20 ou plus récente et un pilote 580 ou plus récent. Utilise environ 4,8 Go de mémoire graphique et 10 Go de disque. |
+| **Open-Jev 9B** | Environ 19,4 Go | Texte | Anglais | Comme 2B. Utilise environ 23,6 Go de mémoire graphique : sur une carte de 24 Go, rien d'autre ne tient à côté. |
 
-Ce sont les estimations du catalogue. Le modèle 9B laisse peu de marge sur un GPU de 24 Go. Consulte le verdict de l'installateur pour ta carte.
+Sur 20 tours de Roleplay en 8 langues, JevK5 4B, Liquid d1 et Valen-Decision 1.5 4B ont tous répondu correctement aux 20. Choisis Liquid d1 si tu hésites, ou la version complète de Valen si tu veux lire des clips.
 
-1. Clique sur **Add** dans le panneau **Connections**, puis sur **Built-in model (decisions)** sous **Decisions**. Une fenêtre intitulée **Built-in decision model** s'ouvre. Tu peux aussi l'ouvrir depuis la page de la carte **Built-in model**.
-2. Lis l'avertissement, puis active **Use the built-in decision model** (utiliser le modèle de décision intégré). Une boîte de dialogue intitulée **Turn on the built-in decision model?** affiche le verdict pour ton ordinateur. Clique sur **Enable** (activer), ou sur **Enable anyway** (activer quand même) si le verdict est un avertissement.
-3. Sous **Available decision models** (modèles de décision disponibles), choisis **Open-Jev 2B** ou **Open-Jev 9B**. Clique sur **Download and install** (télécharger et installer) et confirme la taille, le verdict matériel et les licences. Rien n'est téléchargé avant cette étape.
-4. Clique sur la ligne **Decision** sous **Behind the scenes** et choisis **Built-in model (decisions)**.
+Avant tout téléchargement, Marinara vérifie que ton ordinateur peut exécuter le modèle : le système, les fonctionnalités du processeur, la carte graphique et ses bibliothèques, et la mémoire libre. Un modèle qui ne peut pas s'exécuter reste dans la liste, marqué **(ne peut pas s'exécuter ici)**, avec la raison.
 
-Autres contrôles de la fenêtre :
+### En installer un
 
-- Le champ **Install from a repository** (installer depuis un dépôt) accepte un modèle de décision HuggingFace sous la forme `owner/model-name`. Clique sur **Check** (vérifier). Marinara lit le manifeste propre au dépôt, vérifie qu'il correspond à un environnement d'exécution fourni par cette build, et affiche les poids de base et la taille totale. Un dépôt dont il ne peut pas se porter garant est refusé avec la raison. Clique ensuite sur **Download and install this one** (télécharger et installer celui-ci).
-- Le menu **GPU** choisit la carte sur un ordinateur doté de plusieurs GPU NVIDIA. En changer arrête le modèle, qui redémarre sur la nouvelle carte.
-- Le réglage **Start this model when Marinara starts** (démarrer ce modèle au démarrage de Marinara) est facultatif. Désactivé, le modèle démarre la première fois qu'un agent en a besoin.
-- Le bouton **Remove files** (supprimer les fichiers) supprime le modèle et son environnement d'exécution. Désactiver le modèle arrête le processus et conserve les fichiers.
-- Le bouton **Reinstall** (réinstaller) apparaît quand le modèle installé ne peut pas démarrer parce que ses fichiers ou son environnement d'exécution sont manquants ou obsolètes, généralement après une mise à jour. Le modèle est alors marqué **Needs reinstall**, et la ligne **Decision** affiche **Not set up**. La réinstallation conserve les fichiers déjà téléchargés et complets : en général, seuls les paquets Python de l'environnement d'exécution sont téléchargés de nouveau.
+1. Clique sur **Connexions** dans la barre du haut. Sous **On this device** (sur cet appareil), clique sur **Built-in model (decisions)** (modèle intégré pour les décisions). Tu peux aussi cliquer sur **Ajouter** dans le panneau **Connexions**, puis sur **Built-in model (decisions)** sous **Decisions** (décisions).
+2. Choisis un modèle dans la liste **Modèle**. En dessous, tu vois sa description, puis **Réponses** et **Lit** (voir [Ce qu'affiche la page d'un modèle](#what-a-model-page-lists)), ses langues et ses licences.
+3. Clique sur **Télécharger**, avec le nom et la taille du modèle. Confirme la taille, le verdict matériel et les licences. Rien n'est téléchargé avant cette étape.
+4. Clique sur **Utiliser pour Décision**, ou clique sur la ligne **Décision** sous **Behind the scenes** (en coulisses), dans l'encadré **Jobs** (tâches), et choisis **Built-in model (decisions)**.
 
-La première réponse d'un modèle après son démarrage est plus lente : Marinara pose donc une question de préchauffage pendant le chargement. Si elle échoue, le modèle démarre quand même et la première vraie question subit le retard. Un tour avec beaucoup d'énoncés sur un long chat prend plus de temps. Open-Jev 2B prend environ un quart de seconde par énoncé sur un long chat.
+Une fois qu'un modèle a été exécuté, sa page affiche aussi **Sur cet ordinateur**, avec les durées mesurées : quelques tours de chat, une image et un clip pour les modèles qui les lisent. Ces durées viennent de ton propre ordinateur : elles t'indiquent donc à quel point un énoncé ralentit quand il demande une image.
+
+Pour changer de modèle, choisis-en un autre dans la liste. Un modèle déjà téléchargé est marqué **(téléchargé)**, et **Utiliser ce modèle** permet de passer à celui-ci sans le télécharger de nouveau.
+
+Autres contrôles de la page :
+
+- **Désactiver** arrête le modèle et conserve ses fichiers. **Activer** le redémarre.
+- **Runs on** (s'exécute sur) choisit la carte sur un ordinateur doté de plusieurs cartes NVIDIA. En changer arrête le modèle, qui redémarre sur la nouvelle carte.
+- **Démarre** est réglé par défaut sur **Quand un agent en a besoin pour la première fois**, ou sur **Avec Marinara**.
+- **Installer depuis un dépôt** accepte un modèle de décision sur Hugging Face sous la forme `owner/model-name` : un checkpoint Open-Jev, un GGUF qui se déclare comme modèle de décision, ou un package GGUF Valen. Ajoute `:Q8_0` après le nom pour choisir une taille de GGUF. Clique sur **Vérifier**. Marinara lit ce que les fichiers déclarent à leur sujet et affiche la taille et les licences. Un dépôt dont il ne peut pas se porter garant est refusé avec la raison. Clique ensuite sur **Télécharger et installer celui-ci**.
+- **Supprimer les fichiers** supprime le modèle et son environnement d'exécution.
+- **Reinstall** (réinstaller) apparaît quand le modèle installé ne peut pas démarrer parce que ses fichiers ou son environnement d'exécution sont manquants ou obsolètes, généralement après une mise à jour. Le modèle est marqué **Needs reinstall**. La réinstallation conserve les fichiers déjà téléchargés et complets : en général, seul l'environnement d'exécution est téléchargé de nouveau.
+
+La première réponse d'un modèle après son démarrage est plus lente : Marinara pose donc une question de préchauffage pendant le chargement. Si elle échoue, le modèle démarre quand même et la première vraie question subit le retard. Si le modèle s'arrête juste après le démarrage, la page explique pourquoi, par exemple que le processeur ne dispose pas d'une fonctionnalité nécessaire.
 
 <a id="run-strands-decider-yourself"></a>
 

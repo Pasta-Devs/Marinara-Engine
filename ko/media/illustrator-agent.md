@@ -76,6 +76,15 @@ Game Mode에는 **Prompt Mode**(프롬프트 모드)나 **Prompt Model**(프롬�
 
 **Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타나 스프라이트를 참조 이미지로 이미지 서비스에 보내, 모델이 얼굴이나 복장을 따라 그릴 수 있게 합니다. 참조 이미지를 받지 않는 서비스도 있습니다. Roleplay 채팅에서는 **Attach Card Appearance**와 같은 목록입니다. 동영상을 포함하면 **First frame**(첫 프레임)이 **Prompt only**인 클립은 캐릭터의 아바타나 스프라이트에서 시작하며, 선택지는 **Prompt only (avatar from Send Avatar References)**로 표시됩니다.
 
+이미지에 **Send Avatar References**를 켜면 **Reference pictures go to**에서 참조 이미지를 받을 대상을 고릅니다.
+
+- **Automatic**(자동): 기본값입니다. 이미지 모델의 연결이 참조 이미지를 받으면 이미지 모델로, 그렇지 않으면 프롬프트 작성 모델로 보냅니다.
+- **Image model**(이미지 연결): 이미지 모델에만 보냅니다. 참조 이미지를 받지 못하는 연결에는 보내지 않습니다.
+- **Prompt writer**: Illustrator의 프롬프트 작성 모델에만 보냅니다. 이 모델이 이미지를 보고 그 내용을 이미지 프롬프트에 묘사합니다.
+- **Both**: 이미지 모델과 프롬프트 작성 모델 모두에 보냅니다.
+
+NovelAI V5처럼 참조 이미지를 버리는 이미지 모델을 쓸 때는 프롬프트 작성 모델을 통해 참조 이미지를 활용할 수 있습니다. 이미지를 읽는 작성 모델이 필요합니다. 작성 모델이 이미지를 거부하면 이미지를 빼고 요청을 다시 보내며, 서버를 재시작할 때까지 해당 작성 모델에는 이미지를 보내지 않습니다. 연결에 이미지를 읽지 못한다고 표시된 작성 모델에도 보내지 않습니다. 작성 모델에 이미지를 보내면 실행할 때마다 토큰을 사용합니다. 이미지는 최대 4개를 보냅니다. `[illustrate: characters="…"]`에 이름이 나온 카드의 이미지이며, 지정하지 않았다면 채팅의 활성 캐릭터와 페르소나의 이미지입니다. **What to carry over from the pictures**는 그림체를 제외한 외모만 가져오는 것처럼 작성 모델이 복사할 내용을 정합니다. Roleplay 채팅은 **Send Avatar References** 아래에서 자체 **Reference pictures go to**를 설정할 수 있습니다.
+
 ## 그리는 빈도 조절하기
 
 Illustrator 카드에는 전체 설정 화면을 여는 **Open Setup** 버튼이 있습니다. 여기에서 기본 실행 간격을 정하고 전용 이미지 모델을 지정합니다.
@@ -114,6 +123,19 @@ Roleplay 채팅의 **Chat Settings → Agents → Illustrator**에는 **Illustra
 자체 그림이 없는 클립은 페르소나를 포함해 이름이 나온 모든 인물을 묘사합니다. 아바타 첫 프레임은 처음 이름이 나온 인물에서 시작합니다.
 
 메시지의 **Illustrate** 버튼으로 Illustrator를 다시 실행해도 **Illustrator makes**와 **First frame**을 따릅니다.
+
+## 판단 모델로 이미지 확인하기
+
+이미지를 읽는 내장 [판단 모델](../connections/decision-models.md#features-that-look-at-pictures)(Liquid d1, Valen 또는 Winnow)이 있으면 Illustrator 카드에 설정 세 가지가 더 생깁니다. 모두 기본적으로 꺼져 있으며, 이런 모델이 없으면 비활성화되고 ⓘ가 표시됩니다.
+
+- **Picture check**(이미지 확인)는 새 그림과 셀카를 하나씩 보고 요청한 내용이 담겼는지 확인합니다. 셀카는 캐릭터의 아바타와도 비교합니다. **Make another if it doesn't match**(일치하지 않으면 다시 생성)는 일치하지 않으면 한 번 더 그립니다. **Always make two, keep the better**(항상 2개를 만들고 더 나은 이미지 유지)는 두 개를 그려 더 나은 것을 남깁니다. 그림을 하나 더 만들 때마다 이미지 생성이 한 번 더 발생합니다.
+- **Also check**(추가 확인 사항)는 **Picture check** 아래에 있으며, `Kaelen has short red hair`처럼 직접 정한 확인 사항을 한 줄에 하나씩, 최대 6개 추가합니다. `not: The picture has writing or a watermark`처럼 그림에 나오면 안 되는 내용은 줄 앞에 `not:`를 붙이세요.
+- **Skip a picture the newest one already shows**(최신 이미지에 이미 나온 내용은 생성 건너뛰기)는 채팅의 최신 이미지와 그리려는 내용을 비교해 반복되는 그림을 건너뜁니다. 직접 요청한 그림은 항상 만듭니다.
+- **Reuse a library background that looks like the place**(장소와 비슷한 라이브러리 배경 재사용)는 **Generate Scene Backgrounds**(장면 배경 생성) 기능을 돕습니다. 라이브러리에 새 장소의 이름으로 된 배경이 없으면 판단 모델이 장소와 같은 단어가 들어간 라이브러리 배경을 최대 4개까지 보고, 일치하는 배경이 있으면 새로 그리는 대신 표시합니다.
+
+Conversation 채팅에서는 셀카용 **Picture check**가 Illustrator 카드에 있습니다.
+
+실행할 수 없는 확인은 통과로 처리하므로 그림이 그대로 유지됩니다.
 
 ## NovelAI의 여러 캐릭터 장면
 

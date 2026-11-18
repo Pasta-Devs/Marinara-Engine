@@ -1,10 +1,63 @@
 # Decisionモデル
 
-Decisionモデルとは、「Does the latest message move the scene to a new place?」のような、はい・いいえで答える質問にMarinaraのために回答する小さなモデルです。ロアブック、カスタムエージェント、プロンプト、グループチャットがこれを使います。これは任意の機能です。設定しなくてもチャットは動作し、各機能は[Marinaraでの用途](#where-marinara-uses-it)で説明するフォールバックを使います。
+Decisionモデルとは、「最新のメッセージでシーンが新しい場所に移りましたか?」や「Kaelenの気分は、怒り、悲しみ、落ち着きのどれですか?」など、チャットについての短い質問にMarinaraのために答える小型のモデルです。チャットの画像やクリップを参照できるものもあります。ロアブック、カスタムエージェント、プロンプト、グループチャット、Illustratorが使います。設定は任意です。なくてもチャットは動作し、各機能は[Marinaraでの用途](#where-marinara-uses-it)に記載したフォールバックを使います。
 
-回答はMarinaraの動作を制御するもので、チャットに投稿されることはありません。Decisionモデルは判定文を0から1の数値で採点します。Marinaraはその数値をしきい値と比較し、結果をはい、またはいいえとして扱います。「angry」、「sad」、「none of these」のような短いリストから答えを1つ選ぶこともできます。
+回答はMarinaraの動作を制御するもので、チャットに投稿されることはありません。質問の種類と例は、[判定モデルが答えられること](#what-a-decision-model-can-answer)を参照してください。
 
 迷ったら、**None**(なし)のままにしておくのがおすすめです。判定を使いたい場合は、すでに持っているかもしれない内蔵モデルか、すでに動かしているサーバー上のチャットモデルを使ってください。どちらも追加の費用はかかりません。
+
+## 判定モデルが答えられること
+
+どの回答も、モデルの確信度を表す0から1の数値で返ります。Marinaraは、その数値を各機能が必要とする回答に変換します。
+
+### はい・いいえ
+
+モデルは判定文を読み、それが正しい可能性を答えます。Marinaraは、その値を[しきい値](#thresholds)と比較し、しきい値以上なら「はい」として扱います。最も一般的な種類で、起動質問、ロアブックの**Decision**(判断)欄、`{{#if decision:"..."}}`、Illustratorの確認で使います。
+
+| 判定文 | 切り替えられる動作 |
+| --- | --- |
+| `In the latest message, the characters move to a different location` | 場所が変わったターンだけ、トラッカーが場所を更新します。 |
+| `In the latest message, a dragon is physically present` | ドラゴンについてのロアブックエントリーがプロンプトに加わります。 |
+| `{{user}} asked a question that {{char}} has not answered yet` | プロンプトの1行で、その質問に答えるようモデルに促します。 |
+| `The latest message describes a fight` | このターンだけ戦闘エージェントが動きます。 |
+
+### 複数の回答から1つを選ぶ
+
+モデルは、用意した短い選択肢のリストから最も合うものを選びます。Marinaraはすべての選択肢について質問し、スコアが最も高いものを残すため、回答は複数ではなく1つになります。`{{#if decision_choice:"..." == "..."}}`を使います。
+
+```text
+{{#if decision_choice:"Kaelen's mood in the latest message" == "angry"}}
+Kaelen speaks in short, clipped sentences.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "sad"}}
+Kaelen speaks quietly and avoids eye contact.
+{{else if decision_choice:"Kaelen's mood in the latest message" == "calm"}}
+Kaelen speaks normally.
+{{/if}}
+```
+
+シーンの種類(`combat`、`dialogue`、`exploration`、`rest`)、時間帯(`morning`、`afternoon`、`evening`、`night`)、家のどの部屋が舞台か、といった選択肢もうまく機能します。選択肢は明確に区別できるものにし、どれも当てはまらない可能性がある場合は`none of these`などを加えてください。エージェントは同じ仕組みで複数の指示の組から1つを選び、Illustratorは天候の種類を選びます。
+
+### スコア
+
+はい・いいえではなく、数値そのものを使う機能もあります。[Smart応答順](../chats/group-chats.md#response-order-individual-only)は、各キャラクターが次に発言する可能性を採点し、最も高いキャラクターを選びます。[Advanced Memory](../agents/memory.md#optional-decision-model)は、過去の各シーンの関連度を採点します。Peek Promptの**Test decisions**(判断をテスト)は、すべての判定文のスコアを表示するため、しきい値を選ぶのに役立ちます。[判定文のテスト](../chats/peek-prompt.md#testing-decision-statements)を参照してください。
+
+### 画像とクリップ
+
+画像を読み取れる内蔵判定モデルは、`The picture shows the character at the beach`のように、チャットの画像についても同じ種類の質問に答えられます。Liquid d1、Valen、Winnowは画像を読み取り、Valenの完全版は短いクリップも読み取れます。それ以外のモデルや、すべてのホスト型またはサーバーのアカウントは、テキストだけを読み取り、画像が送られることはありません。
+
+画像が増えるほど回答に時間がかかるため、指定しないかぎり画像は送られません。
+
+- 判定文には`pictures:1`(最大3枚)または`clips:1`を加えます。最新の2件のメッセージのどれかに画像があるときだけ質問するには、`media_within:2`を加えます。[画像とクリップ](../prompts/conditional-prompts.md#pictures-and-clips)を参照してください。
+- ロアブックエントリーでは、**Decision**欄の下の**Show the decision model**(判断モデルに見せるもの)を設定します。[Decisionによる起動](../lorebooks/entries.md#decision-activation)を参照してください。
+- カスタムエージェントの起動質問では、**Show the decision model**を設定します。[起動質問](../agents/custom-agents.md#activation-questions)を参照してください。
+- Marinara自身の画像機能については、[画像を参照する機能](#features-that-look-at-pictures)を参照してください。
+
+### モデルのページに表示される情報
+
+各内蔵判定モデルのページには、次の2行が表示されます。
+
+- **Answers**(回答)は、モデルがどのような回答をするために作られたかを示します。**Yes/no**(はい/いいえ)、**Weighted choice**(重み付きの選択)、**Score on a scale**(尺度に沿ったスコア)、モデルによっては**Boxes on a picture**(画像上の枠、画像内の物体の位置)があります。Marinaraは、はい・いいえと選択式の質問をして、そのスコアを読み取ります。枠はまだ要求しないため、その記載はモデルの説明にとどまります。
+- **Reads**(読み取れるもの)には、**Text**(テキスト)、**Pictures**(画像)、**Video**(動画)が並びます。別のリリースだけが読み取れる種類は、「完全版では動画にも対応」のように、その後に記載されます。
 
 ## Decisionモデルを選ぶ
 
@@ -33,15 +86,15 @@ Decisionモデルとは、「Does the latest message move the scene to a new pla
 - **内蔵モデルですでに動かしているモデル。** 追加の費用はかかりません。内蔵モデルを使っているほとんどの人に最適です。
 - **自分のサーバー上のチャットモデル**(Ollama、LM Studio、llama.cpp、またはほかのOpenAI互換サーバー)。追加の費用はかかりません。モデルをMarinaraの外で動かしている場合に向いており、同じモデルを二重に読み込まずに済みます。
 - **ホスト型の判定モデル**(TypeSafe、OpenRouter、NanoGPT、Google Gemini)。リクエストごとに課金され、1ターンで複数回リクエストすることがあります。NanoGPTのサブスクリプションには一部の判定モデルが含まれ、OpenRouterには無料のものもあります。スマートフォンやローカルモデルを動かさないコンピューターに向いています。
-- **Built-in decision model**(内蔵の判定モデル)。別途ディスク容量とGPUメモリーを使います。Linux x86-64と対応するNVIDIA GPUが必要です。チャットモデルと並行して、別の判定モデルを動かしたい場合に使います。
+- **Built-in decision model**(内蔵の判定モデル)。Marinaraがダウンロードしてチャットモデルと並行して動かす判定専用モデルで、専用のディスク容量とメモリーを使います。ほとんどは幅広いコンピューターで動作し、プロセッサーだけで動くものもあります。画像やクリップを参照できる唯一の選択肢です。[Marinaraによる判定モデルのインストール](#let-marinara-install-a-decision-model)を参照してください。
 
 すでにローカルモデルを動かしているなら、まずそれを試し、自分のチャットのターンでテストしてください。判定文の表現は結果を大きく左右します。[判定文の書き方](../prompts/conditional-prompts.md#writing-statements)を参照してください。
 
 JevとOpen-Jevは別のモデルです。JevはTypeSafeのホスト型モデルで、直接またはOpenRouter経由で利用できます。[Open-Jev](https://huggingface.co/ZefanCai/Open-Jev-2B)はQwenを基盤に別途公開されたモデルで、Marinaraでローカル実行できます。Open-Jevのテストは、ホスト型のJevを測定したものではありません。
 
-Android(Termux)では**Built-in decision model**は動作せず、スマートフォンのプロセッサーで動く小型のローカルモデルでは遅すぎることがあります。OpenRouter経由のJevなど、ホスト型のアカウントが実用的です。[Decision接続の設定](#set-up-a-decision-connection)を参照してください。
+Android(Termux)で**Built-in decision model**として提供されるのはJevK5とLiquid d1だけで、これらもスマートフォンのプロセッサーでは遅すぎることがあります。OpenRouter経由のJevなど、ホスト型のアカウントが実用的です。[Decision接続の設定](#set-up-a-decision-account)を参照してください。
 
-プリセット、カード、エージェントは「Decisionモデル」を前提に書き、「Jev必須」とはしないでください。どのモデルでも同じ判定文の構文を使いますが、モデルによって回答が異なることがあります。判定を使うコンテンツをインポートすると、カスタムエージェントやAgent Organizerからのインストールも含め、Marinaraはこのガイドへのリンク付きの通知を表示します。プロファイル全体のZIPを復元した場合は表示されません。
+プリセット、カード、エージェントは「Decisionモデル」を前提に書き、「Jev必須」とはしないでください。画像を要求する判定文も、テキストだけを読み取るモデルで動作し、その場合はテキストだけが渡されます。どのモデルでも同じ判定文の構文を使いますが、モデルによって回答が異なることがあります。判定を使うコンテンツをインポートすると、カスタムエージェントやAgent Organizerからのインストールも含め、Marinaraはこのガイドへのリンク付きの通知を表示します。プロファイル全体のZIPを復元した場合は表示されません。
 
 ## 内蔵モデルを使う
 
@@ -71,10 +124,8 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 
 チャットモデルをOllama、LM Studio、llama.cpp、またはほかのOpenAI互換サーバーで動かしているなら、Marinaraが2つ目のコピーを読み込まなくても、そのモデルが判定に回答できます。
 
-1. **Connections**(接続)パネルでそのモデルの**⋯**をクリックし、**Use this model for decisions**(このモデルを判断に使う)を選びます。**Add account**(アカウントの追加)ウィンドウが判定のステップで開き、同じアドレス、モデル、キーが入っています。
-2. モデルを選び、**Test decision**(判定をテスト)をクリックします。テストに成功すると、サーバーが対数確率を返したかと、モデルが先に推論する必要があったかが表示されます。**Done**(完了)をクリックします。
-3. **Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックし、新しいモデルを選びます。
-
+1. **Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックします。選択ウィンドウには、チャットモデルを含むすべてのアカウントのモデルが表示されます。または、モデルの**⋯**をクリックし、**Use for…**(用途…) → **Decision**(判断)を選びます。
+2. **Decision**の行の歯車をクリックし、**Test**(テスト)をクリックします。テストに成功すると、サーバーが対数確率を返したかと、モデルが先に推論する必要があったかが表示されます。**Done**(完了)をクリックします。
 自分で作成することもできます。ソースを**OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI互換チャットモデル)にしたDecisionアカウントを使い、チャット用のアカウントと同じアドレス(Ollamaなら例えば`http://localhost:11434/v1`)と、サーバーが使うモデル名を指定します。
 
 問い合わせ方は内蔵モデルと同じで、判定文ごとにはい・いいえの1語を求めます。サーバーが同時にいくつのリクエストを処理できるかMarinaraには分からないため、判定文は1つずつ送ります。アカウントの**Thinking**(推論)は常に**Auto**です。別のコンピューター上のサーバーには`PROVIDER_LOCAL_URLS_ENABLED`が必要です。[ローカルモデルやセルフホストモデルへの接続](local-self-hosted.md)を参照してください。
@@ -150,7 +201,23 @@ OpenRouterアカウントでは、その下の**Chat models**に対数確率を�
 - [アクティブなキャラクターの自動化](../chats/group-chats.md#automate-active-characters-merged-only)は、**Decision model**に設定している場合、MergedのRoleplayグループで返信のたびに、シーンにいるのは誰かを尋ねます。回答がない場合、どのキャラクターについても回答が得られなければ、Character Trackerの直近のシーンを使うか、一覧をそのまま維持します。
 - [Advanced Memory Recall](../agents/memory.md#optional-decision-model)は、Roleplayのシーン境界と記憶の選択に、専用のDecisionモデルを使えます。そのチャットのAdvanced Memory設定で**Use Decision model**(判断モデルを使用)をオンにしてください。回答がない場合、失敗した判定は通常の記憶の呼び出しまたはシーン確認に戻ります。要約には引き続き補助モデルを使います。
 
+- [画像を参照する機能](#features-that-look-at-pictures)は、オンにすると、新しい画像の確認、重複の省略、背景の再利用、スプライトの顔への印付けを行います。画像を読み取れる判定モデルが必要です。
+
 起動質問はエージェントを実行するかどうかを決め、プロンプト内の判定文は、実行中のそのエージェントに何を伝えるかを決めます。はい・いいえの条件には`{{#if decision:"..."}}`を、複数の回答からの選択には`{{#if decision_choice:"..." == "..."}}`を使います。
+
+### 画像を参照する機能
+
+これらには、画像を読み取れる内蔵判定モデル(Liquid d1、Valen、Winnow)が必要です。すべて、オンにするまではオフです。対応するモデルがない場合はグレー表示になり、ⓘに理由が表示されます。以前オンにしたものは、その状態でもオフにできます。
+
+| 機能 | 場所 | 動作 |
+| --- | --- | --- |
+| **Picture check**(画像の確認) | **Chat Settings → Agents → Illustrator**(チャット設定 → エージェント → Illustrator) | Illustratorの新しい画像や自撮り写真を1枚ずつ見て、依頼した内容が描かれているかを確認します。自撮り写真はキャラクターのアバターとも比較します。**Make another if it doesn't match**(合っていなければ別の画像を作る)は、不一致の場合にもう1枚描きます。**Always make two, keep the better**(常に2枚作り、良い方を残す)は、2枚描いて依頼内容により合うほうを残します。画像を追加するたびに、もう1回分の画像生成費用がかかります。 |
+| **Also check**(追加の確認項目) | **Picture check**の下 | `Kaelen has short red hair`のような独自の確認項目を、1行に1つ、最大6つ指定します。画像に含めたくないものは、行頭に`not:`を付けて、`not: The picture has writing or a watermark`のように書いてください。 |
+| **Skip a picture the newest one already shows**(最新の画像にすでに描かれている内容は描かない) | Illustratorのカード | 描く前にチャットの最新の画像とこれから描く内容を比較し、同じシーンをもう一度描くことになる場合は省きます。手動で依頼した画像は必ず作成します。 |
+| **Reuse a library background that looks like the place**(場所の見た目に合う背景をライブラリーから再利用) | Illustratorのカード | 新しい場所と同じ名前の背景がライブラリーにない場合、名前に共通の単語を含む背景を最大4枚確認し、合うものがあれば、新しく描かずにその背景を表示します。[判定モデルで画像を確認する](../media/illustrator-agent.md#check-pictures-with-a-decision-model)を参照してください。 |
+| **Flag faces that don't match their expression**(指定の表情に合わない顔に印を付ける) | **Generate Sprites**(スプライトを生成)ウィンドウ、表情のみ | 描画後の顔を1つずつ確認し、指定の表情に見えない可能性がある顔に印を付けます。チェックを外したり、描き直したりできます。[AIでスプライトを生成する](../characters/sprites.md#generate-sprites-with-ai)を参照してください。 |
+
+モデルがオフ、遅い、失敗するなどの理由で実行できない確認は、合格として扱われます。画像は生成されたまま残ります。
 
 <a id="what-the-model-sees"></a>
 
@@ -181,7 +248,7 @@ OpenRouterアカウントでは、その下の**Chat models**に対数確率を�
 
 - **内蔵モデル、またはOpenAI互換チャットモデルのアカウント:** 0.5
 - **TypeSafe、OpenRouter、NanoGPT、Google Gemini、またはCustom System Oneのアカウント:** 0.5
-- **Built-in decision model:** モデルマニフェストの推奨値。Open-Jev 2Bと9Bでは0.1
+- **Built-in decision model:** モデル自身の推奨値で、可能なものはRoleplayのターンで測定しています。JevK5、Liquid d1、Valen-Decision 1.5 4Bは0.3、Valenの完全版とWinnowは0.5(未測定)、Open-Jev 2Bと9Bは0.1
 
 エージェントの**Run when probability is at least**(実行に必要な最小確率)は、この値を上書きします。保存した値が異なると、エディターはモデルの推奨値に戻すことを提案します。モデルを切り替えるたびに確認してください。プロンプトの判定文とロアブックのDecision欄はモデルのデフォルトを使い、エージェントのしきい値を変えてもこれらは変わりません。
 
@@ -197,7 +264,7 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 - **NanoGPTの判定モデル:** 4秒、または設定した**Time limit**。測定時の回答は0.4秒から2.5秒でした。
 - **OpenAI互換チャットモデルのアカウント:** 4秒、または設定した**Time limit**。先に推論する必要があるモデルには、少なくとも20秒が与えられます。
 - **内蔵モデル:** 4秒。先に推論する必要があるモデルには20秒が与えられます。
-- **Built-in decision model:** 最初の判定文は4秒。以降の判定文には、それぞれモデルの測定時間が与えられます。Open-Jev 2Bでは0.35秒、Open-Jev 9Bでは0.8秒です。リポジトリーからインストールしたモデルは、判定文ごとに4秒です。
+- **Built-in decision model:** Open-Jevは最初の判定文に4秒、以降は測定時間が与えられます。2Bでは0.35秒、9Bでは0.8秒です。ほかのモデルは起動するたびに読み取り速度を測定し、それに合わせて制限時間を決めるため、遅いプロセッサーには長い時間が与えられます。判定文が画像やクリップを要求するたびに、さらに時間が加わります。モデルを初めて起動するまでは、判定文ごとに4秒、画像1枚ごとに30秒、クリップ1本ごとに60秒が与えられます。
 
 生成をキャンセルすると、判定リクエストも停止します。
 
@@ -228,6 +295,9 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 - **起動質問があるエージェントが毎ターン動く。** Decisionモデルが設定されていないか回答していないため、質問がない場合と同じようにエージェントが動いています。テストを実行してください。
 - **プロンプトの判定分岐が一度も表示されない。** [判定分岐が表示されない場合](../prompts/conditional-prompts.md#when-a-decision-branch-never-appears)を参照してください。
 - **Smart応答順が通常のAI呼び出しを続ける。** スイッチがオフになっているか、そのターンにDecisionモデルが回答しませんでした。
+- **画像の設定がⓘ付きでグレー表示になる。** 選択した判定モデルはテキストしか読み取れないか、判定モデルが設定されていません。**Built-in decision model**でLiquid d1、Valen、Winnowのいずれかを選んでください。[内蔵判定モデルの選択](#which-built-in-decision-model)を参照してください。
+- **`pictures:`を含む判定文が「いいえ」になる。** `media_within:`を指定している場合、直近のメッセージに画像がありませんでした。そうでなければ、画像によって回答に時間がかかり、制限時間を超えました。モデルのページの**On this computer**(このコンピューターでの速度)の行に、画像1枚にかかる時間が表示されます。
+- **この端末では実行できないとモデルに表示される。** リストの下の理由に、プロセッサーの機能、グラフィックカードの世代、ライブラリーなど、不足しているものが表示されます。別のモデルを選んでください。Liquid d1とJevK5は、ほとんどのコンピューターで動作します。
 - **アクティブなキャラクターの自動化がCharacter Trackerに従う。** モデルがすべてのキャラクターについて回答しなかったか、先に推論するモデルで**Also gate agents that run before the reply**(返信前に実行するエージェントも判定)がオフになっているか、出演者が多すぎて、名前だけでもモデルの入力に収まりません。
 
 生成中の判定スコアと出力を見るには、Debug Modeをオンにするか、ログレベルをdebugにします。[ログレベル](../CONFIGURATION.md#logging-levels)を参照してください。返信を生成せずに自分の判定文をテストするには、**Peek Prompt → Decision diagnostics → Test decisions**(Peek Prompt → Decision診断 → 判断をテスト)を開きます。明示的なテストは選択したモデルを呼び出すため、ホスト型サービスでは料金が発生することがあります。[判定文のテスト](../chats/peek-prompt.md#testing-decision-statements)を参照してください。
@@ -236,31 +306,47 @@ Custom System Oneのアカウントの背後で自分で動かしているOpen-J
 
 ## Marinaraによる判定モデルのインストール
 
-**Built-in decision model**(内蔵の判定モデル)は、実験的な判定専用モデルです。Marinaraがダウンロードし、チャットモデルと並行して、独立したローカルプロセスとして動かします。使用メモリーは、チャットモデルの使用分に加算されます。ローカルモデルがすでにあるなら、まずそのモデルの判定を試してください。
+**Built-in decision model**(内蔵の判定モデル)は、Marinaraがダウンロードして、自分のコンピューターでチャットモデルと並行して動かす判定専用モデルです。情報はコンピューターの外に出ません。使用メモリーは、チャットモデルの使用分に加算されます。ローカルモデルがすでにあるなら、まずそのモデルの判定を試してください。
 
-Open-JevモデルにはLinux **x86-64**、コンピュート能力7.5以降のNVIDIA GPU(Turing、RTX 20シリーズ以降)、バージョン580以降のドライバーが必要です。Linux ARMや、それより古いカードには対応していません。モデルを実行できない環境でも選択肢は表示されたままで、理由が示され、**Set up a Decision provider instead**(代わりにDecisionプロバイダーを設定)が提案されます。
+### 内蔵判定モデルの選択
 
-| モデル | モデルのダウンロード | ランタイムを含むディスク容量 | GPUメモリー |
-| --- | --- | --- | --- |
-| Open-Jev 2B | 約4.6 GB | 約10 GB | 約4.8 GB(4.5 GiB) |
-| Open-Jev 9B | 約19.4 GB | 約25.3 GB | 約23.6 GB(22 GiB) |
+| モデル | ダウンロード | 読み取れるもの | 言語 | 動作環境 |
+| --- | --- | --- | --- | --- |
+| **JevK5 4B** | 約2.7 GB | テキスト | 英語 | ほとんどのコンピューター。NVIDIA、AMD、Intel、Appleのグラフィックス、またはプロセッサーだけで動作します。内蔵モデルと同じランタイムを使います。 |
+| **JevK5 2B** | 約2 GB | テキスト | 英語 | 4Bと同じです。プロセッサーや小型のグラフィックカードではより速く動作しますが、精度は少し低くなります。 |
+| **Liquid d1 3B** | 約2.3 GB | テキスト、画像 | 日本語、中国語、韓国語、ドイツ語、スペイン語、ロシア語を含む16言語 | ほとんどのコンピューター。英語以外のチャットに向いています。個人と年間売上1,000万ドル未満の企業は無料で使えます。 |
+| **Valen-Decision 1.5 4B** | 約5.8 GB | テキスト、画像 | 8言語で確認済み | 64ビットのIntelまたはAMDプロセッサーを搭載したLinux。プロセッサーのみで動作します。 |
+| **Valen-Decision 1.5 2B (full release)** | 約6.4 GB | テキスト、画像、クリップ | 記載なし | Windows、Apple siliconのmacOS、Linuxで、プロセッサー上で動作します。約6 GBのメモリーが必要です。 |
+| **Valen-Decision 1.5 4B (full release)** | 約11.8 GB | テキスト、画像、クリップ | 8言語で確認済み | 2Bと同じです。約12 GBのメモリーが必要で、遅いものの精度は高くなります。 |
+| **Winnow E4B** | 約9 GB | テキスト、画像 | 記載なし | NVIDIA RTX 50シリーズのカード、CUDA 13のライブラリー、AVX-512対応プロセッサー(AMD Ryzen 7000や9000など。現在のIntelのノート・デスクトップ向けチップは非対応)を備えたLinuxのみです。約11 GBのグラフィックメモリーが必要です。 |
+| **Open-Jev 2B** | 約4.6 GB | テキスト | 英語 | RTX 20シリーズ以降のNVIDIAカードと、バージョン580以降のドライバーを備えたLinux。約4.8 GBのグラフィックメモリーと10 GBのディスク容量を使います。 |
+| **Open-Jev 9B** | 約19.4 GB | テキスト | 英語 | 2Bと同じです。約23.6 GBのグラフィックメモリーを使うため、24 GBのカードではほかのものを一緒に載せられません。 |
 
-これらはカタログの推定値です。9Bモデルでは、24 GBのGPUに余裕がほとんど残りません。自分のカードに対するインストーラーの診断結果を確認してください。
+8言語にわたる20ターンのRoleplayでは、JevK5 4B、Liquid d1、Valen-Decision 1.5 4Bが20件すべてに正しく答えました。迷ったらLiquid d1を、クリップを読み取らせたい場合はValenの完全版を選んでください。
 
-1. **Connections**(接続)パネルで**Add**(追加)をクリックし、**Decisions**(判定)の下にある**Built-in model (decisions)**(判定用の内蔵モデル)をクリックします。**Built-in decision model**というタイトルのウィンドウが開きます。**Built-in model**(内蔵モデル)カードのページからも開けます。
-2. 警告を読み、**Use the built-in decision model**(内蔵の判定モデルを使用)をオンにします。**Turn on the built-in decision model?**というタイトルのダイアログに、自分のコンピューターに対する診断結果が表示されます。**Enable**(有効化)をクリックします。診断結果が警告の場合は**Enable anyway**(それでも有効化)をクリックします。
-3. **Available decision models**(利用できる判定モデル)の下で、**Open-Jev 2B**または**Open-Jev 9B**を選びます。**Download and install**(ダウンロードしてインストール)をクリックし、サイズ、ハードウェアの診断結果、ライセンスを確認します。それまでは何もダウンロードされません。
-4. **Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックし、**Built-in model (decisions)**を選びます。
+ダウンロードの前に、Marinaraはシステム、プロセッサーの機能、グラフィックカードとそのライブラリー、空きメモリーを確認し、そのコンピューターでモデルを動かせるか調べます。動かせないモデルもリストに残り、**(cannot run here)**(この端末では実行不可)と理由が表示されます。
 
-ウィンドウには、ほかに次の操作があります。
+### インストール手順
 
-- **Install from a repository**(リポジトリーからインストール)には、HuggingFaceの判定モデルを`owner/model-name`の形式で入力します。**Check**(確認)をクリックします。Marinaraはそのリポジトリー自身のマニフェストを読み、このビルドに同梱されたランタイムに対応しているかを確認して、ベース重みと合計サイズを表示します。保証できないリポジトリーは、理由とともに拒否されます。続いて**Download and install this one**(これをダウンロードしてインストール)をクリックします。
-- **GPU**では、複数のNVIDIA GPUがあるコンピューターで使うカードを選びます。変更するとモデルが停止し、新しいカードで再び起動します。
-- **Start this model when Marinara starts**(Marinaraの起動時にこのモデルを起動)は任意です。オフの場合は、エージェントが初めて必要としたときに起動します。
-- **Remove files**(ファイルを削除)は、モデルとそのランタイムを削除します。モデルをオフにするとプロセスは停止しますが、ファイルは残ります。
-- **Reinstall**(再インストール)は、インストール済みのモデルのファイルやランタイムが見つからないか古くなっていて、モデルを起動できないときに表示されます。多くはアップデートの後です。モデルには**Needs reinstall**と表示され、**Decision**の行には**Not set up**と表示されます。再インストールしても、すでにダウンロードされていて壊れていないファイルは残るため、通常はランタイムのPythonパッケージだけがもう一度ダウンロードされます。
+1. 上部バーの**Connections**(接続)をクリックします。**On this device**(このデバイス上)の下にある**Built-in model (decisions)**(判定用の内蔵モデル)をクリックします。**Connections**パネルで**Add**(追加)をクリックし、**Decisions**(判断)の下の**Built-in model (decisions)**をクリックしても開けます。
+2. **Model**(モデル)のリストからモデルを選びます。その下に説明、**Answers**(回答)と**Reads**(読み取れるもの)([モデルのページに表示される情報](#what-a-model-page-lists)を参照)、対応言語、ライセンスが表示されます。
+3. モデル名とサイズが付いた**Download**(ダウンロード)をクリックします。サイズ、ハードウェアの診断結果、ライセンスを確認します。それまでは何もダウンロードされません。
+4. **Use for Decision**(判断に使う)をクリックするか、**Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**(判断)の行をクリックし、**Built-in model (decisions)**を選びます。
 
-起動直後のモデルの最初の回答は遅いため、Marinaraは読み込み中にウォームアップ用の質問を1つ送ります。これに失敗してもモデルは起動し、最初の実際の質問でその遅延が発生します。長いチャットで判定文が多いターンほど時間がかかります。長いチャットでは、Open-Jev 2Bは判定文1つあたり約0.25秒かかります。
+モデルを一度実行すると、そのページの**On this computer**(このコンピューターでの速度)に、そこでかかった時間も表示されます。チャットの数ターン、画像1枚、対応モデルではクリップ1本の時間です。自分のコンピューターでの時間なので、画像を要求すると判定文の処理がどれだけ遅くなるかが分かります。
+
+切り替えるには、リストから別のモデルを選びます。以前ダウンロードしたモデルには**(downloaded)**(ダウンロード済み)と表示され、**Use this model**(このモデルを使う)で再ダウンロードせずに切り替えられます。
+
+ページには、ほかに次の操作があります。
+
+- **Turn off**(オフにする)はモデルを停止し、ファイルを残します。**Turn on**(オンにする)で再び起動します。
+- **Runs on**(動作環境)は、複数のNVIDIAカードがあるコンピューターで使うカードを選びます。変更するとモデルが停止し、新しいカードで再び起動します。
+- **Starts**(起動)は、デフォルトの**When an agent first needs it**(エージェントが初めて必要としたとき)、または**With Marinara**(Marinaraと同時)を選べます。
+- **Install from a repository**(リポジトリーからインストール)には、Hugging Faceの判定モデルを`owner/model-name`の形式で入力します。Open-Jevのチェックポイント、判定モデルであると宣言されたGGUF、ValenのGGUFパッケージに対応します。名前の後に`:Q8_0`を付けると、GGUFのサイズを1つ指定できます。**Check**(確認)をクリックします。Marinaraはファイル自身の説明を読み、サイズとライセンスを表示します。保証できないリポジトリーは、理由とともに拒否されます。続いて**Download and install this one**(これをダウンロードしてインストール)をクリックします。
+- **Remove files**(ファイルを削除)は、モデルとそのランタイムを削除します。
+- **Reinstall**(再インストール)は、インストール済みのモデルのファイルやランタイムが見つからないか古くなっていて、モデルを起動できないときに表示されます。多くはアップデートの後です。モデルには**Needs reinstall**と表示されます。再インストールしても、すでにダウンロードされていて壊れていないファイルは残るため、通常はランタイムだけがもう一度ダウンロードされます。
+
+起動直後のモデルの最初の回答は遅いため、Marinaraは読み込み中にウォームアップ用の質問を1つ送ります。これに失敗してもモデルは起動し、最初の実際の質問でその遅延が発生します。起動直後にモデルが停止した場合は、必要な機能がプロセッサーにないなどの理由がページに表示されます。
 
 <a id="run-strands-decider-yourself"></a>
 
@@ -277,7 +363,7 @@ Open-JevモデルにはLinux **x86-64**、コンピュート能力7.5以降のNV
 
    NVIDIA GPUかApple siliconが見つかればそれを使い、なければプロセッサーで動作しますが遅くなります。初回起動時にモデルと約4.6 GBのベース重みをダウンロードし、Pythonパッケージは約5.5 GBを使います。サーバーにパスワードはないので、`127.0.0.1`で運用してください。
 
-2. 種類のボタンで**Decision**(判定)をクリックし、**TypeSafe**または**Own decision server**をクリックします。NanoGPTは[NanoGPT経由](#through-nanogpt)、OpenRouterまたはGoogle Geminiは[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
+2. **Server address**(サーバーのアドレス)を`http://127.0.0.1:8000`にして、**Own decision server**(自分の判定サーバー)のアカウントを追加します。モデル名は何でもかまいません。
 3. **Decision**の行でそれを選び、アカウントの**⋯**メニューにある**Test**(テスト)でテストします。起動後の最初の回答には約2秒かかり、デフォルトの制限時間より長いため、チャットを始める前に1回テストしてください。
 
 確率は校正済みなので、セルフホストのOpen-Jevと違い、デフォルトのしきい値0.5が適しています([しきい値](#thresholds)を参照)。回答は判定文の表現に左右されるため、[判定文の書き方](../prompts/conditional-prompts.md#writing-statements)に従ってください。

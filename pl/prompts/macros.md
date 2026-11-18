@@ -8,7 +8,7 @@ Kiedy Marinara buduje tekst wysyłany do AI, podmienia każdy zapis `{{tag}}` na
 
 Makra można wpisywać w tych miejscach:
 
-- Pola postaci w panelu **Character Editor** (edytor postaci): Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions oraz pole **Depth Prompt**.
+- Pola postaci w panelu **Character Editor** (edytor postaci): Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions oraz pole **Depth Prompt**.
 - Pola persony w panelu **Persona Editor** (edytor persony) – te same pola karty.
 - Pola Description i Content we wpisie lorebooka.
 - Sekcje presetu promptu w panelu **Preset Editor** (edytor presetów).
@@ -35,12 +35,13 @@ Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej pos
 | `{{charNamePhonetic}}` | Pole Phonetic name postaci, a przy pustym polu `{{char}}`. |
 | `{{characters}}` | Wszystkie postacie w czacie, także nieaktywne, oddzielone przecinkami. To makro dodaje tylko nazwy; nie dodaje do promptu kart nieaktywnych postaci. |
 | `{{group}}` | Wszystkie pozostałe aktywne postacie w czacie grupowym, bez postaci właśnie odpowiadającej. Persona nie należy do tej listy postaci. |
-| `{{persona}}` | Pola Description, Personality, Backstory, Appearance i Scenario twojej persony, połączone znakami nowej linii. |
+| `{{persona}}` | Pola Description, Personality, Backstory, Appearance i Scenario twojej persony, połączone znakami nowej linii. Pole Public Face nie jest uwzględniane. |
 | `{{personaDescription}}` | Pole Description twojej persony. |
 | `{{personaPersonality}}` | Pole Personality twojej persony. |
 | `{{personaBackstory}}` | Pole Backstory twojej persony. |
 | `{{personaAppearance}}` | Pole Appearance twojej persony. |
 | `{{personaScenario}}` | Pole Scenario twojej persony. |
+| `{{personaPublicFace}}` | Pole Public Face twojej persony: co inni mogliby o tobie wiedzieć. |
 
 Makra pól postaci czytają kartę bieżącej postaci:
 
@@ -51,6 +52,7 @@ Makra pól postaci czytają kartę bieżącej postaci:
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Warunek może też zapytać twój model decyzyjny o scenę, na przykład `{{#if 
 - `sticky:3 cooldown:5` zachowuje odpowiedź tak przez trzy tury, a potem wstrzymuje ją na pięć. Zobacz [Sticky i cooldown](conditional-prompts.md#sticky-and-cooldown).
 - `until:"..."` lub `while:"..."` zachowuje odpowiedź tak tak długo, jak pozwala na to drugie stwierdzenie. Zobacz [Until i while](conditional-prompts.md#until-and-while).
 - `every:3` zadaje pytanie o stwierdzenie tylko co trzy tury. Zobacz [Sprawdzanie co kilka tur](conditional-prompts.md#checking-every-few-turns).
+- `pictures:1`, `clips:1` i `media_within:3` pozwalają modelowi wbudowanemu, który je odczytuje, oglądać najnowsze obrazy i klipy z czatu oraz czekać, aż się pojawią. Zobacz [Obrazy i klipy](conditional-prompts.md#pictures-and-clips).
 - `priority:high` lub `priority:low` decyduje, które stwierdzenia zmieszczą się w planie promptu. Zobacz [Priorytet](conditional-prompts.md#priority) i [Limity i koszty](conditional-prompts.md#limits-and-cost).
 
 ## Częste błędy

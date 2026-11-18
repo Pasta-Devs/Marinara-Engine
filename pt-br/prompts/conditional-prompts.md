@@ -142,6 +142,8 @@ Uma condição pode perguntar ao seu modelo de decisão o que está acontecendo 
 
 Antes de começar: escolha um modelo de decisão em **Decision model** (modelo de decisão) no painel **Connections** (Conexões). Veja [Modelos de decisão](../connections/decision-models.md) para saber o que é e como escolher um. Para decidir se uma entrada inteira de lorebook é ativada, use o campo [Decision](../lorebooks/entries.md#decision-activation) da entrada.
 
+Ele pode responder sim ou não (`decision:`) ou escolher uma entre várias respostas (`decision_choice:`), e um modelo embutido que lê imagens também pode analisar as imagens e os clipes do chat. Para ver os tipos de resposta com mais exemplos, veja [O que um modelo de decisão pode responder](../connections/decision-models.md#what-a-decision-model-can-answer).
+
 Algumas ideias: descrever um novo lugar apenas quando a cena mudou, carregar regras de ritmo de combate apenas durante uma luta, segurar a intensificação em um preset de desenvolvimento lento ou fazer só o personagem abordado responder diretamente em um bloco de grupo.
 
 ### Sim ou não: `decision:`
@@ -254,6 +256,20 @@ Quando um plano de prompt tem mais declarações que o orçamento de **Decision 
 - As declarações acima do limite valem não, começando pela menor prioridade, e o Peek Prompt as lista.
 - Uma declaração escrita em vários lugares usa a maior prioridade.
 - As declarações do próprio prompt (preset, cards, persona, notas do autor) são planejadas primeiro. As declarações de lorebook usam as vagas que sobram, qualquer que seja a prioridade delas.
+
+### Imagens e clipes
+
+Um modelo de decisão embutido que lê imagens (Liquid d1, Valen, Winnow) também pode analisar as imagens e os clipes do chat. Ele só faz isso quando a declaração pede: `pictures:N` envia as N imagens mais recentes (até 3), e `clips:1` envia o clipe mais recente (somente na versão completa do Valen). Sem esses modificadores, só o texto é enviado.
+
+```text
+{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}
+{{#if decision:"The clip ends somewhere new" clips:1 media_within:2}}...{{/if}}
+```
+
+- As imagens são arquivos enviados, selfies da galeria e ilustrações; os clipes são vídeos de cena gerados. Cada um é reduzido antes do envio.
+- Cada imagem ou clipe torna a declaração mais lenta. Os detalhes do modelo mostram quanto tempo cada um leva no seu computador depois que ele roda ali.
+- `media_within:N` só pergunta a declaração quando uma das N mensagens mais recentes tem uma imagem (ou um clipe, com `clips:`). Nos outros turnos, ela vale não e não é perguntada.
+- As declarações que pedem as mesmas imagens compartilham uma solicitação. Um modelo que lê apenas texto, ou uma conexão Decision hospedada, nunca recebe nenhuma.
 
 Você pode combinar todos os modificadores em qualquer ordem: `decision:"..." priority:high sticky:3 cooldown:5 every:2`.
 

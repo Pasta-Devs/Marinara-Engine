@@ -106,7 +106,8 @@ Antes de empezar: añade una conexión de generación de imágenes. Para sprites
 5. Escribe una **Appearance Description** (descripción de aspecto). Es obligatoria.
 6. Opcionalmente, activa **Transparent sprite background** (fondo de sprite transparente). Marinara hace que el fondo sea transparente. Si el servicio no puede hacerlo, Marinara dibuja un fondo liso verde, magenta o cian que se distinga de los colores de tu **Appearance Description**, y luego lo quita.
 7. Define **Expression Count** (cantidad de expresiones), o **Pose Count** (cantidad de poses) para cuerpo completo, y elige qué expresiones o poses hacer.
-8. Haz clic en **Generate** (generar).
+8. Opcional, para expresiones: marca **Flag faces that don't match their expression** (Marcar los rostros que no coincidan con su expresión). Un [modelo de decisión que lee imágenes](../connections/decision-models.md#features-that-look-at-pictures) examina cada cara después de dibujarla y marca con **Check** (Revisar) las que podrían no mostrar su expresión, para que puedas desmarcarlas o volver a dibujarlas. Cada cara tarda un momento. Sin un modelo así, la casilla aparece en gris.
+9. Haz clic en **Generate** (generar).
 
 Cuando llegan las imágenes, activa o desactiva cada una, cámbiale el nombre y recórtala. Luego guarda las imágenes seleccionadas en los sprites del personaje. Si exactamente un sprite guardado en esa categoría tiene la etiqueta generada, al guardar se reemplaza su imagen y se conservan su carpeta y su identificador. Un sprite al que le cambiaste el nombre para apartarlo de esa etiqueta se conserva. Con etiquetas duplicadas en carpetas distintas, reemplaza a mano el sprite que quieras.
 

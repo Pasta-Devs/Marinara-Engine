@@ -153,6 +153,15 @@ Plus de détails :
 - L'activation par décision ne s'applique qu'aux tours du chat. La configuration Game et les analyses que les agents font pour eux-mêmes interprètent les entrées de décision comme non.
 - Un `{{#if decision:"..."}}` dans le contenu de l'entrée, c'est autre chose. Il raccourcit le texte d'une entrée déjà activée.
 
+### Laisser le modèle de décision voir les images
+
+Avec un modèle de décision intégré qui lit les images (Liquid d1, Valen ou Winnow), l'énoncé peut porter sur les images du chat, par exemple `The newest picture shows a dragon`. Sous le champ **Décision**, **Montrer au modèle de décision** propose deux listes :
+
+- **Images** : **Aucune image** (par défaut), ou les 1 à 3 dernières images du chat. Chaque image ralentit le traitement de l'énoncé.
+- **Demander uniquement si une image figure dans** : **N'importe quel message (demander à chaque fois)**, ou les 1 à 20 derniers messages. Sans image dans cette fenêtre, l'énoncé vaut non et le modèle n'est pas interrogé.
+
+Sans modèle qui lit les images, ces réglages sont grisés, avec un ⓘ qui explique pourquoi, et l'énoncé reçoit uniquement le texte. Quand plusieurs entrées partagent un énoncé, il n'est soumis qu'une fois, avec le plus grand nombre d'images demandé par l'une d'elles. Voir [Ce qu'un modèle de décision peut répondre](../connections/decision-models.md#pictures-and-clips).
+
 ## Groupes, filtres et autres options
 
 Le tiroir déplié contient d'autres champs.

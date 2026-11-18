@@ -153,6 +153,15 @@ Więcej szczegółów:
 - Aktywacja przez decyzję dotyczy tylko tur czatu. Konfiguracja gry i skanowania, które agenci uruchamiają na własne potrzeby, odczytują wpisy decyzyjne jako nie.
 - Warunek `{{#if decision:"..."}}` wewnątrz treści wpisu to coś innego. Przycina tekst wpisu, który już się aktywował.
 
+### Pokaż obrazy modelowi decyzyjnemu
+
+Z wbudowanym modelem decyzyjnym odczytującym obrazy (Liquid d1, Valen lub Winnow) stwierdzenie może dotyczyć obrazów z czatu, na przykład `The newest picture shows a dragon`. Pod polem **Decyzja** sekcja **Pokaż modelowi decyzyjnemu** ma dwie listy:
+
+- **Obrazy**: **Bez obrazów** (domyślnie) albo od 1 do 3 najnowszych obrazów z czatu. Każdy obraz spowalnia ocenę stwierdzenia.
+- **Pytaj tylko wtedy, gdy obraz jest w**: **Każda wiadomość (pytaj za każdym razem)** albo od 1 do 20 najnowszych wiadomości. Bez obrazu w tym zakresie stwierdzenie jest odczytywane jako nie i nie jest zadawane.
+
+Bez modelu odczytującego obrazy te opcje są wyszarzone, a ⓘ wyjaśnia dlaczego; stwierdzenie otrzymuje wtedy tylko tekst. Gdy kilka wpisów współdzieli jedno stwierdzenie, jest ono zadawane raz, z największą liczbą obrazów wymaganą przez którykolwiek z nich. Zobacz [Na co może odpowiedzieć model decyzyjny](../connections/decision-models.md#pictures-and-clips).
+
 ## Grupy, filtry i inne opcje
 
 Rozwinięty panel zawiera więcej pól.

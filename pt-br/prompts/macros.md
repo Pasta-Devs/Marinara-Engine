@@ -8,7 +8,7 @@ Ao montar o texto que envia para a IA, Marinara troca cada `{{tag}}` pelo valor 
 
 Você pode digitar macros nestes lugares:
 
-- Campos de personagem no **Character Editor** (editor de personagem): Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions e o campo **Depth Prompt**.
+- Campos de personagem no **Character Editor** (editor de personagem): Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions e o campo **Depth Prompt**.
 - Campos de persona no **Persona Editor** (editor de persona), que são os mesmos campos do card.
 - Campos Description e Content das entradas de lorebook.
 - Seções do preset de prompt no **Preset Editor** (editor de presets).
@@ -35,12 +35,13 @@ Estas macros trazem os nomes e os campos do card de quem fala e do personagem qu
 | `{{charNamePhonetic}}` | O nome Phonetic do personagem, ou `{{char}}` quando esse campo está vazio. |
 | `{{characters}}` | Todos os personagens do chat, incluindo os inativos, separados por vírgulas. Esta macro acrescenta apenas os nomes; ela não adiciona os cards dos personagens inativos ao prompt. |
 | `{{group}}` | Todos os outros personagens ativos do chat em grupo, sem contar quem está respondendo. A persona não faz parte dessa lista de personagens. |
-| `{{persona}}` | Os campos Description, Personality, Backstory, Appearance e Scenario da persona, unidos por quebras de linha. |
+| `{{persona}}` | Os campos Description, Personality, Backstory, Appearance e Scenario da persona, unidos por quebras de linha. Public Face não é incluído. |
 | `{{personaDescription}}` | O campo Description da persona. |
 | `{{personaPersonality}}` | O campo Personality da persona. |
 | `{{personaBackstory}}` | O campo Backstory da persona. |
 | `{{personaAppearance}}` | O campo Appearance da persona. |
 | `{{personaScenario}}` | O campo Scenario da persona. |
+| `{{personaPublicFace}}` | O campo Public Face da persona: o que os outros poderiam saber sobre você. |
 
 As macros de campo do personagem leem o card do personagem atual:
 
@@ -51,6 +52,7 @@ As macros de campo do personagem leem o card do personagem atual:
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Uma condição também pode consultar o seu modelo de decisão sobre a cena, por
 - `sticky:3 cooldown:5` mantém um sim por três turnos e depois deixa a declaração em descanso por cinco. Veja [Sticky e cooldown](conditional-prompts.md#sticky-and-cooldown).
 - `until:"..."` ou `while:"..."` mantém um sim enquanto uma segunda declaração permitir. Veja [Until e while](conditional-prompts.md#until-and-while).
 - `every:3` só pergunta uma declaração a cada três turnos. Veja [Verificar a cada poucos turnos](conditional-prompts.md#checking-every-few-turns).
+- `pictures:1`, `clips:1` e `media_within:3` permitem que um modelo embutido que os lê analise as imagens e os clipes mais recentes do chat e espere por um deles. Veja [Imagens e clipes](conditional-prompts.md#pictures-and-clips).
 - `priority:high` ou `priority:low` escolhe quais declarações cabem em um plano de prompt. Veja [Prioridade](conditional-prompts.md#priority) e [Limites e custo](conditional-prompts.md#limits-and-cost).
 
 ## Erros comuns

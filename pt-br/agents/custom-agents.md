@@ -102,6 +102,8 @@ Por padrão, um agente roda na cadência normal dele (a frequência com que ele 
 
 A partir daí, o agente só roda quando uma palavra-chave aparece nessas mensagens. Deixe a caixa vazia para desativar o filtro. A cadência e qualquer pergunta de ativação continuam valendo.
 
+Os agentes para download têm a mesma seção. Veja [Activation Keywords e perguntas](built-in-agents.md#activation-keywords-and-questions).
+
 ## Como anexar ferramentas
 
 Um agente pode chamar ferramentas: funções que a IA executa para buscar ou alterar alguma coisa e cujo resultado ela lê em seguida. Isso também se chama function calling.
@@ -128,6 +130,7 @@ Quando alguém adiciona o agente a um chat, um menu suspenso **Prompt Mode** lis
 - **Model override**: usa um modelo diferente para este agente, por exemplo um mais barato. Deixe vazio para usar o modelo do chat. O agente envia os parâmetros de geração salvos nessa conexão. Veja [Parâmetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget**: **Context Size** é quantas mensagens recentes o agente lê (padrão 5). **Max Output Tokens** é o espaço de saída reservado (padrão 4096, de 128 a 32768).
 - **Add as Prompt Section**: expõe a última saída do agente como uma seção que você pode posicionar em um preset de prompt.
+- **Context Sources** (fontes de contexto): o que o agente lê além das instruções. **Characters** (personagens) e **Persona** têm três opções cada: **Off** (desativado), **Full card** (card completo) ou **Public Face** (face pública). **Public Face** envia apenas o nome e o campo **Public Face** do card. Se esse campo estiver vazio, só o nome é enviado. Para escrever um, veja [Aba Card](../characters/creating-and-editing-characters.md#card-tab). Quando vários agentes compartilham uma solicitação, cada fonte usa a opção mais abrangente entre eles: **Full card**, depois **Public Face**, depois **Off**.
 
 Macros como `{{user}}` e `{{char}}` funcionam no **Prompt Template**. Veja [Macros](../prompts/macros.md).
 
@@ -180,8 +183,9 @@ Uma pergunta de ativação pergunta se a cena recente precisa do seu agente. Ela
 
 1. Abra o agente personalizado.
 2. Digite uma **Question** (pergunta) de até 500 caracteres. As macros `{{user}}` e `{{char}}` funcionam nela.
-3. Ajuste **Run when probability is at least** (rodar quando a probabilidade for pelo menos) para o limiar deste agente. O agente roda quando a probabilidade de "sim" atinge esse limiar, então valores maiores pulam mais execuções. O editor mostra um valor recomendado para o seu modelo: 0,5 para modelos de chat locais e contas Decision, ou 0,1 para os modelos Open-Jev integrados. Confira esse valor nos seus próprios chats depois de trocar de modelo. Veja [Limiares](../connections/decision-models.md#thresholds).
-4. Opcional: ajuste **Bypass the question after this many messages without a successful run** (ignorar a pergunta após este número de mensagens sem uma execução bem-sucedida). Depois desse número de mensagens, a pergunta é ignorada, então um modelo que continua respondendo "não" não consegue silenciar o agente para sempre. Palavras-chave e cadência continuam valendo.
+3. Ajuste **Run when probability is at least** (rodar quando a probabilidade for pelo menos) para o limiar deste agente. O agente roda quando a probabilidade de "sim" atinge esse limiar, então valores maiores pulam mais execuções. O editor mostra um valor recomendado para o seu modelo: 0,5 para modelos de chat locais e contas Decision, 0,3 ou 0,5 para a maioria dos modelos de decisão embutidos, ou 0,1 para os modelos Open-Jev integrados. Confira esse valor nos seus próprios chats depois de trocar de modelo. Veja [Limiares](../connections/decision-models.md#thresholds).
+4. Opcional: em **Show the decision model** (mostrar ao modelo de decisão), escolha **Pictures** (imagens: as 1 a 3 mais recentes) ou **Clips** (clipes) para a pergunta analisar, e **Ask only when a picture or clip is in** (perguntar só quando houver uma imagem ou clipe em) para limitar às mensagens mais recentes. Isso exige um modelo de decisão embutido que os leia (Liquid d1, Valen ou Winnow, e a versão completa do Valen para clipes); caso contrário, fica desativado. Com uma janela definida, o agente é pulado nos turnos sem imagem ou clipe nela. Cada imagem ou clipe torna a pergunta mais lenta. Veja [Imagens e clipes](../connections/decision-models.md#pictures-and-clips).
+5. Opcional: ajuste **Bypass the question after this many messages without a successful run** (ignorar a pergunta após este número de mensagens sem uma execução bem-sucedida). Depois desse número de mensagens, a pergunta é ignorada, então um modelo que continua respondendo "não" não consegue silenciar o agente para sempre. Palavras-chave e cadência continuam valendo.
 
 Escreva a pergunta como uma declaração sobre a mensagem mais recente, como `The latest message moves the scene to a new place.` Um modelo pequeno respondeu a isso com mais confiabilidade do que a `Did the scene change?` Veja [Escrever declarações](../prompts/conditional-prompts.md#writing-statements).
 
@@ -193,7 +197,7 @@ Como funciona:
 - Tempo esgotado, modelo indisponível ou resposta inválida deixam o agente rodar normalmente. O tempo limite depende do tipo de modelo e de o modelo precisar pensar antes. Veja [Tempos limite](../connections/decision-models.md#time-limits).
 - Agentes importados com pergunta de ativação ou declarações de decisão mostram um aviso com link para o guia de modelos de decisão. Sem modelo de decisão, o agente roda sempre que as palavras-chave e a **Trigger Cadence** permitirem, e as declarações no prompt valem não.
 
-As perguntas de ativação valem só para agentes personalizados.
+As perguntas de ativação funcionam da mesma forma para agentes para download, exceto os listados em [Activation Keywords e perguntas](built-in-agents.md#activation-keywords-and-questions).
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

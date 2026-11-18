@@ -102,6 +102,8 @@ Post-Processingのエージェントには、**Turn Data Access**(ターンデ�
 
 これで、それらのメッセージにキーワードが現れたときだけ、エージェントが動きます。欄を空にすると、このフィルターは無効になります。周期と、設定した起動質問は引き続き適用されます。
 
+ダウンロードできるエージェントにも同じセクションがあります。[Activation Keywordsと起動質問](built-in-agents.md#activation-keywords-and-questions)を参照してください。
+
 ## ツールの追加
 
 エージェントはツールを呼び出せます。ツールとは、AIが実行して何かを取得したり変更したりし、その結果を読み取る関数のことです。function calling(関数呼び出し)とも呼ばれます。
@@ -128,6 +130,7 @@ Post-Processingのエージェントには、**Turn Data Access**(ターンデ�
 - **Model override**(モデルの上書き): このエージェントだけ別のモデルを使います。たとえば、より安価なモデルです。空のままにすると、チャットのモデルを使います。エージェントは、その接続に保存された生成パラメーターを送信します。[エージェントのパラメーター](../prompts/generation-parameters.md#parameters-for-agents)を参照してください。
 - **Agent Budget**(エージェントの予算): **Context Size**(コンテキストサイズ)は、エージェントが読む直近のメッセージ数です(デフォルトは5)。**Max Output Tokens**(最大出力トークン)は、出力用に確保する枠です(デフォルトは4096、範囲は128から32768まで)。
 - **Add as Prompt Section**(プロンプトセクションとして追加): エージェントの最新の出力を、プロンプトプリセットに配置できるセクションとして使えるようにします。
+- **Context Sources**(コンテキストのソース): 指示以外にエージェントが読み取る情報です。**Characters**(キャラクター)と**Persona**(ペルソナ)には、それぞれ**Off**(オフ)、**Full card**(カード全体)、**Public Face**(周囲に知られている情報)の3つの選択肢があります。**Public Face**では、名前とカードの**Public Face**欄だけを送ります。その欄が空の場合は名前だけを送ります。書き方は[Cardタブ](../characters/creating-and-editing-characters.md#card-tab)を参照してください。複数のエージェントが1つのリクエストを共有する場合、各ソースでは、その中で最も広い選択肢を使います。優先順は**Full card**、**Public Face**、**Off**です。
 
 **Prompt Template**では、`{{user}}`や`{{char}}`などのマクロが使えます。[マクロ](../prompts/macros.md)を参照してください。
 
@@ -180,8 +183,9 @@ Marinaraは`editedText`を返信と差し替えます。`changes`のメモは、
 
 1. カスタムエージェントを開きます。
 2. 最大500文字の**Question**(質問)を入力します。マクロの`{{user}}`と`{{char}}`も使えます。
-3. **Run when probability is at least**(実行に必要な最小確率)に、このエージェントのしきい値を設定します。「はい」の確率がこの値以上のときにエージェントが動くため、値を高くするほど実行を省く回数が増えます。エディターには、使っているモデルに合わせた推奨値が表示されます。ローカルのチャットモデルとDecisionアカウントでは0.5、組み込みのOpen-Jevモデルでは0.1です。モデルを切り替えたら、自分のチャットで値を確認してください。[しきい値](../connections/decision-models.md#thresholds)を参照してください。
-4. 任意: **Bypass the question after this many messages without a successful run**(指定メッセージ数の間に実行が成功しなければ質問を省略)を設定します。その数のメッセージが進むと質問が省略されるため、「いいえ」と答え続けるモデルがエージェントをずっと止めてしまうことはありません。キーワードと周期は引き続き適用されます。
+3. **Run when probability is at least**(実行に必要な最小確率)に、このエージェントのしきい値を設定します。「はい」の確率がこの値以上のときにエージェントが動くため、値を高くするほど実行を省く回数が増えます。エディターには、使っているモデルに合わせた推奨値が表示されます。ローカルのチャットモデルとDecisionアカウントでは0.5、ほとんどの内蔵判定モデルでは0.3または0.5、組み込みのOpen-Jevモデルでは0.1です。モデルを切り替えたら、自分のチャットで値を確認してください。[しきい値](../connections/decision-models.md#thresholds)を参照してください。
+4. 任意: **Show the decision model**(判断モデルに見せるもの)で、質問時に参照する**Pictures**(画像、最新の1～3枚)または**Clips**(クリップ)を選び、**Ask only when a picture or clip is in**(画像やクリップがあるときだけ質問する範囲)で直近のメッセージ数を指定します。これには、画像を読み取れる内蔵判定モデル(Liquid d1、Valen、Winnow、クリップにはValenの完全版)が必要で、それ以外ではグレー表示になります。範囲を設定すると、その範囲に画像やクリップがないターンではエージェントの実行を省きます。画像やクリップが増えるほど質問に時間がかかります。[画像とクリップ](../connections/decision-models.md#pictures-and-clips)を参照してください。
+5. 任意: **Bypass the question after this many messages without a successful run**(指定メッセージ数の間に実行が成功しなければ質問を省略)を設定します。その数のメッセージが進むと質問が省略されるため、「いいえ」と答え続けるモデルがエージェントをずっと止めてしまうことはありません。キーワードと周期は引き続き適用されます。
 
 質問は、`The latest message moves the scene to a new place.`のように、最新のメッセージについて述べる文として書いてください。小型のモデルは、`Did the scene change?`よりもこちらのほうが安定して答えました。[判定文の書き方](../prompts/conditional-prompts.md#writing-statements)を参照してください。
 
@@ -193,7 +197,7 @@ Marinaraは`editedText`を返信と差し替えます。`changes`のメモは、
 - 時間切れ、モデルが使えない、無効な回答のいずれかの場合、エージェントは通常どおり動きます。制限時間は、モデルの種類と、モデルが先に考える必要があるかどうかで変わります。[制限時間](../connections/decision-models.md#time-limits)を参照してください。
 - 起動質問または判定文を持つエージェントをインポートすると、Decisionモデルのガイドへのリンクが付いた通知が表示されます。Decisionモデルがない場合、エージェントはキーワードと**Trigger Cadence**(起動頻度)が許すたびに動き、プロンプトの判定文は「いいえ」として扱われます。
 
-起動質問が使えるのは、カスタムエージェントだけです。
+[Activation Keywordsと起動質問](built-in-agents.md#activation-keywords-and-questions)に挙げた例外を除き、ダウンロードできるエージェントでも起動質問は同じように動作します。
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

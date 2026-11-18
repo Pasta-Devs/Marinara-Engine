@@ -102,6 +102,8 @@ Standardmäßig läuft ein Agent in seinem normalen Takt (der Takt bestimmt, wie
 
 Der Agent läuft dann nur, wenn in diesen Nachrichten ein Schlüsselwort vorkommt. Lass das Feld leer, um den Filter auszuschalten. Takt und eine eventuelle Aktivierungsfrage gelten weiterhin.
 
+Herunterladbare Agenten haben denselben Abschnitt. Siehe [Aktivierungs-Schlüsselwörter und Fragen](built-in-agents.md#activation-keywords-and-questions).
+
 ## Tools anhängen
 
 Ein Agent kann Tools aufrufen: Funktionen, die die KI ausführt, um etwas abzurufen oder zu ändern, und deren Ergebnis sie anschließend zurückliest. Das nennt sich auch Function Calling.
@@ -128,6 +130,7 @@ Fügt jemand den Agenten einem Chat hinzu, listet ein Dropdown-Menü **Prompt Mo
 - **Model override** (Modell überschreiben): Nutze für diesen Agenten ein anderes Modell, zum Beispiel ein günstigeres. Bleibt das Feld leer, nutzt er das Modell des Chats. Der Agent sendet die auf dieser Verbindung gespeicherten Generierungsparameter. Siehe [Parameter für Agenten](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget** (Agent-Budget): **Context Size** gibt an, wie viele der letzten Nachrichten der Agent liest (Standard 5). **Max Output Tokens** ist der für die Ausgabe reservierte Platz (Standard 4.096, von 128 bis 32.768).
 - **Add as Prompt Section** (Als Prompt-Abschnitt hinzufügen): stellt die jüngste Ausgabe des Agenten als Abschnitt bereit, den du in ein Prompt-Preset einfügen kannst.
+- **Kontextquellen**: Was der Agent außer seinen Anweisungen liest. **Charaktere** und **Persona** bieten jeweils drei Optionen: **Aus**, **Full card** oder **Public Face**. **Public Face** sendet nur den Namen und das Feld **Public Face** der Karte. Ist das Feld leer, wird nur der Name gesendet. Wie du es ausfüllst, steht unter [Tab „Card“](../characters/creating-and-editing-characters.md#card-tab). Teilen sich mehrere Agenten eine Anfrage, gilt für jede Quelle die umfangreichste gewählte Option: zuerst **Full card**, dann **Public Face**, dann **Aus**.
 
 Makros wie `{{user}}` und `{{char}}` funktionieren in der **Prompt Template**. Siehe [Makros](../prompts/macros.md).
 
@@ -180,8 +183,9 @@ Eine Aktivierungsfrage prüft, ob die jüngste Szene deinen Agenten braucht. Sie
 
 1. Öffne den eigenen Agenten.
 2. Gib eine **Question** (Frage) mit bis zu 500 Zeichen ein. Die Makros `{{user}}` und `{{char}}` funktionieren darin.
-3. Setze **Run when probability is at least** (ab dieser Wahrscheinlichkeit ausführen) auf die Schwelle für diesen Agenten. Der Agent läuft, wenn die Wahrscheinlichkeit für „ja“ die Schwelle erreicht; höhere Werte überspringen also mehr Läufe. Der Editor zeigt einen empfohlenen Wert für dein Modell: 0,5 für lokale Chat-Modelle und Decision-Konten oder 0,1 für die eingebauten Open-Jev-Modelle. Prüf ihn an deinen eigenen Chats, nachdem du das Modell gewechselt hast. Siehe [Schwellenwerte](../connections/decision-models.md#thresholds).
-4. Optional: Setze **Bypass the question after this many messages without a successful run** (Frage nach dieser Anzahl Nachrichten ohne erfolgreiche Ausführung umgehen). Nach so vielen Nachrichten wird die Frage übersprungen, damit ein Modell, das immer wieder „nein“ antwortet, den Agenten nicht dauerhaft stilllegen kann. Schlüsselwörter und Takt gelten weiterhin.
+3. Setze **Run when probability is at least** (ab dieser Wahrscheinlichkeit ausführen) auf die Schwelle für diesen Agenten. Der Agent läuft, wenn die Wahrscheinlichkeit für „ja“ die Schwelle erreicht; höhere Werte überspringen also mehr Läufe. Der Editor zeigt einen empfohlenen Wert für dein Modell: 0,5 für lokale Chat-Modelle und Decision-Konten, 0,3 oder 0,5 für die meisten eingebauten Decision-Modelle oder 0,1 für die eingebauten Open-Jev-Modelle. Prüf ihn an deinen eigenen Chats, nachdem du das Modell gewechselt hast. Siehe [Schwellenwerte](../connections/decision-models.md#thresholds).
+4. Optional: Wähle unter **Dem Entscheidungsmodell zeigen** **Bilder** (die neuesten 1 bis 3) oder **Clips**, die das Modell bei der Frage ansehen soll, und unter **Nur fragen bei Bild oder Clip in** die Anzahl der neuesten Nachrichten. Dafür brauchst du ein eingebautes Decision-Modell, das sie lesen kann (Liquid d1, Valen oder Winnow, für Clips die vollständige Version von Valen); sonst ist die Einstellung ausgegraut. Ist ein Nachrichtenfenster festgelegt, wird der Agent in Zügen ohne Bild oder Clip darin übersprungen. Jedes Bild und jeder Clip verlangsamt die Abfrage. Siehe [Bilder und Clips](../connections/decision-models.md#pictures-and-clips).
+5. Optional: Setze **Bypass the question after this many messages without a successful run** (Frage nach dieser Anzahl Nachrichten ohne erfolgreiche Ausführung umgehen). Nach so vielen Nachrichten wird die Frage übersprungen, damit ein Modell, das immer wieder „nein“ antwortet, den Agenten nicht dauerhaft stilllegen kann. Schlüsselwörter und Takt gelten weiterhin.
 
 Formuliere die Frage als Aussage über die neueste Nachricht, etwa `The latest message moves the scene to a new place.` Ein kleines Modell hat das zuverlässiger beantwortet als `Did the scene change?` Siehe [Aussagen formulieren](../prompts/conditional-prompts.md#writing-statements).
 
@@ -193,7 +197,7 @@ So läuft es ab:
 - Bei Zeitüberschreitung, nicht verfügbarem Modell oder ungültiger Antwort läuft der Agent normal. Das Zeitlimit hängt vom Modelltyp ab und davon, ob das Modell zuerst nachdenken muss. Siehe [Zeitlimits](../connections/decision-models.md#time-limits).
 - Importierte Agenten mit einer Aktivierungsfrage oder Decision-Aussagen zeigen einen Hinweis mit Link zur Anleitung für Decision-Modelle. Ohne Decision-Modell läuft der Agent, sobald Schlüsselwörter und **Trigger Cadence** (Ausführungstakt) es erlauben, und Aussagen im Prompt gelten als nein.
 
-Aktivierungsfragen gelten nur für eigene Agenten.
+Aktivierungsfragen funktionieren bei herunterladbaren Agenten genauso, mit den unter [Aktivierungs-Schlüsselwörter und Fragen](built-in-agents.md#activation-keywords-and-questions) genannten Ausnahmen.
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

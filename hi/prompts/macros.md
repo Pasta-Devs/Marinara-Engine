@@ -8,7 +8,7 @@ AI को भेजा जाने वाला टेक्स्ट बना
 
 आप इन जगहों पर मैक्रो लिख सकते हैं:
 
-- **Character Editor** (कैरेक्टर एडिटर) की कैरेक्टर फ़ील्ड: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, और **Depth Prompt**।
+- **Character Editor** (कैरेक्टर एडिटर) की कैरेक्टर फ़ील्ड: Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions, और **Depth Prompt**।
 - **Persona Editor** (पर्सोना एडिटर) की पर्सोना फ़ील्ड (कार्ड की वही फ़ील्ड)।
 - लोरबुक एंट्री की Description और Content फ़ील्ड।
 - **Preset Editor** (प्रीसेट एडिटर) में प्रॉम्प्ट प्रीसेट के सेक्शन।
@@ -35,12 +35,13 @@ AI को भेजा जाने वाला टेक्स्ट बना
 | `{{charNamePhonetic}}` | कैरेक्टर का Phonetic नाम, और खाली होने पर `{{char}}`। |
 | `{{characters}}` | चैट का हर कैरेक्टर, निष्क्रिय कैरेक्टर समेत, कॉमा से जुड़े हुए। यह मैक्रो सिर्फ़ नाम जोड़ता है; निष्क्रिय कैरेक्टर के कार्ड प्रॉम्प्ट में नहीं जोड़ता। |
 | `{{group}}` | ग्रुप चैट के बाकी सभी सक्रिय कैरेक्टर, अभी जवाब दे रहे कैरेक्टर को छोड़कर। पर्सोना इस कैरेक्टर सूची में नहीं आता। |
-| `{{persona}}` | आपके पर्सोना की Description, Personality, Backstory, Appearance और Scenario, नई पंक्तियों से जुड़ी हुई। |
+| `{{persona}}` | आपके पर्सोना की Description, Personality, Backstory, Appearance और Scenario, नई पंक्तियों से जुड़ी हुई। Public Face शामिल नहीं है। |
 | `{{personaDescription}}` | आपके पर्सोना की Description फ़ील्ड। |
 | `{{personaPersonality}}` | आपके पर्सोना की Personality फ़ील्ड। |
 | `{{personaBackstory}}` | आपके पर्सोना की Backstory फ़ील्ड। |
 | `{{personaAppearance}}` | आपके पर्सोना की Appearance फ़ील्ड। |
 | `{{personaScenario}}` | आपके पर्सोना की Scenario फ़ील्ड। |
+| `{{personaPublicFace}}` | आपके पर्सोना की Public Face फ़ील्ड: दूसरे आपके बारे में क्या जान सकते हैं। |
 
 कैरेक्टर फ़ील्ड वाले मैक्रो मौजूदा कैरेक्टर का कार्ड पढ़ते हैं:
 
@@ -51,6 +52,7 @@ AI को भेजा जाने वाला टेक्स्ट बना
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |
@@ -283,6 +285,7 @@ Outlet मैक्रो का इस्तेमाल Conversation, Roleplay
 - `sticky:3 cooldown:5` हाँ को तीन टर्न तक बनाए रखता है, फिर पाँच टर्न तक उसे रोककर रखता है। देखें [Sticky और cooldown](conditional-prompts.md#sticky-and-cooldown)।
 - `until:"..."` या `while:"..."` हाँ को तब तक बनाए रखता है जब तक कोई दूसरा कथन इजाज़त दे। देखें [Until और while](conditional-prompts.md#until-and-while)।
 - `every:3` किसी कथन को सिर्फ़ हर तीन टर्न पर पूछता है। देखें [कुछ टर्न बाद जाँचना](conditional-prompts.md#checking-every-few-turns)।
+- `pictures:1`, `clips:1` और `media_within:3` इन्हें पढ़ने वाले बिल्ट-इन मॉडल को चैट की सबसे नई तस्वीरें और क्लिप देखने और उनके आने का इंतज़ार करने देते हैं। [तस्वीरें और क्लिप](conditional-prompts.md#pictures-and-clips) देखें।
 - `priority:high` या `priority:low` तय करता है कि प्रॉम्प्ट योजना में कौन से कथन समाएँगे। देखें [प्राथमिकता](conditional-prompts.md#priority) और [सीमाएँ और लागत](conditional-prompts.md#limits-and-cost)।
 
 ## आम गलतियाँ

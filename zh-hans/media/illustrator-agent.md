@@ -76,6 +76,15 @@ Game Mode 没有 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词
 
 **Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像或立绘作为参考图发给图像服务，让模型照着画出同一张脸或同一身衣服。不是每个服务都接受参考图。在 Roleplay 聊天里，它和 **Attach Card Appearance** 一样是一个列表。包含视频时，**First frame**(首帧) 为 **Prompt only** 的短片会从角色的头像或立绘开始，这个选项也会显示为 **Prompt only (avatar from Send Avatar References)**。
 
+为图片开启 **Send Avatar References** 后，**Reference pictures go to**(参考图发送给) 决定把参考图交给谁：
+
+- **Automatic**(自动)（默认）：图像模型的连接接受参考图时，发给图像模型，否则发给写提示词的模型。
+- **Image model**(图像模型)：只发给图像模型。连接不接受参考图时，就不发送。
+- **Prompt writer**(提示词编写模型)：只发给 Illustrator 写提示词的模型，由它查看图片并在图像提示词里描述看到的内容。
+- **Both**(两者)：同时发给图像模型和写提示词的模型。
+
+遇到 NovelAI V5 这类会丢弃参考图的图像模型时，可以让写提示词的模型来处理参考图。这需要编写模型能读取图片。如果它拒绝接收图片，请求会去掉图片后重发，直到服务器重启前都不会再向这个编写模型发送图片。连接被标为不支持读图的编写模型也不会收到图片。向编写模型发送图片每次都会消耗 Token。最多发送四张图片：优先使用 `[illustrate: characters="…"]` 点名的角色卡，否则使用聊天里启用的角色和用户角色。**What to carry over from the pictures**(从图片中保留什么) 指定编写模型要照着参考图描述哪些内容，例如只保留外观，不保留画风。Roleplay 聊天可以在 **Send Avatar References** 下单独设置 **Reference pictures go to**。
+
 ## 控制出图频率
 
 Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是完整的设置界面。你可以在那里设置默认的运行间隔，并给它单独指定图像模型。
@@ -114,6 +123,19 @@ Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是完整的设�
 没有自身图片的短片会描述它点名的每个人，包括你的用户角色。头像首帧从最先被点名的人开始。
 
 从消息的 **Illustrate** 按钮重新运行 Illustrator，同样遵循 **Illustrator makes** 和 **First frame**。
+
+## 用判定模型检查图片
+
+使用内置的[能读取图片的判定模型](../connections/decision-models.md#features-that-look-at-pictures)（Liquid d1、Valen 或 Winnow）时，Illustrator 卡片会多出三项设置。它们默认全部关闭，没有这类模型时会显示为灰色，旁边有一个 ⓘ。
+
+- **Picture check**(图片检查) 会查看每张新图片和自拍，检查是否画出了要求的内容。自拍还会与角色头像比较。**Make another if it doesn't match**(不符合要求时再生成一张) 会在不符合要求时再画一次。**Always make two, keep the better**(始终生成两张，保留较好的一张) 会画两张，再保留较好的一张。每多画一张，就多消耗一次图像生成。
+- **Also check**(额外检查)（在 **Picture check** 下）可以添加自己的检查项，每行一条，最多 6 条，例如 `Kaelen has short red hair`。图片中不应出现的内容，以 `not:` 开头，例如 `not: The picture has writing or a watermark`。
+- **Skip a picture the newest one already shows**(最新图片已展示的内容不再绘制) 会把聊天里最新的图片和准备绘制的内容比较，跳过重复内容。主动要求的图片始终会生成。
+- **Reuse a library background that looks like the place**(复用图库中看起来符合该地点的背景) 辅助 **Generate Scene Backgrounds**(生成场景背景)：如果图库里没有以新地点命名的背景，判定模型会查看最多 4 张名称中含有相同词语的图库背景，显示其中符合地点的一张，不再画新背景。
+
+在 Conversation 聊天里，Illustrator 卡片上的 **Picture check** 用于自拍。
+
+无法执行的检查算作通过，因此图片会保留。
 
 ## NovelAI 上的多角色场景
 

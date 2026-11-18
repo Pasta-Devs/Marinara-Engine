@@ -153,6 +153,15 @@ Weitere Einzelheiten:
 - Decision-Aktivierung gilt nur für Chat-Züge. Die Game-Einrichtung und die Scans, die Agenten für sich selbst ausführen, werten Decision-Einträge als nein.
 - Ein `{{#if decision:"..."}}` im Inhalt des Eintrags ist etwas anderes. Es kürzt den Text eines Eintrags, der bereits aktiviert wurde.
 
+### Das Decision-Modell Bilder ansehen lassen
+
+Mit einem eingebauten Decision-Modell, das Bilder liest (Liquid d1, Valen oder Winnow), kann sich die Aussage auf Bilder im Chat beziehen, etwa `The newest picture shows a dragon`. Unter dem Feld **Entscheidung** bietet **Dem Entscheidungsmodell zeigen** zwei Listen:
+
+- **Bilder**: **Keine Bilder** (Standard) oder die neuesten 1 bis 3 Bilder im Chat. Jedes Bild verlangsamt die Abfrage der Aussage.
+- **Nur fragen bei Bild in**: **Beliebige Nachricht (jedes Mal fragen)** oder die neuesten 1 bis 20 Nachrichten. Ohne Bild darin gilt die Aussage als nein und wird nicht abgefragt.
+
+Ohne ein Modell, das Bilder liest, sind diese Einstellungen ausgegraut. Ein ⓘ nennt den Grund, und die Aussage bekommt nur den Text. Teilen sich mehrere Einträge eine Aussage, wird sie einmal mit der höchsten von ihnen gewählten Bilderzahl abgefragt. Siehe [Was ein Decision-Modell beantworten kann](../connections/decision-models.md#pictures-and-clips).
+
 ## Gruppen, Filter und weitere Optionen
 
 Das aufgeklappte Panel enthält weitere Felder.

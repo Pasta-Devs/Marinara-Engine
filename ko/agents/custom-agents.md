@@ -102,6 +102,8 @@ Post-Processing 에이전트에는 **Turn Data Access**(턴 데이터 접근) �
 
 그러면 해당 메시지에 키워드가 나타날 때만 에이전트가 실행됩니다. 입력란을 비우면 필터가 꺼집니다. 주기와 활성화 질문은 계속 적용됩니다.
 
+다운로드 가능한 에이전트에도 같은 섹션이 있습니다. [Activation Keywords와 활성화 질문](built-in-agents.md#activation-keywords-and-questions)을 참고하세요.
+
 ## 도구 연결하기
 
 에이전트는 도구를 호출할 수 있습니다. 도구는 AI가 무언가를 가져오거나 바꾸기 위해 실행한 뒤 그 결과를 다시 읽는 함수입니다. 이 방식을 function calling이라고도 합니다.
@@ -128,6 +130,7 @@ Post-Processing 에이전트에는 **Turn Data Access**(턴 데이터 접근) �
 - **Model override**(연결 재정의): 이 에이전트에 다른 모델을 씁니다. 예를 들어 더 저렴한 모델을 쓸 수 있습니다. 비워 두면 채팅의 모델을 씁니다. 에이전트는 해당 연결에 저장된 생성 파라미터를 전송합니다. [에이전트용 파라미터](../prompts/generation-parameters.md#parameters-for-agents)를 참고하세요.
 - **Agent Budget**(에이전트 예산): **Context Size**(컨텍스트 크기)는 에이전트가 읽는 최근 메시지 개수입니다(기본값 5). **Max Output Tokens**(최대 출력 토큰)는 출력에 확보하는 여유입니다(기본값 4096, 128에서 32768까지).
 - **Add as Prompt Section**(프롬프트 섹션으로 추가): 에이전트의 최신 출력을 프롬프트 프리셋에 배치할 수 있는 섹션으로 제공합니다.
+- **Context Sources**(컨텍스트 소스): 지침 외에 에이전트가 읽을 정보입니다. **Characters**(캐릭터)와 **Persona**(페르소나)에는 각각 **Off**(꺼짐), **Full card**, **Public Face**의 세 가지 선택지가 있습니다. **Public Face**는 이름과 카드의 **Public Face** 필드만 보냅니다. 이 필드가 비어 있으면 이름만 보냅니다. 작성 방법은 [Card 탭](../characters/creating-and-editing-characters.md#card-tab)을 참고하세요. 여러 에이전트가 요청 하나를 공유하면 각 소스는 그중 가장 넓은 범위의 선택지를 사용합니다. **Full card**, **Public Face**, **Off** 순입니다.
 
 `{{user}}`, `{{char}}` 같은 매크로는 **Prompt Template**에서 동작합니다. [매크로](../prompts/macros.md)를 참고하세요.
 
@@ -180,8 +183,9 @@ Marinara는 `editedText`를 답변에 갈아 끼웁니다. `changes`에 담긴 �
 
 1. 사용자 지정 에이전트를 여세요.
 2. 최대 500자의 **Question**(질문)을 입력하세요. 여기에서도 `{{user}}`와 `{{char}}` 매크로를 쓸 수 있습니다.
-3. **Run when probability is at least**(실행할 최소 확률)를 이 에이전트의 임계값으로 설정하세요. "예"일 확률이 이 값 이상이면 에이전트가 실행되므로, 값이 높을수록 더 자주 건너뜁니다. 편집기는 모델에 맞는 권장값을 보여 줍니다. 로컬 채팅 모델과 Decision 계정은 0.5, 내장 Open-Jev 모델은 0.1입니다. 모델을 바꾼 뒤에는 직접 쓰는 채팅으로 확인하세요. [임계값](../connections/decision-models.md#thresholds)을 참고하세요.
-4. 선택 사항: **Bypass the question after this many messages without a successful run**(성공적인 실행 없이 이 수만큼 메시지가 지나면 질문 건너뛰기)을 설정하세요. 그만큼 메시지가 지나면 질문을 건너뛰므로, 계속 "아니요"라고 답하는 모델 때문에 에이전트가 영영 실행되지 않는 일을 막을 수 있습니다. 키워드와 주기는 계속 적용됩니다.
+3. **Run when probability is at least**(실행할 최소 확률)를 이 에이전트의 임계값으로 설정하세요. "예"일 확률이 이 값 이상이면 에이전트가 실행되므로, 값이 높을수록 더 자주 건너뜁니다. 편집기는 모델에 맞는 권장값을 보여 줍니다. 로컬 채팅 모델과 Decision 계정은 0.5, 대부분의 내장 판단 모델은 0.3 또는 0.5, 내장 Open-Jev 모델은 0.1입니다. 모델을 바꾼 뒤에는 직접 쓰는 채팅으로 확인하세요. [임계값](../connections/decision-models.md#thresholds)을 참고하세요.
+4. 선택 사항: **Show the decision model**(결정 모델에 보여줄 항목)에서 질문에 사용할 **Pictures**(이미지)나 **Clips**(클립)를 고르고(이미지는 최신 1~3개), **Ask only when a picture or clip is in**(이미지나 클립이 있을 때만 질문할 메시지 범위)에서 최근 메시지 범위를 정하세요. 이를 읽는 내장 판단 모델(Liquid d1, Valen 또는 Winnow, 클립은 Valen 정식 릴리스)이 필요하며, 없으면 비활성화됩니다. 범위를 설정하면 그 안에 이미지나 클립이 없는 턴에는 에이전트를 건너뜁니다. 이미지나 클립마다 질문 처리 시간이 늘어납니다. [이미지와 클립](../connections/decision-models.md#pictures-and-clips)을 참고하세요.
+5. 선택 사항: **Bypass the question after this many messages without a successful run**(성공적인 실행 없이 이 수만큼 메시지가 지나면 질문 건너뛰기)을 설정하세요. 그만큼 메시지가 지나면 질문을 건너뛰므로, 계속 "아니요"라고 답하는 모델 때문에 에이전트가 영영 실행되지 않는 일을 막을 수 있습니다. 키워드와 주기는 계속 적용됩니다.
 
 질문은 최신 메시지에 관한 진술로 작성하세요. 예를 들면 `The latest message moves the scene to a new place.`입니다. 작은 모델은 `Did the scene change?`보다 이 문장에 더 안정적으로 답했습니다. [판정문 작성하기](../prompts/conditional-prompts.md#writing-statements)를 참고하세요.
 
@@ -193,7 +197,7 @@ Marinara는 `editedText`를 답변에 갈아 끼웁니다. `changes`에 담긴 �
 - 시간 초과, 사용할 수 없는 모델, 잘못된 답이 있으면 에이전트는 평소대로 실행됩니다. 시간 제한은 모델 유형과 모델이 먼저 추론해야 하는지에 따라 다릅니다. [시간 제한](../connections/decision-models.md#time-limits)을 참고하세요.
 - 활성화 질문이나 판정문이 있는 에이전트를 가져오면 Decision 모델 가이드로 연결되는 알림이 표시됩니다. Decision 모델이 없으면 에이전트는 키워드와 **Trigger Cadence**(실행 주기)가 허용할 때마다 실행되고, 프롬프트 판정문은 아니요로 읽힙니다.
 
-활성화 질문은 사용자 지정 에이전트에만 적용됩니다.
+[Activation Keywords와 활성화 질문](built-in-agents.md#activation-keywords-and-questions)에 나열된 예외를 제외하면, 다운로드 가능한 에이전트에도 활성화 질문이 같은 방식으로 적용됩니다.
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

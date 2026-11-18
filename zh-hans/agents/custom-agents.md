@@ -102,6 +102,8 @@ Post-Processing 智能体还会多出一个 **Turn Data Access**(回合数据访
 
 之后只有当这些消息里出现某个关键词时，智能体才会运行。框留空就关闭这个筛选。频率和激活问题仍然适用。
 
+可下载的智能体也有同样的区域。见[激活关键词和问题](built-in-agents.md#activation-keywords-and-questions)。
+
 ## 挂载工具
 
 智能体可以调用工具：工具是 AI 能执行的函数，用来获取或改动某样东西，再把结果读回来。这也叫函数调用。
@@ -128,6 +130,7 @@ Post-Processing 智能体还会多出一个 **Turn Data Access**(回合数据访
 - **Model override**(模型覆盖)：给这个智能体换一个模型，比如更便宜的模型。留空就沿用聊天的模型。智能体会发送该连接上保存的生成参数。见[智能体参数](../prompts/generation-parameters.md#parameters-for-agents)。
 - **Agent Budget**(智能体预算)：**Context Size**(上下文大小) 是智能体读取的最近消息条数（默认 5）。**Max Output Tokens**(最大输出 Token 数) 是预留的输出空间（默认 4096，范围 128 到 32768）。
 - **Add as Prompt Section**(作为提示词段落加入)：把智能体的最新输出作为一个段落暴露出来，可以放进提示词预设。
+- **Context Sources**(上下文来源)：智能体除了指令之外还会读取什么。**Characters**(角色) 和 **Persona**(人设) 各有三个选项：**Off**(关闭)、**Full card**(完整角色卡) 或 **Public Face**(公开形象)。**Public Face** 只发送名字和卡片的 **Public Face** 字段。字段为空时，只发送名字。填写方法见[Card 选项卡](../characters/creating-and-editing-characters.md#card-tab)。多个智能体共用一个请求时，每项来源都会采用其中范围最广的选项：依次为 **Full card**、**Public Face**、**Off**。
 
 `{{user}}`、`{{char}}` 这类宏在 **Prompt Template** 里同样有效。见[宏](../prompts/macros.md)。
 
@@ -180,8 +183,9 @@ Marinara 把 `editedText` 换进回复里。`changes` 里的说明会显示为�
 
 1. 打开这个自定义智能体。
 2. 输入最多 500 个字符的 **Question**(问题)。其中可以使用 `{{user}}` 和 `{{char}}` 宏。
-3. 把 **Run when probability is at least**(运行所需的最低概率) 设为这个智能体的阈值。“是”的概率达到这个值时智能体才运行，所以值越高，跳过的次数越多。编辑器会为你的模型给出推荐值：本地聊天模型和 Decision 账号为 0.5，内置 Open-Jev 模型为 0.1。切换模型之后，用自己的聊天核对一下。见[阈值](../connections/decision-models.md#thresholds)。
-4. 可选：设置 **Bypass the question after this many messages without a successful run**(连续指定消息数未成功运行后跳过问题)。经过这么多条消息后，问题就会被跳过，这样一个一直回答“否”的模型就无法让智能体永远沉默。关键词和频率仍然适用。
+3. 把 **Run when probability is at least**(运行所需的最低概率) 设为这个智能体的阈值。“是”的概率达到这个值时智能体才运行，所以值越高，跳过的次数越多。编辑器会为你的模型给出推荐值：本地聊天模型和 Decision 账号为 0.5，大多数内置判定模型为 0.3 或 0.5，内置 Open-Jev 模型为 0.1。切换模型之后，用自己的聊天核对一下。见[阈值](../connections/decision-models.md#thresholds)。
+4. 可选：在 **Show the decision model**(向决策模型展示) 下，选择要让问题查看的 **Pictures**(图片)（最新的 1 到 3 张）或 **Clips**(视频片段)，并用 **Ask only when a picture or clip is in**(仅在以下消息中有图片或视频片段时询问) 指定最近几条消息的范围。这需要能读取相应内容的内置判定模型（Liquid d1、Valen 或 Winnow，视频片段则需要 Valen 完整版）；否则选项会显示为灰色。设置范围后，如果该范围内没有图片或视频片段，这个回合就会跳过智能体。每张图片或每个视频片段都会让问题的回答变慢。见[图片和视频片段](../connections/decision-models.md#pictures-and-clips)。
+5. 可选：设置 **Bypass the question after this many messages without a successful run**(连续指定消息数未成功运行后跳过问题)。经过这么多条消息后，问题就会被跳过，这样一个一直回答“否”的模型就无法让智能体永远沉默。关键词和频率仍然适用。
 
 把问题写成关于最新消息的陈述，例如 `The latest message moves the scene to a new place.`，小模型回答它比回答 `Did the scene change?` 更可靠。见[编写陈述](../prompts/conditional-prompts.md#writing-statements)。
 
@@ -193,9 +197,7 @@ Marinara 把 `editedText` 换进回复里。`changes` 里的说明会显示为�
 - 超时、模型不可用或答案无效时，智能体正常运行。时限取决于模型类型，以及模型是否需要先推理。见[时限](../connections/decision-models.md#time-limits)。
 - 带有激活问题或判定陈述的导入智能体会显示一条通知，链接到 Decision 模型指南。没有 Decision 模型时，只要关键词和 **Trigger Cadence**(触发频率) 允许，智能体就会运行，提示词里的陈述按否处理。
 
-激活问题只适用于自定义智能体。
-
-<a id="decision-statements-in-the-agents-prompt"></a>
+激活问题对可下载的智能体也同样适用，但[激活关键词和问题](built-in-agents.md#activation-keywords-and-questions)中列出的例外除外。
 
 ## 智能体提示词中的判定陈述
 

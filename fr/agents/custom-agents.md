@@ -102,6 +102,8 @@ Par défaut, un agent tourne à sa cadence normale (la fréquence à laquelle il
 
 L'agent ne tourne alors que si un mot-clé apparaît dans ces messages. Laisse le champ vide pour désactiver le filtre. La cadence et toute question d'activation continuent de s'appliquer.
 
+Les agents téléchargeables ont la même section. Voir [Mots-clés et questions d'activation](built-in-agents.md#activation-keywords-and-questions).
+
 ## Attacher des outils
 
 Un agent peut appeler des outils : des fonctions que l'IA exécute pour récupérer ou modifier quelque chose, avant d'en relire le résultat. On parle aussi de function calling.
@@ -128,6 +130,7 @@ Quand quelqu'un ajoute l'agent à un chat, un menu déroulant **Prompt Mode** (m
 - **Model override** (modèle de remplacement) : utilise un autre modèle pour cet agent, par exemple un modèle moins cher. Laisse-le vide pour utiliser le modèle du chat. L'agent envoie les paramètres de génération enregistrés sur cette connexion. Voir [Paramètres des agents](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget** (budget de l'agent) : **Context Size** (taille du contexte) est le nombre de messages récents que l'agent lit (5 par défaut). **Max Output Tokens** (nombre maximal de tokens en sortie) est la place réservée à la sortie (4 096 par défaut, de 128 à 32 768).
 - **Add as Prompt Section** (ajouter comme section du prompt) : expose la dernière sortie de l'agent sous forme de section que tu peux placer dans un preset de prompt.
+- **Sources de contexte** : ce que l'agent lit en plus de ses instructions. **Personnages** et **Persona** ont chacun trois choix : **Désactivé**, **Full card** (fiche complète) ou **Public Face** (image publique). **Public Face** envoie uniquement le nom et le champ **Public Face** de la fiche. Si ce champ est vide, seul le nom est envoyé. Pour le remplir, voir [Onglet Fiche](../characters/creating-and-editing-characters.md#card-tab). Quand plusieurs agents partagent une requête, chaque source utilise le choix le plus large parmi eux : **Full card**, puis **Public Face**, puis **Désactivé**.
 
 Les macros comme `{{user}}` et `{{char}}` fonctionnent dans **Prompt Template**. Voir [Macros](../prompts/macros.md).
 
@@ -180,8 +183,9 @@ Une question d'activation demande si la scène récente a besoin de ton agent. E
 
 1. Ouvre l'agent personnalisé.
 2. Saisis une **Question** (question) de 500 caractères au maximum. Les macros `{{user}}` et `{{char}}` y fonctionnent.
-3. Règle **Run when probability is at least** (exécuter si la probabilité atteint au moins) sur le seuil de cet agent. L'agent s'exécute quand la probabilité de "oui" atteint ce seuil : une valeur plus élevée évite donc davantage d'exécutions. L'éditeur affiche une valeur recommandée pour ton modèle : 0,5 pour les modèles de chat locaux et les comptes Decision, ou 0,1 pour les modèles Open-Jev intégrés. Vérifie-la sur tes propres chats après un changement de modèle. Voir [Seuils](../connections/decision-models.md#thresholds).
-4. Facultatif : règle **Bypass the question after this many messages without a successful run** (ignorer la question après ce nombre de messages sans exécution réussie). Après ce nombre de messages, la question est ignorée : un modèle qui répond sans cesse "non" ne peut donc pas réduire l'agent au silence pour de bon. Les mots-clés et la cadence s'appliquent toujours.
+3. Règle **Exécuter quand la probabilité est d'au moins** sur le seuil de cet agent. L'agent s'exécute quand la probabilité de "oui" atteint ce seuil : une valeur plus élevée évite donc davantage d'exécutions. L'éditeur affiche une valeur recommandée pour ton modèle : 0,5 pour les modèles de chat locaux et les comptes Decision, 0,3 ou 0,5 pour la plupart des modèles de décision intégrés, ou 0,1 pour les modèles Open-Jev intégrés. Vérifie-la sur tes propres chats après un changement de modèle. Voir [Seuils](../connections/decision-models.md#thresholds).
+4. Facultatif : sous **Montrer au modèle de décision**, choisis les **Images** (les 1 à 3 dernières) ou les **Clips** à examiner pour répondre à la question, et règle **Demander uniquement si une image ou un clip figure dans** les quelques derniers messages. Il faut un modèle de décision intégré qui les lit (Liquid d1, Valen ou Winnow, et la version complète de Valen pour les clips) ; sinon, le réglage est grisé. Avec une fenêtre définie, l'agent ne s'exécute pas aux tours sans image ni clip dans cette fenêtre. Chaque image ou clip ralentit la réponse à la question. Voir [Images et clips](../connections/decision-models.md#pictures-and-clips).
+5. Facultatif : règle **Ignorer la question après ce nombre de messages sans exécution réussie**. Après ce nombre de messages, la question est ignorée : un modèle qui répond sans cesse "non" ne peut donc pas réduire l'agent au silence pour de bon. Les mots-clés et la cadence s'appliquent toujours.
 
 Rédige la question comme une affirmation sur le dernier message, par exemple `The latest message moves the scene to a new place.` Un petit modèle y répondait de façon plus fiable qu'à `Did the scene change?` Voir [Rédiger les énoncés](../prompts/conditional-prompts.md#writing-statements).
 
@@ -193,7 +197,7 @@ Déroulement :
 - Un délai dépassé, un modèle indisponible ou une réponse invalide laisse l'agent s'exécuter normalement. Le délai dépend du type de modèle et du fait que le modèle doive raisonner d'abord ou non. Voir [Délais](../connections/decision-models.md#time-limits).
 - Les agents importés qui ont une question d'activation ou des énoncés de décision affichent un avis avec un lien vers le guide des modèles de décision. Sans Decision model, l'agent s'exécute dès que les mots-clés et **Trigger Cadence** (cadence d'activation) le permettent, et les énoncés du prompt valent non.
 
-Les questions d'activation ne concernent que les agents personnalisés.
+Les questions d'activation fonctionnent de la même façon pour les agents téléchargeables, sauf ceux cités dans [Mots-clés et questions d'activation](built-in-agents.md#activation-keywords-and-questions).
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

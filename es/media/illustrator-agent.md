@@ -76,6 +76,15 @@ Cuando está activado, una tarjeta o persona con **Image Appearance Override** (
 
 **Send Avatar References** (Enviar referencias de avatar) envía los avatares de personajes y personas, o sus sprites, al servicio de imágenes como imágenes de referencia, para que el modelo pueda copiar una cara o un atuendo. No todos los servicios las aceptan. En un chat de Roleplay es una lista como **Attach Card Appearance**. Si incluye videos, un clip cuyo **First frame** (Primer fotograma) sea **Prompt only** empieza desde el avatar o sprite del personaje, y la opción se muestra como **Prompt only (avatar from Send Avatar References)**.
 
+Con **Send Avatar References** activado para imágenes, **Reference pictures go to** (Enviar imágenes de referencia a) elige quién las recibe:
+
+- **Automatic** (Automático, predeterminado): el modelo de imagen si su conexión acepta imágenes de referencia; de lo contrario, el modelo que escribe el prompt.
+- **Image model** (Modelo de imagen): solo el modelo de imagen. Una conexión que no las acepta no recibe ninguna.
+- **Prompt writer** (Redactor de prompts): solo el modelo que escribe los prompts del Illustrator, que las examina y describe lo que ve en el prompt de imagen.
+- **Both** (Ambos): el modelo de imagen y el modelo que escribe el prompt.
+
+El modelo que escribe el prompt permite sortear los modelos de imagen que descartan las imágenes de referencia, como NovelAI V5. Debe ser un modelo que lea imágenes. Si las rechaza, su solicitud se envía de nuevo sin las imágenes, y ese modelo no recibe ninguna hasta que se reinicia el servidor. Un modelo cuya conexión está marcada como incapaz de leer imágenes no recibe ninguna. Enviar imágenes al modelo que escribe el prompt cuesta tokens en cada ejecución. Se envían hasta cuatro imágenes: las de las tarjetas nombradas en `[illustrate: characters="…"]` o, si no, las de los personajes activos del chat y la persona. **What to carry over from the pictures** (Qué conservar de las imágenes) indica qué copia el modelo que escribe el prompt, como solo la apariencia y no el estilo de arte. Un chat de Roleplay puede establecer su propio **Reference pictures go to** en **Send Avatar References**.
+
 ## Controlar con qué frecuencia dibuja
 
 La tarjeta del Illustrator tiene un botón **Open Setup** que abre la pantalla de configuración completa. Allí estableces el intervalo de ejecución predeterminado y le das su propio modelo de imagen.
@@ -114,6 +123,19 @@ Los clips usan el modelo de video de **Scene Videos** (Videos de escena), y cada
 Un clip sin imagen propia describe a todos los que nombra, incluida tu persona. El fotograma inicial de avatar parte de quien se nombre primero.
 
 Volver a ejecutar Illustrator desde el botón **Illustrate** de un mensaje también sigue **Illustrator makes** y **First frame**.
+
+## Comprobar imágenes con un modelo de decisión
+
+Con un [modelo de decisión integrado que lee imágenes](../connections/decision-models.md#features-that-look-at-pictures) (Liquid d1, Valen o Winnow), la tarjeta del Illustrator ofrece tres ajustes más. Todos están desactivados de forma predeterminada y aparecen en gris con un ⓘ si no hay un modelo así.
+
+- **Picture check** (Comprobación de imágenes) examina cada imagen nueva y selfie, y comprueba que muestre lo que se pidió. Una selfie también se compara con el avatar del personaje. **Make another if it doesn't match** (Crear otra si no coincide) dibuja una vez más si no coincide. **Always make two, keep the better** (Crear siempre dos y conservar la mejor) dibuja dos y conserva la mejor. Cada imagen adicional es otra generación de imagen.
+- **Also check** (Comprobar también, en **Picture check**) agrega tus propias comprobaciones, una por línea, hasta 6, como `Kaelen has short red hair`. Empieza una línea con `not:` para algo que la imagen no deba mostrar, como `not: The picture has writing or a watermark`.
+- **Skip a picture the newest one already shows** (Omitir una imagen si la más reciente ya muestra lo mismo) compara la imagen más reciente del chat con lo que se va a dibujar y omite una repetición. Las imágenes que pides siempre se crean.
+- **Reuse a library background that looks like the place** (Reutilizar un fondo de la biblioteca que se parezca al lugar) ayuda a **Generate Scene Backgrounds** (Generar fondos de escena): cuando ningún fondo de la biblioteca tiene el nombre de un lugar nuevo, el modelo de decisión examina hasta 4 fondos de la biblioteca que comparten una palabra con el lugar y muestra uno que coincida en lugar de pintar uno nuevo.
+
+En un chat de Conversation, **Picture check** está en la tarjeta del Illustrator para las selfies.
+
+Una comprobación que no puede ejecutarse cuenta como aprobada, así que se conserva la imagen.
 
 ## Varios personajes en NovelAI
 

@@ -76,6 +76,15 @@ Ist die Einstellung an, schickt eine Karte oder Persona mit eingeschaltetem **Im
 
 **Send Avatar References** (Avatar-Referenzen senden) schickt die Avatare von Charakteren und Personas oder deren Sprites als Referenzbilder an den Bilddienst, damit das Modell ein Gesicht oder Outfit übernehmen kann. Nicht jeder Dienst akzeptiert sie. In einem Roleplay-Chat ist es eine Liste wie **Attach Card Appearance**. Sind Videos eingeschlossen, beginnt ein Clip, dessen **First frame** (Startbild) auf **Prompt only** steht, mit dem Avatar oder Sprite des Charakters, und die Option heißt dann **Prompt only (avatar from Send Avatar References)**.
 
+Ist **Avatar-Referenzen senden** für Bilder eingeschaltet, legt **Reference pictures go to** fest, wer sie bekommt:
+
+- **Automatic** (Standard): das Bildmodell, wenn seine Verbindung Referenzbilder annimmt, sonst das promptschreibende Modell.
+- **Image model**: nur das Bildmodell. Eine Verbindung, die keine Referenzbilder annimmt, bekommt keine.
+- **Prompt writer**: nur das promptschreibende Modell des Illustrators. Es sieht sie sich an und beschreibt im Bild-Prompt, was es darauf sieht.
+- **Both**: das Bildmodell und das promptschreibende Modell.
+
+Das promptschreibende Modell hilft bei Bildmodellen, die Referenzbilder verwerfen, etwa NovelAI V5. Dafür muss es Bilder lesen können. Lehnt es sie ab, wird seine Anfrage ohne Bilder erneut gesendet, und es bekommt bis zum Neustart des Servers keine mehr. Ist seine Verbindung als nicht bildlesend markiert, bekommt es keine. Bilder an das promptschreibende Modell zu senden kostet bei jedem Lauf Tokens. Es werden bis zu vier Bilder gesendet: die der in `[illustrate: characters="…"]` genannten Karten oder andernfalls die der aktiven Charaktere und der Persona des Chats. **What to carry over from the pictures** legt fest, was das Modell übernimmt, etwa nur das Aussehen und nicht den Kunststil. Ein Roleplay-Chat kann unter **Avatar-Referenzen senden** seine eigene Einstellung für **Reference pictures go to** festlegen.
+
 ## Festlegen, wie oft er zeichnet
 
 Auf der Illustrator-Karte sitzt die Schaltfläche **Open Setup** für das vollständige Einrichtungsfenster. Dort legst du das Standard-Laufintervall fest und gibst ihm ein eigenes Bildmodell.
@@ -114,6 +123,19 @@ Clips nutzen das Videomodell unter **Scene Videos** (Szenenvideos), und jeder Cl
 Ein Clip ohne eigenes Bild beschreibt alle, die er nennt, einschließlich deiner Persona. Mit dem Avatar als Startbild beginnt er bei der zuerst genannten Person.
 
 Auch ein erneuter Illustrator-Lauf über die Schaltfläche **Illustrate** einer Nachricht folgt **Illustrator makes** und **First frame**.
+
+## Bilder mit einem Decision-Modell prüfen
+
+Mit einem eingebauten [Decision-Modell, das Bilder liest](../connections/decision-models.md#features-that-look-at-pictures) (Liquid d1, Valen oder Winnow), bietet die Illustrator-Karte drei weitere Einstellungen. Alle sind standardmäßig aus und ohne ein solches Modell ausgegraut und mit einem ⓘ versehen.
+
+- **Bildprüfung** sieht sich jedes neue Bild und Selfie an und prüft, ob es zeigt, was angefragt wurde. Ein Selfie wird außerdem mit dem Avatar des Charakters verglichen. **Bei Abweichung ein weiteres erstellen** zeichnet nach einem Fehlschlag noch einmal. **Immer zwei erstellen und das bessere behalten** zeichnet zwei und behält das bessere. Jedes zusätzliche Bild ist eine weitere Bildgenerierung.
+- **Zusätzlich prüfen** (unter **Bildprüfung**) ergänzt deine eigenen Prüfungen, eine pro Zeile, höchstens 6, etwa `Kaelen has short red hair`. Beginne eine Zeile mit `not:`, wenn das Bild etwas nicht zeigen soll, etwa `not: The picture has writing or a watermark`.
+- **Bild überspringen, wenn das Motiv schon im neuesten Bild zu sehen ist** vergleicht das neueste Bild im Chat mit dem geplanten Bild und überspringt Wiederholungen. Bilder, um die du bittest, werden immer erstellt.
+- **Einen zum Ort passenden Hintergrund aus der Bibliothek wiederverwenden** hilft bei **Szenenhintergründe generieren**: Ist kein Bibliothekshintergrund nach einem neuen Ort benannt, sieht sich das Decision-Modell bis zu 4 Bibliothekshintergründe an, deren Namen ein Wort mit dem Ort teilen. Passt einer, zeigt es ihn an, statt einen neuen zu zeichnen.
+
+In einem Conversation-Chat findest du **Bildprüfung** für Selfies auf der Illustrator-Karte.
+
+Eine Prüfung, die nicht ausgeführt werden kann, zählt als bestanden. Das Bild bleibt also erhalten.
 
 ## Mehrere Charaktere mit NovelAI
 

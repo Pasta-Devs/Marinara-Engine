@@ -102,6 +102,8 @@ Domyślnie agent działa w swoim zwykłym rytmie (czyli tak często, jak zwykle 
 
 Agent uruchamia się wtedy tylko, gdy w tych wiadomościach pojawi się słowo kluczowe. Zostaw pole puste, żeby wyłączyć filtr. Częstotliwość i ewentualne pytanie aktywacyjne nadal obowiązują.
 
+Agenci do pobrania mają tę samą sekcję. Zobacz [Słowa kluczowe i pytania aktywacyjne](built-in-agents.md#activation-keywords-and-questions).
+
 ## Podłączanie narzędzi
 
 Agent może wywoływać narzędzia: funkcje, które AI uruchamia, żeby coś pobrać lub zmienić, a potem odczytuje ich wynik. Nazywa się to też wywoływaniem funkcji (function calling).
@@ -128,6 +130,7 @@ Gdy ktoś doda agenta do czatu, lista rozwijana **Prompt Mode** (tryb promptu) p
 - **Model override** (zastąpienie modelu): używa dla tego agenta innego modelu, na przykład tańszego. Zostaw puste, żeby agent korzystał z modelu czatu. Agent wysyła parametry generowania zapisane w tym połączeniu. Zobacz [Parametry agentów](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget** (budżet agenta): **Context Size** (rozmiar kontekstu) to liczba ostatnich wiadomości, które agent czyta (domyślnie 5). **Max Output Tokens** (maksymalna liczba tokenów wyniku) to miejsce zarezerwowane na wynik (domyślnie 4096, od 128 do 32768).
 - **Add as Prompt Section** (dodanie jako sekcji promptu): udostępnia najnowszy wynik agenta jako sekcję, którą da się umieścić w presecie promptu.
+- **Źródła kontekstu**: co agent czyta poza swoimi instrukcjami. **Postacie** i **Persona** mają po trzy opcje: **Wyłączone**, **Full card** (pełna karta) lub **Public Face** (publiczny wizerunek). **Public Face** wysyła tylko imię i pole **Public Face** z karty. Jeśli to pole jest puste, wysyłane jest tylko imię. Jak je napisać, opisuje [Zakładka Card](../characters/creating-and-editing-characters.md#card-tab). Gdy kilku agentów współdzieli jedno żądanie, każde źródło korzysta z najszerszej spośród wybranych opcji: najpierw **Full card**, potem **Public Face**, a na końcu **Wyłączone**.
 
 W **Prompt Template** działają makra, takie jak `{{user}}` i `{{char}}`. Zobacz [Makra](../prompts/macros.md).
 
@@ -180,8 +183,9 @@ Pytanie aktywacyjne sprawdza, czy ostatnia scena potrzebuje twojego agenta. Wych
 
 1. Otwórz własnego agenta.
 2. Wpisz **Question** (pytanie) o długości do 500 znaków. Działają w nim makra `{{user}}` i `{{char}}`.
-3. Ustaw **Run when probability is at least** (uruchom przy prawdopodobieństwie co najmniej) na próg dla tego agenta. Agent uruchamia się, gdy prawdopodobieństwo odpowiedzi "tak" osiąga ten próg, więc wyższe wartości pomijają więcej uruchomień. Edytor pokazuje wartość zalecaną dla twojego modelu: 0,5 dla lokalnych modeli czatu i kont Decision albo 0,1 dla wbudowanych modeli Open-Jev. Sprawdź ją na własnych czatach po zmianie modelu. Zobacz [Progi](../connections/decision-models.md#thresholds).
-4. Opcjonalnie: ustaw **Bypass the question after this many messages without a successful run** (pomiń pytanie po tylu wiadomościach bez udanego uruchomienia). Po tylu wiadomościach pytanie jest pomijane, więc model, który ciągle odpowiada "nie", nie wyciszy agenta na dobre. Słowa kluczowe i częstotliwość nadal obowiązują.
+3. Ustaw **Run when probability is at least** (uruchom przy prawdopodobieństwie co najmniej) na próg dla tego agenta. Agent uruchamia się, gdy prawdopodobieństwo odpowiedzi "tak" osiąga ten próg, więc wyższe wartości pomijają więcej uruchomień. Edytor pokazuje wartość zalecaną dla twojego modelu: 0,5 dla lokalnych modeli czatu i kont Decision, 0,3 lub 0,5 dla większości wbudowanych modeli decyzyjnych albo 0,1 dla wbudowanych modeli Open-Jev. Sprawdź ją na własnych czatach po zmianie modelu. Zobacz [Progi](../connections/decision-models.md#thresholds).
+4. Opcjonalnie: w sekcji **Pokaż modelowi decyzyjnemu** wybierz **Obrazy** (od 1 do 3 najnowszych) lub **Klipy**, które model ma obejrzeć przy ocenie pytania, oraz **Pytaj tylko wtedy, gdy obraz lub klip jest w** kilku najnowszych wiadomościach. Wymaga to wbudowanego modelu decyzyjnego, który je odczytuje (Liquid d1, Valen lub Winnow, a dla klipów pełnej wersji Valen); w przeciwnym razie opcja jest wyszarzona. Po ustawieniu zakresu agent jest pomijany w turach bez obrazu lub klipu w tym zakresie. Każdy obraz lub klip spowalnia odpowiedź na pytanie. Zobacz [Obrazy i klipy](../connections/decision-models.md#pictures-and-clips).
+5. Opcjonalnie: ustaw **Bypass the question after this many messages without a successful run** (pomiń pytanie po tylu wiadomościach bez udanego uruchomienia). Po tylu wiadomościach pytanie jest pomijane, więc model, który ciągle odpowiada "nie", nie wyciszy agenta na dobre. Słowa kluczowe i częstotliwość nadal obowiązują.
 
 Napisz pytanie jako stwierdzenie o ostatniej wiadomości, na przykład `The latest message moves the scene to a new place.` Mały model oceniał je trafniej niż `Did the scene change?` Zobacz [Pisanie stwierdzeń](../prompts/conditional-prompts.md#writing-statements).
 
@@ -193,7 +197,7 @@ Jak to działa:
 - Przekroczenie czasu, niedostępny model lub nieprawidłowa odpowiedź pozwalają agentowi działać normalnie. Limit czasu zależy od rodzaju modelu i od tego, czy model musi najpierw rozumować. Zobacz [Limity czasu](../connections/decision-models.md#time-limits).
 - Zaimportowani agenci z pytaniem aktywacyjnym lub stwierdzeniami decyzyjnymi pokazują informację z linkiem do przewodnika o modelach decyzyjnych. Bez modelu decyzyjnego agent uruchamia się zawsze, gdy pozwalają na to słowa kluczowe i **Trigger Cadence** (częstotliwość uruchamiania), a stwierdzenia w prompcie są odczytywane jako nie.
 
-Pytania aktywacyjne dotyczą wyłącznie własnych agentów.
+Pytania aktywacyjne działają tak samo u agentów do pobrania, z wyjątkiem tych wymienionych w sekcji [Słowa kluczowe i pytania aktywacyjne](built-in-agents.md#activation-keywords-and-questions).
 
 <a id="decision-statements-in-the-agents-prompt"></a>
 

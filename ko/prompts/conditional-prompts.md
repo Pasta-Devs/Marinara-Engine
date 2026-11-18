@@ -142,6 +142,8 @@ Before replying, write your plan inside <plan></plan> tags.
 
 시작하기 전에: **Connections**(연결) 패널의 **Decision model**(결정 모델)에서 Decision 모델을 고르세요. 개념과 선택 방법은 [Decision 모델](../connections/decision-models.md)을 참고하세요. 로어북 항목 전체의 활성화 여부를 정하려면 대신 항목의 [Decision](../lorebooks/entries.md#decision-activation) 필드를 사용하세요.
 
+예 또는 아니요로 답하거나(`decision:`), 여러 답 중 하나를 고를 수 있으며(`decision_choice:`), 이미지를 읽는 내장 모델은 채팅의 이미지와 클립도 볼 수 있습니다. 답변 유형과 더 많은 예시는 [판단 모델이 답할 수 있는 질문](../connections/decision-models.md#what-a-decision-model-can-answer)을 참고하세요.
+
 활용 예로는 장면이 이동했을 때만 새 장소 묘사하기, 전투 중에만 전투 진행 규칙 불러오기, 천천히 진전되는 프리셋에서 관계 고조 보류하기, 그룹 블록에서 말을 건넨 캐릭터만 직접 답하게 하기가 있습니다.
 
 ### 예 또는 아니요: `decision:`
@@ -254,6 +256,20 @@ Describe the new weather in a sentence.
 - 한도를 넘은 문장은 가장 낮은 우선순위부터 아니요로 읽히며, Peek Prompt에 나열됩니다.
 - 여러 곳에 쓴 같은 문장은 가장 높은 우선순위를 사용합니다.
 - 프롬프트 자체의 문장(프리셋, 카드, 페르소나, 작가 노트)을 먼저 계획합니다. 로어북 문장은 우선순위와 관계없이 남은 슬롯을 사용합니다.
+
+### 이미지와 클립
+
+이미지를 읽는 내장 판단 모델(Liquid d1, Valen, Winnow)은 채팅의 이미지와 클립도 볼 수 있습니다. 판정문에서 요청할 때만 보냅니다. `pictures:N`은 최신 이미지 N개(최대 3개)를 보내고, `clips:1`은 최신 클립을 보냅니다(Valen 정식 릴리스만 지원). 이 옵션이 없으면 텍스트만 보냅니다.
+
+```text
+{{#if decision:"The picture shows the character at the beach" pictures:1}}...{{/if}}
+{{#if decision:"The clip ends somewhere new" clips:1 media_within:2}}...{{/if}}
+```
+
+- 이미지는 업로드한 이미지, 갤러리 셀카와 일러스트이며, 클립은 생성된 장면 동영상입니다. 모두 먼저 크기를 줄입니다.
+- 이미지나 클립마다 판정문 처리 시간이 늘어납니다. 모델을 내 컴퓨터에서 한 번 실행하면 모델 상세 정보에 하나를 처리하는 데 걸리는 시간이 표시됩니다.
+- `media_within:N`은 최신 메시지 N개 중 하나에 이미지(또는 `clips:`를 썼다면 클립)가 있을 때만 판정문을 묻습니다. 다른 턴에는 아니요로 읽히며 질문하지 않습니다.
+- 같은 이미지를 요청하는 판정문은 요청 하나를 공유합니다. 텍스트만 읽는 모델이나 호스팅된 Decision 연결에는 이미지나 클립을 보내지 않습니다.
 
 모든 수식자를 어떤 순서로든 조합할 수 있습니다. `decision:"..." priority:high sticky:3 cooldown:5 every:2`처럼 씁니다.
 
