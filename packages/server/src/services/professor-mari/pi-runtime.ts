@@ -1087,8 +1087,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       // Manual always holds an un-approved mutation, with or without words: a model that thinks instead of writing
       // would otherwise be refused in a loop. Only the run right after the user's Accept may apply silently.
       // The Accept pass covers only the first round with a mutating call, and never a run that already asked.
-      // ponytail: the Accept button applies the stored held calls server-side, so this armed pass only serves typed
-      // replies ("yes"), and there the approval is tied to the turn, not to the exact held calls.
+      // ponytail: the Accept button applies the stored held calls server-side, so this armed pass only serves an
+      // Accept the stored calls can't answer (more calls than the card showed), tied to the turn, not the exact calls.
       const armedManual =
         input.permissionsMode === "manual" && input.manualApprovalArmed && !armedSpent && !runAskedForApproval;
       if (armedManual && mutating.length > 0) armedSpent = true;
