@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 
 // Shared server helpers keep the exact responses the old hand-written copies sent.
@@ -37,3 +40,25 @@ assert.equal(parseJsonOrNull("nope"), null);
 assert.equal(parseJsonOrNull(""), null);
 assert.equal(parseJsonOrNull(record), record);
 assert.equal(parseJsonOrNull(undefined), undefined);
+
+// Atomic writes replace the file whole and leave no temp file behind, also when the rename fails.
+const { writeFileAtomic, writeFileAtomicSync } = await import("../../../packages/server/src/utils/atomic-write.js");
+const scratch = await mkdtemp(join(tmpdir(), "marinara-atomic-write-"));
+try {
+  const target = join(scratch, "data.json");
+  await writeFileAtomic(target, "old");
+  await writeFileAtomic(target, "new", { mode: 0o600 });
+  writeFileAtomicSync(join(scratch, "sync.json"), Buffer.from("sync"));
+  assert.equal(await readFile(target, "utf8"), "new");
+  assert.equal(await readFile(join(scratch, "sync.json"), "utf8"), "sync");
+  if (process.platform !== "win32") assert.equal((await stat(target)).mode & 0o777, 0o600);
+
+  const blocked = join(scratch, "blocked");
+  await mkdir(blocked);
+  await assert.rejects(writeFileAtomic(blocked, "x"));
+  assert.throws(() => writeFileAtomicSync(blocked, "x"));
+  assert.deepEqual((await readdir(scratch)).sort(), ["blocked", "data.json", "sync.json"]);
+} finally {
+  await rm(scratch, { recursive: true, force: true });
+}
+

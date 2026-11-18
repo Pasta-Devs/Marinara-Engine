@@ -5,22 +5,13 @@
 // a tag → path manifest. Re-scans on demand or
 // after uploads.
 // ──────────────────────────────────────────────
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-  type Stats,
-} from "fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, type Stats } from "fs";
 import { join, extname, relative, basename, dirname } from "path";
 import { WORLD_ART_FAMILIES, type MusicGenre, type MusicIntensity } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder, realPathInRealFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 
 export const GAME_ASSETS_DIR = join(DATA_DIR, "game-assets");
 const USER_BACKGROUNDS_DIR = join(DATA_DIR, "backgrounds");
@@ -59,14 +50,7 @@ export function writeGameAssetFile(path: string, data: string | Buffer): void {
     throw new Error(`Linked game asset file refused: ${basename(entry)}`);
   }
   mkdirSync(dirname(entry), { recursive: true });
-  const temporary = tempWritePath(entry);
-  try {
-    writeFileSync(temporary, data, { flag: "wx" });
-    renameSync(temporary, entry);
-  } catch (error) {
-    rmSync(temporary, { force: true });
-    throw error;
-  }
+  writeFileAtomicSync(entry, data);
 }
 
 export interface AssetFolderEntry {

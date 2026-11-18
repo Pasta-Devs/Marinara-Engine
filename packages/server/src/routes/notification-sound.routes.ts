@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { mkdir, open, rename, stat, unlink, writeFile } from "fs/promises";
+import { mkdir, open, stat, unlink } from "fs/promises";
 import { extname, join } from "path";
-import { randomUUID } from "crypto";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { notFound } from "../utils/not-found.js";
+import { writeFileAtomic } from "../utils/atomic-write.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
@@ -162,15 +162,10 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
     }
 
     const finalPath = soundPath(uploadedExtension);
-    const tempPath = assertInsideDir(
-      NOTIFICATION_SOUNDS_DIR,
-      join(NOTIFICATION_SOUNDS_DIR, `.notification-${randomUUID()}.tmp`),
-    );
     try {
       return await withNotificationSoundLock(async () => {
         await mkdir(NOTIFICATION_SOUNDS_DIR, { recursive: true });
-        await writeFile(tempPath, buffer, { flag: "wx" });
-        await rename(tempPath, finalPath);
+        await writeFileAtomic(finalPath, buffer);
         await removeStoredNotificationSounds(finalPath);
         const details = await stat(finalPath);
         return soundStatus({
@@ -181,7 +176,6 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
         });
       });
     } catch (error) {
-      await unlink(tempPath).catch(() => undefined);
       logger.error(error, "Failed to save custom notification sound");
       return reply.status(500).send({ error: "Failed to save the notification sound." });
     }

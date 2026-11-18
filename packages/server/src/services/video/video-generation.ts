@@ -1,4 +1,4 @@
-import { mkdir, rename, unlink, writeFile } from "fs/promises";
+import { mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -34,6 +34,7 @@ import type {
   VideoGenerationRequest,
   VideoGenerationResult,
 } from "@marinara-engine/shared";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 export type {
   VideoReferenceImage,
   VideoReferencePublicUploadExpiry,
@@ -256,16 +257,9 @@ export async function saveVideoToDisk(chatId: string, base64: string): Promise<s
   await mkdir(dir, { recursive: true });
   const filename = `${newId()}.mp4`;
   const filePath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, join(dir, filename));
-  const tempPath = assertInsideDir(GAME_SCENE_VIDEOS_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
-  try {
-    const buffer = Buffer.from(base64, "base64");
-    if (!isMp4Buffer(buffer)) throw new Error("Provider returned data that is not a valid MP4 file");
-    await writeFile(tempPath, buffer);
-    await rename(tempPath, filePath);
-  } catch (error) {
-    await unlink(tempPath).catch(() => undefined);
-    throw error;
-  }
+  const buffer = Buffer.from(base64, "base64");
+  if (!isMp4Buffer(buffer)) throw new Error("Provider returned data that is not a valid MP4 file");
+  await writeFileAtomic(filePath, buffer);
   return `${chatId}/${filename}`;
 }
 

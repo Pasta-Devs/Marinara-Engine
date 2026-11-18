@@ -1,5 +1,4 @@
-import { rm, mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { rm, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import type {
@@ -16,6 +15,7 @@ import {
   skillInstructions,
   stripSkillFrontmatter as stripFrontmatter,
 } from "./skill-frontmatter.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 type SkillRecord = {
   id: string;
@@ -375,14 +375,7 @@ export class ProfessorMariWorkspaceSkillsService {
   private async writeRecords(records: SkillRecord[]) {
     await mkdir(rootDir(), { recursive: true });
     // Write then rename, so a crash never leaves a half-written index.
-    const tempPath = `${indexPath()}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(tempPath, JSON.stringify(records, null, 2), "utf8");
-      await rename(tempPath, indexPath());
-    } catch (err) {
-      await rm(tempPath, { force: true });
-      throw err;
-    }
+    await writeFileAtomic(indexPath(), JSON.stringify(records, null, 2));
   }
 
   private uniqueId(baseName: string, records: SkillRecord[]) {

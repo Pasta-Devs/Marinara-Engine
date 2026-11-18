@@ -36,6 +36,7 @@ import {
   type SidecarStatusResponse,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 import { downloadFileWithProgress, fetchJson, isAbortError } from "./sidecar-download.js";
 import { mlxRuntimeService } from "./mlx-runtime.service.js";
 import { sidecarRuntimeService } from "./sidecar-runtime.service.js";
@@ -267,13 +268,7 @@ class SidecarModelService {
   }
 
   private writeConfig(config: SidecarConfig): void {
-    const temporary = `${CONFIG_PATH}.${process.pid}.tmp`;
-    try {
-      writeFileSync(temporary, JSON.stringify(config, null, 2), "utf-8");
-      renameSync(temporary, CONFIG_PATH);
-    } finally {
-      rmSync(temporary, { force: true });
-    }
+    writeFileAtomicSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   }
 
   private saveConfig(): void {

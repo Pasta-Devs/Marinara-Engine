@@ -544,18 +544,7 @@ export function saveImageToDisk(
   const effectiveExt = (detectedMime ? imageExtensionFromMimeType(detectedMime) : null) ?? ext;
   const filename = `${newId()}.${effectiveExt}`;
   const filePath = assertInsideDir(GALLERY_DIR, join(dir, filename));
-  const tempPath = assertInsideDir(GALLERY_DIR, `${filePath}.${process.pid}.${Date.now()}.tmp`);
-  try {
-    writeFileSync(tempPath, Buffer.from(base64, "base64"));
-    renameSync(tempPath, filePath);
-  } catch (error) {
-    try {
-      if (existsSync(tempPath)) unlinkSync(tempPath);
-    } catch {
-      /* best-effort cleanup */
-    }
-    throw error;
-  }
+  writeFileAtomicSync(filePath, Buffer.from(base64, "base64"));
   return `${ownerDir}/${filename}`;
 }
 
@@ -571,6 +560,7 @@ export function removeSavedImageFromDisk(filePath: string): void {
 import type { StagedGalleryImage } from "@marinara-engine/shared";
 export type { StagedGalleryImage } from "@marinara-engine/shared";
 
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 /**
  * Staged files are named for the writing process and only survive it if that process was killed
  * between writing the image and promoting or compensating it. Nothing can reference them, so a

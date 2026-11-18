@@ -3,13 +3,14 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { join, extname, basename } from "path";
-import { mkdir, readFile, rename, unlink, writeFile, stat } from "fs/promises";
+import { mkdir, readFile, unlink, stat } from "fs/promises";
 import { createWriteStream, existsSync, mkdirSync, readFileSync } from "fs";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir } from "../utils/security.js";
 import { notFound } from "../utils/not-found.js";
+import { writeFileAtomic } from "../utils/atomic-write.js";
 
 const SOURCES_DIR = join(DATA_DIR, "knowledge-sources");
 const META_FILE = join(SOURCES_DIR, "meta.json");
@@ -103,9 +104,7 @@ async function writeMeta(mutator: MetaStoreUpdater) {
   const apply = async () => {
     const next = await mutator(readMeta());
     // Atomic write: a crash mid-write must not leave a truncated meta.json.
-    const tmp = `${META_FILE}.tmp`;
-    await writeFile(tmp, JSON.stringify(next, null, 2), "utf-8");
-    await rename(tmp, META_FILE);
+    await writeFileAtomic(META_FILE, JSON.stringify(next, null, 2));
   };
   // Run the mutation whether the previous link resolved or rejected, but keep
   // propagating failures to this call's awaiter.
