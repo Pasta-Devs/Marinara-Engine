@@ -142,7 +142,7 @@ import {
   type StoredPersonaRow,
 } from "../personas/persona-card-storage.js";
 import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
-import { parseJsonArray, parseJsonRecord } from "../../utils/large-json.js";
+import { parseJsonArray, parseJsonRecord, isRecord } from "../../utils/large-json.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -585,10 +585,6 @@ const TABLE_METAS = buildTableMetas();
 const AGENT_PHASES = new Set(["pre_generation", "parallel", "post_processing"]);
 const TOOL_EXECUTION_TYPES = new Set(["webhook", "static", "script"]);
 const BOOLEAN_TEXT_VALUES = new Set(["true", "false"]);
-
-function isRecord(value: unknown): value is Row {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
