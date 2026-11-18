@@ -1426,28 +1426,30 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
             </div>
             <Field label={localizeUi("connections.localModels.atOnce")}>
               {/* Auto (0) is the default: two where the second slot's context fits in memory, otherwise one. */}
-              <select
+              <Select
                 value={maxParallelJobsInput}
-                onChange={(event) => setMaxParallelJobsInput(event.target.value)}
-                aria-label={localizeUi("connections.localModels.atOnce")}
+                onChange={(next) => setMaxParallelJobsInput(next)}
+                label={localizeUi("connections.localModels.atOnce")}
                 className="mari-editor-field w-full max-w-[14rem] px-3 py-2 text-sm max-sm:max-w-none"
-              >
-                <option value="0">
-                  {localizeUi("connections.localModels.atOnceAuto", { count: localModels?.parallel?.effective ?? 2 })}
-                </option>
-                {[1, 2, 3, 4, 6, 8].map((count) => (
-                  <option key={count} value={String(count)}>
-                    {count}
-                  </option>
-                ))}
-                {!["0", "1", "2", "3", "4", "6", "8"].includes(maxParallelJobsInput) && maxParallelJobsInput ? (
-                  <option value={maxParallelJobsInput}>{maxParallelJobsInput}</option>
-                ) : null}
-              </select>
+                options={[
+                  {
+                    value: "0",
+                    label: localizeUi("connections.localModels.atOnceAuto", {
+                      count: localModels?.parallel?.effective ?? 2,
+                    }),
+                  },
+                  ...["1", "2", "3", "4", "6", "8"].map((count) => ({ value: count, label: count })),
+                  ...(!["0", "1", "2", "3", "4", "6", "8"].includes(maxParallelJobsInput) && maxParallelJobsInput
+                    ? [{ value: maxParallelJobsInput, label: maxParallelJobsInput }]
+                    : []),
+                ]}
+              />
               <p className={HINT}>
-                {maxParallelJobsInput === "0" && localModels?.parallel?.reason
-                  ? `${localizeUi("connections.localModels.atOnceReason", { reason: localModels.parallel.reason })} `
-                  : ""}
+                {maxParallelJobsInput === "0" && localModels?.parallel?.reason && (
+                  <span className="block">
+                    {localizeUi("connections.localModels.atOnceReason", { reason: localModels.parallel.reason })}
+                  </span>
+                )}
                 {localizeUi("connections.localModels.atOnceHint")}
               </p>
             </Field>
