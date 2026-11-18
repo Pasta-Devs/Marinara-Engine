@@ -3,7 +3,14 @@ import type { SpriteInfo } from "../../../hooks/use-characters";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();
-  return !!id && !id.startsWith("manual-") && !id.startsWith("party-npc:") && !id.startsWith("npc:");
+  // `npc-` ids are Character Tracker NPCs the server named (#9541): no card behind them, so no sprites.
+  return (
+    !!id &&
+    !id.startsWith("manual-") &&
+    !id.startsWith("party-npc:") &&
+    !id.startsWith("npc:") &&
+    !id.startsWith("npc-")
+  );
 }
 
 export function getSpriteExpressionForCharacter(

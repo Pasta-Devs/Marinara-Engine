@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { logger } from "../../../lib/logger.js";
 import {
   applyTrackerCharacterCardIdentity,
+  assignTrackerCharacterIds,
   isManualTrackerCharacterId,
   parseGameStateRow,
   preserveTrackerCharacterUiFields,
@@ -106,6 +107,12 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
       previousCharacters;
     const cardCharacterIds = applyTrackerCharacterCardIdentity(characters, target.cards, {
       previousCharacters: [...previousCharacters, ...target.history],
+    });
+    // The server owns NPC ids; the model's id only helps find the stored row it means (#9541).
+    assignTrackerCharacterIds(characters, {
+      previousCharacters,
+      history: target.history,
+      cardIds: target.cards.map((card) => card.id),
     });
     preserveTrackerCharacterUiFields(characters, previousCharacters);
     preserveTrackerCharacterUiFields(characters, target.history);
