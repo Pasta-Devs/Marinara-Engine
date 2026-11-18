@@ -229,6 +229,12 @@ try {
   await db._fileStore.trimResidentChatUnits(4);
   assert.ok(db._fileStore.getResidentChatUnits().size <= 4, "unset, a trim keeps only the most recent chats");
 
+  // The import window polls its progress about once a second, so the poll has its own budget.
+  for (let i = 0; i < 30; i++) {
+    const poll = await app.inject({ method: "GET", url: "/api/import/st-bulk/status" });
+    assert.notEqual(poll.statusCode, 429, `import progress poll ${i + 1} was rate-limited`);
+  }
+
   console.info("Bulk data scale regressions passed.");
 } finally {
   await app?.close();

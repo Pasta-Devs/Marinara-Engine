@@ -285,6 +285,15 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     pattern: /^\/api\/connections\/[^/]+\/test-image(?:\?|$)/,
     rule: { key: "image-test", limit: 20, windowMs: 60_000 },
   },
+  // The import window polls its progress about once a second; that must not share the start/scan bucket.
+  {
+    pattern: /^\/api\/import\/st-bulk\/status(?:\?|$)/,
+    rule: {
+      key: "bulk-import-status",
+      limit: STATUS_POLL_RATE_LIMIT.max,
+      windowMs: STATUS_POLL_RATE_LIMIT.timeWindow,
+    },
+  },
   { pattern: /^\/api\/import\/st-bulk(?:\/|$)/, rule: { key: "bulk-import", limit: 20, windowMs: 60_000 } },
   {
     pattern: /^\/api\/characters\/[^/]+\/gallery\/bake(?:\?|$)/,
