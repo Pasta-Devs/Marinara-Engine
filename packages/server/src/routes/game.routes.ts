@@ -1817,10 +1817,10 @@ async function createDynamicGameImagePromptGenerator(args: {
   debugLog?: (message: string, ...args: any[]) => void;
   signal?: AbortSignal;
 }): Promise<GameDynamicImagePromptGenerator | undefined> {
+  const explicitlyEnabled = args.meta.gameImageDynamicPromptEnabled === true;
   try {
     const illustratorPrompt = await resolveGameIllustratorPromptTemplate(args.meta, args.agents);
     const promptDirectorOverride = await args.promptOverridesStorage?.get(GAME_IMAGE_PROMPT_DIRECTOR.key);
-    const explicitlyEnabled = args.meta.gameImageDynamicPromptEnabled === true;
     if (
       !shouldUseDynamicGameImagePromptGenerator({
         enabled: explicitlyEnabled,
@@ -1857,7 +1857,7 @@ async function createDynamicGameImagePromptGenerator(args: {
     });
     const provider = await createGameMainProvider(args.connections, conn, baseUrl);
 
-    return async (request) => {
+    const generator: GameDynamicImagePromptGenerator = async (request) => {
       const messages = await buildDynamicGameImagePromptMessages({
         promptOverridesStorage: args.promptOverridesStorage,
         illustratorPromptTemplate: illustratorPrompt.promptTemplate,
@@ -1902,9 +1902,14 @@ async function createDynamicGameImagePromptGenerator(args: {
       }
       return prompt;
     };
+    // Only the player's own switch makes the rewrite required. A customized Illustrator prompt or
+    // Prompt Director turns it on as well, but a failure there must not stop the picture being sent.
+    generator.required = explicitlyEnabled;
+    return generator;
   } catch (err) {
     logger.warn(err, "[game/dynamic-image-prompt] Failed to initialise dynamic prompt generation");
-    throw err;
+    if (explicitlyEnabled) throw err;
+    return undefined;
   }
 }
 
