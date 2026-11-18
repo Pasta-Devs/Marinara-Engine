@@ -203,6 +203,7 @@ export * from "./utils/onboarding.js";
 export * from "./utils/ui-locales.js";
 export * from "./utils/xml-wrapper.js";
 export * from "./utils/scene-weather.js";
+export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 export * from "./utils/music-score.js";
 export * from "./utils/music-dj-folder.js";

@@ -156,6 +156,7 @@ import {
   normalizeAdvancedMemorySettings,
   type AdvancedMemoryReceipt,
   BUILT_IN_AGENTS,
+  agentSupportsActivationGate,
   getDefaultBuiltInAgentSettings,
   isBuiltInAgentHostManaged,
   mergeBuiltInAgentSettings,
@@ -1067,7 +1068,9 @@ import {
 import { resolveIdentityCharacterScopes } from "../services/generation/identity-context-runtime.js";
 import {
   buildCharacterMacroProfilesById,
+  buildOtherPublicFacesBlock,
   injectIdentityFallbackMessages,
+  insertAfterFirstSystemMessage,
   loadCharacterPromptInfo,
   normalizeCharacterRpgStats,
 } from "../services/generation/character-prompt-context.js";
@@ -1099,6 +1102,7 @@ import {
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
+  activeTextRewriteRunAgents,
   explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
   isBuiltInTextRewriteAgentType,
@@ -2071,6 +2075,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
       // Get chat messages
       const chatMode = requestChatMode;
+      // #9427: Roleplay only, and only for this impersonated turn.
+      const impersonatePublicFaces =
+        chatMode === "roleplay" && input.impersonate === true && input.impersonatePublicFaces === true;
+      // The stored replay records what this turn sent, not a switch a Game chat ignored.
+      input.impersonatePublicFaces = impersonatePublicFaces;
       const advancedMemorySettings = effectiveAdvancedMemorySettings(
         chatMode,
         normalizeAdvancedMemorySettings(chatMeta.advancedMemory),
@@ -2792,6 +2801,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         scenario?: string;
         backstory?: string;
         appearance?: string;
+        publicFace?: string;
       } = {};
       let persona: Awaited<ReturnType<typeof resolveChatUserIdentity>> = null;
       // ── Game mode: apply segment edit overlays to message content ──
@@ -2847,6 +2857,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           scenario: cardPromptText(identity.scenario),
           backstory: cardPromptText(identity.backstory),
           appearance: cardPromptText(identity.appearance),
+          publicFace: cardPromptText(identity.publicFace),
         };
       }
       const userIdentityId = identity?.id ?? null;
@@ -3058,6 +3069,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     backstory: personaFields.backstory,
                     appearance: personaFields.appearance,
                     scenario: personaFields.scenario,
+                    publicFace: personaFields.publicFace,
                   }
                 : null,
             memory: {},
@@ -4059,6 +4071,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptMacroContext,
             wrapFormat,
             rememberCharacterPostHistory,
+            impersonatePublicFaces,
           );
           if (entries.length > 0) {
             finalMessages = injectAtDepth(finalMessages, entries);
@@ -4239,6 +4252,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             timeZone: promptTimeZone,
             impersonate: input.impersonate === true,
             preserveImpersonatePresetSections: input.impersonate === true && presetSource === "impersonate",
+            impersonatePublicFaces,
             deferCharacterMacros,
             decisions: promptMacroContext.decisions,
             lorebookDecisions,
@@ -5089,13 +5103,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           const agent = resolvedAgents[index]!;
           // Illustrator gates automatic runs below; keep it available for extra command requests.
-          if (builtInAgentTypes.has(agent.type) || agent.type === "illustrator") continue;
+          if (!agentSupportsActivationGate(agent.type)) continue;
 
           if (agent.phase !== "post_processing") {
             const activation = matchCustomAgentActivation(agent.settings, chatMessages);
             if (activation.configured && !activation.matched) {
               logger.debug(
-                "[agents] Skipping custom agent %s because no activation keywords matched in the last %d messages",
+                "[agents] Skipping agent %s because no activation keywords matched in the last %d messages",
                 agent.type,
                 activation.scanDepth,
               );
@@ -5103,6 +5117,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               continue;
             }
           }
+
+          // Built-ins keep their own cadence handling; only the activation gate applies to them.
+          if (builtInAgentTypes.has(agent.type)) continue;
 
           const runInterval = Number(agent.settings.runInterval ?? 0);
           if (!Number.isFinite(runInterval) || runInterval <= 1) continue;
@@ -5325,6 +5342,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             promptTemplateSources: identityFallbackPromptTemplateSources,
             resolvePromptMacros,
             isConversation: chatMode === "conversation",
+            impersonatePublicFaces,
           });
         }
 
@@ -6653,6 +6671,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   backstory: resolvePersonaPromptText(personaFields.backstory) || undefined,
                   appearance: resolvePersonaPromptText(personaFields.appearance) || undefined,
                   scenario: resolvePersonaPromptText(personaFields.scenario) || undefined,
+                  publicFace: resolvePersonaPromptText(personaFields.publicFace) || undefined,
                   ...(persona?.personaStats
                     ? (() => {
                         let pStats: any;
@@ -6742,11 +6761,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           try {
             const candidates: ActivationQuestionCandidate[] = [];
             for (const agent of agents) {
-              if (
-                builtInAgentTypes.has(agent.type) ||
-                agent.type === "illustrator" ||
-                (agent.phase === "post_processing") !== postProcessing
-              )
+              if (!agentSupportsActivationGate(agent.type) || (agent.phase === "post_processing") !== postProcessing)
                 continue;
               const activation = activationQuestionSettings(agent.settings);
               if (!activation) continue;
@@ -6803,7 +6818,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             for (const candidate of candidates) {
               if (evaluation.skip.has(candidate.agentId))
                 logger.debug(
-                  "[agents] Skipping custom agent %s: activation question answered %s (threshold %s)",
+                  "[agents] Skipping agent %s: activation question answered %s (threshold %s)",
                   candidate.agentId,
                   evaluation.results.get(candidate.agentId),
                   candidate.threshold,
@@ -7583,7 +7598,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
         const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(allTextRewriteAgents.map((a) => a.id));
-        const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
+        let lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
         let pipelineAgents = resolvedAgents.filter(
           (a) =>
             !textRewriteAgentIds.has(a.id) &&
@@ -9211,6 +9226,28 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : gameAwareMessagesForGen;
           // Each responder owns its injections; never mutate the shared prompt array.
           const targetScopedMessagesForGen = scopedMessagesForGen.map((message) => ({ ...message }));
+          // #9425: added after scoping, which would strip blocks about the other characters. Character
+          // turns only: impersonate and a regenerated user message write as the persona.
+          if (
+            chatMode === "roleplay" &&
+            isGroupChat &&
+            usesIndividualGroupGeneration &&
+            targetCharId &&
+            chatMeta.groupPublicFacesEnabled === true &&
+            !input.impersonate &&
+            regenMsg?.role !== "user"
+          ) {
+            insertAfterFirstSystemMessage(
+              targetScopedMessagesForGen,
+              buildOtherPublicFacesBlock({
+                profilesById: historyMacroProfilesById,
+                activeCharacterIds: characterIds,
+                targetCharacterId: targetCharId,
+                promptMacroContext,
+                wrapFormat,
+              }),
+            );
+          }
           if (!deferGroupPromptRegex && !promptTargetCharacterId && targetCharId) {
             applyRegexScriptsToPromptMessages(targetScopedMessagesForGen, regexScripts, {
               ...targetRegexOptions,
@@ -13184,12 +13221,12 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               ];
         const inactivePostProcessingAgentIds = new Set<string>();
         for (const agent of resolvedAgents) {
-          if (agent.phase !== "post_processing" || builtInAgentTypes.has(agent.type)) continue;
+          if (agent.phase !== "post_processing" || !agentSupportsActivationGate(agent.type)) continue;
           const activation = matchCustomAgentActivation(agent.settings, postActivationMessages);
           if (!activation.configured || activation.matched) continue;
           inactivePostProcessingAgentIds.add(agent.id);
           logger.debug(
-            "[agents] Skipping custom agent %s because no activation keywords matched in the completed response window of %d messages",
+            "[agents] Skipping agent %s because no activation keywords matched in the completed response window of %d messages",
             agent.type,
             activation.scanDepth,
           );
@@ -13207,9 +13244,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           for (let index = pipelineAgents.length - 1; index >= 0; index--) {
             if (inactivePostProcessingAgentIds.has(pipelineAgents[index]!.id)) pipelineAgents.splice(index, 1);
           }
+          // Lorebook Keeper runs outside the pipeline, from a reference taken before gating.
+          if (lorebookKeeperAgent && inactivePostProcessingAgentIds.has(lorebookKeeperAgent.id)) {
+            lorebookKeeperAgent = null;
+          }
         }
-        const activatedTextRewriteRunAgents = textRewriteRunAgents.filter(
-          (agent) => !inactivePostProcessingAgentIds.has(agent.id),
+        const activatedTextRewriteRunAgents = activeTextRewriteRunAgents(
+          textRewriteAgents,
+          inactivePostProcessingAgentIds,
         );
         await persistChatMacroVariables();
 

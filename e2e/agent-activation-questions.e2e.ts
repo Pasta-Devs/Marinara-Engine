@@ -526,10 +526,8 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     };
     const keySource = page.getByLabel("API key source", { exact: true });
     await openEditor();
-    await expect(keySource).toHaveValue(lenderId);
-    await expect(keySource.locator("option:checked")).toHaveText(
-      `Use key from “${await accountName(lender!.accountId!)}”`,
-    );
+    await expect(keySource).toHaveAttribute("data-value", lenderId);
+    await expect(keySource).toHaveText(`Use key from “${await accountName(lender!.accountId!)}”`);
     await page.keyboard.press("Escape");
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
@@ -548,9 +546,9 @@ test("OpenRouter decision shortcut links a key and warns before its deletion", a
     await keyWarning.getByRole("button", { name: "Delete account", exact: true }).click();
     await expect.poll(() => status(`/api/connections/${lenderId}`)).toBe(404);
     await openEditor();
-    await expect(keySource).toHaveValue(lenderId);
+    await expect(keySource).toHaveAttribute("data-value", lenderId);
     const relink = "Linked account is missing or incompatible. Choose another or enter a key.";
-    await expect(keySource.locator("option:checked")).toHaveText(relink);
+    await expect(keySource).toHaveText(relink);
     await page.keyboard.press("Escape");
     await page.evaluate(async (id) => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);

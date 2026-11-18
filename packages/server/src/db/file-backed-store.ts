@@ -359,8 +359,14 @@ type Executable<T> = PromiseLike<T> & {
   finally: Promise<T>["finally"];
 };
 
-type InsertValuesBuilder = Executable<void> & {
-  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<void>;
+/** Every insert resolves to the number of rows it added; a row a conflict updated isn't counted. */
+type InsertValuesBuilder = Executable<number> & {
+  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<number>;
+  /**
+   * Skips a row that clashes with an existing one on `target` or on any unique constraint, leaving
+   * the existing row as it is. Resolves to the number of rows inserted.
+   */
+  onConflictDoNothing: (config: { target: unknown }) => Executable<number>;
 };
 
 // Exported so regressions can pin behavior against the CURRENT version
@@ -3597,7 +3603,8 @@ class FileTableStore {
     const meta = getMeta(table);
     return {
       values: (rows) => {
-        const runInsert = (onConflict?: { target: unknown; set: Row }) =>
+        // Without `set`, a conflicting row is skipped and the existing row kept.
+        const runInsert = (onConflict?: { target: unknown; set?: Row }) =>
           executable(async () => {
             await this.waitForWritableTurn();
             this.assertWritable();
@@ -3639,11 +3646,22 @@ class FileTableStore {
             // remaining per-write allocation spike on big tables (#4730).
             const nextRows = target.slice();
             const affectedRows: Row[] = [];
+            let inserted = 0;
             for (const row of preparedRows) {
               const conflictKeys =
                 conflictColumns.length > 0 ? conflictColumns : meta.primaryKey ? [meta.primaryKey] : [];
               const duplicateIndex = onConflict ? findMatchingRowIndex(nextRows, row, conflictKeys) : -1;
+              // Like SQL's ON CONFLICT DO NOTHING without a target: a row that clashes with an
+              // existing one on its key or any unique constraint is skipped, not an error.
+              if (
+                onConflict &&
+                !onConflict.set &&
+                (duplicateIndex !== -1 || findUniqueViolation(meta, nextRows, row))
+              ) {
+                continue;
+              }
               if (onConflict && duplicateIndex !== -1) {
+                if (!onConflict.set) continue;
                 const existing = nextRows[duplicateIndex]!;
                 const ctx = this.contextForRow(meta, existing);
                 const candidate = cloneRow(existing);
@@ -3660,6 +3678,7 @@ class FileTableStore {
               } else {
                 assertUniqueRow(meta, nextRows, row);
                 affectedRows.push(row);
+                inserted += 1;
                 if (LAZY_UNIT_TABLES.has(meta.name)) {
                   // Keep lazy tables in canonical order at insert time — an
                   // appended row would re-sort on the next unit reload, and
@@ -3676,6 +3695,8 @@ class FileTableStore {
                 }
               }
             }
+            // Every row was skipped: nothing changed, so nothing to dirty.
+            if (affectedRows.length === 0 && preparedRows.length > 0) return 0;
             this.recordTxMutation(meta.name);
             this.tables.set(meta.name, nextRows);
             if (SHARDED_TABLE_SET.has(meta.name)) {
@@ -3693,9 +3714,11 @@ class FileTableStore {
             } else {
               this.markDirty(meta.name);
             }
+            return inserted;
           });
         const builder = runInsert() as InsertValuesBuilder;
         builder.onConflictDoUpdate = (config) => runInsert(config);
+        builder.onConflictDoNothing = (config) => runInsert({ target: config.target });
         return builder;
       },
     };

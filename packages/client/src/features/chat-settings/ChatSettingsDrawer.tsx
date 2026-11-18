@@ -26,7 +26,6 @@ import { ChatWindowFavoriteButton } from "./ChatWindowFavoriteButton";
 import { listCombatStyles, resolveCombatStyle } from "../../components/game/combat-styles";
 import { AgentActivitySection } from "../../components/agents/AgentActivitySection";
 import { withAgentActivityStatus } from "../../components/agents/AgentActivityIcon";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import {
   X,
   BookOpen,
@@ -477,7 +476,6 @@ export function ChatSettingsDrawer({
   const setControlDockHost = useChatControlDockStore((state) => state.setElement);
   const panelRef = useRef<HTMLDivElement | null>(null);
   // On phones the sheet keeps the field being typed in (a summary, the notes) above the keyboard.
-  useKeepFocusedFieldAboveKeyboard(panelRef);
   const modePromptDefaultAppliedRef = useRef<string | null>(null);
   const agentSuiteCloseGuardRef = useRef<(() => Promise<boolean>) | null>(null);
   const drawerClosingRef = useRef(false);

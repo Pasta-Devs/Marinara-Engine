@@ -24,8 +24,8 @@
 #
 # Limits: the emulator runs on a PC processor, so tap timings read faster than a mid-range phone. Compare runs before
 # and after a change, not absolute numbers (the same rule as the WebKit check). Chrome on the emulator image is the
-# version Google shipped with it, usually older than Chrome on a real phone. Don't run Termux in this emulator: x86_64
-# Termux can't build Marinara (rolldown has no android-x64 binding), and real phones are arm64.
+# version Google shipped with it, usually older than Chrome on a real phone. Don't run Termux in this emulator: it is
+# x86_64 and real phones are arm64 (setup-termux.sh checks Termux).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

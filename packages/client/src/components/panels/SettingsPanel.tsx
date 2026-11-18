@@ -7,10 +7,9 @@ import {
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
   QUICK_REPLIES_SETTINGS_CONTROL_ID,
   useUIStore,
-  SIDEBAR_WIDTH_MIN,
-  SIDEBAR_WIDTH_MAX,
-  RIGHT_PANEL_WIDTH_MIN,
-  RIGHT_PANEL_WIDTH_MAX,
+  SHARED_SIDEBAR_WIDTH_MIN,
+  SHARED_SIDEBAR_WIDTH_MAX,
+  selectSharedSidebarWidth,
   getDefaultAppAccentColor,
   getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
@@ -39,6 +38,8 @@ import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
 import { LanguagePicker } from "../ui/LanguagePicker";
+import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 import { MultiplayerSettings } from "../../features/multiplayer/MultiplayerSettings";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
@@ -234,7 +235,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useDocsLanguage, useFixDocsLanguage, useSetDocsLanguage } from "../../hooks/use-docs-language";
 import { HelpTooltip } from "../ui/HelpTooltip";
-import { ColorPicker } from "../ui/ColorPicker";
+import { ColorField, ColorPicker } from "../ui/ColorPicker";
 import { getChatWidgetColorRoles, getChatWidgetColorStyle, type ChatWidgetColors } from "../../lib/chat-widget-colors";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
@@ -943,39 +944,31 @@ function ImageStyleProfilesEditor({
     <div className="rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
       <div className="space-y-3">
         <div className="grid gap-2">
-          <label className="min-w-0">
+          <div className="min-w-0">
             <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
             </span>
-            <select
+            <Select
               value={settings.defaultProfileId}
-              onChange={(event) => setDefaultProfileId(event.target.value)}
+              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+              onChange={setDefaultProfileId}
+              label={localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
               className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            >
-              {settings.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
-          <label className="min-w-0">
+          <div className="min-w-0">
             <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
             </span>
-            <select
+            <Select
               value={selected.id}
-              onChange={(event) => setSelectedId(event.target.value)}
+              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
+              onChange={setSelectedId}
+              label={localizeUi("ui.panels.imagestyleprofileseditor.editing")}
               className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            >
-              {settings.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -1024,22 +1017,18 @@ function ImageStyleProfilesEditor({
             className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
           />
         </label>
-        <label className="min-w-0">
+        <div className="min-w-0">
           <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
           </span>
-          <select
+          <Select
             value={selected.promptMode}
-            onChange={(event) => updateSelected({ promptMode: event.target.value as ImagePromptMode })}
+            options={IMAGE_PROMPT_MODE_OPTIONS}
+            onChange={(promptMode) => updateSelected({ promptMode })}
+            label={localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
             className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          >
-            {IMAGE_PROMPT_MODE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
       </div>
 
       <label className="mt-3 block">
@@ -1102,22 +1091,18 @@ function ImageStyleProfilesEditor({
         </summary>
         <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="space-y-2">
-            <label className="block">
+            <div className="block">
               <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
               </span>
-              <select
+              <Select
                 value={previewKind}
-                onChange={(event) => setPreviewKind(event.target.value as ImagePromptKind)}
+                options={IMAGE_STYLE_SUBJECT_KINDS.map((kind) => ({ value: kind, label: kind }))}
+                onChange={setPreviewKind}
+                label={localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs"
-              >
-                {IMAGE_STYLE_SUBJECT_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {kind}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <label className="block">
               <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                 {localizeUi("ui.panels.imagestyleprofileseditor.sampleInput")}
@@ -1721,53 +1706,20 @@ export function SettingsPanel() {
       </div>
 
       <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
-        <div
-          role="tablist"
-          aria-label={localize("Settings categories")}
-          className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
-        >
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = settingsTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`settings-tab-${tab.id}`}
-                type="button"
-                role="tab"
-                aria-selected={settingsTab === tab.id}
-                aria-controls={`settings-panel-${tab.id}`}
-                tabIndex={settingsTab === tab.id ? 0 : -1}
-                onClick={() => setSettingsTab(tab.id)}
-                className={cn(
-                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
-                  active
-                    ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
-                    : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-                )}
-                title={t(tab.descriptionKey)}
-              >
-                {active && (
-                  <>
-                    <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
-                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
-                  </>
-                )}
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
-                    active
-                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
-                      : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <Icon size="0.6875rem" />
-                </span>
-                <span className="w-full min-w-0 break-words px-0.5">{t(tab.labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          items={TABS.map((tab) => ({
+            id: tab.id,
+            label: t(tab.labelKey),
+            title: t(tab.descriptionKey),
+            icon: <tab.icon size="0.875rem" />,
+          }))}
+          value={settingsTab}
+          onChange={setSettingsTab}
+          variant="pill"
+          columns={3}
+          idPrefix="settings"
+          label={localize("Settings categories")}
+        />
 
         {activeSections.length > 1 && (
           <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
@@ -2576,21 +2528,24 @@ function GeneralSettings() {
         icon={<Bell size="0.875rem" />}
         {...getSettingsSectionAnchorProps("notifications")}
       >
-        <label
+        {/* A div, not a label: a label would open the list on a tap on the help text. */}
+        <div
           id={getSettingsControlAnchorId("notification-position")}
           className="mb-3 flex scroll-mt-3 flex-col gap-1.5 text-xs"
         >
           <span>{localizeUi("settings.notifications.position.label")}</span>
-          <select
+          <Select
             value={notificationPosition}
-            onChange={(event) => setNotificationPosition(event.target.value === "bottom" ? "bottom" : "top")}
+            options={[
+              { value: "top", label: localizeUi("settings.notifications.position.top") },
+              { value: "bottom", label: localizeUi("settings.notifications.position.bottom") },
+            ]}
+            onChange={setNotificationPosition}
+            label={localizeUi("settings.notifications.position.label")}
             className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
-          >
-            <option value="top">{localizeUi("settings.notifications.position.top")}</option>
-            <option value="bottom">{localizeUi("settings.notifications.position.bottom")}</option>
-          </select>
+          />
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
-        </label>
+        </div>
         <ConversationSoundSetting />
       </SettingsSection>
 
@@ -3608,22 +3563,18 @@ function GameAssetsSettings() {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.gameassetssettings.type")}
             </span>
-            <select
+            <Select
               value={assetCategory}
-              onChange={(e) => handleAssetCategoryChange(e.target.value as GameAssetCategoryId)}
+              options={GAME_ASSET_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
+              onChange={handleAssetCategoryChange}
+              label={localizeUi("ui.panels.gameassetssettings.type")}
               className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
-            >
-              {GAME_ASSET_CATEGORIES.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <label className="flex min-w-0 flex-col gap-1">
             <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.panels.gameassetssettings.folder")}
@@ -3845,9 +3796,8 @@ function AppearanceSettings({
   const themeDayStart = useUIStore((s) => s.themeDayStart);
   const themeNightStart = useUIStore((s) => s.themeNightStart);
   const setThemeDayHours = useUIStore((s) => s.setThemeDayHours);
-  const sidebarWidth = useUIStore((state) => state.sidebarWidth);
+  const sharedSidebarWidth = useUIStore(selectSharedSidebarWidth);
   const setSidebarWidth = useUIStore((state) => state.setSidebarWidth);
-  const rightPanelWidth = useUIStore((state) => state.rightPanelWidth);
   const setRightPanelWidth = useUIStore((state) => state.setRightPanelWidth);
   // The accent picker edits the scheme on screen; each scheme keeps its own (batch 2). Background color has
   // no picker any more (retired upstream); a theme can still set one per scheme, and the accent notes check
@@ -3976,8 +3926,6 @@ function AppearanceSettings({
   const setConvoGradientField = useUIStore((s) => s.setConvoGradientField);
   const [activeGradientScheme, setActiveGradientScheme] = useState<"dark" | "light">(theme);
   const currentGradient = convoGradient[activeGradientScheme];
-  const [draftFrom, setDraftFrom] = useState(currentGradient.from);
-  const [draftTo, setDraftTo] = useState(currentGradient.to);
   const pendingGradientChangeRef = useRef<{
     scheme: "dark" | "light";
     field: "from" | "to";
@@ -4042,17 +3990,9 @@ function AppearanceSettings({
     [activeGradientScheme, commitConvoGradientField],
   );
 
-  // Sync draft inputs when switching between scheme tabs so the text fields
-  // always reflect the stored value for the active scheme.
-  useEffect(() => {
-    setDraftFrom(currentGradient.from);
-    setDraftTo(currentGradient.to);
-  }, [activeGradientScheme, currentGradient.from, currentGradient.to]);
   const handleResetAppearance = useCallback(() => {
     resetAppearanceSettings();
     setActiveGradientScheme("dark");
-    setDraftFrom("#0a0a0e");
-    setDraftTo("#1c2133");
     document.getElementById("marinara-css-editor-preview")?.remove();
     if (activeChatId) {
       updateMeta.mutate({ id: activeChatId, background: chatBackgroundUrlToMetadata(null) });
@@ -4577,29 +4517,31 @@ function AppearanceSettings({
                 </a>
               </div>
 
-              <label id={getSettingsControlAnchorId("display-size")} className="flex scroll-mt-3 flex-col gap-1">
+              <div id={getSettingsControlAnchorId("display-size")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
                   {localizeUi("ui.panels.appearancesettings.displaySize")}{" "}
                   <HelpTooltip
                     text={localizeUi("ui.panels.appearancesettings.adjustsTheBaseFontSizeAcrossTheWholeApp")}
                   />
                 </span>
-                <select
+                <Select
                   value={String(fontSize)}
-                  onChange={(e) => setFontSize(Number(e.target.value) as Parameters<typeof setFontSize>[0])}
+                  options={[
+                    { value: "12", label: localizeUi("ui.panels.appearancesettings.tiny") },
+                    { value: "14", label: localizeUi("ui.panels.appearancesettings.small") },
+                    { value: "16", label: localizeUi("ui.panels.appearancesettings.medium") },
+                    { value: "17", label: localizeUi("ui.noodle.noodlehome.default") },
+                    { value: "19", label: localizeUi("ui.panels.appearancesettings.large") },
+                    { value: "22", label: localizeUi("ui.panels.appearancesettings.huge") },
+                    { value: "26", label: localizeUi("settings.appearance.displaySize.extraLarge") },
+                    { value: "30", label: localizeUi("settings.appearance.displaySize.extraExtraLarge") },
+                    { value: "34", label: localizeUi("settings.appearance.displaySize.maximum") },
+                  ]}
+                  onChange={(value) => setFontSize(Number(value) as Parameters<typeof setFontSize>[0])}
+                  label={localizeUi("ui.panels.appearancesettings.displaySize")}
                   className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                >
-                  <option value="12">{localizeUi("ui.panels.appearancesettings.tiny")}</option>
-                  <option value="14">{localizeUi("ui.panels.appearancesettings.small")}</option>
-                  <option value="16">{localizeUi("ui.panels.appearancesettings.medium")}</option>
-                  <option value="17">{localizeUi("ui.noodle.noodlehome.default")}</option>
-                  <option value="19">{localizeUi("ui.panels.appearancesettings.large")}</option>
-                  <option value="22">{localizeUi("ui.panels.appearancesettings.huge")}</option>
-                  <option value="26">{localizeUi("settings.appearance.displaySize.extraLarge")}</option>
-                  <option value="30">{localizeUi("settings.appearance.displaySize.extraExtraLarge")}</option>
-                  <option value="34">{localizeUi("settings.appearance.displaySize.maximum")}</option>
-                </select>
-              </label>
+                />
+              </div>
 
               <label id={getSettingsControlAnchorId("chat-font-size")} className="flex scroll-mt-3 flex-col gap-1">
                 <span className="text-xs font-medium inline-flex items-center gap-1">
@@ -4784,10 +4726,10 @@ function AppearanceSettings({
                   <input
                     id="desktop-sidebar-width"
                     type="range"
-                    min={Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN)}
-                    max={Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX)}
+                    min={SHARED_SIDEBAR_WIDTH_MIN}
+                    max={SHARED_SIDEBAR_WIDTH_MAX}
                     step={8}
-                    value={rightPanelWidth || sidebarWidth}
+                    value={sharedSidebarWidth}
                     onChange={(event) => {
                       const width = Number(event.target.value);
                       setSidebarWidth(width);
@@ -4796,7 +4738,7 @@ function AppearanceSettings({
                     className="min-w-0 flex-1 accent-[var(--primary)]"
                   />
                   <output className="shrink-0 text-xs tabular-nums">
-                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: rightPanelWidth || sidebarWidth })}
+                    {localizeUi("ui.panels.appearancesettings.value1Px", { value1: sharedSidebarWidth })}
                   </output>
                   <button
                     type="button"
@@ -4922,26 +4864,22 @@ function AppearanceSettings({
                   onChange={setChatArtBehindPanels}
                   help={localizeUi("theming.chat.artBehindPanelsHelp")}
                 />
-                <label className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     <HelpTooltip
                       text={localizeUi("ui.panels.appearancesettings.showsEachChatsOwnBackgroundAsAMutedBanner")}
                     />
                   </span>
-                  <select
+                  <Select
                     id={getSettingsControlAnchorId("chat-list-backgrounds")}
                     value={chatListBackgrounds}
-                    onChange={(e) => setChatListBackgrounds(e.target.value as ChatListBackgroundMode)}
+                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                    onChange={setChatListBackgrounds}
+                    label={localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     className="h-7 min-w-0 flex-1 scroll-mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"
-                  >
-                    {CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
                 <BackgroundPicker
                   selected={chatBackground}
                   onSelect={setChatBackground}
@@ -5030,52 +4968,60 @@ function AppearanceSettings({
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label
+                  <div
                     id={getSettingsControlAnchorId("chat-widget-font")}
                     className="flex min-w-0 scroll-mt-3 flex-col gap-1"
                   >
                     <span className="text-xs font-medium">{localizeUi("settings.controls.chatWidgetFont.label")}</span>
-                    <select
+                    <Select
                       id="chat-widget-font"
                       value={chatWidgetFont}
-                      onChange={(event) => setChatWidgetFont(event.target.value)}
+                      options={[
+                        { value: "", label: localizeUi("settings.controls.chatWidgetFont.preset") },
+                        { value: "@app", label: localizeUi("settings.controls.chatWidgetFont.app") },
+                        { value: "@sans", label: localizeUi("settings.controls.chatWidgetFont.sans") },
+                        { value: "@serif", label: localizeUi("settings.controls.chatWidgetFont.serif") },
+                        { value: "@mono", label: localizeUi("settings.controls.chatWidgetFont.mono") },
+                        ...customFontOptions.map((font) => ({
+                          value: `custom:${font.family}`,
+                          label: font.family,
+                        })),
+                        ...(unavailableWidgetFont
+                          ? [
+                              {
+                                value: chatWidgetFont,
+                                label: localizeUi("settings.controls.chatWidgetFont.unavailable", {
+                                  font: unavailableWidgetFont,
+                                }),
+                              },
+                            ]
+                          : []),
+                      ]}
+                      onChange={setChatWidgetFont}
+                      label={localizeUi("settings.controls.chatWidgetFont.label")}
                       className="min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                    >
-                      <option value="">{localizeUi("settings.controls.chatWidgetFont.preset")}</option>
-                      <option value="@app">{localizeUi("settings.controls.chatWidgetFont.app")}</option>
-                      <option value="@sans">{localizeUi("settings.controls.chatWidgetFont.sans")}</option>
-                      <option value="@serif">{localizeUi("settings.controls.chatWidgetFont.serif")}</option>
-                      <option value="@mono">{localizeUi("settings.controls.chatWidgetFont.mono")}</option>
-                      {customFontOptions.map((font) => (
-                        <option key={font.family} value={`custom:${font.family}`}>
-                          {font.family}
-                        </option>
-                      ))}
-                      {unavailableWidgetFont && (
-                        <option value={chatWidgetFont}>
-                          {localizeUi("settings.controls.chatWidgetFont.unavailable", { font: unavailableWidgetFont })}
-                        </option>
-                      )}
-                    </select>
-                  </label>
-                  <label
+                    />
+                  </div>
+                  <div
                     id={getSettingsControlAnchorId("chat-widget-shape")}
                     className="flex min-w-0 scroll-mt-3 flex-col gap-1"
                   >
                     <span className="text-xs font-medium">{localizeUi("settings.controls.chatWidgetShape.label")}</span>
-                    <select
+                    <Select
                       id="chat-widget-shape"
                       value={chatWidgetShape}
-                      onChange={(event) => setChatWidgetShape(event.target.value as ChatWidgetShape)}
+                      options={[
+                        { value: "preset", label: localizeUi("settings.controls.chatWidgetShape.preset") },
+                        { value: "rounded", label: localizeUi("settings.controls.chatWidgetShape.rounded") },
+                        { value: "square", label: localizeUi("settings.controls.chatWidgetShape.square") },
+                        { value: "cut-corner", label: localizeUi("settings.controls.chatWidgetShape.cutCorner") },
+                        { value: "arched", label: localizeUi("settings.controls.chatWidgetShape.arched") },
+                      ]}
+                      onChange={setChatWidgetShape}
+                      label={localizeUi("settings.controls.chatWidgetShape.label")}
                       className="min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]"
-                    >
-                      <option value="preset">{localizeUi("settings.controls.chatWidgetShape.preset")}</option>
-                      <option value="rounded">{localizeUi("settings.controls.chatWidgetShape.rounded")}</option>
-                      <option value="square">{localizeUi("settings.controls.chatWidgetShape.square")}</option>
-                      <option value="cut-corner">{localizeUi("settings.controls.chatWidgetShape.cutCorner")}</option>
-                      <option value="arched">{localizeUi("settings.controls.chatWidgetShape.arched")}</option>
-                    </select>
-                  </label>
+                    />
+                  </div>
                 </div>
                 <div id={getSettingsControlAnchorId("chat-widget-button-size")} className="mt-4 scroll-mt-3">
                   <label
@@ -5400,56 +5346,16 @@ function AppearanceSettings({
                   style={{ background: `linear-gradient(135deg, ${currentGradient.from}, ${currentGradient.to})` }}
                 />
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={currentGradient.from}
-                        onInput={(e) => handleGradientColorInput("from", e.currentTarget.value)}
-                        onChange={(e) => handleGradientColorInput("from", e.currentTarget.value)}
-                        onBlur={flushPendingGradientChange}
-                        onPointerUp={flushPendingGradientChange}
-                        onKeyUp={flushPendingGradientChange}
-                        className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={draftFrom}
-                        onChange={(e) => {
-                          setDraftFrom(e.target.value);
-                          if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
-                            commitConvoGradientField(activeGradientScheme, "from", e.target.value);
-                        }}
-                        onBlur={() => setDraftFrom(currentGradient.from)}
-                        className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                      />
-                    </div>
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={currentGradient.to}
-                        onInput={(e) => handleGradientColorInput("to", e.currentTarget.value)}
-                        onChange={(e) => handleGradientColorInput("to", e.currentTarget.value)}
-                        onBlur={flushPendingGradientChange}
-                        onPointerUp={flushPendingGradientChange}
-                        onKeyUp={flushPendingGradientChange}
-                        className="h-8 w-8 flex-shrink-0 cursor-pointer rounded-md border border-[var(--border)] bg-transparent p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={draftTo}
-                        onChange={(e) => {
-                          setDraftTo(e.target.value);
-                          if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
-                            commitConvoGradientField(activeGradientScheme, "to", e.target.value);
-                        }}
-                        onBlur={() => setDraftTo(currentGradient.to)}
-                        className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                      />
-                    </div>
-                  </label>
+                  <ColorField
+                    value={currentGradient.from}
+                    onChange={(color) => handleGradientColorInput("from", color)}
+                    label={localizeUi("ui.ui.colorpicker.editColorStop", { index: 1 })}
+                  />
+                  <ColorField
+                    value={currentGradient.to}
+                    onChange={(color) => handleGradientColorInput("to", color)}
+                    label={localizeUi("ui.ui.colorpicker.editColorStop", { index: 2 })}
+                  />
                 </div>
                 <button
                   type="button"
@@ -5460,8 +5366,6 @@ function AppearanceSettings({
                         : { from: "#f2eff7", to: "#eae6f0" };
                     commitConvoGradientField(activeGradientScheme, "from", defaults.from);
                     commitConvoGradientField(activeGradientScheme, "to", defaults.to);
-                    setDraftFrom(defaults.from);
-                    setDraftTo(defaults.to);
                   }}
                   className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
@@ -7320,6 +7224,10 @@ type ProfileImportPreviewResult = {
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
   previewToken?: string;
+  /** False for profiles from much older versions, which only add items and save no safety copy. */
+  undoable?: boolean;
+  /** True when "Keep my current versions" applies; older profiles always add next to existing items. */
+  keepsExisting?: boolean;
   error?: string;
   message?: string;
 };
@@ -7421,13 +7329,12 @@ function formatProfileImportConfirmationMessage(preview: ProfileImportPreviewRes
     warnings.length > 0
       ? `${formatProfileImportWarningSummary(warnings, warningCopy)} ${formatProfileImportWarningDetails(warnings, warningCopy)}`
       : "";
-  return [
-    `Found: ${found}.`,
-    warningDetail,
-    "Importing writes profile data from this file and cannot be undone. Continue?",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const effect = preview.keepsExisting
+    ? localizeUi("ui.panels.importsettings.profileImportKeepWarning")
+    : preview.undoable === false
+      ? localizeUi("ui.panels.importsettings.profileImportAddOnlyWarning")
+      : localizeUi("ui.panels.importsettings.profileImportReplaceWarning");
+  return [`Found: ${found}.`, warningDetail, effect].filter(Boolean).join("\n");
 }
 
 function getDownloadFilename(res: Response, fallback: string) {
@@ -7503,6 +7410,8 @@ function ProfileImportControl() {
   const profileImportWarningCopy = getProfileImportWarningCopy(localizeUi);
   const qc = useQueryClient();
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
+  const [profileUndoRunning, setProfileUndoRunning] = useState(false);
+  const [profileKeepExisting, setProfileKeepExisting] = useState(false);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
     profileImportProgress?.status === "preview" ||
@@ -7530,6 +7439,8 @@ function ProfileImportControl() {
   const handleProfileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Read once, so the preview and the import use the same mode.
+    const keepQuery = profileKeepExisting ? "keepExisting=true" : "";
     let previewToken: string | undefined;
     const releaseProfilePreview = async () => {
       if (!previewToken) return;
@@ -7590,7 +7501,7 @@ function ProfileImportControl() {
             }
           : current,
       );
-      const previewRes = await api.raw("/backup/import-profile?preview=true", {
+      const previewRes = await api.raw(`/backup/import-profile?preview=true${keepQuery ? `&${keepQuery}` : ""}`, {
         method: "POST",
         headers: { Accept: "application/json" },
         body: makeImportBody(isZip, profileText),
@@ -7664,7 +7575,7 @@ function ProfileImportControl() {
             }
           : current,
       );
-      const res = await api.raw("/backup/import-profile", {
+      const res = await api.raw(`/backup/import-profile${keepQuery ? `?${keepQuery}` : ""}`, {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
@@ -7679,79 +7590,7 @@ function ProfileImportControl() {
         const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
       }
-      let importCompleted = false;
-      for await (const event of readProfileImportStream(res)) {
-        if (event.type === "started") {
-          setProfileImportProgress((current) => ({
-            status: "running",
-            label: event.data?.label ?? "Profile import started",
-            completedItems: 0,
-            totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
-            startedAt,
-            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-          }));
-          continue;
-        }
-        if (event.type === "progress" && event.data) {
-          setProfileImportProgress((current) => ({
-            status: "running",
-            label: event.data?.label ?? "Importing profile",
-            completedItems: event.data?.completedItems ?? current?.completedItems ?? 0,
-            totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
-            startedAt,
-            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-            imported: event.data?.imported,
-          }));
-          continue;
-        }
-        if (event.type === "error") {
-          throw new Error(getProfileImportErrorMessage(event.data));
-        }
-        if (event.type === "done") {
-          if (event.data?.success === false) throw new Error(event.data.error ?? event.data.message ?? "Unknown error");
-          importCompleted = true;
-          qc.invalidateQueries();
-          const imported = event.data?.imported;
-          const warnings = normalizeProfileImportWarnings(event.data?.warnings);
-          const summary = formatProfileImportStats(imported, localizeUi);
-          setProfileImportProgress((current) => {
-            const totalItems = Math.max(1, current?.totalItems ?? 1);
-            return {
-              status: "success",
-              label:
-                warnings.length > 0
-                  ? localizeUi("ui.panels.importsettings.profileImportCompleteWithWarnings")
-                  : "Profile import complete",
-              completedItems: totalItems,
-              totalItems,
-              startedAt,
-              elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
-              imported,
-              warnings,
-            };
-          });
-          if (warnings.length > 0) {
-            const warningSummary = formatProfileImportWarningSummary(warnings, profileImportWarningCopy);
-            toast.warning(
-              summary
-                ? localizeUi("ui.panels.importsettings.importedValue1Value2", {
-                    value1: summary,
-                    value2: warningSummary,
-                  })
-                : warningSummary,
-            );
-          } else {
-            toast.success(
-              summary
-                ? localizeUi("ui.panels.importsettings.importedValue1", { value1: summary })
-                : localizeUi("ui.panels.importsettings.profileImported"),
-            );
-          }
-        }
-      }
-      if (!importCompleted) {
-        throw new Error("Profile import stream closed before completion.");
-      }
+      await followProfileImportStream(res, startedAt, false);
       previewToken = undefined;
     } catch (err) {
       await releaseProfilePreview();
@@ -7769,21 +7608,197 @@ function ProfileImportControl() {
         error: message.replace(/^Import failed:\s*/, ""),
       });
       toast.error(message);
+      // A failed import can still have replaced or cleared the safety copy.
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
     }
     e.target.value = "";
+  };
+
+  /** Follows an import's progress stream until it finishes; throws when the server reports an error. */
+  const followProfileImportStream = async (res: Response, startedAt: number, undo: boolean) => {
+    let importCompleted = false;
+    for await (const event of readProfileImportStream(res)) {
+      if (event.type === "started") {
+        setProfileImportProgress((current) => ({
+          status: "running",
+          label: undo
+            ? localizeUi("ui.panels.importsettings.undoingLastImport")
+            : (event.data?.label ?? "Profile import started"),
+          completedItems: 0,
+          totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
+          startedAt,
+          elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        }));
+        continue;
+      }
+      if (event.type === "progress" && event.data) {
+        setProfileImportProgress((current) => ({
+          status: "running",
+          label: undo
+            ? localizeUi("ui.panels.importsettings.undoingLastImport")
+            : event.data?.phase === "safety-copy"
+              ? localizeUi("ui.panels.importsettings.savingSafetyCopy")
+              : (event.data?.label ?? "Importing profile"),
+          completedItems: event.data?.completedItems ?? current?.completedItems ?? 0,
+          totalItems: Math.max(1, event.data?.totalItems ?? current?.totalItems ?? 1),
+          startedAt,
+          elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+          imported: event.data?.imported,
+        }));
+        continue;
+      }
+      if (event.type === "error") {
+        throw new Error(getProfileImportErrorMessage(event.data));
+      }
+      if (event.type === "done") {
+        if (event.data?.success === false) throw new Error(event.data.error ?? event.data.message ?? "Unknown error");
+        importCompleted = true;
+        qc.invalidateQueries();
+        const imported = event.data?.imported;
+        const warnings = normalizeProfileImportWarnings(event.data?.warnings);
+        const summary = formatProfileImportStats(imported, localizeUi);
+        setProfileImportProgress((current) => {
+          const totalItems = Math.max(1, current?.totalItems ?? 1);
+          return {
+            status: "success",
+            label: undo
+              ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
+              : warnings.length > 0
+                ? localizeUi("ui.panels.importsettings.profileImportCompleteWithWarnings")
+                : "Profile import complete",
+            completedItems: totalItems,
+            totalItems,
+            startedAt,
+            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+            imported,
+            warnings,
+          };
+        });
+        // Undo's warnings repeat what its confirmation said stays switched off; they stay listed below.
+        if (warnings.length > 0 && !undo) {
+          const warningSummary = formatProfileImportWarningSummary(warnings, profileImportWarningCopy);
+          toast.warning(
+            summary
+              ? localizeUi("ui.panels.importsettings.importedValue1Value2", {
+                  value1: summary,
+                  value2: warningSummary,
+                })
+              : warningSummary,
+          );
+        } else {
+          toast.success(
+            undo
+              ? localizeUi("ui.panels.importsettings.undoLastImportComplete")
+              : summary
+                ? localizeUi("ui.panels.importsettings.importedValue1", { value1: summary })
+                : localizeUi("ui.panels.importsettings.profileImported"),
+          );
+        }
+      }
+    }
+    if (!importCompleted) {
+      throw new Error("Profile import stream closed before completion.");
+    }
+  };
+
+  const undoProfileImportQuery = useQuery<{ available: boolean; savedAt?: string }>({
+    queryKey: ["backups", "import-profile-undo"],
+    queryFn: () => api.get("/backup/import-profile/undo"),
+    retry: false,
+  });
+  // A copy can exist without the record Undo needs; it can still be deleted to free its space.
+  const safetyCopySavedAt = undoProfileImportQuery.data?.savedAt;
+  const undoSavedAt = undoProfileImportQuery.data?.available ? safetyCopySavedAt : undefined;
+  const handleUndoProfileImport = async () => {
+    if (!undoSavedAt) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.panels.importsettings.undoLastImport"),
+      message: localizeUi("ui.panels.importsettings.undoLastImportConfirm", {
+        savedAt: new Date(undoSavedAt).toLocaleString(),
+      }),
+      confirmLabel: localizeUi("ui.panels.importsettings.undoLastImport"),
+      cancelLabel: localizeUi("ui.panels.importsettings.cancel"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    const startedAt = Date.now();
+    setProfileUndoRunning(true);
+    setProfileImportProgress({
+      status: "starting",
+      label: localizeUi("ui.panels.importsettings.undoingLastImport"),
+      completedItems: 0,
+      totalItems: 1,
+      startedAt,
+      elapsedSeconds: 0,
+    });
+    try {
+      const res = await api.raw("/backup/import-profile/undo", {
+        method: "POST",
+        headers: { Accept: "text/event-stream" },
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        throw new Error(data.message ?? data.error ?? res.statusText ?? "Unknown error");
+      }
+      await followProfileImportStream(res, startedAt, true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "network/server error";
+      setProfileImportProgress({
+        status: "error",
+        label: localizeUi("ui.panels.importsettings.undoLastImportFailed"),
+        completedItems: 0,
+        totalItems: 1,
+        startedAt,
+        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        error: message,
+      });
+      toast.error(localizeUi("ui.panels.importsettings.undoLastImportFailedValue", { value: message }));
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
+    } finally {
+      setProfileUndoRunning(false);
+    }
+  };
+  const handleDeleteSafetyCopy = async () => {
+    if (!safetyCopySavedAt) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
+      message: localizeUi("ui.panels.importsettings.deleteSafetyCopyConfirm", {
+        savedAt: new Date(safetyCopySavedAt).toLocaleString(),
+      }),
+      confirmLabel: localizeUi("ui.panels.importsettings.deleteSafetyCopy"),
+      cancelLabel: localizeUi("ui.panels.importsettings.cancel"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      await api.delete("/backup/import-profile/undo");
+      toast.success(localizeUi("ui.panels.importsettings.deleteSafetyCopyComplete"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "network/server error";
+      toast.error(localizeUi("ui.panels.importsettings.deleteSafetyCopyFailedValue", { value: message }));
+    } finally {
+      void qc.invalidateQueries({ queryKey: ["backups", "import-profile-undo"] });
+    }
   };
 
   return (
     <div id={getSettingsSectionAnchorId("profile-marinara")} className="scroll-mt-3">
       <div className="flex flex-col gap-2.5">
+        <ToggleSetting
+          label={localizeUi("ui.panels.importsettings.keepCurrentVersions")}
+          checked={profileKeepExisting}
+          onChange={setProfileKeepExisting}
+          help={localizeUi("ui.panels.importsettings.keepCurrentVersionsHelp")}
+          disabled={profileImportBusy}
+        />
         <button
           type="button"
           onClick={() => profileImportInputRef.current?.click()}
           disabled={profileImportBusy}
           className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}
         >
-          {profileImportBusy ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
-          {profileImportBusy
+          {profileImportBusy && !profileUndoRunning ? <Spinner size="sm" /> : <Download size="0.8125rem" />}
+          {profileImportBusy && !profileUndoRunning
             ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
               ? localizeUi("ui.panels.importsettings.scanningProfile")
               : localizeUi("ui.panels.importsettings.importingProfile")
@@ -7800,6 +7815,37 @@ function ProfileImportControl() {
           aria-hidden="true"
         />
         <ImportTagChecks value={profileImportTags.choice} onChange={profileImportTags.setChoice} sources={["Backup"]} />
+        {safetyCopySavedAt && (
+          <div className="flex flex-col gap-1">
+            {undoSavedAt && (
+              <button
+                type="button"
+                onClick={() => void handleUndoProfileImport()}
+                disabled={profileImportBusy}
+                className={cn(SETTINGS_BUTTON_CLASS, "w-full")}
+              >
+                {profileUndoRunning ? <Spinner size="sm" /> : <RotateCcw size="0.8125rem" />}
+                {profileUndoRunning
+                  ? localizeUi("ui.panels.importsettings.undoingLastImport")
+                  : localizeUi("ui.panels.importsettings.undoLastImport")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleDeleteSafetyCopy()}
+              disabled={profileImportBusy}
+              className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+            >
+              <Trash2 size="0.8125rem" />
+              {localizeUi("ui.panels.importsettings.deleteSafetyCopy")}
+            </button>
+            <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("ui.panels.importsettings.undoLastImportSavedAt", {
+                savedAt: new Date(safetyCopySavedAt).toLocaleString(),
+              })}
+            </span>
+          </div>
+        )}
 
         {profileImportProgress && (
           <div
@@ -8704,28 +8750,20 @@ function AdvancedSettings() {
       >
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
-            <label
+            <div
               id={getSettingsControlAnchorId("release-channel")}
               className="flex scroll-mt-3 min-w-0 flex-col gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
             >
               {localizeUi("ui.panels.advancedsettings.releaseChannel")}
-              <select
-                value={selectedUpdateChannelId ?? ""}
-                onChange={(event) => setUpdateChannel(event.target.value as UpdateChannelId)}
+              <Select
+                value={selectedUpdateChannelId ?? null}
+                options={updateChannelOptions.map((channel) => ({ value: channel.id, label: channel.label }))}
+                onChange={setUpdateChannel}
+                label={localizeUi("ui.panels.advancedsettings.releaseChannel")}
+                placeholder={localizeUi("settings.updates.channelPending")}
                 className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs font-medium normal-case tracking-normal text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
-              >
-                {!selectedUpdateChannelId && (
-                  <option value="" disabled>
-                    {localizeUi("settings.updates.channelPending")}
-                  </option>
-                )}
-                {updateChannelOptions.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <button
               type="button"
               onClick={() => updateCheck.refetch()}
@@ -9504,7 +9542,8 @@ function AdvancedSettings() {
                   type="button"
                   onClick={() => runExpunge(confirmAction)}
                   disabled={isClearing}
-                  className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger w-full")}
+                  // Accent, not red: these only open the confirm step below, whose Confirm Delete stays red.
+                  className={cn(SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS, "w-full")}
                 >
                   {isClearing ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
                   {localizeUi("ui.panels.advancedsettings.confirmDelete")}

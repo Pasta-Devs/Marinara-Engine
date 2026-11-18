@@ -4091,6 +4091,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               scenario: cardPromptText(identity.scenario),
               backstory: cardPromptText(identity.backstory),
               appearance: cardPromptText(identity.appearance),
+              publicFace: cardPromptText(identity.publicFace),
             };
           }
 
@@ -4568,6 +4569,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                   scenario: cardPromptText(charData.scenario),
                   backstory: cardPromptText(charData.extensions?.backstory),
                   appearance: cardPromptText(charData.extensions?.appearance),
+                  publicFace: cardPromptText(charData.extensions?.publicFace),
                   example: cardPromptText(charData.mes_example),
                   systemPrompt: cardPromptText(charData.system_prompt),
                 },

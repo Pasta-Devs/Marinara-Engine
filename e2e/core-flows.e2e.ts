@@ -16,8 +16,9 @@ import type { HomeCustomWidgetCatalog } from "@marinara-engine/shared";
 import { downloadExport } from "./export-save.js";
 import { chooseBackgroundCardAction } from "./background-card-actions.js";
 import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
-import { mockUILanguagePacks, selectUILanguage } from "./ui-language-fixtures.js";
+import { mockUILanguagePacks, selectUILanguage, uiLanguageRow } from "./ui-language-fixtures.js";
 import { chooseConnection } from "./connection-picker.js";
+import { chooseOption } from "./select-field.js";
 import { acquireMariThreadLock, releaseMariThreadLock } from "./mari-thread-lock.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import {
@@ -739,7 +740,7 @@ test("Art scale sliders stay interactive at the largest display size", async ({ 
     .getByRole("group", { name: "Appearance by chat mode" })
     .getByRole("button", { name: "App", exact: true })
     .click();
-  await page.locator("#settings-control-display-size select").selectOption("22");
+  await chooseOption(page, page.locator('#settings-control-display-size [role="combobox"]'), "Huge");
   for (const controlId of controlIds) await exerciseSlider(controlId);
 });
 
@@ -2997,12 +2998,12 @@ test("resource panel sort fields share the canonical width", async ({ page }, te
   const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
 
   await clickTopbarPanel(page, "lorebooks");
-  const lorebookSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  const lorebookSort = rightPanel.locator("[role=combobox].mari-chrome-sort-field:visible");
   await expect(lorebookSort).toBeVisible();
   const lorebookWidth = await lorebookSort.evaluate((element) => element.getBoundingClientRect().width);
 
   await clickTopbarPanel(page, "personas");
-  const personaSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  const personaSort = rightPanel.locator("[role=combobox].mari-chrome-sort-field:visible");
   await expect(personaSort).toBeVisible();
   const personaWidth = await personaSort.evaluate((element) => element.getBoundingClientRect().width);
   const rootFontSize = await page
@@ -5660,7 +5661,7 @@ test("expanded character editors keep native keyboard and quote caret behavior",
     await expect(aboutMe).toHaveValue("alpha\nbeta");
     await expect(fields.getByRole("button", { name: "AI Write", exact: true })).toHaveCount(0);
     await expect(fields.getByRole("button", { name: "AI Write sources", exact: true })).toHaveCount(0);
-    await expect(fields.locator("select")).toHaveCount(1);
+    await expect(fields.getByRole("combobox")).toHaveCount(1);
 
     await aboutMe.evaluate((textarea: HTMLTextAreaElement) => {
       textarea.focus();
@@ -10880,7 +10881,7 @@ test("preset token counters stay localized and editable with malformed marker se
     for (const name of Object.keys(brokenConfigs)) {
       const card = cards.filter({ hasText: name });
       await card.locator("[data-preset-section-toggle]").click();
-      await expect(card.locator("[data-preset-section-position]")).toBeVisible();
+      await expect(card.locator('[id^="preset-section-position-"]')).toBeVisible();
       await expect(card.locator("textarea")).toHaveCount(0);
       await card.locator("[data-preset-section-toggle]").click();
     }
@@ -10889,7 +10890,7 @@ test("preset token counters stay localized and editable with malformed marker se
       await card.locator("[data-preset-section-toggle]").click();
       // #8625 shows the same count in the section's header badge, so read the field's own counter.
       await expect(card.locator("p", { hasText: /^約3トークン$/u })).toBeVisible();
-      await expect(card.locator("[data-preset-section-position]")).toBeVisible();
+      await expect(card.locator('[id^="preset-section-position-"]')).toBeVisible();
       if (name === "Agent marker") await card.locator("[data-preset-section-toggle]").click();
     }
     const prompt = cards.filter({ hasText: "CJK prompt" });
@@ -11174,9 +11175,9 @@ test("mobile roleplay quick preset editor keeps marker and metadata controls com
 
     await markerSection.locator("[data-preset-section-toggle]").click();
     for (const selector of [
-      "[data-preset-section-role]",
-      "[data-preset-section-position]",
-      "[data-preset-section-group]",
+      '[id^="preset-section-role-"]',
+      '[id^="preset-section-position-"]',
+      '[id^="preset-section-group-"]',
     ]) {
       const control = markerSection.locator(selector);
       await expect(control).toBeVisible();
@@ -12206,9 +12207,13 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
     await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
     const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
-    await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
-      "Agent Cobra (AgentCobra.wav)",
-    );
+    await serverVoiceSelect.click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "PocketTTS server voice", exact: true })
+        .getByText("Agent Cobra (AgentCobra.wav)", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await ttsCard.getByText("Only read dialogues", { exact: true }).click();
     const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
@@ -14351,12 +14356,12 @@ test("UI language selection downloads packs on demand and persists across reload
   });
   await languageSelect.click();
   for (const locale of ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"]) {
-    await expect(page.locator(`[role="option"][id="settings-control-language-select-list-${locale}"]`)).toHaveCount(1);
+    await expect(uiLanguageRow(page, locale)).toHaveCount(1);
   }
 
   // The open picker moves focus to its search box on the next frame, and only the picker handles Escape. A slow
   // page (CI run 42029653525) took the key on the trigger instead, so the next trigger click closed the picker.
-  await expect(page.getByRole("combobox", { name: "Search languages", exact: true })).toBeFocused();
+  await expect(page.getByRole("searchbox", { name: "Search…", exact: true })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(languageSelect).toHaveAttribute("aria-expanded", "false");
   await selectUILanguage(page, "pl");
@@ -14920,9 +14925,9 @@ test("Chub NSFW search uses filtered totals and spaced pagination", async ({ pag
   const library = page.locator('[data-component="BotBrowserView"]');
   await expect(library.getByText("96 cards from ChubAI", { exact: true })).toBeVisible();
   const pageSelector = library.getByRole("combobox", { name: "Page", exact: true });
-  await expect(pageSelector).toHaveValue("1");
-  await pageSelector.selectOption("2");
-  await expect(pageSelector).toHaveValue("2");
+  await expect(pageSelector).toHaveAttribute("data-value", "1");
+  await chooseOption(page, pageSelector, "2");
+  await expect(pageSelector).toHaveAttribute("data-value", "2");
   await expect.poll(() => observedSearches.some((search) => search.query === "" && search.page === "2")).toBe(true);
 
   await library.getByRole("checkbox", { name: "NSFW", exact: true }).check();
@@ -15679,16 +15684,15 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     await expect(speechModel).toBeVisible();
     await expect(dictation.getByRole("button", { name: "Download Whisper" })).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
-      const speechSelect = dictation
-        .locator("select")
-        .filter({ visible: true, has: page.locator('option[value="whisper_tiny"]') });
+      const speechSelect = dictation.getByRole("combobox").filter({ visible: true });
       await expect(speechSelect).toBeVisible();
       const spacing = await speechSelect.evaluate((element) => {
         const style = getComputedStyle(element);
         return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight) };
       });
       expect(spacing.left).toBeGreaterThanOrEqual(8);
-      expect(spacing.right).toBeGreaterThanOrEqual(24);
+      // The arrow is a flex sibling of the text in the shared Select, so the field no longer reserves room for an overlay.
+      expect(spacing.right).toBeGreaterThanOrEqual(8);
       await speechSelect.scrollIntoViewIfNeeded();
       await testInfo.attach(`mobile-whisper-spacing-${testInfo.project.name}.png`, {
         body: await page.screenshot(),
@@ -19248,7 +19252,7 @@ test("Lorebook vectorization saves pending eligibility settings first", async ({
     });
 
     const vectorPanel = page.locator(".mari-editor-panel").filter({ hasText: "Semantic search (embeddings)" });
-    await vectorPanel.locator("select").selectOption(connection.id);
+    await chooseConnection(page, vectorPanel.getByRole("button", { name: /^Embedding connection/ }), connectionId!);
     const vectorizeButton = vectorPanel.getByRole("button", { name: "Vectorize 1 missing", exact: true });
     const firstVectorizeAttempt = vectorizeButton.click();
     await firstSaveStarted.promise;
@@ -19500,11 +19504,11 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
       .toEqual([true, true]);
 
     await firstEntryRow.getByRole("button", { name: "Expand entry", exact: true }).click();
-    await firstEntryRow
-      .getByText("Role", { exact: true })
-      .locator("..")
-      .getByRole("combobox")
-      .selectOption("assistant");
+    await chooseOption(
+      page,
+      firstEntryRow.getByText("Role", { exact: true }).locator("..").getByRole("combobox"),
+      "Assistant",
+    );
     const descriptionField = firstEntryRow.locator("textarea").first();
     await descriptionField.fill("Only the first description changes.");
     await descriptionField.blur();
@@ -19552,7 +19556,11 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
     await moveButton.click();
     const moveDialog = page.getByRole("dialog", { name: "Move Lorebook Entries", exact: true });
     await expect(moveDialog).toBeVisible();
-    await moveDialog.getByLabel("Destination lorebook", { exact: true }).selectOption(targetLorebook.id);
+    await chooseOption(
+      page,
+      moveDialog.getByRole("combobox", { name: "Destination lorebook", exact: true }),
+      targetName,
+    );
     await moveDialog.getByRole("button", { name: "Move entries", exact: true }).click();
     await expect(moveDialog).toBeHidden();
     await expect
@@ -19899,11 +19907,14 @@ test("Settings profile import reuses its preview upload and skips one invalid as
 
     const confirmation = page.getByRole("dialog", { name: "Import Profile" });
     await expect(confirmation).toContainText("Found: 2 files");
+    await expect(confirmation).toContainText("A safety copy is saved first");
     await confirmation.getByRole("button", { name: "Import", exact: true }).click();
 
     const status = page.locator('[role="status"][aria-live="polite"]');
     await expect(status).toContainText("Profile import complete with warnings");
     await expect(status).toContainText("game-assets/sprites/.native");
+    // The import saved a safety copy first, so the way back is offered right away.
+    await expect(page.getByRole("button", { name: "Undo Last Import", exact: true })).toBeVisible();
     await expect.poll(() => importRequests.length).toBe(2);
     expect(importRequests[0]!.bodyBytes).toBeGreaterThan(0);
     expect(importRequests[0]!.previewToken).toBeUndefined();
@@ -24114,12 +24125,12 @@ test("Updates shows the installed channel before checks and after a failed check
   await clickTopbarPanel(page, "settings");
   await page.getByRole("tab", { name: "Advanced" }).click();
   const channel = page.getByLabel("Release Channel");
-  await expect(channel).toHaveValue("staging");
+  await expect(channel).toHaveAttribute("data-value", "staging");
   await page.getByRole("button", { name: "Check for Updates" }).click();
   await expect(page.getByRole("button", { name: "Check for Updates" })).toBeEnabled();
-  await expect(channel).toHaveValue("staging");
-  await channel.selectOption("stable");
-  await expect(channel).toHaveValue("stable");
+  await expect(channel).toHaveAttribute("data-value", "staging");
+  await chooseOption(page, channel, "Latest Stable");
+  await expect(channel).toHaveAttribute("data-value", "stable");
 });
 
 test("clearing Roleplay trackers requires confirmation and Cancel preserves state", async ({ page, request }) => {
@@ -24204,7 +24215,7 @@ test("mobile Docker update checks offer the selected staging image", async ({ pa
   await page.goto("/");
   await clickTopbarPanel(page, "settings");
   await page.getByRole("tab", { name: "Advanced" }).click();
-  await page.getByLabel("Release Channel").selectOption("staging");
+  await chooseOption(page, page.getByLabel("Release Channel"), "Staging/UAT");
   await page.getByRole("button", { name: "Check for Updates" }).click();
 
   await expect(page.getByText("Switch to Staging/UAT", { exact: true })).toBeVisible();
@@ -24930,7 +24941,12 @@ test("Background library organization works with desktop drag and touch drag", a
 
     await expect(page.getByText("Drag a background onto a folder chip to file it.")).toBeVisible();
     const sortSelect = page.getByLabel("Sort backgrounds");
-    await expect(sortSelect.locator("option")).toHaveText(["Manual order", "A-Z", "Z-A", "Newest", "Oldest"]);
+    await sortSelect.click();
+    await expect(
+      page.getByRole("dialog", { name: "Sort backgrounds", exact: true }).locator("[data-pick-row]"),
+    ).toContainText(["Manual order", "A-Z", "Z-A", "Newest", "Oldest"]);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Sort backgrounds", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /Tags \(/ }).click();
     await page.getByRole("button", { name: "smoke-folder", exact: true }).click();
 

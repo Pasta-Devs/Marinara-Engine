@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { inventoryButton } from "./game-inventory-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -500,7 +501,7 @@ test("a rolled list column is filled by the Engine's dice from the sheet editor"
     await page.getByRole("button", { name: "Add", exact: true }).last().click();
     const roll = page.getByRole("button", { name: /^Roll 1d6 for Hit point rolls 1: Roll$/ });
     await expect(roll).toBeEnabled();
-    await page.getByRole("combobox", { name: "Hit point rolls 1: Die" }).selectOption("d8");
+    await chooseOption(page, page.getByRole("combobox", { name: "Hit point rolls 1: Die" }), "d8");
     const roll8 = page.getByRole("button", { name: /^Roll 1d8 for Hit point rolls 1: Roll$/ });
     const thrown = page.waitForResponse((response) => response.url().includes("/api/game/dice/roll"));
     await roll8.click();

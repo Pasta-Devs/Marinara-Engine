@@ -523,6 +523,8 @@ export interface ChatMetadata {
   groupSpeakerColors?: boolean;
   /** Group individual mode: prefix chat history turns with the speaker name before prompt merging. */
   groupSpeakerNamesInHistory?: boolean;
+  /** Roleplay individual mode: add the other active characters' Public Faces to each responder's prompt (#9425). */
+  groupPublicFacesEnabled?: boolean;
   /** Group individual mode response order: "sequential" or "smart" (agent-decided) */
   groupResponseOrder?: GroupResponseOrder;
   /** When true/omitted, individual group turns append a responding-character instruction to the prompt. */
@@ -1192,6 +1194,7 @@ export interface MessageExtra {
     impersonatePresetId?: string | null;
     impersonateConnectionId?: string | null;
     impersonateBlockAgents?: boolean;
+    impersonatePublicFaces?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
   /** Internal trigger intent captured from the request that generated this message or swipe. */

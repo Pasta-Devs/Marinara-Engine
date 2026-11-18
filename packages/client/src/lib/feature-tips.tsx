@@ -105,7 +105,8 @@ export function resetFeatureTips() {
   }
 }
 
-const MARI_FACE = `${import.meta.env.BASE_URL}sprites/mari/Mari_profile.png`;
+// Node regression tests import this file without Vite, where import.meta.env is undefined.
+const MARI_FACE = `${import.meta.env?.BASE_URL ?? "/"}sprites/mari/Mari_profile.png`;
 
 /**
  * A tip that has no panel of its own to sit in (a chat event), shown as a notice with one button.

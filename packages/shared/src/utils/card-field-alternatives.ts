@@ -107,7 +107,7 @@ export function applyCharacterCardFieldAlternatives<T extends Record<string, unk
   if (Object.keys(values).length === 0) return data;
   const projected: Record<string, unknown> = { ...data, extensions: { ...extensions } };
   for (const [field, value] of Object.entries(values)) {
-    if (field === "backstory" || field === "appearance") {
+    if (field === "backstory" || field === "appearance" || field === "publicFace") {
       (projected.extensions as Record<string, unknown>)[field] = value;
       // Legacy imports also carry these at the top level. Empty replacements
       // must not fall through to an authored legacy value in older consumers.

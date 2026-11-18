@@ -92,6 +92,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
+import { Select } from "../ui/Select";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { HomeAchievements } from "./HomeAchievements";
 import { ChatModeIcon } from "./ChatModeIcon";
@@ -3535,44 +3536,32 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 className="min-h-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               />
             </label>
-            <label className="grid gap-1 text-sm">
+            <div className="grid gap-1 text-sm">
               {t("home.widgets.editAccent")}
-              <select
+              <Select<HomeCustomWidget["accent"]>
+                label={t("home.widgets.editAccent")}
                 value={editingCustomWidget.accent}
-                onChange={(event) =>
-                  setEditingCustomWidget({
-                    ...editingCustomWidget,
-                    accent: event.target.value as HomeCustomWidget["accent"],
-                  })
-                }
+                options={(["cyan", "orange", "pink", "violet"] as const).map((accent) => ({
+                  value: accent,
+                  label: t(`home.widgets.accent.${accent}`),
+                }))}
+                onChange={(accent) => setEditingCustomWidget({ ...editingCustomWidget, accent })}
                 className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
-              >
-                {["cyan", "orange", "pink", "violet"].map((accent) => (
-                  <option key={accent} value={accent}>
-                    {t(`home.widgets.accent.${accent}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
+              />
+            </div>
+            <div className="grid gap-1 text-sm">
               {t("home.widgets.editIcon")}
-              <select
+              <Select<HomeCustomWidget["icon"]>
+                label={t("home.widgets.editIcon")}
                 value={editingCustomWidget.icon}
-                onChange={(event) =>
-                  setEditingCustomWidget({
-                    ...editingCustomWidget,
-                    icon: event.target.value as HomeCustomWidget["icon"],
-                  })
-                }
+                options={(["sparkles", "note", "heart", "star", "book", "compass"] as const).map((icon) => ({
+                  value: icon,
+                  label: t(`home.widgets.icon.${icon}`),
+                }))}
+                onChange={(icon) => setEditingCustomWidget({ ...editingCustomWidget, icon })}
                 className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
-              >
-                {["sparkles", "note", "heart", "star", "book", "compass"].map((icon) => (
-                  <option key={icon} value={icon}>
-                    {t(`home.widgets.icon.${icon}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             {updateCustomWidgetMutation.isError && (
               <p role="alert" className="text-xs text-[var(--destructive)]">
                 {t("home.widgets.editFailed")}

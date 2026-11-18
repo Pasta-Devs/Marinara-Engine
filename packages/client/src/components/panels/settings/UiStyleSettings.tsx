@@ -23,6 +23,7 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
 } from "./SettingControls";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
+import { Select } from "../../ui/Select";
 
 const SELECT_CLASS =
   "min-w-[8rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-shadow focus:ring-1 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-65";
@@ -48,20 +49,18 @@ export function UiStylePartSelect({
   const current = getUiStyleTarget(value);
   if (current?.className && !saved[current.id]) blocks.push(current);
   return (
-    <select
-      value={value ?? ""}
-      onChange={(event) => onChange(event.target.value as UiStyleTargetId)}
+    <Select
+      value={value}
+      options={[...UI_STYLE_TARGETS, ...blocks].map((target) => ({
+        value: target.id,
+        label: uiStyleTargetLabel(target, t),
+      }))}
+      onChange={onChange}
       disabled={disabled}
-      aria-label={t("settings.appearance.uiStyles.region")}
+      label={t("settings.appearance.uiStyles.region")}
+      placeholder={t("settings.appearance.uiStyles.noneSelected")}
       className={cn(SELECT_CLASS, className)}
-    >
-      {!value && <option value="">{t("settings.appearance.uiStyles.noneSelected")}</option>}
-      {[...UI_STYLE_TARGETS, ...blocks].map((target) => (
-        <option key={target.id} value={target.id}>
-          {uiStyleTargetLabel(target, t)}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 

@@ -32,6 +32,7 @@ import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { ApiError } from "../../lib/api-client";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { Select } from "../ui/Select";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -210,21 +211,15 @@ function ScopeTargetPicker({
           </button>
         </div>
       ))}
-      <select
-        value=""
+      <Select
+        label={addLabel}
+        value={null}
+        placeholder={available.length > 0 ? addLabel : emptyLabel}
         disabled={available.length === 0}
-        onChange={(event) => {
-          if (event.target.value) onAdd(event.target.value);
-        }}
+        onChange={onAdd}
         className="w-full rounded-xl bg-[var(--background)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-60"
-      >
-        <option value="">{available.length > 0 ? addLabel : emptyLabel}</option>
-        {available.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.name}
-          </option>
-        ))}
-      </select>
+        options={available.map((option) => ({ value: option.id, label: option.name }))}
+      />
     </div>
   );
 }

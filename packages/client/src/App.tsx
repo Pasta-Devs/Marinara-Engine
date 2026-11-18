@@ -1118,12 +1118,14 @@ export function App() {
       staticAccentApplied = true;
     };
 
+    // Only the ticks stop. The root attribute stays: rules such as `html[data-marinara-accent-animation] *`
+    // key on it, so removing it on every text-field focus restyled the whole document (~340 ms on a
+    // 212-entry lorebook when a picker's search field took focus), and again on blur.
     const pauseAccentAnimation = () => {
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);
         accentAnimationTimer = null;
       }
-      delete root.dataset.marinaraAccentAnimation;
     };
 
     const queueAccentAnimationTick = () => {

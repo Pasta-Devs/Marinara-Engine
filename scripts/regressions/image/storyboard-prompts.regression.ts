@@ -829,7 +829,7 @@ const cases: RegressionCase[] = [
       );
 
       const setupIndex = activeEditorSource.indexOf("<StoryboardSetupSection");
-      const workflowTabsIndex = activeEditorSource.indexOf('role="tablist"');
+      const workflowTabsIndex = activeEditorSource.indexOf("<Tabs");
       const roleplayWorkflowStart = activeEditorSource.indexOf("data-storyboard-active-roleplay");
       const gameWorkflowStart = activeEditorSource.indexOf("data-storyboard-active-game");
       assert.ok(
@@ -841,8 +841,8 @@ const cases: RegressionCase[] = [
         "Roleplay and Game Mode should be distinct navigable workflows",
       );
       assert.match(activeEditorSource, /role="tabpanel"/u);
-      assert.match(activeEditorSource, /aria-controls="storyboard-active-flow"/u);
-      const roleplayWorkflowSource = activeEditorSource.slice(roleplayWorkflowStart, gameWorkflowStart);
+  assert.match(activeEditorSource, /idPrefix="storyboard-workflow"/u);
+          const roleplayWorkflowSource = activeEditorSource.slice(roleplayWorkflowStart, gameWorkflowStart);
       const gameWorkflowSource = activeEditorSource.slice(gameWorkflowStart);
       assert.ok(
         roleplayWorkflowSource.indexOf("number={1}") < roleplayWorkflowSource.indexOf("{sharedWorkflowStages}"),
@@ -1841,6 +1841,34 @@ const cases: RegressionCase[] = [
         },
       });
       assert.equal(disabledPlannerCalls, 0);
+    },
+  },
+  {
+    name: "Storyboard planning names the missing planner prompt instead of sending an empty one",
+    async run() {
+      const plan = (generateVideos: boolean, promptTemplate: string) =>
+        buildStoryboardIllustratorMessages({
+          meta: {
+            gameStoryboardPromptTemplates: [{ id: "planner", name: "Planner", promptTemplate }],
+            gameStoryboardIllustrationPlannerTemplateIds: ["planner"],
+            gameStoryboardAnimationPlannerTemplateIds: ["planner"],
+          },
+          setupConfig: null,
+          latestState: null,
+          sourceNarration: "Lyra lights a lantern.",
+          sections: [],
+          keyframeCount: 1,
+          durationSeconds: 6,
+          aspectRatio: "16:9",
+          generateVideos,
+        });
+      assert.match((await plan(false, "Plan the scene.")).systemPrompt, /^Plan the scene\./u);
+      await assert.rejects(plan(false, "   "), {
+        message: "The Storyboard Agent has no illustration planner prompt configured.",
+      });
+      await assert.rejects(plan(true, ""), {
+        message: "The Storyboard Agent has no animation planner prompt configured.",
+      });
     },
   },
 ];

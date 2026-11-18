@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
 import { inventoryButton } from "./game-inventory-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -97,9 +98,22 @@ test("each party member carries their own bag, and stacks are given between them
     await expect(page.getByLabel("Give to")).toHaveCount(0);
     await expect(inventory).toBeVisible();
 
+    // Escape in the open picker closes only the picker: the give and the inventory stay.
+    await page.getByRole("button", { name: "Give Rope to someone", exact: true }).click();
+    await page.getByRole("combobox", { name: "Give to", exact: true }).click();
+    const bagPicker = page.getByRole("dialog", { name: "Give to", exact: true });
+    await expect(bagPicker).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(bagPicker).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Give to", exact: true })).toBeVisible();
+    await expect(inventory).toBeVisible();
+    await page.getByRole("combobox", { name: "Give to", exact: true }).focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Give to")).toHaveCount(0);
+
     // Give two of the three ropes to Bram.
     await page.getByRole("button", { name: "Give Rope to someone", exact: true }).click();
-    await page.getByLabel("Give to").selectOption({ label: "Bram" });
+    await chooseOption(page, page.getByRole("combobox", { name: "Give to", exact: true }), "Bram");
     await page.getByLabel("How many to give (1 to 3)").fill("2");
     await page.screenshot({ path: testInfo.outputPath("inventory-give.png") });
     await page.getByRole("button", { name: "Give", exact: true }).click();

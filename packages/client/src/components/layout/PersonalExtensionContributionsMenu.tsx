@@ -89,7 +89,15 @@ export function PersonalExtensionContributionsMenu() {
   const { t } = useTranslation();
   const { contributions } = usePersonalExtensionContributions();
   const [open, setOpen] = useState(false);
+  // The menu hangs under its trigger's end of the bar: the right edge, or the left when the desktop sidebar (and the
+  // panel buttons with it) is docked left.
+  const [menuLeft, setMenuLeft] = useState<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const toggleMenu = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    setMenuLeft(rect && rect.left + rect.width / 2 < window.innerWidth / 2 ? Math.max(8, rect.left) : null);
+    setOpen((current) => !current);
+  };
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const menuItems = contributions.filter((contribution) => contribution.kind === "menu-item");
@@ -138,7 +146,11 @@ export function PersonalExtensionContributionsMenu() {
       ref={menuRef}
       role="menu"
       aria-label={t("extensions.contributions.menuLabel")}
-      className="mari-chrome-token-scope fixed right-[max(0.5rem,var(--mari-safe-area-inset-right))] top-[calc(env(safe-area-inset-top)+var(--mari-topbar-height,3rem))] z-[2147482000] max-h-[70vh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] p-2 text-[var(--popover-foreground)] shadow-2xl"
+      className={cn(
+        "mari-chrome-token-scope fixed top-[calc(env(safe-area-inset-top)+var(--mari-topbar-height,3rem))] z-[2147482000] max-h-[70vh] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] p-2 text-[var(--popover-foreground)] shadow-2xl",
+        menuLeft === null && "right-[max(0.5rem,var(--mari-safe-area-inset-right))]",
+      )}
+      style={menuLeft === null ? undefined : { left: menuLeft }}
     >
       <div className="flex items-center gap-2 px-2.5 pb-2 pt-1">
         <Puzzle aria-hidden="true" className="text-[var(--primary)]" size={15} />
@@ -189,7 +201,7 @@ export function PersonalExtensionContributionsMenu() {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleMenu}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={t("extensions.contributions.openMenu")}

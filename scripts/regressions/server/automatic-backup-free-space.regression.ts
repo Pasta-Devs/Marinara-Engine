@@ -1,9 +1,13 @@
+// Automatic backups through the real backup routes: a backup that won't fit is refused up front and keeps the previous
+// archive, the hourly check never starts a second backup while one is running, a missing archive is made again as
+// soon as the settings are saved, and a data-folder file that disappears mid-backup is left out instead of failing it.
 import assert from "node:assert/strict";
 import AdmZip from "adm-zip";
 import fs from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { mock } from "node:test";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 
 const root = await fs.mkdtemp(join(tmpdir(), "marinara-backup-space-"));
@@ -14,10 +18,13 @@ process.env.FILE_STORAGE_DIR = join(root, "storage");
 const originalStatfs = fs.statfs;
 let freeBytes = 0;
 let spaceChecks = 0;
+// The free-space check runs after the backup has listed its files and before it writes any of them.
+let onSpaceCheck: (() => Promise<unknown>) | undefined;
 Object.assign(fs, {
   statfs: async (path: string) => {
     assert.equal(path, join(root, "backups"));
     spaceChecks++;
+    await onSpaceCheck?.();
     const actual = await originalStatfs(path);
     return { ...actual, bsize: 1, bavail: freeBytes };
   },
@@ -39,6 +46,14 @@ try {
   previous.addFile("RESTORE.txt", Buffer.from("Previous backup"));
   const previousBytes = previous.toBuffer();
   await fs.writeFile(previousPath, previousBytes);
+  const avatars = join(root, "avatars");
+  await fs.mkdir(avatars, { recursive: true });
+  const steadyBytes = Buffer.from("steady avatar");
+  await fs.writeFile(join(avatars, "steady.png"), steadyBytes);
+  const changingPath = join(avatars, "changing.png");
+  await fs.writeFile(changingPath, Buffer.from("avatar that is deleted mid-backup"));
+  // The hourly check is a timer, so the test fires it by hand.
+  mock.timers.enable({ apis: ["setInterval"] });
   await app.register(backupRoutes, { prefix: "/api/backup" });
   await app.ready();
   const settings = async () => (await app.inject({ method: "GET", url: "/api/backup/automatic" })).json();
@@ -58,6 +73,27 @@ try {
     }
     assert.fail("Automatic backup did not settle");
   };
+
+  // Hold the first backup at its free-space check, then fire the hourly check while it waits there.
+  let releaseSpaceCheck = () => {};
+  const spaceCheckHeld = new Promise<void>((resolve) => (releaseSpaceCheck = resolve));
+  onSpaceCheck = () => spaceCheckHeld;
+  await enable(true);
+  for (let attempt = 0; spaceChecks === 0; attempt++) {
+    if (attempt === 400) assert.fail("The first automatic backup never reached its free-space check");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  mock.timers.tick(60 * 60 * 1000);
+  // Give a second backup, if one started, time to queue behind the first.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  onSpaceCheck = undefined;
+  releaseSpaceCheck();
+  await waitFor((value) => typeof value.lastError === "string");
+  // Saving settings waits behind any backup still queued, so the count below is final.
+  await enable(false);
+  assert.equal(spaceChecks, 1, "the hourly check must not start a second backup while one is running");
+  spaceChecks = 0;
+
   await enable(true);
   const refused = await waitFor((value) => typeof value.lastError === "string");
   assert.match(refused.lastError, /Not enough free space/u);
@@ -93,12 +129,38 @@ try {
   assert.equal(spaceChecks, 3);
   assert.deepEqual(await fs.readFile(join(backups, archives[0]!)), bytes, "metadata counts toward the space budget");
   assert.deepEqual(await fs.readdir(backups), archives, "boundary refusal leaves no pending ZIP or rotation");
+
+  // Backups are still on and the last one is recent, so none is due. Deleting the archive makes saving the settings
+  // run one at once. During it, an avatar is deleted after the backup listed it.
+  freeBytes = 1024 ** 4;
+  await fs.rm(join(backups, archives[0]!));
+  onSpaceCheck = () => fs.rm(changingPath);
+  await enable(true);
+  const repaired = await waitFor(
+    (value) => value.lastBackupAt !== saved.lastBackupAt || typeof value.lastError === "string",
+  );
+  onSpaceCheck = undefined;
+  assert.equal(repaired.lastError, null, "a file deleted mid-backup must not fail the backup");
+  assert.equal(repaired.backupExists, true, "a missing archive is made again when the settings are saved");
+  assert.deepEqual(repaired.lastOmittedEntries, ["marinara-automatic-backup/avatars/changing.png"]);
+  assert.equal(spaceChecks, 4);
+  const repairedBytes = await fs.readFile(join(backups, archives[0]!));
+  const repairedZip = new AdmZip(repairedBytes);
+  assert.equal(repairedZip.getEntry("marinara-automatic-backup/avatars/changing.png"), null);
+  const steady = repairedZip.getEntry("marinara-automatic-backup/avatars/steady.png");
+  assert.ok(steady);
+  assert.deepEqual(steady.getData(), steadyBytes);
+  // A data-folder file's size and checksum are written after its data, from the bytes actually read. ZIP flag bit 3
+  // tells readers to look there, in both the file's own header and the archive's directory.
+  assert.equal(repairedBytes.readUInt16LE(steady.header.offset + 6) & 0x08, 0x08, "local header flag bit 3");
+  assert.equal(steady.header.flags & 0x08, 0x08, "directory flag bit 3");
   console.info(
-    "Automatic backup includes ZIP metadata in its space budget, preserves the previous archive, and succeeds after space is freed.",
+    "Automatic backup includes ZIP metadata in its space budget, preserves the previous archive, succeeds after space is freed, never overlaps, remakes a missing archive and survives a file deleted mid-backup.",
   );
 } finally {
   await app.close();
   await closeDb?.();
+  mock.timers.reset();
   Object.assign(fs, { statfs: originalStatfs });
   syncBuiltinESMExports();
   if (oldDataDir === undefined) delete process.env.DATA_DIR;

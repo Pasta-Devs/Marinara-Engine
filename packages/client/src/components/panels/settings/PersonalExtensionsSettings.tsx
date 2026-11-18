@@ -77,6 +77,7 @@ import {
 } from "./SettingControls";
 import { Spinner } from "../../ui/Spinner";
 import { Checkbox } from "../../ui/Checkbox";
+import { Select } from "../../ui/Select";
 
 type EditorDraft = PersonalExtensionImportDraft;
 
@@ -229,19 +230,18 @@ export function ExtensionRevisionHistorySettings() {
       <p className="text-xs text-[var(--muted-foreground)]">{t("settings.extensions.revisionHistory.description")}</p>
       <div className="flex items-center justify-between gap-3 text-xs">
         <label htmlFor={limitId}>{t("settings.extensions.revisionHistory.limit")}</label>
-        <select
+        <Select
           id={limitId}
-          value={data?.limit ?? PERSONAL_EXTENSION_DEFAULT_REVISIONS}
+          value={String(data?.limit ?? PERSONAL_EXTENSION_DEFAULT_REVISIONS)}
+          options={Array.from({ length: PERSONAL_EXTENSION_MAX_REVISIONS + 1 }, (_, limit) => ({
+            value: String(limit),
+            label: String(limit),
+          }))}
           disabled={!data || update.isPending}
-          onChange={(event) => void changeLimit(Number(event.target.value))}
+          onChange={(value) => void changeLimit(Number(value))}
+          label={t("settings.extensions.revisionHistory.limit")}
           className="rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)] disabled:opacity-50"
-        >
-          {Array.from({ length: PERSONAL_EXTENSION_MAX_REVISIONS + 1 }, (_, limit) => (
-            <option key={limit} value={limit}>
-              {limit}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       {error && (
         <p role="alert" className="text-xs text-[var(--destructive)]">
@@ -758,24 +758,26 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
               className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
             />
           </label>
-          <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          <div className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.panels.extensionsettings.runtime")}
-            <select
+            <Select
               value={draft.runtime}
+              options={[
+                { value: "client", label: localizeUi("settings.notifications.browser") },
+                { value: "server", label: localizeUi("ui.panels.extensionsettings.server") },
+              ]}
               disabled={!isExternal}
-              onChange={(event) =>
+              onChange={(runtime) =>
                 setDraft((value) => ({
                   ...value,
-                  runtime: event.target.value === "server" ? "server" : "client",
-                  ...(event.target.value === "server" ? { capabilities: [] } : {}),
+                  runtime: runtime === "server" ? "server" : "client",
+                  ...(runtime === "server" ? { capabilities: [] } : {}),
                 }))
               }
+              label={localizeUi("ui.panels.extensionsettings.runtime")}
               className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-            >
-              <option value="client">{localizeUi("settings.notifications.browser")}</option>
-              <option value="server">{localizeUi("ui.panels.extensionsettings.server")}</option>
-            </select>
-          </label>
+            />
+          </div>
         </div>
 
         <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">

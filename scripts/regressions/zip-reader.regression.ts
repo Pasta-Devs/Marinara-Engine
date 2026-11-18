@@ -969,6 +969,19 @@ sys.stdout.write(json.dumps(out))
       [413, ".marinara package entry is too large"],
       "the existing per-entry limit still applies",
     );
+    const fivePart = buildZip([
+      { name: "data.json", data: Buffer.from(JSON.stringify(envelope)) },
+      ...[1, 2, 3, 4].map((index) => ({ name: `part-${index}.bin`, data: icon })),
+    ]);
+    assert.deepEqual(
+      await packageResponse(
+        edited(fivePart.bytes, (copy) => {
+          for (const offset of fivePart.centralOffsets) copy.writeUInt32LE(256 * 1024 * 1024, offset + 24);
+        }),
+      ),
+      [413, ".marinara package contents are too large"],
+      "entries each within the limit are refused unread when together they declare over 1 GiB",
+    );
     assert.deepEqual(
       await packageResponse(crowded.bytes),
       [400, ".marinara package has too many entries"],

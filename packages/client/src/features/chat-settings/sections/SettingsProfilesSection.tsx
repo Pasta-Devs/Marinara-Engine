@@ -104,7 +104,11 @@ export function SettingsProfilesSection({
   const handleSaveIntoPreset = async () => {
     if (!selectedChatPreset || selectedChatPreset.isDefault) return;
     const profileId = selectedChatPreset.id;
-    const settings = saveIntoProfileSettings(snapshotCurrentPresetSettings(), selectedChatPreset.settings);
+    const settings = saveIntoProfileSettings(
+      snapshotCurrentPresetSettings(),
+      selectedChatPreset.settings,
+      activeLorebookIds,
+    );
     // Count from a fresh list so chats changed in another window are included. One try without
     // retries, so a failing list falls back to the loaded one at once.
     const chatList = await api.get<Chat[]>("/chats").catch(() => allChats ?? []);

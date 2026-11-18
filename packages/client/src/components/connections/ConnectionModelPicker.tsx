@@ -49,7 +49,8 @@ import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { formatCompactTokenCount } from "../../lib/professor-mari-context-budget";
 import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/connection-groups";
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
-import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
@@ -57,6 +58,7 @@ import { formatRelativeContact } from "../../lib/relative-time";
 import { useUIStore } from "../../stores/ui.store";
 import { ApiError } from "../../lib/api-client";
 import { Spinner } from "../ui/Spinner";
+import { Select } from "../ui/Select";
 
 /** The connection row fields the picker reads. */
 export type ModelPickerConnection = {
@@ -719,7 +721,7 @@ export function ConnectionModelPicker({
             className="flex-1"
             search={
               <div className="flex min-w-0 items-center gap-1.5 px-3 pb-2.5">
-                <ListSearch
+                <SearchInput
                   className="flex-1"
                   inputRef={searchRef}
                   data-model-search
@@ -804,17 +806,18 @@ export function ConnectionModelPicker({
                         ))}
                       </div>
                     )}
-                    <select
-                      data-model-sort
-                      aria-label={t("connections.modelPicker.sort")}
+                    <Select
+                      label={t("connections.modelPicker.sort")}
+                      searchable={false}
                       value={sort}
-                      onChange={(event) => setSort(event.target.value as ModelSort)}
+                      onChange={(next) => setSort(next as ModelSort)}
                       className="ml-auto h-7 shrink-0 rounded-md bg-foreground/5 px-1.5 text-[0.6875rem] text-foreground/70 outline-none focus-visible:ring-1 focus-visible:ring-foreground/25"
-                    >
-                      <option value="list">{t("connections.modelPicker.sortList")}</option>
-                      <option value="price">{t("connections.modelPicker.sortPrice")}</option>
-                      <option value="context">{t("connections.modelPicker.sortContext")}</option>
-                    </select>
+                      options={[
+                        { value: "list", label: t("connections.modelPicker.sortList") },
+                        { value: "price", label: t("connections.modelPicker.sortPrice") },
+                        { value: "context", label: t("connections.modelPicker.sortContext") },
+                      ]}
+                    />
                   </div>
                 )}
 

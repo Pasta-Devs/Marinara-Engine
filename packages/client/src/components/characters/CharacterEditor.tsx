@@ -154,12 +154,21 @@ import {
   Check,
   Volume2,
   Sparkles,
+  ChevronUp,
 } from "lucide-react";
 import { PresetVariablesEditor } from "../presets/PresetVariablesEditor";
 import { requestProfessorMariOpen } from "../../lib/professor-mari-open";
 import { MariContextChip } from "../chat/MariContextChip";
 import { DescriptionSplitDialog } from "./DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
+import {
+  GREETING_LIST_MIN,
+  parseGreeting,
+  parseGreetings,
+  setGreetingHeader,
+  splitGreetingHeader,
+} from "../../lib/character-greetings";
+import { GreetingHeaderFields, GreetingListFilter, GreetingRow } from "./CharacterGreetingList";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import {
   applyBakedGreetingImages,
@@ -182,6 +191,7 @@ import { api } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
+import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
@@ -258,6 +268,7 @@ import { openLibrarySection } from "../overhaul/library-navigation";
 import { CharacterChatButton } from "../overhaul/CharacterChatButton";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "../ui/Spinner";
+import { Select } from "../ui/Select";
 
 // ── Tabs ──
 const TABS = [
@@ -319,7 +330,12 @@ const OVERHAUL_OPTIONAL_CARD_FIELDS = [
   { id: "backstory", label: "Backstory" },
   { id: "appearance", label: "Appearance" },
   { id: "scenario", label: "Scenario" },
+  { id: "publicFace", label: "Public Face" },
 ] as const;
+/** Section anchor of an optional card field ("publicFace" lives at character-card-public-face). */
+function overhaulCardAnchor(id: string) {
+  return id === "publicFace" ? "character-card-public-face" : `character-card-${id}`;
+}
 /** Dialogue fields that, in the overhaul, also start hidden behind "+" chips. */
 const OVERHAUL_OPTIONAL_DIALOGUE_FIELDS = [{ id: "mes_example", label: "Example dialogue" }] as const;
 
@@ -334,6 +350,7 @@ const CHARACTER_CARD_SECTIONS = [
   { id: "character-card-backstory", label: "Backstory" },
   { id: "character-card-appearance", label: "Appearance" },
   { id: "character-card-scenario", label: "Scenario" },
+  { id: "character-card-public-face", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { id: "character-card-dialogue", label: "Dialogue" },
 ] as const;
 
@@ -372,7 +389,7 @@ type CharacterSheetUpdate = {
 };
 
 function isCardVariableField(field: CardFieldKey): field is CardVariableField {
-  return field !== "summary" && field !== "mes_example";
+  return field !== "summary" && field !== "mes_example" && field !== "publicFace";
 }
 
 const ONBOARDING_ISSUE_KEYS: Record<Exclude<OnboardingIssue["code"], "plainIf" | "unknownName">, string> = {
@@ -476,7 +493,7 @@ const CHARACTER_QUOTE_FIELD_KEYS = new Set<string>([
   "creator_notes",
 ]);
 
-const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory"]);
+const CHARACTER_QUOTE_EXTENSION_KEYS = new Set(["appearance", "backstory", "publicFace"]);
 
 function readSavedCardData(row: unknown): CharacterData | undefined {
   const raw = (row as { data?: unknown } | null)?.data;
@@ -1533,6 +1550,7 @@ export function CharacterEditor() {
     backstory: overhaulHasText(overhaulExt.backstory),
     appearance: overhaulHasText(overhaulExt.appearance),
     scenario: overhaulHasText(formData.scenario),
+    publicFace: overhaulHasText(overhaulExt.publicFace),
     mes_example: overhaulHasText(formData.mes_example),
   };
   const overhaulVisibleFields = new Set<string>(
@@ -1546,7 +1564,7 @@ export function CharacterEditor() {
       updateField("alternate_greetings", [""]);
     }
     window.setTimeout(() => {
-      const anchor = document.getElementById(`character-card-${id}`);
+      const anchor = document.getElementById(overhaulCardAnchor(id));
       anchor?.scrollIntoView({ behavior: "smooth", block: "center" });
       const areas = anchor?.querySelectorAll<HTMLTextAreaElement>("textarea");
       areas?.[areas.length - 1]?.focus({ preventScroll: true });
@@ -1647,7 +1665,7 @@ export function CharacterEditor() {
                 { id: "character-card-description", label: "Description" },
                 ...OVERHAUL_OPTIONAL_CARD_FIELDS.filter(
                   (field) => field.id !== "summary" && overhaulVisibleFields.has(field.id),
-                ).map((field) => ({ id: `character-card-${field.id}`, label: field.label })),
+                ).map((field) => ({ id: overhaulCardAnchor(field.id), label: field.label })),
                 { id: "character-card-dialogue", label: "Dialogue & greetings" },
               ]
             : undefined,
@@ -2063,10 +2081,11 @@ function CharacterCardTab({
     backstory: String(formData.extensions.backstory ?? ""),
     appearance: String(formData.extensions.appearance ?? ""),
     scenario: formData.scenario,
+    publicFace: String(formData.extensions.publicFace ?? ""),
     mes_example: formData.mes_example,
   };
   const updateCardField = (key: CardFieldKey, value: string) => {
-    if (key === "backstory" || key === "appearance") updateExtension(key, value);
+    if (key === "backstory" || key === "appearance" || key === "publicFace") updateExtension(key, value);
     else updateField(key, value);
   };
   const alternatives = useMemo(
@@ -2195,6 +2214,16 @@ function CharacterCardTab({
       rows: 8,
     },
     {
+      key: "publicFace",
+      sectionId: "character-card-public-face",
+      mariField: "extensions.publicFace",
+      title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
+      subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
+      helpText: localizeUi("ui.cardFields.publicFace.help"),
+      placeholder: localizeUi("ui.cardFields.publicFace.placeholder"),
+      rows: 8,
+    },
+    {
       key: "mes_example",
       sectionId: "character-card-dialogue",
       // The dialogue section also owns the greetings and onboarding.
@@ -2246,7 +2275,15 @@ function CharacterCardTab({
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}
-        renderJumps={() => (overhaul ? null : <EditorSectionJumps items={CHARACTER_CARD_SECTIONS} />)}
+        renderJumps={() =>
+          overhaul ? null : (
+            <EditorSectionJumps
+              items={CHARACTER_CARD_SECTIONS.map((section) =>
+                "labelKey" in section ? { ...section, label: localizeUi(section.labelKey) } : section,
+              )}
+            />
+          )
+        }
         renderFooter={chipsFor}
         onTextareaRef={(key, element) => {
           fieldRefs.current[key] = element;
@@ -3325,7 +3362,7 @@ function MetadataTab({
   );
 }
 
-const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
+const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string; labelKey?: string }> = [
   { key: "name", label: "Name" },
   { key: "summary", label: "Summary" },
   { key: "description", label: "Description" },
@@ -3335,6 +3372,7 @@ const VERSION_COMPARE_FIELDS: Array<{ key: string; label: string }> = [
   { key: "mes_example", label: "Example dialogue" },
   { key: "extensions.backstory", label: "Backstory" },
   { key: "extensions.appearance", label: "Appearance" },
+  { key: "extensions.publicFace", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { key: "extensions.imageAppearance", label: "Image appearance override" },
   { key: "extensions.imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "creator_notes", label: "Creator notes" },
@@ -3653,7 +3691,9 @@ function CharacterVersionHistoryPanel({
                 return (
                   <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        {field.labelKey ? localizeUi(field.labelKey) : field.label}
+                      </span>
                       {changed && (
                         <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
                           {localizeUi("ui.characters.characterversionhistorypanel.changed")}
@@ -3765,8 +3805,12 @@ function DialogueTab({
   }
 
   const addGreeting = () => {
-    greetingKeysRef.current.push(generateClientId());
+    const key = generateClientId();
+    greetingKeysRef.current.push(key);
     updateField("alternate_greetings", [...formData.alternate_greetings, ""]);
+    setOpenGreeting(key);
+    // Lists open a new greeting with its Title field ready; the short layout has no such field.
+    requestAnimationFrame(() => document.getElementById(`greeting-title-${key}`)?.focus());
   };
 
   const updateGreeting = (i: number, value: string) => {
@@ -3810,16 +3854,54 @@ function DialogueTab({
   // The greeting that last had the caret, so its chips are the ones on screen:
   // `first`, or an alternate's stable key (moving a greeting keeps its key).
   const [activeGreeting, setActiveGreeting] = useState<string | null>(null);
+  const greetingList = formData.alternate_greetings.length + 1 >= GREETING_LIST_MIN;
+  const [openGreeting, setOpenGreeting] = useState<string | null>(null);
+  const [rawGreeting, setRawGreeting] = useState(false);
+  const [greetingQuery, setGreetingQuery] = useState("");
+  const [greetingFilter, setGreetingFilter] = useState<string[]>([]);
+  // Brackets are tags once two greetings open with them, as in the picker. A greeting the user tags here also
+  // reads its own brackets as tags; every other lone `[OOC]` opener stays text.
+  const [taggedGreetingKeys, setTaggedGreetingKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const cardTagged = parseGreetings([formData.first_mes, ...formData.alternate_greetings]).some(
+    (entry) => entry.tags.length > 0,
+  );
+  const greetingHeaders = useMemo(
+    () =>
+      formData.alternate_greetings.map((greeting, index) =>
+        splitGreetingHeader(greeting, cardTagged || taggedGreetingKeys.has(greetingKeysRef.current[index] ?? "")),
+      ),
+    [formData.alternate_greetings, cardTagged, taggedGreetingKeys],
+  );
+  const greetingTagOptions = useMemo(
+    () =>
+      [...new Set(greetingHeaders.flatMap((header) => header.tags))].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    [greetingHeaders],
+  );
+  const greetingNeedle = greetingQuery.trim().toLowerCase();
+  const greetingShown = (i: number) =>
+    (!greetingNeedle || formData.alternate_greetings[i]!.toLowerCase().includes(greetingNeedle)) &&
+    greetingFilter.every((tag) => greetingHeaders[i]!.tags.includes(tag));
   const greetingFieldRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const insertGreetingVariable = (target: string, name: string) => {
     const token = "{{" + name + "}}";
     const textarea = greetingFieldRefs.current[target];
     const alternateIndex = greetingKeysRef.current.indexOf(target);
-    const current = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
-    const start = textarea?.selectionStart ?? current.length;
-    const end = textarea?.selectionEnd ?? current.length;
-    const next = current.slice(0, start) + token + current.slice(end);
+    const raw = target === "first" ? formData.first_mes : (formData.alternate_greetings[alternateIndex] ?? "");
+    // Text boxes report positions with plain line breaks: count in that form, then map back so CRLF stays.
+    const current = raw.replace(/\r\n/g, "\n");
+    const toRaw = (position: number) => {
+      let index = 0;
+      for (let seen = 0; seen < position && index < raw.length; seen++) index += raw.startsWith("\r\n", index) ? 2 : 1;
+      return index;
+    };
+    // The list's text box can hold only the text under the title and tags, which is the end of the greeting.
+    const offset = textarea ? current.length - textarea.value.length : 0;
+    const start = offset + (textarea?.selectionStart ?? current.length);
+    const end = offset + (textarea?.selectionEnd ?? current.length);
+    const next = raw.slice(0, toRaw(start)) + token + raw.slice(toRaw(end));
     // Without quote normalisation, as on the Card tab: inserting one tag must not
     // rewrite every quote already in the author's text.
     updateFormData((data) =>
@@ -3834,7 +3916,7 @@ function DialogueTab({
     );
     requestAnimationFrame(() => {
       textarea?.focus();
-      textarea?.setSelectionRange(start + token.length, start + token.length);
+      textarea?.setSelectionRange(start - offset + token.length, start - offset + token.length);
     });
   };
 
@@ -3924,92 +4006,171 @@ function DialogueTab({
                   text={localizeUi("ui.characters.dialoguetab.alternativeFirstMessagesForVarietyWhenStartingANew")}
                 />
               </div>
-              {formData.alternate_greetings.map((g, i) => (
-                <section
-                  key={greetingKeysRef.current[i] ?? i}
-                  aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                  className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-xs font-semibold">
-                      {localizeUi("ui.characters.dialoguetab.greeting")}
-                      {/* First Message is greeting #1. */}
-                      {i + 2}
-                    </h4>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <CharacterGreetingWand
-                        entityId={selfCharacterId}
-                        card={card}
-                        value={g}
-                        onApply={(text) => updateGreeting(i, text)}
-                        label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => moveGreeting(i, -1)}
-                        disabled={i === 0}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.moveUp")}
-                      >
-                        <ArrowUp size="0.875rem" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveGreeting(i, 1)}
-                        disabled={i === formData.alternate_greetings.length - 1}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.moveDown")}
-                      >
-                        <ArrowDown size="0.875rem" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeGreeting(i)}
-                        className={greetingActionButtonClassName}
-                        aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", {
-                          value1: i + 1,
-                        })}
-                        title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
-                      >
-                        <Trash2 size="0.875rem" aria-hidden />
-                      </button>
-                    </div>
-                  </div>
-                  <MacroTextarea
-                    ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                    showTokenCount
-                    value={g}
-                    onChange={(value) => updateGreeting(i, value)}
-                    textareaRef={(element) => {
-                      const key = greetingKeysRef.current[i];
-                      if (key) greetingFieldRefs.current[key] = element;
-                    }}
-                    onFocus={() => setActiveGreeting(greetingKeysRef.current[i] ?? null)}
-                    rows={5}
-                    title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
-                    showMarkdownPreview
-                    selfCharacterId={selfCharacterId}
-                    className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-                    placeholder={
-                      localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 2 }) +
-                      " " +
-                      localizeUi("ui.cardFields.seedPlaceholder")
-                    }
-                  />
-                  {activeGreeting === greetingKeysRef.current[i] && (
-                    <GreetingVariableChips
-                      names={greetingChipNames}
-                      onInsert={(name) => insertGreetingVariable(greetingKeysRef.current[i] ?? "", name)}
+              {greetingList && (
+                <GreetingListFilter
+                  query={greetingQuery}
+                  onQuery={setGreetingQuery}
+                  tags={greetingTagOptions}
+                  picked={greetingFilter}
+                  onPicked={setGreetingFilter}
+                  shown={formData.alternate_greetings.filter((_, index) => greetingShown(index)).length}
+                  total={formData.alternate_greetings.length}
+                />
+              )}
+              {formData.alternate_greetings.map((g, i) => {
+                const greetingKey = greetingKeysRef.current[i] ?? String(i);
+                const tagsOn = cardTagged || taggedGreetingKeys.has(greetingKey);
+                if (greetingList && greetingKey !== openGreeting) {
+                  return greetingShown(i) ? (
+                    <GreetingRow
+                      key={greetingKey}
+                      number={i + 2}
+                      text={g}
+                      allowTags={tagsOn}
+                      onOpen={() => {
+                        setOpenGreeting(greetingKey);
+                        setRawGreeting(false);
+                      }}
                     />
-                  )}
-                </section>
-              ))}
+                  ) : null;
+                }
+                const header = greetingHeaders[i]!;
+                const fields = greetingList && !rawGreeting;
+                const greetingText = fields ? header.rest : g;
+                return (
+                  <section
+                    key={greetingKeysRef.current[i] ?? i}
+                    aria-label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                    className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-xs font-semibold">
+                        {localizeUi("ui.characters.dialoguetab.greeting")}
+                        {/* First Message is greeting #1. */}
+                        {i + 2}
+                      </h4>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {greetingList && (
+                          <button
+                            type="button"
+                            onClick={() => setRawGreeting(!rawGreeting)}
+                            aria-pressed={rawGreeting}
+                            className={greetingActionButtonClassName}
+                            aria-label={localizeUi("ui.characters.dialoguetab.greetingRawText")}
+                            title={localizeUi("ui.characters.dialoguetab.greetingRawText")}
+                          >
+                            <Code2 size="0.875rem" aria-hidden />
+                          </button>
+                        )}
+                        {greetingList && (
+                          <button
+                            type="button"
+                            onClick={() => setOpenGreeting(null)}
+                            className={greetingActionButtonClassName}
+                            aria-label={localizeUi("ui.characters.dialoguetab.closeGreeting")}
+                            title={localizeUi("ui.characters.dialoguetab.closeGreeting")}
+                          >
+                            <ChevronUp size="0.875rem" aria-hidden />
+                          </button>
+                        )}
+                        <CharacterGreetingWand
+                          entityId={selfCharacterId}
+                          card={card}
+                          value={g}
+                          onApply={(text) => updateGreeting(i, text)}
+                          label={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => moveGreeting(i, -1)}
+                          disabled={i === 0}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Up", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.moveUp")}
+                        >
+                          <ArrowUp size="0.875rem" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveGreeting(i, 1)}
+                          disabled={i === formData.alternate_greetings.length - 1}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.moveAlternateGreetingValue1Down", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.moveDown")}
+                        >
+                          <ArrowDown size="0.875rem" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeGreeting(i)}
+                          className={greetingActionButtonClassName}
+                          aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", {
+                            value1: i + 1,
+                          })}
+                          title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
+                        >
+                          <Trash2 size="0.875rem" aria-hidden />
+                        </button>
+                      </div>
+                    </div>
+                    {fields && (
+                      <GreetingHeaderFields
+                        id={greetingKey}
+                        title={header.title}
+                        titlePlaceholder={parseGreeting(g).title}
+                        tags={header.tags}
+                        tagOptions={greetingTagOptions}
+                        onChange={(tags, title) => {
+                          if (tags.length) setTaggedGreetingKeys((keys) => new Set(keys).add(greetingKey));
+                          updateGreeting(i, setGreetingHeader(g, tags, title, tagsOn));
+                        }}
+                      />
+                    )}
+                    <MacroTextarea
+                      ariaLabel={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                      showTokenCount
+                      value={greetingText}
+                      onChange={(value) =>
+                        updateGreeting(
+                          i,
+                          fields
+                            ? // A title line needs its line break before any text can follow it.
+                              header.tagText +
+                                header.titleText +
+                                (value && header.titleText && !header.titleText.endsWith("\n") ? "\n" : "") +
+                                value
+                            : value,
+                        )
+                      }
+                      textareaRef={(element) => {
+                        const key = greetingKeysRef.current[i];
+                        if (key) greetingFieldRefs.current[key] = element;
+                      }}
+                      onFocus={() => setActiveGreeting(greetingKeysRef.current[i] ?? null)}
+                      rows={5}
+                      title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+                      showMarkdownPreview
+                      selfCharacterId={selfCharacterId}
+                      className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                      placeholder={
+                        localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 2 }) +
+                        " " +
+                        localizeUi("ui.cardFields.seedPlaceholder")
+                      }
+                    />
+                    {activeGreeting === greetingKeysRef.current[i] && (
+                      <GreetingVariableChips
+                        names={greetingChipNames}
+                        onInsert={(name) => insertGreetingVariable(greetingKeysRef.current[i] ?? "", name)}
+                      />
+                    )}
+                  </section>
+                );
+              })}
               <button
                 type="button"
                 onClick={addGreeting}
@@ -4150,18 +4311,20 @@ function AdvancedTab({
                   className="w-16 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-center text-xs outline-none"
                 />
               </label>
-              <label className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs">
                 <span className="text-[var(--muted-foreground)]">{localizeUi("ui.characters.advancedtab.role")}</span>
-                <select
+                <Select
+                  label={localizeUi("ui.characters.advancedtab.role")}
                   value={depthPrompt.role}
-                  onChange={(e) => updateExtension("depth_prompt", { ...depthPrompt, role: e.target.value })}
+                  onChange={(next) => updateExtension("depth_prompt", { ...depthPrompt, role: next })}
                   className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
-                >
-                  <option value="system">{localizeUi("ui.characters.advancedtab.system")}</option>
-                  <option value="user">{localizeUi("ui.characters.advancedtab.user")}</option>
-                  <option value="assistant">{localizeUi("ui.characters.advancedtab.assistant")}</option>
-                </select>
-              </label>
+                  options={[
+                    { value: "system", label: localizeUi("ui.characters.advancedtab.system") },
+                    { value: "user", label: localizeUi("ui.characters.advancedtab.user") },
+                    { value: "assistant", label: localizeUi("ui.characters.advancedtab.assistant") },
+                  ]}
+                />
+              </div>
             </div>
           }
         />
@@ -4491,8 +4654,6 @@ function CharacterGalleryTab({
   const {
     lightbox,
     setLightbox,
-    lightboxRef,
-    lightboxCloseRef,
     selectingImages,
     setSelectingImages,
     selectedImageIds,
@@ -4501,6 +4662,7 @@ function CharacterGalleryTab({
     leaveImageSelection,
     toggleImageSelection,
   } = useCardGallerySelection(images);
+  const lightboxIndex = images?.findIndex((item) => item.id === lightbox?.id) ?? -1;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -4889,33 +5051,23 @@ function CharacterGalleryTab({
       )}
 
       {lightbox && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
-          ref={lightboxRef}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              setLightbox(null);
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
-          onClick={() => setLightbox(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={lightbox.url}
-              alt={lightbox.prompt || characterName || "Character image"}
-              className="max-h-[85vh] w-full rounded-lg object-contain shadow-2xl"
-            />
-            <div className="absolute right-2 top-2 flex gap-2">
+        <ImageViewer
+          title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+          onClose={() => setLightbox(null)}
+          src={lightbox.url}
+          alt={lightbox.prompt || characterName || "Character image"}
+          items={
+            images && lightboxIndex >= 0 ? images.map((item) => ({ url: item.url, alt: item.prompt || "" })) : undefined
+          }
+          index={lightboxIndex}
+          onIndexChange={(next) => images && setLightbox(images[next]!)}
+          actions={
+            <>
               <button
                 type="button"
                 onClick={() => void handleSetAvatar(lightbox)}
                 disabled={setAvatar.isPending}
-                className="inline-flex items-center justify-center rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("ui.characters.charactergallerytab.setAsAvatar")}
               >
                 {setAvatar.isPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
@@ -4927,24 +5079,15 @@ function CharacterGalleryTab({
               <button
                 type="button"
                 onClick={() => void handleDelete(lightbox)}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("lorebook.editor.batch.delete")}
                 aria-label={localizeUi("lorebook.editor.batch.delete")}
               >
                 <Trash2 size="0.875rem" />
               </button>
-              <button
-                type="button"
-                ref={lightboxCloseRef}
-                onClick={() => setLightbox(null)}
-                aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-              >
-                <X size="0.875rem" />
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
     </div>
   );

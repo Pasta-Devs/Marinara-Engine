@@ -5,7 +5,8 @@ import { useLocalizedUiText } from "../../../localization/use-localized-ui-text"
 import { cn } from "../../../lib/utils";
 import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decision-sidecar";
 import { useUIStore } from "../../../stores/ui.store";
-import { ListSearch, ListStatus } from "../../connections/ListFrame";
+import { ListStatus } from "../../connections/ListFrame";
+import { SearchInput } from "../../ui/SearchInput";
 import { ProviderIcon } from "../../connections/ProviderIcon";
 import { useDeviceEngines } from "../../connections/DeviceDetail";
 import { useBuiltinEmbeddingState } from "../../connections/BuiltinEmbeddingDetail";
@@ -332,7 +333,7 @@ export function ServiceListStep({
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div className="flex flex-col gap-3 px-3 py-4">
-        <ListSearch
+        <SearchInput
           value={query}
           onChange={setQuery}
           label={t("connections.add.searchProviders")}

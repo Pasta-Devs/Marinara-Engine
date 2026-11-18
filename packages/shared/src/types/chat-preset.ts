@@ -271,6 +271,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "groupTurnPromptEnabled", // Tell each character it is their turn
   "groupSpeakerColors", // Colour speaker names
   "groupSpeakerNamesInHistory", // Speaker names in the history
+  "groupPublicFacesEnabled", // Other characters' Public Faces in each turn
   "autoActiveCharacters", // Who keeps the active characters current
   // Conversation features
   "crossChatAwareness", // Characters remember their other chats

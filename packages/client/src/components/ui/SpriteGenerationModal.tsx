@@ -23,6 +23,7 @@ import {
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Spinner } from "./Spinner";
+import { Select } from "./Select";
 import { Checkbox } from "./Checkbox";
 
 // ── Types ──
@@ -3126,20 +3127,18 @@ export function SpriteGenerationModal({
 
                       {/* Expression label */}
                       <div className="space-y-1.5 p-1.5">
-                        <select
+                        <Select
                           value={normalizedExpression}
-                          onChange={(e) => handleCellRename(i, e.target.value)}
+                          onChange={(next) => handleCellRename(i, next)}
                           className="w-full rounded bg-[var(--secondary)] px-2 py-1 text-center text-[0.6875rem] max-sm:text-[13px] capitalize text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--primary)]/40"
-                          aria-label={localizeUi("ui.ui.spritegenerationmodal.assignExpressionForSpriteValue1", {
+                          label={localizeUi("ui.ui.spritegenerationmodal.assignExpressionForSpriteValue1", {
                             value1: i + 1,
                           })}
-                        >
-                          {cellAssignmentOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option.replace(/_/g, " ")}
-                            </option>
-                          ))}
-                        </select>
+                          options={cellAssignmentOptions.map((option) => ({
+                            value: option,
+                            label: option.replace(/_/g, " "),
+                          }))}
+                        />
                         <input
                           value={cell.expression}
                           onChange={(e) => handleCellRename(i, e.target.value)}

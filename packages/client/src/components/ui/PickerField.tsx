@@ -95,7 +95,8 @@ export type PickerFieldProps = ListTexts & {
   onChange: (value: string) => void;
 };
 
-function useFieldWindow(disabled: boolean | undefined) {
+/** Open state of a field's picker window; closing returns focus to the trigger. Shared with Select. */
+export function useFieldWindow(disabled: boolean | undefined) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // The window goes away if the field turns disabled while it is open (such as during a save).
@@ -110,7 +111,7 @@ function useFieldWindow(disabled: boolean | undefined) {
   return { open: open && !disabled, triggerRef, close, toggle };
 }
 
-function Chevron({ open }: { open: boolean }) {
+export function PickerChevron({ open }: { open: boolean }) {
   return (
     <ChevronDown
       size="0.75rem"
@@ -159,7 +160,7 @@ export function PickerField({
         className={cn(triggerClassName, "flex items-center justify-between gap-2 pr-3 text-left")}
       >
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
-        <Chevron open={open} />
+        <PickerChevron open={open} />
       </button>
       {open && (
         <PickerWindow title={title ?? ariaLabel} anchorRef={triggerRef} onClose={close}>
@@ -296,7 +297,7 @@ export function PickerListField({
       >
         {triggerIcon}
         <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">{triggerLabel}</span>
-        <Chevron open={open} />
+        <PickerChevron open={open} />
       </button>
       {picked.length > 0 && (
         <div className="flex flex-col gap-1">

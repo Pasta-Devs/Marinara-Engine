@@ -1,6 +1,6 @@
 // Exercise the real retry route: selected history, review/resume, image attachments and gallery opt-out.
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -120,7 +120,15 @@ try {
     name: "Illustrator",
     phase: "post_processing",
     connectionId: textConnection.id,
-    settings: { imageConnectionId: imageConnection.id, contextSize: 1, enabledTools: [] },
+    settings: {
+      imageConnectionId: imageConnection.id,
+      contextSize: 1,
+      enabledTools: [],
+      promptTemplates: [
+        { id: "painterly-cinematic", name: "Painterly Cinematic", promptTemplate: "PAINTERLY_TEMPLATE_TEXT" },
+        { id: "ink-wash", name: "Ink Wash", promptTemplate: "INK_WASH_TEMPLATE_TEXT" },
+      ],
+    },
   });
   const characters = createCharactersStorage(db);
   const character = await characters.create(
@@ -359,6 +367,86 @@ try {
   assert.match(customPrompt.data.prompt, /SELECTED_ASTER_APPEARANCE/);
   assert.doesNotMatch(customPrompt.data.prompt, /LIBRARY_ASTER_APPEARANCE|UNUSED_ASTER_APPEARANCE/);
 
+  // /illustrate template=…: that Prompt Mode writes the prompt once, the typed text is its guidance, and references and
+  // appearance follow the chat's switches (#9409).
+  mkdirSync(join(fixtureDir, "avatars"), { recursive: true });
+  writeFileSync(join(fixtureDir, "avatars", "aster.png"), Buffer.from(png, "base64"));
+  await characters.update(character.id, {}, "/api/avatars/file/aster.png");
+  const templateChat = await chats.create({
+    name: "One-off template",
+    mode: "roleplay",
+    characterIds: [character.id],
+    connectionId: textConnection.id,
+    promptPresetId: null,
+  });
+  assert.ok(templateChat);
+  await chats.patchMetadata(templateChat.id, {
+    agentPromptTemplateIds: { illustrator: "ink-wash" },
+    illustratorUseAvatarReferences: true,
+    illustratorIncludeCharacterAppearance: true,
+  });
+  await chats.createMessage({ chatId: templateChat.id, role: "assistant", content: "Aster waits by the gate." });
+  const templateRetry = (overrides: Record<string, unknown> = {}) =>
+    retry({ chatId: templateChat.id, illustratorMessageRange: undefined, ...overrides });
+  const oneOffRetry = (overrides: Record<string, unknown> = {}) =>
+    templateRetry({
+      agentPromptTemplateIds: { illustrator: "painterly-cinematic" },
+      illustratorRequest: "  Aster holds open the gate x=y  ",
+      reviewImagePromptsBeforeSend: true,
+      ...overrides,
+    });
+  const oneOff = await oneOffRetry();
+  const oneOffReview = parseEvents(oneOff.body).find((event) => event.type === "image_prompt_review");
+  assert.ok(oneOffReview, oneOff.body);
+  assert.match(textRequests.at(-1)!, /PAINTERLY_TEMPLATE_TEXT/, "the one-off Prompt Mode writes the prompt");
+  assert.doesNotMatch(textRequests.at(-1)!, /INK_WASH_TEMPLATE_TEXT/);
+  assert.ok(
+    textRequests.at(-1)!.includes("Depict this explicit request: Aster holds open the gate x=y\\n"),
+    "the trimmed guidance reaches the writer",
+  );
+  assert.match(oneOffReview.data.item.prompt, /LIBRARY_ASTER_APPEARANCE/, "Attach Card Appearance is on");
+  assert.match(oneOffReview.data.item.prompt, /reference images of Aster/, "Send Avatar References is on");
+  assert.deepEqual(
+    readMetadata((await chats.getById(templateChat.id))!.metadata).agentPromptTemplateIds,
+    { illustrator: "ink-wash" },
+    "the chat's saved Prompt Mode is unchanged",
+  );
+  const imagesBeforeResume = imageRequests;
+  const oneOffResumed = await templateRetry({
+    illustratorPromptReviewOverride: {
+      prompt: oneOffReview.data.item.prompt,
+      resultData: oneOffReview.data.resultData,
+    },
+  });
+  assert.ok(
+    parseEvents(oneOffResumed.body).some((event) => event.type === "illustration"),
+    oneOffResumed.body,
+  );
+  assert.equal(imageRequests, imagesBeforeResume + 1, "the reviewed one-off prompt draws one picture");
+  const savedMode = await templateRetry();
+  assert.ok(
+    parseEvents(savedMode.body).some((event) => event.type === "illustration"),
+    savedMode.body,
+  );
+  assert.match(textRequests.at(-1)!, /INK_WASH_TEMPLATE_TEXT/, "the next run uses the chat's own Prompt Mode");
+  assert.doesNotMatch(textRequests.at(-1)!, /PAINTERLY_TEMPLATE_TEXT|Depict this explicit request/);
+  await oneOffRetry({ illustratorRequest: "G".repeat(2100) });
+  assert.ok(
+    textRequests.at(-1)!.includes(`Depict this explicit request: ${"G".repeat(2000)}\\n`),
+    "guidance is capped at 2,000 characters",
+  );
+  await chats.patchMetadata(templateChat.id, {
+    illustratorUseAvatarReferences: false,
+    illustratorIncludeCharacterAppearance: false,
+  });
+  const switchesOff = parseEvents((await oneOffRetry()).body).find((event) => event.type === "image_prompt_review");
+  assert.ok(switchesOff);
+  assert.doesNotMatch(switchesOff.data.item.prompt, /LIBRARY_ASTER_APPEARANCE|reference images of Aster/);
+  const beforeInvalidRequests = textRequests.length + imageRequests;
+  assert.equal((await oneOffRetry({ illustratorRequest: 5 })).statusCode, 400);
+  assert.equal((await oneOffRetry({ illustratorRetryTargets: undefined })).statusCode, 400);
+  assert.equal(textRequests.length + imageRequests, beforeInvalidRequests, "an invalid request calls no provider");
+
   replaceBuiltInAgentDefinitions([]);
   const beforeUninstalled = textRequests.length + imageRequests;
   const uninstalled = await retry({ illustratorMessageRange: undefined });
@@ -383,7 +471,7 @@ try {
     "a background request cannot revive an uninstalled package",
   );
   console.info(
-    "Historical Illustrator range, review, gallery settings and disabled-agent manual illustration and background regressions passed.",
+    "Historical Illustrator range, review, gallery settings, one-off Prompt Mode and disabled-agent manual illustration and background regressions passed.",
   );
 } finally {
   provider.closeAllConnections();

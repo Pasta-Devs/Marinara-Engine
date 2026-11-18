@@ -13,6 +13,7 @@ import {
 import { cardFieldAlternativeName } from "../../../components/characters/CardFieldAlternatives";
 import { useCardFieldLabels } from "../../../hooks/use-card-field-generation";
 import { characterKeys, useUpdateCharacter, useUpdatePersona } from "../../../hooks/use-characters";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 type Entity = { kind: "character" | "persona"; id: string; name: string; alternatives: CardFieldAlternative[] };
@@ -114,28 +115,28 @@ export function CardFieldAlternativesSection({ chat, characters, personas, style
                   const options = entity.alternatives.filter((entry) => entry.field === field);
                   const saved = options.find((entry) => entry.chatIds.includes(chat.id))?.id ?? "";
                   return (
-                    <label key={field} className="flex items-center gap-2 text-xs">
+                    <div key={field} className="flex items-center gap-2 text-xs">
                       <span className="w-24 shrink-0 truncate text-[var(--muted-foreground)]">
                         {fieldLabels[field]}
                       </span>
-                      <select
+                      <Select
                         value={pending[key] ?? saved}
                         disabled={saving}
-                        onChange={(event) => void choose(entity, field, event.target.value)}
-                        aria-label={t("ui.chatSettings.cardFieldAlternatives.selectLabel", {
+                        options={[
+                          { value: "", label: t("ui.chatSettings.cardFieldAlternatives.original") },
+                          ...options.map((entry) => ({
+                            value: entry.id,
+                            label: cardFieldAlternativeName(t, entity.alternatives, entry, fieldLabels[field]),
+                          })),
+                        ]}
+                        onChange={(value) => void choose(entity, field, value)}
+                        label={t("ui.chatSettings.cardFieldAlternatives.selectLabel", {
                           field: fieldLabels[field],
                           name: entity.name,
                         })}
-                        className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-                      >
-                        <option value="">{t("ui.chatSettings.cardFieldAlternatives.original")}</option>
-                        {options.map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {cardFieldAlternativeName(t, entity.alternatives, entry, fieldLabels[field])}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+                      />
+                    </div>
                   );
                 },
               )}

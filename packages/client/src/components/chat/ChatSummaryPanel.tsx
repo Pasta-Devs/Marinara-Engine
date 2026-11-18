@@ -99,6 +99,7 @@ import {
 } from "../../lib/chat-summary-batch";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Tabs } from "../ui/Tabs";
 
 interface ChatSummaryPanelProps {
   chatId: string;
@@ -1960,40 +1961,16 @@ export function ChatSummaryPanel({
                 </button>
               </div>
 
-              <div
-                role="tablist"
-                aria-label={localizeUi("ui.chat.summarypopover.summaryPromptView")}
-                className="grid grid-cols-2 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={summaryPromptView === "summary"}
-                  onClick={() => setSummaryPromptView("summary")}
-                  className={cn(
-                    "rounded px-2 py-1 text-[0.625rem] font-semibold transition-colors",
-                    summaryPromptView === "summary"
-                      ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  {localizeUi("ui.chat.summarypopover.chatSummaryPrompt")}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={summaryPromptView === "combine"}
-                  onClick={() => setSummaryPromptView("combine")}
-                  className={cn(
-                    "rounded px-2 py-1 text-[0.625rem] font-semibold transition-colors",
-                    summaryPromptView === "combine"
-                      ? "bg-[var(--card)] text-[var(--foreground)] shadow-sm"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  {localizeUi("ui.chat.summarypopover.combinePrompt")}
-                </button>
-              </div>
+              <Tabs
+                items={[
+                  { id: "summary", label: localizeUi("ui.chat.summarypopover.chatSummaryPrompt") },
+                  { id: "combine", label: localizeUi("ui.chat.summarypopover.combinePrompt") },
+                ]}
+                value={summaryPromptView}
+                onChange={setSummaryPromptView}
+                variant="pill"
+                label={localizeUi("ui.chat.summarypopover.summaryPromptView")}
+              />
 
               {summaryPromptView === "summary" ? (
                 <div className="h-48 space-y-2 overflow-y-auto pr-0.5">

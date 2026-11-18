@@ -4,7 +4,7 @@ import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
-for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]) {
+for (const model of ["gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.2-astra"]) {
   test(`${model} selection and reasoning Off/Maximum persist`, async ({ page, request }, info) => {
     await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
     await seedUIState(page, {

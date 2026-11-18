@@ -1,16 +1,22 @@
 // ──────────────────────────────────────────────
 // PickerWindow: the floating picker window shared by the character, persona,
 // preset and lorebook pickers. On desktop a popover anchored to its trigger;
-// on a phone a bottom sheet (Modal). Escape and an outside click close it;
+// on a phone a bottom sheet (Modal), except inside a Modal, where it stays a popover so two sheets never
+// stack (S.O.U.P.). Escape and an outside click close it;
 // clicks on the anchor are left to the trigger, so the trigger can toggle it.
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
+import { useInsideModal } from "./modal-context";
+import { useUIStore } from "../../stores/ui.store";
 import { NEUTRAL_SURFACE_VARIABLES } from "./neutral-surface-styles";
+import { scrollPickedRow } from "./PickerParts";
 
-const PHONE_QUERY = "(max-width: 767px)";
+// Where Modal turns into a bottom sheet, so a picker and the dialogs around it switch at the same width.
+const PHONE_QUERY = "(max-width: 639px)";
 
 type Placement = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
 
@@ -36,16 +42,37 @@ export function PickerWindow({
   anchorRef,
   onClose,
   className,
+  hug,
   children,
 }: {
   title: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   className?: string;
+  /** Phone sheet hugs its rows instead of standing at 85% height (S.O.U.P.: hug by default, large for lists). For short lists without search. */
+  hug?: boolean;
   children: ReactNode;
 }) {
-  const [phone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches);
+  const insideModal = useInsideModal();
+  const [phone] = useState(
+    () => !insideModal && typeof window !== "undefined" && !!window.matchMedia?.(PHONE_QUERY).matches,
+  );
+  // Back closes the popover first (on a phone inside a Modal it sits over that sheet); the sheet path is a Modal and registers itself.
+  useBackDismiss(!phone, onClose);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Opened from the omnibar (its settings), the popover takes the omnibar's layer, as a Modal does, or it opens beneath it.
+  const [overOmnibar] = useState(() => useUIStore.getState().omnibarOpen);
+  // Inside a Modal on the omnibar layer or above it, the popover and the phone sheet join that layer.
+  const [hostLayer] = useState<"omnibar" | "top" | undefined>(() => {
+    const host = anchorRef.current?.closest<HTMLElement>(".mari-modal");
+    if (!host) return undefined;
+    const hostZ = Number.parseInt(getComputedStyle(host).zIndex, 10);
+    const omnibarZ = Number.parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue("--mari-layer-omnibar"),
+      10,
+    );
+    return hostZ > omnibarZ ? "top" : hostZ === omnibarZ ? "omnibar" : undefined;
+  });
   const [pos, setPos] = useState<Placement | null>(null);
 
   useLayoutEffect(() => {
@@ -87,24 +114,34 @@ export function PickerWindow({
     const panel = panelRef.current;
     if (!placed || !panel || panel.contains(document.activeElement)) return;
     const search = window.matchMedia?.("(pointer: fine)").matches ? panel.querySelector("input") : null;
-    (search ?? panel).focus();
+    // A list without a search box takes the keys itself.
+    const keys = panel.querySelector<HTMLElement>("[data-picker-keys]");
+    (search ?? keys ?? panel).focus();
+    // The list could not scroll before the popover had its height, so bring the picked row into view now.
+    scrollPickedRow(panel.querySelector<HTMLElement>("[data-picker-list]"));
   }, [placed]);
 
   if (phone) {
+    // A tap in the sheet must not reach the host's outside-click handler (a floating menu like the message note
+    // menu), or the host closes and unmounts the field before the pick lands. React events bubble through the portal
+    // to this wrapper, so stopping here keeps them from the document, as the popover's own onPointerDown does.
     return (
-      <Modal
-        open
-        onClose={onClose}
-        title={title}
-        width="max-w-md"
-        restoreFocusRef={anchorRef}
-        // Same accent tint over the panel colour as the desktop window below. Important, because the
-        // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
-        panelClassName="max-md:mt-auto max-md:h-[85dvh] max-md:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!"
-        contentClassName="flex flex-col !overflow-hidden !p-0"
-      >
-        {children}
-      </Modal>
+      <div className="contents" onPointerDown={(event) => event.stopPropagation()}>
+        <Modal
+          open
+          onClose={onClose}
+          layer={hostLayer}
+          title={title}
+          width="max-w-md"
+          restoreFocusRef={anchorRef}
+          // Same accent tint over the panel colour as the desktop window below. Important, because the
+          // opaque-modal rule (.mari-modal--opaque .mari-modal-panel) sets its own background-image.
+          panelClassName={`max-sm:mt-auto ${hug ? "" : "max-sm:h-[85dvh]"} max-sm:rounded-b-none bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))]!`}
+          contentClassName="flex flex-col !overflow-hidden !p-0"
+        >
+          {children}
+        </Modal>
+      </div>
     );
   }
 
@@ -128,7 +165,12 @@ export function PickerWindow({
         // made to sit on a panel, like the preset dropdown), so it is layered over the panel colour, blurred like
         // every neutral panel shell. The panel colour is stacked twice (~98% opaque) so sharp lines underneath,
         // like the wizard's footer divider, don't show through.
-        "fixed z-[10050] flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
+        "fixed flex flex-col overflow-hidden outline-none rounded-xl border border-[var(--border)] bg-[var(--marinara-chat-chrome-panel-bg)] bg-[image:linear-gradient(var(--secondary),var(--secondary)),linear-gradient(var(--marinara-chat-chrome-panel-bg),var(--marinara-chat-chrome-panel-bg))] text-[var(--foreground)] shadow-2xl backdrop-blur-md",
+        hostLayer === "top"
+          ? "z-[calc(var(--mari-layer-omnibar)+2)]"
+          : hostLayer || overOmnibar
+            ? "z-(--mari-layer-omnibar)"
+            : "z-[10050]",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}

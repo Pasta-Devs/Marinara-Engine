@@ -30,6 +30,7 @@ import {
   isConnectionFlagTrue,
   type ConnectionProviderLike,
 } from "../../lib/connection-filters";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 type CharacterScheduleEditorModalProps = {
@@ -1209,20 +1210,22 @@ export function CharacterScheduleEditorModal({
                 </div>
               )}
             </div>
-            <label className="block text-xs max-sm:text-[13px]">
+            <div className="block text-xs max-sm:text-[13px]">
               <span className="mb-1.5 block font-medium">
                 {localizeUi("ui.chat.characterscheduleeditormodal.weekRequests")}
               </span>
-              <select
+              <Select
+                label={localizeUi("ui.chat.characterscheduleeditormodal.weekRequests")}
                 value={weekRequestMode}
-                onChange={(event) => setWeekRequestMode(event.target.value)}
+                options={[
+                  { value: "week", label: localizeUi("ui.chat.characterscheduleeditormodal.wholeWeek") },
+                  { value: "day", label: localizeUi("ui.chat.characterscheduleeditormodal.dayByDay") },
+                ]}
+                onChange={setWeekRequestMode}
                 disabled={generationBusy}
                 className="w-full rounded-md bg-[var(--background)] px-3 py-2 outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
-              >
-                <option value="week">{localizeUi("ui.chat.characterscheduleeditormodal.wholeWeek")}</option>
-                <option value="day">{localizeUi("ui.chat.characterscheduleeditormodal.dayByDay")}</option>
-              </select>
-            </label>
+              />
+            </div>
             <p className="text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">
               {localizeUi("ui.chat.characterscheduleeditormodal.dayByDayHint")}
             </p>

@@ -80,7 +80,8 @@ import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { sortPanelFolders } from "../../lib/panel-sort";
 import type { ConnectionModelRow } from "../../lib/connection-groups";
 import { modelRoleLabels } from "./ModelRow";
-import { ListFrame, ListHeading, ListSearch, ListStatus } from "./ListFrame";
+import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
+import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
@@ -437,6 +438,7 @@ export function ConnectionSwitcherBody({
   className,
   listClassName,
   catalogBrowse = true,
+  showUnstarred = false,
   kind = "chat",
   rowFilter,
   extras,
@@ -536,6 +538,8 @@ export function ConnectionSwitcherBody({
   listClassName?: string;
   /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
   catalogBrowse?: boolean;
+  /** Job pickers also list provider models below the stars in the initial pane. */
+  showUnstarred?: boolean;
 }) {
   const { t } = useTranslation();
   const voiceRowId = useVoiceRowId();
@@ -964,6 +968,10 @@ export function ConnectionSwitcherBody({
       )
       .map((row) => entryOfRow(row, group));
     for (const entry of saved) seen.add(entry.model);
+    if (showUnstarred && nowEntry?.model && nowEntry.group?.key === group.key && !seen.has(nowEntry.model)) {
+      saved.unshift(nowEntry);
+      seen.add(nowEntry.model);
+    }
     const ids = catalogBrowse ? new Set((catalogOf(group)?.idSets ?? []).flatMap((set) => [...set])) : [];
     const fromCatalog = [...ids]
       .filter((id) => !seen.has(id) && acceptsCatalog(id, catalogOf(group)?.of(id), group))
@@ -1059,10 +1067,17 @@ export function ConnectionSwitcherBody({
     for (const group of groups) {
       if (!group.account) continue;
       const catalog = catalogOf(group);
+      const seen = new Set<string>();
       for (const facts of catalog?.factSets ?? []) {
         for (const [model, modelFacts] of facts) {
-          if (acceptsCatalog(model, modelFacts, group) && knownGood.test(group.account.id, model, modelFacts))
+          if (
+            !seen.has(model) &&
+            acceptsCatalog(model, modelFacts, group) &&
+            knownGood.test(group.account.id, model, modelFacts)
+          ) {
+            seen.add(model);
             out.push(entryFor(group, anchorOf(group), model, model));
+          }
         }
       }
     }
@@ -1417,7 +1432,7 @@ export function ConnectionSwitcherBody({
   );
 
   const searchBox = (
-    <ListSearch
+    <SearchInput
       className="mx-2 my-2 shrink-0"
       inputRef={searchRef}
       data-switcher-search
@@ -1612,6 +1627,16 @@ export function ConnectionSwitcherBody({
       <span className="truncate text-[0.6875rem] max-sm:text-[13px] text-foreground/50">{summary}</span>
     </div>
   );
+  // The overview is hidden during search and account browsing; avoid walking every catalog on those renders.
+  const unstarredGroups =
+    showUnstarred && catalogBrowse && !query.trim() && !searching && !shownGroup && !paneFolder
+      ? groups
+          .map((group) => {
+            const { lead, rest } = paneEntries(group);
+            return { group, entries: [...lead, ...rest] };
+          })
+          .filter(({ entries }) => entries.length > 0)
+      : [];
   const starredAccounts = new Set(starredEntries.map((entry) => entry.group?.key)).size;
   const rightPane = (
     <div
@@ -1746,12 +1771,25 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
+              {showUnstarred &&
+                starredEntries.length > 0 &&
+                heading(t("connections.switcher.starred"), starredEntries.length)}
               {starredEntries.length > 1 && orderToggle}
               {starredEntries.map((entry) =>
                 renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
               )}
             </section>
-            {starredEntries.length === 0 && knownEntries.length === 0 && (
+            {unstarredGroups.map(({ group, entries }) => (
+              <section key={group.key} data-switcher-section="provider" aria-label={group.name}>
+                {heading(group.name, entries.length)}
+                <EntryRows
+                  listKey={`provider:${group.key}`}
+                  entries={entries}
+                  render={(entry) => renderEntry(entry, { star: "all", away: true })}
+                />
+              </section>
+            ))}
+            {starredEntries.length === 0 && knownEntries.length === 0 && unstarredGroups.length === 0 && (
               <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
             )}
           </>

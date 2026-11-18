@@ -15,9 +15,11 @@ import {
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
 } from "./neutral-surface-styles";
+import { InsideModalContext } from "./modal-context";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useUIStore } from "../../stores/ui.store";
@@ -28,6 +30,12 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Id of the element that names the dialog (e.g. a `titleSlot` heading); replaces the plain-text label. */
+  labelledBy?: string;
+  /** Fade in without the small scale-up, for content that is measured or panned (image viewers). */
+  fadeOnly?: boolean;
+  /** Identifies the dialog to tests and browser extensions; defaults to "Modal". */
+  dataComponent?: string;
   /** Shown in the header instead of the title text; `title` still names the dialog. */
   titleSlot?: ReactNode;
   children: ReactNode;
@@ -64,6 +72,10 @@ interface ModalProps {
   modeless?: boolean;
   /** Always open on the omnibar's layer, above every other app overlay (app dialogs, even over a package screen). */
   topLayer?: boolean;
+  /** Stacking: `default`; `omnibar` = the omnibar's layer (same as `topLayer`); `top` = one above the omnibar, for dialogs opened from inside it. */
+  layer?: "default" | "omnibar" | "top";
+  /** `blur` (default) dims and blurs; `dark` dims more, for image viewers; `solid` = `opaque`; `none` shows no backdrop (an outside tap still closes). */
+  backdrop?: "blur" | "dark" | "solid" | "none";
   /** A short "are you sure" question: a light, unblurred see-through backdrop (`--mari-confirm-scrim`)
    *  so the app stays visible behind it and bright themes don't wash the screen out. */
   confirm?: boolean;
@@ -73,6 +85,9 @@ export function Modal({
   open,
   onClose,
   title,
+  labelledBy,
+  fadeOnly = false,
+  dataComponent = "Modal",
   titleSlot,
   children,
   width = "max-w-md",
@@ -95,15 +110,18 @@ export function Modal({
   dragThrough = false,
   modeless = false,
   topLayer = false,
+  layer = topLayer ? "omnibar" : "default",
+  backdrop = opaque ? "solid" : "blur",
   confirm = false,
 }: ModalProps) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
+  const localizedTitle = localize(title);
+  // The overhaul keeps the classic two sidebars; a modeless dialog stays clear of whichever are open.
   const sidebarOpen = useUIStore((s) => modeless && s.sidebarOpen);
   const sidebarWidth = useUIStore((s) => (modeless ? s.sidebarWidth : 0));
   const rightPanelOpen = useUIStore((s) => modeless && s.rightPanelOpen);
   const rightPanelWidth = useUIStore((s) => (modeless ? s.rightPanelWidth : 0));
-  const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
-  const localizedTitle = localize(title);
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
@@ -183,6 +201,8 @@ export function Modal({
     const handler = (e: KeyboardEvent) => {
       // Escape while an IME is composing cancels the composition first.
       if (e.isComposing) return;
+      // A browser extension's card (Grammarly's) takes Escape for itself; it must not close this dialog.
+      if (isBrowserExtensionUi(e.target)) return;
       if (!modeless) {
         if (e.key !== "Escape" || closeDisabled) return;
         if (!overlayRegistrationRef.current?.isTopmost()) return;
@@ -315,10 +335,11 @@ export function Modal({
       ref={overlayRef}
       role="dialog"
       aria-modal={modeless ? undefined : true}
-      aria-label={localizedTitle}
+      aria-label={labelledBy ? undefined : localizedTitle}
+      aria-labelledby={labelledBy}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
-      data-component="Modal"
-      className={`mari-modal${opaque ? " mari-modal--opaque" : ""} fixed inset-0 ${overOmnibar || topLayer ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
+      data-component={dataComponent}
+      className={`mari-modal${backdrop === "solid" ? " mari-modal--opaque" : ""} fixed inset-x-0 top-[var(--mari-visual-viewport-offset-top,0px)] h-[var(--mari-visual-viewport-height,100dvh)] ${layer === "top" ? "z-[calc(var(--mari-layer-omnibar)+1)]" : overOmnibar || layer === "omnibar" ? "z-(--mari-layer-omnibar)" : "z-[10000]"} flex items-center justify-center ${sheet ? "max-sm:items-end max-sm:p-0! max-sm:pt-[calc(env(safe-area-inset-top)+2.5rem)]!" : ""} ${dragThrough || modeless || animating === "exit" ? "pointer-events-none" : ""} ${modeless ? "pt-16! lg:pl-[var(--dialog-left)]! sm:pr-[var(--dialog-right)]!" : ""} ${
         mobileFullscreen
           ? "p-0 sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
           : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
@@ -342,7 +363,13 @@ export function Modal({
           data-backdrop-dismiss-surface="true"
           data-mari-modal-kind={confirm ? "confirm" : undefined}
           className={`mari-modal-backdrop absolute inset-0 ${
-            confirm ? "bg-[var(--mari-confirm-scrim)]" : "bg-[var(--mari-scrim)] backdrop-blur-[2px]"
+            confirm
+              ? "bg-[var(--mari-confirm-scrim)]"
+              : backdrop === "dark"
+                ? "bg-black/80"
+                : backdrop === "none"
+                  ? ""
+                  : "bg-[var(--mari-scrim)] backdrop-blur-[2px]"
           }`}
           style={{
             opacity: backdropShown ? 1 : 0,
@@ -355,7 +382,7 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(100dvh-5rem)]!" : ""} ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${dragThrough || modeless ? "pointer-events-auto" : ""} ${modeless ? "max-h-[calc(var(--mari-visual-viewport-height,100dvh)-5rem)]!" : ""} ${width} max-h-[calc(var(--mari-visual-viewport-height,100dvh)-1.5rem)] sm:max-h-[min(calc(var(--mari-visual-viewport-height,100dvh)*0.9),52rem)]${
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom))]"
             : ""
@@ -363,10 +390,16 @@ export function Modal({
         style={{
           ...panelStyle,
           // The shell's unlayered message-in keyframe would override this inline slide on phones.
-          animation: phoneSheet ? "none" : undefined,
+          animation: phoneSheet || fadeOnly ? "none" : undefined,
           opacity: isEntering ? 1 : 0,
           // Settle at `none`: an identity transform keeps the entire image library in a composited layer.
-          transform: isEntering ? undefined : phoneSheet ? "translateY(100%)" : "scale(0.97) translateY(6px)",
+          transform: isEntering
+            ? undefined
+            : phoneSheet
+              ? "translateY(100%)"
+              : fadeOnly
+                ? undefined
+                : "scale(0.97) translateY(6px)",
           transition: phoneSheet
             ? "opacity 150ms ease-out, transform 220ms cubic-bezier(0.32, 0.72, 0, 1)"
             : "opacity 150ms ease-out, transform 150ms ease-out",
@@ -403,7 +436,7 @@ export function Modal({
           ref={contentRef}
           className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 ${NEUTRAL_PANEL_SCROLL_AREA} ${contentClassName ?? ""}`}
         >
-          {children}
+          <InsideModalContext.Provider value>{children}</InsideModalContext.Provider>
         </div>
         {footer && (
           <div className="flex shrink-0 flex-row-reverse items-center justify-start gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3 max-sm:flex-col max-sm:items-stretch max-sm:px-4 max-sm:[&>button]:min-h-12 max-sm:[&>button]:justify-center">

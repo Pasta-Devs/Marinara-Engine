@@ -17,6 +17,7 @@ export interface MacroCharacterData {
   personality?: string;
   backstory?: string;
   appearance?: string;
+  publicFace?: string;
   scenario?: string;
   example?: string;
   systemPrompt?: string;
@@ -30,6 +31,7 @@ export interface MacroPersonaData {
   personality?: string;
   backstory?: string;
   appearance?: string;
+  publicFace?: string;
   scenario?: string;
 }
 
@@ -80,6 +82,7 @@ export function parseCharacterMacroData(
       personality: getString(data.personality),
       backstory: getString(extensions?.backstory),
       appearance: getString(extensions?.appearance),
+      publicFace: getString(extensions?.publicFace),
       scenario: getString(data.scenario),
       example: getString(data.mes_example),
       systemPrompt: getString(data.system_prompt),
@@ -98,6 +101,7 @@ function toMacroPersonaData(persona: Persona): MacroPersonaData {
     personality: persona.personality,
     backstory: persona.backstory,
     appearance: persona.appearance,
+    publicFace: persona.publicFace,
     scenario: persona.scenario,
   };
 }
@@ -110,6 +114,7 @@ function toMacroPersonaDataFromCharacter(character: MacroCharacterData): MacroPe
     personality: character.personality,
     backstory: character.backstory,
     appearance: character.appearance,
+    publicFace: character.publicFace,
     scenario: character.scenario,
   };
 }
@@ -200,6 +205,7 @@ export function buildMessageMacroContext({
           personality: fallbackCharacter.personality ?? "",
           backstory: fallbackCharacter.backstory ?? "",
           appearance: fallbackCharacter.appearance ?? "",
+          publicFace: fallbackCharacter.publicFace ?? "",
           scenario: fallbackCharacter.scenario ?? "",
           example: fallbackCharacter.example ?? "",
           systemPrompt: fallbackCharacter.systemPrompt ?? "",
@@ -212,6 +218,7 @@ export function buildMessageMacroContext({
           personality: persona.personality ?? "",
           backstory: persona.backstory ?? "",
           appearance: persona.appearance ?? "",
+          publicFace: persona.publicFace ?? "",
           scenario: persona.scenario ?? "",
         }
       : undefined,

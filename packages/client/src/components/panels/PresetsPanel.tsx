@@ -40,7 +40,7 @@ import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
-import { LibraryToolbar } from "../ui/LibraryToolbar";
+import { LibraryToolbar, SegmentedButtons } from "../ui/LibraryToolbar";
 import {
   FileText,
   Trash2,
@@ -58,6 +58,7 @@ import {
   Wrench,
   ShieldCheck,
   Camera,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
@@ -1548,33 +1549,23 @@ export function PresetsPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      {/* Same gap and equal-width columns as LibraryToolbar's action row, so the tabs line up with the buttons. */}
-      <div className="flex gap-2" role="group" aria-label={localizeUi("navigation.topbar.presets")}>
-        {(["presets", "regex", "functions", "profiles"] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            className={cn(
-              "mari-chrome-control h-8 min-h-8 min-w-0 flex-1 px-2 text-[0.625rem]",
-              tab === value && "mari-chrome-control--selected",
-            )}
-            aria-pressed={tab === value}
-            onClick={() => setTab(value)}
-          >
-            <span className="truncate">
-              {localizeUi(
-                value === "presets"
-                  ? "ui.panels.presetspanel.prompts"
-                  : value === "regex"
-                    ? "ui.panels.regexsection.regexes"
-                    : value === "functions"
-                      ? "ui.panels.functionssection.functions"
-                      : "ui.panels.profilessection.profiles",
-              )}
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* One long button split by "|", the same height as the other panels' Download | Open Library. */}
+      <SegmentedButtons
+        groupLabel={localizeUi("navigation.topbar.presets")}
+        buttons={(
+          [
+            ["presets", FileText, "ui.panels.presetspanel.prompts"],
+            ["regex", Regex, "ui.panels.regexsection.regexes"],
+            ["functions", Wrench, "ui.panels.functionssection.functions"],
+            ["profiles", SlidersHorizontal, "ui.panels.profilessection.profiles"],
+          ] as const
+        ).map(([value, icon, labelKey]) => ({
+          icon,
+          label: localizeUi(labelKey),
+          pressed: tab === value,
+          onClick: () => setTab(value),
+        }))}
+      />
       <div className={tab === "presets" ? "contents" : "hidden"}>{presetLibrary}</div>
 
       <div className={tab === "functions" ? "contents" : "hidden"}>

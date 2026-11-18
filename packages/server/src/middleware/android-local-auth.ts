@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { isCapabilityInternalRouteRequest } from "../services/capability-packages/capability-route-registration.service.js";
 
 const ANDROID_AUTH_PREFIX = "/api/android-auth";
 const ANDROID_LOGIN_PATH = "/android-login";
@@ -182,7 +183,7 @@ function escapeHtml(value: string): string {
   });
 }
 
-/** Whether the request would pass androidLocalAuthHook without its public-path exemptions. */
+/** Whether the request would pass androidLocalAuthHook without its public-path and package-route exemptions. */
 export function isAndroidLocalAuthSatisfied(request: FastifyRequest): boolean {
   if (!isAndroidAuthConfigured() || !isDeviceLocalIp(request.ip)) return true;
   const secret = androidSecret();
@@ -202,8 +203,10 @@ export function androidLocalAuthInjectHeaders(): Record<string, string> {
 /**
  * APK-managed Termux installations set a per-install secret. When present,
  * requests originating on the Android device need either an authenticated
- * browser session or the secret header used by the local `mari` CLI. LAN peers
- * and installs without the Android wrapper retain their existing behavior.
+ * browser session or the secret header used by the local `mari` CLI. A package's
+ * own runInternalRoute call passes with that route's internal-route token
+ * instead of the secret. LAN peers and installs without the Android wrapper
+ * retain their existing behavior.
  */
 export function androidLocalAuthHook(request: FastifyRequest, reply: FastifyReply, done: () => void) {
   if (!isAndroidAuthConfigured() || !isDeviceLocalIp(request.ip)) {
@@ -223,7 +226,8 @@ export function androidLocalAuthHook(request: FastifyRequest, reply: FastifyRepl
     isPublicAuthPath(request.url) ||
     isStateBoundOAuthCallback(request) ||
     hasValidSession(request) ||
-    hasValidSecretHeader(request, secret)
+    hasValidSecretHeader(request, secret) ||
+    isCapabilityInternalRouteRequest(request)
   ) {
     done();
     return;

@@ -51,6 +51,8 @@ The **Prompt Mode** picker (labeled **Prompt** on the card) sets the art style f
 
 The final look also depends on your style profile. See [Image Style Profiles](style-profiles.md).
 
+To draw one picture in another style without changing the chat's choice, type `/illustrate template=` and the style's name, such as `/illustrate template="Comic Page"`. See [Slash Commands](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Choose the prompt model
 
 The **Prompt Model** is the text model that writes the image prompt. It does not draw. Pick it in the **Prompt Model** list on the card. The default is **Main chat model**, which reuses your chat's model. Choose another text model if you want a different one to write prompts.

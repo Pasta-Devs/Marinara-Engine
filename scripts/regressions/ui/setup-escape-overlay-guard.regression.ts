@@ -99,19 +99,5 @@ assert.match(
   "Modal's Escape handler must act only when its own registration is the topmost open overlay",
 );
 
-// The legacy panel is the only setup screen with its own `window` Escape listener; the wizard has none,
-// so there is nothing to pin there.
-const dialogPath = "packages/client/src/components/game/LegacyExperienceSetupDialog.tsx";
-const dialogSource = readSource(dialogPath);
-const escapeCheck = dialogSource.indexOf('event.key !== "Escape"');
-assert.ok(
-  escapeCheck >= 0,
-  `${dialogPath} should early-return out of its keydown handler on anything but Escape, so the overlay guard sits beside that check`,
-);
-assert.match(
-  dialogSource.slice(Math.max(0, escapeCheck - 200), escapeCheck + 200),
-  /event\.key !== "Escape" \|\| isModalOverlayOpen\(\)/u,
-  `${dialogPath} must stand down while a Modal is stacked above it, or one Escape press closes both`,
-);
-
+// The legacy setup panel now renders through Modal, so the check above covers it.
 console.log("Escape dismisses the topmost dialog only: never a dialog beneath another, never the setup underneath.");

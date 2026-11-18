@@ -2,6 +2,7 @@ import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -120,8 +121,8 @@ for (const directed of [false, true]) {
         const companion = page.getByRole("combobox", { name: "Controller for Companion", exact: true });
         await expect(companion).toBeEnabled({ timeout: 15000 });
         await expect(page.getByRole("combobox", { name: "Controller for Hero", exact: true })).toBeDisabled();
-        await companion.selectOption(mode === "classic" ? "manual" : "ai");
-        await expect(companion).toHaveValue(mode === "classic" ? "manual" : "ai");
+        await chooseOption(page, companion, mode === "classic" ? "Player" : "AI");
+        await expect(companion).toHaveAttribute("data-value", mode === "classic" ? "manual" : "ai");
         await page.screenshot({ path: testInfo.outputPath(`combat-ai-${mode}.png`) });
         if (directed) {
           await summary.click();
@@ -181,7 +182,7 @@ for (const directed of [false, true]) {
         await page.reload();
         await expect(summary).toBeVisible({ timeout: 40000 });
         await summary.click();
-        await expect(companion).toHaveValue(mode === "classic" ? "manual" : "ai");
+        await expect(companion).toHaveAttribute("data-value", mode === "classic" ? "manual" : "ai");
       } finally {
         await request.delete(`/api/chats/${chatId}`);
       }

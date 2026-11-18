@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { CheckSquare, ChevronRight, FolderPlus, Search, Trash2, X } from "lucide-react";
+import { CheckSquare, ChevronRight, FolderPlus, Trash2, X } from "lucide-react";
+import { SearchInput } from "../ui/SearchInput";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMutateSpriteCatalog, useSpriteCatalog, type SpriteInfo } from "../../hooks/use-characters";
@@ -11,9 +12,8 @@ import { TOUCH_DRAG_PREVIEW_Z_INDEX, useTouchFolderDrag } from "../../hooks/use-
 import { useLibraryFolderDrag } from "../../hooks/use-library-folder-drag";
 import { insertLibraryItems } from "../../lib/library-order";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
-const control =
-  "min-h-[44px] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] md:min-h-8 md:py-1.5 md:text-xs";
 const button = "mari-editor-action min-h-[44px]! min-w-[44px]! px-3 md:min-h-9! md:min-w-9!";
 
 export function useSpriteLibrary(ownerId: string, sprites: SpriteInfo[], category: "expressions" | "full-body") {
@@ -94,27 +94,25 @@ export function SpriteFolderSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <label className="block space-y-1 text-xs font-medium">
+    <div className="block space-y-1 text-xs font-medium">
       <span>{t("sprites.library.folder")}</span>
-      <select
+      <Select
+        label={t("sprites.library.folder")}
         className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm"
         value={library.folders.some((folder) => folder.id === sprite.folderId) ? sprite.folderId! : "unfiled"}
         disabled={busy || library.mutation.isPending || !library.query.data}
-        onChange={(event) =>
+        onChange={(next) =>
           void library.mutate("post", "move", {
             expressions: [sprite.expression],
-            folderId: event.target.value === "unfiled" ? null : event.target.value,
+            folderId: next === "unfiled" ? null : next,
           })
         }
-      >
-        <option value="unfiled">{t("sprites.library.unfiled")}</option>
-        {library.folders.map((folder) => (
-          <option key={folder.id} value={folder.id}>
-            {folder.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        options={[
+          { value: "unfiled", label: t("sprites.library.unfiled") },
+          ...library.folders.map((folder) => ({ value: folder.id, label: folder.name })),
+        ]}
+      />
+    </div>
   );
 }
 
@@ -144,23 +142,16 @@ export function SpriteLibraryShell({
     >
       {toolbar && <div className="flex flex-wrap items-center justify-between gap-3">{toolbar}</div>}
       <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
-        <label className="relative col-span-2 min-w-0 md:flex md:min-w-40 md:flex-1 md:items-center md:gap-2">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 md:static md:translate-y-0"
-          />
-          <span className="sr-only">{label("search")}</span>
-          <input
-            type="search"
-            className={`${control} w-full min-w-0 pl-9 md:w-auto md:flex-1 md:pl-3`}
-            placeholder={label("search")}
-            value={library.search}
-            onChange={(e) => {
-              library.setSearch(e.target.value);
-              library.setSelected([]);
-            }}
-          />
-        </label>
+        <SearchInput
+          value={library.search}
+          onChange={(value) => {
+            library.setSearch(value);
+            library.setSelected([]);
+          }}
+          label={label("search")}
+          placeholder={label("search")}
+          className="col-span-2 min-w-0 md:min-h-8 md:min-w-40 md:flex-1"
+        />
         <button
           type="button"
           className={button}

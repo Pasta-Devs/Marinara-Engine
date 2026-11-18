@@ -744,6 +744,7 @@ async function importPersona(data: unknown, db: DB, tagging?: ImportTagging) {
     "scenario",
     "backstory",
     "appearance",
+    "publicFace",
     "nameColor",
     "dialogueColor",
     "boxColor",

@@ -16,7 +16,8 @@ const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
 const { createPromptsStorage } = await import("../../../packages/server/src/services/storage/prompts.storage.js");
 const { createRegexScriptsStorage } =
@@ -288,6 +289,76 @@ try {
     assert.equal(saved.find((row) => row.id === message.id)?.content, message.content);
   }
   assert(saved.some((message) => message.content.includes("SAME_TURN_THOUGHT")));
+
+  // #9425: Others' Public Faces. Each responder gets the other active characters' Public Faces, resolved as
+  // their owner. Pantalone's repeats his Appearance line verbatim, which per-responder scoping would strip
+  // if the block were added before it.
+  const verbatimAppearance = "A portly merchant in a velvet coat, rings on every finger.";
+  await characters.update(pantalone.id, {
+    extensions: { appearance: verbatimAppearance, publicFace: `${verbatimAppearance}\n{{char}} runs the bank.` },
+  });
+  await characters.update(maukie.id, { extensions: { publicFace: "MAUKIE_FACE: a cat the whole town feeds." } });
+  await characters.update(narrator.id, { extensions: { publicFace: "NARRATOR_FACE" } });
+  await chats.patchMetadata(chat.id, { inactiveCharacterIds: [narrator.id] });
+  for (const enabled of [false, true]) {
+    await chats.patchMetadata(chat.id, { groupPublicFacesEnabled: enabled });
+    for (const messages of [(await generate(maukie.id))[0]!, await preview(maukie.id)]) {
+      const text = JSON.stringify(messages);
+      assert.equal(text.includes("Pantalone runs the bank."), enabled, "the switch adds the others' Public Faces");
+      assert.equal(text.includes(verbatimAppearance), enabled, "scoping does not strip a verbatim Appearance line");
+      assert(!text.includes("Maukie runs the bank"), "a Public Face resolves {{char}} as its owner");
+      assert(!text.includes("MAUKIE_FACE"), "the responder never gets its own Public Face");
+      assert(!text.includes("NARRATOR_FACE"), "inactive characters are left out");
+    }
+  }
+  assert(JSON.stringify((await generate(pantalone.id))[0]).includes("MAUKIE_FACE"), "each responder sees the others");
+  const facesBlock = "What the rest of the scene";
+  const hasFacesBlock = (messages: Message[]) => JSON.stringify(messages).includes(facesBlock);
+
+  // A normal send: each character replies in turn and gets the others' Public Faces once, never its own.
+  await chats.patchMetadata(chat.id, { groupResponseOrder: "sequential" });
+  const turns = await generate(undefined, ["Pantalone speaks.", "Maukie replies."]);
+  assert.equal(turns.length, 2);
+  for (const [index, [own, other]] of [
+    ["Pantalone runs the bank.", "MAUKIE_FACE"],
+    ["MAUKIE_FACE", "Pantalone runs the bank."],
+  ].entries()) {
+    const text = JSON.stringify(turns[index]);
+    assert.equal(text.split(other).length - 1, 1, "each turn gets the other's Public Face exactly once");
+    assert(!text.includes(own), "and never its own");
+  }
+  await chats.patchMetadata(chat.id, { groupResponseOrder: "manual" });
+
+  // Turns written as the persona never get the block: impersonate (named or not) and a regenerated user message.
+  const userTurn = await chats.createMessage({ chatId: chat.id, role: "user", content: "Regenerate me." });
+  assert(userTurn);
+  for (const messages of [
+    (await generate(maukie.id, ["Public."], { impersonate: true }))[0]!,
+    (await generate(undefined, ["Public."], { impersonate: true }))[0]!,
+    await preview(maukie.id, { impersonate: true }),
+    (await generate(undefined, ["Rewritten."], { regenerateMessageId: userTurn.id }))[0]!,
+  ]) {
+    assert(!hasFacesBlock(messages), "persona-writing turns stay unchanged");
+  }
+
+  // Merged mode ignores a switch left on from Individual mode.
+  await chats.patchMetadata(chat.id, { groupChatMode: "merged" });
+  for (const messages of [(await generate(maukie.id))[0]!, await preview(maukie.id)]) {
+    assert(!hasFacesBlock(messages), "Merged mode gets no block");
+  }
+  await chats.patchMetadata(chat.id, { groupChatMode: "individual" });
+
+  // The "none" wrap format names each face, since it has no labels.
+  await presets.update(preset.id, { wrapFormat: "none" });
+  assert(JSON.stringify(await preview(maukie.id)).includes(`Pantalone: ${verbatimAppearance}`));
+  await presets.update(preset.id, { wrapFormat: "xml" });
+
+  // A cast with only blank Public Faces adds nothing, not an empty block.
+  for (const id of [pantalone.id, maukie.id]) await characters.update(id, { extensions: { publicFace: "" } });
+  for (const messages of [(await generate(maukie.id))[0]!, await preview(maukie.id)]) {
+    assert(!hasFacesBlock(messages), "no Public Faces, no block");
+  }
+  await chats.patchMetadata(chat.id, { groupPublicFacesEnabled: false, inactiveCharacterIds: [] });
 
   // Merged group and impersonation keep their existing stored-role placement.
   for (const [metadata, extra] of [

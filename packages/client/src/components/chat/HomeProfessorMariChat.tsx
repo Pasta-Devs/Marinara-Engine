@@ -148,6 +148,8 @@ import {
   mariFieldText,
 } from "../../lib/mari-editor-fields";
 import { rafThrottle } from "../../lib/raf-throttle";
+import { createMariDraftPersist, onlyInsertedInto } from "../../lib/mari-composer-draft";
+import { useStableCallback } from "../../hooks/use-stable-callback";
 import {
   cachedMariThread,
   keepUnchangedMessages,
@@ -227,7 +229,7 @@ import { MariChatsPanel } from "./mari/MariChatsPanel";
 import { MariComposer } from "./mari/MariComposer";
 import { MariQuestionCard } from "./mari/MariQuestionCard";
 import { MariTodoList } from "./mari/MariTodoList";
-import { MariTranscript } from "./mari/MariTranscript";
+import { MariTranscript, type MariTurnReviewEntry } from "./mari/MariTranscript";
 import { MariWindowHeader } from "./mari/MariWindowHeader";
 import { useMariSkillMemoryActions } from "./mari/use-mari-skill-memory-actions";
 import { useMariChatHistoryActions } from "./mari/use-mari-chat-history-actions";
@@ -285,6 +287,7 @@ let lastWorkspaceToolsIssue: string | null = null;
 
 /** A turn with nothing to review shares this value, so its memoized row skips the window's re-renders. */
 const NO_TURN_REVIEWS: MariTurnReviews = { changed: [], needsOk: [], records: new Set() };
+const NO_CHIPS: MariSuggestionChip[] = [];
 
 /** The newest page of her thread. The first load starts it beside the arrival routing, not after it. */
 function fetchMariThreadMessages(id: string, signal?: AbortSignal) {
@@ -371,16 +374,42 @@ export function HomeProfessorMariChat({
   // The Mari tab keeps its own unsent question: it never turns up pre-filled in the sheet you open from an
   // editor, which asks about something else (keyboard QC round 2, PN19).
   const draftKey = embeddedTab ? `${PROFESSOR_MARI_DRAFT_KEY}:tab` : PROFESSOR_MARI_DRAFT_KEY;
-  const draft = useChatStore((state) => state.inputDrafts.get(draftKey) ?? "");
-  const setInputDraft = useChatStore((state) => state.setInputDraft);
+  // #9340: the draft is this component's state while you type and reaches the shared store in a pause
+  // (mari-composer-draft); the omnibar's handoff still writes the store, and that write replaces it here.
+  const draftPersist = useMemo(
+    () =>
+      createMariDraftPersist(useChatStore.getState().inputDrafts.get(draftKey) ?? "", (value) =>
+        useChatStore.getState().setInputDraft(draftKey, value),
+      ),
+    [draftKey],
+  );
+  const [draft, setDraftState] = useState(() => draftPersist.current());
   const enterToSend = useUIStore((state) => state.enterToSendProfessorMari);
   const setDraft = useCallback(
     (next: string | ((current: string) => string)) => {
-      const current = useChatStore.getState().inputDrafts.get(draftKey) ?? "";
-      setInputDraft(draftKey, typeof next === "function" ? next(current) : next);
+      const value = typeof next === "function" ? next(draftPersist.current()) : next;
+      draftPersist.set(value);
+      setDraftState(value);
     },
-    [draftKey, setInputDraft],
+    [draftPersist],
   );
+  useEffect(() => {
+    const adopt = () => {
+      const outside = draftPersist.stored(useChatStore.getState().inputDrafts.get(draftKey) ?? "");
+      if (outside !== null) setDraftState(outside);
+    };
+    // A different draft key (the Mari tab vs the sheet) starts from that key's own draft.
+    setDraftState(draftPersist.current());
+    // Also a write made between the first render and this subscription.
+    adopt();
+    const unsubscribe = useChatStore.subscribe(adopt);
+    window.addEventListener("pagehide", draftPersist.flush);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("pagehide", draftPersist.flush);
+      draftPersist.flush();
+    };
+  }, [draftKey, draftPersist]);
   // Ghost-text completion for the composer: the user's own names first, because
   // "tell me about cel|" almost always means one of their characters.
   const completionCharacters = useCharacterListRows();
@@ -692,18 +721,20 @@ export function HomeProfessorMariChat({
 
   // R11: grow without a jump. Measure at `auto`, put the old height back and set the new one, so the CSS
   // height transition runs; the cap is the field's max-height (8 lines, 6 on touch, in globals.css).
-  const resizeComposer = useCallback((textarea: HTMLTextAreaElement | null) => {
-    if (!textarea) return;
+  // Returns whether the text is taller than the cap.
+  const resizeComposer = useCallback((textarea: HTMLTextAreaElement) => {
     const from = textarea.offsetHeight;
     const scrollTop = textarea.scrollTop;
     textarea.style.height = "auto";
     const cap = Number.parseFloat(getComputedStyle(textarea).maxHeight);
     const to = Number.isFinite(cap) ? Math.min(textarea.scrollHeight, cap) : textarea.scrollHeight;
+    const capped = textarea.scrollHeight > to;
     textarea.style.height = `${from}px`;
     void textarea.offsetHeight;
     textarea.style.height = `${to}px`;
     textarea.scrollTop = scrollTop;
     textarea.toggleAttribute("data-scrolled", textarea.scrollTop >= 1);
+    return capped;
   }, []);
 
   const focusComposer = useCallback(() => {
@@ -729,10 +760,35 @@ export function HomeProfessorMariChat({
     if (controlledChatWindowOpen && !window.matchMedia("(pointer: coarse)").matches) focusComposer();
   }, [controlledChatWindowOpen, focusComposer]);
 
+  // #9340: at most one resize a frame. Typed or pasted text measures (style writes, three layouts) only once it
+  // overflows the field, and not at all at the cap, where the field only scrolls; any other edit may need fewer lines.
+  const composerSizedRef = useRef<{ field: HTMLTextAreaElement; value: string; capped: boolean } | null>(null);
+  const composerResizeFrameRef = useRef(0);
   useLayoutEffect(() => {
-    resizeComposer(embeddedTextareaRef.current);
-    resizeComposer(floatingTextareaRef.current);
+    if (composerResizeFrameRef.current) return;
+    composerResizeFrameRef.current = window.requestAnimationFrame(() => {
+      composerResizeFrameRef.current = 0;
+      const textarea = floatingTextareaRef.current;
+      if (!textarea) return;
+      const sized = composerSizedRef.current;
+      if (
+        sized?.field === textarea &&
+        onlyInsertedInto(sized.value, textarea.value) &&
+        (sized.capped || textarea.scrollHeight <= textarea.clientHeight + 1)
+      ) {
+        sized.value = textarea.value;
+        return;
+      }
+      composerSizedRef.current = { field: textarea, value: textarea.value, capped: resizeComposer(textarea) };
+    });
   }, [draft, resizeComposer]);
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(composerResizeFrameRef.current);
+      composerResizeFrameRef.current = 0;
+    },
+    [],
+  );
 
   const hasActiveGeneration = useChatStore((state) => (chatId ? state.abortControllers.has(chatId) : false));
   const reduceMotion = useReducedMotion();
@@ -825,15 +881,21 @@ export function HomeProfessorMariChat({
     lastLoadedMessage?.role === "assistant" &&
     lastLoadedMessageExtra?.mariDeferredMutations === true;
   // Slice 70: the chips her last answer offered are saved on it, so a reload keeps them.
-  const savedChips =
-    chatId !== null && loadedMessagesChatId === chatId && !isBusy && lastLoadedMessage?.role === "assistant"
-      ? sanitizeMariSuggestionChips(lastLoadedMessageExtra?.mariSuggestions, { maxChips: 6 })
-      : [];
+  const savedChips = useMemo(
+    () =>
+      chatId !== null && loadedMessagesChatId === chatId && !isBusy && lastLoadedMessage?.role === "assistant"
+        ? sanitizeMariSuggestionChips(lastLoadedMessageExtra?.mariSuggestions, { maxChips: 6 })
+        : [],
+    [chatId, isBusy, lastLoadedMessage?.role, lastLoadedMessageExtra, loadedMessagesChatId],
+  );
   // The card her last answer ended on. Any later message of yours moves the last row on, which answers it.
-  const pendingQuestions =
-    chatId !== null && loadedMessagesChatId === chatId && lastLoadedMessage?.role === "assistant"
-      ? sanitizeMariQuestions(lastLoadedMessageExtra?.mariQuestions)
-      : [];
+  const pendingQuestions = useMemo(
+    () =>
+      chatId !== null && loadedMessagesChatId === chatId && lastLoadedMessage?.role === "assistant"
+        ? sanitizeMariQuestions(lastLoadedMessageExtra?.mariQuestions)
+        : [],
+    [chatId, lastLoadedMessage?.role, lastLoadedMessageExtra, loadedMessagesChatId],
+  );
   // Her to-do list: this run's live one, else the run status's (a reloaded page, a late window), else the newest saved row.
   const serverTodos = serverRunningHere ? serverRun?.todos : undefined;
   const shownTodos = useMemo(
@@ -845,11 +907,11 @@ export function HomeProfessorMariChat({
       ),
     [chatId, loadedMessagesChatId, mariTodos, mariTodosChatId, messages, serverTodos],
   );
-  const storeChipsForChat = (mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips).map((chip) =>
-    withOpenableChatAction(chip, referenceChats.data),
-  );
-  const visibleSuggestionChips =
-    pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
+  const visibleSuggestionChips = useMemo(() => {
+    const storeChipsForChat = (mariChipsChatId === chatId && mariChips.length > 0 ? mariChips : savedChips).map(
+      (chip) => withOpenableChatAction(chip, referenceChats.data),
+    );
+    return pendingDeferredMutations && !storeChipsForChat.some((chip) => chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id)
       ? withHeldChangeDeclineChip([
           MARI_AUTHORIZATION_ACCEPT_CHIP,
           ...(professorMariSuggestionsEnabled ? storeChipsForChat : []),
@@ -863,6 +925,16 @@ export function HomeProfessorMariChat({
           : professorMariSuggestionsEnabled && starterSuggestionsAvailable
             ? MARI_STARTER_CHIPS
             : [];
+  }, [
+    chatId,
+    mariChips,
+    mariChipsChatId,
+    pendingDeferredMutations,
+    professorMariSuggestionsEnabled,
+    referenceChats.data,
+    savedChips,
+    starterSuggestionsAvailable,
+  ]);
   const selectedSkill = useMemo(
     () => skills.find((skill) => skill.id === selectedSkillId) ?? null,
     [selectedSkillId, skills],
@@ -1773,13 +1845,18 @@ export function HomeProfessorMariChat({
   // or when the stream died before it could say so). She stays red until Retry, another model, a new
   // message or Dismiss; there is no timer.
   const savedRunError = latestMessage ? getMessageRunError(latestMessage) : null;
-  const activeRunError = isBusy
-    ? null
-    : recovery
-      ? { kind: recovery.kind, detail: recovery.detail }
-      : savedRunError
-        ? { kind: classifyProfessorMariFailure(new Error(savedRunError.message)), detail: savedRunError.message }
-        : null;
+  const savedRunErrorMessage = savedRunError?.message;
+  const activeRunError = useMemo(
+    () =>
+      isBusy
+        ? null
+        : recovery
+          ? { kind: recovery.kind, detail: recovery.detail }
+          : savedRunErrorMessage !== undefined
+            ? { kind: classifyProfessorMariFailure(new Error(savedRunErrorMessage)), detail: savedRunErrorMessage }
+            : null,
+    [isBusy, recovery, savedRunErrorMessage],
+  );
   const latestActionResults = useMemo(
     () => (latestMessage ? getMessageWorkspaceActionResults(latestMessage) : []),
     [latestMessage],
@@ -1944,7 +2021,10 @@ export function HomeProfessorMariChat({
   const activeTurnStartIndex = lastUserMessageId
     ? displayMessages.findIndex((message) => message.id === lastUserMessageId)
     : displayMessages.length;
-  const transcriptHeadMessages = displayMessages.slice(0, activeTurnStartIndex);
+  const transcriptHeadMessages = useMemo(
+    () => displayMessages.slice(0, activeTurnStartIndex),
+    [activeTurnStartIndex, displayMessages],
+  );
   // Her history draws its latest turns first, with Show older for the rest: every visit to her tab built
   // the whole history, about 1.1 s in Safari on the tablet layout with 80 messages (Nov 15).
   const [headWindow, setHeadWindow] = useState(MARI_HEAD_WINDOW);
@@ -1964,7 +2044,10 @@ export function HomeProfessorMariChat({
     olderAnchorRef.current = null;
     if (keep !== null && node) node.scrollTop = node.scrollHeight - keep;
   }, [headWindow]);
-  const activeTurnMessages = displayMessages.slice(activeTurnStartIndex);
+  const activeTurnMessages = useMemo(
+    () => displayMessages.slice(activeTurnStartIndex),
+    [activeTurnStartIndex, displayMessages],
+  );
   const showConnectionFirstHint = shouldShowProfessorMariConnectionHint({
     chatId,
     loadedMessagesChatId,
@@ -2235,7 +2318,7 @@ export function HomeProfessorMariChat({
   }, [chatHistoryOpen, clearMariChips, loadChatHistory, qc, setDraft, startMariThread, localizeUi]);
 
   // A question card replaces chips: tapping one would send past the question.
-  const chipRowChips = pendingQuestions.length > 0 ? [] : visibleSuggestionChips;
+  const chipRowChips = pendingQuestions.length > 0 ? NO_CHIPS : visibleSuggestionChips;
   // #5820: the Accept action for held edits is NOT a suggestion. Captioning
   // the row "Suggestions only" told users the one control that applies Mari's
   // pending changes was optional flavour text, so they concluded she had
@@ -2878,6 +2961,8 @@ export function HomeProfessorMariChat({
       void refreshWorkspaceStatus().catch(() => undefined);
     }
   };
+  // #9340: stable, for the memoized transcript's cards; it runs the newest handleSubmit.
+  const handleSubmitEvent = useStableCallback(handleSubmit);
 
   const pendingMessages = workspaceStatus?.pendingMessagesChatId === chatId ? workspaceStatus?.pendingMessages : null;
   const removePendingMessage = async (id: string) => {
@@ -2981,28 +3066,30 @@ export function HomeProfessorMariChat({
    * N4: a Mari card sends at once; `draft` (Shift, or a long press on touch) puts it in the composer
    * instead. `context` replaces the handoff for that one card (N6: an arrival Fix card's error).
    */
-  const handleSuggestionSelect = (chip: MariSuggestionChip, draft = false, context?: ProfessorMariAskContext) => {
-    if (chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id || chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id) {
-      void handleSubmit(chip.prompt);
-      keepKeyboardInWindow();
-      return;
-    }
-    if (chip.action) {
-      runSuggestionAction(chip.action);
-      return;
-    }
-    if (!draft) {
-      void handleSubmit(chip.prompt, undefined, context);
-      return;
-    }
-    if (context) setHandoffContext(context);
-    setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
-    focusComposer();
-  };
+  const handleSuggestionSelect = useStableCallback(
+    (chip: MariSuggestionChip, draft = false, context?: ProfessorMariAskContext) => {
+      if (chip.id === MARI_AUTHORIZATION_ACCEPT_CHIP.id || chip.id === MARI_AUTHORIZATION_DECLINE_CHIP.id) {
+        void handleSubmit(chip.prompt);
+        keepKeyboardInWindow();
+        return;
+      }
+      if (chip.action) {
+        runSuggestionAction(chip.action);
+        return;
+      }
+      if (!draft) {
+        void handleSubmit(chip.prompt, undefined, context);
+        return;
+      }
+      if (context) setHandoffContext(context);
+      setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
+      focusComposer();
+    },
+  );
 
   // R14: Retry sends the failed turn's message again - from this session, or from the saved turn after a
   // reload - reusing your message when the server already saved it.
-  const retryRun = () => {
+  const retryRun = useStableCallback(() => {
     const target = recovery ?? (savedRunError ? retryOf(lastUserMessage) : null);
     if (!target?.text) return;
     setHandoffContext(target.context);
@@ -3012,7 +3099,7 @@ export function HomeProfessorMariChat({
       return;
     }
     void handleSubmit(target.text, { ...target, reuseSavedMessage: true });
-  };
+  });
   const retryRunEvent = useEffectEvent(retryRun);
   // "Retry with another model" opens the composer's own connection menu. The retry waits for the menu to close,
   // so choosing a connection leaves room to pick its model; it runs only if the connection or model changed.
@@ -3020,18 +3107,18 @@ export function HomeProfessorMariChat({
   const effectiveModelKey = effectiveConnection
     ? `${effectiveConnection.id}\u0000${effectiveConnection.model ?? ""}`
     : "";
-  const retryWithAnotherModel = () => {
+  const retryWithAnotherModel = useStableCallback(() => {
     setRetryAfterPickFrom(effectiveModelKey);
     setPermissionsMenuOpen(false);
     setConnectionMenuOpen(true);
-  };
+  });
   useEffect(() => {
     if (retryAfterPickFrom === null || connectionMenuOpen) return;
     setRetryAfterPickFrom(null);
     if (effectiveModelKey && effectiveModelKey !== retryAfterPickFrom) retryRunEvent();
   }, [connectionMenuOpen, effectiveModelKey, retryAfterPickFrom]);
   // Dismiss answers the failure without a retry: the card folds to its quiet line and the red goes.
-  const dismissRunError = async () => {
+  const dismissRunError = useStableCallback(async () => {
     setRecovery(null);
     const id = chatId;
     if (!id) return;
@@ -3053,7 +3140,7 @@ export function HomeProfessorMariChat({
     } finally {
       void qc.invalidateQueries({ queryKey: professorMariWorkspaceStatusKeys.all });
     }
-  };
+  });
 
   const [requestedReviewId, setRequestedReviewId] = useState<string | null>(null);
   // R9: a specific target (the per-approval omnibar row) wins; otherwise fall back to the
@@ -3137,7 +3224,7 @@ export function HomeProfessorMariChat({
   }, [chatWindowOpen, openPendingApprovals, pendingReviewId, pendingReviewRequest]);
 
   // "Turn on" for a memory switches only the memory. The applied review stays open, so Undo still works.
-  const turnOnMemory = async (memoryId: string) => {
+  const turnOnMemory = useStableCallback(async (memoryId: string) => {
     try {
       await api.put(`/professor-mari/workspace/instructions/${memoryId}`, { enabled: true });
       return true;
@@ -3146,9 +3233,9 @@ export function HomeProfessorMariChat({
       toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotUpdateThatMemory"));
       return false;
     }
-  };
+  });
 
-  const answerApproval = async (approval: MariWorkspacePendingApproval, keep: boolean) => {
+  const answerApproval = useStableCallback(async (approval: MariWorkspacePendingApproval, keep: boolean) => {
     // R10: the answered row stays where it was. It is listed before the call and shows as soon as the
     // review leaves the pending list (the same render), so the row never blinks out; a failure drops it.
     const entry = { chatId, approval, outcome: keep ? ("applied" as const) : ("discarded" as const) };
@@ -3159,76 +3246,108 @@ export function HomeProfessorMariChat({
       ? result?.outcome === "applied" || result?.history?.status === "kept"
       : result?.outcome === "discarded" || result?.history?.status === "restored";
     if (!done) setResolvedPrompts((current) => current.filter((item) => item !== entry));
-  };
+  });
+  // #9340: what the transcript renders from here down is memoized on what it reads, and its handlers are stable,
+  // so a keystroke in the composer (the draft) does not re-render the transcript or any of its rows.
   // Slice 13: a review renders inside the turn that asked for it, not after the whole transcript, and
   // an answered install / file prompt folds to its line in the same place.
-  const reviewsByTurn = assignReviewsToTurns(
-    displayMessages,
-    [
-      ...visiblePendingChangeReviews.map((approval) => ({
-        requestedAt: approval.requestedAt,
-        approval,
-        outcome: null,
-      })),
-      ...(sending || workspaceTimelineActive ? [] : resolvedPrompts)
-        .filter(
-          (prompt) =>
-            prompt.chatId === chatId && !visiblePendingChangeReviews.some(({ id }) => id === prompt.approval.id),
-        )
-        .map(({ approval, outcome }) => ({ requestedAt: approval.requestedAt, approval, outcome })),
-    ].sort((a, b) => Date.parse(a.requestedAt) - Date.parse(b.requestedAt)),
+  const reviewsByTurn = useMemo(
+    () =>
+      assignReviewsToTurns(
+        displayMessages,
+        [
+          ...visiblePendingChangeReviews.map((approval) => ({
+            requestedAt: approval.requestedAt,
+            approval,
+            outcome: null,
+          })),
+          ...(sending || workspaceTimelineActive ? [] : resolvedPrompts)
+            .filter(
+              (prompt) =>
+                prompt.chatId === chatId && !visiblePendingChangeReviews.some(({ id }) => id === prompt.approval.id),
+            )
+            .map(({ approval, outcome }) => ({ requestedAt: approval.requestedAt, approval, outcome })),
+        ].sort((a, b) => Date.parse(a.requestedAt) - Date.parse(b.requestedAt)),
+      ),
+    [chatId, displayMessages, resolvedPrompts, sending, visiblePendingChangeReviews, workspaceTimelineActive],
   );
-  const renderTurnPrompt = ({ approval, outcome }: (typeof reviewsByTurn.unassigned)[number]) =>
-    outcome ? (
-      <ResolvedPromptLine key={`resolved:${approval.id}`} approval={approval} outcome={outcome} />
-    ) : (
-      <WorkspaceApprovalCard
-        key={approval.id}
-        approval={approval}
-        busy={approvalBusyId === approval.id}
-        disabled={approvalBusyId !== null}
-        highlighted={highlightedReviewId === approval.id}
-        onKeep={() => void answerApproval(approval, true)}
-        onTurnOn={turnOnMemory}
-        onRestore={() => void answerApproval(approval, false)}
-        onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
-        onRenderPrompt={renderWorkspacePrompt}
-      />
-    );
+  // R9: a brief highlight on a review the jump below reached (declared here: the review cards read it).
+  const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
+  const renderTurnPrompt = useCallback(
+    ({ approval, outcome }: MariTurnReviewEntry) =>
+      outcome ? (
+        <ResolvedPromptLine key={`resolved:${approval.id}`} approval={approval} outcome={outcome} />
+      ) : (
+        <WorkspaceApprovalCard
+          key={approval.id}
+          approval={approval}
+          busy={approvalBusyId === approval.id}
+          disabled={approvalBusyId !== null}
+          highlighted={highlightedReviewId === approval.id}
+          onKeep={() => void answerApproval(approval, true)}
+          onTurnOn={turnOnMemory}
+          onRestore={() => void answerApproval(approval, false)}
+          onRejectRows={(id, rows) => rejectWorkspaceRows(id, rows)}
+          onRenderPrompt={renderWorkspacePrompt}
+        />
+      ),
+    [answerApproval, approvalBusyId, highlightedReviewId, rejectWorkspaceRows, renderWorkspacePrompt, turnOnMemory],
+  );
   const lastAssistantId = displayMessages.findLast((message) => message.role === "assistant")?.id ?? null;
   // The user's own Save answered the held change (`settle`): the card stays, saying so, with no Accept.
   const heldSettled =
     lastLoadedMessage?.role === "assistant" &&
     lastLoadedMessageExtra?.mariDeferredMutations === false &&
     Boolean(lastLoadedMessageExtra?.mariHeldChanges?.length);
-  const heldCardNode =
-    heldChangeCard || heldSettled ? (
-      <MariHeldChangeCard
-        key="held-change"
-        settled={!heldChangeCard}
-        held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
-        nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
-        disabled={isBusy}
-        onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
-        onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
-      />
-    ) : null;
-  const todoListNode = shownTodos ? (
-    <MariTodoList todos={shownTodos.todos} stale={shownTodos.stale} running={workspaceTimelineActive} />
-  ) : null;
-  const questionCardNode =
-    pendingQuestions.length > 0 ? (
-      <MariQuestionCard
-        key={`question:${lastLoadedMessage?.id}`}
-        questions={pendingQuestions}
-        disabled={isBusy || isReadingAttachments}
-        // The composer's draft and files are a message of their own, so they stay in the composer.
-        onSubmit={(answer) => void handleSubmit(answer, { attachments: [], context: handoffContext })}
-      />
-    ) : null;
-  const answerAll = async (entries: ReadonlyArray<{ approval: MariWorkspacePendingApproval }>, keep: boolean) => {
-    for (const { approval } of entries) await answerApproval(approval, keep);
-  };
+  const heldCardNode = useMemo(
+    () =>
+      heldChangeCard || heldSettled ? (
+        <MariHeldChangeCard
+          key="held-change"
+          settled={!heldChangeCard}
+          held={lastLoadedMessage?.role === "assistant" ? lastLoadedMessageExtra?.mariHeldChanges : null}
+          nameOf={(id) => characterPreviewById.get(id)?.name ?? lorebookPreviewById.get(id)?.name}
+          disabled={isBusy}
+          onAccept={() => handleSuggestionSelect(MARI_AUTHORIZATION_ACCEPT_CHIP)}
+          onDecline={() => handleSuggestionSelect(MARI_AUTHORIZATION_DECLINE_CHIP)}
+        />
+      ) : null,
+    [
+      characterPreviewById,
+      handleSuggestionSelect,
+      heldChangeCard,
+      heldSettled,
+      isBusy,
+      lastLoadedMessage?.role,
+      lastLoadedMessageExtra?.mariHeldChanges,
+      lorebookPreviewById,
+    ],
+  );
+  const todoListNode = useMemo(
+    () =>
+      shownTodos ? (
+        <MariTodoList todos={shownTodos.todos} stale={shownTodos.stale} running={workspaceTimelineActive} />
+      ) : null,
+    [shownTodos, workspaceTimelineActive],
+  );
+  const questionCardNode = useMemo(
+    () =>
+      pendingQuestions.length > 0 ? (
+        <MariQuestionCard
+          key={`question:${lastLoadedMessage?.id}`}
+          questions={pendingQuestions}
+          disabled={isBusy || isReadingAttachments}
+          // The composer's draft and files are a message of their own, so they stay in the composer.
+          onSubmit={(answer) => void handleSubmitEvent(answer, { attachments: [], context: handoffContext })}
+        />
+      ) : null,
+    [handleSubmitEvent, handoffContext, isBusy, isReadingAttachments, lastLoadedMessage?.id, pendingQuestions],
+  );
+  const answerAll = useStableCallback(
+    async (entries: ReadonlyArray<{ approval: MariWorkspacePendingApproval }>, keep: boolean) => {
+      for (const { approval } of entries) await answerApproval(approval, keep);
+    },
+  );
 
   // Slice 5: her change to a character also shows in the editor's fields. The field's Keep and
   // Not this one send the same replies as her card; Undo answers the same reviews as her receipt.
@@ -3327,184 +3446,95 @@ export function HomeProfessorMariChat({
   // M5a / slice 71 (F1): applied changes and answered prompts are "what changed"; everything still waiting
   // - a delete too, whose rows stay hidden until you choose - needs you. The deletes of one turn are one card.
   // Slice 74: a change her message has a receipt for shows as that receipt, which answers its reviews.
-  const receiptControls: MariReceiptControls = {
-    // All of them, also while a run is busy: a receipt must not read "Undo closed" mid-run.
-    pending: new Map(pendingChangeReviews.map((approval) => [approval.id, approval])),
-    answered: new Map(
-      resolvedPrompts
-        .filter((prompt) => prompt.chatId === chatId)
-        .map(({ approval, outcome }) => [approval.id, outcome === "applied" ? "kept" : "undone"]),
-    ),
-    busy: approvalBusyId !== null,
-    // Read when the receipt renders: the highlight state is declared further down this component.
-    isHighlighted: (id) => highlightedReviewId === id,
-    onAnswer: (approvals, keep) =>
-      void answerAll(
-        approvals.map((approval) => ({ approval })),
-        keep,
+  const receiptControls = useMemo<MariReceiptControls>(
+    () => ({
+      // All of them, also while a run is busy: a receipt must not read "Undo closed" mid-run.
+      pending: new Map(pendingChangeReviews.map((approval) => [approval.id, approval])),
+      answered: new Map(
+        resolvedPrompts
+          .filter((prompt) => prompt.chatId === chatId)
+          .map(({ approval, outcome }) => [approval.id, outcome === "applied" ? "kept" : "undone"]),
       ),
-    // Only a database review has a raw view; an install approval has none.
-    onRetry: () => void handleSubmit("try again"),
-    renderRaw: (approval) =>
-      "diffPreview" in approval ? <RawDetails approval={approval} open onToggle={() => undefined} /> : null,
-  };
-  const renderTurnReviews = (messageId: string): MariTurnReviews => {
-    const message = displayMessages.find((item) => item.id === messageId);
-    const actionResults = message ? getMessageWorkspaceActionResults(message) : [];
-    const covered = new Set(actionResults.flatMap(mariReceiptReviewIds));
-    const entries = (reviewsByTurn.byMessageId.get(messageId) ?? []).filter(
-      ({ approval }) =>
-        !(approval.kind === "applied_review" && covered.has(approval.id) && !isMariReviewWaiting(approval)),
-    );
-    const turnCards = messageId === lastAssistantId ? [heldCardNode, questionCardNode].filter(Boolean) : [];
-    if (entries.length === 0 && actionResults.length === 0 && turnCards.length === 0) {
-      return NO_TURN_REVIEWS;
-    }
-    const waiting = entries.filter(({ approval, outcome }) => !outcome && isMariReviewWaiting(approval));
-    const deletes = waiting.filter(
-      (entry): entry is typeof entry & { approval: MariDbPendingApproval } => entry.approval.kind === "applied_review",
-    );
-    const first = deletes[0]?.approval;
-    const deleteGroup =
-      first && deletes.length > 1 ? (
-        <div
-          key={`delete-group:${first.id}`}
-          id={`mari-workspace-review-${first.id}`}
-          data-review-id={first.id}
-          className={cn("mari-inline-review", highlightedReviewId === first.id && "mari-inline-review--jump")}
-        >
-          <DeleteReviewCard
-            approvals={deletes.map(({ approval }) => approval)}
-            busy={deletes.some(({ approval }) => approvalBusyId === approval.id)}
-            disabled={approvalBusyId !== null}
-            onDelete={() => void answerAll(deletes, true)}
-            onPutBack={() => void answerAll(deletes, false)}
-          />
-        </div>
-      ) : null;
-    return {
-      changed: entries.filter((entry) => !waiting.includes(entry)).map(renderTurnPrompt),
-      needsOk: [
-        ...turnCards,
-        ...(deleteGroup ? [deleteGroup] : []),
-        ...waiting.filter((entry) => !deleteGroup || !deletes.includes(entry as never)).map(renderTurnPrompt),
-      ],
-      records: reviewRecordKeys(entries.map(({ approval }) => approval)),
-      receipt: receiptControls,
-    };
-  };
-  // M9 / R10: she arrives knowing the screen she was opened from: her sprite and one line with its facts,
-  // then ONE group - the things on that screen, then what to do. Nothing is sent until a row is picked
-  // or you type (R22); the composer's chips say what would go.
-  const renderArrival = (
-    data: MariArrival,
-    component: string,
-    ref?: RefObject<HTMLDivElement | null>,
-    choice?: ReactNode,
-  ) => {
-    const strongAt = data.strong ? data.line.indexOf(data.strong) : -1;
-    return (
-      <div ref={ref} className="mari-arrival" data-component={component}>
-        <MariStorySprite state="idle" />
-        <div className="mari-arrival__copy mari-arrival-content">
-          <p className="mari-arrival__line">
-            {data.strong && strongAt >= 0 ? (
-              <>
-                {data.line.slice(0, strongAt)}
-                <b>{data.strong}</b>
-                {data.line.slice(strongAt + data.strong.length)}
-              </>
-            ) : (
-              data.line
-            )}
-          </p>
-          {data.meta.length > 0 ? <p className="mari-arrival__meta">{data.meta.join(" · ")}</p> : null}
-          {choice}
-        </div>
-        <MariList className="mari-arrival__group mari-arrival-content" data-cards="arrival">
-          <MariReferencedResources
-            bare
-            resources={data.refs}
-            characterPreviews={characterPreviewById}
-            lorebookPreviews={lorebookPreviewById}
-            onOpen={openReferencedResource}
-            skipName={data.strong}
-          />
-          <MariNextStepCards
-            bare
-            chips={data.cards}
-            onSelect={(card, draft) =>
-              card.action?.kind === "find-setting" ||
-              card.action?.kind === "undo-setting" ||
-              card.action?.kind === "add-connection"
-                ? onArrivalAction?.(card.action)
-                : handleSuggestionSelect(
-                    card as MariSuggestionChip,
-                    draft,
-                    (card.fix && arrivalFixContext) || undefined,
-                  )
-            }
-            disabled={isBusy}
-          />
-        </MariList>
-      </div>
-    );
-  };
-
-  useEffect(() => {
-    if (visiblePendingChangeReviewKey && visiblePendingChangeReviewKey !== lastAutoOpenedApprovalKeyRef.current) {
-      lastAutoOpenedApprovalKeyRef.current = visiblePendingChangeReviewKey;
-      setRequestedReviewId(visiblePendingChangeReviews[0]?.id ?? null);
-      setWorkspaceDestination("chat");
-    }
-  }, [visiblePendingChangeReviewKey, visiblePendingChangeReviews]);
-
-  // R14: the newest unresolved failure is one card at the end of the turn: what broke, Retry, Retry with
-  // another model, and Dismiss. Older failures are one quiet "Failed · reason" line (runFailedLine).
-  const renderRunErrorCard = (error: { kind?: ProfessorMariRecovery["kind"]; detail?: string }, retry: boolean) => (
-    <div className="mari-run-error" role="alert" data-component="HomeProfessorMariChat.RunError">
-      <p className="mari-run-error__text">
-        <AlertTriangle size="0.8rem" aria-hidden="true" />
-        <span>
-          {error.kind ? (
-            <span className="mari-run-error__label">
-              {localizeUi(`ui.chat.homeprofessormarichat.recovery.${error.kind}`)}
-            </span>
-          ) : null}
-          {error.detail ? <span className="mari-note__detail"> {error.detail}</span> : null}
-        </span>
-      </p>
-      <div className="mari-run-error__actions">
-        {retry ? (
-          <>
-            <button type="button" onClick={retryRun} className="mari-btn">
-              {localizeUi("ui.chat.homeprofessormarichat.retry")}
-            </button>
-            <button type="button" onClick={retryWithAnotherModel} className="mari-btn">
-              {localizeUi("ui.chat.homeprofessormarichat.retryWithAnotherModel")}
-            </button>
-          </>
-        ) : null}
-        <button type="button" onClick={() => void dismissRunError()} className="mari-btn mari-run-error__dismiss">
-          {localizeUi("ui.chat.homeprofessormarichat.dismissError")}
-        </button>
-      </div>
-    </div>
+      busy: approvalBusyId !== null,
+      isHighlighted: (id) => highlightedReviewId === id,
+      onAnswer: (approvals, keep) =>
+        void answerAll(
+          approvals.map((approval) => ({ approval })),
+          keep,
+        ),
+      // Only a database review has a raw view; an install approval has none.
+      onRetry: () => void handleSubmitEvent("try again"),
+      renderRaw: (approval) =>
+        "diffPreview" in approval ? <RawDetails approval={approval} open onToggle={() => undefined} /> : null,
+    }),
+    [answerAll, approvalBusyId, chatId, handleSubmitEvent, highlightedReviewId, pendingChangeReviews, resolvedPrompts],
   );
-  const runFailedLine = (message: Message) => {
-    const error = getMessageRunError(message, { includeDismissed: true });
-    // The newest turn's failure is the card while it is unresolved, and nothing while she retries it.
-    if (!error || (message.id === latestMessage?.id && (activeRunError || isBusy))) return null;
-    return (
-      <p className="mari-run-failed-line" title={error.message}>
-        <AlertTriangle size="0.75rem" aria-hidden="true" />
-        <span className="min-w-0 truncate">
-          {localizeUi("ui.chat.homeprofessormarichat.runFailedLine", { reason: error.message })}
-        </span>
-      </p>
-    );
-  };
-
+  // A turn whose changes have only their receipt (most of them) shares this value, so its memoized row stays put.
+  const receiptOnlyReviews = useMemo<MariTurnReviews>(
+    () => ({ changed: [], needsOk: [], records: new Set(), receipt: receiptControls }),
+    [receiptControls],
+  );
+  const renderTurnReviews = useCallback(
+    (messageId: string): MariTurnReviews => {
+      const message = displayMessages.find((item) => item.id === messageId);
+      const actionResults = message ? getMessageWorkspaceActionResults(message) : [];
+      const covered = new Set(actionResults.flatMap(mariReceiptReviewIds));
+      const entries = (reviewsByTurn.byMessageId.get(messageId) ?? []).filter(
+        ({ approval }) =>
+          !(approval.kind === "applied_review" && covered.has(approval.id) && !isMariReviewWaiting(approval)),
+      );
+      const turnCards = messageId === lastAssistantId ? [heldCardNode, questionCardNode].filter(Boolean) : [];
+      if (entries.length === 0 && turnCards.length === 0) {
+        return actionResults.length === 0 ? NO_TURN_REVIEWS : receiptOnlyReviews;
+      }
+      const waiting = entries.filter(({ approval, outcome }) => !outcome && isMariReviewWaiting(approval));
+      const deletes = waiting.filter(
+        (entry): entry is typeof entry & { approval: MariDbPendingApproval } =>
+          entry.approval.kind === "applied_review",
+      );
+      const first = deletes[0]?.approval;
+      const deleteGroup =
+        first && deletes.length > 1 ? (
+          <div
+            key={`delete-group:${first.id}`}
+            id={`mari-workspace-review-${first.id}`}
+            data-review-id={first.id}
+            className={cn("mari-inline-review", highlightedReviewId === first.id && "mari-inline-review--jump")}
+          >
+            <DeleteReviewCard
+              approvals={deletes.map(({ approval }) => approval)}
+              busy={deletes.some(({ approval }) => approvalBusyId === approval.id)}
+              disabled={approvalBusyId !== null}
+              onDelete={() => void answerAll(deletes, true)}
+              onPutBack={() => void answerAll(deletes, false)}
+            />
+          </div>
+        ) : null;
+      return {
+        changed: entries.filter((entry) => !waiting.includes(entry)).map(renderTurnPrompt),
+        needsOk: [
+          ...turnCards,
+          ...(deleteGroup ? [deleteGroup] : []),
+          ...waiting.filter((entry) => !deleteGroup || !deletes.includes(entry as never)).map(renderTurnPrompt),
+        ],
+        records: reviewRecordKeys(entries.map(({ approval }) => approval)),
+        receipt: receiptControls,
+      };
+    },
+    [
+      answerAll,
+      approvalBusyId,
+      displayMessages,
+      heldCardNode,
+      highlightedReviewId,
+      lastAssistantId,
+      questionCardNode,
+      receiptControls,
+      receiptOnlyReviews,
+      renderTurnPrompt,
+      reviewsByTurn,
+    ],
+  );
   const openActionResult = useCallback(
     async (result: MariWorkspaceActionResult) => {
       await invalidateActionResult(result).catch((error) => {
@@ -3534,11 +3564,134 @@ export function HomeProfessorMariChat({
     [closeChatWindow, omnibarMode],
   );
 
-  // R9: a brief highlight so a review that was already on screen (not just-mounted, which
-  // already gets the mari-review-rise entrance) still visibly answers the click. Driven by
-  // state rather than a direct DOM class mutation, so a React re-render (the refresh below
+  // M9 / R10: she arrives knowing the screen she was opened from: her sprite and one line with its facts,
+  // then ONE group - the things on that screen, then what to do. Nothing is sent until a row is picked
+  // or you type (R22); the composer's chips say what would go.
+  const renderArrival = useCallback(
+    (data: MariArrival, component: string, ref?: RefObject<HTMLDivElement | null>, choice?: ReactNode) => {
+      const strongAt = data.strong ? data.line.indexOf(data.strong) : -1;
+      return (
+        <div ref={ref} className="mari-arrival" data-component={component}>
+          <MariStorySprite state="idle" />
+          <div className="mari-arrival__copy mari-arrival-content">
+            <p className="mari-arrival__line">
+              {data.strong && strongAt >= 0 ? (
+                <>
+                  {data.line.slice(0, strongAt)}
+                  <b>{data.strong}</b>
+                  {data.line.slice(strongAt + data.strong.length)}
+                </>
+              ) : (
+                data.line
+              )}
+            </p>
+            {data.meta.length > 0 ? <p className="mari-arrival__meta">{data.meta.join(" · ")}</p> : null}
+            {choice}
+          </div>
+          <MariList className="mari-arrival__group mari-arrival-content" data-cards="arrival">
+            <MariReferencedResources
+              bare
+              resources={data.refs}
+              characterPreviews={characterPreviewById}
+              lorebookPreviews={lorebookPreviewById}
+              onOpen={openReferencedResource}
+              skipName={data.strong}
+            />
+            <MariNextStepCards
+              bare
+              chips={data.cards}
+              onSelect={(card, draft) =>
+                card.action?.kind === "find-setting" ||
+                card.action?.kind === "undo-setting" ||
+                card.action?.kind === "add-connection"
+                  ? onArrivalAction?.(card.action)
+                  : handleSuggestionSelect(
+                      card as MariSuggestionChip,
+                      draft,
+                      (card.fix && arrivalFixContext) || undefined,
+                    )
+              }
+              disabled={isBusy}
+            />
+          </MariList>
+        </div>
+      );
+    },
+    [
+      arrivalFixContext,
+      characterPreviewById,
+      handleSuggestionSelect,
+      isBusy,
+      lorebookPreviewById,
+      onArrivalAction,
+      openReferencedResource,
+    ],
+  );
+
+  useEffect(() => {
+    if (visiblePendingChangeReviewKey && visiblePendingChangeReviewKey !== lastAutoOpenedApprovalKeyRef.current) {
+      lastAutoOpenedApprovalKeyRef.current = visiblePendingChangeReviewKey;
+      setRequestedReviewId(visiblePendingChangeReviews[0]?.id ?? null);
+      setWorkspaceDestination("chat");
+    }
+  }, [visiblePendingChangeReviewKey, visiblePendingChangeReviews]);
+
+  // R14: the newest unresolved failure is one card at the end of the turn: what broke, Retry, Retry with
+  // another model, and Dismiss. Older failures are one quiet "Failed · reason" line (runFailedLine).
+  const renderRunErrorCard = useCallback(
+    (error: { kind?: ProfessorMariRecovery["kind"]; detail?: string }, retry: boolean) => (
+      <div className="mari-run-error" role="alert" data-component="HomeProfessorMariChat.RunError">
+        <p className="mari-run-error__text">
+          <AlertTriangle size="0.8rem" aria-hidden="true" />
+          <span>
+            {error.kind ? (
+              <span className="mari-run-error__label">
+                {localizeUi(`ui.chat.homeprofessormarichat.recovery.${error.kind}`)}
+              </span>
+            ) : null}
+            {error.detail ? <span className="mari-note__detail"> {error.detail}</span> : null}
+          </span>
+        </p>
+        <div className="mari-run-error__actions">
+          {retry ? (
+            <>
+              <button type="button" onClick={retryRun} className="mari-btn">
+                {localizeUi("ui.chat.homeprofessormarichat.retry")}
+              </button>
+              <button type="button" onClick={retryWithAnotherModel} className="mari-btn">
+                {localizeUi("ui.chat.homeprofessormarichat.retryWithAnotherModel")}
+              </button>
+            </>
+          ) : null}
+          <button type="button" onClick={() => void dismissRunError()} className="mari-btn mari-run-error__dismiss">
+            {localizeUi("ui.chat.homeprofessormarichat.dismissError")}
+          </button>
+        </div>
+      </div>
+    ),
+    [dismissRunError, localizeUi, retryRun, retryWithAnotherModel],
+  );
+  const runFailedLine = useCallback(
+    (message: Message) => {
+      const error = getMessageRunError(message, { includeDismissed: true });
+      // The newest turn's failure is the card while it is unresolved, and nothing while she retries it.
+      if (!error || (message.id === latestMessage?.id && (activeRunError || isBusy))) return null;
+      return (
+        <p className="mari-run-failed-line" title={error.message}>
+          <AlertTriangle size="0.75rem" aria-hidden="true" />
+          <span className="min-w-0 truncate">
+            {localizeUi("ui.chat.homeprofessormarichat.runFailedLine", { reason: error.message })}
+          </span>
+        </p>
+      );
+    },
+    [activeRunError, isBusy, latestMessage?.id, localizeUi],
+  );
+
+  // R9: a brief highlight (highlightedReviewId, declared with the review cards) so a review that was already
+  // on screen (not just-mounted, which already gets the mari-review-rise entrance) still visibly answers the
+  // click. Driven by state rather than a direct DOM class mutation, so a React re-render (the refresh below
   // triggers one) cannot silently wipe it before the user sees it.
-  const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
   useEffect(() => {
     if (workspaceDestination !== "chat" || !requestedReviewId) return;
     const targetId = requestedReviewId;
@@ -3581,101 +3734,138 @@ export function HomeProfessorMariChat({
   // before filing reports. One record only (latest round), read from status, never a model call. The
   // server also reads the record back to Mari as context, so asking her "why did you treat that as
   // permission?" gets an answer grounded in this same record - never a gate either way.
-  const renderGoal = (message: Message) => {
-    const understoodRequest =
-      message.role === "assistant" && workspaceStatus?.latestUnderstoodRequest?.messageId === message.id
-        ? workspaceStatus.latestUnderstoodRequest
-        : null;
-    // Slice 72: a goal line without her words ("No request phrase reported") told you nothing; no line then.
-    if (!understoodRequest?.text?.trim()) return null;
-    // UX-15: a goal that only repeats the Accept / Don't apply card action says nothing new.
-    const goalText = understoodRequest.text.trim();
-    if (goalText === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt || goalText === MARI_AUTHORIZATION_DECLINE_CHIP.prompt)
-      return null;
-    const expanded = expandedUnderstoodRequestMessageId === message.id;
-    const outcomeLabel = localizeUi(
-      understoodRequest.outcome === "held"
-        ? "ui.chat.homeprofessormarichat.heldForYourApproval"
-        : understoodRequest.outcome === "applied"
-          ? "ui.chat.homeprofessormarichat.actingOnOutcomeApplied"
-          : understoodRequest.outcome === "failed"
-            ? "ui.chat.homeprofessormarichat.actingOnOutcomeFailed"
-            : "ui.chat.homeprofessormarichat.actingOnOutcomeInterrupted",
-    );
-    return (
-      <button
-        type="button"
-        onClick={() => setExpandedUnderstoodRequestMessageId((current) => (current === message.id ? null : message.id))}
-        aria-expanded={expanded}
-        title={localizeUi(
-          expanded ? "ui.chat.homeprofessormarichat.actingOnCollapse" : "ui.chat.homeprofessormarichat.actingOnExpand",
-        )}
-        className="mari-goal"
-      >
-        <span className="mari-goal__kicker">{localizeUi("ui.chat.homeprofessormarichat.goal")}</span>
-        {/* break-words: the phrase is model-authored and routinely carries unbreakable tokens (paths, URLs)
-            that would otherwise force a horizontal scrollbar onto the whole transcript. */}
-        <span className={expanded ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}>
-          {localizeUi("ui.chat.homeprofessormarichat.goalQuote", { text: understoodRequest.text })}
-          {expanded && (
-            <span className="mt-0.5 block text-[0.625rem] opacity-80">
-              {understoodRequest.commands.join(", ")}
-              <span className="block">
-                {localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
-                  value1: localize(MARI_PERMISSIONS_MODE_LABELS[understoodRequest.permissionsMode].label),
-                  value2: outcomeLabel,
-                })}
-              </span>
-            </span>
+  const latestUnderstoodRequest = workspaceStatus?.latestUnderstoodRequest;
+  const renderGoal = useCallback(
+    (message: Message) => {
+      const understoodRequest =
+        message.role === "assistant" && latestUnderstoodRequest?.messageId === message.id
+          ? latestUnderstoodRequest
+          : null;
+      // Slice 72: a goal line without her words ("No request phrase reported") told you nothing; no line then.
+      if (!understoodRequest?.text?.trim()) return null;
+      // UX-15: a goal that only repeats the Accept / Don't apply card action says nothing new.
+      const goalText = understoodRequest.text.trim();
+      if (goalText === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt || goalText === MARI_AUTHORIZATION_DECLINE_CHIP.prompt)
+        return null;
+      const expanded = expandedUnderstoodRequestMessageId === message.id;
+      const outcomeLabel = localizeUi(
+        understoodRequest.outcome === "held"
+          ? "ui.chat.homeprofessormarichat.heldForYourApproval"
+          : understoodRequest.outcome === "applied"
+            ? "ui.chat.homeprofessormarichat.actingOnOutcomeApplied"
+            : understoodRequest.outcome === "failed"
+              ? "ui.chat.homeprofessormarichat.actingOnOutcomeFailed"
+              : "ui.chat.homeprofessormarichat.actingOnOutcomeInterrupted",
+      );
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            setExpandedUnderstoodRequestMessageId((current) => (current === message.id ? null : message.id))
+          }
+          aria-expanded={expanded}
+          title={localizeUi(
+            expanded
+              ? "ui.chat.homeprofessormarichat.actingOnCollapse"
+              : "ui.chat.homeprofessormarichat.actingOnExpand",
           )}
-        </span>
-      </button>
-    );
-  };
+          className="mari-goal"
+        >
+          <span className="mari-goal__kicker">{localizeUi("ui.chat.homeprofessormarichat.goal")}</span>
+          {/* break-words: the phrase is model-authored and routinely carries unbreakable tokens (paths, URLs)
+            that would otherwise force a horizontal scrollbar onto the whole transcript. */}
+          <span className={expanded ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}>
+            {localizeUi("ui.chat.homeprofessormarichat.goalQuote", { text: understoodRequest.text })}
+            {expanded && (
+              <span className="mt-0.5 block text-[0.625rem] opacity-80">
+                {understoodRequest.commands.join(", ")}
+                <span className="block">
+                  {localizeUi("ui.chat.homeprofessormarichat.actingOnModeOutcomeValue1Value2", {
+                    value1: localize(MARI_PERMISSIONS_MODE_LABELS[understoodRequest.permissionsMode].label),
+                    value2: outcomeLabel,
+                  })}
+                </span>
+              </span>
+            )}
+          </span>
+        </button>
+      );
+    },
+    [expandedUnderstoodRequestMessageId, latestUnderstoodRequest, localize, localizeUi],
+  );
 
   // R14 (item 7): a reply's run counts from your message before it.
-  const sentAtBefore = (message: Message) => {
-    const index = messages.findIndex((item) => item.id === message.id);
-    const sent = messages.slice(0, Math.max(0, index)).findLast((item) => item.role === "user");
-    return sent ? getMessageRunTime(sent, "mariRunStartedAt") || Date.parse(sent.createdAt) || null : null;
-  };
+  const sentAtBefore = useCallback(
+    (message: Message) => {
+      const index = messages.findIndex((item) => item.id === message.id);
+      const sent = messages.slice(0, Math.max(0, index)).findLast((item) => item.role === "user");
+      return sent ? getMessageRunTime(sent, "mariRunStartedAt") || Date.parse(sent.createdAt) || null : null;
+    },
+    [messages],
+  );
 
-  const renderDisplayMessage = (message: Message) => {
-    const canManageMessage = true;
-    const messageContext = getProfessorMariMessageContext(message);
-    const messageCharacter = resolveContextCharacter(messageContext, characterPreviewById, characterFallbackName);
-    const messageLorebook = resolveContextLorebook(messageContext, lorebookPreviewById, lorebookFallbackName);
-    return (
-      <div key={message.id}>
-        <CompactMariMessage
-          message={message}
-          thinking={message.role === "assistant" ? getMessageThinking(message) : null}
-          onDelete={canManageMessage && !isBusy ? handleDeleteMessage : undefined}
-          onEdit={canManageMessage && !isBusy ? handleEditMessage : undefined}
-          onEditAndResend={
-            canManageMessage && !isBusy && message.id === lastUserMessageId ? handleEditAndResend : undefined
-          }
-          onRegenerate={canManageMessage ? handleRegenerateMessage : undefined}
-          canRegenerate={canManageMessage && !isBusy && message.id === messages[messages.length - 1]?.id}
-          onRemoveAttachment={canManageMessage && !isBusy ? handleRemoveAttachment : undefined}
-          onImageReplaced={handleImageReplaced}
-          onOpenActionResult={openActionResult}
-          onOpenResource={openReferencedResource}
-          characterSubject={messageCharacter}
-          lorebookSubject={messageLorebook}
-          characterPreviews={characterPreviewById}
-          lorebookPreviews={lorebookPreviewById}
-          messageContext={messageContext}
-          restStory={message.id === latestMessage?.id ? latestTurnRestStory : null}
-          pullTarget={!appendedArrival}
-          reviews={renderTurnReviews(message.id)}
-          goal={renderGoal(message)}
-          runStartedAtMs={sentAtBefore(message)}
-        />
-        {runFailedLine(message)}
-      </div>
-    );
-  };
+  const renderDisplayMessage = useCallback(
+    (message: Message) => {
+      const canManageMessage = true;
+      const messageContext = getProfessorMariMessageContext(message);
+      const messageCharacter = resolveContextCharacter(messageContext, characterPreviewById, characterFallbackName);
+      const messageLorebook = resolveContextLorebook(messageContext, lorebookPreviewById, lorebookFallbackName);
+      return (
+        <div key={message.id}>
+          <CompactMariMessage
+            message={message}
+            thinking={message.role === "assistant" ? getMessageThinking(message) : null}
+            onDelete={canManageMessage && !isBusy ? handleDeleteMessage : undefined}
+            onEdit={canManageMessage && !isBusy ? handleEditMessage : undefined}
+            onEditAndResend={
+              canManageMessage && !isBusy && message.id === lastUserMessageId ? handleEditAndResend : undefined
+            }
+            onRegenerate={canManageMessage ? handleRegenerateMessage : undefined}
+            canRegenerate={canManageMessage && !isBusy && message.id === messages[messages.length - 1]?.id}
+            onRemoveAttachment={canManageMessage && !isBusy ? handleRemoveAttachment : undefined}
+            onImageReplaced={handleImageReplaced}
+            onOpenActionResult={openActionResult}
+            onOpenResource={openReferencedResource}
+            characterSubject={messageCharacter}
+            lorebookSubject={messageLorebook}
+            characterPreviews={characterPreviewById}
+            lorebookPreviews={lorebookPreviewById}
+            messageContext={messageContext}
+            restStory={message.id === latestMessage?.id ? latestTurnRestStory : null}
+            pullTarget={!appendedArrival}
+            reviews={renderTurnReviews(message.id)}
+            goal={renderGoal(message)}
+            runStartedAtMs={sentAtBefore(message)}
+          />
+          {runFailedLine(message)}
+        </div>
+      );
+    },
+    [
+      appendedArrival,
+      characterFallbackName,
+      characterPreviewById,
+      handleDeleteMessage,
+      handleEditAndResend,
+      handleEditMessage,
+      handleImageReplaced,
+      handleRegenerateMessage,
+      handleRemoveAttachment,
+      isBusy,
+      lastUserMessageId,
+      latestMessage?.id,
+      latestTurnRestStory,
+      lorebookFallbackName,
+      lorebookPreviewById,
+      messages,
+      openActionResult,
+      openReferencedResource,
+      renderGoal,
+      renderTurnReviews,
+      runFailedLine,
+      sentAtBefore,
+    ],
+  );
 
   // #5073: the chat-history picker + Context Viewer. createPortal to document.body, so they render
   // correctly from whichever composer (floating or docked) is active. Gated on a live chatId.

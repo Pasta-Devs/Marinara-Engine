@@ -1641,6 +1641,10 @@ export function normalizeCharacterActionData(input: Row): Row {
     extensions.appearance = out.appearance;
     delete out.appearance;
   }
+  const publicFace = out.publicFace ?? out.public_face;
+  if (typeof publicFace === "string") extensions.publicFace = publicFace;
+  delete out.publicFace;
+  delete out.public_face;
   const aboutMe = out.aboutMe ?? out.about_me ?? out["about-me"];
   if (typeof aboutMe === "string") extensions.aboutMe = aboutMe;
   delete out.aboutMe;
@@ -1823,6 +1827,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     scenario: firstString(data, ["scenario"]) ?? "",
     backstory: firstString(data, ["backstory"]) ?? "",
     appearance: firstString(data, ["appearance"]) ?? "",
+    publicFace: firstString(data, ["publicFace", "public_face"]) ?? "",
     cardFieldAlternatives: [],
     imageAppearanceEnabled:
       data.imageAppearanceEnabled === true ||
@@ -3176,6 +3181,7 @@ function assertCliCardInput(
     ["backstory", "backstory"],
     ["appearance", "appearance"],
     ["about-me", "aboutMe"],
+    ["public-face", "publicFace"],
     ["tags", "tags"],
   ] as const) {
     const val = flagString(flags, flagName);
@@ -3233,6 +3239,7 @@ function buildMinimalCharacterData(
     ["backstory", "backstory"],
     ["appearance", "appearance"],
     ["about-me", "aboutMe"],
+    ["public-face", "publicFace"],
   ];
   for (const [flagName, fieldName] of extMap) {
     const val = flagString(flags, flagName);
@@ -3509,6 +3516,8 @@ export class MariDbService {
               "creatorNotes",
               "backstory",
               "appearance",
+              "publicFace",
+              "public_face",
               "aboutMe",
               "about_me",
               "about-me",
@@ -3591,6 +3600,8 @@ export class MariDbService {
               "creatorNotes",
               "backstory",
               "appearance",
+              "publicFace",
+              "public_face",
               "aboutMe",
               "about_me",
               "about-me",
@@ -3609,7 +3620,7 @@ export class MariDbService {
           comment === (typeof existing.comment === "string" ? existing.comment : "")
         ) {
           throw new Error(
-            'character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
+            'character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, publicFace, tags, or comment (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         const name =
@@ -3814,6 +3825,8 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "publicFace",
+            "public_face",
             "imageAppearance",
             "image_appearance",
             "imageAppearanceEnabled",
@@ -3867,6 +3880,8 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "publicFace",
+            "public_face",
             "imageAppearance",
             "image_appearance",
             "imageAppearanceEnabled",
@@ -3897,6 +3912,7 @@ export class MariDbService {
         assignClearableStringField(patch, data, ["scenario"], "scenario");
         assignClearableStringField(patch, data, ["backstory"], "backstory");
         assignClearableStringField(patch, data, ["appearance"], "appearance");
+        assignClearableStringField(patch, data, ["publicFace", "public_face"], "publicFace");
         assignClearableStringField(patch, data, ["imageAppearance", "image_appearance"], "imageAppearance");
         if (data.imageAppearanceEnabled !== undefined || data.image_appearance_enabled !== undefined) {
           const flag = data.imageAppearanceEnabled ?? data.image_appearance_enabled;
@@ -7523,7 +7539,7 @@ export class MariDbService {
         const rawJson = await resolveJsonInput(flags, context.cwd);
         if (!name && !rawJson) {
           throw new Error(
-            "Usage: mari characters create --name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--apply]\n" +
+            "Usage: mari characters create --name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--public-face <text>] [--apply]\n" +
               "       or: mari characters create --json '<data_json>' [--json-file <path>] [--apply]",
           );
         }
@@ -7557,7 +7573,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+            "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
           );
         const existing = await this.getRawById(getMeta("characters"), id);
         if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
@@ -7663,7 +7679,7 @@ export class MariDbService {
         const name = flagString(flags, "name")?.trim();
         if (!name) {
           throw new Error(
-            "Usage: mari personas create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+            "Usage: mari personas create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
           );
         }
         const timestamp = now();
@@ -7682,6 +7698,7 @@ export class MariDbService {
             appearance: flagString(flags, "appearance"),
             convoDisplayName: flagString(flags, "convo-display-name"),
             aboutMe: flagString(flags, "about-me"),
+            publicFace: flagString(flags, "public-face"),
             convoBehavior: flagString(flags, "convo-behavior"),
           },
           id,
@@ -7703,7 +7720,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari personas update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+            "Usage: mari personas update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
           );
         const patch: Row = { updatedAt: now() };
         const fieldMap: Array<[string, string]> = [
@@ -7719,6 +7736,7 @@ export class MariDbService {
           ["phonetic-name", "phoneticName"],
           ["convo-display-name", "convoDisplayName"],
           ["about-me", "aboutMe"],
+          ["public-face", "publicFace"],
         ];
         for (const [flagName, fieldName] of fieldMap) {
           const val = flagString(flags, flagName);
@@ -7737,7 +7755,7 @@ export class MariDbService {
         if (convoBehaviorRaw !== undefined) patch.convoBehavior = normalizePersonaConvoBehavior(convoBehaviorRaw);
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "Provide at least one field to update (--name, --description, --personality, --scenario, --backstory, --appearance, --phonetic-name, --convo-display-name, --about-me, --convo-behavior, --tags, --comment, --creator, --creator-notes)",
+            "Provide at least one field to update (--name, --description, --personality, --scenario, --backstory, --appearance, --phonetic-name, --convo-display-name, --about-me, --public-face, --convo-behavior, --tags, --comment, --creator, --creator-notes)",
           );
         }
         const request: ParsedMutationRequest = {
@@ -11171,9 +11189,9 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--offset <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
-      "       --backstory, --appearance, and --about-me write to matching data.extensions fields",
-      "Write: update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+      "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
+      "       --backstory, --appearance, --about-me and --public-face write to matching data.extensions fields",
+      "Write: update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");
@@ -11185,8 +11203,8 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--offset <n>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
-      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+      "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");

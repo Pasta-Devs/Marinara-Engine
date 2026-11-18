@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { greetingBody, parseGreeting, parseGreetings } from "../../../packages/client/src/lib/character-greetings";
+import {
+  greetingBody,
+  parseGreeting,
+  parseGreetings,
+  setGreetingHeader,
+  splitGreetingHeader,
+} from "../../../packages/client/src/lib/character-greetings";
 
 // Tagged greeting: leading [..] groups are tags, the first line is the title.
 assert.deepEqual(parseGreeting("[Ep4][Drago][medium] Foot talk\nDrago asked about the new shoes."), {
@@ -79,3 +85,29 @@ assert.equal(greetingBody('**"Car wash"**\nCar wash\nThe soap is cold.'), "The s
 assert.equal(greetingBody('[Ep2] **"Suzie"**\nSuzie\nHi.'), "Hi.");
 assert.equal(greetingBody("(Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");
 assert.equal(greetingBody("[Ep2] (Rooftop)\nRooftop\nThe door sticks."), "The door sticks.");
+
+// Editor header fields: parts join back to the exact text, and a write keeps the author's form.
+for (const text of [
+  "[Ep2][hot] (Rooftop)\nThe door sticks.",
+  "  **Car wash**\n*Suzie waves.*",
+  "Plain one.",
+  "[a]\n\nBody",
+]) {
+  const header = splitGreetingHeader(text);
+  assert.equal(header.tagText + header.titleText + header.rest, text);
+}
+assert.deepEqual(splitGreetingHeader("[Ep2][hot] (Rooftop)\nThe door sticks.").tags, ["Ep2", "hot"]);
+assert.equal(splitGreetingHeader("[Ep2][hot] (Rooftop)\nThe door sticks.").title, "Rooftop");
+assert.equal(
+  setGreetingHeader("[Ep2][hot] (Rooftop)\nThe door sticks.", ["Ep3"], "Roof"),
+  "[Ep3] (Roof)\nThe door sticks.",
+);
+assert.equal(setGreetingHeader("[a]\n**T**\nBody", [], "T"), "**T**\nBody");
+assert.equal(setGreetingHeader("Plain one.", ["cosy"], ""), "[cosy] Plain one.");
+assert.equal(setGreetingHeader("Plain one.", [], "Morning"), "**Morning**\nPlain one.");
+assert.equal(setGreetingHeader("[x] **Old**\nBody", ["x"], ""), "[x] Body");
+assert.equal(setGreetingHeader("**$1 deal**\nBody", [], "$& off"), "**$& off**\nBody");
+assert.equal(splitGreetingHeader("(Old)\r\nBody").title, "Old");
+assert.equal(setGreetingHeader("(Old)\r\nBody", [], "New"), "(New)\r\nBody");
+assert.equal(splitGreetingHeader("[OOC] Be kind.", false).tagText, "");
+assert.equal(setGreetingHeader("[OOC] Be kind.", [], "Rules", false), "**Rules**\n[OOC] Be kind.");

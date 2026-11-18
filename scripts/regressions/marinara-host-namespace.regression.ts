@@ -78,7 +78,10 @@ const typesMatch: [
   Equal<keyof MarinaraHostV1["stores"], (typeof MARINARA_HOST_STORE_NAMES)[number]>,
   Equal<keyof MarinaraHostV1["modules"], MarinaraHostModuleSpecifier>,
   Equal<keyof MarinaraHostV1["services"], "tts" | "dialogs" | "audio" | "imageDownloads">,
-  Equal<keyof MarinaraHostV1["components"], "Modal" | "Switch" | "Checkbox" | "Spinner" | "showConfirmDialog">,
+  Equal<
+    keyof MarinaraHostV1["components"],
+    "Modal" | "Switch" | "Checkbox" | "Spinner" | "showConfirmDialog" | "Select" | "Tabs" | "SearchInput"
+  >,
   Equal<keyof MarinaraHostV1["data"], "emojiCatalog">,
   Equal<keyof MarinaraHostStoreFields, (typeof MARINARA_HOST_STORE_NAMES)[number]>,
 ] = [true, true, true, true, true, true, true];

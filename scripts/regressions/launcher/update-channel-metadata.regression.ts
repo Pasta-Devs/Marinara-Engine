@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import { rateLimitHook } from "../../../packages/server/src/middleware/rate-limit.js";
 import { updatesRoutes } from "../../../packages/server/src/routes/updates.routes.js";
@@ -27,6 +29,27 @@ try {
   }
   assert.equal((await app.inject({ method: "GET", url: "/api/updates/channel" })).statusCode, 429);
   assert.equal(fetches, 0);
+
+  // A Docker install, which has no git, built from staging checks for updates on staging and isn't offered a channel
+  // switch. Faked as no .git folder, a /.dockerenv file and no git command to run.
+  process.env.MARINARA_GIT_BRANCH = "staging";
+  const existsSync = fs.existsSync;
+  fs.existsSync = ((path: Parameters<typeof existsSync>[0]) =>
+    String(path) === "/.dockerenv" || (!String(path).endsWith(".git") && existsSync(path))) as typeof existsSync;
+  syncBuiltinESMExports();
+  const searchPath = process.env.PATH;
+  process.env.PATH = "";
+  try {
+    const check = (await app.inject({ method: "GET", url: "/api/updates/check" })).json();
+    assert.equal(check.installType, "docker", JSON.stringify(check));
+    assert.equal(check.currentBranch, "staging", JSON.stringify(check));
+    assert.equal(check.channel, "staging");
+    assert.equal(check.channelSwitch, false, "the build's own channel is not a switch");
+  } finally {
+    process.env.PATH = searchPath;
+    fs.existsSync = existsSync;
+    syncBuiltinESMExports();
+  }
 } finally {
   globalThis.fetch = originalFetch;
   await app.close();

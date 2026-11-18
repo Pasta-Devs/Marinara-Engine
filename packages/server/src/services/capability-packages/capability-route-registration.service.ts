@@ -6,7 +6,7 @@ import type {
   RouteHandlerMethod,
   RouteOptions,
 } from "fastify";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { InjectOptions } from "fastify";
 import type { InstalledCapabilityPackage } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../../middleware/privileged-gate.js";
@@ -36,6 +36,25 @@ const INTERNAL_ROUTE_HEADER = "x-marinara-internal-route";
 
 function routeKey(method: RouteMethod, path: string) {
   return `${method} ${path}`;
+}
+
+function carriesInternalRouteToken(request: FastifyRequest, state: InternalRouteState) {
+  const provided = request.headers[INTERNAL_ROUTE_HEADER];
+  if (!state.active || typeof provided !== "string") return false;
+  const left = Buffer.from(provided);
+  const right = Buffer.from(state.token);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/**
+ * Whether the request is a runCapabilityInternalRoute call to an active package route: the route
+ * Fastify matched belongs to a live registration, and the header carries that registration's token.
+ * request.server is the Fastify instance the route was registered on, which is its slotsByApp key.
+ */
+export function isCapabilityInternalRouteRequest(request: FastifyRequest): boolean {
+  const url = request.routeOptions.url;
+  const slot = url ? slotsByApp.get(request.server)?.get(routeKey(request.method as RouteMethod, url)) : undefined;
+  return !!slot?.active && carriesInternalRouteToken(request, slot.internalRouteState);
 }
 
 function normalizeRoute(method: RouteMethod, path: string, optionsOrHandler: unknown, maybeHandler?: unknown) {
@@ -169,8 +188,7 @@ export async function registerCapabilityPrivilegedRoutes(
       ownedSlots.push(slot);
       const onRequest = async (request: FastifyRequest, reply: FastifyReply) => {
         if (!slot.active) return reply.status(404).send({ error: "Capability routes are not active" });
-        if (slot.internalRouteState.active && request.headers[INTERNAL_ROUTE_HEADER] === slot.internalRouteState.token)
-          return;
+        if (carriesInternalRouteToken(request, slot.internalRouteState)) return;
         // Installing a package needs admin rights, so its routes are trusted code:
         // a browser signed in with the login may use them without the admin secret.
         if (

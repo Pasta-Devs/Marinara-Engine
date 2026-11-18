@@ -8,7 +8,7 @@ When Marinara builds the text it sends to the AI, it swaps each `{{tag}}` for it
 
 You can type macros in these places:
 
-- Character fields in the **Character Editor**: Description, Personality, Backstory, Appearance, Scenario, Example Dialogue, System Prompt, Post-History Instructions, and the **Depth Prompt**.
+- Character fields in the **Character Editor**: Description, Personality, Backstory, Appearance, Scenario, Public Face, Example Dialogue, System Prompt, Post-History Instructions, and the **Depth Prompt**.
 - Persona fields in the **Persona Editor** (the same card fields).
 - Lorebook entry Description and Content fields.
 - Prompt preset sections in the **Preset Editor**.
@@ -35,12 +35,13 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
 | `{{characters}}` | Every character in the chat, including inactive characters, joined by commas. This macro adds names only; it does not add inactive character cards to the prompt. |
 | `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
-| `{{persona}}` | Your persona's Description, Personality, Backstory, Appearance, and Scenario, joined by new lines. |
+| `{{persona}}` | Your persona's Description, Personality, Backstory, Appearance, and Scenario, joined by new lines. Public Face is not included. |
 | `{{personaDescription}}` | Your persona's Description field. |
 | `{{personaPersonality}}` | Your persona's Personality field. |
 | `{{personaBackstory}}` | Your persona's Backstory field. |
 | `{{personaAppearance}}` | Your persona's Appearance field. |
 | `{{personaScenario}}` | Your persona's Scenario field. |
+| `{{personaPublicFace}}` | Your persona's Public Face field: what others could know about you. |
 
 The character field macros read the current character's card:
 
@@ -51,6 +52,7 @@ The character field macros read the current character's card:
 | `{{backstory}}` | Backstory |
 | `{{appearance}}` | Appearance |
 | `{{scenario}}` | Scenario |
+| `{{publicFace}}` | Public Face |
 | `{{example}}` | Example Dialogue |
 | `{{charSysInfo}}` | System Prompt |
 | `{{charPostHistory}}` | Post-History Instructions |

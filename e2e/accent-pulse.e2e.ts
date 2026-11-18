@@ -411,7 +411,7 @@ for (const theme of ["dark", "light"] as const) {
         "background-color",
         await renderedColor("color-mix(in oklab, var(--sidebar) 35%, transparent)"),
       );
-      await expect(page.locator("#settings-control-theme-mode select")).toHaveCSS(
+      await expect(page.locator('#settings-control-theme-mode [role="combobox"]')).toHaveCSS(
         "background-color",
         await renderedColor("var(--sidebar)"),
       );
@@ -439,7 +439,8 @@ for (const theme of ["dark", "light"] as const) {
         await expect
           .poll(() =>
             page
-              .locator(".mari-right-panel.mari-shell-panel-edge:visible")
+              // The one sidebar draws its inner edge on the wrapper that holds Chats and the panels.
+              .locator('[data-component="SidebarSlotPanel"].mari-shell-panel-edge:visible')
               .evaluate((element) => getComputedStyle(element, "::after").backgroundColor),
           )
           .toBe(edgeColor);

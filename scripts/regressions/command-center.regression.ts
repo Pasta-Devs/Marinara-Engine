@@ -20,6 +20,7 @@ import {
   isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
+  takesLetterKeys,
   shortcutKeyTypesText,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
 import {
@@ -1307,6 +1308,15 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isTypingTarget({ tagName: "TEXTAREA" }), true);
   assert.equal(isTypingTarget({ tagName: "DIV", closest: () => ({}) }), true);
   assert.equal(isTypingTarget({ tagName: "BUTTON", closest: () => null }), false);
+  // A Select trigger (role="combobox") takes letters for its typeahead, so "?" must reach it too, yet it raises no
+  // software keyboard, so layout code keeps asking isTypingTarget.
+  const matchesCombobox = (selector: string) => (selector.includes('[role="combobox"]') ? {} : null);
+  const trigger = { tagName: "BUTTON", closest: matchesCombobox };
+  assert.equal(takesLetterKeys(trigger), true);
+  assert.equal(isTypingTarget(trigger), false);
+  assert.equal(takesLetterKeys({ tagName: "BUTTON", closest: () => null }), false);
+  assert.equal(takesLetterKeys({ tagName: "TEXTAREA" }), true);
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [trigger] }), true);
   assert.equal(formatShortcutKey("Mod", true), "⌘");
   assert.equal(formatShortcutKey("Mod", false), "Ctrl");
   assert.equal(formatShortcutKey("Alt", true), "⌥");
