@@ -195,6 +195,58 @@ export function llmHttpErrorFromResponse(message: string, response: Response): L
   });
 }
 
+/** One `data:` line of a server-sent event stream and the `event:` name in force for it. */
+export interface SseData {
+  /** Last `event:` name since the previous blank line, or "" when none was sent. */
+  event: string;
+  /** Payload after `data:`, trimmed; `[DONE]` is passed through for the caller to handle. */
+  data: string;
+}
+
+/**
+ * Read a streamed SSE response one `data:` line at a time. Handles LF and CRLF line ends,
+ * chunks split mid-line or mid-UTF-8 character, comment/keep-alive lines and `event:` names,
+ * and cancels the body when `signal` aborts or the caller stops iterating early.
+ *
+ * ponytail: each `data:` line is its own payload, as every provider loop did before; spec-style
+ * joining of multi-line `data:` would merge whole streams from proxies that skip the blank line.
+ */
+export async function* readSseData(response: Response, signal?: AbortSignal): AsyncGenerator<SseData> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+  // Ensure aborting the signal cancels the reader (closes the TCP connection to the backend),
+  // even if undici doesn't propagate the abort automatically.
+  const onAbort = () => reader.cancel().catch(() => {});
+  if (signal?.aborted) {
+    await onAbort();
+    return;
+  }
+  signal?.addEventListener("abort", onAbort, { once: true });
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let event = "";
+  let finished = false;
+  try {
+    while (!finished) {
+      const { done, value } = await reader.read();
+      finished = done;
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = done ? "" : (lines.pop() ?? "");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed === "") event = "";
+        else if (trimmed.startsWith("event:")) event = trimmed.slice(6).trimStart();
+        else if (trimmed.startsWith("data:")) yield { event, data: trimmed.slice(5).trimStart() };
+      }
+    }
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+    if (finished) reader.releaseLock();
+    else void onAbort();
+  }
+}
+
 /** Accept either an OpenAI-compatible API base URL or its full embeddings endpoint. */
 export function resolveEmbeddingEndpointUrl(baseUrl: string): string {
   const endpoint = new URL(baseUrl.trim());

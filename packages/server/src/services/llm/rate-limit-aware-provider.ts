@@ -26,6 +26,7 @@ import {
 } from "./connection-rate-limit-registry.js";
 import { isFeatureEnabled } from "../features/feature-settings.js";
 import { logger } from "../../lib/logger.js";
+import { sleep } from "../../utils/sleep.js";
 
 export const MAX_RATE_LIMIT_RETRIES = 6;
 /** Transient transport / gateway failures get a much smaller budget than rate limits. */
@@ -95,25 +96,10 @@ type RetryContext = { signal?: AbortSignal; onRateLimitPause?: (info: RateLimitP
 // a slot pushes the cursor forward by the min interval so concurrent requests queue fairly.
 const nextAllowedAt = new Map<string, number>();
 
+/** Shared abortable wait that still rejects with the signal's own reason, as callers expect. */
 function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason ?? new Error("Aborted"));
-      return;
-    }
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      cleanup();
-      reject(signal?.reason ?? new Error("Aborted"));
-    };
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
+  return sleep(ms, signal).catch(() => {
+    throw signal?.reason ?? new Error("Aborted");
   });
 }
 
