@@ -27,6 +27,8 @@ export function setAccountParallelLimit(accountId: string, cap: number | null): 
   const scope = `account:${accountId}`;
   if (typeof cap === "number" && Number.isFinite(cap) && cap > 0) caps.set(scope, Math.max(1, Math.floor(cap)));
   else caps.delete(scope);
+  // A raised or cleared cap lets requests that are already waiting start now.
+  turns.get(scope)?.recheck();
 }
 
 export function resetAccountBudgetsForTests(): void {

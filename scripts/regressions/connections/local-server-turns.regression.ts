@@ -28,6 +28,11 @@ for (const local of [
   "http://172.20.0.3:8000",
   "http://[::1]:11434",
   "http://gpu-box.local:11434",
+  "http://gpu-box.local.:11434",
+  "http://host.containers.internal:11434/v1",
+  "http://host.docker.internal:1234/v1",
+  "http://ollama:11434",
+  "http://gpu-box.:11434",
   "http://host.docker.internal:11434",
   "http://100.101.102.103:11434",
 ]) {
@@ -40,6 +45,7 @@ for (const remote of [
   "https://openrouter.ai/api/v1",
   "http://172.32.0.1:8000",
   "http://8.8.8.8",
+  "http://[2001:4860:4860::8888]:11434",
   "not a url ::",
 ]) {
   assert.equal(isLocalServerAddress(remote), false, `${remote} is not local`);
@@ -134,6 +140,37 @@ async function take(connection: string, level?: "prepare" | "reply" | "turn" | "
   assert.equal(inspectAccountTurnsForTests("vllm")?.running.reply, 0);
 }
 
+// ── a raised cap starts requests already waiting ────────────────────────────
+{
+  resetAccountBudgetsForTests();
+  setAccountParallelLimit("lmstudio", 1);
+  setConnectionBudgetScope("row-g", "lmstudio");
+  const hold = await take("row-g", "reply");
+  const waiting = acquireAccountSlot("row-g", undefined, "reply");
+  assert.ok(waiting instanceof Promise);
+  setAccountParallelLimit("lmstudio", 2);
+  const second = await Promise.race([waiting, sleep(200).then(() => null)]);
+  assert.equal(typeof second, "function", "the waiting reply starts as soon as the cap goes up");
+  (second as () => void)();
+  hold();
+}
+
+// ── waiting for a turn does not count as a silent server ────────────────────
+{
+  const { withLlmInactivityTimeout } = await import("../../../packages/server/src/services/llm/base-provider.js");
+  resetAccountBudgetsForTests();
+  setAccountParallelLimit("kobold", 1);
+  setConnectionBudgetScope("row-h", "kobold");
+  const hold = await take("row-h", "reply");
+  setTimeout(hold, 7_000);
+  const result = await withLlmInactivityTimeout(6_000, async (signal) => {
+    const release = await acquireAccountSlot("row-h", signal, "turn");
+    release();
+    return "ran";
+  });
+  assert.equal(result, "ran", "a request that waited longer than the timeout still runs");
+}
+
 // ── no cap, no queue ────────────────────────────────────────────────────────
 {
   resetAccountBudgetsForTests();
@@ -152,7 +189,7 @@ async function take(connection: string, level?: "prepare" | "reply" | "turn" | "
     treatAsLocalEndpoint: "false",
     maxParallelJobs: null,
   };
-  assert.equal(accountParallelLimit(base as never), 1, "Custom on a local address");
+  assert.equal(accountParallelLimit(base as never), 2, "Custom on a local address");
   assert.equal(
     accountParallelLimit({ ...base, baseUrl: "https://api.example.com/v1" } as never),
     null,
@@ -175,8 +212,18 @@ async function take(connection: string, level?: "prepare" | "reply" | "turn" | "
       baseUrl: "https://x.example",
       treatAsLocalEndpoint: "true",
     } as never),
-    1,
+    2,
     "treat as local endpoint",
+  );
+  assert.equal(
+    accountParallelLimit({ ...base, baseUrl: "http://ollama:11434" } as never),
+    2,
+    "Custom on a container name",
+  );
+  assert.equal(
+    accountParallelLimit({ ...base, baseUrl: "http://host.containers.internal:11434/v1" } as never),
+    2,
+    "Custom on the Podman host",
   );
   assert.equal(accountParallelLimit({ ...base, maxParallelJobs: 3 } as never), 3, "a set number wins");
 }

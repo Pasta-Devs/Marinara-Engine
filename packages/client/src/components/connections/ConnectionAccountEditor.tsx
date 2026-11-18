@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   isChatProvider,
   isLocalServerAddress,
+  LOCAL_SERVER_DEFAULT_PARALLEL,
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
@@ -329,7 +330,7 @@ export function ConnectionAccountEditor({
         onChange={(event) => set(key, event.target.value)}
         placeholder={
           key === "maxParallelJobs" && selfHosted
-            ? t("connections.accounts.editor.oneAtATime")
+            ? String(LOCAL_SERVER_DEFAULT_PARALLEL)
             : t("connections.accounts.editor.noLimit")
         }
         className={fieldClass}

@@ -25,6 +25,10 @@
  * before-reply agents and anything that runs after the reply ranks with the trackers.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
+import { markLlmRequestActivity } from "../llm/base-provider.js";
+
+/** Waiting for a turn is not provider silence: keep the request's inactivity timer from running out. */
+const WAITING_KEEPALIVE_MS = 5_000;
 
 export type LocalModelPriority = "prepare" | "reply" | "turn" | "background";
 
@@ -107,6 +111,8 @@ export class LocalModelTurns {
     if (this.waiting.length === 0 && this.mayStart(level)) {
       this.running[level] += 1;
     } else {
+      const keepAlive = setInterval(markLlmRequestActivity, WAITING_KEEPALIVE_MS);
+      keepAlive.unref?.();
       const granted = await new Promise<boolean>((resolve) => {
         const waiter: Waiter = {
           level,
@@ -125,7 +131,7 @@ export class LocalModelTurns {
         this.waiting.push(waiter);
         signal?.addEventListener("abort", cancel, { once: true });
         this.pump();
-      });
+      }).finally(() => clearInterval(keepAlive));
       if (!granted) return work();
     }
     try {
@@ -173,6 +179,11 @@ export class LocalModelTurns {
       released = true;
       release();
     };
+  }
+
+  /** Start whoever may go now, after the slot count changed. */
+  recheck(): void {
+    this.pump();
   }
 
   busy(): boolean {

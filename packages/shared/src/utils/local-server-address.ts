@@ -4,7 +4,7 @@
  *
  * Such a server usually runs one or a few requests at a time on one graphics card, so
  * Marinara gives its requests a turn order and, unless the account says otherwise, sends
- * it one request at a time. A cloud address, or no address, is never local.
+ * it two requests at a time, one of them kept free for the reply. A cloud address, or no address, is never local.
  */
 export function isLocalServerAddress(address: string | null | undefined): boolean {
   const trimmed = address?.trim();
@@ -15,11 +15,15 @@ export function isLocalServerAddress(address: string | null | undefined): boolea
   } catch {
     return false;
   }
-  host = host.replace(/^\[|\]$/gu, "");
+  host = host.replace(/^\[|\]$/gu, "").replace(/\.$/u, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".lan")) {
     return true;
   }
-  if (host === "host.docker.internal" || host === "::1" || host === "0.0.0.0") return true;
+  if (host === "::1" || host === "0.0.0.0") return true;
+  // Docker and Podman host names, other `.internal` names, and single-label names such as
+  // a container called `ollama`: none of them resolve on the public internet.
+  if (host.endsWith(".internal")) return true;
+  if (!host.includes(".") && !host.includes(":")) return true;
   // IPv6 unique local (fc00::/7) and link-local (fe80::/10).
   if (/^f[cd][0-9a-f]{2}:/u.test(host) || /^fe[89ab][0-9a-f]:/u.test(host)) return true;
   const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.exec(host.replace(/^::ffff:/u, ""));
@@ -37,4 +41,4 @@ export function isLocalServerAddress(address: string | null | undefined): boolea
 }
 
 /** Requests a local server takes at once when its account leaves "Parallel requests" empty. */
-export const LOCAL_SERVER_DEFAULT_PARALLEL = 1;
+export const LOCAL_SERVER_DEFAULT_PARALLEL = 2;
