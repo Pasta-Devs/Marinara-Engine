@@ -254,13 +254,16 @@ export async function adminRoutes(app: FastifyInstance) {
       await db._fileStore.flush();
       await new Promise<void>((resolve) => setImmediate(resolve));
     };
+    // Returns whether the delete went through, so a chunk that failed is not counted as cleared.
     const runDelete = async (name: string, task: () => Promise<unknown>) => {
       try {
         const result = await task();
         tablesCleared[name] = (tablesCleared[name] ?? 0) + ((result as { changes?: number } | undefined)?.changes ?? 0);
+        return true;
       } catch (err) {
         logger.warn(err, "Could not clear %s", name);
         tablesCleared[name] = tablesCleared[name] ?? 0;
+        return false;
       }
     };
     const clearFolders = async (folders: Array<[key: string, dir: string]>) => {
@@ -296,10 +299,12 @@ export async function adminRoutes(app: FastifyInstance) {
       const residentTables = db._fileStore.getFullyResidentLazyTables();
       const chatsResident = residentTables.has("messages") && residentTables.has("message_swipes");
       for (const chunk of chunked(chatIds, chatsResident ? EXPUNGE_RESIDENT_CHAT_CHUNK : EXPUNGE_CHAT_CHUNK)) {
-        await runDelete("chats", () => db.delete(schema.chats).where(inArray(schema.chats.id, chunk)).run());
-        tablesCleared.chats = (tablesCleared.chats ?? 0) + chunk.length;
+        const cleared = await runDelete("chats", () =>
+          db.delete(schema.chats).where(inArray(schema.chats.id, chunk)).run(),
+        );
+        if (cleared) tablesCleared.chats = (tablesCleared.chats ?? 0) + chunk.length;
         await checkpoint();
-        job.done += chunk.length;
+        if (cleared) job.done += chunk.length;
       }
       // Leftovers whose chat was already gone. These are normally empty, so the full scans are cheap now.
       await runDelete("message_swipes", () => db.delete(schema.messageSwipes).run());
@@ -341,12 +346,12 @@ export async function adminRoutes(app: FastifyInstance) {
         mutateReferences: async () => {
           await runDelete("character_groups", () => db.delete(schema.characterGroups).run());
           for (const chunk of chunked(characterIds, EXPUNGE_ROW_CHUNK)) {
-            await runDelete("characters", () =>
+            const cleared = await runDelete("characters", () =>
               db.delete(schema.characters).where(inArray(schema.characters.id, chunk)).run(),
             );
-            tablesCleared.characters = (tablesCleared.characters ?? 0) + chunk.length;
+            if (cleared) tablesCleared.characters = (tablesCleared.characters ?? 0) + chunk.length;
             await checkpoint();
-            job.done += chunk.length;
+            if (cleared) job.done += chunk.length;
           }
           // Anything added while this ran.
           await runDelete("characters", () =>
@@ -369,12 +374,12 @@ export async function adminRoutes(app: FastifyInstance) {
         mutateReferences: async () => {
           await runDelete("persona_groups", () => db.delete(schema.personaGroups).run());
           for (const chunk of chunked(personaIds, EXPUNGE_ROW_CHUNK)) {
-            await runDelete("personas", () =>
+            const cleared = await runDelete("personas", () =>
               db.delete(schema.personas).where(inArray(schema.personas.id, chunk)).run(),
             );
-            tablesCleared.personas = (tablesCleared.personas ?? 0) + chunk.length;
+            if (cleared) tablesCleared.personas = (tablesCleared.personas ?? 0) + chunk.length;
             await checkpoint();
-            job.done += chunk.length;
+            if (cleared) job.done += chunk.length;
           }
           await runDelete("personas", () => db.delete(schema.personas).run());
         },
@@ -390,12 +395,12 @@ export async function adminRoutes(app: FastifyInstance) {
       beginStep("lorebooks", lorebookIds.length);
       // Deleting a lorebook cascades to its entries, folders and links.
       for (const chunk of chunked(lorebookIds, EXPUNGE_ROW_CHUNK)) {
-        await runDelete("lorebooks", () =>
+        const cleared = await runDelete("lorebooks", () =>
           db.delete(schema.lorebooks).where(inArray(schema.lorebooks.id, chunk)).run(),
         );
-        tablesCleared.lorebooks = (tablesCleared.lorebooks ?? 0) + chunk.length;
+        if (cleared) tablesCleared.lorebooks = (tablesCleared.lorebooks ?? 0) + chunk.length;
         await checkpoint();
-        job.done += chunk.length;
+        if (cleared) job.done += chunk.length;
       }
       await runDelete("lorebook_entries", () => db.delete(schema.lorebookEntries).run());
       await runDelete("lorebooks", () => db.delete(schema.lorebooks).run());
