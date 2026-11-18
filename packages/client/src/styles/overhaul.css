@@ -3257,6 +3257,9 @@
   }
 }
 .ov-recent__avatar {
+  /* Positioned so a cropped avatar (its img is absolutely placed by getAvatarCropStyle) stays inside the
+     tile; without this the picture sized itself to the whole widget card (Nov 17). */
+  position: relative;
   display: grid;
   width: 2.25rem;
   height: 2.25rem;
@@ -5685,6 +5688,7 @@ input.ov-edhead__title:focus {
   font-size: 0.6875rem;
 }
 .ov-gpane__av {
+  position: relative; /* keeps a cropped avatar inside the circle, as .ov-recent__avatar */
   display: grid;
   width: 1.625rem;
   height: 1.625rem;
