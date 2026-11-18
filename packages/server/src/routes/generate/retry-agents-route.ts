@@ -78,6 +78,7 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../../services/llm
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../../services/llm/connection-fallback-provider.js";
 import { sidecarModelService } from "../../services/sidecar/sidecar-model.service.js";
+import { sidecarProcessService } from "../../services/sidecar/sidecar-process.service.js";
 import { utilitySidecarService } from "../../services/utility-sidecar/utility-sidecar.service.js";
 import { buildUtilitySidecarEntry } from "../../services/utility-sidecar/utility-sidecar.provider.js";
 import {
@@ -2165,7 +2166,7 @@ export async function resolveRetryAgents(args: {
           enabledParameters: { temperature: true },
           suppressModelParameters: false,
           maxOutputTokens: null,
-          maxParallelJobs: sidecarModelService.getConfig().maxParallelJobs,
+          maxParallelJobs: sidecarProcessService.getEffectiveParallelJobs(),
           enableCaching: false,
           anthropicExtendedCacheTtl: false,
           cachingAtDepth: 5,

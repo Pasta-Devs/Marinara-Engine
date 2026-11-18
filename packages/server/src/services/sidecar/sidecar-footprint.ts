@@ -128,7 +128,7 @@ export function compareDriverVersions(version: string, minimum: string): number 
  * not reveal, so this is a single broad figure — enough to separate "comfortable" from
  * "will not load", which is the only question the verdict answers.
  */
-const KV_CACHE_BYTES_PER_TOKEN = 64.7 * 1024;
+export const KV_CACHE_BYTES_PER_TOKEN = 64.7 * 1024;
 
 export function estimateSlotBytes(args: {
   fileBytes: number | null;

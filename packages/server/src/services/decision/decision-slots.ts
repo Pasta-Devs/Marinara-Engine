@@ -237,7 +237,7 @@ export async function resolveDecisionSlot(
         label: description.label,
         thinking: primaryThinking(),
         protocol: "chat_logprobs",
-        serverSlots: sidecarModelService.getConfig().maxParallelJobs,
+        serverSlots: sidecarProcessService.getEffectiveParallelJobs(),
       },
     };
   }

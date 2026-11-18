@@ -30,6 +30,7 @@ import { Spinner } from "../ui/Spinner";
 import { DetailHero, FactRow, formatBytes, SMALL_ACTION, StateWord, type EngineTone } from "./DeviceDetail";
 import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { ProviderIcon } from "./ProviderIcon";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 
 const FIELD = "mari-chrome-field h-8 w-full max-w-[18rem] px-2 text-xs max-md:h-11 max-sm:text-base";
 
@@ -244,6 +245,8 @@ export function BuiltinEmbeddingDetail() {
         </div>
       )}
 
+      {active && <LocalModelSlotNote slot="embedding" />}
+
       {/* It sits inside the built-in model page's own card, so the facts are not boxed a second time. */}
       <section className="flex flex-col">
         <FactRow label={t("connections.device.fact.model")} stack>
@@ -280,9 +283,6 @@ export function BuiltinEmbeddingDetail() {
                 max: formatBytes((active ?? choice).ramBytes),
               })
             : t("connections.builtinEmbedding.memoryUpTo", { max: formatBytes((active ?? choice).ramBytes) })}
-          <span className="block text-[0.6875rem] text-[var(--muted-foreground)]">
-            {t("connections.builtinEmbedding.stopsWhenIdle")}
-          </span>
         </FactRow>
         <FactRow label={t("connections.device.fact.usedBy")}>
           {isDefault ? t(jobLabelKey(JOB.embeddings)) : t("connections.device.usedBy.none")}
@@ -304,6 +304,7 @@ export function BuiltinEmbeddingDetail() {
             </span>
           )}
         </FactRow>
+        {active && <UnloadWhenUnusedRow />}
       </section>
 
       {downloading ? (

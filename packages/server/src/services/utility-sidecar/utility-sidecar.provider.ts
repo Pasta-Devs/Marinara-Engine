@@ -6,9 +6,40 @@
  * slots together — the thing this whole feature exists to avoid.
  */
 import { OpenAIProvider } from "../llm/providers/openai.provider.js";
-import type { BaseLLMProvider } from "../llm/base-provider.js";
+import type {
+  BaseLLMProvider,
+  ChatCompletionResult,
+  ChatMessage,
+  ChatOptions,
+  LLMUsage,
+} from "../llm/base-provider.js";
+import { localModelManager } from "../sidecar/local-model-manager.js";
 import { utilitySidecarService } from "./utility-sidecar.service.js";
 import { logger } from "../../lib/logger.js";
+
+/** Every request counts as use, so the slot is not unloaded for being idle mid-request. */
+class UtilitySlotProvider extends OpenAIProvider {
+  override async *chat(
+    messages: ChatMessage[],
+    options: ChatOptions,
+  ): AsyncGenerator<string, LLMUsage | void, unknown> {
+    const end = localModelManager.begin("utility");
+    try {
+      return yield* super.chat(messages, options);
+    } finally {
+      end();
+    }
+  }
+
+  override async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    const end = localModelManager.begin("utility");
+    try {
+      return await super.chatComplete(messages, options);
+    } finally {
+      end();
+    }
+  }
+}
 
 /** Model name reported to llama-server; it serves whatever single model it loaded. */
 export const UTILITY_SIDECAR_MODEL = "utility-sidecar";
@@ -48,7 +79,7 @@ export async function getUtilitySidecarProvider(): Promise<BaseLLMProvider | nul
   if (!status.ready || !status.baseUrl) return null;
   const existing = cached;
   if (existing && existing.baseUrl === status.baseUrl) return existing.provider;
-  const provider = new OpenAIProvider(`${status.baseUrl}/v1`, "sk-local");
+  const provider = new UtilitySlotProvider(`${status.baseUrl}/v1`, "sk-local");
   cached = { baseUrl: status.baseUrl, provider };
   return provider;
 }
