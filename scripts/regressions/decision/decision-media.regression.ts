@@ -280,4 +280,29 @@ await answerPromptDecisions({
 });
 assert.equal(sent.length, 2, "the same want is not asked twice in a turn");
 
+// An until: condition that asks for a picture is read back under the key it was stored under.
+const rain = { kind: "noul" as const, key: "It rains", options: [] };
+const stops = { kind: "noul" as const, key: "The rain stops", options: [], pictures: 1 };
+const lastsPlan = {
+  decisions: [
+    { ...rain, held: { yes: true, lasts: { key: stops.key, kind: "until" as const, mode: "or" as const } } },
+    stops,
+  ],
+  dropped: [],
+};
+const stopped = await answerPromptDecisions({
+  plan: lastsPlan as never,
+  backend: {
+    ...seeing,
+    askMixed: async (_s: unknown, qs: Array<{ id: string }>) => ({
+      answers: new Map(qs.map((q) => [q.id, 0.9])),
+      choices: new Map(),
+    }),
+  } as never,
+  messages: chat,
+  cacheKey: "lasts",
+  cache: new PromptDecisionTurnCache(),
+});
+assert.equal(stopped.answers?.get(rain.key), false, "the block turns off when its picture condition comes true");
+
 console.log("decision media regression passed");

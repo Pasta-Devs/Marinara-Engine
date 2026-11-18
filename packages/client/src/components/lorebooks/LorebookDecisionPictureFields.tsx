@@ -49,7 +49,13 @@ export function LorebookDecisionPictureFields({ pictures, mediaWithin, onChange,
             <select
               className={selectClass}
               value={pictures}
-              onChange={(event) => onChange({ decisionPictures: Number(event.target.value) })}
+              onChange={(event) => {
+                const count = Number(event.target.value);
+                // No pictures, nothing to wait for: the ask-within window goes with them.
+                onChange(
+                  count === 0 ? { decisionPictures: 0, decisionMediaWithin: null } : { decisionPictures: count },
+                );
+              }}
             >
               {Array.from({ length: (readsPictures ? MAX_DECISION_PICTURES : pictures) + 1 }, (_, count) => (
                 <option key={count} value={count}>
