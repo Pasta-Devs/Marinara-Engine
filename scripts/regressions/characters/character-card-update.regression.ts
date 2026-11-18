@@ -255,6 +255,100 @@ try {
   });
   assert.equal((await twinScripts()).length, 1, "the twin the card dropped is removed");
 
+  // A RisuAI card: top-level fields win over its `extensions`, as when the card itself is read.
+  const risuScript = (name: string) => ({ scriptName: name, findRegex: "/r/g", replaceString: "s", placement: [2] });
+  const risu = await post("/api/import/st-character", {
+    type: "character",
+    name: "Risu Wren",
+    data: { name: "Risu Wren", description: "d", firstMessage: "hi" },
+    extensions: { regex_scripts: [risuScript("Root script")] },
+    regex_scripts: [risuScript("Top script")],
+  });
+  assert.equal(risu.success, true, JSON.stringify(risu));
+  const risuNames = rows(await get("/api/regex-scripts"))
+    .filter((script: { targetCharacterIds: unknown }) => String(script.targetCharacterIds).includes(risu.characterId))
+    .map((script: { name: string }) => script.name);
+  assert.deepEqual(risuNames, ["Top script"]);
+
+  // Cards that keep regex scripts outside `extensions`: a V2 card's `data` and a V1 card's root.
+  const topScriptsFor = async (characterId: string) =>
+    rows(await get("/api/regex-scripts"))
+      .filter((script: { targetCharacterIds: unknown }) => String(script.targetCharacterIds).includes(characterId))
+      .map((script: { name: string }) => script.name);
+  const v2Top = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: {
+      name: "Top Wren",
+      description: "d",
+      first_mes: "hi",
+      extensions: {},
+      regex_scripts: [risuScript("V2 top")],
+      depth_prompt: { prompt: "Stay in the tower.", depth: 2, role: "system" },
+      talkativeness: 0.2,
+    },
+  });
+  assert.equal(v2Top.success, true, JSON.stringify(v2Top));
+  assert.deepEqual(await topScriptsFor(v2Top.characterId), ["V2 top"]);
+  const v1Root = await post("/api/import/st-character", {
+    name: "Root Wren",
+    description: "d",
+    first_mes: "hi",
+    regex_scripts: [risuScript("V1 root")],
+    backstory: "Raised by ravens.",
+  });
+  assert.equal(v1Root.success, true, JSON.stringify(v1Root));
+  assert.deepEqual(await topScriptsFor(v1Root.characterId), ["V1 root"]);
+  const storedExtensions = async (characterId: string) =>
+    JSON.parse((await get(`/api/characters/${characterId}`)).data).extensions;
+  const v2TopExtensions = await storedExtensions(v2Top.characterId);
+  assert.equal(v2TopExtensions.depth_prompt.prompt, "Stay in the tower.");
+  assert.equal(v2TopExtensions.depth_prompt.depth, 2);
+  assert.equal((await storedExtensions(v1Root.characterId)).backstory, "Raised by ravens.");
+  // An update from a card that keeps talkativeness beside `extensions` refreshes it.
+  const v2TopUpdate = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Top Wren", description: "d2", first_mes: "hi", extensions: {}, talkativeness: 0.9 },
+    updateCharacterId: v2Top.characterId,
+  });
+  assert.equal(v2TopUpdate.success, true, JSON.stringify(v2TopUpdate));
+  assert.equal((await storedExtensions(v2Top.characterId)).talkativeness, 0.9);
+
+  // Regex scripts at the root of a card that also has a `data` block: imported, updated in place, and never
+  // preferred over the card's own `data.regex_scripts`.
+  const rootScriptCard = (name: string, find: string) => ({
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Rooted Wren", description: "d", first_mes: "hi", extensions: {} },
+    regex_scripts: [{ ...risuScript(name), findRegex: find }],
+  });
+  const rooted = await post("/api/import/st-character", rootScriptCard("Root beside data", "/a/g"));
+  assert.equal(rooted.success, true, JSON.stringify(rooted));
+  const rootedScripts = async () =>
+    rows(await get("/api/regex-scripts")).filter((script: { targetCharacterIds: unknown }) =>
+      String(script.targetCharacterIds).includes(rooted.characterId),
+    ) as Array<{ id: string; name: string; findRegex: string }>;
+  const [rootedFirst] = await rootedScripts();
+  assert.equal(rootedFirst?.name, "Root beside data");
+  const rootedUpdate = await post("/api/import/st-character", {
+    ...rootScriptCard("Root beside data", "/b/g"),
+    updateCharacterId: rooted.characterId,
+  });
+  assert.equal(rootedUpdate.success, true, JSON.stringify(rootedUpdate));
+  const rootedAfter = await rootedScripts();
+  assert.equal(rootedAfter.length, 1);
+  assert.equal(rootedAfter[0].id, rootedFirst.id, "the root-level script is updated in place");
+  assert.equal(rootedAfter[0].findRegex, "b");
+  const both = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Both Wren", description: "d", first_mes: "hi", regex_scripts: [risuScript("Data copy")] },
+    regex_scripts: [risuScript("Root copy")],
+  });
+  assert.equal(both.success, true, JSON.stringify(both));
+  assert.deepEqual(await topScriptsFor(both.characterId), ["Data copy"]);
+
   // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
   const before = rows(await get("/api/characters")).length;
   const form = new FormData();

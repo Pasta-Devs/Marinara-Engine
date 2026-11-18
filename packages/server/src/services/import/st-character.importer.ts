@@ -515,34 +515,59 @@ function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unk
   };
 }
 
-// RisuAI cards keep some extensions as top-level fields (see convertRisuToV2).
-const RISU_TOP_LEVEL_EXTENSIONS: Array<[field: string, key: string]> = [
-  ["depth_prompt", "depth_prompt"],
-  ["depthPrompt", "depth_prompt"],
-  ["talkativeness", "talkativeness"],
-  ["regex_scripts", "regex_scripts"],
-  ["regexScripts", "regex_scripts"],
-  ["backstory", "backstory"],
-  ["appearance", "appearance"],
-];
+// RisuAI cards keep some extensions as top-level fields, which win over their `extensions` (see convertRisuToV2).
+const RISU_TOP_LEVEL_EXTENSIONS = [
+  "depth_prompt",
+  "talkativeness",
+  "regex_scripts",
+  "backstory",
+  "appearance",
+  "fav",
+  "world",
+] as const;
 
-/** The extensions a card file itself carries, including RisuAI's top-level ones. */
-function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown> {
-  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-  const extensions: Record<string, unknown> = {};
-  for (const source of cardData === raw ? [raw] : [raw, cardData]) {
-    for (const [field, key] of RISU_TOP_LEVEL_EXTENSIONS) {
-      if (source[field] !== undefined && extensions[key] === undefined) extensions[key] = source[field];
-    }
+/**
+ * Extension fields some exporters write beside a card's `extensions` instead of inside it. The card's own
+ * `extensions` wins where both are set (callers spread it on top).
+ */
+function cardTopLevelExtensions(card: Record<string, unknown>): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ["depth_prompt", "talkativeness", "regex_scripts", "backstory", "appearance"]) {
+    if (card[key] !== undefined) picked[key] = card[key];
   }
-  // As convertRisuToV2 reads { ...raw, ...data }: data's extensions, else a RisuAI card's top-level ones.
-  const own =
-    cardData.extensions && typeof cardData.extensions === "object"
-      ? cardData.extensions
-      : raw.type === "character" && raw.extensions && typeof raw.extensions === "object"
-        ? raw.extensions
-        : null;
-  return own ? { ...extensions, ...(own as Record<string, unknown>) } : extensions;
+  if (picked.depth_prompt === undefined && card.depthPrompt !== undefined) picked.depth_prompt = card.depthPrompt;
+  if (picked.regex_scripts === undefined && card.regexScripts !== undefined) picked.regex_scripts = card.regexScripts;
+  return picked;
+}
+
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+/** The extensions a card file itself carries, read the way normalizeCharacterData reads that format. */
+function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.type === "character" && raw.data && !(raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3")) {
+    const merged = { ...raw, ...recordOrEmpty(raw.data) };
+    const extensions: Record<string, unknown> = { ...recordOrEmpty(merged.extensions) };
+    for (const key of RISU_TOP_LEVEL_EXTENSIONS) {
+      if (merged[key] !== undefined) extensions[key] = merged[key];
+    }
+    if (extensions.depth_prompt === undefined && merged.depthPrompt !== undefined) {
+      extensions.depth_prompt = merged.depthPrompt;
+    }
+    if (extensions.regex_scripts === undefined && merged.regexScripts !== undefined) {
+      extensions.regex_scripts = merged.regexScripts;
+    }
+    return extensions;
+  }
+  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+  const extensions = { ...cardTopLevelExtensions(cardData), ...recordOrEmpty(cardData.extensions) };
+  // Some exporters put regex scripts at the card's root even when it has a `data` block; the nearer copy wins.
+  if (extensions.regex_scripts === undefined && cardData !== raw) {
+    const rootScripts = raw.regex_scripts ?? raw.regexScripts;
+    if (rootScripts !== undefined) extensions.regex_scripts = rootScripts;
+  }
+  return extensions;
 }
 
 /**
@@ -1281,7 +1306,10 @@ function resolveCharXAsset(zip: ZipArchive, uri: string, ext?: string): string |
 function normalizeV2(raw: Record<string, unknown>): CharacterData {
   // Ruleset sheets travel dormant under their key; only one the boundary would refuse is dropped.
   // The raw key is taken out of the spread below, so a value that is not a sheet map leaves nothing.
-  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = optionalRecord(raw.extensions);
+  const { rulesetSheets: rawRulesetSheets, ...extensionsWithOnboarding } = {
+    ...cardTopLevelExtensions(raw),
+    ...optionalRecord(raw.extensions),
+  };
   const onboardingImport = dropUnreadableOnboarding(extensionsWithOnboarding);
   const rawExtensions = onboardingImport.extensions;
   if (onboardingImport.dropped)
@@ -1410,7 +1438,7 @@ function convertV1toV2(raw: Record<string, unknown>): CharacterData {
     creator: raw.creator ?? "",
     character_version: raw.character_version ?? "",
     alternate_greetings: raw.alternate_greetings ?? [],
-    extensions: raw.extensions ?? {},
+    extensions: { ...cardTopLevelExtensions(raw), ...optionalRecord(raw.extensions) },
     character_book: raw.character_book ?? null,
   });
 }

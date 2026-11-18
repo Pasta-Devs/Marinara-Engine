@@ -208,6 +208,30 @@ has_git_worktree_changes() {
         || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]
 }
 
+# True when HEAD holds nothing of the user's own, so moving it to a rewritten test branch
+# (rebased or force-pushed on GitHub, like a history clean-up) loses nothing. Either
+# HEAD's files match a commit of the new branch exactly (a reworded history), or HEAD is
+# (an ancestor of) a tip that came from GitHub: a value the remote-tracking ref had, or
+# one the local branch got from a clone, a checkout of the GitHub branch or a fast-forward.
+# A local commit with its own changes never matches. Args: <remote ref> <local branch>.
+head_only_has_remote_commits() {
+    _head_tree=$(git rev-parse "HEAD^{tree}" 2>/dev/null) || return 1
+    if git log --format=%T -n 2000 "$1" 2>/dev/null | grep -qx "$_head_tree"; then
+        return 0
+    fi
+    {
+        git reflog show --format=%H -n 200 "refs/remotes/$1" 2>/dev/null
+        git reflog show --format='%H %gs' -n 200 "refs/heads/$2" 2>/dev/null \
+            | grep -E '^[0-9a-f]+ (clone: |branch: Created from (refs/remotes/)?origin/|merge origin/[^ ]*: Fast-forward|pull)' \
+            | cut -d' ' -f1
+    } | while read -r _old_tip; do
+        if git merge-base --is-ancestor HEAD "$_old_tip" 2>/dev/null; then
+            echo match
+            break
+        fi
+    done | grep -q match
+}
+
 # Drop untracked leftovers in the source trees (files a failed checkout could not
 # delete after a channel switch); they break tsc. This is working-tree repair,
 # not an update, so it runs even when auto-update is disabled -- and before
@@ -261,14 +285,22 @@ elif [ -d ".git" ]; then
     elif [ "$OLD_HEAD" = "$(git rev-parse "$TARGET_REF" 2>/dev/null || true)" ] \
         || { [ "$FEATURE_BRANCH" = "1" ] && git merge-base --is-ancestor "$TARGET_REF" HEAD 2>/dev/null; }; then
         echo "  [OK] Already up to date"
-    elif [ "$FEATURE_BRANCH" = "1" ] && ! git merge-base --is-ancestor HEAD "$TARGET_REF" 2>/dev/null; then
-        # The test branch was rebased or force-pushed (or has local commits), so it can't
+    elif [ "$FEATURE_BRANCH" = "1" ] && ! git merge-base --is-ancestor HEAD "$TARGET_REF" 2>/dev/null \
+        && ! head_only_has_remote_commits "$TARGET_REF" "$CURRENT_BRANCH"; then
+        # The local copy has commits of its own that are not on GitHub, so it can't
         # fast-forward. Skip before the snapshot instead of failing and re-copying the data
         # on every launch, and say how to get back on track in plain words.
         echo "  [WARN] Your copy of ${CURRENT_BRANCH} has changes that are not on GitHub, so it was not updated."
         echo "         To get the latest test version, paste step 3 of the playtester guide again."
     else
         TARGET_HEAD=$(git rev-parse "$TARGET_REF" 2>/dev/null || true)
+        # A test branch that was rebased or force-pushed on GitHub, where this copy has no
+        # commits of its own: move to the new tip instead of asking the user to re-run setup.
+        FEATURE_BRANCH_REWRITTEN=0
+        if [ "$FEATURE_BRANCH" = "1" ] && ! git merge-base --is-ancestor HEAD "$TARGET_REF" 2>/dev/null; then
+            FEATURE_BRANCH_REWRITTEN=1
+            echo "  [..] ${CURRENT_BRANCH} was rewritten on GitHub. Your copy has no commits of its own, so it moves to the new version."
+        fi
         # Stash local changes, including untracked non-ignored files, so the update doesn't fail
         STASHED=0
         STASH_REF=""
@@ -329,6 +361,10 @@ elif [ -d ".git" ]; then
             if git checkout --detach "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
                 UPDATED_TO_TARGET=1
             elif git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
+                UPDATED_TO_TARGET=1
+            fi
+        elif [ "$FEATURE_BRANCH_REWRITTEN" = "1" ]; then
+            if git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
                 UPDATED_TO_TARGET=1
             fi
         elif git merge --ff-only "$TARGET_REF" >"$UPDATE_LOG" 2>&1; then

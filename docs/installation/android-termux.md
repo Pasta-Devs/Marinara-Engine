@@ -70,7 +70,7 @@ To stop the server, press <kbd>Ctrl</kbd>+<kbd>C</kbd> in Termux.
 
 ## Update Marinara
 
-Each time you run `./start-termux.sh`, the launcher checks GitHub for a newer version and updates before it starts. To start without updating, add `--skip-update`. For more options and the APK update steps, see [Upgrading Marinara Engine](../UPGRADING.md#android-termux).
+Each time you run `./start-termux.sh`, the launcher checks GitHub for a newer version and updates before it starts. To start without updating, add `--skip-update`. On a test branch, such as the UI overhaul playtest, the launcher follows that branch on GitHub. If the branch was rewritten there, your copy moves to the new version by itself, as long as you made no commits of your own. For more options and the APK update steps, see [Upgrading Marinara Engine](../UPGRADING.md#android-termux).
 
 The launcher also removes unused packages from its local pnpm cache during updates. This stops old releases from filling several gigabytes of storage. It does not touch your chats or settings.
 
