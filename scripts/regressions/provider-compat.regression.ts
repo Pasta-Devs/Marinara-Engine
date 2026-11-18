@@ -4269,14 +4269,53 @@ try {
         replayMetadata ? identifiedParts : identifiedParts.map(({ functionCall }) => ({ functionCall })),
         "both serialization paths must retain the provider's function-call ids",
       );
+      // Both results go back in one user turn, in call order (Google's parallel-call rule, #9552).
       assert.deepEqual(
         contents.slice(2).map(({ parts }) => parts),
-        ["roll-first", "roll-second"].map((id, index) => [
-          { functionResponse: { id, name: "roll_dice", response: { total: 17 + index } } },
-        ]),
-        "each functionResponse must include the matching provider-issued id",
+        [
+          ["roll-first", "roll-second"].map((id, index) => ({
+            functionResponse: { id, name: "roll_dice", response: { total: 17 + index } },
+          })),
+        ],
+        "each functionResponse must include the matching provider-issued id, all in one user turn",
       );
     }
+    // Results of different rounds stay in their own turns, and a result never joins a text turn.
+    await gemini.chatComplete(
+      [
+        { role: "user", content: "roll twice" },
+        { role: "assistant", content: "", tool_calls: identifiedResult.toolCalls },
+        ...identifiedResult.toolCalls.map((call): ChatMessage => ({
+          role: "tool",
+          tool_call_id: call.id,
+          content: "{}",
+        })),
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [{ id: "roll-third", type: "function", function: { name: "roll_dice", arguments: "{}" } }],
+        },
+        { role: "tool", tool_call_id: "roll-third", content: "{}" },
+        { role: "user", content: "and once more" },
+        { role: "tool", tool_call_id: "roll-orphan", content: "{}" },
+      ],
+      { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
+    );
+    assert.deepEqual(
+      (geminiRequestBodies.at(-1)!.contents as Array<{ role: string; parts: Array<Record<string, unknown>> }>).map(
+        ({ role, parts }) => `${role}:${parts.map((part) => Object.keys(part)[0]).join("+")}`,
+      ),
+      [
+        "user:text",
+        "model:functionCall+functionCall",
+        "user:functionResponse+functionResponse",
+        "model:functionCall",
+        "user:functionResponse",
+        "user:text",
+        "user:functionResponse",
+      ],
+      "only consecutive results after one model turn share a user turn",
+    );
 
     // Two calls in one response with no ids of their own: the synthesized fallback ids are
     // built from a running index, so they must not collide.

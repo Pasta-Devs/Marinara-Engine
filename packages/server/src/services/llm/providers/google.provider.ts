@@ -572,19 +572,22 @@ function formatGoogleContents(
 
     if (message.role === "tool") {
       const name = message.tool_call_id ? (toolNamesById.get(message.tool_call_id) ?? "tool_result") : "tool_result";
-      contents.push({
-        role: "user",
-        parts: [
-          {
-            functionResponse: {
-              // Match ids actually replayed to Gemini, not Engine's synthetic ids for id-less calls.
-              ...(message.tool_call_id && emittedToolIds.has(message.tool_call_id) ? { id: message.tool_call_id } : {}),
-              name,
-              response: parseToolResultContent(message.content || ""),
-            },
-          },
-        ],
-      });
+      const part = {
+        functionResponse: {
+          // Match ids actually replayed to Gemini, not Engine's synthetic ids for id-less calls.
+          ...(message.tool_call_id && emittedToolIds.has(message.tool_call_id) ? { id: message.tool_call_id } : {}),
+          name,
+          response: parseToolResultContent(message.content || ""),
+        },
+      };
+      // Results of parallel calls go back in one user turn, in call order, as Google's guides ask.
+      // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon
+      const previous = contents.at(-1);
+      if (previous?.role === "user" && previous.parts.every((existing) => "functionResponse" in existing)) {
+        previous.parts.push(part);
+      } else {
+        contents.push({ role: "user", parts: [part] });
+      }
       continue;
     }
 
