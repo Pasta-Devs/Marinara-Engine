@@ -18,6 +18,7 @@ import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import {
+  ADMIN_EXPUNGE_RATE_LIMIT,
   ADMIN_RESTART_RATE_LIMIT,
   AVATAR_STORAGE_RATE_LIMIT,
   REQUEST_TIMEOUT_SETTINGS_RATE_LIMIT,
@@ -612,6 +613,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // background: true answers at once with the job; progress is at GET /expunge/status.
   app.post<{ Body: { confirm: boolean; scopes?: ExpungeScope[]; background?: boolean } }>(
     "/expunge",
+    { config: { rateLimit: ADMIN_EXPUNGE_RATE_LIMIT } },
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Admin data expunge" })) return;
       const { confirm, scopes, background } = req.body as {
@@ -629,12 +631,16 @@ export async function adminRoutes(app: FastifyInstance) {
   );
 
   // Clear all data — compatibility wrapper around scoped expunge.
-  app.post<{ Body: { confirm: boolean; background?: boolean } }>("/clear-all", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Admin data clearing" })) return;
-    const { confirm, background } = req.body as { confirm?: boolean; background?: unknown };
-    if (!confirm) {
-      return reply.status(400).send({ error: "Must send { confirm: true } to proceed" });
-    }
-    return startExpunge(ALL_EXPUNGE_SCOPES, reply, background === true);
-  });
+  app.post<{ Body: { confirm: boolean; background?: boolean } }>(
+    "/clear-all",
+    { config: { rateLimit: ADMIN_EXPUNGE_RATE_LIMIT } },
+    async (req, reply) => {
+      if (!requirePrivilegedAccess(req, reply, { feature: "Admin data clearing" })) return;
+      const { confirm, background } = req.body as { confirm?: boolean; background?: unknown };
+      if (!confirm) {
+        return reply.status(400).send({ error: "Must send { confirm: true } to proceed" });
+      }
+      return startExpunge(ALL_EXPUNGE_SCOPES, reply, background === true);
+    },
+  );
 }
