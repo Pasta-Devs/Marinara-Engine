@@ -71,7 +71,7 @@
 2. OAuthのアクセストークン(たとえば`gcloud auth print-access-token`で取得したもの)。
 3. Vertex APIキー。
 
-Googleのドキュメントに沿ったMarinaraのコード内の注記によると、**Gemini 4 Argon**と**Gemini 4 Carbon**は`global`、`us`、`eu`のロケーションでのみ動作し、`us-central1`のような単一のリージョンでは動きません。どちらを使う場合も、アドレスを`https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`に設定してください。ほかのロケーションではGoogleがエラーを返し、Marinaraがそのエラーを表示します。
+Googleのドキュメントに沿ったMarinaraのコード内の注記によると、**Gemini 4 Argon**、**Gemini 4 Carbon**、**Gemini 4 Neon**は`global`、`us`、`eu`のロケーションでのみ動作し、`us-central1`のような単一のリージョンでは動きません。いずれを使う場合も、アドレスを`https://aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/global`に設定してください。ほかのロケーションではGoogleがエラーを返し、Marinaraがそのエラーを表示します。
 
 ### Cohere
 

@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "19b1d5c4dafdbc98945f3dbe19dee38962048b0394469f1e7fae8a044c5d13aa",
-      "bytes": 19225
+      "sha256": "e80ab0a70a5e49255e635f8531c8864b53659f59e4cf8b77b0e68c86b5ee288a",
+      "bytes": 19239
     },
     {
       "path": "connections/subscription-clis.md",
@@ -694,8 +694,8 @@
     },
     {
       "path": "prompts/generation-parameters.md",
-      "sha256": "dfa17cca6ddff74b38429becdd11f3a4eb1ad6efc8859b25343c161f46c2eb00",
-      "bytes": 18775
+      "sha256": "13e19df5b623bf666b86c2f931b1b43b24624da3f486841a8f7023d09f15e9b2",
+      "bytes": 18790
     },
     {
       "path": "prompts/macros.md",
