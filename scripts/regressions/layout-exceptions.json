@@ -535,6 +535,7 @@
     "scripts/regressions/agents/agent-pipeline.regression.ts",
     "scripts/regressions/agents/agent-progress.regression.ts",
     "scripts/regressions/agents/agent-registry-hydration.regression.ts",
+    "scripts/regressions/agents/agent-retry-stop.regression.ts",
     "scripts/regressions/agents/beholder-directive.regression.ts",
     "scripts/regressions/agents/character-activity-agent.regression.ts",
     "scripts/regressions/agents/illustrator-character-prompts.regression.ts",

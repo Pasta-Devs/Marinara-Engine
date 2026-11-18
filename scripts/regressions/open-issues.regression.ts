@@ -1101,21 +1101,12 @@ assert.equal(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate/retry-agents-route.ts"),
     "utf8",
   );
-  const lorebookKeeperUtilsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/server/src/routes/generate/lorebook-keeper-utils.ts"),
-    "utf8",
-  );
   assert.match(
     generateRouteSource,
     /chatMode === "roleplay" && assistantMessageReadySent\) \{[\s\S]{0,220}moveToActiveAgentRuns\([\s\S]{0,180}lastSavedSwipeIndex/u,
     "A durable Roleplay reply must release the main generation slot while retaining its cancellable agent tail",
   );
   assert.match(generateRouteSource, /const activeAgentRuns = new Map<string, Set<ActiveGeneration>>\(\)/u);
-  assert.match(
-    generateRouteSource,
-    /registerRetryAgentsRoute\(app, activeCustomLorebookReadBehindRuns, activeAgentRuns\)/u,
-    "Forced Agent retries must join the same cancellable registry as automatic Agent tails",
-  );
   assert.match(
     generateRouteSource,
     /active: activeGenerations\.has\(req\.params\.chatId\) \|\| \(activeAgentRuns\.get\(req\.params\.chatId\)\?\.size \?\? 0\) > 0/u,
@@ -1127,66 +1118,6 @@ assert.equal(
     "Stopping an old agent tail must not send a backend-wide abort that can kill a newer reply",
   );
   assert.doesNotMatch(generateRouteSource, /targets\.map\(\(target\) => target\.backendUrl\)/u);
-  assert.match(
-    retryAgentsRouteSource,
-    /for \(const result of results\) \{\s*if \(abortController\.signal\.aborted\) return;[\s\S]{0,500}sendSseEvent\(reply, \{\s*type: "agent_result"/u,
-    "Forced retries must stop emitting results as soon as their shared abort signal fires",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /if \(abortController\.signal\.aborted\) return;\s*await persistRetryResults\(/u,
-    "Forced retries must check cancellation immediately before persistRetryResults",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /if \(abortController\.signal\.aborted\) return;[\s\S]{0,140}await applyRetryResultEffects\(\{/u,
-    "Forced retries must check cancellation before applyRetryResultEffects",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /if \(abortController\.signal\.aborted\) return;\s*sendSseEvent\(reply, \{ type: "done"/u,
-    "A cancelled retry must not emit its completion event",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /assertRetrySetupActive\(\);\s*sendSseEvent\(reply, \{ type: "agent_start"/u,
-    "A cancelled retry must not emit agent_start after asynchronous setup",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /signal\.throwIfAborted\(\);\s*return \{[\s\S]{0,220}macroVariables/u,
-    "Retry macro persistence must re-check cancellation when its queued write begins",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /const assertRetryActive = \(\) => signal\.throwIfAborted\(\);[\s\S]{0,300}const sortedResults/u,
-    "Retry side effects must use the native abort guard across awaited writes and events",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /const rawResult = await executeAgent\([\s\S]{0,350}if \(baseContext\.signal\?\.aborted\) return results;/u,
-    "Lorebook retries must stop after provider completion",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /preferredTargetLorebookId = await persistLorebookKeeperUpdates\([\s\S]{0,700}signal: baseContext\.signal/u,
-    "Lorebook retry persistence must receive the shared cancellation signal",
-  );
-  assert.match(
-    lorebookKeeperUtilsSource,
-    /signal\?: AbortSignal/u,
-    "Lorebook Keeper persistence must accept a cancellation signal",
-  );
-  assert.match(
-    lorebookKeeperUtilsSource,
-    /signal\?\.throwIfAborted\(\);\s*const (?:created|updated) = await lorebooksStore\.(?:create|updateEntry|createEntry)/u,
-    "Lorebook persistence must honor retry cancellation before database writes",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /const customWritableLorebookIds =\s*!isBuiltInLorebookAgent && resultAgent[\s\S]{0,220}resolveCustomWritableLorebookIds\(resultAgent\.settings\)[\s\S]{0,900}writableLorebooks/u,
-    "Custom-agent retry approvals must carry that agent's writable lorebook routing metadata",
-  );
   assert.equal(
     retryAgentsRouteSource.match(
       /worldName: (?:retryContext|agentContext)\.characters\[0\]\?\.world \?\? (?:chatName|\(chat as any\)\.name)/gu,
@@ -1229,17 +1160,6 @@ assert.equal(
     generateRouteSource,
     /macroVariables: mergeGeneratedChatMacroVariables\(\s*current\.macroVariables,\s*persistedMacroVariableSnapshot,\s*chatMacroVariables,/u,
     "generation persists macro variables through the bounded merge helper",
-  );
-
-  assert.match(
-    retryAgentsRouteSource,
-    /persistRetryMacroVariables\([\s\S]{0,240}agentContextResult\.macroVariables/u,
-    "retry-agent prompt macro writes are persisted back to chat metadata",
-  );
-  assert.match(
-    retryAgentsRouteSource,
-    /for \(const entry of lorebookKeeperRunEntries\)[\s\S]{0,900}messageId: entry\.messageId,[\s\S]{0,80}swipeIndex: entry\.swipeIndex/u,
-    "Lorebook Keeper backfill results retain each target message and swipe anchor",
   );
 }
 
