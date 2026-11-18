@@ -221,7 +221,8 @@ function drawMissingPortraits(characters: TrackedCharacter[], deps: AgentResultE
         : characters;
       const merged = current.map((character) => {
         const avatarPath = drawn.get(portraitKey(deps.chatId, character));
-        return avatarPath ? { ...character, avatarPath } : character;
+        // An avatar set meanwhile (by the user or another run) wins over the drawn one.
+        return avatarPath && !character.avatarPath ? { ...character, avatarPath } : character;
       });
       const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ presentCharacters: merged }, latestState);
       const presentCharacters = Array.isArray(lockedPatch.presentCharacters) ? lockedPatch.presentCharacters : merged;
