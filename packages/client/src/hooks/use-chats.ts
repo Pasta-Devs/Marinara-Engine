@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import {
   infiniteQueryOptions,
@@ -2168,26 +2168,85 @@ export function useGenerateSummary() {
   });
 }
 
-/** Clear all user data */
-export function useExpungeData() {
+export type ExpungeJobStatus = {
+  id: string;
+  scopes: ExpungeScope[];
+  state: "running" | "done" | "failed";
+  step: ExpungeScope | "finishing";
+  done: number;
+  total: number;
+  stepIndex: number;
+  stepCount: number;
+  startedAt: string;
+  finishedAt: string | null;
+  error: string | null;
+};
+
+export type ExpungeStatus = {
+  job: ExpungeJobStatus | null;
+  /** A clear that started but never finished because the server stopped. */
+  interrupted: { scopes: ExpungeScope[]; startedAt: string } | null;
+};
+
+const expungeStatusKey = ["admin", "expunge-status"] as const;
+
+/**
+ * Where the background data clear is. Polls while one runs, so the progress survives closing and
+ * reopening Settings, and the client resets once it finishes.
+ */
+export function useExpungeStatus() {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: expungeStatusKey,
+    queryFn: () => api.get<ExpungeStatus>("/admin/expunge/status"),
+    refetchInterval: (current) => (current.state.data?.job?.state === "running" ? 750 : false),
+    staleTime: 0,
+  });
+  const job = query.data?.job ?? null;
+  const settledJobRef = useRef<string | null>(null);
+  const [finished, setFinished] = useState<ExpungeJobStatus | null>(null);
+  useEffect(() => {
+    if (!job || job.state === "running" || settledJobRef.current === job.id) return;
+    // Only react to a clear this page watched run; an old finished job just sits in the status.
+    const watched = runningJobIdsSeen.has(job.id);
+    settledJobRef.current = job.id;
+    if (!watched) return;
+    runningJobIdsSeen.delete(job.id);
+    setFinished(job);
+    if (job.state === "done") {
+      void resetClientAfterExpunge(qc).then(() => qc.setQueryData(expungeStatusKey, { job, interrupted: null }));
+    }
+  }, [job, qc]);
+  if (job?.state === "running") runningJobIdsSeen.add(job.id);
+  return { status: query.data ?? null, job, finished, clearFinished: () => setFinished(null) };
+}
+
+/** Clears this page started or saw running, across remounts of the Settings panel. */
+const runningJobIdsSeen = new Set<string>();
+
+function useStartExpunge<TVariables>(start: (variables: TVariables) => Promise<{ job: ExpungeJobStatus }>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (scopes: ExpungeScope[]) => api.post<{ success: boolean }>("/admin/expunge", { confirm: true, scopes }),
-    onSuccess: async () => {
-      await resetClientAfterExpunge(qc);
+    mutationFn: start,
+    onSuccess: ({ job }) => {
+      runningJobIdsSeen.add(job.id);
+      qc.setQueryData<ExpungeStatus>(expungeStatusKey, { job, interrupted: null });
     },
   });
 }
 
-/** Clear all user data */
+/** Start clearing the selected kinds of data. Progress comes from useExpungeStatus. */
+export function useExpungeData() {
+  return useStartExpunge((scopes: ExpungeScope[]) =>
+    api.post<{ job: ExpungeJobStatus }>("/admin/expunge", { confirm: true, scopes, background: true }),
+  );
+}
+
+/** Start clearing all user data. Progress comes from useExpungeStatus. */
 export function useClearAllData() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.post<{ success: boolean }>("/admin/clear-all", { confirm: true }),
-    onSuccess: async () => {
-      await resetClientAfterExpunge(qc);
-    },
-  });
+  return useStartExpunge((_: void) =>
+    api.post<{ job: ExpungeJobStatus }>("/admin/clear-all", { confirm: true, background: true }),
+  );
 }
 
 /** All swipes of one message, for the greeting switcher. Shares the cache key the swipe mutations update. */

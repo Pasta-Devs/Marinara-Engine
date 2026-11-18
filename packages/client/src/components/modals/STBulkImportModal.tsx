@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Modal: SillyTavern Bulk Import
 // ──────────────────────────────────────────────
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import {
@@ -66,7 +66,13 @@ interface ImportResult {
     backgrounds: number;
     personas: number;
   };
+  /** Left out because this Engine already had them. */
+  skipped?: { characters: number; chats: number; groupChats: number };
   errors: string[];
+}
+
+interface ImportJobStatus {
+  job: { id: string; running: boolean; progress: ImportProgress | null; result: ImportResult | null } | null;
 }
 
 interface ImportProgress {
@@ -162,6 +168,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [error, setError] = useState("");
   const [characterTagImportMode, setCharacterTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<"character" | "global">("character");
+  const [skipAlreadyImported, setSkipAlreadyImported] = useState(true);
+  const followingRef = useRef(false);
   const qc = useQueryClient();
 
   const reset = useCallback(() => {
@@ -182,6 +190,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setError("");
     setCharacterTagImportMode("all");
     setRegexScriptScope("character");
+    setSkipAlreadyImported(true);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -297,6 +306,61 @@ export function STBulkImportModal({ open, onClose }: Props) {
     });
   }, []);
 
+  // Picks up an import the server is still running when this window lost its progress stream
+  // (closed, reloaded, connection dropped). The old window said "failed" here, and running it
+  // again imported every chat a second time.
+  const followImport = useCallback(async () => {
+    if (followingRef.current) return;
+    followingRef.current = true;
+    setPhase("importing");
+    setError("");
+    try {
+      for (let failures = 0; failures < 30;) {
+        let status: ImportJobStatus;
+        try {
+          status = await api.get<ImportJobStatus>("/import/st-bulk/status");
+          failures = 0;
+        } catch {
+          failures++;
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+        const job = status.job;
+        if (!job) break;
+        if (job.progress) setProgress(job.progress);
+        if (!job.running) {
+          if (job.result) {
+            setImportResult(job.result);
+            setPhase("done");
+            qc.invalidateQueries();
+            return;
+          }
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      setError(localizeUi("ui.modals.stbulkimportmodal.streamClosedEarly"));
+      setPhase("preview");
+    } finally {
+      followingRef.current = false;
+    }
+  }, [qc, localizeUi]);
+
+  // Opening the window while an import runs shows that import instead of a fresh form.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void api
+      .get<ImportJobStatus>("/import/st-bulk/status")
+      .then((status) => {
+        if (!cancelled && status.job?.running) void followImport();
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, followImport]);
+
   const handleImport = useCallback(async () => {
     if (!folderPath.trim()) return;
     setPhase("importing");
@@ -309,10 +373,20 @@ export function STBulkImportModal({ open, onClose }: Props) {
         body: JSON.stringify({
           folderPath: folderPath.trim(),
           folderToken,
-          options: { ...selection, characterTagImportMode, regexScriptScope },
+          options: {
+            ...selection,
+            characterTagImportMode,
+            regexScriptScope,
+            skipAlreadyImported,
+          },
         }),
       });
 
+      if (res.status === 409) {
+        // Already running (another tab, or a run this window lost track of): show that one.
+        void followImport();
+        return;
+      }
       if (!res.ok) {
         const { data, raw } = await readJsonResponse<ApiErrorPayload>(res);
         setError(describeResponseError(res, data, raw, "Import failed"));
@@ -371,18 +445,34 @@ export function STBulkImportModal({ open, onClose }: Props) {
         } catch {
           // Not JSON: the stream closed early.
         }
-        setError(
-          typeof serverError === "string"
-            ? serverError.slice(0, 500)
-            : localizeUi("ui.modals.stbulkimportmodal.streamClosedEarly"),
-        );
-        setPhase("preview");
+        if (typeof serverError === "string") {
+          setError(serverError.slice(0, 500));
+          setPhase("preview");
+        } else {
+          // The stream closed early, but the import runs on the server: keep showing it.
+          void followImport();
+        }
       }
     } catch (err) {
+      if (err instanceof TypeError || (err instanceof DOMException && err.name !== "AbortError")) {
+        // Connection lost mid-stream; the server keeps importing.
+        void followImport();
+        return;
+      }
       setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
       setPhase("preview");
     }
-  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection, localizeUi]);
+  }, [
+    characterTagImportMode,
+    regexScriptScope,
+    folderPath,
+    folderToken,
+    qc,
+    selection,
+    localizeUi,
+    skipAlreadyImported,
+    followImport,
+  ]);
 
   const hasAnySelected = Object.values(selection).some((ids) => ids.length > 0);
   const builtinPresetCount = scanResult?.presets.filter((item) => item.isBuiltin).length ?? 0;
@@ -830,6 +920,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
                 }}
               />
             </div>
+
+            <SkipAlreadyImportedCheck value={skipAlreadyImported} onChange={setSkipAlreadyImported} />
           </>
         )}
 
@@ -933,6 +1025,16 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </span>
             </div>
 
+            {importResult.success &&
+              importResult.skipped &&
+              importResult.skipped.characters + importResult.skipped.chats + importResult.skipped.groupChats > 0 && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("ui.modals.stbulkimportmodal.skippedAlreadyImported", {
+                    characters: importResult.skipped.characters,
+                    chats: importResult.skipped.chats + importResult.skipped.groupChats,
+                  })}
+                </p>
+              )}
             {importResult.success && (
               <div className="grid grid-cols-2 gap-2">
                 <StatCard
@@ -1124,6 +1226,32 @@ function StatCard({ icon, label, count }: { icon: React.ReactNode; label: string
         <span className="text-sm font-bold">{count}</span>
         <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{label}</span>
       </div>
+    </div>
+  );
+}
+
+/** "Skip what's already here" on the scan results. */
+function SkipAlreadyImportedCheck({ value, onChange }: { value: boolean; onChange: (next: boolean) => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  const box = (
+    <label className="inline-flex cursor-pointer items-center gap-2">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+      />
+      {localizeUi("ui.modals.stbulkimportmodal.skipAlreadyImported")}
+    </label>
+  );
+  const hint = localizeUi("ui.modals.stbulkimportmodal.skipAlreadyImportedHint");
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3 text-xs">
+      <div className="mb-2 font-semibold text-[var(--foreground)]">
+        {localizeUi("ui.modals.stbulkimportmodal.alreadyImported")}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">{box}</div>
+      <p className="mt-2 text-[var(--muted-foreground)]">{hint}</p>
     </div>
   );
 }

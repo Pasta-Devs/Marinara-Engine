@@ -135,6 +135,12 @@ export const GAME_RULESETS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Starting a Clear data run (the progress poll at /admin/expunge/status is not limited). */
+export const ADMIN_EXPUNGE_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const ADMIN_RESTART_RATE_LIMIT = {
   max: 5,
   timeWindow: 60_000,
@@ -279,6 +285,15 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
     pattern: /^\/api\/connections\/[^/]+\/test-image(?:\?|$)/,
     rule: { key: "image-test", limit: 20, windowMs: 60_000 },
   },
+  // The import window polls its progress about once a second; that must not share the start/scan bucket.
+  {
+    pattern: /^\/api\/import\/st-bulk\/status(?:\?|$)/,
+    rule: {
+      key: "bulk-import-status",
+      limit: STATUS_POLL_RATE_LIMIT.max,
+      windowMs: STATUS_POLL_RATE_LIMIT.timeWindow,
+    },
+  },
   { pattern: /^\/api\/import\/st-bulk(?:\/|$)/, rule: { key: "bulk-import", limit: 20, windowMs: 60_000 } },
   {
     pattern: /^\/api\/characters\/[^/]+\/gallery\/bake(?:\?|$)/,
@@ -323,6 +338,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       limit: AVATAR_CLASSIFY_RATE_LIMIT.max,
       windowMs: AVATAR_CLASSIFY_RATE_LIMIT.timeWindow,
     },
+  },
+  {
+    pattern: /^\/api\/admin\/(?:expunge|clear-all)(?:\?|$)/,
+    rule: { key: "admin-expunge", limit: ADMIN_EXPUNGE_RATE_LIMIT.max, windowMs: ADMIN_EXPUNGE_RATE_LIMIT.timeWindow },
   },
   {
     pattern: /^\/api\/admin\/restart(?:\?|$)/,

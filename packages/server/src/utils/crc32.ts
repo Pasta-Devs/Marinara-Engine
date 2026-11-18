@@ -1,3 +1,5 @@
+import zlib from "node:zlib";
+
 const CRC32_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let index = 0; index < 256; index++) {
@@ -10,7 +12,12 @@ const CRC32_TABLE = (() => {
   return table;
 })();
 
+// Node's zlib.crc32 (native, Node 22.2+) is many times faster than the table loop on big backups. It takes and
+// returns finished values, so convert from and back to the running state.
+const nativeCrc32 = (zlib as { crc32?: (data: Uint8Array, value?: number) => number }).crc32;
+
 export function updateCrc32State(state: number, chunk: Uint8Array): number {
+  if (nativeCrc32) return (nativeCrc32(chunk, (state ^ 0xffffffff) >>> 0) ^ 0xffffffff) >>> 0;
   let crc = state >>> 0;
   for (const byte of chunk) {
     crc = CRC32_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
