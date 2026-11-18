@@ -57,6 +57,8 @@ Object.assign(globalThis, { __marinaraFirstPaintMari: firstPaintMariImages });
 // Things to try: notices tasks the app itself can see (tabs, a split, a font), wherever they happen.
 scheduleAfterFirstLoad(() => {
   void import("./lib/things-to-try-watch").then(({ watchThingsToTry }) => watchThingsToTry());
+  // Guide quests: an Explorer achievement the moment a quest finishes its group, wherever it was finished.
+  void import("./lib/guide-quests-awards").then(({ watchGuideQuestAwards }) => watchGuideQuestAwards());
 });
 
 function scheduleAfterFirstLoad(callback: () => void) {

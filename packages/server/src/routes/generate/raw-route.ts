@@ -27,8 +27,10 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
-import { resolveMemoryRecallEmbeddingSource } from "../../services/memory-recall-embedding.js";
-import { builtinEmbeddingService } from "../../services/sidecar/builtin-embedding.service.js";
+import {
+  resolveMemoryRecallEmbeddingSource,
+  resolvePseudoEmbeddingSource,
+} from "../../services/memory-recall-embedding.js";
 import {
   resolveVisionCaptioningRuntime,
   withImageCaptionFallback,
@@ -460,7 +462,14 @@ export async function registerRawRoute(app: FastifyInstance) {
         body.connectionId === LOCAL_SIDECAR_CONNECTION_ID
           ? await getLocalSidecarProvider().embed(texts, LOCAL_SIDECAR_MODEL, abortController.signal)
           : body.connectionId === BUILTIN_EMBEDDING_CONNECTION_ID
-            ? await builtinEmbeddingService.embed(texts, abortController.signal)
+            ? await (async () => {
+                // Through the embedding source, so the texts get the model's document prefix like every other caller's.
+                const source = resolvePseudoEmbeddingSource(BUILTIN_EMBEDDING_CONNECTION_ID, true);
+                if (!source) throw new Error("Download the built-in embedding model first");
+                const vectors = await source.embed(texts, abortController.signal, "document");
+                if (!vectors) throw new Error("The built-in embedding model returned no embeddings");
+                return vectors;
+              })()
             : await (async () => {
                 const activeConnection = await connections.getWithKey(body.connectionId);
                 if (!activeConnection) {

@@ -848,12 +848,29 @@ export function AppShell({
     });
   }, []);
   // New layout on phones: the old right panel (Connections, Presets... lists) never shows. Anything
-  // that opens it, including a desktop Library pane left open when the window shrinks, lands on
-  // that section's Library page instead.
+  // that opens it lands on that section's Library page instead. A window shrinking into the phone
+  // layout keeps the page it shows (a Docs guide, Mari, a chat): the desktop sidebar is always open,
+  // so it only becomes the section's page when that pane was on its Library view beside plain Home.
+  const overhaulMobileBeforeRef = useRef(overhaulMobile);
   useEffect(() => {
+    const shrank = overhaulMobile && !overhaulMobileBeforeRef.current;
+    overhaulMobileBeforeRef.current = overhaulMobile;
     if (!overhaulMobile || !rightPanelOpen) return;
-    const panel = useUIStore.getState().rightPanel;
-    useUIStore.getState().closeRightPanel();
+    const ui = useUIStore.getState();
+    const panel = ui.rightPanel;
+    ui.closeRightPanel();
+    if (shrank) {
+      const overhaul = useOverhaulStore.getState();
+      const onPlainHome =
+        overhaul.sidePane === "library" &&
+        !overhaul.activeDocsTab &&
+        !overhaul.activeMari &&
+        !overhaul.activeSchedules &&
+        !overhaul.activeApp &&
+        !overhaul.libraryPage &&
+        !useChatStore.getState().activeChatId;
+      if (!onPlainHome) return;
+    }
     if (LIBRARY_SECTIONS.some((section) => section.id === panel)) {
       openLibrarySection(panel as (typeof LIBRARY_SECTIONS)[number]["id"]);
     }
