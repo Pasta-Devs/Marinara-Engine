@@ -146,6 +146,7 @@ import {
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { tryParseJsonRecord } from "../lib/json-repair.js";
 import { notFound } from "../utils/not-found.js";
+import { parseJsonRecord } from "../utils/large-json.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -374,19 +375,6 @@ function expectedImageExt(ext: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function parseJsonRecord(raw: unknown): Record<string, unknown> {
-  if (!raw) return {};
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return isRecord(parsed) ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-  return isRecord(raw) ? raw : {};
 }
 
 function parseStringArray(raw: unknown): string[] {

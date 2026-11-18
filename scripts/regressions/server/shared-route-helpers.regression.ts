@@ -13,3 +13,27 @@ try {
 } finally {
   await app.close();
 }
+
+const { parseJsonArray, parseJsonOrNull, parseJsonRecord } =
+  await import("../../../packages/server/src/utils/large-json.js");
+
+// Stored JSON columns: text is parsed, an already-parsed value passes through, anything else falls back.
+const record = { a: 1 };
+assert.equal(parseJsonRecord(record), record);
+assert.deepEqual(parseJsonRecord(' {"a":1} '), { a: 1 });
+for (const value of ["", "  ", "[1]", "null", "nope", "4", 4, null, undefined, [1]]) {
+  assert.deepEqual(parseJsonRecord(value), {}, `parseJsonRecord(${JSON.stringify(value)})`);
+}
+
+const list = [1];
+assert.equal(parseJsonArray(list), list);
+assert.deepEqual(parseJsonArray(" [1,2] "), [1, 2]);
+for (const value of ["", '{"a":1}', "null", "nope", 4, null, undefined, { a: 1 }]) {
+  assert.deepEqual(parseJsonArray(value), [], `parseJsonArray(${JSON.stringify(value)})`);
+}
+
+assert.deepEqual(parseJsonOrNull('{"a":[1]}'), { a: [1] });
+assert.equal(parseJsonOrNull("nope"), null);
+assert.equal(parseJsonOrNull(""), null);
+assert.equal(parseJsonOrNull(record), record);
+assert.equal(parseJsonOrNull(undefined), undefined);
