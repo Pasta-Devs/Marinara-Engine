@@ -255,7 +255,7 @@ export const tacticalBattlefieldSetupSchema = z
 // so this list can never drift from what `terrainInfoAt` actually handles.
 const KNOWN_TERRAIN_TYPES = new Set(Object.keys(TERRAIN_DATA));
 
-export function generatedStringValue(value: unknown): string | undefined {
+function generatedStringValue(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed || undefined;

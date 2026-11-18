@@ -16,7 +16,7 @@ export const RULESET_COMBAT_REASON_LIMIT = 60;
 /** The most rounds anything in a fight counts down from. */
 export const COMBAT_DIRECTOR_MOST_ROUNDS = 100;
 
-export const resourcePools = (v: { hp: number; maxHp: number; mp?: number; maxMp?: number }) =>
+const resourcePools = (v: { hp: number; maxHp: number; mp?: number; maxMp?: number }) =>
   v.hp <= v.maxHp && (v.mp ?? 0) <= (v.maxMp ?? v.mp ?? 0);
 
 /** The most power an item's effect is read at. */
