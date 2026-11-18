@@ -508,11 +508,6 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
     metadata: maskChatMetadataSecrets(parseChatMetadata(chat.metadata)),
   });
 }
-/**
- * One page of the chat list, newest activity first. `before` is the `updatedAt` of the last chat
- * on the previous page. A page never splits chats that share one `updatedAt` (bulk imports do), so
- * the next page cannot skip them; such a page can run past `limit`.
- */
 /** `before` must match the stored `updatedAt` form (ISO, UTC), since pages compare the strings. */
 export function chatListQueryError(query: { limit?: string; before?: string }): string | null {
   if (query.limit !== undefined && !/^[1-9]\d{0,5}$/.test(query.limit)) return "limit must be a whole number from 1";
@@ -523,6 +518,11 @@ export function chatListQueryError(query: { limit?: string; before?: string }): 
   return null;
 }
 
+/**
+ * One page of the chat list, newest activity first. `before` is the `updatedAt` of the last chat
+ * on the previous page. A page never splits chats that share one `updatedAt` (bulk imports do), so
+ * the next page cannot skip them; such a page can run past `limit`.
+ */
 export function pageChatList<T extends { updatedAt: string }>(
   chats: T[],
   query: { limit?: string; before?: string },
