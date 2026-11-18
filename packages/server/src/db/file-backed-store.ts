@@ -38,6 +38,7 @@ import { logger } from "../lib/logger.js";
 import {
   getFileStorageDir,
   getMaxResidentChatUnits,
+  residentChatEvictionDisabledByConfig,
   getWindowsBootIdCachePath,
   isStorageSkipUnchangedWritesEnabled,
   isStorageYieldingSerializeEnabled,
@@ -5015,10 +5016,11 @@ class FileTableStore {
   /**
    * Same safety argument as the flush-tail sweep: it runs right after a successful flush, and the
    * sweep itself still skips units with pending marks and bails while a flush or transaction is
-   * active. A configured cap below `keep` wins.
+   * active. A configured cap below `keep` wins, and MARINARA_MAX_RESIDENT_CHATS=0 turns it off.
    */
   async trimResidentChatUnits(keep: number) {
     await this.flush(true, true);
+    if (residentChatEvictionDisabledByConfig()) return;
     const configured = getMaxResidentChatUnits();
     this.maybeEvictUnits(Math.max(2, configured > 0 ? Math.min(configured, keep) : keep));
   }

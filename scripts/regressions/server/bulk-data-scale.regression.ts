@@ -217,6 +217,17 @@ try {
     importedMessages += (await db.select().from(schema.messages).where(eq(schema.messages.chatId, chat.id))).length;
   }
   assert.equal(importedMessages, chatFileCount * 4, "chats that went back to disk still read in full");
+  const allResident = db._fileStore.getResidentChatUnits().size;
+  process.env.MARINARA_MAX_RESIDENT_CHATS = "0";
+  await db._fileStore.trimResidentChatUnits(4);
+  assert.equal(
+    db._fileStore.getResidentChatUnits().size,
+    allResident,
+    "MARINARA_MAX_RESIDENT_CHATS=0 keeps every chat",
+  );
+  delete process.env.MARINARA_MAX_RESIDENT_CHATS;
+  await db._fileStore.trimResidentChatUnits(4);
+  assert.ok(db._fileStore.getResidentChatUnits().size <= 4, "unset, a trim keeps only the most recent chats");
 
   console.info("Bulk data scale regressions passed.");
 } finally {
