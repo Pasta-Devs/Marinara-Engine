@@ -2,6 +2,44 @@ import { z } from "zod";
 import { MARI_PERMISSIONS_MODES } from "../constants/mari-permissions-mode.js";
 import { MARI_RUNTIMES } from "../constants/mari-runtime.js";
 
+// Hard limits on every write path (no silent truncation); the storage files re-export them.
+export const MAX_INSTRUCTION_CONTENT_LENGTH = 20_000;
+export const MAX_INSTRUCTION_NAME_LENGTH = 120;
+export const MAX_INSTRUCTION_DESCRIPTION_LENGTH = 300;
+export const MAX_CONTEXT_ITEM_CONTENT_LENGTH = 200_000;
+export const MAX_CONTEXT_LABEL_LENGTH = 200;
+
+// #5073: attached workspace context (chat-history slices). content is the already-serialized JSON;
+// the client builds it from the chat-history picker and estimates the token cost.
+export const mariWorkspaceContextCreateSchema = z.object({
+  chatId: z.string().min(1),
+  kind: z.literal("chat_history").optional(),
+  label: z.string().min(1).max(MAX_CONTEXT_LABEL_LENGTH),
+  sourceChatId: z.string().optional().nullable(),
+  content: z.string().min(1).max(MAX_CONTEXT_ITEM_CONTENT_LENGTH),
+  tokenEstimate: z.number().int().nonnegative().optional(),
+});
+
+// #4851: memories are edited directly by the user in the Memories panel (the user is
+// the reviewer of their own memory), so these routes deliberately do NOT call
+// workspaceService.reset(); a reset aborts Mari's in-flight turn, and the memory
+// injection is re-read live per turn, so no agent rebuild is needed.
+export const mariWorkspaceInstructionCreateSchema = z.object({
+  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH),
+  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional().default(""),
+  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH),
+  persistent: z.boolean().optional().default(false),
+  enabled: z.boolean().optional().default(false),
+});
+
+export const mariWorkspaceInstructionUpdateSchema = z.object({
+  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH).optional(),
+  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional(),
+  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH).optional(),
+  persistent: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+});
+
 export const professorMariPromptSchema = z.object({
   chatId: z.string().min(1),
   message: z.string().min(1),

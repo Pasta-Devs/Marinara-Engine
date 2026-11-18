@@ -40,6 +40,8 @@ import {
   type RulesetCatalogEntriesById,
   type RulesetLiveStates,
   type RulesetCatalogEntry,
+  RULESET_COMBAT_EVENT_LIMIT,
+  RULESET_COMBAT_REASON_LIMIT,
   type RulesetDefinition,
   type RulesetSheetBuild,
 } from "../../../packages/shared/src/index.js";
@@ -55,8 +57,6 @@ import {
   rulesetCellTakenFor,
   rulesetDirectorStage,
   rulesetFightLiveStates,
-  RULESET_COMBAT_EVENT_LIMIT,
-  RULESET_COMBAT_REASON_LIMIT,
   rulesetWindowTargetOf,
   syncRulesetCombatants,
   trimRulesetFightEvents,
@@ -2069,7 +2069,10 @@ console.log(
 // Gravewatch's own fight, twenty seeds, everybody on the Engine's picker: every fight ends, pools are
 // thrown and soaked, and nobody the Engine plays spends past the one point of Resolve a turn allows.
 {
-  const gravewatch = parsedOrThrow(variant(read("../../../docs/examples/rulesets/gravewatch.json")), "the pool example");
+  const gravewatch = parsedOrThrow(
+    variant(read("../../../docs/examples/rulesets/gravewatch.json")),
+    "the pool example",
+  );
   const charms = gravewatch.catalogs!.find((catalog) => catalog.id === "charms")!.entries!;
   const charmRows = ["lantern-flare", "stern-word"].flatMap((id) =>
     rowsFromCatalogEntry(

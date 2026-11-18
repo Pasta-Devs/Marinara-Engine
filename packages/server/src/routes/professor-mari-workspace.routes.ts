@@ -10,6 +10,9 @@ import {
   withMariReceiptOutcome,
   type MariPendingMessage,
   mariWorkspaceAbortSchema,
+  mariWorkspaceContextCreateSchema,
+  mariWorkspaceInstructionCreateSchema,
+  mariWorkspaceInstructionUpdateSchema,
   mariWorkspaceApproveSchema,
   mariWorkspaceCliSchema,
   mariWorkspacePendingCreateSchema,
@@ -24,7 +27,6 @@ import {
   professorMariPromptSchema,
 } from "@marinara-engine/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { z } from "zod";
 
 // The documentation regression imports this from here.
 export { professorMariPromptSchema };
@@ -60,49 +62,9 @@ import { listCanonicalDocumentation } from "../services/professor-mari/documenta
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
-import {
-  createMariInstructionsStorage,
-  MAX_INSTRUCTION_CONTENT_LENGTH,
-  MAX_INSTRUCTION_DESCRIPTION_LENGTH,
-  MAX_INSTRUCTION_NAME_LENGTH,
-} from "../services/storage/mari-instructions.storage.js";
-import {
-  createMariWorkspaceContextStorage,
-  MAX_CONTEXT_ITEM_CONTENT_LENGTH,
-  MAX_CONTEXT_LABEL_LENGTH,
-} from "../services/storage/mari-workspace-context.storage.js";
+import { createMariInstructionsStorage } from "../services/storage/mari-instructions.storage.js";
+import { createMariWorkspaceContextStorage } from "../services/storage/mari-workspace-context.storage.js";
 import { notFound } from "../utils/not-found.js";
-
-// #5073: attached workspace context (chat-history slices). content is the already-serialized JSON;
-// the client builds it from the chat-history picker and estimates the token cost.
-const contextCreateSchema = z.object({
-  chatId: z.string().min(1),
-  kind: z.literal("chat_history").optional(),
-  label: z.string().min(1).max(MAX_CONTEXT_LABEL_LENGTH),
-  sourceChatId: z.string().optional().nullable(),
-  content: z.string().min(1).max(MAX_CONTEXT_ITEM_CONTENT_LENGTH),
-  tokenEstimate: z.number().int().nonnegative().optional(),
-});
-
-// #4851: memories are edited directly by the user in the Memories panel (the user is
-// the reviewer of their own memory), so these routes deliberately do NOT call
-// workspaceService.reset(); a reset aborts Mari's in-flight turn, and the memory
-// injection is re-read live per turn, so no agent rebuild is needed.
-const instructionCreateSchema = z.object({
-  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH),
-  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional().default(""),
-  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH),
-  persistent: z.boolean().optional().default(false),
-  enabled: z.boolean().optional().default(false),
-});
-
-const instructionUpdateSchema = z.object({
-  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH).optional(),
-  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional(),
-  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH).optional(),
-  persistent: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
 
 /**
  * What the user reads when Keep or Restore fails (#6842), instead of a bare "Internal Server
@@ -304,7 +266,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  // #4851: Memories management panel. Direct, reset-free writes (see instructionCreateSchema note).
+  // #4851: Memories management panel. Direct, reset-free writes (see mariWorkspaceInstructionCreateSchema note).
   // #5725: Permissions Mode. Reads never reset() the agent (the memories
   // convention) - a mode switch must not abort an in-flight turn; the next
   // run reads the new mode.
@@ -366,14 +328,14 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/instructions", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = instructionCreateSchema.parse(req.body);
+    const input = mariWorkspaceInstructionCreateSchema.parse(req.body);
     const instruction = await createMariInstructionsStorage(app.db).create(input);
     return { ok: true, instruction };
   });
 
   app.put<{ Params: { id: string } }>("/instructions/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = instructionUpdateSchema.parse(req.body);
+    const input = mariWorkspaceInstructionUpdateSchema.parse(req.body);
     const instruction = await createMariInstructionsStorage(app.db).update(req.params.id, input);
     if (!instruction) return notFound(reply, "Memory not found");
     return { ok: true, instruction };
@@ -397,7 +359,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/context", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = contextCreateSchema.parse(req.body);
+    const input = mariWorkspaceContextCreateSchema.parse(req.body);
     const item = await createMariWorkspaceContextStorage(app.db).create(input);
     return { ok: true, item };
   });

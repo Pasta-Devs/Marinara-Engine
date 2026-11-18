@@ -72,10 +72,13 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
-import { normalizeCharacterLookupName, normalizeRpgStatPools } from "@marinara-engine/shared";
+import {
+  normalizeCharacterLookupName,
+  normalizeRpgStatPools,
+  tacticalBattlefieldSetupSchema,
+} from "@marinara-engine/shared";
 import { roomCharacterNames } from "../services/multiplayer/fight-players.js";
 import {
-  tacticalBattlefieldSetupSchema,
   validateTacticalEncounterBlueprint,
   type TacticalBattlefieldSetup,
 } from "../services/game/tactical-battlefield.service.js";
