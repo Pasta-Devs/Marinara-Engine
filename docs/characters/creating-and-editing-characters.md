@@ -197,7 +197,7 @@ To remove an alternative, click its trash button, confirm **Delete**, then **Sav
 
 ## Version history
 
-While **Automatic versioning** is on, each save can add a snapshot to **Version history** on the **Metadata** tab. Until then it reads `Previous card states will appear here after the next edit.` A counter shows how many snapshots are saved.
+While **Automatic versioning** is on, each save can add a snapshot to **Version history** on the **Metadata** tab. Until then it reads `Previous card states will appear here after the next edit.` A counter shows how many snapshots are saved. Updating the character from a newer card always saves a snapshot first, even with the switch off. See [Update a character you already have](import-export.md#update-a-character-you-already-have).
 
 To compare a saved version with your current card:
 
