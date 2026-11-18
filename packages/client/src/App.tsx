@@ -968,6 +968,7 @@ export function App() {
         }
         // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
         const sidebarSliding =
+          document.documentElement.dataset.marinaraResizing === "col" ||
           performance.now() < shellPanelQuietUntil ||
           document.getAnimations?.()?.some(
             (animation) =>
