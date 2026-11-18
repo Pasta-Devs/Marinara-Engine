@@ -94,9 +94,9 @@ export function ChoiceOptionsField({
   const listboxMode = shouldUseListbox(variable);
   const selectedKeys = Array.isArray(selection) ? selection : [];
   // A multi-pick value follows the list it was picked from, not the order of clicks (the native select it replaced
-  // did too), and drops keys no option carries any more.
+  // did too), drops keys no option carries any more, and holds each key once even when an imported list repeats one.
   const inOptionOrder = (keys: readonly string[]) =>
-    presentedOptions.map(optionKey).filter((key) => keys.includes(key));
+    [...new Set(presentedOptions.map(optionKey))].filter((key) => keys.includes(key));
   const toggle = (key: string) =>
     onChange(
       inOptionOrder(selectedKeys.includes(key) ? selectedKeys.filter((v) => v !== key) : [...selectedKeys, key]),
