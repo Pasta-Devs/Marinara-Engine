@@ -9662,7 +9662,15 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
     const part = meta.tab === "appearance" ? `appearance:${appearanceGroupForSection(id)}` : meta.tab;
     if (!parts.includes(part)) parts.push(part);
   }
-  const visible = sectionIds.map((id) => `#${getSettingsSectionAnchorId(id)}`).join(", ");
+  // External Extensions has no registry id of its own: it rides along with Personal Extensions
+  // (it only renders once third-party imports are allowed), so keep it visible beside it.
+  const visible = sectionIds
+    .flatMap((id) =>
+      id === "personal-extensions"
+        ? [`#${getSettingsSectionAnchorId(id)}`, "#settings-section-external-extensions"]
+        : [`#${getSettingsSectionAnchorId(id)}`],
+    )
+    .join(", ");
   const renderPart = (part: string) => {
     switch (part) {
       case "general":
