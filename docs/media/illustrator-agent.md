@@ -81,7 +81,7 @@ With **Send Avatar References** on for images, **Reference pictures go to** pick
 - **Prompt writer**: only the Illustrator's prompt writer, which looks at them and describes what it sees in the image prompt.
 - **Both**: the image model and the prompt writer.
 
-The prompt writer is the way around image models that drop reference pictures, such as NovelAI V5. It needs a writer model that reads images. A writer that refuses them is skipped, and the picture is drawn without them. Sending pictures to the writer costs tokens on every run. Up to four pictures go: the cards named in `[illustrate: characters="…"]`, or else the chat's active characters and persona. **What to carry over from the pictures** says what the writer copies, such as only the look and not the art style. A Roleplay chat can set its own **Reference pictures go to** under **Send Avatar References**.
+The prompt writer is the way around image models that drop reference pictures, such as NovelAI V5. It needs a writer model that reads images. If the writer refuses them, its request is sent again without the pictures, and that writer gets none until the server restarts. A writer whose connection is marked as not reading images gets none. Sending pictures to the writer costs tokens on every run. Up to four pictures go: the cards named in `[illustrate: characters="…"]`, or else the chat's active characters and persona. **What to carry over from the pictures** says what the writer copies, such as only the look and not the art style. A Roleplay chat can set its own **Reference pictures go to** under **Send Avatar References**.
 
 ## Control how often it draws
 

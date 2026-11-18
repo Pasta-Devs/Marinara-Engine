@@ -172,7 +172,7 @@ export type ImageConnectionLike = Pick<AvatarConnection, "model" | "baseUrl" | "
  * Follows the effective "Send avatar references" (images: the chat override wins, then the agent's) and the
  * "Reference pictures go to" target.
  */
-export async function collectWriterReferencePictures(args: {
+type CollectWriterReferenceArgs = {
   agentSettings: Record<string, unknown> | null | undefined;
   chatMeta: Record<string, unknown>;
   imageConnection: ImageConnectionLike;
@@ -184,7 +184,24 @@ export async function collectWriterReferencePictures(args: {
     Parameters<typeof resolveIllustratorCharacterReferences>[0],
     "charactersStore" | "chatScope" | "characterGallery" | "personaGallery"
   >;
-}): Promise<WriterReferencePayload | null> {
+};
+
+/** Never fails the run: pictures that can't be read leave the writer without them (a cancel still cancels). */
+export async function collectWriterReferencePictures(
+  args: CollectWriterReferenceArgs,
+): Promise<WriterReferencePayload | null> {
+  try {
+    return await collectWriterReferencePicturesOrThrow(args);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    logger.warn(error, "[writer-references] Could not prepare reference pictures; the writer runs without them");
+    return null;
+  }
+}
+
+async function collectWriterReferencePicturesOrThrow(
+  args: CollectWriterReferenceArgs,
+): Promise<WriterReferencePayload | null> {
   const avatarReferencesOn =
     typeof args.chatMeta.illustratorUseAvatarReferences === "boolean"
       ? args.chatMeta.illustratorUseAvatarReferences

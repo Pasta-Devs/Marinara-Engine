@@ -3313,6 +3313,7 @@ export function AgentEditor() {
                     </button>
                   </div>
                   <textarea
+                    aria-label={localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
                     value={localWriterReferenceInstruction}
                     onChange={(event) => {
                       setLocalWriterReferenceInstruction(event.target.value);
