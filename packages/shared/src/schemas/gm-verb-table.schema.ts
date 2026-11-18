@@ -230,6 +230,7 @@ export const ENGINE_OWNED_METADATA_KEY_PREFIXES = Object.freeze([
   "noodle",
   "past",
   "persona",
+  "picture",
   "preset",
   "professor",
   "prompt",

@@ -584,7 +584,7 @@ export function BuiltinTtsDetail() {
       });
   };
 
-  const useForVoice = async () => {
+  const switchVoiceJob = async () => {
     // The button waits for the TTS settings to load, so a save that returns has happened;
     // a failed one shows its own error.
     const saved = await modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}${BUILTIN_TTS_SOURCE}`);
@@ -612,7 +612,7 @@ export function BuiltinTtsDetail() {
       {active && (
         <div className="flex flex-wrap gap-1.5">
           {!inUse && (
-            <button type="button" onClick={() => void useForVoice()} disabled={!tts} className={SMALL_ACTION}>
+            <button type="button" onClick={() => void switchVoiceJob()} disabled={!tts} className={SMALL_ACTION}>
               {t("connections.device.useForVoice")}
             </button>
           )}

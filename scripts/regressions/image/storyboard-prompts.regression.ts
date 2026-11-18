@@ -310,7 +310,7 @@ const cases: RegressionCase[] = [
         generateRouteSource,
         /if \(!commandTarget && automaticBackgroundsEnabled && illustratorBackgroundAgent\)/u,
       );
-      assert.match(generateRouteSource, /if \(!storyboardSuppressesForeground && shouldGenerate && imagePrompt\)/u);
+      assert.match(generateRouteSource, /if \(!storyboardSuppressesForeground && shouldGenerate && imagePrompt(?: && !alreadyShown)?\)/u);
     },
   },
   {
