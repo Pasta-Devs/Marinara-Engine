@@ -12,7 +12,7 @@
  * Every quest is Engine-wide (it ports with Things to try's Engine part). English text lives here; the
  * translated text is `guideQuests.<id lowercased>.<title|note|more>` in the locale files.
  */
-import type { GuideQuestGroupId } from "@marinara-engine/shared";
+import { GUIDE_QUEST_GROUPS, type GuideQuestGroupId } from "@marinara-engine/shared";
 import type { FeatureStep } from "./feature-finder";
 
 export type GuideQuestSet = "basics" | "deep";
@@ -1005,6 +1005,15 @@ export const DEEP_DIVES: readonly GuideQuest[] = DEEP_DIVE_GROUPS.flatMap((group
 
 export const GUIDE_QUESTS: readonly GuideQuest[] = [...AI_BASICS_QUESTS, ...DEEP_DIVES];
 export const GUIDE_QUEST_BY_ID = new Map(GUIDE_QUESTS.map((quest) => [quest.id, quest]));
+
+/** Groups whose every quest is done; "deepAll" once every deep dive is (it has no quests of its own). */
+export function finishedGuideQuestGroups(done: ReadonlySet<string>): GuideQuestGroupId[] {
+  const finished = GUIDE_QUEST_GROUPS.map((group) => group.id as GuideQuestGroupId).filter((group) => {
+    const quests = group === "deepAll" ? DEEP_DIVES : GUIDE_QUESTS.filter((quest) => quest.group === group);
+    return quests.length > 0 && quests.every((quest) => done.has(quest.id));
+  });
+  return finished;
+}
 
 export const guideQuestKey = (id: string, part: "title" | "note" | "more") => `guideQuests.${id.toLowerCase()}.${part}`;
 export const deepDiveGroupKey = (group: DeepDiveGroupId) => `guideQuests.group.${group}`;
