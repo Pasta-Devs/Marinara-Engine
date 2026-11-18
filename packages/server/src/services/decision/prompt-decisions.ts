@@ -398,12 +398,22 @@ export class PromptDecisionTurnCache {
 
 export const promptDecisionTurnCache = new PromptDecisionTurnCache();
 
+/**
+ * The key a yes/no answer is cached under this turn. A statement that asks for pictures
+ * or clips is a different question from the same words asked on text alone, so an answer
+ * is reused only by an occurrence that wanted the same media.
+ */
+function noulCacheKey(decision: Pick<PlannedDecision, "key" | "pictures" | "clips">): string {
+  const want = clampDecisionMediaWant({ pictures: decision.pictures, clips: decision.clips });
+  return want.pictures + want.clips > 0 ? `${decision.key}\u0003${decisionMediaKey(want)}` : decision.key;
+}
+
 /** A Choice answer is cached against its options and their criteria, which a later edit can change. */
 function choiceCacheKey(decision: PlannedDecision): string {
   const options = decision.options.map((option, index) =>
     decision.criteria?.[index] ? `${option}\u0002${decision.criteria[index]}` : option,
   );
-  return `${decision.key}\u0000${options.sort().join("\u0001")}`;
+  return `${noulCacheKey(decision)}\u0000${options.sort().join("\u0001")}`;
 }
 
 /** What is already known for this turn, without asking anything. For Peek Prompt. */
@@ -417,7 +427,7 @@ export function cachedPromptDecisionAnswers(
   const choices = new Map<string, string>();
   for (const decision of plan.decisions) {
     if (decision.kind === "noul") {
-      const cached = turn?.noul.get(decision.key)?.yes ?? decision.held?.yes;
+      const cached = turn?.noul.get(noulCacheKey(decision))?.yes ?? decision.held?.yes;
       if (cached !== undefined) answers.set(decision.key, cached);
     } else {
       const choice =
@@ -461,7 +471,7 @@ export async function answerPromptDecisions(args: {
   // A held statement is answered by its timer and never asked.
   for (const decision of plan.decisions) {
     if (!decision.held) continue;
-    if (decision.kind === "noul") turn.noul.set(decision.key, { yes: decision.held.yes, held: true });
+    if (decision.kind === "noul") turn.noul.set(noulCacheKey(decision), { yes: decision.held.yes, held: true });
     else
       turn.choice.set(
         choiceCacheKey(decision),
@@ -477,11 +487,11 @@ export async function answerPromptDecisions(args: {
       !hasRecentDecisionMedia(args.messages, decision.mediaWithin, decision)
     ) {
       decision.held = { yes: false };
-      if (decision.kind === "noul") turn.noul.set(decision.key, { yes: false, held: true });
+      if (decision.kind === "noul") turn.noul.set(noulCacheKey(decision), { yes: false, held: true });
       else turn.choice.set(choiceCacheKey(decision), DECISION_CHOICE_NONE);
     }
   const pending = plan.decisions.filter((decision) =>
-    decision.kind === "noul" ? !turn.noul.has(decision.key) : !turn.choice.has(choiceCacheKey(decision)),
+    decision.kind === "noul" ? !turn.noul.has(noulCacheKey(decision)) : !turn.choice.has(choiceCacheKey(decision)),
   );
   if (plan.dropped.length > 0) {
     // The count at warn; the statements themselves are chat content and go to debug.
@@ -537,7 +547,7 @@ export async function answerPromptDecisions(args: {
             const p = result.answers.get(`d${index}`);
             if (p === undefined) continue;
             const yes = p >= backend.calibration.defaultThreshold;
-            turn.noul.set(decision.key, {
+            turn.noul.set(noulCacheKey(decision), {
               p,
               yes,
               threshold: backend.calibration.defaultThreshold,
@@ -571,12 +581,12 @@ export async function answerPromptDecisions(args: {
     const answer = lasts ? turn.noul.get(lasts.key)?.yes : undefined;
     if (!lasts || answer === undefined) continue;
     const stays = answer === (lasts.kind === "while");
-    turn.noul.set(decision.key, { yes: stays, held: true });
+    turn.noul.set(noulCacheKey(decision), { yes: stays, held: true });
     if (args.timers) recordDecisionLifetime(args.timers.state, args.timers.turn, decision, stays);
   }
   const answers = cachedPromptDecisionAnswers(plan, args.cacheKey, cache);
   const report: DecisionDebugResult[] = plan.decisions.map((decision) => {
-    const cached = turn.noul.get(decision.key);
+    const cached = turn.noul.get(noulCacheKey(decision));
     const choice = answers.choices?.get(decision.key);
     const answered = decision.kind === "noul" ? cached !== undefined : choice !== undefined;
     const index = pending.indexOf(decision);

@@ -61,26 +61,36 @@ async function materializeMedia(state) {
   if (!state || typeof state !== "object" || !Array.isArray(state.messages)) return null;
   let folder = null;
   let count = 0;
-  for (const message of state.messages) {
-    if (!Array.isArray(message?.content)) continue;
-    for (const part of message.content) {
-      if (part?.type === "video_url") {
-        const url = part.video_url?.url;
-        if (typeof url !== "string" || !url.startsWith("data:video/"))
-          throw new RangeError("Videos must be inline data URLs");
-        continue;
-      }
-      if (part?.type !== "image_url") continue;
-      const url = part.image_url?.url;
-      const match = typeof url === "string" ? /^data:image\/(png|jpeg|webp|gif);base64,/u.exec(url) : null;
-      if (!match) throw new RangeError("Images must be inline PNG, JPEG, WebP or GIF data URLs");
-      folder ??= await mkdtemp(join(tmpdir(), "marinara-valen-"));
-      const file = join(folder, `image-${count++}.${match[1] === "jpeg" ? "jpg" : match[1]}`);
-      await writeFile(file, Buffer.from(url.slice(match[0].length), "base64"));
-      part.image_url = { url: file };
-    }
+  try {
+    return await writeMedia();
+  } catch (error) {
+    // A later part refused, or a write failed: the pictures already decoded go too.
+    if (folder) await rm(folder, { recursive: true, force: true });
+    throw error;
   }
-  return folder;
+
+  async function writeMedia() {
+    for (const message of state.messages) {
+      if (!Array.isArray(message?.content)) continue;
+      for (const part of message.content) {
+        if (part?.type === "video_url") {
+          const url = part.video_url?.url;
+          if (typeof url !== "string" || !url.startsWith("data:video/"))
+            throw new RangeError("Videos must be inline data URLs");
+          continue;
+        }
+        if (part?.type !== "image_url") continue;
+        const url = part.image_url?.url;
+        const match = typeof url === "string" ? /^data:image\/(png|jpeg|webp|gif);base64,/u.exec(url) : null;
+        if (!match) throw new RangeError("Images must be inline PNG, JPEG, WebP or GIF data URLs");
+        folder ??= await mkdtemp(join(tmpdir(), "marinara-valen-"));
+        const file = join(folder, `image-${count++}.${match[1] === "jpeg" ? "jpg" : match[1]}`);
+        await writeFile(file, Buffer.from(url.slice(match[0].length), "base64"));
+        part.image_url = { url: file };
+      }
+    }
+    return folder;
+  }
 }
 
 /**

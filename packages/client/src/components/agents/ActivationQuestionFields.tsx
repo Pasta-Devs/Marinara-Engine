@@ -153,7 +153,12 @@ export function ActivationQuestionFields({
               {t("agents.activation.media")}
               {!readsPictures && <VisionDecisionHint size="0.6875rem" />}
             </span>
-            <fieldset disabled={!readsPictures} className="disabled:opacity-50">
+            {/* Greyed out for a model that cannot see, except while something is still set:
+                a saved picture count or wait would otherwise stay on with no way to clear it. */}
+            <fieldset
+              disabled={!readsPictures && pictures === 0 && clips === 0}
+              className={!readsPictures ? "opacity-50" : undefined}
+            >
               <div className="grid grid-cols-2 gap-2">
                 <select
                   aria-label={t("agents.activation.picturesLabel")}
@@ -161,7 +166,8 @@ export function ActivationQuestionFields({
                   onChange={(event) => onChange({ pictures: Number(event.target.value) })}
                   className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 >
-                  {Array.from({ length: MAX_DECISION_PICTURES + 1 }, (_, count) => (
+                  {/* Without a model that sees, a count can only be lowered. */}
+                  {Array.from({ length: (readsPictures ? MAX_DECISION_PICTURES : pictures) + 1 }, (_, count) => (
                     <option key={count} value={count}>
                       {count === 0 ? t("agents.activation.noPictures") : t("agents.activation.pictures", { count })}
                     </option>
@@ -173,7 +179,8 @@ export function ActivationQuestionFields({
                   onChange={(event) => onChange({ clips: Number(event.target.value) })}
                   className="min-h-11 w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 >
-                  {Array.from({ length: MAX_DECISION_CLIPS + 1 }, (_, count) => (
+                  {/* Without a model that sees, a count can only be lowered. */}
+                  {Array.from({ length: (readsPictures ? MAX_DECISION_CLIPS : clips) + 1 }, (_, count) => (
                     <option key={count} value={count}>
                       {count === 0 ? t("agents.activation.noClips") : t("agents.activation.clips", { count })}
                     </option>

@@ -185,7 +185,7 @@ export function BuiltinEmotionDetail() {
       {onDisk && (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || data.state === "loading"}
           onClick={() => void removeFiles()}
           className={cn(SMALL_ACTION, "mari-device-remove self-start")}
         >

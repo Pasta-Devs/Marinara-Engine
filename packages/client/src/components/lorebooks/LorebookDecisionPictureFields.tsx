@@ -41,16 +41,17 @@ export function LorebookDecisionPictureFields({ pictures, mediaWithin, onChange,
         {t("ui.lorebooks.decisionPictures.title")}
         {!readsPictures && <VisionDecisionHint size="0.6875rem" />}
       </span>
-      <fieldset disabled={!readsPictures} className="disabled:opacity-50">
+      {/* Greyed out for a model that cannot see, but a saved count can still be cleared. */}
+      <fieldset disabled={!readsPictures && pictures === 0} className={!readsPictures ? "opacity-50" : undefined}>
         <div className={overhaul ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
           <label className={labelClass}>
             <span>{t("agents.activation.picturesLabel")}</span>
             <select
               className={selectClass}
-              value={readsPictures ? pictures : 0}
+              value={pictures}
               onChange={(event) => onChange({ decisionPictures: Number(event.target.value) })}
             >
-              {Array.from({ length: MAX_DECISION_PICTURES + 1 }, (_, count) => (
+              {Array.from({ length: (readsPictures ? MAX_DECISION_PICTURES : pictures) + 1 }, (_, count) => (
                 <option key={count} value={count}>
                   {count === 0 ? t("agents.activation.noPictures") : t("agents.activation.pictures", { count })}
                 </option>
