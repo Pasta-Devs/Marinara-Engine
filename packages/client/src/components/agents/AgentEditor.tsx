@@ -3250,17 +3250,6 @@ export function AgentEditor() {
                     "ui.agents.agenteditor.sendsReferencesOnlyForCharactersOrPersonaNamesMatched",
                   )}
                 />
-                <EditorSwitchRow
-                  label={localizeUi(
-                    "ui.agents.agenteditor.attachMatchingCharacterAppearanceDescriptionsToImagePrompts",
-                  )}
-                  checked={localIncludeCharacterAppearance}
-                  onChange={(checked) => {
-                    setLocalIncludeCharacterAppearance(checked);
-                    markDirty();
-                  }}
-                  description={localizeUi("ui.agents.agenteditor.addsOnlyMatchedVisibleNamesAsLinesLikeName")}
-                />
                 {isIllustratorAgent && localUseAvatarReferences && (
                   <div className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
                     <span className="text-xs font-medium text-[var(--foreground)]">
@@ -3282,49 +3271,60 @@ export function AgentEditor() {
                       }))}
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
                     />
+                    {localReferencePictureTarget !== "image" && (
+                      <div className="mt-1.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                            {localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLocalWriterReferenceInstruction(
+                                localWriterReferenceInstruction.trim() ? "" : DEFAULT_WRITER_REFERENCE_INSTRUCTION,
+                              );
+                              markDirty();
+                            }}
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          >
+                            {localWriterReferenceInstruction.trim() ? (
+                              <>
+                                <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
+                              </>
+                            ) : (
+                              <>
+                                <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <textarea
+                          aria-label={localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
+                          value={localWriterReferenceInstruction}
+                          onChange={(event) => {
+                            setLocalWriterReferenceInstruction(event.target.value);
+                            markDirty();
+                          }}
+                          placeholder={DEFAULT_WRITER_REFERENCE_INSTRUCTION}
+                          rows={4}
+                          className="min-h-[5rem] resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
+                <EditorSwitchRow
+                  label={localizeUi(
+                    "ui.agents.agenteditor.attachMatchingCharacterAppearanceDescriptionsToImagePrompts",
+                  )}
+                  checked={localIncludeCharacterAppearance}
+                  onChange={(checked) => {
+                    setLocalIncludeCharacterAppearance(checked);
+                    markDirty();
+                  }}
+                  description={localizeUi("ui.agents.agenteditor.addsOnlyMatchedVisibleNamesAsLinesLikeName")}
+                />
               </div>
-              {isIllustratorAgent && localUseAvatarReferences && localReferencePictureTarget !== "image" && (
-                <div className="mt-2 grid gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
-                      {localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocalWriterReferenceInstruction(
-                          localWriterReferenceInstruction.trim() ? "" : DEFAULT_WRITER_REFERENCE_INSTRUCTION,
-                        );
-                        markDirty();
-                      }}
-                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    >
-                      {localWriterReferenceInstruction.trim() ? (
-                        <>
-                          <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
-                        </>
-                      ) : (
-                        <>
-                          <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <textarea
-                    aria-label={localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
-                    value={localWriterReferenceInstruction}
-                    onChange={(event) => {
-                      setLocalWriterReferenceInstruction(event.target.value);
-                      markDirty();
-                    }}
-                    placeholder={DEFAULT_WRITER_REFERENCE_INSTRUCTION}
-                    rows={4}
-                    className="min-h-[5rem] resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
-                  />
-                </div>
-              )}
             </FieldGroup>
           )}
 
