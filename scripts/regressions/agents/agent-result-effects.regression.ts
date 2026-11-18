@@ -88,8 +88,7 @@ function fakeDeps(
         writes.push({ id, swipeIndex, partial });
         return null as never;
       },
-      getById: (id) => chatsStore.getById(id),
-      updateMetadata: (id, metadata) => chatsStore.updateMetadata(id, metadata),
+      patchMetadata: (id, patch, patchOptions) => chatsStore.patchMetadata(id, patch, patchOptions),
     },
     trackers: {
       db,
@@ -165,14 +164,15 @@ function worldResult(data: Record<string, unknown>): AgentResult {
 }
 
 /** A node map with the party at `at`. */
-function nodeMap(at: string) {
+function nodeMap(at: string, discovered: string[] = ["harbor"]) {
   return {
     id: "map-1",
     type: "node" as const,
     name: "Coast",
     nodes: [
-      { id: "harbor", label: "Harbor", discovered: true },
-      { id: "market", label: "Market", discovered: false },
+      { id: "harbor", label: "Harbor", discovered: discovered.includes("harbor") },
+      { id: "market", label: "Market", discovered: discovered.includes("market") },
+      { id: "tower", label: "Tower", discovered: discovered.includes("tower") },
     ],
     edges: [],
     partyPosition: at,
@@ -582,14 +582,25 @@ try {
       name: "moving the party marker re-reads the chat's metadata, so it keeps a change made meanwhile",
       run: async () => {
         const tracker = await worldChat({ location: "Harbor" });
-        // The route's copy is stale: the game was started (and journaled) after it was read.
+        // The route's copy is stale: since it was read, the game was started and the Tower was discovered.
         const chatMeta: Record<string, unknown> = { gameMap: nodeMap("harbor") };
-        await chatsStore.updateMetadata(tracker.chatId, { ...chatMeta, gameSessionStatus: "active" });
+        await chatsStore.updateMetadata(tracker.chatId, {
+          gameMap: nodeMap("harbor", ["harbor", "tower"]),
+          gameSessionStatus: "active",
+        });
         const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, world: { chatMeta } });
         await applyAgentResultEffect(worldResult({ location: "Market" }), run.deps);
         const stored = await tracker.metadata();
         assert.equal(stored.gameSessionStatus, "active");
-        assert.equal((stored.gameMap as { partyPosition: string }).partyPosition, "market");
+        const storedMap = stored.gameMap as {
+          partyPosition: string;
+          nodes: Array<{ id: string; discovered: boolean }>;
+        };
+        assert.equal(storedMap.partyPosition, "market");
+        assert.deepEqual(
+          storedMap.nodes.filter((node) => node.discovered).map((node) => node.id),
+          ["harbor", "market", "tower"],
+        );
         assert.equal((chatMeta.gameMap as { partyPosition: string }).partyPosition, "market");
         assert.equal(run.mapUpdates.length, 1);
         assert.deepEqual(await tracker.locationEntries(), ["Discovered: Market"]);

@@ -91,7 +91,7 @@ export interface AgentResultEffectDeps {
   /** The assistant message the agents ran for. */
   messageId: string | null;
   swipeIndex: number;
-  chats: Pick<ReturnType<typeof createChatsStorage>, "updateMessageExtraForSwipe" | "getById" | "updateMetadata">;
+  chats: Pick<ReturnType<typeof createChatsStorage>, "updateMessageExtraForSwipe" | "patchMetadata">;
   trackers: TrackerEffectTarget;
   /** Stops the effect when the run was cancelled (retry passes its abort signal). */
   signal?: AbortSignal;

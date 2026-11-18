@@ -4,6 +4,7 @@
 // - generate creates this swipe's row from the previous one and sends every world field to the HUD;
 // - retry patches the existing row and sends only the fields the agent returned, because the client applies a retry's
 //   patch to whatever snapshot is loaded and counts any non-empty patch as a tracker change.
+import { isDeepStrictEqual } from "node:util";
 import {
   applyTrackerFieldLocksToGameStatePatch,
   coerceGameStateTextValue,
@@ -15,7 +16,6 @@ import {
 import { logger } from "../../../lib/logger.js";
 import {
   buildWorldCustomFieldsStreamValue,
-  parseExtra,
   parseGameStateRow,
   parseJsonField,
 } from "../../../routes/generate/generate-route-utils.js";
@@ -116,31 +116,31 @@ export async function applyWorldStateResult(result: AgentResult, deps: AgentResu
 
 /**
  * Moves the party marker on the chat's game map to the new location. Skipped when the spatial map owns the location.
- * The write re-reads the chat's metadata and changes only the map keys, so it can't undo a concurrent change such as
- * `/game/start` or a journal entry.
+ * The move is worked out on the stored metadata inside the chat's queued metadata patch and writes only the map keys,
+ * so it can't undo a change made since the route read the chat (`/game/start`, a journal entry, a place discovered).
  */
 async function syncPartyPosition(deps: AgentResultEffectDeps, location: string | null): Promise<void> {
   const world = deps.trackers.world;
   const chatMeta = world.chatMeta;
-  const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
-  const syncedMeta = world.mapOwnedBySpatial ? chatMeta : syncGameMapMetaPartyPosition(chatMeta, location);
-  const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-  if (syncedGameMap && syncedGameMap !== existingGameMap) {
-    // The route's copy is read again later in the same request, so it takes the new map too.
-    Object.assign(chatMeta, syncedMeta);
-    deps.signal?.throwIfAborted();
-    const fresh = await deps.chats.getById(deps.chatId);
-    deps.signal?.throwIfAborted();
-    const freshMeta = fresh ? (parseExtra(fresh.metadata) as Record<string, unknown>) : chatMeta;
-    await deps.chats.updateMetadata(deps.chatId, {
-      ...freshMeta,
-      gameMap: syncedMeta.gameMap,
-      gameMaps: syncedMeta.gameMaps,
-      activeGameMapId: syncedMeta.activeGameMapId,
-    });
-    deps.signal?.throwIfAborted();
-    world.emitGameMapUpdate(syncedGameMap);
-  } else if (getGameMapsFromMeta(syncedMeta).length > 0) {
-    Object.assign(chatMeta, syncedMeta);
+  if (world.mapOwnedBySpatial) return;
+  let moved: { gameMap: GameMap; keys: Record<string, unknown> } | null = null;
+  deps.signal?.throwIfAborted();
+  await deps.chats.patchMetadata(deps.chatId, (current) => {
+    const synced = syncGameMapMetaPartyPosition(current, location);
+    const gameMap = (synced.gameMap as GameMap | null) ?? null;
+    if (!gameMap || isDeepStrictEqual(gameMap, current.gameMap)) return {};
+    const keys = { gameMap, gameMaps: synced.gameMaps, activeGameMapId: synced.activeGameMapId };
+    moved = { gameMap, keys };
+    return keys;
+  });
+  deps.signal?.throwIfAborted();
+  // The route's copy is read again later in the same request, so it takes the stored map too.
+  const result = moved as { gameMap: GameMap; keys: Record<string, unknown> } | null;
+  if (result) {
+    Object.assign(chatMeta, result.keys);
+    world.emitGameMapUpdate(result.gameMap);
+  } else {
+    const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, location);
+    if (getGameMapsFromMeta(syncedMeta).length > 0) Object.assign(chatMeta, syncedMeta);
   }
 }
