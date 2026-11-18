@@ -273,14 +273,14 @@ export class BuiltinEmbeddingService {
     });
   }
 
-  /** Start the process for the active model unless it already runs; returns its base URL. */
-  async ensureRunning(): Promise<string> {
+  /** Start the process for the active model unless it already runs; returns its base URL and that model. */
+  async ensureRunning(): Promise<{ baseUrl: string; model: BuiltinEmbeddingModelInfo }> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       if (this.stopping) await this.stopping;
       const wanted = this.getActiveModel();
       if (!wanted) throw new Error("No built-in embedding model is downloaded");
       if (this.ready && this.child && this.port && this.runningModelId === wanted.id) {
-        return `http://127.0.0.1:${this.port}`;
+        return { baseUrl: `http://127.0.0.1:${this.port}`, model: wanted };
       }
       if (this.child && this.runningModelId !== wanted.id) await this.stop();
       if (!this.starting) {
@@ -293,7 +293,8 @@ export class BuiltinEmbeddingService {
       if (this.ready && this.runningModelId !== this.getActiveModel()?.id) continue;
       if (!this.ready) throw new Error(this.error ?? "The built-in embedding model did not start");
     }
-    if (this.ready && this.port) return `http://127.0.0.1:${this.port}`;
+    const running = findBuiltinEmbeddingModel(this.runningModelId);
+    if (this.ready && this.port && running) return { baseUrl: `http://127.0.0.1:${this.port}`, model: running };
     throw new Error(this.error ?? "The built-in embedding model did not start");
   }
 
@@ -348,43 +349,51 @@ export class BuiltinEmbeddingService {
           this.clearIdleTimer();
         }
       });
+      let spawnError: string | null = null;
       child.on("error", (error) => {
-        this.error = error.message;
+        spawnError = error.message;
         logger.warn(error, "[builtin-embedding] llama-server failed to start");
       });
 
-      await this.waitUntilReady(child, port);
+      const waitReason = await this.waitUntilReady(child, port, () => spawnError);
       if (this.ready) {
+        // A plan that failed before this one (the graphics card) left its reason; this one is serving.
+        this.error = null;
         logger.info(`[builtin-embedding] ${model.label} ready on 127.0.0.1:${port} (${plan.label})`);
         this.armIdleTimer();
         return;
       }
-      const reason: string = this.error ?? this.recentOutput.slice(-3).join(" ");
+      // llama-server's own last lines say why (a missing library, a flag the build rejects), and a failed spawn
+      // carries the system's reason (no such file, no permission); the wait only says when.
+      const reason: string = this.recentOutput.slice(-3).join(" ") || spawnError || waitReason || "";
       await this.stop();
       this.error = reason || "The built-in embedding model did not start";
       if (index < plans.length - 1) logger.warn(`[builtin-embedding] ${plan.label} failed (${this.error}); trying CPU`);
     }
   }
 
-  private async waitUntilReady(child: ChildProcess, port: number): Promise<void> {
+  /** Resolves null once ready, or with why it is not. */
+  private async waitUntilReady(
+    child: ChildProcess,
+    port: number,
+    spawnError: () => string | null,
+  ): Promise<string | null> {
     const deadline = Date.now() + READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      if (this.child !== child || child.exitCode !== null) {
-        this.error = this.error ?? "The embedding model exited while starting";
-        return;
-      }
+      if (spawnError()) return "The embedding model could not be started";
+      if (this.child !== child || child.exitCode !== null) return "The embedding model exited while starting";
       try {
         const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(2000) });
         if (response.ok) {
           this.ready = true;
-          return;
+          return null;
         }
       } catch {
         // still loading
       }
       await new Promise((wait) => setTimeout(wait, 500));
     }
-    this.error = "The embedding model did not become ready in time";
+    return "The embedding model did not become ready in time";
   }
 
   private clearIdleTimer(): void {
@@ -405,13 +414,16 @@ export class BuiltinEmbeddingService {
   /** Stop the process and wait until it is gone. Unload, and every switch of model or device, go through here. */
   async stop(): Promise<void> {
     if (this.stopping) return this.stopping;
+    // An old start failure no longer describes a stopped model; a failed start sets its reason again after this.
+    this.error = null;
     this.clearIdleTimer();
     const child = this.child;
     this.child = null;
     this.ready = false;
     this.port = null;
     this.runningModelId = null;
-    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    // A process that never spawned has no pid and will never report an exit.
+    if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
     this.stopping = (async () => {
       const exited = new Promise<void>((done) => {
         child.once("exit", () => done());
@@ -465,13 +477,18 @@ export class BuiltinEmbeddingService {
   }
 
   /** Embed texts (already carrying any query/document prefix) with the active model. */
-  async embed(texts: string[], signal?: AbortSignal): Promise<number[][]> {
+  /**
+   * `expectedModelId`: the model the caller prepared the texts for (prefixes) and files the vectors under. A switch
+   * in between fails the request instead of returning vectors from another embedding space.
+   */
+  async embed(texts: string[], signal?: AbortSignal, expectedModelId?: BuiltinEmbeddingModelId): Promise<number[][]> {
     if (texts.length === 0) return [];
     this.active += 1;
     try {
-      const model = this.getActiveModel();
-      if (!model) throw new Error("No built-in embedding model is downloaded");
-      const baseUrl = await this.ensureRunning();
+      const { baseUrl, model } = await this.ensureRunning();
+      if (expectedModelId && model.id !== expectedModelId) {
+        throw new Error("The built-in embedding model was switched during this request; try again");
+      }
       const limit = model.contextSize - TOKEN_MARGIN;
       const inputs: string[] = [];
       for (const text of texts) inputs.push(await this.fit(baseUrl, text, limit, signal));

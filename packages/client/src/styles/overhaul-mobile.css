@@ -5439,3 +5439,21 @@
     width: 1.875rem;
   }
 }
+
+/* "Already in your library" on phones: the card name above its choice. */
+:root[data-overhaul="mobile"] .ov-cupd__row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.375rem;
+}
+:root[data-overhaul="mobile"] .ov-cupd__card {
+  padding-top: 0;
+}
+:root[data-overhaul="mobile"] .ov-cupd__select,
+:root[data-overhaul="mobile"] .ov-cupd__other {
+  height: 2.5rem;
+  font-size: 1rem;
+}
+:root[data-overhaul="mobile"] .ov-cupd__notes {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+}

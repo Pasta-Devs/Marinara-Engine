@@ -24,11 +24,16 @@ const requestLog = join(dir, "requests.jsonl");
 writeFileSync(
   fakeServer,
   `#!/usr/bin/env node
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 import { createServer } from "node:http";
 const args = process.argv.slice(2);
 const port = Number(args[args.indexOf("--port") + 1]);
 appendFileSync(${JSON.stringify(requestLog)}, JSON.stringify({ args }) + "\\n");
+// A graphics-card plan fails the way llama-server does without a usable GPU; a marker file fails every start.
+if (args[args.indexOf("-ngl") + 1] !== "0" || existsSync(${JSON.stringify(join(dir, "fail-start"))})) {
+  console.error("ggml: no usable device for this backend");
+  process.exit(1);
+}
 createServer((req, res) => {
   let body = "";
   req.on("data", (chunk) => (body += chunk));
@@ -181,6 +186,46 @@ try {
     .at(-1)!.args!;
   assert.equal(gemmaArgs[gemmaArgs.indexOf("--pooling") + 1], "mean");
   assert.equal(gemmaArgs[gemmaArgs.indexOf("--ubatch-size") + 1], String(models["embeddinggemma-300m"]!.physicalBatch));
+
+  // A graphics-card plan that fails before the processor plan succeeds leaves no error behind.
+  await builtinEmbeddingService.stop();
+  Object.assign(sidecarRuntimeService, { isGpuVariant: () => true });
+  await gemmaSource.embed(["Fallback works."], undefined, "document");
+  const fellBack = builtinEmbeddingService.getStatus();
+  assert.equal(fellBack.running, true);
+  assert.equal(fellBack.error, null);
+
+  // When every plan fails, the error carries llama-server's own words, not only "did not start".
+  await builtinEmbeddingService.stop();
+  writeFileSync(join(dir, "fail-start"), "");
+  assert.equal(await gemmaSource.embed(["No start."], undefined, "document"), null);
+  assert.match(builtinEmbeddingService.getStatus().error ?? "", /no usable device/u);
+  rmSync(join(dir, "fail-start"));
+  Object.assign(sidecarRuntimeService, { isGpuVariant: () => false });
+
+  // A runtime that cannot be spawned at all reports the system's reason, at once, not a readiness timeout.
+  await builtinEmbeddingService.stop();
+  Object.assign(sidecarRuntimeService, {
+    getCurrentInstall: () => ({
+      serverPath: join(dir, "missing-llama-server"),
+      variant: "cpu",
+      build: "test",
+      backend: "llama_cpp",
+    }),
+  });
+  const spawnStarted = Date.now();
+  assert.equal(await gemmaSource.embed(["No runtime."], undefined, "document"), null);
+  assert.ok(Date.now() - spawnStarted < 5_000);
+  assert.match(builtinEmbeddingService.getStatus().error ?? "", /ENOENT/u);
+  Object.assign(sidecarRuntimeService, {
+    getCurrentInstall: () => ({ serverPath: fakeServer, variant: "cpu", build: "test", backend: "llama_cpp" }),
+  });
+
+  // A source made for one model refuses vectors from another one switched in meanwhile.
+  await app.inject({ method: "POST", url: "/api/builtin-embedding/use", payload: { modelId: "qwen3-embedding-0.6b" } });
+  assert.equal(await gemmaSource.embed(["Old space."], undefined, "document"), null);
+  await assert.rejects(builtinEmbeddingService.embed(["Old space."], undefined, "embeddinggemma-300m"), /switched/u);
+  await builtinEmbeddingService.stop();
 
   // Removing a model hands over to the other one; removing the last clears the Embeddings default.
   const removedOne = await app.inject({

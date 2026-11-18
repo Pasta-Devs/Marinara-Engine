@@ -84,6 +84,8 @@ export const GUIDE_QUEST_GROUPS = [
   { id: "deepAgents", title: "Puppet Master", description: "Finished the Agents and connections deep dives." },
   { id: "deepMedia", title: "Sound And Vision", description: "Finished the Voice, pictures and music deep dives." },
   { id: "deepThemes", title: "Under The Hood", description: "Finished the Themes and extending deep dives." },
+  // Not a group of its own: every deep dive in every group.
+  { id: "deepAll", title: "Off The Deep End", description: "Finished every deep dive." },
 ] as const;
 
 export type GuideQuestGroupId = (typeof GUIDE_QUEST_GROUPS)[number]["id"];

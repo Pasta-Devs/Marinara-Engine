@@ -245,6 +245,7 @@ function createBuiltinEmbeddingSource(throwErrors = false): MemoryRecallEmbeddin
         return await builtinEmbeddingService.embed(
           formatMemoryRecallEmbeddingTexts(texts, model.label, inputType),
           signal,
+          model.id,
         );
       } catch (err) {
         if (throwErrors) throw err;

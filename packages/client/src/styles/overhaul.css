@@ -3257,6 +3257,9 @@
   }
 }
 .ov-recent__avatar {
+  /* Positioned so a cropped avatar (its img is absolutely placed by getAvatarCropStyle) stays inside the
+     tile; without this the picture sized itself to the whole widget card (Nov 17). */
+  position: relative;
   display: grid;
   width: 2.25rem;
   height: 2.25rem;
@@ -5685,6 +5688,7 @@ input.ov-edhead__title:focus {
   font-size: 0.6875rem;
 }
 .ov-gpane__av {
+  position: relative; /* keeps a cropped avatar inside the circle, as .ov-recent__avatar */
   display: grid;
   width: 1.625rem;
   height: 1.625rem;
@@ -8954,6 +8958,98 @@ input.ov-edhead__title:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
+}
+
+/* "Already in your library": one row per card that may update a character (name left, choice right). */
+.ov-cupd {
+  display: grid;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+}
+.ov-cupd__intro {
+  margin: 0;
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.ov-cupd__notice {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.ov-cupd__rows {
+  display: grid;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--ov-line, var(--border));
+  border-radius: 0.625rem;
+}
+.ov-cupd__row {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+.ov-cupd__row + .ov-cupd__row {
+  border-top: 1px solid var(--ov-line, var(--border));
+}
+.ov-cupd__card {
+  display: grid;
+  min-width: 0;
+  padding-top: 0.3125rem;
+}
+.ov-cupd__name {
+  overflow: hidden;
+  color: var(--ov-text, var(--foreground));
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-cupd__meta,
+.ov-cupd__why {
+  color: var(--ov-muted, var(--muted-foreground));
+  font-size: 0.75rem;
+}
+.ov-cupd__pick {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+.ov-cupd__select,
+.ov-cupd__other {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border-color: var(--ov-line, var(--border));
+  color: var(--ov-text, var(--foreground));
+}
+.ov-cupd__why {
+  padding-left: 0.75rem;
+}
+.ov-cupd__picture {
+  display: inline-flex;
+  padding: 0 0.75rem;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ov-text, var(--foreground));
+  cursor: pointer;
+}
+.ov-cupd__notes {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  color: var(--ov-text, var(--foreground));
+}
+.ov-cupd__notes.is-off {
+  opacity: 0.55;
+}
+.ov-cupd__picture.is-off {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* First chat: a small tip pointing at Chat settings in the top bar (replaces the video popup). */

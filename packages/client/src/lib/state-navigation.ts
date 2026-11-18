@@ -36,7 +36,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     useChatStore.getState().setActiveChatId(null);
     ui.closeAllDetails();
     ui.closeRightPanel();
-    requestProfessorMariOpen();
+    // New layout: she is a page of her own (the Home popover event only reaches the old layout).
+    if (isOverhaulLook()) useOverhaulStore.getState().openMari();
+    else requestProfessorMariOpen();
   } else if (target.kind === "chats") {
     ui.setSidebarOpen(true);
     ui.closeRightPanel();

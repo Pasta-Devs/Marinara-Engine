@@ -5261,6 +5261,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           connections,
           conversationCustomEmojiUrlByName,
           visionCatalog: conversationAssetVision,
+          embeddingSource: memoryRecallEmbeddingSource,
           replyRulesMacroPlacement: conversationContextMacroSlots.replyRules
             ? (content) => {
                 conversationReplyRulesBlockValue = content;
