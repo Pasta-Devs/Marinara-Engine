@@ -40,7 +40,7 @@ The key step also shows these fields. Leave them empty unless you need them.
 - **Name (optional)**: the name shown in the panel. Empty means the service's name. A second account for the same service gets the last 4 characters of its key, such as `OpenAI · …a1b2`.
 - **Address**: where Marinara sends requests. Marinara uses the service's own address when it is empty. Fill it in only for a proxy, a gateway, or a server you run. Services that sign in on your computer do not show it.
 - **Requests per minute**: slows Marinara down on this account. Empty means no limit. Allowed values are 1 to 600.
-- **Parallel jobs**: how many requests run at the same time. Empty means no limit. Allowed values are 1 to 16. In **Edit account** the same setting is called **Parallel requests**.
+- **Parallel jobs**: how many requests run at the same time. Empty means no limit, except for a server on your own computer or home network (or one marked self-hosted), where empty means one at a time. Allowed values are 1 to 16. In **Edit account** the same setting is called **Parallel requests**. When requests wait for a slot, they go in task order: agents that run before the reply, then the reply, then agents beside or after it, then everything else. With two or more, the reply always finds a slot free.
 
 Some services use a sign-in on your computer instead of a key. They show a **Sign in** tag and have no key field. See [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md). For a server on your own computer, see [Connecting a Local or Self-Hosted Model](local-self-hosted.md). After a failed test, **Continue anyway** appears. It saves the account without a passing test.
 
