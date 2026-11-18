@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowUpDown, Check, Download, FolderPlus, Plus, Search, Upload, type LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -74,6 +74,44 @@ interface SegmentedButton {
   pressed?: boolean;
 }
 
+/** A compact cell's icon and the gap after it, in rem (the Presets panel's four tabs). */
+const COMPACT_ICON_REM = 0.75;
+const COMPACT_GAP_REM = 0.125;
+
+/**
+ * Whether every label of a compact row still shows whole with its icon beside it. The font (the system's, or the
+ * one picked in Appearance) and the language set the labels' widths, so this measures the text instead of guessing
+ * a cut-off width. It reads the room as if the icons were there, so hiding them never changes the answer.
+ */
+function useIconsFit(rowRef: RefObject<HTMLDivElement | null>, enabled: boolean, labels: string) {
+  const [fit, setFit] = useState(true);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!enabled || !row) return;
+    const check = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const beside = rem * (COMPACT_ICON_REM + COMPACT_GAP_REM);
+      const text = document.createRange();
+      setFit(
+        Array.from(row.querySelectorAll<HTMLElement>("[data-segment-label]")).every((label) => {
+          const cell = label.parentElement!;
+          const padding = getComputedStyle(cell);
+          const room = cell.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight) - beside;
+          text.selectNodeContents(label);
+          return text.getBoundingClientRect().width <= room + 0.5;
+        }),
+      );
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(row);
+    // A web font that arrives late changes the labels' widths.
+    void document.fonts?.ready.then(check);
+    return () => observer.disconnect();
+  }, [rowRef, enabled, labels]);
+  return fit;
+}
+
 /**
  * One long button split by "|": Download | Open Library, and the Presets panel's Prompts | Regexes | Tools |
  * Profiles, so every panel's top row has the same height and look.
@@ -88,8 +126,18 @@ export function SegmentedButtons({
   /** Names the row as a group of tabs. */
   groupLabel?: string;
 }) {
+  // Narrower cells (the Presets panel's four tabs) get a smaller icon and tighter spacing. Where a label would still
+  // be cut short beside its icon, every icon of the row steps aside, so the labels always show whole.
+  const compact = buttons.length > 2;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const iconsFit = useIconsFit(
+    rowRef,
+    compact && buttons.some((button) => button.icon),
+    buttons.map((button) => button.label).join("\n"),
+  );
   return (
     <div
+      ref={rowRef}
       className={cn("mari-chrome-segmented", buttons.length === 2 && "mari-chrome-segmented--two")}
       data-component={dataComponent}
       role={groupLabel ? "group" : undefined}
@@ -102,16 +150,17 @@ export function SegmentedButtons({
           key={label}
           type="button"
           onClick={onClick}
-          className={SEGMENTED_BUTTON}
+          // `!`: the unlayered .mari-chrome-segmented__button gap beats a plain gap utility.
+          className={cn(SEGMENTED_BUTTON, compact && "!gap-0.5 px-0.5")}
           title={title ?? label}
           aria-pressed={pressed}
         >
-          {Icon ? (
+          {Icon && (!compact || iconsFit) ? (
             <span className="shrink-0 leading-none">
-              <Icon size="0.875rem" />
+              <Icon size={compact ? `${COMPACT_ICON_REM}rem` : "0.875rem"} />
             </span>
           ) : null}
-          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
+          <span data-segment-label="" className="min-w-0 truncate pb-px leading-normal">
             {label}
           </span>
         </button>
