@@ -25,14 +25,12 @@ interface AutomaticSummarizationSectionProps {
   chat: Chat;
   metadata: Record<string, unknown>;
   setShowSummariesModal: (open: boolean) => void;
-  isGame: boolean;
 }
 
 export function AutomaticSummarizationSection({
   chat,
   metadata,
   setShowSummariesModal,
-  isGame,
 }: AutomaticSummarizationSectionProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -116,7 +114,7 @@ export function AutomaticSummarizationSection({
               job={t("connections.picker.job.summary")}
               value={conversationSummaryConnectionId || null}
               onChange={(connectionId) => updateMeta.mutate({ id: chat.id, summaryConnectionId: connectionId })}
-              includeLocalSidecar={!isGame && sidecarModelDownloaded}
+              includeLocalSidecar={sidecarModelDownloaded}
               defaultLabel={localizeUi("chat.summary.connection.agentDefaultFallback")}
               inherits="agents"
               aria-label={localizeUi("ui.chat.summarypopover.summaryConnection_febe5c4")}

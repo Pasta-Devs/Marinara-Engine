@@ -20,9 +20,9 @@ import { useSpatialContext } from "../../hooks/use-spatial-context";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import { BackgroundPicker } from "../panels/settings/BackgroundPicker";
-import { SETTINGS_BUTTON_CLASS } from "../panels/settings/SettingControls";
-import { Select } from "../ui/Select";
+import { BackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
+import { SETTINGS_BUTTON_CLASS } from "../../components/panels/settings/SettingControls";
+import { Select } from "../../components/ui/Select";
 
 const FIELD_CLASS =
   "w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/60 focus:border-[var(--primary)]/50 max-sm:!text-base";

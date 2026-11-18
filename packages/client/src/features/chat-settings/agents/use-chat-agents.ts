@@ -100,7 +100,7 @@ import {
   normalizeGameVideoPromptTemplates,
   getGameVideoPromptTemplateOptions,
   resolveSelectedGameVideoPromptTemplateId,
-} from "../lib/game-video-prompt-templates";
+} from "./game-video-prompt-templates";
 import {
   buildConversationCommandToggleOptions,
   readConversationCommandToggles,
@@ -1598,7 +1598,6 @@ export function useChatAgents({
     [chat.id, onSpriteVisualSettingsChange, patchSelectedSpriteCharacterVisualSettings, updateMeta],
   );
 
-  // ── Character drag-and-drop reordering ──
   const hasSecretPlotMemory = (memory: Record<string, unknown> | null | undefined) => {
     if (!memory) return false;
     const arc = memory.overarchingArc;

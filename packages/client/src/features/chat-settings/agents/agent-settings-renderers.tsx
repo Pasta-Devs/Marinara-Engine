@@ -47,8 +47,8 @@ import {
   type UseChatAgentsOptions,
 } from "./use-chat-agents";
 
-export const StoryboardChatSettingsPanel = lazy(() => import("../StoryboardChatSettingsPanel"));
-const BeholderChatSettingsPanel = lazy(() => import("../BeholderChatSettingsPanel"));
+export const StoryboardChatSettingsPanel = lazy(() => import("./StoryboardChatSettingsPanel"));
+const BeholderChatSettingsPanel = lazy(() => import("./BeholderChatSettingsPanel"));
 
 const DEFAULT_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 25;
 const MAX_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 100;
