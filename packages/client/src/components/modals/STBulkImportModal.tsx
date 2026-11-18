@@ -1250,9 +1250,7 @@ function SkipAlreadyImportedCheck({ value, onChange }: { value: boolean; onChang
       <div className="mb-2 font-semibold text-[var(--foreground)]">
         {localizeUi("ui.modals.stbulkimportmodal.alreadyImported")}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {box}
-      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">{box}</div>
       <p className="mt-2 text-[var(--muted-foreground)]">{hint}</p>
     </div>
   );
