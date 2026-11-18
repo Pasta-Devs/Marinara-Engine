@@ -186,7 +186,8 @@ export function ServiceListStep({
   const tiles: Tile[] = [];
   // The Decision job can also run on this machine; the tile opens the built-in model's page, where it installs.
   const decision = useDecisionSidecar(kind === "decision" && !compact);
-  const builtInName = t("connections.add.device.local_model");
+  // The family name: the menu row that lists every model on this device.
+  const builtInName = t("connections.add.device.builtIn");
   // The new layout's menu has one Built-in model row for every type that runs here; it opens their list.
   if (
     compact &&
