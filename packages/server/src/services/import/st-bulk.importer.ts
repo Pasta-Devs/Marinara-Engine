@@ -18,10 +18,18 @@ import { importSTLorebook } from "./st-lorebook.importer.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { logger } from "../../lib/logger.js";
 import { getFileTimestampOverrides, parseTrustedTimestamp } from "./import-timestamps.js";
 import { normalizeTextForMatch } from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
+/**
+ * A bulk import writes thousands of chats and reads none of them back, yet each one it writes stays
+ * in memory. A big SillyTavern library (3000 chats) ran a 2 GB Node heap out of memory, so every
+ * few chats the import flushes and lets all but the most recent ones go back to disk.
+ */
+const IMPORT_TRIM_EVERY_CHATS = 25;
+const IMPORT_RESIDENT_CHATS = 16;
 const BG_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 
 // ─── Helpers ───
@@ -658,6 +666,16 @@ export async function runSTBulkImport(
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
   const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  let chatsWritten = 0;
+  const releaseWrittenChats = async () => {
+    if (++chatsWritten % IMPORT_TRIM_EVERY_CHATS !== 0) return;
+    try {
+      await db._fileStore?.trimResidentChatUnits?.(IMPORT_RESIDENT_CHATS);
+    } catch (err) {
+      // The chats are written; a failed flush here is retried by the next one.
+      logger.warn(err, "[import] Could not flush imported chats yet");
+    }
+  };
   const known = skipAlreadyImported ? await existingImportSignatures(db) : null;
   /**
    * True when this Engine already has it. Otherwise the first key (a content fingerprint) is
@@ -806,6 +824,7 @@ export async function runSTBulkImport(
         });
 
         imported.chats++;
+        await releaseWrittenChats();
       } catch (err) {
         errors.push(`Chat "${ct.characterName}": ${(err as Error).message}`);
       }
@@ -856,6 +875,7 @@ export async function runSTBulkImport(
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
         imported.groupChats++;
+        await releaseWrittenChats();
       } catch (err) {
         errors.push(`Group chat "${gc.groupName}": ${(err as Error).message}`);
       }
