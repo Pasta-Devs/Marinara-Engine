@@ -8968,6 +8968,12 @@ input.ov-edhead__title:focus {
   font-size: 0.75rem;
   line-height: 1.45;
 }
+.ov-cupd__notice {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
 .ov-cupd__rows {
   display: grid;
   max-height: 16rem;
