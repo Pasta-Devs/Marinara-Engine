@@ -129,6 +129,12 @@ export const GAME_RULESETS_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Starting a Clear data run (the progress poll at /admin/expunge/status is not limited). */
+export const ADMIN_EXPUNGE_RATE_LIMIT = {
+  max: 10,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 export const ADMIN_RESTART_RATE_LIMIT = {
   max: 5,
   timeWindow: 60_000,
@@ -317,6 +323,10 @@ const ROUTE_RULES: Array<{ pattern: RegExp; rule: RateLimitRule }> = [
       limit: AVATAR_CLASSIFY_RATE_LIMIT.max,
       windowMs: AVATAR_CLASSIFY_RATE_LIMIT.timeWindow,
     },
+  },
+  {
+    pattern: /^\/api\/admin\/(?:expunge|clear-all)(?:\?|$)/,
+    rule: { key: "admin-expunge", limit: ADMIN_EXPUNGE_RATE_LIMIT.max, windowMs: ADMIN_EXPUNGE_RATE_LIMIT.timeWindow },
   },
   {
     pattern: /^\/api\/admin\/restart(?:\?|$)/,
