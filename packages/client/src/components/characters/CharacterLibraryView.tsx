@@ -447,7 +447,9 @@ export function CharacterLibraryView() {
   useLayoutEffect(() => {
     if (isLoading) return;
     const restoreScroll = () => {
-      if (initialTargetId && initialScrollHandled.current !== initialTargetId) {
+      // A target in the list owns the scroll until its row mounts; the stored offset must not pull it back.
+      if (initialScrollHandled.current === initialTargetId && initialTargetId) return;
+      if (initialTargetId) {
         const target = libraryRootScrollRef.current?.querySelector<HTMLElement>(
           `[data-card-library-card="${CSS.escape(initialTargetId)}"]`,
         );
@@ -458,10 +460,8 @@ export function CharacterLibraryView() {
           return;
         }
         // An unmounted card: the card list scrolls to it (scrollToIndex).
-        if (sortedCards.some((card) => card.id === initialTargetId)) {
-          initialScrollHandled.current = initialTargetId;
-          return;
-        }
+        // Not marked handled: scrollToIndex reveals it, and the stored offset stays out of the way.
+        if (sortedCards.some((card) => card.id === initialTargetId)) return;
       }
       const scrollTop = useUIStore.getState()[config.store.scrollTop] as number;
       for (const node of [libraryRootScrollRef.current, libraryListScrollRef.current]) {
