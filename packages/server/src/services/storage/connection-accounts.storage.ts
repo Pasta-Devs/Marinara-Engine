@@ -308,7 +308,7 @@ export async function withoutBlockedRows<T extends { accountId?: string | null }
 
 /**
  * How many requests an account takes at once (null = no limit). A Custom account on this computer
- * or the home network (Ollama, LM Studio...), or one marked self-hosted, takes one at a time unless
+ * or the home network (Ollama, LM Studio...), or one marked self-hosted, takes two at a time unless
  * it says otherwise, so its requests go in task order (account-budget.ts). A named service on a local
  * address is a proxy to that service, which takes many requests at once.
  */
