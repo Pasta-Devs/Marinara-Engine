@@ -147,14 +147,14 @@ export function withWriterReferenceFallback(
   });
 }
 
-/** One line per attach, so "the writer saw it and it didn't help" can be told from "it never arrived". */
+/** One line per request that carries pictures; a writer that refuses them logs its own line (withWriterReferenceFallback). */
 export function logWriterReferenceAttach(where: string, payload: WriterReferencePayload): void {
   const bytes = payload.pictures.reduce(
     (sum, picture) => sum + Math.floor(((picture.dataUrl.length - picture.dataUrl.indexOf(",") - 1) * 3) / 4),
     0,
   );
   logger.info(
-    "[writer-references] %s: attached %d picture(s), %d KB (%s)",
+    "[writer-references] %s: sending %d picture(s), %d KB (%s); a refusal is logged separately",
     where,
     payload.pictures.length,
     Math.round(bytes / 1024),
