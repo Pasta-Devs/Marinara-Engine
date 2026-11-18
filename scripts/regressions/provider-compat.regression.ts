@@ -4,7 +4,7 @@ import { debugJson, logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
-  isGeminiHydrogenModel,
+  isGeminiHydrogenOrNeonModel,
   isGeminiModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
@@ -926,13 +926,19 @@ assert.equal(
   undefined,
   "Argon cannot turn thinking off, so Off sends nothing and Google's default level applies",
 );
-// Hydrogen adds xhigh; the rest of the family stops at high.
+// Hydrogen and Neon add xhigh; the rest of the family stops at high.
 // https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
+// https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon
 for (const [model, effort, level] of [
   ["gemini-4-hydrogen", "xhigh", "xhigh"],
   ["gemini-4-hydrogen", "max", "xhigh"],
   ["gemini-4-hydrogen", "high", "high"],
   ["gemini-4-hydrogen", "low", "low"],
+  ["gemini-4-neon", "xhigh", "xhigh"],
+  ["gemini-4-neon", "max", "xhigh"],
+  ["gemini-4-neon", "high", "high"],
+  ["gemini-4-neon", "medium", "medium"],
+  ["google/gemini-4-neon", "xhigh", "xhigh"],
   ["gemini-4-argon", "xhigh", "high"],
   ["gemini-4-carbon", "max", "high"],
 ] as const) {
@@ -954,9 +960,22 @@ assert.equal(
   "gemini-4-argon",
   "the rest of Vertex's list stays",
 );
-assert.equal(isGeminiHydrogenModel("google/gemini-4-hydrogen"), true);
-assert.equal(isGeminiHydrogenModel("gemini-4-hydrogenous"), false);
+// Neon is on the Gemini API and on Vertex (global, us and eu), with Hydrogen's limits.
+for (const provider of ["google", "google_vertex"] as const) {
+  assert.deepEqual(
+    findKnownModel(provider, "gemini-4-neon"),
+    { id: "gemini-4-neon", name: "gemini-4-neon", context: 1_048_576, maxOutput: 65_536 },
+    `${provider} lists Neon`,
+  );
+}
+assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-hydrogen"), true);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-hydrogenous"), false);
+assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-neon"), true);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-neonate"), false);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-argon"), false);
 assert.equal(isGeminiStrictRequestModel("gemini-4-hydrogen"), true);
+assert.equal(isGeminiStrictRequestModel("gemini-4-neon"), true);
+assert.equal(isGeminiStrictRequestModel("google/gemini-4-neon:online"), true);
 assert.deepEqual(
   [
     "gemini-2.0-flash",
